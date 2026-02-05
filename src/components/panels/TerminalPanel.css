@@ -1,0 +1,25 @@
+.terminal-panel {
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-container {
+  height: 100%;
+  padding: var(--space-xs);
+}
+
+.terminal-container .xterm {
+  height: 100%;
+}
+
+.terminal-connecting {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

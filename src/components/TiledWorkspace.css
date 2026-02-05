@@ -1,0 +1,137 @@
+/* ── Tiled Workspace Container ──────────────────────────────── */
+.tiled-workspace {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Dockview Theme Override ────────────────────────────────── */
+.sero-dockview {
+  --dv-paneview-header-border-color: var(--border-subtle);
+  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-tabs-and-actions-container-height: 32px;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-elevated);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-surface);
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-surface);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-surface);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
+  --dv-tabs-container-scrollbar-color: var(--accent);
+  --dv-group-view-background-color: var(--bg-base);
+  --dv-separator-border: var(--border-subtle);
+  --dv-background-color: var(--bg-base);
+  --dv-color: var(--text-primary);
+  --dv-tab-divider-color: transparent;
+  --dv-drag-over-background-color: var(--accent-muted);
+  --dv-drag-over-border-color: var(--accent);
+}
+
+/* Tab styling */
+.sero-dockview .dv-tab {
+  padding: 0 12px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.sero-dockview .dv-tabs-container {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Drop target highlight */
+.sero-dockview .dv-drop-target-dropzone > div {
+  background: var(--accent-muted) !important;
+  border: 2px solid var(--accent) !important;
+  border-radius: var(--radius-sm);
+}
+
+/* Panel content area */
+.sero-dockview .dv-groupview-content {
+  background: var(--bg-surface);
+}
+
+/* Sash (resize handles) */
+.sero-dockview .dv-sash {
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+
+.sero-dockview .dv-sash:hover,
+.sero-dockview .dv-sash.active {
+  background: var(--accent);
+}
+
+/* ── Custom Tab Component ───────────────────────────────────── */
+.sero-dockview-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 4px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.sero-dockview-tab-icon {
+  font-size: 11px;
+}
+
+.sero-dockview-tab-title {
+  font-weight: 500;
+}
+
+.sero-dockview-tab-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
+  margin-left: 2px;
+}
+
+.sero-dockview-tab-add:hover {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+}
+
+/* ── Tab Context Menu ───────────────────────────────────────── */
+.sero-tab-context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 160px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 4px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.sero-tab-context-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sero-tab-context-item:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.sero-tab-context-danger:hover {
+  background: var(--status-error);
+}
