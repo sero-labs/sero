@@ -14,6 +14,7 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
 import { ContainerManager } from './container-manager';
+import { SkillManager } from './skill-manager';
 
 const WORKSPACE_DIR = '/workspace';
 
@@ -27,7 +28,10 @@ export class AgentManager {
   private authStorage: AuthStorage;
   private modelRegistry: ModelRegistry;
 
-  constructor(private containerManager: ContainerManager) {
+  constructor(
+    private containerManager: ContainerManager,
+    private skillManager: SkillManager,
+  ) {
     this.authStorage = new AuthStorage();
     this.modelRegistry = new ModelRegistry(this.authStorage);
   }
@@ -391,10 +395,61 @@ export class AgentManager {
       },
     };
 
-    return [bashTool, readTool, writeTool, editTool, lsTool, readTerminalTool];
+    // read_skill tool — reads the full SKILL.md content for an available skill
+    const sm = this.skillManager;
+    const readSkillTool: ToolDefinition = {
+      name: 'read_skill',
+      label: 'Read Skill',
+      description: `Read the full instructions (SKILL.md) for an available skill. Use this when a task matches a skill's description and you need the detailed instructions.`,
+      parameters: Type.Object({
+        name: Type.String({ description: 'The skill name to load (e.g., "brave-search")' }),
+      }),
+      execute: async (toolCallId, params: any) => {
+        try {
+          const content = sm.readSkillContent(params.name);
+          if (!content) {
+            return {
+              content: [{ type: 'text', text: `Skill "${params.name}" not found or could not be read.` }],
+              details: {},
+              isError: true,
+            };
+          }
+          return {
+            content: [{ type: 'text', text: content }],
+            details: { skillName: params.name },
+          };
+        } catch (err: any) {
+          return {
+            content: [{ type: 'text', text: `Error reading skill: ${err.message}` }],
+            details: {},
+            isError: true,
+          };
+        }
+      },
+    };
+
+    return [bashTool, readTool, writeTool, editTool, lsTool, readTerminalTool, readSkillTool];
   }
 
   private buildSystemPrompt(projectId: string): string {
+    // Inject enabled skills into the system prompt
+    const skillsSection = this.skillManager.formatForSystemPrompt(projectId);
+    const enabledSkills = this.skillManager.getEnabledSkills(projectId);
+
+    let skillsPrompt = '';
+    if (enabledSkills.length > 0) {
+      skillsPrompt = `
+
+## Available Skills
+
+You have access to specialized skills that provide detailed instructions for specific tasks.
+When a task matches a skill's description, use the \`read_skill\` tool to load its full instructions before proceeding.
+
+${skillsSection}
+
+Use \`read_skill\` with the skill name to load its full SKILL.md instructions when needed.`;
+    }
+
     return `You are Sero, an AI development assistant embedded in a workspace.
 
 You are operating inside a sandboxed Linux container for project "${projectId}".
@@ -407,6 +462,7 @@ You have the following tools:
 - edit: Make surgical text replacements in files
 - ls: List directory contents
 - read_terminal: Read recent output from the user's terminal sessions
+- read_skill: Load the full instructions for an available skill
 
 Key behaviors:
 - Always work within ${WORKSPACE_DIR}
@@ -429,6 +485,6 @@ CRITICAL — Dev servers and networking:
 - For Vite: always use \`--host\` flag, e.g. \`npx vite --host\` or add \`server: { host: '0.0.0.0' }\` to vite.config.
 - For Next.js: use \`next dev -H 0.0.0.0\`.
 - For Express/Node: use \`.listen(port, '0.0.0.0')\`.
-- After starting a dev server, tell the user to check the status bar for the container's URL.`;
+- After starting a dev server, tell the user to check the status bar for the container's URL.${skillsPrompt}`;
   }
 }

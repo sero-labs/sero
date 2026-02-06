@@ -157,11 +157,44 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **1** | Electron shell + containers + tiled workspace + editor + terminal + agent chat | 🔨 In Progress |
-| **2** | Skills UI + LSP + improved editor + layouts + preview polish | Planned |
+| **1** | Electron shell + containers + tiled workspace + editor + terminal + agent chat | ✅ Complete |
+| **2** | Skills UI + LSP + improved editor + layouts + preview polish | 🔨 In Progress |
 | **3** | Multi-agent orchestration (task trees, parallel agents, council mode) | Planned |
 | **4** | Cloud migration path (E2B/Codespaces backend), hybrid local/cloud | Planned |
 | **5** | Collaboration (multiplayer editing, shared sessions) | Planned |
+
+### 2026-02-05: Phase 2 — Skills Integration
+- Created `SkillManager` (electron/skill-manager.ts) — full skill lifecycle management:
+  - Discovery from `~/.pi/agent/skills/` (global), `.pi/skills/` (project), custom paths
+  - Uses Pi's `loadSkillsFromDir()` and `formatSkillsForPrompt()` for compatibility
+  - Per-project enable/disable with `skills.json` persistence
+  - Install from git URL or local directory path
+  - Uninstall (delete skill directory)
+  - Create new skills from scaffold template
+  - Read skill content and list skill files
+- Updated `AgentManager` to accept `SkillManager` and inject skills into system prompt
+  - Enabled skills formatted with Pi's XML format and injected into system prompt
+  - Added `read_skill` tool so agent can load full SKILL.md instructions on-demand
+- Added full Skills IPC bridge (11 handlers):
+  - `skills:list`, `skills:get`, `skills:readContent`, `skills:listFiles`
+  - `skills:enable`, `skills:disable`, `skills:toggle`
+  - `skills:install`, `skills:uninstall`, `skills:create`, `skills:discover`
+- Added `skills` to preload API with typed methods
+- Created `skill-store.ts` (Zustand) for renderer-side skills state
+- Created `SkillsPanel` component with 4 views:
+  - **Browse**: Card grid with search, scope badges, enable/disable toggles
+  - **Detail**: Full SKILL.md markdown preview, file tree, enable/disable, uninstall
+  - **Install**: Git URL or local path input, scope selection, curated registry links
+  - **Create**: Name validation, description, scope selection, scaffolds SKILL.md template
+- Registered `skills` as a dockview panel type with 🧩 icon
+- Added `addSkillsPanel()` to workspace store (opens or focuses existing panel)
+- Added "Skills" command to Command Bar (⌘K → Skills)
+- Added `/skill:name` chat syntax with autocomplete dropdown in AgentPanel:
+  - Triggers on `/skill:` input
+  - Shows matching enabled skills with name and description
+  - Tab/Enter to select, arrow keys to navigate
+  - Loads full SKILL.md content and sends to agent with optional user arguments
+- All TypeScript compiles cleanly (renderer + electron)
 
 ## Phase 2 — Skills Integration (Planned)
 

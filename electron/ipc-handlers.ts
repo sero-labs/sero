@@ -1,12 +1,14 @@
 import { IpcMain, BrowserWindow } from 'electron';
 import { ContainerManager } from './container-manager';
 import { AgentManager } from './agent-manager';
+import { SkillManager } from './skill-manager';
 import {
   loadPersistedProjects, addPersistedProject, removePersistedProject,
   updatePersistedProject,
   saveLayout, loadLayout, saveChatHistory, loadChatHistory,
   saveActiveProjectId, loadActiveProjectId,
   saveEditorState, loadEditorState,
+  loadEnvVars, saveEnvVars, setEnvVar, removeEnvVar,
   type PersistedProject,
 } from './persistence';
 
@@ -14,6 +16,7 @@ export function registerIpcHandlers(
   ipcMain: IpcMain,
   containerManager: ContainerManager,
   agentManager: AgentManager,
+  skillManager: SkillManager,
 ) {
   // ── Container IPC ──────────────────────────────────────────────
 
@@ -196,5 +199,73 @@ export function registerIpcHandlers(
 
   ipcMain.handle('persistence:loadEditorState', async (_event, projectId: string) => {
     return loadEditorState(projectId);
+  });
+
+  // ── Environment Variables IPC ────────────────────────────────
+
+  ipcMain.handle('env:list', async () => {
+    return loadEnvVars();
+  });
+
+  ipcMain.handle('env:set', async (_event, key: string, value: string) => {
+    setEnvVar(key, value);
+    containerManager.invalidateEnvCache();
+  });
+
+  ipcMain.handle('env:remove', async (_event, key: string) => {
+    removeEnvVar(key);
+    containerManager.invalidateEnvCache();
+  });
+
+  ipcMain.handle('env:setAll', async (_event, env: Record<string, string>) => {
+    saveEnvVars(env);
+    containerManager.invalidateEnvCache();
+  });
+
+  // ── Skills IPC ─────────────────────────────────────────────
+
+  ipcMain.handle('skills:list', async (_event, projectId?: string) => {
+    return skillManager.listAll(projectId);
+  });
+
+  ipcMain.handle('skills:get', async (_event, name: string) => {
+    return skillManager.getSkill(name) ?? null;
+  });
+
+  ipcMain.handle('skills:readContent', async (_event, name: string) => {
+    return skillManager.readSkillContent(name);
+  });
+
+  ipcMain.handle('skills:listFiles', async (_event, name: string) => {
+    return skillManager.listSkillFiles(name);
+  });
+
+  ipcMain.handle('skills:enable', async (_event, projectId: string, skillName: string) => {
+    skillManager.enableSkill(projectId, skillName);
+  });
+
+  ipcMain.handle('skills:disable', async (_event, projectId: string, skillName: string) => {
+    skillManager.disableSkill(projectId, skillName);
+  });
+
+  ipcMain.handle('skills:toggle', async (_event, projectId: string, skillName: string) => {
+    return skillManager.toggleSkill(projectId, skillName);
+  });
+
+  ipcMain.handle('skills:install', async (_event, source: string, scope?: 'global' | 'project') => {
+    return skillManager.installSkill(source, scope);
+  });
+
+  ipcMain.handle('skills:uninstall', async (_event, name: string) => {
+    return skillManager.uninstallSkill(name);
+  });
+
+  ipcMain.handle('skills:create', async (_event, name: string, description: string, scope?: 'global' | 'project') => {
+    return skillManager.createSkill(name, description, scope);
+  });
+
+  ipcMain.handle('skills:discover', async () => {
+    await skillManager.discoverAll();
+    return skillManager.listAll();
   });
 }

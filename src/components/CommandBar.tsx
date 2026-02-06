@@ -4,6 +4,8 @@ import './CommandBar.css';
 interface Props {
   onClose: () => void;
   onNewProject: () => void;
+  onOpenSkills?: () => void;
+  onOpenSettings?: () => void;
 }
 
 interface Command {
@@ -13,7 +15,7 @@ interface Command {
   action: () => void;
 }
 
-export function CommandBar({ onClose, onNewProject }: Props) {
+export function CommandBar({ onClose, onNewProject, onOpenSkills, onOpenSettings }: Props) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,6 +42,18 @@ export function CommandBar({ onClose, onNewProject }: Props) {
       id: 'toggle-preview',
       label: 'Toggle Preview',
       action: () => { /* TODO */ onClose(); },
+    },
+    {
+      id: 'open-skills',
+      label: 'Skills',
+      shortcut: '⌘⇧S',
+      action: () => { onOpenSkills?.(); onClose(); },
+    },
+    {
+      id: 'open-settings',
+      label: 'Settings / Environment Variables',
+      shortcut: '⌘,',
+      action: () => { onOpenSettings?.(); onClose(); },
     },
   ];
 

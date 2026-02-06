@@ -24,6 +24,17 @@ export type AgentEvent = {
   data: unknown;
 };
 
+export type SkillInfo = {
+  name: string;
+  description: string;
+  filePath: string;
+  baseDir: string;
+  source: string;
+  scope: 'global' | 'project' | 'custom';
+  enabled: boolean;
+  disableModelInvocation: boolean;
+};
+
 const seroAPI = {
   // Container operations
   container: {
@@ -90,6 +101,44 @@ const seroAPI = {
       ipcRenderer.invoke('persistence:saveEditorState', projectId, state),
     loadEditorState: (projectId: string) =>
       ipcRenderer.invoke('persistence:loadEditorState', projectId),
+  },
+
+  // Environment variables
+  env: {
+    list: () =>
+      ipcRenderer.invoke('env:list') as Promise<Record<string, string>>,
+    set: (key: string, value: string) =>
+      ipcRenderer.invoke('env:set', key, value),
+    remove: (key: string) =>
+      ipcRenderer.invoke('env:remove', key),
+    setAll: (env: Record<string, string>) =>
+      ipcRenderer.invoke('env:setAll', env),
+  },
+
+  // Skills operations
+  skills: {
+    list: (projectId?: string) =>
+      ipcRenderer.invoke('skills:list', projectId) as Promise<SkillInfo[]>,
+    get: (name: string) =>
+      ipcRenderer.invoke('skills:get', name) as Promise<SkillInfo | null>,
+    readContent: (name: string) =>
+      ipcRenderer.invoke('skills:readContent', name) as Promise<string | null>,
+    listFiles: (name: string) =>
+      ipcRenderer.invoke('skills:listFiles', name) as Promise<string[]>,
+    enable: (projectId: string, skillName: string) =>
+      ipcRenderer.invoke('skills:enable', projectId, skillName),
+    disable: (projectId: string, skillName: string) =>
+      ipcRenderer.invoke('skills:disable', projectId, skillName),
+    toggle: (projectId: string, skillName: string) =>
+      ipcRenderer.invoke('skills:toggle', projectId, skillName) as Promise<boolean>,
+    install: (source: string, scope?: 'global' | 'project') =>
+      ipcRenderer.invoke('skills:install', source, scope) as Promise<{ success: boolean; name?: string; error?: string }>,
+    uninstall: (name: string) =>
+      ipcRenderer.invoke('skills:uninstall', name) as Promise<{ success: boolean; error?: string }>,
+    create: (name: string, description: string, scope?: 'global' | 'project') =>
+      ipcRenderer.invoke('skills:create', name, description, scope) as Promise<{ success: boolean; path?: string; error?: string }>,
+    discover: () =>
+      ipcRenderer.invoke('skills:discover') as Promise<SkillInfo[]>,
   },
 
   // Terminal operations

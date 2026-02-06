@@ -31,7 +31,7 @@ export function Shell() {
     getProjectList,
   } = useProjectStore();
 
-  const { initWorkspace, cleanupWorkspace } = useWorkspaceStore();
+  const { initWorkspace, cleanupWorkspace, addSkillsPanel, addSettingsPanel } = useWorkspaceStore();
   const { initProject: initAgentState, clearMessages } = useAgentStore();
   const projects = getProjectList();
 
@@ -312,6 +312,12 @@ export function Shell() {
         <CommandBar
           onClose={() => setShowCommandBar(false)}
           onNewProject={handleNewProject}
+          onOpenSkills={() => {
+            if (activeProjectId) addSkillsPanel(activeProjectId);
+          }}
+          onOpenSettings={() => {
+            if (activeProjectId) addSettingsPanel(activeProjectId);
+          }}
         />
       )}
     </div>

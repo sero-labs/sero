@@ -2,11 +2,13 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { ContainerManager } from './container-manager';
 import { AgentManager } from './agent-manager';
+import { SkillManager } from './skill-manager';
 import { registerIpcHandlers } from './ipc-handlers';
 
 let mainWindow: BrowserWindow | null = null;
 const containerManager = new ContainerManager();
-const agentManager = new AgentManager(containerManager);
+const skillManager = new SkillManager();
+const agentManager = new AgentManager(containerManager, skillManager);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -42,7 +44,10 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  registerIpcHandlers(ipcMain, containerManager, agentManager);
+  registerIpcHandlers(ipcMain, containerManager, agentManager, skillManager);
+
+  // Discover skills on startup
+  await skillManager.discoverAll();
 
   // Clean up orphaned sero containers from previous crashes
   await cleanupOrphanedContainers();

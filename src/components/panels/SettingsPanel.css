@@ -1,0 +1,188 @@
+/* ── Settings Panel ────────────────────────────────────────── */
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  overflow-y: auto;
+  padding: var(--space-lg);
+}
+
+.settings-section {
+  max-width: 640px;
+}
+
+.settings-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin: 0 0 var(--space-xs) 0;
+}
+
+.settings-hint {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 var(--space-lg) 0;
+}
+
+/* ── Env List ─────────────────────────────────────────────── */
+
+.env-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.env-empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  padding: var(--space-md);
+  text-align: center;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-subtle);
+}
+
+.env-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.env-key {
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-hover);
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
+.env-value-container {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: var(--space-xs);
+}
+
+.env-value {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.env-value:focus {
+  border-color: var(--border-focus);
+}
+
+.env-toggle-vis {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: 2px;
+  opacity: 0.5;
+  transition: opacity var(--transition-fast);
+}
+
+.env-toggle-vis:hover {
+  opacity: 1;
+}
+
+.env-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.env-remove:hover {
+  background: #ef444425;
+  color: #f87171;
+}
+
+/* ── Add Row ──────────────────────────────────────────────── */
+
+.env-add {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.env-add-key {
+  width: 160px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.env-add-key:focus {
+  border-color: var(--border-focus);
+}
+
+.env-add-key::placeholder {
+  color: var(--text-muted);
+}
+
+.env-add-value {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.env-add-value:focus {
+  border-color: var(--border-focus);
+}
+
+.env-add-value::placeholder {
+  color: var(--text-muted);
+}
+
+.env-add-btn {
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  white-space: nowrap;
+}
+
+.env-add-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.env-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

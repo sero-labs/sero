@@ -181,3 +181,52 @@ export function loadChatHistory(projectId: string): any[] {
     return [];
   }
 }
+
+// ── Environment variables persistence ─────────────────────────
+
+function getSettingsPath(): string {
+  return path.join(getDataDir(), 'settings.json');
+}
+
+interface SeroSettings {
+  env?: Record<string, string>;
+}
+
+function loadSettings(): SeroSettings {
+  try {
+    const raw = fs.readFileSync(getSettingsPath(), 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function saveSettings(settings: SeroSettings): void {
+  try {
+    fs.writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to save settings:', err);
+  }
+}
+
+export function loadEnvVars(): Record<string, string> {
+  return loadSettings().env ?? {};
+}
+
+export function saveEnvVars(env: Record<string, string>): void {
+  const settings = loadSettings();
+  settings.env = env;
+  saveSettings(settings);
+}
+
+export function setEnvVar(key: string, value: string): void {
+  const env = loadEnvVars();
+  env[key] = value;
+  saveEnvVars(env);
+}
+
+export function removeEnvVar(key: string): void {
+  const env = loadEnvVars();
+  delete env[key];
+  saveEnvVars(env);
+}

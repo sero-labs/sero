@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { DockviewApi } from 'dockview-core';
 
-export type PanelType = 'editor' | 'terminal' | 'agent' | 'preview';
+export type PanelType = 'editor' | 'terminal' | 'agent' | 'preview' | 'skills' | 'settings';
 
 export interface PanelDef {
   id: string;
@@ -25,6 +25,8 @@ interface WorkspaceActions {
   getPanelDefs: (projectId: string) => PanelDef[];
   cleanupWorkspace: (projectId: string) => void;
   addTerminal: (projectId: string) => void;
+  addSkillsPanel: (projectId: string) => void;
+  addSettingsPanel: (projectId: string) => void;
 }
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
@@ -90,6 +92,56 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       params: { projectId, panelId, panelType: 'terminal', terminalId },
       position: existingTerminal
         ? { referencePanel: existingTerminal.api.id, direction: 'within' }
+        : undefined,
+    });
+  },
+
+  addSkillsPanel: (projectId) => {
+    const api = get().apis.get(projectId);
+    if (!api) return;
+
+    // Check if skills panel already exists
+    const existing = api.panels.find((p) => p.api.component === 'skills');
+    if (existing) {
+      // Focus existing panel
+      existing.api.setActive();
+      return;
+    }
+
+    const panelId = generatePanelId('skills');
+    const agentPanel = api.panels.find((p) => p.api.component === 'agent');
+
+    api.addPanel({
+      id: panelId,
+      title: 'Skills',
+      component: 'skills',
+      params: { projectId, panelId, panelType: 'skills' },
+      position: agentPanel
+        ? { referencePanel: agentPanel.api.id, direction: 'within' }
+        : undefined,
+    });
+  },
+
+  addSettingsPanel: (projectId) => {
+    const api = get().apis.get(projectId);
+    if (!api) return;
+
+    const existing = api.panels.find((p) => p.api.component === 'settings');
+    if (existing) {
+      existing.api.setActive();
+      return;
+    }
+
+    const panelId = generatePanelId('settings');
+    const agentPanel = api.panels.find((p) => p.api.component === 'agent');
+
+    api.addPanel({
+      id: panelId,
+      title: 'Settings',
+      component: 'settings',
+      params: { projectId, panelId, panelType: 'settings' },
+      position: agentPanel
+        ? { referencePanel: agentPanel.api.id, direction: 'within' }
         : undefined,
     });
   },

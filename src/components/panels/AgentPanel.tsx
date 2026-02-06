@@ -7,6 +7,11 @@ interface Props {
   panelId: string;
 }
 
+interface SkillSuggestion {
+  name: string;
+  description: string;
+}
+
 export function AgentPanel({ projectId }: Props) {
   const { getState, addMessage, loadMessages, updateLastAssistantMessage, finishLastAssistantMessage, setStatus, clearMessages } = useAgentStore();
   const agentState = getState(projectId);
@@ -15,6 +20,38 @@ export function AgentPanel({ projectId }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [chatLoaded, setChatLoaded] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Skill autocomplete state
+  const [skillSuggestions, setSkillSuggestions] = useState<SkillSuggestion[]>([]);
+  const [showSkillAutocomplete, setShowSkillAutocomplete] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
+  const [allSkills, setAllSkills] = useState<SkillSuggestion[]>([]);
+
+  // Load skills list for autocomplete
+  useEffect(() => {
+    (async () => {
+      try {
+        const skills = await window.sero.skills.list(projectId);
+        setAllSkills(skills.filter((s) => s.enabled).map((s) => ({ name: s.name, description: s.description })));
+      } catch { /* best effort */ }
+    })();
+  }, [projectId]);
+
+  // Update skill suggestions when input changes
+  useEffect(() => {
+    const match = input.match(/\/skill:(\S*)$/);
+    if (match) {
+      const query = match[1].toLowerCase();
+      const filtered = query
+        ? allSkills.filter((s) => s.name.toLowerCase().includes(query))
+        : allSkills;
+      setSkillSuggestions(filtered.slice(0, 8));
+      setShowSkillAutocomplete(filtered.length > 0);
+      setSelectedSuggestionIndex(0);
+    } else {
+      setShowSkillAutocomplete(false);
+    }
+  }, [input, allSkills]);
 
   // Subscribe to agent events from main process
   useEffect(() => {
@@ -177,22 +214,75 @@ export function AgentPanel({ projectId }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [agentState.messages]);
 
+  const applySkillSuggestion = useCallback((skillName: string) => {
+    // Replace the partial /skill:xxx with the full /skill:name
+    const newInput = input.replace(/\/skill:\S*$/, `/skill:${skillName} `);
+    setInput(newInput);
+    setShowSkillAutocomplete(false);
+    inputRef.current?.focus();
+  }, [input]);
+
   const handleSubmit = useCallback(async () => {
     const message = input.trim();
     if (!message || isSubmitting) return;
 
     setInput('');
+    setShowSkillAutocomplete(false);
     setIsSubmitting(true);
 
-    addMessage(projectId, {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: message,
-      timestamp: Date.now(),
-    });
+    // Check for /skill:name command — load the skill content and prepend to prompt
+    const skillMatch = message.match(/^\/skill:(\S+)\s*(.*)?$/s);
+    let finalMessage = message;
+
+    if (skillMatch) {
+      const skillName = skillMatch[1];
+      const extraArgs = skillMatch[2]?.trim() ?? '';
+
+      addMessage(projectId, {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: message,
+        timestamp: Date.now(),
+      });
+
+      // Load skill content and send it to the agent
+      try {
+        const skillContent = await window.sero.skills.readContent(skillName);
+        if (skillContent) {
+          finalMessage = `I'm loading the "${skillName}" skill for you. Follow these instructions:\n\n${skillContent}${extraArgs ? `\n\nUser: ${extraArgs}` : ''}`;
+        } else {
+          addMessage(projectId, {
+            id: `error-${Date.now()}`,
+            role: 'system',
+            content: `Skill "${skillName}" not found. Use /skill: to see available skills.`,
+            timestamp: Date.now(),
+            isError: true,
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (err) {
+        addMessage(projectId, {
+          id: `error-${Date.now()}`,
+          role: 'system',
+          content: `Failed to load skill "${skillName}": ${err}`,
+          timestamp: Date.now(),
+          isError: true,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    } else {
+      addMessage(projectId, {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: message,
+        timestamp: Date.now(),
+      });
+    }
 
     try {
-      await window.sero.agent.prompt(projectId, message);
+      await window.sero.agent.prompt(projectId, finalMessage);
     } catch (err) {
       addMessage(projectId, {
         id: `error-${Date.now()}`,
@@ -208,12 +298,35 @@ export function AgentPanel({ projectId }: Props) {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Skill autocomplete navigation
+      if (showSkillAutocomplete && skillSuggestions.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelectedSuggestionIndex((i) => Math.min(i + 1, skillSuggestions.length - 1));
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelectedSuggestionIndex((i) => Math.max(i - 1, 0));
+          return;
+        }
+        if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+          e.preventDefault();
+          applySkillSuggestion(skillSuggestions[selectedSuggestionIndex].name);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setShowSkillAutocomplete(false);
+          return;
+        }
+      }
+
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
       }
     },
-    [handleSubmit]
+    [handleSubmit, showSkillAutocomplete, skillSuggestions, selectedSuggestionIndex, applySkillSuggestion]
   );
 
   const handleAbort = useCallback(async () => {
@@ -334,13 +447,29 @@ export function AgentPanel({ projectId }: Props) {
 
       {/* Input */}
       <div className="agent-input-container">
+        {/* Skill autocomplete */}
+        {showSkillAutocomplete && (
+          <div className="agent-autocomplete">
+            {skillSuggestions.map((s, i) => (
+              <button
+                key={s.name}
+                className={`agent-autocomplete-item ${i === selectedSuggestionIndex ? 'selected' : ''}`}
+                onMouseDown={(e) => { e.preventDefault(); applySkillSuggestion(s.name); }}
+                onMouseEnter={() => setSelectedSuggestionIndex(i)}
+              >
+                <span className="agent-autocomplete-name">/skill:{s.name}</span>
+                <span className="agent-autocomplete-desc">{s.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
           ref={inputRef}
           className="agent-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask Sero anything... (Enter to send, Shift+Enter for newline)"
+          placeholder="Ask Sero anything... (Enter to send, /skill: for skills)"
           rows={1}
           disabled={isSubmitting}
         />

@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import type { IPty } from 'node-pty';
+import { loadEnvVars } from './persistence';
 
 const execFileAsync = promisify(execFile);
 
@@ -85,8 +86,27 @@ export class ContainerManager extends EventEmitter {
   // projectId → [terminalId, ...] mapping
   private projectTerminals = new Map<string, string[]>();
 
+  // Cached env vars (refreshed on demand)
+  private envVarsCache: Record<string, string> | null = null;
+  private envVarsCacheTime = 0;
+
   private containerId(projectId: string): string {
     return `sero-${projectId}`;
+  }
+
+  /** Get env vars from Sero settings, cached for 5s to avoid disk reads on every exec */
+  getEnvVars(): Record<string, string> {
+    const now = Date.now();
+    if (!this.envVarsCache || now - this.envVarsCacheTime > 5000) {
+      this.envVarsCache = loadEnvVars();
+      this.envVarsCacheTime = now;
+    }
+    return this.envVarsCache;
+  }
+
+  /** Invalidate env vars cache (called after settings change) */
+  invalidateEnvCache(): void {
+    this.envVarsCache = null;
   }
 
   /** Host directory for a project's workspace files (persists across container lifecycle) */
@@ -212,6 +232,11 @@ export class ContainerManager extends EventEmitter {
 
     if (cwd) {
       args.push('-w', cwd);
+    }
+
+    // Inject env vars from Sero settings
+    for (const [k, v] of Object.entries(this.getEnvVars())) {
+      args.push('-e', `${k}=${v}`);
     }
 
     args.push(cid, 'sh', '-c', command);
@@ -428,9 +453,15 @@ export class ContainerManager extends EventEmitter {
       env.PATH = `/usr/local/bin:${env.PATH}`;
     }
 
+    // Build env flags for container exec
+    const envFlags: string[] = ['-e', 'TERM=xterm-256color'];
+    for (const [k, v] of Object.entries(this.getEnvVars())) {
+      envFlags.push('-e', `${k}=${v}`);
+    }
+
     const proc = pty.spawn(CONTAINER_BIN, [
       'exec', '-it', '-w', '/workspace',
-      '-e', 'TERM=xterm-256color',
+      ...envFlags,
       cid, '/bin/bash',
     ], {
       name: 'xterm-256color',

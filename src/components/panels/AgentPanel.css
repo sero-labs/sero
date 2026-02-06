@@ -344,6 +344,63 @@
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-base);
   border-top: 1px solid var(--border-subtle);
+  position: relative;
+}
+
+/* ── Skill Autocomplete ─────────────────────────────────────── */
+.agent-autocomplete {
+  position: absolute;
+  bottom: 100%;
+  left: var(--space-md);
+  right: var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 50;
+  margin-bottom: var(--space-xs);
+}
+
+.agent-autocomplete-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast);
+}
+
+.agent-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.agent-autocomplete-item:hover,
+.agent-autocomplete-item.selected {
+  background: var(--accent-muted);
+}
+
+.agent-autocomplete-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-hover);
+  font-family: 'SF Mono', monospace;
+}
+
+.agent-autocomplete-desc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .agent-input {

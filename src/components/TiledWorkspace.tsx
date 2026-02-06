@@ -12,6 +12,8 @@ import { EditorPanel } from './panels/EditorPanel';
 import { TerminalPanel } from './panels/TerminalPanel';
 import { AgentPanel } from './panels/AgentPanel';
 import { PreviewPanel } from './panels/PreviewPanel';
+import { SkillsPanel } from './panels/SkillsPanel';
+import { SettingsPanel } from './panels/SettingsPanel';
 import './TiledWorkspace.css';
 
 interface Props {
@@ -25,6 +27,8 @@ const PANEL_ICONS: Record<string, string> = {
   terminal: '⬛',
   agent: '🤖',
   preview: '🌐',
+  skills: '🧩',
+  settings: '⚙️',
 };
 
 function EditorPanelComponent({ params }: IDockviewPanelProps<{ projectId: string; panelId: string }>) {
@@ -41,6 +45,14 @@ function AgentPanelComponent({ params }: IDockviewPanelProps<{ projectId: string
 
 function PreviewPanelComponent({ params }: IDockviewPanelProps<{ projectId: string; panelId: string }>) {
   return <PreviewPanel projectId={params.projectId} panelId={params.panelId} />;
+}
+
+function SkillsPanelComponent({ params }: IDockviewPanelProps<{ projectId: string; panelId: string }>) {
+  return <SkillsPanel projectId={params.projectId} panelId={params.panelId} />;
+}
+
+function SettingsPanelComponent({ params }: IDockviewPanelProps<{ projectId: string; panelId: string }>) {
+  return <SettingsPanel projectId={params.projectId} panelId={params.panelId} />;
 }
 
 /* ── Custom tab component ─────────────────────────────────── */
@@ -126,6 +138,8 @@ export function TiledWorkspace({ projectId }: Props) {
       terminal: TerminalPanelComponent,
       agent: AgentPanelComponent,
       preview: PreviewPanelComponent,
+      skills: SkillsPanelComponent,
+      settings: SettingsPanelComponent,
     }),
     []
   );
