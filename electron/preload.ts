@@ -35,6 +35,23 @@ export type SkillInfo = {
   disableModelInvocation: boolean;
 };
 
+export type PreviewSkillInfo = {
+  name: string;
+  description: string;
+  relativePath: string;
+};
+
+export type SkillPreviewResult = {
+  previewId: string;
+  repoName: string;
+  skills: PreviewSkillInfo[];
+};
+
+export type SelectiveInstallResult = {
+  installed: string[];
+  errors: Array<{ name: string; error: string }>;
+};
+
 const seroAPI = {
   // Container operations
   container: {
@@ -133,6 +150,12 @@ const seroAPI = {
       ipcRenderer.invoke('skills:toggle', projectId, skillName) as Promise<boolean>,
     install: (source: string, scope?: 'global' | 'project') =>
       ipcRenderer.invoke('skills:install', source, scope) as Promise<{ success: boolean; name?: string; error?: string }>,
+    previewInstall: (source: string) =>
+      ipcRenderer.invoke('skills:previewInstall', source) as Promise<SkillPreviewResult>,
+    installSelected: (previewId: string, selectedNames: string[], scope?: 'global' | 'project') =>
+      ipcRenderer.invoke('skills:installSelected', previewId, selectedNames, scope) as Promise<SelectiveInstallResult>,
+    cleanupPreview: (previewId: string) =>
+      ipcRenderer.invoke('skills:cleanupPreview', previewId) as Promise<void>,
     uninstall: (name: string) =>
       ipcRenderer.invoke('skills:uninstall', name) as Promise<{ success: boolean; error?: string }>,
     create: (name: string, description: string, scope?: 'global' | 'project') =>

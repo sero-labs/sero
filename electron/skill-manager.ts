@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { loadSkillsFromDir, formatSkillsForPrompt, type Skill } from '@mariozechner/pi-coding-agent';
+import {
+  previewSkillSource, installSelectedSkills,
+  cleanupPreview as cleanupPreviewSession,
+  cleanupAllPreviews as cleanupAllPreviewSessions,
+  gitUrlToDirName, copyDirSync,
+  type PreviewResult, type PreviewSkill,
+} from './skill-installer';
 
 export interface SeroSkill extends Skill {
   /** 'global' = ~/.pi/agent/skills/, 'project' = .pi/skills/ in workspace, 'custom' = user-added path */
@@ -207,7 +214,8 @@ export class SkillManager {
   }
 
   /**
-   * Install a skill from a git URL or local path.
+   * Install a skill from a git URL or local path (all-at-once, no preview).
+   * For selective install, use previewInstall() + installSelected().
    */
   async installSkill(source: string, scope: 'global' | 'project' = 'global'): Promise<{ success: boolean; name?: string; error?: string }> {
     const targetDir = scope === 'global' ? GLOBAL_SKILLS_DIR : null;
@@ -216,37 +224,27 @@ export class SkillManager {
     }
 
     try {
-      // If source is a local directory, copy it
       if (fs.existsSync(source) && fs.statSync(source).isDirectory()) {
         const skillMd = path.join(source, 'SKILL.md');
         if (!fs.existsSync(skillMd)) {
           return { success: false, error: 'Directory does not contain a SKILL.md file' };
         }
-
         const dirName = path.basename(source);
         const dest = path.join(targetDir, dirName);
-        this.copyDirSync(source, dest);
+        copyDirSync(source, dest);
         await this.discoverAll();
-
         return { success: true, name: dirName };
       }
 
-      // If source looks like a git URL, clone it
       if (source.startsWith('http') || source.startsWith('git@') || source.includes('github.com')) {
         const { execSync } = await import('child_process');
-        // Extract owner/repo for directory name to avoid clashes
-        // e.g. https://github.com/anthropics/skills → anthropics-skills
-        //      https://github.com/tavily-ai/skills → tavily-ai-skills
-        const dirName = this.gitUrlToDirName(source);
+        const dirName = gitUrlToDirName(source);
         const dest = path.join(targetDir, dirName);
-
         if (fs.existsSync(dest)) {
           return { success: false, error: `Skill directory "${dirName}" already exists at ${dest}` };
         }
-
         execSync(`git clone "${source}" "${dest}"`, { timeout: 60000 });
         await this.discoverAll();
-
         return { success: true, name: dirName };
       }
 
@@ -254,6 +252,45 @@ export class SkillManager {
     } catch (err: any) {
       return { success: false, error: err.message };
     }
+  }
+
+  /**
+   * Preview a skill source (git URL or local path) — clone to temp, scan for skills.
+   * Returns a preview with all discovered skills so the user can pick which to install.
+   */
+  async previewInstall(source: string): Promise<PreviewResult> {
+    return previewSkillSource(source);
+  }
+
+  /**
+   * Install only selected skills from a previously previewed source.
+   */
+  async installSelected(
+    previewId: string,
+    selectedNames: string[],
+    scope: 'global' | 'project' = 'global',
+  ): Promise<{ installed: string[]; errors: Array<{ name: string; error: string }> }> {
+    const targetDir = scope === 'global' ? GLOBAL_SKILLS_DIR : null;
+    if (!targetDir) {
+      throw new Error('Project-scope install requires a workspace directory');
+    }
+    const result = await installSelectedSkills(previewId, selectedNames, targetDir);
+    await this.discoverAll();
+    return result;
+  }
+
+  /**
+   * Clean up a preview session's temp directory (e.g. if user cancels).
+   */
+  cleanupPreview(previewId: string): void {
+    cleanupPreviewSession(previewId);
+  }
+
+  /**
+   * Clean up all preview sessions (call on app quit).
+   */
+  cleanupAllPreviews(): void {
+    cleanupAllPreviewSessions();
   }
 
   /**
@@ -412,48 +449,4 @@ Run once before first use:
     }
   }
 
-  /**
-   * Convert a git URL to a unique directory name using owner-repo format.
-   * e.g. https://github.com/anthropics/skills → anthropics-skills
-   *      https://github.com/tavily-ai/skills.git → tavily-ai-skills
-   *      git@github.com:user/my-skill.git → user-my-skill
-   */
-  private gitUrlToDirName(url: string): string {
-    // Normalize: strip .git suffix, trailing slashes
-    let cleaned = url.replace(/\.git$/, '').replace(/\/+$/, '');
-
-    // Try to extract owner/repo from common patterns
-    // HTTPS: https://github.com/owner/repo
-    const httpsMatch = cleaned.match(/(?:github\.com|gitlab\.com|bitbucket\.org)[/:]([^/]+)\/([^/]+)$/);
-    if (httpsMatch) {
-      return `${httpsMatch[1]}-${httpsMatch[2]}`;
-    }
-
-    // SSH: git@github.com:owner/repo
-    const sshMatch = cleaned.match(/:([^/]+)\/([^/]+)$/);
-    if (sshMatch) {
-      return `${sshMatch[1]}-${sshMatch[2]}`;
-    }
-
-    // Fallback: last two path segments joined with hyphen, or just last segment
-    const parts = cleaned.split('/').filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[parts.length - 2]}-${parts[parts.length - 1]}`;
-    }
-    return parts[parts.length - 1] ?? 'skill';
-  }
-
-  private copyDirSync(src: string, dest: string): void {
-    fs.mkdirSync(dest, { recursive: true });
-    const entries = fs.readdirSync(src, { withFileTypes: true });
-    for (const entry of entries) {
-      const srcPath = path.join(src, entry.name);
-      const destPath = path.join(dest, entry.name);
-      if (entry.isDirectory()) {
-        this.copyDirSync(srcPath, destPath);
-      } else {
-        fs.copyFileSync(srcPath, destPath);
-      }
-    }
-  }
 }

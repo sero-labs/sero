@@ -416,7 +416,9 @@
   resize: none;
   outline: none;
   min-height: 36px;
-  max-height: 120px;
+  /* 5 lines of text: (font-size ~14px × line-height 1.5 = ~21px) × 5 = 105px + padding 16px */
+  max-height: calc(1.5em * 5 + var(--space-sm) * 2);
+  overflow-y: auto;
 }
 
 .agent-input:focus {

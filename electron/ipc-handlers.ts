@@ -85,11 +85,15 @@ export function registerIpcHandlers(
       // Always notify renderer that the agent turn is done, even on error
       const windows = BrowserWindow.getAllWindows();
       for (const win of windows) {
-        win.webContents.send('agent:event', {
-          projectId,
-          type: 'agent_error',
-          data: { message: err?.message ?? String(err) },
-        });
+        try {
+          if (!win.isDestroyed()) {
+            win.webContents.send('agent:event', {
+              projectId,
+              type: 'agent_error',
+              data: { message: err?.message ?? String(err) },
+            });
+          }
+        } catch { /* window may be closing */ }
       }
     }
   });
@@ -103,11 +107,15 @@ export function registerIpcHandlers(
     // Always notify renderer that agent is idle after abort
     const windows = BrowserWindow.getAllWindows();
     for (const win of windows) {
-      win.webContents.send('agent:event', {
-        projectId,
-        type: 'agent_end',
-        data: {},
-      });
+      try {
+        if (!win.isDestroyed()) {
+          win.webContents.send('agent:event', {
+            projectId,
+            type: 'agent_end',
+            data: {},
+          });
+        }
+      } catch { /* window may be closing */ }
     }
   });
 
@@ -124,7 +132,11 @@ export function registerIpcHandlers(
     pty.onData((data: string) => {
       const windows = BrowserWindow.getAllWindows();
       for (const win of windows) {
-        win.webContents.send('terminal:data', terminalId, data);
+        try {
+          if (!win.isDestroyed()) {
+            win.webContents.send('terminal:data', terminalId, data);
+          }
+        } catch { /* window may be closing — safe to ignore */ }
       }
     });
   });
@@ -132,14 +144,23 @@ export function registerIpcHandlers(
   ipcMain.handle('terminal:write', async (_event, terminalId: string, data: string) => {
     const proc = containerManager.getTerminal(terminalId);
     if (proc) {
-      proc.write(data);
+      try {
+        proc.write(data);
+      } catch (err: any) {
+        // EPIPE: PTY process already exited — safe to ignore
+        if (err?.code !== 'EPIPE') {
+          console.warn(`[sero] terminal:write error for ${terminalId}:`, err?.message);
+        }
+      }
     }
   });
 
   ipcMain.handle('terminal:resize', async (_event, terminalId: string, cols: number, rows: number) => {
     const proc = containerManager.getTerminal(terminalId);
     if (proc) {
-      proc.resize(cols, rows);
+      try {
+        proc.resize(cols, rows);
+      } catch { /* PTY may have exited — safe to ignore */ }
     }
   });
 
@@ -254,6 +275,18 @@ export function registerIpcHandlers(
 
   ipcMain.handle('skills:install', async (_event, source: string, scope?: 'global' | 'project') => {
     return skillManager.installSkill(source, scope);
+  });
+
+  ipcMain.handle('skills:previewInstall', async (_event, source: string) => {
+    return skillManager.previewInstall(source);
+  });
+
+  ipcMain.handle('skills:installSelected', async (_event, previewId: string, selectedNames: string[], scope?: 'global' | 'project') => {
+    return skillManager.installSelected(previewId, selectedNames, scope);
+  });
+
+  ipcMain.handle('skills:cleanupPreview', async (_event, previewId: string) => {
+    skillManager.cleanupPreview(previewId);
   });
 
   ipcMain.handle('skills:uninstall', async (_event, name: string) => {
