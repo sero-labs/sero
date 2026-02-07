@@ -164,6 +164,30 @@ const seroAPI = {
       ipcRenderer.invoke('skills:discover') as Promise<SkillInfo[]>,
   },
 
+  // LSP operations
+  lsp: {
+    start: (projectId: string, languageId: string) =>
+      ipcRenderer.invoke('lsp:start', projectId, languageId) as Promise<{ capabilities: Record<string, unknown>; language: string }>,
+    stop: (projectId: string, language: string) =>
+      ipcRenderer.invoke('lsp:stop', projectId, language),
+    request: (projectId: string, language: string, method: string, params?: unknown) =>
+      ipcRenderer.invoke('lsp:request', projectId, language, method, params) as Promise<unknown>,
+    notify: (projectId: string, language: string, method: string, params?: unknown) =>
+      ipcRenderer.invoke('lsp:notify', projectId, language, method, params),
+    hasServer: (projectId: string, language: string) =>
+      ipcRenderer.invoke('lsp:hasServer', projectId, language) as Promise<boolean>,
+    onNotification: (callback: (data: { projectId: string; language: string; notification: any }) => void) => {
+      const handler = (_: unknown, data: { projectId: string; language: string; notification: any }) => callback(data);
+      ipcRenderer.on('lsp:notification', handler);
+      return () => { ipcRenderer.removeListener('lsp:notification', handler); };
+    },
+    onServerStopped: (callback: (data: { projectId: string; language: string }) => void) => {
+      const handler = (_: unknown, data: { projectId: string; language: string }) => callback(data);
+      ipcRenderer.on('lsp:serverStopped', handler);
+      return () => { ipcRenderer.removeListener('lsp:serverStopped', handler); };
+    },
+  },
+
   // Terminal operations
   terminal: {
     create: (projectId: string, terminalId: string) =>

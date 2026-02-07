@@ -153,6 +153,22 @@ The container is the body. The Electron UI is the face. Pi is the mind.
   - After: `container run sero-node:latest` (0.75s) + nothing = **<1s**
 - **Note:** The image is cached locally after first build. If tools need updating, rebuild the image.
 
+### AD-013: Container NAT — manual setup for outbound internet access
+- **Date:** 2026-02-07
+- **Decision:** Containers require a one-time (per-reboot) NAT setup script to access the internet. Run `sudo ./scripts/setup-container-nat.sh` after each macOS reboot.
+- **Problem:** Apple Container's `default` network uses `mode: nat` with subnet `192.168.64.0/24`, but macOS does not automatically enable IP forwarding or pf NAT rules. Containers can resolve DNS (nameserver `192.168.64.1`) but TCP connections to the internet time out. This means `npm install`, `git clone`, and any other network operation inside a container fails.
+- **Root cause:** Two host-side settings are missing by default:
+  1. **IP forwarding** (`net.inet.ip.forwarding`) is `0` — the kernel drops packets between `bridge100` (container subnet) and `en0` (internet)
+  2. **No pf NAT rule** exists to masquerade container traffic as coming from the host's IP
+- **Solution:** `scripts/setup-container-nat.sh` enables both with `sudo`:
+  - `sysctl -w net.inet.ip.forwarding=1`
+  - Writes a scoped pf NAT anchor: `nat on en0 from 192.168.64.0/24 to any -> (en0)`
+  - Loads the rules via `pfctl`
+- **Safety:** The NAT rule only matches outbound traffic from `192.168.64.0/24`. No inbound ports are opened. No other host traffic is affected. This is the same mechanism macOS Internet Sharing uses.
+- **Caveat:** IP forwarding resets on reboot. The script must be re-run after each restart.
+- **Future:** Create a LaunchDaemon (`com.sero.container-nat.plist`) to auto-apply at boot, removing the manual step. Not yet implemented — manual re-run is sufficient for now.
+- **Teardown:** `sudo ./scripts/setup-container-nat.sh --teardown` reverts all changes.
+
 ## Phase Roadmap
 
 | Phase | Focus | Status |

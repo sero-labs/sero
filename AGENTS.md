@@ -80,6 +80,10 @@ node scripts/build-electron.mjs
 npx vite &                              # Renderer on :5173
 NODE_ENV=development npx electron .     # Main process
 
+**PI Agent Scripts**
+`scripts/dev.sh` # starts the vite dev server and the electron main process
+`scripts/build-electron.mjs` # builds the electron main process and preload
+
 # Build the custom container image (one-time)
 cd images && container build -t sero-node:latest -f Dockerfile.sero-node .
 ```

@@ -1,3 +1,4 @@
+import './monaco-setup';  // Must be first — configures Monaco workers before any Editor mounts
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './styles/global.css';

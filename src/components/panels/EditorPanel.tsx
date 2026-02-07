@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { FileTree } from './FileTree';
+import { useLsp } from '../../lsp/use-lsp';
 import './FileTree.css';
 import './EditorPanel.css';
 
@@ -15,6 +16,17 @@ export function EditorPanel({ projectId }: Props) {
   const [language, setLanguage] = useState<string>('typescript');
   const [isDirty, setIsDirty] = useState(false);
   const [editorStateLoaded, setEditorStateLoaded] = useState(false);
+  const [monacoInstance, setMonacoInstance] = useState<any>(null);
+  const [editorInstance, setEditorInstance] = useState<any>(null);
+
+  // LSP integration
+  const { isReady: lspReady, sendDidSave } = useLsp({
+    projectId,
+    filePath,
+    languageId: language,
+    monaco: monacoInstance,
+    editor: editorInstance,
+  });
 
   // Restore last open file on mount
   useEffect(() => {
@@ -48,9 +60,13 @@ export function EditorPanel({ projectId }: Props) {
         setIsDirty(false);
 
         const ext = filePath!.split('.').pop() ?? '';
+        // Monaco language IDs — note: tsx/jsx use typescript/javascript
+        // (Monaco doesn't register 'typescriptreact'/'javascriptreact')
         const langMap: Record<string, string> = {
-          ts: 'typescript', tsx: 'typescriptreact',
-          js: 'javascript', jsx: 'javascriptreact',
+          ts: 'typescript', tsx: 'typescript',
+          js: 'javascript', jsx: 'javascript',
+          mts: 'typescript', cts: 'typescript',
+          mjs: 'javascript', cjs: 'javascript',
           py: 'python', rs: 'rust', go: 'go',
           json: 'json', md: 'markdown', css: 'css',
           html: 'html', yml: 'yaml', yaml: 'yaml',
@@ -77,10 +93,11 @@ export function EditorPanel({ projectId }: Props) {
     try {
       await window.sero.container.writeFile(projectId, filePath, content);
       setIsDirty(false);
+      sendDidSave();
     } catch (err) {
       console.error('Failed to save:', err);
     }
-  }, [projectId, filePath, content, isDirty]);
+  }, [projectId, filePath, content, isDirty, sendDidSave]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -94,6 +111,24 @@ export function EditorPanel({ projectId }: Props) {
 
   const handleFileSelect = useCallback((path: string) => {
     setFilePath(path);
+  }, []);
+
+  // Disable Monaco's built-in TS/JS diagnostics (LSP provides them instead)
+  const handleBeforeMount = useCallback((monaco: any) => {
+    monaco.languages.typescript?.typescriptDefaults?.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: true,
+    });
+    monaco.languages.typescript?.javascriptDefaults?.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: true,
+    });
+  }, []);
+
+  // Capture Monaco and editor instances for LSP hook
+  const handleEditorMount = useCallback((editor: any, monaco: any) => {
+    setMonacoInstance(monaco);
+    setEditorInstance(editor);
   }, []);
 
   return (
@@ -124,8 +159,11 @@ export function EditorPanel({ projectId }: Props) {
           <Editor
             height="100%"
             language={language}
+            path={filePath ?? undefined}
             value={content}
             onChange={handleChange}
+            beforeMount={handleBeforeMount}
+            onMount={handleEditorMount}
             theme="vs-dark"
             options={{
               fontSize: 13,

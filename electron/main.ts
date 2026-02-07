@@ -3,6 +3,7 @@ import path from 'path';
 import { ContainerManager } from './container-manager';
 import { AgentManager } from './agent-manager';
 import { SkillManager } from './skill-manager';
+import { LspManager } from './lsp/lsp-manager';
 import { registerIpcHandlers } from './ipc-handlers';
 
 // ── Global error safety net ──────────────────────────────────
@@ -33,6 +34,7 @@ let mainWindow: BrowserWindow | null = null;
 const containerManager = new ContainerManager();
 const skillManager = new SkillManager();
 const agentManager = new AgentManager(containerManager, skillManager);
+const lspManager = new LspManager(containerManager);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -68,7 +70,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  registerIpcHandlers(ipcMain, containerManager, agentManager, skillManager);
+  registerIpcHandlers(ipcMain, containerManager, agentManager, skillManager, lspManager);
 
   // Discover skills on startup
   await skillManager.discoverAll();
@@ -101,6 +103,7 @@ app.on('before-quit', async (e) => {
   e.preventDefault();
   console.log('[sero] Shutting down — cleaning up containers and agents...');
   agentManager.disposeAll();
+  await lspManager.disposeAll();
   containerManager.disposeAllTerminals();
   skillManager.cleanupAllPreviews();
 

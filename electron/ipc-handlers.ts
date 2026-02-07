@@ -2,6 +2,7 @@ import { IpcMain, BrowserWindow } from 'electron';
 import { ContainerManager } from './container-manager';
 import { AgentManager } from './agent-manager';
 import { SkillManager } from './skill-manager';
+import { LspManager } from './lsp/lsp-manager';
 import {
   loadPersistedProjects, addPersistedProject, removePersistedProject,
   updatePersistedProject,
@@ -17,6 +18,7 @@ export function registerIpcHandlers(
   containerManager: ContainerManager,
   agentManager: AgentManager,
   skillManager: SkillManager,
+  lspManager: LspManager,
 ) {
   // ── Container IPC ──────────────────────────────────────────────
 
@@ -300,5 +302,50 @@ export function registerIpcHandlers(
   ipcMain.handle('skills:discover', async () => {
     await skillManager.discoverAll();
     return skillManager.listAll();
+  });
+
+  // ── LSP IPC ────────────────────────────────────────────────
+
+  ipcMain.handle('lsp:start', async (_event, projectId: string, languageId: string) => {
+    return lspManager.startServer(projectId, languageId);
+  });
+
+  ipcMain.handle('lsp:stop', async (_event, projectId: string, language: string) => {
+    await lspManager.stopServer(projectId, language);
+  });
+
+  ipcMain.handle('lsp:request', async (_event, projectId: string, language: string, method: string, params?: unknown) => {
+    return lspManager.sendRequest(projectId, language, method, params);
+  });
+
+  ipcMain.handle('lsp:notify', async (_event, projectId: string, language: string, method: string, params?: unknown) => {
+    lspManager.sendNotification(projectId, language, method, params);
+  });
+
+  ipcMain.handle('lsp:hasServer', async (_event, projectId: string, language: string) => {
+    return lspManager.hasServer(projectId, language);
+  });
+
+  // Forward LSP notifications (diagnostics etc.) to the renderer
+  lspManager.on('notification', (data: { projectId: string; language: string; notification: any }) => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      try {
+        if (!win.isDestroyed()) {
+          win.webContents.send('lsp:notification', data);
+        }
+      } catch { /* window may be closing */ }
+    }
+  });
+
+  lspManager.on('serverStopped', (data: { projectId: string; language: string }) => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      try {
+        if (!win.isDestroyed()) {
+          win.webContents.send('lsp:serverStopped', data);
+        }
+      } catch { /* window may be closing */ }
+    }
   });
 }
