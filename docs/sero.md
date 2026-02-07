@@ -174,7 +174,7 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 | Phase | Focus | Status |
 |-------|-------|--------|
 | **1** | Electron shell + containers + tiled workspace + editor + terminal + agent chat | ✅ Complete |
-| **2** | Skills UI + LSP + improved editor + layouts + preview polish | 🔨 In Progress |
+| **2** | Skills UI + LSP + improved editor + layouts + preview polish | 🔨 In Progress (Skills ✅, LSP ✅, Multi-Tab Editor ✅) |
 | **3** | Multi-agent orchestration (task trees, parallel agents, council mode) | Planned |
 | **4** | Cloud migration path (E2B/Codespaces backend), hybrid local/cloud | Planned |
 | **5** | Collaboration (multiplayer editing, shared sessions) | Planned |
@@ -211,6 +211,57 @@ The container is the body. The Electron UI is the face. Pi is the mind.
   - Tab/Enter to select, arrow keys to navigate
   - Loads full SKILL.md content and sends to agent with optional user arguments
 - All TypeScript compiles cleanly (renderer + electron)
+
+### AD-014: LSP integration — language servers in containers, proxied to Monaco
+- **Date:** 2026-02-07
+- **Decision:** Run language servers (starting with TypeScript) inside the project's container, communicating over JSON-RPC stdio via `container exec -i`. Main process manages server lifecycle and multiplexes between projects. Renderer registers Monaco providers that route requests through IPC.
+- **Rationale:** Language servers need access to the project's files AND `node_modules` for accurate completions, hover info, and diagnostics. Running the server inside the container where the code lives gives perfect accuracy. The alternative — running language servers on the host — would require syncing `node_modules` or losing type information.
+- **Architecture:**
+  ```
+  Monaco (renderer) ←IPC→ LspManager (main) ←stdio→ container exec -i typescript-language-server --stdio
+  ```
+- **Key design choices:**
+  - One `LspProcess` per (project, language) — TypeScript server handles `.ts`, `.tsx`, `.js`, `.jsx`
+  - `LspManager` auto-installs server binary (`npm install -g typescript-language-server typescript`) on first use, with retry logic for container startup races
+  - Monaco providers are registered once per language ID at module level, routing via a URI registry
+  - Monaco uses `typescript` language ID for both `.ts` and `.tsx` (Monaco doesn't register `typescriptreact`); LSP `didOpen` sends the correct language ID derived from file extension
+  - Built-in Monaco TypeScript diagnostics disabled in `beforeMount` to avoid duplicating LSP diagnostics
+
+### 2026-02-07: Phase 2 — LSP Integration
+- Created `electron/lsp/types.ts` — LSP types, language server configs (TypeScript first), JSON-RPC message types, URI helpers
+- Created `electron/lsp/json-rpc.ts` — Content-Length header parser/encoder for LSP stdio protocol
+- Created `electron/lsp/lsp-process.ts` — Spawns and manages a single language server process inside a container via `container exec -i`, handles JSON-RPC framing, LSP initialization handshake, shutdown, request/response correlation
+- Created `electron/lsp/lsp-manager.ts` — Orchestrates language servers across all projects, auto-installs server binaries, retry logic for container startup races (5 attempts, 2s delay), forwards diagnostics to renderer
+- Updated `electron/ipc-handlers.ts` — Added 5 LSP IPC handlers (`lsp:start`, `lsp:stop`, `lsp:request`, `lsp:notify`, `lsp:hasServer`) + notification forwarding to renderer via `webContents.send`
+- Updated `electron/preload.ts` — Added `window.sero.lsp` API with typed methods for start/stop/request/notify and `onNotification`/`onServerStopped` event listeners
+- Updated `electron/main.ts` — LspManager instantiation, passed to `registerIpcHandlers`, `lspManager.disposeAll()` on shutdown
+- Created `src/lsp/lsp-conversions.ts` — Bidirectional LSP ↔ Monaco type conversions for completions, hover, go-to-definition, diagnostics; file-path-based LSP language ID resolution
+- Created `src/lsp/use-lsp.ts` — React hook managing full LSP lifecycle: server start, module-level Monaco provider registration (completion/hover/definition), document sync (didOpen/didClose/didChange/didSave), diagnostics listener, URI routing registry
+- Created `src/monaco-setup.ts` — Configures `@monaco-editor/react` to use local `monaco-editor` package with Vite web workers (editor, TypeScript, JSON, CSS, HTML) instead of CDN — fixes syntax highlighting in Electron
+- Updated `src/main.tsx` — Imports `monaco-setup.ts` before any component mounts
+- Updated `src/components/panels/EditorPanel.tsx` — Wired in `useLsp` hook, `beforeMount` (disables built-in TS diagnostics), `onMount` (captures editor/monaco instances), `path` prop for stable model URIs, `sendDidSave` on save
+- **Features working:** IntelliSense completions, hover type info, go-to-definition, real-time diagnostics (error squiggles), syntax highlighting for all languages
+- **Key fix:** Monaco doesn't register `typescriptreact`/`javascriptreact` as language IDs — `.tsx`/`.jsx` must use `typescript`/`javascript` for Monaco while sending the correct LSP language ID via file extension mapping
+
+### 2026-02-07: Phase 2 — Multi-Tab Editor
+- Rewrote `EditorPanel.tsx` — multi-tab editing with full lifecycle management:
+  - Open multiple files simultaneously via file tree or tab clicks
+  - Tab bar with file icons, dirty indicators (●), close buttons (×), middle-click to close
+  - Tabs scroll horizontally when many files are open
+  - Active tab highlighted with accent underline
+  - ⌘S saves active tab, ⌘W closes active tab
+  - Monaco models persist per tab — undo history, cursor position preserved across tab switches
+  - View state (scroll position, cursor, selection) saved/restored on tab switch via `editor.saveViewState()`/`restoreViewState()`
+  - Content tracked in ref map, dirty state computed against last-saved content
+  - Empty state with welcome message when no files are open
+  - Models disposed on tab close to free memory
+- Created `EditorTabBar.tsx` — extracted tab bar component with VS Code-style tabs:
+  - Drag-to-reorder via `@dnd-kit/sortable` (same library as project tabs), constrained to x-axis
+  - Overflow fade indicators (left/right gradients) appear when tabs extend beyond the container, detected via `ResizeObserver` + scroll events
+  - Auto-scroll: active tab scrolls into view smoothly when selected or opened, ensuring off-screen tabs become visible
+- Updated `EditorPanel.css` — new tab bar styles, welcome state, scrollable tab container, overflow fade gradients
+- Updated `electron/persistence.ts` — editor state shape changed from `{ openFile }` to `{ openTabs: string[], activeTab: string | null }` with backward compatibility for legacy format
+- Fixed `src/lsp/use-lsp.ts` — URI registry cleanup bug: old code iterated and deleted wrong entries on tab switch. Now uses `prevModelUriRef` to correctly track and swap model URIs
 
 ## Phase 2 — Skills Integration (Planned)
 

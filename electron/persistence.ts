@@ -120,8 +120,10 @@ export function loadActiveProjectId(): string | null {
 }
 
 // ── Editor state persistence (per project) ────────────────────
+// Supports both legacy { openFile } and new { openTabs, activeTab } formats.
+// The renderer handles migration from legacy format on load.
 
-export function saveEditorState(projectId: string, state: { openFile: string | null }): void {
+export function saveEditorState(projectId: string, state: { openTabs: string[]; activeTab: string | null }): void {
   try {
     const filePath = path.join(getProjectDir(projectId), 'editor.json');
     fs.writeFileSync(filePath, JSON.stringify(state), 'utf-8');
@@ -130,7 +132,7 @@ export function saveEditorState(projectId: string, state: { openFile: string | n
   }
 }
 
-export function loadEditorState(projectId: string): { openFile: string | null } | null {
+export function loadEditorState(projectId: string): Record<string, any> | null {
   try {
     const filePath = path.join(getProjectDir(projectId), 'editor.json');
     const raw = fs.readFileSync(filePath, 'utf-8');

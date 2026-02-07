@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { FileTree } from './FileTree';
+import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { useLsp } from '../../lsp/use-lsp';
 import './FileTree.css';
 import './EditorPanel.css';
@@ -10,110 +11,233 @@ interface Props {
   panelId: string;
 }
 
+const LANG_MAP: Record<string, string> = {
+  ts: 'typescript', tsx: 'typescript',
+  js: 'javascript', jsx: 'javascript',
+  mts: 'typescript', cts: 'typescript',
+  mjs: 'javascript', cjs: 'javascript',
+  py: 'python', rs: 'rust', go: 'go',
+  json: 'json', md: 'markdown', css: 'css',
+  html: 'html', yml: 'yaml', yaml: 'yaml',
+  sh: 'shell', bash: 'shell',
+  toml: 'toml', sql: 'sql',
+};
+
+function getLanguage(filePath: string): string {
+  const ext = filePath.split('.').pop() ?? '';
+  return LANG_MAP[ext] ?? 'plaintext';
+}
+
 export function EditorPanel({ projectId }: Props) {
-  const [filePath, setFilePath] = useState<string | null>(null);
-  const [content, setContent] = useState<string>('// Welcome to Sero\n// Select a file from the tree or let your agent create one\n');
-  const [language, setLanguage] = useState<string>('typescript');
-  const [isDirty, setIsDirty] = useState(false);
-  const [editorStateLoaded, setEditorStateLoaded] = useState(false);
+  // ── Tab state ──
+  const [tabs, setTabs] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
+  const [content, setContent] = useState('');
+  const [language, setLanguage] = useState('typescript');
+  const [stateLoaded, setStateLoaded] = useState(false);
+
+  // ── Refs for content, view state, and editor instances ──
+  const contentMapRef = useRef(new Map<string, string>());
+  const savedContentRef = useRef(new Map<string, string>());
+  const viewStateMapRef = useRef(new Map<string, any>());
+  const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
   const [monacoInstance, setMonacoInstance] = useState<any>(null);
   const [editorInstance, setEditorInstance] = useState<any>(null);
 
-  // LSP integration
-  const { isReady: lspReady, sendDidSave } = useLsp({
+  // ── LSP integration ──
+  const { sendDidSave } = useLsp({
     projectId,
-    filePath,
+    filePath: activeTab,
     languageId: language,
     monaco: monacoInstance,
     editor: editorInstance,
   });
 
-  // Restore last open file on mount
+  // ── Persistence: Restore open tabs on mount ──
   useEffect(() => {
-    if (editorStateLoaded) return;
-    setEditorStateLoaded(true);
+    if (stateLoaded) return;
+    setStateLoaded(true);
     (async () => {
       try {
         const state = await window.sero.persistence.loadEditorState(projectId);
-        if (state?.openFile) {
-          setFilePath(state.openFile);
+        if (!state) return;
+        // Handle new format { openTabs, activeTab } and legacy { openFile }
+        if ('openTabs' in state && Array.isArray(state.openTabs) && state.openTabs.length > 0) {
+          setTabs(state.openTabs);
+          setActiveTab(state.activeTab ?? state.openTabs[0]);
+        } else if ('openFile' in state && state.openFile) {
+          setTabs([state.openFile]);
+          setActiveTab(state.openFile);
         }
       } catch { /* ignore */ }
     })();
-  }, [projectId, editorStateLoaded]);
+  }, [projectId, stateLoaded]);
 
-  // Persist open file when it changes
+  // ── Persistence: Save open tabs when they change ──
   useEffect(() => {
-    if (editorStateLoaded && filePath !== null) {
-      window.sero.persistence.saveEditorState(projectId, { openFile: filePath });
+    if (!stateLoaded) return;
+    window.sero.persistence.saveEditorState(projectId, { openTabs: tabs, activeTab });
+  }, [tabs, activeTab, projectId, stateLoaded]);
+
+  // ── Load file content when activeTab changes ──
+  useEffect(() => {
+    if (!activeTab) {
+      setContent('');
+      return;
     }
-  }, [filePath, projectId, editorStateLoaded]);
 
-  // Load file content when filePath changes
-  useEffect(() => {
-    if (!filePath) return;
+    // If we already have content for this tab, use it immediately
+    if (contentMapRef.current.has(activeTab)) {
+      setContent(contentMapRef.current.get(activeTab)!);
+      setLanguage(getLanguage(activeTab));
+      return;
+    }
 
-    async function loadFile() {
+    // New tab — clear content, then load from container
+    setContent('');
+    setLanguage(getLanguage(activeTab));
+
+    let cancelled = false;
+    (async () => {
       try {
-        const fileContent = await window.sero.container.readFile(projectId, filePath!);
+        const fileContent = await window.sero.container.readFile(projectId, activeTab);
+        if (cancelled) return;
+        contentMapRef.current.set(activeTab, fileContent);
+        savedContentRef.current.set(activeTab, fileContent);
         setContent(fileContent);
-        setIsDirty(false);
-
-        const ext = filePath!.split('.').pop() ?? '';
-        // Monaco language IDs — note: tsx/jsx use typescript/javascript
-        // (Monaco doesn't register 'typescriptreact'/'javascriptreact')
-        const langMap: Record<string, string> = {
-          ts: 'typescript', tsx: 'typescript',
-          js: 'javascript', jsx: 'javascript',
-          mts: 'typescript', cts: 'typescript',
-          mjs: 'javascript', cjs: 'javascript',
-          py: 'python', rs: 'rust', go: 'go',
-          json: 'json', md: 'markdown', css: 'css',
-          html: 'html', yml: 'yaml', yaml: 'yaml',
-          sh: 'shell', bash: 'shell',
-          toml: 'toml', sql: 'sql',
-        };
-        setLanguage(langMap[ext] ?? 'plaintext');
       } catch (err) {
-        setContent(`// Error loading file: ${err}`);
+        if (cancelled) return;
+        const errContent = `// Error loading file: ${err}`;
+        contentMapRef.current.set(activeTab, errContent);
+        setContent(errContent);
       }
-    }
-    loadFile();
-  }, [projectId, filePath]);
+    })();
 
-  const handleChange = useCallback((value: string | undefined) => {
-    if (value !== undefined) {
+    return () => { cancelled = true; };
+  }, [projectId, activeTab]);
+
+  // ── Open a file tab (adds if new, switches if existing) ──
+  const openTab = useCallback(
+    (path: string) => {
+      // Save current editor state before switching
+      if (activeTab && activeTab !== path && editorRef.current) {
+        viewStateMapRef.current.set(activeTab, editorRef.current.saveViewState());
+        const model = editorRef.current.getModel();
+        if (model) contentMapRef.current.set(activeTab, model.getValue());
+      }
+
+      setTabs((prev) => (prev.includes(path) ? prev : [...prev, path]));
+      setActiveTab(path);
+    },
+    [activeTab],
+  );
+
+  // ── Close a file tab ──
+  const closeTab = useCallback(
+    (path: string) => {
+      const idx = tabs.indexOf(path);
+      if (idx < 0) return;
+
+      // Save current view state if closing a non-active tab from the bar
+      if (activeTab && activeTab !== path && editorRef.current) {
+        viewStateMapRef.current.set(activeTab, editorRef.current.saveViewState());
+      }
+
+      const nextTabs = tabs.filter((p) => p !== path);
+      let nextActive = activeTab;
+
+      if (activeTab === path) {
+        if (nextTabs.length === 0) {
+          nextActive = null;
+        } else {
+          nextActive = nextTabs[Math.min(idx, nextTabs.length - 1)];
+        }
+      }
+
+      setTabs(nextTabs);
+      if (nextActive !== activeTab) {
+        setActiveTab(nextActive);
+        if (nextActive) {
+          setContent(contentMapRef.current.get(nextActive) ?? '');
+          setLanguage(getLanguage(nextActive));
+        } else {
+          setContent('');
+        }
+      }
+
+      // Clean up refs for closed tab
+      contentMapRef.current.delete(path);
+      savedContentRef.current.delete(path);
+      viewStateMapRef.current.delete(path);
+      setDirtyPaths((prev) => {
+        if (!prev.has(path)) return prev;
+        const next = new Set(prev);
+        next.delete(path);
+        return next;
+      });
+
+      // Dispose Monaco model to free memory
+      if (monacoRef.current) {
+        const uri = monacoRef.current.Uri.parse(path);
+        const model = monacoRef.current.editor.getModel(uri);
+        model?.dispose();
+      }
+    },
+    [tabs, activeTab],
+  );
+
+  // ── Editor event handlers ──
+  const handleChange = useCallback(
+    (value: string | undefined) => {
+      if (value === undefined || !activeTab) return;
       setContent(value);
-      setIsDirty(true);
-    }
-  }, []);
+      contentMapRef.current.set(activeTab, value);
+
+      const isDirty = value !== savedContentRef.current.get(activeTab);
+      setDirtyPaths((prev) => {
+        if (prev.has(activeTab) === isDirty) return prev;
+        const next = new Set(prev);
+        isDirty ? next.add(activeTab) : next.delete(activeTab);
+        return next;
+      });
+    },
+    [activeTab],
+  );
 
   const handleSave = useCallback(async () => {
-    if (!filePath || !isDirty) return;
+    if (!activeTab || !dirtyPaths.has(activeTab)) return;
     try {
-      await window.sero.container.writeFile(projectId, filePath, content);
-      setIsDirty(false);
+      const currentContent = contentMapRef.current.get(activeTab) ?? content;
+      await window.sero.container.writeFile(projectId, activeTab, currentContent);
+      savedContentRef.current.set(activeTab, currentContent);
+      setDirtyPaths((prev) => {
+        const next = new Set(prev);
+        next.delete(activeTab);
+        return next;
+      });
       sendDidSave();
     } catch (err) {
       console.error('Failed to save:', err);
     }
-  }, [projectId, filePath, content, isDirty, sendDidSave]);
+  }, [projectId, activeTab, content, dirtyPaths, sendDidSave]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 's') {
         e.preventDefault();
         handleSave();
+      } else if (e.key === 'w') {
+        e.preventDefault();
+        if (activeTab) closeTab(activeTab);
       }
     },
-    [handleSave]
+    [handleSave, activeTab, closeTab],
   );
 
-  const handleFileSelect = useCallback((path: string) => {
-    setFilePath(path);
-  }, []);
-
-  // Disable Monaco's built-in TS/JS diagnostics (LSP provides them instead)
+  // Disable Monaco's built-in TS/JS diagnostics (LSP provides them)
   const handleBeforeMount = useCallback((monaco: any) => {
     monaco.languages.typescript?.typescriptDefaults?.setDiagnosticsOptions({
       noSemanticValidation: true,
@@ -125,11 +249,38 @@ export function EditorPanel({ projectId }: Props) {
     });
   }, []);
 
-  // Capture Monaco and editor instances for LSP hook
+  // Capture editor/monaco instances + set up view state restoration
   const handleEditorMount = useCallback((editor: any, monaco: any) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
     setMonacoInstance(monaco);
     setEditorInstance(editor);
+
+    // Restore view state automatically when model changes (tab switch)
+    editor.onDidChangeModel(() => {
+      const model = editor.getModel();
+      if (!model) return;
+      const path = model.uri.path;
+      const vs = viewStateMapRef.current.get(path);
+      if (vs) {
+        setTimeout(() => {
+          editor.restoreViewState(vs);
+          editor.focus();
+        }, 0);
+      }
+    });
   }, []);
+
+  // ── Reorder tabs via drag ──
+  const handleReorderTabs = useCallback((newOrder: string[]) => {
+    setTabs(newOrder);
+  }, []);
+
+  // ── Build tab descriptors for the tab bar ──
+  const tabDescriptors: EditorTab[] = tabs.map((path) => ({
+    path,
+    dirty: dirtyPaths.has(path),
+  }));
 
   return (
     <div className="editor-panel" onKeyDown={handleKeyDown}>
@@ -138,49 +289,55 @@ export function EditorPanel({ projectId }: Props) {
         <div className="editor-sidebar-header">
           <span className="editor-sidebar-title">Files</span>
         </div>
-        <FileTree
-          projectId={projectId}
-          activePath={filePath}
-          onFileSelect={handleFileSelect}
-        />
+        <FileTree projectId={projectId} activePath={activeTab} onFileSelect={openTab} />
       </div>
 
-      {/* Monaco editor */}
+      {/* Main editor area */}
       <div className="editor-main">
-        {filePath && (
-          <div className="editor-tab-bar">
-            <span className="editor-tab-active">
-              {filePath.split('/').pop()}
-              {isDirty && <span className="editor-tab-dirty"> ●</span>}
-            </span>
-          </div>
-        )}
+        <EditorTabBar
+          tabs={tabDescriptors}
+          activeTab={activeTab}
+          onSelectTab={openTab}
+          onCloseTab={closeTab}
+          onReorderTabs={handleReorderTabs}
+        />
+
         <div className="editor-monaco">
-          <Editor
-            height="100%"
-            language={language}
-            path={filePath ?? undefined}
-            value={content}
-            onChange={handleChange}
-            beforeMount={handleBeforeMount}
-            onMount={handleEditorMount}
-            theme="vs-dark"
-            options={{
-              fontSize: 13,
-              fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",
-              minimap: { enabled: false },
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-              tabSize: 2,
-              padding: { top: 8 },
-              renderLineHighlight: 'gutter',
-              smoothScrolling: true,
-              cursorBlinking: 'smooth',
-              cursorSmoothCaretAnimation: 'on',
-              bracketPairColorization: { enabled: true },
-            }}
-          />
+          {activeTab ? (
+            <Editor
+              height="100%"
+              language={language}
+              path={activeTab}
+              value={content}
+              onChange={handleChange}
+              beforeMount={handleBeforeMount}
+              onMount={handleEditorMount}
+              theme="vs-dark"
+              options={{
+                fontSize: 13,
+                fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",
+                minimap: { enabled: false },
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                tabSize: 2,
+                padding: { top: 8 },
+                renderLineHighlight: 'gutter',
+                smoothScrolling: true,
+                cursorBlinking: 'smooth',
+                cursorSmoothCaretAnimation: 'on',
+                bracketPairColorization: { enabled: true },
+              }}
+            />
+          ) : (
+            <div className="editor-welcome">
+              <p className="editor-welcome-icon">📝</p>
+              <p className="editor-welcome-title">No file open</p>
+              <p className="editor-welcome-hint">
+                Select a file from the tree or let your agent create one
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

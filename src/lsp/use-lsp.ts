@@ -142,6 +142,7 @@ export function useLsp({ projectId, filePath, languageId, monaco, editor }: UseL
   const [isReady, setIsReady] = useState(false);
   const serverLanguageRef = useRef<string | null>(null);
   const openUriRef = useRef<string | null>(null);
+  const prevModelUriRef = useRef<string | null>(null);
   const versionRef = useRef(new Map<string, number>());
   const startingRef = useRef(false);
 
@@ -190,23 +191,20 @@ export function useLsp({ projectId, filePath, languageId, monaco, editor }: UseL
     const fileUriStr = toFileUri(filePath);
 
     // Close previous document if different
-    const prevUri = openUriRef.current;
-    if (prevUri && prevUri !== fileUriStr) {
-      uriRegistry.delete(prevUri.replace('file://', '').replace(/^/, 'file://'));
-      // Find the Monaco URI for the previous file to clean up registry
-      for (const [mUri, route] of uriRegistry) {
-        if (route.projectId === projectId) {
-          uriRegistry.delete(mUri);
-          break;
-        }
+    const prevFileUri = openUriRef.current;
+    if (prevFileUri && prevFileUri !== fileUriStr) {
+      // Remove old model URI from routing registry
+      if (prevModelUriRef.current) {
+        uriRegistry.delete(prevModelUriRef.current);
       }
       window.sero.lsp.notify(projectId, serverLanguage, 'textDocument/didClose', {
-        textDocument: { uri: prevUri },
+        textDocument: { uri: prevFileUri },
       });
     }
 
-    // Register in URI routing registry
+    // Register new model URI in routing registry
     uriRegistry.set(monacoUri, { projectId, language: serverLanguage });
+    prevModelUriRef.current = monacoUri;
 
     // Send didOpen
     const version = 1;
@@ -230,13 +228,16 @@ export function useLsp({ projectId, filePath, languageId, monaco, editor }: UseL
       // On cleanup, close the document
       const uri = openUriRef.current;
       if (uri) {
-        uriRegistry.delete(monacoUri);
+        if (prevModelUriRef.current) {
+          uriRegistry.delete(prevModelUriRef.current);
+        }
         try {
           window.sero.lsp.notify(projectId, serverLanguage, 'textDocument/didClose', {
             textDocument: { uri },
           });
         } catch { /* component unmounting */ }
         openUriRef.current = null;
+        prevModelUriRef.current = null;
       }
     };
   }, [isReady, filePath, editor, monaco, projectId, languageId, serverLanguage]);

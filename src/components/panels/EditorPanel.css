@@ -39,29 +39,172 @@
   overflow: hidden;
 }
 
-/* ── Open File Tab Bar ──────────────────────────────────────── */
+/* ── Tab Bar ────────────────────────────────────────────────── */
 .editor-tab-bar {
   display: flex;
-  align-items: center;
-  height: 30px;
+  align-items: stretch;
+  height: 32px;
   background: var(--bg-base);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 0 10px;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.editor-tabs-scroll {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 100%;
+  flex: 1;
+  scrollbar-width: none;
+}
+
+.editor-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Overflow fade indicators ───────────────────────────────── */
+.editor-tabs-fade {
+  position: absolute;
+  top: 0;
+  bottom: 1px; /* don't cover border */
+  width: 28px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.editor-tabs-fade-left {
+  left: 0;
+  background: linear-gradient(to right, var(--bg-base) 0%, transparent 100%);
+}
+
+.editor-tabs-fade-right {
+  right: 0;
+  background: linear-gradient(to left, var(--bg-base) 0%, transparent 100%);
+}
+
+.editor-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 0 10px;
+  height: 100%;
+  cursor: pointer;
+  border-right: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+  transition: background 0.1s, color 0.1s;
+  position: relative;
+}
+
+.editor-tab:hover {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.editor-tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.editor-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.editor-tab-icon {
+  font-size: 11px;
   flex-shrink: 0;
 }
 
-.editor-tab-active {
-  font-size: var(--text-xs);
-  color: var(--text-primary);
+.editor-tab-name {
+  font-weight: 400;
+}
+
+.editor-tab.active .editor-tab-name {
   font-weight: 500;
 }
 
 .editor-tab-dirty {
   color: var(--accent);
+  font-size: 9px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.editor-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+  flex-shrink: 0;
+}
+
+.editor-tab:hover .editor-tab-close,
+.editor-tab.active .editor-tab-close {
+  opacity: 0.6;
+}
+
+.editor-tab-close:hover {
+  opacity: 1 !important;
+  background: var(--bg-muted);
+  color: var(--text-primary);
 }
 
 /* ── Monaco Container ───────────────────────────────────────── */
 .editor-monaco {
   flex: 1;
   overflow: hidden;
+}
+
+/* ── Welcome / Empty State ──────────────────────────────────── */
+.editor-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 8px;
+}
+
+.editor-welcome-icon {
+  font-size: 40px;
+  opacity: 0.4;
+}
+
+.editor-welcome-title {
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.editor-welcome-hint {
+  font-size: var(--text-xs);
+  max-width: 260px;
+  text-align: center;
+  line-height: 1.5;
 }
