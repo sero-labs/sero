@@ -5,6 +5,37 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAgentStore, type AgentMessage } from '../../../stores/agent-store';
 
+/**
+ * Format a human-readable label for a tool execution start message.
+ * Shows the command/path/args so users can see what's happening.
+ */
+function formatToolLabel(toolName: string, args: Record<string, any> | undefined): string {
+  if (!args) return `Running: ${toolName}`;
+
+  switch (toolName) {
+    case 'bash': {
+      const cmd = args.command ?? '';
+      // Truncate very long commands
+      const preview = cmd.length > 120 ? cmd.slice(0, 120) + '…' : cmd;
+      return `$ ${preview}`;
+    }
+    case 'read':
+      return `Reading: ${args.path ?? 'unknown'}`;
+    case 'write':
+      return `Writing: ${args.path ?? 'unknown'}`;
+    case 'edit':
+      return `Editing: ${args.path ?? 'unknown'}`;
+    case 'ls':
+      return `Listing: ${args.path ?? '/workspace'}`;
+    case 'read_terminal':
+      return `Reading terminal output`;
+    case 'read_skill':
+      return `Loading skill: ${args.name ?? 'unknown'}`;
+    default:
+      return `Running: ${toolName}`;
+  }
+}
+
 export function useAgentEvents(projectId: string) {
   const {
     getState, addMessage, loadMessages, updateLastAssistantMessage,
@@ -59,16 +90,19 @@ export function useAgentEvents(projectId: string) {
           }
           break;
 
-        case 'tool_execution_start':
+        case 'tool_execution_start': {
           setStatus(projectId, 'tool_executing', data.toolName);
+          // Include tool arguments in the display for better context
+          const toolLabel = formatToolLabel(data.toolName, data.args);
           addMessage(projectId, {
             id: `tool-${data.toolCallId}`,
             role: 'tool',
-            content: `Running: ${data.toolName}`,
+            content: toolLabel,
             timestamp: Date.now(),
             toolName: data.toolName,
           });
           break;
+        }
 
         case 'tool_execution_end': {
           const toolContent = data.result?.content
@@ -107,27 +141,42 @@ export function useAgentEvents(projectId: string) {
     return cleanup;
   }, [projectId, addMessage, updateLastAssistantMessage, setStatus]);
 
-  // Safety timeout — if stuck in thinking/executing for >60s with no new events, reset
+  // Track the last time we received any agent event (for inactivity timeout)
+  const lastEventTimeRef = useRef(Date.now());
+  // Update lastEventTime whenever messages change or status changes (i.e., events arrived)
+  useEffect(() => {
+    if (isSubmitting) {
+      lastEventTimeRef.current = Date.now();
+    }
+  }, [agentState.status, agentState.messages.length, isSubmitting]);
+
+  // Safety timeout — if no new events arrive for 180s while active, assume stuck
   useEffect(() => {
     if (agentState.status === 'idle' || !isSubmitting) return;
 
-    const timeout = setTimeout(() => {
-      if (isSubmitting) {
-        console.warn('Agent appears stuck — auto-resetting status');
+    const INACTIVITY_TIMEOUT = 180_000; // 3 minutes of no events
+    const CHECK_INTERVAL = 10_000;      // check every 10s
+
+    const interval = setInterval(() => {
+      if (!isSubmitting) return;
+
+      const elapsed = Date.now() - lastEventTimeRef.current;
+      if (elapsed >= INACTIVITY_TIMEOUT) {
+        console.warn(`Agent inactive for ${Math.round(elapsed / 1000)}s — auto-resetting status`);
         addMessage(projectId, {
           id: `timeout-${Date.now()}`,
           role: 'system',
-          content: 'Agent response timed out. Try again.',
+          content: 'Agent response timed out after 3 minutes of inactivity. Try again.',
           timestamp: Date.now(),
           isError: true,
         });
         setIsSubmitting(false);
         setStatus(projectId, 'idle');
       }
-    }, 90_000);
+    }, CHECK_INTERVAL);
 
-    return () => clearTimeout(timeout);
-  }, [agentState.status, isSubmitting, agentState.messages.length]);
+    return () => clearInterval(interval);
+  }, [agentState.status, isSubmitting, projectId, addMessage, setStatus]);
 
   // Load persisted chat history on first mount
   useEffect(() => {

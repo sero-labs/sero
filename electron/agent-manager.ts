@@ -199,7 +199,7 @@ export class AgentManager {
           const truncated = output.length > 50000 ? output.slice(-50000) + '\n[truncated]' : output;
 
           return {
-            content: [{ type: 'text', text: truncated || '(no output)' }],
+            content: [{ type: 'text', text: truncated || (result.exitCode === 0 ? '✓ Command completed (no output)' : '✗ Command failed (no output)') }],
             details: { exitCode: result.exitCode },
             isError: result.exitCode !== 0,
           };
@@ -466,8 +466,10 @@ You have the following tools:
 
 Key behaviors:
 - Always work within ${WORKSPACE_DIR}
-- You have full root access inside the container
+- You have full root access inside the container (Debian-based, node:22-slim)
 - The container has network access for installing packages
+- Available tools: git, curl, wget, node, npm, ss, netstat, dig, ps, less
+- To check listening ports use: ss -tlnp
 - Be proactive: if you see a problem, fix it
 - When creating projects, set up proper structure (package.json, tsconfig, etc.)
 - Run tests and builds to verify your work
