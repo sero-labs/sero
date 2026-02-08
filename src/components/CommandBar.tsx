@@ -1,135 +1,107 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import './CommandBar.css';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  PlusIcon,
+  TerminalIcon,
+  GlobeIcon,
+  BotIcon,
+  PuzzleIcon,
+  SettingsIcon,
+} from 'lucide-react';
+import {
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandShortcut,
+} from './ui/command';
+import { Kbd } from './ui/kbd';
 
 interface Props {
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onNewProject: () => void;
   onOpenSkills?: () => void;
   onOpenSettings?: () => void;
 }
 
-interface Command {
+interface SeroCommand {
   id: string;
   label: string;
-  shortcut?: string;
+  icon: React.ReactNode;
+  shortcut?: React.ReactNode;
   action: () => void;
 }
 
-export function CommandBar({ onClose, onNewProject, onOpenSkills, onOpenSettings }: Props) {
-  const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const commands: Command[] = [
+export function CommandBar({ open, onOpenChange, onNewProject, onOpenSkills, onOpenSettings }: Props) {
+  const commands: SeroCommand[] = [
     {
       id: 'new-project',
       label: 'New Project',
-      shortcut: '⌘N',
-      action: () => { onNewProject(); onClose(); },
+      icon: <PlusIcon />,
+      shortcut: <><Kbd>⌘</Kbd><Kbd>N</Kbd></>,
+      action: () => { onNewProject(); onOpenChange(false); },
     },
     {
       id: 'new-terminal',
       label: 'New Terminal',
-      shortcut: '⌘T',
-      action: () => { /* TODO */ onClose(); },
+      icon: <TerminalIcon />,
+      shortcut: <><Kbd>⌘</Kbd><Kbd>T</Kbd></>,
+      action: () => { /* TODO */ onOpenChange(false); },
     },
     {
       id: 'new-agent',
       label: 'New Agent Chat',
-      action: () => { /* TODO */ onClose(); },
+      icon: <BotIcon />,
+      action: () => { /* TODO */ onOpenChange(false); },
     },
     {
       id: 'toggle-preview',
       label: 'Toggle Preview',
-      action: () => { /* TODO */ onClose(); },
+      icon: <GlobeIcon />,
+      action: () => { /* TODO */ onOpenChange(false); },
     },
     {
       id: 'open-skills',
       label: 'Skills',
-      shortcut: '⌘⇧S',
-      action: () => { onOpenSkills?.(); onClose(); },
+      icon: <PuzzleIcon />,
+      shortcut: <><Kbd>⌘</Kbd><Kbd>⇧</Kbd><Kbd>S</Kbd></>,
+      action: () => { onOpenSkills?.(); onOpenChange(false); },
     },
     {
       id: 'open-settings',
-      label: 'Settings / Environment Variables',
-      shortcut: '⌘,',
-      action: () => { onOpenSettings?.(); onClose(); },
+      label: 'Settings',
+      icon: <SettingsIcon />,
+      shortcut: <><Kbd>⌘</Kbd><Kbd>,</Kbd></>,
+      action: () => { onOpenSettings?.(); onOpenChange(false); },
     },
   ];
 
-  const filtered = commands.filter((cmd) =>
-    cmd.label.toLowerCase().includes(query.toLowerCase())
-  );
-
-  useEffect(() => {
-    inputRef.current?.focus();
-
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setSelectedIndex((i) => Math.max(i - 1, 0));
-          break;
-        case 'Enter':
-          e.preventDefault();
-          if (filtered[selectedIndex]) {
-            filtered[selectedIndex].action();
-          }
-          break;
-      }
-    },
-    [filtered, selectedIndex]
-  );
-
   return (
-    <div className="command-bar-overlay" onClick={onClose}>
-      <div className="command-bar" onClick={(e) => e.stopPropagation()}>
-        <input
-          ref={inputRef}
-          className="command-bar-input"
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a command..."
-        />
-        <div className="command-bar-results">
-          {filtered.map((cmd, i) => (
-            <button
-              key={cmd.id}
-              className={`command-bar-item ${i === selectedIndex ? 'selected' : ''}`}
-              onClick={cmd.action}
-              onMouseEnter={() => setSelectedIndex(i)}
-            >
-              <span className="command-bar-item-label">{cmd.label}</span>
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Command Palette"
+      description="Search for a command to run"
+    >
+      <CommandInput placeholder="Type a command…" />
+      <CommandList>
+        <CommandEmpty>No matching commands</CommandEmpty>
+        <CommandGroup heading="Actions">
+          {commands.map((cmd) => (
+            <CommandItem key={cmd.id} onSelect={cmd.action} className="gap-3">
+              {cmd.icon}
+              <span>{cmd.label}</span>
               {cmd.shortcut && (
-                <span className="command-bar-item-shortcut">{cmd.shortcut}</span>
+                <CommandShortcut className="flex items-center gap-0.5">
+                  {cmd.shortcut}
+                </CommandShortcut>
               )}
-            </button>
+            </CommandItem>
           ))}
-          {filtered.length === 0 && (
-            <div className="command-bar-empty">No matching commands</div>
-          )}
-        </div>
-      </div>
-    </div>
+        </CommandGroup>
+      </CommandList>
+    </CommandDialog>
   );
 }

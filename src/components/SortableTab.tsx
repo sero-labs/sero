@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { XIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Input } from './ui/input';
 
 interface Props {
   id: string;
@@ -35,9 +38,7 @@ export function SortableTab({ id, isActive, statusColor, name, onSelect, onClose
 
   const commitRename = useCallback(() => {
     const trimmed = editValue.trim();
-    if (trimmed && trimmed !== name) {
-      onRename(trimmed);
-    }
+    if (trimmed && trimmed !== name) onRename(trimmed);
     setEditing(false);
   }, [editValue, name, onRename]);
 
@@ -59,7 +60,12 @@ export function SortableTab({ id, isActive, statusColor, name, onSelect, onClose
     <div
       ref={setNodeRef}
       style={style}
-      className={`shell-tab ${isActive ? 'active' : ''}`}
+      className={cn(
+        'group relative flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium cursor-pointer select-none transition-colors whitespace-nowrap outline-none',
+        isActive
+          ? 'bg-secondary text-foreground'
+          : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
+      )}
       {...attributes}
       {...listeners}
       role="tab"
@@ -68,11 +74,16 @@ export function SortableTab({ id, isActive, statusColor, name, onSelect, onClose
       onDoubleClick={handleDoubleClick}
       onKeyDown={(e) => e.key === 'Enter' && !editing && onSelect()}
     >
-      <span className="shell-tab-dot" style={{ backgroundColor: statusColor }} />
+      {/* Status dot */}
+      <span
+        className="size-1.5 rounded-full shrink-0"
+        style={{ backgroundColor: statusColor }}
+      />
+
+      {/* Name or rename input */}
       {editing ? (
-        <input
+        <Input
           ref={inputRef}
-          className="shell-tab-rename-input"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={commitRename}
@@ -84,19 +95,28 @@ export function SortableTab({ id, isActive, statusColor, name, onSelect, onClose
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           maxLength={40}
+          className="h-5 text-xs px-1 py-0 w-24 border-ring"
         />
       ) : (
-        <span className="shell-tab-name">{name}</span>
+        <span className="max-w-[120px] overflow-hidden text-ellipsis">{name}</span>
       )}
+
+      {/* Close button */}
       <button
-        className="shell-tab-close"
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
+        className={cn(
+          'flex items-center justify-center size-4 rounded-sm transition-opacity',
+          'opacity-0 group-hover:opacity-100',
+          'hover:bg-muted text-muted-foreground hover:text-foreground',
+        )}
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
       >
-        ×
+        <XIcon className="size-3" />
       </button>
+
+      {/* Active indicator line */}
+      {isActive && (
+        <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-primary" />
+      )}
     </div>
   );
 }

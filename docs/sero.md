@@ -174,7 +174,7 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 | Phase | Focus | Status |
 |-------|-------|--------|
 | **1** | Electron shell + containers + tiled workspace + editor + terminal + agent chat | ✅ Complete |
-| **2** | Skills UI + LSP + improved editor + layouts + preview polish | 🔨 In Progress (Skills ✅, LSP ✅, Multi-Tab Editor ✅) |
+| **2** | Skills UI + LSP + improved editor + layouts + preview polish + navigation UX | ✅ Complete |
 | **3** | Multi-agent orchestration (task trees, parallel agents, council mode) | Planned |
 | **4** | Cloud migration path (E2B/Codespaces backend), hybrid local/cloud | Planned |
 | **5** | Collaboration (multiplayer editing, shared sessions) | Planned |
@@ -318,6 +318,45 @@ The container is the body. The Electron UI is the face. Pi is the mind.
   - Renamed `--text-sm/xs/base/lg/xl` → `--sero-text-*` across 11 CSS files
   - Renamed `--radius-sm/md/lg` → `--sero-radius-*` across 9 CSS files
   - Context menu items now render with correct `py-2` (8px), `px-3` (12px), `text-sm` (14px)
+
+### 2026-02-07: Phase 2 — Preview Polish, Navigation UX & Housekeeping
+- **Preview Panel** rewritten with Tailwind/shadcn:
+  - Replaced all CSS classes with Tailwind utilities, deleted `PreviewPanel.css`
+  - Navigation buttons (back/forward/refresh) use shadcn `Button` with `Tooltip`
+  - URL bar uses shadcn `Input` with monospace font
+  - Port quick-switch uses `Button` variants (active port highlighted with `secondary`)
+  - "Open in browser" button with `ExternalLink` icon
+  - Loading state uses animated `Loader2` spinner in refresh button
+  - Error state with `CircleAlert` icon and `Button` retry
+  - Empty state with `Globe` icon in rounded container, `Badge` port buttons
+  - All icons from `lucide-react` (replaced emoji)
+- **Project navigation UX** rewritten with shadcn:
+  - `CommandBar` rebuilt on shadcn `CommandDialog` (cmdk-based):
+    - Proper search, keyboard nav, grouped items
+    - `CommandItem` with lucide icons and `Kbd` shortcut badges
+    - Controlled `open`/`onOpenChange` props (no manual overlay)
+  - `SortableTab` rewritten with Tailwind:
+    - `XIcon` close button (replaced × text), group-hover opacity
+    - Active indicator with `bg-primary` underline
+    - `Input` for inline rename
+  - `Shell` rewritten with Tailwind/shadcn:
+    - `Button` + `Tooltip` for new project (with `Spinner` loading state)
+    - `Button variant="outline"` with `CommandIcon` + `Kbd` for ⌘K trigger
+    - `TooltipProvider` wrapping entire shell
+    - Extracted `EmptyState` sub-component with shadcn `Button`
+  - `ProjectTab` rewritten with Tailwind/shadcn:
+    - `Spinner` loading state (replaced CSS animation)
+    - `CircleAlert` error state with `Button` retry
+    - Status bar with `Tooltip` on every item, `Badge` for port mappings
+    - `Cpu`/`MemoryStick`/`Globe` lucide icons in status bar
+    - IP address clickable to copy to clipboard
+  - Deleted 4 CSS files: `Shell.css`, `CommandBar.css`, `ProjectTab.css`, `PreviewPanel.css`
+- **Housekeeping:**
+  - Added `src/vite-worker.d.ts` — type declarations for Vite `?worker` imports (fixed 5 TS errors in `monaco-setup.ts`)
+  - Refactored `agent-manager.ts` (492 LOC → 154) — extracted `agent-tools.ts` (230 LOC) and `agent-system-prompt.ts` (65 LOC)
+  - Deleted unused `DraggablePanel.tsx` + `DraggablePanel.css` (dead code, not imported anywhere)
+  - All project files verified under 500 LOC limit (largest: `skill-manager.ts` at 452)
+  - All three builds pass clean: `tsc --noEmit`, `build-electron.mjs`, `vite build`
 
 ## Phase 2 — Skills Integration (Planned)
 
