@@ -3,7 +3,6 @@ import Editor from '@monaco-editor/react';
 import { FileTree } from './FileTree';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { useLsp } from '../../lsp/use-lsp';
-import './FileTree.css';
 import './EditorPanel.css';
 
 interface Props {
@@ -276,6 +275,101 @@ export function EditorPanel({ projectId }: Props) {
     setTabs(newOrder);
   }, []);
 
+  // ── Handle file/directory move or rename from the file tree ──
+  const handlePathChanged = useCallback(
+    (oldPath: string, newPath: string) => {
+      // Build a mapping of old→new for every affected tab.
+      // If oldPath is a directory, any tab under it gets its prefix replaced.
+      const remap = (p: string): string | null => {
+        if (p === oldPath) return newPath;
+        if (p.startsWith(oldPath + '/')) return newPath + p.slice(oldPath.length);
+        return null;
+      };
+
+      setTabs((prev) => {
+        let changed = false;
+        const next = prev.map((p) => {
+          const mapped = remap(p);
+          if (mapped) { changed = true; return mapped; }
+          return p;
+        });
+        return changed ? next : prev;
+      });
+
+      setActiveTab((prev) => {
+        if (!prev) return prev;
+        return remap(prev) ?? prev;
+      });
+
+      // Migrate content, saved-content, and view-state refs
+      for (const [key] of Array.from(contentMapRef.current.entries())) {
+        const mapped = remap(key);
+        if (mapped) {
+          contentMapRef.current.set(mapped, contentMapRef.current.get(key)!);
+          contentMapRef.current.delete(key);
+        }
+      }
+      for (const [key] of Array.from(savedContentRef.current.entries())) {
+        const mapped = remap(key);
+        if (mapped) {
+          savedContentRef.current.set(mapped, savedContentRef.current.get(key)!);
+          savedContentRef.current.delete(key);
+        }
+      }
+      for (const [key] of Array.from(viewStateMapRef.current.entries())) {
+        const mapped = remap(key);
+        if (mapped) {
+          viewStateMapRef.current.set(mapped, viewStateMapRef.current.get(key)!);
+          viewStateMapRef.current.delete(key);
+        }
+      }
+
+      // Migrate dirty paths
+      setDirtyPaths((prev) => {
+        let changed = false;
+        const next = new Set<string>();
+        for (const p of prev) {
+          const mapped = remap(p);
+          if (mapped) { next.add(mapped); changed = true; }
+          else next.add(p);
+        }
+        return changed ? next : prev;
+      });
+
+      // Rename Monaco models so the editor picks up the new URI/language
+      if (monacoRef.current) {
+        for (const model of monacoRef.current.editor.getModels()) {
+          const modelPath = model.uri.path;
+          const mapped = remap(modelPath);
+          if (!mapped) continue;
+
+          const value = model.getValue();
+          const newUri = monacoRef.current.Uri.parse(mapped);
+          // Only create if no model exists at the new URI yet
+          if (!monacoRef.current.editor.getModel(newUri)) {
+            monacoRef.current.editor.createModel(value, getLanguage(mapped), newUri);
+          }
+          model.dispose();
+        }
+      }
+    },
+    [],
+  );
+
+  // ── Handle file/directory deletion from the file tree ──
+  const handleDeleted = useCallback(
+    (deletedPath: string) => {
+      // Close all tabs that match or are under the deleted path
+      const isAffected = (p: string) => p === deletedPath || p.startsWith(deletedPath + '/');
+
+      const affected = tabs.filter(isAffected);
+      for (const path of affected) {
+        closeTab(path);
+      }
+    },
+    [tabs, closeTab],
+  );
+
   // ── Build tab descriptors for the tab bar ──
   const tabDescriptors: EditorTab[] = tabs.map((path) => ({
     path,
@@ -289,7 +383,7 @@ export function EditorPanel({ projectId }: Props) {
         <div className="editor-sidebar-header">
           <span className="editor-sidebar-title">Files</span>
         </div>
-        <FileTree projectId={projectId} activePath={activeTab} onFileSelect={openTab} />
+        <FileTree projectId={projectId} activePath={activeTab} onFileSelect={openTab} onPathChanged={handlePathChanged} onDeleted={handleDeleted} />
       </div>
 
       {/* Main editor area */}

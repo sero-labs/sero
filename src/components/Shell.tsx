@@ -94,11 +94,13 @@ export function Shell() {
     })();
   }, [hasRestored]);
 
-  // Persist active project whenever it changes
+  // Persist active project whenever it changes + update file watcher
   useEffect(() => {
     if (hasRestored && activeProjectId) {
       window.sero.persistence.saveActiveProjectId(activeProjectId);
     }
+    // Pause/resume file watchers: only the active project should be watched
+    window.sero.filetree.setActive(activeProjectId);
   }, [activeProjectId, hasRestored]);
 
   const handleNewProject = useCallback(async () => {

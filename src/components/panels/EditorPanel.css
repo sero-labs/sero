@@ -24,7 +24,7 @@
 }
 
 .editor-sidebar-title {
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -95,7 +95,7 @@
   border-right: 1px solid var(--border-subtle);
   background: transparent;
   color: var(--text-muted);
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   white-space: nowrap;
   flex-shrink: 0;
   user-select: none;
@@ -203,7 +203,7 @@
 }
 
 .editor-welcome-hint {
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   max-width: 260px;
   text-align: center;
   line-height: 1.5;

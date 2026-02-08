@@ -4,6 +4,7 @@ import { ContainerManager } from './container-manager';
 import { AgentManager } from './agent-manager';
 import { SkillManager } from './skill-manager';
 import { LspManager } from './lsp/lsp-manager';
+import { FileWatcherManager } from './file-watcher';
 import { registerIpcHandlers } from './ipc-handlers';
 
 // ── Global error safety net ──────────────────────────────────
@@ -35,6 +36,7 @@ const containerManager = new ContainerManager();
 const skillManager = new SkillManager();
 const agentManager = new AgentManager(containerManager, skillManager);
 const lspManager = new LspManager(containerManager);
+const fileWatcher = new FileWatcherManager();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -64,13 +66,15 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
+  fileWatcher.setWindow(mainWindow);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
 app.whenReady().then(async () => {
-  registerIpcHandlers(ipcMain, containerManager, agentManager, skillManager, lspManager);
+  registerIpcHandlers(ipcMain, containerManager, agentManager, skillManager, lspManager, fileWatcher);
 
   // Discover skills on startup
   await skillManager.discoverAll();
@@ -106,6 +110,7 @@ app.on('before-quit', async (e) => {
   await lspManager.disposeAll();
   containerManager.disposeAllTerminals();
   skillManager.cleanupAllPreviews();
+  fileWatcher.disposeAll();
 
   try {
     const containers = await containerManager.list();

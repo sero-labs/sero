@@ -32,9 +32,9 @@
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   transition: all var(--transition-fast);
 }
 
@@ -52,10 +52,10 @@
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: var(--text-lg);
+  font-size: var(--sero-text-lg);
   cursor: pointer;
   padding: var(--space-xs);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   transition: all var(--transition-fast);
 }
 
@@ -83,9 +83,9 @@
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   color: var(--text-primary);
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   outline: none;
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
@@ -105,7 +105,7 @@
   justify-content: center;
   padding: var(--space-xl);
   color: var(--text-muted);
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
 }
 
 .skills-empty {
@@ -118,13 +118,13 @@
 }
 
 .skills-empty-title {
-  font-size: var(--text-lg);
+  font-size: var(--sero-text-lg);
   color: var(--text-secondary);
   margin-bottom: var(--space-sm);
 }
 
 .skills-empty-hint {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -133,7 +133,7 @@
   background: var(--bg-muted);
   padding: 1px 4px;
   border-radius: 3px;
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
 }
 
 /* ── Skill Cards ──────────────────────────────────────────── */
@@ -147,7 +147,7 @@
 .skill-card {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   padding: var(--space-md);
   transition: all var(--transition-fast);
 }
@@ -169,13 +169,13 @@
 }
 
 .skill-card-name {
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .skill-card-scope {
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   padding: 1px 6px;
   border-radius: 10px;
   font-weight: 500;
@@ -202,7 +202,7 @@
 }
 
 .skill-card-desc {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   color: var(--text-secondary);
   line-height: 1.5;
   margin: 0 0 var(--space-sm) 0;
@@ -259,7 +259,7 @@
 }
 
 .skill-card-status {
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   color: var(--text-muted);
   flex: 1;
 }
@@ -268,10 +268,10 @@
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   cursor: pointer;
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   opacity: 0;
   transition: all var(--transition-fast);
 }
@@ -304,9 +304,9 @@
   border: none;
   color: var(--accent);
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   transition: background var(--transition-fast);
 }
 
@@ -315,7 +315,7 @@
 }
 
 .skills-detail-name {
-  font-size: var(--text-xl);
+  font-size: var(--sero-text-xl);
   font-weight: 600;
   margin: 0;
 }
@@ -328,11 +328,11 @@
 .skill-toggle-btn {
   padding: var(--space-xs) var(--space-md);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   background: var(--bg-elevated);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   transition: all var(--transition-fast);
 }
 
@@ -345,11 +345,11 @@
 .skill-uninstall-btn {
   padding: var(--space-xs) var(--space-md);
   border: 1px solid #ef444440;
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   background: #ef444410;
   color: #f87171;
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   transition: all var(--transition-fast);
 }
 
@@ -359,14 +359,14 @@
 }
 
 .skills-detail-desc {
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   color: var(--text-secondary);
   line-height: 1.6;
   margin: 0;
 }
 
 .skills-detail-path {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   color: var(--text-muted);
   margin: 0;
 }
@@ -380,7 +380,7 @@
 
 .skills-detail-files h3,
 .skills-detail-content h3 {
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   font-weight: 600;
   margin: 0 0 var(--space-sm) 0;
   color: var(--text-secondary);
@@ -392,13 +392,13 @@
   margin: 0;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   overflow: hidden;
 }
 
 .skills-file-item {
   padding: var(--space-xs) var(--space-md);
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   font-family: 'SF Mono', 'Menlo', monospace;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-subtle);
@@ -413,9 +413,9 @@
 .skills-markdown {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   padding: var(--space-lg);
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   line-height: 1.7;
   overflow-x: auto;
 }
@@ -443,13 +443,13 @@
   padding: 1px 5px;
   border-radius: 3px;
   font-family: 'SF Mono', 'Menlo', monospace;
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
 }
 
 .skills-markdown pre {
   background: var(--bg-base);
   padding: var(--space-md);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   overflow-x: auto;
   margin: 0 0 var(--space-md) 0;
 }
@@ -463,14 +463,14 @@
 
 .skills-install h3,
 .skills-create h3 {
-  font-size: var(--text-lg);
+  font-size: var(--sero-text-lg);
   font-weight: 600;
   margin: 0 0 var(--space-xs) 0;
 }
 
 .skills-install-hint,
 .skills-create-hint {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   color: var(--text-muted);
   margin: 0 0 var(--space-lg) 0;
   line-height: 1.5;
@@ -489,9 +489,9 @@
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   color: var(--text-primary);
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   outline: none;
   box-sizing: border-box;
   transition: border-color var(--transition-fast);
@@ -511,9 +511,9 @@
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   color: var(--text-primary);
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   font-family: inherit;
   outline: none;
   resize: vertical;
@@ -534,7 +534,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   color: var(--text-secondary);
   cursor: pointer;
 }
@@ -548,9 +548,9 @@
   padding: var(--space-sm) var(--space-lg);
   background: var(--accent);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   color: white;
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   font-weight: 500;
   cursor: pointer;
   transition: background var(--transition-fast);
@@ -570,8 +570,8 @@
 
 .skills-install-result {
   padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
+  border-radius: var(--sero-radius-sm);
+  font-size: var(--sero-text-sm);
 }
 
 .skills-install-result.success {
@@ -595,13 +595,13 @@
 }
 
 .skills-form-group label {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   font-weight: 500;
   color: var(--text-secondary);
 }
 
 .skills-form-error {
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   color: var(--status-error);
 }
 
@@ -629,10 +629,10 @@
   padding: var(--space-xs) var(--space-md);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   transition: all var(--transition-fast);
 }
 
@@ -643,7 +643,7 @@
 }
 
 .skills-preview-count {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   color: var(--text-muted);
 }
 
@@ -653,7 +653,7 @@
   gap: 2px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   overflow: hidden;
   margin-bottom: var(--space-md);
 }
@@ -690,13 +690,13 @@
 }
 
 .skills-preview-item-name {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .skills-preview-item-desc {
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   color: var(--text-muted);
   line-height: 1.4;
   display: -webkit-box;
@@ -712,7 +712,7 @@
 }
 
 .skills-registries h4 {
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   font-weight: 600;
   color: var(--text-secondary);
   margin: 0 0 var(--space-sm) 0;
@@ -727,25 +727,25 @@
 .skills-registry-item {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   padding: var(--space-md);
 }
 
 .skills-registry-name {
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .skills-registry-desc {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   color: var(--text-secondary);
   margin-bottom: var(--space-xs);
 }
 
 .skills-registry-url code {
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   color: var(--text-muted);
   background: var(--bg-muted);
   padding: 2px 6px;

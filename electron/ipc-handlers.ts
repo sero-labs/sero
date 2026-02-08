@@ -3,6 +3,7 @@ import { ContainerManager } from './container-manager';
 import { AgentManager } from './agent-manager';
 import { SkillManager } from './skill-manager';
 import { LspManager } from './lsp/lsp-manager';
+import { FileWatcherManager } from './file-watcher';
 import {
   loadPersistedProjects, addPersistedProject, removePersistedProject,
   updatePersistedProject,
@@ -19,6 +20,7 @@ export function registerIpcHandlers(
   agentManager: AgentManager,
   skillManager: SkillManager,
   lspManager: LspManager,
+  fileWatcher: FileWatcherManager,
 ) {
   // ── Container IPC ──────────────────────────────────────────────
 
@@ -347,5 +349,19 @@ export function registerIpcHandlers(
         }
       } catch { /* window may be closing */ }
     }
+  });
+
+  // ── File Watcher IPC ───────────────────────────────────────────
+
+  ipcMain.handle('filetree:watch', async (_event, projectId: string) => {
+    fileWatcher.watch(projectId);
+  });
+
+  ipcMain.handle('filetree:unwatch', async (_event, projectId: string) => {
+    fileWatcher.unwatch(projectId);
+  });
+
+  ipcMain.handle('filetree:setActive', async (_event, projectId: string | null) => {
+    fileWatcher.setActiveProject(projectId);
   });
 }

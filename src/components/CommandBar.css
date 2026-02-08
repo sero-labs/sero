@@ -15,7 +15,7 @@
   width: 480px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--sero-radius-lg);
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
@@ -28,7 +28,7 @@
   border-bottom: 1px solid var(--border-subtle);
   background: transparent;
   color: var(--text-primary);
-  font-size: var(--text-lg);
+  font-size: var(--sero-text-lg);
   font-family: inherit;
   outline: none;
 }
@@ -53,7 +53,7 @@
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: var(--text-base);
+  font-size: var(--sero-text-base);
   font-family: inherit;
   cursor: pointer;
   text-align: left;
@@ -69,16 +69,16 @@
 }
 
 .command-bar-item-shortcut {
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   color: var(--text-muted);
   padding: 2px 6px;
   background: var(--bg-base);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
 }
 
 .command-bar-empty {
   padding: var(--space-lg);
   text-align: center;
   color: var(--text-muted);
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
 }

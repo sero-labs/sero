@@ -43,7 +43,7 @@
 .sero-dockview .dv-drop-target-dropzone > div {
   background: var(--accent-muted) !important;
   border: 2px solid var(--accent) !important;
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
 }
 
 /* Panel content area */
@@ -88,7 +88,7 @@
   width: 16px;
   height: 16px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   background: transparent;
   color: var(--text-muted);
   font-size: 14px;
@@ -110,7 +110,7 @@
   min-width: 160px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   padding: 4px 0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }

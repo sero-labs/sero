@@ -28,10 +28,10 @@
   width: 24px;
   height: 24px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   background: transparent;
   color: var(--text-muted);
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   cursor: pointer;
 }
 
@@ -48,10 +48,10 @@
   width: 100%;
   padding: 3px var(--space-sm);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   background: var(--bg-surface);
   color: var(--text-secondary);
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   font-family: 'SF Mono', 'Fira Code', monospace;
   outline: none;
 }
@@ -70,7 +70,7 @@
 .preview-port-btn {
   padding: 2px 6px;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   background: transparent;
   color: var(--text-muted);
   font-size: 10px;
@@ -115,13 +115,13 @@
 }
 
 .preview-empty-title {
-  font-size: var(--text-lg);
+  font-size: var(--sero-text-lg);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .preview-empty-hint {
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   color: var(--text-muted);
   max-width: 260px;
   line-height: 1.5;
@@ -136,10 +136,10 @@
 .preview-empty-port-btn {
   padding: 4px 12px;
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--sero-radius-md);
   background: transparent;
   color: var(--text-secondary);
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   font-family: 'SF Mono', monospace;
   cursor: pointer;
 }
@@ -159,16 +159,16 @@
   justify-content: center;
   background: var(--bg-surface);
   color: var(--status-error);
-  font-size: var(--text-sm);
+  font-size: var(--sero-text-sm);
   gap: var(--space-md);
 }
 
 .preview-error button {
   padding: 4px 12px;
   border: 1px solid var(--status-error);
-  border-radius: var(--radius-sm);
+  border-radius: var(--sero-radius-sm);
   background: transparent;
   color: var(--status-error);
-  font-size: var(--text-xs);
+  font-size: var(--sero-text-xs);
   cursor: pointer;
 }

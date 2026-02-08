@@ -188,6 +188,21 @@ const seroAPI = {
     },
   },
 
+  // File tree watcher
+  filetree: {
+    watch: (projectId: string) =>
+      ipcRenderer.invoke('filetree:watch', projectId),
+    unwatch: (projectId: string) =>
+      ipcRenderer.invoke('filetree:unwatch', projectId),
+    setActive: (projectId: string | null) =>
+      ipcRenderer.invoke('filetree:setActive', projectId),
+    onChanged: (callback: (data: { projectId: string; directories: string[] }) => void) => {
+      const handler = (_: unknown, data: { projectId: string; directories: string[] }) => callback(data);
+      ipcRenderer.on('filetree:changed', handler);
+      return () => { ipcRenderer.removeListener('filetree:changed', handler); };
+    },
+  },
+
   // Terminal operations
   terminal: {
     create: (projectId: string, terminalId: string) =>
