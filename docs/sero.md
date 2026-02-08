@@ -263,6 +263,62 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 - Updated `electron/persistence.ts` — editor state shape changed from `{ openFile }` to `{ openTabs: string[], activeTab: string | null }` with backward compatibility for legacy format
 - Fixed `src/lsp/use-lsp.ts` — URI registry cleanup bug: old code iterated and deleted wrong entries on tab switch. Now uses `prevModelUriRef` to correctly track and swap model URIs
 
+### AD-015: CSS architecture — remove global resets that conflict with Tailwind
+- **Date:** 2026-02-07
+- **Decision:** Removed `padding: 0` from the `* { margin: 0; padding: 0; box-sizing: border-box; }` reset in `index.html`. Renamed conflicting Sero design system CSS variables (`--text-sm`, `--text-xs`, `--radius-sm`, etc.) to `--sero-text-*` / `--sero-radius-*` to avoid clashing with Tailwind v4 theme variables.
+- **Problem:** `* { padding: 0 }` in an unlayered inline `<style>` tag had higher cascade priority than ALL Tailwind `@layer utilities` styles. Every Tailwind padding class (`py-2`, `px-3`, `p-1.5`, etc.) was silently zeroed out on every element. Additionally, Sero's `:root` defined `--text-sm: 12px` which overwrote Tailwind v4's `--text-sm: 0.875rem` (14px), causing all `text-sm` utilities to render at the wrong size.
+- **Root cause analysis:** CSS cascade layers mean unlayered rules (`:root {}`, `* {}` in `<style>`) always beat `@layer utilities` regardless of specificity. This is a fundamental Tailwind v4 gotcha when mixing with legacy global CSS.
+- **Fix:**
+  1. `index.html`: Changed `* { margin: 0; padding: 0; box-sizing: border-box; }` → `*, *::before, *::after { margin: 0; box-sizing: border-box; }` (removed `padding: 0`)
+  2. `global.css`: Renamed `--text-xs/sm/base/lg/xl` → `--sero-text-xs/sm/base/lg/xl`
+  3. `global.css`: Renamed `--radius-sm/md/lg` (Sero's) → `--sero-radius-sm/md/lg`
+  4. Updated all 11 CSS files that referenced the old variable names
+  5. Scoped `:focus-visible` rule to `not([data-slot])` to avoid overriding shadcn focus rings
+- **Rule going forward:** New components use Tailwind classes and shadcn theming. Legacy Sero CSS variables prefixed with `--sero-*` are for existing components only.
+
+### 2026-02-07: Phase 2 — File Tree Rewrite & File Watcher
+- Replaced hand-rolled FileTree with `@headless-tree/core` + `@headless-tree/react` + shadcn `Tree` component:
+  - Lazy directory loading via `syncDataLoaderFeature` with manual async loading
+  - Controlled `expandedItems` state for targeted watcher refresh
+  - Auto-expand ancestor directories of the active file
+  - `tree.rebuildTree()` called explicitly when items change (headless-tree only auto-rebuilds on `expandedItems` changes, not data loader changes)
+  - Indent guide lines via CSS `repeating-linear-gradient` on `before::` pseudo-element
+  - Inline `paddingInlineStart` for reliable indentation (Tailwind `ps-(--tree-padding)` backup)
+- Created `file-tree/file-icons.tsx` — file type icons using `@remixicon/react` mapped by filename and extension
+- Replaced 8-second polling with native filesystem watching via `fs.watch`:
+  - Created `electron/file-watcher.ts` — `FileWatcherManager` using recursive FSEvents on macOS
+  - 150ms debounce, maps host paths → container `/workspace/...` paths
+  - Pause/resume per project (pauses when project tab is not active)
+  - IPC handlers: `filetree:watch`, `filetree:unwatch`, `filetree:setActive`
+  - `Shell.tsx` calls `setActive` on tab switch
+- Added drag-and-drop file moving:
+  - `dragAndDropFeature` + `keyboardDragAndDropFeature` from headless-tree
+  - `createOnDropHandler` detects moved items and runs `mv` in the container
+  - `<TreeDragLine />` renders visual drop indicator
+  - File watcher auto-refreshes source and destination directories
+- Added inline renaming:
+  - `renamingFeature` from headless-tree, triggered by F2 or context menu
+  - Inline `<Input>` replaces file name, `onRename` runs `mv` in container
+  - `canRename` prevents renaming the root `/workspace` node
+- Created `file-tree/file-tree-ops.ts` — container operations (`moveItem`, `renameItem`, `deleteItem`, `createFile`, `createFolder`) using `container exec` with shell-safe path escaping
+- Added `onPathChanged` callback (FileTree → EditorPanel):
+  - When a file/directory is moved or renamed, all affected editor tabs update their paths
+  - Migrates content cache, saved content, view state refs, dirty state, and Monaco models to new URIs
+  - Handles directory moves (all tabs under the directory get their prefix swapped)
+- Added `onDeleted` callback — closes all editor tabs matching or under the deleted path
+- Created right-click context menu using shadcn `ContextMenu` (Radix UI):
+  - New File / New Folder — `e.preventDefault()` keeps menu open for inline name input
+  - Rename — triggers headless-tree's built-in inline rename
+  - Delete — `rm -rf` in container, closes affected editor tabs
+  - Copy Path — copies container path to clipboard
+  - Created `src/components/ui/context-menu.tsx` — shadcn-style component with `variant="destructive"` support
+  - Created `file-tree/file-tree-context-menu.tsx` — FileTree-specific menu with all actions
+- CSS architecture fixes (AD-015):
+  - Fixed `* { padding: 0 }` in `index.html` zeroing all Tailwind padding utilities
+  - Renamed `--text-sm/xs/base/lg/xl` → `--sero-text-*` across 11 CSS files
+  - Renamed `--radius-sm/md/lg` → `--sero-radius-*` across 9 CSS files
+  - Context menu items now render with correct `py-2` (8px), `px-3` (12px), `text-sm` (14px)
+
 ## Phase 2 — Skills Integration (Planned)
 
 ### Goal
