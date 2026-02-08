@@ -26,6 +26,17 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 - **Pi SDK** (`@mariozechner/pi-coding-agent`) as the AI agent core
 - **Hard requirement:** Every agent session is sandboxed inside a container
 
+## Phase Roadmap
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| **1** | Electron shell + containers + tiled workspace + editor + terminal + agent chat | ✅ Complete |
+| **2** | Skills UI + LSP + improved editor + layouts + preview polish + navigation UX | ✅ Complete |
+| **3** | PI Packages andExtensions implementation | Planned |
+| **4** | Multi-agent orchestration (task trees, parallel agents, council mode) | Planned |
+| **5** | Cloud migration path (E2B/Codespaces backend), hybrid local/cloud | Planned |
+| **6** | Collaboration (multiplayer editing, shared sessions) | Planned |
+
 ## Architecture Decisions
 
 ### AD-001: Container interaction via CLI wrapper (not Swift bridge)
@@ -43,7 +54,7 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 ### AD-003: Single agent per project (Phase 1), architecture supports multi-agent
 - **Date:** 2026-02-04
 - **Decision:** One `AgentSession` per project tab for Phase 1. The `AgentSessionManager` is designed as a map of `projectId → AgentSession[]` to support multiple sessions per project later.
-- **Revisit when:** Phase 3 (multi-agent orchestration).
+- **Revisit when:** Phase 4 (multi-agent orchestration).
 
 ### AD-004: Tiling library — react-mosaic (deprecated - see AD-009)
 - **Date:** 2026-02-04
@@ -169,15 +180,6 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 - **Future:** Create a LaunchDaemon (`com.sero.container-nat.plist`) to auto-apply at boot, removing the manual step. Not yet implemented — manual re-run is sufficient for now.
 - **Teardown:** `sudo ./scripts/setup-container-nat.sh --teardown` reverts all changes.
 
-## Phase Roadmap
-
-| Phase | Focus | Status |
-|-------|-------|--------|
-| **1** | Electron shell + containers + tiled workspace + editor + terminal + agent chat | ✅ Complete |
-| **2** | Skills UI + LSP + improved editor + layouts + preview polish + navigation UX | ✅ Complete |
-| **3** | Multi-agent orchestration (task trees, parallel agents, council mode) | Planned |
-| **4** | Cloud migration path (E2B/Codespaces backend), hybrid local/cloud | Planned |
-| **5** | Collaboration (multiplayer editing, shared sessions) | Planned |
 
 ### 2026-02-05: Phase 2 — Skills Integration
 - Created `SkillManager` (electron/skill-manager.ts) — full skill lifecycle management:
