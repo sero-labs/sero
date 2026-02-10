@@ -5,6 +5,7 @@ import {
   GlobeIcon,
   BotIcon,
   PuzzleIcon,
+  PackageIcon,
   SettingsIcon,
 } from 'lucide-react';
 import {
@@ -23,6 +24,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onNewProject: () => void;
   onOpenSkills?: () => void;
+  onOpenPackages?: () => void;
   onOpenSettings?: () => void;
 }
 
@@ -34,7 +36,7 @@ interface SeroCommand {
   action: () => void;
 }
 
-export function CommandBar({ open, onOpenChange, onNewProject, onOpenSkills, onOpenSettings }: Props) {
+export function CommandBar({ open, onOpenChange, onNewProject, onOpenSkills, onOpenPackages, onOpenSettings }: Props) {
   const commands: SeroCommand[] = [
     {
       id: 'new-project',
@@ -68,6 +70,12 @@ export function CommandBar({ open, onOpenChange, onNewProject, onOpenSkills, onO
       icon: <PuzzleIcon />,
       shortcut: <><Kbd>⌘</Kbd><Kbd>⇧</Kbd><Kbd>S</Kbd></>,
       action: () => { onOpenSkills?.(); onOpenChange(false); },
+    },
+    {
+      id: 'open-packages',
+      label: 'Packages',
+      icon: <PackageIcon />,
+      action: () => { onOpenPackages?.(); onOpenChange(false); },
     },
     {
       id: 'open-settings',

@@ -13,6 +13,7 @@ import { TerminalPanel } from './panels/TerminalPanel';
 import { AgentPanel } from './panels/AgentPanel';
 import { PreviewPanel } from './panels/PreviewPanel';
 import { SkillsPanel } from './panels/SkillsPanel';
+import { PackagesPanel } from './panels/PackagesPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
 import './TiledWorkspace.css';
 
@@ -28,6 +29,7 @@ const PANEL_ICONS: Record<string, string> = {
   agent: '🤖',
   preview: '🌐',
   skills: '🧩',
+  packages: '📦',
   settings: '⚙️',
 };
 
@@ -49,6 +51,10 @@ function PreviewPanelComponent({ params }: IDockviewPanelProps<{ projectId: stri
 
 function SkillsPanelComponent({ params }: IDockviewPanelProps<{ projectId: string; panelId: string }>) {
   return <SkillsPanel projectId={params.projectId} panelId={params.panelId} />;
+}
+
+function PackagesPanelComponent({ params }: IDockviewPanelProps<{ projectId: string; panelId: string }>) {
+  return <PackagesPanel projectId={params.projectId} panelId={params.panelId} />;
 }
 
 function SettingsPanelComponent({ params }: IDockviewPanelProps<{ projectId: string; panelId: string }>) {
@@ -139,6 +145,7 @@ export function TiledWorkspace({ projectId }: Props) {
       agent: AgentPanelComponent,
       preview: PreviewPanelComponent,
       skills: SkillsPanelComponent,
+      packages: PackagesPanelComponent,
       settings: SettingsPanelComponent,
     }),
     []

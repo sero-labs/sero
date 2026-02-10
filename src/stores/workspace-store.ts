@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { DockviewApi } from 'dockview-core';
 
-export type PanelType = 'editor' | 'terminal' | 'agent' | 'preview' | 'skills' | 'settings';
+export type PanelType = 'editor' | 'terminal' | 'agent' | 'preview' | 'skills' | 'settings' | 'packages';
 
 export interface PanelDef {
   id: string;
@@ -26,6 +26,7 @@ interface WorkspaceActions {
   cleanupWorkspace: (projectId: string) => void;
   addTerminal: (projectId: string) => void;
   addSkillsPanel: (projectId: string) => void;
+  addPackagesPanel: (projectId: string) => void;
   addSettingsPanel: (projectId: string) => void;
 }
 
@@ -116,6 +117,30 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       title: 'Skills',
       component: 'skills',
       params: { projectId, panelId, panelType: 'skills' },
+      position: agentPanel
+        ? { referencePanel: agentPanel.api.id, direction: 'within' }
+        : undefined,
+    });
+  },
+
+  addPackagesPanel: (projectId) => {
+    const api = get().apis.get(projectId);
+    if (!api) return;
+
+    const existing = api.panels.find((p) => p.api.component === 'packages');
+    if (existing) {
+      existing.api.setActive();
+      return;
+    }
+
+    const panelId = generatePanelId('packages');
+    const agentPanel = api.panels.find((p) => p.api.component === 'agent');
+
+    api.addPanel({
+      id: panelId,
+      title: 'Packages',
+      component: 'packages',
+      params: { projectId, panelId, panelType: 'packages' },
       position: agentPanel
         ? { referencePanel: agentPanel.api.id, direction: 'within' }
         : undefined,
