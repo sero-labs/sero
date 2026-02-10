@@ -75,6 +75,14 @@ export class AgentManager {
           .filter(r => r.enabled).map(r => r.path);
         additionalThemePaths = resolved.themes
           .filter(r => r.enabled).map(r => r.path);
+        console.log('[agent] Package resource paths:',
+          `${additionalExtensionPaths.length} ext,`,
+          `${additionalSkillPaths.length} skills,`,
+          `${additionalPromptPaths.length} prompts,`,
+          `${additionalThemePaths.length} themes`);
+        if (additionalExtensionPaths.length > 0) {
+          console.log('[agent] Extension paths:', additionalExtensionPaths);
+        }
       } catch (err) {
         console.error('[agent] Failed to resolve package paths:', err);
       }
@@ -90,6 +98,24 @@ export class AgentManager {
       additionalThemePaths,
     });
     await loader.reload();
+
+    // Diagnostic: check what extensions/resources were actually loaded
+    try {
+      const extResult = loader.getExtensions();
+      const loadedTools = extResult.extensions.flatMap(
+        (ext: any) => Array.from(ext.tools?.keys?.() ?? [])
+      );
+      console.log(`[agent] Loaded ${extResult.extensions.length} extension(s),`,
+        `${extResult.errors.length} error(s),`,
+        `tools: [${loadedTools.join(', ')}]`);
+      if (extResult.errors.length > 0) {
+        for (const err of extResult.errors) {
+          console.error(`[agent] Extension error at ${err.path}: ${err.error}`);
+        }
+      }
+    } catch (diagErr) {
+      console.warn('[agent] Could not inspect loaded extensions:', diagErr);
+    }
 
     const { session } = await createAgentSession({
       cwd: WORKSPACE_DIR,
