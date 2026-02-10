@@ -61,8 +61,13 @@ function fixElectronEnv(): void {
     }
 
     console.log(`[sero] Inherited ${changed} env var(s) from user login shell`);
+    // Version manager vars
     if (process.env.VOLTA_HOME) console.log(`[sero] VOLTA_HOME: ${process.env.VOLTA_HOME}`);
     if (process.env.NVM_DIR) console.log(`[sero] NVM_DIR: ${process.env.NVM_DIR}`);
+    // PI-specific vars
+    if (process.env.PI_CODING_AGENT_DIR) console.log(`[sero] PI_CODING_AGENT_DIR: ${process.env.PI_CODING_AGENT_DIR}`);
+    if (process.env.PI_PACKAGE_DIR) console.log(`[sero] PI_PACKAGE_DIR: ${process.env.PI_PACKAGE_DIR}`);
+    if (process.env.PI_SKIP_VERSION_CHECK) console.log(`[sero] PI_SKIP_VERSION_CHECK: ${process.env.PI_SKIP_VERSION_CHECK}`);
     console.log(`[sero] Resolved PATH: ${process.env.PATH}`);
   } catch (err) {
     console.warn('[sero] Could not resolve shell environment, using system default:', err);
