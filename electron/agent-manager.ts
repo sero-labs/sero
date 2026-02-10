@@ -12,6 +12,7 @@ import { ContainerManager } from './container-manager';
 import { SkillManager } from './skill-manager';
 import { createContainerTools } from './agent-tools';
 import { buildSystemPrompt } from './agent-system-prompt';
+import type { PackageInstaller } from './package-installer';
 
 const WORKSPACE_DIR = '/workspace';
 
@@ -24,6 +25,7 @@ export class AgentManager {
   private listeners = new Map<string, (() => void)[]>();
   private authStorage: AuthStorage;
   private modelRegistry: ModelRegistry;
+  private packageInstaller: PackageInstaller | null = null;
 
   constructor(
     private containerManager: ContainerManager,
@@ -31,6 +33,14 @@ export class AgentManager {
   ) {
     this.authStorage = new AuthStorage();
     this.modelRegistry = new ModelRegistry(this.authStorage);
+  }
+
+  /**
+   * Set the package installer for resolving extension/skill/prompt/theme
+   * paths from installed PI packages into agent sessions.
+   */
+  setPackageInstaller(installer: PackageInstaller): void {
+    this.packageInstaller = installer;
   }
 
   /**
@@ -48,10 +58,36 @@ export class AgentManager {
       retry: { enabled: true, maxRetries: 3 },
     });
 
+    // Resolve extension/skill/prompt/theme paths from installed PI packages
+    let additionalExtensionPaths: string[] = [];
+    let additionalSkillPaths: string[] = [];
+    let additionalPromptPaths: string[] = [];
+    let additionalThemePaths: string[] = [];
+
+    if (this.packageInstaller) {
+      try {
+        const resolved = await this.packageInstaller.getResolvedPaths();
+        additionalExtensionPaths = resolved.extensions
+          .filter(r => r.enabled).map(r => r.path);
+        additionalSkillPaths = resolved.skills
+          .filter(r => r.enabled).map(r => r.path);
+        additionalPromptPaths = resolved.prompts
+          .filter(r => r.enabled).map(r => r.path);
+        additionalThemePaths = resolved.themes
+          .filter(r => r.enabled).map(r => r.path);
+      } catch (err) {
+        console.error('[agent] Failed to resolve package paths:', err);
+      }
+    }
+
     const loader = new DefaultResourceLoader({
       cwd: WORKSPACE_DIR,
       settingsManager,
       systemPromptOverride: () => buildSystemPrompt(sm, projectId),
+      additionalExtensionPaths,
+      additionalSkillPaths,
+      additionalPromptTemplatePaths: additionalPromptPaths,
+      additionalThemePaths,
     });
     await loader.reload();
 

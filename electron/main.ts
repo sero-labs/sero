@@ -3,6 +3,7 @@ import path from 'path';
 import { ContainerManager } from './container-manager';
 import { AgentManager } from './agent-manager';
 import { SkillManager } from './skill-manager';
+import { PackageInstaller } from './package-installer';
 import { LspManager } from './lsp/lsp-manager';
 import { FileWatcherManager } from './file-watcher';
 import { registerIpcHandlers } from './ipc-handlers';
@@ -33,10 +34,15 @@ process.on('unhandledRejection', (reason: any) => {
 
 let mainWindow: BrowserWindow | null = null;
 const containerManager = new ContainerManager();
+const packageInstaller = new PackageInstaller();
 const skillManager = new SkillManager();
 const agentManager = new AgentManager(containerManager, skillManager);
 const lspManager = new LspManager(containerManager);
 const fileWatcher = new FileWatcherManager();
+
+// Wire package installer into skill manager and agent manager
+skillManager.setPackageInstaller(packageInstaller);
+agentManager.setPackageInstaller(packageInstaller);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -74,7 +80,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  registerIpcHandlers(ipcMain, containerManager, agentManager, skillManager, lspManager, fileWatcher);
+  registerIpcHandlers(ipcMain, containerManager, agentManager, skillManager, lspManager, fileWatcher, packageInstaller);
 
   // Discover skills on startup
   await skillManager.discoverAll();

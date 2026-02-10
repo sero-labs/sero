@@ -52,6 +52,28 @@ export type SelectiveInstallResult = {
   errors: Array<{ name: string; error: string }>;
 };
 
+export type PackageInstallResult = {
+  success: boolean;
+  error?: string;
+};
+
+export type PackageListItem = {
+  source: string;
+  scope: 'global' | 'project';
+};
+
+export type ResolvedPackageResource = {
+  path: string;
+  source: string;
+};
+
+export type ResolvedPackageResources = {
+  extensions: ResolvedPackageResource[];
+  skills: ResolvedPackageResource[];
+  prompts: ResolvedPackageResource[];
+  themes: ResolvedPackageResource[];
+};
+
 const seroAPI = {
   // Container operations
   container: {
@@ -130,6 +152,20 @@ const seroAPI = {
       ipcRenderer.invoke('env:remove', key),
     setAll: (env: Record<string, string>) =>
       ipcRenderer.invoke('env:setAll', env),
+  },
+
+  // Package operations
+  packages: {
+    install: (source: string, options?: { local?: boolean }) =>
+      ipcRenderer.invoke('packages:install', source, options) as Promise<PackageInstallResult>,
+    remove: (source: string, options?: { local?: boolean }) =>
+      ipcRenderer.invoke('packages:remove', source, options) as Promise<PackageInstallResult>,
+    update: (source?: string) =>
+      ipcRenderer.invoke('packages:update', source) as Promise<PackageInstallResult>,
+    list: () =>
+      ipcRenderer.invoke('packages:list') as Promise<PackageListItem[]>,
+    resolve: () =>
+      ipcRenderer.invoke('packages:resolve') as Promise<ResolvedPackageResources>,
   },
 
   // Skills operations

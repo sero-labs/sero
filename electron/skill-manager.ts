@@ -9,6 +9,7 @@ import {
   gitUrlToDirName, copyDirSync,
   type PreviewResult, type PreviewSkill,
 } from './skill-installer';
+import type { PackageInstaller } from './package-installer';
 
 export interface SeroSkill extends Skill {
   /** 'global' = ~/.pi/agent/skills/, 'project' = .pi/skills/ in workspace, 'custom' = user-added path */
@@ -40,9 +41,18 @@ export class SkillManager {
   private projectConfigs = new Map<string, SkillConfig>();
   /** Additional skill paths from user settings */
   private customPaths: string[] = [];
+  /** Optional package installer for resolving skills from PI packages */
+  private packageInstaller: PackageInstaller | null = null;
 
   constructor() {
     this.ensureDirs();
+  }
+
+  /**
+   * Set the package installer for discovering skills from installed PI packages.
+   */
+  setPackageInstaller(installer: PackageInstaller): void {
+    this.packageInstaller = installer;
   }
 
   private ensureDirs(): void {
@@ -65,6 +75,23 @@ export class SkillManager {
       const resolved = p.startsWith('~') ? path.join(os.homedir(), p.slice(1)) : p;
       if (fs.existsSync(resolved)) {
         this.loadFromDir(resolved, 'custom');
+      }
+    }
+
+    // 3. Skills from installed PI packages
+    if (this.packageInstaller) {
+      try {
+        const skillPaths = await this.packageInstaller.getResolvedSkillPaths();
+        for (const skillPath of skillPaths) {
+          // Each resolved skill path points to a skill directory (with SKILL.md)
+          // or a directory containing skill subdirectories.
+          const dir = fs.statSync(skillPath).isDirectory() ? skillPath : path.dirname(skillPath);
+          if (fs.existsSync(dir)) {
+            this.loadFromDir(dir, 'global');
+          }
+        }
+      } catch (err) {
+        console.error('[skills] Error discovering package skills:', err);
       }
     }
   }

@@ -4,6 +4,7 @@ import { AgentManager } from './agent-manager';
 import { SkillManager } from './skill-manager';
 import { LspManager } from './lsp/lsp-manager';
 import { FileWatcherManager } from './file-watcher';
+import { PackageInstaller } from './package-installer';
 import {
   loadPersistedProjects, addPersistedProject, removePersistedProject,
   updatePersistedProject,
@@ -21,6 +22,7 @@ export function registerIpcHandlers(
   skillManager: SkillManager,
   lspManager: LspManager,
   fileWatcher: FileWatcherManager,
+  packageInstaller: PackageInstaller,
 ) {
   // ── Container IPC ──────────────────────────────────────────────
 
@@ -304,6 +306,47 @@ export function registerIpcHandlers(
   ipcMain.handle('skills:discover', async () => {
     await skillManager.discoverAll();
     return skillManager.listAll();
+  });
+
+  // ── Packages IPC ─────────────────────────────────────────
+
+  ipcMain.handle('packages:install', async (_event, source: string, options?: { local?: boolean }) => {
+    const result = await packageInstaller.install(source, options);
+    if (result.success) {
+      // Re-discover skills to pick up any new ones from the package
+      await skillManager.discoverAll();
+    }
+    return result;
+  });
+
+  ipcMain.handle('packages:remove', async (_event, source: string, options?: { local?: boolean }) => {
+    const result = await packageInstaller.remove(source, options);
+    if (result.success) {
+      await skillManager.discoverAll();
+    }
+    return result;
+  });
+
+  ipcMain.handle('packages:update', async (_event, source?: string) => {
+    const result = await packageInstaller.update(source);
+    if (result.success) {
+      await skillManager.discoverAll();
+    }
+    return result;
+  });
+
+  ipcMain.handle('packages:list', async () => {
+    return packageInstaller.list();
+  });
+
+  ipcMain.handle('packages:resolve', async () => {
+    const resolved = await packageInstaller.getResolvedPaths();
+    return {
+      extensions: resolved.extensions.filter(r => r.enabled).map(r => ({ path: r.path, source: r.metadata.source })),
+      skills: resolved.skills.filter(r => r.enabled).map(r => ({ path: r.path, source: r.metadata.source })),
+      prompts: resolved.prompts.filter(r => r.enabled).map(r => ({ path: r.path, source: r.metadata.source })),
+      themes: resolved.themes.filter(r => r.enabled).map(r => ({ path: r.path, source: r.metadata.source })),
+    };
   });
 
   // ── LSP IPC ────────────────────────────────────────────────
