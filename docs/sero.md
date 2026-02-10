@@ -506,3 +506,28 @@ packages: {
   resolve: () => Promise<ResolvedPackageResources>,
 }
 ```
+
+### AD-017: Lazy project loading — only start the active project on launch
+- **Date:** 2026-02-10
+- **Decision:** On app startup, only create the container and agent session for the last-active project. All other projects are added to the store with status `'stopped'` and lazily started when the user switches to their tab.
+- **Problem:** Every persisted project had its container started and agent session created sequentially during `restoreProjects()`. With 4 projects, this meant 4 containers booting, 4 agent sessions initializing, and 4 LSP servers installing — all before the user could interact with the app. Startup logs showed every project's container starting, agent session creating, and LSP installing in series.
+- **Root cause:** The `for...of` loop in `Shell.tsx restoreProjects()` treated all projects identically — each got `container.create()` + `agent.create()` regardless of whether it was the active project.
+- **Solution:**
+  1. Load `activeProjectId` from persistence *before* the project loop
+  2. Add all projects to the store, but only the active project gets status `'creating'`; others get `'stopped'`
+  3. Only call `container.create()` + `agent.create()` for the active project
+  4. New `startProject(id)` function lazily starts stopped projects (guards on `status === 'stopped'`)
+  5. The `activeProjectId` effect calls `startProject()` — when the user switches tabs, the target project starts automatically
+- **Cascading fixes required:** Lazy loading surfaced two classes of errors from components that assumed all containers were running:
+  - **`container:readFile` errors** — `EditorPanel` restored persisted open tabs and immediately tried to read file contents from stopped containers. Fixed by subscribing to `projectStatus` and gating the file-read effect on `projectStatus === 'running'`.
+  - **`lsp:start` errors** — `useLsp` hook tried to start language servers in containers that didn't exist yet. Fixed by subscribing to `projectStatus` and gating the LSP start effect on `projectStatus === 'running'`.
+  - Both fixes use the same pattern: subscribe to `useProjectStore` for the project's status, add it to the effect dependency array, and skip the effect until `'running'`. When the project lazily starts and transitions to `'running'`, the effects re-fire and initialization proceeds normally.
+
+#### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/components/Shell.tsx` | Restructured `restoreProjects()` to only start active project; added `startProject()` for lazy init; `activeProjectId` effect triggers lazy start on tab switch |
+| `src/components/panels/EditorPanel.tsx` | Subscribe to `projectStatus`; gate `container.readFile` on `'running'` |
+| `src/lsp/use-lsp.ts` | Subscribe to `projectStatus`; gate LSP server start on `'running'` |
+| `src/components/SortableTab.tsx` | Added `isStopping` prop — dims tab to 50% opacity, disables pointer events, shows spinning `LoaderIcon` instead of close button during project teardown |

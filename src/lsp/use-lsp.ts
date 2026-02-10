@@ -3,6 +3,7 @@
  * Manages server lifecycle, Monaco provider registration, and document sync.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useProjectStore } from '../stores/project-store';
 import {
   isLspSupported, getLspServerLanguage, getLspLanguageIdFromPath, monacoToLspPos,
   convertCompletions, convertHover, convertDefinition, convertDiagnostics,
@@ -146,11 +147,13 @@ export function useLsp({ projectId, filePath, languageId, monaco, editor }: UseL
   const versionRef = useRef(new Map<string, number>());
   const startingRef = useRef(false);
 
+  const projectStatus = useProjectStore((s) => s.projects.get(projectId)?.status);
   const serverLanguage = getLspServerLanguage(languageId);
 
-  // Effect 1: Start the LSP server when we have a supported language
+  // Effect 1: Start the LSP server when we have a supported language and project is running
   useEffect(() => {
     if (!monaco || !serverLanguage || startingRef.current) return;
+    if (projectStatus !== 'running') return; // Wait for container to be ready
     if (serverLanguageRef.current === serverLanguage) return; // Already started for this language
 
     let cancelled = false;
@@ -178,7 +181,7 @@ export function useLsp({ projectId, filePath, languageId, monaco, editor }: UseL
     })();
 
     return () => { cancelled = true; };
-  }, [projectId, languageId, monaco, serverLanguage]);
+  }, [projectId, languageId, monaco, serverLanguage, projectStatus]);
 
   // Effect 2: Handle document open/close when filePath changes
   useEffect(() => {

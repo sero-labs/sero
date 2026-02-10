@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { XIcon } from 'lucide-react';
+import { XIcon, LoaderIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 
 interface Props {
   id: string;
   isActive: boolean;
+  isStopping: boolean;
   statusColor: string;
   name: string;
   onSelect: () => void;
@@ -15,7 +16,7 @@ interface Props {
   onRename: (newName: string) => void;
 }
 
-export function SortableTab({ id, isActive, statusColor, name, onSelect, onClose, onRename }: Props) {
+export function SortableTab({ id, isActive, isStopping, statusColor, name, onSelect, onClose, onRename }: Props) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +62,10 @@ export function SortableTab({ id, isActive, statusColor, name, onSelect, onClose
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium cursor-pointer select-none transition-colors whitespace-nowrap outline-none',
+        'group relative flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium select-none transition-colors whitespace-nowrap outline-none',
+        isStopping
+          ? 'opacity-50 pointer-events-none'
+          : 'cursor-pointer',
         isActive
           ? 'bg-secondary text-foreground'
           : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
@@ -101,17 +105,21 @@ export function SortableTab({ id, isActive, statusColor, name, onSelect, onClose
         <span className="max-w-[120px] overflow-hidden text-ellipsis">{name}</span>
       )}
 
-      {/* Close button */}
-      <button
-        className={cn(
-          'flex items-center justify-center size-4 rounded-sm transition-opacity',
-          'opacity-0 group-hover:opacity-100',
-          'hover:bg-muted text-muted-foreground hover:text-foreground',
-        )}
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
-      >
-        <XIcon className="size-3" />
-      </button>
+      {/* Close button / stopping spinner */}
+      {isStopping ? (
+        <LoaderIcon className="size-3 animate-spin text-muted-foreground" />
+      ) : (
+        <button
+          className={cn(
+            'flex items-center justify-center size-4 rounded-sm transition-opacity',
+            'opacity-0 group-hover:opacity-100',
+            'hover:bg-muted text-muted-foreground hover:text-foreground',
+          )}
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+        >
+          <XIcon className="size-3" />
+        </button>
+      )}
 
       {/* Active indicator line */}
       {isActive && (

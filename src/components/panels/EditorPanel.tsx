@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { FileTree } from './FileTree';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
+import { useProjectStore } from '../../stores/project-store';
 import { useLsp } from '../../lsp/use-lsp';
 import './EditorPanel.css';
 
@@ -45,6 +46,8 @@ export function EditorPanel({ projectId }: Props) {
   const [monacoInstance, setMonacoInstance] = useState<any>(null);
   const [editorInstance, setEditorInstance] = useState<any>(null);
 
+  const projectStatus = useProjectStore((s) => s.projects.get(projectId)?.status);
+
   // ── LSP integration ──
   const { sendDidSave } = useLsp({
     projectId,
@@ -80,7 +83,7 @@ export function EditorPanel({ projectId }: Props) {
     window.sero.persistence.saveEditorState(projectId, { openTabs: tabs, activeTab });
   }, [tabs, activeTab, projectId, stateLoaded]);
 
-  // ── Load file content when activeTab changes ──
+  // ── Load file content when activeTab changes (waits for container) ──
   useEffect(() => {
     if (!activeTab) {
       setContent('');
@@ -93,6 +96,9 @@ export function EditorPanel({ projectId }: Props) {
       setLanguage(getLanguage(activeTab));
       return;
     }
+
+    // Don't try to read from a container that isn't running
+    if (projectStatus !== 'running') return;
 
     // New tab — clear content, then load from container
     setContent('');
@@ -115,7 +121,7 @@ export function EditorPanel({ projectId }: Props) {
     })();
 
     return () => { cancelled = true; };
-  }, [projectId, activeTab]);
+  }, [projectId, activeTab, projectStatus]);
 
   // ── Open a file tab (adds if new, switches if existing) ──
   const openTab = useCallback(

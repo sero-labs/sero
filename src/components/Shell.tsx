@@ -50,48 +50,71 @@ export function Shell() {
     restoreProjects();
   }, [hasRestored]);
 
+  async function startProject(id: string) {
+    const project = useProjectStore.getState().projects.get(id);
+    if (!project || project.status !== 'stopped') return;
+
+    updateProject(id, { status: 'creating' });
+    try {
+      const containerState = await window.sero.container.create({
+        id: project.id, name: project.name, image: project.image,
+        cpus: project.cpus, memoryMB: project.memoryMB, ports: project.ports,
+      });
+      await window.sero.agent.create(project.id);
+      updateProject(id, { status: 'running', ipAddress: containerState?.ipAddress });
+    } catch (err) {
+      console.error(`Failed to start project ${id}:`, err);
+      updateProject(id, { status: 'error' });
+    }
+  }
+
   async function restoreProjects() {
     try {
       const persisted = await window.sero.persistence.loadProjects();
       if (!persisted || persisted.length === 0) return;
 
+      // Determine which project should be active
+      const savedActiveId = await window.sero.persistence.loadActiveProjectId();
+      const activeId = savedActiveId && persisted.some((p: any) => p.id === savedActiveId)
+        ? savedActiveId
+        : persisted[0].id;
+
+      // Add all projects to the store; only the active one will be started
       for (const p of persisted) {
         addProject({
           id: p.id, name: p.name, image: p.image, cpus: p.cpus,
           memoryMB: p.memoryMB, ports: p.ports, createdAt: p.createdAt,
-          status: 'creating',
+          status: p.id === activeId ? 'creating' : 'stopped',
         });
         initWorkspace(p.id);
         initAgentState(p.id);
-
-        try {
-          const containerState = await window.sero.container.create({
-            id: p.id, name: p.name, image: p.image,
-            cpus: p.cpus, memoryMB: p.memoryMB, ports: p.ports,
-          });
-          await window.sero.agent.create(p.id);
-          updateProject(p.id, { status: 'running', ipAddress: containerState?.ipAddress });
-        } catch (err) {
-          console.error(`Failed to restore project ${p.id}:`, err);
-          updateProject(p.id, { status: 'error' });
-        }
       }
 
-      const savedActiveId = await window.sero.persistence.loadActiveProjectId();
-      if (savedActiveId && persisted.some((p: any) => p.id === savedActiveId)) {
-        setActiveProject(savedActiveId);
-      } else if (persisted.length > 0) {
-        setActiveProject(persisted[0].id);
+      setActiveProject(activeId);
+
+      // Start only the active project
+      const active = persisted.find((p: any) => p.id === activeId)!;
+      try {
+        const containerState = await window.sero.container.create({
+          id: active.id, name: active.name, image: active.image,
+          cpus: active.cpus, memoryMB: active.memoryMB, ports: active.ports,
+        });
+        await window.sero.agent.create(active.id);
+        updateProject(activeId, { status: 'running', ipAddress: containerState?.ipAddress });
+      } catch (err) {
+        console.error(`Failed to restore project ${activeId}:`, err);
+        updateProject(activeId, { status: 'error' });
       }
     } catch (err) {
       console.error('Failed to load persisted projects:', err);
     }
   }
 
-  // Persist active project + update file watcher
+  // Persist active project + update file watcher + lazy-start stopped projects
   useEffect(() => {
     if (hasRestored && activeProjectId) {
       window.sero.persistence.saveActiveProjectId(activeProjectId);
+      startProject(activeProjectId);
     }
     window.sero.filetree.setActive(activeProjectId);
   }, [activeProjectId, hasRestored]);
@@ -226,6 +249,7 @@ export function Shell() {
                     key={project.id}
                     id={project.id}
                     isActive={activeProjectId === project.id}
+                    isStopping={project.status === 'stopping'}
                     statusColor={statusColor(project.status)}
                     name={project.name}
                     onSelect={() => setActiveProject(project.id)}
