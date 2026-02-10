@@ -32,7 +32,7 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 |-------|-------|--------|
 | **1** | Electron shell + containers + tiled workspace + editor + terminal + agent chat | ✅ Complete |
 | **2** | Skills UI + LSP + improved editor + layouts + preview polish + navigation UX | ✅ Complete |
-| **3** | PI Packages andExtensions implementation | Planned |
+| **3** | PI Packages and Extensions implementation | In Progress |
 | **4** | Multi-agent orchestration (task trees, parallel agents, council mode) | Planned |
 | **5** | Cloud migration path (E2B/Codespaces backend), hybrid local/cloud | Planned |
 | **6** | Collaboration (multiplayer editing, shared sessions) | Planned |
@@ -424,3 +424,85 @@ A new workspace panel type (`skills`) accessible from the command bar (⌘K → 
 - Support `/skill:name` syntax in the agent chat input
 - Autocomplete dropdown showing available skills when user types `/skill:`
 - Executing a command loads the full skill into the agent context
+
+### AD-016: PI Package Installation — SDK's DefaultPackageManager, not CLI invocation
+- **Date:** 2026-02-10
+- **Decision:** Use `DefaultPackageManager` from `@mariozechner/pi-coding-agent` SDK directly instead of shelling out to the `pi` CLI binary.
+- **Problem:** PI packages (npm, git, local) need to be installable from Sero. The `pi` CLI handles this via `pi install <source>`, but invoking it as a subprocess introduces environment complexity — `npm install -g` must resolve to the correct global prefix, `npm root -g` must return the PI-managed path, and the `pi` binary needs to find its own `package.json` for config.
+- **Root cause of env complexity:** PI's `DefaultPackageManager.installNpm()` uses `npm install -g <spec>` for user-scope packages. When invoked via CLI, npm's global prefix is whatever the user's npm config says. But inside Electron's main process, `process.env.PATH` may differ from a terminal shell. Spawning `pi install` as a child process would inherit this potentially broken environment.
+- **Solution:** Import `DefaultPackageManager` directly from the SDK and call it in-process. This avoids all environment issues because:
+  1. `npm` is resolved via the same `PATH` the SDK itself uses
+  2. `npm root -g` is called via `spawnSync` with inherited environment (same process)
+  3. No subprocess env isolation to worry about
+- **Implementation details:**
+  - `electron/package-installer.ts` wraps `DefaultPackageManager` with `install()`, `remove()`, `update()`, `list()`, `resolve()`
+  - Uses `SettingsManager.create(cwd, agentDir)` — **file-backed** so packages persist to `~/.pi/agent/settings.json`
+  - This means Sero and `pi` CLI share the same package list: `pi list` shows Sero installs and vice-versa
+  - `getAgentDir()` returns `~/.pi/agent/` by default
+  - After install, `resolve()` returns `ResolvedPaths` with all extension/skill/prompt/theme filesystem paths
+  - These paths are fed into `DefaultResourceLoader` via `additionalExtensionPaths`, `additionalSkillPaths`, etc.
+  - `SkillManager.discoverAll()` also calls `resolve()` to discover skills from packages
+
+#### PI Package Manager — Environment Variables Reference
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `PI_CODING_AGENT_DIR` | Override `~/.pi/agent/` directory | `~/.pi/agent/` |
+| `PI_PACKAGE_DIR` | Override SDK package asset directory | auto-detected from `__dirname` |
+| `GIT_TERMINAL_PROMPT` | Set to `0` in CI to disable git auth prompts | (not set) |
+| `GIT_SSH_COMMAND` | Custom SSH command for git operations | (not set) |
+
+#### PI Package Manager — How npm installs work under the hood
+
+**User scope (global):**
+```
+npm install -g <spec>
+```
+Resolves installed path via `npm root -g` → e.g. `/usr/local/lib/node_modules/<pkg>`.
+The SDK caches this path in `this.globalNpmRoot`.
+
+**Project scope:**
+```
+npm install <spec> --prefix <cwd>/.pi/npm/
+```
+Creates a local `package.json` in `<cwd>/.pi/npm/` and installs there.
+
+**Temporary (ephemeral):**
+```
+npm install <spec> --prefix <tmpdir>/pi-temp-<random>/npm/
+```
+Used for `-e` flag packages. Cleaned up on exit.
+
+#### PI Package Sources — Format Reference
+
+| Format | Example | Install Method |
+|--------|---------|---------------|
+| npm | `npm:@foo/bar@1.0.0` | `npm install -g` (user) or `--prefix` (project) |
+| npm (unversioned) | `npm:@foo/bar` | Same, but included in `pi update` |
+| git (shorthand) | `git:github.com/user/repo@v1` | `git clone` to `~/.pi/agent/git/github.com/user/repo/` |
+| git (HTTPS) | `https://github.com/user/repo` | Same as above |
+| git (SSH) | `git@github.com:user/repo` | Same, SSH auth |
+| local path | `/absolute/path/to/package` | Referenced in-place (no copy) |
+
+#### Files Changed
+
+| File | Change |
+|------|--------|
+| `electron/package-installer.ts` | **New.** Wraps `DefaultPackageManager` — install, remove, update, list, resolve |
+| `electron/main.ts` | Instantiates `PackageInstaller`, wires into `SkillManager` and `AgentManager` |
+| `electron/skill-manager.ts` | `discoverAll()` discovers skills from resolved packages |
+| `electron/agent-manager.ts` | `createSession()` feeds resolved paths into `DefaultResourceLoader` |
+| `electron/ipc-handlers.ts` | Added `packages:install`, `packages:remove`, `packages:update`, `packages:list`, `packages:resolve` |
+| `electron/preload.ts` | Added `window.sero.packages` API for renderer |
+
+#### Renderer API — `window.sero.packages`
+
+```typescript
+packages: {
+  install: (source: string, options?: { local?: boolean }) => Promise<PackageInstallResult>,
+  remove:  (source: string, options?: { local?: boolean }) => Promise<PackageInstallResult>,
+  update:  (source?: string) => Promise<PackageInstallResult>,
+  list:    () => Promise<PackageListItem[]>,
+  resolve: () => Promise<ResolvedPackageResources>,
+}
+```
