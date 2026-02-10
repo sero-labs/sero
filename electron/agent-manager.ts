@@ -50,52 +50,27 @@ export class AgentManager {
   async createSession(projectId: string): Promise<void> {
     if (this.sessions.has(projectId)) return;
 
+    console.log(`[agent] Creating session for ${projectId}...`);
+
     const tools = createContainerTools(this.containerManager, this.skillManager, projectId);
     const sm = this.skillManager;
 
-    const settingsManager = SettingsManager.inMemory({
+    // Session-level settings (compaction, retry) — in-memory, no file persistence
+    const sessionSettings = SettingsManager.inMemory({
       compaction: { enabled: true },
       retry: { enabled: true, maxRetries: 3 },
     });
 
-    // Resolve extension/skill/prompt/theme paths from installed PI packages
-    let additionalExtensionPaths: string[] = [];
-    let additionalSkillPaths: string[] = [];
-    let additionalPromptPaths: string[] = [];
-    let additionalThemePaths: string[] = [];
-
-    if (this.packageInstaller) {
-      try {
-        const resolved = await this.packageInstaller.getResolvedPaths();
-        additionalExtensionPaths = resolved.extensions
-          .filter(r => r.enabled).map(r => r.path);
-        additionalSkillPaths = resolved.skills
-          .filter(r => r.enabled).map(r => r.path);
-        additionalPromptPaths = resolved.prompts
-          .filter(r => r.enabled).map(r => r.path);
-        additionalThemePaths = resolved.themes
-          .filter(r => r.enabled).map(r => r.path);
-        console.log('[agent] Package resource paths:',
-          `${additionalExtensionPaths.length} ext,`,
-          `${additionalSkillPaths.length} skills,`,
-          `${additionalPromptPaths.length} prompts,`,
-          `${additionalThemePaths.length} themes`);
-        if (additionalExtensionPaths.length > 0) {
-          console.log('[agent] Extension paths:', additionalExtensionPaths);
-        }
-      } catch (err) {
-        console.error('[agent] Failed to resolve package paths:', err);
-      }
-    }
+    // For the resource loader, use the PackageInstaller's file-backed settings
+    // so it resolves packages naturally from ~/.pi/agent/settings.json — the same
+    // way PI CLI does. This avoids the fragile additionalExtensionPaths workaround
+    // where pre-resolved paths are re-resolved by the loader's internal PM.
+    const resourceSettings = this.packageInstaller?.getSettingsManager() ?? sessionSettings;
 
     const loader = new DefaultResourceLoader({
       cwd: WORKSPACE_DIR,
-      settingsManager,
+      settingsManager: resourceSettings,
       systemPromptOverride: () => buildSystemPrompt(sm, projectId),
-      additionalExtensionPaths,
-      additionalSkillPaths,
-      additionalPromptTemplatePaths: additionalPromptPaths,
-      additionalThemePaths,
     });
     await loader.reload();
 
@@ -124,7 +99,7 @@ export class AgentManager {
       modelRegistry: this.modelRegistry,
       customTools: tools,
       resourceLoader: loader,
-      settingsManager,
+      settingsManager: sessionSettings,
     });
 
     this.sessions.set(projectId, session);
