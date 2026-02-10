@@ -73,6 +73,29 @@ function fixElectronEnv(): void {
     console.warn('[sero] Could not resolve shell environment, using system default:', err);
   }
 
+  // ── Fix npm global prefix for Volta ──────────────────────────
+  // Volta's npm shim manages which npm VERSION runs but does NOT change npm's
+  // global prefix. So `npm root -g` still returns /usr/local/lib/node_modules
+  // and `npm install -g` targets the system directory (which requires root).
+  //
+  // Fix: when Volta is detected, resolve the actual Node image path via
+  // `volta which node` and set npm_config_prefix to that directory. This makes
+  // `npm install -g` and `npm root -g` use Volta's managed location.
+  if (process.env.VOLTA_HOME) {
+    try {
+      const nodeBin = execSync('volta which node', {
+        encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim();
+      // nodeBin is e.g. /Users/user/.volta/tools/image/node/22.0.0/bin/node
+      // prefix should be /Users/user/.volta/tools/image/node/22.0.0/
+      const prefix = path.resolve(nodeBin, '..', '..');
+      process.env.npm_config_prefix = prefix;
+      console.log(`[sero] Set npm_config_prefix for Volta: ${prefix}`);
+    } catch (voltaErr: any) {
+      console.warn('[sero] Could not determine Volta node prefix:', voltaErr.message);
+    }
+  }
+
   // Diagnostic: verify npm resolution after env fix
   try {
     const npmPath = execSync('which npm', {
