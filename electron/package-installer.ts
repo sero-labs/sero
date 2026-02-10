@@ -74,6 +74,10 @@ export class PackageInstaller {
   async install(source: string, options?: { local?: boolean }): Promise<PackageInstallResult> {
     try {
       await this.packageManager.install(source, options);
+      // Register in settings.json so the package persists across restarts
+      // and is visible to `pi list` / resolve(). The SDK separates physical
+      // installation from settings persistence.
+      this.packageManager.addSourceToSettings(source, options);
       this.lastResolvedPaths = null; // invalidate cache
       return { success: true };
     } catch (err: any) {
@@ -87,6 +91,8 @@ export class PackageInstaller {
   async remove(source: string, options?: { local?: boolean }): Promise<PackageInstallResult> {
     try {
       await this.packageManager.remove(source, options);
+      // Remove from settings.json so it doesn't reappear on next resolve()
+      this.packageManager.removeSourceFromSettings(source, options);
       this.lastResolvedPaths = null;
       return { success: true };
     } catch (err: any) {
