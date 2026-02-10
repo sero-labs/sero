@@ -132,6 +132,50 @@ function SeroTab({ api, params }: IDockviewPanelHeaderProps<{ panelType?: string
   );
 }
 
+/**
+ * Placeholder for panels whose component type no longer exists. Rendered in
+ * place of the missing panel so the rest of the saved layout is preserved.
+ */
+function MissingPanel({ api }: IDockviewPanelProps) {
+  const componentName = api.component ?? 'unknown';
+  return (
+    <div className="sero-missing-panel">
+      <div className="sero-missing-panel-icon">?</div>
+      <p className="sero-missing-panel-title">Panel unavailable</p>
+      <p className="sero-missing-panel-detail">
+        The <code>{componentName}</code> panel type is no longer available.
+        It may have been removed or renamed in an update.
+      </p>
+      <button className="sero-missing-panel-close" onClick={() => api.close()}>
+        Close panel
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Find component names in a saved layout that aren't in the registered
+ * components map. Returns the set of unknown names (empty if all are known).
+ */
+function findUnknownComponents(
+  layout: any,
+  registeredComponents: Record<string, React.ComponentType<any>>,
+): Set<string> {
+  const unknown = new Set<string>();
+  try {
+    const panels: Record<string, any> = layout?.panels ?? {};
+    for (const [, panel] of Object.entries(panels)) {
+      const component = panel?.contentComponent;
+      if (component && !(component in registeredComponents)) {
+        unknown.add(component);
+      }
+    }
+  } catch {
+    // Malformed layout — caller will handle via fromJSON's own error path
+  }
+  return unknown;
+}
+
 /* ── Main workspace ───────────────────────────────────────── */
 
 export function TiledWorkspace({ projectId }: Props) {
@@ -184,6 +228,15 @@ export function TiledWorkspace({ projectId }: Props) {
       try {
         const savedLayout = await window.sero.persistence.loadLayout(projectId);
         if (savedLayout) {
+          // Patch any unknown component names with MissingPanel so the rest
+          // of the layout is preserved instead of discarding everything.
+          const unknown = findUnknownComponents(savedLayout, components);
+          if (unknown.size > 0) {
+            for (const name of unknown) {
+              console.warn(`Layout references unknown panel type "${name}", substituting MissingPanel`);
+              (components as Record<string, React.ComponentType<any>>)[name] = MissingPanel;
+            }
+          }
           api.fromJSON(savedLayout);
           restored = true;
         }

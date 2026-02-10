@@ -54,6 +54,13 @@ export class PackageInstaller {
   private settingsManager: SettingsManager;
   private agentDir: string;
   private lastResolvedPaths: ResolvedPaths | null = null;
+  private _lock: Promise<void> = Promise.resolve();
+
+  private withLock<T>(fn: () => Promise<T>): Promise<T> {
+    const result = this._lock.then(fn);
+    this._lock = result.then(() => {}, () => {});
+    return result;
+  }
 
   constructor(private cwd: string = process.cwd()) {
     this.agentDir = getAgentDir();
@@ -72,45 +79,51 @@ export class PackageInstaller {
    *          "https://github.com/user/repo", "/absolute/path"
    */
   async install(source: string, options?: { local?: boolean }): Promise<PackageInstallResult> {
-    try {
-      await this.packageManager.install(source, options);
-      // Register in settings.json so the package persists across restarts
-      // and is visible to `pi list` / resolve(). The SDK separates physical
-      // installation from settings persistence.
-      this.packageManager.addSourceToSettings(source, options);
-      this.lastResolvedPaths = null; // invalidate cache
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    return this.withLock(async () => {
+      try {
+        await this.packageManager.install(source, options);
+        // Register in settings.json so the package persists across restarts
+        // and is visible to `pi list` / resolve(). The SDK separates physical
+        // installation from settings persistence.
+        this.packageManager.addSourceToSettings(source, options);
+        this.lastResolvedPaths = null; // invalidate cache
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    });
   }
 
   /**
    * Remove a previously installed package.
    */
   async remove(source: string, options?: { local?: boolean }): Promise<PackageInstallResult> {
-    try {
-      await this.packageManager.remove(source, options);
-      // Remove from settings.json so it doesn't reappear on next resolve()
-      this.packageManager.removeSourceFromSettings(source, options);
-      this.lastResolvedPaths = null;
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    return this.withLock(async () => {
+      try {
+        await this.packageManager.remove(source, options);
+        // Remove from settings.json so it doesn't reappear on next resolve()
+        this.packageManager.removeSourceFromSettings(source, options);
+        this.lastResolvedPaths = null;
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    });
   }
 
   /**
    * Update all (or a specific) installed packages.
    */
   async update(source?: string): Promise<PackageInstallResult> {
-    try {
-      await this.packageManager.update(source);
-      this.lastResolvedPaths = null;
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
+    return this.withLock(async () => {
+      try {
+        await this.packageManager.update(source);
+        this.lastResolvedPaths = null;
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    });
   }
 
   /**
@@ -140,16 +153,18 @@ export class PackageInstaller {
    * This installs any missing packages (auto-install on first resolve).
    */
   async resolve(): Promise<ResolvedPaths> {
-    if (this.lastResolvedPaths) return this.lastResolvedPaths;
+    return this.withLock(async () => {
+      if (this.lastResolvedPaths) return this.lastResolvedPaths;
 
-    // Reload settings to pick up external changes
-    this.settingsManager.reload();
+      // Reload settings to pick up external changes
+      this.settingsManager.reload();
 
-    this.lastResolvedPaths = await this.packageManager.resolve(
-      // On missing source, auto-install it
-      async (_source: string) => 'install' as const,
-    );
-    return this.lastResolvedPaths;
+      this.lastResolvedPaths = await this.packageManager.resolve(
+        // On missing source, auto-install it
+        async (_source: string) => 'install' as const,
+      );
+      return this.lastResolvedPaths;
+    });
   }
 
   /**

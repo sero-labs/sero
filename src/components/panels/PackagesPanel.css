@@ -460,3 +460,72 @@
   font-size: var(--sero-text-xs);
   color: var(--text-muted);
 }
+
+/* ── Confirm Dialog ──────────────────────────────────────── */
+
+.packages-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.packages-confirm-dialog {
+  background: var(--color-bg-elevated, #1e1e2e);
+  border: 1px solid var(--color-border, #333);
+  border-radius: 8px;
+  padding: 20px 24px;
+  max-width: 400px;
+  width: 90%;
+}
+.packages-confirm-dialog p {
+  margin: 0 0 16px;
+  color: var(--color-text, #cdd6f4);
+}
+.packages-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.packages-confirm-cancel {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border, #333);
+  background: transparent;
+  color: var(--color-text-secondary, #a6adc8);
+  cursor: pointer;
+}
+.packages-confirm-ok {
+  padding: 6px 16px;
+  border-radius: 4px;
+  border: none;
+  background: var(--color-danger, #f38ba8);
+  color: #1e1e2e;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* ── Error Banner ────────────────────────────────────────── */
+
+.packages-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(243, 139, 168, 0.15);
+  border: 1px solid var(--color-danger, #f38ba8);
+  border-radius: 6px;
+  margin: 0 12px 8px;
+  color: var(--color-danger, #f38ba8);
+  font-size: 13px;
+}
+.packages-error-banner button {
+  background: none;
+  border: none;
+  color: var(--color-danger, #f38ba8);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}

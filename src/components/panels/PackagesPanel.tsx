@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { usePackageStore } from '../../stores/package-store';
 import { BrowseView } from './packages/BrowseView';
 import { InstallView } from './packages/InstallView';
@@ -16,9 +16,8 @@ export function PackagesPanel({ projectId }: Props) {
     removePackage, getFilteredPackages,
   } = usePackageStore();
 
-  useEffect(() => {
-    loadPackages();
-  }, []);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadPackages = useCallback(async () => {
     setLoading(true);
@@ -36,22 +35,36 @@ export function PackagesPanel({ projectId }: Props) {
     }
   }, [setPackages, setResolved, setLoading]);
 
+  useEffect(() => {
+    loadPackages();
+  }, [loadPackages]);
+
   const handleRemove = useCallback(async (source: string) => {
-    if (!confirm(`Remove package "${source}"? This will uninstall it.`)) return;
+    setPendingRemove(source);
+  }, []);
+
+  const confirmRemove = useCallback(async () => {
+    if (!pendingRemove) return;
+    const source = pendingRemove;
+    setPendingRemove(null);
     try {
       const result = await window.sero.packages.remove(source);
       if (result.success) {
         removePackage(source);
-        // Re-resolve to update resource listing
         const res = await window.sero.packages.resolve();
         setResolved(res);
       } else {
-        alert(`Failed to remove: ${result.error}`);
+        setError(`Failed to remove: ${result.error}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to remove package:', err);
+      setError(`Failed to remove package: ${err.message}`);
     }
-  }, [removePackage, setResolved]);
+  }, [pendingRemove, removePackage, setResolved]);
+
+  const cancelRemove = useCallback(() => {
+    setPendingRemove(null);
+  }, []);
 
   const handleUpdate = useCallback(async (source?: string) => {
     try {
@@ -59,7 +72,7 @@ export function PackagesPanel({ projectId }: Props) {
       if (result.success) {
         await loadPackages();
       } else {
-        alert(`Update failed: ${result.error}`);
+        setError(`Update failed: ${result.error}`);
       }
     } catch (err) {
       console.error('Failed to update packages:', err);
@@ -73,6 +86,25 @@ export function PackagesPanel({ projectId }: Props) {
 
   return (
     <div className="packages-panel">
+      {pendingRemove && (
+        <div className="packages-confirm-overlay">
+          <div className="packages-confirm-dialog">
+            <p>Remove package &ldquo;{pendingRemove}&rdquo;? This will uninstall it.</p>
+            <div className="packages-confirm-actions">
+              <button className="packages-confirm-cancel" onClick={cancelRemove}>Cancel</button>
+              <button className="packages-confirm-ok" onClick={confirmRemove}>Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="packages-error-banner">
+          <span>{error}</span>
+          <button onClick={() => setError(null)}>&times;</button>
+        </div>
+      )}
+
       <div className="packages-nav">
         <div className="packages-nav-tabs">
           <button

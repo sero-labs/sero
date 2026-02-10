@@ -135,3 +135,65 @@
 .sero-tab-context-danger:hover {
   background: var(--status-error);
 }
+
+/* ── Missing Panel Placeholder ────────────────────────────── */
+.sero-missing-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.sero-missing-panel-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.sero-missing-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 6px;
+}
+
+.sero-missing-panel-detail {
+  font-size: 12px;
+  margin: 0 0 16px;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.sero-missing-panel-detail code {
+  background: var(--bg-muted);
+  padding: 1px 5px;
+  border-radius: var(--sero-radius-sm);
+  font-size: 11px;
+}
+
+.sero-missing-panel-close {
+  font-size: 12px;
+  padding: 5px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--sero-radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.sero-missing-panel-close:hover {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+}

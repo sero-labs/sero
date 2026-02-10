@@ -25,22 +25,13 @@ export class AgentManager {
   private listeners = new Map<string, (() => void)[]>();
   private authStorage: AuthStorage;
   private modelRegistry: ModelRegistry;
-  private packageInstaller: PackageInstaller | null = null;
-
   constructor(
     private containerManager: ContainerManager,
     private skillManager: SkillManager,
+    private packageInstaller: PackageInstaller,
   ) {
     this.authStorage = new AuthStorage();
     this.modelRegistry = new ModelRegistry(this.authStorage);
-  }
-
-  /**
-   * Set the package installer for resolving extension/skill/prompt/theme
-   * paths from installed PI packages into agent sessions.
-   */
-  setPackageInstaller(installer: PackageInstaller): void {
-    this.packageInstaller = installer;
   }
 
   /**
@@ -65,7 +56,7 @@ export class AgentManager {
     // so it resolves packages naturally from ~/.pi/agent/settings.json — the same
     // way PI CLI does. This avoids the fragile additionalExtensionPaths workaround
     // where pre-resolved paths are re-resolved by the loader's internal PM.
-    const resourceSettings = this.packageInstaller?.getSettingsManager() ?? sessionSettings;
+    const resourceSettings = this.packageInstaller.getSettingsManager();
 
     const loader = new DefaultResourceLoader({
       cwd: WORKSPACE_DIR,

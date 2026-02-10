@@ -140,14 +140,10 @@ process.on('unhandledRejection', (reason: any) => {
 let mainWindow: BrowserWindow | null = null;
 const containerManager = new ContainerManager();
 const packageInstaller = new PackageInstaller();
-const skillManager = new SkillManager();
-const agentManager = new AgentManager(containerManager, skillManager);
+const skillManager = new SkillManager(packageInstaller);
+const agentManager = new AgentManager(containerManager, skillManager, packageInstaller);
 const lspManager = new LspManager(containerManager);
 const fileWatcher = new FileWatcherManager();
-
-// Wire package installer into skill manager and agent manager
-skillManager.setPackageInstaller(packageInstaller);
-agentManager.setPackageInstaller(packageInstaller);
 
 function createWindow() {
   mainWindow = new BrowserWindow({

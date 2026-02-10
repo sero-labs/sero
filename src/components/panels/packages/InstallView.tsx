@@ -21,6 +21,7 @@ export function InstallView({ onInstalled }: InstallViewProps) {
     setResult(null);
 
     try {
+      // PI SDK: { local: true } = project-scoped install (not "local path" source type)
       const res = await window.sero.packages.install(trimmed, { local: scope === 'project' });
 
       if (res.success) {
