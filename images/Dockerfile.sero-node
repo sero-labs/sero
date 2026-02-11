@@ -1,0 +1,25 @@
+FROM node:22-slim
+
+# Pre-install tools that agents and users expect
+# tini: lightweight init that properly reaps zombie processes (critical for
+# container exec where background processes become orphans)
+RUN apt-get update -qq && \
+    apt-get install -y -qq --no-install-recommends \
+      tini \
+      git curl wget build-essential ca-certificates \
+      procps less vim-tiny jq \
+      iproute2 net-tools dnsutils \
+      python3 python3-pip python3-venv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Playwright + Chromium — used by agent for screenshot validation & web testing
+RUN pip3 install --break-system-packages playwright && \
+    python3 -m playwright install --with-deps chromium
+
+# Use tini as PID 1 — reaps zombie processes automatically
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Create workspace mount point
+RUN mkdir -p /workspace
+WORKDIR /workspace
