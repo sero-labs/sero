@@ -29,6 +29,18 @@ contextBridge.exposeInMainWorld('sero', {
 
     setAutoOpen: (id: string, autoOpen: boolean): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.workspace.setAutoOpen, id, autoOpen),
+
+    open: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.open, id),
+
+    close: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.close, id),
+
+    pickFolder: (): Promise<string | null> =>
+      ipcRenderer.invoke(IpcChannels.workspace.pickFolder),
+
+    infer: (message: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.workspace.infer, message),
   },
 
   sessions: {

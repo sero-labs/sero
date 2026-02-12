@@ -68,6 +68,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (s.openWorkspaceIds.includes(id)) return s;
       return { openWorkspaceIds: [...s.openWorkspaceIds, id] };
     });
+    // Sync to main process composite environment
+    window.sero.workspace.open(id).catch(console.error);
   },
 
   closeWorkspace: (id) => {
@@ -77,6 +79,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // If we closed the active workspace, fall back to scratchpad
       activeWorkspaceId: s.activeWorkspaceId === id ? 'scratchpad' : s.activeWorkspaceId,
     }));
+    // Sync to main process composite environment
+    window.sero.workspace.close(id).catch(console.error);
   },
 
   setActiveWorkspace: (id) => set({ activeWorkspaceId: id }),

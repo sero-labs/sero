@@ -114,3 +114,25 @@ ChatPanel remains shell-level (per AD-003). It shows whichever session is
 focused (`focusedSessionId` in agent store). Selecting a session in a different
 workspace changes the ChatPanel's content and the agent's context, but the
 panel itself doesn't move or duplicate.
+
+## AD-014: Composite Environment via Inline Extension Factory
+
+Cross-workspace awareness is injected via an inline PI SDK extension factory
+(`createSeroExtensionFactory` in `electron/sero-extension.ts`) passed to each
+session's `DefaultResourceLoader.extensionFactories`. The factory has closure
+access to the `WorkspaceManager` and provides:
+
+- `before_agent_start` — injects open workspace summaries into system prompt
+- `input` event — expands `@ws:id/path` references to absolute paths
+- `/workspace` command — list, info, open, close
+- `/pwd` command — print workspace-relative cwd
+
+The composite environment state (which workspaces are open) is tracked in both
+the renderer store and the main-process `WorkspaceManager`, synced via IPC.
+
+## AD-015: Native Folder Picker for Workspace Addition
+
+Adding a workspace uses Electron's `dialog.showOpenDialog` via a dedicated
+`sero:workspace:pick-folder` IPC channel. This gives the native macOS folder
+picker instead of a text input. The picked path is registered as a workspace
+with auto-generated `.sero-workspace.json` if none exists.

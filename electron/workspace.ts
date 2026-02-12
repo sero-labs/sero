@@ -56,6 +56,12 @@ export class WorkspaceManager {
   private registry: WorkspaceRegistry = { workspaces: [] };
   private configCache: Map<string, WorkspaceConfig> = new Map();
 
+  /**
+   * IDs of workspaces currently in the composite environment (runtime only).
+   * Seeded from autoOpen entries on init. Updated by renderer via IPC.
+   */
+  private openIds: Set<string> = new Set();
+
   // ── Lifecycle ──────────────────────────────────────────────
 
   /** Load registry from disk. Creates defaults if first run. */
@@ -63,6 +69,11 @@ export class WorkspaceManager {
     await this.ensureDirs();
     await this.loadRegistry();
     await this.ensureDefaults();
+
+    // Seed composite environment from autoOpen entries
+    for (const entry of this.registry.workspaces) {
+      if (entry.autoOpen) this.openIds.add(entry.id);
+    }
   }
 
   /** Ensure required directories exist. */
@@ -298,6 +309,89 @@ export class WorkspaceManager {
     return this.registry.workspaces
       .filter((w) => w.autoOpen)
       .map((w) => w.id);
+  }
+
+  // ── Composite Environment ─────────────────────────────────
+
+  /** Add a workspace to the composite environment. */
+  openInComposite(id: string): void {
+    if (this.findEntry(id)) this.openIds.add(id);
+  }
+
+  /** Remove a workspace from the composite environment. */
+  closeInComposite(id: string): void {
+    this.openIds.delete(id);
+  }
+
+  /** Get IDs of workspaces currently in the composite environment. */
+  getOpenIds(): string[] {
+    return [...this.openIds];
+  }
+
+  /**
+   * Infer the best workspace for a given message.
+   * Checks keywords against contextHints, tags, and names of open workspaces.
+   * Returns workspace ID or 'scratchpad' if no match.
+   */
+  async inferWorkspace(message: string): Promise<string> {
+    const openWorkspaces = await this.getOpenWorkspaces();
+    const lower = message.toLowerCase();
+
+    let bestId = 'scratchpad';
+    let bestScore = 0;
+
+    for (const ws of openWorkspaces) {
+      if (ws.id === 'scratchpad') continue;
+
+      let score = 0;
+
+      // Check name
+      if (lower.includes(ws.name.toLowerCase())) score += 3;
+
+      // Check ID
+      if (lower.includes(ws.id)) score += 2;
+
+      // Check tags
+      for (const tag of ws.tags ?? []) {
+        if (tag !== 'default' && lower.includes(tag.toLowerCase())) score += 2;
+      }
+
+      // Check context hints
+      for (const hint of ws.contextHints ?? []) {
+        const words = hint.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+        for (const word of words) {
+          if (lower.includes(word)) score += 1;
+        }
+      }
+
+      // Check description
+      if (ws.description) {
+        const words = ws.description.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+        for (const word of words) {
+          if (lower.includes(word)) score += 1;
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = ws.id;
+      }
+    }
+
+    // Only return a match if we have a meaningful score
+    return bestScore >= 2 ? bestId : 'scratchpad';
+  }
+
+  /** Get full WorkspaceInfo for all open workspaces. */
+  async getOpenWorkspaces(): Promise<WorkspaceInfo[]> {
+    const result: WorkspaceInfo[] = [];
+    for (const id of this.openIds) {
+      const entry = this.findEntry(id);
+      if (!entry) continue;
+      const info = await this.getInfo(entry);
+      if (info) result.push(info);
+    }
+    return result;
   }
 
   /** Find workspace by ID. */

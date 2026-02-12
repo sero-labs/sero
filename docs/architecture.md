@@ -107,11 +107,12 @@ src/
 electron/
   main.ts                    Electron main process + workspace init
   preload.ts                 Preload script (window.sero)
-  workspace.ts               WorkspaceManager (registry + config)
+  workspace.ts               WorkspaceManager (registry + config + composite env)
+  sero-extension.ts          Inline PI extension factory (composite prompt, @ws:, commands)
   env.ts                     .env loader
   ipc/
     index.ts                 IPC handler registry
-    workspace.ts             Workspace IPC handlers
+    workspace.ts             Workspace IPC handlers + native folder picker
     sessions.ts              Session IPC handlers (workspace-scoped)
     agent.ts                 AgentPool — multiple simultaneous AgentSessions
 ```

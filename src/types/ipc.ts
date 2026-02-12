@@ -127,6 +127,14 @@ export const IpcChannels = {
     getConfig: 'sero:workspace:get-config',
     addFolder: 'sero:workspace:add-folder',
     setAutoOpen: 'sero:workspace:set-auto-open',
+    /** Add to composite environment (runtime). */
+    open: 'sero:workspace:open',
+    /** Remove from composite environment (runtime). */
+    close: 'sero:workspace:close',
+    /** Open native folder picker dialog. Returns path or null. */
+    pickFolder: 'sero:workspace:pick-folder',
+    /** Infer best workspace for a given message. Returns workspace ID. */
+    infer: 'sero:workspace:infer',
   },
   sessions: {
     list: 'sero:sessions:list',

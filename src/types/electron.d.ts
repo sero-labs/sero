@@ -21,6 +21,14 @@ interface SeroWorkspaceAPI {
   addFolder(folderPath: string, name?: string): Promise<WorkspaceInfo>;
   /** Set whether a workspace auto-opens on launch. */
   setAutoOpen(id: string, autoOpen: boolean): Promise<void>;
+  /** Add workspace to composite environment (runtime). */
+  open(id: string): Promise<void>;
+  /** Remove workspace from composite environment (runtime). */
+  close(id: string): Promise<void>;
+  /** Open native folder picker. Returns selected path or null. */
+  pickFolder(): Promise<string | null>;
+  /** Infer best workspace for a message. Returns workspace ID. */
+  infer(message: string): Promise<string>;
 }
 
 interface SeroSessionsAPI {

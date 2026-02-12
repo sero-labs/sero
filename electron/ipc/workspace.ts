@@ -4,7 +4,7 @@
  * Bridges renderer ↔ WorkspaceManager in the main process.
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '../../src/types/ipc';
 import type { WorkspaceInfo, WorkspaceConfig } from '../../src/types/ipc';
@@ -61,6 +61,48 @@ export function registerWorkspaceHandlers(): void {
     IpcChannels.workspace.setAutoOpen,
     async (_event, id: string, autoOpen: boolean): Promise<void> => {
       return workspaceManager.setAutoOpen(id, autoOpen);
+    },
+  );
+
+  // ── Open workspace in composite environment ────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.open,
+    async (_event, id: string): Promise<void> => {
+      workspaceManager.openInComposite(id);
+    },
+  );
+
+  // ── Close workspace in composite environment ───────────────
+  ipcMain.handle(
+    IpcChannels.workspace.close,
+    async (_event, id: string): Promise<void> => {
+      workspaceManager.closeInComposite(id);
+    },
+  );
+
+  // ── Infer workspace from message ─────────────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.infer,
+    async (_event, message: string): Promise<string> => {
+      return workspaceManager.inferWorkspace(message);
+    },
+  );
+
+  // ── Native folder picker dialog ────────────────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.pickFolder,
+    async (): Promise<string | null> => {
+      const win = BrowserWindow.getFocusedWindow();
+      if (!win) return null;
+
+      const result = await dialog.showOpenDialog(win, {
+        properties: ['openDirectory'],
+        title: 'Add Workspace Folder',
+        buttonLabel: 'Add Workspace',
+      });
+
+      if (result.canceled || result.filePaths.length === 0) return null;
+      return result.filePaths[0];
     },
   );
 }

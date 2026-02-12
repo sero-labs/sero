@@ -33,6 +33,7 @@ import type {
   AgentStreamEvent,
 } from '../../src/types/ipc';
 import { workspaceManager } from '../workspace';
+import { createSeroExtensionFactory } from '../sero-extension';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -285,11 +286,14 @@ export function registerAgentHandlers(): void {
         throw new Error(`Workspace not found: ${workspaceId}`);
       }
 
-      // Workspace-scoped resource loader
+      // Workspace-scoped resource loader with Sero extension
       const loader = new DefaultResourceLoader({
         cwd: wsPath,
         agentDir: SERO_AGENT_DIR,
         settingsManager: _settingsManager!,
+        extensionFactories: [
+          createSeroExtensionFactory(workspaceManager, workspaceId),
+        ],
       });
       await loader.reload();
 

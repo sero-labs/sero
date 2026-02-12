@@ -1,6 +1,6 @@
 # Multi-Workspace Implementation Spec
 
-**Status:** Ready for implementation
+**Status:** Phases 1–7 implemented
 **Based on:** `docs/ideas/multi-workspace.md` (Claude Opus session)
 **Date:** 2026-02-12
 

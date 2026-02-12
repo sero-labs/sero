@@ -6,7 +6,9 @@ import {
   FolderPlus,
   Loader2,
   MessageSquare,
+  Minus,
   Plus,
+  Power,
   Trash2,
   X,
 } from 'lucide-react';
@@ -30,9 +32,14 @@ export function WorkspaceTree() {
   const loadWorkspaces = useWorkspaceStore((s) => s.loadWorkspaces);
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const openWorkspaces = useOpenWorkspaces();
+  const allWorkspaces = useWorkspaceStore((s) => s.workspaces);
+  const openIds = useWorkspaceStore((s) => s.openWorkspaceIds);
+  const openWorkspace = useWorkspaceStore((s) => s.openWorkspace);
   const sessionsByWorkspace = useSessionsByWorkspace();
   const isLoadingWorkspaces = useWorkspaceStore((s) => s.isLoading);
   const addFolder = useWorkspaceStore((s) => s.addFolder);
+
+  const closedWorkspaces = allWorkspaces.filter((w) => !openIds.includes(w.id));
 
   // Load on mount
   useEffect(() => {
@@ -41,16 +48,14 @@ export function WorkspaceTree() {
   }, [loadWorkspaces, loadSessions]);
 
   const handleAddFolder = async () => {
-    // In Electron, we'd use dialog.showOpenDialog — for now, use a simple prompt
-    // This will be replaced with proper native dialog in Phase 7
-    const folderPath = window.prompt('Enter folder path to add as workspace:');
-    if (folderPath?.trim()) {
-      try {
-        await addFolder(folderPath.trim());
-        await loadSessions(); // Refresh sessions for the new workspace
-      } catch (err) {
-        console.error('Failed to add folder:', err);
-      }
+    try {
+      const folderPath = await window.sero.workspace.pickFolder();
+      if (!folderPath) return; // User cancelled
+
+      await addFolder(folderPath);
+      await loadSessions(); // Refresh sessions for the new workspace
+    } catch (err) {
+      console.error('Failed to add folder:', err);
     }
   };
 
@@ -93,6 +98,25 @@ export function WorkspaceTree() {
             No workspaces open
           </span>
         )}
+
+        {/* Closed workspaces — quick re-open */}
+        {closedWorkspaces.length > 0 && (
+          <div className="mt-2 border-t border-border/30 pt-2">
+            <span className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Closed
+            </span>
+            {closedWorkspaces.map((ws) => (
+              <button
+                key={ws.id}
+                onClick={() => openWorkspace(ws.id)}
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+              >
+                <FolderOpen className="size-3 shrink-0" />
+                <span className="truncate">{ws.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -111,7 +135,9 @@ function WorkspaceNode({
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((s) => s.closeWorkspace);
+  const removeWorkspace = useWorkspaceStore((s) => s.removeWorkspace);
   const createSession = useSessionStore((s) => s.createSession);
+  const loadSessions = useSessionStore((s) => s.loadSessions);
   const streamingIds = useStreamingSessionIds();
 
   const isActive = activeWorkspaceId === workspace.id;
@@ -132,6 +158,15 @@ function WorkspaceNode({
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
     closeWorkspace(workspace.id);
+  };
+
+  const handleRemove = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Remove workspace "${workspace.name}"?\n\nThis will unregister it from Sero. The folder and its files will not be deleted.`)) {
+      return;
+    }
+    await removeWorkspace(workspace.id);
+    await loadSessions();
   };
 
   return (
@@ -181,16 +216,28 @@ function WorkspaceNode({
             <Plus className="size-3 text-[var(--text-muted)]" />
           </span>
           {!isDefault && (
-            <span
-              role="button"
-              tabIndex={-1}
-              onClick={handleClose}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleClose(e as unknown as React.MouseEvent); } }}
-              className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-              title="Close workspace"
-            >
-              <X className="size-3 text-[var(--text-muted)]" />
-            </span>
+            <>
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={handleClose}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleClose(e as unknown as React.MouseEvent); } }}
+                className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+                title="Close workspace"
+              >
+                <Minus className="size-3 text-[var(--text-muted)]" />
+              </span>
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={handleRemove}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleRemove(e as unknown as React.MouseEvent); } }}
+                className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+                title="Remove workspace"
+              >
+                <Trash2 className="size-3 text-[var(--text-muted)]" />
+              </span>
+            </>
           )}
         </span>
       </button>
@@ -220,6 +267,7 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const agents = useAgentStore((s) => s.agents);
+  const closeSession = useAgentStore((s) => s.closeSession);
   const streamingIds = useStreamingSessionIds();
 
   const isActive = activeSessionId === session.id;
@@ -232,6 +280,11 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     deleteSession(session.path);
+  };
+
+  const handleCloseAgent = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    closeSession(session.id);
   };
 
   return (
@@ -269,16 +322,30 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
         </div>
       </div>
 
-      {/* Delete */}
-      <span
-        role="button"
-        tabIndex={-1}
-        onClick={handleDelete}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleDelete(e as unknown as React.MouseEvent); } }}
-        className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-[var(--bg-base)] group-hover:opacity-100"
-        title="Delete session"
-      >
-        <Trash2 className="size-3 text-[var(--text-muted)]" />
+      {/* Actions */}
+      <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        {isInPool && !isStreaming && (
+          <span
+            role="button"
+            tabIndex={-1}
+            onClick={handleCloseAgent}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleCloseAgent(e as unknown as React.MouseEvent); } }}
+            className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+            title="Close agent (keep session)"
+          >
+            <Power className="size-3 text-[var(--text-muted)]" />
+          </span>
+        )}
+        <span
+          role="button"
+          tabIndex={-1}
+          onClick={handleDelete}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleDelete(e as unknown as React.MouseEvent); } }}
+          className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+          title="Delete session"
+        >
+          <Trash2 className="size-3 text-[var(--text-muted)]" />
+        </span>
       </span>
     </button>
   );
