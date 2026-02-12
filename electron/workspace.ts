@@ -227,11 +227,16 @@ export class WorkspaceManager {
     const id = this.slugify(path.basename(absPath));
     const uniqueId = this.ensureUniqueId(id);
 
-    // Check if already registered (by path)
+    // Check if already registered (by path) — reopen if closed
     const existing = this.registry.workspaces.find(
       (w) => path.resolve(w.path) === absPath,
     );
     if (existing) {
+      if (!existing.open) {
+        existing.open = true;
+        this.openIds.add(existing.id);
+        await this.saveRegistry();
+      }
       const info = await this.getInfo(existing);
       if (info) return info;
       throw new Error(`Workspace at ${absPath} is registered but unreadable`);

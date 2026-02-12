@@ -22,6 +22,7 @@ import {
   type AgentSession,
 } from '@mariozechner/pi-coding-agent';
 import { getModel } from '@mariozechner/pi-ai';
+import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 
@@ -274,6 +275,25 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
   });
 }
 
+// ── Global AGENTS.md ─────────────────────────────────────────
+
+/**
+ * Read AGENTS.md from the global workspace (if it exists).
+ * Returns a context file entry for injection, or null.
+ */
+async function readGlobalAgentsMd(): Promise<{ path: string; content: string } | null> {
+  const globalPath = workspaceManager.getPath('global');
+  if (!globalPath) return null;
+
+  const filePath = path.join(globalPath, 'AGENTS.md');
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    return { path: filePath, content };
+  } catch {
+    return null;
+  }
+}
+
 // ── Registration ─────────────────────────────────────────────
 
 export function registerAgentHandlers(): void {
@@ -295,6 +315,9 @@ export function registerAgentHandlers(): void {
         throw new Error(`Workspace not found: ${workspaceId}`);
       }
 
+      // Read global workspace AGENTS.md (inherited by all workspaces)
+      const globalAgentsFile = await readGlobalAgentsMd();
+
       // Workspace-scoped resource loader with Sero extension
       const loader = new DefaultResourceLoader({
         cwd: wsPath,
@@ -303,6 +326,14 @@ export function registerAgentHandlers(): void {
         extensionFactories: [
           createSeroExtensionFactory(workspaceManager, workspaceId),
         ],
+        // Inject global workspace AGENTS.md as base context.
+        // DefaultResourceLoader discovers workspace-level AGENTS.md via cwd walk-up;
+        // this adds the global workspace's on top so all sessions inherit it.
+        ...(globalAgentsFile && {
+          agentsFilesOverride: (discovered) => ({
+            agentsFiles: [globalAgentsFile, ...discovered.agentsFiles],
+          }),
+        }),
       });
       await loader.reload();
 

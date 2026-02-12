@@ -9,6 +9,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
 import { useSessionStore, useSessionsByWorkspace } from '@/stores/sessions';
 import { useStreamingSessionIds } from '@/stores/agent';
@@ -110,6 +111,7 @@ function WorkspaceNode({
   workspace: WorkspaceInfo;
   sessions: SeroSessionInfo[];
 }) {
+  const [hovered, setHovered] = useState(false);
   const collapsedIds = useWorkspaceStore((s) => s.collapsedIds);
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
@@ -155,8 +157,10 @@ function WorkspaceNode({
       {/* Workspace header */}
       <button
         onClick={handleHeaderClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         className={cn(
-          'group flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-left transition-colors',
+          'relative flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-left transition-colors',
           isActive
             ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
             : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
@@ -172,54 +176,73 @@ function WorkspaceNode({
           {workspace.name}
         </span>
 
-        {/* Streaming indicator */}
-        {hasStreaming && (
-          <span className="size-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
-        )}
-
-        {/* Session count */}
-        {sessions.length > 0 && !expanded && (
-          <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
-            {sessions.length}
-          </span>
-        )}
-
-        {/* Actions (visible on hover) */}
-        <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          <span
-            role="button"
-            tabIndex={-1}
-            onClick={handleNewSession}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleNewSession(e as unknown as React.MouseEvent); } }}
-            className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-            title="New session"
-          >
-            <Plus className="size-3 text-[var(--text-muted)]" />
-          </span>
-          {!isDefault && (
-            <>
-              <span
-                role="button"
-                tabIndex={-1}
-                onClick={handleClose}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleClose(e as unknown as React.MouseEvent); } }}
-                className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-                title="Close workspace"
+        {/* Right side: crossfade between count and actions */}
+        <span className="relative ml-auto flex h-5 shrink-0 items-center justify-end">
+          <AnimatePresence mode="wait" initial={false}>
+            {hovered ? (
+              <motion.span
+                key="actions"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-0.5"
               >
-                <Minus className="size-3 text-[var(--text-muted)]" />
-              </span>
-              <span
-                role="button"
-                tabIndex={-1}
-                onClick={handleRemove}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleRemove(e as unknown as React.MouseEvent); } }}
-                className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-                title="Remove workspace"
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={handleNewSession}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleNewSession(e as unknown as React.MouseEvent); } }}
+                  className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+                  title="New session"
+                >
+                  <Plus className="size-3 text-[var(--text-muted)]" />
+                </span>
+                {!isDefault && (
+                  <>
+                    <span
+                      role="button"
+                      tabIndex={-1}
+                      onClick={handleClose}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleClose(e as unknown as React.MouseEvent); } }}
+                      className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+                      title="Close workspace"
+                    >
+                      <Minus className="size-3 text-[var(--text-muted)]" />
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={-1}
+                      onClick={handleRemove}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleRemove(e as unknown as React.MouseEvent); } }}
+                      className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+                      title="Remove workspace"
+                    >
+                      <Trash2 className="size-3 text-[var(--text-muted)]" />
+                    </span>
+                  </>
+                )}
+              </motion.span>
+            ) : (
+              <motion.span
+                key="count"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-1 pr-0.5"
               >
-                <Trash2 className="size-3 text-[var(--text-muted)]" />
-              </span>
-            </>
-          )}
+                {hasStreaming && (
+                  <span className="size-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+                )}
+                {sessions.length > 0 && !expanded && (
+                  <span className="text-[10px] text-[var(--text-muted)]">
+                    {sessions.length}
+                  </span>
+                )}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </span>
       </button>
 
