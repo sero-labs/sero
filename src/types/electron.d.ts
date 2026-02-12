@@ -6,6 +6,7 @@ import type {
   SeroSessionInfo,
   ChatMessage,
   AgentStreamEvent,
+  SeroSlashCommandInfo,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -46,6 +47,10 @@ interface SeroAgentAPI {
   abort(sessionId: string): Promise<void>;
   /** Close a specific session and dispose its AgentSession. */
   close(sessionId: string): Promise<void>;
+  /** Get available slash commands for a session. */
+  getCommands(sessionId: string): Promise<SeroSlashCommandInfo[]>;
+  /** Reload resources (skills, prompts, extensions). Returns updated commands. */
+  reloadResources(sessionId: string): Promise<SeroSlashCommandInfo[]>;
   /** Subscribe to streaming events pushed from main process. Returns unsubscribe. */
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
 }

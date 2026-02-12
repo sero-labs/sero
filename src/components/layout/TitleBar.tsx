@@ -50,7 +50,7 @@ export function TitleBar() {
           <TooltipContent side="bottom">Toggle sidebar</TooltipContent>
         </Tooltip>
 
-        <span className="text-xs font-medium text-[var(--text-secondary)]">
+        <span className="truncate text-xs font-medium text-[var(--text-secondary)]" style={{ maxWidth: '50vw' }}>
           {titleText}
         </span>
       </div>

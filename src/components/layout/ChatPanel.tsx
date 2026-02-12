@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Bot, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
 import {
   Conversation,
@@ -25,8 +25,9 @@ import {
   ToolInput,
   ToolOutput,
 } from '@/components/ai-elements/tool';
-import { useAgentStore, useFocusedAgent } from '@/stores/agent';
-import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
+import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
+import { SlashCommandMenu } from './SlashCommandMenu';
+import type { ChatMessage, ChatToolCallMessage, SeroSlashCommandInfo } from '@/types/ipc';
 
 /**
  * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
@@ -37,6 +38,7 @@ import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
 export function ChatPanel() {
   const [input, setInput] = useState('');
   const focused = useFocusedAgent();
+  const commands = useFocusedCommands();
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
   const abort = useAgentStore((s) => s.abort);
   const initEventListener = useAgentStore((s) => s.initEventListener);
@@ -52,9 +54,38 @@ export function ChatPanel() {
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
 
+  // ── Slash command menu state ─────────────────────────────
+  // Open when input starts with "/" and has no newlines before it
+  const slashMenuOpen = useMemo(() => {
+    if (!commands.length) return false;
+    // Match "/" at start, optionally followed by partial command text (no spaces yet = still filtering)
+    return /^\/[^\s]*$/.test(input);
+  }, [input, commands]);
+
+  // Text after the "/" for filtering
+  const slashFilter = useMemo(() => {
+    if (!slashMenuOpen) return '';
+    return input.slice(1); // Remove leading "/"
+  }, [input, slashMenuOpen]);
+
+  const handleSlashSelect = useCallback(
+    (cmd: SeroSlashCommandInfo) => {
+      // Insert the command into input. Add trailing space for arguments.
+      setInput(`/${cmd.name} `);
+    },
+    [],
+  );
+
+  const handleSlashClose = useCallback(() => {
+    // User pressed Escape — clear the slash prefix
+    setInput('');
+  }, []);
+
   const handleSubmit = () => {
     const text = input.trim();
     if (!text || !sessionId) return;
+    // Don't submit if slash menu is open (Enter selects from menu instead)
+    if (slashMenuOpen) return;
     setInput('');
     sendPrompt(sessionId, text);
   };
@@ -103,7 +134,16 @@ export function ChatPanel() {
       </Conversation>
 
       {/* ── Prompt input ────────────────────────────────────── */}
-      <div className="shrink-0 p-2">
+      <div className="relative shrink-0 p-2">
+        {/* Slash command autocomplete menu */}
+        <SlashCommandMenu
+          commands={commands}
+          filter={slashFilter}
+          onSelect={handleSlashSelect}
+          onClose={handleSlashClose}
+          open={slashMenuOpen}
+        />
+
         <PromptInput
           onSubmit={handleSubmit}
           className="w-full"
@@ -112,7 +152,7 @@ export function ChatPanel() {
             <PromptInputTextarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={hasSession ? 'Ask Sero anything…' : 'Select a chat first…'}
+              placeholder={hasSession ? 'Ask Sero anything… (/ for commands)' : 'Select a chat first…'}
               disabled={!hasSession}
             />
           </PromptInputBody>

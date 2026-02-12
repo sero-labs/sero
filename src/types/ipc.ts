@@ -65,6 +65,17 @@ export interface SeroSessionInfo {
   firstMessage: string;
 }
 
+// ── Slash Commands ─────────────────────────────────────────────
+
+/** Slash command info from PI SDK. Mirrors SlashCommandInfo from pi-coding-agent. */
+export interface SeroSlashCommandInfo {
+  name: string;
+  description?: string;
+  source: 'extension' | 'prompt' | 'skill';
+  location?: 'user' | 'project' | 'path';
+  path?: string;
+}
+
 // ── Agent ──────────────────────────────────────────────────────
 
 /** Renderer-friendly message types for the ChatPanel. */
@@ -114,6 +125,7 @@ export type AgentStreamEvent =
   | { type: 'message_end'; sessionId: string; messageId: string; text: string }
   | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
   | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; isError: boolean }
+  | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'error'; sessionId: string; error: string };
 
 // ── IPC Channels ───────────────────────────────────────────────
@@ -145,6 +157,10 @@ export const IpcChannels = {
     prompt: 'sero:agent:prompt',
     abort: 'sero:agent:abort',
     close: 'sero:agent:close',
+    /** Get available slash commands for a session. */
+    getCommands: 'sero:agent:get-commands',
+    /** Reload resources (skills, prompts, extensions) for a session. Returns updated commands. */
+    reloadResources: 'sero:agent:reload-resources',
     /** Main → renderer push channel for streaming events. */
     event: 'sero:agent:event',
   },

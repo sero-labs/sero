@@ -25,6 +25,8 @@ interface SessionsState {
   deleteSession: (sessionPath: string) => Promise<void>;
   setActiveSession: (id: string | null) => void;
   setSearchQuery: (q: string) => void;
+  /** Update a session's display name in-memory (e.g., from agent title generation). */
+  updateSessionName: (sessionId: string, name: string) => void;
 }
 
 /** Sort sessions by modified date, newest first. */
@@ -91,6 +93,14 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
   },
 
   setSearchQuery: (q) => set({ searchQuery: q }),
+
+  updateSessionName: (sessionId, name) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, name } : sess,
+      ),
+    }));
+  },
 }));
 
 // ── Selectors ──────────────────────────────────────────────────

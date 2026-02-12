@@ -6,6 +6,7 @@ import type {
   SeroSessionInfo,
   ChatMessage,
   AgentStreamEvent,
+  SeroSlashCommandInfo,
 } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
@@ -68,6 +69,12 @@ contextBridge.exposeInMainWorld('sero', {
 
     close: (sessionId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.close, sessionId),
+
+    getCommands: (sessionId: string): Promise<SeroSlashCommandInfo[]> =>
+      ipcRenderer.invoke(IpcChannels.agent.getCommands, sessionId),
+
+    reloadResources: (sessionId: string): Promise<SeroSlashCommandInfo[]> =>
+      ipcRenderer.invoke(IpcChannels.agent.reloadResources, sessionId),
 
     onEvent: (callback: (event: AgentStreamEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: AgentStreamEvent) => {

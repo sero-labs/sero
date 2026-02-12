@@ -3,7 +3,9 @@ import type {
   ChatMessage,
   ChatToolCallMessage,
   AgentStreamEvent,
+  SeroSlashCommandInfo,
 } from '@/types/ipc';
+import { useSessionStore } from '@/stores/sessions';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -15,6 +17,8 @@ export interface AgentInstance {
   messages: ChatMessage[];
   isStreaming: boolean;
   error: string | null;
+  /** Available slash commands for this session (fetched on open). */
+  commands: SeroSlashCommandInfo[];
 }
 
 interface AgentState {
@@ -37,6 +41,8 @@ interface AgentState {
   focusSession: (sessionId: string) => void;
   /** Clear focus (no session shown in ChatPanel). */
   clearFocus: () => void;
+  /** Reload resources (skills, prompts, extensions) for a session. */
+  reloadResources: (sessionId: string) => Promise<void>;
 
   /** Subscribe to main-process events. Returns cleanup function. */
   initEventListener: () => () => void;
@@ -66,6 +72,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           messages: [],
           isStreaming: false,
           error: null,
+          commands: [],
         },
       },
       focusedSessionId: sessionId,
@@ -73,12 +80,22 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
     try {
       const history = await window.sero.agent.open(sessionId, sessionPath, workspaceId);
+
+      // Fetch available slash commands for this session (non-blocking on failure)
+      let commands: SeroSlashCommandInfo[] = [];
+      try {
+        commands = await window.sero.agent.getCommands(sessionId);
+      } catch (cmdErr) {
+        console.warn('[agent] Failed to fetch commands:', cmdErr);
+      }
+
       set((s) => ({
         agents: {
           ...s.agents,
           [sessionId]: {
             ...s.agents[sessionId],
             messages: history,
+            commands,
           },
         },
       }));
@@ -151,6 +168,24 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   focusSession: (sessionId) => set({ focusedSessionId: sessionId }),
 
   clearFocus: () => set({ focusedSessionId: null }),
+
+  reloadResources: async (sessionId) => {
+    try {
+      const commands = await window.sero.agent.reloadResources(sessionId);
+      set((s) => {
+        const agent = s.agents[sessionId];
+        if (!agent) return s;
+        return {
+          agents: {
+            ...s.agents,
+            [sessionId]: { ...agent, commands },
+          },
+        };
+      });
+    } catch (err) {
+      console.error('[agent] reloadResources failed:', err);
+    }
+  },
 
   initEventListener: () => {
     const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
@@ -267,6 +302,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           }));
           break;
 
+        case 'session_name':
+          useSessionStore.getState().updateSessionName(sid, event.name);
+          break;
+
         case 'error':
           set((s) => ({
             agents: {
@@ -313,4 +352,12 @@ export function useActiveAgentCount(): number {
 /** Check if a specific session has an active agent. */
 export function useIsSessionActive(sessionId: string): boolean {
   return useAgentStore((s) => !!s.agents[sessionId]);
+}
+
+/** Slash commands available for the focused session. */
+export function useFocusedCommands(): SeroSlashCommandInfo[] {
+  const agents = useAgentStore((s) => s.agents);
+  const focusedId = useAgentStore((s) => s.focusedSessionId);
+  if (!focusedId) return [];
+  return agents[focusedId]?.commands ?? [];
 }

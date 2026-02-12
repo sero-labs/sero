@@ -20,6 +20,7 @@ import {
   DefaultResourceLoader,
   createCodingTools,
   type AgentSession,
+  type SlashCommandInfo,
 } from '@mariozechner/pi-coding-agent';
 import { getModel } from '@mariozechner/pi-ai';
 import { promises as fs } from 'fs';
@@ -32,14 +33,18 @@ import type {
   ChatAssistantMessage,
   ChatToolCallMessage,
   AgentStreamEvent,
+  SeroSlashCommandInfo,
 } from '../../src/types/ipc';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
 
 // ── Constants ────────────────────────────────────────────────
 
-const SERO_AGENT_DIR = path.join(os.homedir(), '.sero-ui', 'agent');
-const SERO_SESSION_DIR = path.join(SERO_AGENT_DIR, 'sessions');
+/** Sero-specific session storage (separate from PI's sessions). */
+const SERO_SESSION_DIR = path.join(os.homedir(), '.sero-ui', 'agent', 'sessions');
+
+/** Sero config file — user-editable settings specific to Sero. */
+const SERO_CONFIG_PATH = path.join(os.homedir(), '.sero-ui', 'agent', 'settings.json');
 
 // ── Shared infrastructure (lazy, initialised on first use) ───
 
@@ -50,9 +55,12 @@ let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
 let _model: any = null;
 
 /**
- * PI's standard agent directory — source of truth for auth.json.
- * Sero reads (and refreshes) OAuth tokens from PI's auth.json directly.
- * No sync needed — PI CLI handles /login, both share the same file.
+ * PI's standard agent directory — source of truth for auth, settings,
+ * extensions, skills, prompts, packages, and models.
+ *
+ * Sero shares PI's full resource environment so any globally installed
+ * skills, extensions, prompt templates, and pi packages are automatically
+ * available — no separate configuration needed.
  */
 const PI_AGENT_DIR = path.join(os.homedir(), '.pi', 'agent');
 
@@ -63,9 +71,11 @@ async function ensureInfra() {
     _authStorage = new AuthStorage(path.join(PI_AGENT_DIR, 'auth.json'));
     _modelRegistry = new ModelRegistry(_authStorage);
 
+    // Use PI's agent dir for settings so we pick up package lists,
+    // extension paths, skill paths, etc. from PI's settings.json.
     _settingsManager = SettingsManager.create(
       path.join(os.homedir(), '.sero-ui'),
-      SERO_AGENT_DIR,
+      PI_AGENT_DIR,
     );
     _model = getModel('anthropic', 'claude-opus-4-6');
     if (!_model) throw new Error('Model claude-opus-4-6 not found in registry');
@@ -76,9 +86,12 @@ async function ensureInfra() {
 
 interface PoolEntry {
   session: AgentSession;
+  loader: DefaultResourceLoader;
   unsubscribe: () => void;
   workspaceId: string;
   currentAssistantId: string | null;
+  /** Last known session name — used to detect changes and push to renderer. */
+  lastSessionName: string | undefined;
 }
 
 /** Map<sessionId, PoolEntry> — one AgentSession per active chat. */
@@ -132,6 +145,9 @@ function convertSessionMessages(
           c.type === 'toolCall',
       );
       for (const tc of toolCalls) {
+        // Hide internal tools from history
+        if (tc.name === 'set_session_title') continue;
+
         const toolResult = messages.find(
           (m) => m.role === 'toolResult' && 'toolCallId' in m && m.toolCallId === tc.id,
         );
@@ -160,6 +176,59 @@ function convertSessionMessages(
   }
 
   return result;
+}
+
+/**
+ * Read hiddenCommands from ~/.sero-ui/agent/settings.json.
+ * Re-read on each call so edits take effect without restart.
+ */
+async function readHiddenCommands(): Promise<Set<string>> {
+  try {
+    const raw = await fs.readFile(SERO_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(raw);
+    if (Array.isArray(config.hiddenCommands)) {
+      return new Set(config.hiddenCommands as string[]);
+    }
+  } catch {
+    // File missing or malformed — no hidden commands
+  }
+  return new Set();
+}
+
+/** Build the slash command list from a pool entry's resources. PI CLI ordering. */
+function buildCommandList(entry: PoolEntry, hidden?: Set<string>): SeroSlashCommandInfo[] {
+  const runtime = entry.session.extensionRunner;
+  if (!runtime) return [];
+
+  // 1. Extension commands from the runner
+  const extensionCommands = runtime.getRegisteredCommands();
+  const extCmds: SeroSlashCommandInfo[] = extensionCommands.map((cmd) => ({
+    name: cmd.name,
+    description: cmd.description,
+    source: 'extension' as const,
+  }));
+
+  // 2. Prompt templates from the resource loader
+  const { prompts } = entry.loader.getPrompts();
+  const promptCmds: SeroSlashCommandInfo[] = prompts.map((p) => ({
+    name: p.name,
+    description: p.description,
+    source: 'prompt' as const,
+    path: p.source,
+  }));
+
+  // 3. Skill commands from the resource loader
+  const { skills } = entry.loader.getSkills();
+  const skillCmds: SeroSlashCommandInfo[] = skills.map((s) => ({
+    name: `skill:${s.name}`,
+    description: s.description,
+    source: 'skill' as const,
+    path: s.filePath,
+  }));
+
+  const all = [...extCmds, ...promptCmds, ...skillCmds];
+  if (!hidden || hidden.size === 0) return all;
+  return all.filter((cmd) => !hidden.has(cmd.name));
 }
 
 /** Close and dispose a single pool entry. */
@@ -237,6 +306,9 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
       }
 
       case 'tool_execution_start': {
+        // Hide internal tools from the UI
+        if (event.toolName === 'set_session_title') break;
+
         const toolMsg: ChatToolCallMessage = {
           type: 'tool',
           id: nextId(),
@@ -252,6 +324,16 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
       }
 
       case 'tool_execution_end': {
+        // Internal tools: hide from UI but push side-effects immediately
+        if (event.toolName === 'set_session_title') {
+          const newName = entry.session.sessionName;
+          if (newName && newName !== entry.lastSessionName) {
+            entry.lastSessionName = newName;
+            sendEvent({ type: 'session_name', sessionId, name: newName });
+          }
+          break;
+        }
+
         const result = event.result;
         let text: string | null = null;
         if (result?.content && Array.isArray(result.content)) {
@@ -318,10 +400,12 @@ export function registerAgentHandlers(): void {
       // Read global workspace AGENTS.md (inherited by all workspaces)
       const globalAgentsFile = await readGlobalAgentsMd();
 
-      // Workspace-scoped resource loader with Sero extension
+      // Workspace-scoped resource loader with Sero extension.
+      // Uses PI_AGENT_DIR so we discover the same skills, prompts, extensions,
+      // and packages as the PI CLI — anything the user has installed globally.
       const loader = new DefaultResourceLoader({
         cwd: wsPath,
-        agentDir: SERO_AGENT_DIR,
+        agentDir: PI_AGENT_DIR,
         settingsManager: _settingsManager!,
         extensionFactories: [
           createSeroExtensionFactory(workspaceManager, workspaceId),
@@ -339,7 +423,7 @@ export function registerAgentHandlers(): void {
 
       const { session } = await createAgentSession({
         cwd: wsPath,
-        agentDir: SERO_AGENT_DIR,
+        agentDir: PI_AGENT_DIR,
         model: _model,
         thinkingLevel: 'off',
         authStorage: _authStorage!,
@@ -354,9 +438,11 @@ export function registerAgentHandlers(): void {
       const unsubscribe = subscribeToSession(sessionId, session);
       pool.set(sessionId, {
         session,
+        loader,
         unsubscribe,
         workspaceId,
         currentAssistantId: null,
+        lastSessionName: session.sessionName,
       });
 
       return convertSessionMessages(session.messages);
@@ -393,6 +479,32 @@ export function registerAgentHandlers(): void {
     IpcChannels.agent.close,
     async (_event, sessionId: string): Promise<void> => {
       closePoolEntry(sessionId);
+    },
+  );
+
+  // ── Get available slash commands for a session ──────────────
+  ipcMain.handle(
+    IpcChannels.agent.getCommands,
+    async (_event, sessionId: string): Promise<SeroSlashCommandInfo[]> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return [];
+      const hidden = await readHiddenCommands();
+      return buildCommandList(entry, hidden);
+    },
+  );
+
+  // ── Reload resources for a session (hot-reload) ────────────
+  ipcMain.handle(
+    IpcChannels.agent.reloadResources,
+    async (_event, sessionId: string): Promise<SeroSlashCommandInfo[]> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return [];
+
+      // Re-discover skills, prompts, extensions from disk
+      await entry.loader.reload();
+
+      const hidden = await readHiddenCommands();
+      return buildCommandList(entry, hidden);
     },
   );
 
