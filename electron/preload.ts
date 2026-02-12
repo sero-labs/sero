@@ -43,17 +43,17 @@ contextBridge.exposeInMainWorld('sero', {
   },
 
   agent: {
-    open: (sessionPath: string): Promise<ChatMessage[]> =>
-      ipcRenderer.invoke(IpcChannels.agent.open, sessionPath),
+    open: (sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]> =>
+      ipcRenderer.invoke(IpcChannels.agent.open, sessionId, sessionPath, workspaceId),
 
-    prompt: (text: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.agent.prompt, text),
+    prompt: (sessionId: string, text: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.agent.prompt, sessionId, text),
 
-    abort: (): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.agent.abort),
+    abort: (sessionId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.agent.abort, sessionId),
 
-    close: (): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.agent.close),
+    close: (sessionId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.agent.close, sessionId),
 
     onEvent: (callback: (event: AgentStreamEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: AgentStreamEvent) => {

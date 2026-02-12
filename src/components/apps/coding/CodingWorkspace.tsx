@@ -1,22 +1,19 @@
 import { useState } from 'react';
-import { ProjectBar } from './ProjectBar';
 import { ActivityBar, type CodingPanel } from './ActivityBar';
 import { CodingSidebar } from './CodingSidebar';
 
 /**
  * CodingWorkspace — the full coding app, mounted into the main area.
  *
- * ┌──────────────────────────────────────────────┐
- * │  ProjectBar (project tabs)                    │
- * ├────┬──────┬───────────────────────────────────┤
+ * ┌────┬──────┬───────────────────────────────────┐
  * │ A  │ Side │                                   │
  * │ c  │ bar  │       Editor / Dockview area       │
  * │ t  │      │       (empty for now)              │
  * │ .  │      │                                   │
- * ├────┴──────┴───────────────────────────────────┤
+ * └────┴──────┴───────────────────────────────────┘
  *
- * The ChatPanel is no longer here — it lives at the shell level
- * so it persists across all apps.
+ * ProjectBar is removed — workspaces replace project tabs (AD-010).
+ * The ChatPanel lives at the shell level (AD-003).
  *
  * All state is local to this component for now.
  */
@@ -35,9 +32,6 @@ export function CodingWorkspace() {
 
   return (
     <div className="flex h-full w-full flex-col min-h-0">
-      {/* ── Project tabs ───────────────────────────────────────── */}
-      <ProjectBar />
-
       {/* ── Activity bar + sidebar + editor area ───────────────── */}
       <div className="flex min-h-0 flex-1">
         <ActivityBar

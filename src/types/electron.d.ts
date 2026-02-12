@@ -32,14 +32,14 @@ interface SeroSessionsAPI {
 }
 
 interface SeroAgentAPI {
-  /** Open a session and load its history. */
-  open(sessionPath: string): Promise<ChatMessage[]>;
-  /** Send a prompt. Resolves when the agent finishes its turn. */
-  prompt(text: string): Promise<void>;
-  /** Abort the current agent operation. */
-  abort(): Promise<void>;
-  /** Close the current session and dispose resources. */
-  close(): Promise<void>;
+  /** Open a session in the agent pool. Creates a workspace-scoped AgentSession. */
+  open(sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]>;
+  /** Send a prompt to a specific session. */
+  prompt(sessionId: string, text: string): Promise<void>;
+  /** Abort a specific session's current operation. */
+  abort(sessionId: string): Promise<void>;
+  /** Close a specific session and dispose its AgentSession. */
+  close(sessionId: string): Promise<void>;
   /** Subscribe to streaming events pushed from main process. Returns unsubscribe. */
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
 }

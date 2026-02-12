@@ -25,22 +25,18 @@ import {
   ToolInput,
   ToolOutput,
 } from '@/components/ai-elements/tool';
-import { useAgentStore } from '@/stores/agent';
-import { useSessionStore } from '@/stores/sessions';
+import { useAgentStore, useFocusedAgent } from '@/stores/agent';
 import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
 
 /**
- * ChatPanel — agent chat panel wired to Pi SDK AgentSession.
+ * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
  *
  * Uses ai-elements Conversation + Message + PromptInput + Tool.
- * Streams real agent responses from the main process.
+ * Reads from the focused agent instance in the multi-session pool.
  */
 export function ChatPanel() {
   const [input, setInput] = useState('');
-  const messages = useAgentStore((s) => s.messages);
-  const isStreaming = useAgentStore((s) => s.isStreaming);
-  const error = useAgentStore((s) => s.error);
-  const activeSessionPath = useAgentStore((s) => s.activeSessionPath);
+  const focused = useFocusedAgent();
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
   const abort = useAgentStore((s) => s.abort);
   const initEventListener = useAgentStore((s) => s.initEventListener);
@@ -51,14 +47,19 @@ export function ChatPanel() {
     return unsub;
   }, [initEventListener]);
 
+  const messages = focused?.messages ?? [];
+  const isStreaming = focused?.isStreaming ?? false;
+  const error = focused?.error ?? null;
+  const sessionId = focused?.sessionId ?? null;
+
   const handleSubmit = () => {
     const text = input.trim();
-    if (!text || !activeSessionPath) return;
+    if (!text || !sessionId) return;
     setInput('');
-    sendPrompt(text);
+    sendPrompt(sessionId, text);
   };
 
-  const hasSession = !!activeSessionPath;
+  const hasSession = !!sessionId;
 
   return (
     <div className="flex h-full flex-col bg-[var(--bg-surface)]">
@@ -68,6 +69,11 @@ export function ChatPanel() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Agent
         </span>
+        {focused?.workspaceId && (
+          <span className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+            {focused.workspaceId}
+          </span>
+        )}
         {isStreaming && (
           <Loader2 className="ml-auto size-3 animate-spin text-[var(--text-muted)]" />
         )}
@@ -114,7 +120,7 @@ export function ChatPanel() {
             <PromptInputTools />
             {isStreaming ? (
               <button
-                onClick={() => abort()}
+                onClick={() => sessionId && abort(sessionId)}
                 className="rounded-md bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/20"
               >
                 Stop

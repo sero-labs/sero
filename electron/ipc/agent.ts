@@ -1,12 +1,13 @@
 /**
- * Agent IPC handlers.
+ * Agent IPC handlers — AgentPool.
  *
- * Manages a singleton AgentSession in the main process.
- * Streams events to the renderer via webContents.send().
+ * Manages multiple simultaneous AgentSessions, one per active chat session.
+ * Shared infrastructure (auth, model, tools factory, settings) is initialised
+ * once and reused. Per-session resources (ResourceLoader, tools, SessionManager)
+ * are scoped to the session's workspace cwd.
  *
- * Shared infrastructure (auth, model, tools, settings) is initialised
- * once and reused across session switches — only the SessionManager
- * changes when the user picks a different chat.
+ * All stream events are tagged with sessionId so the renderer can route
+ * them to the correct AgentInstance in the Zustand store.
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
@@ -31,55 +32,46 @@ import type {
   ChatToolCallMessage,
   AgentStreamEvent,
 } from '../../src/types/ipc';
+import { workspaceManager } from '../workspace';
 
 // ── Constants ────────────────────────────────────────────────
 
 const SERO_AGENT_DIR = path.join(os.homedir(), '.sero-ui', 'agent');
 const SERO_SESSION_DIR = path.join(SERO_AGENT_DIR, 'sessions');
-const SERO_CWD = path.join(os.homedir(), '.sero-ui');
 
 // ── Shared infrastructure (lazy, initialised on first use) ───
-//
-// Must be lazy because loadSeroEnv() in main.ts needs to run first
-// to populate process.env before the SDK reads API keys.
 
 let _authStorage: AuthStorage | null = null;
 let _modelRegistry: ModelRegistry | null = null;
 let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
-let _tools: ReturnType<typeof createCodingTools> | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _model: any = null;
-let _resourceLoader: DefaultResourceLoader | null = null;
-let _resourceLoaderReady: Promise<void> | null = null;
 
 /** Lazy-init shared infrastructure. Called once, then cached. */
 async function ensureInfra() {
   if (!_authStorage) {
     _authStorage = new AuthStorage(path.join(SERO_AGENT_DIR, 'auth.json'));
     _modelRegistry = new ModelRegistry(_authStorage);
-    _settingsManager = SettingsManager.create(SERO_CWD, SERO_AGENT_DIR);
-    _tools = createCodingTools(SERO_CWD);
+    _settingsManager = SettingsManager.create(
+      path.join(os.homedir(), '.sero-ui'),
+      SERO_AGENT_DIR,
+    );
     _model = getModel('anthropic', 'claude-opus-4-6');
     if (!_model) throw new Error('Model claude-opus-4-6 not found in registry');
-
-    _resourceLoader = new DefaultResourceLoader({
-      cwd: SERO_CWD,
-      agentDir: SERO_AGENT_DIR,
-      settingsManager: _settingsManager,
-    });
   }
-
-  if (!_resourceLoaderReady) {
-    _resourceLoaderReady = _resourceLoader!.reload();
-  }
-  await _resourceLoaderReady;
 }
 
-// ── Session state ────────────────────────────────────────────
+// ── Agent Pool ───────────────────────────────────────────────
 
-let currentSession: AgentSession | null = null;
-let unsubscribe: (() => void) | null = null;
-let currentAssistantId: string | null = null;
+interface PoolEntry {
+  session: AgentSession;
+  unsubscribe: () => void;
+  workspaceId: string;
+  currentAssistantId: string | null;
+}
+
+/** Map<sessionId, PoolEntry> — one AgentSession per active chat. */
+const pool = new Map<string, PoolEntry>();
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -97,7 +89,7 @@ function nextId(): string {
 }
 
 /**
- * Convert the existing session.messages into renderer-friendly ChatMessages.
+ * Convert existing session.messages into renderer-friendly ChatMessages.
  */
 function convertSessionMessages(
   messages: ReturnType<AgentSession['agent']['state']['messages']['slice']>,
@@ -159,29 +151,35 @@ function convertSessionMessages(
   return result;
 }
 
-/** Clean up current session. */
-function closeCurrentSession(): void {
-  if (unsubscribe) {
-    unsubscribe();
-    unsubscribe = null;
-  }
-  if (currentSession) {
-    currentSession.dispose();
-    currentSession = null;
-  }
-  currentAssistantId = null;
+/** Close and dispose a single pool entry. */
+function closePoolEntry(sessionId: string): void {
+  const entry = pool.get(sessionId);
+  if (!entry) return;
+  entry.unsubscribe();
+  entry.session.dispose();
+  pool.delete(sessionId);
 }
 
-/** Wire up event subscription for the current session. */
-function subscribeToSession(session: AgentSession): void {
-  unsubscribe = session.subscribe((event) => {
+/** Close all pool entries (app shutdown). */
+function disposeAll(): void {
+  for (const sessionId of pool.keys()) {
+    closePoolEntry(sessionId);
+  }
+}
+
+/** Wire up event subscription for a session, tagging all events with sessionId. */
+function subscribeToSession(sessionId: string, session: AgentSession): () => void {
+  return session.subscribe((event) => {
+    const entry = pool.get(sessionId);
+    if (!entry) return;
+
     switch (event.type) {
       case 'agent_start':
-        sendEvent({ type: 'agent_start' });
+        sendEvent({ type: 'agent_start', sessionId });
         break;
 
       case 'agent_end':
-        sendEvent({ type: 'agent_end' });
+        sendEvent({ type: 'agent_end', sessionId });
         break;
 
       case 'message_start': {
@@ -192,18 +190,19 @@ function subscribeToSession(session: AgentSession): void {
             text: '',
             isStreaming: true,
           };
-          currentAssistantId = chatMsg.id;
-          sendEvent({ type: 'message_start', message: chatMsg });
+          entry.currentAssistantId = chatMsg.id;
+          sendEvent({ type: 'message_start', sessionId, message: chatMsg });
         }
         break;
       }
 
       case 'message_update': {
         const ame = event.assistantMessageEvent;
-        if (ame.type === 'text_delta' && currentAssistantId) {
+        if (ame.type === 'text_delta' && entry.currentAssistantId) {
           sendEvent({
             type: 'text_delta',
-            messageId: currentAssistantId,
+            sessionId,
+            messageId: entry.currentAssistantId,
             delta: ame.delta,
           });
         }
@@ -211,16 +210,17 @@ function subscribeToSession(session: AgentSession): void {
       }
 
       case 'message_end': {
-        if (event.message.role === 'assistant' && currentAssistantId) {
+        if (event.message.role === 'assistant' && entry.currentAssistantId) {
           const textParts = event.message.content.filter(
             (c): c is { type: 'text'; text: string } => c.type === 'text',
           );
           sendEvent({
             type: 'message_end',
-            messageId: currentAssistantId,
+            sessionId,
+            messageId: entry.currentAssistantId,
             text: textParts.map((c) => c.text).join(''),
           });
-          currentAssistantId = null;
+          entry.currentAssistantId = null;
         }
         break;
       }
@@ -236,7 +236,7 @@ function subscribeToSession(session: AgentSession): void {
           isError: false,
           state: 'running',
         };
-        sendEvent({ type: 'tool_start', tool: toolMsg });
+        sendEvent({ type: 'tool_start', sessionId, tool: toolMsg });
         break;
       }
 
@@ -253,6 +253,7 @@ function subscribeToSession(session: AgentSession): void {
         }
         sendEvent({
           type: 'tool_end',
+          sessionId,
           toolCallId: event.toolCallId,
           output: text,
           isError: event.isError,
@@ -266,55 +267,94 @@ function subscribeToSession(session: AgentSession): void {
 // ── Registration ─────────────────────────────────────────────
 
 export function registerAgentHandlers(): void {
-  // ── Open a session ─────────────────────────────────────────
+  // ── Open a session (creates AgentSession in pool) ──────────
   ipcMain.handle(
     IpcChannels.agent.open,
-    async (_event, sessionPath: string): Promise<ChatMessage[]> => {
-      closeCurrentSession();
+    async (_event, sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]> => {
+      // If already open, just return existing messages
+      const existing = pool.get(sessionId);
+      if (existing) {
+        return convertSessionMessages(existing.session.messages);
+      }
+
       await ensureInfra();
 
+      // Resolve workspace path
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) {
+        throw new Error(`Workspace not found: ${workspaceId}`);
+      }
+
+      // Workspace-scoped resource loader
+      const loader = new DefaultResourceLoader({
+        cwd: wsPath,
+        agentDir: SERO_AGENT_DIR,
+        settingsManager: _settingsManager!,
+      });
+      await loader.reload();
+
       const { session } = await createAgentSession({
-        cwd: SERO_CWD,
+        cwd: wsPath,
         agentDir: SERO_AGENT_DIR,
         model: _model,
         thinkingLevel: 'off',
         authStorage: _authStorage!,
         modelRegistry: _modelRegistry!,
-        tools: _tools!,
-        resourceLoader: _resourceLoader!,
+        tools: createCodingTools(wsPath),
+        resourceLoader: loader,
         sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
         settingsManager: _settingsManager!,
       });
 
-      currentSession = session;
-      subscribeToSession(session);
+      // Subscribe and store
+      const unsubscribe = subscribeToSession(sessionId, session);
+      pool.set(sessionId, {
+        session,
+        unsubscribe,
+        workspaceId,
+        currentAssistantId: null,
+      });
 
       return convertSessionMessages(session.messages);
     },
   );
 
-  // ── Send a prompt ──────────────────────────────────────────
+  // ── Send a prompt to a specific session ────────────────────
   ipcMain.handle(
     IpcChannels.agent.prompt,
-    async (_event, text: string): Promise<void> => {
-      if (!currentSession) throw new Error('No active session');
+    async (_event, sessionId: string, text: string): Promise<void> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
 
       const userMsg: ChatMessage = { type: 'user', id: nextId(), text };
-      sendEvent({ type: 'message_start', message: userMsg });
+      sendEvent({ type: 'message_start', sessionId, message: userMsg });
 
-      await currentSession.prompt(text);
+      await entry.session.prompt(text);
     },
   );
 
-  // ── Abort ──────────────────────────────────────────────────
-  ipcMain.handle(IpcChannels.agent.abort, async (): Promise<void> => {
-    if (currentSession) {
-      await currentSession.abort();
-    }
-  });
+  // ── Abort a specific session ───────────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.abort,
+    async (_event, sessionId: string): Promise<void> => {
+      const entry = pool.get(sessionId);
+      if (entry) {
+        await entry.session.abort();
+      }
+    },
+  );
 
-  // ── Close session ──────────────────────────────────────────
-  ipcMain.handle(IpcChannels.agent.close, async (): Promise<void> => {
-    closeCurrentSession();
+  // ── Close a specific session ───────────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.close,
+    async (_event, sessionId: string): Promise<void> => {
+      closePoolEntry(sessionId);
+    },
+  );
+
+  // ── Cleanup on app quit ────────────────────────────────────
+  const { app } = require('electron');
+  app.on('before-quit', () => {
+    disposeAll();
   });
 }

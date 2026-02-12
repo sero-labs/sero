@@ -5,9 +5,14 @@ import { useAgentStore } from '@/stores/agent';
 /**
  * Bridges session selection → agent lifecycle.
  *
- * When activeSessionId changes, opens the corresponding session
- * in the agent. When it becomes null, closes the agent session.
- * Also refreshes the session list after the agent finishes a turn
+ * When activeSessionId changes:
+ *   - Opens an AgentSession in the pool (if not already open)
+ *   - Focuses it in the ChatPanel
+ *
+ * When activeSessionId becomes null:
+ *   - Clears ChatPanel focus (agents stay alive in pool)
+ *
+ * Also refreshes the session list after any agent finishes a turn
  * so the sidebar shows updated firstMessage / messageCount.
  */
 export function useSessionAgent() {
@@ -15,30 +20,52 @@ export function useSessionAgent() {
   const sessions = useSessionStore((s) => s.sessions);
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const openSession = useAgentStore((s) => s.openSession);
-  const closeSession = useAgentStore((s) => s.closeSession);
-  const isStreaming = useAgentStore((s) => s.isStreaming);
+  const focusSession = useAgentStore((s) => s.focusSession);
+  const clearFocus = useAgentStore((s) => s.clearFocus);
+  const agents = useAgentStore((s) => s.agents);
 
-  // Track previous streaming state to detect agent_end
-  const wasStreaming = useRef(false);
+  // Track previous streaming states to detect agent_end across all agents
+  const prevStreamingRef = useRef<Record<string, boolean>>({});
 
-  // Open/close agent session when selection changes
+  // Open/focus agent session when selection changes
   useEffect(() => {
     if (!activeSessionId) {
-      closeSession();
+      clearFocus();
       return;
     }
 
     const session = sessions.find((s) => s.id === activeSessionId);
-    if (session) {
-      openSession(session.path);
+    if (!session) return;
+
+    // If already in the pool, just focus it
+    if (agents[activeSessionId]) {
+      focusSession(activeSessionId);
+    } else {
+      // Opens in pool + focuses
+      openSession(activeSessionId, session.path, session.workspaceId);
     }
   }, [activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Refresh session list when agent finishes a turn
+  // Refresh session list when any agent finishes a turn
   useEffect(() => {
-    if (wasStreaming.current && !isStreaming) {
+    const prevStreaming = prevStreamingRef.current;
+    let anyFinished = false;
+
+    for (const [sid, agent] of Object.entries(agents)) {
+      if (prevStreaming[sid] && !agent.isStreaming) {
+        anyFinished = true;
+      }
+    }
+
+    // Update ref
+    const next: Record<string, boolean> = {};
+    for (const [sid, agent] of Object.entries(agents)) {
+      next[sid] = agent.isStreaming;
+    }
+    prevStreamingRef.current = next;
+
+    if (anyFinished) {
       loadSessions();
     }
-    wasStreaming.current = isStreaming;
-  }, [isStreaming, loadSessions]);
+  }, [agents, loadSessions]);
 }

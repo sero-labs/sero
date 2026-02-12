@@ -101,17 +101,20 @@ export interface ChatToolCallMessage {
 /**
  * Events pushed from main → renderer during agent streaming.
  * Kept deliberately slim — only what the UI needs to render.
+ *
+ * Every event carries `sessionId` so the renderer can route events
+ * to the correct AgentInstance in a multi-session pool.
  */
 export type AgentStreamEvent =
-  | { type: 'agent_start' }
-  | { type: 'agent_end' }
-  | { type: 'messages_loaded'; messages: ChatMessage[] }
-  | { type: 'text_delta'; messageId: string; delta: string }
-  | { type: 'message_start'; message: ChatMessage }
-  | { type: 'message_end'; messageId: string; text: string }
-  | { type: 'tool_start'; tool: ChatToolCallMessage }
-  | { type: 'tool_end'; toolCallId: string; output: string | null; isError: boolean }
-  | { type: 'error'; error: string };
+  | { type: 'agent_start'; sessionId: string }
+  | { type: 'agent_end'; sessionId: string }
+  | { type: 'messages_loaded'; sessionId: string; messages: ChatMessage[] }
+  | { type: 'text_delta'; sessionId: string; messageId: string; delta: string }
+  | { type: 'message_start'; sessionId: string; message: ChatMessage }
+  | { type: 'message_end'; sessionId: string; messageId: string; text: string }
+  | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
+  | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; isError: boolean }
+  | { type: 'error'; sessionId: string; error: string };
 
 // ── IPC Channels ───────────────────────────────────────────────
 

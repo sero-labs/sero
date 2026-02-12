@@ -1,160 +1,283 @@
 import { create } from 'zustand';
 import type {
   ChatMessage,
-  ChatAssistantMessage,
   ChatToolCallMessage,
   AgentStreamEvent,
 } from '@/types/ipc';
 
 // ── Types ──────────────────────────────────────────────────────
 
-interface AgentState {
-  /** Messages in the active session. */
+/** State for a single agent session in the pool. */
+export interface AgentInstance {
+  sessionId: string;
+  sessionPath: string;
+  workspaceId: string;
   messages: ChatMessage[];
-  /** True while the agent is processing a prompt. */
   isStreaming: boolean;
-  /** Session path currently open, or null. */
-  activeSessionPath: string | null;
-  /** Last error from the agent. */
   error: string | null;
+}
+
+interface AgentState {
+  /** All active agent instances, keyed by session ID. */
+  agents: Record<string, AgentInstance>;
+  /** Which session is currently shown in the ChatPanel. */
+  focusedSessionId: string | null;
 
   // ── Actions ────────────────────────────────────────────────
-  openSession: (sessionPath: string) => Promise<void>;
-  sendPrompt: (text: string) => Promise<void>;
-  abort: () => Promise<void>;
-  closeSession: () => Promise<void>;
-  /** Call once on mount to start listening to main-process events. Returns cleanup. */
+
+  /** Open a session — creates an AgentSession in the main-process pool. */
+  openSession: (sessionId: string, sessionPath: string, workspaceId: string) => Promise<void>;
+  /** Close a session — disposes its AgentSession. */
+  closeSession: (sessionId: string) => Promise<void>;
+  /** Send a prompt to a specific session. */
+  sendPrompt: (sessionId: string, text: string) => Promise<void>;
+  /** Abort a specific session. */
+  abort: (sessionId: string) => Promise<void>;
+  /** Focus a session in the ChatPanel. */
+  focusSession: (sessionId: string) => void;
+  /** Clear focus (no session shown in ChatPanel). */
+  clearFocus: () => void;
+
+  /** Subscribe to main-process events. Returns cleanup function. */
   initEventListener: () => () => void;
 }
 
 // ── Store ──────────────────────────────────────────────────────
 
 export const useAgentStore = create<AgentState>((set, get) => ({
-  messages: [],
-  isStreaming: false,
-  activeSessionPath: null,
-  error: null,
+  agents: {},
+  focusedSessionId: null,
 
-  openSession: async (sessionPath: string) => {
-    // Close existing first
-    const { activeSessionPath } = get();
-    if (activeSessionPath) {
-      await window.sero.agent.close();
+  openSession: async (sessionId, sessionPath, workspaceId) => {
+    // If already in pool, just focus it
+    if (get().agents[sessionId]) {
+      set({ focusedSessionId: sessionId });
+      return;
     }
 
-    set({ messages: [], isStreaming: false, error: null, activeSessionPath: sessionPath });
+    // Create placeholder immediately so UI shows loading state
+    set((s) => ({
+      agents: {
+        ...s.agents,
+        [sessionId]: {
+          sessionId,
+          sessionPath,
+          workspaceId,
+          messages: [],
+          isStreaming: false,
+          error: null,
+        },
+      },
+      focusedSessionId: sessionId,
+    }));
 
     try {
-      const history = await window.sero.agent.open(sessionPath);
-      set({ messages: history });
+      const history = await window.sero.agent.open(sessionId, sessionPath, workspaceId);
+      set((s) => ({
+        agents: {
+          ...s.agents,
+          [sessionId]: {
+            ...s.agents[sessionId],
+            messages: history,
+          },
+        },
+      }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to open session';
       console.error('[agent] openSession failed:', err);
-      set({ error: message, activeSessionPath: null });
+      set((s) => {
+        const { [sessionId]: _, ...rest } = s.agents;
+        return {
+          agents: rest,
+          focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
+          // Note: error is stored per-agent, but since we're removing it, we just log
+        };
+      });
     }
   },
 
-  sendPrompt: async (text: string) => {
-    if (!get().activeSessionPath) return;
+  closeSession: async (sessionId) => {
+    try {
+      await window.sero.agent.close(sessionId);
+    } catch {
+      // Ignore close errors
+    }
+    set((s) => {
+      const { [sessionId]: _, ...rest } = s.agents;
+      return {
+        agents: rest,
+        focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
+      };
+    });
+  },
 
-    set({ error: null });
+  sendPrompt: async (sessionId, text) => {
+    const agent = get().agents[sessionId];
+    if (!agent) return;
+
+    set((s) => ({
+      agents: {
+        ...s.agents,
+        [sessionId]: { ...s.agents[sessionId], error: null },
+      },
+    }));
 
     try {
-      // prompt() resolves when the agent finishes — events stream in via onEvent
-      await window.sero.agent.prompt(text);
+      await window.sero.agent.prompt(sessionId, text);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Prompt failed';
       console.error('[agent] sendPrompt failed:', err);
-      set({ error: message, isStreaming: false });
+      set((s) => ({
+        agents: {
+          ...s.agents,
+          [sessionId]: {
+            ...s.agents[sessionId],
+            error: message,
+            isStreaming: false,
+          },
+        },
+      }));
     }
   },
 
-  abort: async () => {
+  abort: async (sessionId) => {
     try {
-      await window.sero.agent.abort();
+      await window.sero.agent.abort(sessionId);
     } catch (err) {
       console.error('[agent] abort failed:', err);
     }
   },
 
-  closeSession: async () => {
-    try {
-      await window.sero.agent.close();
-    } catch {
-      // Ignore close errors
-    }
-    set({ messages: [], isStreaming: false, activeSessionPath: null, error: null });
-  },
+  focusSession: (sessionId) => set({ focusedSessionId: sessionId }),
+
+  clearFocus: () => set({ focusedSessionId: null }),
 
   initEventListener: () => {
     const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
-      const { messages } = get();
+      const { agents } = get();
+      const sid = event.sessionId;
+
+      // Ignore events for sessions we don't track (already closed)
+      if (!agents[sid] && event.type !== 'agent_start' && event.type !== 'message_start') {
+        return;
+      }
 
       switch (event.type) {
         case 'agent_start':
-          set({ isStreaming: true });
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: { ...s.agents[sid], isStreaming: true },
+            },
+          }));
           break;
 
         case 'agent_end':
-          set({ isStreaming: false });
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: { ...s.agents[sid], isStreaming: false },
+            },
+          }));
           break;
 
         case 'messages_loaded':
-          set({ messages: event.messages });
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: { ...s.agents[sid], messages: event.messages },
+            },
+          }));
           break;
 
-        case 'message_start': {
-          set({ messages: [...messages, event.message] });
+        case 'message_start':
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: {
+                ...s.agents[sid],
+                messages: [...(s.agents[sid]?.messages ?? []), event.message],
+              },
+            },
+          }));
           break;
-        }
 
-        case 'text_delta': {
-          // Accumulate delta into the matching assistant message
-          set({
-            messages: messages.map((m) =>
-              m.type === 'assistant' && m.id === event.messageId
-                ? { ...m, text: m.text + event.delta }
-                : m,
-            ),
-          });
+        case 'text_delta':
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: {
+                ...s.agents[sid],
+                messages: s.agents[sid].messages.map((m) =>
+                  m.type === 'assistant' && m.id === event.messageId
+                    ? { ...m, text: m.text + event.delta }
+                    : m,
+                ),
+              },
+            },
+          }));
           break;
-        }
 
-        case 'message_end': {
-          // Finalise the assistant message
-          set({
-            messages: messages.map((m) =>
-              m.type === 'assistant' && m.id === event.messageId
-                ? { ...m, text: event.text, isStreaming: false }
-                : m,
-            ),
-          });
+        case 'message_end':
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: {
+                ...s.agents[sid],
+                messages: s.agents[sid].messages.map((m) =>
+                  m.type === 'assistant' && m.id === event.messageId
+                    ? { ...m, text: event.text, isStreaming: false }
+                    : m,
+                ),
+              },
+            },
+          }));
           break;
-        }
 
-        case 'tool_start': {
-          set({ messages: [...messages, event.tool] });
+        case 'tool_start':
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: {
+                ...s.agents[sid],
+                messages: [...s.agents[sid].messages, event.tool],
+              },
+            },
+          }));
           break;
-        }
 
-        case 'tool_end': {
-          set({
-            messages: messages.map((m) =>
-              m.type === 'tool' && m.toolCallId === event.toolCallId
-                ? {
-                    ...m,
-                    output: event.output,
-                    isError: event.isError,
-                    state: event.isError ? 'error' : 'completed',
-                  } as ChatToolCallMessage
-                : m,
-            ),
-          });
+        case 'tool_end':
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: {
+                ...s.agents[sid],
+                messages: s.agents[sid].messages.map((m) =>
+                  m.type === 'tool' && m.toolCallId === event.toolCallId
+                    ? {
+                        ...m,
+                        output: event.output,
+                        isError: event.isError,
+                        state: event.isError ? 'error' : 'completed',
+                      } as ChatToolCallMessage
+                    : m,
+                ),
+              },
+            },
+          }));
           break;
-        }
 
         case 'error':
-          set({ error: event.error, isStreaming: false });
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: {
+                ...s.agents[sid],
+                error: event.error,
+                isStreaming: false,
+              },
+            },
+          }));
           break;
       }
     });
@@ -162,3 +285,32 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     return unsubscribe;
   },
 }));
+
+// ── Selectors ──────────────────────────────────────────────────
+
+/** The focused agent instance (shown in ChatPanel), or null. */
+export function useFocusedAgent(): AgentInstance | null {
+  const agents = useAgentStore((s) => s.agents);
+  const focusedId = useAgentStore((s) => s.focusedSessionId);
+  if (!focusedId) return null;
+  return agents[focusedId] ?? null;
+}
+
+/** IDs of sessions currently streaming (for sidebar active indicators). */
+export function useStreamingSessionIds(): string[] {
+  const agents = useAgentStore((s) => s.agents);
+  return Object.values(agents)
+    .filter((a) => a.isStreaming)
+    .map((a) => a.sessionId);
+}
+
+/** Count of active agent sessions in the pool. */
+export function useActiveAgentCount(): number {
+  const agents = useAgentStore((s) => s.agents);
+  return Object.keys(agents).length;
+}
+
+/** Check if a specific session has an active agent. */
+export function useIsSessionActive(sessionId: string): boolean {
+  return useAgentStore((s) => !!s.agents[sessionId]);
+}

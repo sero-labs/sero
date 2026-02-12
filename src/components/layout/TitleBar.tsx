@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { PanelLeft, PanelRight } from 'lucide-react';
 import { useAppStore, apps } from '@/stores/app';
+import { useActiveWorkspace } from '@/stores/workspace';
 
 /**
  * TitleBar — macOS-style custom title bar.
@@ -14,7 +15,9 @@ export function TitleBar() {
   const toggleSidebar = useAppStore((s) => s.toggleMainSidebar);
   const toggleChat = useAppStore((s) => s.toggleChatPanel);
   const activeApp = useAppStore((s) => s.activeApp);
+  const activeWorkspace = useActiveWorkspace();
   const appLabel = apps.find((a) => a.id === activeApp)?.label ?? 'Sero';
+  const titleText = activeWorkspace ? `${appLabel} — ${activeWorkspace.name}` : appLabel;
 
   return (
     <header className="title-bar drag-region flex h-10 shrink-0 items-center border-b border-border/50 bg-[var(--bg-base)]">
@@ -38,7 +41,7 @@ export function TitleBar() {
         </Tooltip>
 
         <span className="text-xs font-medium text-[var(--text-secondary)]">
-          {appLabel}
+          {titleText}
         </span>
       </div>
 
