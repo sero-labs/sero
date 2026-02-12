@@ -17,7 +17,8 @@ interface SessionsState {
 
   // ── Actions ────────────────────────────────────────────────
   loadSessions: () => Promise<void>;
-  createSession: () => Promise<SeroSessionInfo>;
+  /** Create a session bound to a workspace. Defaults to scratchpad. */
+  createSession: (workspaceId?: string) => Promise<SeroSessionInfo>;
   deleteSession: (sessionPath: string) => Promise<void>;
   setActiveSession: (id: string | null) => void;
   setSearchQuery: (q: string) => void;
@@ -51,8 +52,8 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
     }
   },
 
-  createSession: async () => {
-    const session = await window.sero.sessions.create();
+  createSession: async (workspaceId?: string) => {
+    const session = await window.sero.sessions.create(workspaceId);
     set((s) => ({
       sessions: [session, ...s.sessions],
       activeSessionId: session.id,
@@ -93,4 +94,27 @@ export function useFilteredSessions(): SeroSessionInfo[] {
       (s.name?.toLowerCase().includes(lower) ?? false) ||
       s.firstMessage.toLowerCase().includes(lower),
   );
+}
+
+/** Sessions grouped by workspace ID. */
+export function useSessionsByWorkspace(): Record<string, SeroSessionInfo[]> {
+  const sessions = useSessionStore((s) => s.sessions);
+  const query = useSessionStore((s) => s.searchQuery);
+
+  const filtered = query
+    ? sessions.filter(
+        (s) =>
+          (s.name?.toLowerCase().includes(query.toLowerCase()) ?? false) ||
+          s.firstMessage.toLowerCase().includes(query.toLowerCase()),
+      )
+    : sessions;
+
+  const grouped: Record<string, SeroSessionInfo[]> = {};
+  for (const session of filtered) {
+    const wsId = session.workspaceId;
+    if (!grouped[wsId]) grouped[wsId] = [];
+    grouped[wsId].push(session);
+  }
+
+  return grouped;
 }

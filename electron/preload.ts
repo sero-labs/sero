@@ -1,16 +1,42 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IpcChannels } from '../src/types/ipc';
-import type { SeroSessionInfo, ChatMessage, AgentStreamEvent } from '../src/types/ipc';
+import type {
+  WorkspaceInfo,
+  WorkspaceConfig,
+  SeroSessionInfo,
+  ChatMessage,
+  AgentStreamEvent,
+} from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
   platform: process.platform,
 
-  sessions: {
-    list: (): Promise<SeroSessionInfo[]> =>
-      ipcRenderer.invoke(IpcChannels.sessions.list),
+  workspace: {
+    list: (): Promise<WorkspaceInfo[]> =>
+      ipcRenderer.invoke(IpcChannels.workspace.list),
 
-    create: (): Promise<SeroSessionInfo> =>
-      ipcRenderer.invoke(IpcChannels.sessions.create),
+    create: (name: string): Promise<WorkspaceInfo> =>
+      ipcRenderer.invoke(IpcChannels.workspace.create, name),
+
+    remove: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.remove, id),
+
+    getConfig: (id: string): Promise<WorkspaceConfig | null> =>
+      ipcRenderer.invoke(IpcChannels.workspace.getConfig, id),
+
+    addFolder: (folderPath: string, name?: string): Promise<WorkspaceInfo> =>
+      ipcRenderer.invoke(IpcChannels.workspace.addFolder, folderPath, name),
+
+    setAutoOpen: (id: string, autoOpen: boolean): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.setAutoOpen, id, autoOpen),
+  },
+
+  sessions: {
+    list: (workspaceId?: string): Promise<SeroSessionInfo[]> =>
+      ipcRenderer.invoke(IpcChannels.sessions.list, workspaceId),
+
+    create: (workspaceId?: string): Promise<SeroSessionInfo> =>
+      ipcRenderer.invoke(IpcChannels.sessions.create, workspaceId),
 
     delete: (sessionPath: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.sessions.delete, sessionPath),

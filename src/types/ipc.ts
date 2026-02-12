@@ -5,6 +5,48 @@
  * Each domain gets a channel prefix and typed payloads.
  */
 
+// ── Workspaces ─────────────────────────────────────────────────
+
+/** Entry in the workspace registry (~/.sero-ui/agent/workspaces.json). */
+export interface WorkspaceRegistryEntry {
+  /** Unique ID (kebab-case slug). */
+  id: string;
+  /** Absolute path to workspace root. */
+  path: string;
+  /** Open into composite environment on launch. */
+  autoOpen: boolean;
+}
+
+/** Workspace info surfaced to the renderer. Registry entry + config merged. */
+export interface WorkspaceInfo {
+  id: string;
+  name: string;
+  path: string;
+  description?: string;
+  contextHints?: string[];
+  tags?: string[];
+  autoOpen: boolean;
+}
+
+/** Full workspace config from .sero-workspace.json at workspace root. */
+export interface WorkspaceConfig {
+  id: string;
+  name: string;
+  description?: string;
+  /** Default cwd relative to workspace root for new sessions. */
+  defaultCwd?: string;
+  /** Context hints injected into system prompt when workspace is open. */
+  contextHints?: string[];
+  /** Paths to workspace-specific skills (relative to workspace root). */
+  skills?: string[];
+  /** Files always included in AI context when workspace is open. */
+  contextFiles?: string[];
+  /** Globs to exclude from AI indexing. */
+  exclude?: string[];
+  /** Tags for categorisation and inference. */
+  tags?: string[];
+}
+
 // ── Sessions ───────────────────────────────────────────────────
 
 /** Session info surfaced to the renderer. Mirrors Pi SDK's SessionInfo. */
@@ -13,6 +55,8 @@ export interface SeroSessionInfo {
   id: string;
   /** Working directory where the session was started. */
   cwd: string;
+  /** Workspace this session is bound to. */
+  workspaceId: string;
   /** User-defined display name (from /name command). */
   name?: string;
   created: string; // ISO string (Date doesn't survive IPC)
@@ -73,6 +117,14 @@ export type AgentStreamEvent =
 
 /** IPC channel constants — single source of truth. */
 export const IpcChannels = {
+  workspace: {
+    list: 'sero:workspace:list',
+    create: 'sero:workspace:create',
+    remove: 'sero:workspace:remove',
+    getConfig: 'sero:workspace:get-config',
+    addFolder: 'sero:workspace:add-folder',
+    setAutoOpen: 'sero:workspace:set-auto-open',
+  },
   sessions: {
     list: 'sero:sessions:list',
     create: 'sero:sessions:create',

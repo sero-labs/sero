@@ -6,10 +6,12 @@
  * this directory and add its registration call below.
  */
 
+import { registerWorkspaceHandlers } from './workspace';
 import { registerSessionHandlers } from './sessions';
 import { registerAgentHandlers } from './agent';
 
 export function registerAllIpcHandlers(): void {
+  registerWorkspaceHandlers();
   registerSessionHandlers();
   registerAgentHandlers();
 }

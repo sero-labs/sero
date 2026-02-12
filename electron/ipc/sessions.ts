@@ -1,11 +1,11 @@
 /**
  * Session IPC handlers.
  *
- * Uses Pi SDK SessionManager directly against ~/.sero-ui/agent/sessions/.
- * No abstraction layer — the SDK is the abstraction.
+ * Uses Pi SDK SessionManager against ~/.sero-ui/agent/sessions/.
+ * Sessions are bound to workspaces at creation time via the cwd parameter.
  *
- * All Sero sessions use os.homedir() as their cwd so they land in a single
- * subdirectory. SessionManager.list(cwd, sessionDir) scans that subdirectory.
+ * SessionManager.create(cwd, sessionDir) stamps the workspace path as cwd
+ * in the session header. We derive workspaceId by mapping cwd → workspace.
  */
 
 import { ipcMain } from 'electron';
@@ -16,19 +16,38 @@ import path from 'path';
 
 import { IpcChannels } from '../../src/types/ipc';
 import type { SeroSessionInfo } from '../../src/types/ipc';
+import { workspaceManager } from '../workspace';
 
 /** Root directory for all Sero sessions. */
 const SERO_SESSION_DIR = path.join(os.homedir(), '.sero-ui', 'agent', 'sessions');
 
 /**
- * The cwd we stamp on every Sero session.
- * Since we don't scope by project, all sessions share a single cwd bucket.
+ * Legacy cwd used before workspaces existed.
+ * Sessions with this cwd are attributed to scratchpad.
  */
-const SERO_CWD = os.homedir();
+const LEGACY_CWD = os.homedir();
 
 /** Ensure the session directory exists. */
 async function ensureSessionDir(): Promise<void> {
   await fs.mkdir(SERO_SESSION_DIR, { recursive: true });
+}
+
+/**
+ * Map a session's cwd to a workspace ID.
+ *
+ * Looks up the cwd in the workspace registry. Falls back to 'scratchpad'
+ * for legacy sessions or sessions whose workspace has been removed.
+ */
+function resolveWorkspaceId(cwd: string): string {
+  // Try exact match against registered workspace paths
+  const entry = workspaceManager.findByPath(cwd);
+  if (entry) return entry.id;
+
+  // Legacy sessions used os.homedir() as cwd
+  if (cwd === LEGACY_CWD) return 'scratchpad';
+
+  // Unknown cwd — attribute to scratchpad
+  return 'scratchpad';
 }
 
 /** Convert Pi SDK SessionInfo to our serialisable IPC shape. */
@@ -46,6 +65,7 @@ function toSeroSessionInfo(info: {
     path: info.path,
     id: info.id,
     cwd: info.cwd,
+    workspaceId: resolveWorkspaceId(info.cwd),
     name: info.name,
     created: info.created.toISOString(),
     modified: info.modified.toISOString(),
@@ -56,23 +76,48 @@ function toSeroSessionInfo(info: {
 
 export function registerSessionHandlers(): void {
   // ── List all sessions ──────────────────────────────────────
-  ipcMain.handle(IpcChannels.sessions.list, async (): Promise<SeroSessionInfo[]> => {
-    await ensureSessionDir();
-    try {
-      const sessions = await SessionManager.list(SERO_CWD, SERO_SESSION_DIR);
-      return sessions.map(toSeroSessionInfo);
-    } catch (err) {
-      console.error('[sessions:list]', err);
-      return [];
-    }
-  });
+  //    Optional workspaceId filter.
+  ipcMain.handle(
+    IpcChannels.sessions.list,
+    async (_event, workspaceId?: string): Promise<SeroSessionInfo[]> => {
+      await ensureSessionDir();
+      try {
+        // List all sessions across all cwds in the session dir
+        const allSessions = await SessionManager.listAll();
+        const mapped = allSessions
+          .filter((s) => {
+            // Only include sessions stored in our session dir
+            return s.path.startsWith(SERO_SESSION_DIR);
+          })
+          .map(toSeroSessionInfo);
+
+        // Filter by workspace if requested
+        if (workspaceId) {
+          return mapped.filter((s) => s.workspaceId === workspaceId);
+        }
+        return mapped;
+      } catch (err) {
+        console.error('[sessions:list]', err);
+        return [];
+      }
+    },
+  );
 
   // ── Create a new session ───────────────────────────────────
+  //    Requires workspaceId. Defaults to scratchpad.
   ipcMain.handle(
     IpcChannels.sessions.create,
-    async (): Promise<SeroSessionInfo> => {
+    async (_event, workspaceId?: string): Promise<SeroSessionInfo> => {
       await ensureSessionDir();
-      const sm = SessionManager.create(SERO_CWD, SERO_SESSION_DIR);
+
+      // Resolve workspace path — default to scratchpad
+      const wsId = workspaceId || 'scratchpad';
+      const wsPath = workspaceManager.getPath(wsId);
+      if (!wsPath) {
+        throw new Error(`Workspace not found: ${wsId}`);
+      }
+
+      const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);
       const sessionFile = sm.getSessionFile()!;
       const now = new Date();
 
@@ -85,7 +130,8 @@ export function registerSessionHandlers(): void {
       return {
         path: sessionFile,
         id: sm.getSessionId(),
-        cwd: SERO_CWD,
+        cwd: wsPath,
+        workspaceId: wsId,
         created: now.toISOString(),
         modified: now.toISOString(),
         messageCount: 0,

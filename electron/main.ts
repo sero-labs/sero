@@ -5,6 +5,7 @@ loadSeroEnv();
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { registerAllIpcHandlers } from './ipc/index';
+import { workspaceManager } from './workspace';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -40,7 +41,10 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Init workspace registry + default workspaces before anything else
+  await workspaceManager.init();
+
   registerAllIpcHandlers();
   createWindow();
 });
