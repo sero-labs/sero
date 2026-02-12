@@ -24,10 +24,12 @@ export type Theme = 'dark' | 'light';
 interface AppState {
   // Main sidebar
   mainSidebarOpen: boolean;
+  setMainSidebarOpen: (open: boolean) => void;
   toggleMainSidebar: () => void;
 
   // Chat panel
   chatPanelOpen: boolean;
+  setChatPanelOpen: (open: boolean) => void;
   toggleChatPanel: () => void;
 
   // Active app
@@ -52,10 +54,12 @@ function applyTheme(theme: Theme) {
 export const useAppStore = create<AppState>((set, get) => ({
   // Main sidebar
   mainSidebarOpen: true,
+  setMainSidebarOpen: (open) => set({ mainSidebarOpen: open }),
   toggleMainSidebar: () => set((s) => ({ mainSidebarOpen: !s.mainSidebarOpen })),
 
   // Chat panel
   chatPanelOpen: true,
+  setChatPanelOpen: (open) => set({ chatPanelOpen: open }),
   toggleChatPanel: () => set((s) => ({ chatPanelOpen: !s.chatPanelOpen })),
 
   // Active app

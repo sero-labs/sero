@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   ResizablePanelGroup,
@@ -33,10 +34,43 @@ import { useSessionAgent } from '@/hooks/useSessionAgent';
 export function App() {
   const activeApp = useAppStore((s) => s.activeApp);
   const mainSidebarOpen = useAppStore((s) => s.mainSidebarOpen);
+  const setMainSidebarOpen = useAppStore((s) => s.setMainSidebarOpen);
   const chatPanelOpen = useAppStore((s) => s.chatPanelOpen);
+  const setChatPanelOpen = useAppStore((s) => s.setChatPanelOpen);
+
+  const MAIN_SIDEBAR_MIN_WIDTH = 200;
+  const CHAT_PANEL_MIN_WIDTH = 300;
+  const COLLAPSE_PULL_PAST_MIN = 100;
+
+  const mainSidebarCollapsedSize = Math.max(
+    0,
+    MAIN_SIDEBAR_MIN_WIDTH - COLLAPSE_PULL_PAST_MIN * 2,
+  );
+  const chatPanelCollapsedSize = Math.max(
+    0,
+    CHAT_PANEL_MIN_WIDTH - COLLAPSE_PULL_PAST_MIN * 2,
+  );
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
+
+  const handleMainSidebarResize = useCallback(
+    ({ inPixels }: { inPixels: number }) => {
+      if (inPixels <= mainSidebarCollapsedSize + 1) {
+        setMainSidebarOpen(false);
+      }
+    },
+    [mainSidebarCollapsedSize, setMainSidebarOpen],
+  );
+
+  const handleChatPanelResize = useCallback(
+    ({ inPixels }: { inPixels: number }) => {
+      if (inPixels <= chatPanelCollapsedSize + 1) {
+        setChatPanelOpen(false);
+      }
+    },
+    [chatPanelCollapsedSize, setChatPanelOpen],
+  );
 
   return (
     <TooltipProvider delayDuration={400}>
@@ -53,7 +87,10 @@ export function App() {
                 <>
                   <ResizablePanel
                     defaultSize="20%"
-                    minSize={200}
+                    minSize={MAIN_SIDEBAR_MIN_WIDTH}
+                    collapsible
+                    collapsedSize={mainSidebarCollapsedSize}
+                    onResize={handleMainSidebarResize}
                   >
                     <MainSidebar />
                   </ResizablePanel>
@@ -70,7 +107,10 @@ export function App() {
                   <ResizableHandle />
                   <ResizablePanel
                     defaultSize="30%"
-                    minSize={400}
+                    minSize={CHAT_PANEL_MIN_WIDTH}
+                    collapsible
+                    collapsedSize={chatPanelCollapsedSize}
+                    onResize={handleChatPanelResize}
                   >
                     <ChatPanel />
                   </ResizablePanel>
