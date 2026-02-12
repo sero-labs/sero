@@ -77,19 +77,17 @@ function toSeroSessionInfo(info: {
 export function registerSessionHandlers(): void {
   // ── List all sessions ──────────────────────────────────────
   //    Optional workspaceId filter.
+  //
+  //    SessionManager.list(cwd, sessionDir) with an explicit sessionDir
+  //    lists all .jsonl files in that directory regardless of cwd.
+  //    We use LEGACY_CWD as a dummy — the sessionDir override is what matters.
   ipcMain.handle(
     IpcChannels.sessions.list,
     async (_event, workspaceId?: string): Promise<SeroSessionInfo[]> => {
       await ensureSessionDir();
       try {
-        // List all sessions across all cwds in the session dir
-        const allSessions = await SessionManager.listAll();
-        const mapped = allSessions
-          .filter((s) => {
-            // Only include sessions stored in our session dir
-            return s.path.startsWith(SERO_SESSION_DIR);
-          })
-          .map(toSeroSessionInfo);
+        const allSessions = await SessionManager.list(LEGACY_CWD, SERO_SESSION_DIR);
+        const mapped = allSessions.map(toSeroSessionInfo);
 
         // Filter by workspace if requested
         if (workspaceId) {

@@ -13,8 +13,8 @@ export interface WorkspaceRegistryEntry {
   id: string;
   /** Absolute path to workspace root. */
   path: string;
-  /** Open into composite environment on launch. */
-  autoOpen: boolean;
+  /** Whether the workspace is visible in the sidebar. Persisted. */
+  open: boolean;
 }
 
 /** Workspace info surfaced to the renderer. Registry entry + config merged. */
@@ -25,7 +25,7 @@ export interface WorkspaceInfo {
   description?: string;
   contextHints?: string[];
   tags?: string[];
-  autoOpen: boolean;
+  open: boolean;
 }
 
 /** Full workspace config from .sero-workspace.json at workspace root. */
@@ -126,10 +126,9 @@ export const IpcChannels = {
     remove: 'sero:workspace:remove',
     getConfig: 'sero:workspace:get-config',
     addFolder: 'sero:workspace:add-folder',
-    setAutoOpen: 'sero:workspace:set-auto-open',
-    /** Add to composite environment (runtime). */
+    /** Open workspace in sidebar (persisted). */
     open: 'sero:workspace:open',
-    /** Remove from composite environment (runtime). */
+    /** Close workspace in sidebar (persisted). */
     close: 'sero:workspace:close',
     /** Open native folder picker dialog. Returns path or null. */
     pickFolder: 'sero:workspace:pick-folder',

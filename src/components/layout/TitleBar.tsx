@@ -3,6 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { PanelLeft, PanelRight } from 'lucide-react';
 import { useAppStore, apps } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
+import { useSessionStore } from '@/stores/sessions';
 
 /**
  * TitleBar — macOS-style custom title bar.
@@ -16,8 +17,17 @@ export function TitleBar() {
   const toggleChat = useAppStore((s) => s.toggleChatPanel);
   const activeApp = useAppStore((s) => s.activeApp);
   const activeWorkspace = useActiveWorkspace();
+  const sessions = useSessionStore((s) => s.sessions);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const activeSession = activeSessionId ? sessions.find((s) => s.id === activeSessionId) : null;
+  const sessionLabel = activeSession?.name || activeSession?.firstMessage;
+
   const appLabel = apps.find((a) => a.id === activeApp)?.label ?? 'Sero';
-  const titleText = activeWorkspace ? `${appLabel} — ${activeWorkspace.name}` : appLabel;
+  const breadcrumb = [
+    activeWorkspace?.name,
+    sessionLabel,
+  ].filter(Boolean).join(' / ');
+  const titleText = breadcrumb ? `${appLabel} — ${breadcrumb}` : appLabel;
 
   return (
     <header className="title-bar drag-region flex h-10 shrink-0 items-center border-b border-border/50 bg-[var(--bg-base)]">

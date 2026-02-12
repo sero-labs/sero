@@ -3,11 +3,27 @@ import type { WorkspaceInfo } from '@/types/ipc';
 
 // ── Store ──────────────────────────────────────────────────────
 
+const COLLAPSED_KEY = 'sero:workspace:collapsed';
+const ACTIVE_WS_KEY = 'sero:workspace:active';
+
+function loadCollapsed(): string[] {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveCollapsed(ids: string[]) {
+  localStorage.setItem(COLLAPSED_KEY, JSON.stringify(ids));
+}
+
 interface WorkspaceState {
   /** All registered workspaces. */
   workspaces: WorkspaceInfo[];
-  /** IDs of workspaces currently open in the composite environment. */
+  /** IDs of workspaces currently open in the sidebar. */
   openWorkspaceIds: string[];
+  /** IDs of workspaces collapsed in the tree view. */
+  collapsedIds: string[];
   /** Currently focused workspace (drives sidebar highlight, status bar). */
   activeWorkspaceId: string | null;
   /** Loading state. */
@@ -17,12 +33,14 @@ interface WorkspaceState {
 
   // ── Actions ────────────────────────────────────────────────
 
-  /** Load all workspaces from main process. Auto-opens workspaces with autoOpen flag. */
+  /** Load all workspaces from main process. Uses persisted open state. */
   loadWorkspaces: () => Promise<void>;
-  /** Add a workspace to the composite environment. */
+  /** Add a workspace to the sidebar. */
   openWorkspace: (id: string) => void;
-  /** Remove a workspace from the composite environment. */
+  /** Remove a workspace from the sidebar. */
   closeWorkspace: (id: string) => void;
+  /** Toggle collapsed/expanded state of a workspace node. */
+  toggleCollapsed: (id: string) => void;
   /** Set the focused workspace. */
   setActiveWorkspace: (id: string | null) => void;
   /** Create a new workspace under ~/.sero-ui/workspaces/. */
@@ -36,7 +54,8 @@ interface WorkspaceState {
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],
   openWorkspaceIds: [],
-  activeWorkspaceId: null,
+  collapsedIds: loadCollapsed(),
+  activeWorkspaceId: localStorage.getItem(ACTIVE_WS_KEY) || null,
   isLoading: false,
   error: null,
 
@@ -44,16 +63,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const workspaces = await window.sero.workspace.list();
-      // Auto-open workspaces that have the autoOpen flag
-      const autoOpenIds = workspaces
-        .filter((w) => w.autoOpen)
-        .map((w) => w.id);
+      const openIds = workspaces.filter((w) => w.open).map((w) => w.id);
 
       set({
         workspaces,
-        openWorkspaceIds: autoOpenIds,
-        // Default active workspace to scratchpad if nothing is active
-        activeWorkspaceId: get().activeWorkspaceId || 'scratchpad',
+        openWorkspaceIds: openIds,
+        activeWorkspaceId: get().activeWorkspaceId ?? 'scratchpad',
         isLoading: false,
       });
     } catch (err) {
@@ -79,11 +94,25 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // If we closed the active workspace, fall back to scratchpad
       activeWorkspaceId: s.activeWorkspaceId === id ? 'scratchpad' : s.activeWorkspaceId,
     }));
-    // Sync to main process composite environment
+    // Sync to main process
     window.sero.workspace.close(id).catch(console.error);
   },
 
-  setActiveWorkspace: (id) => set({ activeWorkspaceId: id }),
+  toggleCollapsed: (id) => {
+    set((s) => {
+      const collapsed = s.collapsedIds.includes(id)
+        ? s.collapsedIds.filter((cid) => cid !== id)
+        : [...s.collapsedIds, id];
+      saveCollapsed(collapsed);
+      return { collapsedIds: collapsed };
+    });
+  },
+
+  setActiveWorkspace: (id) => {
+    if (id) localStorage.setItem(ACTIVE_WS_KEY, id);
+    else localStorage.removeItem(ACTIVE_WS_KEY);
+    set({ activeWorkspaceId: id });
+  },
 
   createWorkspace: async (name) => {
     const workspace = await window.sero.workspace.create(name);

@@ -80,7 +80,7 @@ export function ChatPanel() {
       </div>
 
       {/* ── Conversation ────────────────────────────────────── */}
-      <Conversation className="min-h-0 flex-1">
+      <Conversation key={sessionId} className="min-h-0 flex-1" initial="instant">
         <ConversationContent className="gap-4 p-3">
           {!hasSession ? (
             <EmptyState message="Select or create a chat to begin" />

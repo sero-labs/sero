@@ -27,24 +27,24 @@ export function useSessionAgent() {
   // Track previous streaming states to detect agent_end across all agents
   const prevStreamingRef = useRef<Record<string, boolean>>({});
 
-  // Open/focus agent session when selection changes
+  // Open/focus agent session when selection changes or sessions load
+  const activeSession = sessions.find((s) => s.id === activeSessionId);
   useEffect(() => {
     if (!activeSessionId) {
       clearFocus();
       return;
     }
 
-    const session = sessions.find((s) => s.id === activeSessionId);
-    if (!session) return;
+    if (!activeSession) return; // Sessions not loaded yet
 
     // If already in the pool, just focus it
     if (agents[activeSessionId]) {
       focusSession(activeSessionId);
     } else {
       // Opens in pool + focuses
-      openSession(activeSessionId, session.path, session.workspaceId);
+      openSession(activeSessionId, activeSession.path, activeSession.workspaceId);
     }
-  }, [activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeSessionId, activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh session list when any agent finishes a turn
   useEffect(() => {

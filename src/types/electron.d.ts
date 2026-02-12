@@ -19,11 +19,9 @@ interface SeroWorkspaceAPI {
   getConfig(id: string): Promise<WorkspaceConfig | null>;
   /** Register an existing folder as a workspace. Creates config if missing. */
   addFolder(folderPath: string, name?: string): Promise<WorkspaceInfo>;
-  /** Set whether a workspace auto-opens on launch. */
-  setAutoOpen(id: string, autoOpen: boolean): Promise<void>;
-  /** Add workspace to composite environment (runtime). */
+  /** Open workspace in sidebar (persisted). */
   open(id: string): Promise<void>;
-  /** Remove workspace from composite environment (runtime). */
+  /** Close workspace in sidebar (persisted). */
   close(id: string): Promise<void>;
   /** Open native folder picker. Returns selected path or null. */
   pickFolder(): Promise<string | null>;

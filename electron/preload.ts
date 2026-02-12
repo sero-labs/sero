@@ -27,9 +27,6 @@ contextBridge.exposeInMainWorld('sero', {
     addFolder: (folderPath: string, name?: string): Promise<WorkspaceInfo> =>
       ipcRenderer.invoke(IpcChannels.workspace.addFolder, folderPath, name),
 
-    setAutoOpen: (id: string, autoOpen: boolean): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.workspace.setAutoOpen, id, autoOpen),
-
     open: (id: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.workspace.open, id),
 

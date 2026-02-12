@@ -56,27 +56,19 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 
-  // ── Set autoOpen flag ──────────────────────────────────────
-  ipcMain.handle(
-    IpcChannels.workspace.setAutoOpen,
-    async (_event, id: string, autoOpen: boolean): Promise<void> => {
-      return workspaceManager.setAutoOpen(id, autoOpen);
-    },
-  );
-
-  // ── Open workspace in composite environment ────────────────
+  // ── Open workspace (show in sidebar, persisted) ─────────────
   ipcMain.handle(
     IpcChannels.workspace.open,
     async (_event, id: string): Promise<void> => {
-      workspaceManager.openInComposite(id);
+      return workspaceManager.open(id);
     },
   );
 
-  // ── Close workspace in composite environment ───────────────
+  // ── Close workspace (hide from sidebar, persisted) ─────────
   ipcMain.handle(
     IpcChannels.workspace.close,
     async (_event, id: string): Promise<void> => {
-      workspaceManager.closeInComposite(id);
+      return workspaceManager.close(id);
     },
   );
 

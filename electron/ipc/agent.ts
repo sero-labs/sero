@@ -48,11 +48,20 @@ let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _model: any = null;
 
+/**
+ * PI's standard agent directory — source of truth for auth.json.
+ * Sero reads (and refreshes) OAuth tokens from PI's auth.json directly.
+ * No sync needed — PI CLI handles /login, both share the same file.
+ */
+const PI_AGENT_DIR = path.join(os.homedir(), '.pi', 'agent');
+
 /** Lazy-init shared infrastructure. Called once, then cached. */
 async function ensureInfra() {
   if (!_authStorage) {
-    _authStorage = new AuthStorage(path.join(SERO_AGENT_DIR, 'auth.json'));
+    // Use PI's auth.json — single source of truth for credentials
+    _authStorage = new AuthStorage(path.join(PI_AGENT_DIR, 'auth.json'));
     _modelRegistry = new ModelRegistry(_authStorage);
+
     _settingsManager = SettingsManager.create(
       path.join(os.homedir(), '.sero-ui'),
       SERO_AGENT_DIR,

@@ -57,8 +57,8 @@ export class WorkspaceManager {
   private configCache: Map<string, WorkspaceConfig> = new Map();
 
   /**
-   * IDs of workspaces currently in the composite environment (runtime only).
-   * Seeded from autoOpen entries on init. Updated by renderer via IPC.
+   * IDs of workspaces currently open in the sidebar.
+   * Seeded from persisted `open` flags on init. Synced back to registry on change.
    */
   private openIds: Set<string> = new Set();
 
@@ -70,9 +70,9 @@ export class WorkspaceManager {
     await this.loadRegistry();
     await this.ensureDefaults();
 
-    // Seed composite environment from autoOpen entries
+    // Seed from persisted open state
     for (const entry of this.registry.workspaces) {
-      if (entry.autoOpen) this.openIds.add(entry.id);
+      if (entry.open) this.openIds.add(entry.id);
     }
   }
 
@@ -89,9 +89,20 @@ export class WorkspaceManager {
     try {
       const raw = await fs.readFile(REGISTRY_PATH, 'utf8');
       const parsed = JSON.parse(raw) as WorkspaceRegistry;
-      this.registry = {
-        workspaces: Array.isArray(parsed.workspaces) ? parsed.workspaces : [],
-      };
+      const workspaces = Array.isArray(parsed.workspaces) ? parsed.workspaces : [];
+
+      // Migrate: autoOpen → open
+      let migrated = false;
+      for (const entry of workspaces) {
+        if ('open' in entry) continue;
+        const legacy = entry as unknown as Record<string, unknown>;
+        (entry as WorkspaceRegistryEntry).open = legacy.autoOpen !== false;
+        delete legacy.autoOpen;
+        migrated = true;
+      }
+
+      this.registry = { workspaces };
+      if (migrated) await this.saveRegistry();
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         this.registry = { workspaces: [] };
@@ -122,7 +133,7 @@ export class WorkspaceManager {
       this.registry.workspaces.push({
         id: 'scratchpad',
         path: scratchpadPath,
-        autoOpen: true,
+        open: true,
       });
       changed = true;
     }
@@ -139,7 +150,7 @@ export class WorkspaceManager {
       this.registry.workspaces.push({
         id: 'global',
         path: globalPath,
-        autoOpen: true,
+        open: true,
       });
       changed = true;
     }
@@ -236,13 +247,14 @@ export class WorkspaceManager {
       await this.writeConfig(absPath, config);
     }
 
-    // Register
+    // Register — new workspaces start open
     const entry: WorkspaceRegistryEntry = {
       id: config.id || uniqueId,
       path: absPath,
-      autoOpen: false,
+      open: true,
     };
     this.registry.workspaces.push(entry);
+    this.openIds.add(entry.id);
     await this.saveRegistry();
 
     // Clear cache for this workspace
@@ -272,9 +284,10 @@ export class WorkspaceManager {
     const entry: WorkspaceRegistryEntry = {
       id: uniqueId,
       path: wsPath,
-      autoOpen: false,
+      open: true,
     };
     this.registry.workspaces.push(entry);
+    this.openIds.add(entry.id);
     await this.saveRegistry();
 
     const info = await this.getInfo(entry);
@@ -296,31 +309,24 @@ export class WorkspaceManager {
     await this.saveRegistry();
   }
 
-  /** Set the autoOpen flag for a workspace. */
-  async setAutoOpen(id: string, autoOpen: boolean): Promise<void> {
+  // ── Open / Close (sidebar visibility, persisted) ───────────
+
+  /** Open a workspace in the sidebar. */
+  async open(id: string): Promise<void> {
     const entry = this.findEntry(id);
     if (!entry) throw new Error(`Workspace not found: ${id}`);
-    entry.autoOpen = autoOpen;
+    this.openIds.add(id);
+    entry.open = true;
     await this.saveRegistry();
   }
 
-  /** Get workspace IDs that should auto-open on launch. */
-  getAutoOpenIds(): string[] {
-    return this.registry.workspaces
-      .filter((w) => w.autoOpen)
-      .map((w) => w.id);
-  }
-
-  // ── Composite Environment ─────────────────────────────────
-
-  /** Add a workspace to the composite environment. */
-  openInComposite(id: string): void {
-    if (this.findEntry(id)) this.openIds.add(id);
-  }
-
-  /** Remove a workspace from the composite environment. */
-  closeInComposite(id: string): void {
+  /** Close a workspace in the sidebar. */
+  async close(id: string): Promise<void> {
+    const entry = this.findEntry(id);
+    if (!entry) return;
     this.openIds.delete(id);
+    entry.open = false;
+    await this.saveRegistry();
   }
 
   /** Get IDs of workspaces currently in the composite environment. */
@@ -425,7 +431,7 @@ export class WorkspaceManager {
       description: config?.description,
       contextHints: config?.contextHints,
       tags: config?.tags,
-      autoOpen: entry.autoOpen,
+      open: entry.open,
     };
   }
 

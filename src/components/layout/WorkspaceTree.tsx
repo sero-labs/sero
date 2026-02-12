@@ -5,16 +5,19 @@ import {
   FolderOpen,
   FolderPlus,
   Loader2,
-  MessageSquare,
   Minus,
   Plus,
-  Power,
   Trash2,
-  X,
 } from 'lucide-react';
 import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
 import { useSessionStore, useSessionsByWorkspace } from '@/stores/sessions';
-import { useAgentStore, useStreamingSessionIds } from '@/stores/agent';
+import { useStreamingSessionIds } from '@/stores/agent';
+import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
 import { cn } from '@/lib/utils';
 
@@ -32,14 +35,9 @@ export function WorkspaceTree() {
   const loadWorkspaces = useWorkspaceStore((s) => s.loadWorkspaces);
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const openWorkspaces = useOpenWorkspaces();
-  const allWorkspaces = useWorkspaceStore((s) => s.workspaces);
-  const openIds = useWorkspaceStore((s) => s.openWorkspaceIds);
-  const openWorkspace = useWorkspaceStore((s) => s.openWorkspace);
   const sessionsByWorkspace = useSessionsByWorkspace();
   const isLoadingWorkspaces = useWorkspaceStore((s) => s.isLoading);
   const addFolder = useWorkspaceStore((s) => s.addFolder);
-
-  const closedWorkspaces = allWorkspaces.filter((w) => !openIds.includes(w.id));
 
   // Load on mount
   useEffect(() => {
@@ -98,25 +96,6 @@ export function WorkspaceTree() {
             No workspaces open
           </span>
         )}
-
-        {/* Closed workspaces — quick re-open */}
-        {closedWorkspaces.length > 0 && (
-          <div className="mt-2 border-t border-border/30 pt-2">
-            <span className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-              Closed
-            </span>
-            {closedWorkspaces.map((ws) => (
-              <button
-                key={ws.id}
-                onClick={() => openWorkspace(ws.id)}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
-              >
-                <FolderOpen className="size-3 shrink-0" />
-                <span className="truncate">{ws.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -131,7 +110,8 @@ function WorkspaceNode({
   workspace: WorkspaceInfo;
   sessions: SeroSessionInfo[];
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const collapsedIds = useWorkspaceStore((s) => s.collapsedIds);
+  const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((s) => s.closeWorkspace);
@@ -140,12 +120,13 @@ function WorkspaceNode({
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const streamingIds = useStreamingSessionIds();
 
+  const expanded = !collapsedIds.includes(workspace.id);
   const isActive = activeWorkspaceId === workspace.id;
   const hasStreaming = sessions.some((s) => streamingIds.includes(s.id));
   const isDefault = workspace.id === 'scratchpad' || workspace.id === 'global';
 
   const handleHeaderClick = () => {
-    setExpanded(!expanded);
+    toggleCollapsed(workspace.id);
     setActiveWorkspace(workspace.id);
   };
 
@@ -263,28 +244,21 @@ function WorkspaceNode({
 // ── Session node ───────────────────────────────────────────────
 
 function SessionNode({ session }: { session: SeroSessionInfo }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
-  const agents = useAgentStore((s) => s.agents);
-  const closeSession = useAgentStore((s) => s.closeSession);
   const streamingIds = useStreamingSessionIds();
 
   const isActive = activeSessionId === session.id;
-  const isInPool = !!agents[session.id];
   const isStreaming = streamingIds.includes(session.id);
 
   const title = session.name || session.firstMessage || 'New chat';
   const modified = formatRelativeDate(session.modified);
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    deleteSession(session.path);
-  };
-
-  const handleCloseAgent = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    closeSession(session.id);
+  const handleDelete = async () => {
+    setConfirmOpen(false);
+    await deleteSession(session.path);
   };
 
   return (
@@ -297,14 +271,12 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
           : 'hover:bg-[var(--bg-elevated)]',
       )}
     >
-      {/* Status dot */}
-      {isStreaming ? (
-        <Loader2 className="size-3 shrink-0 animate-spin text-emerald-500" />
-      ) : isInPool ? (
-        <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
-      ) : (
-        <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-muted)]/30" />
-      )}
+      {/* Streaming spinner — only visible when agent is working */}
+      <span className="flex size-3 shrink-0 items-center justify-center">
+        {isStreaming && (
+          <Loader2 className="size-3 animate-spin text-emerald-500" />
+        )}
+      </span>
 
       {/* Title + metadata */}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -322,31 +294,49 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
         </div>
       </div>
 
-      {/* Actions */}
-      <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        {isInPool && !isStreaming && (
+      {/* Delete with confirmation popover */}
+      <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <PopoverTrigger asChild>
           <span
             role="button"
             tabIndex={-1}
-            onClick={handleCloseAgent}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleCloseAgent(e as unknown as React.MouseEvent); } }}
-            className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-            title="Close agent (keep session)"
+            onClick={(e) => { e.stopPropagation(); setConfirmOpen(true); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setConfirmOpen(true); } }}
+            className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-[var(--bg-base)] group-hover:opacity-100"
+            title="Delete session"
           >
-            <Power className="size-3 text-[var(--text-muted)]" />
+            <Trash2 className="size-3 text-[var(--text-muted)]" />
           </span>
-        )}
-        <span
-          role="button"
-          tabIndex={-1}
-          onClick={handleDelete}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleDelete(e as unknown as React.MouseEvent); } }}
-          className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-          title="Delete session"
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          side="right"
+          className="w-52 p-3"
+          onClick={(e) => e.stopPropagation()}
         >
-          <Trash2 className="size-3 text-[var(--text-muted)]" />
-        </span>
-      </span>
+          <p className="mb-3 text-xs text-[var(--text-secondary)]">
+            Delete this session?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[11px]"
+              onClick={(e) => { e.stopPropagation(); setConfirmOpen(false); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-6 px-2 text-[11px]"
+              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+            >
+              Delete
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
     </button>
   );
 }
