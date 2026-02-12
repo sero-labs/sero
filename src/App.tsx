@@ -32,6 +32,7 @@ import { useSessionAgent } from '@/hooks/useSessionAgent';
  */
 export function App() {
   const activeApp = useAppStore((s) => s.activeApp);
+  const mainSidebarOpen = useAppStore((s) => s.mainSidebarOpen);
   const chatPanelOpen = useAppStore((s) => s.chatPanelOpen);
 
   // Bridge: session selection → agent lifecycle
@@ -43,26 +44,40 @@ export function App() {
         <TitleBar />
 
         <div className="flex min-h-0 flex-1">
-          <MainSidebar />
-
-          {chatPanelOpen ? (
-            /* ── Resizable: active app ↔ chat panel ────────────── */
+          {mainSidebarOpen || chatPanelOpen ? (
             <ResizablePanelGroup
               orientation="horizontal"
-              style={{ flex: '1 1 0%', minWidth: 0, width: 'auto' }}
+              className="min-w-0 flex-1"
             >
-              <ResizablePanel defaultSize="70%" minSize="20%">
+              {mainSidebarOpen && (
+                <>
+                  <ResizablePanel
+                    defaultSize="20%"
+                    minSize={200}
+                  >
+                    <MainSidebar />
+                  </ResizablePanel>
+                  <ResizableHandle />
+                </>
+              )}
+
+              <ResizablePanel minSize={40} className="min-w-0">
                 <ActiveApp app={activeApp} />
               </ResizablePanel>
 
-              <ResizableHandle />
-
-              <ResizablePanel defaultSize="30%" minSize="300px" maxSize="50%">
-                <ChatPanel />
-              </ResizablePanel>
+              {chatPanelOpen && (
+                <>
+                  <ResizableHandle />
+                  <ResizablePanel
+                    defaultSize="30%"
+                    minSize={400}
+                  >
+                    <ChatPanel />
+                  </ResizablePanel>
+                </>
+              )}
             </ResizablePanelGroup>
           ) : (
-            /* ── App takes full width when chat is collapsed ───── */
             <div className="flex min-h-0 min-w-0 flex-1">
               <ActiveApp app={activeApp} />
             </div>
@@ -77,12 +92,20 @@ export function App() {
 
 /** Renders the currently active app. */
 function ActiveApp({ app }: { app: string }) {
-  if (app === 'coding') return <CodingWorkspace />;
+  const content =
+    app === 'coding' ? (
+      <CodingWorkspace />
+    ) : (
+      <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
+        <span className="text-sm capitalize text-[var(--text-muted)]">
+          {app} app — coming soon
+        </span>
+      </div>
+    );
+
   return (
-    <div className="flex h-full flex-1 items-center justify-center bg-[var(--bg-base)]">
-      <span className="text-sm capitalize text-[var(--text-muted)]">
-        {app} app — coming soon
-      </span>
+    <div className="flex h-full min-h-0 w-full min-w-0 overflow-x-auto">
+      <div className="flex h-full min-h-0 min-w-[500px] flex-1">{content}</div>
     </div>
   );
 }
