@@ -148,4 +148,8 @@ export const IpcChannels = {
     /** Main → renderer push channel for streaming events. */
     event: 'sero:agent:event',
   },
+  shell: {
+    /** Open a path in the native file explorer. */
+    showItemInFolder: 'sero:shell:show-item-in-folder',
+  },
 } as const;

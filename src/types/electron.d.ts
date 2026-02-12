@@ -50,8 +50,14 @@ interface SeroAgentAPI {
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
 }
 
+interface SeroShellAPI {
+  /** Reveal a file or folder in the native file explorer. */
+  showItemInFolder(fullPath: string): Promise<void>;
+}
+
 interface SeroAPI {
   platform: string;
+  shell: SeroShellAPI;
   workspace: SeroWorkspaceAPI;
   sessions: SeroSessionsAPI;
   agent: SeroAgentAPI;

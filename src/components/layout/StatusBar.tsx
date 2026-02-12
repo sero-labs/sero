@@ -25,9 +25,13 @@ export function StatusBar() {
           </span>
         )}
         {activeWorkspace && (
-          <span className="max-w-[300px] truncate text-[10px]">
+          <button
+            className="max-w-[300px] truncate text-[10px] hover:text-[var(--text-primary)] transition-colors"
+            onClick={() => window.sero.shell.showItemInFolder(activeWorkspace.path)}
+            title="Reveal in file explorer"
+          >
             {activeWorkspace.path}
-          </span>
+          </button>
         )}
       </div>
 

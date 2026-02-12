@@ -11,6 +11,11 @@ import type {
 contextBridge.exposeInMainWorld('sero', {
   platform: process.platform,
 
+  shell: {
+    showItemInFolder: (fullPath: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.shell.showItemInFolder, fullPath),
+  },
+
   workspace: {
     list: (): Promise<WorkspaceInfo[]> =>
       ipcRenderer.invoke(IpcChannels.workspace.list),
