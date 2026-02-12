@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  TitleBar (⊞ sidebar toggle … workspace name … ⌘K … ⊟ chat)│
+│  TitleBar (⊞ toggle … Coding — Workspace / Session … ⊟ chat)│
 ├──────────┬──────────────────────────────┬─┬─────────────────┤
 │  Main    │                              │║│                 │
 │  Sidebar │     Active App               │║│  Chat Panel     │
@@ -34,12 +34,16 @@ own root directory and `.sero-workspace.json` config.
 - **Two defaults** — scratchpad (ad-hoc) and global (cross-cutting data)
 - **Composite environment** — multiple workspaces open simultaneously
 - **Session binding** — every session belongs to exactly one workspace
+- **Open/closed** — purely visual; controls sidebar visibility, persisted in
+  registry. All workspaces start open. Closing hides from sidebar; re-add via
+  folder picker to reopen. No separate "closed workspaces" UI section.
+- **Collapsed/expanded** — tree node chevron state persisted in localStorage
 
 ```
 ~/.sero-ui/
 ├── agent/
-│   ├── workspaces.json       # Registry of all known workspaces
-│   └── sessions/             # All sessions (grouped by workspace cwd)
+│   ├── workspaces.json       # Registry: id, path, open (boolean)
+│   └── sessions/             # All sessions (flat, mapped to workspaces by cwd)
 └── workspaces/
     ├── scratchpad/           # Default: ad-hoc tasks
     └── global/               # Default: personal data
@@ -71,7 +75,9 @@ Shell-level — persists across all apps. Uses ai-elements:
 - `PromptInput` + `PromptInputTextarea` + `PromptInputSubmit` — chat input
 
 Reads from the **focused agent instance** in the multi-session agent pool.
-Shows a workspace badge in the header.
+Shows a workspace badge in the header. Keyed on `sessionId` so switching
+sessions remounts instantly (no scroll animation). Uses `initial="instant"`
+for immediate scroll-to-bottom on load; streaming content scrolls smoothly.
 
 ## Component Map
 
@@ -81,7 +87,7 @@ src/
 
   components/
     layout/
-      TitleBar.tsx           Drag region, sidebar toggle, workspace name
+      TitleBar.tsx           Drag region, sidebar toggle, workspace/session breadcrumb
       MainSidebar.tsx        Apps list + WorkspaceTree
       WorkspaceTree.tsx      Workspace → session tree view with active indicators
       ChatPanel.tsx          Agent chat (ai-elements), multi-agent aware
@@ -130,19 +136,20 @@ electron/
 
 ### Workspaces (Zustand: `src/stores/workspace.ts`)
 
-| State              | Type             | Description                               |
-| ------------------ | ---------------- | ----------------------------------------- |
-| `workspaces`       | `WorkspaceInfo[]`| All registered workspaces                 |
-| `openWorkspaceIds` | `string[]`       | IDs in the composite environment          |
-| `activeWorkspaceId`| `string \| null` | Currently focused workspace               |
+| State              | Type             | Persisted          | Description                          |
+| ------------------ | ---------------- | ------------------ | ------------------------------------ |
+| `workspaces`       | `WorkspaceInfo[]`| registry (main)    | All registered workspaces            |
+| `openWorkspaceIds` | `string[]`       | registry (`open`)  | IDs visible in sidebar               |
+| `collapsedIds`     | `string[]`       | localStorage       | IDs with collapsed tree nodes        |
+| `activeWorkspaceId`| `string \| null` | localStorage       | Currently focused workspace          |
 
 ### Sessions (Zustand: `src/stores/sessions.ts`)
 
-| State             | Type                | Description                           |
-| ----------------- | ------------------- | ------------------------------------- |
-| `sessions`        | `SeroSessionInfo[]` | All sessions (have `workspaceId`)     |
-| `activeSessionId` | `string \| null`    | Currently selected session            |
-| `searchQuery`     | `string`            | Filter for session list               |
+| State             | Type                | Persisted    | Description                      |
+| ----------------- | ------------------- | ------------ | -------------------------------- |
+| `sessions`        | `SeroSessionInfo[]` | .jsonl (main)| All sessions (have `workspaceId`)|
+| `activeSessionId` | `string \| null`    | localStorage | Currently selected session       |
+| `searchQuery`     | `string`            | —            | Filter for session list          |
 
 ### Agent Pool (Zustand: `src/stores/agent.ts`)
 

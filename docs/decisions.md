@@ -85,6 +85,12 @@ directory, `.sero-workspace.json` config, and PI SDK skill/extension discovery.
   personal data), created on first run under `~/.sero-ui/workspaces/`.
 - **Composite environment** — multiple workspaces open simultaneously, summaries
   injected into system prompt for cross-workspace awareness.
+- **Open/closed is visual only** — the registry `open` flag controls sidebar
+  visibility. All new workspaces start open. Closing removes from sidebar;
+  re-add via folder picker to reopen. No "closed workspaces" UI section — it
+  was removed as redundant (the folder picker already handles reopening).
+- **Collapsed/expanded state** — tree node chevron state persisted in
+  `localStorage` (`sero:workspace:collapsed`), separate from open/close.
 
 See `docs/ideas/multi-workspace-spec.md` for the full implementation plan.
 
@@ -136,3 +142,31 @@ Adding a workspace uses Electron's `dialog.showOpenDialog` via a dedicated
 `sero:workspace:pick-folder` IPC channel. This gives the native macOS folder
 picker instead of a text input. The picked path is registered as a workspace
 with auto-generated `.sero-workspace.json` if none exists.
+
+## AD-016: Persisted UI State
+
+Selection and layout state survives reload:
+
+| What                        | Where                        | Key                        |
+| --------------------------- | ---------------------------- | -------------------------- |
+| Active workspace ID         | `localStorage`               | `sero:workspace:active`    |
+| Active session ID           | `localStorage`               | `sero:session:active`      |
+| Collapsed workspace nodes   | `localStorage`               | `sero:workspace:collapsed` |
+| Workspace open/closed       | `workspaces.json` (`open`)   | —                          |
+
+On startup, `useSessionAgent` detects the restored `activeSessionId`, waits
+for `loadSessions` to populate the session list, then calls `agent.open` to
+hydrate the ChatPanel. The `Conversation` component uses `key={sessionId}` +
+`initial="instant"` so switching sessions shows the latest messages immediately
+without scroll animation.
+
+**Auth:** Sero reads OAuth tokens directly from PI's `~/.pi/agent/auth.json`
+(single source of truth). No separate Sero auth file — PI CLI handles `/login`
+and token refresh, both apps share the same credentials.
+
+## AD-017: Session Deletion Confirmation
+
+Session delete uses a Radix popover (not `window.confirm`) for inline
+confirmation. Small "Delete this session?" popover with Cancel/Delete buttons,
+positioned next to the trash icon. Consistent with the app's UI language and
+avoids blocking native dialogs.
