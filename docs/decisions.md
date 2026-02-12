@@ -70,3 +70,47 @@ filesystem, PTY, container lifecycle, and agent session bridge.
 
 Components start as named placeholders. Get layout and data flow right first,
 fill in real functionality one piece at a time.
+
+## AD-010: Multi-Workspace Architecture
+
+Workspaces are Sero's foundational organising unit, replacing project tabs
+(ProjectBar is removed). A workspace is a bounded context with its own root
+directory, `.sero-workspace.json` config, and PI SDK skill/extension discovery.
+
+- **External paths** — workspaces point to real directories on disk (like PI's
+  `cwd`). Dev projects stay in `~/Dev/...`, not inside `~/.sero-ui/`.
+- **Workspace = PI SDK cwd** — each workspace maps to
+  `createAgentSession({ cwd: workspace.path })` with `createCodingTools(cwd)`.
+- **Two default workspaces** — `scratchpad` (ad-hoc) and `global` (cross-cutting
+  personal data), created on first run under `~/.sero-ui/workspaces/`.
+- **Composite environment** — multiple workspaces open simultaneously, summaries
+  injected into system prompt for cross-workspace awareness.
+
+See `docs/ideas/multi-workspace-spec.md` for the full implementation plan.
+
+## AD-011: Multiple Simultaneous AgentSessions
+
+Singleton `AgentSession` replaced by `AgentPool` — a `Map<sessionId, AgentSession>`
+in the Electron main process. Shared infrastructure (AuthStorage, ModelRegistry,
+SettingsManager) created once; per-session resources (ResourceLoader, tools,
+SessionManager) scoped to the session's workspace cwd.
+
+All `AgentStreamEvent`s tagged with `sessionId` so the renderer routes events
+to the correct store entry. Active agents indicated in the sidebar.
+
+## AD-012: Session–Workspace Binding
+
+Every session is permanently bound to one workspace at creation. The binding
+is implicit: PI SDK's `SessionManager.create(workspacePath, sessionDir)` stamps
+the workspace path as `cwd` in the session header. Sessions are grouped in the
+UI by mapping cwd → workspace.
+
+New sessions default to `scratchpad` unless the user explicitly selects a
+workspace (VSCode-style folder picker).
+
+## AD-013: ChatPanel Stays Global, Sessions Route Context
+
+ChatPanel remains shell-level (per AD-003). It shows whichever session is
+focused (`focusedSessionId` in agent store). Selecting a session in a different
+workspace changes the ChatPanel's content and the agent's context, but the
+panel itself doesn't move or duplicate.
