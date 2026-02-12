@@ -9,13 +9,13 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "outDir": "dist/electron",
-    "rootDir": "electron",
+    "rootDir": ".",
     "lib": ["ES2022"],
     "baseUrl": ".",
     "paths": {
       "@electron/*": ["electron/*"]
     }
   },
-  "include": ["electron/**/*"],
+  "include": ["electron/**/*", "src/types/ipc.ts"],
   "exclude": ["node_modules", "dist"]
 }

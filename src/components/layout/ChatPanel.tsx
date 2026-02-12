@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Bot, MessageSquare } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bot, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
 import {
   Conversation,
   ConversationContent,
@@ -18,45 +18,47 @@ import {
   PromptInputTools,
   PromptInputSubmit,
 } from '@/components/ai-elements/prompt-input';
-
-// ── Dummy messages for layout purposes ─────────────────────────
-interface DummyMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  text: string;
-}
-
-const dummyMessages: DummyMessage[] = [
-  {
-    id: '1',
-    role: 'user',
-    text: 'Can you help me set up a new Express server with TypeScript?',
-  },
-  {
-    id: '2',
-    role: 'assistant',
-    text: "Sure! Here's a basic Express + TypeScript setup:\n\n```bash\nnpm init -y\nnpm install express\nnpm install -D typescript @types/express @types/node ts-node\n```\n\nThen create a `tsconfig.json` and your entry file. Want me to generate the full scaffold?",
-  },
-  {
-    id: '3',
-    role: 'user',
-    text: 'Yes please, generate the full scaffold.',
-  },
-  {
-    id: '4',
-    role: 'assistant',
-    text: "Here's the project structure:\n\n```\nsrc/\n  index.ts\n  routes/\n    health.ts\ntsconfig.json\npackage.json\n```\n\nI'll create each file now.",
-  },
-];
+import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+} from '@/components/ai-elements/tool';
+import { useAgentStore } from '@/stores/agent';
+import { useSessionStore } from '@/stores/sessions';
+import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
 
 /**
- * ChatPanel — agent chat panel for the coding workspace.
+ * ChatPanel — agent chat panel wired to Pi SDK AgentSession.
  *
- * Uses ai-elements Conversation + Message + PromptInput.
- * Dummy data for now — will wire to a real agent session later.
+ * Uses ai-elements Conversation + Message + PromptInput + Tool.
+ * Streams real agent responses from the main process.
  */
 export function ChatPanel() {
   const [input, setInput] = useState('');
+  const messages = useAgentStore((s) => s.messages);
+  const isStreaming = useAgentStore((s) => s.isStreaming);
+  const error = useAgentStore((s) => s.error);
+  const activeSessionPath = useAgentStore((s) => s.activeSessionPath);
+  const sendPrompt = useAgentStore((s) => s.sendPrompt);
+  const abort = useAgentStore((s) => s.abort);
+  const initEventListener = useAgentStore((s) => s.initEventListener);
+
+  // Subscribe to main-process events on mount
+  useEffect(() => {
+    const unsub = initEventListener();
+    return unsub;
+  }, [initEventListener]);
+
+  const handleSubmit = () => {
+    const text = input.trim();
+    if (!text || !activeSessionPath) return;
+    setInput('');
+    sendPrompt(text);
+  };
+
+  const hasSession = !!activeSessionPath;
 
   return (
     <div className="flex h-full flex-col bg-[var(--bg-surface)]">
@@ -66,26 +68,29 @@ export function ChatPanel() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Agent
         </span>
+        {isStreaming && (
+          <Loader2 className="ml-auto size-3 animate-spin text-[var(--text-muted)]" />
+        )}
       </div>
 
       {/* ── Conversation ────────────────────────────────────── */}
       <Conversation className="min-h-0 flex-1">
         <ConversationContent className="gap-4 p-3">
-          {dummyMessages.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-              <MessageSquare className="size-8 text-[var(--text-muted)]" />
-              <span className="text-xs text-[var(--text-muted)]">
-                Start a conversation
-              </span>
-            </div>
+          {!hasSession ? (
+            <EmptyState message="Select or create a chat to begin" />
+          ) : messages.length === 0 && !isStreaming ? (
+            <EmptyState message="Start a conversation" />
           ) : (
-            dummyMessages.map((msg) => (
-              <Message from={msg.role} key={msg.id}>
-                <MessageContent>
-                  <MessageResponse>{msg.text}</MessageResponse>
-                </MessageContent>
-              </Message>
+            messages.map((msg) => (
+              <ChatMessageItem key={msg.id} message={msg} />
             ))
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <AlertCircle className="size-3.5 shrink-0" />
+              <span>{error}</span>
+            </div>
           )}
         </ConversationContent>
         <ConversationScrollButton />
@@ -94,24 +99,116 @@ export function ChatPanel() {
       {/* ── Prompt input ────────────────────────────────────── */}
       <div className="shrink-0 p-2">
         <PromptInput
-          onSubmit={() => {
-            setInput('');
-          }}
+          onSubmit={handleSubmit}
           className="w-full"
         >
           <PromptInputBody>
             <PromptInputTextarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Sero anything…"
+              placeholder={hasSession ? 'Ask Sero anything…' : 'Select a chat first…'}
+              disabled={!hasSession}
             />
           </PromptInputBody>
           <PromptInputFooter>
             <PromptInputTools />
-            <PromptInputSubmit disabled={!input.trim()} />
+            {isStreaming ? (
+              <button
+                onClick={() => abort()}
+                className="rounded-md bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/20"
+              >
+                Stop
+              </button>
+            ) : (
+              <PromptInputSubmit disabled={!input.trim() || !hasSession} />
+            )}
           </PromptInputFooter>
         </PromptInput>
       </div>
+    </div>
+  );
+}
+
+// ── Message renderer ───────────────────────────────────────────
+
+function ChatMessageItem({ message }: { message: ChatMessage }) {
+  switch (message.type) {
+    case 'user':
+      return (
+        <Message from="user">
+          <MessageContent>
+            <MessageResponse>{message.text}</MessageResponse>
+          </MessageContent>
+        </Message>
+      );
+
+    case 'assistant':
+      return (
+        <Message from="assistant">
+          <MessageContent>
+            <MessageResponse>{message.text}</MessageResponse>
+            {message.isStreaming && message.text === '' && (
+              <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
+            )}
+          </MessageContent>
+        </Message>
+      );
+
+    case 'tool':
+      return <ToolCallItem tool={message} />;
+
+    default:
+      return null;
+  }
+}
+
+// ── Tool call renderer ─────────────────────────────────────────
+
+/** Map our state to ToolUIPart state names. */
+function mapToolState(
+  state: ChatToolCallMessage['state'],
+): 'input-streaming' | 'input-available' | 'output-available' | 'output-error' {
+  switch (state) {
+    case 'pending':
+      return 'input-streaming';
+    case 'running':
+      return 'input-available';
+    case 'completed':
+      return 'output-available';
+    case 'error':
+      return 'output-error';
+  }
+}
+
+function ToolCallItem({ tool }: { tool: ChatToolCallMessage }) {
+  const isComplete = tool.state === 'completed' || tool.state === 'error';
+
+  return (
+    <Tool defaultOpen={isComplete}>
+      <ToolHeader
+        type={`tool-${tool.toolName}` as `tool-${string}`}
+        state={mapToolState(tool.state)}
+      />
+      <ToolContent>
+        <ToolInput input={tool.input} />
+        {isComplete && (
+          <ToolOutput
+            output={tool.output}
+            errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
+          />
+        )}
+      </ToolContent>
+    </Tool>
+  );
+}
+
+// ── Empty state ────────────────────────────────────────────────
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+      <MessageSquare className="size-8 text-[var(--text-muted)]" />
+      <span className="text-xs text-[var(--text-muted)]">{message}</span>
     </div>
   );
 }

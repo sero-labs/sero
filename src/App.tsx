@@ -10,6 +10,7 @@ import { StatusBar } from '@/components/layout/StatusBar';
 import { ChatPanel } from '@/components/layout/ChatPanel';
 import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
 import { useAppStore } from '@/stores/app';
+import { useSessionAgent } from '@/hooks/useSessionAgent';
 
 /**
  * App shell.
@@ -32,6 +33,9 @@ import { useAppStore } from '@/stores/app';
 export function App() {
   const activeApp = useAppStore((s) => s.activeApp);
   const chatPanelOpen = useAppStore((s) => s.chatPanelOpen);
+
+  // Bridge: session selection → agent lifecycle
+  useSessionAgent();
 
   return (
     <TooltipProvider delayDuration={400}>

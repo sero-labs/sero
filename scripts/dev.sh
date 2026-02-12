@@ -6,6 +6,9 @@ pkill -f "vite.*sero" 2>/dev/null
 pkill -f "electron ." 2>/dev/null
 sleep 1
 
+# Build Electron main + preload (so we always run latest code)
+node scripts/build-electron.mjs
+
 # Start Vite
 npx vite > /tmp/sero-vite.log 2>&1 &
 VITE_PID=$!

@@ -17,23 +17,6 @@ export const apps: AppEntry[] = [
   { id: 'banking', label: 'Banking', icon: '🏦' },
 ];
 
-// ── Chat sessions (placeholder data) ──────────────────────────
-export interface ChatSession {
-  id: string;
-  title: string;
-  preview: string;
-  date: string;
-}
-
-export const dummyChatSessions: ChatSession[] = [
-  { id: '1', title: 'Refactor auth module', preview: 'Can you help me split the auth...', date: 'Today' },
-  { id: '2', title: 'CSS grid layout', preview: 'I need a responsive grid that...', date: 'Today' },
-  { id: '3', title: 'Debug API timeout', preview: 'The /api/users endpoint keeps...', date: 'Yesterday' },
-  { id: '4', title: 'Write unit tests', preview: 'Generate tests for the utils...', date: 'Yesterday' },
-  { id: '5', title: 'Docker compose setup', preview: 'Help me configure a multi-service...', date: 'Mon' },
-  { id: '6', title: 'Performance profiling', preview: 'The app is slow on initial load...', date: 'Mon' },
-];
-
 // ── Theme ──────────────────────────────────────────────────────
 export type Theme = 'dark' | 'light';
 
@@ -50,10 +33,6 @@ interface AppState {
   // Active app
   activeApp: AppId;
   setActiveApp: (app: AppId) => void;
-
-  // Chat search
-  chatSearch: string;
-  setChatSearch: (q: string) => void;
 
   // Theme
   theme: Theme;
@@ -82,10 +61,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Active app
   activeApp: 'coding',
   setActiveApp: (app) => set({ activeApp: app }),
-
-  // Chat search
-  chatSearch: '',
-  setChatSearch: (q) => set({ chatSearch: q }),
 
   // Theme
   theme: 'dark',

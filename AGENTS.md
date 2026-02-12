@@ -54,6 +54,12 @@ layout diagrams, component hierarchy, and state management.
 - `src/components/ui/` — shadcn/ui primitives
 - `src/components/ai-elements/` — Vercel ai-elements chat components (source, not node_modules)
 
+## File Size Rules (CRITICAL)
+
+1. **NEVER let a file exceed 500 lines of code.** If a file you are creating or editing grows beyond 500 LOC, you **MUST** refactor it immediately — split the code into smaller modules grouped by related functionality.
+2. **Before finishing any task**, check the line count of every file you touched. If any exceed 500 LOC, refactor before marking the task complete.
+3. **Preferred split strategies:** extract helper functions into `utils/` or `lib/` files, break large components into sub-components, move types/interfaces into dedicated `types.ts` files, and separate business logic from UI rendering.
+
 ## Further Reading
 
 - [docs/architecture.md](docs/architecture.md) — layout, state, component hierarchy
