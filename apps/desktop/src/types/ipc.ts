@@ -84,10 +84,21 @@ export type ChatMessage =
   | ChatAssistantMessage
   | ChatToolCallMessage;
 
+/** File attachment metadata for user messages. */
+export interface ChatAttachment {
+  id: string;
+  filename?: string;
+  mediaType?: string;
+  /** Data URL (base64) or blob URL. */
+  url: string;
+}
+
 export interface ChatUserMessage {
   type: 'user';
   id: string;
   text: string;
+  /** Optional file attachments included with the message. */
+  attachments?: ChatAttachment[];
 }
 
 export interface ChatAssistantMessage {

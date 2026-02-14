@@ -1,11 +1,11 @@
 #!/bin/bash
 cd "$(dirname "$0")/.."
 
-# Kill any existing Sero-related instances (avoid killing unrelated vite/electron)
-pkill -f "vite.*sero" 2>/dev/null
-pkill -f "vite.*pi-todo-extension" 2>/dev/null
-pkill -f "vite.*pi-weight-tracker" 2>/dev/null
-pkill -f "vite.*pi-daily-quote" 2>/dev/null
+# Kill any existing Sero-related instances by port (process name matching is
+# unreliable — npx vite doesn't include the package name in its argv).
+for port in 5173 5174 5176 5177; do
+  lsof -ti :"$port" | xargs kill -9 2>/dev/null
+done
 pkill -f "electron.*sero" 2>/dev/null
 sleep 1
 
@@ -14,18 +14,21 @@ node scripts/build-electron.mjs
 
 # ── Start remote dev servers ──────────────────────────────────
 # Remotes must be up before the host so MF can fetch mf-manifest.json.
-# --force: avoids stale Vite dep caches that cause 504 "Outdated Optimize Dep".
+# NOTE: Do NOT use --force here. It wipes the dep cache on every start, which
+# causes chunk-hash mismatches when MF virtual modules trigger re-optimization
+# mid-page-load. Let Vite manage its cache; each package's optimizeDeps.include
+# pre-includes shared deps to avoid the discovery→re-optimize→504 cycle.
 
 REMOTE_DIR="$(cd ../../packages/pi-todo-extension && pwd)"
-(cd "$REMOTE_DIR" && npx vite --force) > /tmp/sero-remote-todo.log 2>&1 &
+(cd "$REMOTE_DIR" && npx vite) > /tmp/sero-remote-todo.log 2>&1 &
 REMOTE_PID=$!
 
 WEIGHT_DIR="$(cd ../../packages/pi-weight-tracker && pwd)"
-(cd "$WEIGHT_DIR" && npx vite --force) > /tmp/sero-remote-weight-tracker.log 2>&1 &
+(cd "$WEIGHT_DIR" && npx vite) > /tmp/sero-remote-weight-tracker.log 2>&1 &
 WEIGHT_PID=$!
 
 QUOTE_DIR="$(cd ../../packages/pi-daily-quote && pwd)"
-(cd "$QUOTE_DIR" && npx vite --force) > /tmp/sero-remote-daily-quote.log 2>&1 &
+(cd "$QUOTE_DIR" && npx vite) > /tmp/sero-remote-daily-quote.log 2>&1 &
 QUOTE_PID=$!
 
 # Wait for all remotes to be ready (check mf-manifest.json)
@@ -39,8 +42,7 @@ for i in {1..15}; do
 done
 
 # ── Start host dev server (Sero) ─────────────────────────────
-# --force: same reason as remotes — avoids stale dep optimisation cache.
-npx vite --force > /tmp/sero-vite.log 2>&1 &
+npx vite > /tmp/sero-vite.log 2>&1 &
 VITE_PID=$!
 
 # Wait for host to be ready

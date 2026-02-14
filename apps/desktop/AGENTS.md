@@ -61,6 +61,42 @@ layout diagrams, component hierarchy, and state management.
 2. **Before finishing any task**, check the line count of every file you touched. If any exceed 500 LOC, refactor before marking the task complete.
 3. **Preferred split strategies:** extract helper functions into `utils/` or `lib/` files, break large components into sub-components, move types/interfaces into dedicated `types.ts` files, and separate business logic from UI rendering.
 
+## Creating a Sero App (IMPORTANT)
+
+**When asked to create a new Sero app, you MUST read
+[docs/apps-tutorial.md](../../docs/apps-tutorial.md) first.** It covers the full
+process: package structure, shared state types, Pi extension, web UI, module
+federation setup, host-side wiring, Pi settings registration, and dev workflow.
+Do not improvise — follow the tutorial step by step.
+
+## IPC Data Flow (IMPORTANT)
+
+All data between the UI and the agent passes through **four layers**. When adding
+or changing any feature that crosses the process boundary, **every layer must be
+updated together** or data will silently drop:
+
+```
+React component → Zustand store → preload (IPC bridge) → main-process handler → Pi SDK
+src/components/    src/stores/      electron/preload.ts  electron/ipc/          session.*()
+```
+
+Each layer has its own types and may need to transform data (e.g. the main
+process converts renderer-friendly `ChatAttachment` objects into Pi SDK
+`ImageContent` objects). If you add a parameter at one layer but forget another,
+the feature appears to work in the UI but silently fails at the agent.
+
+**Key rules:**
+
+- **Types live in `src/types/ipc.ts`** — shared by renderer and main process.
+  The renderer-side window API is typed in `src/types/electron.d.ts`. Keep both
+  in sync.
+- **User messages are optimistic.** The store appends them immediately on send;
+  the `message_start` event handler skips incoming user messages to prevent
+  duplicates.
+- **Renderer vs Electron rebuild.** Vite HMR only covers renderer code
+  (`src/`). Changes to `electron/preload.ts` or `electron/ipc/` require
+  `node scripts/build-electron.mjs` **and** an Electron restart to take effect.
+
 ## State Management Rules
 
 - **Do NOT use `localStorage` for app state** unless explicitly instructed. All

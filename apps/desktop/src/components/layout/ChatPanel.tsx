@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Bot, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
 import {
   Conversation,
@@ -14,9 +14,15 @@ import {
   PromptInput,
   PromptInputBody,
   PromptInputTextarea,
+  PromptInputHeader,
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
+  PromptInputActionMenu,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuContent,
+  PromptInputActionAddAttachments,
+  type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import {
   Tool,
@@ -27,7 +33,8 @@ import {
 } from '@/components/ai-elements/tool';
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
 import { SlashCommandMenu } from './SlashCommandMenu';
-import type { ChatMessage, ChatToolCallMessage, SeroSlashCommandInfo } from '@/types/ipc';
+import { PromptAttachmentsBar, MessageAttachments } from './ChatAttachments';
+import type { ChatMessage, ChatAttachment, ChatToolCallMessage, SeroSlashCommandInfo } from '@/types/ipc';
 
 /**
  * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
@@ -81,14 +88,28 @@ export function ChatPanel() {
     setInput('');
   }, []);
 
-  const handleSubmit = () => {
-    const text = input.trim();
-    if (!text || !sessionId) return;
-    // Don't submit if slash menu is open (Enter selects from menu instead)
-    if (slashMenuOpen) return;
-    setInput('');
-    sendPrompt(sessionId, text);
-  };
+  const handleSubmit = useCallback(
+    (message: PromptInputMessage) => {
+      const text = (message.text ?? input).trim();
+      if ((!text && !message.files?.length) || !sessionId) return;
+      // Don't submit if slash menu is open (Enter selects from menu instead)
+      if (slashMenuOpen) return;
+      setInput('');
+
+      // Convert FileUIParts → ChatAttachments for persistence
+      const attachments: ChatAttachment[] | undefined = message.files?.length
+        ? message.files.map((f, i) => ({
+            id: `att-${Date.now()}-${i}`,
+            filename: f.filename,
+            mediaType: f.mediaType,
+            url: f.url,
+          }))
+        : undefined;
+
+      sendPrompt(sessionId, text, attachments);
+    },
+    [input, sessionId, slashMenuOpen, sendPrompt],
+  );
 
   const hasSession = !!sessionId;
 
@@ -147,7 +168,14 @@ export function ChatPanel() {
         <PromptInput
           onSubmit={handleSubmit}
           className="w-full"
+          multiple
+          globalDrop={hasSession}
         >
+          {/* Queued attachments shown as inline badges above the textarea */}
+          <PromptInputHeader>
+            <PromptAttachmentsBar />
+          </PromptInputHeader>
+
           <PromptInputBody>
             <PromptInputTextarea
               value={input}
@@ -156,8 +184,21 @@ export function ChatPanel() {
               disabled={!hasSession}
             />
           </PromptInputBody>
+
           <PromptInputFooter>
-            <PromptInputTools />
+            <PromptInputTools>
+              {/* "+" menu with "Add photos or files" action */}
+              <PromptInputActionMenu>
+                <PromptInputActionMenuTrigger
+                  tooltip={{ content: 'Attach files', shortcut: '' }}
+                  disabled={!hasSession}
+                />
+                <PromptInputActionMenuContent>
+                  <PromptInputActionAddAttachments />
+                </PromptInputActionMenuContent>
+              </PromptInputActionMenu>
+            </PromptInputTools>
+
             {isStreaming ? (
               <button
                 onClick={() => sessionId && abort(sessionId)}
@@ -184,6 +225,9 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
         <Message from="user">
           <MessageContent>
             <MessageResponse>{message.text}</MessageResponse>
+            {message.attachments?.length ? (
+              <MessageAttachments attachments={message.attachments} />
+            ) : null}
           </MessageContent>
         </Message>
       );

@@ -62,8 +62,8 @@ contextBridge.exposeInMainWorld('sero', {
     open: (sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]> =>
       ipcRenderer.invoke(IpcChannels.agent.open, sessionId, sessionPath, workspaceId),
 
-    prompt: (sessionId: string, text: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.agent.prompt, sessionId, text),
+    prompt: (sessionId: string, text: string, attachments?: import('../src/types/ipc').ChatAttachment[]): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.agent.prompt, sessionId, text, attachments),
 
     abort: (sessionId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.abort, sessionId),

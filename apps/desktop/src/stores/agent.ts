@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   ChatMessage,
+  ChatAttachment,
   ChatToolCallMessage,
   AgentStreamEvent,
   SeroSlashCommandInfo,
@@ -33,8 +34,8 @@ interface AgentState {
   openSession: (sessionId: string, sessionPath: string, workspaceId: string) => Promise<void>;
   /** Close a session — disposes its AgentSession. */
   closeSession: (sessionId: string) => Promise<void>;
-  /** Send a prompt to a specific session. */
-  sendPrompt: (sessionId: string, text: string) => Promise<void>;
+  /** Send a prompt to a specific session, optionally with file attachments. */
+  sendPrompt: (sessionId: string, text: string, attachments?: ChatAttachment[]) => Promise<void>;
   /** Abort a specific session. */
   abort: (sessionId: string) => Promise<void>;
   /** Focus a session in the ChatPanel. */
@@ -128,19 +129,32 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     });
   },
 
-  sendPrompt: async (sessionId, text) => {
+  sendPrompt: async (sessionId, text, attachments) => {
     const agent = get().agents[sessionId];
     if (!agent) return;
 
+    // Optimistically add the user message so it appears immediately.
+    // The main process also sends a message_start event for user messages,
+    // but we skip those in the event handler to avoid duplicates.
+    const userMsg: ChatMessage = {
+      type: 'user',
+      id: `usr-${Date.now()}`,
+      text,
+      attachments,
+    };
     set((s) => ({
       agents: {
         ...s.agents,
-        [sessionId]: { ...s.agents[sessionId], error: null },
+        [sessionId]: {
+          ...s.agents[sessionId],
+          error: null,
+          messages: [...s.agents[sessionId].messages, userMsg],
+        },
       },
     }));
 
     try {
-      await window.sero.agent.prompt(sessionId, text);
+      await window.sero.agent.prompt(sessionId, text, attachments);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Prompt failed';
       console.error('[agent] sendPrompt failed:', err);
@@ -226,6 +240,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           break;
 
         case 'message_start':
+          // Skip user messages — they're added optimistically in sendPrompt
+          // to avoid duplicates and ensure attachments render immediately.
+          if (event.message.type === 'user') break;
+
           set((s) => ({
             agents: {
               ...s.agents,

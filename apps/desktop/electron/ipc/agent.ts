@@ -26,11 +26,13 @@ import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
 import type {
   ChatMessage,
+  ChatAttachment,
   ChatAssistantMessage,
   ChatToolCallMessage,
   AgentStreamEvent,
   SeroSlashCommandInfo,
 } from '../../src/types/ipc';
+import type { ImageContent } from '@mariozechner/pi-ai';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
 import {
@@ -187,6 +189,28 @@ function buildCommandList(entry: PoolEntry, hidden?: Set<string>): SeroSlashComm
   const all = [...extCmds, ...promptCmds, ...skillCmds];
   if (!hidden || hidden.size === 0) return all;
   return all.filter((cmd) => !hidden.has(cmd.name));
+}
+
+/**
+ * Convert ChatAttachments (data-URLs) to Pi SDK ImageContent[].
+ * Only image/* types are included; non-image attachments are skipped.
+ */
+function attachmentsToImages(attachments?: ChatAttachment[]): ImageContent[] | undefined {
+  if (!attachments?.length) return undefined;
+
+  const images: ImageContent[] = [];
+  for (const att of attachments) {
+    const mime = att.mediaType ?? '';
+    if (!mime.startsWith('image/')) continue;
+
+    // Parse data URL: "data:<mediaType>;base64,<data>"
+    const match = att.url.match(/^data:[^;]+;base64,(.+)$/);
+    if (!match) continue;
+
+    images.push({ type: 'image', data: match[1], mimeType: mime });
+  }
+
+  return images.length > 0 ? images : undefined;
 }
 
 /** Close and dispose a single pool entry. */
@@ -412,14 +436,15 @@ export function registerAgentHandlers(): void {
   // ── Send a prompt to a specific session ────────────────────
   ipcMain.handle(
     IpcChannels.agent.prompt,
-    async (_event, sessionId: string, text: string): Promise<void> => {
+    async (_event, sessionId: string, text: string, attachments?: ChatAttachment[]): Promise<void> => {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
-      const userMsg: ChatMessage = { type: 'user', id: nextId(), text };
+      const userMsg: ChatMessage = { type: 'user', id: nextId(), text, attachments };
       sendEvent({ type: 'message_start', sessionId, message: userMsg });
 
-      await entry.session.prompt(text);
+      const images = attachmentsToImages(attachments);
+      await entry.session.prompt(text, images ? { images } : undefined);
     },
   );
 

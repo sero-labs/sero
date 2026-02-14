@@ -5,6 +5,7 @@ import type {
   WorkspaceConfig,
   SeroSessionInfo,
   ChatMessage,
+  ChatAttachment,
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SeroAppManifest,
@@ -42,8 +43,8 @@ interface SeroSessionsAPI {
 interface SeroAgentAPI {
   /** Open a session in the agent pool. Creates a workspace-scoped AgentSession. */
   open(sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]>;
-  /** Send a prompt to a specific session. */
-  prompt(sessionId: string, text: string): Promise<void>;
+  /** Send a prompt to a specific session, optionally with file attachments. */
+  prompt(sessionId: string, text: string, attachments?: ChatAttachment[]): Promise<void>;
   /** Abort a specific session's current operation. */
   abort(sessionId: string): Promise<void>;
   /** Close a specific session and dispose its AgentSession. */
