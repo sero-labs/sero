@@ -12,7 +12,7 @@ node scripts/build-electron.mjs
 
 # ── Start remote dev server (todo extension) ──────────────────
 # The remote must be up before the host so MF can fetch remoteEntry.js
-REMOTE_DIR="$(cd ../../packages/pi-todo-extension/ui && pwd)"
+REMOTE_DIR="$(cd ../../packages/pi-todo-extension && pwd)"
 (cd "$REMOTE_DIR" && npx vite) > /tmp/sero-remote-todo.log 2>&1 &
 REMOTE_PID=$!
 

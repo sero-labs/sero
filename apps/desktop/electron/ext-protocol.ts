@@ -70,8 +70,8 @@ export function setupExtProtocol(): void {
       return new Response(`Unknown app: ${appId}`, { status: 404 });
     }
 
-    // Resolve to the ui/dist directory in the package
-    const distDir = path.join(manifest.packagePath, 'ui', 'dist');
+    // Resolve to the dist/ui directory in the package
+    const distDir = path.join(manifest.packagePath, 'dist', 'ui');
     const fullPath = path.join(distDir, filePath);
 
     // Security: ensure resolved path is within dist dir

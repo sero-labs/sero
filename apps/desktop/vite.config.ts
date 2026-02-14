@@ -28,7 +28,9 @@ export default defineConfig({
       shared: {
         react: { singleton: true },
         'react-dom': { singleton: true },
-        '@sero/app-runtime': { singleton: true, version: '0.1.0' },
+        // @sero/app-runtime is NOT shared via MF — its loadShare virtual
+        // module breaks ESM named exports. Resolves via node_modules instead;
+        // context.ts uses a globalThis singleton so host + remote share state.
       },
     }),
   ],
@@ -42,7 +44,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      '@sero/app-runtime': path.resolve(__dirname, '../../packages/app-runtime/src/index.ts'),
+      // NOTE: @sero/app-runtime is NOT aliased here — it resolves via pnpm
+      // workspace linking. An alias would conflict with Module Federation's
+      // shared singleton mechanism (MF can't intercept aliased imports).
     },
   },
   server: {

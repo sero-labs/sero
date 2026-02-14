@@ -95,13 +95,13 @@ Create a new directory under `packages/`:
 ```
 packages/pi-myapp-extension/
 ├── package.json
+├── vite.config.ts          ← root-level, uses root: 'ui'
 ├── shared/
 │   └── types.ts
 ├── extension/
 │   └── index.ts
 ├── ui/
 │   ├── MyApp.tsx
-│   ├── vite.config.ts
 │   ├── tsconfig.json
 │   └── index.html
 └── README.md
@@ -117,6 +117,11 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
   "version": "0.1.0",
   "description": "My app for Sero",
   "keywords": ["pi-package"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+  },
   "pi": {
     "extensions": ["./extension/index.ts"]
   },
@@ -126,7 +131,7 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
       "name": "My App",
       "icon": "box",
       "stateFile": ".sero/apps/myapp/state.json",
-      "ui": "./ui/dist/remoteEntry.js",
+      "ui": "./dist/ui/remoteEntry.js",
       "component": "MyApp"
     }
   },
@@ -511,10 +516,13 @@ export function MyApp() {
 export default MyApp;
 ```
 
-### `ui/vite.config.ts`
+### `vite.config.ts` (package root)
+
+The vite config lives at the **package root** (not inside `ui/`). This lets
+`pnpm build` / Turborepo find and run it automatically.
 
 ```typescript
-// ui/vite.config.ts
+// vite.config.ts
 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -522,39 +530,48 @@ import { federation } from '@module-federation/vite';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+  root: 'ui',                          // Vite serves from ui/
   plugins: [
     react(),
     tailwindcss(),
     federation({
-      name: 'sero_myapp',            // Convention: sero_<appId>
+      name: 'sero_myapp',              // Convention: sero_<appId>
       filename: 'remoteEntry.js',
       dts: false,
       exposes: {
-        './MyApp': './MyApp.tsx',      // Convention: ./<component>
+        './MyApp': './ui/MyApp.tsx',    // Relative to config, not root
       },
       shared: {
         react: { singleton: true },
         'react-dom': { singleton: true },
-        '@sero/app-runtime': { singleton: true },
+        // NOTE: @sero/app-runtime is NOT shared here — MF's loadShare
+        // virtual module breaks named exports. It resolves via node_modules
+        // and uses a globalThis singleton for the React context.
       },
     }),
   ],
   server: {
-    port: 5175,                       // Pick a unique port (5174 is Todo)
+    port: 5175,                        // Pick a unique port (5174 is Todo)
     strictPort: true,
-    origin: 'http://localhost:5175',  // Ensures absolute chunk URLs
+    origin: 'http://localhost:5175',   // Ensures absolute chunk URLs
   },
   build: {
     target: 'esnext',
-    outDir: 'dist',
+    outDir: '../dist/ui',              // Relative to root (ui/), so → dist/ui/
     emptyOutDir: true,
   },
 });
 ```
 
-**Critical:** Do NOT alias `@sero/app-runtime` in the remote's vite config.
-The MF plugin must intercept that import so the host's singleton is used at
-runtime.
+**Key points:**
+- `root: 'ui'` tells Vite the HTML entry is in `ui/`. Dev server serves from
+  there.
+- `exposes` paths are relative to the **config file** (package root), not
+  `root`. So use `./ui/MyApp.tsx`.
+- `outDir: '../dist/ui'` is relative to `root`, so output goes to
+  `<package>/dist/ui/`.
+- Do NOT alias `@sero/app-runtime` — the MF plugin must intercept that import
+  so the host's singleton is used at runtime.
 
 ### `ui/tsconfig.json`
 
@@ -643,7 +660,7 @@ If you want the dev script to auto-start your remote, add a block to
 
 ```bash
 # ── Start myapp remote ───────────────────────────────────
-MYAPP_DIR="$(cd ../../packages/pi-myapp-extension/ui && pwd)"
+MYAPP_DIR="$(cd ../../packages/pi-myapp-extension && pwd)"
 (cd "$MYAPP_DIR" && npx vite) > /tmp/sero-remote-myapp.log 2>&1 &
 MYAPP_PID=$!
 for i in {1..10}; do
@@ -805,10 +822,14 @@ separate files. See `apps/desktop/AGENTS.md` for full rules.
 
 ### Module Federation
 
-- `react`, `react-dom`, and `@sero/app-runtime` are shared singletons — the
-  host provides them. Do NOT bundle your own copy.
-- Do NOT alias `@sero/app-runtime` in the remote's vite config — the MF plugin
-  must intercept the import.
+- `react` and `react-dom` are shared singletons via MF — the host provides
+  them. Do NOT bundle your own copy.
+- `@sero/app-runtime` is NOT shared via MF (its `loadShare` wrapper breaks
+  named exports). Instead it resolves via `node_modules` and uses a
+  `globalThis` singleton for the React context. Add it to
+  `optimizeDeps.exclude` so Vite doesn't pre-bundle it.
+- Do NOT alias `@sero/app-runtime` in any vite config — aliases conflict
+  with both MF sharing and the `globalThis` singleton pattern.
 - Each remote runs its own Vite dev server on a unique port.
 
 ---
@@ -850,11 +871,11 @@ The **Todo app** (`packages/pi-todo-extension/`) is the canonical reference:
 
 | File | What to learn |
 |------|---------------|
-| `package.json` | Dual Pi + Sero manifest, dependency structure |
+| `package.json` | Dual Pi + Sero manifest, scripts, dependency structure |
+| `vite.config.ts` | MF remote configuration, `root: 'ui'` pattern, shared singletons |
 | `shared/types.ts` | Shared state shape pattern |
 | `extension/index.ts` | Tool registration, atomic file I/O, TUI rendering |
 | `ui/TodoApp.tsx` | `useAppState` usage, Tailwind styling, sub-components |
-| `ui/vite.config.ts` | MF remote configuration, shared singletons |
 
 ### Related documentation
 

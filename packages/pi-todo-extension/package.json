@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "description": "Todo app for Sero — Pi extension with optional web UI",
   "keywords": ["pi-package"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+  },
   "pi": {
     "extensions": ["./extension/index.ts"]
   },
@@ -12,7 +17,7 @@
       "name": "Todo",
       "icon": "check-square",
       "stateFile": ".sero/apps/todo/state.json",
-      "ui": "./ui/dist/remoteEntry.js",
+      "ui": "./dist/ui/remoteEntry.js",
       "component": "TodoApp"
     }
   },
