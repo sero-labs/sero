@@ -15,6 +15,12 @@ export interface AppContextValue {
   workspacePath: string;
   /** Absolute path to the state file on disk. */
   stateFilePath: string;
+  /**
+   * Send a prompt to the active agent session.
+   * Injected by the shell — apps don't need to know about session IDs.
+   * Returns undefined if no session is active.
+   */
+  promptAgent?: (text: string) => void;
 }
 
 const CONTEXT_KEY = '__sero_app_context__';

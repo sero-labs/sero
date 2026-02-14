@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite';
 import { federation } from '@module-federation/vite';
 import path from 'path';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 export default defineConfig({
   plugins: [
     react(),
@@ -15,7 +17,10 @@ export default defineConfig({
         sero_todo: {
           type: 'module',
           name: 'sero_todo',
-          entry: 'http://localhost:5174/remoteEntry.js',
+          // Dev: MF remote dev server. Prod: custom protocol serving built assets.
+          entry: isDev
+            ? 'http://localhost:5174/remoteEntry.js'
+            : 'sero-ext://todo/remoteEntry.js',
           entryGlobalName: 'sero_todo',
           shareScope: 'default',
         },

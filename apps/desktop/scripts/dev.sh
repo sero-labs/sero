@@ -1,9 +1,10 @@
 #!/bin/bash
 cd "$(dirname "$0")/.."
 
-# Kill any existing instances
-pkill -f "vite" 2>/dev/null
-pkill -f "electron ." 2>/dev/null
+# Kill any existing Sero-related instances (avoid killing unrelated vite/electron)
+pkill -f "vite.*sero" 2>/dev/null
+pkill -f "vite.*pi-todo-extension" 2>/dev/null
+pkill -f "electron.*sero" 2>/dev/null
 sleep 1
 
 # Build Electron main + preload (so we always run latest code)

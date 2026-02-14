@@ -36,7 +36,6 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
   }
 
   const { stateFilePath } = ctx;
-  console.log(`useAppState initialized with file: ${stateFilePath}`);
   const [state, setState] = useState<T>(defaultState);
   const stateRef = useRef<T>(defaultState);
 

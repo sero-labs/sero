@@ -25,6 +25,8 @@ interface AppState {
   // App registry
   apps: AppEntry[];
   setApps: (apps: AppEntry[]) => void;
+  /** True once app discovery has completed (success or failure). */
+  appsReady: boolean;
 
   // Main sidebar
   mainSidebarOpen: boolean;
@@ -71,6 +73,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // App registry — starts with built-ins
   apps: [...BUILTIN_APPS],
   setApps: (apps) => set({ apps }),
+  appsReady: false,
 
   // Main sidebar
   mainSidebarOpen: true,
@@ -111,8 +114,10 @@ export async function discoverAndRegisterApps(): Promise<void> {
     const discovered = manifests.map(manifestToEntry);
     useAppStore.setState({
       apps: [...BUILTIN_APPS, ...discovered],
+      appsReady: true,
     });
   } catch (err) {
     console.error('[app-store] Failed to discover apps:', err);
+    useAppStore.setState({ appsReady: true });
   }
 }

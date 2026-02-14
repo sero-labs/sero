@@ -37,6 +37,13 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
+  // Forward renderer warnings and errors to stdout for debugging
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    if (level >= 2) { // 2 = warning, 3 = error
+      console.error(`[renderer ${level === 3 ? 'ERROR' : 'WARN'}] ${message} (${sourceId}:${line})`);
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });
@@ -53,10 +60,12 @@ app.whenReady().then(async () => {
   // Set up custom protocol for serving extension UI assets
   setupExtProtocol();
 
-  // Register local dev extension path
-  // __dirname is apps/desktop/dist/electron/ at runtime → go up 4 levels to monorepo root
-  const todoExtPath = path.resolve(__dirname, '../../../../packages/pi-todo-extension');
-  registerAppPath(todoExtPath);
+  // Register local dev extension path (development only)
+  if (process.env.NODE_ENV === 'development') {
+    // __dirname is apps/desktop/dist/electron/ at runtime → go up 4 levels to monorepo root
+    const todoExtPath = path.resolve(__dirname, '../../../../packages/pi-todo-extension');
+    registerAppPath(todoExtPath);
+  }
 
   // Discover apps and register their assets for the custom protocol
   const apps = await discoverApps();

@@ -61,6 +61,13 @@ layout diagrams, component hierarchy, and state management.
 2. **Before finishing any task**, check the line count of every file you touched. If any exceed 500 LOC, refactor before marking the task complete.
 3. **Preferred split strategies:** extract helper functions into `utils/` or `lib/` files, break large components into sub-components, move types/interfaces into dedicated `types.ts` files, and separate business logic from UI rendering.
 
+## State Management Rules
+
+- **Do NOT use `localStorage` for app state** unless explicitly instructed. All
+  shared state lives in Zustand stores (`src/stores/`). Cross-boundary state
+  (e.g. for federated modules in `@sero/app-runtime`) is passed via context
+  providers or the `window.sero` IPC bridge — never via `localStorage`.
+
 ## Further Reading
 
 - [docs/architecture.md](docs/architecture.md) — layout, state, component hierarchy

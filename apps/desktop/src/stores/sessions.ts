@@ -49,6 +49,7 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const sessions = await window.sero.sessions.list();
+      
       set({ sessions: sortByModified(sessions), isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load sessions';
@@ -80,6 +81,7 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
   },
 
   setActiveSession: (id) => {
+    
     if (id) localStorage.setItem(ACTIVE_SESSION_KEY, id);
     else localStorage.removeItem(ACTIVE_SESSION_KEY);
     set({ activeSessionId: id });

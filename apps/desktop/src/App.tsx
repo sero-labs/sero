@@ -61,6 +61,8 @@ export function App() {
     CHAT_PANEL_MIN_WIDTH - COLLAPSE_PULL_PAST_MIN * 2,
   );
 
+  const appsReady = useAppStore((s) => s.appsReady);
+
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
 
@@ -174,6 +176,16 @@ export function App() {
       isChatPanelProgrammaticRef.current = false;
     };
   }, [chatPanelOpen, CHAT_PANEL_DEFAULT_SIZE_PCT]);
+
+  // Wait for app discovery before rendering — prevents the "click twice to load"
+  // bug where the sidebar shows an app but its manifest isn't in the store yet.
+  if (!appsReady) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[var(--bg-base)]">
+        <span className="text-xs text-[var(--text-muted)]">Loading…</span>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={400}>

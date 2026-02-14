@@ -1,26 +1,18 @@
 /**
  * SeroAppMount — loads and mounts a federated Sero app.
  *
- * Uses standard dynamic import() for MF remotes declared in the
- * host vite config. Wraps the component in an AppProvider with
- * the correct workspace context.
+ * Resolves the lazy component from the federated remote registry
+ * (src/lib/federation-registry.ts) based on the manifest's app ID.
+ * Wraps in AppProvider with workspace context + agent prompt bridge.
  */
 
-import { Suspense, lazy, useMemo } from 'react';
+import { Suspense, useMemo, useCallback } from 'react';
 import { AppProvider } from '@sero/app-runtime';
 import type { AppContextValue } from '@sero/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
-
-// ── Remote component registry ────────────────────────────────
-//
-// Maps app IDs to lazy-loaded components via MF import().
-// Each remote is declared in vite.config.ts; the import path
-// matches the remote name + exposed module.
-
-const remoteComponents: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
-  todo: lazy(() => import('sero_todo/TodoApp')),
-};
+import { useSessionStore } from '@/stores/sessions';
+import { getFederatedComponent } from '@/lib/federation-registry';
 
 // ── Props ────────────────────────────────────────────────────
 
@@ -38,6 +30,18 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspacePath = workspace?.path ?? '';
 
+  // Prompt function injected into context — reads active session from Zustand
+  const promptAgent = useCallback((text: string) => {
+    const sessionId = useSessionStore.getState().activeSessionId;
+    if (!sessionId) {
+      console.warn('[SeroAppMount] No active session — prompt dropped');
+      return;
+    }
+    window.sero.agent.prompt(sessionId, text).catch((err: unknown) => {
+      console.error('[SeroAppMount] Failed to send prompt:', err);
+    });
+  }, []);
+
   // Build the AppProvider context value
   const contextValue = useMemo<AppContextValue>(
     () => ({
@@ -46,11 +50,12 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
       stateFilePath: workspacePath
         ? `${workspacePath}/${manifest.stateFile}`
         : '',
+      promptAgent,
     }),
-    [manifest.id, manifest.stateFile, workspacePath],
+    [manifest.id, manifest.stateFile, workspacePath, promptAgent],
   );
 
-  const LazyComponent = remoteComponents[manifest.id];
+  const LazyComponent = getFederatedComponent(manifest.id);
 
   if (!LazyComponent) {
     return <AppPlaceholder name={manifest.name} reason="No UI module registered" />;
