@@ -1,67 +1,50 @@
-# Sero
+# Sero Monorepo
 
-macOS Electron desktop app — an agent-first workspace where coding, chat, and
-tools live in one window. React 19 + Tailwind 4 + shadcn/ui + Zustand.
+Turborepo + pnpm workspaces monorepo for the Sero desktop app and its packages.
 
-## Build & Run
+## Structure
+
+```
+sero/
+├── apps/
+│   └── desktop/          # Electron + React app (see apps/desktop/AGENTS.md)
+├── packages/
+│   ├── app-runtime/      # @sero/app-runtime — hooks for federated app modules
+│   └── pi-todo-extension/# Pi extension + federated UI (todo app)
+├── turbo.json
+├── pnpm-workspace.yaml
+└── package.json          # Root — workspace scripts
+```
+
+## Quick Start
 
 ```bash
-node scripts/build-electron.mjs   # Build Electron main + preload
-bash scripts/dev.sh                # Start Vite + Electron (prefer over npm run dev)
+cd apps/desktop
+bash scripts/dev.sh                # Start everything (remote + host + Electron)
 pkill -f "vite"; pkill -f "electron"  # Kill
 ```
 
-Logs: `/tmp/sero-vite.log`, `/tmp/sero-electron.log`
-
-## Typecheck
+## Monorepo Commands
 
 ```bash
-npx tsc --noEmit
+pnpm install               # Install all workspace deps
+pnpm dev                   # Dev the desktop app (alias)
+pnpm build                 # Build all (turbo)
+pnpm typecheck             # Typecheck all (turbo)
 ```
 
-## Development Approach
+## Packages
 
-Build incrementally. New components start as **named placeholders with a label**
-— get the layout and data flow right first, then fill in real functionality one
-piece at a time.
+- **`@sero/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` context for federated app modules
+- **`pi-todo-extension`** — Pi CLI extension (tool + command) + federated React UI, both backed by the same `state.json` file
 
-## Key Architecture
+## Documentation
 
-Shell + mountable apps. See [docs/architecture.md](docs/architecture.md) for
-layout diagrams, component hierarchy, and state management.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  TitleBar (⊞ sidebar toggle … app name … ⌘K … ⊟ chat)     │
-├──────────┬──────────────────────────────┬─┬─────────────────┤
-│  Main    │                              │║│                 │
-│  Sidebar │     Active App               │║│  Chat Panel     │
-│  (apps   │     (CodingWorkspace / etc.) │║│  (global agent) │
-│  + chats)│                              │║│                 │
-├──────────┴──────────────────────────────┴─┴─────────────────┤
-│  StatusBar                                                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-- **MainSidebar** (left, collapsible) — app list + chat sessions
-- **ChatPanel** (right, collapsible + resizable) — global agent, persists across apps
-- **Active App** — currently CodingWorkspace; others are placeholders
-
-## Key Conventions
-
-- `src/components/layout/` — shell-level (TitleBar, MainSidebar, ChatPanel, StatusBar)
-- `src/components/apps/<name>/` — self-contained app components
-- `src/components/ui/` — shadcn/ui primitives
-- `src/components/ai-elements/` — Vercel ai-elements chat components (source, not node_modules)
+- [docs/apps-tutorial.md](docs/apps-tutorial.md) — step-by-step guide to building new Sero apps
+- [apps/desktop/docs/sero-apps.md](apps/desktop/docs/sero-apps.md) — apps architecture design doc
+- [apps/desktop/docs/architecture.md](apps/desktop/docs/architecture.md) — shell layout, component hierarchy
+- [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) — desktop app conventions and dev guide
 
 ## File Size Rules (CRITICAL)
 
-1. **NEVER let a file exceed 500 lines of code.** If a file you are creating or editing grows beyond 500 LOC, you **MUST** refactor it immediately — split the code into smaller modules grouped by related functionality.
-2. **Before finishing any task**, check the line count of every file you touched. If any exceed 500 LOC, refactor before marking the task complete.
-3. **Preferred split strategies:** extract helper functions into `utils/` or `lib/` files, break large components into sub-components, move types/interfaces into dedicated `types.ts` files, and separate business logic from UI rendering.
-
-## Further Reading
-
-- [docs/architecture.md](docs/architecture.md) — layout, state, component hierarchy
-- [docs/decisions.md](docs/decisions.md) — numbered architecture decisions with rationale
-- [docs/sero.md](docs/sero.md) — vision, platform constraints, Pi SDK philosophy
+See `apps/desktop/AGENTS.md` for full conventions. TL;DR: **no file over 500 LOC**.

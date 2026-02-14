@@ -4,5 +4,4 @@ dist/
 *.log
 .env
 .env.local
-.vite/
 .__mf__temp/
