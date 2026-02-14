@@ -4,8 +4,8 @@ A step-by-step guide to building a new Sero app — from empty directory to
 working agent tool + live web UI.
 
 > **Prerequisite knowledge:** You should understand how Pi extensions work.
-> See [Pi Extensions](../apps/desktop/docs/libs/pi-coding-agent/extensions.md)
-> and [Pi Packages](../apps/desktop/docs/libs/pi-coding-agent/packages.md).
+> See [Pi Extensions](../docs/libs/pi-coding-agent/extensions.md)
+> and [Pi Packages](../docs/libs/pi-coding-agent/packages.md).
 
 ## Contents
 
@@ -161,12 +161,12 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
 
 - `"keywords": ["pi-package"]` makes it discoverable by Pi.
 - `"pi"` section is standard Pi — see
-  [Pi Packages](../apps/desktop/docs/libs/pi-coding-agent/packages.md) for full
+  [Pi Packages](../docs/libs/pi-coding-agent/packages.md) for full
   options.
 - `"sero"` section is ignored by Pi CLI. Sero reads it for app discovery.
 - Pi SDK packages (`@mariozechner/*`, `@sinclair/typebox`) go in
   `peerDependencies` — they're provided by the Pi runtime. See
-  [Extension Dependencies](../apps/desktop/docs/libs/pi-coding-agent/packages.md#dependencies).
+  [Extension Dependencies](../docs/libs/pi-coding-agent/packages.md#dependencies).
 - `@sero/app-runtime` is a `devDependency` because it's shared via module
   federation at runtime — the host provides the singleton.
 
@@ -220,7 +220,7 @@ workspace-scoped resource — it persists across agent sessions.
 ## Step 3: Build the Pi Extension
 
 Create `extension/index.ts`. This is a standard Pi extension — see
-[Pi Extensions](../apps/desktop/docs/libs/pi-coding-agent/extensions.md) for the
+[Pi Extensions](../docs/libs/pi-coding-agent/extensions.md) for the
 full API.
 
 ```typescript
@@ -393,13 +393,13 @@ export default function (pi: ExtensionAPI) {
 
 - Use `StringEnum` from `@mariozechner/pi-ai` for action enums — `Type.Union`
   doesn't work with Google's API. See
-  [Custom Tools](../apps/desktop/docs/libs/pi-coding-agent/extensions.md#custom-tools).
+  [Custom Tools](../docs/libs/pi-coding-agent/extensions.md#custom-tools).
 - Resolve `statePath` from `ctx.cwd` in the `execute` handler (reliable) with
   fallback to the cached session path.
 - Always use **atomic writes** (write to temp, then `fs.rename`) to prevent
   corrupt reads from the file watcher.
 - Extension tools should keep output concise. See
-  [Output Truncation](../apps/desktop/docs/libs/pi-coding-agent/extensions.md#output-truncation).
+  [Output Truncation](../docs/libs/pi-coding-agent/extensions.md#output-truncation).
 
 ## Step 4: Build the Web UI
 
@@ -723,7 +723,7 @@ pi install npm:@sero/myapp        # from npm
 pi install ./packages/pi-myapp-extension  # local path
 ```
 
-See [Pi Packages](../apps/desktop/docs/libs/pi-coding-agent/packages.md) for
+See [Pi Packages](../docs/libs/pi-coding-agent/packages.md) for
 full install/publish documentation.
 
 ## Step 6: Run and Test
@@ -1022,13 +1022,13 @@ The **Todo app** (`packages/pi-todo-extension/`) is the canonical reference:
 
 ### Related documentation
 
-- [Sero Apps Architecture](../apps/desktop/docs/sero-apps.md) — full design
+- [Sero Apps Architecture](../docs/sero-apps.md) — full design
   doc with architecture diagrams and open decisions
-- [Pi Extensions](../apps/desktop/docs/libs/pi-coding-agent/extensions.md) —
+- [Pi Extensions](../docs/libs/pi-coding-agent/extensions.md) —
   complete extension API: events, tools, commands, rendering, state management
-- [Pi Packages](../apps/desktop/docs/libs/pi-coding-agent/packages.md) —
+- [Pi Packages](../docs/libs/pi-coding-agent/packages.md) —
   packaging, distribution, npm/git install
-- [Sero Architecture](../apps/desktop/docs/architecture.md) — shell layout,
+- [Sero Architecture](../docs/architecture.md) — shell layout,
   component hierarchy, state management
 - [Sero Desktop AGENTS.md](../apps/desktop/AGENTS.md) — file size rules, state
   management rules, dev conventions
