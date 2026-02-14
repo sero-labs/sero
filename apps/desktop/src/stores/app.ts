@@ -85,9 +85,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setChatPanelOpen: (open) => set({ chatPanelOpen: open }),
   toggleChatPanel: () => set((s) => ({ chatPanelOpen: !s.chatPanelOpen })),
 
-  // Active app
-  activeApp: 'coding',
-  setActiveApp: (app) => set({ activeApp: app }),
+  // Active app (persisted across reloads via sessionStorage)
+  activeApp: sessionStorage.getItem('sero:activeApp') ?? 'coding',
+  setActiveApp: (app) => {
+    sessionStorage.setItem('sero:activeApp', app);
+    set({ activeApp: app });
+  },
 
   // Theme
   theme: 'dark',

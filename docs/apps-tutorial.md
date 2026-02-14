@@ -688,6 +688,44 @@ if (process.env.NODE_ENV === 'development') {
 In production, apps are discovered automatically via
 `pi install npm:@sero/myapp` — no manual registration needed.
 
+### 5f. Register with Pi (required for the agent to load the extension)
+
+Pi must know about your extension to register its tools and commands. During
+development, add the package path to Pi's settings file. You can use either:
+
+**Global** (`~/.pi/agent/settings.json`) — available in all projects:
+
+```json
+{
+  "packages": [
+    "../../path/to/packages/pi-myapp-extension"
+  ]
+}
+```
+
+**Project** (`.pi/settings.json`) — shared with your team, auto-installed:
+
+```json
+{
+  "packages": [
+    "./packages/pi-myapp-extension"
+  ]
+}
+```
+
+Paths are relative to the settings file. After editing, **restart Sero** for
+Pi to load the new extension.
+
+In production, use `pi install`:
+
+```bash
+pi install npm:@sero/myapp        # from npm
+pi install ./packages/pi-myapp-extension  # local path
+```
+
+See [Pi Packages](../apps/desktop/docs/libs/pi-coding-agent/packages.md) for
+full install/publish documentation.
+
 ## Step 6: Run and Test
 
 ```bash
@@ -700,6 +738,8 @@ bash scripts/dev.sh
 3. Ask the agent "add an item called test" → agent calls the tool → writes
    `state.json` → file watcher fires → UI re-renders.
 4. Both directions are instant because they share the same file.
+5. Edit your UI code → the host auto-reloads within ~300ms (see
+   [Dev Workflow](#dev-workflow) below).
 
 ---
 
@@ -755,6 +795,47 @@ prompt('Do something with the myapp tool.');
 
 The shell injects the actual prompt function via context — your app never needs
 to know about session IDs.
+
+> **Note:** `useAgentPrompt` requires an active chat session. If the user hasn't
+> started a chat, the prompt is silently dropped. For LLM calls that should work
+> regardless of chat state, use `useAI` instead.
+
+### `useAI()`
+
+Make ad-hoc LLM calls from your app UI — no active chat session required.
+
+Each app gets a **dedicated agent session** managed by the main process, keyed
+by app ID + workspace. Sessions are created lazily on first call and persist
+for the lifetime of the app, accumulating context across calls.
+
+```typescript
+const ai = useAI();
+
+// Simple request/response — returns the LLM's text output
+const response = await ai.prompt('Generate an inspirational quote.');
+
+// Use with async state management
+const [loading, setLoading] = useState(false);
+const handleClick = async () => {
+  setLoading(true);
+  try {
+    const result = await ai.prompt('Summarise my progress this week.');
+    // ... use result
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+**Key properties:**
+- Works without an active chat session — apps can call the LLM at any time.
+- The dedicated session is in-memory only (no persistence). Apps should store
+  results in their own state file via `useAppState`.
+- The session accumulates conversation history, so follow-up calls can
+  reference earlier interactions.
+- Uses the same model, auth, and settings as chat sessions.
+- App sessions run independently — they don't interfere with or appear in
+  the user's chat panel.
 
 ---
 
@@ -834,6 +915,55 @@ separate files. See `apps/desktop/AGENTS.md` for full rules.
 
 ---
 
+## Dev Workflow
+
+### Starting the dev environment
+
+```bash
+cd apps/desktop
+bash scripts/dev.sh
+```
+
+This starts:
+1. Each remote's Vite dev server (one per app with a UI)
+2. The host Vite dev server (port 5173)
+3. Electron
+
+### Live reload for remote apps
+
+The host includes a `watchRemotes` Vite plugin that monitors all
+`packages/pi-*/ui/` directories. When you edit a remote app's UI code:
+
+1. The remote's Vite dev server detects the change and rebuilds (~50ms)
+2. The host's watcher detects the same file change (300ms debounce)
+3. The host sends `full-reload` via Vite's WebSocket
+4. The Electron renderer reloads with the updated code
+
+This gives **near-instant feedback** (~300–500ms) when editing app UI code.
+No manual restart needed.
+
+> **Note:** Changes to the Pi extension (`extension/index.ts`) or
+> `shared/types.ts` require restarting the Electron main process
+> (`bash scripts/dev.sh`) because extensions are loaded by Pi at startup.
+
+### Port conventions
+
+| Server | Port |
+|--------|------|
+| Host (Sero) | 5173 |
+| Todo remote | 5174 |
+| Next remote | 5175, 5176, … |
+
+### Logs
+
+| File | Contents |
+|------|----------|
+| `/tmp/sero-vite.log` | Host Vite + live reload events |
+| `/tmp/sero-remote-<name>.log` | Remote Vite dev server |
+| `/tmp/sero-electron.log` | Electron main + forwarded renderer errors |
+
+---
+
 ## Troubleshooting
 
 **App doesn't appear in sidebar:**
@@ -841,6 +971,19 @@ separate files. See `apps/desktop/AGENTS.md` for full rules.
 - Verify the package path is registered in `electron/main.ts` (dev) or
   installed via `pi install` (production).
 - Check the electron log for `[app-discovery]` messages.
+
+**Agent doesn't have the tool:**
+- Your extension must be registered with Pi. Add the package path to
+  `~/.pi/agent/settings.json` (global) or `.pi/settings.json` (project)
+  under `"packages"`. Then restart Sero.
+- See [Step 5f](#5f-register-with-pi-required-for-the-agent-to-load-the-extension).
+
+**UI changes don't appear after editing:**
+- Check that the remote Vite dev server is running (look for its log file).
+- The host's `watchRemotes` plugin triggers reload on file saves to
+  `packages/pi-*/ui/`. Check `/tmp/sero-vite.log` for
+  `[sero-watch-remotes]` messages.
+- Extension code changes (in `extension/`) require a full restart.
 
 **UI shows "No UI module registered":**
 - You need to add the lazy import to

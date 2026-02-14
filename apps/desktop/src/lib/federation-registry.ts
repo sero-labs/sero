@@ -18,6 +18,8 @@ const registry = new Map<string, LazyComponent>();
 // ── Register federated remotes ───────────────────────────────
 
 registry.set('todo', lazy(() => import('sero_todo/TodoApp')));
+registry.set('weight-tracker', lazy(() => import('sero_weight_tracker/WeightTracker')));
+registry.set('daily-quote', lazy(() => import('sero_daily_quote/DailyQuote')));
 
 // ── Public API ───────────────────────────────────────────────
 

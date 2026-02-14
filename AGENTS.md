@@ -45,6 +45,14 @@ pnpm typecheck             # Typecheck all (turbo)
 - [apps/desktop/docs/architecture.md](apps/desktop/docs/architecture.md) — shell layout, component hierarchy
 - [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) — desktop app conventions and dev guide
 
+## Creating a Sero App (IMPORTANT)
+
+**When asked to create a new Sero app, you MUST read
+[docs/apps-tutorial.md](docs/apps-tutorial.md) first.** It covers the full
+process: package structure, shared state types, Pi extension, web UI, module
+federation setup, host-side wiring, Pi settings registration, and dev workflow.
+Do not improvise — follow the tutorial step by step.
+
 ## File Size Rules (CRITICAL)
 
 See `apps/desktop/AGENTS.md` for full conventions. TL;DR: **no file over 500 LOC**.

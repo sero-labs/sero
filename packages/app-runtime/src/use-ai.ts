@@ -1,0 +1,43 @@
+/**
+ * useAI — make ad-hoc LLM calls from an app UI.
+ *
+ * Each app gets a dedicated agent session managed by the main process.
+ * Calls go through `window.sero.appAgent.prompt()` — no active chat
+ * session required. The session persists for the app × workspace pair,
+ * so the LLM accumulates context across calls.
+ *
+ * Usage:
+ *   const ai = useAI();
+ *   const response = await ai.prompt("Generate an inspirational quote.");
+ */
+
+import { useContext, useCallback, useMemo } from 'react';
+import { AppContext } from './context';
+
+export interface AppAI {
+  /** Send a prompt to the app's dedicated agent session. Returns the LLM's text response. */
+  prompt: (text: string) => Promise<string>;
+}
+
+export function useAI(): AppAI {
+  const ctx = useContext(AppContext);
+
+  const prompt = useCallback(
+    async (text: string): Promise<string> => {
+      if (!ctx?.appId || !ctx?.workspaceId) {
+        throw new Error('[useAI] No app context — must be used inside a Sero app');
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sero = (window as any).sero;
+      if (!sero?.appAgent?.prompt) {
+        throw new Error('[useAI] window.sero.appAgent not available');
+      }
+
+      return sero.appAgent.prompt(ctx.appId, ctx.workspaceId, text);
+    },
+    [ctx],
+  );
+
+  return useMemo(() => ({ prompt }), [prompt]);
+}

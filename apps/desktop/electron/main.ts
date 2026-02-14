@@ -65,6 +65,12 @@ app.whenReady().then(async () => {
     // __dirname is apps/desktop/dist/electron/ at runtime → go up 4 levels to monorepo root
     const todoExtPath = path.resolve(__dirname, '../../../../packages/pi-todo-extension');
     registerAppPath(todoExtPath);
+
+    const weightTrackerExtPath = path.resolve(__dirname, '../../../../packages/pi-weight-tracker');
+    registerAppPath(weightTrackerExtPath);
+
+    const dailyQuoteExtPath = path.resolve(__dirname, '../../../../packages/pi-daily-quote');
+    registerAppPath(dailyQuoteExtPath);
   }
 
   // Discover apps and register their assets for the custom protocol
