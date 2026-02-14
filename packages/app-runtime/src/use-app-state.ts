@@ -8,20 +8,7 @@
 
 import { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { AppContext } from './context';
-
-/** Access the preload-exposed IPC bridge. */
-function getSeroApi() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (window as any).sero as {
-    appState: {
-      read(filePath: string): Promise<unknown>;
-      write(filePath: string, data: unknown): Promise<void>;
-      watch(filePath: string): Promise<unknown>;
-      unwatch(filePath: string): Promise<void>;
-      onChange(cb: (filePath: string, data: unknown) => void): () => void;
-    };
-  };
-}
+import { getSeroApi } from './sero-bridge';
 
 /**
  * File-backed reactive state hook.

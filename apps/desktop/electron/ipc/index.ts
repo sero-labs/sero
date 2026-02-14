@@ -9,6 +9,7 @@
 import { registerWorkspaceHandlers } from './workspace';
 import { registerSessionHandlers } from './sessions';
 import { registerAgentHandlers } from './agent';
+import { registerAppAgentHandlers } from './app-agent';
 import { registerShellHandlers } from './shell';
 import { registerAppStateHandlers } from './app-state';
 import { registerAppsHandlers } from './apps';
@@ -17,6 +18,7 @@ export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
   registerSessionHandlers();
   registerAgentHandlers();
+  registerAppAgentHandlers();
   registerShellHandlers();
   registerAppStateHandlers();
   registerAppsHandlers();

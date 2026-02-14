@@ -204,4 +204,8 @@ export const IpcChannels = {
     /** Discover all registered Sero apps. */
     discover: 'sero:apps:discover',
   },
+  appAgent: {
+    /** Send a prompt to an app's dedicated agent session. Returns text response. */
+    prompt: 'sero:app-agent:prompt',
+  },
 } as const;

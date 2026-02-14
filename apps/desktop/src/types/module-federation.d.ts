@@ -10,3 +10,15 @@ declare module 'sero_todo/TodoApp' {
   const TodoApp: React.ComponentType;
   export default TodoApp;
 }
+
+// Remote: sero_weight_tracker (pi-weight-tracker)
+declare module 'sero_weight_tracker/WeightTracker' {
+  const WeightTracker: React.ComponentType;
+  export default WeightTracker;
+}
+
+// Remote: sero_daily_quote (pi-daily-quote)
+declare module 'sero_daily_quote/DailyQuote' {
+  const DailyQuote: React.ComponentType;
+  export default DailyQuote;
+}

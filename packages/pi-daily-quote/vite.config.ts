@@ -1,15 +1,8 @@
 /**
- * Vite config for the todo extension's federated UI (remote).
+ * Vite config for the daily quote extension's federated UI (remote).
  *
- * Runs its own dev server on port 5174. The host (Sero on 5173)
+ * Runs its own dev server on port 5177. The host (Sero on 5173)
  * declares this as a remote and imports components via MF.
- *
- * `server.origin` ensures all chunk URLs are absolute so the host
- * can load them cross-origin.
- *
- * IMPORTANT: @sero/app-runtime must NOT be aliased here — the MF
- * plugin must intercept that import so the host's singleton is used
- * at runtime. Resolution happens via node_modules symlink chain.
  */
 
 import { defineConfig } from 'vite';
@@ -23,12 +16,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
     federation({
-      name: 'sero_todo',
+      name: 'sero_daily_quote',
       filename: 'remoteEntry.js',
       dts: false,
       manifest: true,
       exposes: {
-        './TodoApp': './ui/TodoApp.tsx',
+        './DailyQuote': './ui/DailyQuote.tsx',
       },
       shared: {
         react: { singleton: true },
@@ -39,14 +32,12 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5174,
+    port: 5177,
     strictPort: true,
-    origin: 'http://localhost:5174',
+    origin: 'http://localhost:5177',
   },
   optimizeDeps: {
     exclude: ['@sero/app-runtime'],
-    // Pre-include shared deps to avoid the "new dependencies optimized →
-    // reloading" cycle that causes 504 "Outdated Optimize Dep" errors.
     include: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client'],
   },
   build: {

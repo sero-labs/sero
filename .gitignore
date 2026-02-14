@@ -6,3 +6,4 @@ dist/
 .env.local
 .vite/
 .__mf__temp/
+.turbo/

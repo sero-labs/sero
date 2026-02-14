@@ -14,15 +14,11 @@ import { ipcMain, BrowserWindow } from 'electron';
 import {
   createAgentSession,
   SessionManager,
-  SettingsManager,
-  AuthStorage,
-  ModelRegistry,
   DefaultResourceLoader,
   createCodingTools,
   type AgentSession,
   type SlashCommandInfo,
 } from '@mariozechner/pi-coding-agent';
-import { getModel } from '@mariozechner/pi-ai';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -37,50 +33,12 @@ import type {
 } from '../../src/types/ipc';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
-
-// ── Constants ────────────────────────────────────────────────
-
-/** Sero-specific session storage (separate from PI's sessions). */
-const SERO_SESSION_DIR = path.join(os.homedir(), '.sero-ui', 'agent', 'sessions');
-
-/** Sero config file — user-editable settings specific to Sero. */
-const SERO_CONFIG_PATH = path.join(os.homedir(), '.sero-ui', 'agent', 'settings.json');
-
-// ── Shared infrastructure (lazy, initialised on first use) ───
-
-let _authStorage: AuthStorage | null = null;
-let _modelRegistry: ModelRegistry | null = null;
-let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _model: any = null;
-
-/**
- * PI's standard agent directory — source of truth for auth, settings,
- * extensions, skills, prompts, packages, and models.
- *
- * Sero shares PI's full resource environment so any globally installed
- * skills, extensions, prompt templates, and pi packages are automatically
- * available — no separate configuration needed.
- */
-const PI_AGENT_DIR = path.join(os.homedir(), '.pi', 'agent');
-
-/** Lazy-init shared infrastructure. Called once, then cached. */
-async function ensureInfra() {
-  if (!_authStorage) {
-    // Use PI's auth.json — single source of truth for credentials
-    _authStorage = new AuthStorage(path.join(PI_AGENT_DIR, 'auth.json'));
-    _modelRegistry = new ModelRegistry(_authStorage);
-
-    // Use PI's agent dir for settings so we pick up package lists,
-    // extension paths, skill paths, etc. from PI's settings.json.
-    _settingsManager = SettingsManager.create(
-      path.join(os.homedir(), '.sero-ui'),
-      PI_AGENT_DIR,
-    );
-    _model = getModel('anthropic', 'claude-opus-4-6');
-    if (!_model) throw new Error('Model claude-opus-4-6 not found in registry');
-  }
-}
+import {
+  ensureInfra,
+  PI_AGENT_DIR,
+  SERO_SESSION_DIR,
+  SERO_CONFIG_PATH,
+} from './shared-infra';
 
 // ── Agent Pool ───────────────────────────────────────────────
 
@@ -389,7 +347,7 @@ export function registerAgentHandlers(): void {
         return convertSessionMessages(existing.session.messages);
       }
 
-      await ensureInfra();
+      const infra = await ensureInfra();
 
       // Resolve workspace path
       const wsPath = workspaceManager.getPath(workspaceId);
@@ -408,7 +366,7 @@ export function registerAgentHandlers(): void {
       const loader = new DefaultResourceLoader({
         cwd: wsPath,
         agentDir: PI_AGENT_DIR,
-        settingsManager: _settingsManager!,
+        settingsManager: infra.settingsManager,
         extensionFactories: [
           createSeroExtensionFactory(workspaceManager, workspaceId),
         ],
@@ -426,14 +384,14 @@ export function registerAgentHandlers(): void {
       const { session } = await createAgentSession({
         cwd: wsPath,
         agentDir: PI_AGENT_DIR,
-        model: _model,
+        model: infra.model,
         thinkingLevel: 'off',
-        authStorage: _authStorage!,
-        modelRegistry: _modelRegistry!,
+        authStorage: infra.authStorage,
+        modelRegistry: infra.modelRegistry,
         tools: createCodingTools(wsPath),
         resourceLoader: loader,
         sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
-        settingsManager: _settingsManager!,
+        settingsManager: infra.settingsManager,
       });
 
       // Subscribe and store

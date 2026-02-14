@@ -46,13 +46,14 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const contextValue = useMemo<AppContextValue>(
     () => ({
       appId: manifest.id,
+      workspaceId: activeWorkspaceId ?? '',
       workspacePath,
       stateFilePath: workspacePath
         ? `${workspacePath}/${manifest.stateFile}`
         : '',
       promptAgent,
     }),
-    [manifest.id, manifest.stateFile, workspacePath, promptAgent],
+    [manifest.id, activeWorkspaceId, manifest.stateFile, workspacePath, promptAgent],
   );
 
   const LazyComponent = getFederatedComponent(manifest.id);

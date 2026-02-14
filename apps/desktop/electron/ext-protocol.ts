@@ -63,7 +63,7 @@ export function setupExtProtocol(): void {
 
     // Strip leading slash
     if (filePath.startsWith('/')) filePath = filePath.slice(1);
-    if (!filePath) filePath = 'remoteEntry.js';
+    if (!filePath) filePath = 'mf-manifest.json';
 
     const manifest = appRegistry.get(appId);
     if (!manifest) {
