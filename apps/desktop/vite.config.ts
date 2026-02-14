@@ -37,7 +37,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      '@sero/app-runtime': path.resolve(__dirname, '../packages/app-runtime/src/index.ts'),
+      '@sero/app-runtime': path.resolve(__dirname, '../../packages/app-runtime/src/index.ts'),
     },
   },
   server: {

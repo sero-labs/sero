@@ -1,0 +1,38 @@
+{
+  "name": "@sero/todo",
+  "version": "0.1.0",
+  "description": "Todo app for Sero — Pi extension with optional web UI",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./extension/index.ts"]
+  },
+  "sero": {
+    "app": {
+      "id": "todo",
+      "name": "Todo",
+      "icon": "check-square",
+      "stateFile": ".sero/apps/todo/state.json",
+      "ui": "./ui/dist/remoteEntry.js",
+      "component": "TodoApp"
+    }
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.52.0",
+    "@mariozechner/pi-coding-agent": ">=0.52.0",
+    "@mariozechner/pi-tui": ">=0.52.0"
+  },
+  "devDependencies": {
+    "@sero/app-runtime": "workspace:*",
+    "@module-federation/vite": "^1.11.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@tailwindcss/vite": "^4.1.18",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  }
+}

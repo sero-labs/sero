@@ -16,7 +16,7 @@
     "paths": {
       "@/*": ["src/*"],
       "@electron/*": ["electron/*"],
-      "@sero/app-runtime": ["../packages/app-runtime/src/index.ts"]
+      "@sero/app-runtime": ["../../packages/app-runtime/src/index.ts"]
     }
   },
   "include": ["src/**/*"],

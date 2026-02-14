@@ -54,8 +54,8 @@ app.whenReady().then(async () => {
   setupExtProtocol();
 
   // Register local dev extension path
-  // __dirname is dist/electron/ at runtime → go up 3 levels to monorepo root
-  const todoExtPath = path.resolve(__dirname, '../../../packages/pi-todo-extension');
+  // __dirname is apps/desktop/dist/electron/ at runtime → go up 4 levels to monorepo root
+  const todoExtPath = path.resolve(__dirname, '../../../../packages/pi-todo-extension');
   registerAppPath(todoExtPath);
 
   // Discover apps and register their assets for the custom protocol
