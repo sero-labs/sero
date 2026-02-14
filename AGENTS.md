@@ -38,6 +38,13 @@ pnpm typecheck             # Typecheck all (turbo)
 - **`@sero/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` context for federated app modules
 - **`pi-todo-extension`** — Pi CLI extension (tool + command) + federated React UI, both backed by the same `state.json` file
 
+## Documentation
+
+- [docs/apps-tutorial.md](docs/apps-tutorial.md) — step-by-step guide to building new Sero apps
+- [apps/desktop/docs/sero-apps.md](apps/desktop/docs/sero-apps.md) — apps architecture design doc
+- [apps/desktop/docs/architecture.md](apps/desktop/docs/architecture.md) — shell layout, component hierarchy
+- [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) — desktop app conventions and dev guide
+
 ## File Size Rules (CRITICAL)
 
 See `apps/desktop/AGENTS.md` for full conventions. TL;DR: **no file over 500 LOC**.

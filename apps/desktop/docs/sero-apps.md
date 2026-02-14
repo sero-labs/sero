@@ -256,6 +256,11 @@ useAgentPrompt(): (text: string) => void
 4. Todo UI (React component using `useAppState`)
 5. App discovery + mount (scan manifests, module federation loader)
 
+## Tutorial
+
+For a step-by-step guide to building a new app, see
+[docs/apps-tutorial.md](../../../docs/apps-tutorial.md).
+
 ## Open Decisions
 
 - **State file location** — `.sero/apps/<id>/state.json` relative to workspace
