@@ -11,7 +11,8 @@ import { MainSidebar } from '@/components/layout/MainSidebar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { ChatPanel } from '@/components/layout/ChatPanel';
 import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
-import { useAppStore } from '@/stores/app';
+import { SeroAppMount } from '@/components/apps/SeroAppMount';
+import { useAppStore, discoverAndRegisterApps } from '@/stores/app';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 
 /**
@@ -62,6 +63,11 @@ export function App() {
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
+
+  // Discover sero apps on startup
+  useEffect(() => {
+    discoverAndRegisterApps();
+  }, []);
 
   const handleMainSidebarResize = useCallback(
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
@@ -226,18 +232,27 @@ export function App() {
   );
 }
 
-/** Renders the currently active app. */
+/** Renders the currently active app — built-in or federated. */
 function ActiveApp({ app }: { app: string }) {
-  const content =
-    app === 'coding' ? (
-      <CodingWorkspace />
-    ) : (
+  const apps = useAppStore((s) => s.apps);
+  const entry = apps.find((a) => a.id === app);
+
+  let content: React.ReactNode;
+
+  if (app === 'coding') {
+    content = <CodingWorkspace />;
+  } else if (entry?.manifest) {
+    // Discovered sero app — mount via module federation
+    content = <SeroAppMount manifest={entry.manifest} />;
+  } else {
+    content = (
       <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
         <span className="text-sm capitalize text-[var(--text-muted)]">
           {app} app — coming soon
         </span>
       </div>
     );
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 overflow-x-auto">

@@ -10,10 +10,14 @@ import { registerWorkspaceHandlers } from './workspace';
 import { registerSessionHandlers } from './sessions';
 import { registerAgentHandlers } from './agent';
 import { registerShellHandlers } from './shell';
+import { registerAppStateHandlers } from './app-state';
+import { registerAppsHandlers } from './apps';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
   registerSessionHandlers();
   registerAgentHandlers();
   registerShellHandlers();
+  registerAppStateHandlers();
+  registerAppsHandlers();
 }

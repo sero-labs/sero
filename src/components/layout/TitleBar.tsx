@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { PanelLeft, PanelRight } from 'lucide-react';
-import { useAppStore, apps } from '@/stores/app';
+import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 
@@ -22,7 +22,8 @@ export function TitleBar() {
   const activeSession = activeSessionId ? sessions.find((s) => s.id === activeSessionId) : null;
   const sessionLabel = activeSession?.name || activeSession?.firstMessage;
 
-  const appLabel = apps.find((a) => a.id === activeApp)?.label ?? 'Sero';
+  const appsList = useAppStore((s) => s.apps);
+  const appLabel = appsList.find((a: { id: string; label: string }) => a.id === activeApp)?.label ?? 'Sero';
   const breadcrumb = [
     activeWorkspace?.name,
     sessionLabel,

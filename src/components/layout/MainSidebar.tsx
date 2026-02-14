@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { useAppStore, apps, type AppId } from '@/stores/app';
+import { useAppStore, type AppEntry } from '@/stores/app';
 import { useSessionStore } from '@/stores/sessions';
 import { WorkspaceTree } from './WorkspaceTree';
 import { cn } from '@/lib/utils';
@@ -9,11 +9,12 @@ import { cn } from '@/lib/utils';
 /**
  * MainSidebar — the primary navigation sidebar.
  *
- * Top section: list of apps (Coding, Calendar, Todos, etc.)
+ * Top section: list of apps (built-in + discovered sero apps)
  * Bottom section: workspace → session tree loaded from Pi SDK
  */
 export function MainSidebar() {
   const open = useAppStore((s) => s.mainSidebarOpen);
+  const apps = useAppStore((s) => s.apps);
   const activeApp = useAppStore((s) => s.activeApp);
   const setActiveApp = useAppStore((s) => s.setActiveApp);
 
@@ -29,9 +30,7 @@ export function MainSidebar() {
         {apps.map((app) => (
           <AppItem
             key={app.id}
-            id={app.id}
-            icon={app.icon}
-            label={app.label}
+            entry={app}
             active={activeApp === app.id}
             onClick={() => setActiveApp(app.id)}
           />
@@ -74,19 +73,28 @@ function SearchBar() {
 
 // ── App list item ──────────────────────────────────────────────
 
+/** Map Lucide icon names to emoji for discovered apps (simple fallback). */
+const ICON_MAP: Record<string, string> = {
+  'check-square': '✅',
+  code: '💻',
+  calendar: '📅',
+  activity: '💪',
+  'piggy-bank': '🏦',
+  box: '📦',
+};
+
 function AppItem({
-  id,
-  icon,
-  label,
+  entry,
   active,
   onClick,
 }: {
-  id: AppId;
-  icon: string;
-  label: string;
+  entry: AppEntry;
   active: boolean;
   onClick: () => void;
 }) {
+  // Built-in apps use their emoji directly; discovered apps map the Lucide name
+  const icon = entry.builtin ? entry.icon : (ICON_MAP[entry.icon] ?? '📦');
+
   return (
     <button
       onClick={onClick}
@@ -98,7 +106,7 @@ function AppItem({
       )}
     >
       <span className="text-sm">{icon}</span>
-      <span className="truncate">{label}</span>
+      <span className="truncate">{entry.label}</span>
     </button>
   );
 }

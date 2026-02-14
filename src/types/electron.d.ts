@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   AgentStreamEvent,
   SeroSlashCommandInfo,
+  SeroAppManifest,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -60,12 +61,32 @@ interface SeroShellAPI {
   showItemInFolder(fullPath: string): Promise<void>;
 }
 
+interface SeroAppStateAPI {
+  /** Read an app state JSON file. */
+  read(filePath: string): Promise<unknown>;
+  /** Write an app state JSON file (atomic + serialised). */
+  write(filePath: string, data: unknown): Promise<void>;
+  /** Start watching a state file. Returns current state. */
+  watch(filePath: string): Promise<unknown>;
+  /** Stop watching a state file. */
+  unwatch(filePath: string): Promise<void>;
+  /** Subscribe to state file change events. Returns unsubscribe. */
+  onChange(callback: (filePath: string, data: unknown) => void): () => void;
+}
+
+interface SeroAppsAPI {
+  /** Discover all registered Sero apps from installed Pi packages. */
+  discover(): Promise<SeroAppManifest[]>;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
   workspace: SeroWorkspaceAPI;
   sessions: SeroSessionsAPI;
   agent: SeroAgentAPI;
+  appState: SeroAppStateAPI;
+  apps: SeroAppsAPI;
 }
 
 declare global {

@@ -1,0 +1,158 @@
+/**
+ * App discovery — scans Pi packages for `sero.app` manifests.
+ *
+ * Looks in:
+ *   1. ~/.pi/agent/extensions/ (global extensions, may have sero.app)
+ *   2. Pi packages listed in settings.json
+ *   3. Explicitly registered app paths (for local dev)
+ *
+ * Each package.json with a `sero.app` key is parsed into a SeroAppManifest.
+ */
+
+import { promises as fs } from 'fs';
+import path from 'path';
+import os from 'os';
+import type { SeroAppManifest } from '../src/types/ipc';
+
+const PI_AGENT_DIR = path.join(os.homedir(), '.pi', 'agent');
+const PI_EXTENSIONS_DIR = path.join(PI_AGENT_DIR, 'extensions');
+
+// ── Manifest parsing ─────────────────────────────────────────
+
+interface PkgSeroApp {
+  id: string;
+  name: string;
+  icon: string;
+  stateFile: string;
+  ui?: string;
+  component?: string;
+}
+
+interface PkgJson {
+  name?: string;
+  sero?: { app?: PkgSeroApp };
+}
+
+function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest | null {
+  const app = pkgJson.sero?.app;
+  if (!app || !app.id || !app.name) return null;
+
+  let uiEntry: string | null = null;
+  if (app.ui) {
+    uiEntry = path.resolve(packagePath, app.ui);
+  }
+
+  return {
+    id: app.id,
+    name: app.name,
+    icon: app.icon || 'box',
+    stateFile: app.stateFile,
+    uiEntry,
+    component: app.component || null,
+    packagePath,
+  };
+}
+
+// ── Scanning ─────────────────────────────────────────────────
+
+/** Read and parse package.json from a directory. Returns null on failure. */
+async function readPkgJson(dir: string): Promise<PkgJson | null> {
+  try {
+    const raw = await fs.readFile(path.join(dir, 'package.json'), 'utf8');
+    return JSON.parse(raw) as PkgJson;
+  } catch {
+    return null;
+  }
+}
+
+/** Scan a directory for subdirectories containing sero app manifests. */
+async function scanDir(dir: string): Promise<SeroAppManifest[]> {
+  const results: SeroAppManifest[] = [];
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const pkgPath = path.join(dir, entry.name);
+      const pkg = await readPkgJson(pkgPath);
+      if (pkg) {
+        const manifest = parseManifest(pkg, pkgPath);
+        if (manifest) results.push(manifest);
+      }
+    }
+  } catch {
+    // Directory doesn't exist — skip
+  }
+  return results;
+}
+
+/**
+ * Read additional extension/package paths from Pi settings.json.
+ * These are absolute paths or npm: / git: references we resolve to disk.
+ */
+async function scanSettingsPaths(): Promise<SeroAppManifest[]> {
+  const results: SeroAppManifest[] = [];
+  try {
+    const raw = await fs.readFile(path.join(PI_AGENT_DIR, 'settings.json'), 'utf8');
+    const settings = JSON.parse(raw);
+
+    // Check "extensions" array for local paths
+    const extensions: string[] = settings.extensions ?? [];
+    for (const ext of extensions) {
+      if (ext.startsWith('npm:') || ext.startsWith('git:')) continue;
+      const resolved = path.resolve(ext);
+      const pkg = await readPkgJson(resolved);
+      if (pkg) {
+        const manifest = parseManifest(pkg, resolved);
+        if (manifest) results.push(manifest);
+      }
+    }
+
+    // Check installed packages in ~/.pi/agent/packages/
+    const pkgDir = path.join(PI_AGENT_DIR, 'packages');
+    const fromPkgs = await scanDir(pkgDir);
+    results.push(...fromPkgs);
+  } catch {
+    // settings.json missing or malformed — skip
+  }
+  return results;
+}
+
+// ── Public API ───────────────────────────────────────────────
+
+/** Manually registered paths for local development. */
+const registeredPaths: string[] = [];
+
+/** Register an additional path to scan for sero apps (e.g. workspace-local). */
+export function registerAppPath(absPath: string): void {
+  if (!registeredPaths.includes(absPath)) {
+    registeredPaths.push(absPath);
+  }
+}
+
+/** Discover all Sero apps from all known locations. Deduplicates by app id. */
+export async function discoverApps(): Promise<SeroAppManifest[]> {
+  const all: SeroAppManifest[] = [];
+
+  // 1. Global Pi extensions
+  all.push(...await scanDir(PI_EXTENSIONS_DIR));
+
+  // 2. Pi settings paths + installed packages
+  all.push(...await scanSettingsPaths());
+
+  // 3. Manually registered paths
+  for (const p of registeredPaths) {
+    const pkg = await readPkgJson(p);
+    if (pkg) {
+      const manifest = parseManifest(pkg, p);
+      if (manifest) all.push(manifest);
+    }
+  }
+
+  // Deduplicate by app id (last wins)
+  const byId = new Map<string, SeroAppManifest>();
+  for (const app of all) {
+    byId.set(app.id, app);
+  }
+
+  return Array.from(byId.values());
+}

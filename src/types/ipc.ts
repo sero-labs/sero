@@ -128,6 +128,26 @@ export type AgentStreamEvent =
   | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'error'; sessionId: string; error: string };
 
+// ── Sero Apps ──────────────────────────────────────────────────
+
+/** Manifest for a Sero app discovered from a Pi package. */
+export interface SeroAppManifest {
+  /** Unique app identifier (e.g. "todo"). */
+  id: string;
+  /** Display name. */
+  name: string;
+  /** Lucide icon name (e.g. "check-square"). */
+  icon: string;
+  /** State file path relative to workspace root. */
+  stateFile: string;
+  /** Path to the module federation remoteEntry.js. Null if no UI. */
+  uiEntry: string | null;
+  /** Exported component name from the remote (e.g. "TodoApp"). */
+  component: string | null;
+  /** Absolute path to the package root on disk. */
+  packagePath: string;
+}
+
 // ── IPC Channels ───────────────────────────────────────────────
 
 /** IPC channel constants — single source of truth. */
@@ -167,5 +187,21 @@ export const IpcChannels = {
   shell: {
     /** Open a path in the native file explorer. */
     showItemInFolder: 'sero:shell:show-item-in-folder',
+  },
+  appState: {
+    /** Read an app state JSON file. */
+    read: 'sero:app-state:read',
+    /** Write an app state JSON file (atomic). */
+    write: 'sero:app-state:write',
+    /** Start watching a state file. Returns current state. */
+    watch: 'sero:app-state:watch',
+    /** Stop watching a state file. */
+    unwatch: 'sero:app-state:unwatch',
+    /** Main → renderer: state file changed. */
+    change: 'sero:app-state:change',
+  },
+  apps: {
+    /** Discover all registered Sero apps. */
+    discover: 'sero:apps:discover',
   },
 } as const;

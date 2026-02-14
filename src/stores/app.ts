@@ -1,20 +1,20 @@
 import { create } from 'zustand';
+import type { SeroAppManifest } from '@/types/ipc';
 
-// ── Apps ───────────────────────────────────────────────────────
-export type AppId = 'coding' | 'calendar' | 'todos' | 'fitness' | 'banking';
+// ── Built-in apps (always present) ────────────────────────────
 
 export interface AppEntry {
-  id: AppId;
+  id: string;
   label: string;
-  icon: string; // emoji for now, swap for Lucide later
+  icon: string;
+  /** True for built-in apps (coding, etc.), false for discovered sero apps. */
+  builtin: boolean;
+  /** Manifest for discovered sero apps (null for built-ins). */
+  manifest: SeroAppManifest | null;
 }
 
-export const apps: AppEntry[] = [
-  { id: 'coding', label: 'Coding', icon: '💻' },
-  { id: 'calendar', label: 'Calendar', icon: '📅' },
-  { id: 'todos', label: 'Todos', icon: '✅' },
-  { id: 'fitness', label: 'Fitness', icon: '💪' },
-  { id: 'banking', label: 'Banking', icon: '🏦' },
+const BUILTIN_APPS: AppEntry[] = [
+  { id: 'coding', label: 'Coding', icon: '💻', builtin: true, manifest: null },
 ];
 
 // ── Theme ──────────────────────────────────────────────────────
@@ -22,6 +22,10 @@ export type Theme = 'dark' | 'light';
 
 // ── Store ──────────────────────────────────────────────────────
 interface AppState {
+  // App registry
+  apps: AppEntry[];
+  setApps: (apps: AppEntry[]) => void;
+
   // Main sidebar
   mainSidebarOpen: boolean;
   setMainSidebarOpen: (open: boolean) => void;
@@ -33,8 +37,8 @@ interface AppState {
   toggleChatPanel: () => void;
 
   // Active app
-  activeApp: AppId;
-  setActiveApp: (app: AppId) => void;
+  activeApp: string;
+  setActiveApp: (app: string) => void;
 
   // Theme
   theme: Theme;
@@ -51,7 +55,23 @@ function applyTheme(theme: Theme) {
   }
 }
 
+/** Map a SeroAppManifest → AppEntry. */
+function manifestToEntry(m: SeroAppManifest): AppEntry {
+  // Use the icon name from manifest; sidebar will render it
+  return {
+    id: m.id,
+    label: m.name,
+    icon: m.icon,
+    builtin: false,
+    manifest: m,
+  };
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
+  // App registry — starts with built-ins
+  apps: [...BUILTIN_APPS],
+  setApps: (apps) => set({ apps }),
+
   // Main sidebar
   mainSidebarOpen: true,
   setMainSidebarOpen: (open) => set({ mainSidebarOpen: open }),
@@ -78,3 +98,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ theme: next });
   },
 }));
+
+// ── Discovery action (call once on startup) ───────────────────
+
+/**
+ * Discover sero apps and merge them into the store.
+ * Built-in apps are always first; discovered apps follow.
+ */
+export async function discoverAndRegisterApps(): Promise<void> {
+  try {
+    const manifests = await window.sero.apps.discover();
+    const discovered = manifests.map(manifestToEntry);
+    useAppStore.setState({
+      apps: [...BUILTIN_APPS, ...discovered],
+    });
+  } catch (err) {
+    console.error('[app-store] Failed to discover apps:', err);
+  }
+}

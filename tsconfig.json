@@ -15,7 +15,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@electron/*": ["electron/*"]
+      "@electron/*": ["electron/*"],
+      "@sero/app-runtime": ["../packages/app-runtime/src/index.ts"]
     }
   },
   "include": ["src/**/*"],

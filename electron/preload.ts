@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   AgentStreamEvent,
   SeroSlashCommandInfo,
+  SeroAppManifest,
 } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
@@ -85,5 +86,34 @@ contextBridge.exposeInMainWorld('sero', {
         ipcRenderer.removeListener(IpcChannels.agent.event, handler);
       };
     },
+  },
+
+  appState: {
+    read: (filePath: string): Promise<unknown> =>
+      ipcRenderer.invoke(IpcChannels.appState.read, filePath),
+
+    write: (filePath: string, data: unknown): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.appState.write, filePath, data),
+
+    watch: (filePath: string): Promise<unknown> =>
+      ipcRenderer.invoke(IpcChannels.appState.watch, filePath),
+
+    unwatch: (filePath: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.appState.unwatch, filePath),
+
+    onChange: (callback: (filePath: string, data: unknown) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, fp: string, data: unknown) => {
+        callback(fp, data);
+      };
+      ipcRenderer.on(IpcChannels.appState.change, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.appState.change, handler);
+      };
+    },
+  },
+
+  apps: {
+    discover: (): Promise<SeroAppManifest[]> =>
+      ipcRenderer.invoke(IpcChannels.apps.discover),
   },
 });

@@ -6,6 +6,11 @@ import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { registerAllIpcHandlers } from './ipc/index';
 import { workspaceManager } from './workspace';
+import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
+import { discoverApps, registerAppPath } from './app-discovery';
+
+// Register custom protocol BEFORE app.whenReady()
+registerExtProtocolScheme();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -44,6 +49,18 @@ function createWindow() {
 app.whenReady().then(async () => {
   // Init workspace registry + default workspaces before anything else
   await workspaceManager.init();
+
+  // Set up custom protocol for serving extension UI assets
+  setupExtProtocol();
+
+  // Register local dev extension path
+  // __dirname is dist/electron/ at runtime → go up 3 levels to monorepo root
+  const todoExtPath = path.resolve(__dirname, '../../../packages/pi-todo-extension');
+  registerAppPath(todoExtPath);
+
+  // Discover apps and register their assets for the custom protocol
+  const apps = await discoverApps();
+  registerAllExtAssets(apps);
 
   registerAllIpcHandlers();
   createWindow();

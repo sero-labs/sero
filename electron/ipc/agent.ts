@@ -403,6 +403,8 @@ export function registerAgentHandlers(): void {
       // Workspace-scoped resource loader with Sero extension.
       // Uses PI_AGENT_DIR so we discover the same skills, prompts, extensions,
       // and packages as the PI CLI — anything the user has installed globally.
+      // Sero app extensions (e.g. todo) are loaded automatically via Pi's
+      // settings.json packages list — no manual loading needed.
       const loader = new DefaultResourceLoader({
         cwd: wsPath,
         agentDir: PI_AGENT_DIR,
