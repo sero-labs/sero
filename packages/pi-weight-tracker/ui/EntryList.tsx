@@ -3,7 +3,7 @@
  */
 
 import { useCallback } from 'react';
-import type { WeightEntry, WeightUnit, WeightTrackerState } from '../shared/types';
+import type { WeightEntry, WeightUnit } from '../shared/types';
 import { sortedEntries, formatWeight, unitLabel, formatDateLong, daysAgo } from './utils';
 
 interface EntryListProps {

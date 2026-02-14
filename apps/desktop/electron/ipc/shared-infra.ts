@@ -11,7 +11,7 @@ import {
   AuthStorage,
   ModelRegistry,
 } from '@mariozechner/pi-coding-agent';
-import { getModel } from '@mariozechner/pi-ai';
+import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
 import os from 'os';
 import path from 'path';
 
@@ -20,8 +20,7 @@ import path from 'path';
 let _authStorage: AuthStorage | null = null;
 let _modelRegistry: ModelRegistry | null = null;
 let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _model: any = null;
+let _model: Model<Api> | null = null;
 
 /**
  * PI's standard agent directory — source of truth for auth, settings,
@@ -39,8 +38,7 @@ export interface SharedInfra {
   authStorage: AuthStorage;
   modelRegistry: ModelRegistry;
   settingsManager: ReturnType<typeof SettingsManager.create>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  model: any;
+  model: Model<Api>;
 }
 
 /** Lazy-init shared infrastructure. Called once, then cached. */
@@ -60,6 +58,6 @@ export async function ensureInfra(): Promise<SharedInfra> {
     authStorage: _authStorage,
     modelRegistry: _modelRegistry!,
     settingsManager: _settingsManager!,
-    model: _model,
+    model: _model!,
   };
 }

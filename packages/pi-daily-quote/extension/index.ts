@@ -28,12 +28,30 @@ function resolveStatePath(cwd: string): string {
   return path.join(cwd, STATE_REL_PATH);
 }
 
+// ── State validation ───────────────────────────────────────
+
+/** Runtime check that parsed JSON conforms to DailyQuoteState. */
+function isValidState(data: unknown): data is DailyQuoteState {
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  if (obj.quote !== null) {
+    if (typeof obj.quote !== 'object') return false;
+    const q = obj.quote as Record<string, unknown>;
+    if (typeof q.text !== 'string' || typeof q.author !== 'string') return false;
+  }
+  return (
+    (obj.lastRefreshDate === null || typeof obj.lastRefreshDate === 'string')
+  );
+}
+
 // ── File I/O (atomic writes) ───────────────────────────────
 
 async function readState(filePath: string): Promise<DailyQuoteState> {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw) as DailyQuoteState;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidState(parsed)) return { ...DEFAULT_STATE };
+    return parsed;
   } catch {
     return { ...DEFAULT_STATE };
   }

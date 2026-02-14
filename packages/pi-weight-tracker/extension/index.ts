@@ -16,7 +16,7 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
-import type { WeightTrackerState, WeightEntry } from '../shared/types';
+import type { WeightTrackerState, WeightEntry, WeightUnit } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 
 // ── State file path ────────────────────────────────────────────
@@ -27,12 +27,29 @@ function resolveStatePath(cwd: string): string {
   return path.join(cwd, STATE_REL_PATH);
 }
 
+// ── State validation ───────────────────────────────────────────
+
+/** Runtime check that parsed JSON conforms to WeightTrackerState. */
+function isValidState(data: unknown): data is WeightTrackerState {
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    Array.isArray(obj.entries) &&
+    typeof obj.nextId === 'number' &&
+    typeof obj.unit === 'string' &&
+    ['kg', 'lbs', 'st'].includes(obj.unit) &&
+    (obj.goal === null || (typeof obj.goal === 'object' && obj.goal !== null))
+  );
+}
+
 // ── File I/O (atomic writes) ───────────────────────────────────
 
 async function readState(filePath: string): Promise<WeightTrackerState> {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw) as WeightTrackerState;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidState(parsed)) return { ...DEFAULT_STATE };
+    return parsed;
   } catch {
     return { ...DEFAULT_STATE };
   }
@@ -49,7 +66,7 @@ async function writeState(filePath: string, state: WeightTrackerState): Promise<
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function formatWeight(weight: number, unit: string): string {
+function formatWeight(weight: number, unit: WeightUnit): string {
   if (unit === 'st') {
     const stones = Math.floor(weight / 6.35029);
     const lbs = Math.round((weight % 6.35029) / 0.453592);

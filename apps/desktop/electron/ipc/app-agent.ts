@@ -15,7 +15,7 @@
  * and receives a plain string response (the LLM's text output).
  */
 
-import { ipcMain } from 'electron';
+import { app, ipcMain } from 'electron';
 import {
   createAgentSession,
   SessionManager,
@@ -79,7 +79,7 @@ async function getOrCreateAppSession(
 
 /** Close all app sessions (app shutdown). */
 function disposeAllAppSessions(): void {
-  for (const [key, entry] of appPool) {
+  for (const [, entry] of appPool) {
     entry.session.dispose();
   }
   appPool.clear();
@@ -105,7 +105,6 @@ export function registerAppAgentHandlers(): void {
       appId: string,
       workspaceId: string,
       text: string,
-      systemPrompt?: string,
     ): Promise<string> => {
       const session = await getOrCreateAppSession(appId, workspaceId);
 
@@ -131,7 +130,6 @@ export function registerAppAgentHandlers(): void {
   );
 
   // ── Cleanup on app quit ────────────────────────────────────
-  const { app } = require('electron');
   app.on('before-quit', () => {
     disposeAllAppSessions();
   });

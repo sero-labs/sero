@@ -118,7 +118,7 @@ contextBridge.exposeInMainWorld('sero', {
   },
 
   appAgent: {
-    prompt: (appId: string, workspaceId: string, text: string, systemPrompt?: string): Promise<string> =>
-      ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text, systemPrompt),
+    prompt: (appId: string, workspaceId: string, text: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
   },
 });

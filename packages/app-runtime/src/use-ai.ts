@@ -13,6 +13,7 @@
 
 import { useContext, useCallback, useMemo } from 'react';
 import { AppContext } from './context';
+import { getSeroApi } from './sero-bridge';
 
 export interface AppAI {
   /** Send a prompt to the app's dedicated agent session. Returns the LLM's text response. */
@@ -28,13 +29,8 @@ export function useAI(): AppAI {
         throw new Error('[useAI] No app context — must be used inside a Sero app');
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sero = (window as any).sero;
-      if (!sero?.appAgent?.prompt) {
-        throw new Error('[useAI] window.sero.appAgent not available');
-      }
-
-      return sero.appAgent.prompt(ctx.appId, ctx.workspaceId, text);
+      const { appAgent } = getSeroApi();
+      return appAgent.prompt(ctx.appId, ctx.workspaceId, text);
     },
     [ctx],
   );

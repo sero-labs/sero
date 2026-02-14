@@ -84,7 +84,7 @@ interface SeroAppAgentAPI {
    * Send a prompt to an app's dedicated agent session.
    * Returns the full text response. No active chat session required.
    */
-  prompt(appId: string, workspaceId: string, text: string, systemPrompt?: string): Promise<string>;
+  prompt(appId: string, workspaceId: string, text: string): Promise<string>;
 }
 
 interface SeroAPI {
