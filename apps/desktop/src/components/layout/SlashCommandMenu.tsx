@@ -151,7 +151,7 @@ export function SlashCommandMenu({
       {groups.map(({ source, items }) => (
         <div key={source}>
           {/* Group header */}
-          <div className="sticky top-0 z-10 bg-[var(--bg-surface)] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          <div className="sticky top-0 z-10 bg-[var(--bg-surface)] px-2 py-1.5 text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             {SOURCE_LABELS[source]}
           </div>
 
@@ -169,7 +169,7 @@ export function SlashCommandMenu({
                 }}
                 role="option"
                 aria-selected={isSelected}
-                className={`flex cursor-pointer items-center gap-2 px-2 py-1.5 text-xs ${
+                className={`flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm ${
                   isSelected
                     ? 'bg-accent text-accent-foreground'
                     : 'text-[var(--text-primary)] hover:bg-accent/50'
@@ -183,7 +183,7 @@ export function SlashCommandMenu({
                 <SourceIcon source={source} />
                 <span className="font-medium">/{cmd.name}</span>
                 {cmd.description && (
-                  <span className="truncate text-[var(--text-muted)]">
+                  <span className="truncate text-xs text-[var(--text-muted)]">
                     {cmd.description}
                   </span>
                 )}

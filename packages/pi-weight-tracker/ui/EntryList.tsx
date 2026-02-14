@@ -20,10 +20,10 @@ export function EntryList({ entries, unit, onRemove }: EntryListProps) {
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between px-5 pb-1.5 pt-3">
-        <h3 className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--wt-muted)' }}>
+        <h3 className="text-xs uppercase tracking-widest" style={{ color: 'var(--wt-muted)' }}>
           History
         </h3>
-        <span className="text-[10px] tabular-nums" style={{ color: 'var(--wt-muted)' }}>
+        <span className="text-xs tabular-nums" style={{ color: 'var(--wt-muted)' }}>
           {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
         </span>
       </div>
@@ -46,7 +46,7 @@ export function EntryList({ entries, unit, onRemove }: EntryListProps) {
             >
               {/* Change indicator dot */}
               <div
-                className="flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-medium"
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium"
                 style={{
                   background:
                     diff === null
@@ -74,13 +74,13 @@ export function EntryList({ entries, unit, onRemove }: EntryListProps) {
                 <div className="flex items-baseline gap-2">
                   <span className="text-sm font-medium" style={{ color: 'var(--wt-text)' }}>
                     {formatWeight(entry.weight, unit)}
-                    <span className="ml-0.5 text-[10px] font-normal" style={{ color: 'var(--wt-muted)' }}>
+                    <span className="ml-0.5 text-xs font-normal" style={{ color: 'var(--wt-muted)' }}>
                       {unitLabel(unit)}
                     </span>
                   </span>
                   {diff !== null && (
                     <span
-                      className="text-[10px] font-medium"
+                      className="text-xs font-medium"
                       style={{ color: diff <= 0 ? 'var(--wt-success)' : 'var(--wt-warning)' }}
                     >
                       {diff <= 0 ? '' : '+'}
@@ -89,17 +89,17 @@ export function EntryList({ entries, unit, onRemove }: EntryListProps) {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px]" style={{ color: 'var(--wt-muted)' }}>
+                  <span className="text-sm" style={{ color: 'var(--wt-muted)' }}>
                     {formatDateLong(entry.date)}
                   </span>
-                  <span className="text-[10px]" style={{ color: 'var(--wt-dim)' }}>
+                  <span className="text-xs" style={{ color: 'var(--wt-dim)' }}>
                     {daysAgo(entry.date)}
                   </span>
                   {entry.note && (
                     <>
                       <span style={{ color: 'var(--wt-dim)' }}>·</span>
                       <span
-                        className="truncate text-[11px] italic"
+                        className="truncate text-sm italic"
                         style={{ color: 'var(--wt-dim)' }}
                       >
                         {entry.note}
@@ -112,7 +112,7 @@ export function EntryList({ entries, unit, onRemove }: EntryListProps) {
               {/* Remove button */}
               <button
                 onClick={() => onRemove(entry.id)}
-                className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] opacity-0 transition-all group-hover:opacity-100"
+                className="shrink-0 rounded-md px-1.5 py-0.5 text-xs opacity-0 transition-all group-hover:opacity-100"
                 style={{ color: 'var(--wt-muted)' }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLElement).style.color = 'var(--wt-warning)';

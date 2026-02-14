@@ -61,7 +61,7 @@ export function TitleBar() {
 
       {/* ── Right-side actions ────────────────────────────────── */}
       <div className="no-drag flex shrink-0 items-center gap-1 pr-3">
-        <span className="text-[11px] text-[var(--text-muted)]">⌘K</span>
+        <span className="text-sm text-[var(--text-muted)]">⌘K</span>
 
         <Tooltip>
           <TooltipTrigger asChild>

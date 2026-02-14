@@ -1,36 +1,31 @@
-# Task: Add Attachments to ChatPanel
+# Task: Implement Usage Tracking in ChatPanel
 
 ## Goal
-Add file attachment support to the ChatPanel using ai-elements components (prompt-input attachments, Attachments). Support multiple files with drag-and-drop, paste, and file picker.
+Add a usage badge to the ChatPanel header showing token counts and cost, using the PI SDK's `AgentSession.getSessionStats()` API.
+
+## Architecture
+- PI SDK provides `session.getSessionStats()` → `SessionStats` with tokens + cost
+- Add IPC channel `sero:agent:get-usage` to fetch stats for a pool entry
+- Lightweight approach: fetch on-demand (on `agent_end` events), no Zustand store needed
+- `UsageBadge` component with Popover showing detailed breakdown
 
 ## Phases
 
-### Phase 1: Update IPC types — `complete`
-- Added `ChatAttachment` type with id, filename, mediaType, url
-- Added optional `attachments` field to `ChatUserMessage`
+### Phase 1: IPC Layer `[complete]`
+- [x] Add `SessionUsageStats` type + IPC channel to `ipc.ts`
+- [x] Add handler in `electron/ipc/agent.ts`
+- [x] Add to preload bridge
+- [x] Add to `electron.d.ts` type
 
-### Phase 2: Update agent store — `complete`
-- Updated `sendPrompt` signature to accept optional `ChatAttachment[]`
-- Optimistically adds user message with attachments to conversation
-
-### Phase 3: Create ChatAttachments display component — `complete`
-- New file: `src/components/layout/ChatAttachments.tsx` (73 lines)
-- `PromptAttachmentsBar` — inline badges in prompt input header
-- `MessageAttachments` — grid thumbnails in user messages
-
-### Phase 4: Update ChatPanel — `complete`
-- Enabled `multiple` + `globalDrop` on PromptInput
-- Added `PromptInputHeader` with `PromptAttachmentsBar`
-- Added `PromptInputActionMenu` with `PromptInputActionAddAttachments` in tools
-- Updated `handleSubmit` to use `PromptInputMessage` with files conversion
-- Render `MessageAttachments` in user messages
-- All typechecks pass ✓
+### Phase 2: UsageBadge Component `[complete]`
+- [x] Create `apps/desktop/src/components/layout/UsageBadge.tsx`
+- [x] Wire into ChatPanel header
+- [x] TypeScript compiles clean
 
 ## Files Modified
-- `apps/desktop/src/types/ipc.ts` — added ChatAttachment type
-- `apps/desktop/src/stores/agent.ts` — updated sendPrompt with attachments
-- `apps/desktop/src/components/layout/ChatAttachments.tsx` — NEW (73 lines)
-- `apps/desktop/src/components/layout/ChatPanel.tsx` — updated (304 lines)
-
-## Line Count Check ✓
-All files under 500 LOC limit.
+- `apps/desktop/src/types/ipc.ts` — types + channel
+- `apps/desktop/electron/ipc/agent.ts` — handler
+- `apps/desktop/electron/preload.ts` — bridge
+- `apps/desktop/src/types/electron.d.ts` — TS types
+- `apps/desktop/src/components/layout/UsageBadge.tsx` — new component
+- `apps/desktop/src/components/layout/ChatPanel.tsx` — integrate badge

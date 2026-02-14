@@ -139,6 +139,21 @@ export type AgentStreamEvent =
   | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'error'; sessionId: string; error: string };
 
+// ── Usage Stats ────────────────────────────────────────────────
+
+/** Session usage stats returned by PI SDK's AgentSession.getSessionStats(). */
+export interface SessionUsageStats {
+  tokens: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    total: number;
+  };
+  cost: number;
+  requestCount: number;
+}
+
 // ── Sero Apps ──────────────────────────────────────────────────
 
 /** Manifest for a Sero app discovered from a Pi package. */
@@ -192,6 +207,8 @@ export const IpcChannels = {
     getCommands: 'sero:agent:get-commands',
     /** Reload resources (skills, prompts, extensions) for a session. Returns updated commands. */
     reloadResources: 'sero:agent:reload-resources',
+    /** Get usage stats for a session. */
+    getUsage: 'sero:agent:get-usage',
     /** Main → renderer push channel for streaming events. */
     event: 'sero:agent:event',
   },

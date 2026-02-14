@@ -201,7 +201,7 @@ export function DailyQuote() {
                 Daily Quote
               </h1>
               {state.lastRefreshDate && (
-                <span className="text-[11px]" style={{ color: 'var(--dq-muted)' }}>
+                <span className="text-sm" style={{ color: 'var(--dq-muted)' }}>
                   {formatDateNice(state.lastRefreshDate)}
                 </span>
               )}
@@ -276,7 +276,7 @@ function EmptyState({ onGenerate, loading }: { onGenerate: () => void; loading: 
         Your daily inspiration awaits
       </h2>
       <p
-        className="mt-2 max-w-[260px] text-[12px] leading-relaxed"
+        className="mt-2 max-w-[260px] text-lg leading-relaxed"
         style={{ color: 'var(--dq-muted)' }}
       >
         Tap below to generate today&rsquo;s quote — something thoughtful to carry with you.

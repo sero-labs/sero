@@ -9,6 +9,7 @@ import type {
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SeroAppManifest,
+  SessionUsageStats,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -53,6 +54,8 @@ interface SeroAgentAPI {
   getCommands(sessionId: string): Promise<SeroSlashCommandInfo[]>;
   /** Reload resources (skills, prompts, extensions). Returns updated commands. */
   reloadResources(sessionId: string): Promise<SeroSlashCommandInfo[]>;
+  /** Get usage stats (tokens + cost) for a session. */
+  getUsage(sessionId: string): Promise<SessionUsageStats | null>;
   /** Subscribe to streaming events pushed from main process. Returns unsubscribe. */
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
 }

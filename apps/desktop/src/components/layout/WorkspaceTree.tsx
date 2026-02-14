@@ -70,7 +70,7 @@ export function WorkspaceTree() {
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-2 pb-1">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Workspaces
         </span>
         <button
@@ -93,7 +93,7 @@ export function WorkspaceTree() {
         ))}
 
         {openWorkspaces.length === 0 && (
-          <span className="px-2 py-4 text-center text-[11px] text-[var(--text-muted)]">
+          <span className="px-2 py-4 text-center text-sm text-[var(--text-muted)]">
             No workspaces open
           </span>
         )}
@@ -172,7 +172,7 @@ function WorkspaceNode({
           <ChevronRight className="size-3 shrink-0 text-[var(--text-muted)]" />
         )}
         <FolderOpen className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-        <span className="min-w-0 flex-1 truncate text-xs font-medium">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {workspace.name}
         </span>
 
@@ -236,7 +236,7 @@ function WorkspaceNode({
                   <span className="size-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
                 )}
                 {sessions.length > 0 && !expanded && (
-                  <span className="text-[10px] text-[var(--text-muted)]">
+                  <span className="text-xs text-[var(--text-muted)]">
                     {sessions.length}
                   </span>
                 )}
@@ -250,7 +250,7 @@ function WorkspaceNode({
       {expanded && (
         <div className="ml-2 flex flex-col gap-0.5 pl-2 border-l border-border/30">
           {sessions.length === 0 ? (
-            <span className="px-2 py-1 text-[10px] text-[var(--text-muted)]">
+            <span className="px-2 py-1 text-xs text-[var(--text-muted)]">
               No sessions
             </span>
           ) : (
@@ -288,7 +288,7 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
     <button
       onClick={() => setActiveSession(session.id)}
       className={cn(
-        'group flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors',
+        'group flex w-full items-center gap-4 rounded-md px-2 py-1 text-left transition-colors',
         isActive
           ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
           : 'hover:bg-[var(--bg-elevated)]',
@@ -303,10 +303,10 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
 
       {/* Title + metadata */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[11px] font-medium text-[var(--text-primary)]">
+        <span className="truncate text-sm font-medium text-[var(--text-primary)]">
           {title}
         </span>
-        <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+        <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
           <span>{modified}</span>
           {session.messageCount > 0 && (
             <>
@@ -344,7 +344,7 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-[11px]"
+              className="h-6 px-2 text-sm"
               onClick={(e) => { e.stopPropagation(); setConfirmOpen(false); }}
             >
               Cancel
@@ -352,7 +352,7 @@ function SessionNode({ session }: { session: SeroSessionInfo }) {
             <Button
               variant="destructive"
               size="sm"
-              className="h-6 px-2 text-[11px]"
+              className="h-6 px-2 text-sm"
               onClick={(e) => { e.stopPropagation(); handleDelete(); }}
             >
               Delete

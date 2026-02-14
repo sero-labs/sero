@@ -24,7 +24,7 @@ export function MainSidebar() {
     <aside className="flex h-full w-full min-w-0 flex-col border-r border-border/50 bg-[var(--bg-surface)]">
       {/* ── Apps ──────────────────────────────────────────────── */}
       <div className="flex flex-col gap-0.5 p-2">
-        <span className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="px-2 pb-1 text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Apps
         </span>
         {apps.map((app) => (
@@ -99,7 +99,7 @@ function AppItem({
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors',
+        'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
         active
           ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
           : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',

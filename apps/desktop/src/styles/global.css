@@ -50,10 +50,10 @@
   --sero-radius-lg: 12px;
 
   /* Sero font sizes (legacy — use Tailwind text-* for new components) */
-  --sero-text-xs: 11px;
-  --sero-text-sm: 12px;
-  --sero-text-base: 13px;
-  --sero-text-lg: 14px;
+  --sero-text-xs: 12px;
+  --sero-text-sm: 13px;
+  --sero-text-base: 14px;
+  --sero-text-lg: 15px;
   --sero-text-xl: 16px;
 
   /* Transition */
@@ -207,6 +207,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+html {
+  font-size: 14px;
 }
 
 @layer base {

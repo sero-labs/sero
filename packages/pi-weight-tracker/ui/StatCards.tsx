@@ -37,7 +37,7 @@ export function StatCards({ entries, unit, goal }: StatCardsProps) {
       {/* Current weight */}
       <div className="col-span-2 flex items-baseline justify-between" style={NESTED_CARD_STYLE}>
         <div>
-          <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
+          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
             Current
           </p>
           <p className="mt-0.5 text-2xl font-light tracking-tight" style={{ color: 'var(--wt-text)' }}>
@@ -49,7 +49,7 @@ export function StatCards({ entries, unit, goal }: StatCardsProps) {
         </div>
         {weeklyChange !== null && (
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
+            <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
               This week
             </p>
             <p
@@ -66,7 +66,7 @@ export function StatCards({ entries, unit, goal }: StatCardsProps) {
       {/* Total change */}
       {totalChange !== null && (
         <div style={NESTED_CARD_STYLE}>
-          <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
+          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
             Total change
           </p>
           <p
@@ -85,7 +85,7 @@ export function StatCards({ entries, unit, goal }: StatCardsProps) {
       {/* Goal progress */}
       {goalProgress && (
         <div style={NESTED_CARD_STYLE}>
-          <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
+          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
             Goal progress
           </p>
           <div className="mt-1.5 flex items-center gap-2">
@@ -105,7 +105,7 @@ export function StatCards({ entries, unit, goal }: StatCardsProps) {
             </span>
           </div>
           {goalProgress.remaining > 0 && (
-            <p className="mt-1 text-[10px]" style={{ color: 'var(--wt-muted)' }}>
+            <p className="mt-1 text-xs" style={{ color: 'var(--wt-muted)' }}>
               {formatWeight(goalProgress.remaining, unit)} {unitLabel(unit)} to go
             </p>
           )}
@@ -115,7 +115,7 @@ export function StatCards({ entries, unit, goal }: StatCardsProps) {
       {/* Entries count (show if we don't have a goal) */}
       {!goalProgress && totalChange !== null && (
         <div style={NESTED_CARD_STYLE}>
-          <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
+          <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--wt-muted)' }}>
             Entries
           </p>
           <p className="mt-1 text-base font-medium tabular-nums" style={{ color: 'var(--wt-text)' }}>

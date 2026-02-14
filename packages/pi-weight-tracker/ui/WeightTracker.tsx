@@ -264,7 +264,7 @@ function EmptyState() {
         Begin your journey
       </h2>
       <p
-        className="mt-2 max-w-[220px] text-[12px] leading-relaxed"
+        className="mt-2 max-w-[220px] text-lg leading-relaxed"
         style={{ color: 'var(--wt-muted)' }}
       >
         Log your first weigh-in above, or ask me to track it for you.

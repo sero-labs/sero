@@ -152,3 +152,6 @@ the feature appears to work in the UI but silently fails at the agent.
   shared state lives in Zustand stores (`src/stores/`). Cross-boundary state
   (e.g. for federated modules in `@sero/app-runtime`) is passed via context
   providers or the `window.sero` IPC bridge — never via `localStorage`.
+
+### General
+- When creating documentation or plans, save them in @docs/ or a subfolder by type

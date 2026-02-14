@@ -34,6 +34,7 @@ import {
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { PromptAttachmentsBar, MessageAttachments } from './ChatAttachments';
+import { UsageBadge } from './UsageBadge';
 import type { ChatMessage, ChatAttachment, ChatToolCallMessage, SeroSlashCommandInfo } from '@/types/ipc';
 
 /**
@@ -118,16 +119,17 @@ export function ChatPanel() {
       {/* ── Header ──────────────────────────────────────────── */}
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border/50 px-3">
         <Bot className="size-3.5 text-[var(--text-muted)]" />
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Agent
         </span>
         {focused?.workspaceId && (
-          <span className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+          <span className="text-xs rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[var(--text-muted)]">
             {focused.workspaceId}
           </span>
         )}
+        {sessionId && <UsageBadge sessionId={sessionId} />}
         {isStreaming && (
-          <Loader2 className="ml-auto size-3 animate-spin text-[var(--text-muted)]" />
+          <Loader2 className="size-3 animate-spin text-emerald-500" />
         )}
       </div>
 
@@ -202,7 +204,7 @@ export function ChatPanel() {
             {isStreaming ? (
               <button
                 onClick={() => sessionId && abort(sessionId)}
-                className="rounded-md bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/20"
+                className="rounded-md bg-destructive/10 px-2 py-1 font-medium text-sm text-destructive hover:bg-destructive/20"
               >
                 Stop
               </button>

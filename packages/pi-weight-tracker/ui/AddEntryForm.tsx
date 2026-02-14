@@ -54,7 +54,7 @@ export function AddEntryForm({ unit, onAdd }: AddEntryFormProps) {
             className="wt-input w-full pr-10"
           />
           <span
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase"
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs uppercase"
             style={{ color: 'var(--wt-muted)' }}
           >
             {unitLabel(unit)}

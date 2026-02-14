@@ -31,6 +31,7 @@ import type {
   ChatToolCallMessage,
   AgentStreamEvent,
   SeroSlashCommandInfo,
+  SessionUsageStats,
 } from '../../src/types/ipc';
 import type { ImageContent } from '@mariozechner/pi-ai';
 import { workspaceManager } from '../workspace';
@@ -490,6 +491,22 @@ export function registerAgentHandlers(): void {
 
       const hidden = await readHiddenCommands();
       return buildCommandList(entry, hidden);
+    },
+  );
+
+  // ── Get usage stats for a session ───────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.getUsage,
+    async (_event, sessionId: string): Promise<SessionUsageStats | null> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return null;
+
+      const stats = entry.session.getSessionStats();
+      return {
+        tokens: stats.tokens,
+        cost: stats.cost,
+        requestCount: stats.userMessages,
+      };
     },
   );
 

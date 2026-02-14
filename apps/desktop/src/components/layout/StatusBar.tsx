@@ -15,7 +15,7 @@ export function StatusBar() {
   const agentCount = useActiveAgentCount();
 
   return (
-    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-border/50 bg-[var(--bg-base)] px-3 text-[11px] text-[var(--text-muted)]">
+    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-border/50 bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
       {/* ── Left ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         {activeWorkspace && (
@@ -26,7 +26,7 @@ export function StatusBar() {
         )}
         {activeWorkspace && (
           <button
-            className="max-w-[300px] truncate text-[10px] hover:text-[var(--text-primary)] transition-colors"
+            className="max-w-[300px] truncate text-xs hover:text-[var(--text-primary)] transition-colors"
             onClick={() => window.sero.shell.showItemInFolder(activeWorkspace.path)}
             title="Reveal in file explorer"
           >
