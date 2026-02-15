@@ -19,6 +19,7 @@ import {
   type AgentSession,
   type SlashCommandInfo,
 } from '@mariozechner/pi-coding-agent';
+import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -35,7 +36,7 @@ import type {
   SessionModelState,
   AvailableModelGroup,
 } from '../../src/types/ipc';
-import type { ImageContent } from '@mariozechner/pi-ai';
+import type { ImageContent, KnownProvider } from '@mariozechner/pi-ai';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
 import { getModel as getModelFromRegistry } from '@mariozechner/pi-ai';
@@ -74,6 +75,40 @@ function sendEvent(event: AgentStreamEvent): void {
 let msgCounter = 0;
 function nextId(): string {
   return `msg-${Date.now()}-${++msgCounter}`;
+}
+
+/** Valid thinking levels. */
+const VALID_THINKING_LEVELS: readonly ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+
+/**
+ * Validate and coerce a thinking level string to a valid ThinkingLevel.
+ * Throws with descriptive error if invalid.
+ */
+function validateThinkingLevel(level: string): ThinkingLevel {
+  const normalized = level.toLowerCase();
+  if (VALID_THINKING_LEVELS.includes(normalized as ThinkingLevel)) {
+    return normalized as ThinkingLevel;
+  }
+  const available = VALID_THINKING_LEVELS.join(', ');
+  throw new Error(`Invalid thinking level: "${level}". Valid levels: ${available}`);
+}
+
+/**
+ * Validate provider string is a known provider.
+ * Returns the provider as-is if valid, otherwise throws.
+ */
+function validateProvider(provider: string): KnownProvider {
+  // Check against KnownProvider literal types
+  const knownProviders: KnownProvider[] = [
+    'amazon-bedrock', 'anthropic', 'google', 'google-gemini-cli', 'google-antigravity',
+    'google-vertex', 'openai', 'azure-openai-responses', 'openai-codex', 'github-copilot',
+    'xai', 'groq', 'cerebras', 'openrouter', 'vercel-ai-gateway', 'zai', 'mistral',
+    'minimax', 'minimax-cn', 'huggingface', 'opencode', 'kimi-coding'
+  ];
+  if (knownProviders.includes(provider as KnownProvider)) {
+    return provider as KnownProvider;
+  }
+  throw new Error(`Unknown provider: "${provider}". Available: ${knownProviders.join(', ')}`);
 }
 
 /**
@@ -620,8 +655,30 @@ export function registerAgentHandlers(): void {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
-      const model = getModelFromRegistry(provider as any, modelId as any);
-      if (!model) throw new Error(`Model not found: ${provider}/${modelId}`);
+      // Validate provider is known
+      const validatedProvider = validateProvider(provider);
+
+      // Look up the model from registry
+      const model = getModelFromRegistry(validatedProvider, modelId as any);
+      if (!model) {
+        // Provide helpful error with available models
+        const available = entry.session.modelRegistry.getAvailable();
+        const availableIds = available.map(m => `${m.provider}/${m.id}`).join(', ');
+        throw new Error(
+          `Model not found: ${provider}/${modelId}. ` +
+          `Available models: ${availableIds || '(none)'}`
+        );
+      }
+
+      // Verify the user has valid auth credentials for this model
+      const availableModels = entry.session.modelRegistry.getAvailable();
+      const hasAuth = availableModels.some(m => m.provider === provider && m.id === modelId);
+      if (!hasAuth) {
+        throw new Error(
+          `No auth credentials for ${provider}/${modelId}. ` +
+          `Run 'pi auth' to add credentials, then refresh.`
+        );
+      }
 
       await entry.session.setModel(model);
       const state = buildModelState(entry);
@@ -637,7 +694,9 @@ export function registerAgentHandlers(): void {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
-      entry.session.setThinkingLevel(level as any);
+      // Validate thinking level
+      const validatedLevel = validateThinkingLevel(level);
+      entry.session.setThinkingLevel(validatedLevel);
       const state = buildModelState(entry);
       sendEvent({ type: 'model_change', sessionId, state });
       return state;
