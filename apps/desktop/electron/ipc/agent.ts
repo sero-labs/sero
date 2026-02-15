@@ -19,6 +19,7 @@ import {
   type AgentSession,
   type SlashCommandInfo,
 } from '@mariozechner/pi-coding-agent';
+import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -32,10 +33,13 @@ import type {
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionUsageStats,
+  SessionModelState,
+  AvailableModelGroup,
 } from '../../src/types/ipc';
-import type { ImageContent } from '@mariozechner/pi-ai';
+import type { ImageContent, KnownProvider } from '@mariozechner/pi-ai';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
+import { getModel as getModelFromRegistry } from '@mariozechner/pi-ai';
 import {
   ensureInfra,
   PI_AGENT_DIR,
@@ -71,6 +75,40 @@ function sendEvent(event: AgentStreamEvent): void {
 let msgCounter = 0;
 function nextId(): string {
   return `msg-${Date.now()}-${++msgCounter}`;
+}
+
+/** Valid thinking levels. */
+const VALID_THINKING_LEVELS: readonly ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+
+/**
+ * Validate and coerce a thinking level string to a valid ThinkingLevel.
+ * Throws with descriptive error if invalid.
+ */
+function validateThinkingLevel(level: string): ThinkingLevel {
+  const normalized = level.toLowerCase();
+  if (VALID_THINKING_LEVELS.includes(normalized as ThinkingLevel)) {
+    return normalized as ThinkingLevel;
+  }
+  const available = VALID_THINKING_LEVELS.join(', ');
+  throw new Error(`Invalid thinking level: "${level}". Valid levels: ${available}`);
+}
+
+/**
+ * Validate provider string is a known provider.
+ * Returns the provider as-is if valid, otherwise throws.
+ */
+function validateProvider(provider: string): KnownProvider {
+  // Check against KnownProvider literal types
+  const knownProviders: KnownProvider[] = [
+    'amazon-bedrock', 'anthropic', 'google', 'google-gemini-cli', 'google-antigravity',
+    'google-vertex', 'openai', 'azure-openai-responses', 'openai-codex', 'github-copilot',
+    'xai', 'groq', 'cerebras', 'openrouter', 'vercel-ai-gateway', 'zai', 'mistral',
+    'minimax', 'minimax-cn', 'huggingface', 'opencode', 'kimi-coding'
+  ];
+  if (knownProviders.includes(provider as KnownProvider)) {
+    return provider as KnownProvider;
+  }
+  throw new Error(`Unknown provider: "${provider}". Available: ${knownProviders.join(', ')}`);
 }
 
 /**
@@ -212,6 +250,95 @@ function attachmentsToImages(attachments?: ChatAttachment[]): ImageContent[] | u
   }
 
   return images.length > 0 ? images : undefined;
+}
+
+/** Provider display names. Unmapped providers get title-cased. */
+const PROVIDER_NAMES: Record<string, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  'openai-codex': 'OpenAI (Codex)',
+  google: 'Google',
+  'google-gemini-cli': 'Google (Gemini CLI)',
+  'google-antigravity': 'Antigravity',
+  'google-vertex': 'Google Vertex',
+  xai: 'xAI',
+  openrouter: 'OpenRouter',
+  groq: 'Groq',
+  cerebras: 'Cerebras',
+  mistral: 'Mistral',
+  'github-copilot': 'GitHub Copilot',
+  'amazon-bedrock': 'Amazon Bedrock',
+  'azure-openai-responses': 'Azure OpenAI',
+  huggingface: 'Hugging Face',
+  'vercel-ai-gateway': 'Vercel AI Gateway',
+  zai: 'ZAI',
+  opencode: 'OpenCode',
+  'kimi-coding': 'Kimi',
+};
+
+/** Logo URL base — maps provider to models.dev SVG name. */
+const PROVIDER_LOGO_MAP: Record<string, string> = {
+  'openai-codex': 'openai',
+  'google-gemini-cli': 'google',
+  'google-antigravity': 'google',
+  'google-vertex': 'google-vertex',
+  'azure-openai-responses': 'azure',
+  'amazon-bedrock': 'amazon-bedrock',
+  'github-copilot': 'github-copilot',
+  'vercel-ai-gateway': 'vercel',
+  'kimi-coding': 'openai', // fallback
+};
+
+function providerLogo(provider: string): string {
+  const slug = PROVIDER_LOGO_MAP[provider] ?? provider;
+  return `https://models.dev/logos/${slug}.svg`;
+}
+
+function providerDisplayName(provider: string): string {
+  return PROVIDER_NAMES[provider] ?? provider.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Build a SessionModelState from a pool entry's current session state. */
+function buildModelState(entry: PoolEntry): SessionModelState {
+  const session = entry.session;
+  const model = session.model;
+
+  // Reload auth from disk so keys added externally (pi auth, OAuth) are picked up
+  session.modelRegistry.authStorage.reload();
+
+  // Get all models with auth, group by provider
+  const available = session.modelRegistry.getAvailable();
+  const grouped = new Map<string, typeof available>();
+  for (const m of available) {
+    const list = grouped.get(m.provider) ?? [];
+    list.push(m);
+    grouped.set(m.provider, list);
+  }
+
+  const availableModels = [...grouped.entries()].map(([provider, models]) => ({
+    provider,
+    displayName: providerDisplayName(provider),
+    logo: providerLogo(provider),
+    models: models.map((m) => ({
+      provider: m.provider,
+      modelId: m.id,
+      name: m.name,
+      reasoning: m.reasoning,
+    })),
+  }));
+
+  return {
+    model: {
+      provider: model?.provider ?? 'unknown',
+      modelId: model?.id ?? 'unknown',
+      name: model?.name ?? 'Unknown',
+      reasoning: model?.reasoning ?? false,
+    },
+    thinkingLevel: session.thinkingLevel,
+    availableThinkingLevels: session.getAvailableThinkingLevels(),
+    supportsXhigh: session.supportsXhighThinking(),
+    availableModels,
+  };
 }
 
 /** Close and dispose a single pool entry. */
@@ -406,11 +533,12 @@ export function registerAgentHandlers(): void {
       });
       await loader.reload();
 
+      // Don't pass model/thinkingLevel — the SDK restores them from the
+      // session file (model_change / thinking_level_change entries). For new
+      // sessions it falls back to settings.json defaults, then first available.
       const { session } = await createAgentSession({
         cwd: wsPath,
         agentDir: PI_AGENT_DIR,
-        model: infra.model,
-        thinkingLevel: 'off',
         authStorage: infra.authStorage,
         modelRegistry: infra.modelRegistry,
         tools: createCodingTools(wsPath),
@@ -507,6 +635,71 @@ export function registerAgentHandlers(): void {
         cost: stats.cost,
         requestCount: stats.userMessages,
       };
+    },
+  );
+
+  // ── Get model + thinking state for a session ────────────────
+  ipcMain.handle(
+    IpcChannels.agent.getModelState,
+    async (_event, sessionId: string): Promise<SessionModelState | null> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return null;
+      return buildModelState(entry);
+    },
+  );
+
+  // ── Set model for a session ────────────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.setModel,
+    async (_event, sessionId: string, provider: string, modelId: string): Promise<SessionModelState> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      // Validate provider is known
+      const validatedProvider = validateProvider(provider);
+
+      // Look up the model from registry
+      const model = getModelFromRegistry(validatedProvider, modelId as any);
+      if (!model) {
+        // Provide helpful error with available models
+        const available = entry.session.modelRegistry.getAvailable();
+        const availableIds = available.map(m => `${m.provider}/${m.id}`).join(', ');
+        throw new Error(
+          `Model not found: ${provider}/${modelId}. ` +
+          `Available models: ${availableIds || '(none)'}`
+        );
+      }
+
+      // Verify the user has valid auth credentials for this model
+      const availableModels = entry.session.modelRegistry.getAvailable();
+      const hasAuth = availableModels.some(m => m.provider === provider && m.id === modelId);
+      if (!hasAuth) {
+        throw new Error(
+          `No auth credentials for ${provider}/${modelId}. ` +
+          `Run 'pi auth' to add credentials, then refresh.`
+        );
+      }
+
+      await entry.session.setModel(model);
+      const state = buildModelState(entry);
+      sendEvent({ type: 'model_change', sessionId, state });
+      return state;
+    },
+  );
+
+  // ── Set thinking level for a session ───────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.setThinkingLevel,
+    async (_event, sessionId: string, level: string): Promise<SessionModelState> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      // Validate thinking level
+      const validatedLevel = validateThinkingLevel(level);
+      entry.session.setThinkingLevel(validatedLevel);
+      const state = buildModelState(entry);
+      sendEvent({ type: 'model_change', sessionId, state });
+      return state;
     },
   );
 

@@ -137,7 +137,37 @@ export type AgentStreamEvent =
   | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
   | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; isError: boolean }
   | { type: 'session_name'; sessionId: string; name: string }
+  | { type: 'model_change'; sessionId: string; state: SessionModelState }
   | { type: 'error'; sessionId: string; error: string };
+
+// ── Model Info ─────────────────────────────────────────────────
+
+/** Serialisable model info for the renderer (no class instances). */
+export interface ModelInfo {
+  provider: string;
+  modelId: string;
+  name: string;
+  reasoning: boolean;
+}
+
+/** Current model + thinking level for a session. */
+export interface SessionModelState {
+  model: ModelInfo;
+  thinkingLevel: string;
+  availableThinkingLevels: string[];
+  supportsXhigh: boolean;
+  /** All models with auth, grouped by provider display name. */
+  availableModels: AvailableModelGroup[];
+}
+
+/** A group of models under a single provider, for the model selector. */
+export interface AvailableModelGroup {
+  provider: string;
+  displayName: string;
+  /** Logo URL (models.dev SVG). */
+  logo: string;
+  models: ModelInfo[];
+}
 
 // ── Usage Stats ────────────────────────────────────────────────
 
@@ -209,6 +239,12 @@ export const IpcChannels = {
     reloadResources: 'sero:agent:reload-resources',
     /** Get usage stats for a session. */
     getUsage: 'sero:agent:get-usage',
+    /** Get current model + thinking state for a session. */
+    getModelState: 'sero:agent:get-model-state',
+    /** Set model for a session. Args: sessionId, provider, modelId. */
+    setModel: 'sero:agent:set-model',
+    /** Set thinking level for a session. Args: sessionId, level. */
+    setThinkingLevel: 'sero:agent:set-thinking-level',
     /** Main → renderer push channel for streaming events. */
     event: 'sero:agent:event',
   },

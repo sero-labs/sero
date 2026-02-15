@@ -155,3 +155,5 @@ the feature appears to work in the UI but silently fails at the agent.
 
 ### General
 - When creating documentation or plans, save them in @docs/ or a subfolder by type
+- When asked to create a PR, use the Github CLI
+- When reviewing a PR, always make sure there's good type safety

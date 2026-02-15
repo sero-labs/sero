@@ -1,12 +1,12 @@
 /**
  * DailyQuote — main Sero web UI for the daily quote extension.
  *
- * Displays a daily inspirational quote in a clean, indigo-accented card.
+ * Displays a daily inspirational quote with a warm editorial aesthetic.
  * Uses useAI to generate quotes via the app's dedicated agent session —
  * no active chat session required.
  *
- * Design: minimal, contemplative — indigo/purple accents matching the
- * weight tracker, centred quote with generous whitespace.
+ * Design: editorial/literary — warm amber accents, Playfair Display serif,
+ * atmospheric layered background, decorative typographic elements.
  */
 
 import { useMemo, useCallback, useState } from 'react';
@@ -17,121 +17,348 @@ import { DEFAULT_STATE } from '../shared/types';
 // ── Styles ───────────────────────────────────────────────────
 
 const CUSTOM_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Outfit:wght@300;400;500;600&display=swap');
 
   .dq-root {
-    --dq-bg: #0f1117;
-    --dq-bg-surface: #191b23;
-    --dq-bg-elevated: #22252f;
-    --dq-text: #e8e4df;
-    --dq-muted: #8b8d97;
-    --dq-dim: #5c5e6a;
-    --dq-accent: #818cf8;
-    --dq-accent-hover: #a5b4fc;
-    --dq-accent-glow: rgba(129, 140, 248, 0.12);
-    --dq-border: rgba(255, 255, 255, 0.07);
+    --dq-bg: #110f14;
+    --dq-bg-surface: #18151d;
+    --dq-bg-warm: #1c1820;
+    --dq-text: #f0ebe3;
+    --dq-text-soft: #d4cfc7;
+    --dq-muted: #8a8389;
+    --dq-dim: #5c585f;
+    --dq-accent: #d4a574;
+    --dq-accent-light: #e8c89e;
+    --dq-accent-glow: rgba(212, 165, 116, 0.08);
+    --dq-accent-glow-strong: rgba(212, 165, 116, 0.15);
+    --dq-border: rgba(212, 165, 116, 0.08);
+    --dq-border-accent: rgba(212, 165, 116, 0.2);
 
-    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-    background: var(--dq-bg);
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
     color: var(--dq-text);
+    background: var(--dq-bg);
   }
 
   @supports (color: var(--bg-base)) {
     .dq-root {
-      --dq-bg: var(--bg-base, #0f1117);
-      --dq-bg-surface: var(--bg-surface, #191b23);
-      --dq-bg-elevated: var(--bg-elevated, #22252f);
-      --dq-text: var(--text-primary, #e8e4df);
-      --dq-border: var(--border, rgba(255, 255, 255, 0.07));
+      --dq-bg: var(--bg-base, #110f14);
+      --dq-bg-surface: var(--bg-surface, #18151d);
+      --dq-border: var(--border, rgba(212, 165, 116, 0.08));
     }
   }
 
-  .dq-card {
-    background: var(--dq-bg-surface);
-    border: 1px solid var(--dq-border);
-    border-radius: 12px;
-    width: 100%;
+  /* ── Atmospheric background ── */
+
+  .dq-atmosphere {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
   }
+
+  .dq-atmosphere::before {
+    content: '';
+    position: absolute;
+    top: -30%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 140%;
+    height: 80%;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(212, 165, 116, 0.06) 0%,
+      rgba(212, 165, 116, 0.02) 40%,
+      transparent 70%
+    );
+  }
+
+  .dq-atmosphere::after {
+    content: '';
+    position: absolute;
+    bottom: -20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120%;
+    height: 60%;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(140, 100, 70, 0.04) 0%,
+      transparent 60%
+    );
+  }
+
+  /* ── Card ── */
+
+  .dq-card {
+    position: relative;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(212, 165, 116, 0.03) 0%,
+        transparent 30%,
+        transparent 70%,
+        rgba(212, 165, 116, 0.02) 100%
+      ),
+      var(--dq-bg-surface);
+    border: 1px solid var(--dq-border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .dq-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--dq-border-accent),
+      transparent
+    );
+  }
+
+  /* ── Typography ── */
 
   .dq-quote-text {
-    font-family: 'Instrument Serif', Georgia, serif;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
     font-weight: 400;
     font-style: italic;
-    line-height: 1.6;
+    line-height: 1.65;
+    letter-spacing: 0.01em;
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
   }
 
+  .dq-quote-mark {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 600;
+    font-style: normal;
+    line-height: 0.5;
+    background: linear-gradient(
+      180deg,
+      var(--dq-accent) 0%,
+      var(--dq-accent-light) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    user-select: none;
+    display: inline;
+    vertical-align: text-top;
+  }
+
+  /* ── Divider ── */
+
+  .dq-divider {
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--dq-accent),
+      transparent
+    );
+    opacity: 0.5;
+  }
+
+  /* ── Button ── */
+
   .dq-button {
-    background: var(--dq-accent);
-    color: #ffffff;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 20px;
-    font-size: 13px;
+    position: relative;
+    background: transparent;
+    color: var(--dq-accent-light);
+    border: 1px solid var(--dq-border-accent);
+    border-radius: 100px;
+    padding: 12px 32px;
+    font-size: 14px;
     font-weight: 500;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.04em;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
   }
+
+  .dq-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(212, 165, 116, 0.1),
+      rgba(212, 165, 116, 0.02)
+    );
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: inherit;
+  }
+
+  .dq-button:hover:not(:disabled)::before {
+    opacity: 1;
+  }
+
   .dq-button:hover:not(:disabled) {
-    background: var(--dq-accent-hover);
-    box-shadow: 0 0 20px var(--dq-accent-glow);
+    border-color: var(--dq-accent);
+    color: var(--dq-accent-light);
+    box-shadow:
+      0 0 30px rgba(212, 165, 116, 0.08),
+      inset 0 0 30px rgba(212, 165, 116, 0.03);
+    transform: translateY(-1px);
   }
+
+  .dq-button:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
   .dq-button:disabled {
-    opacity: 0.35;
+    opacity: 0.3;
     cursor: default;
   }
 
-  .dq-orb {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 40% 40%, var(--dq-accent) 0%, transparent 70%);
-    opacity: 0.12;
-    animation: dq-pulse 4s ease-in-out infinite;
+  .dq-button span {
+    position: relative;
+    z-index: 1;
   }
 
-  @keyframes dq-pulse {
-    0%, 100% { transform: scale(1); opacity: 0.12; }
-    50% { transform: scale(1.08); opacity: 0.2; }
-  }
+  /* ── Animations ── */
 
-  @keyframes dq-fade-in {
-    from { opacity: 0; transform: translateY(12px); }
+  @keyframes dq-fade-up {
+    from { opacity: 0; transform: translateY(16px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .dq-animate-in {
-    animation: dq-fade-in 0.5s ease-out both;
+  @keyframes dq-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
-  .dq-spin {
-    animation: dq-spinner 1s linear infinite;
+  @keyframes dq-scale-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
   }
 
-  @keyframes dq-spinner {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+  .dq-animate-quote {
+    animation: dq-scale-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
   }
+
+  .dq-animate-mark {
+    animation: dq-fade-in 0.8s ease-out 0s both;
+  }
+
+  .dq-animate-text {
+    animation: dq-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+  }
+
+  .dq-animate-divider {
+    animation: dq-fade-in 0.6s ease-out 0.4s both;
+  }
+
+  .dq-animate-author {
+    animation: dq-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+  }
+
+  .dq-animate-button {
+    animation: dq-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both;
+  }
+
+  .dq-animate-empty {
+    animation: dq-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* ── Loading ── */
+
+  .dq-loading-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dq-accent);
+    animation: dq-dot-pulse 1.4s ease-in-out infinite;
+  }
+
+  .dq-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .dq-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dq-dot-pulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* ── Empty state orb ── */
+
+  .dq-orb-ring {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 1px solid var(--dq-border-accent);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: dq-orb-breathe 5s ease-in-out infinite;
+  }
+
+  .dq-orb-ring::after {
+    content: '';
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--dq-accent) 0%, transparent 70%);
+    opacity: 0.25;
+  }
+
+  @keyframes dq-orb-breathe {
+    0%, 100% { transform: scale(1); border-color: rgba(212, 165, 116, 0.15); }
+    50% { transform: scale(1.05); border-color: rgba(212, 165, 116, 0.3); }
+  }
+
+  /* ── Ornamental corners ── */
+
+  .dq-corner {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    opacity: 0.15;
+  }
+
+  .dq-corner svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .dq-corner--tl { top: 16px; left: 16px; }
+  .dq-corner--tr { top: 16px; right: 16px; transform: scaleX(-1); }
+  .dq-corner--bl { bottom: 16px; left: 16px; transform: scaleY(-1); }
+  .dq-corner--br { bottom: 16px; right: 16px; transform: scale(-1); }
 `;
+
+// ── Corner Ornament SVG ──────────────────────────────────────
+
+function CornerOrnament() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+      <path d="M0 12 Q0 0, 12 0" style={{ color: 'var(--dq-accent)' }} />
+      <path d="M0 8 Q0 0, 8 0" style={{ color: 'var(--dq-accent)', opacity: 0.5 }} />
+    </svg>
+  );
+}
 
 // ── Quote parsing ────────────────────────────────────────────
 
 function parseQuoteResponse(response: string): { text: string; author: string } | null {
-  // Try to parse structured formats first:
-  // "quote text" — Author
-  // "quote text" - Author
   const quoteMatch = response.match(/["""](.+?)["""]\s*[—–-]\s*(.+?)$/ms);
   if (quoteMatch) {
     return { text: quoteMatch[1].trim(), author: quoteMatch[2].trim() };
   }
 
-  // Try: QUOTE: ... AUTHOR: ...
   const labelMatch = response.match(/QUOTE:\s*(.+?)\s*AUTHOR:\s*(.+)/si);
   if (labelMatch) {
     return { text: labelMatch[1].trim().replace(/^[""]|[""]$/g, ''), author: labelMatch[2].trim() };
   }
 
-  // Fallback: split on last dash/em-dash line
   const lines = response.trim().split('\n').filter(Boolean);
   if (lines.length >= 2) {
     const lastLine = lines[lines.length - 1];
@@ -189,62 +416,46 @@ export function DailyQuote() {
   return (
     <>
       <style>{CUSTOM_STYLES}</style>
-      <div className="dq-root flex h-full w-full flex-col overflow-hidden p-2">
-        <div className="dq-card flex flex-1 flex-col overflow-hidden">
+      <div className="dq-root flex h-full w-full flex-col overflow-hidden p-4">
+        <div className="dq-card flex flex-1 flex-col overflow-hidden relative p-4">
+          {/* Atmospheric background glow */}
+          <div className="dq-atmosphere" />
+
+          {/* Ornamental corners */}
+          <div className="dq-corner dq-corner--tl"><CornerOrnament /></div>
+          <div className="dq-corner dq-corner--tr"><CornerOrnament /></div>
+          <div className="dq-corner dq-corner--bl"><CornerOrnament /></div>
+          <div className="dq-corner dq-corner--br"><CornerOrnament /></div>
+
           {/* Header */}
-          <div className="shrink-0 px-6 pb-2 pt-5">
-            <div className="flex items-baseline justify-between">
-              <h1
-                className="text-xl font-medium tracking-tight"
-                style={{ color: 'var(--dq-text)', fontFamily: "'DM Sans', system-ui, sans-serif" }}
+          <div className="shrink-0 px-6 pt-4 relative z-10">
+            <div className="flex items-center justify-between">
+              <p
+                className="text-sm font-medium tracking-[0.15em] uppercase"
+                style={{ color: 'var(--dq-muted)' }}
               >
                 Daily Quote
-              </h1>
+              </p>
               {state.lastRefreshDate && (
-                <span className="text-sm" style={{ color: 'var(--dq-muted)' }}>
+                <p
+                  className="text-sm tracking-wide"
+                  style={{ color: 'var(--dq-dim)' }}
+                >
                   {formatDateNice(state.lastRefreshDate)}
-                </span>
+                </p>
               )}
             </div>
           </div>
 
           {/* Content */}
-          <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
+          <div className="flex flex-1 flex-col items-center justify-center px-12 py-12 relative z-10">
             {state.quote && !loading ? (
-              <div className="dq-animate-in flex max-w-md flex-col items-center text-center">
-                {/* Quote mark */}
-                <div
-                  className="mb-4 text-4xl font-light leading-none"
-                  style={{ color: 'var(--dq-accent)', opacity: 0.4 }}
-                >
-                  &ldquo;
-                </div>
-
-                {/* Quote text */}
-                <p
-                  className="dq-quote-text text-lg"
-                  style={{ color: 'var(--dq-text)' }}
-                >
-                  {state.quote.text}
-                </p>
-
-                {/* Author */}
-                <p
-                  className="mt-4 text-sm font-medium tracking-wide"
-                  style={{ color: 'var(--dq-accent)' }}
-                >
-                  — {state.quote.author}
-                </p>
-
-                {/* Refresh button */}
-                <button
-                  className="dq-button mt-8"
-                  onClick={requestQuote}
-                  disabled={loading}
-                >
-                  {isStale ? 'New quote for today' : 'Get another'}
-                </button>
-              </div>
+              <QuoteDisplay
+                quote={state.quote}
+                isStale={isStale}
+                loading={loading}
+                onRefresh={requestQuote}
+              />
             ) : loading ? (
               <LoadingState />
             ) : (
@@ -252,7 +463,10 @@ export function DailyQuote() {
             )}
 
             {error && (
-              <p className="mt-3 text-xs" style={{ color: '#f87171' }}>
+              <p
+                className="mt-4 text-xs font-medium"
+                style={{ color: '#e87c6c' }}
+              >
                 {error}
               </p>
             )}
@@ -263,30 +477,91 @@ export function DailyQuote() {
   );
 }
 
+// ── Quote Display ────────────────────────────────────────────
+
+function QuoteDisplay({
+  quote,
+  isStale,
+  loading,
+  onRefresh,
+}: {
+  quote: { text: string; author: string };
+  isStale: boolean;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="dq-animate-quote flex w-full max-w-3xl flex-col items-center text-center">
+      {/* Quote text with inline decorative marks */}
+      <p
+        className="dq-quote-text dq-animate-text"
+        style={{ color: 'var(--dq-text-soft)' }}
+      >
+        <span className="dq-quote-mark" style={{ fontSize: '1.6em', marginRight: '0.08em' }} aria-hidden="true">&ldquo;</span>
+        {quote.text}
+        <span className="dq-quote-mark" style={{ fontSize: '1.6em', marginLeft: '0.08em' }} aria-hidden="true">&rdquo;</span>
+      </p>
+
+      {/* Divider */}
+      <div className="dq-divider dq-animate-divider mt-10 mb-8" />
+
+      {/* Author */}
+      <p
+        className="dq-animate-author text-lg font-medium tracking-[0.14em] uppercase"
+        style={{
+          color: 'var(--dq-accent)',
+          fontFamily: "'Outfit', sans-serif",
+        }}
+      >
+        {quote.author}
+      </p>
+
+      {/* Refresh button */}
+      <button
+        className="dq-button dq-animate-button mt-16"
+        onClick={onRefresh}
+        disabled={loading}
+      >
+        <span>{isStale ? 'New quote for today' : 'Get another'}</span>
+      </button>
+    </div>
+  );
+}
+
 // ── Empty State ──────────────────────────────────────────────
 
 function EmptyState({ onGenerate, loading }: { onGenerate: () => void; loading: boolean }) {
   return (
-    <div className="dq-animate-in flex flex-col items-center text-center">
-      <div className="dq-orb mb-6" />
+    <div className="dq-animate-empty flex flex-col items-center text-center">
+      {/* Orb */}
+      <div className="dq-orb-ring mb-12" />
+
+      {/* Title */}
       <h2
-        className="text-lg font-medium"
-        style={{ color: 'var(--dq-text)', fontFamily: "'DM Sans', system-ui, sans-serif" }}
+        className="text-3xl font-medium tracking-tight"
+        style={{
+          color: 'var(--dq-text)',
+          fontFamily: "'Playfair Display', Georgia, serif",
+        }}
       >
         Your daily inspiration awaits
       </h2>
+
+      {/* Subtitle */}
       <p
-        className="mt-2 max-w-[260px] text-lg leading-relaxed"
+        className="mt-6 max-w-[360px] text-lg leading-relaxed"
         style={{ color: 'var(--dq-muted)' }}
       >
-        Tap below to generate today&rsquo;s quote — something thoughtful to carry with you.
+        Generate today&rsquo;s quote — something thoughtful to carry with you.
       </p>
+
+      {/* Button */}
       <button
-        className="dq-button mt-6"
+        className="dq-button mt-12"
         onClick={onGenerate}
         disabled={loading}
       >
-        Generate today&rsquo;s quote
+        <span>Generate today&rsquo;s quote</span>
       </button>
     </div>
   );
@@ -296,20 +571,18 @@ function EmptyState({ onGenerate, loading }: { onGenerate: () => void; loading: 
 
 function LoadingState() {
   return (
-    <div className="dq-animate-in flex flex-col items-center text-center">
-      <svg
-        className="dq-spin mb-4"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="var(--dq-accent)"
-        strokeWidth="2"
-        strokeLinecap="round"
+    <div className="dq-animate-empty flex flex-col items-center text-center">
+      {/* Loading dots */}
+      <div className="flex gap-3 mb-8">
+        <div className="dq-loading-dot" />
+        <div className="dq-loading-dot" />
+        <div className="dq-loading-dot" />
+      </div>
+
+      <p
+        className="text-lg font-light tracking-wide"
+        style={{ color: 'var(--dq-muted)' }}
       >
-        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-      </svg>
-      <p className="text-sm" style={{ color: 'var(--dq-muted)' }}>
         Finding something inspiring…
       </p>
     </div>
