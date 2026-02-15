@@ -11,7 +11,6 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import os from 'os';
 
 import type {
   WorkspaceRegistryEntry,
@@ -19,10 +18,10 @@ import type {
   WorkspaceInfo,
 } from '../src/types/ipc';
 
+import { SERO_HOME, SERO_AGENT_DIR } from './env';
+
 // ── Paths ────────────────────────────────────────────────────
 
-const SERO_HOME = path.join(os.homedir(), '.sero-ui');
-const SERO_AGENT_DIR = path.join(SERO_HOME, 'agent');
 const REGISTRY_PATH = path.join(SERO_AGENT_DIR, 'workspaces.json');
 const WORKSPACES_DIR = path.join(SERO_HOME, 'workspaces');
 

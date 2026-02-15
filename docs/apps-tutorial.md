@@ -688,33 +688,27 @@ if (process.env.NODE_ENV === 'development') {
 In production, apps are discovered automatically via
 `pi install npm:@sero/myapp` — no manual registration needed.
 
-### 5f. Register with Pi (required for the agent to load the extension)
+### 5f. Register with Sero (required for the agent to load the extension)
 
-Pi must know about your extension to register its tools and commands. During
-development, add the package path to Pi's settings file. You can use either:
+Sero must know about your extension to register its tools and commands. During
+development, add the package path to Sero's settings file:
 
-**Global** (`~/.pi/agent/settings.json`) — available in all projects:
-
-```json
-{
-  "packages": [
-    "../../path/to/packages/pi-myapp-extension"
-  ]
-}
-```
-
-**Project** (`.pi/settings.json`) — shared with your team, auto-installed:
+**Sero settings** (`~/.sero-ui/agent/settings.json`):
 
 ```json
 {
   "packages": [
-    "./packages/pi-myapp-extension"
+    "/absolute/path/to/packages/pi-myapp-extension"
   ]
 }
 ```
 
-Paths are relative to the settings file. After editing, **restart Sero** for
-Pi to load the new extension.
+> **Note:** Sero uses its own agent directory (`~/.sero-ui/agent/`) which is
+> independent from the Pi CLI's `~/.pi/agent/`. Packages registered here are
+> only visible to Sero, not the Pi CLI (and vice versa).
+
+Paths are resolved relative to the settings file. After editing, **restart
+Sero** for the extension to load.
 
 In production, use `pi install`:
 
@@ -973,10 +967,9 @@ No manual restart needed.
 - Check the electron log for `[app-discovery]` messages.
 
 **Agent doesn't have the tool:**
-- Your extension must be registered with Pi. Add the package path to
-  `~/.pi/agent/settings.json` (global) or `.pi/settings.json` (project)
-  under `"packages"`. Then restart Sero.
-- See [Step 5f](#5f-register-with-pi-required-for-the-agent-to-load-the-extension).
+- Your extension must be registered with Sero. Add the package path to
+  `~/.sero-ui/agent/settings.json` under `"packages"`. Then restart Sero.
+- See [Step 5f](#5f-register-with-sero-required-for-the-agent-to-load-the-extension).
 
 **UI changes don't appear after editing:**
 - Check that the remote Vite dev server is running (look for its log file).

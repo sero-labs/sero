@@ -39,10 +39,10 @@ import type {
 import type { ImageContent, KnownProvider } from '@mariozechner/pi-ai';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
+import { SERO_AGENT_DIR } from '../env';
 import { getModel as getModelFromRegistry } from '@mariozechner/pi-ai';
 import {
   ensureInfra,
-  PI_AGENT_DIR,
   SERO_SESSION_DIR,
   SERO_CONFIG_PATH,
 } from './shared-infra';
@@ -511,13 +511,13 @@ export function registerAgentHandlers(): void {
       const globalAgentsFile = await readGlobalAgentsMd();
 
       // Workspace-scoped resource loader with Sero extension.
-      // Uses PI_AGENT_DIR so we discover the same skills, prompts, extensions,
-      // and packages as the PI CLI — anything the user has installed globally.
-      // Sero app extensions (e.g. todo) are loaded automatically via Pi's
+      // Uses SERO_AGENT_DIR so we discover skills, prompts, extensions,
+      // and packages from Sero's own agent directory (~/.sero-ui/agent/).
+      // Sero app extensions (e.g. todo) are loaded automatically via
       // settings.json packages list — no manual loading needed.
       const loader = new DefaultResourceLoader({
         cwd: wsPath,
-        agentDir: PI_AGENT_DIR,
+        agentDir: SERO_AGENT_DIR,
         settingsManager: infra.settingsManager,
         extensionFactories: [
           createSeroExtensionFactory(workspaceManager, workspaceId),
@@ -538,7 +538,7 @@ export function registerAgentHandlers(): void {
       // sessions it falls back to settings.json defaults, then first available.
       const { session } = await createAgentSession({
         cwd: wsPath,
-        agentDir: PI_AGENT_DIR,
+        agentDir: SERO_AGENT_DIR,
         authStorage: infra.authStorage,
         modelRegistry: infra.modelRegistry,
         tools: createCodingTools(wsPath),

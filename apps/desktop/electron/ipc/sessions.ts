@@ -17,9 +17,7 @@ import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
 import type { SeroSessionInfo } from '../../src/types/ipc';
 import { workspaceManager } from '../workspace';
-
-/** Root directory for all Sero sessions. */
-const SERO_SESSION_DIR = path.join(os.homedir(), '.sero-ui', 'agent', 'sessions');
+import { SERO_SESSION_DIR } from './shared-infra';
 
 /**
  * Legacy cwd used before workspaces existed.

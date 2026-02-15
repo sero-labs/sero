@@ -26,7 +26,8 @@ import path from 'path';
 
 import { IpcChannels } from '../../src/types/ipc';
 import { workspaceManager } from '../workspace';
-import { ensureInfra, PI_AGENT_DIR } from './shared-infra';
+import { SERO_AGENT_DIR } from '../env';
+import { ensureInfra } from './shared-infra';
 
 // ── App Session Pool ─────────────────────────────────────────
 
@@ -63,7 +64,7 @@ async function getOrCreateAppSession(
 
   const { session } = await createAgentSession({
     cwd: wsPath,
-    agentDir: PI_AGENT_DIR,
+    agentDir: SERO_AGENT_DIR,
     model: infra.model,
     thinkingLevel: 'high',
     authStorage: infra.authStorage,

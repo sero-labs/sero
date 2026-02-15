@@ -1,5 +1,7 @@
 /**
- * Load environment variables from ~/.sero-ui/agent/.env
+ * Load environment variables from ~/.sero-ui/agent/.env and set
+ * PI_CODING_AGENT_DIR so the Pi SDK resolves all config from Sero's
+ * own agent directory instead of ~/.pi/agent.
  *
  * Simple KEY=VALUE parser. Supports:
  *   - Lines with KEY=VALUE (no spaces around =)
@@ -14,9 +16,23 @@ import { readFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 
-const ENV_PATH = path.join(os.homedir(), '.sero-ui', 'agent', '.env');
+/** Sero's root config directory. */
+export const SERO_HOME = path.join(os.homedir(), '.sero-ui');
+
+/** Sero's agent directory — replaces ~/.pi/agent for all SDK calls. */
+export const SERO_AGENT_DIR = path.join(SERO_HOME, 'agent');
+
+const ENV_PATH = path.join(SERO_AGENT_DIR, '.env');
 
 export function loadSeroEnv(): void {
+  // ── Redirect the Pi SDK to Sero's agent directory ──────────
+  // This MUST happen before any SDK module is imported. The SDK reads
+  // PI_CODING_AGENT_DIR at module-load time via getAgentDir().
+  if (!process.env.PI_CODING_AGENT_DIR) {
+    process.env.PI_CODING_AGENT_DIR = SERO_AGENT_DIR;
+  }
+
+  // ── Load .env file ────────────────────────────────────────
   let content: string;
   try {
     content = readFileSync(ENV_PATH, 'utf8');

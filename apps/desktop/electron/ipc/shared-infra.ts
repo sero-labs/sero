@@ -4,6 +4,9 @@
  * Used by both the agent pool (chat sessions) and the app agent pool
  * (per-app background sessions). Ensures we have a single AuthStorage,
  * ModelRegistry, SettingsManager, and default model across the app.
+ *
+ * All paths resolve under ~/.sero-ui/agent/ — Sero's self-contained
+ * agent directory, independent of the Pi CLI's ~/.pi/agent/.
  */
 
 import {
@@ -12,8 +15,8 @@ import {
   ModelRegistry,
 } from '@mariozechner/pi-coding-agent';
 import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
-import os from 'os';
-import path from 'path';
+
+import { SERO_AGENT_DIR } from '../env';
 
 // ── Shared state ─────────────────────────────────────────────
 
@@ -22,17 +25,11 @@ let _modelRegistry: ModelRegistry | null = null;
 let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
 let _model: Model<Api> | null = null;
 
-/**
- * PI's standard agent directory — source of truth for auth, settings,
- * extensions, skills, prompts, packages, and models.
- */
-export const PI_AGENT_DIR = path.join(os.homedir(), '.pi', 'agent');
+/** Sero session storage. */
+export const SERO_SESSION_DIR = `${SERO_AGENT_DIR}/sessions`;
 
-/** Sero-specific session storage. */
-export const SERO_SESSION_DIR = path.join(os.homedir(), '.sero-ui', 'agent', 'sessions');
-
-/** Sero config file — user-editable settings specific to Sero. */
-export const SERO_CONFIG_PATH = path.join(os.homedir(), '.sero-ui', 'agent', 'settings.json');
+/** Sero config file — user-editable settings. */
+export const SERO_CONFIG_PATH = `${SERO_AGENT_DIR}/settings.json`;
 
 export interface SharedInfra {
   authStorage: AuthStorage;
@@ -44,11 +41,11 @@ export interface SharedInfra {
 /** Lazy-init shared infrastructure. Called once, then cached. */
 export async function ensureInfra(): Promise<SharedInfra> {
   if (!_authStorage) {
-    _authStorage = new AuthStorage(path.join(PI_AGENT_DIR, 'auth.json'));
+    _authStorage = new AuthStorage(`${SERO_AGENT_DIR}/auth.json`);
     _modelRegistry = new ModelRegistry(_authStorage);
     _settingsManager = SettingsManager.create(
-      path.join(os.homedir(), '.sero-ui'),
-      PI_AGENT_DIR,
+      SERO_AGENT_DIR,
+      SERO_AGENT_DIR,
     );
     // Default to 'high' thinking if the user hasn't explicitly set a level
     if (!_settingsManager.getDefaultThinkingLevel()) {

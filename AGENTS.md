@@ -44,6 +44,7 @@ pnpm typecheck             # Typecheck all (turbo)
 - [docs/architecture.md](docs/architecture.md) — shell layout, component hierarchy
 - [docs/decisions.md](docs/decisions.md) — numbered architecture decisions with rationale
 - [docs/apps-tutorial.md](docs/apps-tutorial.md) — step-by-step guide to building new Sero apps
+- [docs/state-and-folders-analysis.md](docs/state-and-folders-analysis.md) — config/state locations and rationale
 
 ## File Size Rules (CRITICAL)
 
@@ -102,6 +103,16 @@ layout diagrams, component hierarchy, and state management.
 - **MainSidebar** (left, collapsible) — app list + chat sessions
 - **ChatPanel** (right, collapsible + resizable) — global agent, persists across apps
 - **Active App** — currently CodingWorkspace; others are placeholders
+
+### Agent Directory (IMPORTANT)
+
+Sero uses **`~/.sero-ui/agent/`** as its agent directory, **not** `~/.pi/agent/`.
+This is set via `PI_CODING_AGENT_DIR` in `electron/env.ts` before any SDK imports.
+
+- **All paths** (`auth.json`, `settings.json`, `sessions/`, `skills/`, `extensions/`, `packages/`) resolve under `~/.sero-ui/agent/`.
+- **`~/.pi/agent/`** is the Pi CLI's independent directory — Sero does not read from or write to it.
+- **Single source of truth** for paths: `electron/env.ts` exports `SERO_HOME` and `SERO_AGENT_DIR`. Import from there — never hardcode paths.
+- **App packages** are registered in `~/.sero-ui/agent/settings.json` under `"packages"`.
 
 ### Key Conventions
 
