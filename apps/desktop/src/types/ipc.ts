@@ -204,6 +204,46 @@ export interface SeroAppManifest {
   packagePath: string;
 }
 
+// ── OAuth / Auth ───────────────────────────────────────────────
+
+/** OAuth provider info surfaced to the renderer for the login dialog. */
+export interface OAuthProviderInfo {
+  id: string;
+  name: string;
+  isLoggedIn: boolean;
+  usesCallbackServer: boolean;
+}
+
+/** API-key provider info for the login dialog. */
+export interface ApiKeyProviderInfo {
+  id: string;
+  name: string;
+  /** Whether an API key is configured (auth.json or env var). */
+  hasKey: boolean;
+  /** True if the key comes from an environment variable (not editable via UI). */
+  fromEnv: boolean;
+}
+
+/** Combined response from getProviders — both OAuth and API-key providers. */
+export interface AuthProvidersResponse {
+  oauth: OAuthProviderInfo[];
+  apiKey: ApiKeyProviderInfo[];
+}
+
+/**
+ * Events pushed from main → renderer during an OAuth login flow.
+ * The renderer dialog reacts to each event to update its UI state.
+ */
+export type OAuthEvent =
+  | { type: 'auth'; url: string; instructions?: string }
+  | { type: 'prompt'; message: string; placeholder?: string }
+  | { type: 'manual_input'; prompt: string }
+  | { type: 'waiting'; message: string }
+  | { type: 'progress'; message: string }
+  | { type: 'success'; provider: string; message: string }
+  | { type: 'error'; provider: string; message: string }
+  | { type: 'cancelled' };
+
 // ── IPC Channels ───────────────────────────────────────────────
 
 /** IPC channel constants — single source of truth. */
@@ -271,5 +311,25 @@ export const IpcChannels = {
   appAgent: {
     /** Send a prompt to an app's dedicated agent session. Returns text response. */
     prompt: 'sero:app-agent:prompt',
+  },
+  auth: {
+    /** Get all providers (OAuth + API key) with auth status. */
+    getProviders: 'sero:auth:get-providers',
+    /** Start OAuth login for a provider. */
+    login: 'sero:auth:login',
+    /** Logout from a provider (OAuth or API key). */
+    logout: 'sero:auth:logout',
+    /** Save an API key for a provider. */
+    setApiKey: 'sero:auth:set-api-key',
+    /** Remove an API key for a provider. */
+    removeApiKey: 'sero:auth:remove-api-key',
+    /** Respond to a pending prompt during login. */
+    respondPrompt: 'sero:auth:respond-prompt',
+    /** Respond to a pending manual code input during login. */
+    respondManualCode: 'sero:auth:respond-manual-code',
+    /** Cancel in-progress login. */
+    cancel: 'sero:auth:cancel',
+    /** Main → renderer push channel for OAuth flow events. */
+    event: 'sero:auth:event',
   },
 } as const;
