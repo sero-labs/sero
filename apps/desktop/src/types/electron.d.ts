@@ -11,6 +11,8 @@ import type {
   SeroAppManifest,
   SessionUsageStats,
   SessionModelState,
+  AuthProvidersResponse,
+  OAuthEvent,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -98,6 +100,27 @@ interface SeroAppAgentAPI {
   prompt(appId: string, workspaceId: string, text: string): Promise<string>;
 }
 
+interface SeroAuthAPI {
+  /** Get all providers (OAuth + API key) with auth status. */
+  getProviders(): Promise<AuthProvidersResponse>;
+  /** Start OAuth login for a provider. Resolves when flow completes. */
+  login(providerId: string): Promise<void>;
+  /** Logout from a provider (OAuth or API key). */
+  logout(providerId: string): Promise<void>;
+  /** Save an API key for a provider. */
+  setApiKey(providerId: string, key: string): Promise<void>;
+  /** Remove a saved API key for a provider. */
+  removeApiKey(providerId: string): Promise<void>;
+  /** Respond to a pending prompt during login. */
+  respondPrompt(value: string): Promise<void>;
+  /** Respond to a pending manual code input during login. */
+  respondManualCode(value: string): Promise<void>;
+  /** Cancel in-progress login. */
+  cancel(): Promise<void>;
+  /** Subscribe to OAuth flow events. Returns unsubscribe. */
+  onEvent(callback: (event: OAuthEvent) => void): () => void;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -107,6 +130,7 @@ interface SeroAPI {
   appState: SeroAppStateAPI;
   apps: SeroAppsAPI;
   appAgent: SeroAppAgentAPI;
+  auth: SeroAuthAPI;
 }
 
 declare global {

@@ -13,6 +13,7 @@ import { registerAppAgentHandlers } from './app-agent';
 import { registerShellHandlers } from './shell';
 import { registerAppStateHandlers } from './app-state';
 import { registerAppsHandlers } from './apps';
+import { registerAuthHandlers } from './auth';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -22,4 +23,5 @@ export function registerAllIpcHandlers(): void {
   registerShellHandlers();
   registerAppStateHandlers();
   registerAppsHandlers();
+  registerAuthHandlers();
 }

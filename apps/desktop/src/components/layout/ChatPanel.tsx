@@ -36,7 +36,14 @@ import { SlashCommandMenu } from './SlashCommandMenu';
 import { PromptAttachmentsBar, MessageAttachments } from './ChatAttachments';
 import { UsageBadge } from './UsageBadge';
 import { ModelSelector } from './ModelSelector';
+import { AuthLoginDialog } from './AuthLoginDialog';
 import type { ChatMessage, ChatAttachment, ChatToolCallMessage, SeroSlashCommandInfo } from '@/types/ipc';
+
+/** Built-in commands handled client-side (not sent to the agent). */
+const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [
+  { name: 'login', description: 'Login with OAuth provider', source: 'extension' },
+  { name: 'logout', description: 'Logout from OAuth provider', source: 'extension' },
+];
 
 /**
  * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
@@ -58,18 +65,33 @@ export function ChatPanel() {
     return unsub;
   }, [initEventListener]);
 
+  // ── OAuth login dialog state ───────────────────────────────
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [loginMode, setLoginMode] = useState<'login' | 'logout'>('login');
+  const fetchModelState = useAgentStore((s) => s.fetchModelState);
+
   const messages = focused?.messages ?? [];
   const isStreaming = focused?.isStreaming ?? false;
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
 
+  const handleAuthComplete = useCallback(() => {
+    if (sessionId) fetchModelState(sessionId);
+  }, [sessionId, fetchModelState]);
+
   // ── Slash command menu state ─────────────────────────────
+  // Merge SDK commands with built-in client-side commands
+  const allCommands = useMemo(
+    () => [...BUILTIN_COMMANDS, ...commands],
+    [commands],
+  );
+
   // Open when input starts with "/" and has no newlines before it
   const slashMenuOpen = useMemo(() => {
-    if (!commands.length) return false;
+    if (!allCommands.length) return false;
     // Match "/" at start, optionally followed by partial command text (no spaces yet = still filtering)
     return /^\/[^\s]*$/.test(input);
-  }, [input, commands]);
+  }, [input, allCommands]);
 
   // Text after the "/" for filtering
   const slashFilter = useMemo(() => {
@@ -79,6 +101,19 @@ export function ChatPanel() {
 
   const handleSlashSelect = useCallback(
     (cmd: SeroSlashCommandInfo) => {
+      // Handle built-in commands that open UI instead of sending to agent
+      if (cmd.name === 'login') {
+        setInput('');
+        setLoginMode('login');
+        setLoginDialogOpen(true);
+        return;
+      }
+      if (cmd.name === 'logout') {
+        setInput('');
+        setLoginMode('logout');
+        setLoginDialogOpen(true);
+        return;
+      }
       // Insert the command into input. Add trailing space for arguments.
       setInput(`/${cmd.name} `);
     },
@@ -96,6 +131,21 @@ export function ChatPanel() {
       if ((!text && !message.files?.length) || !sessionId) return;
       // Don't submit if slash menu is open (Enter selects from menu instead)
       if (slashMenuOpen) return;
+
+      // Intercept /login and /logout commands — handle client-side
+      if (text === '/login' || text.startsWith('/login ')) {
+        setInput('');
+        setLoginMode('login');
+        setLoginDialogOpen(true);
+        return;
+      }
+      if (text === '/logout' || text.startsWith('/logout ')) {
+        setInput('');
+        setLoginMode('logout');
+        setLoginDialogOpen(true);
+        return;
+      }
+
       setInput('');
 
       // Convert FileUIParts → ChatAttachments for persistence
@@ -161,7 +211,7 @@ export function ChatPanel() {
       <div className="relative shrink-0 p-2">
         {/* Slash command autocomplete menu */}
         <SlashCommandMenu
-          commands={commands}
+          commands={allCommands}
           filter={slashFilter}
           onSelect={handleSlashSelect}
           onClose={handleSlashClose}
@@ -217,6 +267,14 @@ export function ChatPanel() {
           </PromptInputFooter>
         </PromptInput>
       </div>
+
+      {/* Auth login/logout dialog (OAuth + API key) */}
+      <AuthLoginDialog
+        open={loginDialogOpen}
+        onOpenChange={setLoginDialogOpen}
+        mode={loginMode}
+        onComplete={handleAuthComplete}
+      />
     </div>
   );
 }

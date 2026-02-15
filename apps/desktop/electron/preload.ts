@@ -10,6 +10,8 @@ import type {
   SeroAppManifest,
   SessionUsageStats,
   SessionModelState,
+  AuthProvidersResponse,
+  OAuthEvent,
 } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
@@ -134,5 +136,41 @@ contextBridge.exposeInMainWorld('sero', {
   appAgent: {
     prompt: (appId: string, workspaceId: string, text: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
+  },
+
+  auth: {
+    getProviders: (): Promise<AuthProvidersResponse> =>
+      ipcRenderer.invoke(IpcChannels.auth.getProviders),
+
+    login: (providerId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.auth.login, providerId),
+
+    logout: (providerId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.auth.logout, providerId),
+
+    setApiKey: (providerId: string, key: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.auth.setApiKey, providerId, key),
+
+    removeApiKey: (providerId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.auth.removeApiKey, providerId),
+
+    respondPrompt: (value: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.auth.respondPrompt, value),
+
+    respondManualCode: (value: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.auth.respondManualCode, value),
+
+    cancel: (): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.auth.cancel),
+
+    onEvent: (callback: (event: OAuthEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: OAuthEvent) => {
+        callback(data);
+      };
+      ipcRenderer.on(IpcChannels.auth.event, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.auth.event, handler);
+      };
+    },
   },
 });
