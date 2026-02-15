@@ -211,7 +211,6 @@ export interface OAuthProviderInfo {
   id: string;
   name: string;
   isLoggedIn: boolean;
-  usesCallbackServer: boolean;
 }
 
 /** API-key provider info for the login dialog. */

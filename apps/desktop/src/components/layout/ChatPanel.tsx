@@ -75,6 +75,10 @@ export function ChatPanel() {
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
 
+  const handleAuthComplete = useCallback(() => {
+    if (sessionId) fetchModelState(sessionId);
+  }, [sessionId, fetchModelState]);
+
   // ── Slash command menu state ─────────────────────────────
   // Merge SDK commands with built-in client-side commands
   const allCommands = useMemo(
@@ -269,10 +273,7 @@ export function ChatPanel() {
         open={loginDialogOpen}
         onOpenChange={setLoginDialogOpen}
         mode={loginMode}
-        onComplete={() => {
-          // Refresh model state for the active session after login/logout
-          if (sessionId) fetchModelState(sessionId);
-        }}
+        onComplete={handleAuthComplete}
       />
     </div>
   );

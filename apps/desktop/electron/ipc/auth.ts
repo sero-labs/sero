@@ -92,7 +92,6 @@ export function registerAuthHandlers(): void {
           id: p.id,
           name: p.name,
           isLoggedIn: cred?.type === 'oauth',
-          usesCallbackServer: p.usesCallbackServer ?? false,
         };
       });
 
@@ -253,24 +252,30 @@ export function registerAuthHandlers(): void {
   // ── Respond to pending prompt ──────────────────────────────
   ipcMain.handle(
     IpcChannels.auth.respondPrompt,
-    async (_event, value: string): Promise<void> => {
+    async (_event, value: string): Promise<boolean> => {
       if (promptResolver) {
         promptResolver(value);
         promptResolver = null;
         promptRejecter = null;
+        return true;
       }
+      console.warn('[auth] respondPrompt called but no prompt is pending — ignoring');
+      return false;
     },
   );
 
   // ── Respond to pending manual code input ───────────────────
   ipcMain.handle(
     IpcChannels.auth.respondManualCode,
-    async (_event, value: string): Promise<void> => {
+    async (_event, value: string): Promise<boolean> => {
       if (manualCodeResolver) {
         manualCodeResolver(value);
         manualCodeResolver = null;
         manualCodeRejecter = null;
+        return true;
       }
+      console.warn('[auth] respondManualCode called but no input is pending — ignoring');
+      return false;
     },
   );
 

@@ -50,13 +50,14 @@ Expose `window.sero.auth`:
 ### Phase 4: Type Declarations — `src/types/electron.d.ts` ✅
 Add `SeroAuthAPI` interface and include in `SeroAPI`.
 
-### Phase 5: React Dialog — `src/components/layout/OAuthLoginDialog.tsx` ✅
-Self-contained dialog component:
+### Phase 5: React Dialog — `src/components/layout/AuthLoginDialog.tsx` + `AuthLoginViews.tsx` ✅
+Self-contained dialog component (split into orchestrator + sub-views):
 - Provider list with login status badges
 - Auth URL display (clickable) + progress states
 - Prompt/manual-code input handling
+- API key entry with show/hide toggle
 - Success/error states
-- Triggered from ChatPanel slash command or status bar
+- Triggered from ChatPanel slash command
 
 ### Phase 6: Integration — Wire dialog into app ✅
 - Add auth store or local state in dialog
@@ -69,5 +70,6 @@ Self-contained dialog component:
 - `electron/ipc/index.ts` — register auth handlers
 - `electron/preload.ts` — add auth bridge
 - `src/types/electron.d.ts` — add auth API types
-- `src/components/layout/OAuthLoginDialog.tsx` — new file
-- Integration point (ChatPanel or TitleBar) — trigger dialog
+- `src/components/layout/AuthLoginDialog.tsx` — new file (dialog orchestrator)
+- `src/components/layout/AuthLoginViews.tsx` — new file (sub-views)
+- `src/components/layout/ChatPanel.tsx` — integration (/login, /logout interception)

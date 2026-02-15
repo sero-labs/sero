@@ -117,7 +117,10 @@ export function ProviderListView({
   // Logout mode — show all providers with credentials
   const loggedInOAuth = oauthProviders.filter((p) => p.isLoggedIn);
   const configuredApiKey = apiKeyProviders.filter((p) => p.hasKey && !p.fromEnv);
-  const all = [...loggedInOAuth.map((p) => ({ ...p, kind: 'oauth' as const })), ...configuredApiKey.map((p) => ({ ...p, kind: 'apiKey' as const }))];
+  const all = [
+    ...loggedInOAuth.map((p) => ({ ...p, kind: 'oauth' as const })),
+    ...configuredApiKey.map((p) => ({ ...p, kind: 'apiKey' as const })),
+  ];
 
   if (all.length === 0) {
     return (

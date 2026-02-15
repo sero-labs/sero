@@ -162,9 +162,15 @@ export function AuthLoginDialog({ open, onOpenChange, onComplete, mode = 'login'
 
   const handleLogout = useCallback(
     async (providerId: string) => {
-      await window.sero.auth.logout(providerId);
-      await loadProviders();
-      onComplete?.();
+      try {
+        await window.sero.auth.logout(providerId);
+        await loadProviders();
+        onComplete?.();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setStatusMessage(`Failed to logout: ${msg}`);
+        setPhase('error');
+      }
     },
     [loadProviders, onComplete],
   );
@@ -214,9 +220,15 @@ export function AuthLoginDialog({ open, onOpenChange, onComplete, mode = 'login'
 
   const handleApiKeyRemove = useCallback(
     async (providerId: string) => {
-      await window.sero.auth.removeApiKey(providerId);
-      await loadProviders();
-      onComplete?.();
+      try {
+        await window.sero.auth.removeApiKey(providerId);
+        await loadProviders();
+        onComplete?.();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setStatusMessage(`Failed to remove API key: ${msg}`);
+        setPhase('error');
+      }
     },
     [loadProviders, onComplete],
   );
