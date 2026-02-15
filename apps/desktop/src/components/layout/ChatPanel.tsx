@@ -35,6 +35,7 @@ import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/age
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { PromptAttachmentsBar, MessageAttachments } from './ChatAttachments';
 import { UsageBadge } from './UsageBadge';
+import { ModelSelector } from './ModelSelector';
 import type { ChatMessage, ChatAttachment, ChatToolCallMessage, SeroSlashCommandInfo } from '@/types/ipc';
 
 /**
@@ -199,6 +200,8 @@ export function ChatPanel() {
                   <PromptInputActionAddAttachments />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
+              {/* Model + thinking level selector */}
+              <ModelSelector disabled={!hasSession} />
             </PromptInputTools>
 
             {isStreaming ? (

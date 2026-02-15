@@ -9,6 +9,7 @@ import type {
   SeroSlashCommandInfo,
   SeroAppManifest,
   SessionUsageStats,
+  SessionModelState,
 } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
@@ -80,6 +81,15 @@ contextBridge.exposeInMainWorld('sero', {
 
     getUsage: (sessionId: string): Promise<SessionUsageStats | null> =>
       ipcRenderer.invoke(IpcChannels.agent.getUsage, sessionId),
+
+    getModelState: (sessionId: string): Promise<SessionModelState | null> =>
+      ipcRenderer.invoke(IpcChannels.agent.getModelState, sessionId),
+
+    setModel: (sessionId: string, provider: string, modelId: string): Promise<SessionModelState> =>
+      ipcRenderer.invoke(IpcChannels.agent.setModel, sessionId, provider, modelId),
+
+    setThinkingLevel: (sessionId: string, level: string): Promise<SessionModelState> =>
+      ipcRenderer.invoke(IpcChannels.agent.setThinkingLevel, sessionId, level),
 
     onEvent: (callback: (event: AgentStreamEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: AgentStreamEvent) => {

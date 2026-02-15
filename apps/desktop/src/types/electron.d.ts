@@ -10,6 +10,7 @@ import type {
   SeroSlashCommandInfo,
   SeroAppManifest,
   SessionUsageStats,
+  SessionModelState,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -56,6 +57,12 @@ interface SeroAgentAPI {
   reloadResources(sessionId: string): Promise<SeroSlashCommandInfo[]>;
   /** Get usage stats (tokens + cost) for a session. */
   getUsage(sessionId: string): Promise<SessionUsageStats | null>;
+  /** Get current model + thinking level state. */
+  getModelState(sessionId: string): Promise<SessionModelState | null>;
+  /** Set the model for a session. */
+  setModel(sessionId: string, provider: string, modelId: string): Promise<SessionModelState>;
+  /** Set thinking/reasoning level for a session. */
+  setThinkingLevel(sessionId: string, level: string): Promise<SessionModelState>;
   /** Subscribe to streaming events pushed from main process. Returns unsubscribe. */
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
 }

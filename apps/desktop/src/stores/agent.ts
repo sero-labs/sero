@@ -5,6 +5,7 @@ import type {
   ChatToolCallMessage,
   AgentStreamEvent,
   SeroSlashCommandInfo,
+  SessionModelState,
 } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
 
@@ -20,6 +21,8 @@ export interface AgentInstance {
   error: string | null;
   /** Available slash commands for this session (fetched on open). */
   commands: SeroSlashCommandInfo[];
+  /** Current model + thinking level state. */
+  modelState: SessionModelState | null;
 }
 
 interface AgentState {
@@ -44,6 +47,12 @@ interface AgentState {
   clearFocus: () => void;
   /** Reload resources (skills, prompts, extensions) for a session. */
   reloadResources: (sessionId: string) => Promise<void>;
+  /** Set the model for a session. */
+  setModel: (sessionId: string, provider: string, modelId: string) => Promise<void>;
+  /** Set thinking level for a session. */
+  setThinkingLevel: (sessionId: string, level: string) => Promise<void>;
+  /** Fetch model state for a session. */
+  fetchModelState: (sessionId: string) => Promise<void>;
 
   /** Subscribe to main-process events. Returns cleanup function. */
   initEventListener: () => () => void;
@@ -74,6 +83,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           isStreaming: false,
           error: null,
           commands: [],
+          modelState: null,
         },
       },
       focusedSessionId: sessionId,
@@ -90,6 +100,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         console.warn('[agent] Failed to fetch commands:', cmdErr);
       }
 
+      // Fetch initial model state (non-blocking)
+      let modelState: SessionModelState | null = null;
+      try {
+        modelState = await window.sero.agent.getModelState(sessionId);
+      } catch (err) {
+        console.warn('[agent] Failed to fetch model state:', err);
+      }
+
       set((s) => ({
         agents: {
           ...s.agents,
@@ -97,6 +115,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             ...s.agents[sessionId],
             messages: history,
             commands,
+            modelState,
           },
         },
       }));
@@ -198,6 +217,45 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       });
     } catch (err) {
       console.error('[agent] reloadResources failed:', err);
+    }
+  },
+
+  setModel: async (sessionId, provider, modelId) => {
+    try {
+      const state = await window.sero.agent.setModel(sessionId, provider, modelId);
+      set((s) => {
+        const agent = s.agents[sessionId];
+        if (!agent) return s;
+        return { agents: { ...s.agents, [sessionId]: { ...agent, modelState: state } } };
+      });
+    } catch (err) {
+      console.error('[agent] setModel failed:', err);
+    }
+  },
+
+  setThinkingLevel: async (sessionId, level) => {
+    try {
+      const state = await window.sero.agent.setThinkingLevel(sessionId, level);
+      set((s) => {
+        const agent = s.agents[sessionId];
+        if (!agent) return s;
+        return { agents: { ...s.agents, [sessionId]: { ...agent, modelState: state } } };
+      });
+    } catch (err) {
+      console.error('[agent] setThinkingLevel failed:', err);
+    }
+  },
+
+  fetchModelState: async (sessionId) => {
+    try {
+      const state = await window.sero.agent.getModelState(sessionId);
+      set((s) => {
+        const agent = s.agents[sessionId];
+        if (!agent) return s;
+        return { agents: { ...s.agents, [sessionId]: { ...agent, modelState: state } } };
+      });
+    } catch (err) {
+      console.error('[agent] fetchModelState failed:', err);
     }
   },
 
@@ -322,6 +380,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
         case 'session_name':
           useSessionStore.getState().updateSessionName(sid, event.name);
+          break;
+
+        case 'model_change':
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: { ...s.agents[sid], modelState: event.state },
+            },
+          }));
           break;
 
         case 'error':

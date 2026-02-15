@@ -50,6 +50,10 @@ export async function ensureInfra(): Promise<SharedInfra> {
       path.join(os.homedir(), '.sero-ui'),
       PI_AGENT_DIR,
     );
+    // Default to 'high' thinking if the user hasn't explicitly set a level
+    if (!_settingsManager.getDefaultThinkingLevel()) {
+      _settingsManager.setDefaultThinkingLevel('high');
+    }
     _model = getModel('anthropic', 'claude-opus-4-6');
     if (!_model) throw new Error('Model claude-opus-4-6 not found in registry');
   }

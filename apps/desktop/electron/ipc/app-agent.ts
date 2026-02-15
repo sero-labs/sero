@@ -65,7 +65,7 @@ async function getOrCreateAppSession(
     cwd: wsPath,
     agentDir: PI_AGENT_DIR,
     model: infra.model,
-    thinkingLevel: 'off',
+    thinkingLevel: 'high',
     authStorage: infra.authStorage,
     modelRegistry: infra.modelRegistry,
     tools: [], // No tools — pure text completion
