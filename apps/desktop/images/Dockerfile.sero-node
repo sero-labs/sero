@@ -7,7 +7,7 @@ RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends \
       tini \
       git curl wget build-essential ca-certificates \
-      procps less vim-tiny jq \
+      procps less vim jq \
       iproute2 net-tools dnsutils \
       python3 python3-pip python3-venv && \
     apt-get clean && \

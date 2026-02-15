@@ -26,6 +26,8 @@ export interface WorkspaceInfo {
   contextHints?: string[];
   tags?: string[];
   open: boolean;
+  /** Whether this workspace runs inside a container. Defaults to true. */
+  container: boolean;
 }
 
 /** Full workspace config from .sero-workspace.json at workspace root. */
@@ -33,6 +35,8 @@ export interface WorkspaceConfig {
   id: string;
   name: string;
   description?: string;
+  /** Whether this workspace runs inside a container. Defaults to true. */
+  container?: boolean;
   /** Default cwd relative to workspace root for new sessions. */
   defaultCwd?: string;
   /** Context hints injected into system prompt when workspace is open. */
@@ -138,7 +142,16 @@ export type AgentStreamEvent =
   | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; isError: boolean }
   | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'model_change'; sessionId: string; state: SessionModelState }
-  | { type: 'error'; sessionId: string; error: string };
+  | { type: 'error'; sessionId: string; error: string }
+  | { type: 'container_starting'; sessionId: string; workspaceId: string }
+  | { type: 'container_ready'; sessionId: string; workspaceId: string; ipAddress?: string }
+  | { type: 'container_error'; sessionId: string; workspaceId: string; error: string };
+
+// ── Container ──────────────────────────────────────────────────
+
+// Re-export the canonical container type from the container subsystem.
+// This avoids duplicating the shape and ensures IPC data stays in sync.
+export type { ContainerState as ContainerInfo } from '../../electron/container/types';
 
 // ── Model Info ─────────────────────────────────────────────────
 
@@ -261,6 +274,8 @@ export const IpcChannels = {
     pickFolder: 'sero:workspace:pick-folder',
     /** Infer best workspace for a given message. Returns workspace ID. */
     infer: 'sero:workspace:infer',
+    /** Toggle container mode for a workspace. Args: id, enabled. */
+    setContainer: 'sero:workspace:set-container',
   },
   sessions: {
     list: 'sero:sessions:list',
@@ -330,5 +345,27 @@ export const IpcChannels = {
     cancel: 'sero:auth:cancel',
     /** Main → renderer push channel for OAuth flow events. */
     event: 'sero:auth:event',
+  },
+  container: {
+    /** Get container state for a workspace. Returns ContainerInfo | null. */
+    status: 'sero:container:status',
+    /** Detailed container inspection. */
+    inspect: 'sero:container:inspect',
+  },
+  terminal: {
+    /** Create a terminal session in a workspace container. */
+    create: 'sero:terminal:create',
+    /** Send input data to a terminal. */
+    write: 'sero:terminal:write',
+    /** Resize a terminal. */
+    resize: 'sero:terminal:resize',
+    /** Close a terminal session. */
+    dispose: 'sero:terminal:dispose',
+    /** Get buffered output for replay when xterm.js remounts. */
+    replay: 'sero:terminal:replay',
+    /** Main → renderer push: terminal output data. */
+    data: 'sero:terminal:data',
+    /** Main → renderer push: terminal process exited. */
+    exit: 'sero:terminal:exit',
   },
 } as const;

@@ -9,6 +9,7 @@ import { registerAllIpcHandlers } from './ipc/index';
 import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
+import { containerManager } from './ipc/shared-infra';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -148,6 +149,34 @@ app.whenReady().then(async () => {
   registerAllExtAssets(apps);
 
   registerAllIpcHandlers();
+
+  // ── Container system bootstrap ───────────────────────────────
+  // Ensure the container API server is running (non-blocking on failure)
+  try {
+    await containerManager.ensureSystemRunning();
+  } catch (err) {
+    console.error('[sero] Failed to start container system on boot — containers will retry on demand:', err);
+  }
+
+  // Ensure sero-node image is built (non-blocking on failure)
+  try {
+    // __dirname is apps/desktop/dist/electron/ → images dir is 2 levels up
+    const imagesDir = path.resolve(__dirname, '../../images');
+    await containerManager.ensureImage(imagesDir);
+  } catch (err) {
+    console.error('[sero] Failed to ensure sero-node image:', err);
+  }
+
+  // Start HTTP proxy only if explicitly requested via env var.
+  // Needed when security software (Bitdefender, etc.) blocks outbound from vmnet.
+  // NAT (setup-container-nat.sh) is the default networking path.
+  if (process.env.SERO_CONTAINER_PROXY === '1') {
+    await containerManager.startProxy();
+  }
+
+  // Clean up orphaned sero-* containers from previous crashes
+  await cleanupOrphanedContainers();
+
   createWindow();
 });
 
@@ -160,3 +189,56 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+// ── Graceful shutdown ──────────────────────────────────────────
+app.on('before-quit', async (e) => {
+  e.preventDefault();
+  console.log('[sero] Shutting down — cleaning up containers and terminals...');
+
+  // Dispose terminals and port forwards
+  containerManager.terminals.disposeAllTerminals();
+  containerManager.disposeAllPortForwards();
+
+  // Stop all sero-* containers
+  try {
+    const containers = await containerManager.list();
+    await Promise.allSettled(
+      containers.map((c) => {
+        const workspaceId = c.id.replace(/^sero-/, '');
+        return containerManager.stop(workspaceId);
+      }),
+    );
+  } catch (err) {
+    console.error('[sero] Error during shutdown cleanup:', err);
+  }
+
+  app.exit(0);
+});
+
+// ── Orphan cleanup ─────────────────────────────────────────────
+/**
+ * Clean up any orphaned sero-* containers from previous crashes.
+ * Compares running containers against registered workspaces.
+ */
+async function cleanupOrphanedContainers(): Promise<void> {
+  try {
+    const workspaces = await workspaceManager.list();
+    const registeredIds = new Set(workspaces.map((w) => `sero-${w.id}`));
+
+    const running = await containerManager.list();
+    for (const c of running) {
+      if (!registeredIds.has(c.id)) {
+        console.log(`[sero] Cleaning up orphaned container: ${c.id}`);
+        const workspaceId = c.id.replace(/^sero-/, '');
+        try {
+          await containerManager.stop(workspaceId);
+          await containerManager.remove(workspaceId);
+        } catch {
+          // Best effort
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[sero] Orphan cleanup error:', err);
+  }
+}

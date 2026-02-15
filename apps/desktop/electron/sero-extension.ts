@@ -17,16 +17,20 @@ import { Type } from '@sinclair/typebox';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import type { WorkspaceManager } from './workspace';
 import type { WorkspaceInfo } from '../src/types/ipc';
+import type { ContainerState } from './container/index';
+import { buildContainerPromptBlock } from './container/system-prompt';
 
 /**
  * Creates an extension factory for a specific workspace session.
  *
  * @param wsManager - The workspace manager (has composite state)
  * @param currentWorkspaceId - The workspace this session belongs to
+ * @param containerState - Container state if workspace has a running container
  */
 export function createSeroExtensionFactory(
   wsManager: WorkspaceManager,
   currentWorkspaceId: string,
+  containerState?: ContainerState,
 ) {
   return (pi: ExtensionAPI) => {
     // ── Session title generation ───────────────────────────────
@@ -66,6 +70,14 @@ export function createSeroExtensionFactory(
 
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
+
+      // Inject container environment context if workspace is containerised
+      if (containerState) {
+        systemPrompt += buildContainerPromptBlock(
+          currentWorkspaceId,
+          containerState.ipAddress,
+        );
+      }
 
       const compositeBlock = await buildCompositeBlock(wsManager, currentWorkspaceId);
       if (compositeBlock) {

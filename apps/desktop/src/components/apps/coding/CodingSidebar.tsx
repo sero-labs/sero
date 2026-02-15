@@ -4,6 +4,7 @@ const panelTitles: Record<CodingPanel, string> = {
   explorer: 'Explorer',
   search: 'Search',
   git: 'Source Control',
+  terminal: 'Terminal',
 };
 
 interface CodingSidebarProps {

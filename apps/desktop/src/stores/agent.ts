@@ -8,6 +8,7 @@ import type {
   SessionModelState,
 } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
+import { useContainerStore } from '@/stores/container';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -402,6 +403,17 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               },
             },
           }));
+          break;
+
+        // Container lifecycle events — update container store
+        case 'container_starting':
+          useContainerStore.getState().setStarting(event.workspaceId);
+          break;
+        case 'container_ready':
+          useContainerStore.getState().setRunning(event.workspaceId, event.ipAddress);
+          break;
+        case 'container_error':
+          useContainerStore.getState().setError(event.workspaceId, event.error);
           break;
       }
     });

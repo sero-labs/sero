@@ -13,6 +13,7 @@ import type {
   SessionModelState,
   AuthProvidersResponse,
   OAuthEvent,
+  ContainerInfo,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -34,6 +35,8 @@ interface SeroWorkspaceAPI {
   pickFolder(): Promise<string | null>;
   /** Infer best workspace for a message. Returns workspace ID. */
   infer(message: string): Promise<string>;
+  /** Enable or disable container mode for a workspace. */
+  setContainer(id: string, enabled: boolean): Promise<void>;
 }
 
 interface SeroSessionsAPI {
@@ -121,6 +124,30 @@ interface SeroAuthAPI {
   onEvent(callback: (event: OAuthEvent) => void): () => void;
 }
 
+interface SeroContainerAPI {
+  /** Get container state for a workspace. Returns null if no container. */
+  status(workspaceId: string): Promise<ContainerInfo | null>;
+  /** Detailed container inspection. */
+  inspect(workspaceId: string): Promise<ContainerInfo>;
+}
+
+interface SeroTerminalAPI {
+  /** Create a terminal session in a workspace container. */
+  create(workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<void>;
+  /** Send input data to a terminal. */
+  write(terminalId: string, data: string): Promise<void>;
+  /** Resize a terminal. */
+  resize(terminalId: string, cols: number, rows: number): Promise<void>;
+  /** Close a terminal session. */
+  dispose(terminalId: string): Promise<void>;
+  /** Get buffered output for replay when xterm.js remounts. */
+  replay(terminalId: string): Promise<string>;
+  /** Subscribe to terminal output data. Returns unsubscribe. */
+  onData(callback: (terminalId: string, data: string) => void): () => void;
+  /** Subscribe to terminal exit events. Returns unsubscribe. */
+  onExit(callback: (terminalId: string) => void): () => void;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -131,6 +158,8 @@ interface SeroAPI {
   apps: SeroAppsAPI;
   appAgent: SeroAppAgentAPI;
   auth: SeroAuthAPI;
+  container: SeroContainerAPI;
+  terminal: SeroTerminalAPI;
 }
 
 declare global {

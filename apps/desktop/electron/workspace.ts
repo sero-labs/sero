@@ -424,6 +424,27 @@ export class WorkspaceManager {
 
   // ── Helpers ───────────────────────────────────────────────
 
+  /** Check if a workspace has containers enabled. Defaults to true. */
+  async isContainerEnabled(id: string): Promise<boolean> {
+    const config = await this.getConfig(id);
+    return config?.container !== false;
+  }
+
+  /** Enable or disable container mode for a workspace. Persisted to config file. */
+  async setContainerEnabled(id: string, enabled: boolean): Promise<void> {
+    const entry = this.findEntry(id);
+    if (!entry) throw new Error(`Workspace not found: ${id}`);
+
+    const config = await this.readConfig(entry.path);
+    if (!config) throw new Error(`No config for workspace: ${id}`);
+
+    config.container = enabled;
+    this.configCache.delete(id);
+    const configPath = path.join(entry.path, '.sero-workspace.json');
+    const json = JSON.stringify(config, null, 2) + '\n';
+    await fs.writeFile(configPath, json, 'utf8');
+  }
+
   /** Merge registry entry + config into WorkspaceInfo. */
   private async getInfo(entry: WorkspaceRegistryEntry): Promise<WorkspaceInfo | null> {
     const config = await this.readConfig(entry.path);
@@ -436,6 +457,7 @@ export class WorkspaceManager {
       contextHints: config?.contextHints,
       tags: config?.tags,
       open: entry.open,
+      container: config?.container !== false,
     };
   }
 

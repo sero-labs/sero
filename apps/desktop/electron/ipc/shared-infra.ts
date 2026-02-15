@@ -5,6 +5,9 @@
  * (per-app background sessions). Ensures we have a single AuthStorage,
  * ModelRegistry, SettingsManager, and default model across the app.
  *
+ * Also exports the ContainerManager singleton used by agent sessions
+ * and terminal IPC handlers.
+ *
  * All paths resolve under ~/.sero-ui/agent/ — Sero's self-contained
  * agent directory, independent of the Pi CLI's ~/.pi/agent/.
  */
@@ -17,6 +20,11 @@ import {
 import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
 
 import { SERO_AGENT_DIR } from '../env';
+import { ContainerManager } from '../container/index';
+
+// ── Container Manager (singleton) ────────────────────────────
+
+export const containerManager = new ContainerManager();
 
 // ── Shared state ─────────────────────────────────────────────
 

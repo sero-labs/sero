@@ -1,13 +1,6 @@
 /**
  * Agent IPC handlers — AgentPool.
- *
- * Manages multiple simultaneous AgentSessions, one per active chat session.
- * Shared infrastructure (auth, model, tools factory, settings) is initialised
- * once and reused. Per-session resources (ResourceLoader, tools, SessionManager)
- * are scoped to the session's workspace cwd.
- *
- * All stream events are tagged with sessionId so the renderer can route
- * them to the correct AgentInstance in the Zustand store.
+ * Helpers, validation, and conversion live in agent-helpers.ts.
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
@@ -21,7 +14,6 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
 import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 
 import { IpcChannels } from '../../src/types/ipc';
@@ -34,18 +26,30 @@ import type {
   SeroSlashCommandInfo,
   SessionUsageStats,
   SessionModelState,
-  AvailableModelGroup,
 } from '../../src/types/ipc';
-import type { ImageContent, KnownProvider } from '@mariozechner/pi-ai';
+
+import {
+  nextId,
+  validateThinkingLevel,
+  validateProvider,
+  convertSessionMessages,
+  attachmentsToImages,
+  buildModelState,
+  readHiddenCommands,
+  buildCommandList,
+} from './agent-helpers';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
 import { SERO_AGENT_DIR } from '../env';
 import { getModel as getModelFromRegistry } from '@mariozechner/pi-ai';
 import {
   ensureInfra,
+  containerManager,
   SERO_SESSION_DIR,
   SERO_CONFIG_PATH,
 } from './shared-infra';
+import { createContainerTools } from '../container/tools';
+import type { ContainerState } from '../container/index';
 
 // ── Agent Pool ───────────────────────────────────────────────
 
@@ -69,276 +73,6 @@ function sendEvent(event: AgentStreamEvent): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(IpcChannels.agent.event, event);
   }
-}
-
-/** Generate a simple ID for renderer-side messages. */
-let msgCounter = 0;
-function nextId(): string {
-  return `msg-${Date.now()}-${++msgCounter}`;
-}
-
-/** Valid thinking levels. */
-const VALID_THINKING_LEVELS: readonly ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
-
-/**
- * Validate and coerce a thinking level string to a valid ThinkingLevel.
- * Throws with descriptive error if invalid.
- */
-function validateThinkingLevel(level: string): ThinkingLevel {
-  const normalized = level.toLowerCase();
-  if (VALID_THINKING_LEVELS.includes(normalized as ThinkingLevel)) {
-    return normalized as ThinkingLevel;
-  }
-  const available = VALID_THINKING_LEVELS.join(', ');
-  throw new Error(`Invalid thinking level: "${level}". Valid levels: ${available}`);
-}
-
-/**
- * Validate provider string is a known provider.
- * Returns the provider as-is if valid, otherwise throws.
- */
-function validateProvider(provider: string): KnownProvider {
-  // Check against KnownProvider literal types
-  const knownProviders: KnownProvider[] = [
-    'amazon-bedrock', 'anthropic', 'google', 'google-gemini-cli', 'google-antigravity',
-    'google-vertex', 'openai', 'azure-openai-responses', 'openai-codex', 'github-copilot',
-    'xai', 'groq', 'cerebras', 'openrouter', 'vercel-ai-gateway', 'zai', 'mistral',
-    'minimax', 'minimax-cn', 'huggingface', 'opencode', 'kimi-coding'
-  ];
-  if (knownProviders.includes(provider as KnownProvider)) {
-    return provider as KnownProvider;
-  }
-  throw new Error(`Unknown provider: "${provider}". Available: ${knownProviders.join(', ')}`);
-}
-
-/**
- * Convert existing session.messages into renderer-friendly ChatMessages.
- */
-function convertSessionMessages(
-  messages: ReturnType<AgentSession['agent']['state']['messages']['slice']>,
-): ChatMessage[] {
-  const result: ChatMessage[] = [];
-
-  for (const msg of messages) {
-    if (msg.role === 'user') {
-      const text =
-        typeof msg.content === 'string'
-          ? msg.content
-          : msg.content
-              .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
-              .map((c) => c.text)
-              .join('\n');
-      result.push({ type: 'user', id: nextId(), text });
-    } else if (msg.role === 'assistant') {
-      const textParts = msg.content.filter(
-        (c): c is { type: 'text'; text: string } => c.type === 'text',
-      );
-      const text = textParts.map((c) => c.text).join('');
-
-      if (text) {
-        result.push({ type: 'assistant', id: nextId(), text, isStreaming: false });
-      }
-
-      const toolCalls = msg.content.filter(
-        (c): c is { type: 'toolCall'; id: string; name: string; arguments: Record<string, unknown> } =>
-          c.type === 'toolCall',
-      );
-      for (const tc of toolCalls) {
-        // Hide internal tools from history
-        if (tc.name === 'set_session_title') continue;
-
-        const toolResult = messages.find(
-          (m) => m.role === 'toolResult' && 'toolCallId' in m && m.toolCallId === tc.id,
-        );
-        let output: string | null = null;
-        let isError = false;
-        if (toolResult && toolResult.role === 'toolResult') {
-          output = toolResult.content
-            .filter((c: { type: string }): c is { type: 'text'; text: string } => c.type === 'text')
-            .map((c: { type: 'text'; text: string }) => c.text)
-            .join('\n') || null;
-          isError = toolResult.isError;
-        }
-
-        result.push({
-          type: 'tool',
-          id: nextId(),
-          toolCallId: tc.id,
-          toolName: tc.name,
-          input: tc.arguments,
-          output,
-          isError,
-          state: output !== null ? (isError ? 'error' : 'completed') : 'completed',
-        });
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
- * Read hiddenCommands from ~/.sero-ui/agent/settings.json.
- * Re-read on each call so edits take effect without restart.
- */
-async function readHiddenCommands(): Promise<Set<string>> {
-  try {
-    const raw = await fs.readFile(SERO_CONFIG_PATH, 'utf8');
-    const config = JSON.parse(raw);
-    if (Array.isArray(config.hiddenCommands)) {
-      return new Set(config.hiddenCommands as string[]);
-    }
-  } catch {
-    // File missing or malformed — no hidden commands
-  }
-  return new Set();
-}
-
-/** Build the slash command list from a pool entry's resources. PI CLI ordering. */
-function buildCommandList(entry: PoolEntry, hidden?: Set<string>): SeroSlashCommandInfo[] {
-  const runtime = entry.session.extensionRunner;
-  if (!runtime) return [];
-
-  // 1. Extension commands from the runner
-  const extensionCommands = runtime.getRegisteredCommands();
-  const extCmds: SeroSlashCommandInfo[] = extensionCommands.map((cmd) => ({
-    name: cmd.name,
-    description: cmd.description,
-    source: 'extension' as const,
-  }));
-
-  // 2. Prompt templates from the resource loader
-  const { prompts } = entry.loader.getPrompts();
-  const promptCmds: SeroSlashCommandInfo[] = prompts.map((p) => ({
-    name: p.name,
-    description: p.description,
-    source: 'prompt' as const,
-    path: p.source,
-  }));
-
-  // 3. Skill commands from the resource loader
-  const { skills } = entry.loader.getSkills();
-  const skillCmds: SeroSlashCommandInfo[] = skills.map((s) => ({
-    name: `skill:${s.name}`,
-    description: s.description,
-    source: 'skill' as const,
-    path: s.filePath,
-  }));
-
-  const all = [...extCmds, ...promptCmds, ...skillCmds];
-  if (!hidden || hidden.size === 0) return all;
-  return all.filter((cmd) => !hidden.has(cmd.name));
-}
-
-/**
- * Convert ChatAttachments (data-URLs) to Pi SDK ImageContent[].
- * Only image/* types are included; non-image attachments are skipped.
- */
-function attachmentsToImages(attachments?: ChatAttachment[]): ImageContent[] | undefined {
-  if (!attachments?.length) return undefined;
-
-  const images: ImageContent[] = [];
-  for (const att of attachments) {
-    const mime = att.mediaType ?? '';
-    if (!mime.startsWith('image/')) continue;
-
-    // Parse data URL: "data:<mediaType>;base64,<data>"
-    const match = att.url.match(/^data:[^;]+;base64,(.+)$/);
-    if (!match) continue;
-
-    images.push({ type: 'image', data: match[1], mimeType: mime });
-  }
-
-  return images.length > 0 ? images : undefined;
-}
-
-/** Provider display names. Unmapped providers get title-cased. */
-const PROVIDER_NAMES: Record<string, string> = {
-  anthropic: 'Anthropic',
-  openai: 'OpenAI',
-  'openai-codex': 'OpenAI (Codex)',
-  google: 'Google',
-  'google-gemini-cli': 'Google (Gemini CLI)',
-  'google-antigravity': 'Antigravity',
-  'google-vertex': 'Google Vertex',
-  xai: 'xAI',
-  openrouter: 'OpenRouter',
-  groq: 'Groq',
-  cerebras: 'Cerebras',
-  mistral: 'Mistral',
-  'github-copilot': 'GitHub Copilot',
-  'amazon-bedrock': 'Amazon Bedrock',
-  'azure-openai-responses': 'Azure OpenAI',
-  huggingface: 'Hugging Face',
-  'vercel-ai-gateway': 'Vercel AI Gateway',
-  zai: 'ZAI',
-  opencode: 'OpenCode',
-  'kimi-coding': 'Kimi',
-};
-
-/** Logo URL base — maps provider to models.dev SVG name. */
-const PROVIDER_LOGO_MAP: Record<string, string> = {
-  'openai-codex': 'openai',
-  'google-gemini-cli': 'google',
-  'google-antigravity': 'google',
-  'google-vertex': 'google-vertex',
-  'azure-openai-responses': 'azure',
-  'amazon-bedrock': 'amazon-bedrock',
-  'github-copilot': 'github-copilot',
-  'vercel-ai-gateway': 'vercel',
-  'kimi-coding': 'openai', // fallback
-};
-
-function providerLogo(provider: string): string {
-  const slug = PROVIDER_LOGO_MAP[provider] ?? provider;
-  return `https://models.dev/logos/${slug}.svg`;
-}
-
-function providerDisplayName(provider: string): string {
-  return PROVIDER_NAMES[provider] ?? provider.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-/** Build a SessionModelState from a pool entry's current session state. */
-function buildModelState(entry: PoolEntry): SessionModelState {
-  const session = entry.session;
-  const model = session.model;
-
-  // Reload auth from disk so keys added externally (pi auth, OAuth) are picked up
-  session.modelRegistry.authStorage.reload();
-
-  // Get all models with auth, group by provider
-  const available = session.modelRegistry.getAvailable();
-  const grouped = new Map<string, typeof available>();
-  for (const m of available) {
-    const list = grouped.get(m.provider) ?? [];
-    list.push(m);
-    grouped.set(m.provider, list);
-  }
-
-  const availableModels = [...grouped.entries()].map(([provider, models]) => ({
-    provider,
-    displayName: providerDisplayName(provider),
-    logo: providerLogo(provider),
-    models: models.map((m) => ({
-      provider: m.provider,
-      modelId: m.id,
-      name: m.name,
-      reasoning: m.reasoning,
-    })),
-  }));
-
-  return {
-    model: {
-      provider: model?.provider ?? 'unknown',
-      modelId: model?.id ?? 'unknown',
-      name: model?.name ?? 'Unknown',
-      reasoning: model?.reasoning ?? false,
-    },
-    thinkingLevel: session.thinkingLevel,
-    availableThinkingLevels: session.getAvailableThinkingLevels(),
-    supportsXhigh: session.supportsXhighThinking(),
-    availableModels,
-  };
 }
 
 /** Close and dispose a single pool entry. */
@@ -507,6 +241,50 @@ export function registerAgentHandlers(): void {
         throw new Error(`Workspace not found: ${workspaceId}`);
       }
 
+      // Check if this workspace has containers enabled (defaults to true).
+      const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
+
+      // Ensure the workspace's container is running (lazy creation).
+      // Notify renderer of container state transitions.
+      let containerState: ContainerState | null = null;
+      if (!containerEnabled) {
+        console.log(`[agent] Container disabled for workspace ${workspaceId}, using host tools`);
+      }
+      try {
+        if (containerEnabled) {
+          sendEvent({ type: 'container_starting', sessionId, workspaceId });
+          containerState = await containerManager.ensure({
+            workspaceId,
+            hostPath: wsPath,
+          });
+          sendEvent({
+            type: 'container_ready',
+            sessionId,
+            workspaceId,
+            ipAddress: containerState.ipAddress,
+          });
+        }
+      } catch (containerErr: any) {
+        console.error(`[agent] Container failed for ${workspaceId}:`, containerErr?.message);
+        sendEvent({
+          type: 'container_error',
+          sessionId,
+          workspaceId,
+          error: containerErr?.message ?? 'Container failed to start',
+        });
+        // Fall through — session will use host tools as fallback
+      }
+
+      // Build tools: container tools replace built-in host tools.
+      // customTools = our container-proxied tools (ToolDefinition[])
+      // tools = [] disables the SDK's built-in host-side coding tools
+      // If container failed, fall back to normal host coding tools.
+      const useContainer = !!containerState;
+      const containerTools = useContainer
+        ? createContainerTools(containerManager, workspaceId)
+        : undefined;
+      const builtinTools = useContainer ? [] : createCodingTools(wsPath);
+
       // Read global workspace AGENTS.md (inherited by all workspaces)
       const globalAgentsFile = await readGlobalAgentsMd();
 
@@ -515,12 +293,20 @@ export function registerAgentHandlers(): void {
       // and packages from Sero's own agent directory (~/.sero-ui/agent/).
       // Sero app extensions (e.g. todo) are loaded automatically via
       // settings.json packages list — no manual loading needed.
+      //
+      // Resource loader reads from HOST filesystem (wsPath) for skill/prompt
+      // discovery. The bind mount makes the same files visible inside the
+      // container at /workspace.
       const loader = new DefaultResourceLoader({
         cwd: wsPath,
         agentDir: SERO_AGENT_DIR,
         settingsManager: infra.settingsManager,
         extensionFactories: [
-          createSeroExtensionFactory(workspaceManager, workspaceId),
+          createSeroExtensionFactory(
+            workspaceManager,
+            workspaceId,
+            containerState ?? undefined,
+          ),
         ],
         // Inject global workspace AGENTS.md as base context.
         // DefaultResourceLoader discovers workspace-level AGENTS.md via cwd walk-up;
@@ -541,7 +327,8 @@ export function registerAgentHandlers(): void {
         agentDir: SERO_AGENT_DIR,
         authStorage: infra.authStorage,
         modelRegistry: infra.modelRegistry,
-        tools: createCodingTools(wsPath),
+        tools: builtinTools,
+        customTools: containerTools,
         resourceLoader: loader,
         sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
         settingsManager: infra.settingsManager,
@@ -602,7 +389,7 @@ export function registerAgentHandlers(): void {
     async (_event, sessionId: string): Promise<SeroSlashCommandInfo[]> => {
       const entry = pool.get(sessionId);
       if (!entry) return [];
-      const hidden = await readHiddenCommands();
+      const hidden = await readHiddenCommands(SERO_CONFIG_PATH);
       return buildCommandList(entry, hidden);
     },
   );
@@ -617,7 +404,7 @@ export function registerAgentHandlers(): void {
       // Re-discover skills, prompts, extensions from disk
       await entry.loader.reload();
 
-      const hidden = await readHiddenCommands();
+      const hidden = await readHiddenCommands(SERO_CONFIG_PATH);
       return buildCommandList(entry, hidden);
     },
   );
