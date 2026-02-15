@@ -10,11 +10,26 @@ import { IpcChannels } from '../../src/types/ipc';
 import { containerManager } from './shared-infra';
 
 export function registerTerminalHandlers(): void {
+  const tm = containerManager.terminals;
+
+  // Register exit callback once — forwards to all renderer windows
+  tm.onTerminalExit((terminalId) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      try {
+        if (!win.isDestroyed()) {
+          win.webContents.send(IpcChannels.terminal.exit, terminalId);
+        }
+      } catch {
+        /* window may be closing */
+      }
+    }
+  });
+
   // Create a terminal in a workspace's container
   ipcMain.handle(
     IpcChannels.terminal.create,
     async (_event, workspaceId: string, terminalId: string, cols?: number, rows?: number) => {
-      const pty = containerManager.createTerminal(workspaceId, terminalId, cols, rows);
+      const pty = tm.createTerminal(workspaceId, terminalId, cols, rows);
 
       // Forward PTY data to all renderer windows
       pty.onData((data: string) => {
@@ -28,19 +43,6 @@ export function registerTerminalHandlers(): void {
           }
         }
       });
-
-      // Notify renderer when terminal exits
-      pty.onExit(() => {
-        for (const win of BrowserWindow.getAllWindows()) {
-          try {
-            if (!win.isDestroyed()) {
-              win.webContents.send(IpcChannels.terminal.exit, terminalId);
-            }
-          } catch {
-            /* window may be closing */
-          }
-        }
-      });
     },
   );
 
@@ -48,13 +50,14 @@ export function registerTerminalHandlers(): void {
   ipcMain.handle(
     IpcChannels.terminal.write,
     async (_event, terminalId: string, data: string) => {
-      const proc = containerManager.getTerminal(terminalId);
+      const proc = tm.getTerminal(terminalId);
       if (proc) {
         try {
           proc.write(data);
-        } catch (err: any) {
-          if (err?.code !== 'EPIPE') {
-            console.warn(`[terminal] write error for ${terminalId}:`, err?.message);
+        } catch (err: unknown) {
+          const e = err as Record<string, unknown>;
+          if (e?.code !== 'EPIPE') {
+            console.warn(`[terminal] write error for ${terminalId}:`, e?.message);
           }
         }
       }
@@ -65,7 +68,7 @@ export function registerTerminalHandlers(): void {
   ipcMain.handle(
     IpcChannels.terminal.resize,
     async (_event, terminalId: string, cols: number, rows: number) => {
-      const proc = containerManager.getTerminal(terminalId);
+      const proc = tm.getTerminal(terminalId);
       if (proc) {
         try {
           proc.resize(cols, rows);
@@ -78,11 +81,11 @@ export function registerTerminalHandlers(): void {
 
   // Get buffered output for replay when xterm.js remounts
   ipcMain.handle(IpcChannels.terminal.replay, async (_event, terminalId: string) => {
-    return containerManager.getReplayBuffer(terminalId);
+    return tm.getReplayBuffer(terminalId);
   });
 
   // Dispose a terminal
   ipcMain.handle(IpcChannels.terminal.dispose, async (_event, terminalId: string) => {
-    containerManager.disposeTerminal(terminalId);
+    tm.disposeTerminal(terminalId);
   });
 }

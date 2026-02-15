@@ -1,5 +1,8 @@
 /**
  * Shared types, constants, and helpers for the container subsystem.
+ *
+ * ContainerState is the canonical container shape — imported by both
+ * Electron main process and renderer (via src/types/ipc.ts re-export).
  */
 
 import path from 'path';
@@ -11,9 +14,21 @@ export const DEFAULT_CPUS = 2;
 export const DEFAULT_MEMORY_MB = 1024;
 export const WORKSPACE_MOUNT = '/workspace';
 
+// ── Error helpers ────────────────────────────────────────────
+
+/** Extract a human-readable message from an unknown error value. */
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err !== null) {
+    const e = err as Record<string, unknown>;
+    return String(e.message ?? e.stderr ?? err);
+  }
+  return String(err);
+}
+
 /** Errors that indicate the container API server is not running / needs restart. */
 export function isXpcError(err: unknown): boolean {
-  const msg = String((err as any)?.message ?? (err as any)?.stderr ?? '');
+  const msg = errorMessage(err);
   return (
     msg.includes('XPC connection error') ||
     msg.includes('Connection invalid') ||
@@ -23,13 +38,15 @@ export function isXpcError(err: unknown): boolean {
 
 /** Errors that indicate a ghost container (exists in registry but storage is corrupted/missing). */
 export function isGhostError(err: unknown): boolean {
-  const msg = String((err as any)?.message ?? (err as any)?.stderr ?? '');
+  const msg = errorMessage(err);
   return (
     msg.includes("couldn't be opened because there is no such file") ||
     (msg.includes('config.json') &&
       (msg.includes('No such file or directory') || msg.includes('internalError')))
   );
 }
+
+// ── Core types ───────────────────────────────────────────────
 
 export interface ContainerConfig {
   /** Workspace ID (used to derive container name). */
@@ -41,6 +58,10 @@ export interface ContainerConfig {
   memoryMB?: number;
 }
 
+/**
+ * Container state — single source of truth.
+ * Re-exported as `ContainerInfo` in `src/types/ipc.ts` for renderer use.
+ */
 export interface ContainerState {
   id: string;
   image: string;

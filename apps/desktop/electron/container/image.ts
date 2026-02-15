@@ -57,8 +57,9 @@ export async function buildImage(
       },
     );
     console.log(`[container] Image ${imageName} built successfully`);
-  } catch (err: any) {
-    throw new Error(`Failed to build image ${imageName}: ${err.stderr || err.message}`);
+  } catch (err: unknown) {
+    const e = err as Record<string, unknown>;
+    throw new Error(`Failed to build image ${imageName}: ${e.stderr || (err instanceof Error ? err.message : String(err))}`);
   }
 }
 

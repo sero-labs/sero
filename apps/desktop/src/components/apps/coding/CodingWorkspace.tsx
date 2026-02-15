@@ -8,8 +8,9 @@ import {
   useWorkspaceTerminals,
   useActiveTerminalId,
   useTerminalStore,
-  useWorkspaceCodingUi,
 } from '@/stores/terminal';
+import { useWorkspaceCodingUi, useCodingUiStore } from '@/stores/coding-ui';
+import { useContainerStore } from '@/stores/container';
 
 /**
  * CodingWorkspace — the full coding app, mounted into the main area.
@@ -22,9 +23,8 @@ import {
  * │    │      │       Terminal Panel (bottom)      │
  * └────┴──────┴───────────────────────────────────┘
  *
- * All panel state (sidebar, terminal, active panel) is stored
- * per-workspace in the terminal store so it persists across
- * workspace switches.
+ * Panel state (sidebar, terminal) is stored per-workspace in the
+ * coding-ui store so it persists across workspace switches.
  */
 export function CodingWorkspace() {
   const activeWorkspace = useActiveWorkspace();
@@ -32,7 +32,7 @@ export function CodingWorkspace() {
 
   // Per-workspace UI state (persists across workspace switches)
   const { sidebarOpen, activePanel, terminalOpen } = useWorkspaceCodingUi(workspaceId);
-  const setCodingUi = useTerminalStore((s) => s.setCodingUi);
+  const setCodingUi = useCodingUiStore((s) => s.set);
 
   const tabs = useWorkspaceTerminals(workspaceId);
   const activeTerminalId = useActiveTerminalId(workspaceId);
@@ -43,7 +43,21 @@ export function CodingWorkspace() {
     return cleanup;
   }, []);
 
-  // Auto-open terminal panel when first terminal is created
+  // Auto-create a default terminal when the container becomes ready
+  const containerStatus = useContainerStore(
+    (s) => s.containers[workspaceId]?.status ?? 'none',
+  );
+  useEffect(() => {
+    if (containerStatus === 'running' && tabs.length === 0) {
+      useTerminalStore.getState().createTab(workspaceId).then(() => {
+        setCodingUi(workspaceId, { terminalOpen: true });
+      }).catch((err) => {
+        console.warn('[coding] Failed to auto-create terminal:', err);
+      });
+    }
+  }, [containerStatus, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-open terminal panel when first terminal is created (manual create)
   useEffect(() => {
     if (tabs.length > 0 && !terminalOpen) {
       setCodingUi(workspaceId, { terminalOpen: true });

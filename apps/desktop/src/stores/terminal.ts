@@ -1,14 +1,12 @@
 /**
- * Terminal state store — manages terminal tabs and per-workspace
- * CodingWorkspace UI state (sidebar, terminal panel, active panel).
+ * Terminal state store — manages terminal tabs per workspace.
  *
- * Per-workspace UI state lives here so it persists across workspace
- * switches without losing panel visibility, active tab, etc.
+ * CodingWorkspace UI state (sidebar, panel visibility) lives in
+ * stores/coding-ui.ts — this store is purely terminal tabs.
  */
 
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import type { CodingPanel } from '@/components/apps/coding/ActivityBar';
 
 export interface TerminalTab {
   id: string;
@@ -18,28 +16,13 @@ export interface TerminalTab {
   exited: boolean;
 }
 
-/** Per-workspace UI state for CodingWorkspace. */
-export interface WorkspaceCodingUi {
-  sidebarOpen: boolean;
-  activePanel: CodingPanel;
-  terminalOpen: boolean;
-}
-
-const DEFAULT_CODING_UI: WorkspaceCodingUi = {
-  sidebarOpen: true,
-  activePanel: 'explorer',
-  terminalOpen: false,
-};
-
 interface TerminalState {
   /** All terminal tabs, keyed by terminal ID. */
   tabs: Record<string, TerminalTab>;
   /** Currently active terminal ID per workspace. */
   activeTerminalId: Record<string, string | null>;
-  /** Per-workspace CodingWorkspace UI state. */
-  codingUi: Record<string, WorkspaceCodingUi>;
 
-  // ── Terminal actions ───────────────────────────────────────
+  // ── Actions ────────────────────────────────────────────────
 
   /** Create a new terminal tab for a workspace. Returns the terminal ID. */
   createTab: (workspaceId: string) => Promise<string>;
@@ -52,13 +35,6 @@ interface TerminalState {
   /** Get all tabs for a workspace. */
   getWorkspaceTabs: (workspaceId: string) => TerminalTab[];
 
-  // ── Per-workspace UI actions ───────────────────────────────
-
-  /** Get CodingWorkspace UI state for a workspace (with defaults). */
-  getCodingUi: (workspaceId: string) => WorkspaceCodingUi;
-  /** Update CodingWorkspace UI state for a workspace. */
-  setCodingUi: (workspaceId: string, update: Partial<WorkspaceCodingUi>) => void;
-
   /** Subscribe to terminal exit events. Returns cleanup function. */
   initExitListener: () => () => void;
 }
@@ -68,7 +44,6 @@ let tabCounter = 0;
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   tabs: {},
   activeTerminalId: {},
-  codingUi: {},
 
   createTab: async (workspaceId) => {
     const terminalId = `term-${workspaceId}-${++tabCounter}-${Date.now()}`;
@@ -150,20 +125,6 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     return Object.values(get().tabs).filter((t) => t.workspaceId === workspaceId);
   },
 
-  // ── Per-workspace UI ─────────────────────────────────────
-
-  getCodingUi: (workspaceId) => {
-    return get().codingUi[workspaceId] ?? DEFAULT_CODING_UI;
-  },
-
-  setCodingUi: (workspaceId, update) =>
-    set((s) => {
-      const current = s.codingUi[workspaceId] ?? DEFAULT_CODING_UI;
-      return {
-        codingUi: { ...s.codingUi, [workspaceId]: { ...current, ...update } },
-      };
-    }),
-
   initExitListener: () => {
     const unsubscribe = window.sero.terminal.onExit((terminalId) => {
       get().markExited(terminalId);
@@ -186,11 +147,4 @@ export function useWorkspaceTerminals(workspaceId: string): TerminalTab[] {
 /** Get the active terminal ID for a workspace. */
 export function useActiveTerminalId(workspaceId: string): string | null {
   return useTerminalStore((s) => s.activeTerminalId[workspaceId] ?? null);
-}
-
-/** Get CodingWorkspace UI state for a workspace. */
-export function useWorkspaceCodingUi(workspaceId: string): WorkspaceCodingUi {
-  return useTerminalStore(
-    useShallow((s) => s.codingUi[workspaceId] ?? DEFAULT_CODING_UI),
-  );
 }

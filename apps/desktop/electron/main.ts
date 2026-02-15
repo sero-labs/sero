@@ -2,7 +2,7 @@
 import { loadSeroEnv, SERO_AGENT_DIR } from './env';
 loadSeroEnv();
 
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
 import { registerAllIpcHandlers } from './ipc/index';
@@ -10,10 +10,6 @@ import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
 import { containerManager } from './ipc/shared-infra';
-import { FileWatcherManager } from './container/file-watcher';
-import { IpcChannels } from '../src/types/ipc';
-
-const fileWatcher = new FileWatcherManager();
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -117,9 +113,6 @@ function createWindow() {
     mainWindow?.show();
   });
 
-  // Wire file watcher to this window
-  fileWatcher.setWindow(mainWindow);
-
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -174,24 +167,15 @@ app.whenReady().then(async () => {
     console.error('[sero] Failed to ensure sero-node image:', err);
   }
 
-  // Start HTTP proxy so containers can access the internet through the host.
+  // Start HTTP proxy only if explicitly requested via env var.
   // Needed when security software (Bitdefender, etc.) blocks outbound from vmnet.
-  await containerManager.startProxy();
+  // NAT (setup-container-nat.sh) is the default networking path.
+  if (process.env.SERO_CONTAINER_PROXY === '1') {
+    await containerManager.startProxy();
+  }
 
   // Clean up orphaned sero-* containers from previous crashes
   await cleanupOrphanedContainers();
-
-  // ── File watcher IPC handlers ────────────────────────────────
-  ipcMain.handle(IpcChannels.filetree.watch, async (_event, workspaceId: string) => {
-    const wsPath = workspaceManager.getPath(workspaceId);
-    if (wsPath) fileWatcher.watch(workspaceId, wsPath);
-  });
-  ipcMain.handle(IpcChannels.filetree.unwatch, async (_event, workspaceId: string) => {
-    fileWatcher.unwatch(workspaceId);
-  });
-  ipcMain.handle(IpcChannels.filetree.setActive, async (_event, workspaceId: string | null) => {
-    fileWatcher.setActiveWorkspace(workspaceId);
-  });
 
   createWindow();
 });
@@ -211,10 +195,9 @@ app.on('before-quit', async (e) => {
   e.preventDefault();
   console.log('[sero] Shutting down — cleaning up containers and terminals...');
 
-  // Dispose terminals, port forwards, and file watchers
-  containerManager.disposeAllTerminals();
+  // Dispose terminals and port forwards
+  containerManager.terminals.disposeAllTerminals();
   containerManager.disposeAllPortForwards();
-  fileWatcher.disposeAll();
 
   // Stop all sero-* containers
   try {

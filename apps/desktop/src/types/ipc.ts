@@ -149,15 +149,9 @@ export type AgentStreamEvent =
 
 // ── Container ──────────────────────────────────────────────────
 
-/** Container state surfaced to the renderer. */
-export interface ContainerInfo {
-  id: string;
-  image: string;
-  state: 'running' | 'stopped' | 'unknown';
-  ipAddress?: string;
-  cpus: number;
-  memoryBytes: number;
-}
+// Re-export the canonical container type from the container subsystem.
+// This avoids duplicating the shape and ensures IPC data stays in sync.
+export type { ContainerState as ContainerInfo } from '../../electron/container/types';
 
 // ── Model Info ─────────────────────────────────────────────────
 
@@ -373,15 +367,5 @@ export const IpcChannels = {
     data: 'sero:terminal:data',
     /** Main → renderer push: terminal process exited. */
     exit: 'sero:terminal:exit',
-  },
-  filetree: {
-    /** Start watching a workspace directory for changes. */
-    watch: 'sero:filetree:watch',
-    /** Stop watching a workspace directory. */
-    unwatch: 'sero:filetree:unwatch',
-    /** Set the active workspace (only active workspace watcher runs). */
-    setActive: 'sero:filetree:set-active',
-    /** Main → renderer push: directories changed. */
-    changed: 'sero:filetree:changed',
   },
 } as const;

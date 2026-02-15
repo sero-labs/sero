@@ -16,6 +16,7 @@ import {
   isGhostError,
   containerId,
   containerStoragePath,
+  errorMessage,
   type ContainerConfig,
   type ContainerState,
   type ExecResult,
@@ -41,9 +42,9 @@ export async function ensureSystemRunning(): Promise<void> {
     await execFileAsync(CONTAINER_BIN, ['system', 'start'], { timeout: 30_000 });
     await waitForSystem(15_000);
     console.log('[container] API server started successfully');
-  } catch (err: any) {
-    console.error('[container] Failed to start API server:', err?.message);
-    throw new Error(`Container system failed to start: ${err?.message}`);
+  } catch (err: unknown) {
+    console.error('[container] Failed to start API server:', errorMessage(err));
+    throw new Error(`Container system failed to start: ${errorMessage(err)}`);
   }
 }
 
@@ -91,8 +92,8 @@ export async function clearGhostContainer(cid: string): Promise<void> {
     console.log(`[container] Removing corrupted storage for ${cid}`);
     try {
       fs.rmSync(storageDir, { recursive: true, force: true });
-    } catch (rmErr: any) {
-      console.warn('[container] Could not remove storage dir:', rmErr?.message);
+    } catch (rmErr: unknown) {
+      console.warn('[container] Could not remove storage dir:', errorMessage(rmErr));
     }
   }
   await restartSystem();
@@ -117,7 +118,7 @@ export async function resolveExistingContainer(
     // Container doesn't exist — clean any stale name reservation
     try {
       await execFileAsync(CONTAINER_BIN, ['delete', '--force', cid], { timeout: 15_000 });
-    } catch (delErr: any) {
+    } catch (delErr: unknown) {
       if (isGhostError(delErr)) {
         await clearGhostContainer(cid);
       }
@@ -138,19 +139,19 @@ export async function resolveExistingContainer(
     await execFileAsync(CONTAINER_BIN, ['start', cid], { timeout: 30_000 });
     containerMap.set(workspaceId, cid);
     return await inspectFn(workspaceId);
-  } catch (startErr: any) {
-    console.warn(`[container] Failed to start ${cid}:`, startErr?.message);
+  } catch (startErr: unknown) {
+    console.warn(`[container] Failed to start ${cid}:`, errorMessage(startErr));
   }
 
   // Start failed — delete and let caller create fresh
   try {
     await execFileAsync(CONTAINER_BIN, ['delete', '--force', cid], { timeout: 15_000 });
     console.log(`[container] Deleted corrupted container ${cid}, will recreate`);
-  } catch (delErr: any) {
+  } catch (delErr: unknown) {
     if (isGhostError(delErr)) {
       await clearGhostContainer(cid);
     } else {
-      console.warn(`[container] Delete failed for ${cid}:`, delErr?.message);
+      console.warn(`[container] Delete failed for ${cid}:`, errorMessage(delErr));
     }
   }
 
@@ -212,8 +213,9 @@ export async function createFreshContainer(
 
   try {
     await execFileAsync(CONTAINER_BIN, args, { timeout: 60_000 });
-  } catch (err: any) {
-    throw new Error(`Failed to create container ${cid}: ${err.stderr || err.message}`);
+  } catch (err: unknown) {
+    const e = err as Record<string, unknown>;
+    throw new Error(`Failed to create container ${cid}: ${e.stderr || errorMessage(err)}`);
   }
 
   containerMap.set(config.workspaceId, cid);
@@ -236,6 +238,16 @@ export async function createFreshContainer(
   return inspectFn(config.workspaceId);
 }
 
+/** Minimal shape expected from `container inspect` output. */
+interface InspectData {
+  status?: string;
+  configuration?: {
+    image?: { reference?: string };
+    resources?: { cpus?: number; memoryInBytes?: number };
+  };
+  networks?: Array<{ ipv4Address?: string }>;
+}
+
 /** Inspect a container and return its state. */
 export async function inspectContainer(
   workspaceId: string,
@@ -247,8 +259,16 @@ export async function inspectContainer(
     const { stdout } = await execFileAsync(CONTAINER_BIN, ['inspect', cid], {
       timeout: 10_000,
     });
-    const data = JSON.parse(stdout);
-    const info = Array.isArray(data) ? data[0] : data;
+    const raw: unknown = JSON.parse(stdout);
+
+    // `container inspect` may return an object or a single-element array.
+    const info: InspectData =
+      (Array.isArray(raw) ? raw[0] : raw) as InspectData;
+
+    if (typeof info !== 'object' || info === null) {
+      throw new Error(`Unexpected inspect output for ${cid}`);
+    }
+
     const config = info.configuration ?? {};
     const networks = info.networks ?? [];
     const ipAddress = networks[0]?.ipv4Address?.replace(/\/\d+$/, '');
@@ -261,8 +281,8 @@ export async function inspectContainer(
       cpus: config.resources?.cpus ?? 0,
       memoryBytes: config.resources?.memoryInBytes ?? 0,
     };
-  } catch (err: any) {
-    throw new Error(`Container ${cid} not found: ${err.message}`);
+  } catch (err: unknown) {
+    throw new Error(`Container ${cid} not found: ${errorMessage(err)}`);
   }
 }
 

@@ -1,9 +1,8 @@
 /**
  * Container port detection & bridging.
  *
- * Continuously monitors containers for listening ports and exposes
- * them via the container's own IP — NO host-side TCP proxies, so
- * container dev servers never conflict with local ones.
+ * Monitors containers for listening ports on-demand (after bash commands)
+ * and via a background interval. Exposes them via the container's own IP.
  *
  * For servers bound to 127.0.0.1 inside the container, a Node.js
  * bridge is started to re-expose them on 0.0.0.0 so the container
@@ -21,6 +20,19 @@ export interface DetectedPort {
 }
 
 type ExecFn = (cmd: string) => Promise<{ stdout: string; exitCode: number }>;
+
+/** Per-workspace scan state — all fields for one workspace in a single object. */
+interface WorkspaceScanState {
+  timer: ReturnType<typeof setInterval>;
+  containerIp: string;
+  execFn: ExecFn;
+  /** Ports detected in the most recent scan. */
+  detected: DetectedPort[];
+  /** Port numbers from the previous scan (for bridge cleanup). */
+  lastPorts: Set<number>;
+  /** Port numbers that have an active bridge. */
+  bridges: Set<number>;
+}
 
 // ── Port parsing ────────────────────────────────────────────
 
@@ -60,65 +72,63 @@ function bridgeScript(targetPort: number, bridgePort: number): string {
 // ── PortScanner ─────────────────────────────────────────────
 
 export class PortScanner {
-  private scanners = new Map<string, ReturnType<typeof setInterval>>();
-  private containerIps = new Map<string, string>();
-  private execFns = new Map<string, ExecFn>();
-  private bridges = new Set<number>();
-  /** workspaceId → detected ports with URLs */
-  private detectedPorts = new Map<string, DetectedPort[]>();
-  private lastPorts = new Map<string, Set<number>>();
+  /** All per-workspace state in a single map. */
+  private workspaces = new Map<string, WorkspaceScanState>();
 
   private readonly SCAN_INTERVAL = 3000;
 
   /** Start scanning a container for listening ports. */
   startScanning(wsId: string, containerIp: string, execFn: ExecFn): void {
-    if (this.scanners.has(wsId)) return;
-    this.containerIps.set(wsId, containerIp);
-    this.execFns.set(wsId, execFn);
-    this.lastPorts.set(wsId, new Set());
-    this.detectedPorts.set(wsId, []);
-    this.scan(wsId);
-    this.scanners.set(wsId, setInterval(() => this.scan(wsId), this.SCAN_INTERVAL));
+    if (this.workspaces.has(wsId)) return;
+
+    const state: WorkspaceScanState = {
+      timer: setInterval(() => this.scan(wsId), this.SCAN_INTERVAL),
+      containerIp,
+      execFn,
+      detected: [],
+      lastPorts: new Set(),
+      bridges: new Set(),
+    };
+
+    this.workspaces.set(wsId, state);
+    this.scan(wsId); // immediate first scan
   }
 
   /** Stop scanning a container. */
   stopScanning(wsId: string): void {
-    const t = this.scanners.get(wsId);
-    if (t) clearInterval(t);
-    this.scanners.delete(wsId);
-    this.containerIps.delete(wsId);
-    this.execFns.delete(wsId);
-    this.lastPorts.delete(wsId);
-    this.detectedPorts.delete(wsId);
+    const state = this.workspaces.get(wsId);
+    if (!state) return;
+    clearInterval(state.timer);
+    this.workspaces.delete(wsId);
   }
 
-  /** Trigger an immediate scan (e.g. after bash command). */
-  triggerScan(wsId: string): void { this.scan(wsId); }
+  /** Trigger an immediate scan (e.g. after a bash command). Non-blocking. */
+  triggerScan(wsId: string): void {
+    this.scan(wsId);
+  }
 
-  /** Get detected ports for a workspace. */
+  /** Get detected ports for a workspace (from the most recent scan). */
   getPorts(wsId: string): DetectedPort[] {
-    return this.detectedPorts.get(wsId) ?? [];
+    return this.workspaces.get(wsId)?.detected ?? [];
   }
 
   /** Get the container IP for a workspace. */
   getIp(wsId: string): string | undefined {
-    return this.containerIps.get(wsId);
+    return this.workspaces.get(wsId)?.containerIp;
   }
 
   disposeAll(): void {
-    for (const [wsId] of this.scanners) this.stopScanning(wsId);
-    this.bridges.clear();
+    for (const [wsId] of this.workspaces) this.stopScanning(wsId);
   }
 
   // ── Internal ──────────────────────────────────────────
 
   private async scan(wsId: string): Promise<void> {
-    const execFn = this.execFns.get(wsId);
-    const ip = this.containerIps.get(wsId);
-    if (!execFn || !ip) return;
+    const state = this.workspaces.get(wsId);
+    if (!state) return;
 
     try {
-      const result = await execFn('ss -tlnp 2>/dev/null');
+      const result = await state.execFn('ss -tlnp 2>/dev/null');
       if (result.exitCode !== 0) return;
 
       const ports = parseListeningPorts(result.stdout);
@@ -130,34 +140,37 @@ export class PortScanner {
         currentSet.add(port);
 
         if (isPublic) {
-          detected.push({ port, url: `http://${ip}:${port}`, bridged: false });
+          detected.push({ port, url: `http://${state.containerIp}:${port}`, bridged: false });
         } else {
           // Needs bridge to be reachable via container IP
           const bridgePort = port + BRIDGE_OFFSET;
-          await this.ensureBridge(wsId, port, execFn);
-          detected.push({ port, url: `http://${ip}:${bridgePort}`, bridged: true });
+          await this.ensureBridge(state, wsId, port);
+          detected.push({ port, url: `http://${state.containerIp}:${bridgePort}`, bridged: true });
         }
       }
 
       // Clean up bridges for ports that stopped listening
-      const prevPorts = this.lastPorts.get(wsId) ?? new Set();
-      for (const old of prevPorts) {
-        if (!currentSet.has(old) && this.bridges.has(old)) {
-          this.bridges.delete(old);
+      for (const old of state.lastPorts) {
+        if (!currentSet.has(old) && state.bridges.has(old)) {
+          state.bridges.delete(old);
         }
       }
 
-      this.lastPorts.set(wsId, currentSet);
-      this.detectedPorts.set(wsId, detected);
+      state.lastPorts = currentSet;
+      state.detected = detected;
     } catch { /* container may have stopped */ }
   }
 
-  private async ensureBridge(wsId: string, port: number, execFn: ExecFn): Promise<void> {
-    if (this.bridges.has(port)) return;
+  private async ensureBridge(
+    state: WorkspaceScanState,
+    wsId: string,
+    port: number,
+  ): Promise<void> {
+    if (state.bridges.has(port)) return;
     const bridgePort = port + BRIDGE_OFFSET;
     try {
-      await execFn(`${bridgeScript(port, bridgePort)} sleep 0.5`);
-      this.bridges.add(port);
+      await state.execFn(`${bridgeScript(port, bridgePort)} sleep 0.5`);
+      state.bridges.add(port);
       console.log(`[ports] Bridge: 0.0.0.0:${bridgePort} → 127.0.0.1:${port} (${wsId})`);
     } catch {
       console.warn(`[ports] Failed to bridge port ${port} in ${wsId}`);

@@ -223,24 +223,4 @@ contextBridge.exposeInMainWorld('sero', {
     },
   },
 
-  filetree: {
-    watch: (workspaceId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.filetree.watch, workspaceId),
-
-    unwatch: (workspaceId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.filetree.unwatch, workspaceId),
-
-    setActive: (workspaceId: string | null): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.filetree.setActive, workspaceId),
-
-    onChanged: (callback: (data: { workspaceId: string; directories: string[] }) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: { workspaceId: string; directories: string[] }) => {
-        callback(data);
-      };
-      ipcRenderer.on(IpcChannels.filetree.changed, handler);
-      return () => {
-        ipcRenderer.removeListener(IpcChannels.filetree.changed, handler);
-      };
-    },
-  },
 });

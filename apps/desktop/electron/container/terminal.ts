@@ -3,10 +3,12 @@
  * Each terminal is a `container exec -it` session via node-pty.
  */
 
-import { EventEmitter } from 'events';
 import type { IPty } from 'node-pty';
-import { CONTAINER_BIN, containerId } from './types';
+import { CONTAINER_BIN } from './types';
 import { TerminalOutputBuffer } from './terminal-buffer';
+
+/** Callback invoked when a terminal process exits. */
+export type TerminalExitCallback = (terminalId: string) => void;
 
 export class TerminalManager {
   /** terminalId → node-pty instance */
@@ -15,11 +17,17 @@ export class TerminalManager {
   private terminalBuffers = new Map<string, TerminalOutputBuffer>();
   /** workspaceId → [terminalId, ...] mapping */
   private workspaceTerminals = new Map<string, string[]>();
+  /** Registered exit callbacks. */
+  private exitCallbacks: TerminalExitCallback[] = [];
 
   constructor(
-    private emitter: EventEmitter,
     private getContainerIdFn: (wsId: string) => string,
   ) {}
+
+  /** Register a callback for terminal exit events. */
+  onTerminalExit(cb: TerminalExitCallback): void {
+    this.exitCallbacks.push(cb);
+  }
 
   /**
    * Create an interactive terminal session via node-pty.
@@ -77,7 +85,7 @@ export class TerminalManager {
         const idx = list.indexOf(terminalId);
         if (idx !== -1) list.splice(idx, 1);
       }
-      this.emitter.emit('terminal:exit', terminalId);
+      for (const cb of this.exitCallbacks) cb(terminalId);
     });
 
     return proc;
@@ -140,7 +148,7 @@ export class TerminalManager {
 
   /** Dispose ALL terminals (used on app quit). */
   disposeAllTerminals(): void {
-    for (const [tid, proc] of this.terminals) {
+    for (const [, proc] of this.terminals) {
       try {
         proc.kill();
       } catch {

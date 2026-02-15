@@ -148,17 +148,6 @@ interface SeroTerminalAPI {
   onExit(callback: (terminalId: string) => void): () => void;
 }
 
-interface SeroFiletreeAPI {
-  /** Start watching a workspace directory for changes. */
-  watch(workspaceId: string): Promise<void>;
-  /** Stop watching a workspace directory. */
-  unwatch(workspaceId: string): Promise<void>;
-  /** Set the active workspace (only active workspace watcher runs). */
-  setActive(workspaceId: string | null): Promise<void>;
-  /** Subscribe to file change events. Returns unsubscribe. */
-  onChanged(callback: (data: { workspaceId: string; directories: string[] }) => void): () => void;
-}
-
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -171,7 +160,6 @@ interface SeroAPI {
   auth: SeroAuthAPI;
   container: SeroContainerAPI;
   terminal: SeroTerminalAPI;
-  filetree: SeroFiletreeAPI;
 }
 
 declare global {

@@ -185,11 +185,13 @@ function providerDisplayName(provider: string): string {
 
 // ── Model state builder ──────────────────────────────────────
 
-export interface PoolEntryLike {
+/** Subset of a pool entry needed by helper functions. */
+export interface PoolEntryRef {
   session: AgentSession;
+  loader: DefaultResourceLoader;
 }
 
-export function buildModelState(entry: PoolEntryLike): SessionModelState {
+export function buildModelState(entry: Pick<PoolEntryRef, 'session'>): SessionModelState {
   const session = entry.session;
   const model = session.model;
 
@@ -250,12 +252,7 @@ export async function readHiddenCommands(configPath: string): Promise<Set<string
 
 // ── Slash command list builder ───────────────────────────────
 
-export interface CommandListEntry {
-  session: AgentSession;
-  loader: DefaultResourceLoader;
-}
-
-export function buildCommandList(entry: CommandListEntry, hidden?: Set<string>): SeroSlashCommandInfo[] {
+export function buildCommandList(entry: PoolEntryRef, hidden?: Set<string>): SeroSlashCommandInfo[] {
   const runtime = entry.session.extensionRunner;
   if (!runtime) return [];
 

@@ -1,0 +1,83 @@
+{
+  "todos": [
+    {
+      "id": 1,
+      "text": "🔴 #1: Type tool params properly in tools.ts (all 6 tools) — remove `params: any`",
+      "done": true,
+      "createdAt": "2026-02-15T21:24:41.016Z"
+    },
+    {
+      "id": 1,
+      "text": "P0: Fix `params: any` on all 6 tool execute fns in tools.ts",
+      "done": false,
+      "createdAt": "2026-02-15T21:29:46.459Z"
+    },
+    {
+      "id": 2,
+      "text": "P1: Fix ContainerInfo/ContainerState duplication",
+      "done": true,
+      "createdAt": "2026-02-15T21:29:49.439Z"
+    },
+    {
+      "id": 3,
+      "text": "P1: Consolidate PortScanner 6 Maps + fix hardcoded sleeps in bash tool",
+      "done": true,
+      "createdAt": "2026-02-15T21:29:52.333Z"
+    },
+    {
+      "id": 4,
+      "text": "P2: Remove file-watcher (no consumer)",
+      "done": true,
+      "createdAt": "2026-02-15T21:29:55.459Z"
+    },
+    {
+      "id": 5,
+      "text": "P2: Make HTTP proxy opt-in via env var",
+      "done": true,
+      "createdAt": "2026-02-15T21:29:58.087Z"
+    },
+    {
+      "id": 6,
+      "text": "P2: Extract CodingWorkspace UI state from terminal store into coding-ui.ts",
+      "done": true,
+      "createdAt": "2026-02-15T21:30:01.616Z"
+    },
+    {
+      "id": 7,
+      "text": "P2: Reduce ContainerManager pass-through bloat",
+      "done": true,
+      "createdAt": "2026-02-15T21:30:05.257Z"
+    },
+    {
+      "id": 8,
+      "text": "P1: Fix isXpcError/isGhostError double `as any` cast",
+      "done": true,
+      "createdAt": "2026-02-15T21:30:08.314Z"
+    },
+    {
+      "id": 9,
+      "text": "P1: Add shape validation to inspectContainer JSON.parse",
+      "done": true,
+      "createdAt": "2026-02-15T21:30:11.502Z"
+    },
+    {
+      "id": 10,
+      "text": "Minor: Merge PoolEntryLike/CommandListEntry into single interface",
+      "done": true,
+      "createdAt": "2026-02-15T21:30:14.564Z"
+    },
+    {
+      "id": 11,
+      "text": "Final: Typecheck + verify",
+      "done": true,
+      "createdAt": "2026-02-15T21:30:17.808Z"
+    },
+    {
+      "id": 12,
+      "text": "P1: Auto-create a default terminal when container becomes ready (no manual + click needed)",
+      "done": true,
+      "createdAt": "2026-02-15T21:30:24.585Z"
+    }
+  ],
+  "nextId": 13
+}
