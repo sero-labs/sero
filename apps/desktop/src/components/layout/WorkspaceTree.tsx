@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
 import { useSessionStore, useSessionsByWorkspace } from '@/stores/sessions';
 import { useStreamingSessionIds } from '@/stores/agent';
+import { useWorkspaceContainer, type ContainerStatus } from '@/stores/container';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -104,6 +105,30 @@ export function WorkspaceTree() {
 
 // ── Workspace node ─────────────────────────────────────────────
 
+/** Tiny container status indicator dot. */
+function ContainerIndicator({ workspaceId }: { workspaceId: string }) {
+  const container = useWorkspaceContainer(workspaceId);
+
+  if (container.status === 'none') return null;
+
+  const config: Record<ContainerStatus, { color: string; title: string; animate?: boolean }> = {
+    none: { color: '', title: '' },
+    starting: { color: 'bg-yellow-500', title: 'Container starting…', animate: true },
+    running: { color: 'bg-emerald-500', title: container.ipAddress ? `Container running (${container.ipAddress})` : 'Container running' },
+    stopped: { color: 'bg-zinc-500', title: 'Container stopped' },
+    error: { color: 'bg-red-500', title: container.error ? `Container error: ${container.error}` : 'Container error' },
+  };
+
+  const { color, title, animate } = config[container.status];
+
+  return (
+    <span
+      className={cn('size-1.5 shrink-0 rounded-full', color, animate && 'animate-pulse')}
+      title={title}
+    />
+  );
+}
+
 function WorkspaceNode({
   workspace,
   sessions,
@@ -175,6 +200,7 @@ function WorkspaceNode({
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {workspace.name}
         </span>
+        <ContainerIndicator workspaceId={workspace.id} />
 
         {/* Right side: crossfade between count and actions */}
         <span className="relative ml-auto flex h-5 shrink-0 items-center justify-end">

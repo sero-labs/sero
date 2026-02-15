@@ -2,13 +2,18 @@
 import { loadSeroEnv, SERO_AGENT_DIR } from './env';
 loadSeroEnv();
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
 import { registerAllIpcHandlers } from './ipc/index';
 import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
+import { containerManager } from './ipc/shared-infra';
+import { FileWatcherManager } from './container/file-watcher';
+import { IpcChannels } from '../src/types/ipc';
+
+const fileWatcher = new FileWatcherManager();
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -112,6 +117,9 @@ function createWindow() {
     mainWindow?.show();
   });
 
+  // Wire file watcher to this window
+  fileWatcher.setWindow(mainWindow);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -148,6 +156,43 @@ app.whenReady().then(async () => {
   registerAllExtAssets(apps);
 
   registerAllIpcHandlers();
+
+  // ── Container system bootstrap ───────────────────────────────
+  // Ensure the container API server is running (non-blocking on failure)
+  try {
+    await containerManager.ensureSystemRunning();
+  } catch (err) {
+    console.error('[sero] Failed to start container system on boot — containers will retry on demand:', err);
+  }
+
+  // Ensure sero-node image is built (non-blocking on failure)
+  try {
+    // __dirname is apps/desktop/dist/electron/ → images dir is 2 levels up
+    const imagesDir = path.resolve(__dirname, '../../images');
+    await containerManager.ensureImage(imagesDir);
+  } catch (err) {
+    console.error('[sero] Failed to ensure sero-node image:', err);
+  }
+
+  // Start HTTP proxy so containers can access the internet through the host.
+  // Needed when security software (Bitdefender, etc.) blocks outbound from vmnet.
+  await containerManager.startProxy();
+
+  // Clean up orphaned sero-* containers from previous crashes
+  await cleanupOrphanedContainers();
+
+  // ── File watcher IPC handlers ────────────────────────────────
+  ipcMain.handle(IpcChannels.filetree.watch, async (_event, workspaceId: string) => {
+    const wsPath = workspaceManager.getPath(workspaceId);
+    if (wsPath) fileWatcher.watch(workspaceId, wsPath);
+  });
+  ipcMain.handle(IpcChannels.filetree.unwatch, async (_event, workspaceId: string) => {
+    fileWatcher.unwatch(workspaceId);
+  });
+  ipcMain.handle(IpcChannels.filetree.setActive, async (_event, workspaceId: string | null) => {
+    fileWatcher.setActiveWorkspace(workspaceId);
+  });
+
   createWindow();
 });
 
@@ -160,3 +205,57 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+// ── Graceful shutdown ──────────────────────────────────────────
+app.on('before-quit', async (e) => {
+  e.preventDefault();
+  console.log('[sero] Shutting down — cleaning up containers and terminals...');
+
+  // Dispose terminals, port forwards, and file watchers
+  containerManager.disposeAllTerminals();
+  containerManager.disposeAllPortForwards();
+  fileWatcher.disposeAll();
+
+  // Stop all sero-* containers
+  try {
+    const containers = await containerManager.list();
+    await Promise.allSettled(
+      containers.map((c) => {
+        const workspaceId = c.id.replace(/^sero-/, '');
+        return containerManager.stop(workspaceId);
+      }),
+    );
+  } catch (err) {
+    console.error('[sero] Error during shutdown cleanup:', err);
+  }
+
+  app.exit(0);
+});
+
+// ── Orphan cleanup ─────────────────────────────────────────────
+/**
+ * Clean up any orphaned sero-* containers from previous crashes.
+ * Compares running containers against registered workspaces.
+ */
+async function cleanupOrphanedContainers(): Promise<void> {
+  try {
+    const workspaces = await workspaceManager.list();
+    const registeredIds = new Set(workspaces.map((w) => `sero-${w.id}`));
+
+    const running = await containerManager.list();
+    for (const c of running) {
+      if (!registeredIds.has(c.id)) {
+        console.log(`[sero] Cleaning up orphaned container: ${c.id}`);
+        const workspaceId = c.id.replace(/^sero-/, '');
+        try {
+          await containerManager.stop(workspaceId);
+          await containerManager.remove(workspaceId);
+        } catch {
+          // Best effort
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[sero] Orphan cleanup error:', err);
+  }
+}

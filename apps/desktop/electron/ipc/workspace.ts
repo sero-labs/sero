@@ -80,6 +80,14 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 
+  // ── Toggle container mode for a workspace ───────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.setContainer,
+    async (_event, id: string, enabled: boolean): Promise<void> => {
+      return workspaceManager.setContainerEnabled(id, enabled);
+    },
+  );
+
   // ── Native folder picker dialog ────────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.pickFolder,

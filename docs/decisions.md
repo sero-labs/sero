@@ -170,3 +170,34 @@ Session delete uses a Radix popover (not `window.confirm`) for inline
 confirmation. Small "Delete this session?" popover with Cancel/Delete buttons,
 positioned next to the trash icon. Consistent with the app's UI language and
 avoids blocking native dialogs.
+
+## AD-018: Native macOS Container Integration
+
+Every workspace gets a dedicated Linux VM via Apple's Containerization
+framework (`container` CLI v0.8.0+). One container per workspace, shared by
+all sessions in that workspace.
+
+**Architecture:** The Pi SDK `AgentSession` runs on the Electron host process
+(managing auth, models, extensions, session persistence). All tool execution
+(bash, read, write, edit, ls, read_terminal) is proxied into the container
+via `container exec`. The `DefaultResourceLoader` still reads from the host
+filesystem (bind mount makes files visible both sides).
+
+**Lifecycle:** Lazy creation — containers start on first `agent.open()`, not
+on workspace open. Containers stop on app quit. Orphaned containers are
+cleaned up on startup.
+
+**Key design:**
+- `electron/container/` — self-contained module: types, lifecycle, files,
+  terminal, image, tools, system-prompt, file-watcher
+- `ContainerManager` singleton in shared-infra, used by agent pool and
+  terminal IPC handlers
+- Workspace files bind-mounted: `<workspace.path>` → `/workspace`
+- SSH agent forwarding enabled (`--ssh` on `container run`)
+- Ghost container recovery follows the protocol in `docs/libs/container.md`
+- Terminal via `node-pty` → `container exec -it` → xterm.js in CodingWorkspace
+- Container status indicator in WorkspaceTree (dot: none/starting/running/error)
+- File watcher on host-side bind-mount dirs for future file tree integration
+- System prompt injected via `before_agent_start` hook with container-specific
+  instructions (0.0.0.0 binding, setsid for background processes, etc.)
+- Fallback: if container fails to start, session uses host-side tools

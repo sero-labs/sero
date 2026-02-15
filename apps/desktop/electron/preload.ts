@@ -12,6 +12,7 @@ import type {
   SessionModelState,
   AuthProvidersResponse,
   OAuthEvent,
+  ContainerInfo,
 } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
@@ -49,6 +50,9 @@ contextBridge.exposeInMainWorld('sero', {
 
     infer: (message: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.workspace.infer, message),
+
+    setContainer: (id: string, enabled: boolean): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.setContainer, id, enabled),
   },
 
   sessions: {
@@ -170,6 +174,72 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.on(IpcChannels.auth.event, handler);
       return () => {
         ipcRenderer.removeListener(IpcChannels.auth.event, handler);
+      };
+    },
+  },
+
+  container: {
+    status: (workspaceId: string): Promise<ContainerInfo | null> =>
+      ipcRenderer.invoke(IpcChannels.container.status, workspaceId),
+
+    inspect: (workspaceId: string): Promise<ContainerInfo> =>
+      ipcRenderer.invoke(IpcChannels.container.inspect, workspaceId),
+  },
+
+  terminal: {
+    create: (workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.terminal.create, workspaceId, terminalId, cols, rows),
+
+    write: (terminalId: string, data: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.terminal.write, terminalId, data),
+
+    resize: (terminalId: string, cols: number, rows: number): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.terminal.resize, terminalId, cols, rows),
+
+    dispose: (terminalId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.terminal.dispose, terminalId),
+
+    replay: (terminalId: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.terminal.replay, terminalId),
+
+    onData: (callback: (terminalId: string, data: string) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, terminalId: string, data: string) => {
+        callback(terminalId, data);
+      };
+      ipcRenderer.on(IpcChannels.terminal.data, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.terminal.data, handler);
+      };
+    },
+
+    onExit: (callback: (terminalId: string) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, terminalId: string) => {
+        callback(terminalId);
+      };
+      ipcRenderer.on(IpcChannels.terminal.exit, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.terminal.exit, handler);
+      };
+    },
+  },
+
+  filetree: {
+    watch: (workspaceId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.filetree.watch, workspaceId),
+
+    unwatch: (workspaceId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.filetree.unwatch, workspaceId),
+
+    setActive: (workspaceId: string | null): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.filetree.setActive, workspaceId),
+
+    onChanged: (callback: (data: { workspaceId: string; directories: string[] }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { workspaceId: string; directories: string[] }) => {
+        callback(data);
+      };
+      ipcRenderer.on(IpcChannels.filetree.changed, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.filetree.changed, handler);
       };
     },
   },

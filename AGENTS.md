@@ -1,7 +1,5 @@
 # Sero Monorepo
 
-Turborepo + pnpm workspaces monorepo for the Sero desktop app and its packages.
-
 ## Structure
 
 ```
@@ -10,7 +8,8 @@ sero/
 │   └── desktop/          # Electron + React app
 ├── packages/
 │   ├── app-runtime/      # @sero/app-runtime — hooks for federated app modules
-│   └── pi-todo-extension/# Pi extension + federated UI (todo app)
+│   ├── pi-todo-extension/# Pi extension + federated UI (todo app)
+│   └── other Sero apps....
 ├── turbo.json
 ├── pnpm-workspace.yaml
 └── package.json          # Root — workspace scripts
@@ -45,6 +44,8 @@ pnpm typecheck             # Typecheck all (turbo)
 - [docs/decisions.md](docs/decisions.md) — numbered architecture decisions with rationale
 - [docs/apps-tutorial.md](docs/apps-tutorial.md) — step-by-step guide to building new Sero apps
 - [docs/state-and-folders-analysis.md](docs/state-and-folders-analysis.md) — config/state locations and rationale
+- [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty native module rebuild guide (MUST READ if terminals fail)
+- [docs/libs/container.md](docs/libs/container.md) — Apple Container CLI reference + ghost container protocol
 
 ## File Size Rules (CRITICAL)
 
@@ -163,6 +164,45 @@ the feature appears to work in the UI but silently fails at the agent.
   shared state lives in Zustand stores (`src/stores/`). Cross-boundary state
   (e.g. for federated modules in `@sero/app-runtime`) is passed via context
   providers or the `window.sero` IPC bridge — never via `localStorage`.
+
+### Container Integration (AD-018)
+
+Every workspace runs inside a native macOS container (Apple Containerization
+framework). See [docs/decisions.md](docs/decisions.md) AD-018 for full details.
+
+**Key points:**
+
+- **One container per workspace** — `sero-<workspaceId>`, shared by all sessions
+- **Lazy start** — containers spin up on first agent prompt, not on workspace open
+- **Host orchestration** — Pi SDK `AgentSession` runs on Electron host; tool
+  execution (bash, read, write, edit, ls, read_terminal) is proxied into the
+  container via `container exec`
+- **Bind mount** — workspace files mounted `<host path>` → `/workspace`
+- **SSH forwarding** — `--ssh` on `container run` for git with private repos
+- **Container code** lives in `electron/container/` — types, lifecycle, files,
+  terminal, image, tools, system-prompt, file-watcher
+- **Ghost containers** — follow the protocol in
+  [docs/libs/container.md](docs/libs/container.md). NEVER delete container
+  storage directories directly. NEVER restart the API server in normal operation.
+- **Container CLI** is at `/usr/local/bin/container` (v0.8.0+)
+
+### node-pty Native Module (CRITICAL)
+
+Interactive terminals use `node-pty` to spawn `container exec -it` sessions.
+**node-pty requires a native binary compiled for the exact Node ABI version.**
+
+The prebuilt binaries shipped with node-pty frequently do NOT match. If
+terminals fail with `posix_spawnp failed`, **you must rebuild from source:**
+
+```bash
+cd /path/to/sero/sero   # monorepo root
+npx node-gyp rebuild --directory=node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty
+```
+
+**Rebuild is needed after:** changing Node version, running `pnpm install`
+(may restore prebuilds), or switching machines.
+
+See [docs/node-pty-setup.md](docs/node-pty-setup.md) for full troubleshooting.
 
 ### General
 - When creating documentation or plans, save them in @docs/ or a subfolder by type
