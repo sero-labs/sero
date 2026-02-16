@@ -93,6 +93,8 @@ interface SeroAppStateAPI {
 interface SeroAppsAPI {
   /** Discover all registered Sero apps from installed Pi packages. */
   discover(): Promise<SeroAppManifest[]>;
+  /** Subscribe to new app detection events. Returns unsubscribe function. */
+  onNewAppDetected(callback: (appName: string) => void): () => void;
 }
 
 interface SeroAppAgentAPI {

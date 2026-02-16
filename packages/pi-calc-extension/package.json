@@ -1,7 +1,7 @@
 {
-  "name": "@sero/todo",
+  "name": "@sero/calc",
   "version": "0.1.0",
-  "description": "Todo app for Sero — Pi extension with optional web UI",
+  "description": "Modern calculator app for Sero — Pi extension with web UI",
   "keywords": ["pi-package"],
   "scripts": {
     "dev": "vite",
@@ -13,13 +13,13 @@
   },
   "sero": {
     "app": {
-      "id": "todo",
-      "name": "Todo",
-      "icon": "check-square",
-      "stateFile": ".sero/apps/todo/state.json",
+      "id": "calc",
+      "name": "Calculator",
+      "icon": "calculator",
+      "stateFile": ".sero/apps/calc/state.json",
       "ui": "./dist/ui/remoteEntry.js",
-      "component": "TodoApp",
-      "devPort": 5174
+      "component": "CalcApp",
+      "devPort": 5175
     }
   },
   "dependencies": {

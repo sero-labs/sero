@@ -18,7 +18,8 @@
       "icon": "heart-pulse",
       "stateFile": ".sero/apps/weight-tracker/state.json",
       "ui": "./dist/ui/remoteEntry.js",
-      "component": "WeightTracker"
+      "component": "WeightTracker",
+      "devPort": 5176
     }
   },
   "dependencies": {

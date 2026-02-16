@@ -135,6 +135,15 @@ contextBridge.exposeInMainWorld('sero', {
   apps: {
     discover: (): Promise<SeroAppManifest[]> =>
       ipcRenderer.invoke(IpcChannels.apps.discover),
+    onNewAppDetected: (callback: (appName: string) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, name: string) => {
+        callback(name);
+      };
+      ipcRenderer.on(IpcChannels.apps.newAppDetected, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.apps.newAppDetected, handler);
+      };
+    },
   },
 
   appAgent: {

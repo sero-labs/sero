@@ -56,7 +56,7 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
     [manifest.id, activeWorkspaceId, manifest.stateFile, workspacePath, promptAgent],
   );
 
-  const LazyComponent = getFederatedComponent(manifest.id);
+  const LazyComponent = getFederatedComponent(manifest.id, manifest.component, manifest.devPort);
 
   if (!LazyComponent) {
     return <AppPlaceholder name={manifest.name} reason="No UI module registered" />;

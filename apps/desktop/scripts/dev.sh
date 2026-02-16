@@ -1,9 +1,45 @@
 #!/bin/bash
+#
+# Sero development launcher — auto-discovers app packages.
+#
+# Scans packages/pi-*/package.json for sero.app.devPort to determine
+# which remote Vite dev servers to start. No hardcoded app list needed.
+#
 cd "$(dirname "$0")/.."
 
-# Kill any existing Sero-related instances by port (process name matching is
-# unreliable — npx vite doesn't include the package name in its argv).
-for port in 5173 5174 5176 5177; do
+PKGS_DIR="$(cd ../../packages && pwd)"
+
+# ── Discover remote apps ──────────────────────────────────────
+# Reads sero.app.devPort from each package.json to know what to start.
+
+REMOTE_NAMES=()
+REMOTE_DIRS=()
+REMOTE_PORTS=()
+
+for pkg in "$PKGS_DIR"/pi-*/; do
+  [ -f "$pkg/package.json" ] || continue
+
+  # Extract devPort from sero.app manifest (empty if not a sero app)
+  PORT=$(node -e "
+    const p = require('$pkg/package.json');
+    if (p.sero?.app?.devPort) console.log(p.sero.app.devPort);
+  " 2>/dev/null)
+  [ -z "$PORT" ] && continue
+
+  NAME=$(node -e "
+    const p = require('$pkg/package.json');
+    console.log(p.sero.app.id);
+  " 2>/dev/null)
+
+  REMOTE_NAMES+=("$NAME")
+  REMOTE_DIRS+=("$pkg")
+  REMOTE_PORTS+=("$PORT")
+done
+
+# ── Kill existing instances ───────────────────────────────────
+
+KILL_PORTS=(5173 "${REMOTE_PORTS[@]}")
+for port in "${KILL_PORTS[@]}"; do
   lsof -ti :"$port" | xargs kill -9 2>/dev/null
 done
 pkill -f "electron.*sero" 2>/dev/null
@@ -14,29 +50,21 @@ node scripts/build-electron.mjs
 
 # ── Start remote dev servers ──────────────────────────────────
 # Remotes must be up before the host so MF can fetch mf-manifest.json.
-# NOTE: Do NOT use --force here. It wipes the dep cache on every start, which
-# causes chunk-hash mismatches when MF virtual modules trigger re-optimization
-# mid-page-load. Let Vite manage its cache; each package's optimizeDeps.include
-# pre-includes shared deps to avoid the discovery→re-optimize→504 cycle.
 
-REMOTE_DIR="$(cd ../../packages/pi-todo-extension && pwd)"
-(cd "$REMOTE_DIR" && npx vite) > /tmp/sero-remote-todo.log 2>&1 &
-REMOTE_PID=$!
+REMOTE_PIDS=()
+for i in "${!REMOTE_DIRS[@]}"; do
+  dir="${REMOTE_DIRS[$i]}"
+  name="${REMOTE_NAMES[$i]}"
+  (cd "$dir" && npx vite) > "/tmp/sero-remote-${name}.log" 2>&1 &
+  REMOTE_PIDS+=($!)
+done
 
-WEIGHT_DIR="$(cd ../../packages/pi-weight-tracker && pwd)"
-(cd "$WEIGHT_DIR" && npx vite) > /tmp/sero-remote-weight-tracker.log 2>&1 &
-WEIGHT_PID=$!
-
-QUOTE_DIR="$(cd ../../packages/pi-daily-quote && pwd)"
-(cd "$QUOTE_DIR" && npx vite) > /tmp/sero-remote-daily-quote.log 2>&1 &
-QUOTE_PID=$!
-
-# Wait for all remotes to be ready (check mf-manifest.json)
-for i in {1..15}; do
+# Wait for all remotes to be ready
+for attempt in {1..15}; do
   ALL_READY=true
-  curl -s http://localhost:5174/mf-manifest.json > /dev/null 2>&1 || ALL_READY=false
-  curl -s http://localhost:5176/mf-manifest.json > /dev/null 2>&1 || ALL_READY=false
-  curl -s http://localhost:5177/mf-manifest.json > /dev/null 2>&1 || ALL_READY=false
+  for port in "${REMOTE_PORTS[@]}"; do
+    curl -s "http://localhost:${port}/mf-manifest.json" > /dev/null 2>&1 || ALL_READY=false
+  done
   $ALL_READY && break
   sleep 1
 done
@@ -45,8 +73,7 @@ done
 npx vite > /tmp/sero-vite.log 2>&1 &
 VITE_PID=$!
 
-# Wait for host to be ready
-for i in {1..10}; do
+for attempt in {1..10}; do
   curl -s http://localhost:5173 > /dev/null 2>&1 && break
   sleep 1
 done
@@ -55,16 +82,17 @@ done
 NODE_ENV=development npx electron . > /tmp/sero-electron.log 2>&1 &
 ELECTRON_PID=$!
 
+# ── Summary ───────────────────────────────────────────────────
 echo "Sero running:"
-echo "  Remote (todo)    = $REMOTE_PID  → http://localhost:5174"
-echo "  Remote (weight)  = $WEIGHT_PID  → http://localhost:5176"
-echo "  Remote (quote)   = $QUOTE_PID   → http://localhost:5177"
-echo "  Host (vite)      = $VITE_PID   → http://localhost:5173"
-echo "  Electron         = $ELECTRON_PID"
+for i in "${!REMOTE_NAMES[@]}"; do
+  printf "  Remote (%-16s = %s  → http://localhost:%s\n" "${REMOTE_NAMES[$i]})" "${REMOTE_PIDS[$i]}" "${REMOTE_PORTS[$i]}"
+done
+echo "  Host (vite)            = $VITE_PID   → http://localhost:5173"
+echo "  Electron               = $ELECTRON_PID"
 echo ""
 echo "Logs:"
 echo "  /tmp/sero-vite.log"
-echo "  /tmp/sero-remote-todo.log"
-echo "  /tmp/sero-remote-weight-tracker.log"
-echo "  /tmp/sero-remote-daily-quote.log"
+for name in "${REMOTE_NAMES[@]}"; do
+  echo "  /tmp/sero-remote-${name}.log"
+done
 echo "  /tmp/sero-electron.log"

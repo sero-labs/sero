@@ -28,6 +28,10 @@ interface AppState {
   /** True once app discovery has completed (success or failure). */
   appsReady: boolean;
 
+  // New app detection
+  /** Name of a newly detected app that requires restart. Null if none. */
+  pendingNewApp: string | null;
+
   // Main sidebar
   mainSidebarOpen: boolean;
   setMainSidebarOpen: (open: boolean) => void;
@@ -74,6 +78,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   apps: [...BUILTIN_APPS],
   setApps: (apps) => set({ apps }),
   appsReady: false,
+  pendingNewApp: null,
 
   // Main sidebar
   mainSidebarOpen: true,
@@ -123,4 +128,15 @@ export async function discoverAndRegisterApps(): Promise<void> {
     console.error('[app-store] Failed to discover apps:', err);
     useAppStore.setState({ appsReady: true });
   }
+}
+
+/**
+ * Listen for new app packages detected by the main process.
+ * Call once on startup. Returns an unsubscribe function.
+ */
+export function listenForNewApps(): () => void {
+  return window.sero.apps.onNewAppDetected((appName: string) => {
+    console.log(`[app-store] New app detected: ${appName}`);
+    useAppStore.setState({ pendingNewApp: appName });
+  });
 }

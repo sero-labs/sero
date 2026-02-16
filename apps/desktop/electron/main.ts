@@ -3,12 +3,13 @@ import { loadSeroEnv, SERO_AGENT_DIR } from './env';
 loadSeroEnv();
 
 import { app, BrowserWindow } from 'electron';
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import path from 'path';
 import { registerAllIpcHandlers } from './ipc/index';
 import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
+import { watchForNewApps } from './ipc/apps';
 import { containerManager } from './ipc/shared-infra';
 
 // Register custom protocol BEFORE app.whenReady()
@@ -39,10 +40,34 @@ function bootstrapAgentDir(): void {
 }
 
 /**
+ * Discover all pi-* package directories that contain a sero.app manifest.
+ * Returns absolute paths. Works at runtime (from dist/electron/).
+ */
+function discoverSeroPackagePaths(): string[] {
+  // __dirname is apps/desktop/dist/electron/ at runtime → packages/ is 4 levels up
+  const pkgsDir = path.resolve(__dirname, '../../../../packages');
+  try {
+    return readdirSync(pkgsDir)
+      .filter((d) => d.startsWith('pi-'))
+      .map((d) => path.join(pkgsDir, d))
+      .filter((p) => {
+        try {
+          const pkg = JSON.parse(readFileSync(path.join(p, 'package.json'), 'utf8'));
+          return pkg.sero?.app != null;
+        } catch {
+          return false;
+        }
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Ensure Sero's built-in app packages are registered in settings.json.
  *
- * In development, adds monorepo-relative paths for the built-in apps.
- * Reads and patches the existing settings.json rather than overwriting.
+ * In development, auto-discovers packages/pi-* with sero.app manifests
+ * and adds their paths. No hardcoded package list needed.
  */
 function ensureBuiltinPackages(): void {
   if (process.env.NODE_ENV !== 'development') return;
@@ -56,13 +81,7 @@ function ensureBuiltinPackages(): void {
   }
 
   const packages = (settings.packages as string[]) ?? [];
-
-  // __dirname is apps/desktop/dist/electron/ at runtime → monorepo root is 4 levels up
-  const builtinPaths = [
-    path.resolve(__dirname, '../../../../packages/pi-todo-extension'),
-    path.resolve(__dirname, '../../../../packages/pi-weight-tracker'),
-    path.resolve(__dirname, '../../../../packages/pi-daily-quote'),
-  ];
+  const builtinPaths = discoverSeroPackagePaths();
 
   let changed = false;
   for (const p of builtinPaths) {
@@ -133,20 +152,19 @@ app.whenReady().then(async () => {
   if (process.env.NODE_ENV === 'development') {
     ensureBuiltinPackages();
 
-    // __dirname is apps/desktop/dist/electron/ at runtime → monorepo root is 4 levels up
-    const todoExtPath = path.resolve(__dirname, '../../../../packages/pi-todo-extension');
-    registerAppPath(todoExtPath);
-
-    const weightTrackerExtPath = path.resolve(__dirname, '../../../../packages/pi-weight-tracker');
-    registerAppPath(weightTrackerExtPath);
-
-    const dailyQuoteExtPath = path.resolve(__dirname, '../../../../packages/pi-daily-quote');
-    registerAppPath(dailyQuoteExtPath);
+    // Auto-discover and register all sero app packages for app discovery
+    for (const pkgPath of discoverSeroPackagePaths()) {
+      registerAppPath(pkgPath);
+    }
   }
 
   // Discover apps and register their assets for the custom protocol
   const apps = await discoverApps();
   registerAllExtAssets(apps);
+
+  // Watch for new app packages created while running (e.g. by the agent)
+  const knownAppIds = new Set(apps.map((a) => a.id));
+  watchForNewApps(knownAppIds);
 
   registerAllIpcHandlers();
 

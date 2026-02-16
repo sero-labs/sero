@@ -12,7 +12,8 @@ import { StatusBar } from '@/components/layout/StatusBar';
 import { ChatPanel } from '@/components/layout/ChatPanel';
 import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
-import { useAppStore, discoverAndRegisterApps } from '@/stores/app';
+import { useAppStore, discoverAndRegisterApps, listenForNewApps } from '@/stores/app';
+import { NewAppBanner } from '@/components/layout/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 
 /**
@@ -66,9 +67,10 @@ export function App() {
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
 
-  // Discover sero apps on startup
+  // Discover sero apps on startup + listen for new ones
   useEffect(() => {
     discoverAndRegisterApps();
+    return listenForNewApps();
   }, []);
 
   const handleMainSidebarResize = useCallback(
@@ -238,6 +240,7 @@ export function App() {
           </ResizablePanelGroup>
         </div>
 
+        <NewAppBanner />
         <StatusBar />
       </div>
     </TooltipProvider>

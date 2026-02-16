@@ -69,7 +69,7 @@ bash scripts/dev.sh                # Start remote + host + Electron
 pkill -f "vite"; pkill -f "electron"  # Kill
 ```
 
-Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-todo.log`, `/tmp/sero-electron.log`
+Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<app-id>.log`, `/tmp/sero-electron.log`
 
 ### Typecheck
 
@@ -127,8 +127,14 @@ This is set via `PI_CODING_AGENT_DIR` in `electron/env.ts` before any SDK import
 **When asked to create a new Sero app, you MUST read
 [docs/apps-tutorial.md](docs/apps-tutorial.md) first.** It covers the full
 process: package structure, shared state types, Pi extension, web UI, module
-federation setup, host-side wiring, Pi settings registration, and dev workflow.
-Do not improvise — follow the tutorial step by step.
+federation setup, and dev workflow. Do not improvise — follow the tutorial
+step by step.
+
+**App registration is fully automatic.** The host (`apps/desktop/`) auto-discovers
+all `packages/pi-*/` directories that have a `sero.app` manifest in their
+`package.json`. No manual edits to `vite.config.ts`, `federation-registry.ts`,
+`electron/main.ts`, or `dev.sh` are needed — just create the package, run
+`pnpm install`, and restart the dev server.
 
 ### IPC Data Flow (IMPORTANT)
 

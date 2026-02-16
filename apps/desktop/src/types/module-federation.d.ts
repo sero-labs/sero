@@ -1,24 +1,9 @@
 /**
- * Type declarations for Module Federation remotes.
+ * Module Federation type declarations.
  *
- * Each remote declared in vite.config.ts needs a module declaration
- * so TypeScript allows dynamic import('remoteName/exposedModule').
+ * Previously this file declared a module per federated remote so TypeScript
+ * would accept static `import('sero_todo/TodoApp')` calls. Now that the
+ * federation registry uses `loadRemote()` (a string-based runtime API),
+ * no per-remote declarations are needed. This file is kept empty as a
+ * placeholder in case future static imports require declarations.
  */
-
-// Remote: sero_todo (pi-todo-extension)
-declare module 'sero_todo/TodoApp' {
-  const TodoApp: React.ComponentType;
-  export default TodoApp;
-}
-
-// Remote: sero_weight_tracker (pi-weight-tracker)
-declare module 'sero_weight_tracker/WeightTracker' {
-  const WeightTracker: React.ComponentType;
-  export default WeightTracker;
-}
-
-// Remote: sero_daily_quote (pi-daily-quote)
-declare module 'sero_daily_quote/DailyQuote' {
-  const DailyQuote: React.ComponentType;
-  export default DailyQuote;
-}

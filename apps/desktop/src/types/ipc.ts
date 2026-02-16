@@ -213,6 +213,8 @@ export interface SeroAppManifest {
   uiEntry: string | null;
   /** Exported component name from the remote (e.g. "TodoApp"). */
   component: string | null;
+  /** Dev server port for module federation (from sero.app.devPort). */
+  devPort: number | undefined;
   /** Absolute path to the package root on disk. */
   packagePath: string;
 }
@@ -321,6 +323,8 @@ export const IpcChannels = {
   apps: {
     /** Discover all registered Sero apps. */
     discover: 'sero:apps:discover',
+    /** Main → renderer push: new app package detected in packages/. */
+    newAppDetected: 'sero:apps:new-app-detected',
   },
   appAgent: {
     /** Send a prompt to an app's dedicated agent session. Returns text response. */

@@ -26,6 +26,7 @@ interface PkgSeroApp {
   stateFile: string;
   ui?: string;
   component?: string;
+  devPort?: number;
 }
 
 interface PkgJson {
@@ -49,6 +50,7 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
     stateFile: app.stateFile,
     uiEntry,
     component: app.component || null,
+    devPort: app.devPort,
     packagePath,
   };
 }

@@ -15,7 +15,7 @@ working agent tool + live web UI.
 - [Step 2: Define the Shared State](#step-2-define-the-shared-state)
 - [Step 3: Build the Pi Extension](#step-3-build-the-pi-extension)
 - [Step 4: Build the Web UI](#step-4-build-the-web-ui)
-- [Step 5: Register the App in Sero](#step-5-register-the-app-in-sero)
+- [Step 5: Install and Restart](#step-5-install-and-restart)
 - [Step 6: Run and Test](#step-6-run-and-test)
 - [App Runtime API Reference](#app-runtime-api-reference)
 - [Styling Guide](#styling-guide)
@@ -132,7 +132,8 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
       "icon": "box",
       "stateFile": ".sero/apps/myapp/state.json",
       "ui": "./dist/ui/remoteEntry.js",
-      "component": "MyApp"
+      "component": "MyApp",
+      "devPort": 5175
     }
   },
   "dependencies": {
@@ -169,6 +170,9 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
   [Extension Dependencies](../docs/libs/pi-coding-agent/packages.md#dependencies).
 - `@sero/app-runtime` is a `devDependency` because it's shared via module
   federation at runtime — the host provides the singleton.
+- `"devPort"` must be a unique port (see [Port conventions](#port-conventions)).
+  The host auto-discovers this at build time — no manual Vite config edits
+  needed.
 
 ## Step 2: Define the Shared State
 
@@ -538,12 +542,15 @@ export default defineConfig({
       name: 'sero_myapp',              // Convention: sero_<appId>
       filename: 'remoteEntry.js',
       dts: false,
+      manifest: true,
       exposes: {
         './MyApp': './ui/MyApp.tsx',    // Relative to config, not root
       },
       shared: {
         react: { singleton: true },
+        'react/': { singleton: true },
         'react-dom': { singleton: true },
+        'react-dom/': { singleton: true },
         // NOTE: @sero/app-runtime is NOT shared here — MF's loadShare
         // virtual module breaks named exports. It resolves via node_modules
         // and uses a globalThis singleton for the React context.
@@ -551,9 +558,15 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5175,                        // Pick a unique port (5174 is Todo)
+    port: 5175,                        // Must match devPort in package.json
     strictPort: true,
     origin: 'http://localhost:5175',   // Ensures absolute chunk URLs
+  },
+  optimizeDeps: {
+    exclude: ['@sero/app-runtime'],
+    // Pre-include shared deps to avoid the "new dependencies optimized →
+    // reloading" cycle that causes 504 "Outdated Optimize Dep" errors.
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client'],
   },
   build: {
     target: 'esnext',
@@ -570,6 +583,8 @@ export default defineConfig({
   `root`. So use `./ui/MyApp.tsx`.
 - `outDir: '../dist/ui'` is relative to `root`, so output goes to
   `<package>/dist/ui/`.
+- The `server.port` **must match** the `devPort` in `package.json` — the host
+  reads `devPort` to auto-configure Module Federation remotes.
 - Do NOT alias `@sero/app-runtime` — the MF plugin must intercept that import
   so the host's singleton is used at runtime.
 
@@ -605,112 +620,63 @@ export default defineConfig({
 </html>
 ```
 
-## Step 5: Register the App in Sero
+## Step 5: Build, Install, and Restart
 
-Three files in `apps/desktop/` need edits. Each is small and documented with
-comments explaining the convention.
+App registration is **fully automatic**. The host auto-discovers all
+`packages/pi-*/` directories that have a `sero.app` manifest. No manual
+edits to any `apps/desktop/` file are needed.
 
-### 5a. Host Vite config — declare the remote
-
-Add your remote to `apps/desktop/vite.config.ts`:
-
-```typescript
-remotes: {
-  sero_todo: { /* ... existing ... */ },
-
-  // ⬇ Add your app
-  sero_myapp: {
-    type: 'module',
-    name: 'sero_myapp',
-    entry: isDev
-      ? 'http://localhost:5175/remoteEntry.js'
-      : 'sero-ext://myapp/remoteEntry.js',
-    entryGlobalName: 'sero_myapp',
-    shareScope: 'default',
-  },
-},
-```
-
-### 5b. Type declaration — tell TypeScript about the remote
-
-Add to `apps/desktop/src/types/module-federation.d.ts`:
-
-```typescript
-declare module 'sero_myapp/MyApp' {
-  const MyApp: React.ComponentType;
-  export default MyApp;
-}
-```
-
-### 5c. Federation registry — register the lazy component
-
-Add to `apps/desktop/src/lib/federation-registry.ts`:
-
-```typescript
-registry.set('myapp', lazy(() => import('sero_myapp/MyApp')));
-```
-
-That's it. `SeroAppMount` reads from the registry automatically — it doesn't
-need editing.
-
-### 5d. Dev script (optional) — start your remote in dev
-
-If you want the dev script to auto-start your remote, add a block to
-`apps/desktop/scripts/dev.sh`:
+**After creating your package, run these commands from the monorepo root
+before restarting Sero:**
 
 ```bash
-# ── Start myapp remote ───────────────────────────────────
-MYAPP_DIR="$(cd ../../packages/pi-myapp-extension && pwd)"
-(cd "$MYAPP_DIR" && npx vite) > /tmp/sero-remote-myapp.log 2>&1 &
-MYAPP_PID=$!
-for i in {1..10}; do
-  curl -s http://localhost:5175/remoteEntry.js > /dev/null 2>&1 && break
-  sleep 1
-done
+# From the monorepo root — install deps + build the new package:
+pnpm install
+pnpm --filter @sero/myapp build
+
+# Then restart the dev server:
+cd apps/desktop
+bash scripts/dev.sh
 ```
 
-### 5e. Discovery path (development only)
+> **You MUST run `pnpm install` and `pnpm --filter <package-name> build`
+> after creating a new app package.** `pnpm install` links the workspace
+> dependencies (including `@sero/app-runtime`). The build step produces
+> `dist/ui/remoteEntry.js` which the host needs for production mode and
+> which validates that the MF config is correct. In dev mode the remote
+> Vite server serves the UI live, but the initial build catches errors
+> early.
 
-If developing locally, register your package path in
-`apps/desktop/electron/main.ts`:
+On startup:
 
-```typescript
-if (process.env.NODE_ENV === 'development') {
-  const todoExtPath = path.resolve(__dirname, '../../../../packages/pi-todo-extension');
-  registerAppPath(todoExtPath);
+1. **`vite.config.ts`** scans `packages/pi-*/package.json` for `sero.app`
+   manifests and builds the Module Federation remotes map from `id` +
+   `devPort`.
+2. **`dev.sh`** discovers the same packages and starts a Vite dev server
+   for each one on its `devPort`.
+3. **`electron/main.ts`** scans packages and registers their paths for
+   app discovery + adds them to `~/.sero-ui/agent/settings.json` so the
+   agent loads the extension tools.
+4. **`federation-registry.ts`** uses MF's `loadRemote()` at runtime —
+   it derives the module path from the manifest's `id` and `component`
+   fields. No static per-app imports needed.
 
-  // ⬇ Add your app
-  const myappExtPath = path.resolve(__dirname, '../../../../packages/pi-myapp-extension');
-  registerAppPath(myappExtPath);
-}
-```
+### How auto-discovery works
 
-In production, apps are discovered automatically via
-`pi install npm:@sero/myapp` — no manual registration needed.
+The host reads three fields from each package's `sero.app` manifest:
 
-### 5f. Register with Sero (required for the agent to load the extension)
+| Field | Used by | Example |
+|-------|---------|---------|
+| `id` | MF remote name (`sero_<id>`), state path, sidebar | `"myapp"` |
+| `component` | `loadRemote("sero_myapp/MyApp")` | `"MyApp"` |
+| `devPort` | Dev server URL, Vite remotes config | `5175` |
 
-Sero must know about your extension to register its tools and commands. During
-development, add the package path to Sero's settings file:
+All other fields (`name`, `icon`, `stateFile`, `ui`) are used for sidebar
+display and app state management — they don't affect the federation wiring.
 
-**Sero settings** (`~/.sero-ui/agent/settings.json`):
+### Production
 
-```json
-{
-  "packages": [
-    "/absolute/path/to/packages/pi-myapp-extension"
-  ]
-}
-```
-
-> **Note:** Sero uses its own agent directory (`~/.sero-ui/agent/`) which is
-> independent from the Pi CLI's `~/.pi/agent/`. Packages registered here are
-> only visible to Sero, not the Pi CLI (and vice versa).
-
-Paths are resolved relative to the settings file. After editing, **restart
-Sero** for the extension to load.
-
-In production, use `pi install`:
+In production, apps are discovered via `pi install`:
 
 ```bash
 pi install npm:@sero/myapp        # from npm
@@ -863,10 +829,11 @@ The `sero.app` object in `package.json`:
 |-------|----------|-------------|
 | `id` | ✅ | Unique identifier. Used in file paths, registry keys, MF remote name. Lowercase, no spaces. |
 | `name` | ✅ | Display name shown in the sidebar. |
-| `icon` | ✅ | Lucide icon name (e.g. `"check-square"`, `"box"`, `"calendar"`). Mapped to emoji in the sidebar. |
+| `icon` | ✅ | Lucide icon name (e.g. `"check-square"`, `"box"`, `"calculator"`). Mapped to emoji in the sidebar. |
 | `stateFile` | ✅ | State file path relative to workspace root. Convention: `.sero/apps/<id>/state.json`. |
 | `ui` | ❌ | Path to the built `remoteEntry.js`, relative to package root. Null if no UI. |
 | `component` | ❌ | Exported component name from the MF remote (e.g. `"MyApp"`). Required if `ui` is set. |
+| `devPort` | ❌ | Vite dev server port for this remote. Required if `ui` is set. Must be unique across all apps. Must match `server.port` in the package's `vite.config.ts`. |
 
 ---
 
@@ -905,7 +872,11 @@ separate files. See `apps/desktop/AGENTS.md` for full rules.
   `optimizeDeps.exclude` so Vite doesn't pre-bundle it.
 - Do NOT alias `@sero/app-runtime` in any vite config — aliases conflict
   with both MF sharing and the `globalThis` singleton pattern.
-- Each remote runs its own Vite dev server on a unique port.
+- Each remote runs its own Vite dev server on a unique port declared via
+  `devPort` in `package.json`.
+- **No host-side edits needed.** The host auto-discovers remotes at build
+  time and uses `loadRemote()` at runtime. Adding a new app never requires
+  touching `apps/desktop/`.
 
 ---
 
@@ -945,8 +916,11 @@ No manual restart needed.
 | Server | Port |
 |--------|------|
 | Host (Sero) | 5173 |
-| Todo remote | 5174 |
-| Next remote | 5175, 5176, … |
+| Remotes | 5174+ (each app declares its own via `devPort`) |
+
+Each app's `devPort` in `package.json` must be unique. The dev script and
+Vite config both read it automatically — no central port registry to maintain.
+Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
 
 ### Logs
 
@@ -962,14 +936,14 @@ No manual restart needed.
 
 **App doesn't appear in sidebar:**
 - Check that `sero.app.id` and `sero.app.name` are set in `package.json`.
-- Verify the package path is registered in `electron/main.ts` (dev) or
-  installed via `pi install` (production).
+- Verify the package directory is under `packages/` and starts with `pi-`.
+- Check that `pnpm install` was run after creating the package.
 - Check the electron log for `[app-discovery]` messages.
 
 **Agent doesn't have the tool:**
-- Your extension must be registered with Sero. Add the package path to
-  `~/.sero-ui/agent/settings.json` under `"packages"`. Then restart Sero.
-- See [Step 5f](#5f-register-with-sero-required-for-the-agent-to-load-the-extension).
+- The host auto-registers packages in `~/.sero-ui/agent/settings.json` on
+  startup. Restart Sero after adding a new package.
+- Verify the package's `pi.extensions` field points to the correct file.
 
 **UI changes don't appear after editing:**
 - Check that the remote Vite dev server is running (look for its log file).
@@ -979,9 +953,10 @@ No manual restart needed.
 - Extension code changes (in `extension/`) require a full restart.
 
 **UI shows "No UI module registered":**
-- You need to add the lazy import to
-  `apps/desktop/src/lib/federation-registry.ts`.
-- You need to declare the remote in `apps/desktop/vite.config.ts`.
+- Check that `sero.app.component` is set in `package.json`.
+- Check that `sero.app.devPort` is set and matches `server.port` in
+  `vite.config.ts`.
+- Verify the remote Vite dev server is running on the correct port.
 
 **UI shows "No workspace selected":**
 - The app needs an active workspace. Click a workspace in the sidebar first.
@@ -994,8 +969,10 @@ No manual restart needed.
 
 **Module Federation errors in console:**
 - Make sure the remote dev server is running on the correct port.
-- Check that the remote name in `vite.config.ts` matches the host's
-  `remotes` declaration exactly.
+- Check that `devPort` in `package.json` matches `server.port` in
+  `vite.config.ts`.
+- If you see `RUNTIME-004: Failed to locate remote`, the remote isn't
+  registered. Verify the `devPort` is set and the remote is running.
 - The `@sero/app-runtime` shared module warning ("alias conflicts") is
   expected in dev mode and can be safely ignored.
 

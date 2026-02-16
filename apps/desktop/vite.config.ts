@@ -4,17 +4,76 @@ import tailwindcss from '@tailwindcss/vite';
 import { federation } from '@module-federation/vite';
 import path from 'path';
 import { globSync } from 'glob';
+import { readFileSync } from 'fs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+// ── Auto-discover Sero app manifests from packages/ ──────────
+
+interface SeroAppDef {
+  id: string;
+  component: string;
+  devPort: number;
+  remoteName: string; // sero_<id> with hyphens → underscores
+}
+
+/**
+ * Scan packages/pi-* for package.json files with sero.app manifests.
+ * Returns an array of app definitions used to build MF config and types.
+ */
+function discoverSeroApps(): SeroAppDef[] {
+  const pkgsDir = path.resolve(__dirname, '../../packages');
+  const apps: SeroAppDef[] = [];
+
+  for (const dir of globSync('pi-*', { cwd: pkgsDir })) {
+    try {
+      const pkgPath = path.join(pkgsDir, dir, 'package.json');
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+      const app = pkg.sero?.app;
+      if (!app?.id || !app?.component || !app?.devPort) continue;
+
+      apps.push({
+        id: app.id,
+        component: app.component,
+        devPort: app.devPort,
+        remoteName: `sero_${app.id.replace(/-/g, '_')}`,
+      });
+    } catch {
+      // Skip packages with unreadable/missing package.json
+    }
+  }
+
+  // Validate no duplicate ports
+  const ports = new Map<number, string>();
+  for (const app of apps) {
+    if (ports.has(app.devPort)) {
+      throw new Error(
+        `[sero] Port conflict: "${app.id}" and "${ports.get(app.devPort)}" both use devPort ${app.devPort}`,
+      );
+    }
+    ports.set(app.devPort, app.id);
+  }
+
+  return apps.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/**
+ * Build the MF remotes config object from discovered apps.
+ */
+function buildRemotesConfig(apps: SeroAppDef[]): Record<string, string> {
+  const remotes: Record<string, string> = {};
+  for (const app of apps) {
+    remotes[app.remoteName] = isDev
+      ? `http://localhost:${app.devPort}/mf-manifest.json`
+      : `sero-ext://${app.id}/mf-manifest.json`;
+  }
+  return remotes;
+}
+
 // ── Dev-only: watch remote package UI dirs for live reload ────
-// MF remotes run their own Vite dev servers, but the host doesn't know
-// when they rebuild. This plugin adds the remote source dirs to the host's
-// chokidar watcher and triggers a full page reload when they change.
 
 function watchRemotes(): Plugin {
   const packagesDir = path.resolve(__dirname, '../../packages');
-  // Find all remote package UI dirs that have a vite config (= are MF remotes)
   const remoteDirs = globSync('pi-*/ui', { cwd: packagesDir, absolute: true });
 
   return {
@@ -29,9 +88,8 @@ function watchRemotes(): Plugin {
 
       let debounce: ReturnType<typeof setTimeout> | null = null;
       server.watcher.on('change', (file) => {
-        if (!remoteDirs.some((d) => file.startsWith(d))) return;
+        if (!remoteDirs.some((d:any) => file.startsWith(d))) return;
 
-        // Debounce: remote Vite needs a moment to rebuild after the file save
         if (debounce) clearTimeout(debounce);
         debounce = setTimeout(() => {
           console.log(`[sero-watch-remotes] Remote changed: ${path.relative(packagesDir, file)} → reloading`);
@@ -42,6 +100,13 @@ function watchRemotes(): Plugin {
   };
 }
 
+// ── Vite config ──────────────────────────────────────────────
+
+const seroApps = discoverSeroApps();
+const remotesConfig = buildRemotesConfig(seroApps);
+
+console.log(`[sero] Discovered ${seroApps.length} app remotes: ${seroApps.map((a) => a.id).join(', ')}`);
+
 export default defineConfig({
   plugins: [
     react(),
@@ -51,17 +116,7 @@ export default defineConfig({
       name: 'sero',
       dts: false,
       manifest: true,
-      remotes: {
-        sero_todo: isDev
-          ? 'http://localhost:5174/mf-manifest.json'
-          : 'sero-ext://todo/mf-manifest.json',
-        sero_weight_tracker: isDev
-          ? 'http://localhost:5176/mf-manifest.json'
-          : 'sero-ext://weight-tracker/mf-manifest.json',
-        sero_daily_quote: isDev
-          ? 'http://localhost:5177/mf-manifest.json'
-          : 'sero-ext://daily-quote/mf-manifest.json',
-      },
+      remotes: remotesConfig,
       shared: {
         react: { singleton: true },
         'react/': { singleton: true },
