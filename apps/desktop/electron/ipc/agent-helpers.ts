@@ -16,6 +16,7 @@ import type {
   SeroSlashCommandInfo,
   SessionModelState,
 } from '../../src/types/ipc';
+import { resizeImageForApi } from '../utils/image-resize';
 
 // ── ID generation ────────────────────────────────────────────
 
@@ -120,6 +121,13 @@ export function convertSessionMessages(
 
 // ── Attachment conversion ────────────────────────────────────
 
+/**
+ * Convert ChatAttachments to ImageContent for the Pi SDK.
+ *
+ * Images are resized to stay within Anthropic's 5MB limit (max 2000×2000,
+ * max 4.5MB with progressive JPEG compression). This mirrors the Pi CLI's
+ * `resizeImage()` behaviour so pasted screenshots don't exceed the API limit.
+ */
 export function attachmentsToImages(attachments?: ChatAttachment[]): ImageContent[] | undefined {
   if (!attachments?.length) return undefined;
 
@@ -131,7 +139,8 @@ export function attachmentsToImages(attachments?: ChatAttachment[]): ImageConten
     const match = att.url.match(/^data:[^;]+;base64,(.+)$/);
     if (!match) continue;
 
-    images.push({ type: 'image', data: match[1], mimeType: mime });
+    const resized = resizeImageForApi(match[1], mime);
+    images.push({ type: 'image', data: resized.data, mimeType: resized.mimeType });
   }
 
   return images.length > 0 ? images : undefined;
