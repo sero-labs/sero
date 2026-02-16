@@ -21,10 +21,25 @@ import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
 
 import { SERO_AGENT_DIR } from '../env';
 import { ContainerManager } from '../container/index';
+import { workspaceManager } from '../workspace';
+import { FileWatcherManager } from '../file-watcher';
+import { LspManager } from '../lsp/lsp-manager';
 
 // ── Container Manager (singleton) ────────────────────────────
 
 export const containerManager = new ContainerManager();
+
+// ── Workspace Manager (re-export singleton) ──────────────────
+
+export { workspaceManager };
+
+// ── File Watcher Manager (singleton) ─────────────────────────
+
+export const fileWatcherManager = new FileWatcherManager();
+
+// ── LSP Manager (singleton) ─────────────────────────────────
+
+export const lspManager = new LspManager(containerManager);
 
 // ── Shared state ─────────────────────────────────────────────
 

@@ -419,4 +419,46 @@ export const IpcChannels = {
     /** Main → renderer push: terminal process exited. */
     exit: 'sero:terminal:exit',
   },
+  editor: {
+    /** Read a file from the workspace (dual-mode: container or host). */
+    readFile: 'sero:editor:read-file',
+    /** Write a file to the workspace (dual-mode: container or host). */
+    writeFile: 'sero:editor:write-file',
+    /** List files in a directory (dual-mode: container or host). */
+    listFiles: 'sero:editor:list-files',
+    /** Execute a shell command in the workspace (dual-mode: container or host). */
+    exec: 'sero:editor:exec',
+    /** Save editor state (open tabs, active tab) for a workspace. */
+    saveState: 'sero:editor:save-state',
+    /** Load editor state for a workspace. */
+    loadState: 'sero:editor:load-state',
+    /** Get the root path for the file tree. */
+    getRootPath: 'sero:editor:get-root-path',
+    /** Check if a workspace uses containers. */
+    isContainer: 'sero:editor:is-container',
+  },
+  filetree: {
+    /** Start watching a workspace directory for changes. */
+    watch: 'sero:filetree:watch',
+    /** Stop watching a workspace directory. */
+    unwatch: 'sero:filetree:unwatch',
+    /** Main → renderer push: file tree directory changed. */
+    changed: 'sero:filetree:changed',
+  },
+  lsp: {
+    /** Start a language server for a workspace/language. */
+    start: 'sero:lsp:start',
+    /** Stop a language server. */
+    stop: 'sero:lsp:stop',
+    /** Send an LSP request. */
+    request: 'sero:lsp:request',
+    /** Send an LSP notification (no response). */
+    notify: 'sero:lsp:notify',
+    /** Check if a server is running. */
+    hasServer: 'sero:lsp:has-server',
+    /** Main → renderer push: LSP notification (diagnostics etc.). */
+    notification: 'sero:lsp:notification',
+    /** Main → renderer push: LSP server stopped. */
+    serverStopped: 'sero:lsp:server-stopped',
+  },
 } as const;

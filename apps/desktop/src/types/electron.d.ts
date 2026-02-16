@@ -167,6 +167,51 @@ interface SeroTerminalAPI {
   onExit(callback: (terminalId: string) => void): () => void;
 }
 
+interface SeroEditorAPI {
+  /** Read a file from the workspace (dual-mode: container or host). */
+  readFile(workspaceId: string, filePath: string): Promise<string>;
+  /** Write a file to the workspace (dual-mode: container or host). */
+  writeFile(workspaceId: string, filePath: string, content: string): Promise<void>;
+  /** List files in a directory (dual-mode: container or host). */
+  listFiles(workspaceId: string, dirPath: string): Promise<Array<{ name: string; type: 'file' | 'directory'; size: number }>>;
+  /** Execute a shell command in the workspace (dual-mode). */
+  exec(workspaceId: string, command: string): Promise<{ exitCode: number; stdout: string; stderr: string }>;
+  /** Save editor state (open tabs, active tab) for a workspace. */
+  saveState(workspaceId: string, state: { openTabs: string[]; activeTab: string | null }): Promise<void>;
+  /** Load editor state for a workspace. */
+  loadState(workspaceId: string): Promise<{ openTabs: string[]; activeTab: string | null } | null>;
+  /** Get the root path for the file tree (e.g. /workspace or host path). */
+  getRootPath(workspaceId: string): Promise<string>;
+  /** Check if a workspace uses containers. */
+  isContainer(workspaceId: string): Promise<boolean>;
+}
+
+interface SeroFileTreeAPI {
+  /** Start watching a workspace directory for changes. */
+  watch(workspaceId: string): Promise<void>;
+  /** Stop watching a workspace directory. */
+  unwatch(workspaceId: string): Promise<void>;
+  /** Subscribe to file tree change events. Returns unsubscribe. */
+  onChanged(callback: (data: { workspaceId: string; directories: string[] }) => void): () => void;
+}
+
+interface SeroLspAPI {
+  /** Start a language server for a workspace/language. */
+  start(workspaceId: string, languageId: string): Promise<{ capabilities: Record<string, unknown>; language: string }>;
+  /** Stop a language server. */
+  stop(workspaceId: string, language: string): Promise<void>;
+  /** Send an LSP request. */
+  request(workspaceId: string, language: string, method: string, params?: unknown): Promise<unknown>;
+  /** Send an LSP notification (no response). */
+  notify(workspaceId: string, language: string, method: string, params?: unknown): Promise<void>;
+  /** Check if a server is running for a workspace/language. */
+  hasServer(workspaceId: string, language: string): Promise<boolean>;
+  /** Subscribe to LSP notifications (diagnostics etc.). Returns unsubscribe. */
+  onNotification(callback: (data: { workspaceId: string; language: string; notification: any }) => void): () => void;
+  /** Subscribe to LSP server stopped events. Returns unsubscribe. */
+  onServerStopped(callback: (data: { workspaceId: string; language: string }) => void): () => void;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -180,6 +225,9 @@ interface SeroAPI {
   container: SeroContainerAPI;
   devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
+  editor: SeroEditorAPI;
+  filetree: SeroFileTreeAPI;
+  lsp: SeroLspAPI;
 }
 
 declare global {

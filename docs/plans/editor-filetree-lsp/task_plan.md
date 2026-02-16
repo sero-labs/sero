@@ -22,7 +22,7 @@
 ---
 
 ## Phase 1: IPC Types & Channels
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/src/types/ipc.ts` — add IPC channel constants for `editor`, `filetree`, `lsp`
 - `apps/desktop/src/types/electron.d.ts` — add `SeroEditorAPI`, `SeroFileTreeAPI`, `SeroLspAPI` interfaces
@@ -46,7 +46,7 @@ The `editor.readFile/writeFile/listFiles` channels will be **dual-mode** — the
 ---
 
 ## Phase 2: Preload Bridge
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/electron/preload.ts` — add `editor`, `filetree`, `lsp` sections
 
@@ -56,7 +56,7 @@ Wire all new IPC channels through `contextBridge.exposeInMainWorld`. Mirrors old
 ---
 
 ## Phase 3: Dual-Mode File I/O IPC Handlers
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/electron/ipc/editor.ts` — **new file**, IPC handlers for `editor:*`
 
@@ -74,7 +74,7 @@ Register in `apps/desktop/electron/ipc/index.ts`.
 ---
 
 ## Phase 4: FileWatcherManager
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/electron/file-watcher.ts` — **new file**, ported from old sero-ai
 
@@ -91,7 +91,7 @@ Register `filetree:watch`, `filetree:unwatch` IPC handlers. Wire into `apps/desk
 ---
 
 ## Phase 5: LSP Subsystem (Electron Side)
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/electron/lsp/types.ts` — **new file**, JSON-RPC types + server configs
 - `apps/desktop/electron/lsp/json-rpc.ts` — **new file**, Content-Length parser + encoder
@@ -116,7 +116,7 @@ Lifecycle: instantiate `LspManager` in `main.ts` or `shared-infra.ts`, dispose o
 ---
 
 ## Phase 6: LSP Client (Renderer Side)
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/src/lsp/lsp-conversions.ts` — **new file**, LSP ↔ Monaco type converters
 - `apps/desktop/src/lsp/use-lsp.ts` — **new file**, React hook for Monaco LSP integration
@@ -130,7 +130,7 @@ Port both files from old `src/lsp/`. Adaptations:
 ---
 
 ## Phase 7: FileTree Component
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/src/components/apps/coding/file-tree/FileTree.tsx` — **new file**
 - `apps/desktop/src/components/apps/coding/file-tree/file-icons.tsx` — **new file**
@@ -152,7 +152,7 @@ Port from old `src/components/panels/FileTree.tsx` + `file-tree/` directory. Ada
 ---
 
 ## Phase 8: Editor Components
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/src/components/apps/coding/editor/EditorPanel.tsx` — **new file**
 - `apps/desktop/src/components/apps/coding/editor/EditorTabBar.tsx` — **new file**
@@ -174,7 +174,7 @@ Split: FileTree raises `onFileSelect(path)` → CodingWorkspace state → Editor
 ---
 
 ## Phase 9: Wire Into CodingWorkspace
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/src/components/apps/coding/CodingWorkspace.tsx` — **modify**
 - `apps/desktop/src/components/apps/coding/CodingSidebar.tsx` — **modify**
@@ -196,7 +196,7 @@ Split: FileTree raises `onFileSelect(path)` → CodingWorkspace state → Editor
 ---
 
 ## Phase 10: Electron Main Wiring
-**Status:** `not_started`
+**Status:** `complete`
 **Files:**
 - `apps/desktop/electron/main.ts` — instantiate LspManager, FileWatcherManager
 - `apps/desktop/electron/ipc/index.ts` — register new handler modules
@@ -212,7 +212,7 @@ Split: FileTree raises `onFileSelect(path)` → CodingWorkspace state → Editor
 ---
 
 ## Phase 11: Testing & Verification
-**Status:** `not_started`
+**Status:** `complete`
 **Details:**
 - Build electron: `node scripts/build-electron.mjs`
 - Start dev: `bash scripts/dev.sh`

@@ -1,0 +1,162 @@
+/**
+ * LspManager — orchestrates language servers across all workspaces.
+ * One manager instance in the main process, manages multiple servers per workspace.
+ */
+
+import { EventEmitter } from 'events';
+import { LspServerProcess } from './lsp-process';
+import { findConfigByLanguageId, type LspServerConfig } from './types';
+import type { ContainerManager } from '../container/index';
+
+export class LspManager extends EventEmitter {
+  /** workspaceId → language → LspServerProcess */
+  private servers = new Map<string, Map<string, LspServerProcess>>();
+
+  constructor(private containerManager: ContainerManager) {
+    super();
+  }
+
+  /**
+   * Start a language server for a workspace.
+   * Waits for the container, installs the server if needed, then spawns it.
+   */
+  async startServer(
+    workspaceId: string,
+    languageId: string,
+  ): Promise<{ capabilities: Record<string, unknown>; language: string }> {
+    const config = findConfigByLanguageId(languageId);
+    if (!config) throw new Error(`No LSP server configured for language: ${languageId}`);
+
+    const existing = this.getServer(workspaceId, config.language);
+    if (existing?.initialized) {
+      return { capabilities: existing.serverCapabilities, language: config.language };
+    }
+
+    await this.waitForContainerAndInstall(workspaceId, config);
+
+    const envVars = this.containerManager.getEnvVars?.() ?? {};
+    const server = new LspServerProcess(workspaceId, config, envVars);
+
+    server.on('notification', (notification: any) => {
+      this.emit('notification', { workspaceId, language: config.language, notification });
+    });
+
+    server.on('exit', () => {
+      const wsServers = this.servers.get(workspaceId);
+      if (wsServers) {
+        wsServers.delete(config.language);
+        if (wsServers.size === 0) this.servers.delete(workspaceId);
+      }
+      this.emit('serverStopped', { workspaceId, language: config.language });
+    });
+
+    server.on('error', (err: Error) => {
+      console.error(`[lsp-manager] Error for ${workspaceId}/${config.language}:`, err.message);
+    });
+
+    let wsServers = this.servers.get(workspaceId);
+    if (!wsServers) {
+      wsServers = new Map();
+      this.servers.set(workspaceId, wsServers);
+    }
+    wsServers.set(config.language, server);
+
+    try {
+      const capabilities = await server.start();
+      console.log(`[lsp-manager] Server ready: ${workspaceId}/${config.language}`);
+      return { capabilities, language: config.language };
+    } catch (err) {
+      wsServers.delete(config.language);
+      if (wsServers.size === 0) this.servers.delete(workspaceId);
+      throw err;
+    }
+  }
+
+  /** Send an LSP request to the appropriate server. */
+  async sendRequest(workspaceId: string, language: string, method: string, params?: unknown): Promise<unknown> {
+    const server = this.getServer(workspaceId, language);
+    if (!server?.initialized) throw new Error(`No initialized LSP server for ${workspaceId}/${language}`);
+    return server.sendRequest(method, params);
+  }
+
+  /** Send an LSP notification to the appropriate server. */
+  sendNotification(workspaceId: string, language: string, method: string, params?: unknown): void {
+    const server = this.getServer(workspaceId, language);
+    if (!server?.initialized) return;
+    server.sendNotification(method, params);
+  }
+
+  /** Stop a specific language server. */
+  async stopServer(workspaceId: string, language: string): Promise<void> {
+    const server = this.getServer(workspaceId, language);
+    if (server) {
+      await server.shutdown();
+      const wsServers = this.servers.get(workspaceId);
+      if (wsServers) {
+        wsServers.delete(language);
+        if (wsServers.size === 0) this.servers.delete(workspaceId);
+      }
+    }
+  }
+
+  /** Stop all language servers for a workspace. */
+  async stopWorkspaceServers(workspaceId: string): Promise<void> {
+    const wsServers = this.servers.get(workspaceId);
+    if (!wsServers) return;
+    const shutdowns = Array.from(wsServers.values()).map((s) => s.shutdown());
+    await Promise.allSettled(shutdowns);
+    this.servers.delete(workspaceId);
+  }
+
+  /** Stop all language servers (app shutdown). */
+  async disposeAll(): Promise<void> {
+    const all: Promise<void>[] = [];
+    for (const [wsId] of this.servers) {
+      all.push(this.stopWorkspaceServers(wsId));
+    }
+    await Promise.allSettled(all);
+    this.servers.clear();
+  }
+
+  /** Check if a server is running for a workspace/language. */
+  hasServer(workspaceId: string, language: string): boolean {
+    return this.getServer(workspaceId, language)?.initialized ?? false;
+  }
+
+  private getServer(workspaceId: string, language: string): LspServerProcess | undefined {
+    return this.servers.get(workspaceId)?.get(language);
+  }
+
+  /**
+   * Wait for the container and ensure the LSP binary is installed.
+   * Retries up to 5 times for transient container errors.
+   */
+  private async waitForContainerAndInstall(workspaceId: string, config: LspServerConfig): Promise<void> {
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY_MS = 2000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const checkResult = await this.containerManager.exec(workspaceId, config.checkCommand);
+        if (checkResult.exitCode === 0) return;
+
+        console.log(`[lsp-manager] Installing ${config.language} server in ${workspaceId}...`);
+        const installResult = await this.containerManager.exec(workspaceId, config.installCommand);
+        if (installResult.exitCode !== 0) {
+          throw new Error(`Failed to install ${config.language} server: ${installResult.stderr || installResult.stdout}`);
+        }
+        console.log(`[lsp-manager] Installed ${config.language} server in ${workspaceId}`);
+        return;
+      } catch (err: any) {
+        const msg = err?.message ?? '';
+        const isTransient = msg.includes('not running') || msg.includes('not found');
+        if (isTransient && attempt < MAX_RETRIES) {
+          console.log(`[lsp-manager] Container not ready for ${workspaceId}, retrying (${attempt}/${MAX_RETRIES})...`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
+}
