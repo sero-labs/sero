@@ -201,3 +201,31 @@ cleaned up on startup.
 - System prompt injected via `before_agent_start` hook with container-specific
   instructions (0.0.0.0 binding, setsid for background processes, etc.)
 - Fallback: if container fails to start, session uses host-side tools
+
+## AD-019: Centralized Dev Server Management
+
+Dev servers started by the agent inside containers are registered with a
+host-side `DevServerRegistry` so the user can see, stop, restart, and open
+them from the UI without going through the agent.
+
+**Architecture:**
+- `DevServerRegistry` (in `electron/container/dev-server-registry.ts`) is an
+  in-memory registry keyed by `${workspaceId}:${port}`. Not persisted — servers
+  are ephemeral (tied to container lifetime).
+- `register_dev_server` agent tool — the agent calls this after starting a dev
+  server and confirming it's listening. Provides name, port, command, framework.
+- The registry cross-references `PortScanner` for liveness: every 5s it checks
+  if the registered port is still in the scanner's detected list. Status
+  transitions (running → stopped) are pushed to the renderer.
+- **Stop** = `fuser -k <port>/tcp` inside the container.
+- **Restart** = stop + re-run the original command (via `setsid`).
+- System prompt instructs the agent to always call `register_dev_server` after
+  starting a dev server.
+
+**UI:**
+- `DevServerIndicator` in the StatusBar — shows running/total count with a
+  green dot when servers are active.
+- Click opens a popover listing all servers with name, URL, framework badge,
+  status dot, and hover controls (open in browser, stop, restart, remove).
+- Events pushed via `sero:dev-server:event` IPC channel keep the renderer
+  store (`src/stores/dev-server.ts`) in real-time sync.

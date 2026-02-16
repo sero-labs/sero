@@ -13,6 +13,7 @@ import { ChatPanel } from '@/components/layout/ChatPanel';
 import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
 import { useAppStore, discoverAndRegisterApps, listenForNewApps } from '@/stores/app';
+import { subscribeDevServerEvents } from '@/stores/dev-server';
 import { NewAppBanner } from '@/components/layout/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 
@@ -71,6 +72,11 @@ export function App() {
   useEffect(() => {
     discoverAndRegisterApps();
     return listenForNewApps();
+  }, []);
+
+  // Subscribe to dev server events from main process
+  useEffect(() => {
+    return subscribeDevServerEvents();
   }, []);
 
   const handleMainSidebarResize = useCallback(

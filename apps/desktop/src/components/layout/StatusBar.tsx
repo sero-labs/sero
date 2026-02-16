@@ -2,6 +2,7 @@ import { FolderOpen, Bot } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { useActiveAgentCount } from '@/stores/agent';
+import { DevServerIndicator } from './DevServerPanel';
 
 /**
  * StatusBar — bottom bar showing workspace info (à la VSCode).
@@ -37,6 +38,7 @@ export function StatusBar() {
 
       {/* ── Right ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
+        <DevServerIndicator />
         {agentCount > 0 && (
           <span className="flex items-center gap-1">
             <Bot className="size-3" />

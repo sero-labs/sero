@@ -14,6 +14,8 @@ import type {
   AuthProvidersResponse,
   OAuthEvent,
   ContainerInfo,
+  DevServer,
+  DevServerEvent,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -133,6 +135,21 @@ interface SeroContainerAPI {
   inspect(workspaceId: string): Promise<ContainerInfo>;
 }
 
+interface SeroDevServerAPI {
+  /** List all registered dev servers. Optionally filter by workspace. */
+  list(workspaceId?: string): Promise<DevServer[]>;
+  /** Stop a dev server by ID. */
+  stop(serverId: string): Promise<void>;
+  /** Restart a dev server by ID (stop + re-run original command). */
+  restart(serverId: string): Promise<void>;
+  /** Unregister a dev server (remove from list without stopping). */
+  unregister(serverId: string): Promise<void>;
+  /** Open the dev server URL in the default browser. */
+  openInBrowser(serverId: string): Promise<void>;
+  /** Subscribe to dev server events. Returns unsubscribe. */
+  onEvent(callback: (event: DevServerEvent) => void): () => void;
+}
+
 interface SeroTerminalAPI {
   /** Create a terminal session in a workspace container. */
   create(workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<void>;
@@ -161,6 +178,7 @@ interface SeroAPI {
   appAgent: SeroAppAgentAPI;
   auth: SeroAuthAPI;
   container: SeroContainerAPI;
+  devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
 }
 

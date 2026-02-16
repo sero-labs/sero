@@ -48,6 +48,15 @@ Each bash tool call runs in an isolated \`sh -c\` shell. To start a process that
 6. NEVER use \`kill -9 -1\` — it kills ALL processes in the container.
 7. To stop a server, use \`pkill -f 'vite'\` or \`kill <PID>\`.
 
+**CRITICAL — Registering dev servers:**
+After successfully starting a dev server and confirming it is listening (via \`ss -tlnp\`),
+you MUST call the \`register_dev_server\` tool to register it with the host. This lets the
+user see the server in the Dev Servers panel (status bar) and stop/restart it from the UI.
+Example:
+  1. Start the server: \`setsid sh -c 'npx vite --host 0.0.0.0 --port 3000 > /tmp/vite.log 2>&1 &'\`
+  2. Verify: \`ss -tlnp | grep 3000\`
+  3. Register: call \`register_dev_server\` with name, port, command, and framework
+
 **Terminal awareness:**
 - The user may have interactive terminal sessions running in this container.
 - Use \`read_terminal\` to check terminal output for errors after starting dev servers.

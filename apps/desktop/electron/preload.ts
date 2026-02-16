@@ -13,6 +13,8 @@ import type {
   AuthProvidersResponse,
   OAuthEvent,
   ContainerInfo,
+  DevServer,
+  DevServerEvent,
 } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
@@ -193,6 +195,33 @@ contextBridge.exposeInMainWorld('sero', {
 
     inspect: (workspaceId: string): Promise<ContainerInfo> =>
       ipcRenderer.invoke(IpcChannels.container.inspect, workspaceId),
+  },
+
+  devServer: {
+    list: (workspaceId?: string): Promise<DevServer[]> =>
+      ipcRenderer.invoke(IpcChannels.devServer.list, workspaceId),
+
+    stop: (serverId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.devServer.stop, serverId),
+
+    restart: (serverId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.devServer.restart, serverId),
+
+    unregister: (serverId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.devServer.unregister, serverId),
+
+    openInBrowser: (serverId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.devServer.openInBrowser, serverId),
+
+    onEvent: (callback: (event: DevServerEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: DevServerEvent) => {
+        callback(data);
+      };
+      ipcRenderer.on(IpcChannels.devServer.event, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.devServer.event, handler);
+      };
+    },
   },
 
   terminal: {

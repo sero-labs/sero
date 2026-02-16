@@ -16,6 +16,7 @@ import { registerAppsHandlers } from './apps';
 import { registerAuthHandlers } from './auth';
 import { registerContainerHandlers } from './container';
 import { registerTerminalHandlers } from './terminal';
+import { registerDevServerHandlers } from './dev-server';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -28,4 +29,5 @@ export function registerAllIpcHandlers(): void {
   registerAuthHandlers();
   registerContainerHandlers();
   registerTerminalHandlers();
+  registerDevServerHandlers();
 }

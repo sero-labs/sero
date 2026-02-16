@@ -49,6 +49,19 @@ const ReadTerminalParams = Type.Object({
   ),
 });
 
+const RegisterDevServerParams = Type.Object({
+  name: Type.String({ description: 'Human-readable name (e.g. "Vite Dev Server")' }),
+  port: Type.Number({ description: 'Port the server is listening on' }),
+  command: Type.String({
+    description:
+      'The full command used to start the server (for restart capability). ' +
+      'E.g. "npx vite --host 0.0.0.0 --port 3000"',
+  }),
+  framework: Type.Optional(
+    Type.String({ description: 'Framework hint (e.g. "vite", "next", "express")' }),
+  ),
+});
+
 // ── Helpers ──────────────────────────────────────────────────
 
 /** Resolve a potentially relative path against the workspace root. */
@@ -253,6 +266,49 @@ function createReadTerminal(cm: ContainerManager, workspaceId: string): ToolDefi
   };
 }
 
+/** Create the register_dev_server tool — registers a dev server with the host for management. */
+function createRegisterDevServer(cm: ContainerManager, workspaceId: string): ToolDefinition {
+  return {
+    name: 'register_dev_server',
+    label: 'Register Dev Server',
+    description:
+      'Register a running dev server with the host so the user can see it in the Dev Servers panel and stop/restart it from the UI. ' +
+      'Call this AFTER successfully starting a dev server and confirming it is listening on a port. ' +
+      'The user will see the server name, URL, and controls in the Sero status bar.',
+    parameters: RegisterDevServerParams,
+    execute: async (_toolCallId, params: Static<typeof RegisterDevServerParams>) => {
+      try {
+        const server = cm.devServers.register({
+          workspaceId,
+          name: params.name,
+          port: params.port,
+          command: params.command,
+          framework: params.framework,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `✓ Dev server registered: ${server.name}\n` +
+                `  URL: ${server.url}\n` +
+                `  Port: ${server.port}\n` +
+                `  Status: ${server.status}\n` +
+                `The user can now manage this server from the Dev Servers panel in the status bar.`,
+            },
+          ],
+          details: { serverId: server.id, url: server.url },
+        };
+      } catch (err: unknown) {
+        return errorResult(
+          `Failed to register dev server: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    },
+  };
+}
+
 /**
  * Build all container tools for a workspace.
  * These are passed as `customTools` to `createAgentSession()`.
@@ -268,5 +324,6 @@ export function createContainerTools(
     createEdit(cm, workspaceId),
     createLs(cm, workspaceId),
     createReadTerminal(cm, workspaceId),
+    createRegisterDevServer(cm, workspaceId),
   ];
 }

@@ -153,6 +153,39 @@ export type AgentStreamEvent =
 // This avoids duplicating the shape and ensures IPC data stays in sync.
 export type { ContainerState as ContainerInfo } from '../../electron/container/types';
 
+// ── Dev Servers ────────────────────────────────────────────────
+
+/** A dev server registered by the agent and managed by the host. */
+export interface DevServer {
+  /** Unique key: `${workspaceId}:${port}`. */
+  id: string;
+  /** Workspace this server belongs to. */
+  workspaceId: string;
+  /** Human-readable name (e.g. "Vite Dev Server"). */
+  name: string;
+  /** Port the server is listening on inside the container. */
+  port: number;
+  /** Host-accessible URL (via container IP). */
+  url: string;
+  /** Framework hint (e.g. "vite", "next", "express"). */
+  framework?: string;
+  /** The command used to start the server (for restart). */
+  command: string;
+  /** Server status derived from port scanner liveness checks. */
+  status: 'running' | 'stopped' | 'starting';
+  /** ISO timestamp when the server was registered. */
+  registeredAt: string;
+}
+
+/**
+ * Events pushed from main → renderer when dev server state changes.
+ */
+export type DevServerEvent =
+  | { type: 'registered'; server: DevServer }
+  | { type: 'unregistered'; serverId: string }
+  | { type: 'status_changed'; serverId: string; status: DevServer['status'] }
+  | { type: 'sync'; servers: DevServer[] };
+
 // ── Model Info ─────────────────────────────────────────────────
 
 /** Serialisable model info for the renderer (no class instances). */
@@ -355,6 +388,20 @@ export const IpcChannels = {
     status: 'sero:container:status',
     /** Detailed container inspection. */
     inspect: 'sero:container:inspect',
+  },
+  devServer: {
+    /** List all registered dev servers. Optional workspaceId filter. */
+    list: 'sero:dev-server:list',
+    /** Stop a dev server by ID. */
+    stop: 'sero:dev-server:stop',
+    /** Restart a dev server by ID. */
+    restart: 'sero:dev-server:restart',
+    /** Unregister a dev server by ID (does not stop the process). */
+    unregister: 'sero:dev-server:unregister',
+    /** Open dev server URL in default browser. */
+    openInBrowser: 'sero:dev-server:open-in-browser',
+    /** Main → renderer push channel for dev server events. */
+    event: 'sero:dev-server:event',
   },
   terminal: {
     /** Create a terminal session in a workspace container. */

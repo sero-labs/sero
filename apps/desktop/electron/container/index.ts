@@ -32,8 +32,10 @@ import { TerminalManager } from './terminal';
 import { ensureImage } from './image';
 import { PortScanner } from './port-forward';
 import { ContainerHttpProxy } from './http-proxy';
+import { DevServerRegistry } from './dev-server-registry';
 
 export type { ContainerConfig, ContainerState, ExecResult };
+export { DevServerRegistry };
 
 const execFileAsync = promisify(execFile);
 
@@ -47,6 +49,8 @@ export class ContainerManager {
   readonly terminals: TerminalManager;
   /** Port detection — use directly from tools and IPC. */
   readonly portScanner = new PortScanner();
+  /** Dev server registry — agent registers servers, UI manages them. */
+  readonly devServers: DevServerRegistry;
 
   private httpProxy = new ContainerHttpProxy();
   /** Cached proxy URL once started, e.g. http://192.168.64.1:19800 */
@@ -56,6 +60,8 @@ export class ContainerManager {
     this.terminals = new TerminalManager(
       (wsId) => this.getContainerId(wsId),
     );
+    this.devServers = new DevServerRegistry(this.portScanner, this);
+    this.devServers.startLivenessChecks();
   }
 
   /** Start the HTTP proxy for container internet access. Call once at app boot. */
@@ -228,9 +234,10 @@ export class ContainerManager {
 
   /* ── Port forwarding (convenience) ────────────────────────── */
 
-  /** Stop all port scanning, forwarding, and the HTTP proxy. */
+  /** Stop all port scanning, forwarding, the HTTP proxy, and the dev server registry. */
   disposeAllPortForwards(): void {
     this.portScanner.disposeAll();
+    this.devServers.dispose();
     this.httpProxy.stop();
   }
 
