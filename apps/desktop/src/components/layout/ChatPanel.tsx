@@ -24,20 +24,14 @@ import {
   PromptInputActionAddAttachments,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
-import {
-  Tool,
-  ToolHeader,
-  ToolContent,
-  ToolInput,
-  ToolOutput,
-} from '@/components/ai-elements/tool';
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { PromptAttachmentsBar, MessageAttachments } from './ChatAttachments';
 import { UsageBadge } from './UsageBadge';
 import { ModelSelector } from './ModelSelector';
 import { AuthLoginDialog } from './AuthLoginDialog';
-import type { ChatMessage, ChatAttachment, ChatToolCallMessage, SeroSlashCommandInfo } from '@/types/ipc';
+import { groupMessages, ToolCallGroup } from './ToolCallGroup';
+import type { ChatMessage, ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
 
 /** Built-in commands handled client-side (not sent to the agent). */
 const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [
@@ -74,6 +68,9 @@ export function ChatPanel() {
   const isStreaming = focused?.isStreaming ?? false;
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
+
+  // Group consecutive tool calls into collapsible blocks
+  const groupedItems = useMemo(() => groupMessages(messages), [messages]);
 
   const handleAuthComplete = useCallback(() => {
     if (sessionId) fetchModelState(sessionId);
@@ -192,9 +189,13 @@ export function ChatPanel() {
           ) : messages.length === 0 && !isStreaming ? (
             <EmptyState message="Start a conversation" />
           ) : (
-            messages.map((msg) => (
-              <ChatMessageItem key={msg.id} message={msg} />
-            ))
+            groupedItems.map((item) =>
+              item.kind === 'tool-group' ? (
+                <ToolCallGroup key={item.id} tools={item.tools} />
+              ) : (
+                <ChatMessageItem key={item.message.id} message={item.message} />
+              ),
+            )
           )}
 
           {error && (
@@ -307,52 +308,9 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
         </Message>
       );
 
-    case 'tool':
-      return <ToolCallItem tool={message} />;
-
     default:
       return null;
   }
-}
-
-// ── Tool call renderer ─────────────────────────────────────────
-
-/** Map our state to ToolUIPart state names. */
-function mapToolState(
-  state: ChatToolCallMessage['state'],
-): 'input-streaming' | 'input-available' | 'output-available' | 'output-error' {
-  switch (state) {
-    case 'pending':
-      return 'input-streaming';
-    case 'running':
-      return 'input-available';
-    case 'completed':
-      return 'output-available';
-    case 'error':
-      return 'output-error';
-  }
-}
-
-function ToolCallItem({ tool }: { tool: ChatToolCallMessage }) {
-  const isComplete = tool.state === 'completed' || tool.state === 'error';
-
-  return (
-    <Tool defaultOpen={isComplete}>
-      <ToolHeader
-        type={`tool-${tool.toolName}` as `tool-${string}`}
-        state={mapToolState(tool.state)}
-      />
-      <ToolContent>
-        <ToolInput input={tool.input} />
-        {isComplete && (
-          <ToolOutput
-            output={tool.output}
-            errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
-          />
-        )}
-      </ToolContent>
-    </Tool>
-  );
 }
 
 // ── Empty state ────────────────────────────────────────────────
