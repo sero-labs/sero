@@ -13,6 +13,7 @@ import type { SeroAppManifest } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { getFederatedComponent } from '@/lib/federation-registry';
+import { Spinner } from '@/components/ui/spinner';
 
 // ── Props ────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
 
 function AppPlaceholder({ name, reason }: { name: string; reason: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-[var(--bg-base)]">
+    <div className="flex h-full w-full flex-col items-center justify-center bg-[var(--bg-base)]">
       <span className="text-sm font-medium text-[var(--text-secondary)]">
         {name}
       </span>
@@ -95,9 +96,10 @@ function AppPlaceholder({ name, reason }: { name: string; reason: string }) {
 
 function AppLoading({ name }: { name: string }) {
   return (
-    <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
-      <span className="text-xs text-[var(--text-muted)]">
-        Loading {name}…
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
+      <Spinner className="size-5 text-emerald-500" />
+      <span className="text-sm text-[var(--text-muted)]">
+        Loading {name}
       </span>
     </div>
   );
