@@ -121,7 +121,7 @@ export interface ChatToolCallMessage {
   input: Record<string, unknown>;
   output: string | null;
   isError: boolean;
-  state: 'pending' | 'running' | 'completed' | 'error';
+  state: 'pending' | 'running' | 'completed' | 'error' | 'cancelled';
 }
 
 /**

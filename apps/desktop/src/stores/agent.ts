@@ -281,12 +281,22 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           break;
 
         case 'agent_end':
-          set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: { ...s.agents[sid], isStreaming: false },
-            },
-          }));
+          set((s) => {
+            const agent = s.agents[sid];
+            if (!agent) return s;
+            // Mark any in-flight tools as cancelled (they'll never receive a tool_end)
+            const messages = agent.messages.map((m) =>
+              m.type === 'tool' && (m.state === 'pending' || m.state === 'running')
+                ? { ...m, state: 'cancelled' as const }
+                : m,
+            );
+            return {
+              agents: {
+                ...s.agents,
+                [sid]: { ...agent, isStreaming: false, messages },
+              },
+            };
+          });
           break;
 
         case 'messages_loaded':
