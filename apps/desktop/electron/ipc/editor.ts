@@ -15,7 +15,7 @@ import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
 import { containerManager, workspaceManager } from './shared-infra';
-import { SERO_HOME } from '../env';
+import { SERO_AGENT_DIR } from '../env';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
@@ -23,7 +23,7 @@ const execFileAsync = promisify(execFile);
 
 // ── Editor state persistence ──────────────────────────────────
 
-const EDITOR_STATE_DIR = path.join(SERO_HOME, 'agent', 'editor-state');
+const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
 function editorStatePath(workspaceId: string): string {
   return path.join(EDITOR_STATE_DIR, `${workspaceId}.json`);

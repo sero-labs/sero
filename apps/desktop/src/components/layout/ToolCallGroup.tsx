@@ -219,6 +219,98 @@ function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
   );
 }
 
+// ── Single tool call (matches group wrapper style) ──────────────
+
+function SingleToolCall({ tool }: { tool: ChatToolCallMessage }) {
+  const status = deriveGroupStatus([tool]);
+  const isRunning = status === 'running';
+  const isComplete = tool.state === 'completed' || tool.state === 'error';
+  const isCancelled = tool.state === 'cancelled';
+  const [expanded, setExpanded] = useState(false);
+
+  const summary = useMemo(() => {
+    const inp = tool.input;
+    if (inp.command && typeof inp.command === 'string') return inp.command;
+    if (inp.path && typeof inp.path === 'string') return inp.path;
+    if (inp.file_path && typeof inp.file_path === 'string') return inp.file_path as string;
+    if (inp.query && typeof inp.query === 'string') return inp.query;
+    if (inp.pattern && typeof inp.pattern === 'string') return inp.pattern;
+    if (inp.url && typeof inp.url === 'string') return inp.url;
+    const first = Object.values(inp).find((v) => typeof v === 'string');
+    return typeof first === 'string' ? first : '';
+  }, [tool.input]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className={cn(
+        'group/tg overflow-hidden rounded-lg border transition-colors duration-200',
+        isRunning
+          ? 'border-blue-500/20 bg-blue-500/[0.03]'
+          : status === 'error'
+            ? 'border-red-500/20 bg-red-500/[0.03]'
+            : 'border-border/50 bg-[var(--bg-elevated)]/50',
+      )}
+    >
+      {/* Summary bar */}
+      <button
+        onClick={() => setExpanded((prev) => !prev)}
+        className={cn(
+          'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
+          'hover:bg-[var(--bg-elevated)]/80',
+        )}
+      >
+        <motion.div
+          animate={{ rotate: expanded ? 90 : 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        >
+          <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
+        </motion.div>
+
+        {toolStatusDot(tool.state)}
+        <span className="shrink-0 text-[11px] font-medium text-[var(--text-secondary)]">
+          {tool.toolName}
+        </span>
+        {summary && (
+          <span className="min-w-0 truncate text-[11px] text-[var(--text-muted)]/60">
+            {summary}
+          </span>
+        )}
+      </button>
+
+      {/* Expanded: tool input / output */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-border/30 space-y-4 p-3">
+              <ToolInput input={tool.input} />
+              {isComplete && (
+                <ToolOutput
+                  output={tool.output}
+                  errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
+                />
+              )}
+              {isCancelled && (
+                <div className="text-xs text-yellow-500/80 italic">
+                  Cancelled — agent was stopped before this tool completed.
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 // ── Main ToolCallGroup component ────────────────────────────────
 
 /**
@@ -266,9 +358,9 @@ export function ToolCallGroup({
     if (isRunning) setManualExpanded(null);
   }, [isRunning]);
 
-  // Single tool: just render it inline, no group wrapper
+  // Single tool: render with matching group-style wrapper
   if (tools.length === 1) {
-    return <ToolDetail tool={tools[0]} />;
+    return <SingleToolCall tool={tools[0]} />;
   }
 
   return (

@@ -21,6 +21,8 @@ import type {
 import { SERO_HOME, SERO_AGENT_DIR } from './env';
 import { inferWorkspaceFromMessage } from './workspace-inference';
 
+const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
+
 // ── Paths ────────────────────────────────────────────────────
 
 const REGISTRY_PATH = path.join(SERO_AGENT_DIR, 'workspaces.json');
@@ -309,7 +311,12 @@ export class WorkspaceManager {
 
     this.registry.workspaces = this.registry.workspaces.filter((w) => w.id !== id);
     this.configCache.delete(id);
+    this.openIds.delete(id);
     await this.saveRegistry();
+
+    // Clean up editor state file
+    const editorStateFile = path.join(EDITOR_STATE_DIR, `${id}.json`);
+    await fs.rm(editorStateFile, { force: true }).catch(() => {});
   }
 
   // ── Open / Close (sidebar visibility, persisted) ───────────

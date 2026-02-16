@@ -10,9 +10,9 @@ import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
-import { SERO_HOME } from '../env';
+import { SERO_AGENT_DIR } from '../env';
 
-const LAYOUT_FILE = path.join(SERO_HOME, 'agent', 'layout.json');
+const LAYOUT_FILE = path.join(SERO_AGENT_DIR, 'layout.json');
 
 export interface LayoutState {
   mainSidebarOpen: boolean;
@@ -41,7 +41,7 @@ function parseLayoutState(raw: string): LayoutState | null {
 }
 
 async function saveLayoutFile(state: LayoutState): Promise<void> {
-  mkdirSync(SERO_HOME, { recursive: true });
+  mkdirSync(SERO_AGENT_DIR, { recursive: true });
   const tmpFile = `${LAYOUT_FILE}.${process.pid}.${Date.now()}.tmp`;
   await fs.writeFile(tmpFile, JSON.stringify(state, null, 2), 'utf8');
   await fs.rename(tmpFile, LAYOUT_FILE);
