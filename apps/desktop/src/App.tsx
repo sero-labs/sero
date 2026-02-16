@@ -16,6 +16,7 @@ import { useAppStore, discoverAndRegisterApps, listenForNewApps, loadLayout } fr
 import { subscribeDevServerEvents } from '@/stores/dev-server';
 import { NewAppBanner } from '@/components/layout/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 /**
  * App shell.
@@ -68,6 +69,9 @@ export function App() {
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
+
+  // Global keyboard shortcuts (⌘B sidebar, ⌘L chat)
+  useKeyboardShortcuts();
 
   // Load layout + discover apps on startup
   useEffect(() => {
