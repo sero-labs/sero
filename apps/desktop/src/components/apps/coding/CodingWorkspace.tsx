@@ -1,4 +1,10 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
+import type { PanelImperativeHandle } from 'react-resizable-panels';
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from '@/components/ui/resizable';
 import { ActivityBar, type CodingPanel } from './ActivityBar';
 import { CodingSidebar } from './CodingSidebar';
 import { EditorPanel } from './editor/EditorPanel';
@@ -173,6 +179,40 @@ export function CodingWorkspace() {
     });
   }, []);
 
+  const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const isSidebarProgrammaticRef = useRef(false);
+
+  // Sync sidebar panel collapse/expand with sidebarOpen state
+  useEffect(() => {
+    isSidebarProgrammaticRef.current = true;
+    const rafId = window.requestAnimationFrame(() => {
+      if (sidebarOpen) {
+        sidebarPanelRef.current?.expand();
+      } else {
+        sidebarPanelRef.current?.collapse();
+      }
+      window.requestAnimationFrame(() => {
+        isSidebarProgrammaticRef.current = false;
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      isSidebarProgrammaticRef.current = false;
+    };
+  }, [sidebarOpen]);
+
+  const handleSidebarResize = useCallback(
+    ({ inPixels }: { inPixels: number; asPercentage: number }) => {
+      if (isSidebarProgrammaticRef.current) return;
+      if (inPixels <= 1) {
+        setCodingUi(workspaceId, { sidebarOpen: false });
+      } else if (!sidebarOpen && inPixels >= 120) {
+        setCodingUi(workspaceId, { sidebarOpen: true });
+      }
+    },
+    [workspaceId, sidebarOpen, setCodingUi],
+  );
+
   return (
     <div className="flex h-full w-full flex-col min-h-0">
       {/* ── Top: activity bar + sidebar + editor ───────────── */}
@@ -182,27 +222,47 @@ export function CodingWorkspace() {
           terminalOpen={terminalOpen} onPanelClick={handlePanelClick}
         />
 
-        {sidebarOpen && (
-          <CodingSidebar
-            activePanel={activePanel}
-            fileTreeProps={{
-              workspaceId, rootId, activePath: activeTab,
-              onFileSelect: handleOpenTab,
-              onPathChanged: handlePathChanged,
-              onDeleted: handleDeleted,
-            }}
-          />
-        )}
+        <ResizablePanelGroup id="coding-layout" orientation="horizontal" className="min-w-0 flex-1">
+          <ResizablePanel
+            id="coding-sidebar"
+            panelRef={sidebarPanelRef}
+            defaultSize="220px"
+            minSize={160}
+            collapsible
+            collapsedSize={0}
+            onResize={handleSidebarResize}
+            style={{ overflow: 'hidden' }}
+          >
+            {sidebarOpen && (
+              <CodingSidebar
+                activePanel={activePanel}
+                fileTreeProps={{
+                  workspaceId, rootId, activePath: activeTab,
+                  onFileSelect: handleOpenTab,
+                  onPathChanged: handlePathChanged,
+                  onDeleted: handleDeleted,
+                }}
+              />
+            )}
+          </ResizablePanel>
 
-        {/* ── Editor fills all remaining space ─────────────── */}
-        <div className="flex flex-1 min-h-0 min-w-0 bg-[var(--bg-base)]">
-          <EditorPanel
-            workspaceId={workspaceId}
-            tabs={editorTabs} activeTab={activeTab}
-            onOpenTab={handleOpenTab} onCloseTab={handleCloseTab}
-            onReorderTabs={handleReorderTabs} onTabsChange={handleTabsChange}
+          <ResizableHandle
+            disabled={!sidebarOpen}
+            className={!sidebarOpen ? 'pointer-events-none opacity-0' : undefined}
           />
-        </div>
+
+          {/* ── Editor fills all remaining space ─────────────── */}
+          <ResizablePanel id="coding-editor" minSize={200} className="min-w-0">
+            <div className="flex h-full min-h-0 min-w-0 bg-[var(--bg-base)]">
+              <EditorPanel
+                workspaceId={workspaceId}
+                tabs={editorTabs} activeTab={activeTab}
+                onOpenTab={handleOpenTab} onCloseTab={handleCloseTab}
+                onReorderTabs={handleReorderTabs} onTabsChange={handleTabsChange}
+              />
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
 
       {/* ── Bottom: terminal spans full width ──────────────── */}

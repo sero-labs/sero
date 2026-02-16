@@ -30,7 +30,7 @@ export function CodingSidebar({ activePanel, fileTreeProps }: CodingSidebarProps
   const title = panelTitles[activePanel];
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-border/50 bg-[var(--bg-surface)]">
+    <aside className="flex h-full w-full flex-col bg-[var(--bg-surface)]">
       {/* ── Header ──────────────────────────────────────────── */}
       <div className="flex h-7 shrink-0 items-center px-4">
         <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">

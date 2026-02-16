@@ -58,10 +58,7 @@ export function App() {
     0,
     MAIN_SIDEBAR_MIN_WIDTH - COLLAPSE_PULL_PAST_MIN * 2,
   );
-  const chatPanelCollapsedSize = Math.max(
-    0,
-    CHAT_PANEL_MIN_WIDTH - COLLAPSE_PULL_PAST_MIN * 2,
-  );
+  const chatPanelCollapsedSize = 0;
 
   const appsReady = useAppStore((s) => s.appsReady);
 

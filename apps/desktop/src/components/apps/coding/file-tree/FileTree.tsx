@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { FileIcon } from './file-icons';
 import { FileTreeContextMenu } from './file-tree-context-menu';
 import { moveItem, renameItem } from './file-tree-ops';
+import { cn } from '@/lib/utils';
 
 /* ── Types ───────────────────────────────────────────────────── */
 
@@ -263,13 +264,12 @@ export function FileTree({
             workspaceId={workspaceId} onStartRename={() => item.startRenaming()}
             onDeleted={onDeleted} onReloadDir={loadDirectory}
           >
-            <TreeItem className="!pb-0" item={item}>
-              <TreeItemLabel
-                className="!rounded-none !px-1.5 !py-[3px] !bg-transparent
-                  hover:!bg-white/[0.06]
-                  in-data-[selected=true]:!bg-white/[0.10] in-data-[selected=true]:!text-[var(--text-primary)]"
-              >
-                <span className="flex items-center gap-1.5 text-[13px]">
+            <TreeItem
+              item={item}
+              className="hover:bg-white/[0.06] data-[selected=true]:bg-white/[0.10]"
+            >
+              <TreeItemLabel className="!px-1.5 !py-[3px]">
+                <span className="flex min-w-0 items-center gap-1.5 text-[13px]">
                   {!item.isFolder() && (
                     <FileIcon
                       extension={item.getItemData()?.fileExtension}
@@ -280,7 +280,10 @@ export function FileTree({
                   {item.isRenaming() ? (
                     <Input {...item.getRenameInputProps()} autoFocus className="-my-0.5 h-5 px-1 text-[13px]" />
                   ) : (
-                    <span className={item.isFolder() ? 'text-[var(--text-secondary)] font-medium' : 'text-[var(--text-muted)]'}>
+                    <span className={cn(
+                      'truncate',
+                      item.isFolder() ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-primary)]',
+                    )}>
                       {item.getItemName()}
                     </span>
                   )}
