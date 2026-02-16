@@ -256,6 +256,10 @@ export function registerAgentHandlers(): void {
           containerState = await containerManager.ensure({
             workspaceId,
             hostPath: wsPath,
+            readOnlyMounts: [
+              path.join(SERO_AGENT_DIR, 'skills'),
+              path.join(SERO_AGENT_DIR, 'prompts'),
+            ],
           });
           sendEvent({
             type: 'container_ready',

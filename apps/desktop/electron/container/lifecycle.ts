@@ -186,10 +186,17 @@ export async function createFreshContainer(
     '--ssh',
     '--volume',
     `${config.hostPath}:${WORKSPACE_MOUNT}`,
-    config.image ?? DEFAULT_IMAGE,
-    'sleep',
-    'infinity',
   ];
+
+  // Bind-mount additional host directories (skills, prompts, etc.)
+  // at the same absolute path so agent references resolve correctly.
+  for (const hostDir of config.readOnlyMounts ?? []) {
+    if (fs.existsSync(hostDir)) {
+      args.push('--volume', `${hostDir}:${hostDir}`);
+    }
+  }
+
+  args.push(config.image ?? DEFAULT_IMAGE, 'sleep', 'infinity');
 
   // Profile sets TERM, HOST bindings, and proxy for all shells.
   const profileLines = [

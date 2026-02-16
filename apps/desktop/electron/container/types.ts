@@ -56,6 +56,13 @@ export interface ContainerConfig {
   image?: string;
   cpus?: number;
   memoryMB?: number;
+  /**
+   * Additional host directories to bind-mount read-only into the container
+   * at the same absolute path. Used for skills, prompts, etc. that the agent
+   * needs to read but should not modify.
+   * Directories that don't exist on the host are silently skipped.
+   */
+  readOnlyMounts?: string[];
 }
 
 /**
