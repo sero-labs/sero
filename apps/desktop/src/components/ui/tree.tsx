@@ -34,11 +34,8 @@ function Tree({ indent = 20, tree, className, ...props }: TreeProps) {
       ? tree.getContainerProps()
       : {};
   const mergedProps = { ...props, ...containerProps };
-
-  // Extract style from mergedProps to merge with our custom styles
   const { style: propStyle, ...otherProps } = mergedProps;
 
-  // Merge styles
   const mergedStyle = {
     ...propStyle,
     "--tree-indent": `${indent}px`,
@@ -63,6 +60,13 @@ interface TreeItemProps<T = any>
   asChild?: boolean;
 }
 
+/**
+ * TreeItem — full-width row button.
+ *
+ * The row carries hover / selected / drag-target backgrounds so the
+ * highlight spans edge-to-edge (VSCode-style). Indentation is applied
+ * via `paddingInlineStart` so the background is unaffected.
+ */
 function TreeItem<T = any>({
   item,
   className,
@@ -74,12 +78,8 @@ function TreeItem<T = any>({
 
   const itemProps = typeof item.getProps === "function" ? item.getProps() : {};
   const mergedProps = { ...props, ...itemProps };
-
-  // Extract style from mergedProps to merge with our custom styles
   const { style: propStyle, ...otherProps } = mergedProps;
 
-  // Merge styles — set both the CSS variable and the inline padding
-  // to ensure indentation works even if Tailwind can't compile ps-(--tree-padding)
   const treePadding = item.getItemMeta().level * indent;
   const mergedStyle = {
     ...propStyle,
@@ -94,8 +94,10 @@ function TreeItem<T = any>({
       <Comp
         aria-expanded={item.isExpanded()}
         className={cn(
-          "z-10 select-none ps-(--tree-padding) not-last:pb-0.5 outline-hidden focus:z-20 data-disabled:pointer-events-none data-disabled:opacity-50",
-          className
+          "z-10 w-full select-none ps-(--tree-padding) outline-hidden",
+          "transition-colors",
+          "focus:z-20 data-disabled:pointer-events-none data-disabled:opacity-50",
+          className,
         )}
         data-drag-target={
           typeof item.isDragTarget === "function"
@@ -137,6 +139,12 @@ interface TreeItemLabelProps<T = any>
   item?: ItemInstance<T>;
 }
 
+/**
+ * TreeItemLabel — content wrapper inside a TreeItem.
+ *
+ * Layout-only (chevron + children). Background lives on the parent
+ * TreeItem so it spans the full row width.
+ */
 function TreeItemLabel<T = any>({
   item: propItem,
   children,
@@ -154,14 +162,15 @@ function TreeItemLabel<T = any>({
   return (
     <span
       className={cn(
-        "flex items-center gap-1 rounded-sm bg-background in-data-[drag-target=true]:bg-accent in-data-[search-match=true]:bg-blue-400/20! in-data-[selected=true]:bg-accent px-2 py-1 not-in-data-[folder=true]:ps-7 in-data-[selected=true]:text-accent-foreground text-sm in-focus-visible:ring-[3px] in-focus-visible:ring-ring/50 transition-colors hover:bg-accent [&_svg]:pointer-events-none [&_svg]:shrink-0",
-        className
+        "flex min-w-0 items-center gap-1 px-2 py-1",
+        "[&_svg]:pointer-events-none [&_svg]:shrink-0",
+        className,
       )}
       data-slot="tree-item-label"
       {...props}
     >
       {item.isFolder() && (
-        <ChevronDownIcon className="in-aria-[expanded=false]:-rotate-90 size-4 text-muted-foreground" />
+        <ChevronDownIcon className="in-aria-[expanded=false]:-rotate-90 size-4 shrink-0 text-muted-foreground" />
       )}
       {children ||
         (typeof item.getItemName === "function" ? item.getItemName() : null)}
@@ -177,7 +186,7 @@ function TreeDragLine({
 
   if (!tree || typeof tree.getDragLineStyle !== "function") {
     console.warn(
-      "TreeDragLine: No tree provided via context or tree does not have getDragLineStyle method"
+      "TreeDragLine: No tree provided via context or tree does not have getDragLineStyle method",
     );
     return null;
   }
@@ -187,7 +196,7 @@ function TreeDragLine({
     <div
       className={cn(
         "-mt-px before:-top-[3px] absolute z-30 h-0.5 w-[unset] bg-primary before:absolute before:left-0 before:size-2 before:rounded-full before:border-2 before:border-primary before:bg-background",
-        className
+        className,
       )}
       style={dragLine}
       {...props}

@@ -17,6 +17,10 @@ import { registerAuthHandlers } from './auth';
 import { registerContainerHandlers } from './container';
 import { registerTerminalHandlers } from './terminal';
 import { registerDevServerHandlers } from './dev-server';
+import { registerEditorHandlers } from './editor';
+import { registerFileTreeHandlers } from './filetree';
+import { registerLayoutHandlers } from './layout';
+import { registerLspHandlers } from './lsp';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -30,4 +34,8 @@ export function registerAllIpcHandlers(): void {
   registerContainerHandlers();
   registerTerminalHandlers();
   registerDevServerHandlers();
+  registerEditorHandlers();
+  registerFileTreeHandlers();
+  registerLayoutHandlers();
+  registerLspHandlers();
 }

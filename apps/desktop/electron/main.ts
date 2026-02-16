@@ -10,7 +10,7 @@ import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
 import { watchForNewApps } from './ipc/apps';
-import { containerManager } from './ipc/shared-infra';
+import { containerManager, fileWatcherManager, lspManager } from './ipc/shared-infra';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -128,6 +128,9 @@ function createWindow() {
     }
   });
 
+  // Give the file watcher manager access to the window for push events
+  fileWatcherManager.setWindow(mainWindow);
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });
@@ -213,7 +216,11 @@ app.on('activate', () => {
 // ── Graceful shutdown ──────────────────────────────────────────
 app.on('before-quit', async (e) => {
   e.preventDefault();
-  console.log('[sero] Shutting down — cleaning up containers and terminals...');
+  console.log('[sero] Shutting down — cleaning up containers, terminals, LSP, watchers...');
+
+  // Dispose LSP servers and file watchers
+  await lspManager.disposeAll();
+  fileWatcherManager.disposeAll();
 
   // Dispose terminals and port forwards
   containerManager.terminals.disposeAllTerminals();

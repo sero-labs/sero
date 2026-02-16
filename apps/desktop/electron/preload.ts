@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannels } from '../src/types/ipc';
 import type {
   WorkspaceInfo,
@@ -258,6 +258,75 @@ contextBridge.exposeInMainWorld('sero', {
       return () => {
         ipcRenderer.removeListener(IpcChannels.terminal.exit, handler);
       };
+    },
+  },
+
+  layout: {
+    save: (state: { mainSidebarOpen: boolean; chatPanelOpen: boolean }): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.layout.save, state),
+    load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null> =>
+      ipcRenderer.invoke(IpcChannels.layout.load),
+  },
+
+  editor: {
+    readFile: (workspaceId: string, filePath: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.editor.readFile, workspaceId, filePath),
+    writeFile: (workspaceId: string, filePath: string, content: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.editor.writeFile, workspaceId, filePath, content),
+    listFiles: (workspaceId: string, dirPath: string) =>
+      ipcRenderer.invoke(IpcChannels.editor.listFiles, workspaceId, dirPath),
+    exec: (workspaceId: string, command: string) =>
+      ipcRenderer.invoke(IpcChannels.editor.exec, workspaceId, command),
+    saveState: (workspaceId: string, state: { openTabs: string[]; activeTab: string | null }): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.editor.saveState, workspaceId, state),
+    loadState: (workspaceId: string) =>
+      ipcRenderer.invoke(IpcChannels.editor.loadState, workspaceId),
+    getRootPath: (workspaceId: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.editor.getRootPath, workspaceId),
+    isContainer: (workspaceId: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.isContainer, workspaceId),
+    rename: (workspaceId: string, oldPath: string, newPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.rename, workspaceId, oldPath, newPath),
+    delete: (workspaceId: string, itemPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.delete, workspaceId, itemPath),
+    createFile: (workspaceId: string, filePath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.createFile, workspaceId, filePath),
+    createDir: (workspaceId: string, dirPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.createDir, workspaceId, dirPath),
+  },
+
+  filetree: {
+    watch: (workspaceId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.filetree.watch, workspaceId),
+    unwatch: (workspaceId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.filetree.unwatch, workspaceId),
+    onChanged: (callback: (data: { workspaceId: string; directories: string[] }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, data: { workspaceId: string; directories: string[] }) => callback(data);
+      ipcRenderer.on(IpcChannels.filetree.changed, handler);
+      return () => { ipcRenderer.removeListener(IpcChannels.filetree.changed, handler); };
+    },
+  },
+
+  lsp: {
+    start: (workspaceId: string, languageId: string) =>
+      ipcRenderer.invoke(IpcChannels.lsp.start, workspaceId, languageId),
+    stop: (workspaceId: string, language: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.lsp.stop, workspaceId, language),
+    request: (workspaceId: string, language: string, method: string, params?: unknown) =>
+      ipcRenderer.invoke(IpcChannels.lsp.request, workspaceId, language, method, params),
+    notify: (workspaceId: string, language: string, method: string, params?: unknown): void =>
+      ipcRenderer.send(IpcChannels.lsp.notify, workspaceId, language, method, params),
+    hasServer: (workspaceId: string, language: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.lsp.hasServer, workspaceId, language),
+    onNotification: (callback: (data: { workspaceId: string; language: string; notification: any }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on(IpcChannels.lsp.notification, handler);
+      return () => { ipcRenderer.removeListener(IpcChannels.lsp.notification, handler); };
+    },
+    onServerStopped: (callback: (data: { workspaceId: string; language: string }) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on(IpcChannels.lsp.serverStopped, handler);
+      return () => { ipcRenderer.removeListener(IpcChannels.lsp.serverStopped, handler); };
     },
   },
 

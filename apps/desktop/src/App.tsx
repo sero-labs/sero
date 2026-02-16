@@ -12,7 +12,7 @@ import { StatusBar } from '@/components/layout/StatusBar';
 import { ChatPanel } from '@/components/layout/ChatPanel';
 import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
-import { useAppStore, discoverAndRegisterApps, listenForNewApps } from '@/stores/app';
+import { useAppStore, discoverAndRegisterApps, listenForNewApps, loadLayout } from '@/stores/app';
 import { subscribeDevServerEvents } from '@/stores/dev-server';
 import { NewAppBanner } from '@/components/layout/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
@@ -43,8 +43,11 @@ export function App() {
   const setChatPanelOpen = useAppStore((s) => s.setChatPanelOpen);
   const mainSidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
   const chatPanelRef = useRef<PanelImperativeHandle | null>(null);
-  const isMainSidebarProgrammaticRef = useRef(false);
-  const isChatPanelProgrammaticRef = useRef(false);
+  // Start true — blocks onResize events fired during initial render (before
+  // the sync effects run). Without this, the handler sees the panel at its
+  // defaultSize, detects !open && inPixels >= min, and immediately re-opens.
+  const isMainSidebarProgrammaticRef = useRef(true);
+  const isChatPanelProgrammaticRef = useRef(true);
   const MAIN_SIDEBAR_DEFAULT_SIZE_PCT = 20;
   const CHAT_PANEL_DEFAULT_SIZE_PCT = 30;
   const mainSidebarLastExpandedPctRef = useRef(MAIN_SIDEBAR_DEFAULT_SIZE_PCT);
@@ -58,18 +61,17 @@ export function App() {
     0,
     MAIN_SIDEBAR_MIN_WIDTH - COLLAPSE_PULL_PAST_MIN * 2,
   );
-  const chatPanelCollapsedSize = Math.max(
-    0,
-    CHAT_PANEL_MIN_WIDTH - COLLAPSE_PULL_PAST_MIN * 2,
-  );
+  const chatPanelCollapsedSize = 0;
 
   const appsReady = useAppStore((s) => s.appsReady);
+  const layoutReady = useAppStore((s) => s.layoutReady);
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
 
-  // Discover sero apps on startup + listen for new ones
+  // Load layout + discover apps on startup
   useEffect(() => {
+    loadLayout();
     discoverAndRegisterApps();
     return listenForNewApps();
   }, []);
@@ -81,6 +83,7 @@ export function App() {
 
   const handleMainSidebarResize = useCallback(
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
+      if (!layoutReady || !appsReady) return;
       if (isMainSidebarProgrammaticRef.current) return;
 
       if (inPixels <= mainSidebarCollapsedSize + 1) {
@@ -89,21 +92,18 @@ export function App() {
       }
 
       mainSidebarLastExpandedPctRef.current = asPercentage;
-
-      if (!mainSidebarOpen && inPixels >= MAIN_SIDEBAR_MIN_WIDTH) {
-        setMainSidebarOpen(true);
-      }
     },
     [
+      appsReady,
       mainSidebarCollapsedSize,
+      layoutReady,
       setMainSidebarOpen,
-      MAIN_SIDEBAR_MIN_WIDTH,
-      mainSidebarOpen,
     ],
   );
 
   const handleChatPanelResize = useCallback(
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
+      if (!layoutReady || !appsReady) return;
       if (isChatPanelProgrammaticRef.current) return;
 
       if (inPixels <= chatPanelCollapsedSize + 1) {
@@ -112,20 +112,24 @@ export function App() {
       }
 
       chatPanelLastExpandedPctRef.current = asPercentage;
-
-      if (!chatPanelOpen && inPixels >= CHAT_PANEL_MIN_WIDTH) {
-        setChatPanelOpen(true);
-      }
     },
     [
+      appsReady,
       chatPanelCollapsedSize,
+      layoutReady,
       setChatPanelOpen,
-      CHAT_PANEL_MIN_WIDTH,
-      chatPanelOpen,
     ],
   );
 
+  // ── Panel sync effects ──────────────────────────────────────
+  // Guarded on layoutReady so they don't run during the "Loading…"
+  // phase. Without this, the effect fires with default store values,
+  // its RAF sets the programmatic ref to false, and when panels mount
+  // for the first time their onResize overrides the loaded state.
+
   useEffect(() => {
+    if (!layoutReady || !appsReady) return;
+
     let rafId: number | null = null;
     let rafId2: number | null = null;
     isMainSidebarProgrammaticRef.current = true;
@@ -153,9 +157,11 @@ export function App() {
       if (rafId2 !== null) window.cancelAnimationFrame(rafId2);
       isMainSidebarProgrammaticRef.current = false;
     };
-  }, [mainSidebarOpen, MAIN_SIDEBAR_DEFAULT_SIZE_PCT]);
+  }, [mainSidebarOpen, layoutReady, appsReady, MAIN_SIDEBAR_DEFAULT_SIZE_PCT]);
 
   useEffect(() => {
+    if (!layoutReady || !appsReady) return;
+
     let rafId: number | null = null;
     let rafId2: number | null = null;
     isChatPanelProgrammaticRef.current = true;
@@ -183,11 +189,11 @@ export function App() {
       if (rafId2 !== null) window.cancelAnimationFrame(rafId2);
       isChatPanelProgrammaticRef.current = false;
     };
-  }, [chatPanelOpen, CHAT_PANEL_DEFAULT_SIZE_PCT]);
+  }, [chatPanelOpen, layoutReady, appsReady, CHAT_PANEL_DEFAULT_SIZE_PCT]);
 
-  // Wait for app discovery before rendering — prevents the "click twice to load"
-  // bug where the sidebar shows an app but its manifest isn't in the store yet.
-  if (!appsReady) {
+  // Wait for layout hydration + app discovery before rendering.
+  // Layout must load first so panels render at the correct size (no flash).
+  if (!appsReady || !layoutReady) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[var(--bg-base)]">
         <span className="text-xs text-[var(--text-muted)]">Loading…</span>
@@ -209,7 +215,9 @@ export function App() {
             <ResizablePanel
               id="main-sidebar-panel"
               panelRef={mainSidebarPanelRef}
-              defaultSize={`${MAIN_SIDEBAR_DEFAULT_SIZE_PCT}%`}
+              defaultSize={
+                mainSidebarOpen ? `${MAIN_SIDEBAR_DEFAULT_SIZE_PCT}%` : mainSidebarCollapsedSize
+              }
               minSize={MAIN_SIDEBAR_MIN_WIDTH}
               collapsible
               collapsedSize={mainSidebarCollapsedSize}
@@ -235,7 +243,7 @@ export function App() {
             <ResizablePanel
               id="chat-panel"
               panelRef={chatPanelRef}
-              defaultSize={`${CHAT_PANEL_DEFAULT_SIZE_PCT}%`}
+              defaultSize={chatPanelOpen ? `${CHAT_PANEL_DEFAULT_SIZE_PCT}%` : chatPanelCollapsedSize}
               minSize={CHAT_PANEL_MIN_WIDTH}
               collapsible
               collapsedSize={chatPanelCollapsedSize}

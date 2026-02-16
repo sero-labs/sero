@@ -166,7 +166,7 @@ the feature appears to work in the UI but silently fails at the agent.
 
 ### State Management Rules
 
-- **Do NOT use `localStorage` for app state** unless explicitly instructed. All
+- **IMPORTANT - DO NOT use `localStorage` for app state** unless explicitly instructed. All
   shared state lives in Zustand stores (`src/stores/`). Cross-boundary state
   (e.g. for federated modules in `@sero/app-runtime`) is passed via context
   providers or the `window.sero` IPC bridge — never via `localStorage`.
