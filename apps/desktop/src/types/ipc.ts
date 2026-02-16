@@ -399,6 +399,8 @@ export const IpcChannels = {
     status: 'sero:container:status',
     /** Detailed container inspection. */
     inspect: 'sero:container:inspect',
+    /** Ensure a workspace container is running. Creates if needed. Returns ContainerInfo. */
+    ensure: 'sero:container:ensure',
   },
   devServer: {
     /** List all registered dev servers. Optional workspaceId filter. */

@@ -1,13 +1,16 @@
 /**
  * Container lifecycle IPC handlers.
  *
- * Exposes container status + inspect to the renderer.
- * Container creation is lazy — triggered by agent.open, not directly by the UI.
+ * Exposes container status, inspect, and ensure to the renderer.
+ * `ensure` is the primary entry point — called when a session is selected
+ * so the container is ready for file browsing, terminals, and agent tools.
  */
 
 import { ipcMain } from 'electron';
+import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
-import { containerManager } from './shared-infra';
+import { containerManager, workspaceManager } from './shared-infra';
+import { SERO_AGENT_DIR } from '../env';
 
 export function registerContainerHandlers(): void {
   // Get container state for a workspace (returns null if no container)
@@ -33,6 +36,30 @@ export function registerContainerHandlers(): void {
       } catch (err: any) {
         throw new Error(`Container inspect failed: ${err.message}`);
       }
+    },
+  );
+
+  // Ensure a workspace container is running — creates if needed.
+  // Called by the renderer when a session is selected so the container
+  // is immediately available for file trees, terminals, and tools.
+  ipcMain.handle(
+    IpcChannels.container.ensure,
+    async (_event, workspaceId: string) => {
+      const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
+      if (!containerEnabled) return null;
+
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+
+      const state = await containerManager.ensure({
+        workspaceId,
+        hostPath: wsPath,
+        readOnlyMounts: [
+          path.join(SERO_AGENT_DIR, 'skills'),
+          path.join(SERO_AGENT_DIR, 'prompts'),
+        ],
+      });
+      return state;
     },
   );
 }

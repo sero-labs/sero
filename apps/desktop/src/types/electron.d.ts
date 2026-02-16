@@ -133,6 +133,8 @@ interface SeroContainerAPI {
   status(workspaceId: string): Promise<ContainerInfo | null>;
   /** Detailed container inspection. */
   inspect(workspaceId: string): Promise<ContainerInfo>;
+  /** Ensure a workspace container is running. Creates if needed. Returns null if containers disabled. */
+  ensure(workspaceId: string): Promise<ContainerInfo | null>;
 }
 
 interface SeroDevServerAPI {

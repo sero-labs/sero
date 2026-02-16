@@ -11,6 +11,8 @@ import { FileIcon } from './file-icons';
 import { FileTreeContextMenu } from './file-tree-context-menu';
 import { moveItem, renameItem } from './file-tree-ops';
 import { cn } from '@/lib/utils';
+import { useContainerStore } from '@/stores/container';
+import { useActiveWorkspace } from '@/stores/workspace';
 
 /* ── Types ───────────────────────────────────────────────────── */
 
@@ -90,6 +92,16 @@ export function FileTree({
   const loadingRef = useRef<Set<string>>(new Set());
   const expandedRef = useRef<Set<string>>(new Set([rootId]));
 
+  // Container readiness — mirrors the pattern in EditorPanel.
+  // Non-container workspaces are always ready; container workspaces
+  // must wait for the container to reach "running" status.
+  const containerStatus = useContainerStore(
+    (s) => s.containers[workspaceId]?.status ?? 'none',
+  );
+  const activeWorkspace = useActiveWorkspace();
+  const isContainerWorkspace = activeWorkspace?.container ?? true;
+  const isReady = isContainerWorkspace ? containerStatus === 'running' : true;
+
   /* ── Reset state when workspace / root changes ────────────
    *
    * `items` is initialised once on mount. When the user switches to a
@@ -117,6 +129,7 @@ export function FileTree({
   /* ── Load directory ──────────────────────────────────────── */
 
   const loadDirectory = useCallback(async (dirPath: string) => {
+    if (!isReady) return; // Container not running yet — skip to avoid errors
     if (loadingRef.current.has(dirPath)) return;
     loadingRef.current.add(dirPath);
     try {
@@ -145,9 +158,9 @@ export function FileTree({
     } finally {
       loadingRef.current.delete(dirPath);
     }
-  }, [workspaceId]);
+  }, [workspaceId, isReady]);
 
-  /* ── Load root on mount ──────────────────────────────────── */
+  /* ── Load root on mount / when container becomes ready ──── */
 
   useEffect(() => { loadDirectory(rootId); }, [loadDirectory, rootId]);
 

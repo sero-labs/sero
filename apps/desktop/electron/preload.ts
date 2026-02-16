@@ -195,6 +195,9 @@ contextBridge.exposeInMainWorld('sero', {
 
     inspect: (workspaceId: string): Promise<ContainerInfo> =>
       ipcRenderer.invoke(IpcChannels.container.inspect, workspaceId),
+
+    ensure: (workspaceId: string): Promise<ContainerInfo | null> =>
+      ipcRenderer.invoke(IpcChannels.container.ensure, workspaceId),
   },
 
   devServer: {

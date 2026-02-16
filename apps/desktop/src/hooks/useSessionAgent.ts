@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { useSessionStore } from '@/stores/sessions';
 import { useAgentStore } from '@/stores/agent';
+import { useWorkspaceStore } from '@/stores/workspace';
+import { useContainerStore } from '@/stores/container';
 
 /**
- * Bridges session selection → agent lifecycle.
+ * Bridges session selection → agent lifecycle + container lifecycle.
  *
  * When activeSessionId changes:
  *   - Opens an AgentSession in the pool (if not already open)
  *   - Focuses it in the ChatPanel
+ *   - Ensures the workspace container is running (if container-enabled)
  *
  * When activeSessionId becomes null:
  *   - Clears ChatPanel focus (agents stay alive in pool)
@@ -23,6 +26,7 @@ export function useSessionAgent() {
   const focusSession = useAgentStore((s) => s.focusSession);
   const clearFocus = useAgentStore((s) => s.clearFocus);
   const agents = useAgentStore((s) => s.agents);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
 
   // Track previous streaming states to detect agent_end across all agents
   const prevStreamingRef = useRef<Record<string, boolean>>({});
@@ -45,6 +49,48 @@ export function useSessionAgent() {
       openSession(activeSessionId, activeSession.path, activeSession.workspaceId);
     }
   }, [activeSessionId, activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ensure the container is running whenever a container-enabled workspace
+  // session is selected. This runs independently of agent.open so the
+  // container is available for file trees, terminals, and editor operations
+  // even when the agent session was already open in the pool.
+  //
+  // `activeWsContainer` is derived from the workspaces array so the effect
+  // re-runs when workspaces load asynchronously after sessions (fixes reload).
+  const activeWsContainer = activeSession
+    ? workspaces.find((w) => w.id === activeSession.workspaceId)?.container
+    : undefined;
+
+  useEffect(() => {
+    if (!activeSession) return;
+    if (!activeWsContainer) return; // Host-mode or workspaces not loaded yet
+
+    const containerState = useContainerStore.getState();
+    const current = containerState.containers[activeSession.workspaceId];
+
+    // Already running or in the process of starting — skip
+    if (current?.status === 'running' || current?.status === 'starting') return;
+
+    // Fire-and-forget: start the container and update the store
+    containerState.setStarting(activeSession.workspaceId);
+    window.sero.container
+      .ensure(activeSession.workspaceId)
+      .then((info) => {
+        if (info) {
+          useContainerStore.getState().setRunning(
+            activeSession.workspaceId,
+            info.ipAddress,
+          );
+        }
+      })
+      .catch((err) => {
+        console.error('[useSessionAgent] container.ensure failed:', err);
+        useContainerStore.getState().setError(
+          activeSession.workspaceId,
+          err instanceof Error ? err.message : 'Container failed to start',
+        );
+      });
+  }, [activeSession?.id, activeSession?.workspaceId, activeWsContainer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh session list when any agent finishes a turn
   useEffect(() => {
