@@ -228,6 +228,19 @@ export async function createFreshContainer(
     /* non-fatal — prompt still tells agent to use --host */
   }
 
+  // Ensure DNS resolution works inside the container.
+  // Apple Container's vmnet NAT doesn't always configure resolv.conf,
+  // so we set public DNS servers as a fallback.
+  try {
+    await execFn(
+      config.workspaceId,
+      'grep -q "nameserver" /etc/resolv.conf 2>/dev/null || ' +
+        'printf "nameserver 8.8.8.8\\nnameserver 1.1.1.1\\n" > /etc/resolv.conf',
+    );
+  } catch {
+    /* non-fatal — proxy handles DNS when available */
+  }
+
   // Initialize workspace: git init if not already a repo
   try {
     await execFn(config.workspaceId, 'cd /workspace && [ -d .git ] || git init -q');

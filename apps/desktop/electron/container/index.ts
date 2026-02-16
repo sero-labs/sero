@@ -129,7 +129,7 @@ export class ContainerManager {
       this.containers,
       (wsId, cmd, cwd) => this.exec(wsId, cmd, cwd),
       (wsId) => this.inspect(wsId),
-      this.httpProxy.getProxyUrl(),
+      this.proxyUrl ?? undefined,
     );
   }
 

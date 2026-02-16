@@ -167,10 +167,12 @@ app.whenReady().then(async () => {
     console.error('[sero] Failed to ensure sero-node image:', err);
   }
 
-  // Start HTTP proxy only if explicitly requested via env var.
-  // Needed when security software (Bitdefender, etc.) blocks outbound from vmnet.
-  // NAT (setup-container-nat.sh) is the default networking path.
-  if (process.env.SERO_CONTAINER_PROXY === '1') {
+  // Start HTTP proxy for container internet access.
+  // The proxy runs on the host and tunnels HTTP/HTTPS from containers via
+  // the gateway IP (192.168.64.1). This is the primary networking path because
+  // NAT alone doesn't provide DNS resolution inside the container VM.
+  // Set SERO_CONTAINER_PROXY=0 to disable if using an alternative network setup.
+  if (process.env.SERO_CONTAINER_PROXY !== '0') {
     await containerManager.startProxy();
   }
 
