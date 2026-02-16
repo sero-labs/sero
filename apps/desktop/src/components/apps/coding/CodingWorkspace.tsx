@@ -110,34 +110,42 @@ export function CodingWorkspace() {
   );
   const isContainerWorkspace = activeWorkspace?.container ?? true;
 
-  // Auto-create first terminal when ready:
-  // - Non-container workspaces: immediately on mount
-  // - Container workspaces: once the container is running
-  const autoTermCreated = useRef(false);
-  useEffect(() => {
-    const ready = isContainerWorkspace ? containerStatus === 'running' : true;
-    if (ready && termTabs.length === 0 && !autoTermCreated.current) {
-      autoTermCreated.current = true;
-      useTerminalStore.getState().createTab(workspaceId).then(() => {
-        setCodingUi(workspaceId, { terminalOpen: true });
-      }).catch((err) => {
-        autoTermCreated.current = false;
-        console.warn('[coding] Failed to auto-create terminal:', err);
-      });
-    }
-  }, [containerStatus, isContainerWorkspace, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const canCreateTerminal = isContainerWorkspace
+    ? containerStatus === 'running'
+    : true;
 
+  // Auto-create a default terminal whenever the panel is open (or about to
+  // open) but has no tabs. Covers:
+  //   • Initial mount (container becomes ready)
+  //   • User re-opens the panel after closing all terminals
+  //   • Workspace switch to a workspace with no terminals
+  const autoCreatingRef = useRef(false);
   useEffect(() => {
-    if (termTabs.length > 0 && !terminalOpen) {
-      setCodingUi(workspaceId, { terminalOpen: true });
-    }
-  }, [termTabs.length, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!canCreateTerminal || termTabs.length > 0 || autoCreatingRef.current) return;
+    // Panel already open, or about to open on mount — create a default tab.
+    if (!terminalOpen) return;
+    autoCreatingRef.current = true;
+    useTerminalStore.getState().createTab(workspaceId).catch((err) => {
+      console.warn('[coding] Failed to auto-create terminal:', err);
+    }).finally(() => {
+      autoCreatingRef.current = false;
+    });
+  }, [canCreateTerminal, termTabs.length, terminalOpen, workspaceId]);
 
   // ── Activity bar handler ──
   const handlePanelClick = useCallback(
     (panel: CodingPanel) => {
       if (panel === 'terminal') {
-        setCodingUi(workspaceId, { terminalOpen: !terminalOpen });
+        const nextOpen = !terminalOpen;
+        setCodingUi(workspaceId, { terminalOpen: nextOpen });
+        // Eagerly create a terminal when opening the panel with no tabs.
+        // The effect above also handles this, but doing it here avoids a
+        // visible flash of the empty "No terminals" state.
+        if (nextOpen && termTabs.length === 0 && canCreateTerminal) {
+          useTerminalStore.getState().createTab(workspaceId).catch((err) => {
+            console.warn('[coding] Failed to create terminal on open:', err);
+          });
+        }
         return;
       }
       if (panel === activePanel && sidebarOpen) {
@@ -146,7 +154,7 @@ export function CodingWorkspace() {
         setCodingUi(workspaceId, { activePanel: panel, sidebarOpen: true });
       }
     },
-    [workspaceId, activePanel, sidebarOpen, terminalOpen, setCodingUi],
+    [workspaceId, activePanel, sidebarOpen, terminalOpen, termTabs.length, canCreateTerminal, setCodingUi],
   );
 
   // ── Editor tab handlers ──
