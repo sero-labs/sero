@@ -72,6 +72,17 @@ export function ChatPanel() {
   // Group consecutive tool calls into collapsible blocks
   const groupedItems = useMemo(() => groupMessages(messages), [messages]);
 
+  // Show an inline "thinking" indicator when the session is streaming but
+  // nothing in the chat is visibly active (no streaming text, no running tools).
+  // This covers the gap when the SDK is generating a large tool call payload.
+  const showThinking = useMemo(() => {
+    if (!isStreaming || groupedItems.length === 0) return false;
+    const last = groupedItems[groupedItems.length - 1];
+    if (last.kind === 'message' && last.message.type === 'assistant' && last.message.isStreaming) return false;
+    if (last.kind === 'tool-group' && last.tools.some((t) => t.state === 'pending' || t.state === 'running')) return false;
+    return true;
+  }, [isStreaming, groupedItems]);
+
   const handleAuthComplete = useCallback(() => {
     if (sessionId) fetchModelState(sessionId);
   }, [sessionId, fetchModelState]);
@@ -189,13 +200,31 @@ export function ChatPanel() {
           ) : messages.length === 0 && !isStreaming ? (
             <EmptyState message="Start a conversation" />
           ) : (
-            groupedItems.map((item) =>
-              item.kind === 'tool-group' ? (
-                <ToolCallGroup key={item.id} tools={item.tools} />
-              ) : (
+            groupedItems.map((item, index) => {
+              if (item.kind === 'tool-group') {
+                // A group is finalized when a non-tool item follows it,
+                // or it's the last item and the session is no longer streaming.
+                const isLast = index === groupedItems.length - 1;
+                const isFinalized = !isLast || !isStreaming;
+                return (
+                  <ToolCallGroup
+                    key={item.id}
+                    tools={item.tools}
+                    isFinalized={isFinalized}
+                  />
+                );
+              }
+              return (
                 <ChatMessageItem key={item.message.id} message={item.message} />
-              ),
-            )
+              );
+            })
+          )}
+
+          {showThinking && (
+            <div className="flex items-center gap-2 px-2 py-1">
+              <Loader2 className="size-3.5 animate-spin text-[var(--text-muted)]" />
+              <span className="text-xs text-[var(--text-muted)]">Thinking…</span>
+            </div>
           )}
 
           {error && (

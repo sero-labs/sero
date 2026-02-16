@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ChevronRight,
@@ -28,7 +28,13 @@ export type GroupedChatItem =
 
 /**
  * Groups consecutive tool messages into collapsed blocks.
- * Text messages (user/assistant) break the grouping.
+ * Non-empty text messages (user / assistant with content) break the grouping.
+ *
+ * Empty assistant messages are dropped — they appear between sequential tool
+ * calls (the SDK emits one per tool-use block) and would otherwise break
+ * grouping and cause expand/collapse flapping.  The only exception is a
+ * streaming empty assistant that is the very last message: it is kept so the
+ * UI can show a "thinking" spinner.
  */
 export function groupMessages(
   messages: import('@/types/ipc').ChatMessage[],
@@ -38,7 +44,6 @@ export function groupMessages(
 
   const flushTools = () => {
     if (toolBuffer.length === 0) return;
-    // Use the first tool's id as the group id for stable keys
     result.push({
       kind: 'tool-group',
       tools: [...toolBuffer],
@@ -47,13 +52,25 @@ export function groupMessages(
     toolBuffer = [];
   };
 
-  for (const msg of messages) {
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+
     if (msg.type === 'tool') {
       toolBuffer.push(msg);
-    } else {
-      flushTools();
-      result.push({ kind: 'message', message: msg });
+      continue;
     }
+
+    // Skip empty assistant messages entirely — they appear between sequential
+    // tool calls (SDK emits one per tool-use block).  Keeping them — even
+    // streaming ones — causes the tool group to lose its "last item" position,
+    // flipping isFinalized and producing expand/collapse flapping.
+    // The header's streaming spinner is sufficient as a "thinking" indicator.
+    if (msg.type === 'assistant' && !msg.text?.trim()) {
+      continue;
+    }
+
+    flushTools();
+    result.push({ kind: 'message', message: msg });
   }
   flushTools();
 
@@ -204,12 +221,50 @@ function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
 
 // ── Main ToolCallGroup component ────────────────────────────────
 
-export function ToolCallGroup({ tools }: { tools: ChatToolCallMessage[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-
+/**
+ * @param tools       — tool messages in this group
+ * @param isFinalized — true when no more tools will be added to this group
+ *                      (a non-tool message follows it, or the session stopped streaming)
+ */
+export function ToolCallGroup({
+  tools,
+  isFinalized = true,
+}: {
+  tools: ChatToolCallMessage[];
+  isFinalized?: boolean;
+}) {
   const status = deriveGroupStatus(tools);
   const isRunning = status === 'running';
+
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Track whether the group was ever running (live) vs loaded from history.
+  const wasEverRunning = useRef(isRunning);
+  if (isRunning) wasEverRunning.current = true;
+
+  // Manual toggle override — `null` means follow automatic behaviour.
+  const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
+
+  // Auto behaviour:
+  //  - Live group, not finalized: stay expanded (tools may still arrive)
+  //  - Live group, finalized + all done: collapse
+  //  - Loaded group (never ran): stay collapsed
+  const autoExpanded = wasEverRunning.current ? (!isFinalized || isRunning) : false;
+  const expanded = manualExpanded ?? autoExpanded;
+
+  // Clear manual override when the group becomes finalized (final collapse)
+  // or when new tools start running (re-expand).
+  const prevFinalized = useRef(isFinalized);
+  useEffect(() => {
+    if (isFinalized && !prevFinalized.current) {
+      setManualExpanded(null);
+    }
+    prevFinalized.current = isFinalized;
+  }, [isFinalized]);
+
+  useEffect(() => {
+    if (isRunning) setManualExpanded(null);
+  }, [isRunning]);
 
   // Single tool: just render it inline, no group wrapper
   if (tools.length === 1) {
@@ -232,7 +287,7 @@ export function ToolCallGroup({ tools }: { tools: ChatToolCallMessage[] }) {
     >
       {/* Summary bar */}
       <button
-        onClick={() => setExpanded((p) => !p)}
+        onClick={() => setManualExpanded((prev) => !(prev ?? expanded))}
         className={cn(
           'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
           'hover:bg-[var(--bg-elevated)]/80',
@@ -252,24 +307,7 @@ export function ToolCallGroup({ tools }: { tools: ChatToolCallMessage[] }) {
           {groupStatusLabel(status, tools.length)}
         </span>
 
-        {/* Tool name pills (collapsed) */}
-        {!expanded && (
-          <div className="ml-auto flex items-center gap-1 overflow-hidden">
-            {tools.slice(0, 4).map((t) => (
-              <span
-                key={t.id}
-                className="shrink-0 rounded bg-[var(--bg-base)]/60 px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]"
-              >
-                {t.toolName}
-              </span>
-            ))}
-            {tools.length > 4 && (
-              <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
-                +{tools.length - 4}
-              </span>
-            )}
-          </div>
-        )}
+
       </button>
 
       {/* Expanded: list of tool lines */}
