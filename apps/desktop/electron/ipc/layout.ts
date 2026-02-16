@@ -12,7 +12,7 @@ import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
 import { SERO_HOME } from '../env';
 
-const LAYOUT_FILE = path.join(SERO_HOME, 'layout.json');
+const LAYOUT_FILE = path.join(SERO_HOME, 'agent', 'layout.json');
 
 export interface LayoutState {
   mainSidebarOpen: boolean;
