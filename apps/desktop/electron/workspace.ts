@@ -19,6 +19,7 @@ import type {
 } from '../src/types/ipc';
 
 import { SERO_HOME, SERO_AGENT_DIR } from './env';
+import { inferWorkspaceFromMessage } from './workspace-inference';
 
 // ── Paths ────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ const DEFAULT_SCRATCHPAD_CONFIG: WorkspaceConfig = {
   id: 'scratchpad',
   name: 'Scratchpad',
   description: 'Ad-hoc tasks and quick questions',
+  container: false,
   contextHints: ['General-purpose workspace for quick tasks'],
   tags: ['default', 'general'],
 };
@@ -45,6 +47,7 @@ const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
   id: 'global',
   name: 'Global',
   description: 'Cross-cutting personal data — knowledge, finance, contacts, templates',
+  container: false,
   contextHints: ['Personal knowledge base and reference data'],
   tags: ['default', 'personal', 'knowledge'],
 };
@@ -68,6 +71,7 @@ export class WorkspaceManager {
     await this.ensureDirs();
     await this.loadRegistry();
     await this.ensureDefaults();
+    await this.migrateDefaultContainerOff();
 
     // Seed from persisted open state
     for (const entry of this.registry.workspaces) {
@@ -156,6 +160,23 @@ export class WorkspaceManager {
 
     if (changed) {
       await this.saveRegistry();
+    }
+  }
+
+  /**
+   * Migrate existing scratchpad/global workspaces to container: false.
+   * Only writes the config if it exists and `container` is undefined (not yet set).
+   */
+  private async migrateDefaultContainerOff(): Promise<void> {
+    for (const id of ['scratchpad', 'global'] as const) {
+      const entry = this.findEntry(id);
+      if (!entry) continue;
+      const config = await this.readConfig(entry.path);
+      if (config && config.container === undefined) {
+        config.container = false;
+        await this.writeConfig(entry.path, config);
+        this.configCache.delete(id);
+      }
     }
   }
 
@@ -345,51 +366,7 @@ export class WorkspaceManager {
    */
   async inferWorkspace(message: string): Promise<string> {
     const openWorkspaces = await this.getOpenWorkspaces();
-    const lower = message.toLowerCase();
-
-    let bestId = 'scratchpad';
-    let bestScore = 0;
-
-    for (const ws of openWorkspaces) {
-      if (ws.id === 'scratchpad') continue;
-
-      let score = 0;
-
-      // Check name
-      if (lower.includes(ws.name.toLowerCase())) score += 3;
-
-      // Check ID
-      if (lower.includes(ws.id)) score += 2;
-
-      // Check tags
-      for (const tag of ws.tags ?? []) {
-        if (tag !== 'default' && lower.includes(tag.toLowerCase())) score += 2;
-      }
-
-      // Check context hints
-      for (const hint of ws.contextHints ?? []) {
-        const words = hint.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
-        for (const word of words) {
-          if (lower.includes(word)) score += 1;
-        }
-      }
-
-      // Check description
-      if (ws.description) {
-        const words = ws.description.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
-        for (const word of words) {
-          if (lower.includes(word)) score += 1;
-        }
-      }
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestId = ws.id;
-      }
-    }
-
-    // Only return a match if we have a meaningful score
-    return bestScore >= 2 ? bestId : 'scratchpad';
+    return inferWorkspaceFromMessage(message, openWorkspaces);
   }
 
   /** Get full WorkspaceInfo for all open workspaces. */

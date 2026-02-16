@@ -30,7 +30,7 @@ export class TerminalManager {
   }
 
   /**
-   * Create an interactive terminal session via node-pty.
+   * Create an interactive terminal session inside a container via node-pty.
    * Uses a real PTY so `container exec -it` gets a proper terminal.
    */
   createTerminal(workspaceId: string, terminalId: string, cols = 80, rows = 24): IPty {
@@ -62,6 +62,41 @@ export class TerminalManager {
       },
     );
 
+    return this.registerTerminal(workspaceId, terminalId, proc);
+  }
+
+  /**
+   * Create a host-side terminal session (no container).
+   * Spawns a login shell directly on the host at the given cwd.
+   */
+  createHostTerminal(
+    workspaceId: string,
+    terminalId: string,
+    cwd: string,
+    cols = 80,
+    rows = 24,
+  ): IPty {
+    const pty = require('node-pty') as typeof import('node-pty');
+
+    const env = { ...process.env } as Record<string, string>;
+    if (env.PATH && !env.PATH.includes('/usr/local/bin')) {
+      env.PATH = `/usr/local/bin:${env.PATH}`;
+    }
+
+    const shell = process.env.SHELL ?? '/bin/zsh';
+    const proc = pty.spawn(shell, ['--login'], {
+      name: 'xterm-256color',
+      cols,
+      rows,
+      cwd,
+      env,
+    });
+
+    return this.registerTerminal(workspaceId, terminalId, proc);
+  }
+
+  /** Register a PTY process with tracking, buffers, and exit handling. */
+  private registerTerminal(workspaceId: string, terminalId: string, proc: IPty): IPty {
     this.terminals.set(terminalId, proc);
 
     // Capture output into a ring buffer for agent visibility

@@ -49,6 +49,8 @@ interface WorkspaceState {
   addFolder: (folderPath: string, name?: string) => Promise<WorkspaceInfo>;
   /** Unregister a workspace. */
   removeWorkspace: (id: string) => Promise<void>;
+  /** Toggle container mode for a workspace. */
+  toggleContainer: (id: string) => Promise<void>;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -151,6 +153,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       workspaces: s.workspaces.filter((w) => w.id !== id),
       openWorkspaceIds: s.openWorkspaceIds.filter((wId) => wId !== id),
       activeWorkspaceId: s.activeWorkspaceId === id ? 'scratchpad' : s.activeWorkspaceId,
+    }));
+  },
+
+  toggleContainer: async (id) => {
+    const workspace = get().workspaces.find((w) => w.id === id);
+    if (!workspace) return;
+    const newValue = !workspace.container;
+    await window.sero.workspace.setContainer(id, newValue);
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === id ? { ...w, container: newValue } : w,
+      ),
     }));
   },
 }));

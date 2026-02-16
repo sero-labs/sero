@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
+  Box,
   ChevronDown,
   ChevronRight,
   FolderOpen,
   FolderPlus,
   Loader2,
   Minus,
+  Monitor,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -105,9 +107,12 @@ export function WorkspaceTree() {
 
 // ── Workspace node ─────────────────────────────────────────────
 
-/** Tiny container status indicator dot. */
-function ContainerIndicator({ workspaceId }: { workspaceId: string }) {
+/** Tiny container/host status indicator dot. */
+function ContainerIndicator({ workspaceId, containerEnabled }: { workspaceId: string; containerEnabled: boolean }) {
   const container = useWorkspaceContainer(workspaceId);
+
+  // Host mode: no container indicator needed, status is always local
+  if (!containerEnabled) return null;
 
   if (container.status === 'none') return null;
 
@@ -143,6 +148,7 @@ function WorkspaceNode({
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((s) => s.closeWorkspace);
   const removeWorkspace = useWorkspaceStore((s) => s.removeWorkspace);
+  const toggleContainer = useWorkspaceStore((s) => s.toggleContainer);
   const createSession = useSessionStore((s) => s.createSession);
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const streamingIds = useStreamingSessionIds();
@@ -161,6 +167,11 @@ function WorkspaceNode({
     e.stopPropagation();
     await createSession(workspace.id);
     setActiveWorkspace(workspace.id);
+  };
+
+  const handleToggleContainer = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await toggleContainer(workspace.id);
   };
 
   const handleClose = (e: React.MouseEvent) => {
@@ -200,7 +211,7 @@ function WorkspaceNode({
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {workspace.name}
         </span>
-        <ContainerIndicator workspaceId={workspace.id} />
+        <ContainerIndicator workspaceId={workspace.id} containerEnabled={workspace.container} />
 
         {/* Right side: crossfade between count and actions */}
         <span className="relative ml-auto flex h-5 shrink-0 items-center justify-end">
@@ -223,6 +234,20 @@ function WorkspaceNode({
                   title="New session"
                 >
                   <Plus className="size-3 text-[var(--text-muted)]" />
+                </span>
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={handleToggleContainer}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleToggleContainer(e as unknown as React.MouseEvent); } }}
+                  className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+                  title={workspace.container ? 'Disable container (use host)' : 'Enable container'}
+                >
+                  {workspace.container ? (
+                    <Box className="size-3 text-[var(--text-muted)]" />
+                  ) : (
+                    <Monitor className="size-3 text-[var(--text-muted)]" />
+                  )}
                 </span>
                 {!isDefault && (
                   <>

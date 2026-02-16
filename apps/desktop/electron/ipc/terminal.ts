@@ -8,6 +8,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import { containerManager } from './shared-infra';
+import { workspaceManager } from '../workspace';
 
 export function registerTerminalHandlers(): void {
   const tm = containerManager.terminals;
@@ -25,11 +26,18 @@ export function registerTerminalHandlers(): void {
     }
   });
 
-  // Create a terminal in a workspace's container
+  // Create a terminal — container-mode or host-mode depending on workspace config
   ipcMain.handle(
     IpcChannels.terminal.create,
     async (_event, workspaceId: string, terminalId: string, cols?: number, rows?: number) => {
-      const pty = tm.createTerminal(workspaceId, terminalId, cols, rows);
+      const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
+      const wsPath = workspaceManager.getPath(workspaceId) ?? process.cwd();
+
+      // Use container terminal only if container mode is on AND the container is running
+      const useContainer = containerEnabled && containerManager.hasContainer(workspaceId);
+      const pty = useContainer
+        ? tm.createTerminal(workspaceId, terminalId, cols, rows)
+        : tm.createHostTerminal(workspaceId, terminalId, wsPath, cols, rows);
 
       // Forward PTY data to all renderer windows
       pty.onData((data: string) => {
