@@ -46,7 +46,11 @@ export function CodingWorkspace() {
   const [editorTabs, setEditorTabs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [rootId, setRootId] = useState<string>('/workspace');
-  const stateLoaded = useRef(false);
+
+  // Tracks whether the editor state for the CURRENT workspaceId has loaded.
+  // Reset to false on every workspaceId change so the persist effect doesn't
+  // save stale/empty state to the new workspace's file.
+  const editorReadyRef = useRef(false);
 
   // ── Resolve root path for the file tree ──
   useEffect(() => {
@@ -61,23 +65,37 @@ export function CodingWorkspace() {
   }, [workspaceId]);
 
   // ── Restore persisted editor state ──
+  // Runs on every workspaceId change. Cancels stale loads so a fast
+  // scratchpad→global transition doesn't apply scratchpad results to global.
   useEffect(() => {
-    if (stateLoaded.current) return;
-    stateLoaded.current = true;
+    editorReadyRef.current = false;
+    let cancelled = false;
     (async () => {
       try {
         const state = await window.sero.editor.loadState(workspaceId);
+        if (cancelled) return;
         if (state && Array.isArray(state.openTabs) && state.openTabs.length > 0) {
           setEditorTabs(state.openTabs);
           setActiveTab(state.activeTab ?? state.openTabs[0]);
+        } else {
+          setEditorTabs([]);
+          setActiveTab(null);
         }
-      } catch { /* ignore */ }
+      } catch {
+        if (cancelled) return;
+        setEditorTabs([]);
+        setActiveTab(null);
+      }
+      if (!cancelled) editorReadyRef.current = true;
     })();
+    return () => { cancelled = true; };
   }, [workspaceId]);
 
   // ── Persist editor state when it changes ──
+  // The load effect (defined above) runs first in each render cycle and sets
+  // editorReadyRef=false, so this effect safely skips during workspace transitions.
   useEffect(() => {
-    if (!stateLoaded.current) return;
+    if (!editorReadyRef.current) return;
     window.sero.editor.saveState(workspaceId, { openTabs: editorTabs, activeTab });
   }, [editorTabs, activeTab, workspaceId]);
 
@@ -90,16 +108,24 @@ export function CodingWorkspace() {
   const containerStatus = useContainerStore(
     (s) => s.containers[workspaceId]?.status ?? 'none',
   );
+  const isContainerWorkspace = activeWorkspace?.container ?? true;
 
+  // Auto-create first terminal when ready:
+  // - Non-container workspaces: immediately on mount
+  // - Container workspaces: once the container is running
+  const autoTermCreated = useRef(false);
   useEffect(() => {
-    if (containerStatus === 'running' && termTabs.length === 0) {
+    const ready = isContainerWorkspace ? containerStatus === 'running' : true;
+    if (ready && termTabs.length === 0 && !autoTermCreated.current) {
+      autoTermCreated.current = true;
       useTerminalStore.getState().createTab(workspaceId).then(() => {
         setCodingUi(workspaceId, { terminalOpen: true });
       }).catch((err) => {
+        autoTermCreated.current = false;
         console.warn('[coding] Failed to auto-create terminal:', err);
       });
     }
-  }, [containerStatus, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [containerStatus, isContainerWorkspace, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (termTabs.length > 0 && !terminalOpen) {

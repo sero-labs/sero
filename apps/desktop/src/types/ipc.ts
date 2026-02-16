@@ -419,6 +419,12 @@ export const IpcChannels = {
     /** Main → renderer push: terminal process exited. */
     exit: 'sero:terminal:exit',
   },
+  layout: {
+    /** Save UI layout state (sidebar/panel open, etc.) */
+    save: 'sero:layout:save',
+    /** Load UI layout state. */
+    load: 'sero:layout:load',
+  },
   editor: {
     /** Read a file from the workspace (dual-mode: container or host). */
     readFile: 'sero:editor:read-file',

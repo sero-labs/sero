@@ -261,6 +261,13 @@ contextBridge.exposeInMainWorld('sero', {
     },
   },
 
+  layout: {
+    save: (state: { mainSidebarOpen: boolean; chatPanelOpen: boolean }): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.layout.save, state),
+    load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null> =>
+      ipcRenderer.invoke(IpcChannels.layout.load),
+  },
+
   editor: {
     readFile: (workspaceId: string, filePath: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.editor.readFile, workspaceId, filePath),

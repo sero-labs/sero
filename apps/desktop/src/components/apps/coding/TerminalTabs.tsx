@@ -12,6 +12,7 @@ import {
   useTerminalStore,
 } from '@/stores/terminal';
 import { useWorkspaceContainer } from '@/stores/container';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { cn } from '@/lib/utils';
 
 interface TerminalTabsProps {
@@ -25,8 +26,15 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
   const createTab = useTerminalStore((s) => s.createTab);
   const closeTab = useTerminalStore((s) => s.closeTab);
   const container = useWorkspaceContainer(workspaceId);
+  const isContainerWorkspace = useWorkspaceStore(
+    (s) => s.workspaces.find((w) => w.id === workspaceId)?.container ?? true,
+  );
 
-  const canCreateTerminal = container.status === 'running';
+  // Non-container workspaces can always create terminals;
+  // container workspaces require the container to be running.
+  const canCreateTerminal = isContainerWorkspace
+    ? container.status === 'running'
+    : true;
 
   const handleNewTerminal = async () => {
     if (!canCreateTerminal) return;
@@ -39,12 +47,6 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
 
   return (
     <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border/50 bg-[var(--bg-surface)] px-1">
-      {/* Terminal icon label */}
-      <span className="flex items-center gap-1 px-1.5 text-xs text-[var(--text-muted)]">
-        <TerminalIcon className="size-3" />
-        Terminal
-      </span>
-
       {/* Tabs */}
       {tabs.map((tab) => (
         <button

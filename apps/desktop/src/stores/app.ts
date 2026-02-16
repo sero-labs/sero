@@ -27,6 +27,8 @@ interface AppState {
   setApps: (apps: AppEntry[]) => void;
   /** True once app discovery has completed (success or failure). */
   appsReady: boolean;
+  /** True once layout state has been loaded from disk. */
+  layoutReady: boolean;
 
   // New app detection
   /** Name of a newly detected app that requires restart. Null if none. */
@@ -73,22 +75,44 @@ function manifestToEntry(m: SeroAppManifest): AppEntry {
   };
 }
 
+/** Fire-and-forget save of layout state to disk. */
+function persistLayout(state: { mainSidebarOpen: boolean; chatPanelOpen: boolean }) {
+  window.sero.layout.save(state).catch((err) => {
+    console.warn('[app-store] Failed to persist layout:', err);
+  });
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   // App registry — starts with built-ins
   apps: [...BUILTIN_APPS],
   setApps: (apps) => set({ apps }),
   appsReady: false,
+  layoutReady: false,
   pendingNewApp: null,
 
-  // Main sidebar
+  // Main sidebar — defaults to true; hydrated from disk by loadLayout()
   mainSidebarOpen: true,
-  setMainSidebarOpen: (open) => set({ mainSidebarOpen: open }),
-  toggleMainSidebar: () => set((s) => ({ mainSidebarOpen: !s.mainSidebarOpen })),
+  setMainSidebarOpen: (open) => {
+    set({ mainSidebarOpen: open });
+    persistLayout({ mainSidebarOpen: open, chatPanelOpen: get().chatPanelOpen });
+  },
+  toggleMainSidebar: () => {
+    const next = !get().mainSidebarOpen;
+    set({ mainSidebarOpen: next });
+    persistLayout({ mainSidebarOpen: next, chatPanelOpen: get().chatPanelOpen });
+  },
 
-  // Chat panel
+  // Chat panel — defaults to true; hydrated from disk by loadLayout()
   chatPanelOpen: true,
-  setChatPanelOpen: (open) => set({ chatPanelOpen: open }),
-  toggleChatPanel: () => set((s) => ({ chatPanelOpen: !s.chatPanelOpen })),
+  setChatPanelOpen: (open) => {
+    set({ chatPanelOpen: open });
+    persistLayout({ mainSidebarOpen: get().mainSidebarOpen, chatPanelOpen: open });
+  },
+  toggleChatPanel: () => {
+    const next = !get().chatPanelOpen;
+    set({ chatPanelOpen: next });
+    persistLayout({ mainSidebarOpen: get().mainSidebarOpen, chatPanelOpen: next });
+  },
 
   // Active app (persisted across reloads via sessionStorage)
   activeApp: sessionStorage.getItem('sero:activeApp') ?? 'coding',
@@ -109,6 +133,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ theme: next });
   },
 }));
+
+// ── Layout hydration (call once on startup) ───────────────────
+
+/** Load layout state from disk and hydrate the store. */
+export async function loadLayout(): Promise<void> {
+  try {
+    const state = await window.sero.layout.load();
+    if (state) {
+      useAppStore.setState({
+        mainSidebarOpen: state.mainSidebarOpen,
+        chatPanelOpen: state.chatPanelOpen,
+        layoutReady: true,
+      });
+      return;
+    }
+  } catch (err) {
+    console.warn('[app-store] Failed to load layout:', err);
+  }
+  useAppStore.setState({ layoutReady: true });
+}
 
 // ── Discovery action (call once on startup) ───────────────────
 

@@ -19,6 +19,7 @@ import { registerTerminalHandlers } from './terminal';
 import { registerDevServerHandlers } from './dev-server';
 import { registerEditorHandlers } from './editor';
 import { registerFileTreeHandlers } from './filetree';
+import { registerLayoutHandlers } from './layout';
 import { registerLspHandlers } from './lsp';
 
 export function registerAllIpcHandlers(): void {
@@ -35,5 +36,6 @@ export function registerAllIpcHandlers(): void {
   registerDevServerHandlers();
   registerEditorHandlers();
   registerFileTreeHandlers();
+  registerLayoutHandlers();
   registerLspHandlers();
 }

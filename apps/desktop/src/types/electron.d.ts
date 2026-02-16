@@ -167,6 +167,13 @@ interface SeroTerminalAPI {
   onExit(callback: (terminalId: string) => void): () => void;
 }
 
+interface SeroLayoutAPI {
+  /** Save UI layout state to disk. */
+  save(state: { mainSidebarOpen: boolean; chatPanelOpen: boolean }): Promise<void>;
+  /** Load UI layout state from disk. Returns null if no saved state. */
+  load(): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null>;
+}
+
 interface SeroEditorAPI {
   /** Read a file from the workspace (dual-mode: container or host). */
   readFile(workspaceId: string, filePath: string): Promise<string>;
@@ -225,6 +232,7 @@ interface SeroAPI {
   container: SeroContainerAPI;
   devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
+  layout: SeroLayoutAPI;
   editor: SeroEditorAPI;
   filetree: SeroFileTreeAPI;
   lsp: SeroLspAPI;
