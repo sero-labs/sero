@@ -4,9 +4,9 @@
  * Registry lives at ~/.sero-ui/agent/workspaces.json.
  * Each workspace has a .sero-workspace.json at its root directory.
  *
- * Two default workspaces are created on first run:
- *   - scratchpad (ad-hoc tasks)
- *   - global (cross-cutting personal data)
+ * One system default workspace is created on first run:
+ *   - global (cross-cutting personal data, ad-hoc tasks)
+ *
  */
 
 import { promises as fs } from 'fs';
@@ -33,15 +33,6 @@ interface WorkspaceRegistry {
 }
 
 // ── Default workspace configs ────────────────────────────────
-
-const DEFAULT_SCRATCHPAD_CONFIG: WorkspaceConfig = {
-  id: 'scratchpad',
-  name: 'Scratchpad',
-  description: 'Ad-hoc tasks and quick questions',
-  container: false,
-  contextHints: ['General-purpose workspace for quick tasks'],
-  tags: ['default', 'general'],
-};
 
 const DEFAULT_GLOBAL_CONFIG: WorkspaceConfig = {
   id: 'global',
@@ -124,22 +115,9 @@ export class WorkspaceManager {
 
   // ── Default workspaces ────────────────────────────────────
 
-  /** Create scratchpad + global if they don't exist. */
+  /** Create global workspace if it doesn't exist. */
   private async ensureDefaults(): Promise<void> {
     let changed = false;
-
-    // Scratchpad
-    if (!this.findEntry('scratchpad')) {
-      const scratchpadPath = path.join(WORKSPACES_DIR, 'scratchpad');
-      await fs.mkdir(scratchpadPath, { recursive: true });
-      await this.writeConfig(scratchpadPath, DEFAULT_SCRATCHPAD_CONFIG);
-      this.registry.workspaces.push({
-        id: 'scratchpad',
-        path: scratchpadPath,
-        open: true,
-      });
-      changed = true;
-    }
 
     // Global
     if (!this.findEntry('global')) {
@@ -164,11 +142,11 @@ export class WorkspaceManager {
   }
 
   /**
-   * Migrate existing scratchpad/global workspaces to container: false.
+   * Migrate existing global workspace to container: false.
    * Only writes the config if it exists and `container` is undefined (not yet set).
    */
   private async migrateDefaultContainerOff(): Promise<void> {
-    for (const id of ['scratchpad', 'global'] as const) {
+    for (const id of ['global'] as const) {
       const entry = this.findEntry(id);
       if (!entry) continue;
       const config = await this.readConfig(entry.path);
@@ -322,10 +300,10 @@ export class WorkspaceManager {
 
   /**
    * Unregister a workspace. Does NOT delete the directory or config file.
-   * Cannot remove default workspaces (scratchpad, global).
+   * Cannot remove the default workspace (global).
    */
   async remove(id: string): Promise<void> {
-    if (id === 'scratchpad' || id === 'global') {
+    if (id === 'global') {
       throw new Error(`Cannot remove default workspace: ${id}`);
     }
 
@@ -362,7 +340,7 @@ export class WorkspaceManager {
   /**
    * Infer the best workspace for a given message.
    * Checks keywords against contextHints, tags, and names of open workspaces.
-   * Returns workspace ID or 'scratchpad' if no match.
+   * Returns workspace ID or 'global' if no match.
    */
   async inferWorkspace(message: string): Promise<string> {
     const openWorkspaces = await this.getOpenWorkspaces();

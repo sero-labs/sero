@@ -11,7 +11,7 @@ import { createContext } from 'react';
 export interface AppContextValue {
   /** App identifier (e.g. "todo"). */
   appId: string;
-  /** Workspace identifier (e.g. "scratchpad"). */
+  /** Workspace identifier (e.g. "global"). */
   workspaceId: string;
   /** Absolute path to the workspace root. */
   workspacePath: string;

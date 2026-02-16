@@ -23,7 +23,7 @@ const execFileAsync = promisify(execFile);
 
 // ── Editor state persistence ──────────────────────────────────
 
-const EDITOR_STATE_DIR = path.join(SERO_HOME, 'editor-state');
+const EDITOR_STATE_DIR = path.join(SERO_HOME, 'agent', 'editor-state');
 
 function editorStatePath(workspaceId: string): string {
   return path.join(EDITOR_STATE_DIR, `${workspaceId}.json`);

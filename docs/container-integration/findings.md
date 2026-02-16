@@ -39,8 +39,8 @@ Best approach: add container instructions via the existing extension factory's
 `before_agent_start` hook, appending container context after workspace context.
 
 ### Container Naming Convention
-- Workspace ID: `scratchpad`, `global`, `sero-dev`, `my-project`
-- Container ID: `sero-scratchpad`, `sero-global`, `sero-sero-dev`, `sero-my-project`
+- Workspace ID: `global`, `sero-dev`, `my-project`
+- Container ID: `sero-global`, `sero-sero-dev`, `sero-my-project`
 - Potential issue: double `sero-` prefix for workspaces starting with `sero-`
 - Resolution: acceptable, follows ref impl convention. Container IDs just need to be unique.
 

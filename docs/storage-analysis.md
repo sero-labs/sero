@@ -46,8 +46,6 @@
 | `workspaces/global/` | Default "Global" workspace | Contains `AGENTS.md`, `.sero-workspace.json`, app state |
 | `workspaces/global/.sero/apps/*/state.json` | App state files (todo, daily-quote) | Sero apps store their state here |
 | `workspaces/global/memories.md` | User memories / knowledge base | Sero-only |
-| `workspaces/scratchpad/` | Default "Scratchpad" workspace | Same structure as global |
-| `workspaces/scratchpad/.sero/apps/*/state.json` | Per-workspace app state | Todo, weight-tracker, daily-quote state |
 
 ---
 
@@ -197,7 +195,6 @@ This directory is **two things mixed together**:
 │   │   ├── .sero-workspace.json
 │   │   ├── .sero/apps/*/state.json
 │   │   └── memories.md
-│   └── scratchpad/            ← Scratchpad workspace (already exists)
 └── ui/
     ├── layout/                ← Per-workspace UI layout (moved from sero-data)
     └── usage/                 ← Token usage tracking (moved from sero-data)

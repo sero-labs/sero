@@ -20,7 +20,7 @@ interface SessionsState {
 
   // ── Actions ────────────────────────────────────────────────
   loadSessions: () => Promise<void>;
-  /** Create a session bound to a workspace. Defaults to scratchpad. */
+  /** Create a session bound to a workspace. Defaults to global. */
   createSession: (workspaceId?: string) => Promise<SeroSessionInfo>;
   deleteSession: (sessionPath: string) => Promise<void>;
   setActiveSession: (id: string | null) => void;

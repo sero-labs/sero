@@ -41,9 +41,7 @@ Created by Sero's `WorkspaceManager` on first run and `loadSeroEnv()`.
 | `agent/sessions/` | Sero chat session .jsonl files (flat, all workspaces) | Unique to Sero |
 | `agent/workspaces.json` | Workspace registry (ids, paths, open flags) | Unique to Sero |
 | `agent/settings.json` | Sero-specific settings (hiddenCommands) | Does NOT exist yet (read attempted, returns empty) |
-| `workspaces/scratchpad/` | Default workspace dir + `.sero-workspace.json` | Unique |
-| `workspaces/scratchpad/.sero/apps/*/state.json` | App state (todo, weight-tracker, daily-quote) | Unique |
-| `workspaces/global/` | Global workspace + `AGENTS.md`, `memories.md` | Unique |
+| `workspaces/global/` | Default global workspace + `AGENTS.md`, `memories.md` | Unique |
 | `workspaces/global/.sero/apps/*/state.json` | App state per workspace | Unique |
 
 ### 1.3 `~/.volta/` — Node version manager (Volta)
@@ -235,9 +233,6 @@ look at `~/.pi/agent/` unless `PI_CODING_AGENT_DIR` is set.
 │   │   ├── AGENTS.md               # Global agent context
 │   │   ├── .sero-workspace.json
 │   │   └── .sero/apps/*/state.json
-│   └── scratchpad/
-│       ├── .sero-workspace.json
-│       └── .sero/apps/*/state.json
 └── (Electron userData stays at ~/Library/Application Support/sero/)
 ```
 

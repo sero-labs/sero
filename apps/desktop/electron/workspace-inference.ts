@@ -45,7 +45,7 @@ function scoreWorkspace(ws: WorkspaceInfo, lower: string): number {
 /**
  * Infer the best workspace for a given message.
  * Checks keywords against contextHints, tags, and names of open workspaces.
- * Returns workspace ID or 'scratchpad' if no match.
+ * Returns workspace ID or 'global' if no match.
  */
 export function inferWorkspaceFromMessage(
   message: string,
@@ -53,11 +53,12 @@ export function inferWorkspaceFromMessage(
 ): string {
   const lower = message.toLowerCase();
 
-  let bestId = 'scratchpad';
+  let bestId = 'global';
   let bestScore = 0;
 
   for (const ws of openWorkspaces) {
-    if (ws.id === 'scratchpad') continue;
+    // Skip global in scoring — it's the default fallback already
+    if (ws.id === 'global') continue;
 
     const score = scoreWorkspace(ws, lower);
     if (score > bestScore) {
@@ -67,5 +68,5 @@ export function inferWorkspaceFromMessage(
   }
 
   // Only return a match if we have a meaningful score
-  return bestScore >= 2 ? bestId : 'scratchpad';
+  return bestScore >= 2 ? bestId : 'global';
 }

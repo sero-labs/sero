@@ -44,7 +44,7 @@ interface SeroWorkspaceAPI {
 interface SeroSessionsAPI {
   /** List sessions. Optionally filter by workspace ID. */
   list(workspaceId?: string): Promise<SeroSessionInfo[]>;
-  /** Create a session bound to a workspace. Defaults to scratchpad. */
+  /** Create a session bound to a workspace. Defaults to global. */
   create(workspaceId?: string): Promise<SeroSessionInfo>;
   delete(sessionPath: string): Promise<void>;
 }

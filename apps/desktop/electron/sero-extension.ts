@@ -181,10 +181,10 @@ export function createSeroExtensionFactory(
               });
               break;
             }
-            if (subarg === 'scratchpad') {
+            if (subarg === 'global') {
               pi.sendMessage({
                 customType: 'sero-workspace',
-                content: 'Cannot close scratchpad workspace.',
+                content: 'Cannot close global workspace.',
                 display: true,
               });
               break;

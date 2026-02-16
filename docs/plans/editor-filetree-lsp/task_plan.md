@@ -67,7 +67,7 @@ Each handler receives `workspaceId` and checks `workspaceManager.isContainerEnab
 
 For host-mode `listFiles`, replicate the same `{ name, type, size }` shape that the container version returns.
 
-Also handle `editor:saveState` and `editor:loadState` — persist `{ openTabs, activeTab }` per workspace to `~/.sero-ui/editor-state/<workspaceId>.json`.
+Also handle `editor:saveState` and `editor:loadState` — persist `{ openTabs, activeTab }` per workspace to `~/.sero-ui/agent/editor-state/<workspaceId>.json`.
 
 Register in `apps/desktop/electron/ipc/index.ts`.
 

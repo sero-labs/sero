@@ -57,7 +57,7 @@ The old `EditorPanel` renders both the FileTree sidebar AND the Monaco editor. I
 State coordination (tabs, activeTab, dirty paths) needs to live in CodingWorkspace or a shared store, with callbacks flowing to both components.
 
 ### 9. Editor State Persistence Location
-New path: `~/.sero-ui/editor-state/<workspaceId>.json`
+New path: `~/.sero-ui/agent/editor-state/<workspaceId>.json`
 Contents: `{ openTabs: string[], activeTab: string | null }`
 Managed by the new `editor:saveState` / `editor:loadState` IPC handlers.
 

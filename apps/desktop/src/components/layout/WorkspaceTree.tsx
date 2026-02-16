@@ -156,7 +156,7 @@ function WorkspaceNode({
   const expanded = !collapsedIds.includes(workspace.id);
   const isActive = activeWorkspaceId === workspace.id;
   const hasStreaming = sessions.some((s) => streamingIds.includes(s.id));
-  const isDefault = workspace.id === 'scratchpad' || workspace.id === 'global';
+  const isDefault = workspace.id === 'global';
 
   const handleHeaderClick = () => {
     toggleCollapsed(workspace.id);

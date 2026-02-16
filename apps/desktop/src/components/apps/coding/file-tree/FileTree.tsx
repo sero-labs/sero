@@ -90,6 +90,30 @@ export function FileTree({
   const loadingRef = useRef<Set<string>>(new Set());
   const expandedRef = useRef<Set<string>>(new Set([rootId]));
 
+  /* ── Reset state when workspace / root changes ────────────
+   *
+   * `items` is initialised once on mount. When the user switches to a
+   * different workspace (or the rootId changes), the old entries are
+   * stale and the new rootId may not exist in the map at all, leaving
+   * the tree empty. Reset to a fresh root entry so the subsequent
+   * `loadDirectory` effect populates it correctly.
+   */
+  const prevWorkspaceRef = useRef(workspaceId);
+  const prevRootRef = useRef(rootId);
+
+  useEffect(() => {
+    if (prevWorkspaceRef.current === workspaceId && prevRootRef.current === rootId) return;
+    prevWorkspaceRef.current = workspaceId;
+    prevRootRef.current = rootId;
+
+    loadingRef.current.clear();
+    setItems({
+      [rootId]: { name: rootId.split('/').pop() ?? 'workspace', isDirectory: true, children: undefined },
+    });
+    setExpandedItems([rootId]);
+    expandedRef.current = new Set([rootId]);
+  }, [workspaceId, rootId]);
+
   /* ── Load directory ──────────────────────────────────────── */
 
   const loadDirectory = useCallback(async (dirPath: string) => {

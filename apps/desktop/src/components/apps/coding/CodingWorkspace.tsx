@@ -31,7 +31,7 @@ import { useWorkspaceCodingUi, useCodingUiStore } from '@/stores/coding-ui';
  */
 export function CodingWorkspace() {
   const activeWorkspace = useActiveWorkspace();
-  const workspaceId = activeWorkspace?.id ?? 'scratchpad';
+  const workspaceId = activeWorkspace?.id ?? 'global';
 
   // Per-workspace UI state
   const { sidebarOpen, activePanel, terminalOpen } = useWorkspaceCodingUi(workspaceId);
@@ -65,7 +65,7 @@ export function CodingWorkspace() {
 
   // ── Restore persisted editor state ──
   // Runs on every workspaceId change. Cancels stale loads so a fast
-  // scratchpad→global transition doesn't apply scratchpad results to global.
+  // workspace transitions don't apply stale results to the new workspace.
   useEffect(() => {
     editorReadyRef.current = false;
     let cancelled = false;

@@ -31,7 +31,7 @@ context — a project, a life domain, or a collection of related work — with i
 own root directory and `.sero-workspace.json` config.
 
 - **External paths** — workspaces point to real directories on disk
-- **Two defaults** — scratchpad (ad-hoc) and global (cross-cutting data)
+- **One default** — global (scratchpad and cross-cutting data)
 - **Composite environment** — multiple workspaces open simultaneously
 - **Session binding** — every session belongs to exactly one workspace
 - **Open/closed** — purely visual; controls sidebar visibility, persisted in
@@ -45,7 +45,6 @@ own root directory and `.sero-workspace.json` config.
 │   ├── workspaces.json       # Registry: id, path, open (boolean)
 │   └── sessions/             # All sessions (flat, mapped to workspaces by cwd)
 └── workspaces/
-    ├── scratchpad/           # Default: ad-hoc tasks
     └── global/               # Default: personal data
 ```
 
@@ -180,7 +179,7 @@ isStreaming, error.
 │  AgentPool                                                   │
 │    ├─ Shared: AuthStorage, ModelRegistry, SettingsManager     │
 │    ├─ Session A → AgentSession (cwd: /path/to/sero-dev)      │
-│    ├─ Session B → AgentSession (cwd: ~/.sero-ui/workspaces/scratchpad) │
+│    ├─ Session B → AgentSession (cwd: ~/.sero-ui/workspaces/global) │
 │    └─ Session C → AgentSession (cwd: /path/to/trading)       │
 │                                                              │
 │  Each AgentSession has:                                      │

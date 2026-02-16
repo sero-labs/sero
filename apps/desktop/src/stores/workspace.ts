@@ -70,7 +70,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       set({
         workspaces,
         openWorkspaceIds: openIds,
-        activeWorkspaceId: get().activeWorkspaceId ?? 'scratchpad',
+        activeWorkspaceId: get().activeWorkspaceId ?? 'global',
         isLoading: false,
       });
     } catch (err) {
@@ -90,11 +90,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   closeWorkspace: (id) => {
-    if (id === 'scratchpad') return; // Can't close scratchpad
+    if (id === 'global') return; // Can't close global
     set((s) => ({
       openWorkspaceIds: s.openWorkspaceIds.filter((wId) => wId !== id),
-      // If we closed the active workspace, fall back to scratchpad
-      activeWorkspaceId: s.activeWorkspaceId === id ? 'scratchpad' : s.activeWorkspaceId,
+      // If we closed the active workspace, fall back to global
+      activeWorkspaceId: s.activeWorkspaceId === id ? 'global' : s.activeWorkspaceId,
     }));
     // Sync to main process
     window.sero.workspace.close(id).catch(console.error);
@@ -152,7 +152,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((s) => ({
       workspaces: s.workspaces.filter((w) => w.id !== id),
       openWorkspaceIds: s.openWorkspaceIds.filter((wId) => wId !== id),
-      activeWorkspaceId: s.activeWorkspaceId === id ? 'scratchpad' : s.activeWorkspaceId,
+      activeWorkspaceId: s.activeWorkspaceId === id ? 'global' : s.activeWorkspaceId,
     }));
   },
 

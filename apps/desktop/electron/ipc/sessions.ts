@@ -21,7 +21,7 @@ import { SERO_SESSION_DIR } from './shared-infra';
 
 /**
  * Legacy cwd used before workspaces existed.
- * Sessions with this cwd are attributed to scratchpad.
+ * Sessions with this cwd are attributed to global.
  */
 const LEGACY_CWD = os.homedir();
 
@@ -33,7 +33,7 @@ async function ensureSessionDir(): Promise<void> {
 /**
  * Map a session's cwd to a workspace ID.
  *
- * Looks up the cwd in the workspace registry. Falls back to 'scratchpad'
+ * Looks up the cwd in the workspace registry. Falls back to 'global'
  * for legacy sessions or sessions whose workspace has been removed.
  */
 function resolveWorkspaceId(cwd: string): string {
@@ -42,10 +42,10 @@ function resolveWorkspaceId(cwd: string): string {
   if (entry) return entry.id;
 
   // Legacy sessions used os.homedir() as cwd
-  if (cwd === LEGACY_CWD) return 'scratchpad';
+  if (cwd === LEGACY_CWD) return 'global';
 
-  // Unknown cwd — attribute to scratchpad
-  return 'scratchpad';
+  // Unknown cwd — attribute to global
+  return 'global';
 }
 
 /** Convert Pi SDK SessionInfo to our serialisable IPC shape. */
@@ -100,14 +100,14 @@ export function registerSessionHandlers(): void {
   );
 
   // ── Create a new session ───────────────────────────────────
-  //    Requires workspaceId. Defaults to scratchpad.
+  //    Requires workspaceId. Defaults to global.
   ipcMain.handle(
     IpcChannels.sessions.create,
     async (_event, workspaceId?: string): Promise<SeroSessionInfo> => {
       await ensureSessionDir();
 
-      // Resolve workspace path — default to scratchpad
-      const wsId = workspaceId || 'scratchpad';
+      // Resolve workspace path — default to global
+      const wsId = workspaceId || 'global';
       const wsPath = workspaceManager.getPath(wsId);
       if (!wsPath) {
         throw new Error(`Workspace not found: ${wsId}`);

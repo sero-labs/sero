@@ -82,7 +82,7 @@ directory, `.sero-workspace.json` config, and PI SDK skill/extension discovery.
 - **Workspace = PI SDK cwd** — each workspace maps to
   `createAgentSession({ cwd: workspace.path })` with `createCodingTools(cwd)`.
 - **Two default workspaces** — `scratchpad` (ad-hoc) and `global` (cross-cutting
-  personal data), created on first run under `~/.sero-ui/workspaces/`.
+  personal data), created on first run under `~/.sero-ui/workspaces/`. - Scratchpad is now deprecated.
 - **Composite environment** — multiple workspaces open simultaneously, summaries
   injected into system prompt for cross-workspace awareness.
 - **Open/closed is visual only** — the registry `open` flag controls sidebar
@@ -111,7 +111,7 @@ is implicit: PI SDK's `SessionManager.create(workspacePath, sessionDir)` stamps
 the workspace path as `cwd` in the session header. Sessions are grouped in the
 UI by mapping cwd → workspace.
 
-New sessions default to `scratchpad` unless the user explicitly selects a
+New sessions default to `global` unless the user explicitly selects a
 workspace (VSCode-style folder picker).
 
 ## AD-013: ChatPanel Stays Global, Sessions Route Context
