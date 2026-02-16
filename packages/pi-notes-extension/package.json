@@ -16,6 +16,7 @@
       "id": "notes",
       "name": "Notes",
       "icon": "notebook-pen",
+      "scope": "global",
       "stateFile": ".sero/apps/notes/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "NotesApp",

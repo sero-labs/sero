@@ -208,7 +208,7 @@ export const DEFAULT_STATE: MyAppState = {
 
 ### Where state lives
 
-State is stored relative to the workspace root:
+**Workspace-scoped** (default) — state is stored relative to the workspace root:
 
 ```
 workspace-root/
@@ -219,7 +219,22 @@ workspace-root/
 ```
 
 The path is configured in the manifest's `stateFile` field. This is a
-workspace-scoped resource — it persists across agent sessions.
+workspace-scoped resource — it persists across agent sessions. Each
+workspace gets its own independent state file.
+
+**Global-scoped** (`"scope": "global"`) — state is stored in Sero's
+config directory, shared across all workspaces:
+
+```
+~/.sero-ui/
+└── apps/
+    └── myapp/
+        └── state.json
+```
+
+The path is derived from the app `id` — the `stateFile` field is only
+used as a fallback for Pi CLI. See [State Scope](#state-scope) in the
+manifest reference for details.
 
 ## Step 3: Build the Pi Extension
 
@@ -830,10 +845,64 @@ The `sero.app` object in `package.json`:
 | `id` | ✅ | Unique identifier. Used in file paths, registry keys, MF remote name. Lowercase, no spaces. |
 | `name` | ✅ | Display name shown in the sidebar. |
 | `icon` | ✅ | Lucide icon name (e.g. `"check-square"`, `"box"`, `"calculator"`). Mapped to emoji in the sidebar. |
-| `stateFile` | ✅ | State file path relative to workspace root. Convention: `.sero/apps/<id>/state.json`. |
+| `scope` | ❌ | `"workspace"` (default) or `"global"`. See [State Scope](#state-scope) below. |
+| `stateFile` | ✅ | State file path relative to workspace root. Convention: `.sero/apps/<id>/state.json`. Used by workspace-scoped apps; global apps ignore this (state resolves from `SERO_HOME`). |
 | `ui` | ❌ | Path to the built `remoteEntry.js`, relative to package root. Null if no UI. |
 | `component` | ❌ | Exported component name from the MF remote (e.g. `"MyApp"`). Required if `ui` is set. |
 | `devPort` | ❌ | Vite dev server port for this remote. Required if `ui` is set. Must be unique across all apps. Must match `server.port` in the package's `vite.config.ts`. |
+
+### State Scope
+
+Apps can be **workspace-scoped** (default) or **global-scoped**.
+
+| | Workspace | Global |
+|---|-----------|--------|
+| **State location** | `<workspacePath>/.sero/apps/<id>/state.json` | `~/.sero-ui/apps/<id>/state.json` |
+| **Instances** | One per workspace — independent data | One shared instance across all workspaces |
+| **Requires workspace** | Yes — shows "No workspace selected" otherwise | No — works without a workspace |
+| **Use when** | Data is project-specific (todos, notes) | Data is personal/cross-project (weight, quotes, settings) |
+
+**Manifest example (global):**
+
+```json
+{
+  "sero": {
+    "app": {
+      "id": "weight-tracker",
+      "name": "Weight",
+      "icon": "heart-pulse",
+      "scope": "global",
+      "stateFile": ".sero/apps/weight-tracker/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "WeightTracker",
+      "devPort": 5176
+    }
+  }
+}
+```
+
+> **Note:** The `stateFile` field is still required (for Pi CLI fallback) but
+> Sero ignores it for global apps — the state path is computed as
+> `~/.sero-ui/apps/<id>/state.json`.
+
+**Extension changes for global apps:**
+
+Global app extensions should resolve their state path from `SERO_HOME` when
+running inside Sero, falling back to workspace-relative for Pi CLI:
+
+```typescript
+function resolveStatePath(cwd: string): string {
+  const seroHome = process.env.SERO_HOME;
+  if (seroHome) {
+    return path.join(seroHome, 'apps', 'myapp', 'state.json');
+  }
+  return path.join(cwd, STATE_REL_PATH);
+}
+```
+
+`SERO_HOME` is set automatically by Sero's main process (`~/.sero-ui`). In
+Pi CLI it's unset, so the extension falls back to the workspace-relative path
+(which is fine — Pi CLI has a single working directory).
 
 ---
 

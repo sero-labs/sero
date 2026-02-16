@@ -42,18 +42,22 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
     });
   }, []);
 
+  // Resolve state file path based on scope
+  const isGlobal = manifest.scope === 'global';
+  const stateFilePath = isGlobal
+    ? manifest.globalStatePath ?? ''
+    : workspacePath ? `${workspacePath}/${manifest.stateFile}` : '';
+
   // Build the AppProvider context value
   const contextValue = useMemo<AppContextValue>(
     () => ({
       appId: manifest.id,
       workspaceId: activeWorkspaceId ?? '',
       workspacePath,
-      stateFilePath: workspacePath
-        ? `${workspacePath}/${manifest.stateFile}`
-        : '',
+      stateFilePath,
       promptAgent,
     }),
-    [manifest.id, activeWorkspaceId, manifest.stateFile, workspacePath, promptAgent],
+    [manifest.id, activeWorkspaceId, stateFilePath, workspacePath, promptAgent],
   );
 
   const LazyComponent = getFederatedComponent(manifest.id, manifest.component, manifest.devPort);
@@ -62,7 +66,8 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
     return <AppPlaceholder name={manifest.name} reason="No UI module registered" />;
   }
 
-  if (!workspacePath) {
+  // Workspace-scoped apps need an active workspace; global apps don't
+  if (!isGlobal && !workspacePath) {
     return <AppPlaceholder name={manifest.name} reason="No workspace selected" />;
   }
 

@@ -13,7 +13,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type { SeroAppManifest } from '../src/types/ipc';
 
-import { SERO_AGENT_DIR } from './env';
+import { SERO_AGENT_DIR, SERO_HOME } from './env';
 
 const SERO_EXTENSIONS_DIR = path.join(SERO_AGENT_DIR, 'extensions');
 
@@ -24,6 +24,7 @@ interface PkgSeroApp {
   name: string;
   icon: string;
   stateFile: string;
+  scope?: 'global' | 'workspace';
   ui?: string;
   component?: string;
   devPort?: number;
@@ -43,11 +44,18 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
     uiEntry = path.resolve(packagePath, app.ui);
   }
 
+  const scope = app.scope === 'global' ? 'global' : 'workspace';
+  const globalStatePath = scope === 'global'
+    ? path.join(SERO_HOME, 'apps', app.id, 'state.json')
+    : null;
+
   return {
     id: app.id,
     name: app.name,
     icon: app.icon || 'box',
     stateFile: app.stateFile,
+    scope,
+    globalStatePath,
     uiEntry,
     component: app.component || null,
     devPort: app.devPort,

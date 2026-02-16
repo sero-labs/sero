@@ -16,6 +16,7 @@
       "id": "weight-tracker",
       "name": "Weight",
       "icon": "heart-pulse",
+      "scope": "global",
       "stateFile": ".sero/apps/weight-tracker/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "WeightTracker",

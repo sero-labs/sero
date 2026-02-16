@@ -32,6 +32,13 @@ export function loadSeroEnv(): void {
     process.env.PI_CODING_AGENT_DIR = SERO_AGENT_DIR;
   }
 
+  // ── Expose SERO_HOME for extensions ────────────────────────
+  // Global-scoped app extensions use this to resolve their state
+  // path (~/.sero-ui/apps/<appId>/state.json) instead of cwd.
+  if (!process.env.SERO_HOME) {
+    process.env.SERO_HOME = SERO_HOME;
+  }
+
   // ── Load .env file ────────────────────────────────────────
   let content: string;
   try {

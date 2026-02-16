@@ -24,7 +24,16 @@ import { DEFAULT_STATE } from '../shared/types';
 
 const STATE_REL_PATH = path.join('.sero', 'apps', 'daily-quote', 'state.json');
 
+/**
+ * Resolve the state file path. This is a global-scoped app:
+ * - In Sero (SERO_HOME set): state lives at ~/.sero-ui/apps/daily-quote/state.json
+ * - In Pi CLI (no SERO_HOME): falls back to workspace-relative path
+ */
 function resolveStatePath(cwd: string): string {
+  const seroHome = process.env.SERO_HOME;
+  if (seroHome) {
+    return path.join(seroHome, 'apps', 'daily-quote', 'state.json');
+  }
   return path.join(cwd, STATE_REL_PATH);
 }
 

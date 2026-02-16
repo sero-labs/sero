@@ -240,8 +240,19 @@ export interface SeroAppManifest {
   name: string;
   /** Lucide icon name (e.g. "check-square"). */
   icon: string;
-  /** State file path relative to workspace root. */
+  /** State file path relative to workspace root (workspace-scoped apps). */
   stateFile: string;
+  /**
+   * Whether the app's state is per-workspace or shared globally.
+   * - `"workspace"` (default): state at `<workspacePath>/<stateFile>`
+   * - `"global"`: state at `~/.sero-ui/apps/<appId>/state.json`
+   */
+  scope: 'global' | 'workspace';
+  /**
+   * Absolute path to the global state file. Only set when `scope === "global"`.
+   * Computed by app-discovery from `SERO_HOME/apps/<appId>/state.json`.
+   */
+  globalStatePath: string | null;
   /** Path to the module federation remoteEntry.js. Null if no UI. */
   uiEntry: string | null;
   /** Exported component name from the remote (e.g. "TodoApp"). */
