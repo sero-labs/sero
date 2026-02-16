@@ -285,6 +285,14 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.editor.getRootPath, workspaceId),
     isContainer: (workspaceId: string): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannels.editor.isContainer, workspaceId),
+    rename: (workspaceId: string, oldPath: string, newPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.rename, workspaceId, oldPath, newPath),
+    delete: (workspaceId: string, itemPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.delete, workspaceId, itemPath),
+    createFile: (workspaceId: string, filePath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.createFile, workspaceId, filePath),
+    createDir: (workspaceId: string, dirPath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.editor.createDir, workspaceId, dirPath),
   },
 
   filetree: {
@@ -306,8 +314,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.lsp.stop, workspaceId, language),
     request: (workspaceId: string, language: string, method: string, params?: unknown) =>
       ipcRenderer.invoke(IpcChannels.lsp.request, workspaceId, language, method, params),
-    notify: (workspaceId: string, language: string, method: string, params?: unknown): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.lsp.notify, workspaceId, language, method, params),
+    notify: (workspaceId: string, language: string, method: string, params?: unknown): void =>
+      ipcRenderer.send(IpcChannels.lsp.notify, workspaceId, language, method, params),
     hasServer: (workspaceId: string, language: string): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannels.lsp.hasServer, workspaceId, language),
     onNotification: (callback: (data: { workspaceId: string; language: string; notification: any }) => void): (() => void) => {

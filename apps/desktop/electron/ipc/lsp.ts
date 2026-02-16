@@ -32,9 +32,10 @@ export function registerLspHandlers(): void {
     },
   );
 
-  ipcMain.handle(
+  // Fire-and-forget: renderer uses ipcRenderer.send, no response needed.
+  ipcMain.on(
     IpcChannels.lsp.notify,
-    async (_e, workspaceId: string, language: string, method: string, params?: unknown) => {
+    (_e, workspaceId: string, language: string, method: string, params?: unknown) => {
       lspManager.sendNotification(workspaceId, language, method, params);
     },
   );

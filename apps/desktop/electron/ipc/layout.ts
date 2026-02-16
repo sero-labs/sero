@@ -30,32 +30,14 @@ function isLayoutState(value: unknown): value is LayoutState {
   );
 }
 
-/**
- * Parse layout JSON and tolerate extra trailing braces (e.g. "...}}").
- * Returns whether repair was needed so caller can rewrite a clean file.
- */
-function parseLayoutState(raw: string): { state: LayoutState; repaired: boolean } | null {
-  const candidate = raw.trim();
-
+/** Parse layout JSON. Returns the state if valid, null otherwise. */
+function parseLayoutState(raw: string): LayoutState | null {
   try {
-    const parsed = JSON.parse(candidate);
-    return isLayoutState(parsed) ? { state: parsed, repaired: false } : null;
+    const parsed = JSON.parse(raw.trim());
+    return isLayoutState(parsed) ? parsed : null;
   } catch {
-    // Fall through and attempt trailing-brace repair.
+    return null;
   }
-
-  let repairedCandidate = candidate;
-  while (repairedCandidate.endsWith('}')) {
-    repairedCandidate = repairedCandidate.slice(0, -1).trimEnd();
-    try {
-      const parsed = JSON.parse(repairedCandidate);
-      return isLayoutState(parsed) ? { state: parsed, repaired: true } : null;
-    } catch {
-      // Keep trimming and retrying.
-    }
-  }
-
-  return null;
 }
 
 async function saveLayoutFile(state: LayoutState): Promise<void> {
@@ -83,12 +65,7 @@ export function registerLayoutHandlers(): void {
       if (!existsSync(LAYOUT_FILE)) return null;
       try {
         const raw = await fs.readFile(LAYOUT_FILE, 'utf8');
-        const parsed = parseLayoutState(raw);
-        if (!parsed) return null;
-        if (parsed.repaired) {
-          await saveLayoutFile(parsed.state);
-        }
-        return parsed.state;
+        return parseLayoutState(raw);
       } catch {
         return null;
       }

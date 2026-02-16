@@ -1,11 +1,9 @@
 /**
- * File tree operations — dual-mode (container or host).
- * Uses window.sero.editor.exec for shell commands.
+ * File tree operations — uses first-class IPC handlers (dual-mode: container or host).
+ *
+ * The main process handles path validation and chooses the right backend
+ * (native fs for host workspaces, `container exec` for container workspaces).
  */
-
-function shellEscape(s: string): string {
-  return `'${s.replace(/'/g, "'\\''")}'`;
-}
 
 /** Move a file/directory. Returns true on success. */
 export async function moveItem(
@@ -14,11 +12,7 @@ export async function moveItem(
   destPath: string,
 ): Promise<boolean> {
   try {
-    const result = await window.sero.editor.exec(
-      workspaceId,
-      `mv ${shellEscape(sourcePath)} ${shellEscape(destPath)}`,
-    );
-    return result.exitCode === 0;
+    return await window.sero.editor.rename(workspaceId, sourcePath, destPath);
   } catch (err) {
     console.error(`[FileTree] Move failed ${sourcePath} → ${destPath}:`, err);
     return false;
@@ -36,12 +30,9 @@ export async function renameItem(
   if (newPath === oldPath) return oldPath;
 
   try {
-    const result = await window.sero.editor.exec(
-      workspaceId,
-      `mv ${shellEscape(oldPath)} ${shellEscape(newPath)}`,
-    );
-    if (result.exitCode === 0) return newPath;
-    console.warn(`[FileTree] Rename failed: ${result.stderr}`);
+    const ok = await window.sero.editor.rename(workspaceId, oldPath, newPath);
+    if (ok) return newPath;
+    console.warn(`[FileTree] Rename failed: ${oldPath} → ${newName}`);
     return null;
   } catch (err) {
     console.error(`[FileTree] Rename failed ${oldPath} → ${newName}:`, err);
@@ -55,11 +46,7 @@ export async function deleteItem(
   itemPath: string,
 ): Promise<boolean> {
   try {
-    const result = await window.sero.editor.exec(
-      workspaceId,
-      `rm -rf ${shellEscape(itemPath)}`,
-    );
-    return result.exitCode === 0;
+    return await window.sero.editor.delete(workspaceId, itemPath);
   } catch (err) {
     console.error(`[FileTree] Delete failed ${itemPath}:`, err);
     return false;
@@ -72,11 +59,7 @@ export async function createFile(
   filePath: string,
 ): Promise<boolean> {
   try {
-    const result = await window.sero.editor.exec(
-      workspaceId,
-      `touch ${shellEscape(filePath)}`,
-    );
-    return result.exitCode === 0;
+    return await window.sero.editor.createFile(workspaceId, filePath);
   } catch (err) {
     console.error(`[FileTree] Create file failed ${filePath}:`, err);
     return false;
@@ -89,11 +72,7 @@ export async function createFolder(
   dirPath: string,
 ): Promise<boolean> {
   try {
-    const result = await window.sero.editor.exec(
-      workspaceId,
-      `mkdir -p ${shellEscape(dirPath)}`,
-    );
-    return result.exitCode === 0;
+    return await window.sero.editor.createDir(workspaceId, dirPath);
   } catch (err) {
     console.error(`[FileTree] Create folder failed ${dirPath}:`, err);
     return false;

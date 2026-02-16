@@ -442,6 +442,14 @@ export const IpcChannels = {
     getRootPath: 'sero:editor:get-root-path',
     /** Check if a workspace uses containers. */
     isContainer: 'sero:editor:is-container',
+    /** Rename/move a file or directory. */
+    rename: 'sero:editor:rename',
+    /** Delete a file or directory. */
+    delete: 'sero:editor:delete',
+    /** Create an empty file. */
+    createFile: 'sero:editor:create-file',
+    /** Create a directory. */
+    createDir: 'sero:editor:create-dir',
   },
   filetree: {
     /** Start watching a workspace directory for changes. */

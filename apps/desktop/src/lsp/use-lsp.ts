@@ -7,18 +7,23 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useContainerStore } from '@/stores/container';
+import type { editor, languages, IRange } from 'monaco-editor';
+import type { LspCompletionSuggestion } from './lsp-conversions';
 import {
   getLspServerLanguage, getLspLanguageIdFromPath, monacoToLspPos,
   convertCompletions, convertHover, convertDefinition, convertDiagnostics,
+  LSP_LANGUAGES,
 } from './lsp-conversions';
 
-type MonacoInstance = any;
-type EditorInstance = any;
+type Monaco = typeof import('monaco-editor');
 
-// Module-level tracking: which language IDs have providers registered
+// Module-level tracking: which language IDs have providers registered.
+// Providers are registered once (Monaco doesn't support un-register), so
+// they read uriRegistry at call time to route to the correct server.
 const registeredLanguages = new Set<string>();
 
-// Module-level URI → { workspaceId, language } routing registry
+// Module-level URI → { workspaceId, language } routing registry.
+// Entries are added/removed by each useLsp instance in Effect 2.
 const uriRegistry = new Map<string, { workspaceId: string; language: string }>();
 
 function toFileUri(containerPath: string): string {
@@ -29,14 +34,19 @@ function toFileUri(containerPath: string): string {
  * Register Monaco language providers (once per language ID).
  * Providers route requests via uriRegistry to the correct workspace/server.
  */
-function ensureProvidersRegistered(monaco: MonacoInstance, languageId: string): void {
+function ensureProvidersRegistered(monaco: Monaco, languageId: string): void {
   if (registeredLanguages.has(languageId)) return;
   registeredLanguages.add(languageId);
 
   // Completion provider
   monaco.languages.registerCompletionItemProvider(languageId, {
     triggerCharacters: ['.', '/', '"', "'", '`', '<', '@'],
-    provideCompletionItems: async (model: any, position: any, _ctx: any, token: any) => {
+    provideCompletionItems: async (
+      model: editor.ITextModel,
+      position,
+      _ctx: languages.CompletionContext,
+      token,
+    ): Promise<languages.CompletionList> => {
       const route = uriRegistry.get(model.uri.toString());
       if (!route || token.isCancellationRequested) return { suggestions: [] };
       try {
@@ -46,26 +56,33 @@ function ensureProvidersRegistered(monaco: MonacoInstance, languageId: string): 
         });
         if (token.isCancellationRequested) return { suggestions: [] };
         const word = model.getWordUntilPosition(position);
-        const range = {
+        const range: IRange = {
           startLineNumber: position.lineNumber, startColumn: word.startColumn,
           endLineNumber: position.lineNumber, endColumn: word.endColumn,
         };
-        return convertCompletions(result, range);
+        return convertCompletions(result, range, route);
       } catch { return { suggestions: [] }; }
     },
-    resolveCompletionItem: async (item: any, token: any) => {
-      if (!item._lspItem || token.isCancellationRequested) return item;
-      const route = uriRegistry.values().next().value;
-      if (!route) return item;
+    resolveCompletionItem: async (
+      item: languages.CompletionItem,
+      token,
+    ): Promise<languages.CompletionItem> => {
+      const lspItem = item as LspCompletionSuggestion;
+      if (!lspItem._lspItem || !lspItem._lspRoute || token.isCancellationRequested) return item;
+      const { workspaceId, language } = lspItem._lspRoute;
       try {
-        const resolved = await window.sero.lsp.request(route.workspaceId, route.language, 'completionItem/resolve', item._lspItem) as any;
-        if (token.isCancellationRequested) return item;
-        if (resolved?.documentation) {
+        const resolved = await window.sero.lsp.request(
+          workspaceId, language, 'completionItem/resolve', lspItem._lspItem,
+        ) as Record<string, unknown> | null;
+        if (token.isCancellationRequested || !resolved) return item;
+        if (resolved.documentation) {
           item.documentation = typeof resolved.documentation === 'string'
             ? resolved.documentation
-            : resolved.documentation.value ? { value: resolved.documentation.value } : resolved.documentation;
+            : (resolved.documentation as { value?: string }).value
+              ? { value: (resolved.documentation as { value: string }).value }
+              : item.documentation;
         }
-        if (resolved?.detail) item.detail = resolved.detail;
+        if (resolved.detail) item.detail = resolved.detail as string;
         return item;
       } catch { return item; }
     },
@@ -73,7 +90,11 @@ function ensureProvidersRegistered(monaco: MonacoInstance, languageId: string): 
 
   // Hover provider
   monaco.languages.registerHoverProvider(languageId, {
-    provideHover: async (model: any, position: any, token: any) => {
+    provideHover: async (
+      model: editor.ITextModel,
+      position,
+      token,
+    ): Promise<languages.Hover | null | undefined> => {
       const route = uriRegistry.get(model.uri.toString());
       if (!route || token.isCancellationRequested) return null;
       try {
@@ -89,7 +110,11 @@ function ensureProvidersRegistered(monaco: MonacoInstance, languageId: string): 
 
   // Definition provider
   monaco.languages.registerDefinitionProvider(languageId, {
-    provideDefinition: async (model: any, position: any, token: any) => {
+    provideDefinition: async (
+      model: editor.ITextModel,
+      position,
+      token,
+    ): Promise<languages.Definition | null> => {
       const route = uriRegistry.get(model.uri.toString());
       if (!route || token.isCancellationRequested) return null;
       try {
@@ -98,20 +123,22 @@ function ensureProvidersRegistered(monaco: MonacoInstance, languageId: string): 
           position: monacoToLspPos(position.lineNumber, position.column),
         });
         if (token.isCancellationRequested) return null;
-        return convertDefinition(result).map((loc: any) => ({
-          ...loc, uri: monaco.Uri.parse(loc.uri),
+        return convertDefinition(result).map((loc) => ({
+          uri: monaco.Uri.parse(loc.uri), range: loc.range,
         }));
       } catch { return null; }
     },
   });
 }
 
+// ── Hook ──────────────────────────────────────────────────────
+
 export interface UseLspOptions {
   workspaceId: string;
   filePath: string | null;
   languageId: string;
-  monaco: MonacoInstance | null;
-  editor: EditorInstance | null;
+  monaco: Monaco | null;
+  editor: editor.IStandaloneCodeEditor | null;
 }
 
 export interface UseLspResult {
@@ -146,7 +173,7 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
         if (cancelled) return;
         serverLanguageRef.current = language;
         setIsReady(true);
-        for (const lid of ['typescript', 'typescriptreact', 'javascript', 'javascriptreact']) {
+        for (const lid of LSP_LANGUAGES) {
           ensureProvidersRegistered(monaco, lid);
         }
       } catch (err) {
@@ -223,7 +250,7 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
     return () => disposable.dispose();
   }, [isReady, editor, workspaceId, serverLanguage]);
 
-  // Effect 4: sendDidSave callback
+  // sendDidSave callback
   const sendDidSave = useCallback(() => {
     const uri = openUriRef.current;
     if (!uri || !isReady || !serverLanguage) return;
@@ -232,25 +259,39 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
     });
   }, [isReady, workspaceId, serverLanguage]);
 
-  // Effect 5: Listen for diagnostics from the LSP server
+  // Effect 4: Listen for diagnostics from the LSP server
   useEffect(() => {
     if (!monaco) return;
     const unsub = window.sero.lsp.onNotification((data) => {
       if (data.workspaceId !== workspaceId) return;
       const notification = data.notification;
       if (notification.method === 'textDocument/publishDiagnostics') {
-        const params = notification.params as any;
-        const uri = params.uri as string;
+        const params = notification.params as { uri: string; diagnostics: unknown[] };
+        const uri = params.uri;
         const containerPath = uri.replace('file://', '');
         const models = monaco.editor.getModels();
-        const model = models.find((m: any) => m.uri.path === containerPath);
+        const model = models.find((m) => m.uri.path === containerPath);
         if (model) {
-          monaco.editor.setModelMarkers(model, 'lsp', convertDiagnostics(params.diagnostics ?? []));
+          monaco.editor.setModelMarkers(model, 'lsp', convertDiagnostics(params.diagnostics as never[]));
         }
       }
     });
     return unsub;
   }, [monaco, workspaceId]);
+
+  // Effect 5: Clean up uriRegistry entries when server stops
+  useEffect(() => {
+    const unsub = window.sero.lsp.onServerStopped((data) => {
+      if (data.workspaceId !== workspaceId) return;
+      // Remove all uriRegistry entries that belong to this workspace
+      for (const [uri, route] of uriRegistry) {
+        if (route.workspaceId === workspaceId) uriRegistry.delete(uri);
+      }
+      serverLanguageRef.current = null;
+      setIsReady(false);
+    });
+    return unsub;
+  }, [workspaceId]);
 
   return { isReady, serverLanguage: serverLanguageRef.current, sendDidSave };
 }

@@ -191,6 +191,14 @@ interface SeroEditorAPI {
   getRootPath(workspaceId: string): Promise<string>;
   /** Check if a workspace uses containers. */
   isContainer(workspaceId: string): Promise<boolean>;
+  /** Rename/move a file or directory. Returns true on success. */
+  rename(workspaceId: string, oldPath: string, newPath: string): Promise<boolean>;
+  /** Delete a file or directory recursively. Returns true on success. */
+  delete(workspaceId: string, itemPath: string): Promise<boolean>;
+  /** Create an empty file. Returns true on success. */
+  createFile(workspaceId: string, filePath: string): Promise<boolean>;
+  /** Create a directory (recursive). Returns true on success. */
+  createDir(workspaceId: string, dirPath: string): Promise<boolean>;
 }
 
 interface SeroFileTreeAPI {
@@ -209,8 +217,8 @@ interface SeroLspAPI {
   stop(workspaceId: string, language: string): Promise<void>;
   /** Send an LSP request. */
   request(workspaceId: string, language: string, method: string, params?: unknown): Promise<unknown>;
-  /** Send an LSP notification (no response). */
-  notify(workspaceId: string, language: string, method: string, params?: unknown): Promise<void>;
+  /** Send an LSP notification (fire-and-forget, no response). */
+  notify(workspaceId: string, language: string, method: string, params?: unknown): void;
   /** Check if a server is running for a workspace/language. */
   hasServer(workspaceId: string, language: string): Promise<boolean>;
   /** Subscribe to LSP notifications (diagnostics etc.). Returns unsubscribe. */

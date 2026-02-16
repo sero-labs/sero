@@ -36,13 +36,25 @@ const WORKSPACE_PREFIX = '/workspace';
 /**
  * Translate a /workspace-prefixed path to an absolute host path.
  * If the path doesn't start with /workspace, treat it as relative.
+ *
+ * **Security:** The resolved path is checked against the workspace root.
+ * Throws if the result escapes the workspace (e.g. via `..` traversal).
  */
 function toHostPath(workspacePath: string, filePath: string): string {
+  let raw: string;
   if (filePath.startsWith(WORKSPACE_PREFIX)) {
     const relative = filePath.slice(WORKSPACE_PREFIX.length);
-    return path.join(workspacePath, relative);
+    raw = path.join(workspacePath, relative);
+  } else {
+    raw = path.join(workspacePath, filePath);
   }
-  return path.join(workspacePath, filePath);
+
+  const resolved = path.resolve(raw);
+  const root = path.resolve(workspacePath);
+  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
+    throw new Error(`Path escapes workspace: ${filePath}`);
+  }
+  return resolved;
 }
 
 // ── Host-mode file operations ─────────────────────────────────
@@ -187,6 +199,92 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.isContainer,
     async (_e, workspaceId: string) => {
       return workspaceManager.isContainerEnabled(workspaceId);
+    },
+  );
+
+  // ── First-class file operations (avoid shell commands) ────
+
+  ipcMain.handle(
+    IpcChannels.editor.rename,
+    async (_e, workspaceId: string, oldPath: string, newPath: string): Promise<boolean> => {
+      try {
+        if (await workspaceManager.isContainerEnabled(workspaceId)) {
+          const result = await containerManager.exec(workspaceId, `mv '${oldPath}' '${newPath}'`);
+          return result.exitCode === 0;
+        }
+        const wsPath = workspaceManager.getPath(workspaceId);
+        if (!wsPath) return false;
+        const hostOld = toHostPath(wsPath, oldPath);
+        const hostNew = toHostPath(wsPath, newPath);
+        await fs.rename(hostOld, hostNew);
+        return true;
+      } catch (err: unknown) {
+        console.warn('[editor:rename]', err);
+        return false;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.editor.delete,
+    async (_e, workspaceId: string, itemPath: string): Promise<boolean> => {
+      try {
+        if (await workspaceManager.isContainerEnabled(workspaceId)) {
+          const result = await containerManager.exec(workspaceId, `rm -rf '${itemPath}'`);
+          return result.exitCode === 0;
+        }
+        const wsPath = workspaceManager.getPath(workspaceId);
+        if (!wsPath) return false;
+        const hostItem = toHostPath(wsPath, itemPath);
+        await fs.rm(hostItem, { recursive: true, force: true });
+        return true;
+      } catch (err: unknown) {
+        console.warn('[editor:delete]', err);
+        return false;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.editor.createFile,
+    async (_e, workspaceId: string, filePath: string): Promise<boolean> => {
+      try {
+        if (await workspaceManager.isContainerEnabled(workspaceId)) {
+          const result = await containerManager.exec(workspaceId, `touch '${filePath}'`);
+          return result.exitCode === 0;
+        }
+        const wsPath = workspaceManager.getPath(workspaceId);
+        if (!wsPath) return false;
+        const hostFile = toHostPath(wsPath, filePath);
+        await fs.mkdir(path.dirname(hostFile), { recursive: true });
+        await fs.writeFile(hostFile, '', { flag: 'wx' }).catch(() =>
+          fs.writeFile(hostFile, '', 'utf8'),
+        );
+        return true;
+      } catch (err: unknown) {
+        console.warn('[editor:createFile]', err);
+        return false;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.editor.createDir,
+    async (_e, workspaceId: string, dirPath: string): Promise<boolean> => {
+      try {
+        if (await workspaceManager.isContainerEnabled(workspaceId)) {
+          const result = await containerManager.exec(workspaceId, `mkdir -p '${dirPath}'`);
+          return result.exitCode === 0;
+        }
+        const wsPath = workspaceManager.getPath(workspaceId);
+        if (!wsPath) return false;
+        const hostDir = toHostPath(wsPath, dirPath);
+        await fs.mkdir(hostDir, { recursive: true });
+        return true;
+      } catch (err: unknown) {
+        console.warn('[editor:createDir]', err);
+        return false;
+      }
     },
   );
 }

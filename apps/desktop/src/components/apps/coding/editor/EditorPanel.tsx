@@ -8,9 +8,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
+import type { editor as monacoEditor } from 'monaco-editor';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { useLsp } from '@/lsp/use-lsp';
 import { useContainerStore } from '@/stores/container';
+import { useActiveWorkspace } from '@/stores/workspace';
 
 interface Props {
   workspaceId: string;
@@ -44,16 +46,21 @@ export function EditorPanel({
   const [content, setContent] = useState('');
   const [language, setLanguage] = useState('typescript');
 
+  type Monaco = typeof import('monaco-editor');
+
   const contentMapRef = useRef(new Map<string, string>());
   const savedContentRef = useRef(new Map<string, string>());
-  const viewStateMapRef = useRef(new Map<string, any>());
-  const editorRef = useRef<any>(null);
-  const monacoRef = useRef<any>(null);
-  const [monacoInstance, setMonacoInstance] = useState<any>(null);
-  const [editorInstance, setEditorInstance] = useState<any>(null);
+  const viewStateMapRef = useRef(new Map<string, monacoEditor.ICodeEditorViewState | null>());
+  const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
+  const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
+  const [editorInstance, setEditorInstance] = useState<monacoEditor.IStandaloneCodeEditor | null>(null);
 
   const containerStatus = useContainerStore((s) => s.containers[workspaceId]?.status ?? 'none');
-  const isReady = containerStatus === 'running' || containerStatus === 'none'; // host mode always ready
+  const activeWorkspace = useActiveWorkspace();
+  const isContainerWorkspace = activeWorkspace?.container ?? true;
+  // Non-container workspaces are always ready; container workspaces must be running.
+  const isReady = isContainerWorkspace ? containerStatus === 'running' : true;
 
   // ── LSP integration ──
   const { sendDidSave } = useLsp({
@@ -172,7 +179,7 @@ export function EditorPanel({
   }, [activeTab, onOpenTab]);
 
   // ── Monaco lifecycle ──
-  const handleBeforeMount = useCallback((monaco: any) => {
+  const handleBeforeMount = useCallback((monaco: Monaco) => {
     monaco.languages.typescript?.typescriptDefaults?.setDiagnosticsOptions({
       noSemanticValidation: true, noSyntaxValidation: true,
     });
@@ -181,16 +188,16 @@ export function EditorPanel({
     });
   }, []);
 
-  const handleEditorMount = useCallback((editor: any, monaco: any) => {
-    editorRef.current = editor;
-    monacoRef.current = monaco;
-    setMonacoInstance(monaco);
-    setEditorInstance(editor);
-    editor.onDidChangeModel(() => {
-      const model = editor.getModel();
+  const handleEditorMount = useCallback((ed: monacoEditor.IStandaloneCodeEditor, mon: Monaco) => {
+    editorRef.current = ed;
+    monacoRef.current = mon;
+    setMonacoInstance(mon);
+    setEditorInstance(ed);
+    ed.onDidChangeModel(() => {
+      const model = ed.getModel();
       if (!model) return;
       const vs = viewStateMapRef.current.get(model.uri.path);
-      if (vs) setTimeout(() => { editor.restoreViewState(vs); editor.focus(); }, 0);
+      if (vs) setTimeout(() => { ed.restoreViewState(vs); ed.focus(); }, 0);
     });
   }, []);
 
