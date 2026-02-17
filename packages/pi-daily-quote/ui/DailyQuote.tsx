@@ -137,7 +137,7 @@ const CUSTOM_STYLES = `
     font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
     font-weight: 400;
     font-style: italic;
-    line-height: 1.65;
+    line-height: 1.85;
     letter-spacing: 0.01em;
     font-size: clamp(1.75rem, 4vw, 2.75rem);
   }
@@ -512,7 +512,7 @@ function QuoteDisplay({
       </p>
 
       {/* Divider */}
-      <div className="dq-divider dq-animate-divider mt-10 mb-8" />
+      <div className="dq-divider dq-animate-divider mt-14 mb-10" />
 
       {/* Author */}
       <p
@@ -527,7 +527,7 @@ function QuoteDisplay({
 
       {/* Refresh button */}
       <button
-        className="dq-button dq-animate-button mt-16"
+        className="dq-button dq-animate-button mt-20"
         onClick={onRefresh}
         disabled={loading}
       >
