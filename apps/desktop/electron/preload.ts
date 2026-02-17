@@ -17,6 +17,7 @@ import type {
   DevServerEvent,
   SessionContext,
   ContextOverrides,
+  ContextPreset,
 } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
@@ -116,6 +117,14 @@ contextBridge.exposeInMainWorld('sero', {
         ipcRenderer.removeListener(IpcChannels.agent.event, handler);
       };
     },
+  },
+
+  contextPresets: {
+    load: (): Promise<ContextPreset[]> =>
+      ipcRenderer.invoke(IpcChannels.contextPresets.load),
+
+    save: (presets: ContextPreset[]): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.contextPresets.save, presets),
   },
 
   appState: {

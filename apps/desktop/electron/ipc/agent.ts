@@ -41,6 +41,9 @@ import {
   buildModelState,
   readHiddenCommands,
   buildCommandList,
+  getBaseSystemPrompt,
+  setBaseSystemPrompt,
+  stripDisabledSkills,
 } from './agent-helpers';
 import { logRawEvent, logTurnContext } from './debug';
 import { workspaceManager } from '../workspace';
@@ -68,10 +71,8 @@ interface PoolEntry {
   lastSessionName: string | undefined;
   /** Context overrides from the context editor (applied before first prompt). */
   contextOverrides: ContextOverrides | null;
-  /** Original tools list snapshot — used to restore tools when overrides change. */
-  originalTools: Array<{ name: string; [key: string]: unknown }> | null;
-  /** Original _baseSystemPrompt snapshot — used to restore when overrides change. */
-  originalBaseSystemPrompt: string | null;
+  /** Original active tool names — used to restore tools when overrides are cleared. */
+  originalToolNames: string[] | null;
 }
 
 /** Map<sessionId, PoolEntry> — one AgentSession per active chat. */
@@ -367,8 +368,7 @@ export function registerAgentHandlers(): void {
         currentAssistantId: null,
         lastSessionName: session.sessionName,
         contextOverrides: null,
-        originalTools: null,
-        originalBaseSystemPrompt: null,
+        originalToolNames: null,
       });
 
       return convertSessionMessages(session.messages);
@@ -556,55 +556,55 @@ export function registerAgentHandlers(): void {
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
       const session = entry.session;
-      const agent = session.agent;
-      const state = agent.state;
 
-      // Snapshot originals on first override application
-      if (!entry.originalTools) {
-        entry.originalTools = state.tools.map((t: any) => t);
-      }
-      if (entry.originalBaseSystemPrompt === null) {
-        // _baseSystemPrompt is the SDK's internal cached system prompt that
-        // AgentSession.prompt() resets to on every call. We must overwrite it
-        // (not just state.systemPrompt) for the override to survive a prompt.
-        entry.originalBaseSystemPrompt = (session as any)._baseSystemPrompt ?? state.systemPrompt;
+      // Snapshot original tool names on first override application.
+      // Uses the public getActiveToolNames() API instead of internal state.
+      if (!entry.originalToolNames) {
+        entry.originalToolNames = session.getActiveToolNames();
       }
 
       entry.contextOverrides = overrides;
 
       if (!overrides) {
-        // Restore original tools
-        if (entry.originalTools) {
-          state.tools = entry.originalTools as any;
-        }
-        // Restore original system prompt (both the internal base and current state)
-        if (entry.originalBaseSystemPrompt !== null) {
-          (session as any)._baseSystemPrompt = entry.originalBaseSystemPrompt;
-          agent.setSystemPrompt(entry.originalBaseSystemPrompt);
-        }
+        // Restore: setActiveToolsByName rebuilds the system prompt from
+        // scratch with all original tools and skills — no manual restore needed.
+        session.setActiveToolsByName(entry.originalToolNames!);
         return;
       }
 
-      // Apply tool overrides: filter out disabled tools
+      // Step 1: Apply tool filtering via public SDK API.
+      // setActiveToolsByName also rebuilds _baseSystemPrompt with the
+      // correct tool set + all skills from the resource loader.
+      const toolNames = entry.originalToolNames!.slice();
       if (overrides.disabledTools?.length) {
         const disabled = new Set(overrides.disabledTools);
-        state.tools = entry.originalTools!.filter(
-          (t: any) => !disabled.has(t.name),
-        ) as any;
-      } else if (entry.originalTools) {
-        // No disabled tools — restore full set
-        state.tools = entry.originalTools as any;
+        session.setActiveToolsByName(toolNames.filter((n) => !disabled.has(n)));
+      } else {
+        session.setActiveToolsByName(toolNames);
       }
 
-      // Apply system prompt override.
-      // We must overwrite _baseSystemPrompt on the AgentSession — this is what
-      // prompt() resets to before every API call. Setting state.systemPrompt
-      // alone is insufficient because prompt() calls
-      //   agent.setSystemPrompt(this._baseSystemPrompt)
-      // which would overwrite our change.
+      // Step 2: Apply skill filtering by stripping <skill> entries from the
+      // system prompt's <available_skills> section. Only applies when the
+      // user has NOT provided a full custom system prompt.
+      if (
+        overrides.disabledSkills?.length &&
+        (overrides.systemPrompt === undefined || overrides.systemPrompt === null)
+      ) {
+        const disabled = new Set(overrides.disabledSkills);
+        const prompt = getBaseSystemPrompt(session);
+        if (typeof prompt === 'string') {
+          const filtered = stripDisabledSkills(prompt, disabled);
+          setBaseSystemPrompt(session, filtered);
+        }
+      }
+
+      // Step 3: Apply full system prompt override (replaces everything
+      // including any skill filtering from step 2).
+      // We must overwrite _baseSystemPrompt — the SDK's internal cached
+      // prompt that AgentSession.prompt() resets to on every API call.
+      // Tested against pi-coding-agent@0.52.12.
       if (overrides.systemPrompt !== undefined && overrides.systemPrompt !== null) {
-        (session as any)._baseSystemPrompt = overrides.systemPrompt;
-        agent.setSystemPrompt(overrides.systemPrompt);
+        setBaseSystemPrompt(session, overrides.systemPrompt);
       }
     },
   );
@@ -615,3 +615,5 @@ export function registerAgentHandlers(): void {
     disposeAll();
   });
 }
+
+

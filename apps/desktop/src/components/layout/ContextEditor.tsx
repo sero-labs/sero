@@ -8,6 +8,7 @@ import {
   Trash2,
   RotateCcw,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -27,93 +28,66 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  useContextEditorStore,
   useAllPresets,
   useHasOverrides,
+  useEditorState,
+  useEditorActions,
 } from '@/stores/context-editor';
 import {
   ContextSection,
-  ToolRow,
-  SkillRow,
+  ToggleRow,
   SavePresetInput,
 } from './context-editor-parts';
 
 // ── Main Context Editor Dialog ──────────────────────────────────
 
-export function ContextEditor({
-  sessionId,
-}: {
-  sessionId: string;
-}) {
-  const isOpen = useContextEditorStore((s) => s.isOpen);
-  const close = useContextEditorStore((s) => s.close);
-  const availableContext = useContextEditorStore((s) => s.availableContext);
-  const systemPrompt = useContextEditorStore((s) => s.systemPrompt);
-  const disabledTools = useContextEditorStore((s) => s.disabledTools);
-  const disabledSkills = useContextEditorStore((s) => s.disabledSkills);
-  const allToolsDisabled = useContextEditorStore((s) => s.allToolsDisabled);
-  const allSkillsDisabled = useContextEditorStore((s) => s.allSkillsDisabled);
-  const activePresetId = useContextEditorStore((s) => s.activePresetId);
-  const setSystemPrompt = useContextEditorStore((s) => s.setSystemPrompt);
-  const toggleTool = useContextEditorStore((s) => s.toggleTool);
-  const toggleSkill = useContextEditorStore((s) => s.toggleSkill);
-  const setAllToolsDisabled = useContextEditorStore((s) => s.setAllToolsDisabled);
-  const setAllSkillsDisabled = useContextEditorStore((s) => s.setAllSkillsDisabled);
-  const apply = useContextEditorStore((s) => s.apply);
-  const resetToDefault = useContextEditorStore((s) => s.resetToDefault);
-  const loadPreset = useContextEditorStore((s) => s.loadPreset);
-  const savePreset = useContextEditorStore((s) => s.savePreset);
-  const deletePreset = useContextEditorStore((s) => s.deletePreset);
-
+export function ContextEditor({ sessionId }: { sessionId: string }) {
+  const state = useEditorState();
+  const actions = useEditorActions();
   const allPresets = useAllPresets();
   const hasOverrides = useHasOverrides();
 
   const [showSaveInput, setShowSaveInput] = useState(false);
 
+  const {
+    isOpen, availableContext, systemPrompt, disabledTools, disabledSkills,
+    allToolsDisabled, allSkillsDisabled, activePresetId, applyError,
+  } = state;
+
+  const {
+    close, setSystemPrompt, toggleTool, toggleSkill,
+    setAllToolsDisabled, setAllSkillsDisabled,
+    apply, resetToDefault, loadPreset, savePreset, deletePreset,
+  } = actions;
+
   // Computed: the system prompt text to show in the editor
   const displayedPrompt = systemPrompt ?? availableContext?.systemPrompt ?? '';
 
-  // Computed: enabled state for each tool
   const isToolEnabled = useCallback(
-    (toolName: string) => {
-      if (allToolsDisabled) return false;
-      return !disabledTools.has(toolName);
-    },
+    (toolName: string) => !allToolsDisabled && !disabledTools.has(toolName),
     [allToolsDisabled, disabledTools],
   );
 
   const isSkillEnabled = useCallback(
-    (skillName: string) => {
-      if (allSkillsDisabled) return false;
-      return !disabledSkills.has(skillName);
-    },
+    (skillName: string) => !allSkillsDisabled && !disabledSkills.has(skillName),
     [allSkillsDisabled, disabledSkills],
   );
 
-  // Count enabled tools/skills
   const enabledToolCount = useMemo(() => {
-    if (!availableContext) return 0;
-    if (allToolsDisabled) return 0;
+    if (!availableContext || allToolsDisabled) return 0;
     return availableContext.tools.filter((t) => !disabledTools.has(t.name)).length;
   }, [availableContext, allToolsDisabled, disabledTools]);
 
   const enabledSkillCount = useMemo(() => {
-    if (!availableContext) return 0;
-    if (allSkillsDisabled) return 0;
+    if (!availableContext || allSkillsDisabled) return 0;
     return availableContext.skills.filter((s) => !disabledSkills.has(s.name)).length;
   }, [availableContext, allSkillsDisabled, disabledSkills]);
 
   const handleApplyAndClose = useCallback(async () => {
-    await apply(sessionId);
-    close();
+    const ok = await apply(sessionId);
+    if (ok) close();
+    // On failure, applyError is set in the store — dialog stays open.
   }, [apply, close, sessionId]);
-
-  const handlePresetChange = useCallback(
-    (presetId: string) => {
-      loadPreset(presetId);
-    },
-    [loadPreset],
-  );
 
   const handleSavePreset = useCallback(
     (name: string) => {
@@ -123,11 +97,13 @@ export function ContextEditor({
     [savePreset],
   );
 
-  const handleDeletePreset = useCallback(
-    (presetId: string) => {
-      deletePreset(presetId);
-    },
-    [deletePreset],
+  // Active user preset (for the delete button outside the select)
+  const activeUserPreset = useMemo(
+    () =>
+      activePresetId && !activePresetId.startsWith('__')
+        ? allPresets.find((p) => p.id === activePresetId) ?? null
+        : null,
+    [activePresetId, allPresets],
   );
 
   return (
@@ -147,66 +123,19 @@ export function ContextEditor({
         </DialogHeader>
 
         {/* ── Preset Selector ─────────────────────────────── */}
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-medium text-[var(--text-muted)]">
-            Preset:
-          </span>
-          <Select
-            value={activePresetId ?? ''}
-            onValueChange={handlePresetChange}
-          >
-            <SelectTrigger size="sm" className="h-7 w-40 text-xs">
-              <SelectValue placeholder="Custom" />
-            </SelectTrigger>
-            <SelectContent>
-              {allPresets.map((preset) => (
-                <SelectItem key={preset.id} value={preset.id}>
-                  <div className="flex items-center gap-2">
-                    <span>{preset.name}</span>
-                    {!preset.id.startsWith('__') && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeletePreset(preset.id);
-                        }}
-                        className="text-[var(--text-muted)] hover:text-red-400"
-                      >
-                        <Trash2 className="size-3" />
-                      </button>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {!showSaveInput ? (
-            <button
-              onClick={() => setShowSaveInput(true)}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] transition-colors"
-            >
-              <Save className="size-3" />
-              Save as
-            </button>
-          ) : null}
-
-          {hasOverrides && (
-            <button
-              onClick={resetToDefault}
-              className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] transition-colors"
-            >
-              <RotateCcw className="size-3" />
-              Reset
-            </button>
-          )}
-        </div>
-
-        {showSaveInput && (
-          <SavePresetInput
-            onSave={handleSavePreset}
-            onCancel={() => setShowSaveInput(false)}
-          />
-        )}
+        <PresetBar
+          allPresets={allPresets}
+          activePresetId={activePresetId}
+          activeUserPreset={activeUserPreset}
+          hasOverrides={hasOverrides}
+          showSaveInput={showSaveInput}
+          onPresetChange={loadPreset}
+          onDelete={deletePreset}
+          onReset={resetToDefault}
+          onShowSave={() => setShowSaveInput(true)}
+          onSave={handleSavePreset}
+          onCancelSave={() => setShowSaveInput(false)}
+        />
 
         {/* ── Loading state ───────────────────────────────── */}
         {!availableContext ? (
@@ -252,102 +181,34 @@ export function ContextEditor({
               </ContextSection>
 
               {/* ── Tools Section ────────────────────────── */}
-              <ContextSection
-                icon={Wrench}
-                title="Tools"
-                count={availableContext.tools.length}
-                badge={
-                  allToolsDisabled
-                    ? 'all disabled'
-                    : enabledToolCount < availableContext.tools.length
-                      ? `${enabledToolCount}/${availableContext.tools.length}`
-                      : undefined
-                }
-                defaultOpen={false}
-              >
-                <div className="space-y-1">
-                  {/* Master toggle */}
-                  <div className="flex items-center justify-between border-b border-border/20 pb-2 mb-1">
-                    <span className="text-[11px] font-medium text-[var(--text-secondary)]">
-                      Enable all tools
-                    </span>
-                    <Switch
-                      size="sm"
-                      checked={!allToolsDisabled}
-                      onCheckedChange={(checked) =>
-                        setAllToolsDisabled(!checked)
-                      }
-                    />
-                  </div>
-
-                  {/* Individual tool toggles */}
-                  {availableContext.tools.map((tool) => (
-                    <ToolRow
-                      key={tool.name}
-                      tool={tool}
-                      enabled={isToolEnabled(tool.name)}
-                      onToggle={() => toggleTool(tool.name)}
-                    />
-                  ))}
-
-                  {availableContext.tools.length === 0 && (
-                    <span className="text-[11px] text-[var(--text-muted)] italic">
-                      No tools available
-                    </span>
-                  )}
-                </div>
-              </ContextSection>
+              <ToolsSection
+                tools={availableContext.tools}
+                allDisabled={allToolsDisabled}
+                enabledCount={enabledToolCount}
+                isEnabled={isToolEnabled}
+                onToggle={toggleTool}
+                onToggleAll={setAllToolsDisabled}
+              />
 
               {/* ── Skills Section ───────────────────────── */}
-              <ContextSection
-                icon={Sparkles}
-                title="Skills"
-                count={availableContext.skills.length}
-                badge={
-                  allSkillsDisabled
-                    ? 'all disabled'
-                    : enabledSkillCount < availableContext.skills.length
-                      ? `${enabledSkillCount}/${availableContext.skills.length}`
-                      : undefined
-                }
-                defaultOpen={false}
-              >
-                <div className="space-y-1">
-                  {/* Master toggle */}
-                  {availableContext.skills.length > 0 && (
-                    <div className="flex items-center justify-between border-b border-border/20 pb-2 mb-1">
-                      <span className="text-[11px] font-medium text-[var(--text-secondary)]">
-                        Enable all skills
-                      </span>
-                      <Switch
-                        size="sm"
-                        checked={!allSkillsDisabled}
-                        onCheckedChange={(checked) =>
-                          setAllSkillsDisabled(!checked)
-                        }
-                      />
-                    </div>
-                  )}
-
-                  {/* Individual skill toggles */}
-                  {availableContext.skills.map((skill) => (
-                    <SkillRow
-                      key={skill.name}
-                      skill={skill}
-                      enabled={isSkillEnabled(skill.name)}
-                      onToggle={() => toggleSkill(skill.name)}
-                    />
-                  ))}
-
-                  {availableContext.skills.length === 0 && (
-                    <span className="text-[11px] text-[var(--text-muted)] italic">
-                      No skills available
-                    </span>
-                  )}
-                </div>
-              </ContextSection>
+              <SkillsSection
+                skills={availableContext.skills}
+                allDisabled={allSkillsDisabled}
+                enabledCount={enabledSkillCount}
+                isEnabled={isSkillEnabled}
+                onToggle={toggleSkill}
+                onToggleAll={setAllSkillsDisabled}
+              />
             </div>
           </ScrollArea>
+        )}
+
+        {/* ── Error banner ────────────────────────────────── */}
+        {applyError && (
+          <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2">
+            <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-red-400" />
+            <span className="text-[11px] text-red-400">{applyError}</span>
+          </div>
         )}
 
         {/* ── Footer ──────────────────────────────────────── */}
@@ -371,4 +232,219 @@ export function ContextEditor({
   );
 }
 
+// ── Preset Bar (extracted to keep main component readable) ──────
 
+import type { ContextPreset } from '@/types/ipc';
+
+function PresetBar({
+  allPresets,
+  activePresetId,
+  activeUserPreset,
+  hasOverrides,
+  showSaveInput,
+  onPresetChange,
+  onDelete,
+  onReset,
+  onShowSave,
+  onSave,
+  onCancelSave,
+}: {
+  allPresets: ContextPreset[];
+  activePresetId: string | null;
+  activeUserPreset: ContextPreset | null;
+  hasOverrides: boolean;
+  showSaveInput: boolean;
+  onPresetChange: (id: string) => void;
+  onDelete: (id: string) => void;
+  onReset: () => void;
+  onShowSave: () => void;
+  onSave: (name: string) => void;
+  onCancelSave: () => void;
+}) {
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-medium text-[var(--text-muted)]">
+          Preset:
+        </span>
+        <Select value={activePresetId ?? ''} onValueChange={onPresetChange}>
+          <SelectTrigger size="sm" className="h-7 w-40 text-xs">
+            <SelectValue placeholder="Custom" />
+          </SelectTrigger>
+          <SelectContent>
+            {allPresets.map((preset) => (
+              <SelectItem key={preset.id} value={preset.id}>
+                {preset.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Delete button — outside the select, only for user presets */}
+        {activeUserPreset && (
+          <button
+            onClick={() => onDelete(activeUserPreset.id)}
+            className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[var(--text-muted)] hover:bg-red-500/10 hover:text-red-400 transition-colors"
+            title={`Delete "${activeUserPreset.name}"`}
+          >
+            <Trash2 className="size-3" />
+          </button>
+        )}
+
+        {!showSaveInput && (
+          <button
+            onClick={onShowSave}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] transition-colors"
+          >
+            <Save className="size-3" />
+            Save as
+          </button>
+        )}
+
+        {hasOverrides && (
+          <button
+            onClick={onReset}
+            className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] transition-colors"
+          >
+            <RotateCcw className="size-3" />
+            Reset
+          </button>
+        )}
+      </div>
+
+      {showSaveInput && (
+        <SavePresetInput onSave={onSave} onCancel={onCancelSave} />
+      )}
+    </>
+  );
+}
+
+// ── Tools Section ──────────────────────────────────────────────
+
+import type { ContextToolInfo, ContextSkillInfo } from '@/types/ipc';
+
+function ToolsSection({
+  tools,
+  allDisabled,
+  enabledCount,
+  isEnabled,
+  onToggle,
+  onToggleAll,
+}: {
+  tools: ContextToolInfo[];
+  allDisabled: boolean;
+  enabledCount: number;
+  isEnabled: (name: string) => boolean;
+  onToggle: (name: string) => void;
+  onToggleAll: (disabled: boolean) => void;
+}) {
+  return (
+    <ContextSection
+      icon={Wrench}
+      title="Tools"
+      count={tools.length}
+      badge={
+        allDisabled
+          ? 'all disabled'
+          : enabledCount < tools.length
+            ? `${enabledCount}/${tools.length}`
+            : undefined
+      }
+      defaultOpen={false}
+    >
+      <div className="space-y-1">
+        <div className="flex items-center justify-between border-b border-border/20 pb-2 mb-1">
+          <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+            Enable all tools
+          </span>
+          <Switch
+            size="sm"
+            checked={!allDisabled}
+            onCheckedChange={(checked) => onToggleAll(!checked)}
+          />
+        </div>
+
+        {tools.map((tool) => (
+          <ToggleRow
+            key={tool.name}
+            name={tool.name}
+            description={tool.description}
+            enabled={isEnabled(tool.name)}
+            onToggle={() => onToggle(tool.name)}
+          />
+        ))}
+
+        {tools.length === 0 && (
+          <span className="text-[11px] text-[var(--text-muted)] italic">
+            No tools available
+          </span>
+        )}
+      </div>
+    </ContextSection>
+  );
+}
+
+// ── Skills Section ─────────────────────────────────────────────
+
+function SkillsSection({
+  skills,
+  allDisabled,
+  enabledCount,
+  isEnabled,
+  onToggle,
+  onToggleAll,
+}: {
+  skills: ContextSkillInfo[];
+  allDisabled: boolean;
+  enabledCount: number;
+  isEnabled: (name: string) => boolean;
+  onToggle: (name: string) => void;
+  onToggleAll: (disabled: boolean) => void;
+}) {
+  return (
+    <ContextSection
+      icon={Sparkles}
+      title="Skills"
+      count={skills.length}
+      badge={
+        allDisabled
+          ? 'all disabled'
+          : enabledCount < skills.length
+            ? `${enabledCount}/${skills.length}`
+            : undefined
+      }
+      defaultOpen={false}
+    >
+      <div className="space-y-1">
+        {skills.length > 0 && (
+          <div className="flex items-center justify-between border-b border-border/20 pb-2 mb-1">
+            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+              Enable all skills
+            </span>
+            <Switch
+              size="sm"
+              checked={!allDisabled}
+              onCheckedChange={(checked) => onToggleAll(!checked)}
+            />
+          </div>
+        )}
+
+        {skills.map((skill) => (
+          <ToggleRow
+            key={skill.name}
+            name={skill.name}
+            description={skill.description}
+            enabled={isEnabled(skill.name)}
+            onToggle={() => onToggle(skill.name)}
+          />
+        ))}
+
+        {skills.length === 0 && (
+          <span className="text-[11px] text-[var(--text-muted)] italic">
+            No skills available
+          </span>
+        )}
+      </div>
+    </ContextSection>
+  );
+}

@@ -18,6 +18,7 @@ import type {
   DevServerEvent,
   SessionContext,
   ContextOverrides,
+  ContextPreset,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -78,6 +79,13 @@ interface SeroAgentAPI {
   setContextOverrides(sessionId: string, overrides: ContextOverrides | null): Promise<void>;
   /** Subscribe to streaming events pushed from main process. Returns unsubscribe. */
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
+}
+
+interface SeroContextPresetsAPI {
+  /** Load all user-saved context editor presets from disk. */
+  load(): Promise<ContextPreset[]>;
+  /** Save all user context editor presets to disk. */
+  save(presets: ContextPreset[]): Promise<void>;
 }
 
 interface SeroShellAPI {
@@ -251,6 +259,7 @@ interface SeroDebugAPI {
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
+  contextPresets: SeroContextPresetsAPI;
   workspace: SeroWorkspaceAPI;
   sessions: SeroSessionsAPI;
   agent: SeroAgentAPI;

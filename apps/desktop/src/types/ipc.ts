@@ -98,8 +98,20 @@ export interface ContextOverrides {
   systemPrompt?: string | null;
   /** Tool names to disable (removed from the tool list). */
   disabledTools?: string[];
-  /** Skill names to disable. */
+  /** Skill names to disable (stripped from system prompt). */
   disabledSkills?: string[];
+}
+
+/** A saved context editor preset (persisted to disk via IPC). */
+export interface ContextPreset {
+  id: string;
+  name: string;
+  /** If null, use the default system prompt. If string, override with this. */
+  systemPrompt: string | null;
+  /** Tool names to disable. */
+  disabledTools: string[];
+  /** Skill names to disable. */
+  disabledSkills: string[];
 }
 
 // ── Slash Commands ─────────────────────────────────────────────
@@ -384,6 +396,12 @@ export const IpcChannels = {
     getContext: 'sero:agent:get-context',
     /** Apply context overrides (disabled tools, system prompt override, etc.). */
     setContextOverrides: 'sero:agent:set-context-overrides',
+  },
+  contextPresets: {
+    /** Load all user-saved context editor presets from disk. */
+    load: 'sero:context-presets:load',
+    /** Save all user context editor presets to disk. */
+    save: 'sero:context-presets:save',
   },
   shell: {
     /** Open a path in the native file explorer. */

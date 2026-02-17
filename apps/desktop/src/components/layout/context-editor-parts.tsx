@@ -8,7 +8,6 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-import type { ContextToolInfo, ContextSkillInfo } from '@/types/ipc';
 
 // ── Collapsible Section (ToolCallGroup style) ───────────────────
 
@@ -88,14 +87,16 @@ export function ContextSection({
   );
 }
 
-// ── Tool Toggle Row ─────────────────────────────────────────────
+// ── Generic Toggle Row (used for both tools and skills) ─────────
 
-export function ToolRow({
-  tool,
+export function ToggleRow({
+  name,
+  description,
   enabled,
   onToggle,
 }: {
-  tool: ContextToolInfo;
+  name: string;
+  description?: string;
   enabled: boolean;
   onToggle: () => void;
 }) {
@@ -103,44 +104,11 @@ export function ToolRow({
     <div className="flex min-w-0 items-start justify-between gap-3 py-1">
       <div className="min-w-0 flex-1">
         <div className="text-[11px] font-medium text-[var(--text-secondary)]">
-          {tool.name}
+          {name}
         </div>
-        {tool.description && (
+        {description && (
           <div className="text-[10px] leading-snug text-[var(--text-muted)]/60">
-            {tool.description}
-          </div>
-        )}
-      </div>
-      <Switch
-        size="sm"
-        className="mt-0.5 shrink-0"
-        checked={enabled}
-        onCheckedChange={onToggle}
-      />
-    </div>
-  );
-}
-
-// ── Skill Toggle Row ────────────────────────────────────────────
-
-export function SkillRow({
-  skill,
-  enabled,
-  onToggle,
-}: {
-  skill: ContextSkillInfo;
-  enabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex min-w-0 items-start justify-between gap-3 py-1">
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-medium text-[var(--text-secondary)]">
-          {skill.name}
-        </div>
-        {skill.description && (
-          <div className="text-[10px] leading-snug text-[var(--text-muted)]/60">
-            {skill.description}
+            {description}
           </div>
         )}
       </div>

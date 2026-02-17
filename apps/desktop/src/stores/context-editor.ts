@@ -1,25 +1,10 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import type {
   SessionContext,
   ContextOverrides,
-  ContextToolInfo,
-  ContextSkillInfo,
+  ContextPreset,
 } from '@/types/ipc';
-
-// ── Preset Types ──────────────────────────────────────────────
-
-export interface ContextPreset {
-  id: string;
-  name: string;
-  /** If null, use the default system prompt. If string, override with this. */
-  systemPrompt: string | null;
-  /** Tool names to disable. */
-  disabledTools: string[];
-  /** Skill names to disable. */
-  disabledSkills: string[];
-}
-
-const PRESETS_STORAGE_KEY = 'sero:context-editor:presets';
 
 // ── Built-in Presets ──────────────────────────────────────────
 
@@ -44,25 +29,23 @@ const BUILTIN_PRESETS: ContextPreset[] = [DEFAULT_PRESET, NONE_PRESET];
 // ── Store Types ───────────────────────────────────────────────
 
 interface ContextEditorState {
-  /** Whether the context editor dialog is open. */
   isOpen: boolean;
-
-  /** Available context fetched from the session (null = not loaded). */
   availableContext: SessionContext | null;
 
-  /** Current override state being edited. */
   systemPrompt: string | null;
   disabledTools: Set<string>;
   disabledSkills: Set<string>;
-  /** Whether '__all__' tools/skills are disabled (the "none" pattern). */
   allToolsDisabled: boolean;
   allSkillsDisabled: boolean;
 
-  /** Currently selected preset ID (or null for custom). */
   activePresetId: string | null;
-
-  /** User-saved presets (loaded from localStorage). */
+  /** User-saved presets (persisted to disk via IPC). */
   userPresets: ContextPreset[];
+  /** Whether user presets have been loaded from disk. */
+  presetsLoaded: boolean;
+
+  /** Error message from the last apply() call, or null. */
+  applyError: string | null;
 
   // ── Actions ─────────────────────────────────────────────────
 
@@ -75,33 +58,13 @@ interface ContextEditorState {
   setAllToolsDisabled: (disabled: boolean) => void;
   setAllSkillsDisabled: (disabled: boolean) => void;
 
-  /** Apply the current overrides to the session. */
-  apply: (sessionId: string) => Promise<void>;
-  /** Reset to default (clear all overrides). */
+  /** Apply overrides to the session. Returns true on success. */
+  apply: (sessionId: string) => Promise<boolean>;
   resetToDefault: () => void;
 
-  /** Load a preset into the editor state. */
   loadPreset: (presetId: string) => void;
-  /** Save the current editor state as a new preset. */
-  savePreset: (name: string) => void;
-  /** Delete a user preset. */
-  deletePreset: (presetId: string) => void;
-}
-
-// ── Helpers ───────────────────────────────────────────────────
-
-function loadUserPresets(): ContextPreset[] {
-  try {
-    const raw = localStorage.getItem(PRESETS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // Ignore parse errors
-  }
-  return [];
-}
-
-function saveUserPresets(presets: ContextPreset[]): void {
-  localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+  savePreset: (name: string) => Promise<void>;
+  deletePreset: (presetId: string) => Promise<void>;
 }
 
 // ── Store ─────────────────────────────────────────────────────
@@ -115,12 +78,11 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
   allToolsDisabled: false,
   allSkillsDisabled: false,
   activePresetId: '__default__',
-  userPresets: loadUserPresets(),
+  userPresets: [],
+  presetsLoaded: false,
+  applyError: null,
 
   open: async (sessionId) => {
-    // Reset editor state to defaults so stale overrides from a previous
-    // session don't bleed through. The context editor is stateless between
-    // opens — it always starts from the "Default" preset.
     set({
       isOpen: true,
       availableContext: null,
@@ -130,7 +92,19 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
       allToolsDisabled: false,
       allSkillsDisabled: false,
       activePresetId: '__default__',
+      applyError: null,
     });
+
+    // Load presets from disk if not yet loaded
+    if (!get().presetsLoaded) {
+      try {
+        const presets = await window.sero.contextPresets.load();
+        set({ userPresets: presets, presetsLoaded: true });
+      } catch (err) {
+        console.error('[context-editor] Failed to load presets:', err);
+        set({ presetsLoaded: true });
+      }
+    }
 
     try {
       const context = await window.sero.agent.getContext(sessionId);
@@ -143,63 +117,40 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
   },
 
   close: () => {
-    set({ isOpen: false });
+    set({ isOpen: false, applyError: null });
   },
 
   setSystemPrompt: (value) => {
-    set({ systemPrompt: value, activePresetId: null });
+    set({ systemPrompt: value, activePresetId: null, applyError: null });
   },
 
   toggleTool: (toolName) => {
-    const { disabledTools, allToolsDisabled } = get();
+    const { disabledTools } = get();
     const next = new Set(disabledTools);
-    if (next.has(toolName)) {
-      next.delete(toolName);
-    } else {
-      next.add(toolName);
-    }
-    set({
-      disabledTools: next,
-      allToolsDisabled: false,
-      activePresetId: null,
-    });
+    if (next.has(toolName)) next.delete(toolName);
+    else next.add(toolName);
+    set({ disabledTools: next, allToolsDisabled: false, activePresetId: null, applyError: null });
   },
 
   toggleSkill: (skillName) => {
-    const { disabledSkills, allSkillsDisabled } = get();
+    const { disabledSkills } = get();
     const next = new Set(disabledSkills);
-    if (next.has(skillName)) {
-      next.delete(skillName);
-    } else {
-      next.add(skillName);
-    }
-    set({
-      disabledSkills: next,
-      allSkillsDisabled: false,
-      activePresetId: null,
-    });
+    if (next.has(skillName)) next.delete(skillName);
+    else next.add(skillName);
+    set({ disabledSkills: next, allSkillsDisabled: false, activePresetId: null, applyError: null });
   },
 
   setAllToolsDisabled: (disabled) => {
-    set({
-      allToolsDisabled: disabled,
-      disabledTools: new Set(),
-      activePresetId: null,
-    });
+    set({ allToolsDisabled: disabled, disabledTools: new Set(), activePresetId: null, applyError: null });
   },
 
   setAllSkillsDisabled: (disabled) => {
-    set({
-      allSkillsDisabled: disabled,
-      disabledSkills: new Set(),
-      activePresetId: null,
-    });
+    set({ allSkillsDisabled: disabled, disabledSkills: new Set(), activePresetId: null, applyError: null });
   },
 
   apply: async (sessionId) => {
     const { systemPrompt, disabledTools, allToolsDisabled, disabledSkills, allSkillsDisabled, availableContext } = get();
 
-    // Build the overrides to send to main process
     let toolsToDisable: string[] = [];
     if (allToolsDisabled && availableContext) {
       toolsToDisable = availableContext.tools.map((t) => t.name);
@@ -215,9 +166,7 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
     }
 
     const hasOverrides =
-      systemPrompt !== null ||
-      toolsToDisable.length > 0 ||
-      skillsToDisable.length > 0;
+      systemPrompt !== null || toolsToDisable.length > 0 || skillsToDisable.length > 0;
 
     const overrides: ContextOverrides | null = hasOverrides
       ? {
@@ -229,8 +178,13 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
 
     try {
       await window.sero.agent.setContextOverrides(sessionId, overrides);
+      set({ applyError: null });
+      return true;
     } catch (err) {
-      console.error('[context-editor] Failed to apply overrides:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[context-editor] Failed to apply overrides:', msg);
+      set({ applyError: msg });
+      return false;
     }
   },
 
@@ -242,6 +196,7 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
       allToolsDisabled: false,
       allSkillsDisabled: false,
       activePresetId: '__default__',
+      applyError: null,
     });
   },
 
@@ -260,10 +215,11 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
       allToolsDisabled,
       allSkillsDisabled,
       activePresetId: presetId,
+      applyError: null,
     });
   },
 
-  savePreset: (name) => {
+  savePreset: async (name) => {
     const { systemPrompt, disabledTools, disabledSkills, allToolsDisabled, allSkillsDisabled, userPresets } = get();
 
     const newPreset: ContextPreset = {
@@ -275,22 +231,30 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
     };
 
     const updated = [...userPresets, newPreset];
-    saveUserPresets(updated);
-    set({ userPresets: updated, activePresetId: newPreset.id });
+    try {
+      await window.sero.contextPresets.save(updated);
+      set({ userPresets: updated, activePresetId: newPreset.id });
+    } catch (err) {
+      console.error('[context-editor] Failed to save presets:', err);
+    }
   },
 
-  deletePreset: (presetId) => {
+  deletePreset: async (presetId) => {
     const { userPresets, activePresetId } = get();
     const updated = userPresets.filter((p) => p.id !== presetId);
-    saveUserPresets(updated);
-    set({
-      userPresets: updated,
-      activePresetId: activePresetId === presetId ? null : activePresetId,
-    });
+    try {
+      await window.sero.contextPresets.save(updated);
+      set({
+        userPresets: updated,
+        activePresetId: activePresetId === presetId ? null : activePresetId,
+      });
+    } catch (err) {
+      console.error('[context-editor] Failed to save presets:', err);
+    }
   },
 }));
 
-// ── Selectors ─────────────────────────────────────────────────
+// ── Grouped Selectors (Issue #8) ──────────────────────────────
 
 /** All available presets (built-in + user). */
 export function useAllPresets(): ContextPreset[] {
@@ -298,34 +262,51 @@ export function useAllPresets(): ContextPreset[] {
   return [...BUILTIN_PRESETS, ...userPresets];
 }
 
-/** Check if a tool is enabled in the current editor state. */
-export function useIsToolEnabled(toolName: string): boolean {
-  const disabledTools = useContextEditorStore((s) => s.disabledTools);
-  const allDisabled = useContextEditorStore((s) => s.allToolsDisabled);
-  if (allDisabled) return false;
-  return !disabledTools.has(toolName);
-}
-
-/** Check if a skill is enabled in the current editor state. */
-export function useIsSkillEnabled(skillName: string): boolean {
-  const disabledSkills = useContextEditorStore((s) => s.disabledSkills);
-  const allDisabled = useContextEditorStore((s) => s.allSkillsDisabled);
-  if (allDisabled) return false;
-  return !disabledSkills.has(skillName);
-}
-
 /** Whether the current state has any overrides from the default. */
 export function useHasOverrides(): boolean {
-  const systemPrompt = useContextEditorStore((s) => s.systemPrompt);
-  const disabledTools = useContextEditorStore((s) => s.disabledTools);
-  const disabledSkills = useContextEditorStore((s) => s.disabledSkills);
-  const allToolsDisabled = useContextEditorStore((s) => s.allToolsDisabled);
-  const allSkillsDisabled = useContextEditorStore((s) => s.allSkillsDisabled);
-  return (
-    systemPrompt !== null ||
-    disabledTools.size > 0 ||
-    disabledSkills.size > 0 ||
-    allToolsDisabled ||
-    allSkillsDisabled
+  return useContextEditorStore(
+    useShallow((s) =>
+      s.systemPrompt !== null ||
+      s.disabledTools.size > 0 ||
+      s.disabledSkills.size > 0 ||
+      s.allToolsDisabled ||
+      s.allSkillsDisabled,
+    ),
+  );
+}
+
+/** Grouped editor state to reduce individual subscriptions. */
+export function useEditorState() {
+  return useContextEditorStore(
+    useShallow((s) => ({
+      isOpen: s.isOpen,
+      availableContext: s.availableContext,
+      systemPrompt: s.systemPrompt,
+      disabledTools: s.disabledTools,
+      disabledSkills: s.disabledSkills,
+      allToolsDisabled: s.allToolsDisabled,
+      allSkillsDisabled: s.allSkillsDisabled,
+      activePresetId: s.activePresetId,
+      applyError: s.applyError,
+    })),
+  );
+}
+
+/** Grouped editor actions (stable references, no re-render). */
+export function useEditorActions() {
+  return useContextEditorStore(
+    useShallow((s) => ({
+      close: s.close,
+      setSystemPrompt: s.setSystemPrompt,
+      toggleTool: s.toggleTool,
+      toggleSkill: s.toggleSkill,
+      setAllToolsDisabled: s.setAllToolsDisabled,
+      setAllSkillsDisabled: s.setAllSkillsDisabled,
+      apply: s.apply,
+      resetToDefault: s.resetToDefault,
+      loadPreset: s.loadPreset,
+      savePreset: s.savePreset,
+      deletePreset: s.deletePreset,
+    })),
   );
 }
