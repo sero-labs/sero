@@ -22,7 +22,7 @@ working agent tool + live web UI.
 - [Manifest Reference](#manifest-reference)
 - [Conventions and Rules](#conventions-and-rules)
 - [Troubleshooting](#troubleshooting)
-- [Reference Implementation](#reference-implementation)
+- [Reference Implementations](#reference-implementations)
 
 ---
 
@@ -931,6 +931,112 @@ separate files. See `apps/desktop/AGENTS.md` for full rules.
 - **Atomic writes always.** Write to a temp file, then `fs.rename()`. Both the
   extension and the `AppStateManager` do this.
 
+### Keyboard events
+
+Apps that listen for keyboard events **must scope listeners to their own
+container element**, not `window`. The shell has multiple panels (ChatPanel,
+sidebar, other apps) — a `window`-level listener will steal keystrokes when
+the user clicks into another panel.
+
+**Pattern:**
+
+```tsx
+// In your hook or component, accept a container ref:
+function useMyKeyboard(containerRef: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const target = containerRef.current;
+    if (!target) return;
+    const handler = (e: KeyboardEvent) => {
+      // Only fires when this container is focused
+      e.preventDefault();
+      // ... handle key
+    };
+    target.addEventListener('keydown', handler);
+    return () => target.removeEventListener('keydown', handler);
+  }, [containerRef]);
+}
+```
+
+Make the app's root container focusable and auto-focus it on mount:
+
+```tsx
+export function MyApp() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    containerRef.current?.focus();
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      className="h-full w-full outline-none"
+    >
+      {/* ... */}
+    </div>
+  );
+}
+```
+
+**Key rules:**
+- Never use `window.addEventListener('keydown', ...)` — always scope to the
+  app container.
+- Add `tabIndex={0}` so the container can receive focus.
+- Add `outline-none` (Tailwind) to suppress the browser focus ring.
+- Auto-focus the container in a `useEffect` so keyboard works immediately
+  when the app is activated.
+- If you need focus to stay on the container when child elements are clicked,
+  add an `onFocus` handler that redirects focus back:
+  ```tsx
+  onFocus={(e) => {
+    if (e.target !== containerRef.current) containerRef.current?.focus();
+  }}
+  ```
+
+### Responsive sizing
+
+Apps fill the entire main content area (`h-full w-full`). If your app has
+fixed-ratio content (game boards, canvases, grids), **compute dimensions
+dynamically** from the container size rather than using fixed pixel values.
+
+**Pattern — `ResizeObserver` hook:**
+
+```tsx
+function useDynamicSize(containerRef: React.RefObject<HTMLElement | null>) {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      setSize({ width: el.clientWidth, height: el.clientHeight });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [containerRef]);
+
+  return size;
+}
+```
+
+Use the measured size to derive layout values (e.g. cell size for a grid):
+
+```tsx
+const { height } = useDynamicSize(containerRef);
+const cellSize = Math.floor((height - overhead) / ROWS);
+```
+
+**Key rules:**
+- Always use `ResizeObserver`, not a one-time measurement — the container
+  resizes when the sidebar or chat panel is toggled.
+- Derive from the **minimum** of width and height constraints to maintain
+  aspect ratio.
+- Add breathing room (padding) so content doesn't touch container edges.
+- Use `Math.floor()` for pixel values to avoid sub-pixel rendering issues.
+
 ### Module Federation
 
 - `react` and `react-dom` are shared singletons via MF — the host provides
@@ -1036,6 +1142,16 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
   produce corrupt JSON that the watcher silently ignores.
 - Look for errors in the electron console (`Cmd+Option+I` → Console).
 
+**Keyboard events in my app steal input from other panels (ChatPanel, etc.):**
+- Your app is using `window.addEventListener('keydown', ...)`. Scope the
+  listener to the app's container element instead. See
+  [Keyboard events](#keyboard-events) in Conventions and Rules.
+
+**App content is tiny / doesn't fill the available space:**
+- You're using fixed pixel sizes. Use a `ResizeObserver` to compute
+  dimensions dynamically from the container. See
+  [Responsive sizing](#responsive-sizing) in Conventions and Rules.
+
 **Module Federation errors in console:**
 - Make sure the remote dev server is running on the correct port.
 - Check that `devPort` in `package.json` matches `server.port` in
@@ -1047,7 +1163,7 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
 
 ---
 
-## Reference Implementation
+## Reference Implementations
 
 The **Todo app** (`packages/pi-todo-extension/`) is the canonical reference:
 
@@ -1058,6 +1174,16 @@ The **Todo app** (`packages/pi-todo-extension/`) is the canonical reference:
 | `shared/types.ts` | Shared state shape pattern |
 | `extension/index.ts` | Tool registration, atomic file I/O, TUI rendering |
 | `ui/TodoApp.tsx` | `useAppState` usage, Tailwind styling, sub-components |
+
+The **Tetris app** (`packages/pi-tetris-extension/`) demonstrates patterns
+for interactive/game-style apps:
+
+| File | What to learn |
+|------|---------------|
+| `ui/TetrisApp.tsx` | Dynamic sizing with `ResizeObserver`, container-scoped keyboard events, `tabIndex` focus management |
+| `ui/game/useGame.ts` | Game loop hook with scoped keyboard listener (accepts `containerRef`), `setInterval` lifecycle |
+| `ui/game/engine.ts` | Pure game logic separated from React (testable, no side effects) |
+| `shared/types.ts` | Persisted stats (high score) vs. ephemeral game state (board, current piece) |
 
 ### Related documentation
 
