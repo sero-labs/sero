@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Bot, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
+import { Bot, MessageSquare, Loader2, AlertCircle, Settings2 } from 'lucide-react';
 import {
   Conversation,
   ConversationContent,
@@ -22,6 +22,7 @@ import {
   PromptInputActionMenuTrigger,
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
+  PromptInputActionMenuItem,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
@@ -31,7 +32,8 @@ import { UsageBadge } from './UsageBadge';
 import { ModelSelector } from './ModelSelector';
 import { AuthLoginDialog } from './AuthLoginDialog';
 import { groupMessages, ToolCallGroup } from './ToolCallGroup';
-import { ContextEditor, ContextEditorTrigger } from './ContextEditor';
+import { ContextEditor } from './ContextEditor';
+import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import type { ChatMessage, ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
 
 /** Built-in commands handled client-side (not sent to the agent). */
@@ -188,13 +190,6 @@ export function ChatPanel() {
           </span>
         )}
         {sessionId && <UsageBadge sessionId={sessionId} />}
-        {sessionId && (
-          <ContextEditorTrigger
-            sessionId={sessionId}
-            hasMessages={messages.length > 0}
-            disabled={isStreaming}
-          />
-        )}
         {isStreaming && (
           <Loader2 className="size-3 animate-spin text-emerald-500" />
         )}
@@ -278,14 +273,15 @@ export function ChatPanel() {
 
           <PromptInputFooter>
             <PromptInputTools>
-              {/* "+" menu with "Add photos or files" action */}
+              {/* "+" menu with attachments + context editor */}
               <PromptInputActionMenu>
                 <PromptInputActionMenuTrigger
-                  tooltip={{ content: 'Attach files', shortcut: '' }}
+                  tooltip={{ content: 'Actions', shortcut: '' }}
                   disabled={!hasSession}
                 />
                 <PromptInputActionMenuContent>
                   <PromptInputActionAddAttachments />
+                  <ContextEditorMenuItem sessionId={sessionId} disabled={isStreaming} />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
               {/* Model + thinking level selector */}
@@ -351,6 +347,35 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
     default:
       return null;
   }
+}
+
+// ── Context editor menu item ───────────────────────────────────
+
+function ContextEditorMenuItem({
+  sessionId,
+  disabled,
+}: {
+  sessionId: string | null;
+  disabled?: boolean;
+}) {
+  const openEditor = useContextEditorStore((s) => s.open);
+  const hasOverrides = useHasOverrides();
+
+  return (
+    <PromptInputActionMenuItem
+      disabled={disabled || !sessionId}
+      onSelect={(e) => {
+        e.preventDefault();
+        if (sessionId) openEditor(sessionId);
+      }}
+    >
+      <Settings2 className="mr-2 size-4" />
+      Session context
+      {hasOverrides && (
+        <span className="ml-auto size-1.5 rounded-full bg-[var(--accent)]" />
+      )}
+    </PromptInputActionMenuItem>
+  );
 }
 
 // ── Empty state ────────────────────────────────────────────────

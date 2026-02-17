@@ -1,7 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import {
-  ChevronRight,
   Settings2,
   FileText,
   Wrench,
@@ -11,7 +9,6 @@ import {
   RotateCcw,
   Loader2,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -34,191 +31,12 @@ import {
   useAllPresets,
   useHasOverrides,
 } from '@/stores/context-editor';
-import type { ContextToolInfo, ContextSkillInfo } from '@/types/ipc';
-
-// ── Collapsible Section (ToolCallGroup style) ───────────────────
-
-function ContextSection({
-  icon: Icon,
-  title,
-  count,
-  badge,
-  defaultOpen = false,
-  children,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  count?: number;
-  badge?: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [expanded, setExpanded] = useState(defaultOpen);
-
-  return (
-    <div
-      className={cn(
-        'overflow-hidden rounded-lg border transition-colors duration-200',
-        'border-border/50 bg-[var(--bg-elevated)]/50',
-      )}
-    >
-      <button
-        onClick={() => setExpanded((prev) => !prev)}
-        className={cn(
-          'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
-          'hover:bg-[var(--bg-elevated)]/80',
-        )}
-      >
-        <motion.div
-          animate={{ rotate: expanded ? 90 : 0 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-        >
-          <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
-        </motion.div>
-
-        <Icon className="size-3.5 text-[var(--text-muted)]" />
-
-        <span className="text-xs font-medium text-[var(--text-secondary)]">
-          {title}
-        </span>
-
-        {count !== undefined && (
-          <span className="text-[11px] text-[var(--text-muted)]">
-            ({count})
-          </span>
-        )}
-
-        {badge && (
-          <span className="ml-auto rounded bg-[var(--bg-base)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-            {badge}
-          </span>
-        )}
-      </button>
-
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="overflow-hidden"
-          >
-            <div className="border-t border-border/30 p-3">
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ── Tool Toggle Row ─────────────────────────────────────────────
-
-function ToolRow({
-  tool,
-  enabled,
-  onToggle,
-}: {
-  tool: ContextToolInfo;
-  enabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 py-1">
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-medium text-[var(--text-secondary)]">
-          {tool.name}
-        </div>
-        {tool.description && (
-          <div className="truncate text-[10px] text-[var(--text-muted)]/60">
-            {tool.description}
-          </div>
-        )}
-      </div>
-      <Switch
-        size="sm"
-        checked={enabled}
-        onCheckedChange={onToggle}
-      />
-    </div>
-  );
-}
-
-// ── Skill Toggle Row ────────────────────────────────────────────
-
-function SkillRow({
-  skill,
-  enabled,
-  onToggle,
-}: {
-  skill: ContextSkillInfo;
-  enabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 py-1">
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-medium text-[var(--text-secondary)]">
-          {skill.name}
-        </div>
-        {skill.description && (
-          <div className="truncate text-[10px] text-[var(--text-muted)]/60">
-            {skill.description}
-          </div>
-        )}
-      </div>
-      <Switch
-        size="sm"
-        checked={enabled}
-        onCheckedChange={onToggle}
-      />
-    </div>
-  );
-}
-
-// ── Save Preset Dialog ──────────────────────────────────────────
-
-function SavePresetInput({
-  onSave,
-  onCancel,
-}: {
-  onSave: (name: string) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState('');
-
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Preset name..."
-        className="flex-1 rounded-md border border-border/50 bg-[var(--bg-base)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
-        autoFocus
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && name.trim()) onSave(name.trim());
-          if (e.key === 'Escape') onCancel();
-        }}
-      />
-      <button
-        onClick={() => name.trim() && onSave(name.trim())}
-        disabled={!name.trim()}
-        className="rounded-md bg-[var(--accent)] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
-      >
-        Save
-      </button>
-      <button
-        onClick={onCancel}
-        className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-      >
-        Cancel
-      </button>
-    </div>
-  );
-}
+import {
+  ContextSection,
+  ToolRow,
+  SkillRow,
+  SavePresetInput,
+} from './context-editor-parts';
 
 // ── Main Context Editor Dialog ──────────────────────────────────
 
@@ -315,7 +133,7 @@ export function ContextEditor({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
       <DialogContent
-        className="max-h-[85vh] bg-[var(--bg-surface)] sm:max-w-xl"
+        className="max-h-[85vh] overflow-hidden bg-[var(--bg-surface)] sm:max-w-[58rem]"
         showCloseButton
       >
         <DialogHeader>
@@ -399,8 +217,8 @@ export function ContextEditor({
             </span>
           </div>
         ) : (
-          <ScrollArea className="max-h-[50vh]">
-            <div className="space-y-2 pr-2">
+          <ScrollArea className="max-h-[65vh] overflow-hidden">
+            <div className="min-w-0 space-y-2 pr-2">
               {/* ── System Prompt Section ────────────────── */}
               <ContextSection
                 icon={FileText}
@@ -427,7 +245,7 @@ export function ContextEditor({
                   <textarea
                     value={displayedPrompt}
                     onChange={(e) => setSystemPrompt(e.target.value)}
-                    className="h-40 w-full resize-y rounded-md border border-border/30 bg-[var(--bg-base)] p-2 font-mono text-[11px] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                    className="h-80 w-full resize-y rounded-md border border-border/30 bg-[var(--bg-base)] p-2 font-mono text-[11px] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
                     placeholder="Enter system prompt..."
                   />
                 </div>
@@ -553,44 +371,4 @@ export function ContextEditor({
   );
 }
 
-// ── Context Editor Trigger Button ───────────────────────────────
 
-/**
- * Small icon button that opens the context editor.
- * Only renders when the session is new (no messages).
- */
-export function ContextEditorTrigger({
-  sessionId,
-  hasMessages,
-  disabled,
-}: {
-  sessionId: string;
-  hasMessages: boolean;
-  disabled?: boolean;
-}) {
-  const openEditor = useContextEditorStore((s) => s.open);
-  const hasOverrides = useHasOverrides();
-
-  // Only show for new sessions (no messages yet)
-  if (hasMessages) return null;
-
-  return (
-    <button
-      onClick={() => openEditor(sessionId)}
-      disabled={disabled}
-      title="Edit session context"
-      className={cn(
-        'relative rounded-md p-1 transition-colors',
-        'hover:bg-[var(--bg-elevated)] disabled:opacity-50 disabled:cursor-not-allowed',
-        hasOverrides
-          ? 'text-[var(--accent)]'
-          : 'text-[var(--text-muted)]',
-      )}
-    >
-      <Settings2 className="size-3.5" />
-      {hasOverrides && (
-        <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-[var(--accent)]" />
-      )}
-    </button>
-  );
-}

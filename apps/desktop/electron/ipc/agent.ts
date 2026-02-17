@@ -70,6 +70,8 @@ interface PoolEntry {
   contextOverrides: ContextOverrides | null;
   /** Original tools list snapshot — used to restore tools when overrides change. */
   originalTools: Array<{ name: string; [key: string]: unknown }> | null;
+  /** Original _baseSystemPrompt snapshot — used to restore when overrides change. */
+  originalBaseSystemPrompt: string | null;
 }
 
 /** Map<sessionId, PoolEntry> — one AgentSession per active chat. */
@@ -366,6 +368,7 @@ export function registerAgentHandlers(): void {
         lastSessionName: session.sessionName,
         contextOverrides: null,
         originalTools: null,
+        originalBaseSystemPrompt: null,
       });
 
       return convertSessionMessages(session.messages);
@@ -552,11 +555,19 @@ export function registerAgentHandlers(): void {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
-      const state = entry.session.agent.state;
+      const session = entry.session;
+      const agent = session.agent;
+      const state = agent.state;
 
-      // Snapshot original tools on first override application
+      // Snapshot originals on first override application
       if (!entry.originalTools) {
         entry.originalTools = state.tools.map((t: any) => t);
+      }
+      if (entry.originalBaseSystemPrompt === null) {
+        // _baseSystemPrompt is the SDK's internal cached system prompt that
+        // AgentSession.prompt() resets to on every call. We must overwrite it
+        // (not just state.systemPrompt) for the override to survive a prompt.
+        entry.originalBaseSystemPrompt = (session as any)._baseSystemPrompt ?? state.systemPrompt;
       }
 
       entry.contextOverrides = overrides;
@@ -565,6 +576,11 @@ export function registerAgentHandlers(): void {
         // Restore original tools
         if (entry.originalTools) {
           state.tools = entry.originalTools as any;
+        }
+        // Restore original system prompt (both the internal base and current state)
+        if (entry.originalBaseSystemPrompt !== null) {
+          (session as any)._baseSystemPrompt = entry.originalBaseSystemPrompt;
+          agent.setSystemPrompt(entry.originalBaseSystemPrompt);
         }
         return;
       }
@@ -580,9 +596,15 @@ export function registerAgentHandlers(): void {
         state.tools = entry.originalTools as any;
       }
 
-      // Apply system prompt override
+      // Apply system prompt override.
+      // We must overwrite _baseSystemPrompt on the AgentSession — this is what
+      // prompt() resets to before every API call. Setting state.systemPrompt
+      // alone is insufficient because prompt() calls
+      //   agent.setSystemPrompt(this._baseSystemPrompt)
+      // which would overwrite our change.
       if (overrides.systemPrompt !== undefined && overrides.systemPrompt !== null) {
-        state.systemPrompt = overrides.systemPrompt;
+        (session as any)._baseSystemPrompt = overrides.systemPrompt;
+        agent.setSystemPrompt(overrides.systemPrompt);
       }
     },
   );

@@ -118,7 +118,19 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
   userPresets: loadUserPresets(),
 
   open: async (sessionId) => {
-    set({ isOpen: true, availableContext: null });
+    // Reset editor state to defaults so stale overrides from a previous
+    // session don't bleed through. The context editor is stateless between
+    // opens — it always starts from the "Default" preset.
+    set({
+      isOpen: true,
+      availableContext: null,
+      systemPrompt: null,
+      disabledTools: new Set(),
+      disabledSkills: new Set(),
+      allToolsDisabled: false,
+      allSkillsDisabled: false,
+      activePresetId: '__default__',
+    });
 
     try {
       const context = await window.sero.agent.getContext(sessionId);
