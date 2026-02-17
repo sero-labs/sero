@@ -363,7 +363,7 @@ function ToolsSection({
       defaultOpen={false}
     >
       <div className="space-y-1">
-        <div className="flex items-center justify-between border-b border-border/20 pb-2 mb-1">
+        <div className="flex items-center justify-between rounded-md border-b border-border/20 px-2 pb-2 mb-1">
           <span className="text-[11px] font-medium text-[var(--text-secondary)]">
             Enable all tools
           </span>
@@ -435,7 +435,7 @@ function SkillsSection({
     >
       <div className="space-y-1">
         {skills.length > 0 && (
-          <div className="flex items-center justify-between border-b border-border/20 pb-2 mb-1">
+          <div className="flex items-center justify-between rounded-md border-b border-border/20 px-2 pb-2 mb-1">
             <span className="text-[11px] font-medium text-[var(--text-secondary)]">
               Enable all skills
             </span>
