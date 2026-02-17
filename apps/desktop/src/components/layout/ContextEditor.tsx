@@ -152,7 +152,9 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
               <ContextSection
                 icon={FileText}
                 title="System Prompt"
+                tint="blue"
                 badge={systemPrompt !== null ? 'modified' : undefined}
+                badgeVariant={systemPrompt !== null ? 'modified' : 'default'}
                 defaultOpen={false}
               >
                 <div className="space-y-2">
@@ -338,10 +340,17 @@ function ToolsSection({
   onToggle: (name: string) => void;
   onToggleAll: (disabled: boolean) => void;
 }) {
+  const badgeVariant = allDisabled
+    ? 'disabled' as const
+    : enabledCount < tools.length
+      ? 'partial' as const
+      : 'default' as const;
+
   return (
     <ContextSection
       icon={Wrench}
       title="Tools"
+      tint="amber"
       count={tools.length}
       badge={
         allDisabled
@@ -350,6 +359,7 @@ function ToolsSection({
             ? `${enabledCount}/${tools.length}`
             : undefined
       }
+      badgeVariant={badgeVariant}
       defaultOpen={false}
     >
       <div className="space-y-1">
@@ -401,10 +411,17 @@ function SkillsSection({
   onToggle: (name: string) => void;
   onToggleAll: (disabled: boolean) => void;
 }) {
+  const badgeVariant = allDisabled
+    ? 'disabled' as const
+    : enabledCount < skills.length
+      ? 'partial' as const
+      : 'default' as const;
+
   return (
     <ContextSection
       icon={Sparkles}
       title="Skills"
+      tint="violet"
       count={skills.length}
       badge={
         allDisabled
@@ -413,6 +430,7 @@ function SkillsSection({
             ? `${enabledCount}/${skills.length}`
             : undefined
       }
+      badgeVariant={badgeVariant}
       defaultOpen={false}
     >
       <div className="space-y-1">

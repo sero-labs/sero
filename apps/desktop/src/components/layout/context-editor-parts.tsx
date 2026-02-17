@@ -9,6 +9,39 @@ import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 
+// ── Color tint definitions ──────────────────────────────────────
+
+type SectionTint = 'blue' | 'amber' | 'violet' | 'neutral';
+type BadgeVariant = 'default' | 'modified' | 'disabled' | 'partial';
+
+const iconTintClass: Record<SectionTint, string> = {
+  blue: 'text-blue-400 dark:text-blue-400',
+  amber: 'text-amber-500 dark:text-amber-400',
+  violet: 'text-violet-500 dark:text-violet-400',
+  neutral: 'text-[var(--text-muted)]',
+};
+
+const badgeClass: Record<BadgeVariant, string> = {
+  default: 'bg-[var(--bg-base)] text-[var(--text-muted)]',
+  modified: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  disabled: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  partial: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+};
+
+const sectionBorderClass: Record<BadgeVariant, string> = {
+  default: 'border-border/50',
+  modified: 'border-amber-500/25 dark:border-amber-500/20',
+  disabled: 'border-red-500/25 dark:border-red-500/20',
+  partial: 'border-blue-500/25 dark:border-blue-500/20',
+};
+
+const sectionBgClass: Record<BadgeVariant, string> = {
+  default: 'bg-[var(--bg-elevated)]/50',
+  modified: 'bg-amber-500/[0.03]',
+  disabled: 'bg-red-500/[0.03]',
+  partial: 'bg-blue-500/[0.03]',
+};
+
 // ── Collapsible Section (ToolCallGroup style) ───────────────────
 
 export function ContextSection({
@@ -16,6 +49,8 @@ export function ContextSection({
   title,
   count,
   badge,
+  badgeVariant = 'default',
+  tint = 'neutral',
   defaultOpen = false,
   children,
 }: {
@@ -23,6 +58,8 @@ export function ContextSection({
   title: string;
   count?: number;
   badge?: string;
+  badgeVariant?: BadgeVariant;
+  tint?: SectionTint;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
@@ -32,7 +69,8 @@ export function ContextSection({
     <div
       className={cn(
         'overflow-hidden rounded-lg border transition-colors duration-200',
-        'border-border/50 bg-[var(--bg-elevated)]/50',
+        sectionBorderClass[badgeVariant],
+        sectionBgClass[badgeVariant],
       )}
     >
       <button
@@ -49,7 +87,7 @@ export function ContextSection({
           <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
         </motion.div>
 
-        <Icon className="size-3.5 text-[var(--text-muted)]" />
+        <Icon className={cn('size-3.5', iconTintClass[tint])} />
 
         <span className="text-xs font-medium text-[var(--text-secondary)]">
           {title}
@@ -62,7 +100,12 @@ export function ContextSection({
         )}
 
         {badge && (
-          <span className="ml-auto rounded bg-[var(--bg-base)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+          <span
+            className={cn(
+              'ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium',
+              badgeClass[badgeVariant],
+            )}
+          >
             {badge}
           </span>
         )}
@@ -101,13 +144,23 @@ export function ToggleRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex min-w-0 items-start justify-between gap-3 py-1">
+    <div
+      className={cn(
+        'flex min-w-0 items-start justify-between gap-3 rounded-md px-2 py-1.5 transition-colors',
+        enabled
+          ? 'hover:bg-[var(--bg-elevated)]/60'
+          : 'opacity-60 hover:bg-[var(--bg-elevated)]/40',
+      )}
+    >
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-medium text-[var(--text-secondary)]">
+        <div className={cn(
+          'text-[11px] font-medium',
+          enabled ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]',
+        )}>
           {name}
         </div>
         {description && (
-          <div className="text-[10px] leading-snug text-[var(--text-muted)]/60">
+          <div className="mt-0.5 text-[10px] leading-snug text-[var(--text-muted)]/60">
             {description}
           </div>
         )}
