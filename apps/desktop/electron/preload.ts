@@ -15,6 +15,8 @@ import type {
   ContainerInfo,
   DevServer,
   DevServerEvent,
+  SessionContext,
+  ContextOverrides,
 } from '../src/types/ipc';
 
 contextBridge.exposeInMainWorld('sero', {
@@ -98,6 +100,12 @@ contextBridge.exposeInMainWorld('sero', {
 
     setThinkingLevel: (sessionId: string, level: string): Promise<SessionModelState> =>
       ipcRenderer.invoke(IpcChannels.agent.setThinkingLevel, sessionId, level),
+
+    getContext: (sessionId: string): Promise<SessionContext | null> =>
+      ipcRenderer.invoke(IpcChannels.agent.getContext, sessionId),
+
+    setContextOverrides: (sessionId: string, overrides: ContextOverrides | null): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.agent.setContextOverrides, sessionId, overrides),
 
     onEvent: (callback: (event: AgentStreamEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: AgentStreamEvent) => {

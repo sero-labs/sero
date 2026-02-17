@@ -26,6 +26,10 @@ import type {
   SeroSlashCommandInfo,
   SessionUsageStats,
   SessionModelState,
+  SessionContext,
+  ContextOverrides,
+  ContextToolInfo,
+  ContextSkillInfo,
 } from '../../src/types/ipc';
 
 import {
@@ -62,6 +66,10 @@ interface PoolEntry {
   currentAssistantId: string | null;
   /** Last known session name — used to detect changes and push to renderer. */
   lastSessionName: string | undefined;
+  /** Context overrides from the context editor (applied before first prompt). */
+  contextOverrides: ContextOverrides | null;
+  /** Original tools list snapshot — used to restore tools when overrides change. */
+  originalTools: Array<{ name: string; [key: string]: unknown }> | null;
 }
 
 /** Map<sessionId, PoolEntry> — one AgentSession per active chat. */
@@ -356,6 +364,8 @@ export function registerAgentHandlers(): void {
         workspaceId,
         currentAssistantId: null,
         lastSessionName: session.sessionName,
+        contextOverrides: null,
+        originalTools: null,
       });
 
       return convertSessionMessages(session.messages);
@@ -500,6 +510,80 @@ export function registerAgentHandlers(): void {
       const state = buildModelState(entry);
       sendEvent({ type: 'model_change', sessionId, state });
       return state;
+    },
+  );
+
+  // ── Get session context for context editor ─────────────────
+  ipcMain.handle(
+    IpcChannels.agent.getContext,
+    async (_event, sessionId: string): Promise<SessionContext | null> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return null;
+
+      const state = entry.session.agent.state;
+
+      // Serialise tools (drop execute function)
+      const tools: ContextToolInfo[] = state.tools.map((t: any) => ({
+        name: t.name,
+        label: t.label,
+        description: t.description,
+      }));
+
+      // Get skills from resource loader
+      const { skills: rawSkills } = entry.loader.getSkills();
+      const skills: ContextSkillInfo[] = rawSkills.map((s: any) => ({
+        name: s.name,
+        description: s.description,
+        filePath: s.filePath,
+      }));
+
+      return {
+        systemPrompt: state.systemPrompt ?? '',
+        tools,
+        skills,
+      };
+    },
+  );
+
+  // ── Apply context overrides ───────────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.setContextOverrides,
+    async (_event, sessionId: string, overrides: ContextOverrides | null): Promise<void> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      const state = entry.session.agent.state;
+
+      // Snapshot original tools on first override application
+      if (!entry.originalTools) {
+        entry.originalTools = state.tools.map((t: any) => t);
+      }
+
+      entry.contextOverrides = overrides;
+
+      if (!overrides) {
+        // Restore original tools
+        if (entry.originalTools) {
+          state.tools = entry.originalTools as any;
+        }
+        return;
+      }
+
+      // Apply tool overrides: filter out disabled tools
+      if (overrides.disabledTools?.length) {
+        const disabled = new Set(overrides.disabledTools);
+        state.tools = entry.originalTools!.filter(
+          (t: any) => !disabled.has(t.name),
+        ) as any;
+      } else if (entry.originalTools) {
+        // No disabled tools — restore full set
+        state.tools = entry.originalTools as any;
+      }
+
+      // Apply system prompt override
+      if (overrides.systemPrompt !== undefined && overrides.systemPrompt !== null) {
+        state.systemPrompt = overrides.systemPrompt;
+      }
     },
   );
 

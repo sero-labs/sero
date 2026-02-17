@@ -31,6 +31,7 @@ import { UsageBadge } from './UsageBadge';
 import { ModelSelector } from './ModelSelector';
 import { AuthLoginDialog } from './AuthLoginDialog';
 import { groupMessages, ToolCallGroup } from './ToolCallGroup';
+import { ContextEditor, ContextEditorTrigger } from './ContextEditor';
 import type { ChatMessage, ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
 
 /** Built-in commands handled client-side (not sent to the agent). */
@@ -187,6 +188,13 @@ export function ChatPanel() {
           </span>
         )}
         {sessionId && <UsageBadge sessionId={sessionId} />}
+        {sessionId && (
+          <ContextEditorTrigger
+            sessionId={sessionId}
+            hasMessages={messages.length > 0}
+            disabled={isStreaming}
+          />
+        )}
         {isStreaming && (
           <Loader2 className="size-3 animate-spin text-emerald-500" />
         )}
@@ -305,6 +313,9 @@ export function ChatPanel() {
         mode={loginMode}
         onComplete={handleAuthComplete}
       />
+
+      {/* Context editor dialog (only for new sessions) */}
+      {sessionId && <ContextEditor sessionId={sessionId} />}
     </div>
   );
 }
