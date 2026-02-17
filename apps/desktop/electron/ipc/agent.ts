@@ -38,6 +38,7 @@ import {
   readHiddenCommands,
   buildCommandList,
 } from './agent-helpers';
+import { logRawEvent, logTurnContext } from './debug';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
 import { SERO_AGENT_DIR } from '../env';
@@ -96,6 +97,14 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
   return session.subscribe((event) => {
     const entry = pool.get(sessionId);
     if (!entry) return;
+
+    // Log raw event for debugging (no-op when debug logging is disabled)
+    logRawEvent(sessionId, event);
+
+    // On turn_start, snapshot the full LLM context (system prompt, tools, messages)
+    if (event.type === 'turn_start') {
+      logTurnContext(sessionId, session);
+    }
 
     switch (event.type) {
       case 'agent_start':

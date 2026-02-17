@@ -1,4 +1,5 @@
-import { FolderOpen, Bot } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { FolderOpen, Bot, Bug } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { useActiveAgentCount } from '@/stores/agent';
@@ -8,7 +9,7 @@ import { DevServerIndicator } from './DevServerPanel';
  * StatusBar — bottom bar showing workspace info (à la VSCode).
  *
  * Left side: active workspace name + path.
- * Right side: active agent count, version, theme.
+ * Right side: debug toggle, active agent count, version, theme.
  */
 export function StatusBar() {
   const theme = useAppStore((s) => s.theme);
@@ -38,6 +39,7 @@ export function StatusBar() {
 
       {/* ── Right ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
+        <DebugLogToggle />
         <DevServerIndicator />
         {agentCount > 0 && (
           <span className="flex items-center gap-1">
@@ -49,5 +51,47 @@ export function StatusBar() {
         <span className="capitalize">{theme}</span>
       </div>
     </footer>
+  );
+}
+
+// ── Debug log toggle ──────────────────────────────────────────
+
+function DebugLogToggle() {
+  const [enabled, setEnabled] = useState(false);
+
+  // Hydrate from main process on mount + subscribe to changes
+  useEffect(() => {
+    window.sero.debug.getState().then(setEnabled).catch(() => {});
+    const unsub = window.sero.debug.onStateChanged(setEnabled);
+    return unsub;
+  }, []);
+
+  const toggle = useCallback(() => {
+    window.sero.debug.toggle().then(setEnabled).catch(() => {});
+  }, []);
+
+  const openLog = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.sero.debug.openLog();
+  }, []);
+
+  return (
+    <button
+      onClick={toggle}
+      onContextMenu={openLog}
+      title={
+        enabled
+          ? 'SDK logging ON — click to disable, right-click to reveal log'
+          : 'SDK logging OFF — click to enable'
+      }
+      className={`flex items-center gap-1 transition-colors ${
+        enabled
+          ? 'text-amber-400 hover:text-amber-300'
+          : 'hover:text-[var(--text-primary)]'
+      }`}
+    >
+      <Bug className="size-3" />
+      {enabled && <span className="text-xs">logging</span>}
+    </button>
   );
 }

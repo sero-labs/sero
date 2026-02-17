@@ -229,6 +229,19 @@ interface SeroLspAPI {
   onServerStopped(callback: (data: { workspaceId: string; language: string }) => void): () => void;
 }
 
+interface SeroDebugAPI {
+  /** Toggle debug logging on/off. Returns new enabled state. */
+  toggle(): Promise<boolean>;
+  /** Get current debug logging state. */
+  getState(): Promise<boolean>;
+  /** Open the log file in the native file explorer. */
+  openLog(): Promise<void>;
+  /** Clear the log file. */
+  clearLog(): Promise<void>;
+  /** Subscribe to debug state changes. Returns unsubscribe. */
+  onStateChanged(callback: (enabled: boolean) => void): () => void;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -246,6 +259,7 @@ interface SeroAPI {
   editor: SeroEditorAPI;
   filetree: SeroFileTreeAPI;
   lsp: SeroLspAPI;
+  debug: SeroDebugAPI;
 }
 
 declare global {

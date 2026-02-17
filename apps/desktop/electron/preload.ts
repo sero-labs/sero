@@ -310,6 +310,30 @@ contextBridge.exposeInMainWorld('sero', {
     },
   },
 
+  debug: {
+    toggle: (): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.debug.toggle),
+
+    getState: (): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.debug.getState),
+
+    openLog: (): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.debug.openLog),
+
+    clearLog: (): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.debug.clearLog),
+
+    onStateChanged: (callback: (enabled: boolean) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, enabled: boolean) => {
+        callback(enabled);
+      };
+      ipcRenderer.on(IpcChannels.debug.stateChanged, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.debug.stateChanged, handler);
+      };
+    },
+  },
+
   lsp: {
     start: (workspaceId: string, languageId: string) =>
       ipcRenderer.invoke(IpcChannels.lsp.start, workspaceId, languageId),

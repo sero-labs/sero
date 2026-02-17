@@ -21,6 +21,7 @@ import { registerEditorHandlers } from './editor';
 import { registerFileTreeHandlers } from './filetree';
 import { registerLayoutHandlers } from './layout';
 import { registerLspHandlers } from './lsp';
+import { registerDebugHandlers } from './debug';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -38,4 +39,5 @@ export function registerAllIpcHandlers(): void {
   registerFileTreeHandlers();
   registerLayoutHandlers();
   registerLspHandlers();
+  registerDebugHandlers();
 }

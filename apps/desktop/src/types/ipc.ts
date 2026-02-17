@@ -488,4 +488,16 @@ export const IpcChannels = {
     /** Main → renderer push: LSP server stopped. */
     serverStopped: 'sero:lsp:server-stopped',
   },
+  debug: {
+    /** Toggle debug logging on/off. Returns new enabled state. */
+    toggle: 'sero:debug:toggle',
+    /** Get current debug logging state. */
+    getState: 'sero:debug:get-state',
+    /** Open the log file in the native file explorer. */
+    openLog: 'sero:debug:open-log',
+    /** Clear the log file. */
+    clearLog: 'sero:debug:clear-log',
+    /** Main → renderer push: debug logging state changed. */
+    stateChanged: 'sero:debug:state-changed',
+  },
 } as const;
