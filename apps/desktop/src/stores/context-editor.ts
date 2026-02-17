@@ -137,7 +137,16 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
       if (next.has(toolName)) next.delete(toolName);
       else next.add(toolName);
     }
-    set({ disabledTools: next, allToolsDisabled: false, activePresetId: null, applyError: null });
+    // Normalize: if every tool is now individually disabled, collapse
+    // back to the allToolsDisabled flag so the master switch stays in sync.
+    const totalTools = availableContext?.tools.length ?? 0;
+    const allNowDisabled = totalTools > 0 && next.size >= totalTools;
+    set({
+      disabledTools: allNowDisabled ? new Set() : next,
+      allToolsDisabled: allNowDisabled,
+      activePresetId: null,
+      applyError: null,
+    });
   },
 
   toggleSkill: (skillName) => {
@@ -153,7 +162,16 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
       if (next.has(skillName)) next.delete(skillName);
       else next.add(skillName);
     }
-    set({ disabledSkills: next, allSkillsDisabled: false, activePresetId: null, applyError: null });
+    // Normalize: if every skill is now individually disabled, collapse
+    // back to the allSkillsDisabled flag so the master switch stays in sync.
+    const totalSkills = availableContext?.skills.length ?? 0;
+    const allNowDisabled = totalSkills > 0 && next.size >= totalSkills;
+    set({
+      disabledSkills: allNowDisabled ? new Set() : next,
+      allSkillsDisabled: allNowDisabled,
+      activePresetId: null,
+      applyError: null,
+    });
   },
 
   setAllToolsDisabled: (disabled) => {
