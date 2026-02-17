@@ -125,18 +125,34 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
   },
 
   toggleTool: (toolName) => {
-    const { disabledTools } = get();
-    const next = new Set(disabledTools);
-    if (next.has(toolName)) next.delete(toolName);
-    else next.add(toolName);
+    const { disabledTools, allToolsDisabled, availableContext } = get();
+    let next: Set<string>;
+    if (allToolsDisabled) {
+      // Transitioning from "all disabled": populate set with every tool,
+      // then remove the one being enabled so only it turns on.
+      next = new Set(availableContext?.tools.map((t) => t.name) ?? []);
+      next.delete(toolName);
+    } else {
+      next = new Set(disabledTools);
+      if (next.has(toolName)) next.delete(toolName);
+      else next.add(toolName);
+    }
     set({ disabledTools: next, allToolsDisabled: false, activePresetId: null, applyError: null });
   },
 
   toggleSkill: (skillName) => {
-    const { disabledSkills } = get();
-    const next = new Set(disabledSkills);
-    if (next.has(skillName)) next.delete(skillName);
-    else next.add(skillName);
+    const { disabledSkills, allSkillsDisabled, availableContext } = get();
+    let next: Set<string>;
+    if (allSkillsDisabled) {
+      // Transitioning from "all disabled": populate set with every skill,
+      // then remove the one being enabled so only it turns on.
+      next = new Set(availableContext?.skills.map((s) => s.name) ?? []);
+      next.delete(skillName);
+    } else {
+      next = new Set(disabledSkills);
+      if (next.has(skillName)) next.delete(skillName);
+      else next.add(skillName);
+    }
     set({ disabledSkills: next, allSkillsDisabled: false, activePresetId: null, applyError: null });
   },
 
