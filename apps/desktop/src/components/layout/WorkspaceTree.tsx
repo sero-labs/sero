@@ -299,7 +299,7 @@ function WorkspaceNode({
 
       {/* Sessions */}
       {expanded && (
-        <div className="ml-2 flex flex-col gap-0.5 pl-2 border-l border-border/30">
+        <div className="ml-2 flex flex-col gap-0.5 pl-2 border-l border-[var(--border-subtle)]">
           {sessions.length === 0 ? (
             <span className="px-2 py-1 text-xs text-[var(--text-muted)]">
               No sessions

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, Bot, Bug } from 'lucide-react';
+import { FolderOpen, Bot, Bug, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { useActiveAgentCount } from '@/stores/agent';
@@ -13,11 +13,12 @@ import { DevServerIndicator } from './DevServerPanel';
  */
 export function StatusBar() {
   const theme = useAppStore((s) => s.theme);
+  const toggleTheme = useAppStore((s) => s.toggleTheme);
   const activeWorkspace = useActiveWorkspace();
   const agentCount = useActiveAgentCount();
 
   return (
-    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-border/50 bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
+    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
       {/* ── Left ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         {activeWorkspace && (
@@ -48,7 +49,14 @@ export function StatusBar() {
           </span>
         )}
         <span>Sero v0.1.0</span>
-        <span className="capitalize">{theme}</span>
+        <button
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
+        >
+          {theme === 'dark' ? <Moon className="size-3" /> : <Sun className="size-3" />}
+          <span className="capitalize">{theme}</span>
+        </button>
       </div>
     </footer>
   );
@@ -86,7 +94,7 @@ function DebugLogToggle() {
       }
       className={`flex items-center gap-1 transition-colors ${
         enabled
-          ? 'text-amber-400 hover:text-amber-300'
+          ? 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
           : 'hover:text-[var(--text-primary)]'
       }`}
     >

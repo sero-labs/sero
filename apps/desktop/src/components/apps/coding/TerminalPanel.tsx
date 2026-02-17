@@ -16,6 +16,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
+import { useAppStore, type Theme } from '@/stores/app';
 
 interface TerminalPanelProps {
   terminalId: string;
@@ -23,29 +24,53 @@ interface TerminalPanelProps {
   isActive: boolean;
 }
 
-/** Shared xterm.js theme — dark to match the shell. */
-const TERMINAL_THEME = {
-  background: '#0a0a0b',
-  foreground: '#d4d4d8',
-  cursor: '#d4d4d8',
-  selectionBackground: '#3f3f46',
-  black: '#18181b',
-  red: '#ef4444',
-  green: '#22c55e',
-  yellow: '#eab308',
-  blue: '#3b82f6',
-  magenta: '#a855f7',
-  cyan: '#06b6d4',
-  white: '#d4d4d8',
-  brightBlack: '#52525b',
-  brightRed: '#f87171',
-  brightGreen: '#4ade80',
-  brightYellow: '#facc15',
-  brightBlue: '#60a5fa',
-  brightMagenta: '#c084fc',
-  brightCyan: '#22d3ee',
-  brightWhite: '#fafafa',
-} as const;
+/** xterm.js themes keyed by app theme. */
+const TERMINAL_THEMES: Record<Theme, Record<string, string>> = {
+  dark: {
+    background: '#0a0a0b',
+    foreground: '#d4d4d8',
+    cursor: '#d4d4d8',
+    selectionBackground: '#3f3f46',
+    black: '#18181b',
+    red: '#ef4444',
+    green: '#22c55e',
+    yellow: '#eab308',
+    blue: '#3b82f6',
+    magenta: '#a855f7',
+    cyan: '#06b6d4',
+    white: '#d4d4d8',
+    brightBlack: '#52525b',
+    brightRed: '#f87171',
+    brightGreen: '#4ade80',
+    brightYellow: '#facc15',
+    brightBlue: '#60a5fa',
+    brightMagenta: '#c084fc',
+    brightCyan: '#22d3ee',
+    brightWhite: '#fafafa',
+  },
+  light: {
+    background: '#ffffff',
+    foreground: '#1e1e1e',
+    cursor: '#1e1e1e',
+    selectionBackground: '#add6ff',
+    black: '#1e1e1e',
+    red: '#cd3131',
+    green: '#008000',
+    yellow: '#795e26',
+    blue: '#0451a5',
+    magenta: '#bc05bc',
+    cyan: '#0598bc',
+    white: '#6a737d',
+    brightBlack: '#6a737d',
+    brightRed: '#cd3131',
+    brightGreen: '#008000',
+    brightYellow: '#795e26',
+    brightBlue: '#0451a5',
+    brightMagenta: '#bc05bc',
+    brightCyan: '#0598bc',
+    brightWhite: '#1e1e1e',
+  },
+};
 
 /**
  * Single terminal instance — mounts xterm.js and bridges IPC.
@@ -61,6 +86,7 @@ export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const initialTheme = useAppStore.getState().theme;
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 13,
@@ -68,7 +94,7 @@ export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
         "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
       lineHeight: 1.2,
       scrollback: 10000,
-      theme: TERMINAL_THEME,
+      theme: TERMINAL_THEMES[initialTheme],
     });
 
     const fitAddon = new FitAddon();
@@ -111,6 +137,20 @@ export function TerminalPanel({ terminalId, isActive }: TerminalPanelProps) {
       termRef.current = null;
       fitRef.current = null;
     };
+  }, [terminalId]);
+
+  // React to theme changes
+  useEffect(() => {
+    let prevTheme = useAppStore.getState().theme;
+    const unsub = useAppStore.subscribe((state) => {
+      if (state.theme !== prevTheme) {
+        prevTheme = state.theme;
+        if (termRef.current) {
+          termRef.current.options.theme = TERMINAL_THEMES[state.theme];
+        }
+      }
+    });
+    return unsub;
   }, [terminalId]);
 
   // Re-fit when terminal becomes active or container resizes

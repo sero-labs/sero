@@ -209,7 +209,7 @@ export const DevServerIndicator = memo(function DevServerIndicator() {
         className="w-80 p-0"
         sideOffset={8}
       >
-        <div className="border-b border-border/50 px-3 py-2">
+        <div className="border-b border-[var(--border-default)] px-3 py-2">
           <div className="flex items-center gap-1.5">
             <Server className="size-3.5 text-[var(--text-muted)]" />
             <span className="text-xs font-medium text-[var(--text-primary)]">

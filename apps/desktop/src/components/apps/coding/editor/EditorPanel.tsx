@@ -13,6 +13,7 @@ import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { useLsp } from '@/lsp/use-lsp';
 import { useContainerStore } from '@/stores/container';
 import { useActiveWorkspace } from '@/stores/workspace';
+import { useAppStore } from '@/stores/app';
 
 interface Props {
   workspaceId: string;
@@ -56,6 +57,7 @@ export function EditorPanel({
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const [editorInstance, setEditorInstance] = useState<monacoEditor.IStandaloneCodeEditor | null>(null);
 
+  const appTheme = useAppStore((s) => s.theme);
   const containerStatus = useContainerStore((s) => s.containers[workspaceId]?.status ?? 'none');
   const activeWorkspace = useActiveWorkspace();
   const isContainerWorkspace = activeWorkspace?.container ?? true;
@@ -220,7 +222,7 @@ export function EditorPanel({
             height="100%" language={language} path={activeTab}
             value={content} onChange={handleChange}
             beforeMount={handleBeforeMount} onMount={handleEditorMount}
-            theme="vs-dark"
+            theme={appTheme === 'dark' ? 'vs-dark' : 'vs'}
             options={{
               fontSize: 13,
               fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",

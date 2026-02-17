@@ -20,8 +20,30 @@ const CUSTOM_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Outfit:wght@300;400;500;600&display=swap');
 
   .dq-root {
-    --dq-bg: #110f14;
-    --dq-bg-surface: #18151d;
+    /* Light mode defaults */
+    --dq-bg: var(--bg-base, #ffffff);
+    --dq-bg-surface: var(--bg-surface, #f4f5f7);
+    --dq-bg-warm: #f0ece6;
+    --dq-text: #1a1612;
+    --dq-text-soft: #3d3529;
+    --dq-muted: #6b6158;
+    --dq-dim: #8a8078;
+    --dq-accent: #9a6b3a;
+    --dq-accent-light: #7a5428;
+    --dq-accent-glow: rgba(154, 107, 58, 0.06);
+    --dq-accent-glow-strong: rgba(154, 107, 58, 0.12);
+    --dq-border: var(--border-default, rgba(154, 107, 58, 0.15));
+    --dq-border-accent: rgba(154, 107, 58, 0.25);
+
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+    color: var(--dq-text);
+    background: var(--dq-bg);
+  }
+
+  /* Dark mode overrides */
+  .dark .dq-root {
+    --dq-bg: var(--bg-base, #110f14);
+    --dq-bg-surface: var(--bg-surface, #18151d);
     --dq-bg-warm: #1c1820;
     --dq-text: #f0ebe3;
     --dq-text-soft: #d4cfc7;
@@ -31,20 +53,8 @@ const CUSTOM_STYLES = `
     --dq-accent-light: #e8c89e;
     --dq-accent-glow: rgba(212, 165, 116, 0.08);
     --dq-accent-glow-strong: rgba(212, 165, 116, 0.15);
-    --dq-border: rgba(212, 165, 116, 0.08);
+    --dq-border: var(--border-default, rgba(212, 165, 116, 0.08));
     --dq-border-accent: rgba(212, 165, 116, 0.2);
-
-    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
-    color: var(--dq-text);
-    background: var(--dq-bg);
-  }
-
-  @supports (color: var(--bg-base)) {
-    .dq-root {
-      --dq-bg: var(--bg-base, #110f14);
-      --dq-bg-surface: var(--bg-surface, #18151d);
-      --dq-border: var(--border, rgba(212, 165, 116, 0.08));
-    }
   }
 
   /* ── Atmospheric background ── */
@@ -67,9 +77,8 @@ const CUSTOM_STYLES = `
     height: 80%;
     background: radial-gradient(
       ellipse at center,
-      rgba(212, 165, 116, 0.06) 0%,
-      rgba(212, 165, 116, 0.02) 40%,
-      transparent 70%
+      var(--dq-accent-glow) 0%,
+      transparent 60%
     );
   }
 
@@ -83,7 +92,7 @@ const CUSTOM_STYLES = `
     height: 60%;
     background: radial-gradient(
       ellipse at center,
-      rgba(140, 100, 70, 0.04) 0%,
+      var(--dq-accent-glow) 0%,
       transparent 60%
     );
   }
@@ -95,10 +104,10 @@ const CUSTOM_STYLES = `
     background:
       linear-gradient(
         180deg,
-        rgba(212, 165, 116, 0.03) 0%,
+        var(--dq-accent-glow) 0%,
         transparent 30%,
         transparent 70%,
-        rgba(212, 165, 116, 0.02) 100%
+        var(--dq-accent-glow) 100%
       ),
       var(--dq-bg-surface);
     border: 1px solid var(--dq-border);
@@ -189,8 +198,8 @@ const CUSTOM_STYLES = `
     inset: 0;
     background: linear-gradient(
       135deg,
-      rgba(212, 165, 116, 0.1),
-      rgba(212, 165, 116, 0.02)
+      var(--dq-accent-glow-strong),
+      var(--dq-accent-glow)
     );
     opacity: 0;
     transition: opacity 0.3s;
@@ -205,8 +214,8 @@ const CUSTOM_STYLES = `
     border-color: var(--dq-accent);
     color: var(--dq-accent-light);
     box-shadow:
-      0 0 30px rgba(212, 165, 116, 0.08),
-      inset 0 0 30px rgba(212, 165, 116, 0.03);
+      0 0 30px var(--dq-accent-glow),
+      inset 0 0 30px var(--dq-accent-glow);
     transform: translateY(-1px);
   }
 
@@ -311,8 +320,8 @@ const CUSTOM_STYLES = `
   }
 
   @keyframes dq-orb-breathe {
-    0%, 100% { transform: scale(1); border-color: rgba(212, 165, 116, 0.15); }
-    50% { transform: scale(1.05); border-color: rgba(212, 165, 116, 0.3); }
+    0%, 100% { transform: scale(1); border-color: var(--dq-border-accent); }
+    50% { transform: scale(1.05); border-color: var(--dq-accent); }
   }
 
   /* ── Ornamental corners ── */
@@ -503,7 +512,7 @@ function QuoteDisplay({
       </p>
 
       {/* Divider */}
-      <div className="dq-divider dq-animate-divider mt-10 mb-8" />
+      <div className="dq-divider dq-animate-divider" style={{ marginTop: '3.5rem', marginBottom: '2.5rem' }} />
 
       {/* Author */}
       <p
@@ -518,7 +527,7 @@ function QuoteDisplay({
 
       {/* Refresh button */}
       <button
-        className="dq-button dq-animate-button mt-16"
+        className="dq-button dq-animate-button" style={{ marginTop: '3rem' }}
         onClick={onRefresh}
         disabled={loading}
       >

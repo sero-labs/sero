@@ -31,7 +31,7 @@ export function TitleBar() {
   const titleText = breadcrumb ? `${appLabel} — ${breadcrumb}` : appLabel;
 
   return (
-    <header className="title-bar drag-region flex h-10 shrink-0 items-center border-b border-border/50 bg-[var(--bg-base)]">
+    <header className="title-bar drag-region flex h-10 shrink-0 items-center border-b border-[var(--border-default)] bg-[var(--bg-base)]">
       {/* ── Traffic-light spacer (macOS) ─────────────────────── */}
       <div className="flex w-[78px] shrink-0" />
 

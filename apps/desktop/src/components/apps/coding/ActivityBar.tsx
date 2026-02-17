@@ -39,7 +39,7 @@ export function ActivityBar({ activePanel, sidebarOpen, terminalOpen, onPanelCli
   const bottomItems = items.filter((i) => i.bottom);
 
   return (
-    <nav className="flex w-10 shrink-0 flex-col items-center border-r border-border/50 bg-[var(--bg-surface)] py-1">
+    <nav className="flex w-10 shrink-0 flex-col items-center border-r border-[var(--border-default)] bg-[var(--bg-surface)] py-1">
       {/* Top items */}
       {topItems.map((item) => {
         const isActive = sidebarOpen && activePanel === item.id;

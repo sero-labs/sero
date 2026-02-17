@@ -46,7 +46,7 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
   };
 
   return (
-    <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border/50 bg-[var(--bg-surface)] px-1">
+    <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-1">
       {/* Tabs */}
       {tabs.map((tab) => (
         <button
