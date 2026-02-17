@@ -7,35 +7,35 @@
 /* ── Sero Design System ──────────────────────────────────────── */
 
 :root {
-  /* Surface colors */
-  --bg-base: #0a0a0b;
-  --bg-surface: #111113;
-  --bg-elevated: #18181b;
-  --bg-overlay: #1f1f23;
-  --bg-muted: #27272a;
+  /* Surface colors (light) */
+  --bg-base: #ffffff;
+  --bg-surface: #f9fafb;
+  --bg-elevated: #f3f4f6;
+  --bg-overlay: #e5e7eb;
+  --bg-muted: #d1d5db;
 
-  /* Border */
-  --border-subtle: #27272a;
-  --border-default: #3f3f46;
+  /* Border (light) */
+  --border-subtle: #e5e7eb;
+  --border-default: #d1d5db;
   --border-focus: #6366f1;
 
-  /* Text */
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --text-inverse: #09090b;
+  /* Text (light) */
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --text-inverse: #fafafa;
 
   /* Accent (indigo) */
   --accent: oklch(0.97 0 0);
-  --accent-hover: #818cf8;
-  --accent-muted: #6366f133;
-  --accent-code: #c4b5fd;
+  --accent-hover: #6366f1;
+  --accent-muted: #6366f11a;
+  --accent-code: #7c3aed;
 
   /* Status */
-  --status-success: #22c55e;
-  --status-warning: #f59e0b;
-  --status-error: #ef4444;
-  --status-info: #3b82f6;
+  --status-success: #16a34a;
+  --status-warning: #d97706;
+  --status-error: #dc2626;
+  --status-info: #2563eb;
 
   /* Spacing */
   --space-xs: 4px;
@@ -176,6 +176,35 @@
 }
 
 .dark {
+  /* Surface colors (dark) */
+  --bg-base: #0a0a0b;
+  --bg-surface: #111113;
+  --bg-elevated: #18181b;
+  --bg-overlay: #1f1f23;
+  --bg-muted: #27272a;
+
+  /* Border (dark) */
+  --border-subtle: #27272a;
+  --border-default: #3f3f46;
+
+  /* Text (dark) */
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-inverse: #09090b;
+
+  /* Accent (dark) */
+  --accent-hover: #818cf8;
+  --accent-muted: #6366f133;
+  --accent-code: #c4b5fd;
+
+  /* Status (dark) */
+  --status-success: #22c55e;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+
+  /* shadcn dark overrides */
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

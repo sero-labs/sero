@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sero</title>
+    <script>
+      // Apply saved theme before first paint to prevent flash
+      (function() {
+        var theme = localStorage.getItem('sero:theme');
+        if (theme === 'light') {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
     <style>
       body {
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
@@ -11,6 +20,10 @@
         background: #0a0a0b;
         color: #e4e4e7;
         -webkit-font-smoothing: antialiased;
+      }
+      html:not(.dark) body {
+        background: #ffffff;
+        color: #111827;
       }
     </style>
   </head>

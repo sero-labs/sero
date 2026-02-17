@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, Bot, Bug } from 'lucide-react';
+import { FolderOpen, Bot, Bug, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { useActiveAgentCount } from '@/stores/agent';
@@ -13,6 +13,7 @@ import { DevServerIndicator } from './DevServerPanel';
  */
 export function StatusBar() {
   const theme = useAppStore((s) => s.theme);
+  const toggleTheme = useAppStore((s) => s.toggleTheme);
   const activeWorkspace = useActiveWorkspace();
   const agentCount = useActiveAgentCount();
 
@@ -48,7 +49,14 @@ export function StatusBar() {
           </span>
         )}
         <span>Sero v0.1.0</span>
-        <span className="capitalize">{theme}</span>
+        <button
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
+        >
+          {theme === 'dark' ? <Moon className="size-3" /> : <Sun className="size-3" />}
+          <span className="capitalize">{theme}</span>
+        </button>
       </div>
     </footer>
   );

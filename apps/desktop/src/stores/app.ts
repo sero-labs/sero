@@ -54,6 +54,16 @@ interface AppState {
   toggleTheme: () => void;
 }
 
+const THEME_STORAGE_KEY = 'sero:theme';
+
+function getStoredTheme(): Theme {
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch { /* ignore */ }
+  return 'dark';
+}
+
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === 'dark') {
@@ -61,6 +71,7 @@ function applyTheme(theme: Theme) {
   } else {
     root.classList.remove('dark');
   }
+  try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch { /* ignore */ }
 }
 
 /** Map a SeroAppManifest → AppEntry. */
@@ -121,8 +132,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ activeApp: app });
   },
 
-  // Theme
-  theme: 'dark',
+  // Theme (hydrate from localStorage)
+  theme: getStoredTheme(),
   setTheme: (theme) => {
     applyTheme(theme);
     set({ theme });
