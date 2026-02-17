@@ -26,6 +26,10 @@ import type {
   SeroSlashCommandInfo,
   SessionUsageStats,
   SessionModelState,
+  SessionContext,
+  ContextOverrides,
+  ContextToolInfo,
+  ContextSkillInfo,
 } from '../../src/types/ipc';
 
 import {
@@ -37,6 +41,9 @@ import {
   buildModelState,
   readHiddenCommands,
   buildCommandList,
+  getBaseSystemPrompt,
+  setBaseSystemPrompt,
+  stripDisabledSkills,
 } from './agent-helpers';
 import { logRawEvent, logTurnContext } from './debug';
 import { workspaceManager } from '../workspace';
@@ -62,6 +69,10 @@ interface PoolEntry {
   currentAssistantId: string | null;
   /** Last known session name — used to detect changes and push to renderer. */
   lastSessionName: string | undefined;
+  /** Context overrides from the context editor (applied before first prompt). */
+  contextOverrides: ContextOverrides | null;
+  /** Original active tool names — used to restore tools when overrides are cleared. */
+  originalToolNames: string[] | null;
 }
 
 /** Map<sessionId, PoolEntry> — one AgentSession per active chat. */
@@ -356,6 +367,8 @@ export function registerAgentHandlers(): void {
         workspaceId,
         currentAssistantId: null,
         lastSessionName: session.sessionName,
+        contextOverrides: null,
+        originalToolNames: null,
       });
 
       return convertSessionMessages(session.messages);
@@ -503,9 +516,104 @@ export function registerAgentHandlers(): void {
     },
   );
 
+  // ── Get session context for context editor ─────────────────
+  ipcMain.handle(
+    IpcChannels.agent.getContext,
+    async (_event, sessionId: string): Promise<SessionContext | null> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return null;
+
+      const state = entry.session.agent.state;
+
+      // Serialise tools (drop execute function)
+      const tools: ContextToolInfo[] = state.tools.map((t: any) => ({
+        name: t.name,
+        label: t.label,
+        description: t.description,
+      }));
+
+      // Get skills from resource loader
+      const { skills: rawSkills } = entry.loader.getSkills();
+      const skills: ContextSkillInfo[] = rawSkills.map((s: any) => ({
+        name: s.name,
+        description: s.description,
+        filePath: s.filePath,
+      }));
+
+      return {
+        systemPrompt: state.systemPrompt ?? '',
+        tools,
+        skills,
+      };
+    },
+  );
+
+  // ── Apply context overrides ───────────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.setContextOverrides,
+    async (_event, sessionId: string, overrides: ContextOverrides | null): Promise<void> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      const session = entry.session;
+
+      // Snapshot original tool names on first override application.
+      // Uses the public getActiveToolNames() API instead of internal state.
+      if (!entry.originalToolNames) {
+        entry.originalToolNames = session.getActiveToolNames();
+      }
+
+      entry.contextOverrides = overrides;
+
+      if (!overrides) {
+        // Restore: setActiveToolsByName rebuilds the system prompt from
+        // scratch with all original tools and skills — no manual restore needed.
+        session.setActiveToolsByName(entry.originalToolNames!);
+        return;
+      }
+
+      // Step 1: Apply tool filtering via public SDK API.
+      // setActiveToolsByName also rebuilds _baseSystemPrompt with the
+      // correct tool set + all skills from the resource loader.
+      const toolNames = entry.originalToolNames!.slice();
+      if (overrides.disabledTools?.length) {
+        const disabled = new Set(overrides.disabledTools);
+        session.setActiveToolsByName(toolNames.filter((n) => !disabled.has(n)));
+      } else {
+        session.setActiveToolsByName(toolNames);
+      }
+
+      // Step 2: Apply skill filtering by stripping <skill> entries from the
+      // system prompt's <available_skills> section. Only applies when the
+      // user has NOT provided a full custom system prompt.
+      if (
+        overrides.disabledSkills?.length &&
+        (overrides.systemPrompt === undefined || overrides.systemPrompt === null)
+      ) {
+        const disabled = new Set(overrides.disabledSkills);
+        const prompt = getBaseSystemPrompt(session);
+        if (typeof prompt === 'string') {
+          const filtered = stripDisabledSkills(prompt, disabled);
+          setBaseSystemPrompt(session, filtered);
+        }
+      }
+
+      // Step 3: Apply full system prompt override (replaces everything
+      // including any skill filtering from step 2).
+      // We must overwrite _baseSystemPrompt — the SDK's internal cached
+      // prompt that AgentSession.prompt() resets to on every API call.
+      // Tested against pi-coding-agent@0.52.12.
+      if (overrides.systemPrompt !== undefined && overrides.systemPrompt !== null) {
+        setBaseSystemPrompt(session, overrides.systemPrompt);
+      }
+    },
+  );
+
   // ── Cleanup on app quit ────────────────────────────────────
   const { app } = require('electron');
   app.on('before-quit', () => {
     disposeAll();
   });
 }
+
+

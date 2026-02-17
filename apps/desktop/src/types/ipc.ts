@@ -69,6 +69,51 @@ export interface SeroSessionInfo {
   firstMessage: string;
 }
 
+// ── Context Editor ─────────────────────────────────────────────
+
+/** Tool info for the context editor (renderer-safe, no execute function). */
+export interface ContextToolInfo {
+  name: string;
+  label?: string;
+  description?: string;
+}
+
+/** Skill info for the context editor. */
+export interface ContextSkillInfo {
+  name: string;
+  description?: string;
+  filePath?: string;
+}
+
+/** Full session context returned by getSessionContext. */
+export interface SessionContext {
+  systemPrompt: string;
+  tools: ContextToolInfo[];
+  skills: ContextSkillInfo[];
+}
+
+/** Context overrides sent to the main process. */
+export interface ContextOverrides {
+  /** If set, replaces the default system prompt entirely. */
+  systemPrompt?: string | null;
+  /** Tool names to disable (removed from the tool list). */
+  disabledTools?: string[];
+  /** Skill names to disable (stripped from system prompt). */
+  disabledSkills?: string[];
+}
+
+/** A saved context editor preset (persisted to disk via IPC). */
+export interface ContextPreset {
+  id: string;
+  name: string;
+  /** If null, use the default system prompt. If string, override with this. */
+  systemPrompt: string | null;
+  /** Tool names to disable. */
+  disabledTools: string[];
+  /** Skill names to disable. */
+  disabledSkills: string[];
+}
+
 // ── Slash Commands ─────────────────────────────────────────────
 
 /** Slash command info from PI SDK. Mirrors SlashCommandInfo from pi-coding-agent. */
@@ -347,6 +392,16 @@ export const IpcChannels = {
     setThinkingLevel: 'sero:agent:set-thinking-level',
     /** Main → renderer push channel for streaming events. */
     event: 'sero:agent:event',
+    /** Get session context (system prompt, tools, skills) for context editor. */
+    getContext: 'sero:agent:get-context',
+    /** Apply context overrides (disabled tools, system prompt override, etc.). */
+    setContextOverrides: 'sero:agent:set-context-overrides',
+  },
+  contextPresets: {
+    /** Load all user-saved context editor presets from disk. */
+    load: 'sero:context-presets:load',
+    /** Save all user context editor presets to disk. */
+    save: 'sero:context-presets:save',
   },
   shell: {
     /** Open a path in the native file explorer. */
