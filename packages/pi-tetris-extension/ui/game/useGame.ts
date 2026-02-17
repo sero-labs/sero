@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { GameState } from './types';
+import { PIECE_COLORS, BOARD_COLS, type PieceType } from './types';
 import {
   createBoard,
   createPiece,
@@ -14,6 +15,18 @@ import {
   calculateScore,
   getSpeed,
 } from './engine';
+
+// ── Particle event types ──────────────────────────────────────────
+export interface ParticleEvent {
+  type: 'lineClear' | 'hardDrop' | 'pieceLock' | 'gameOver' | 'levelUp';
+  rows?: number[];           // cleared row indices
+  linesCleared?: number;     // how many lines
+  piece?: { type: PieceType; row: number; col: number; shape: number[][] };
+  combo?: number;            // consecutive clears
+  level?: number;
+}
+
+type ParticleEventCallback = (event: ParticleEvent) => void;
 
 function createInitialState(): GameState {
   return {
@@ -29,11 +42,21 @@ function createInitialState(): GameState {
   };
 }
 
-export function useGame() {
+export function useGame(
+  onParticleEvent?: ParticleEventCallback,
+  containerRef?: React.RefObject<HTMLElement | null>,
+) {
   const [state, setState] = useState<GameState>(createInitialState);
   const stateRef = useRef(state);
   stateRef.current = state;
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const comboRef = useRef(0);
+  const onParticleEventRef = useRef(onParticleEvent);
+  onParticleEventRef.current = onParticleEvent;
+
+  const emitEvent = useCallback((event: ParticleEvent) => {
+    onParticleEventRef.current?.(event);
+  }, []);
 
   const spawnPiece = useCallback((s: GameState): GameState => {
     const piece = createPiece(s.nextType);
@@ -46,12 +69,57 @@ export function useGame() {
   const lockPiece = useCallback(
     (s: GameState): GameState => {
       if (!s.currentPiece) return s;
+
+      // Emit piece lock event
+      emitEvent({
+        type: 'pieceLock',
+        piece: {
+          type: s.currentPiece.type,
+          row: s.currentPiece.row,
+          col: s.currentPiece.col,
+          shape: s.currentPiece.shape,
+        },
+      });
+
       const newBoard = placePiece(s.board, s.currentPiece);
-      const [clearedBoard, linesCleared] = clearLines(newBoard);
+      const [clearedBoard, linesCleared, clearedRows] = clearLines(newBoard);
       const newLines = s.lines + linesCleared;
       const newLevel = Math.floor(newLines / 10) + 1;
       const newScore = s.score + calculateScore(linesCleared, s.level);
-      return spawnPiece({
+
+      if (linesCleared > 0) {
+        comboRef.current++;
+
+        // Capture row colors before they're cleared for particle effects
+        const rowColors: string[][] = clearedRows.map((rowIdx) =>
+          newBoard[rowIdx].map((cell) => (cell ? PIECE_COLORS[cell] : '#ffffff')),
+        );
+
+        emitEvent({
+          type: 'lineClear',
+          rows: clearedRows,
+          linesCleared,
+          combo: comboRef.current,
+          piece: {
+            type: s.currentPiece.type,
+            row: s.currentPiece.row,
+            col: s.currentPiece.col,
+            shape: s.currentPiece.shape,
+          },
+        });
+
+        // Store row colors for the particle system to use
+        (emitEvent as any)._lastRowColors = rowColors;
+      } else {
+        comboRef.current = 0;
+      }
+
+      // Level up event
+      if (newLevel > s.level) {
+        emitEvent({ type: 'levelUp', level: newLevel });
+      }
+
+      const next = spawnPiece({
         ...s,
         board: clearedBoard,
         currentPiece: null,
@@ -59,8 +127,15 @@ export function useGame() {
         level: newLevel,
         lines: newLines,
       });
+
+      if (next.gameOver) {
+        emitEvent({ type: 'gameOver' });
+        comboRef.current = 0;
+      }
+
+      return next;
     },
-    [spawnPiece],
+    [spawnPiece, emitEvent],
   );
 
   const moveDown = useCallback(() => {
@@ -156,15 +231,28 @@ export function useGame() {
       if (!s.currentPiece || s.gameOver || s.paused) return s;
       const ghostRow = getGhostRow(s.board, s.currentPiece);
       const dropBonus = (ghostRow - s.currentPiece.row) * 2;
+
+      // Emit hard drop event
+      emitEvent({
+        type: 'hardDrop',
+        piece: {
+          type: s.currentPiece.type,
+          row: ghostRow,
+          col: s.currentPiece.col,
+          shape: s.currentPiece.shape,
+        },
+      });
+
       return lockPiece({
         ...s,
         currentPiece: { ...s.currentPiece, row: ghostRow },
         score: s.score + dropBonus,
       });
     });
-  }, [lockPiece]);
+  }, [lockPiece, emitEvent]);
 
   const start = useCallback(() => {
+    comboRef.current = 0;
     const initial = createInitialState();
     setState(spawnPiece({ ...initial, started: true }));
   }, [spawnPiece]);
@@ -190,17 +278,19 @@ export function useGame() {
     };
   }, [state.started, state.gameOver, state.paused, state.level, moveDown]);
 
-  // Keyboard controls
+  // Keyboard controls — scoped to container so they don't steal from other panels
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
+    const target = containerRef?.current ?? window;
+    const handleKey = (e: Event) => {
+      const ke = e as KeyboardEvent;
       if (
         ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' '].includes(
-          e.key,
+          ke.key,
         )
       ) {
-        e.preventDefault();
+        ke.preventDefault();
       }
-      switch (e.key) {
+      switch (ke.key) {
         case 'ArrowLeft':
           moveLeft();
           break;
@@ -225,9 +315,9 @@ export function useGame() {
           break;
       }
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [moveLeft, moveRight, moveDown, rotate, hardDrop, togglePause, start]);
+    target.addEventListener('keydown', handleKey);
+    return () => target.removeEventListener('keydown', handleKey);
+  }, [moveLeft, moveRight, moveDown, rotate, hardDrop, togglePause, start, containerRef]);
 
   const ghostRow = state.currentPiece
     ? getGhostRow(state.board, state.currentPiece)

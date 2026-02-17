@@ -84,14 +84,23 @@ export function placePiece(board: Board, piece: Piece): Board {
   return newBoard;
 }
 
-export function clearLines(board: Board): [Board, number] {
-  const remaining = board.filter((row) => row.some((cell) => cell === null));
+/** Returns [newBoard, clearedCount, clearedRowIndices] */
+export function clearLines(board: Board): [Board, number, number[]] {
+  const clearedRows: number[] = [];
+  const remaining: (PieceType | null)[][] = [];
+  for (let r = 0; r < BOARD_ROWS; r++) {
+    if (board[r].every((cell) => cell !== null)) {
+      clearedRows.push(r);
+    } else {
+      remaining.push(board[r]);
+    }
+  }
   const cleared = BOARD_ROWS - remaining.length;
-  if (cleared === 0) return [board, 0];
+  if (cleared === 0) return [board, 0, []];
   const emptyRows: Board = Array.from({ length: cleared }, () =>
     Array<PieceType | null>(BOARD_COLS).fill(null),
   );
-  return [[...emptyRows, ...remaining], cleared];
+  return [[...emptyRows, ...remaining], cleared, clearedRows];
 }
 
 export function getGhostRow(board: Board, piece: Piece): number {
