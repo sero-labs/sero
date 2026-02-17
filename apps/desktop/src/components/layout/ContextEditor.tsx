@@ -153,8 +153,16 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
                 icon={FileText}
                 title="System Prompt"
                 tint="blue"
-                badge={systemPrompt !== null ? 'modified' : undefined}
-                badgeVariant={systemPrompt !== null ? 'modified' : 'default'}
+                badge={
+                  systemPrompt !== null
+                    ? (systemPrompt === '' ? 'disabled' : 'modified')
+                    : undefined
+                }
+                badgeVariant={
+                  systemPrompt !== null
+                    ? (systemPrompt === '' ? 'disabled' : 'modified')
+                    : 'default'
+                }
                 defaultOpen={false}
               >
                 <div className="space-y-2">
@@ -354,7 +362,7 @@ function ToolsSection({
       count={tools.length}
       badge={
         allDisabled
-          ? 'all disabled'
+          ? 'disabled'
           : enabledCount < tools.length
             ? `${enabledCount}/${tools.length}`
             : undefined
@@ -425,7 +433,7 @@ function SkillsSection({
       count={skills.length}
       badge={
         allDisabled
-          ? 'all disabled'
+          ? 'disabled'
           : enabledCount < skills.length
             ? `${enabledCount}/${skills.length}`
             : undefined
