@@ -145,7 +145,7 @@ export function SlashCommandMenu({
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-64 overflow-y-auto rounded-md border border-border/50 bg-[var(--bg-surface)] shadow-lg"
+      className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-64 overflow-y-auto rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-lg"
       role="listbox"
     >
       {groups.map(({ source, items }) => (

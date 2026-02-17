@@ -287,7 +287,7 @@ export function CodingWorkspace() {
 
       {/* ── Bottom: terminal spans full width ──────────────── */}
       {terminalOpen && (
-        <div className="flex h-[250px] min-h-[100px] max-h-[60%] shrink-0 flex-col border-t border-border/50">
+        <div className="flex h-[250px] min-h-[100px] max-h-[60%] shrink-0 flex-col border-t border-[var(--border-default)]">
           <TerminalTabs workspaceId={workspaceId} />
           <div className="relative flex-1 min-h-0 bg-[#0a0a0b]">
             {termTabs.map((tab) => (

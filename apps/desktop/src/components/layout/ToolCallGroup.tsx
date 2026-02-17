@@ -113,13 +113,13 @@ function deriveGroupStatus(tools: ChatToolCallMessage[]): GroupStatus {
 function groupStatusIcon(status: GroupStatus) {
   switch (status) {
     case 'running':
-      return <Loader2 className="size-3.5 animate-spin text-blue-400" />;
+      return <Loader2 className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />;
     case 'completed':
-      return <CheckCircle2 className="size-3.5 text-emerald-500" />;
+      return <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-500" />;
     case 'error':
-      return <XCircle className="size-3.5 text-red-400" />;
+      return <XCircle className="size-3.5 text-red-600 dark:text-red-400" />;
     case 'cancelled':
-      return <AlertCircle className="size-3.5 text-yellow-500" />;
+      return <AlertCircle className="size-3.5 text-yellow-600 dark:text-yellow-500" />;
   }
 }
 
@@ -142,15 +142,15 @@ function groupStatusLabel(status: GroupStatus, count: number) {
 function toolStatusDot(state: ChatToolCallMessage['state']) {
   switch (state) {
     case 'pending':
-      return <span className="size-1.5 shrink-0 rounded-full bg-zinc-500" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-500" />;
     case 'running':
-      return <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-blue-400" />;
+      return <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-blue-500 dark:bg-blue-400" />;
     case 'completed':
-      return <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-emerald-600 dark:bg-emerald-500" />;
     case 'error':
-      return <span className="size-1.5 shrink-0 rounded-full bg-red-400" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-red-500 dark:bg-red-400" />;
     case 'cancelled':
-      return <span className="size-1.5 shrink-0 rounded-full bg-yellow-500" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-yellow-600 dark:bg-yellow-500" />;
   }
 }
 
@@ -251,7 +251,7 @@ function SingleToolCall({ tool }: { tool: ChatToolCallMessage }) {
           ? 'border-blue-500/20 bg-blue-500/[0.03]'
           : status === 'error'
             ? 'border-red-500/20 bg-red-500/[0.03]'
-            : 'border-border/50 bg-[var(--bg-elevated)]/50',
+            : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
       )}
     >
       {/* Summary bar */}
@@ -290,7 +290,7 @@ function SingleToolCall({ tool }: { tool: ChatToolCallMessage }) {
             transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border/30 space-y-4 p-3">
+            <div className="border-t border-[var(--border-subtle)] space-y-4 p-3">
               <ToolInput input={tool.input} />
               {isComplete && (
                 <ToolOutput
@@ -374,7 +374,7 @@ export function ToolCallGroup({
           ? 'border-blue-500/20 bg-blue-500/[0.03]'
           : status === 'error'
             ? 'border-red-500/20 bg-red-500/[0.03]'
-            : 'border-border/50 bg-[var(--bg-elevated)]/50',
+            : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
       )}
     >
       {/* Summary bar */}
@@ -412,7 +412,7 @@ export function ToolCallGroup({
             transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border/30">
+            <div className="border-t border-[var(--border-subtle)]">
               {!showDetails ? (
                 <>
                   <div className="py-1">
@@ -420,7 +420,7 @@ export function ToolCallGroup({
                       <ToolLine key={tool.id} tool={tool} index={i} />
                     ))}
                   </div>
-                  <div className="border-t border-border/20 px-3 py-1.5">
+                  <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -439,7 +439,7 @@ export function ToolCallGroup({
                       <ToolDetail key={tool.id} tool={tool} />
                     ))}
                   </div>
-                  <div className="border-t border-border/20 px-3 py-1.5">
+                  <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

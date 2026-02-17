@@ -174,9 +174,9 @@ export function ChatPanel() {
   const hasSession = !!sessionId;
 
   return (
-    <div className="flex h-full flex-col bg-[var(--bg-surface)]">
+    <div className="flex h-full flex-col border-l border-[var(--border-default)] bg-[var(--bg-surface)]">
       {/* ── Header ──────────────────────────────────────────── */}
-      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border/50 px-3">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-[var(--border-default)] px-3">
         <Bot className="size-3.5 text-[var(--text-muted)]" />
         <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Agent

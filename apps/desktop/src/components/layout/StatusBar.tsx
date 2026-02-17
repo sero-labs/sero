@@ -18,7 +18,7 @@ export function StatusBar() {
   const agentCount = useActiveAgentCount();
 
   return (
-    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-border/50 bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
+    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
       {/* ── Left ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         {activeWorkspace && (
@@ -94,7 +94,7 @@ function DebugLogToggle() {
       }
       className={`flex items-center gap-1 transition-colors ${
         enabled
-          ? 'text-amber-400 hover:text-amber-300'
+          ? 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
           : 'hover:text-[var(--text-primary)]'
       }`}
     >

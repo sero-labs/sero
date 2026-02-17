@@ -47,7 +47,7 @@ function SortableEditorTab({ tab, isActive, onSelect, onClose, onMiddleClick }: 
       ref={setNodeRef} style={style}
       className={cn(
         'flex items-center gap-1 px-2.5 h-full cursor-pointer shrink-0 select-none',
-        'border-r border-border/30 text-xs whitespace-nowrap transition-colors',
+        'border-r border-[var(--border-subtle)] text-xs whitespace-nowrap transition-colors',
         'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
         isActive && 'bg-[var(--bg-elevated)] text-[var(--text-primary)] relative',
       )}
@@ -136,7 +136,7 @@ export function EditorTabBar({ tabs, activeTab, onSelectTab, onCloseTab, onReord
   if (tabs.length === 0) return null;
 
   return (
-    <div className="flex items-stretch h-8 bg-[var(--bg-base)] border-b border-border/30 shrink-0 overflow-hidden relative">
+    <div className="flex items-stretch h-8 bg-[var(--bg-base)] border-b border-[var(--border-subtle)] shrink-0 overflow-hidden relative">
       {overflowLeft && <div className="absolute top-0 bottom-px left-0 w-7 pointer-events-none z-10 bg-gradient-to-r from-[var(--bg-base)] to-transparent" />}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToHorizontal]}>
         <SortableContext items={tabs.map((t) => t.path)} strategy={horizontalListSortingStrategy}>

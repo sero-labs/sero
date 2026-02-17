@@ -21,7 +21,7 @@ export function MainSidebar() {
   if (!open) return null;
 
   return (
-    <aside className="flex h-full w-full min-w-0 flex-col border-r border-border/50 bg-[var(--bg-surface)]">
+    <aside className="flex h-full w-full min-w-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
       {/* ── Apps ──────────────────────────────────────────────── */}
       <div className="flex flex-col gap-0.5 p-2">
         <span className="px-2 pb-1 text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">

@@ -38,7 +38,7 @@ function ModelTrigger({ disabled }: { disabled: boolean }) {
         )}
         <span className="max-w-[140px] truncate font-medium">{label}</span>
         {thinking !== 'off' && ms?.model.reasoning && (
-          <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-400">
+          <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-600 dark:text-amber-400">
             {THINKING_LABELS[thinking] ?? thinking}
           </span>
         )}
@@ -95,9 +95,9 @@ function ThinkingPicker({
             onClick={() => onSelect(level)}
             className={`relative z-10 flex-1 rounded-md px-1 py-1 text-[11px] font-medium transition-colors duration-150 ${
               current === level && !disabled
-                ? level === 'xhigh' ? 'text-amber-300'
+                ? level === 'xhigh' ? 'text-amber-600 dark:text-amber-300'
                   : level === 'off' ? 'text-[var(--text-secondary)]'
-                  : 'text-indigo-300'
+                  : 'text-indigo-600 dark:text-indigo-300'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
             }`}
           >
@@ -131,7 +131,7 @@ function ModelItem({ model, isSelected, onSelect }: {
               initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
-              <Check className="size-3.5 text-emerald-400" />
+              <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
             </motion.div>
           ) : (
             <motion.div key="dot"
@@ -142,7 +142,7 @@ function ModelItem({ model, isSelected, onSelect }: {
       </div>
       <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
         <span className="truncate text-xs font-medium">{model.name}</span>
-        {model.reasoning && <Sparkles className="size-3 shrink-0 text-amber-400/60" />}
+        {model.reasoning && <Sparkles className="size-3 shrink-0 text-amber-500/60 dark:text-amber-400/60" />}
       </div>
     </motion.button>
   );
