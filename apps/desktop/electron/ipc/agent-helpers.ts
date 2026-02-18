@@ -57,6 +57,52 @@ export function formatCustomMessage(msg: {
 
 const CHECKPOINT_ENTRY = 'jj-checkpoint';
 
+/**
+ * Locate the session entry to branch to when restoring a checkpoint.
+ *
+ * Walks all session entries to find the `jj-checkpoint` custom entry whose
+ * `changeId` matches, then walks the parentId chain back to the user message
+ * that started the turn and returns the entry **before** that user message.
+ * This ensures the restored chat shows only the turns prior to the checkpoint,
+ * not the turn that created it.
+ *
+ * Returns `null` if no matching checkpoint entry exists.
+ */
+export function findCheckpointBranchTarget(
+  session: AgentSession,
+  changeId: string,
+): string | null {
+  const entries = session.sessionManager.getEntries();
+
+  // 1. Find the checkpoint custom entry by changeId
+  let checkpointEntryId: string | null = null;
+  for (const e of entries) {
+    if (e.type === 'custom' && e.customType === CHECKPOINT_ENTRY) {
+      const data = e.data as Record<string, unknown> | undefined;
+      if (data?.changeId === changeId) {
+        checkpointEntryId = e.id;
+        break;
+      }
+    }
+  }
+  if (!checkpointEntryId) return null;
+
+  // 2. Walk parentId chain from checkpoint to the user message that started
+  //    the turn, then return the entry just before it.
+  const entryMap = new Map(entries.map((e) => [e.id, e]));
+  let cur = entryMap.get(checkpointEntryId);
+  while (cur) {
+    if (cur.type === 'message' && cur.message.role === 'user' && cur.parentId) {
+      return cur.parentId;
+    }
+    if (!cur.parentId) break;
+    cur = entryMap.get(cur.parentId);
+  }
+
+  // Fallback: branch to the checkpoint entry itself
+  return checkpointEntryId;
+}
+
 function asCheckpointRef(data: unknown): ChatCheckpointRef | null {
   if (!data || typeof data !== 'object') return null;
 

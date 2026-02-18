@@ -28,6 +28,7 @@ import {
   formatCustomMessage,
   convertSessionMessages,
   buildCheckpointMapByTurn,
+  findCheckpointBranchTarget,
   attachmentsToImages,
   readHiddenCommands,
   buildCommandList,
@@ -441,26 +442,15 @@ export function registerAgentHandlers(): void {
         throw new Error('Cannot restore while agent is streaming');
       }
 
-      // 1. Find the checkpoint custom entry in the session by matching changeId
-      const allEntries = entry.session.sessionManager.getEntries();
-      let checkpointEntryId: string | null = null;
-
-      for (const e of allEntries) {
-        if (e.type === 'custom' && e.customType === 'jj-checkpoint') {
-          const data = e.data as Record<string, unknown> | undefined;
-          if (data?.changeId === changeId) {
-            checkpointEntryId = e.id;
-            break;
-          }
-        }
-      }
-
-      // 2. Restore filesystem via VCS
+      // 1. Restore filesystem via VCS
       await vcsManager.restoreCheckpoint(entry.workspaceId, changeId);
 
-      // 3. Branch the session tree if we found the checkpoint entry
-      if (checkpointEntryId) {
-        entry.session.sessionManager.branch(checkpointEntryId);
+      // 2. Branch session tree to the entry just BEFORE the user message
+      //    that started the turn. This hides the turn's response from chat
+      //    while the VCS restore keeps the files at the checkpoint state.
+      const branchTargetId = findCheckpointBranchTarget(entry.session, changeId);
+      if (branchTargetId) {
+        entry.session.sessionManager.branch(branchTargetId);
         const ctx = entry.session.sessionManager.buildSessionContext();
         entry.session.agent.replaceMessages(ctx.messages);
       }
