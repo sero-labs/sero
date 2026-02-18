@@ -128,6 +128,10 @@ export function buildCheckpointMapByTurn(
     result.set(currentTurn, checkpoint);
   }
 
+  console.log(
+    `[checkpoint] buildCheckpointMapByTurn: ${result.size} checkpoints → ` +
+    [...result.entries()].map(([t, c]) => `turn${t}=${c.changeId}`).join(', '),
+  );
   return result;
 }
 
@@ -184,6 +188,11 @@ export function convertSessionMessages(
       // *previous* turn (N-1). "Restore on message N" means "go back to
       // the state just before I sent message N", which is the end of turn N-1.
       const checkpoint = checkpointsByTurn?.get(userTurn - 1);
+      if (checkpoint) {
+        console.log(
+          `[checkpoint] convertSessionMessages: userTurn=${userTurn} → checkpoint from turn ${userTurn - 1}, changeId=${checkpoint.changeId}`,
+        );
+      }
       result.push({
         type: 'user',
         id: nextId(),

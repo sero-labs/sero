@@ -358,6 +358,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           break;
 
         case 'user_checkpoint':
+          console.log(
+            `[checkpoint] user_checkpoint event: msgId=${event.userMessageId}, changeId=${event.checkpoint.changeId}`,
+          );
           set((s) => ({
             agents: {
               ...s.agents,

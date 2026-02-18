@@ -69,6 +69,10 @@ export function useCheckpointRestore(
       setPreviewLoading(true);
       setDialogOpenRaw(true);
 
+      console.log(
+        `[checkpoint-restore] requestRestore: changeId=${checkpoint.changeId}, source=${checkpoint.source}, desc="${checkpoint.description}"`,
+      );
+
       void fetchCheckpointDiff(workspaceId, checkpoint.changeId)
         .then((diff) => {
           setPreviewFiles(summarizeDiffFiles(diff));
@@ -86,6 +90,10 @@ export function useCheckpointRestore(
     if (!workspaceId || !target || restoring) return;
 
     setRestoring(true);
+
+    console.log(
+      `[checkpoint-restore] confirmRestore: changeId=${target.changeId}, sessionId=${sessionId ?? 'null'}`,
+    );
 
     const doRestore = sessionId
       ? window.sero.agent.restoreToCheckpoint(sessionId, target.changeId)
