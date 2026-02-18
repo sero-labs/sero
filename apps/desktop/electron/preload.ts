@@ -252,37 +252,37 @@ contextBridge.exposeInMainWorld('sero', {
 
   vcs: {
     listCheckpoints: (workspaceId: string, limit?: number): Promise<VcsCheckpoint[]> =>
-      ipcRenderer.invoke('sero:vcs:list-checkpoints', workspaceId, limit),
+      ipcRenderer.invoke(IpcChannels.vcs.list, workspaceId, limit),
 
     getState: (workspaceId: string, limit?: number): Promise<VcsWorkspaceState> =>
-      ipcRenderer.invoke('sero:vcs:state', workspaceId, limit),
+      ipcRenderer.invoke(IpcChannels.vcs.state, workspaceId, limit),
 
     createCheckpoint: (
       workspaceId: string,
       description?: string,
       source?: 'manual' | 'turn' | 'fs' | 'restore',
     ): Promise<VcsCheckpoint | null> =>
-      ipcRenderer.invoke('sero:vcs:create-checkpoint', workspaceId, description, source),
+      ipcRenderer.invoke(IpcChannels.vcs.create, workspaceId, description, source),
 
     restore: (workspaceId: string, checkpointId: string): Promise<void> =>
-      ipcRenderer.invoke('sero:vcs:restore', workspaceId, checkpointId),
+      ipcRenderer.invoke(IpcChannels.vcs.restore, workspaceId, checkpointId),
 
     diff: (workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string> =>
-      ipcRenderer.invoke('sero:vcs:diff', workspaceId, fromChangeId, toChangeId),
+      ipcRenderer.invoke(IpcChannels.vcs.diff, workspaceId, fromChangeId, toChangeId),
 
     watch: (workspaceId: string): Promise<void> =>
-      ipcRenderer.invoke('sero:vcs:watch', workspaceId),
+      ipcRenderer.invoke(IpcChannels.vcs.watch, workspaceId),
 
     unwatch: (workspaceId: string): Promise<void> =>
-      ipcRenderer.invoke('sero:vcs:unwatch', workspaceId),
+      ipcRenderer.invoke(IpcChannels.vcs.unwatch, workspaceId),
 
     onEvent: (callback: (event: VcsEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: VcsEvent) => {
         callback(data);
       };
-      ipcRenderer.on('sero:vcs:event', handler);
+      ipcRenderer.on(IpcChannels.vcs.event, handler);
       return () => {
-        ipcRenderer.removeListener('sero:vcs:event', handler);
+        ipcRenderer.removeListener(IpcChannels.vcs.event, handler);
       };
     },
   },

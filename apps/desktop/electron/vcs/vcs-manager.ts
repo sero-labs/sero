@@ -5,6 +5,7 @@ import type { WorkspaceManager } from '../workspace';
 import type {
   CreateCheckpointOptions,
   VcsCheckpoint,
+  VcsCheckpointSource,
   VcsEvent,
   VcsWorkspaceState,
 } from './types';
@@ -26,9 +27,14 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function firstLine(text: string): string {
-  const line = text.split(/\r?\n/)[0] ?? '';
-  return line.trim();
+/** Infer checkpoint source from the description prefix set by createCheckpoint/restoreCheckpoint. */
+function parseSourceFromDescription(description: string): VcsCheckpointSource {
+  if (description.startsWith('checkpoint: turn')) return 'turn';
+  if (description.startsWith('checkpoint: filesystem')) return 'fs';
+  if (description.startsWith('checkpoint: restore') || description.startsWith('restore:')) return 'restore';
+  if (description.startsWith('checkpoint: manual')) return 'manual';
+  if (description.startsWith('wip:')) return parseSourceFromDescription(`checkpoint: ${description.slice(4).trim()}`);
+  return 'manual';
 }
 
 function isIgnoredPath(fileName?: string | null): boolean {
@@ -114,13 +120,15 @@ export class VcsManager extends EventEmitter {
   async listCheckpoints(workspaceId: string, limit = 40): Promise<VcsCheckpoint[]> {
     await this.ensureRepoInitialized(workspaceId);
 
+    // Template outputs: changeId<TAB>timestamp<TAB>description per line.
+    // author.timestamp() gives us the real commit time.
     const result = await this.runner.run(workspaceId, [
       'log',
       '--no-graph',
       '--limit',
       String(limit),
       '-T',
-      'change_id.short(12) ++ "\\t" ++ description.first_line() ++ "\\n"',
+      'change_id.short(12) ++ "\\t" ++ author.timestamp().utc().format("%Y-%m-%dT%H:%M:%SZ") ++ "\\t" ++ description.first_line() ++ "\\n"',
     ]);
 
     if (result.exitCode !== 0) {
@@ -132,15 +140,17 @@ export class VcsManager extends EventEmitter {
       const line = raw.trim();
       if (!line) continue;
 
-      const tab = line.indexOf('\t');
-      const changeId = tab === -1 ? line : line.slice(0, tab);
-      const description = tab === -1 ? '(no description)' : line.slice(tab + 1).trim() || '(no description)';
+      const parts = line.split('\t');
+      const changeId = parts[0] ?? line;
+      const timestamp = parts[1] ?? '';
+      const description = (parts[2] ?? '').trim() || '(no description)';
+      const source = parseSourceFromDescription(description);
 
       checkpoints.push({
         changeId,
         description,
-        source: 'manual',
-        createdAt: nowIso(),
+        source,
+        createdAt: timestamp || nowIso(),
       });
     }
 
@@ -224,6 +234,12 @@ export class VcsManager extends EventEmitter {
     return checkpoint;
   }
 
+  /**
+   * Restore workspace files to the state at the given checkpoint.
+   *
+   * Uses `jj new <changeId>` (not `jj restore`) to create a new change
+   * on top of the target, keeping the timeline linear and intact.
+   */
   async restoreCheckpoint(workspaceId: string, changeId: string): Promise<void> {
     await this.ensureRepoInitialized(workspaceId);
 

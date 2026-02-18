@@ -25,6 +25,7 @@ import type {
 
 import {
   nextId,
+  formatCustomMessage,
   convertSessionMessages,
   buildCheckpointMapByTurn,
   attachmentsToImages,
@@ -98,19 +99,22 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
       case 'agent_end':
         sendEvent({ type: 'agent_end', sessionId });
         {
+          // Consume the oldest pending prompt and try to resolve its checkpoint.
+          // Cleanup happens here (not in prompt's finally) so the checkpoint
+          // map is guaranteed to be built after the session branch is finalized.
           const pending = entry.pendingCheckpointPrompts.shift();
-          if (!pending) break;
-
-          const checkpoints = buildCheckpointMapByTurn(entry.session, entry.workspaceId);
-          const checkpoint = checkpoints.get(pending.turnIndex);
-          if (!checkpoint) break;
-
-          sendEvent({
-            type: 'user_checkpoint',
-            sessionId,
-            userMessageId: pending.messageId,
-            checkpoint,
-          } as unknown as AgentStreamEvent);
+          if (pending) {
+            const checkpoints = buildCheckpointMapByTurn(entry.session, entry.workspaceId);
+            const checkpoint = checkpoints.get(pending.turnIndex);
+            if (checkpoint) {
+              sendEvent({
+                type: 'user_checkpoint',
+                sessionId,
+                userMessageId: pending.messageId,
+                checkpoint,
+              });
+            }
+          }
         }
         break;
 
@@ -125,22 +129,8 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
           entry.currentAssistantId = chatMsg.id;
           sendEvent({ type: 'message_start', sessionId, message: chatMsg });
         } else if (event.message.role === 'custom') {
-          const display = (event.message as any).display ?? true;
-          if (!display) break;
-
-          const customType = String((event.message as any).customType ?? '').trim();
-          const content = (event.message as any).content;
-          const text =
-            typeof content === 'string'
-              ? content
-              : Array.isArray(content)
-                ? content
-                    .filter((c): c is { type: 'text'; text: string } => c?.type === 'text')
-                    .map((c) => c.text)
-                    .join('\n')
-                : '';
-          const prefixed = customType ? `[${customType}] ${text}` : text;
-          if (!prefixed.trim()) break;
+          const prefixed = formatCustomMessage(event.message as any);
+          if (!prefixed) break;
 
           const chatMsg: ChatAssistantMessage = {
             type: 'assistant',
@@ -382,12 +372,7 @@ export function registerAgentHandlers(): void {
       entry.pendingCheckpointPrompts.push(pendingPrompt);
 
       const images = attachmentsToImages(attachments);
-      try {
-        await entry.session.prompt(text, images ? { images } : undefined);
-      } finally {
-        entry.pendingCheckpointPrompts =
-          entry.pendingCheckpointPrompts.filter((p) => p.messageId !== userMessageId);
-      }
+      await entry.session.prompt(text, images ? { images } : undefined);
     },
   );
 

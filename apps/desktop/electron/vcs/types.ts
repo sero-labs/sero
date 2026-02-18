@@ -1,35 +1,11 @@
-export type VcsCheckpointSource = 'turn' | 'fs' | 'manual' | 'restore';
-
-export interface VcsCheckpoint {
-  changeId: string;
-  description: string;
-  source: VcsCheckpointSource;
-  createdAt: string;
-}
-
-export interface VcsWorkspaceState {
-  workspaceId: string;
-  currentChangeId: string | null;
-  hasWorkingCopyChanges: boolean;
-  checkpoints: VcsCheckpoint[];
-}
-
-export type VcsEvent =
-  | {
-      type: 'checkpoint_created';
-      workspaceId: string;
-      checkpoint: VcsCheckpoint;
-    }
-  | {
-      type: 'restored';
-      workspaceId: string;
-      checkpointId: string;
-    }
-  | {
-      type: 'error';
-      workspaceId: string;
-      error: string;
-    };
+// Re-export shared VCS types from the canonical renderer location.
+// Electron-only types (JjResult, CreateCheckpointOptions) are defined below.
+export type {
+  VcsCheckpointSource,
+  VcsCheckpoint,
+  VcsWorkspaceState,
+  VcsEvent,
+} from '../../src/types/vcs';
 
 export interface JjResult {
   exitCode: number;
@@ -38,6 +14,6 @@ export interface JjResult {
 }
 
 export interface CreateCheckpointOptions {
-  source: VcsCheckpointSource;
+  source: import('../../src/types/vcs').VcsCheckpointSource;
   description?: string;
 }

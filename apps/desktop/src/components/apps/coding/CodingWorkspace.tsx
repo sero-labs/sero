@@ -108,7 +108,13 @@ export function CodingWorkspace() {
     return cleanup;
   }, []);
 
-  // ── JJ checkpoint watcher ──
+  // ── JJ checkpoint event listener + watcher ──
+  const initVcsEventListener = useVcsStore((s) => s.initEventListener);
+  useEffect(() => {
+    const unsubVcs = initVcsEventListener();
+    return unsubVcs;
+  }, [initVcsEventListener]);
+
   useEffect(() => {
     void watchVcsWorkspace(workspaceId);
     void loadVcsWorkspace(workspaceId);

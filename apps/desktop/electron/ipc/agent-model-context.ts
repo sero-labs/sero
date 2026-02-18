@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron';
+import type { AgentSession, DefaultResourceLoader } from '@mariozechner/pi-coding-agent';
 
 import { IpcChannels } from '../../src/types/ipc';
 import type {
@@ -19,8 +20,8 @@ import {
 } from './agent-helpers';
 
 export interface AgentPoolContextEntry {
-  session: any;
-  loader: any;
+  session: AgentSession;
+  loader: DefaultResourceLoader;
   contextOverrides: ContextOverrides | null;
   originalToolNames: string[] | null;
 }
@@ -40,7 +41,7 @@ export function registerAgentModelContextHandlers(
     async (_event, sessionId: string): Promise<SessionModelState | null> => {
       const entry = getEntry(sessionId);
       if (!entry) return null;
-      return buildModelState(entry as any);
+      return buildModelState(entry);
     },
   );
 
@@ -55,7 +56,7 @@ export function registerAgentModelContextHandlers(
       const model = entry.session.modelRegistry.find(validatedProvider, modelId);
       if (!model) {
         const available = entry.session.modelRegistry.getAvailable();
-        const availableIds = available.map((m: any) => `${m.provider}/${m.id}`).join(', ');
+        const availableIds = available.map((m) => `${m.provider}/${m.id}`).join(', ');
         throw new Error(
           `Model not found: ${provider}/${modelId}. ` +
           `Available models: ${availableIds || '(none)'}`,
@@ -63,7 +64,7 @@ export function registerAgentModelContextHandlers(
       }
 
       const availableModels = entry.session.modelRegistry.getAvailable();
-      const hasAuth = availableModels.some((m: any) => m.provider === provider && m.id === modelId);
+      const hasAuth = availableModels.some((m) => m.provider === provider && m.id === modelId);
       if (!hasAuth) {
         throw new Error(
           `No auth credentials for ${provider}/${modelId}. ` +
@@ -72,7 +73,7 @@ export function registerAgentModelContextHandlers(
       }
 
       await entry.session.setModel(model);
-      const state = buildModelState(entry as any);
+      const state = buildModelState(entry);
       sendEvent({ type: 'model_change', sessionId, state });
       return state;
     },
@@ -86,7 +87,7 @@ export function registerAgentModelContextHandlers(
 
       const validatedLevel = validateThinkingLevel(level);
       entry.session.setThinkingLevel(validatedLevel);
-      const state = buildModelState(entry as any);
+      const state = buildModelState(entry);
       sendEvent({ type: 'model_change', sessionId, state });
       return state;
     },
@@ -100,14 +101,14 @@ export function registerAgentModelContextHandlers(
 
       const state = entry.session.agent.state;
 
-      const tools: ContextToolInfo[] = state.tools.map((t: any) => ({
+      const tools: ContextToolInfo[] = state.tools.map((t) => ({
         name: t.name,
-        label: t.label,
+        label: (t as any).label,
         description: t.description,
       }));
 
       const { skills: rawSkills } = entry.loader.getSkills();
-      const skills: ContextSkillInfo[] = rawSkills.map((s: any) => ({
+      const skills: ContextSkillInfo[] = rawSkills.map((s) => ({
         name: s.name,
         description: s.description,
         filePath: s.filePath,
@@ -153,15 +154,15 @@ export function registerAgentModelContextHandlers(
         (overrides.systemPrompt === undefined || overrides.systemPrompt === null)
       ) {
         const disabled = new Set(overrides.disabledSkills);
-        const prompt = getBaseSystemPrompt(session as any);
+        const prompt = getBaseSystemPrompt(session);
         if (typeof prompt === 'string') {
           const filtered = stripDisabledSkills(prompt, disabled);
-          setBaseSystemPrompt(session as any, filtered);
+          setBaseSystemPrompt(session, filtered);
         }
       }
 
       if (overrides.systemPrompt !== undefined && overrides.systemPrompt !== null) {
-        setBaseSystemPrompt(session as any, overrides.systemPrompt);
+        setBaseSystemPrompt(session, overrides.systemPrompt);
       }
     },
   );

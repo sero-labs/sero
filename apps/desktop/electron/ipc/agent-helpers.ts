@@ -26,6 +26,35 @@ export function nextId(): string {
   return `msg-${Date.now()}-${++msgCounter}`;
 }
 
+// ── Custom message formatting ────────────────────────────────
+
+/**
+ * Extract display text from a custom SDK message.
+ * Returns null if the message should not be displayed.
+ */
+export function formatCustomMessage(msg: {
+  display?: boolean;
+  customType?: string;
+  content?: unknown;
+}): string | null {
+  const display = msg.display ?? true;
+  if (!display) return null;
+
+  const customType = String(msg.customType ?? '').trim();
+  const content = msg.content;
+  const text =
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content
+            .filter((c): c is { type: 'text'; text: string } => c?.type === 'text')
+            .map((c) => c.text)
+            .join('\n')
+        : '';
+  const prefixed = customType ? `[${customType}] ${text}` : text;
+  return prefixed.trim() ? prefixed : null;
+}
+
 const CHECKPOINT_ENTRY = 'jj-checkpoint';
 
 function asCheckpointRef(data: unknown): ChatCheckpointRef | null {
@@ -172,22 +201,8 @@ export function convertSessionMessages(
         });
       }
     } else if (msg.role === 'custom') {
-      const display = (msg as any).display ?? true;
-      if (!display) continue;
-
-      const customType = String((msg as any).customType ?? '').trim();
-      const customContent = (msg as any).content;
-      const text =
-        typeof customContent === 'string'
-          ? customContent
-          : Array.isArray(customContent)
-            ? customContent
-                .filter((c): c is { type: 'text'; text: string } => c?.type === 'text')
-                .map((c) => c.text)
-                .join('\n')
-            : '';
-      const prefixed = customType ? `[${customType}] ${text}` : text;
-      if (!prefixed.trim()) continue;
+      const prefixed = formatCustomMessage(msg as any);
+      if (!prefixed) continue;
       result.push({ type: 'assistant', id: nextId(), text: prefixed, isStreaming: false });
     }
   }

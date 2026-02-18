@@ -30,15 +30,10 @@ import { AuthLoginDialog } from './AuthLoginDialog';
 import { groupMessages, ToolCallGroup } from './ToolCallGroup';
 import { ContextEditor } from './ContextEditor';
 import { ChatMessageItem } from './ChatMessageItem';
-import {
-  CheckpointRestoreDialog,
-  summarizeDiffFiles,
-  type RestorePreviewFileChange,
-} from './CheckpointRestoreDialog';
+import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
+import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
 import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
-import { useVcsStore } from '@/stores/vcs';
 
 /** Built-in commands handled client-side (not sent to the agent). */
 const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [
@@ -76,15 +71,7 @@ export function ChatPanel() {
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
   const focusedWorkspaceId = focused?.workspaceId ?? null;
-  const restoreCheckpoint = useVcsStore((s) => s.restoreCheckpoint);
-  const fetchCheckpointDiff = useVcsStore((s) => s.fetchDiff);
-
-  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
-  const [restoreTarget, setRestoreTarget] = useState<ChatCheckpointRef | null>(null);
-  const [restorePreviewFiles, setRestorePreviewFiles] = useState<RestorePreviewFileChange[]>([]);
-  const [restorePreviewLoading, setRestorePreviewLoading] = useState(false);
-  const [restorePreviewError, setRestorePreviewError] = useState<string | null>(null);
-  const [restoring, setRestoring] = useState(false);
+  const checkpoint = useCheckpointRestore(focusedWorkspaceId);
 
   // Resolve session name for the header badge
   const sessions = useSessionStore((s) => s.sessions);
@@ -108,49 +95,6 @@ export function ChatPanel() {
   const handleAuthComplete = useCallback(() => {
     if (sessionId) fetchModelState(sessionId);
   }, [sessionId, fetchModelState]);
-
-  const handleCheckpointRestoreRequest = useCallback(
-    (checkpoint: ChatCheckpointRef) => {
-      if (!focusedWorkspaceId) return;
-
-      setRestoreTarget(checkpoint);
-      setRestorePreviewFiles([]);
-      setRestorePreviewError(null);
-      setRestorePreviewLoading(true);
-      setRestoreDialogOpen(true);
-
-      void fetchCheckpointDiff(focusedWorkspaceId, checkpoint.changeId)
-        .then((diff) => {
-          setRestorePreviewFiles(summarizeDiffFiles(diff));
-          setRestorePreviewLoading(false);
-        })
-        .catch((err) => {
-          setRestorePreviewError(err instanceof Error ? err.message : 'Failed to load diff preview');
-          setRestorePreviewLoading(false);
-        });
-    },
-    [focusedWorkspaceId, fetchCheckpointDiff],
-  );
-
-  const handleConfirmRestore = useCallback(() => {
-    if (!focusedWorkspaceId || !restoreTarget || restoring) return;
-
-    setRestoring(true);
-    void restoreCheckpoint(focusedWorkspaceId, restoreTarget.changeId)
-      .then(() => {
-        setRestoreDialogOpen(false);
-        setRestoreTarget(null);
-        setRestorePreviewFiles([]);
-        setRestorePreviewError(null);
-      })
-      .catch((err) => {
-        setRestorePreviewError(err instanceof Error ? err.message : 'Restore failed');
-      })
-      .finally(() => {
-        setRestoring(false);
-        setRestorePreviewLoading(false);
-      });
-  }, [focusedWorkspaceId, restoreTarget, restoring, restoreCheckpoint]);
 
   // ── Slash command menu state ─────────────────────────────
   // Merge SDK commands with built-in client-side commands
@@ -284,7 +228,7 @@ export function ChatPanel() {
                   <ChatMessageItem
                     key={item.message.id}
                     message={item.message}
-                    onRestoreCheckpoint={focusedWorkspaceId ? handleCheckpointRestoreRequest : undefined}
+                    onRestoreCheckpoint={focusedWorkspaceId ? checkpoint.requestRestore : undefined}
                   />
                 );
               })}
@@ -371,22 +315,14 @@ export function ChatPanel() {
       </div>
 
       <CheckpointRestoreDialog
-        open={restoreDialogOpen}
-        checkpointId={restoreTarget?.changeId ?? ''}
-        files={restorePreviewFiles}
-        isLoading={restorePreviewLoading}
-        error={restorePreviewError}
-        isRestoring={restoring}
-        onOpenChange={(open) => {
-          setRestoreDialogOpen(open);
-          if (!open && !restoring) {
-            setRestoreTarget(null);
-            setRestorePreviewFiles([]);
-            setRestorePreviewError(null);
-            setRestorePreviewLoading(false);
-          }
-        }}
-        onConfirm={handleConfirmRestore}
+        open={checkpoint.dialogOpen}
+        checkpointId={checkpoint.target?.changeId ?? ''}
+        files={checkpoint.previewFiles}
+        isLoading={checkpoint.previewLoading}
+        error={checkpoint.previewError}
+        isRestoring={checkpoint.restoring}
+        onOpenChange={checkpoint.setDialogOpen}
+        onConfirm={checkpoint.confirmRestore}
       />
 
       {/* Auth login/logout dialog (OAuth + API key) */}

@@ -1,17 +1,9 @@
 import { BrowserWindow, ipcMain } from 'electron';
 
+import { IpcChannels } from '../../src/types/ipc';
 import { vcsManager } from './shared-infra';
 
-const VcsChannels = {
-  list: 'sero:vcs:list-checkpoints',
-  state: 'sero:vcs:state',
-  create: 'sero:vcs:create-checkpoint',
-  restore: 'sero:vcs:restore',
-  diff: 'sero:vcs:diff',
-  watch: 'sero:vcs:watch',
-  unwatch: 'sero:vcs:unwatch',
-  event: 'sero:vcs:event',
-} as const;
+const VcsChannels = IpcChannels.vcs;
 
 function broadcast(event: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
