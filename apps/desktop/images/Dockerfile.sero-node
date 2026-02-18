@@ -13,6 +13,27 @@ RUN apt-get update -qq && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# JJ (Jujutsu) — version control used by Sero for checkpointing, bookmarking,
+# forking, and undo. Pinned version for stability (JJ is pre-1.0).
+# Installed via official GitHub release binary (static, no deps).
+ARG JJ_VERSION=0.28.2
+RUN ARCH=$(dpkg --print-architecture) && \
+    case "$ARCH" in \
+      amd64) JJ_ARCH="x86_64" ;; \
+      arm64) JJ_ARCH="aarch64" ;; \
+      *) echo "Unsupported arch: $ARCH" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-${JJ_ARCH}-unknown-linux-musl.tar.gz" \
+      | tar xz --strip-components=0 -C /usr/local/bin ./jj && \
+    chmod +x /usr/local/bin/jj && \
+    jj --version
+
+# Configure JJ defaults for non-interactive agent use
+RUN jj config set --user ui.color never && \
+    jj config set --user ui.paginate never && \
+    jj config set --user user.name "Sero" && \
+    jj config set --user user.email "sero@local"
+
 # Playwright + Chromium — used by agent for screenshot validation & web testing
 RUN pip3 install --break-system-packages playwright && \
     python3 -m playwright install --with-deps chromium
