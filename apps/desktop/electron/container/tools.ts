@@ -3,311 +3,179 @@
  *
  * These replace Pi SDK's createCodingTools() — every tool executes
  * inside the workspace's container via `container exec`.
+ *
+ * Behaviour is aligned with Pi SDK tools (truncation, fuzzy edit
+ * matching, actionable notices, etc.) so the agent gets a consistent
+ * experience whether running on the host or inside a container.
+ *
+ * IMPORTANT: Errors are thrown (rejected), not returned with isError.
+ * The Pi SDK agent-loop only sets isError=true when the tool rejects;
+ * returning { isError: true } from a resolved promise is silently
+ * ignored by the framework.
+ *
+ * Core coding tools (bash, read, write, edit) live in tools-coding.ts.
+ * Workspace tools (ls, read_terminal, register_dev_server) live here.
  */
 
-import { Type, type Static } from '@sinclair/typebox';
+import type { Static } from '@sinclair/typebox';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import type { ContainerManager } from './index';
+import { DEFAULT_MAX_BYTES, formatSize, truncateHead } from './truncate';
+import {
+  WORKSPACE_DIR,
+  resolveContainerPath,
+  shellEscape,
+  LsParams,
+  ReadTerminalParams,
+  RegisterDevServerParams,
+} from './tool-schemas';
+import { createBash, createRead, createWrite, createEdit } from './tools-coding';
 
-const WORKSPACE_DIR = '/workspace';
+// ── Workspace tool factories ────────────────────────────────
 
-// ── Tool parameter schemas (extracted so Static<> can infer) ──
-
-const BashParams = Type.Object({
-  command: Type.String({ description: 'The bash command to execute' }),
-  timeout: Type.Optional(Type.Number({ description: 'Timeout in seconds (default: 120)' })),
-});
-
-const ReadParams = Type.Object({
-  path: Type.String({ description: 'Path to the file to read' }),
-  offset: Type.Optional(
-    Type.Number({ description: 'Line number to start reading from (1-indexed)' }),
-  ),
-  limit: Type.Optional(Type.Number({ description: 'Maximum number of lines to read' })),
-});
-
-const WriteParams = Type.Object({
-  path: Type.String({ description: 'Path to the file to write' }),
-  content: Type.String({ description: 'Content to write to the file' }),
-});
-
-const EditParams = Type.Object({
-  path: Type.String({ description: 'Path to the file to edit' }),
-  oldText: Type.String({ description: 'Exact text to find and replace' }),
-  newText: Type.String({ description: 'New text to replace the old text with' }),
-});
-
-const LsParams = Type.Object({
-  path: Type.Optional(
-    Type.String({ description: 'Directory path (default: workspace root)' }),
-  ),
-});
-
-const ReadTerminalParams = Type.Object({
-  lines: Type.Optional(
-    Type.Number({ description: 'Number of recent lines to read (default: 80)' }),
-  ),
-});
-
-const RegisterDevServerParams = Type.Object({
-  name: Type.String({ description: 'Human-readable name (e.g. "Vite Dev Server")' }),
-  port: Type.Number({ description: 'Port the server is listening on' }),
-  command: Type.String({
-    description:
-      'The full command used to start the server (for restart capability). ' +
-      'E.g. "npx vite --host 0.0.0.0 --port 3000"',
-  }),
-  framework: Type.Optional(
-    Type.String({ description: 'Framework hint (e.g. "vite", "next", "express")' }),
-  ),
-});
-
-// ── Helpers ──────────────────────────────────────────────────
-
-/** Resolve a potentially relative path against the workspace root. */
-function resolveContainerPath(p: string): string {
-  return p.startsWith('/') ? p : `${WORKSPACE_DIR}/${p}`;
-}
-
-/** Shell-escape single quotes in a path. */
-function shellEscape(p: string): string {
-  return p.replace(/'/g, "'\\''");
-}
-
-/** Format an error into a tool result. */
-function errorResult(message: string) {
-  return {
-    content: [{ type: 'text' as const, text: message }],
-    details: {},
-    isError: true,
-  };
-}
-
-// ── Tool factories ──────────────────────────────────────────
-
-/** Create the bash tool — executes commands inside the container. */
-function createBash(cm: ContainerManager, workspaceId: string): ToolDefinition {
-  return {
-    name: 'bash',
-    label: 'Bash',
-    description: `Execute a bash command inside the workspace's sandboxed Linux container. The working directory is ${WORKSPACE_DIR}. Commands run as root in a Debian-based environment (node:22-slim).`,
-    parameters: BashParams,
-    execute: async (_toolCallId, params: Static<typeof BashParams>) => {
-      try {
-        const timeoutMs = params.timeout ? params.timeout * 1000 : undefined;
-        const result = await cm.exec(workspaceId, params.command, WORKSPACE_DIR, timeoutMs);
-        const output = (result.stdout + (result.stderr ? '\n' + result.stderr : '')).trim();
-        const truncated =
-          output.length > 50000 ? output.slice(-50000) + '\n[truncated]' : output;
-
-        let displayText: string;
-        if (truncated) {
-          displayText = truncated;
-        } else if (result.exitCode === 0) {
-          displayText = '✓ Command completed (no output)';
-        } else {
-          displayText = `✗ Command failed with exit code ${result.exitCode} (no output)`;
-        }
-
-        // Append detected dev server URLs (from last scan, no blocking wait)
-        const ports = cm.portScanner.getPorts(workspaceId);
-        if (ports.length > 0) {
-          const lines = ports.map((p) => `  ${p.url}  (port ${p.port})`);
-          displayText += `\n\n[Dev servers]\n${lines.join('\n')}`;
-        }
-
-        // Trigger a background scan for the *next* bash call to pick up
-        cm.portScanner.triggerScan(workspaceId);
-
-        return {
-          content: [{ type: 'text', text: displayText }],
-          details: { exitCode: result.exitCode },
-          isError: result.exitCode !== 0,
-        };
-      } catch (err: unknown) {
-        return errorResult(`Error: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    },
-  };
-}
-
-/** Create the read tool — reads files from inside the container. */
-function createRead(cm: ContainerManager, workspaceId: string): ToolDefinition {
-  return {
-    name: 'read',
-    label: 'Read',
-    description: `Read the contents of a file inside the container. Paths are relative to ${WORKSPACE_DIR} unless absolute.`,
-    parameters: ReadParams,
-    execute: async (_toolCallId, params: Static<typeof ReadParams>) => {
-      try {
-        const absPath = resolveContainerPath(params.path);
-        const escaped = shellEscape(absPath);
-        let cmd = `cat '${escaped}'`;
-
-        if (params.offset || params.limit) {
-          const start = params.offset ?? 1;
-          cmd = params.limit
-            ? `sed -n '${start},${start + params.limit - 1}p' '${escaped}'`
-            : `tail -n +${start} '${escaped}'`;
-        }
-
-        const result = await cm.exec(workspaceId, cmd);
-        if (result.exitCode !== 0) {
-          return errorResult(`Error reading ${params.path}: ${result.stderr}`);
-        }
-
-        const truncated =
-          result.stdout.length > 50000
-            ? result.stdout.slice(0, 50000) + '\n[truncated — use offset/limit for large files]'
-            : result.stdout;
-        return { content: [{ type: 'text', text: truncated }], details: { path: absPath } };
-      } catch (err: unknown) {
-        return errorResult(`Error: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    },
-  };
-}
-
-/** Create the write tool — writes files inside the container. */
-function createWrite(cm: ContainerManager, workspaceId: string): ToolDefinition {
-  return {
-    name: 'write',
-    label: 'Write',
-    description: `Write content to a file inside the container. Creates parent directories automatically. Paths relative to ${WORKSPACE_DIR}.`,
-    parameters: WriteParams,
-    execute: async (_toolCallId, params: Static<typeof WriteParams>) => {
-      try {
-        const absPath = resolveContainerPath(params.path);
-        await cm.writeFile(workspaceId, absPath, params.content);
-        return {
-          content: [{ type: 'text', text: `Successfully wrote to ${absPath}` }],
-          details: { path: absPath },
-        };
-      } catch (err: unknown) {
-        return errorResult(`Error writing ${params.path}: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    },
-  };
-}
-
-/** Create the edit tool — surgical edits to files inside the container. */
-function createEdit(cm: ContainerManager, workspaceId: string): ToolDefinition {
-  return {
-    name: 'edit',
-    label: 'Edit',
-    description: `Edit a file inside the container by replacing exact text. The oldText must match exactly (including whitespace). Paths relative to ${WORKSPACE_DIR}.`,
-    parameters: EditParams,
-    execute: async (_toolCallId, params: Static<typeof EditParams>) => {
-      try {
-        const absPath = resolveContainerPath(params.path);
-        const escaped = shellEscape(absPath);
-        const readResult = await cm.exec(workspaceId, `cat '${escaped}'`);
-        if (readResult.exitCode !== 0) {
-          return errorResult(`Error reading ${absPath}: ${readResult.stderr}`);
-        }
-        if (!readResult.stdout.includes(params.oldText)) {
-          return errorResult(
-            `Error: oldText not found in ${absPath}. Make sure it matches exactly.`,
-          );
-        }
-        const newContent = readResult.stdout.replace(params.oldText, params.newText);
-        await cm.writeFile(workspaceId, absPath, newContent);
-        return {
-          content: [{ type: 'text', text: `Successfully edited ${absPath}` }],
-          details: { path: absPath },
-        };
-      } catch (err: unknown) {
-        return errorResult(`Error editing ${params.path}: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    },
-  };
-}
-
-/** Create the ls tool — list directory contents. */
 function createLs(cm: ContainerManager, workspaceId: string): ToolDefinition {
   return {
     name: 'ls',
-    label: 'List Directory',
-    description: `List files and directories inside the container. Paths relative to ${WORKSPACE_DIR}.`,
+    label: 'ls',
+    description:
+      `List directory contents. Returns entries sorted alphabetically, ` +
+      `with '/' suffix for directories. Includes dotfiles. Output is ` +
+      `truncated to ${DEFAULT_MAX_BYTES / 1024}KB.`,
     parameters: LsParams,
-    execute: async (_toolCallId, params: Static<typeof LsParams>) => {
-      try {
-        const absPath = params.path ? resolveContainerPath(params.path) : WORKSPACE_DIR;
-        const escaped = shellEscape(absPath);
-        const result = await cm.exec(workspaceId, `ls -la '${escaped}'`);
-        return {
-          content: [{ type: 'text', text: result.stdout || '(empty directory)' }],
-          details: { path: absPath },
-          isError: result.exitCode !== 0,
-        };
-      } catch (err: unknown) {
-        return errorResult(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    execute: async (_toolCallId, params: Static<typeof LsParams>, signal?) => {
+      if (signal?.aborted) throw new Error('Operation aborted');
+
+      const absPath = params.path
+        ? resolveContainerPath(params.path)
+        : WORKSPACE_DIR;
+      const escaped = shellEscape(absPath);
+      const result = await cm.exec(workspaceId, `ls -1a '${escaped}'`);
+
+      if (result.exitCode !== 0) {
+        throw new Error(
+          result.stderr || `Cannot list directory: ${params.path ?? WORKSPACE_DIR}`,
+        );
       }
+
+      const raw = result.stdout.trim();
+      if (!raw) {
+        return {
+          content: [{ type: 'text', text: '(empty directory)' }],
+          details: { path: absPath },
+        };
+      }
+
+      // Add '/' suffix for directories (batch stat)
+      const entries = raw.split('\n').filter((e) => e !== '.' && e !== '..');
+      const statCmd = entries
+        .map((e) => {
+          const full = shellEscape(`${absPath}/${e}`);
+          return `[ -d '${full}' ] && echo "${e}/" || echo "${e}"`;
+        })
+        .join('; ');
+      const statResult =
+        entries.length > 0 ? await cm.exec(workspaceId, statCmd) : null;
+      const formatted = statResult?.stdout?.trim() || raw;
+
+      // Sort alphabetically (case-insensitive)
+      const sorted = formatted
+        .split('\n')
+        .filter(Boolean)
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+      const output = sorted.join('\n');
+      const truncation = truncateHead(output, {
+        maxLines: Number.MAX_SAFE_INTEGER,
+      });
+      let resultText = truncation.content;
+
+      if (truncation.truncated) {
+        resultText += `\n\n[${formatSize(DEFAULT_MAX_BYTES)} limit reached]`;
+      }
+
+      return {
+        content: [{ type: 'text', text: resultText }],
+        details: { path: absPath },
+      };
     },
   };
 }
 
-/** Create the read_terminal tool — reads terminal output buffer. */
-function createReadTerminal(cm: ContainerManager, workspaceId: string): ToolDefinition {
+function createReadTerminal(
+  cm: ContainerManager,
+  workspaceId: string,
+): ToolDefinition {
   return {
     name: 'read_terminal',
     label: 'Read Terminal',
     description:
-      "Read the recent output from the workspace's terminal sessions. Use this to check dev server logs, build output, error messages, or any other terminal output.",
+      "Read the recent output from the workspace's terminal sessions. " +
+      'Use this to check dev server logs, build output, error messages, ' +
+      'or any other terminal output.',
     parameters: ReadTerminalParams,
-    execute: async (_toolCallId, params: Static<typeof ReadTerminalParams>) => {
-      try {
-        const output = cm.terminals.readWorkspaceTerminalOutput(workspaceId, params.lines ?? 80);
-        return { content: [{ type: 'text', text: output }], details: {} };
-      } catch (err: unknown) {
-        return errorResult(`Error reading terminal: ${err instanceof Error ? err.message : String(err)}`);
-      }
+    execute: async (
+      _toolCallId,
+      params: Static<typeof ReadTerminalParams>,
+      signal?,
+    ) => {
+      if (signal?.aborted) throw new Error('Operation aborted');
+
+      const output = cm.terminals.readWorkspaceTerminalOutput(
+        workspaceId,
+        params.lines ?? 80,
+      );
+      return { content: [{ type: 'text', text: output }], details: {} };
     },
   };
 }
 
-/** Create the register_dev_server tool — registers a dev server with the host for management. */
-function createRegisterDevServer(cm: ContainerManager, workspaceId: string): ToolDefinition {
+function createRegisterDevServer(
+  cm: ContainerManager,
+  workspaceId: string,
+): ToolDefinition {
   return {
     name: 'register_dev_server',
     label: 'Register Dev Server',
     description:
-      'Register a running dev server with the host so the user can see it in the Dev Servers panel and stop/restart it from the UI. ' +
-      'Call this AFTER successfully starting a dev server and confirming it is listening on a port. ' +
-      'The user will see the server name, URL, and controls in the Sero status bar.',
+      'Register a running dev server with the host so the user can see it ' +
+      'in the Dev Servers panel and stop/restart it from the UI. ' +
+      'Call this AFTER successfully starting a dev server and confirming ' +
+      'it is listening on a port.',
     parameters: RegisterDevServerParams,
-    execute: async (_toolCallId, params: Static<typeof RegisterDevServerParams>) => {
-      try {
-        const server = cm.devServers.register({
-          workspaceId,
-          name: params.name,
-          port: params.port,
-          command: params.command,
-          framework: params.framework,
-        });
+    execute: async (
+      _toolCallId,
+      params: Static<typeof RegisterDevServerParams>,
+      signal?,
+    ) => {
+      if (signal?.aborted) throw new Error('Operation aborted');
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text:
-                `✓ Dev server registered: ${server.name}\n` +
-                `  URL: ${server.url}\n` +
-                `  Port: ${server.port}\n` +
-                `  Status: ${server.status}\n` +
-                `The user can now manage this server from the Dev Servers panel in the status bar.`,
-            },
-          ],
-          details: { serverId: server.id, url: server.url },
-        };
-      } catch (err: unknown) {
-        return errorResult(
-          `Failed to register dev server: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+      const server = cm.devServers.register({
+        workspaceId,
+        name: params.name,
+        port: params.port,
+        command: params.command,
+        framework: params.framework,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `✓ Dev server registered: ${server.name}\n` +
+              `  URL: ${server.url}\n` +
+              `  Port: ${server.port}\n` +
+              `  Status: ${server.status}\n` +
+              'The user can now manage this server from the Dev Servers panel.',
+          },
+        ],
+        details: { serverId: server.id, url: server.url },
+      };
     },
   };
 }
+
+// ── Public API ──────────────────────────────────────────────
 
 /**
  * Build all container tools for a workspace.

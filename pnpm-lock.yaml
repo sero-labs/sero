@@ -116,6 +116,9 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      diff:
+        specifier: ^8.0.3
+        version: 8.0.3
       dockview-core:
         specifier: ^4.13.1
         version: 4.13.1
@@ -219,6 +222,9 @@ importers:
         specifier: ^5.0.11
         version: 5.0.11(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
+      '@types/diff':
+        specifier: ^8.0.0
+        version: 8.0.0
       '@types/node':
         specifier: ^22.19.9
         version: 22.19.11
@@ -426,7 +432,7 @@ importers:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: '>=0.52.0'
-        version: 0.52.12(ws@8.18.0)
+        version: 0.52.12
     devDependencies:
       '@module-federation/vite':
         specifier: ^1.11.0
@@ -3188,6 +3194,10 @@ packages:
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
+
+  '@types/diff@8.0.0':
+    resolution: {integrity: sha512-o7jqJM04gfaYrdCecCVMbZhNdG6T1MHg/oQoRFdERLV+4d+V7FijhiEAbFu0Usww84Yijk9yH58U4Jk4HbtzZw==}
+    deprecated: This is a stub types definition. diff provides its own type definitions, so you do not need this installed.
 
   '@types/estree-jsx@1.0.5':
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
@@ -8545,6 +8555,18 @@ snapshots:
       std-env: 3.10.0
       yoctocolors: 2.1.2
 
+  '@mariozechner/pi-agent-core@0.52.12':
+    dependencies:
+      '@mariozechner/pi-ai': 0.52.12
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - aws-crt
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
   '@mariozechner/pi-agent-core@0.52.12(@modelcontextprotocol/sdk@1.26.0(zod@4.3.6))(ws@8.18.0)(zod@4.3.6)':
     dependencies:
       '@mariozechner/pi-ai': 0.52.12(@modelcontextprotocol/sdk@1.26.0(zod@4.3.6))(ws@8.18.0)(zod@4.3.6)
@@ -8569,9 +8591,21 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-agent-core@0.52.12(ws@8.18.0)':
+  '@mariozechner/pi-ai@0.52.12':
     dependencies:
-      '@mariozechner/pi-ai': 0.52.12(ws@8.18.0)
+      '@anthropic-ai/sdk': 0.73.0(zod@4.3.6)
+      '@aws-sdk/client-bedrock-runtime': 3.990.0
+      '@google/genai': 1.41.0(@modelcontextprotocol/sdk@1.26.0(zod@4.3.6))
+      '@mistralai/mistralai': 1.10.0
+      '@sinclair/typebox': 0.34.48
+      ajv: 8.17.1
+      ajv-formats: 3.0.1(ajv@8.17.1)
+      chalk: 5.6.2
+      openai: 6.10.0(ws@8.19.0)(zod@4.3.6)
+      partial-json: 0.1.7
+      proxy-agent: 6.5.0
+      undici: 7.22.0
+      zod-to-json-schema: 3.25.1(zod@3.25.76)
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -8629,21 +8663,26 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-ai@0.52.12(ws@8.18.0)':
+  '@mariozechner/pi-coding-agent@0.52.12':
     dependencies:
-      '@anthropic-ai/sdk': 0.73.0(zod@4.3.6)
-      '@aws-sdk/client-bedrock-runtime': 3.990.0
-      '@google/genai': 1.41.0(@modelcontextprotocol/sdk@1.26.0(zod@4.3.6))
-      '@mistralai/mistralai': 1.10.0
-      '@sinclair/typebox': 0.34.48
-      ajv: 8.17.1
-      ajv-formats: 3.0.1(ajv@8.17.1)
+      '@mariozechner/jiti': 2.6.5
+      '@mariozechner/pi-agent-core': 0.52.12
+      '@mariozechner/pi-ai': 0.52.12
+      '@mariozechner/pi-tui': 0.52.12
+      '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
-      openai: 6.10.0(ws@8.18.0)(zod@4.3.6)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0
-      undici: 7.22.0
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
+      cli-highlight: 2.1.11
+      diff: 8.0.3
+      file-type: 21.3.0
+      glob: 13.0.3
+      hosted-git-info: 9.0.2
+      ignore: 7.0.5
+      marked: 15.0.12
+      minimatch: 10.2.0
+      proper-lockfile: 4.1.2
+      yaml: 2.8.2
+    optionalDependencies:
+      '@mariozechner/clipboard': 0.3.2
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -8687,35 +8726,6 @@ snapshots:
       '@mariozechner/jiti': 2.6.5
       '@mariozechner/pi-agent-core': 0.52.12(@modelcontextprotocol/sdk@1.26.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-ai': 0.52.12(@modelcontextprotocol/sdk@1.26.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-tui': 0.52.12
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.3
-      file-type: 21.3.0
-      glob: 13.0.3
-      hosted-git-info: 9.0.2
-      ignore: 7.0.5
-      marked: 15.0.12
-      minimatch: 10.2.0
-      proper-lockfile: 4.1.2
-      yaml: 2.8.2
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.2
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.52.12(ws@8.18.0)':
-    dependencies:
-      '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.52.12(ws@8.18.0)
-      '@mariozechner/pi-ai': 0.52.12(ws@8.18.0)
       '@mariozechner/pi-tui': 0.52.12
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -10710,6 +10720,10 @@ snapshots:
       '@types/ms': 2.1.0
 
   '@types/deep-eql@4.0.2': {}
+
+  '@types/diff@8.0.0':
+    dependencies:
+      diff: 8.0.3
 
   '@types/estree-jsx@1.0.5':
     dependencies:
