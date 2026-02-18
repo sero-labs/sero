@@ -22,13 +22,14 @@ import type {
   SessionUsageStats,
   ContextOverrides,
 } from '../../src/types/ipc';
+import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 
 import {
   nextId,
   formatCustomMessage,
   convertSessionMessages,
   buildCheckpointMapByTurn,
-  findCheckpointBranchTarget,
+  findCheckpointEntryId,
   attachmentsToImages,
   readHiddenCommands,
   buildCommandList,
@@ -55,7 +56,8 @@ interface PoolEntry {
   workspaceId: string;
   currentAssistantId: string | null;
   lastSessionName: string | undefined;
-  pendingCheckpointPrompts: Array<{ messageId: string; turnIndex: number }>;
+  /** Checkpoint from the most recently completed turn, to attach to the NEXT user message. */
+  lastCompletedCheckpoint: ChatCheckpointRef | null;
   contextOverrides: ContextOverrides | null;
   originalToolNames: string[] | null;
 }
@@ -101,21 +103,18 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
       case 'agent_end':
         sendEvent({ type: 'agent_end', sessionId });
         {
-          // Consume the oldest pending prompt and try to resolve its checkpoint.
-          // Cleanup happens here (not in prompt's finally) so the checkpoint
-          // map is guaranteed to be built after the session branch is finalized.
-          const pending = entry.pendingCheckpointPrompts.shift();
-          if (pending) {
-            const checkpoints = buildCheckpointMapByTurn(entry.session, entry.workspaceId);
-            const checkpoint = checkpoints.get(pending.turnIndex);
-            if (checkpoint) {
-              sendEvent({
-                type: 'user_checkpoint',
-                sessionId,
-                userMessageId: pending.messageId,
-                checkpoint,
-              });
-            }
+          // Store the checkpoint from the just-completed turn so it can be
+          // attached to the NEXT user message (shifted-by-one mapping:
+          // "restore on message N" → state before message N → end of turn N-1).
+          const checkpoints = buildCheckpointMapByTurn(entry.session, entry.workspaceId);
+          const userCount = entry.session.messages.filter((m) => m.role === 'user').length;
+          const lastTurnIdx = userCount - 1;
+          const checkpoint = checkpoints.get(lastTurnIdx);
+          if (checkpoint) {
+            entry.lastCompletedCheckpoint = checkpoint;
+            console.log(
+              `[checkpoint] Stored checkpoint changeId=${checkpoint.changeId} from turn ${lastTurnIdx} for next message`,
+            );
           }
         }
         break;
@@ -337,7 +336,7 @@ export function registerAgentHandlers(): void {
         workspaceId,
         currentAssistantId: null,
         lastSessionName: session.sessionName,
-        pendingCheckpointPrompts: [],
+        lastCompletedCheckpoint: null,
         contextOverrides: null,
         originalToolNames: null,
       });
@@ -365,13 +364,20 @@ export function registerAgentHandlers(): void {
       const userMsg: ChatMessage = { type: 'user', id: userMessageId, text, attachments };
       sendEvent({ type: 'message_start', sessionId, message: userMsg });
 
-      const pendingPrompt = {
-        messageId: userMessageId,
-        turnIndex:
-          entry.session.messages.filter((m) => m.role === 'user').length +
-          entry.pendingCheckpointPrompts.length,
-      };
-      entry.pendingCheckpointPrompts.push(pendingPrompt);
+      // Attach the checkpoint from the PREVIOUS turn to this new user message
+      // (shifted-by-one: "restore on this message" means "go back to before it").
+      if (entry.lastCompletedCheckpoint) {
+        console.log(
+          `[checkpoint] Attaching changeId=${entry.lastCompletedCheckpoint.changeId} to user message ${userMessageId}`,
+        );
+        sendEvent({
+          type: 'user_checkpoint',
+          sessionId,
+          userMessageId,
+          checkpoint: entry.lastCompletedCheckpoint,
+        });
+        entry.lastCompletedCheckpoint = null;
+      }
 
       const images = attachmentsToImages(attachments);
       await entry.session.prompt(text, images ? { images } : undefined);
@@ -442,24 +448,37 @@ export function registerAgentHandlers(): void {
         throw new Error('Cannot restore while agent is streaming');
       }
 
+      console.log(`[checkpoint] restoreToCheckpoint: sessionId=${sessionId}, changeId=${changeId}`);
+
       // 1. Restore filesystem via VCS
       await vcsManager.restoreCheckpoint(entry.workspaceId, changeId);
+      console.log(`[checkpoint] VCS restore complete for changeId=${changeId}`);
 
-      // 2. Branch session tree to the entry just BEFORE the user message
-      //    that started the turn. This hides the turn's response from chat
-      //    while the VCS restore keeps the files at the checkpoint state.
-      const branchTargetId = findCheckpointBranchTarget(entry.session, changeId);
+      // 2. Branch session tree to the checkpoint entry. With the shifted
+      //    mapping (user message N carries checkpoint from turn N-1),
+      //    the checkpoint entry is the last entry of turn N-1. Branching
+      //    to it keeps turns 0..N-1 visible and hides turn N onward.
+      const branchTargetId = findCheckpointEntryId(entry.session, changeId);
       if (branchTargetId) {
         entry.session.sessionManager.branch(branchTargetId);
         const ctx = entry.session.sessionManager.buildSessionContext();
         entry.session.agent.replaceMessages(ctx.messages);
+        console.log(
+          `[checkpoint] Session branched to ${branchTargetId}, ${ctx.messages.length} messages in context`,
+        );
+      } else {
+        console.log('[checkpoint] No session entry found — VCS-only restore');
       }
+
+      // 3. Clear any stale checkpoint so it isn't attached to the next message
+      entry.lastCompletedCheckpoint = null;
 
       // 4. Rebuild and send updated messages to the renderer
       const chatMessages = convertSessionMessages(
         entry.session.messages,
         buildCheckpointMapByTurn(entry.session, entry.workspaceId),
       );
+      console.log(`[checkpoint] Sending ${chatMessages.length} messages to renderer`);
       sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
 
       return chatMessages;

@@ -58,49 +58,30 @@ export function formatCustomMessage(msg: {
 const CHECKPOINT_ENTRY = 'jj-checkpoint';
 
 /**
- * Locate the session entry to branch to when restoring a checkpoint.
+ * Find the session entry ID of a `jj-checkpoint` custom entry by changeId.
  *
- * Walks all session entries to find the `jj-checkpoint` custom entry whose
- * `changeId` matches, then walks the parentId chain back to the user message
- * that started the turn and returns the entry **before** that user message.
- * This ensures the restored chat shows only the turns prior to the checkpoint,
- * not the turn that created it.
+ * With the shifted checkpoint mapping (user message N displays the checkpoint
+ * from turn N-1), branching to the checkpoint entry itself keeps turns 0..N-1
+ * visible in the chat and hides turn N onward.
  *
  * Returns `null` if no matching checkpoint entry exists.
  */
-export function findCheckpointBranchTarget(
+export function findCheckpointEntryId(
   session: AgentSession,
   changeId: string,
 ): string | null {
   const entries = session.sessionManager.getEntries();
-
-  // 1. Find the checkpoint custom entry by changeId
-  let checkpointEntryId: string | null = null;
   for (const e of entries) {
     if (e.type === 'custom' && e.customType === CHECKPOINT_ENTRY) {
       const data = e.data as Record<string, unknown> | undefined;
       if (data?.changeId === changeId) {
-        checkpointEntryId = e.id;
-        break;
+        console.log(`[checkpoint] Found entry ${e.id} for changeId=${changeId}`);
+        return e.id;
       }
     }
   }
-  if (!checkpointEntryId) return null;
-
-  // 2. Walk parentId chain from checkpoint to the user message that started
-  //    the turn, then return the entry just before it.
-  const entryMap = new Map(entries.map((e) => [e.id, e]));
-  let cur = entryMap.get(checkpointEntryId);
-  while (cur) {
-    if (cur.type === 'message' && cur.message.role === 'user' && cur.parentId) {
-      return cur.parentId;
-    }
-    if (!cur.parentId) break;
-    cur = entryMap.get(cur.parentId);
-  }
-
-  // Fallback: branch to the checkpoint entry itself
-  return checkpointEntryId;
+  console.log(`[checkpoint] No entry found for changeId=${changeId}`);
+  return null;
 }
 
 function asCheckpointRef(data: unknown): ChatCheckpointRef | null {
@@ -199,11 +180,15 @@ export function convertSessionMessages(
               .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
               .map((c) => c.text)
               .join('\n');
+      // Shifted by one: user message N shows the checkpoint from the
+      // *previous* turn (N-1). "Restore on message N" means "go back to
+      // the state just before I sent message N", which is the end of turn N-1.
+      const checkpoint = checkpointsByTurn?.get(userTurn - 1);
       result.push({
         type: 'user',
         id: nextId(),
         text,
-        checkpoint: checkpointsByTurn?.get(userTurn),
+        checkpoint,
       } as ChatMessage);
     } else if (msg.role === 'assistant') {
       const textParts = msg.content.filter(
