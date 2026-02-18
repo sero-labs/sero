@@ -50,6 +50,8 @@ export const IpcChannels = {
     getContext: 'sero:agent:get-context',
     /** Apply context overrides (disabled tools, system prompt override, etc.). */
     setContextOverrides: 'sero:agent:set-context-overrides',
+    /** Restore a session to a checkpoint: VCS file restore + session branch. */
+    restoreToCheckpoint: 'sero:agent:restore-to-checkpoint',
   },
   contextPresets: {
     /** Load all user-saved context editor presets from disk. */

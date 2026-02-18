@@ -71,7 +71,7 @@ export function ChatPanel() {
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
   const focusedWorkspaceId = focused?.workspaceId ?? null;
-  const checkpoint = useCheckpointRestore(focusedWorkspaceId);
+  const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
 
   // Resolve session name for the header badge
   const sessions = useSessionStore((s) => s.sessions);

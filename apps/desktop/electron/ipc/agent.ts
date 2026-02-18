@@ -39,6 +39,7 @@ import { SERO_AGENT_DIR } from '../env';
 import {
   ensureInfra,
   containerManager,
+  vcsManager,
   SERO_SESSION_DIR,
   SERO_CONFIG_PATH,
 } from './shared-infra';
@@ -427,6 +428,51 @@ export function registerAgentHandlers(): void {
         cost: stats.cost,
         requestCount: stats.userMessages,
       };
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.agent.restoreToCheckpoint,
+    async (_event, sessionId: string, changeId: string): Promise<ChatMessage[]> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      if (entry.session.agent.state.isStreaming) {
+        throw new Error('Cannot restore while agent is streaming');
+      }
+
+      // 1. Find the checkpoint custom entry in the session by matching changeId
+      const allEntries = entry.session.sessionManager.getEntries();
+      let checkpointEntryId: string | null = null;
+
+      for (const e of allEntries) {
+        if (e.type === 'custom' && e.customType === 'jj-checkpoint') {
+          const data = e.data as Record<string, unknown> | undefined;
+          if (data?.changeId === changeId) {
+            checkpointEntryId = e.id;
+            break;
+          }
+        }
+      }
+
+      // 2. Restore filesystem via VCS
+      await vcsManager.restoreCheckpoint(entry.workspaceId, changeId);
+
+      // 3. Branch the session tree if we found the checkpoint entry
+      if (checkpointEntryId) {
+        entry.session.sessionManager.branch(checkpointEntryId);
+        const ctx = entry.session.sessionManager.buildSessionContext();
+        entry.session.agent.replaceMessages(ctx.messages);
+      }
+
+      // 4. Rebuild and send updated messages to the renderer
+      const chatMessages = convertSessionMessages(
+        entry.session.messages,
+        buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+      );
+      sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
+
+      return chatMessages;
     },
   );
 

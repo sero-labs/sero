@@ -78,6 +78,12 @@ interface SeroAgentAPI {
   getContext(sessionId: string): Promise<SessionContext | null>;
   /** Apply context overrides (disabled tools, system prompt override). Pass null to clear. */
   setContextOverrides(sessionId: string, overrides: ContextOverrides | null): Promise<void>;
+  /**
+   * Restore a session to a checkpoint: performs VCS file restore,
+   * branches the session tree to the checkpoint entry, rebuilds the
+   * agent's in-memory messages, and pushes a `messages_loaded` event.
+   */
+  restoreToCheckpoint(sessionId: string, changeId: string): Promise<ChatMessage[]>;
   /** Subscribe to streaming events pushed from main process. Returns unsubscribe. */
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
 }

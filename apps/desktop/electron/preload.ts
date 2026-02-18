@@ -114,6 +114,9 @@ contextBridge.exposeInMainWorld('sero', {
     setContextOverrides: (sessionId: string, overrides: ContextOverrides | null): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.setContextOverrides, sessionId, overrides),
 
+    restoreToCheckpoint: (sessionId: string, changeId: string): Promise<ChatMessage[]> =>
+      ipcRenderer.invoke(IpcChannels.agent.restoreToCheckpoint, sessionId, changeId),
+
     onEvent: (callback: (event: AgentStreamEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: AgentStreamEvent) => {
         callback(data);

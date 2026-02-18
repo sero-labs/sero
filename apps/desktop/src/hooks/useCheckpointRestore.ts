@@ -19,10 +19,22 @@ interface CheckpointRestoreActions {
   setDialogOpen: (open: boolean) => void;
 }
 
+/**
+ * Hook that drives the checkpoint restore dialog + execution.
+ *
+ * When a `sessionId` is provided the restore uses the combined
+ * `agent.restoreToCheckpoint` IPC which branches the session tree
+ * **and** restores the filesystem in one call. The `messages_loaded`
+ * event it emits automatically updates the chat store.
+ *
+ * Falls back to VCS-only restore (file system only, no session branch)
+ * when `sessionId` is null (e.g. no active agent session).
+ */
 export function useCheckpointRestore(
   workspaceId: string | null,
+  sessionId: string | null,
 ): CheckpointRestoreState & CheckpointRestoreActions {
-  const restoreCheckpoint = useVcsStore((s) => s.restoreCheckpoint);
+  const restoreCheckpointVcs = useVcsStore((s) => s.restoreCheckpoint);
   const fetchCheckpointDiff = useVcsStore((s) => s.fetchDiff);
 
   const [dialogOpen, setDialogOpenRaw] = useState(false);
@@ -74,7 +86,14 @@ export function useCheckpointRestore(
     if (!workspaceId || !target || restoring) return;
 
     setRestoring(true);
-    void restoreCheckpoint(workspaceId, target.changeId)
+
+    const doRestore = sessionId
+      ? window.sero.agent.restoreToCheckpoint(sessionId, target.changeId)
+          // After session restore, also refresh VCS state so the timeline updates
+          .then(() => useVcsStore.getState().loadWorkspace(workspaceId))
+      : restoreCheckpointVcs(workspaceId, target.changeId);
+
+    void doRestore
       .then(() => {
         setDialogOpenRaw(false);
         resetState();
@@ -86,7 +105,7 @@ export function useCheckpointRestore(
         setRestoring(false);
         setPreviewLoading(false);
       });
-  }, [workspaceId, target, restoring, restoreCheckpoint, resetState]);
+  }, [workspaceId, sessionId, target, restoring, restoreCheckpointVcs, resetState]);
 
   return {
     dialogOpen,
