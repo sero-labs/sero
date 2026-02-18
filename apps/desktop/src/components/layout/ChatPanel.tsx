@@ -26,6 +26,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
+import { useSessionStore } from '@/stores/sessions';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { PromptAttachmentsBar, MessageAttachments } from './ChatAttachments';
 import { UsageBadge } from './UsageBadge';
@@ -71,6 +72,11 @@ export function ChatPanel() {
   const isStreaming = focused?.isStreaming ?? false;
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
+
+  // Resolve session name for the header badge
+  const sessions = useSessionStore((s) => s.sessions);
+  const activeSession = sessionId ? sessions.find((s) => s.id === sessionId) : null;
+  const sessionLabel = activeSession?.name || activeSession?.firstMessage;
 
   // Group consecutive tool calls into collapsible blocks
   const groupedItems = useMemo(() => groupMessages(messages), [messages]);
@@ -184,9 +190,9 @@ export function ChatPanel() {
         <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Agent
         </span>
-        {focused?.workspaceId && (
-          <span className="text-xs rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[var(--text-muted)]">
-            {focused.workspaceId}
+        {sessionLabel && (
+          <span className="truncate text-xs rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[var(--text-muted)]" style={{ maxWidth: '60%' }}>
+            {sessionLabel}
           </span>
         )}
         {sessionId && <UsageBadge sessionId={sessionId} />}
