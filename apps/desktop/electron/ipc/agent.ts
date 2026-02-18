@@ -112,9 +112,6 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
           const checkpoint = checkpoints.get(lastTurnIdx);
           if (checkpoint) {
             entry.lastCompletedCheckpoint = checkpoint;
-            console.log(
-              `[checkpoint] Stored checkpoint changeId=${checkpoint.changeId} from turn ${lastTurnIdx} for next message`,
-            );
           }
         }
         break;
@@ -367,9 +364,6 @@ export function registerAgentHandlers(): void {
       // Attach the checkpoint from the PREVIOUS turn to this new user message
       // (shifted-by-one: "restore on this message" means "go back to before it").
       if (entry.lastCompletedCheckpoint) {
-        console.log(
-          `[checkpoint] Attaching changeId=${entry.lastCompletedCheckpoint.changeId} to user message ${userMessageId}`,
-        );
         sendEvent({
           type: 'user_checkpoint',
           sessionId,
@@ -448,11 +442,8 @@ export function registerAgentHandlers(): void {
         throw new Error('Cannot restore while agent is streaming');
       }
 
-      console.log(`[checkpoint] restoreToCheckpoint: sessionId=${sessionId}, changeId=${changeId}`);
-
       // 1. Restore filesystem via VCS
       await vcsManager.restoreCheckpoint(entry.workspaceId, changeId);
-      console.log(`[checkpoint] VCS restore complete for changeId=${changeId}`);
 
       // 2. Branch session tree to the checkpoint entry. With the shifted
       //    mapping (user message N carries checkpoint from turn N-1),
@@ -463,11 +454,8 @@ export function registerAgentHandlers(): void {
         entry.session.sessionManager.branch(branchTargetId);
         const ctx = entry.session.sessionManager.buildSessionContext();
         entry.session.agent.replaceMessages(ctx.messages);
-        console.log(
-          `[checkpoint] Session branched to ${branchTargetId}, ${ctx.messages.length} messages in context`,
-        );
       } else {
-        console.log('[checkpoint] No session entry found — VCS-only restore');
+        console.warn(`[checkpoint] No session entry for changeId=${changeId} — VCS-only restore`);
       }
 
       // 3. Clear any stale checkpoint so it isn't attached to the next message
@@ -478,7 +466,6 @@ export function registerAgentHandlers(): void {
         entry.session.messages,
         buildCheckpointMapByTurn(entry.session, entry.workspaceId),
       );
-      console.log(`[checkpoint] Sending ${chatMessages.length} messages to renderer`);
       sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
 
       return chatMessages;

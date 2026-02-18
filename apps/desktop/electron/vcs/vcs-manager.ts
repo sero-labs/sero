@@ -243,16 +243,12 @@ export class VcsManager extends EventEmitter {
   async restoreCheckpoint(workspaceId: string, changeId: string): Promise<void> {
     await this.ensureRepoInitialized(workspaceId);
 
-    console.log(`[vcs] restoreCheckpoint: workspaceId=${workspaceId}, changeId=${changeId}`);
-
     const restore = await this.runner.run(workspaceId, [
       'new',
       changeId,
       '-m',
       `restore: ${changeId}`,
     ]);
-
-    console.log(`[vcs] jj new ${changeId}: exitCode=${restore.exitCode}, stdout=${restore.stdout.trim()}, stderr=${restore.stderr.trim()}`);
 
     if (restore.exitCode !== 0) {
       throw new Error(restore.stderr || `Failed to restore checkpoint ${changeId}`);
@@ -280,14 +276,11 @@ export class VcsManager extends EventEmitter {
     }
     args.push('--git');
 
-    console.log(`[vcs] diff: jj ${args.join(' ')}`);
-
     const diff = await this.runner.run(workspaceId, args, 60_000);
     if (diff.exitCode !== 0) {
       throw new Error(diff.stderr || 'Failed to generate diff');
     }
 
-    console.log(`[vcs] diff result: ${diff.stdout.length} bytes, empty=${diff.stdout.trim().length === 0}`);
     return diff.stdout;
   }
 
