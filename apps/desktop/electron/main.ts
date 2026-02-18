@@ -10,7 +10,7 @@ import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
 import { watchForNewApps } from './ipc/apps';
-import { containerManager, fileWatcherManager, lspManager } from './ipc/shared-infra';
+import { containerManager, fileWatcherManager, lspManager, vcsManager } from './ipc/shared-infra';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -221,6 +221,7 @@ app.on('before-quit', async (e) => {
   // Dispose LSP servers and file watchers
   await lspManager.disposeAll();
   fileWatcherManager.disposeAll();
+  vcsManager.disposeAll();
 
   // Dispose terminals and port forwards
   containerManager.terminals.disposeAllTerminals();

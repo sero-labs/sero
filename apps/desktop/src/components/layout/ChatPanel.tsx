@@ -6,11 +6,6 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
 import {
-  Message,
-  MessageContent,
-  MessageResponse,
-} from '@/components/ai-elements/message';
-import {
   PromptInput,
   PromptInputBody,
   PromptInputTextarea,
@@ -28,14 +23,22 @@ import {
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import { SlashCommandMenu } from './SlashCommandMenu';
-import { PromptAttachmentsBar, MessageAttachments } from './ChatAttachments';
+import { PromptAttachmentsBar } from './ChatAttachments';
 import { UsageBadge } from './UsageBadge';
 import { ModelSelector } from './ModelSelector';
 import { AuthLoginDialog } from './AuthLoginDialog';
 import { groupMessages, ToolCallGroup } from './ToolCallGroup';
 import { ContextEditor } from './ContextEditor';
+import { ChatMessageItem } from './ChatMessageItem';
+import {
+  CheckpointRestoreDialog,
+  summarizeDiffFiles,
+  type RestorePreviewFileChange,
+} from './CheckpointRestoreDialog';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
-import type { ChatMessage, ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
+import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
+import type { ChatCheckpointRef } from '@/types/checkpoints';
+import { useVcsStore } from '@/stores/vcs';
 
 /** Built-in commands handled client-side (not sent to the agent). */
 const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [
@@ -72,6 +75,16 @@ export function ChatPanel() {
   const isStreaming = focused?.isStreaming ?? false;
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
+  const focusedWorkspaceId = focused?.workspaceId ?? null;
+  const restoreCheckpoint = useVcsStore((s) => s.restoreCheckpoint);
+  const fetchCheckpointDiff = useVcsStore((s) => s.fetchDiff);
+
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<ChatCheckpointRef | null>(null);
+  const [restorePreviewFiles, setRestorePreviewFiles] = useState<RestorePreviewFileChange[]>([]);
+  const [restorePreviewLoading, setRestorePreviewLoading] = useState(false);
+  const [restorePreviewError, setRestorePreviewError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   // Resolve session name for the header badge
   const sessions = useSessionStore((s) => s.sessions);
@@ -95,6 +108,49 @@ export function ChatPanel() {
   const handleAuthComplete = useCallback(() => {
     if (sessionId) fetchModelState(sessionId);
   }, [sessionId, fetchModelState]);
+
+  const handleCheckpointRestoreRequest = useCallback(
+    (checkpoint: ChatCheckpointRef) => {
+      if (!focusedWorkspaceId) return;
+
+      setRestoreTarget(checkpoint);
+      setRestorePreviewFiles([]);
+      setRestorePreviewError(null);
+      setRestorePreviewLoading(true);
+      setRestoreDialogOpen(true);
+
+      void fetchCheckpointDiff(focusedWorkspaceId, checkpoint.changeId)
+        .then((diff) => {
+          setRestorePreviewFiles(summarizeDiffFiles(diff));
+          setRestorePreviewLoading(false);
+        })
+        .catch((err) => {
+          setRestorePreviewError(err instanceof Error ? err.message : 'Failed to load diff preview');
+          setRestorePreviewLoading(false);
+        });
+    },
+    [focusedWorkspaceId, fetchCheckpointDiff],
+  );
+
+  const handleConfirmRestore = useCallback(() => {
+    if (!focusedWorkspaceId || !restoreTarget || restoring) return;
+
+    setRestoring(true);
+    void restoreCheckpoint(focusedWorkspaceId, restoreTarget.changeId)
+      .then(() => {
+        setRestoreDialogOpen(false);
+        setRestoreTarget(null);
+        setRestorePreviewFiles([]);
+        setRestorePreviewError(null);
+      })
+      .catch((err) => {
+        setRestorePreviewError(err instanceof Error ? err.message : 'Restore failed');
+      })
+      .finally(() => {
+        setRestoring(false);
+        setRestorePreviewLoading(false);
+      });
+  }, [focusedWorkspaceId, restoreTarget, restoring, restoreCheckpoint]);
 
   // ── Slash command menu state ─────────────────────────────
   // Merge SDK commands with built-in client-side commands
@@ -209,24 +265,30 @@ export function ChatPanel() {
           ) : messages.length === 0 && !isStreaming ? (
             <EmptyState message="Start a conversation" />
           ) : (
-            groupedItems.map((item, index) => {
-              if (item.kind === 'tool-group') {
-                // A group is finalized when a non-tool item follows it,
-                // or it's the last item and the session is no longer streaming.
-                const isLast = index === groupedItems.length - 1;
-                const isFinalized = !isLast || !isStreaming;
+            <>
+              {groupedItems.map((item, index) => {
+                if (item.kind === 'tool-group') {
+                  // A group is finalized when a non-tool item follows it,
+                  // or it's the last item and the session is no longer streaming.
+                  const isLast = index === groupedItems.length - 1;
+                  const isFinalized = !isLast || !isStreaming;
+                  return (
+                    <ToolCallGroup
+                      key={item.id}
+                      tools={item.tools}
+                      isFinalized={isFinalized}
+                    />
+                  );
+                }
                 return (
-                  <ToolCallGroup
-                    key={item.id}
-                    tools={item.tools}
-                    isFinalized={isFinalized}
+                  <ChatMessageItem
+                    key={item.message.id}
+                    message={item.message}
+                    onRestoreCheckpoint={focusedWorkspaceId ? handleCheckpointRestoreRequest : undefined}
                   />
                 );
-              }
-              return (
-                <ChatMessageItem key={item.message.id} message={item.message} />
-              );
-            })
+              })}
+            </>
           )}
 
           {showThinking && (
@@ -308,6 +370,25 @@ export function ChatPanel() {
         </PromptInput>
       </div>
 
+      <CheckpointRestoreDialog
+        open={restoreDialogOpen}
+        checkpointId={restoreTarget?.changeId ?? ''}
+        files={restorePreviewFiles}
+        isLoading={restorePreviewLoading}
+        error={restorePreviewError}
+        isRestoring={restoring}
+        onOpenChange={(open) => {
+          setRestoreDialogOpen(open);
+          if (!open && !restoring) {
+            setRestoreTarget(null);
+            setRestorePreviewFiles([]);
+            setRestorePreviewError(null);
+            setRestorePreviewLoading(false);
+          }
+        }}
+        onConfirm={handleConfirmRestore}
+      />
+
       {/* Auth login/logout dialog (OAuth + API key) */}
       <AuthLoginDialog
         open={loginDialogOpen}
@@ -320,39 +401,6 @@ export function ChatPanel() {
       {sessionId && <ContextEditor sessionId={sessionId} />}
     </div>
   );
-}
-
-// ── Message renderer ───────────────────────────────────────────
-
-function ChatMessageItem({ message }: { message: ChatMessage }) {
-  switch (message.type) {
-    case 'user':
-      return (
-        <Message from="user">
-          <MessageContent>
-            <MessageResponse>{message.text}</MessageResponse>
-            {message.attachments?.length ? (
-              <MessageAttachments attachments={message.attachments} />
-            ) : null}
-          </MessageContent>
-        </Message>
-      );
-
-    case 'assistant':
-      return (
-        <Message from="assistant">
-          <MessageContent>
-            <MessageResponse>{message.text}</MessageResponse>
-            {message.isStreaming && message.text === '' && (
-              <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
-            )}
-          </MessageContent>
-        </Message>
-      );
-
-    default:
-      return null;
-  }
 }
 
 // ── Context editor menu item ───────────────────────────────────

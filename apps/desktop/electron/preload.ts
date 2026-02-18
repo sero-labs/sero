@@ -19,6 +19,7 @@ import type {
   ContextOverrides,
   ContextPreset,
 } from '../src/types/ipc';
+import type { VcsCheckpoint, VcsEvent, VcsWorkspaceState } from '../src/types/vcs';
 
 contextBridge.exposeInMainWorld('sero', {
   platform: process.platform,
@@ -75,8 +76,13 @@ contextBridge.exposeInMainWorld('sero', {
     open: (sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]> =>
       ipcRenderer.invoke(IpcChannels.agent.open, sessionId, sessionPath, workspaceId),
 
-    prompt: (sessionId: string, text: string, attachments?: import('../src/types/ipc').ChatAttachment[]): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.agent.prompt, sessionId, text, attachments),
+    prompt: (
+      sessionId: string,
+      text: string,
+      attachments?: import('../src/types/ipc').ChatAttachment[],
+      clientMessageId?: string,
+    ): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.agent.prompt, sessionId, text, attachments, clientMessageId),
 
     abort: (sessionId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.abort, sessionId),
@@ -240,6 +246,43 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.on(IpcChannels.devServer.event, handler);
       return () => {
         ipcRenderer.removeListener(IpcChannels.devServer.event, handler);
+      };
+    },
+  },
+
+  vcs: {
+    listCheckpoints: (workspaceId: string, limit?: number): Promise<VcsCheckpoint[]> =>
+      ipcRenderer.invoke('sero:vcs:list-checkpoints', workspaceId, limit),
+
+    getState: (workspaceId: string, limit?: number): Promise<VcsWorkspaceState> =>
+      ipcRenderer.invoke('sero:vcs:state', workspaceId, limit),
+
+    createCheckpoint: (
+      workspaceId: string,
+      description?: string,
+      source?: 'manual' | 'turn' | 'fs' | 'restore',
+    ): Promise<VcsCheckpoint | null> =>
+      ipcRenderer.invoke('sero:vcs:create-checkpoint', workspaceId, description, source),
+
+    restore: (workspaceId: string, checkpointId: string): Promise<void> =>
+      ipcRenderer.invoke('sero:vcs:restore', workspaceId, checkpointId),
+
+    diff: (workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string> =>
+      ipcRenderer.invoke('sero:vcs:diff', workspaceId, fromChangeId, toChangeId),
+
+    watch: (workspaceId: string): Promise<void> =>
+      ipcRenderer.invoke('sero:vcs:watch', workspaceId),
+
+    unwatch: (workspaceId: string): Promise<void> =>
+      ipcRenderer.invoke('sero:vcs:unwatch', workspaceId),
+
+    onEvent: (callback: (event: VcsEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: VcsEvent) => {
+        callback(data);
+      };
+      ipcRenderer.on('sero:vcs:event', handler);
+      return () => {
+        ipcRenderer.removeListener('sero:vcs:event', handler);
       };
     },
   },

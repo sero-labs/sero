@@ -1,8 +1,3 @@
-/**
- * Agent IPC handlers — AgentPool.
- * Helpers, validation, and conversion live in agent-helpers.ts.
- */
-
 import { ipcMain, BrowserWindow } from 'electron';
 import {
   createAgentSession,
@@ -25,31 +20,21 @@ import type {
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionUsageStats,
-  SessionModelState,
-  SessionContext,
   ContextOverrides,
-  ContextToolInfo,
-  ContextSkillInfo,
 } from '../../src/types/ipc';
 
 import {
   nextId,
-  validateThinkingLevel,
-  validateProvider,
   convertSessionMessages,
+  buildCheckpointMapByTurn,
   attachmentsToImages,
-  buildModelState,
   readHiddenCommands,
   buildCommandList,
-  getBaseSystemPrompt,
-  setBaseSystemPrompt,
-  stripDisabledSkills,
 } from './agent-helpers';
 import { logRawEvent, logTurnContext } from './debug';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
 import { SERO_AGENT_DIR } from '../env';
-import { getModel as getModelFromRegistry } from '@mariozechner/pi-ai';
 import {
   ensureInfra,
   containerManager,
@@ -58,8 +43,7 @@ import {
 } from './shared-infra';
 import { createContainerTools } from '../container/tools';
 import type { ContainerState } from '../container/index';
-
-// ── Agent Pool ───────────────────────────────────────────────
+import { registerAgentModelContextHandlers } from './agent-model-context';
 
 interface PoolEntry {
   session: AgentSession;
@@ -67,27 +51,20 @@ interface PoolEntry {
   unsubscribe: () => void;
   workspaceId: string;
   currentAssistantId: string | null;
-  /** Last known session name — used to detect changes and push to renderer. */
   lastSessionName: string | undefined;
-  /** Context overrides from the context editor (applied before first prompt). */
+  pendingCheckpointPrompts: Array<{ messageId: string; turnIndex: number }>;
   contextOverrides: ContextOverrides | null;
-  /** Original active tool names — used to restore tools when overrides are cleared. */
   originalToolNames: string[] | null;
 }
 
-/** Map<sessionId, PoolEntry> — one AgentSession per active chat. */
 const pool = new Map<string, PoolEntry>();
 
-// ── Helpers ──────────────────────────────────────────────────
-
-/** Send an event to all renderer windows. */
 function sendEvent(event: AgentStreamEvent): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(IpcChannels.agent.event, event);
   }
 }
 
-/** Close and dispose a single pool entry. */
 function closePoolEntry(sessionId: string): void {
   const entry = pool.get(sessionId);
   if (!entry) return;
@@ -96,23 +73,19 @@ function closePoolEntry(sessionId: string): void {
   pool.delete(sessionId);
 }
 
-/** Close all pool entries (app shutdown). */
 function disposeAll(): void {
   for (const sessionId of pool.keys()) {
     closePoolEntry(sessionId);
   }
 }
 
-/** Wire up event subscription for a session, tagging all events with sessionId. */
 function subscribeToSession(sessionId: string, session: AgentSession): () => void {
   return session.subscribe((event) => {
     const entry = pool.get(sessionId);
     if (!entry) return;
 
-    // Log raw event for debugging (no-op when debug logging is disabled)
     logRawEvent(sessionId, event);
 
-    // On turn_start, snapshot the full LLM context (system prompt, tools, messages)
     if (event.type === 'turn_start') {
       logTurnContext(sessionId, session);
     }
@@ -124,6 +97,21 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
 
       case 'agent_end':
         sendEvent({ type: 'agent_end', sessionId });
+        {
+          const pending = entry.pendingCheckpointPrompts.shift();
+          if (!pending) break;
+
+          const checkpoints = buildCheckpointMapByTurn(entry.session, entry.workspaceId);
+          const checkpoint = checkpoints.get(pending.turnIndex);
+          if (!checkpoint) break;
+
+          sendEvent({
+            type: 'user_checkpoint',
+            sessionId,
+            userMessageId: pending.messageId,
+            checkpoint,
+          } as unknown as AgentStreamEvent);
+        }
         break;
 
       case 'message_start': {
@@ -135,6 +123,31 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
             isStreaming: true,
           };
           entry.currentAssistantId = chatMsg.id;
+          sendEvent({ type: 'message_start', sessionId, message: chatMsg });
+        } else if (event.message.role === 'custom') {
+          const display = (event.message as any).display ?? true;
+          if (!display) break;
+
+          const customType = String((event.message as any).customType ?? '').trim();
+          const content = (event.message as any).content;
+          const text =
+            typeof content === 'string'
+              ? content
+              : Array.isArray(content)
+                ? content
+                    .filter((c): c is { type: 'text'; text: string } => c?.type === 'text')
+                    .map((c) => c.text)
+                    .join('\n')
+                : '';
+          const prefixed = customType ? `[${customType}] ${text}` : text;
+          if (!prefixed.trim()) break;
+
+          const chatMsg: ChatAssistantMessage = {
+            type: 'assistant',
+            id: nextId(),
+            text: prefixed,
+            isStreaming: false,
+          };
           sendEvent({ type: 'message_start', sessionId, message: chatMsg });
         }
         break;
@@ -170,7 +183,6 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
       }
 
       case 'tool_execution_start': {
-        // Hide internal tools from the UI
         if (event.toolName === 'set_session_title') break;
 
         const toolMsg: ChatToolCallMessage = {
@@ -188,7 +200,6 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
       }
 
       case 'tool_execution_end': {
-        // Internal tools: hide from UI but push side-effects immediately
         if (event.toolName === 'set_session_title') {
           const newName = entry.session.sessionName;
           if (newName && newName !== entry.lastSessionName) {
@@ -221,12 +232,6 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
   });
 }
 
-// ── Global AGENTS.md ─────────────────────────────────────────
-
-/**
- * Read AGENTS.md from the global workspace (if it exists).
- * Returns a context file entry for injection, or null.
- */
 async function readGlobalAgentsMd(): Promise<{ path: string; content: string } | null> {
   const globalPath = workspaceManager.getPath('global');
   if (!globalPath) return null;
@@ -240,32 +245,27 @@ async function readGlobalAgentsMd(): Promise<{ path: string; content: string } |
   }
 }
 
-// ── Registration ─────────────────────────────────────────────
-
 export function registerAgentHandlers(): void {
-  // ── Open a session (creates AgentSession in pool) ──────────
   ipcMain.handle(
     IpcChannels.agent.open,
     async (_event, sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]> => {
-      // If already open, just return existing messages
       const existing = pool.get(sessionId);
       if (existing) {
-        return convertSessionMessages(existing.session.messages);
+        return convertSessionMessages(
+          existing.session.messages,
+          buildCheckpointMapByTurn(existing.session, existing.workspaceId),
+        );
       }
 
       const infra = await ensureInfra();
 
-      // Resolve workspace path
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) {
         throw new Error(`Workspace not found: ${workspaceId}`);
       }
 
-      // Check if this workspace has containers enabled (defaults to true).
       const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
 
-      // Ensure the workspace's container is running (lazy creation).
-      // Notify renderer of container state transitions.
       let containerState: ContainerState | null = null;
       if (!containerEnabled) {
         console.log(`[agent] Container disabled for workspace ${workspaceId}, using host tools`);
@@ -296,31 +296,16 @@ export function registerAgentHandlers(): void {
           workspaceId,
           error: containerErr?.message ?? 'Container failed to start',
         });
-        // Fall through — session will use host tools as fallback
       }
 
-      // Build tools: container tools replace built-in host tools.
-      // customTools = our container-proxied tools (ToolDefinition[])
-      // tools = [] disables the SDK's built-in host-side coding tools
-      // If container failed, fall back to normal host coding tools.
       const useContainer = !!containerState;
       const containerTools = useContainer
         ? createContainerTools(containerManager, workspaceId)
         : undefined;
       const builtinTools = useContainer ? [] : createCodingTools(wsPath);
 
-      // Read global workspace AGENTS.md (inherited by all workspaces)
       const globalAgentsFile = await readGlobalAgentsMd();
 
-      // Workspace-scoped resource loader with Sero extension.
-      // Uses SERO_AGENT_DIR so we discover skills, prompts, extensions,
-      // and packages from Sero's own agent directory (~/.sero-ui/agent/).
-      // Sero app extensions (e.g. todo) are loaded automatically via
-      // settings.json packages list — no manual loading needed.
-      //
-      // Resource loader reads from HOST filesystem (wsPath) for skill/prompt
-      // discovery. The bind mount makes the same files visible inside the
-      // container at /workspace.
       const loader = new DefaultResourceLoader({
         cwd: wsPath,
         agentDir: SERO_AGENT_DIR,
@@ -332,9 +317,6 @@ export function registerAgentHandlers(): void {
             containerState ?? undefined,
           ),
         ],
-        // Inject global workspace AGENTS.md as base context.
-        // DefaultResourceLoader discovers workspace-level AGENTS.md via cwd walk-up;
-        // this adds the global workspace's on top so all sessions inherit it.
         ...(globalAgentsFile && {
           agentsFilesOverride: (discovered) => ({
             agentsFiles: [globalAgentsFile, ...discovered.agentsFiles],
@@ -343,9 +325,6 @@ export function registerAgentHandlers(): void {
       });
       await loader.reload();
 
-      // Don't pass model/thinkingLevel — the SDK restores them from the
-      // session file (model_change / thinking_level_change entries). For new
-      // sessions it falls back to settings.json defaults, then first available.
       const { session } = await createAgentSession({
         cwd: wsPath,
         agentDir: SERO_AGENT_DIR,
@@ -358,7 +337,6 @@ export function registerAgentHandlers(): void {
         settingsManager: infra.settingsManager,
       });
 
-      // Subscribe and store
       const unsubscribe = subscribeToSession(sessionId, session);
       pool.set(sessionId, {
         session,
@@ -367,30 +345,52 @@ export function registerAgentHandlers(): void {
         workspaceId,
         currentAssistantId: null,
         lastSessionName: session.sessionName,
+        pendingCheckpointPrompts: [],
         contextOverrides: null,
         originalToolNames: null,
       });
 
-      return convertSessionMessages(session.messages);
+      return convertSessionMessages(
+        session.messages,
+        buildCheckpointMapByTurn(session, workspaceId),
+      );
     },
   );
 
-  // ── Send a prompt to a specific session ────────────────────
   ipcMain.handle(
     IpcChannels.agent.prompt,
-    async (_event, sessionId: string, text: string, attachments?: ChatAttachment[]): Promise<void> => {
+    async (
+      _event,
+      sessionId: string,
+      text: string,
+      attachments?: ChatAttachment[],
+      clientMessageId?: string,
+    ): Promise<void> => {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
-      const userMsg: ChatMessage = { type: 'user', id: nextId(), text, attachments };
+      const userMessageId = clientMessageId?.trim() || nextId();
+      const userMsg: ChatMessage = { type: 'user', id: userMessageId, text, attachments };
       sendEvent({ type: 'message_start', sessionId, message: userMsg });
 
+      const pendingPrompt = {
+        messageId: userMessageId,
+        turnIndex:
+          entry.session.messages.filter((m) => m.role === 'user').length +
+          entry.pendingCheckpointPrompts.length,
+      };
+      entry.pendingCheckpointPrompts.push(pendingPrompt);
+
       const images = attachmentsToImages(attachments);
-      await entry.session.prompt(text, images ? { images } : undefined);
+      try {
+        await entry.session.prompt(text, images ? { images } : undefined);
+      } finally {
+        entry.pendingCheckpointPrompts =
+          entry.pendingCheckpointPrompts.filter((p) => p.messageId !== userMessageId);
+      }
     },
   );
 
-  // ── Abort a specific session ───────────────────────────────
   ipcMain.handle(
     IpcChannels.agent.abort,
     async (_event, sessionId: string): Promise<void> => {
@@ -401,7 +401,6 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Close a specific session ───────────────────────────────
   ipcMain.handle(
     IpcChannels.agent.close,
     async (_event, sessionId: string): Promise<void> => {
@@ -409,7 +408,6 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Get available slash commands for a session ──────────────
   ipcMain.handle(
     IpcChannels.agent.getCommands,
     async (_event, sessionId: string): Promise<SeroSlashCommandInfo[]> => {
@@ -420,14 +418,11 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Reload resources for a session (hot-reload) ────────────
   ipcMain.handle(
     IpcChannels.agent.reloadResources,
     async (_event, sessionId: string): Promise<SeroSlashCommandInfo[]> => {
       const entry = pool.get(sessionId);
       if (!entry) return [];
-
-      // Re-discover skills, prompts, extensions from disk
       await entry.loader.reload();
 
       const hidden = await readHiddenCommands(SERO_CONFIG_PATH);
@@ -435,7 +430,6 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Get usage stats for a session ───────────────────────────
   ipcMain.handle(
     IpcChannels.agent.getUsage,
     async (_event, sessionId: string): Promise<SessionUsageStats | null> => {
@@ -451,169 +445,13 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Get model + thinking state for a session ────────────────
-  ipcMain.handle(
-    IpcChannels.agent.getModelState,
-    async (_event, sessionId: string): Promise<SessionModelState | null> => {
-      const entry = pool.get(sessionId);
-      if (!entry) return null;
-      return buildModelState(entry);
-    },
-  );
+  registerAgentModelContextHandlers({
+    getEntry: (sessionId) => pool.get(sessionId),
+    sendEvent,
+  });
 
-  // ── Set model for a session ────────────────────────────────
-  ipcMain.handle(
-    IpcChannels.agent.setModel,
-    async (_event, sessionId: string, provider: string, modelId: string): Promise<SessionModelState> => {
-      const entry = pool.get(sessionId);
-      if (!entry) throw new Error(`No active session: ${sessionId}`);
-
-      // Validate provider is known
-      const validatedProvider = validateProvider(provider);
-
-      // Look up the model from registry
-      const model = getModelFromRegistry(validatedProvider, modelId as any);
-      if (!model) {
-        // Provide helpful error with available models
-        const available = entry.session.modelRegistry.getAvailable();
-        const availableIds = available.map(m => `${m.provider}/${m.id}`).join(', ');
-        throw new Error(
-          `Model not found: ${provider}/${modelId}. ` +
-          `Available models: ${availableIds || '(none)'}`
-        );
-      }
-
-      // Verify the user has valid auth credentials for this model
-      const availableModels = entry.session.modelRegistry.getAvailable();
-      const hasAuth = availableModels.some(m => m.provider === provider && m.id === modelId);
-      if (!hasAuth) {
-        throw new Error(
-          `No auth credentials for ${provider}/${modelId}. ` +
-          `Run 'pi auth' to add credentials, then refresh.`
-        );
-      }
-
-      await entry.session.setModel(model);
-      const state = buildModelState(entry);
-      sendEvent({ type: 'model_change', sessionId, state });
-      return state;
-    },
-  );
-
-  // ── Set thinking level for a session ───────────────────────
-  ipcMain.handle(
-    IpcChannels.agent.setThinkingLevel,
-    async (_event, sessionId: string, level: string): Promise<SessionModelState> => {
-      const entry = pool.get(sessionId);
-      if (!entry) throw new Error(`No active session: ${sessionId}`);
-
-      // Validate thinking level
-      const validatedLevel = validateThinkingLevel(level);
-      entry.session.setThinkingLevel(validatedLevel);
-      const state = buildModelState(entry);
-      sendEvent({ type: 'model_change', sessionId, state });
-      return state;
-    },
-  );
-
-  // ── Get session context for context editor ─────────────────
-  ipcMain.handle(
-    IpcChannels.agent.getContext,
-    async (_event, sessionId: string): Promise<SessionContext | null> => {
-      const entry = pool.get(sessionId);
-      if (!entry) return null;
-
-      const state = entry.session.agent.state;
-
-      // Serialise tools (drop execute function)
-      const tools: ContextToolInfo[] = state.tools.map((t: any) => ({
-        name: t.name,
-        label: t.label,
-        description: t.description,
-      }));
-
-      // Get skills from resource loader
-      const { skills: rawSkills } = entry.loader.getSkills();
-      const skills: ContextSkillInfo[] = rawSkills.map((s: any) => ({
-        name: s.name,
-        description: s.description,
-        filePath: s.filePath,
-      }));
-
-      return {
-        systemPrompt: state.systemPrompt ?? '',
-        tools,
-        skills,
-      };
-    },
-  );
-
-  // ── Apply context overrides ───────────────────────────────
-  ipcMain.handle(
-    IpcChannels.agent.setContextOverrides,
-    async (_event, sessionId: string, overrides: ContextOverrides | null): Promise<void> => {
-      const entry = pool.get(sessionId);
-      if (!entry) throw new Error(`No active session: ${sessionId}`);
-
-      const session = entry.session;
-
-      // Snapshot original tool names on first override application.
-      // Uses the public getActiveToolNames() API instead of internal state.
-      if (!entry.originalToolNames) {
-        entry.originalToolNames = session.getActiveToolNames();
-      }
-
-      entry.contextOverrides = overrides;
-
-      if (!overrides) {
-        // Restore: setActiveToolsByName rebuilds the system prompt from
-        // scratch with all original tools and skills — no manual restore needed.
-        session.setActiveToolsByName(entry.originalToolNames!);
-        return;
-      }
-
-      // Step 1: Apply tool filtering via public SDK API.
-      // setActiveToolsByName also rebuilds _baseSystemPrompt with the
-      // correct tool set + all skills from the resource loader.
-      const toolNames = entry.originalToolNames!.slice();
-      if (overrides.disabledTools?.length) {
-        const disabled = new Set(overrides.disabledTools);
-        session.setActiveToolsByName(toolNames.filter((n) => !disabled.has(n)));
-      } else {
-        session.setActiveToolsByName(toolNames);
-      }
-
-      // Step 2: Apply skill filtering by stripping <skill> entries from the
-      // system prompt's <available_skills> section. Only applies when the
-      // user has NOT provided a full custom system prompt.
-      if (
-        overrides.disabledSkills?.length &&
-        (overrides.systemPrompt === undefined || overrides.systemPrompt === null)
-      ) {
-        const disabled = new Set(overrides.disabledSkills);
-        const prompt = getBaseSystemPrompt(session);
-        if (typeof prompt === 'string') {
-          const filtered = stripDisabledSkills(prompt, disabled);
-          setBaseSystemPrompt(session, filtered);
-        }
-      }
-
-      // Step 3: Apply full system prompt override (replaces everything
-      // including any skill filtering from step 2).
-      // We must overwrite _baseSystemPrompt — the SDK's internal cached
-      // prompt that AgentSession.prompt() resets to on every API call.
-      // Tested against pi-coding-agent@0.52.12.
-      if (overrides.systemPrompt !== undefined && overrides.systemPrompt !== null) {
-        setBaseSystemPrompt(session, overrides.systemPrompt);
-      }
-    },
-  );
-
-  // ── Cleanup on app quit ────────────────────────────────────
   const { app } = require('electron');
   app.on('before-quit', () => {
     disposeAll();
   });
 }
-
-

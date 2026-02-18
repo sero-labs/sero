@@ -7,6 +7,7 @@ import type {
   SeroSlashCommandInfo,
   SessionModelState,
 } from '@/types/ipc';
+import type { UserCheckpointEvent } from '@/types/checkpoints';
 import { useSessionStore } from '@/stores/sessions';
 import { useContainerStore } from '@/stores/container';
 
@@ -156,9 +157,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // Optimistically add the user message so it appears immediately.
     // The main process also sends a message_start event for user messages,
     // but we skip those in the event handler to avoid duplicates.
+    const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const userMsg: ChatMessage = {
       type: 'user',
-      id: `usr-${Date.now()}`,
+      id: userMessageId,
       text,
       attachments,
     };
@@ -174,7 +176,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }));
 
     try {
-      await window.sero.agent.prompt(sessionId, text, attachments);
+      await window.sero.agent.prompt(sessionId, text, attachments, userMessageId);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Prompt failed';
       console.error('[agent] sendPrompt failed:', err);
@@ -262,15 +264,16 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   initEventListener: () => {
     const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
+      const evt = event as AgentStreamEvent | UserCheckpointEvent;
       const { agents } = get();
-      const sid = event.sessionId;
+      const sid = evt.sessionId;
 
       // Ignore events for sessions we don't track (already closed)
-      if (!agents[sid] && event.type !== 'agent_start' && event.type !== 'message_start') {
+      if (!agents[sid] && evt.type !== 'agent_start' && evt.type !== 'message_start') {
         return;
       }
 
-      switch (event.type) {
+      switch (evt.type) {
         case 'agent_start':
           set((s) => ({
             agents: {
@@ -303,7 +306,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           set((s) => ({
             agents: {
               ...s.agents,
-              [sid]: { ...s.agents[sid], messages: event.messages },
+              [sid]: { ...s.agents[sid], messages: evt.messages },
             },
           }));
           break;
@@ -311,14 +314,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         case 'message_start':
           // Skip user messages — they're added optimistically in sendPrompt
           // to avoid duplicates and ensure attachments render immediately.
-          if (event.message.type === 'user') break;
+          if (evt.message.type === 'user') break;
 
           set((s) => ({
             agents: {
               ...s.agents,
               [sid]: {
                 ...s.agents[sid],
-                messages: [...(s.agents[sid]?.messages ?? []), event.message],
+                messages: [...(s.agents[sid]?.messages ?? []), evt.message],
               },
             },
           }));
@@ -331,8 +334,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               [sid]: {
                 ...s.agents[sid],
                 messages: s.agents[sid].messages.map((m) =>
-                  m.type === 'assistant' && m.id === event.messageId
-                    ? { ...m, text: m.text + event.delta }
+                  m.type === 'assistant' && m.id === evt.messageId
+                    ? { ...m, text: m.text + evt.delta }
                     : m,
                 ),
               },
@@ -347,8 +350,24 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               [sid]: {
                 ...s.agents[sid],
                 messages: s.agents[sid].messages.map((m) =>
-                  m.type === 'assistant' && m.id === event.messageId
-                    ? { ...m, text: event.text, isStreaming: false }
+                  m.type === 'assistant' && m.id === evt.messageId
+                    ? { ...m, text: evt.text, isStreaming: false }
+                    : m,
+                ),
+              },
+            },
+          }));
+          break;
+
+        case 'user_checkpoint':
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: {
+                ...s.agents[sid],
+                messages: s.agents[sid].messages.map((m) =>
+                  m.type === 'user' && m.id === evt.userMessageId
+                    ? ({ ...m, checkpoint: evt.checkpoint } as ChatMessage)
                     : m,
                 ),
               },
@@ -362,7 +381,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               ...s.agents,
               [sid]: {
                 ...s.agents[sid],
-                messages: [...s.agents[sid].messages, event.tool],
+                messages: [...s.agents[sid].messages, evt.tool],
               },
             },
           }));
@@ -375,12 +394,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               [sid]: {
                 ...s.agents[sid],
                 messages: s.agents[sid].messages.map((m) =>
-                  m.type === 'tool' && m.toolCallId === event.toolCallId
+                  m.type === 'tool' && m.toolCallId === evt.toolCallId
                     ? {
                         ...m,
-                        output: event.output,
-                        isError: event.isError,
-                        state: event.isError ? 'error' : 'completed',
+                        output: evt.output,
+                        isError: evt.isError,
+                        state: evt.isError ? 'error' : 'completed',
                       } as ChatToolCallMessage
                     : m,
                 ),
@@ -390,14 +409,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           break;
 
         case 'session_name':
-          useSessionStore.getState().updateSessionName(sid, event.name);
+          useSessionStore.getState().updateSessionName(sid, evt.name);
           break;
 
         case 'model_change':
           set((s) => ({
             agents: {
               ...s.agents,
-              [sid]: { ...s.agents[sid], modelState: event.state },
+              [sid]: { ...s.agents[sid], modelState: evt.state },
             },
           }));
           break;
@@ -408,7 +427,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               ...s.agents,
               [sid]: {
                 ...s.agents[sid],
-                error: event.error,
+                error: evt.error,
                 isStreaming: false,
               },
             },
@@ -417,13 +436,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
         // Container lifecycle events — update container store
         case 'container_starting':
-          useContainerStore.getState().setStarting(event.workspaceId);
+          useContainerStore.getState().setStarting(evt.workspaceId);
           break;
         case 'container_ready':
-          useContainerStore.getState().setRunning(event.workspaceId, event.ipAddress);
+          useContainerStore.getState().setRunning(evt.workspaceId, evt.ipAddress);
           break;
         case 'container_error':
-          useContainerStore.getState().setError(event.workspaceId, event.error);
+          useContainerStore.getState().setError(evt.workspaceId, evt.error);
           break;
       }
     });

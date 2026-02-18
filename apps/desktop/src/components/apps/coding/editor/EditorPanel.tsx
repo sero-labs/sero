@@ -209,6 +209,32 @@ export function EditorPanel({
 
   const tabDescriptors: EditorTab[] = tabs.map((path) => ({ path, dirty: dirtyPaths.has(path) }));
 
+  // Reload editor buffers after a JJ restore so open tabs reflect disk state.
+  useEffect(() => {
+    const unsubscribe = window.sero.vcs.onEvent((event) => {
+      if (event.type !== 'restored' || event.workspaceId !== workspaceId) return;
+
+      contentMapRef.current.clear();
+      savedContentRef.current.clear();
+      setDirtyPaths(new Set());
+
+      if (!activeTab) {
+        setContent('');
+        return;
+      }
+
+      void window.sero.editor.readFile(workspaceId, activeTab).then((fileContent) => {
+        contentMapRef.current.set(activeTab, fileContent);
+        savedContentRef.current.set(activeTab, fileContent);
+        setContent(fileContent);
+      }).catch((err) => {
+        console.warn('[editor] Failed to reload tab after restore:', err);
+      });
+    });
+
+    return unsubscribe;
+  }, [workspaceId, activeTab]);
+
   return (
     <div className="flex flex-1 flex-col min-h-0 min-w-0" onKeyDown={handleKeyDown}>
       <EditorTabBar

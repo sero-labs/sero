@@ -248,9 +248,12 @@ export async function createFreshContainer(
     /* non-fatal — proxy handles DNS when available */
   }
 
-  // Initialize workspace: git init if not already a repo
+  // Initialize workspace as a colocated JJ+Git repo (idempotent)
   try {
-    await execFn(config.workspaceId, 'cd /workspace && [ -d .git ] || git init -q');
+    await execFn(
+      config.workspaceId,
+      'cd /workspace && [ -d .jj ] || (jj git init --colocate >/dev/null 2>&1 || jj init >/dev/null 2>&1)',
+    );
   } catch {
     /* non-fatal */
   }

@@ -20,6 +20,7 @@ import type {
   ContextOverrides,
   ContextPreset,
 } from './ipc';
+import type { VcsCheckpoint, VcsEvent, VcsWorkspaceState } from './vcs';
 
 interface SeroWorkspaceAPI {
   /** List all registered workspaces (registry + config merged). */
@@ -56,7 +57,7 @@ interface SeroAgentAPI {
   /** Open a session in the agent pool. Creates a workspace-scoped AgentSession. */
   open(sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]>;
   /** Send a prompt to a specific session, optionally with file attachments. */
-  prompt(sessionId: string, text: string, attachments?: ChatAttachment[]): Promise<void>;
+  prompt(sessionId: string, text: string, attachments?: ChatAttachment[], clientMessageId?: string): Promise<void>;
   /** Abort a specific session's current operation. */
   abort(sessionId: string): Promise<void>;
   /** Close a specific session and dispose its AgentSession. */
@@ -256,6 +257,29 @@ interface SeroDebugAPI {
   onStateChanged(callback: (enabled: boolean) => void): () => void;
 }
 
+interface SeroVcsAPI {
+  /** List recent checkpoints for a workspace. */
+  listCheckpoints(workspaceId: string, limit?: number): Promise<VcsCheckpoint[]>;
+  /** Get current workspace VCS state (current change + checkpoint list). */
+  getState(workspaceId: string, limit?: number): Promise<VcsWorkspaceState>;
+  /** Create a checkpoint for the workspace. */
+  createCheckpoint(
+    workspaceId: string,
+    description?: string,
+    source?: 'manual' | 'turn' | 'fs' | 'restore',
+  ): Promise<VcsCheckpoint | null>;
+  /** Restore files to a prior checkpoint snapshot. */
+  restore(workspaceId: string, checkpointId: string): Promise<void>;
+  /** Get a rich git-format diff between checkpoints. */
+  diff(workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string>;
+  /** Start workspace filesystem checkpoint watcher. */
+  watch(workspaceId: string): Promise<void>;
+  /** Stop workspace filesystem checkpoint watcher. */
+  unwatch(workspaceId: string): Promise<void>;
+  /** Subscribe to VCS events. Returns unsubscribe. */
+  onEvent(callback: (event: VcsEvent) => void): () => void;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -275,6 +299,7 @@ interface SeroAPI {
   filetree: SeroFileTreeAPI;
   lsp: SeroLspAPI;
   debug: SeroDebugAPI;
+  vcs: SeroVcsAPI;
 }
 
 declare global {
