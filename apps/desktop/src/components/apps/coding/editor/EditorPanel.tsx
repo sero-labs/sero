@@ -209,6 +209,86 @@ export function EditorPanel({
 
   const tabDescriptors: EditorTab[] = tabs.map((path) => ({ path, dirty: dirtyPaths.has(path) }));
 
+  // Keep refs for tabs/activeTab so the file-watcher callback always sees
+  // the latest values without re-subscribing on every tab change.
+  const tabsRef = useRef(tabs);
+  const activeTabRef = useRef(activeTab);
+  const dirtyPathsRef = useRef(dirtyPaths);
+  useEffect(() => { tabsRef.current = tabs; }, [tabs]);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  useEffect(() => { dirtyPathsRef.current = dirtyPaths; }, [dirtyPaths]);
+
+  // ── Reload open files when their directory changes on disk ──
+  //
+  // The FileWatcherManager sends `filetree.changed` events with a list
+  // of container-style directory paths (e.g. "/workspace/src"). For each
+  // changed directory we check if any open, non-dirty tab lives in that
+  // directory and re-read its content from disk.
+  useEffect(() => {
+    const cleanup = window.sero.filetree.onChanged((data) => {
+      if (data.workspaceId !== workspaceId) return;
+
+      const changedDirs = new Set(data.directories);
+      const openTabs = tabsRef.current;
+      const currentActive = activeTabRef.current;
+      const currentDirty = dirtyPathsRef.current;
+
+      for (const tabPath of openTabs) {
+        // Only reload files whose parent directory was reported as changed.
+        const parentPath = tabPath.substring(0, tabPath.lastIndexOf('/')) || '/';
+        if (!changedDirs.has(parentPath)) continue;
+
+        // Never overwrite unsaved user edits.
+        if (currentDirty.has(tabPath)) continue;
+
+        // Re-read the file. For the active tab we also update the visible
+        // content state; for background tabs we only update the cache so
+        // the fresh content is shown when the user switches to them.
+        void window.sero.editor.readFile(workspaceId, tabPath).then((fileContent) => {
+          const prev = savedContentRef.current.get(tabPath);
+          if (prev === fileContent) return; // No actual change — skip render.
+
+          contentMapRef.current.set(tabPath, fileContent);
+          savedContentRef.current.set(tabPath, fileContent);
+
+          if (tabPath === activeTabRef.current) {
+            setContent(fileContent);
+          }
+        }).catch(() => {
+          // File may have been deleted — ignore read errors silently.
+        });
+      }
+    });
+
+    return cleanup;
+  }, [workspaceId]);
+
+  // Reload editor buffers after a JJ restore so open tabs reflect disk state.
+  useEffect(() => {
+    const unsubscribe = window.sero.vcs.onEvent((event) => {
+      if (event.type !== 'restored' || event.workspaceId !== workspaceId) return;
+
+      contentMapRef.current.clear();
+      savedContentRef.current.clear();
+      setDirtyPaths(new Set());
+
+      if (!activeTab) {
+        setContent('');
+        return;
+      }
+
+      void window.sero.editor.readFile(workspaceId, activeTab).then((fileContent) => {
+        contentMapRef.current.set(activeTab, fileContent);
+        savedContentRef.current.set(activeTab, fileContent);
+        setContent(fileContent);
+      }).catch((err) => {
+        console.warn('[editor] Failed to reload tab after restore:', err);
+      });
+    });
+
+    return unsubscribe;
+  }, [workspaceId, activeTab]);
+
   return (
     <div className="flex flex-1 flex-col min-h-0 min-w-0" onKeyDown={handleKeyDown}>
       <EditorTabBar

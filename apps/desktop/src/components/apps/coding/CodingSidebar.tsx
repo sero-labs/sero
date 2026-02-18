@@ -1,5 +1,6 @@
 import type { CodingPanel } from './ActivityBar';
 import { FileTree } from './file-tree/FileTree';
+import { VcsPanel } from './vcs/VcsPanel';
 
 const panelTitles: Record<CodingPanel, string> = {
   explorer: 'Explorer',
@@ -10,6 +11,7 @@ const panelTitles: Record<CodingPanel, string> = {
 
 interface CodingSidebarProps {
   activePanel: CodingPanel;
+  workspaceId: string;
   /** Props forwarded to the FileTree when panel=explorer. */
   fileTreeProps?: {
     workspaceId: string;
@@ -26,7 +28,7 @@ interface CodingSidebarProps {
  *
  * Explorer panel renders the FileTree; other panels are placeholders.
  */
-export function CodingSidebar({ activePanel, fileTreeProps }: CodingSidebarProps) {
+export function CodingSidebar({ activePanel, workspaceId, fileTreeProps }: CodingSidebarProps) {
   const title = panelTitles[activePanel];
 
   return (
@@ -42,6 +44,8 @@ export function CodingSidebar({ activePanel, fileTreeProps }: CodingSidebarProps
       <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
         {activePanel === 'explorer' && fileTreeProps ? (
           <FileTree {...fileTreeProps} />
+        ) : activePanel === 'git' ? (
+          <VcsPanel workspaceId={workspaceId} />
         ) : (
           <div className="flex flex-1 items-center justify-center p-4">
             <span className="text-xs text-[var(--text-muted)]">{title} panel</span>

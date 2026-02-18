@@ -17,6 +17,7 @@ import {
   useTerminalStore,
 } from '@/stores/terminal';
 import { useWorkspaceCodingUi, useCodingUiStore } from '@/stores/coding-ui';
+import { useVcsStore } from '@/stores/vcs';
 
 /**
  * CodingWorkspace — the full coding app, mounted into the main area.
@@ -32,6 +33,9 @@ import { useWorkspaceCodingUi, useCodingUiStore } from '@/stores/coding-ui';
 export function CodingWorkspace() {
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? 'global';
+  const watchVcsWorkspace = useVcsStore((s) => s.watchWorkspace);
+  const unwatchVcsWorkspace = useVcsStore((s) => s.unwatchWorkspace);
+  const loadVcsWorkspace = useVcsStore((s) => s.loadWorkspace);
 
   // Per-workspace UI state
   const { sidebarOpen, activePanel, terminalOpen } = useWorkspaceCodingUi(workspaceId);
@@ -103,6 +107,21 @@ export function CodingWorkspace() {
     const cleanup = useTerminalStore.getState().initExitListener();
     return cleanup;
   }, []);
+
+  // ── JJ checkpoint event listener + watcher ──
+  const initVcsEventListener = useVcsStore((s) => s.initEventListener);
+  useEffect(() => {
+    const unsubVcs = initVcsEventListener();
+    return unsubVcs;
+  }, [initVcsEventListener]);
+
+  useEffect(() => {
+    void watchVcsWorkspace(workspaceId);
+    void loadVcsWorkspace(workspaceId);
+    return () => {
+      void unwatchVcsWorkspace(workspaceId);
+    };
+  }, [workspaceId, loadVcsWorkspace, unwatchVcsWorkspace, watchVcsWorkspace]);
 
   // Auto-create a default terminal whenever the panel is open but has no
   // tabs. The main process handles container vs host fallback, so we don't
@@ -256,6 +275,7 @@ export function CodingWorkspace() {
             {sidebarOpen && (
               <CodingSidebar
                 activePanel={activePanel}
+                workspaceId={workspaceId}
                 fileTreeProps={{
                   workspaceId, rootId, activePath: activeTab,
                   onFileSelect: handleOpenTab,

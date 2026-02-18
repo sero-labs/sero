@@ -16,6 +16,7 @@ import type {
   SeroSlashCommandInfo,
   SessionModelState,
 } from '../../src/types/ipc';
+import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 import { resizeImageForApi } from '../utils/image-resize';
 
 // ── ID generation ────────────────────────────────────────────
@@ -23,6 +24,109 @@ import { resizeImageForApi } from '../utils/image-resize';
 let msgCounter = 0;
 export function nextId(): string {
   return `msg-${Date.now()}-${++msgCounter}`;
+}
+
+// ── Custom message formatting ────────────────────────────────
+
+/**
+ * Extract display text from a custom SDK message.
+ * Returns null if the message should not be displayed.
+ */
+export function formatCustomMessage(msg: {
+  display?: boolean;
+  customType?: string;
+  content?: unknown;
+}): string | null {
+  const display = msg.display ?? true;
+  if (!display) return null;
+
+  const customType = String(msg.customType ?? '').trim();
+  const content = msg.content;
+  const text =
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content
+            .filter((c): c is { type: 'text'; text: string } => c?.type === 'text')
+            .map((c) => c.text)
+            .join('\n')
+        : '';
+  const prefixed = customType ? `[${customType}] ${text}` : text;
+  return prefixed.trim() ? prefixed : null;
+}
+
+const CHECKPOINT_ENTRY = 'jj-checkpoint';
+
+/**
+ * Find the session entry ID of a `jj-checkpoint` custom entry by changeId.
+ *
+ * With the shifted checkpoint mapping (user message N displays the checkpoint
+ * from turn N-1), branching to the checkpoint entry itself keeps turns 0..N-1
+ * visible in the chat and hides turn N onward.
+ *
+ * Returns `null` if no matching checkpoint entry exists.
+ */
+export function findCheckpointEntryId(
+  session: AgentSession,
+  changeId: string,
+): string | null {
+  const entries = session.sessionManager.getEntries();
+  for (const e of entries) {
+    if (e.type === 'custom' && e.customType === CHECKPOINT_ENTRY) {
+      const data = e.data as Record<string, unknown> | undefined;
+      if (data?.changeId === changeId) {
+        return e.id;
+      }
+    }
+  }
+  return null;
+}
+
+function asCheckpointRef(data: unknown): ChatCheckpointRef | null {
+  if (!data || typeof data !== 'object') return null;
+
+  const value = data as Record<string, unknown>;
+  const changeId = typeof value.changeId === 'string' ? value.changeId.trim() : '';
+  if (!changeId) return null;
+
+  return {
+    changeId,
+    description: typeof value.description === 'string' ? value.description : '(no description)',
+    source: typeof value.source === 'string' ? value.source : 'turn',
+    createdAt: typeof value.recordedAt === 'string' ? value.recordedAt : new Date().toISOString(),
+  };
+}
+
+/** Build mapping: user turn index -> checkpoint metadata from session custom entries. */
+export function buildCheckpointMapByTurn(
+  session: AgentSession,
+  workspaceId?: string,
+): Map<number, ChatCheckpointRef> {
+  const result = new Map<number, ChatCheckpointRef>();
+  const branch = session.sessionManager.getBranch();
+  let currentTurn = -1;
+
+  for (const entry of branch) {
+    if (entry.type === 'message' && entry.message.role === 'user') {
+      currentTurn++;
+      continue;
+    }
+
+    if (entry.type !== 'custom' || entry.customType !== CHECKPOINT_ENTRY) continue;
+
+    const checkpoint = asCheckpointRef(entry.data);
+    if (!checkpoint) continue;
+    if (checkpoint.source !== 'turn') continue;
+
+    if (workspaceId && typeof entry.data === 'object' && entry.data) {
+      const ws = (entry.data as Record<string, unknown>).workspaceId;
+      if (typeof ws === 'string' && ws && ws !== workspaceId) continue;
+    }
+
+    result.set(currentTurn, checkpoint);
+  }
+
+  return result;
 }
 
 // ── Validation ───────────────────────────────────────────────
@@ -59,11 +163,14 @@ export function validateProvider(provider: string): KnownProvider {
 
 export function convertSessionMessages(
   messages: ReturnType<AgentSession['agent']['state']['messages']['slice']>,
+  checkpointsByTurn?: Map<number, ChatCheckpointRef>,
 ): ChatMessage[] {
   const result: ChatMessage[] = [];
+  let userTurn = -1;
 
   for (const msg of messages) {
     if (msg.role === 'user') {
+      userTurn++;
       const text =
         typeof msg.content === 'string'
           ? msg.content
@@ -71,7 +178,16 @@ export function convertSessionMessages(
               .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
               .map((c) => c.text)
               .join('\n');
-      result.push({ type: 'user', id: nextId(), text });
+      // Shifted by one: user message N shows the checkpoint from the
+      // *previous* turn (N-1). "Restore on message N" means "go back to
+      // the state just before I sent message N", which is the end of turn N-1.
+      const checkpoint = checkpointsByTurn?.get(userTurn - 1);
+      result.push({
+        type: 'user',
+        id: nextId(),
+        text,
+        checkpoint,
+      } as ChatMessage);
     } else if (msg.role === 'assistant') {
       const textParts = msg.content.filter(
         (c): c is { type: 'text'; text: string } => c.type === 'text',
@@ -113,6 +229,10 @@ export function convertSessionMessages(
           state: output !== null ? (isError ? 'error' : 'completed') : 'completed',
         });
       }
+    } else if (msg.role === 'custom') {
+      const prefixed = formatCustomMessage(msg as any);
+      if (!prefixed) continue;
+      result.push({ type: 'assistant', id: nextId(), text: prefixed, isStreaming: false });
     }
   }
 

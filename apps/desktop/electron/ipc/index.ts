@@ -23,6 +23,7 @@ import { registerLayoutHandlers } from './layout';
 import { registerLspHandlers } from './lsp';
 import { registerDebugHandlers } from './debug';
 import { registerContextPresetsHandlers } from './context-presets';
+import { registerVcsHandlers } from './vcs';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -42,4 +43,5 @@ export function registerAllIpcHandlers(): void {
   registerLspHandlers();
   registerDebugHandlers();
   registerContextPresetsHandlers();
+  registerVcsHandlers();
 }

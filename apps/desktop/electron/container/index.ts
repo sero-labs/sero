@@ -73,6 +73,22 @@ export class ContainerManager {
     }
   }
 
+  /** Environment variables expected by subprocesses that should mirror container exec networking defaults. */
+  getEnvVars(): Record<string, string> {
+    const env: Record<string, string> = {
+      HOST: '0.0.0.0',
+    };
+    if (this.proxyUrl) {
+      env.HTTP_PROXY = this.proxyUrl;
+      env.HTTPS_PROXY = this.proxyUrl;
+      env.http_proxy = this.proxyUrl;
+      env.https_proxy = this.proxyUrl;
+      env.NO_PROXY = 'localhost,127.0.0.1,192.168.64.0/24';
+      env.no_proxy = 'localhost,127.0.0.1,192.168.64.0/24';
+    }
+    return env;
+  }
+
   /* ── System ───────────────────────────────────────────────── */
 
   async ensureSystemRunning(): Promise<void> {

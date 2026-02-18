@@ -6,11 +6,6 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
 import {
-  Message,
-  MessageContent,
-  MessageResponse,
-} from '@/components/ai-elements/message';
-import {
   PromptInput,
   PromptInputBody,
   PromptInputTextarea,
@@ -28,14 +23,17 @@ import {
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import { SlashCommandMenu } from './SlashCommandMenu';
-import { PromptAttachmentsBar, MessageAttachments } from './ChatAttachments';
+import { PromptAttachmentsBar } from './ChatAttachments';
 import { UsageBadge } from './UsageBadge';
 import { ModelSelector } from './ModelSelector';
 import { AuthLoginDialog } from './AuthLoginDialog';
 import { groupMessages, ToolCallGroup } from './ToolCallGroup';
 import { ContextEditor } from './ContextEditor';
+import { ChatMessageItem } from './ChatMessageItem';
+import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
-import type { ChatMessage, ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
+import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
+import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
 
 /** Built-in commands handled client-side (not sent to the agent). */
 const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [
@@ -72,6 +70,8 @@ export function ChatPanel() {
   const isStreaming = focused?.isStreaming ?? false;
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
+  const focusedWorkspaceId = focused?.workspaceId ?? null;
+  const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
 
   // Resolve session name for the header badge
   const sessions = useSessionStore((s) => s.sessions);
@@ -209,24 +209,30 @@ export function ChatPanel() {
           ) : messages.length === 0 && !isStreaming ? (
             <EmptyState message="Start a conversation" />
           ) : (
-            groupedItems.map((item, index) => {
-              if (item.kind === 'tool-group') {
-                // A group is finalized when a non-tool item follows it,
-                // or it's the last item and the session is no longer streaming.
-                const isLast = index === groupedItems.length - 1;
-                const isFinalized = !isLast || !isStreaming;
+            <>
+              {groupedItems.map((item, index) => {
+                if (item.kind === 'tool-group') {
+                  // A group is finalized when a non-tool item follows it,
+                  // or it's the last item and the session is no longer streaming.
+                  const isLast = index === groupedItems.length - 1;
+                  const isFinalized = !isLast || !isStreaming;
+                  return (
+                    <ToolCallGroup
+                      key={item.id}
+                      tools={item.tools}
+                      isFinalized={isFinalized}
+                    />
+                  );
+                }
                 return (
-                  <ToolCallGroup
-                    key={item.id}
-                    tools={item.tools}
-                    isFinalized={isFinalized}
+                  <ChatMessageItem
+                    key={item.message.id}
+                    message={item.message}
+                    onRestoreCheckpoint={focusedWorkspaceId ? checkpoint.requestRestore : undefined}
                   />
                 );
-              }
-              return (
-                <ChatMessageItem key={item.message.id} message={item.message} />
-              );
-            })
+              })}
+            </>
           )}
 
           {showThinking && (
@@ -308,6 +314,17 @@ export function ChatPanel() {
         </PromptInput>
       </div>
 
+      <CheckpointRestoreDialog
+        open={checkpoint.dialogOpen}
+        checkpointId={checkpoint.target?.changeId ?? ''}
+        files={checkpoint.previewFiles}
+        isLoading={checkpoint.previewLoading}
+        error={checkpoint.previewError}
+        isRestoring={checkpoint.restoring}
+        onOpenChange={checkpoint.setDialogOpen}
+        onConfirm={checkpoint.confirmRestore}
+      />
+
       {/* Auth login/logout dialog (OAuth + API key) */}
       <AuthLoginDialog
         open={loginDialogOpen}
@@ -320,39 +337,6 @@ export function ChatPanel() {
       {sessionId && <ContextEditor sessionId={sessionId} />}
     </div>
   );
-}
-
-// ── Message renderer ───────────────────────────────────────────
-
-function ChatMessageItem({ message }: { message: ChatMessage }) {
-  switch (message.type) {
-    case 'user':
-      return (
-        <Message from="user">
-          <MessageContent>
-            <MessageResponse>{message.text}</MessageResponse>
-            {message.attachments?.length ? (
-              <MessageAttachments attachments={message.attachments} />
-            ) : null}
-          </MessageContent>
-        </Message>
-      );
-
-    case 'assistant':
-      return (
-        <Message from="assistant">
-          <MessageContent>
-            <MessageResponse>{message.text}</MessageResponse>
-            {message.isStreaming && message.text === '' && (
-              <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
-            )}
-          </MessageContent>
-        </Message>
-      );
-
-    default:
-      return null;
-  }
 }
 
 // ── Context editor menu item ───────────────────────────────────

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, Bot, Bug, Sun, Moon } from 'lucide-react';
+import { FolderOpen, Bot, Bug, Sun, Moon, GitBranch } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { useActiveAgentCount } from '@/stores/agent';
 import { DevServerIndicator } from './DevServerPanel';
+import { useWorkspaceVcs } from '@/stores/vcs';
 
 /**
  * StatusBar — bottom bar showing workspace info (à la VSCode).
@@ -16,6 +17,7 @@ export function StatusBar() {
   const toggleTheme = useAppStore((s) => s.toggleTheme);
   const activeWorkspace = useActiveWorkspace();
   const agentCount = useActiveAgentCount();
+  const vcsState = useWorkspaceVcs(activeWorkspace?.id ?? null);
 
   return (
     <footer className="flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-sm text-[var(--text-muted)]">
@@ -46,6 +48,12 @@ export function StatusBar() {
           <span className="flex items-center gap-1">
             <Bot className="size-3" />
             {agentCount} active
+          </span>
+        )}
+        {vcsState?.currentChangeId && (
+          <span className="flex items-center gap-1">
+            <GitBranch className="size-3" />
+            <span className="font-mono text-xs">{vcsState.currentChangeId}</span>
           </span>
         )}
         <span>Sero v0.1.0</span>

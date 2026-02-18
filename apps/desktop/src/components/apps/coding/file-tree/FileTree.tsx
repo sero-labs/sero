@@ -225,6 +225,16 @@ export function FileTree({
     return () => { cleanup(); window.sero.filetree.unwatch(workspaceId); };
   }, [workspaceId, loadDirectory]);
 
+  useEffect(() => {
+    const cleanup = window.sero.vcs.onEvent((event) => {
+      if (event.type !== 'restored' || event.workspaceId !== workspaceId) return;
+      for (const dir of expandedRef.current) {
+        loadDirectory(dir);
+      }
+    });
+    return cleanup;
+  }, [workspaceId, loadDirectory]);
+
   /* ── Drag & drop ─────────────────────────────────────────── */
 
   const handleDrop = createOnDropHandler<FileItem>(async (targetParent, newChildrenIds) => {

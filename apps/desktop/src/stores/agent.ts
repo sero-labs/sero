@@ -156,9 +156,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // Optimistically add the user message so it appears immediately.
     // The main process also sends a message_start event for user messages,
     // but we skip those in the event handler to avoid duplicates.
+    const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const userMsg: ChatMessage = {
       type: 'user',
-      id: `usr-${Date.now()}`,
+      id: userMessageId,
       text,
       attachments,
     };
@@ -174,7 +175,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }));
 
     try {
-      await window.sero.agent.prompt(sessionId, text, attachments);
+      await window.sero.agent.prompt(sessionId, text, attachments, userMessageId);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Prompt failed';
       console.error('[agent] sendPrompt failed:', err);
@@ -349,6 +350,22 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                 messages: s.agents[sid].messages.map((m) =>
                   m.type === 'assistant' && m.id === event.messageId
                     ? { ...m, text: event.text, isStreaming: false }
+                    : m,
+                ),
+              },
+            },
+          }));
+          break;
+
+        case 'user_checkpoint':
+          set((s) => ({
+            agents: {
+              ...s.agents,
+              [sid]: {
+                ...s.agents[sid],
+                messages: s.agents[sid].messages.map((m) =>
+                  m.type === 'user' && m.id === event.userMessageId
+                    ? ({ ...m, checkpoint: event.checkpoint } as ChatMessage)
                     : m,
                 ),
               },
