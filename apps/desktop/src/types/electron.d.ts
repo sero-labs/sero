@@ -20,7 +20,19 @@ import type {
   ContextOverrides,
   ContextPreset,
 } from './ipc';
-import type { VcsCheckpoint, VcsEvent, VcsWorkspaceState } from './vcs';
+import type {
+  VcsCheckpoint,
+  VcsEvent,
+  VcsWorkspaceState,
+  ChangeEntry,
+  WorkingCopyStatus,
+  FileDiffEntry,
+  Bookmark,
+  Remote,
+  OperationEntry,
+  SyncResult,
+  PushPreview,
+} from './vcs';
 
 interface SeroWorkspaceAPI {
   /** List all registered workspaces (registry + config merged). */
@@ -284,6 +296,27 @@ interface SeroVcsAPI {
   unwatch(workspaceId: string): Promise<void>;
   /** Subscribe to VCS events. Returns unsubscribe. */
   onEvent(callback: (event: VcsEvent) => void): () => void;
+
+  // ── Rich VCS ops ──────────────────────────────────────────
+  logEntries(wsId: string, limit?: number, revset?: string): Promise<ChangeEntry[]>;
+  status(wsId: string): Promise<WorkingCopyStatus>;
+  fileDiffSummary(wsId: string, from: string, to?: string): Promise<FileDiffEntry[]>;
+  fileContent(wsId: string, rev: string, path: string): Promise<string>;
+  describe(wsId: string, changeId: string, msg: string): Promise<void>;
+  bookmarks(wsId: string): Promise<Bookmark[]>;
+  createBookmark(wsId: string, name: string, rev?: string): Promise<void>;
+  deleteBookmark(wsId: string, name: string): Promise<void>;
+  moveBookmark(wsId: string, name: string, toRev: string): Promise<void>;
+  remotes(wsId: string): Promise<Remote[]>;
+  addRemote(wsId: string, name: string, url: string): Promise<void>;
+  removeRemote(wsId: string, name: string): Promise<void>;
+  fetch(wsId: string, remote?: string): Promise<SyncResult>;
+  push(wsId: string, bookmark?: string, changeId?: string): Promise<SyncResult>;
+  pushDryRun(wsId: string, bookmark?: string, changeId?: string): Promise<PushPreview>;
+  undo(wsId: string): Promise<void>;
+  abandon(wsId: string, changeId: string): Promise<void>;
+  squash(wsId: string, from?: string, into?: string): Promise<void>;
+  opLog(wsId: string, limit?: number): Promise<OperationEntry[]>;
 }
 
 interface SeroAPI {

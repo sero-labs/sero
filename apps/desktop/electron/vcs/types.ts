@@ -5,6 +5,17 @@ export type {
   VcsCheckpoint,
   VcsWorkspaceState,
   VcsEvent,
+  ChangeEntry,
+  WorkingCopyStatus,
+  StatusFile,
+  FileStatus,
+  FileDiffEntry,
+  Bookmark,
+  BookmarkRemoteStatus,
+  Remote,
+  OperationEntry,
+  SyncResult,
+  PushPreview,
 } from '../../src/types/vcs';
 
 export interface JjResult {

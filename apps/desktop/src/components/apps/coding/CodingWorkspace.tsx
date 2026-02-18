@@ -8,6 +8,7 @@ import {
 import { ActivityBar, type CodingPanel } from './ActivityBar';
 import { CodingSidebar } from './CodingSidebar';
 import { EditorPanel } from './editor/EditorPanel';
+import { DiffTab, type DiffTabState } from './editor/DiffTab';
 import { TerminalTabs } from './TerminalTabs';
 import { TerminalPanel } from './TerminalPanel';
 import { useActiveWorkspace } from '@/stores/workspace';
@@ -49,6 +50,9 @@ export function CodingWorkspace() {
   const [editorTabs, setEditorTabs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [rootId, setRootId] = useState<string>('/workspace');
+
+  // Diff tab state — when set, renders DiffTab instead of EditorPanel
+  const [diffState, setDiffState] = useState<DiffTabState | null>(null);
 
   // Tracks whether the editor state for the CURRENT workspaceId has loaded.
   // Reset to false on every workspaceId change so the persist effect doesn't
@@ -190,6 +194,17 @@ export function CodingWorkspace() {
     setActiveTab(active);
   }, []);
 
+  // VcsPanel → open diff in editor area
+  const handleOpenDiff = useCallback((from: string, to: string, path?: string) => {
+    setDiffState({
+      type: 'diff',
+      workspaceId,
+      fromRev: from,
+      toRev: to,
+      initialPath: path,
+    });
+  }, [workspaceId]);
+
   // ── FileTree → Editor path change/delete handlers ──
   const handlePathChanged = useCallback((oldPath: string, newPath: string) => {
     const remap = (p: string): string | null => {
@@ -276,6 +291,7 @@ export function CodingWorkspace() {
               <CodingSidebar
                 activePanel={activePanel}
                 workspaceId={workspaceId}
+                onOpenDiff={handleOpenDiff}
                 fileTreeProps={{
                   workspaceId, rootId, activePath: activeTab,
                   onFileSelect: handleOpenTab,
@@ -293,13 +309,36 @@ export function CodingWorkspace() {
 
           {/* ── Editor fills all remaining space ─────────────── */}
           <ResizablePanel id="coding-editor" minSize={200} className="min-w-0">
-            <div className="flex h-full min-h-0 min-w-0 bg-[var(--bg-base)]">
-              <EditorPanel
-                workspaceId={workspaceId}
-                tabs={editorTabs} activeTab={activeTab}
-                onOpenTab={handleOpenTab} onCloseTab={handleCloseTab}
-                onReorderTabs={handleReorderTabs} onTabsChange={handleTabsChange}
-              />
+            <div className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--bg-base)]">
+              {diffState ? (
+                <>
+                  {/* Diff mode: show a minimal tab bar with close action */}
+                  <div className="flex h-8 shrink-0 items-center border-b border-[var(--border-subtle)] bg-[var(--bg-base)] px-2">
+                    <span className="text-[11px] text-[var(--text-muted)]">
+                      Diff: {diffState.fromRev.slice(0, 8)} → {diffState.toRev.slice(0, 8)}
+                      {diffState.initialPath && ` — ${diffState.initialPath.split('/').pop()}`}
+                    </span>
+                    <span className="flex-1" />
+                    <button
+                      onClick={() => setDiffState(null)}
+                      className="flex size-5 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] transition-colors text-sm"
+                      title="Close diff"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="min-h-0 flex-1">
+                    <DiffTab state={diffState} />
+                  </div>
+                </>
+              ) : (
+                <EditorPanel
+                  workspaceId={workspaceId}
+                  tabs={editorTabs} activeTab={activeTab}
+                  onOpenTab={handleOpenTab} onCloseTab={handleCloseTab}
+                  onReorderTabs={handleReorderTabs} onTabsChange={handleTabsChange}
+                />
+              )}
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
