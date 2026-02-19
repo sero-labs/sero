@@ -10,8 +10,9 @@
  * on a live widget.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
+import type { editor as MonacoEditor } from 'monaco-editor';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   FileText,
@@ -186,6 +187,10 @@ function DiffFileView({
 }) {
   const [left, setLeft] = useState<string | null>(null);
   const [right, setRight] = useState<string | null>(null);
+  const modelRefs = useRef<{
+    original: MonacoEditor.ITextModel | null;
+    modified: MonacoEditor.ITextModel | null;
+  }>({ original: null, modified: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -197,6 +202,28 @@ function DiffFileView({
     });
     return () => { cancelled = true; };
   }, [workspaceId, fromRev, toRev, path]);
+
+  useEffect(() => {
+    return () => {
+      const { original, modified } = modelRefs.current;
+      modelRefs.current = { original: null, modified: null };
+      if (!original && !modified) return;
+
+      // Defer model disposal until after DiffEditor has fully unmounted.
+      setTimeout(() => {
+        try { original?.dispose(); } catch {}
+        try { modified?.dispose(); } catch {}
+      }, 0);
+    };
+  }, []);
+
+  const handleDiffMount = useCallback((editor: MonacoEditor.IStandaloneDiffEditor) => {
+    const model = editor.getModel();
+    modelRefs.current = {
+      original: model?.original ?? null,
+      modified: model?.modified ?? null,
+    };
+  }, []);
 
   if (left === null || right === null) {
     return (
@@ -212,6 +239,9 @@ function DiffFileView({
       modified={right}
       language={language}
       theme={theme}
+      onMount={handleDiffMount}
+      keepCurrentOriginalModel
+      keepCurrentModifiedModel
       options={{
         readOnly: true,
         renderSideBySide: sideBySide,
