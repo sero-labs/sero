@@ -19,7 +19,19 @@ import type {
   ContextOverrides,
   ContextPreset,
 } from '../src/types/ipc';
-import type { VcsCheckpoint, VcsEvent, VcsWorkspaceState } from '../src/types/vcs';
+import type {
+  VcsCheckpoint,
+  VcsEvent,
+  VcsWorkspaceState,
+  ChangeEntry,
+  WorkingCopyStatus,
+  FileDiffEntry,
+  Bookmark,
+  Remote,
+  OperationEntry,
+  SyncResult,
+  PushPreview,
+} from '../src/types/vcs';
 
 contextBridge.exposeInMainWorld('sero', {
   platform: process.platform,
@@ -288,6 +300,64 @@ contextBridge.exposeInMainWorld('sero', {
         ipcRenderer.removeListener(IpcChannels.vcs.event, handler);
       };
     },
+
+    // ── Rich VCS ops ──────────────────────────────────────────
+    logEntries: (wsId: string, limit?: number, revset?: string): Promise<ChangeEntry[]> =>
+      ipcRenderer.invoke(IpcChannels.vcs.logEntries, wsId, limit, revset),
+
+    status: (wsId: string): Promise<WorkingCopyStatus> =>
+      ipcRenderer.invoke(IpcChannels.vcs.status, wsId),
+
+    fileDiffSummary: (wsId: string, from: string, to?: string): Promise<FileDiffEntry[]> =>
+      ipcRenderer.invoke(IpcChannels.vcs.fileDiffSummary, wsId, from, to),
+
+    fileContent: (wsId: string, rev: string, path: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.vcs.fileContent, wsId, rev, path),
+
+    describe: (wsId: string, changeId: string, msg: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.describe, wsId, changeId, msg),
+
+    bookmarks: (wsId: string): Promise<Bookmark[]> =>
+      ipcRenderer.invoke(IpcChannels.vcs.bookmarks, wsId),
+
+    createBookmark: (wsId: string, name: string, rev?: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.createBookmark, wsId, name, rev),
+
+    deleteBookmark: (wsId: string, name: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.deleteBookmark, wsId, name),
+
+    moveBookmark: (wsId: string, name: string, toRev: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.moveBookmark, wsId, name, toRev),
+
+    remotes: (wsId: string): Promise<Remote[]> =>
+      ipcRenderer.invoke(IpcChannels.vcs.remotes, wsId),
+
+    addRemote: (wsId: string, name: string, url: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.addRemote, wsId, name, url),
+
+    removeRemote: (wsId: string, name: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.removeRemote, wsId, name),
+
+    fetch: (wsId: string, remote?: string): Promise<SyncResult> =>
+      ipcRenderer.invoke(IpcChannels.vcs.fetch, wsId, remote),
+
+    push: (wsId: string, bookmark?: string, changeId?: string): Promise<SyncResult> =>
+      ipcRenderer.invoke(IpcChannels.vcs.push, wsId, bookmark, changeId),
+
+    pushDryRun: (wsId: string, bookmark?: string, changeId?: string): Promise<PushPreview> =>
+      ipcRenderer.invoke(IpcChannels.vcs.pushDryRun, wsId, bookmark, changeId),
+
+    undo: (wsId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.undo, wsId),
+
+    abandon: (wsId: string, changeId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.abandon, wsId, changeId),
+
+    squash: (wsId: string, from?: string, into?: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.squash, wsId, from, into),
+
+    opLog: (wsId: string, limit?: number): Promise<OperationEntry[]> =>
+      ipcRenderer.invoke(IpcChannels.vcs.opLog, wsId, limit),
   },
 
   terminal: {

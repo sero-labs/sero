@@ -1,27 +1,8 @@
-import fs from 'fs';
 import { EventEmitter } from 'events';
 
 import type { WorkspaceManager } from '../workspace';
-import type {
-  CreateCheckpointOptions,
-  VcsCheckpoint,
-  VcsCheckpointSource,
-  VcsEvent,
-  VcsWorkspaceState,
-} from './types';
+import type { CreateCheckpointOptions, VcsCheckpoint, VcsCheckpointSource, VcsEvent, VcsWorkspaceState } from './types';
 import { JjRunner } from './jj-runner';
-
-const CHECKPOINT_WATCH_DEBOUNCE_MS = 1200;
-const CHECKPOINT_COOLDOWN_MS = 1200;
-const RESTORE_SUPPRESS_MS = 2500;
-
-interface WatchState {
-  watcher: fs.FSWatcher | null;
-  debounceTimer: ReturnType<typeof setTimeout> | null;
-  suppressUntil: number;
-  lastCheckpointAt: number;
-  checkpointInFlight: boolean;
-}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -37,23 +18,8 @@ function parseSourceFromDescription(description: string): VcsCheckpointSource {
   return 'manual';
 }
 
-function isIgnoredPath(fileName?: string | null): boolean {
-  if (!fileName) return false;
-  const normalized = fileName.replace(/\\/g, '/');
-  return (
-    normalized.includes('/.jj/') ||
-    normalized.startsWith('.jj/') ||
-    normalized.includes('/.git/') ||
-    normalized.startsWith('.git/') ||
-    normalized.includes('/node_modules/') ||
-    normalized.startsWith('node_modules/') ||
-    normalized.endsWith('.DS_Store')
-  );
-}
-
 export class VcsManager extends EventEmitter {
   private readonly runner: JjRunner;
-  private readonly watchStates = new Map<string, WatchState>();
 
   constructor(
     private readonly workspaceManager: WorkspaceManager,
@@ -199,7 +165,8 @@ export class VcsManager extends EventEmitter {
       throw new Error('Unable to resolve current JJ change');
     }
 
-    const description = (options.description?.trim() || this.buildDefaultDescription(options.source)).slice(0, 300);
+    const source: VcsCheckpointSource = options.source === 'fs' ? 'manual' : options.source;
+    const description = (options.description?.trim() || this.buildDefaultDescription(source)).slice(0, 300);
 
     const describe = await this.runner.run(workspaceId, ['describe', '-m', description]);
     if (describe.exitCode !== 0) {
@@ -209,7 +176,7 @@ export class VcsManager extends EventEmitter {
     const newWork = await this.runner.run(workspaceId, [
       'new',
       '-m',
-      `wip: ${options.source}`,
+      `wip: ${source}`,
     ]);
     if (newWork.exitCode !== 0) {
       throw new Error(newWork.stderr || 'Failed to advance to next working change');
@@ -218,12 +185,9 @@ export class VcsManager extends EventEmitter {
     const checkpoint: VcsCheckpoint = {
       changeId: currentChangeId,
       description,
-      source: options.source,
+      source,
       createdAt: nowIso(),
     };
-
-    const watchState = this.watchStates.get(workspaceId);
-    if (watchState) watchState.lastCheckpointAt = Date.now();
 
     this.emitEvent({
       type: 'checkpoint_created',
@@ -254,12 +218,6 @@ export class VcsManager extends EventEmitter {
       throw new Error(restore.stderr || `Failed to restore checkpoint ${changeId}`);
     }
 
-    const watchState = this.watchStates.get(workspaceId);
-    if (watchState) {
-      watchState.suppressUntil = Date.now() + RESTORE_SUPPRESS_MS;
-      watchState.lastCheckpointAt = Date.now();
-    }
-
     this.emitEvent({
       type: 'restored',
       workspaceId,
@@ -284,94 +242,13 @@ export class VcsManager extends EventEmitter {
     return diff.stdout;
   }
 
-  private async maybeCheckpointFromFs(workspaceId: string): Promise<void> {
-    const watchState = this.watchStates.get(workspaceId);
-    if (!watchState) return;
-
-    const now = Date.now();
-    if (watchState.checkpointInFlight) return;
-    if (now < watchState.suppressUntil) return;
-    if (now - watchState.lastCheckpointAt < CHECKPOINT_COOLDOWN_MS) return;
-
-    watchState.checkpointInFlight = true;
-    try {
-      await this.createCheckpoint(workspaceId, { source: 'fs' });
-    } catch (err) {
-      this.emitEvent({
-        type: 'error',
-        workspaceId,
-        error: err instanceof Error ? err.message : 'Filesystem checkpoint failed',
-      });
-    } finally {
-      watchState.checkpointInFlight = false;
-    }
-  }
-
   watchWorkspace(workspaceId: string): void {
-    if (this.watchStates.has(workspaceId)) return;
-
-    const workspacePath = this.workspaceManager.getPath(workspaceId);
-    if (!workspacePath) return;
-
-    const state: WatchState = {
-      watcher: null,
-      debounceTimer: null,
-      suppressUntil: 0,
-      lastCheckpointAt: 0,
-      checkpointInFlight: false,
-    };
-
-    try {
-      state.watcher = fs.watch(workspacePath, { recursive: true }, (_event, fileName) => {
-        if (isIgnoredPath(fileName)) return;
-
-        if (state.debounceTimer) {
-          clearTimeout(state.debounceTimer);
-        }
-
-        state.debounceTimer = setTimeout(() => {
-          state.debounceTimer = null;
-          void this.maybeCheckpointFromFs(workspaceId);
-        }, CHECKPOINT_WATCH_DEBOUNCE_MS);
-      });
-
-      state.watcher.on('error', (err) => {
-        this.emitEvent({
-          type: 'error',
-          workspaceId,
-          error: err instanceof Error ? err.message : 'Workspace watcher failed',
-        });
-      });
-    } catch (err) {
-      this.emitEvent({
-        type: 'error',
-        workspaceId,
-        error: err instanceof Error ? err.message : 'Failed to start workspace watcher',
-      });
-    }
-
-    this.watchStates.set(workspaceId, state);
+    // Explicit checkpoint mode: no automatic filesystem-based checkpointing.
+    // Keep API for compatibility with existing callers.
+    void this.workspaceManager.getPath(workspaceId);
   }
 
-  unwatchWorkspace(workspaceId: string): void {
-    const state = this.watchStates.get(workspaceId);
-    if (!state) return;
+  unwatchWorkspace(_workspaceId: string): void {}
 
-    if (state.debounceTimer) {
-      clearTimeout(state.debounceTimer);
-      state.debounceTimer = null;
-    }
-    if (state.watcher) {
-      state.watcher.close();
-      state.watcher = null;
-    }
-
-    this.watchStates.delete(workspaceId);
-  }
-
-  disposeAll(): void {
-    for (const workspaceId of this.watchStates.keys()) {
-      this.unwatchWorkspace(workspaceId);
-    }
-  }
+  disposeAll(): void {}
 }

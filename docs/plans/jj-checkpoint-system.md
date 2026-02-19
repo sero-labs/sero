@@ -2,15 +2,16 @@
 
 ## Status
 - State: In Progress
-- Updated: 2026-02-18
+- Updated: 2026-02-19
 
 ## Goal
 Implement Cursor/Windsurf/Codex-style workspace checkpoints in Sero, backed by JJ (colocated with Git), so users can restore any prior checkpoint and see rich diffs between checkpoints.
 
 ## Locked Decisions
-- Checkpoint cadence: `turn_end` (agent turn based) for agent work.
+- Checkpoint cadence: `agent_end` (one checkpoint per full user -> agent cycle, even when PI runs multiple internal tool-calling turns).
 - Capture scope: all file changes, including manual editor changes and terminal changes.
-- Capture mechanism for non-agent edits: filesystem watcher + debounce (not fragile tool-event coupling).
+- Capture mechanism for non-agent edits: explicit manual checkpoint only (no filesystem watcher auto-checkpoints).
+- Mixed manual+agent edit policy: `merge-working-copy` (turn checkpoint includes pre-existing manual working-copy changes when the agent mutates files).
 - Restore behavior: `jj new <checkpoint-id> -m "restore: <checkpoint-id>"` (restores files exactly, keeps timeline intact).
 - Timeline model: one checkpoint timeline per workspace.
 - Agent safety policy: block `git` and mutating `jj` in agent bash tool calls; allow read-only `jj`.
@@ -21,7 +22,7 @@ Implement Cursor/Windsurf/Codex-style workspace checkpoints in Sero, backed by J
 ## Implementation Strategy
 1. Core JJ backend (main process): init, status, list checkpoints, diff, restore, and eventing.
 2. PI extension integration: workspace/session metadata persistence, command guard, turn checkpointing.
-3. Non-agent change capture: file-watcher debounce -> checkpoint creation.
+3. Non-agent change capture: keep as working-copy changes until explicit manual checkpoint.
 4. UI integration: coding VCS panel + user-message checkpoint restore affordance, restore and diff actions.
 5. Safety + consistency: editor reload behavior after restore, path/IPC type safety, tests/typecheck.
 
@@ -44,14 +45,14 @@ Implement Cursor/Windsurf/Codex-style workspace checkpoints in Sero, backed by J
 ### Phase 2: PI Extension + Checkpoint Hooks
 - [x] Extend `apps/desktop/electron/sero-extension.ts` with JJ command guard (`tool_call`).
 - [x] Persist workspace/session checkpoint metadata with `pi.appendEntry(...)`.
-- [x] Add `turn_end` checkpoint creation (agent-turn checkpoints).
+- [x] Add `agent_end` checkpoint creation (single checkpoint per user -> agent cycle).
 - [x] Add slash commands for checkpoint operations (restore/list/diff bridge where needed).
 - [x] Ensure extension avoids TUI-only `ctx.ui.*` behavior and uses Sero-compatible pathways.
 
 ### Phase 3: Non-Agent File Change Capture
-- [x] Hook file watcher events to debounce checkpoint creation per workspace.
-- [x] Add guardrails to avoid checkpoint storms (cooldown + no-op diff skip).
-- [x] Ensure both container and host workspaces use same debounce capture behavior.
+- [x] Remove filesystem watcher checkpoint creation (no automatic FS checkpoints).
+- [x] Keep non-agent/manual edits as working-copy changes until explicit manual checkpoint.
+- [x] Ensure both container and host workspaces behave identically in explicit mode.
 
 ### Phase 4: Renderer + UX
 - [x] Surface extension checkpoint/custom messages in chat history + stream (mapped into assistant-visible messages).
@@ -89,9 +90,12 @@ Implement Cursor/Windsurf/Codex-style workspace checkpoints in Sero, backed by J
 - 2026-02-18: Ran `pnpm test -- --run` in `apps/desktop`; no tests are currently present (`electron/__tests__/**/*.test.ts` empty).
 - 2026-02-18: Removed checkpoint cards from `ChatPanel`; added inline user-message restore icon with tooltip and confirmation modal with diff file summary.
 - 2026-02-18: Added transparent checkpoint mapping (no automatic chat chatter) by linking turn checkpoints to user messages in Agent IPC/store flow.
+- 2026-02-19: Disabled filesystem-based auto-checkpointing in `VcsManager` (watch/unwatch now compatibility no-ops).
+- 2026-02-19: Updated extension turn checkpoint policy to checkpoint only after turns with mutating tool calls (`write`, `edit`, mutating `bash`), so manual-only edits remain grouped in working copy until explicit manual checkpoint.
+- 2026-02-19: Switched automatic checkpoint trigger from `turn_end` to `agent_end` so one user prompt that spans multiple internal PI turns/tool loops produces exactly one checkpoint.
 
 ## Risks to Watch
 - Chat custom-message fidelity: custom messages are currently surfaced as assistant-formatted messages (not a dedicated renderer type).
 - Restore cache invalidation: editor tab content cache must be refreshed explicitly after `jj new <id>` restore.
 - Cross-mode execution parity: container and host paths must produce identical JJ semantics.
-- Checkpoint noise: FS watcher debounce/cooldown tuning required.
+- Checkpoint policy drift: ensure future changes do not reintroduce implicit filesystem-triggered checkpoints.

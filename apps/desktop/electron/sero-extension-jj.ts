@@ -5,6 +5,13 @@ import { vcsManager } from './ipc/shared-infra';
 const WORKSPACE_LINK_ENTRY = 'jj-workspace-link';
 const CHECKPOINT_ENTRY = 'jj-checkpoint';
 
+type MixedEditCheckpointPolicy = 'merge-working-copy' | 'require-manual-first';
+
+// Chosen UX policy:
+// If users have manual working-copy edits and the agent mutates files in a prompt cycle,
+// create a single turn checkpoint that includes the full resulting workspace state.
+const MIXED_EDIT_CHECKPOINT_POLICY: MixedEditCheckpointPolicy = 'merge-working-copy';
+
 const GIT_COMMANDS_PATTERN =
   /(^|&&|\|\||;|\|)\s*git\s+(commit|push|pull|checkout|branch|merge|rebase|status|diff|log|add|reset|stash|clone|init|fetch|tag|show|rm|mv|restore|switch|remote|config|clean|cherry-pick|revert|bisect|blame|grep|shortlog|describe|archive|bundle|submodule|worktree|reflog)/;
 
@@ -41,6 +48,34 @@ const MUTATING_JJ = new Set([
   'git',
 ]);
 
+const READ_ONLY_SHELL_COMMANDS = new Set([
+  'ls',
+  'pwd',
+  'cat',
+  'head',
+  'tail',
+  'wc',
+  'stat',
+  'which',
+  'whereis',
+  'echo',
+  'printf',
+  'find',
+  'rg',
+  'grep',
+  'cut',
+  'tr',
+  'sort',
+  'uniq',
+  'jq',
+  'diff',
+  'tree',
+  'realpath',
+  'basename',
+  'dirname',
+  'awk',
+]);
+
 function extractTextContent(content: unknown): string {
   if (!Array.isArray(content)) return '';
   return content
@@ -73,17 +108,65 @@ function hasMutatingJj(command: string): boolean {
   return false;
 }
 
-function summarizeAssistantTurn(message: unknown): string {
-  const text = extractTextContent((message as any)?.content ?? []);
+function isLikelyReadOnlySegment(segment: string): boolean {
+  if (!segment) return true;
+  if (/[><]{1,2}/.test(segment)) return false;
+
+  const trimmed = segment.trim();
+  const withoutEnv = trimmed.replace(/^(\w+=(?:"[^"]*"|'[^']*'|[^\s]+)\s+)*/, '').trim();
+  if (!withoutEnv) return true;
+
+  const tokens = withoutEnv.split(/\s+/);
+  const cmd = tokens[0] ?? '';
+  const args = tokens.slice(1);
+  if (!cmd) return true;
+
+  if (cmd === 'jj') {
+    return !hasMutatingJj(withoutEnv);
+  }
+
+  if (cmd === 'sed') {
+    return args.includes('-n') && !args.includes('-i');
+  }
+
+  return READ_ONLY_SHELL_COMMANDS.has(cmd);
+}
+
+function isLikelyReadOnlyBash(command: string): boolean {
+  const segments = command
+    .split(/&&|\|\||;|\|/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (segments.length === 0) return false;
+  return segments.every(isLikelyReadOnlySegment);
+}
+
+function summarizeAssistantMessage(message: unknown): string {
+  const text = extractTextContent((message as any)?.content);
   if (!text) return 'checkpoint: turn';
   const first = text.split(/\r?\n/).find((line) => line.trim().length > 0) ?? 'checkpoint: turn';
   return `checkpoint: ${first.trim().slice(0, 220)}`;
+}
+
+function summarizeAgentRun(messages: unknown): string {
+  if (Array.isArray(messages)) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i] as { role?: unknown; content?: unknown };
+      if (msg?.role !== 'assistant') continue;
+      const summary = summarizeAssistantMessage(msg);
+      if (summary !== 'checkpoint: turn') return summary;
+    }
+  }
+  return 'checkpoint: turn';
 }
 
 export function registerJjCheckpointFeatures(
   pi: ExtensionAPI,
   workspaceId: string,
 ): void {
+  let agentRunHasMutatingToolCalls = false;
+  let hadWorkingCopyChangesAtAgentStart = false;
+
   function appendWorkspaceLink(changeId: string | null): void {
     pi.appendEntry(WORKSPACE_LINK_ENTRY, {
       workspaceId,
@@ -105,7 +188,6 @@ export function registerJjCheckpointFeatures(
   }
 
   pi.on('session_start', async () => {
-    vcsManager.watchWorkspace(workspaceId);
     try {
       const changeId = await vcsManager.getCurrentChangeId(workspaceId);
       appendWorkspaceLink(changeId);
@@ -115,7 +197,6 @@ export function registerJjCheckpointFeatures(
   });
 
   pi.on('session_switch', async () => {
-    vcsManager.watchWorkspace(workspaceId);
     try {
       const changeId = await vcsManager.getCurrentChangeId(workspaceId);
       appendWorkspaceLink(changeId);
@@ -124,7 +205,25 @@ export function registerJjCheckpointFeatures(
     }
   });
 
+  pi.on('agent_start', async () => {
+    agentRunHasMutatingToolCalls = false;
+    hadWorkingCopyChangesAtAgentStart = false;
+    if (MIXED_EDIT_CHECKPOINT_POLICY !== 'require-manual-first') return;
+
+    try {
+      hadWorkingCopyChangesAtAgentStart = await vcsManager.hasWorkingCopyChanges(workspaceId);
+    } catch {
+      // Non-fatal: if detection fails, do not block automatic turn checkpointing.
+      hadWorkingCopyChangesAtAgentStart = false;
+    }
+  });
+
   pi.on('tool_call', async (event) => {
+    if (event.toolName === 'write' || event.toolName === 'edit') {
+      agentRunHasMutatingToolCalls = true;
+      return;
+    }
+
     if (event.toolName !== 'bash') return;
 
     const command = String((event.input as { command?: string }).command ?? '');
@@ -143,10 +242,17 @@ export function registerJjCheckpointFeatures(
         reason: 'Mutating jj commands are blocked in agent bash calls. Use read-only jj commands (status/log/diff/show).',
       };
     }
+
+    if (!isLikelyReadOnlyBash(command)) agentRunHasMutatingToolCalls = true;
   });
 
-  pi.on('turn_end', async (event) => {
-    const description = summarizeAssistantTurn(event.message);
+  pi.on('agent_end', async (event) => {
+    if (!agentRunHasMutatingToolCalls) return;
+    if (MIXED_EDIT_CHECKPOINT_POLICY === 'require-manual-first' && hadWorkingCopyChangesAtAgentStart) {
+      return;
+    }
+
+    const description = summarizeAgentRun((event as { messages?: unknown[] }).messages);
     try {
       const checkpoint = await vcsManager.createCheckpoint(workspaceId, {
         source: 'turn',

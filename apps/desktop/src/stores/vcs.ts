@@ -1,42 +1,109 @@
 import { create } from 'zustand';
 
-import type { VcsCheckpoint, VcsEvent, VcsWorkspaceState } from '@/types/vcs';
+import type {
+  VcsCheckpoint,
+  VcsEvent,
+  VcsWorkspaceState,
+  ChangeEntry,
+  WorkingCopyStatus,
+  Bookmark,
+  Remote,
+  FileDiffEntry,
+} from '@/types/vcs';
+
+// ── Per-workspace VCS data ───────────────────────────────────
 
 interface WorkspaceVcsData extends VcsWorkspaceState {
+  // Rich state
+  logEntries: ChangeEntry[];
+  wcStatus: WorkingCopyStatus | null;
+  bookmarks: Bookmark[];
+  remotes: Remote[];
+  // Diff state
   lastDiff: string | null;
+  lastDiffFiles: FileDiffEntry[];
+  // UI
   isLoading: boolean;
   error: string | null;
+  logPage: number;
+  logHasMore: boolean;
 }
 
 interface VcsStore {
   byWorkspace: Record<string, WorkspaceVcsData>;
   listening: boolean;
+
+  // Lifecycle
   initEventListener: () => () => void;
-  loadWorkspace: (workspaceId: string) => Promise<void>;
-  watchWorkspace: (workspaceId: string) => Promise<void>;
-  unwatchWorkspace: (workspaceId: string) => Promise<void>;
-  createCheckpoint: (workspaceId: string, description?: string, source?: VcsCheckpoint['source']) => Promise<void>;
-  restoreCheckpoint: (workspaceId: string, checkpointId: string) => Promise<void>;
-  fetchDiff: (workspaceId: string, fromChangeId: string, toChangeId?: string) => Promise<string>;
+
+  // Data loading
+  loadWorkspace: (wsId: string) => Promise<void>;
+  loadLog: (wsId: string, page?: number) => Promise<void>;
+  loadMoreLog: (wsId: string) => Promise<void>;
+  loadStatus: (wsId: string) => Promise<void>;
+  loadBookmarks: (wsId: string) => Promise<void>;
+  loadRemotes: (wsId: string) => Promise<void>;
+  refreshAll: (wsId: string) => Promise<void>;
+
+  // Watcher
+  watchWorkspace: (wsId: string) => Promise<void>;
+  unwatchWorkspace: (wsId: string) => Promise<void>;
+
+  // Mutations
+  createCheckpoint: (wsId: string, desc?: string, src?: VcsCheckpoint['source']) => Promise<void>;
+  restoreCheckpoint: (wsId: string, id: string) => Promise<void>;
+  describe: (wsId: string, changeId: string, msg: string) => Promise<void>;
+  createBookmark: (wsId: string, name: string, rev?: string) => Promise<void>;
+  deleteBookmark: (wsId: string, name: string) => Promise<void>;
+  addRemote: (wsId: string, name: string, url: string) => Promise<void>;
+  removeRemote: (wsId: string, name: string) => Promise<void>;
+  fetch: (wsId: string, remote?: string) => Promise<{ success: boolean; message: string }>;
+  push: (wsId: string, bm?: string, cId?: string) => Promise<{ success: boolean; message: string }>;
+  undo: (wsId: string) => Promise<void>;
+  abandon: (wsId: string, changeId: string) => Promise<void>;
+
+  // Diff
+  fetchDiff: (wsId: string, from: string, to?: string) => Promise<string>;
+  fetchDiffFiles: (wsId: string, from: string, to?: string) => Promise<FileDiffEntry[]>;
+
+  // Errors
+  setError: (wsId: string, error: string | null) => void;
 }
 
-function emptyWorkspace(workspaceId: string): WorkspaceVcsData {
+const PAGE_SIZE = 40;
+
+function emptyWs(wsId: string): WorkspaceVcsData {
   return {
-    workspaceId,
+    workspaceId: wsId,
     currentChangeId: null,
     hasWorkingCopyChanges: false,
     checkpoints: [],
+    logEntries: [],
+    wcStatus: null,
+    bookmarks: [],
+    remotes: [],
     lastDiff: null,
+    lastDiffFiles: [],
     isLoading: false,
     error: null,
+    logPage: 0,
+    logHasMore: true,
   };
 }
 
-function ensureWorkspace(
-  state: Pick<VcsStore, 'byWorkspace'>,
-  workspaceId: string,
-): WorkspaceVcsData {
-  return state.byWorkspace[workspaceId] ?? emptyWorkspace(workspaceId);
+function getWs(state: Pick<VcsStore, 'byWorkspace'>, wsId: string): WorkspaceVcsData {
+  return state.byWorkspace[wsId] ?? emptyWs(wsId);
+}
+
+function updateWs(
+  set: (fn: (s: VcsStore) => Partial<VcsStore>) => void,
+  wsId: string,
+  patch: Partial<WorkspaceVcsData>,
+): void {
+  set((s) => {
+    const existing = getWs(s, wsId);
+    return { byWorkspace: { ...s.byWorkspace, [wsId]: { ...existing, ...patch } } };
+  });
 }
 
 export const useVcsStore = create<VcsStore>((set, get) => ({
@@ -44,181 +111,205 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
   listening: false,
 
   initEventListener: () => {
-    if (get().listening) {
-      return () => {};
-    }
-
+    if (get().listening) return () => {};
     set({ listening: true });
 
-    const unsubscribe = window.sero.vcs.onEvent((event: VcsEvent) => {
+    const unsub = window.sero.vcs.onEvent((event: VcsEvent) => {
+      const wsId = event.workspaceId;
       switch (event.type) {
-        case 'checkpoint_created':
-          set((s) => {
-            const existing = ensureWorkspace(s, event.workspaceId);
-            const checkpoints = [event.checkpoint, ...existing.checkpoints]
-              .filter((cp, index, arr) => arr.findIndex((x) => x.changeId === cp.changeId) === index)
-              .slice(0, 80);
-
-            return {
-              byWorkspace: {
-                ...s.byWorkspace,
-                [event.workspaceId]: {
-                  ...existing,
-                  checkpoints,
-                  currentChangeId: existing.currentChangeId,
-                  hasWorkingCopyChanges: false,
-                  error: null,
-                },
-              },
-            };
-          });
+        case 'checkpoint_created': {
+          const ws = getWs(get(), wsId);
+          const cps = [event.checkpoint, ...ws.checkpoints]
+            .filter((cp, i, arr) => arr.findIndex((x) => x.changeId === cp.changeId) === i)
+            .slice(0, 80);
+          updateWs(set, wsId, { checkpoints: cps, hasWorkingCopyChanges: false, error: null });
+          // Refresh log + status in background
+          void get().loadLog(wsId);
+          void get().loadStatus(wsId);
           break;
-
+        }
         case 'restored':
-          void get().loadWorkspace(event.workspaceId);
+          void get().refreshAll(wsId);
           break;
-
+        case 'refreshed':
+          void get().refreshAll(wsId);
+          break;
         case 'error':
-          set((s) => {
-            const existing = ensureWorkspace(s, event.workspaceId);
-            return {
-              byWorkspace: {
-                ...s.byWorkspace,
-                [event.workspaceId]: {
-                  ...existing,
-                  error: event.error,
-                },
-              },
-            };
-          });
+          updateWs(set, wsId, { error: event.error });
           break;
       }
     });
 
-    return () => {
-      unsubscribe();
-      set({ listening: false });
-    };
+    return () => { unsub(); set({ listening: false }); };
   },
 
-  loadWorkspace: async (workspaceId: string) => {
-    set((s) => {
-      const existing = ensureWorkspace(s, workspaceId);
-      return {
-        byWorkspace: {
-          ...s.byWorkspace,
-          [workspaceId]: {
-            ...existing,
-            isLoading: true,
-            error: null,
-          },
-        },
-      };
-    });
-
+  loadWorkspace: async (wsId) => {
+    updateWs(set, wsId, { isLoading: true, error: null });
     try {
-      const state = await window.sero.vcs.getState(workspaceId, 60);
-      set((s) => {
-        const existing = ensureWorkspace(s, workspaceId);
-        return {
-          byWorkspace: {
-            ...s.byWorkspace,
-            [workspaceId]: {
-              ...existing,
-              ...state,
-              isLoading: false,
-              error: null,
-            },
-          },
-        };
-      });
+      const state = await window.sero.vcs.getState(wsId, 60);
+      updateWs(set, wsId, { ...state, isLoading: false, error: null });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load checkpoint state';
-      set((s) => {
-        const existing = ensureWorkspace(s, workspaceId);
-        return {
-          byWorkspace: {
-            ...s.byWorkspace,
-            [workspaceId]: {
-              ...existing,
-              isLoading: false,
-              error: message,
-            },
-          },
-        };
-      });
+      updateWs(set, wsId, { isLoading: false, error: errMsg(err) });
     }
   },
 
-  watchWorkspace: async (workspaceId: string) => {
-    await window.sero.vcs.watch(workspaceId);
-  },
-
-  unwatchWorkspace: async (workspaceId: string) => {
-    await window.sero.vcs.unwatch(workspaceId);
-  },
-
-  createCheckpoint: async (workspaceId: string, description?: string, source: VcsCheckpoint['source'] = 'manual') => {
+  loadLog: async (wsId, page = 0) => {
     try {
-      await window.sero.vcs.createCheckpoint(workspaceId, description, source);
-      await get().loadWorkspace(workspaceId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create checkpoint';
-      set((s) => {
-        const existing = ensureWorkspace(s, workspaceId);
-        return {
-          byWorkspace: {
-            ...s.byWorkspace,
-            [workspaceId]: { ...existing, error: message },
-          },
-        };
+      const limit = PAGE_SIZE;
+      const entries = await window.sero.vcs.logEntries(wsId, limit);
+      updateWs(set, wsId, {
+        logEntries: entries,
+        logPage: 0,
+        logHasMore: entries.length >= limit,
+        error: null,
       });
+    } catch (err) {
+      updateWs(set, wsId, { error: errMsg(err) });
     }
   },
 
-  restoreCheckpoint: async (workspaceId: string, checkpointId: string) => {
+  loadMoreLog: async (wsId) => {
+    const ws = getWs(get(), wsId);
     try {
-      await window.sero.vcs.restore(workspaceId, checkpointId);
-      await get().loadWorkspace(workspaceId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to restore checkpoint';
-      set((s) => {
-        const existing = ensureWorkspace(s, workspaceId);
-        return {
-          byWorkspace: {
-            ...s.byWorkspace,
-            [workspaceId]: { ...existing, error: message },
-          },
-        };
+      const nextLimit = (ws.logPage + 2) * PAGE_SIZE;
+      const entries = await window.sero.vcs.logEntries(wsId, nextLimit);
+      updateWs(set, wsId, {
+        logEntries: entries,
+        logPage: ws.logPage + 1,
+        logHasMore: entries.length >= nextLimit,
       });
+    } catch (err) {
+      updateWs(set, wsId, { error: errMsg(err) });
+    }
+  },
+
+  loadStatus: async (wsId) => {
+    try {
+      const status = await window.sero.vcs.status(wsId);
+      updateWs(set, wsId, { wcStatus: status });
+    } catch {
+      // Status may fail if no JJ repo yet — not fatal
+    }
+  },
+
+  loadBookmarks: async (wsId) => {
+    try {
+      const bookmarks = await window.sero.vcs.bookmarks(wsId);
+      updateWs(set, wsId, { bookmarks });
+    } catch {
+      // Not fatal
+    }
+  },
+
+  loadRemotes: async (wsId) => {
+    try {
+      const remotes = await window.sero.vcs.remotes(wsId);
+      updateWs(set, wsId, { remotes });
+    } catch {
+      // Not fatal
+    }
+  },
+
+  refreshAll: async (wsId) => {
+    await Promise.all([
+      get().loadWorkspace(wsId),
+      get().loadLog(wsId),
+      get().loadStatus(wsId),
+      get().loadBookmarks(wsId),
+      get().loadRemotes(wsId),
+    ]);
+  },
+
+  watchWorkspace: async (wsId) => { await window.sero.vcs.watch(wsId); },
+  unwatchWorkspace: async (wsId) => { await window.sero.vcs.unwatch(wsId); },
+
+  createCheckpoint: async (wsId, desc, src = 'manual') => {
+    try {
+      await window.sero.vcs.createCheckpoint(wsId, desc, src);
+      await get().refreshAll(wsId);
+    } catch (err) {
+      updateWs(set, wsId, { error: errMsg(err) });
+    }
+  },
+
+  restoreCheckpoint: async (wsId, id) => {
+    try {
+      await window.sero.vcs.restore(wsId, id);
+      await get().refreshAll(wsId);
+    } catch (err) {
+      updateWs(set, wsId, { error: errMsg(err) });
       throw err;
     }
   },
 
-  fetchDiff: async (workspaceId: string, fromChangeId: string, toChangeId?: string) => {
-    const diff = await window.sero.vcs.diff(workspaceId, fromChangeId, toChangeId);
+  describe: async (wsId, changeId, msg) => {
+    await window.sero.vcs.describe(wsId, changeId, msg);
+    await get().loadLog(wsId);
+  },
 
-    set((s) => {
-      const existing = ensureWorkspace(s, workspaceId);
-      return {
-        byWorkspace: {
-          ...s.byWorkspace,
-          [workspaceId]: {
-            ...existing,
-            lastDiff: diff,
-            error: null,
-          },
-        },
-      };
-    });
+  createBookmark: async (wsId, name, rev) => {
+    await window.sero.vcs.createBookmark(wsId, name, rev);
+    await get().loadBookmarks(wsId);
+    await get().loadLog(wsId);
+  },
 
+  deleteBookmark: async (wsId, name) => {
+    await window.sero.vcs.deleteBookmark(wsId, name);
+    await get().loadBookmarks(wsId);
+    await get().loadLog(wsId);
+  },
+
+  addRemote: async (wsId, name, url) => {
+    await window.sero.vcs.addRemote(wsId, name, url);
+    await get().loadRemotes(wsId);
+  },
+
+  removeRemote: async (wsId, name) => {
+    await window.sero.vcs.removeRemote(wsId, name);
+    await get().loadRemotes(wsId);
+  },
+
+  fetch: async (wsId, remote) => {
+    const result = await window.sero.vcs.fetch(wsId, remote);
+    await get().refreshAll(wsId);
+    return result;
+  },
+
+  push: async (wsId, bm, cId) => {
+    const result = await window.sero.vcs.push(wsId, bm, cId);
+    await get().loadBookmarks(wsId);
+    return result;
+  },
+
+  undo: async (wsId) => {
+    await window.sero.vcs.undo(wsId);
+    await get().refreshAll(wsId);
+  },
+
+  abandon: async (wsId, changeId) => {
+    await window.sero.vcs.abandon(wsId, changeId);
+    await get().refreshAll(wsId);
+  },
+
+  fetchDiff: async (wsId, from, to) => {
+    const diff = await window.sero.vcs.diff(wsId, from, to);
+    updateWs(set, wsId, { lastDiff: diff, error: null });
     return diff;
   },
+
+  fetchDiffFiles: async (wsId, from, to) => {
+    const files = await window.sero.vcs.fileDiffSummary(wsId, from, to);
+    updateWs(set, wsId, { lastDiffFiles: files });
+    return files;
+  },
+
+  setError: (wsId, error) => updateWs(set, wsId, { error }),
 }));
 
-export function useWorkspaceVcs(workspaceId: string | null | undefined): WorkspaceVcsData | null {
-  return useVcsStore((s) => {
-    if (!workspaceId) return null;
-    return s.byWorkspace[workspaceId] ?? null;
-  });
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unknown VCS error';
+}
+
+export function useWorkspaceVcs(wsId: string | null | undefined): WorkspaceVcsData | null {
+  return useVcsStore((s) => (wsId ? s.byWorkspace[wsId] ?? null : null));
 }
