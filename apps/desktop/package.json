@@ -12,6 +12,8 @@
     "start": "electron .",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest",
+    "test:e2e": "npm run build && npx playwright test",
+    "test:e2e:headed": "npm run build && npx playwright test --headed",
     "container:nat": "sudo ./scripts/setup-container-nat.sh",
     "container:nat:teardown": "sudo ./scripts/setup-container-nat.sh --teardown",
     "container:build-image": "cd images && container build -t sero-node:latest -f Dockerfile.sero-node ."
@@ -88,6 +90,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/diff": "^8.0.0",
     "@types/node": "^22.19.9",
     "@types/react": "^19.2.13",
