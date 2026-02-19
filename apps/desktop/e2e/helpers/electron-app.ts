@@ -9,6 +9,16 @@ export interface LaunchOptions {
   env?: Record<string, string>;
   /** Override the SERO_HOME directory (defaults to a temp dir). */
   seroHome?: string;
+  /**
+   * Enable the macOS container system (Virtualization framework).
+   *
+   * - `false` (default): Disables the HTTP proxy (`SERO_CONTAINER_PROXY=0`).
+   *   The container binary may still be called but will fail gracefully
+   *   in environments without the Virtualization framework (CI, Linux).
+   * - `true`: Full container support. Requires macOS with the `container`
+   *   binary available. Used by the "local" Playwright project.
+   */
+  containers?: boolean;
 }
 
 /**
@@ -25,20 +35,29 @@ export async function launchSeroApp(
   const desktopRoot = path.resolve(__dirname, '../..');
   const mainEntry = path.join(desktopRoot, 'dist/electron/main.mjs');
 
+  const containers = options.containers ?? false;
+
+  const env: Record<string, string> = {
+    ...process.env as Record<string, string>,
+    NODE_ENV: 'test',
+    // Isolate test data from real user data
+    SERO_HOME: options.seroHome ?? path.join(desktopRoot, '.sero-test-data'),
+  };
+
+  if (!containers) {
+    // Disable the HTTP proxy — the container system's lifecycle calls
+    // (ensureSystemRunning, ensureImage) will still run but fail gracefully
+    // when the `container` binary is missing.
+    env.SERO_CONTAINER_PROXY = '0';
+  }
+
+  // Merge caller overrides last so they win
+  Object.assign(env, options.env);
+
   const app = await electron.launch({
     args: [mainEntry],
     cwd: desktopRoot,
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-      // Isolate test data from real user data
-      SERO_HOME: options.seroHome ?? path.join(desktopRoot, '.sero-test-data'),
-      // Disable container system during e2e tests (no macOS Virtualization)
-      SERO_DISABLE_CONTAINERS: '1',
-      // Disable the HTTP proxy for containers
-      SERO_CONTAINER_PROXY: '0',
-      ...options.env,
-    },
+    env,
   });
 
   // Wait for the first BrowserWindow to appear

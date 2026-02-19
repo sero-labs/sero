@@ -3,14 +3,21 @@ import { defineConfig } from '@playwright/test';
 /**
  * Playwright configuration for Electron e2e tests.
  *
- * Tests launch the built Electron app directly via `_electron.launch()`,
- * so no webServer is needed. The app must be built first:
+ * Two projects:
+ *   - "ci"    — Containers disabled via SERO_CONTAINER_PROXY=0. Skips
+ *               container.spec.ts. Safe for headless CI and environments
+ *               without macOS Virtualization.
+ *   - "local" — Containers enabled. Full integration tests including
+ *               container lifecycle, terminals, file I/O, and port forwarding.
  *
- *   npm run build && npx playwright test
+ * Usage:
+ *   npm run test:e2e            # CI mode (no containers)
+ *   npm run test:e2e:local      # Local mode (with containers)
+ *   npm run test:e2e:headed     # Local mode, visible window
  *
- * Or use the convenience script:
- *
- *   npm run test:e2e
+ * Or directly:
+ *   npx playwright test --project=ci
+ *   npx playwright test --project=local
  */
 export default defineConfig({
   testDir: './e2e',
@@ -44,5 +51,15 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
-  /* No projects needed — Electron tests always run against the desktop app. */
+  projects: [
+    {
+      name: 'ci',
+      testIgnore: /container\.spec\.ts/,
+      metadata: { containers: false },
+    },
+    {
+      name: 'local',
+      metadata: { containers: true },
+    },
+  ],
 });

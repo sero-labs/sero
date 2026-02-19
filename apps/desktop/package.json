@@ -12,8 +12,9 @@
     "start": "electron .",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest",
-    "test:e2e": "npm run build && npx playwright test",
-    "test:e2e:headed": "npm run build && npx playwright test --headed",
+    "test:e2e": "npm run build && npx playwright test --project=ci",
+    "test:e2e:local": "npm run build && npx playwright test --project=local",
+    "test:e2e:headed": "npm run build && npx playwright test --project=local --headed",
     "container:nat": "sudo ./scripts/setup-container-nat.sh",
     "container:nat:teardown": "sudo ./scripts/setup-container-nat.sh --teardown",
     "container:build-image": "cd images && container build -t sero-node:latest -f Dockerfile.sero-node ."
