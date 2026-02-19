@@ -38,10 +38,15 @@ export function BookmarksSection({ workspaceId, bookmarks, remotes }: Props) {
   const hasRemotes = remotes.length > 0;
 
   const handleCreate = useCallback(async () => {
-    if (!newName.trim()) return;
-    await store.createBookmark(workspaceId, newName.trim());
-    setNewName('');
-    setShowCreate(false);
+    const sanitized = newName.trim().replace(/\s+/g, '-');
+    if (!sanitized) return;
+    try {
+      await store.createBookmark(workspaceId, sanitized);
+      setNewName('');
+      setShowCreate(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to create bookmark');
+    }
   }, [workspaceId, newName, store]);
 
   const handleFetch = useCallback(async () => {
@@ -114,12 +119,12 @@ export function BookmarksSection({ workspaceId, bookmarks, remotes }: Props) {
                 <input
                   autoFocus
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e) => setNewName(e.target.value.replace(/\s+/g, '-'))}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void handleCreate();
                     if (e.key === 'Escape') setShowCreate(false);
                   }}
-                  placeholder="bookmark-name"
+                  placeholder="feature/my-branch"
                   className={cn(
                     'h-5 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)]',
                     'px-1.5 text-[11px] text-[var(--text-primary)]',

@@ -40,7 +40,7 @@ export function RemotesSection({ workspaceId, remotes }: Props) {
       defaultOpen={false}
       actions={
         <button
-          onClick={(e) => { e.stopPropagation(); setShowAdd((v) => !v); }}
+          onClick={() => setShowAdd((v) => !v)}
           title="Add remote"
           className={cn(
             'flex size-5 items-center justify-center rounded text-[var(--text-muted)]',

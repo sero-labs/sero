@@ -3,9 +3,14 @@
  *
  * Renders a side-by-side (or inline) diff view with full syntax highlighting,
  * char-level diff decorations, and minimap.
+ *
+ * The DiffEditor is keyed on `activePath` so React fully unmounts/remounts it
+ * on file switch — this avoids Monaco's "TextModel got disposed before
+ * DiffEditorWidget model got reset" error that happens when swapping models
+ * on a live widget.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -22,12 +27,10 @@ import type { FileDiffEntry } from '@/types/vcs';
 import { statusCode, statusColor, basename, langFromPath } from '../vcs/vcs-utils';
 
 export interface DiffTabState {
-  /** Marker for tab bar rendering — distinguishes from regular file tabs. */
   type: 'diff';
   workspaceId: string;
   fromRev: string;
   toRev: string;
-  /** If set, show only this file. Otherwise show the first file from the summary. */
   initialPath?: string;
 }
 
@@ -41,14 +44,9 @@ export function DiffTab({ state }: Props) {
 
   const [files, setFiles] = useState<FileDiffEntry[]>([]);
   const [activePath, setActivePath] = useState<string | null>(initialPath ?? null);
-  const [leftContent, setLeftContent] = useState('');
-  const [rightContent, setRightContent] = useState('');
   const [loading, setLoading] = useState(true);
-  const [fileLoading, setFileLoading] = useState(false);
   const [sideBySide, setSideBySide] = useState(true);
   const [navOpen, setNavOpen] = useState(true);
-
-  const diffEditorRef = useRef<any>(null);
 
   // Load file list
   useEffect(() => {
@@ -59,46 +57,12 @@ export function DiffTab({ state }: Props) {
       .then((f) => {
         if (cancelled) return;
         setFiles(f);
-        // Auto-select first file if no initial path
-        if (!activePath && f.length > 0) {
-          setActivePath(f[0].path);
-        }
+        if (!activePath && f.length > 0) setActivePath(f[0].path);
         setLoading(false);
       })
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [workspaceId, fromRev, toRev]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load file content when active path changes
-  useEffect(() => {
-    if (!activePath) return;
-    let cancelled = false;
-    setFileLoading(true);
-
-    Promise.all([
-      window.sero.vcs.fileContent(workspaceId, fromRev, activePath).catch(() => ''),
-      window.sero.vcs.fileContent(workspaceId, toRev, activePath).catch(() => ''),
-    ]).then(([left, right]) => {
-      if (cancelled) return;
-      setLeftContent(left);
-      setRightContent(right);
-      setFileLoading(false);
-    });
-
-    return () => { cancelled = true; };
-  }, [workspaceId, fromRev, toRev, activePath]);
-
-  const goToNextDiff = useCallback(() => {
-    diffEditorRef.current?.goToDiff?.('next');
-  }, []);
-
-  const goToPrevDiff = useCallback(() => {
-    diffEditorRef.current?.goToDiff?.('previous');
-  }, []);
-
-  const handleEditorMount = useCallback((editor: any) => {
-    diffEditorRef.current = editor;
-  }, []);
 
   const language = activePath ? langFromPath(activePath) : 'plaintext';
 
@@ -129,20 +93,6 @@ export function DiffTab({ state }: Props) {
         </span>
         <span className="flex-1" />
         <button
-          onClick={goToPrevDiff}
-          title="Previous change"
-          className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-        >
-          <ChevronUp className="size-3.5" />
-        </button>
-        <button
-          onClick={goToNextDiff}
-          title="Next change"
-          className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-        >
-          <ChevronDown className="size-3.5" />
-        </button>
-        <button
           onClick={() => setSideBySide((v) => !v)}
           title={sideBySide ? 'Inline diff' : 'Side-by-side diff'}
           className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
@@ -164,7 +114,7 @@ export function DiffTab({ state }: Props) {
               className="overflow-hidden border-r border-[var(--border-subtle)]"
             >
               <div className="h-full w-[180px] overflow-y-auto py-1">
-                {files.map((f, i) => (
+                {files.map((f) => (
                   <button
                     key={f.path}
                     onClick={() => setActivePath(f.path)}
@@ -191,33 +141,87 @@ export function DiffTab({ state }: Props) {
           )}
         </AnimatePresence>
 
-        {/* Monaco DiffEditor */}
+        {/* Keyed DiffEditor — remounts cleanly per file */}
         <div className="min-w-0 flex-1">
-          {fileLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
-            </div>
-          ) : (
-            <DiffEditor
-              original={leftContent}
-              modified={rightContent}
+          {activePath ? (
+            <DiffFileView
+              key={activePath}
+              workspaceId={workspaceId}
+              fromRev={fromRev}
+              toRev={toRev}
+              path={activePath}
               language={language}
               theme={theme === 'dark' ? 'vs-dark' : 'vs'}
-              onMount={handleEditorMount}
-              options={{
-                readOnly: true,
-                renderSideBySide: sideBySide,
-                minimap: { enabled: true },
-                scrollBeyondLastLine: false,
-                fontSize: 12,
-                lineNumbers: 'on',
-                renderOverviewRuler: true,
-                diffWordWrap: 'on',
-              }}
+              sideBySide={sideBySide}
             />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <span className="text-[11px] text-[var(--text-muted)]/60">No files to diff</span>
+            </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Per-file diff viewer (keyed, owns its own content loading) ──
+
+function DiffFileView({
+  workspaceId,
+  fromRev,
+  toRev,
+  path,
+  language,
+  theme,
+  sideBySide,
+}: {
+  workspaceId: string;
+  fromRev: string;
+  toRev: string;
+  path: string;
+  language: string;
+  theme: string;
+  sideBySide: boolean;
+}) {
+  const [left, setLeft] = useState<string | null>(null);
+  const [right, setRight] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      window.sero.vcs.fileContent(workspaceId, fromRev, path).catch(() => ''),
+      window.sero.vcs.fileContent(workspaceId, toRev, path).catch(() => ''),
+    ]).then(([l, r]) => {
+      if (!cancelled) { setLeft(l); setRight(r); }
+    });
+    return () => { cancelled = true; };
+  }, [workspaceId, fromRev, toRev, path]);
+
+  if (left === null || right === null) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
+      </div>
+    );
+  }
+
+  return (
+    <DiffEditor
+      original={left}
+      modified={right}
+      language={language}
+      theme={theme}
+      options={{
+        readOnly: true,
+        renderSideBySide: sideBySide,
+        minimap: { enabled: true },
+        scrollBeyondLastLine: false,
+        fontSize: 12,
+        lineNumbers: 'on',
+        renderOverviewRuler: true,
+        diffWordWrap: 'on',
+      }}
+    />
   );
 }

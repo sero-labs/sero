@@ -42,22 +42,29 @@ export class VcsOps {
     if (revset) args.push('-r', revset);
 
     const result = await this.runner.run(workspaceId, args);
+    console.log('[vcs-ops] getLogEntries exit=%d stdout=%d bytes stderr=%s',
+      result.exitCode, result.stdout.length, result.stderr.slice(0, 200));
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || 'Failed to load change log');
     }
 
-    return parseLogEntries(result.stdout);
+    const entries = parseLogEntries(result.stdout);
+    console.log('[vcs-ops] getLogEntries parsed %d entries', entries.length);
+    return entries;
   }
 
   // ── Working Copy Status ────────────────────────────────────
 
   async getStatus(workspaceId: string): Promise<WorkingCopyStatus> {
     const result = await this.runner.run(workspaceId, ['status']);
+    console.log('[vcs-ops] getStatus exit=%d stdout:\n%s', result.exitCode, result.stdout.slice(0, 500));
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || 'Failed to get status');
     }
 
-    return parseStatus(result.stdout);
+    const status = parseStatus(result.stdout);
+    console.log('[vcs-ops] getStatus parsed %d files, conflicts=%d', status.files.length, status.conflictCount);
+    return status;
   }
 
   // ── Diff Summary (structured file list) ────────────────────
@@ -67,15 +74,23 @@ export class VcsOps {
     from: string,
     to?: string,
   ): Promise<FileDiffEntry[]> {
-    const args = ['diff', '--summary', '--from', from];
-    if (to) args.push('--to', to);
+    // -r shows what a single revision introduced (vs its parents).
+    // --from/--to compares two arbitrary revisions.
+    const args = to
+      ? ['diff', '--summary', '--from', from, '--to', to]
+      : ['diff', '--summary', '-r', from];
 
+    console.log('[vcs-ops] getFileDiffSummary args=%j', args);
     const result = await this.runner.run(workspaceId, args);
+    console.log('[vcs-ops] getFileDiffSummary exit=%d stdout:\n%s\nstderr: %s',
+      result.exitCode, result.stdout.slice(0, 500), result.stderr.slice(0, 200));
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || 'Failed to get diff summary');
     }
 
-    return parseDiffSummary(result.stdout);
+    const files = parseDiffSummary(result.stdout);
+    console.log('[vcs-ops] getFileDiffSummary parsed %d files', files.length);
+    return files;
   }
 
   // ── File Content at Revision ───────────────────────────────

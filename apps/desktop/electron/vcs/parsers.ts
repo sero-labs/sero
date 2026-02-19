@@ -45,6 +45,7 @@ export const LOG_TEMPLATE = [
 export function parseLogEntries(stdout: string): ChangeEntry[] {
   const entries: ChangeEntry[] = [];
   const records = stdout.split(RECORD_SEP);
+  console.log('[vcs-parser] parseLogEntries: %d records, first 500 chars:\n%s', records.length, stdout.slice(0, 500));
 
   for (const record of records) {
     const trimmed = record.trim();
@@ -81,7 +82,10 @@ function parseStatusLine(line: string): StatusFile | null {
   // JJ status format:  "M path/to/file" or "A path" or "D path" or "C path"
   // Also: "R {old => new}"
   const match = trimmed.match(/^([MADRC])\s+(.+)$/);
-  if (!match) return null;
+  if (!match) {
+    console.log('[vcs-parser] parseStatusLine NO MATCH: %j', trimmed);
+    return null;
+  }
 
   const [, code, rest] = match;
   const statusMap: Record<string, FileStatus> = {
@@ -110,6 +114,7 @@ export function parseStatus(stdout: string): WorkingCopyStatus {
   const lines = stdout.split('\n');
   let conflictCount = 0;
   const parentChangeIds: string[] = [];
+  console.log('[vcs-parser] parseStatus input (%d lines):\n%s', lines.length, stdout.slice(0, 600));
 
   // Extract parent info from "Working copy  : <id>" or "Parent commit: <id>"
   for (const line of lines) {
@@ -148,6 +153,7 @@ export function parseStatus(stdout: string): WorkingCopyStatus {
 
 export function parseDiffSummary(stdout: string): FileDiffEntry[] {
   const entries: FileDiffEntry[] = [];
+  console.log('[vcs-parser] parseDiffSummary input:\n%s', stdout.slice(0, 600));
 
   for (const line of stdout.split('\n')) {
     const file = parseStatusLine(line);
@@ -156,6 +162,7 @@ export function parseDiffSummary(stdout: string): FileDiffEntry[] {
     }
   }
 
+  console.log('[vcs-parser] parseDiffSummary result: %d files', entries.length);
   return entries;
 }
 
