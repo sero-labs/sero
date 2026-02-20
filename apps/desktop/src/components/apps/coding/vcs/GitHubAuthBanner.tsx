@@ -45,7 +45,9 @@ export function GitHubAuthBanner({ className }: Props) {
           });
           break;
         case 'polling':
-          setFlow({ step: 'polling' });
+          // Don't overwrite 'code' state — keep showing the code while polling.
+          // The 'code' view already has its own "Waiting for authorization…" spinner.
+          setFlow((prev) => (prev.step === 'code' ? prev : { step: 'polling' }));
           break;
         case 'success':
           setFlow({ step: 'success', username: event.username ?? '' });
