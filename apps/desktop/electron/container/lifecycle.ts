@@ -196,6 +196,14 @@ export async function createFreshContainer(
     }
   }
 
+  // Bind-mount writable directories (e.g. global workspace) at the same
+  // absolute path so cross-workspace file operations work transparently.
+  for (const hostDir of config.writableMounts ?? []) {
+    if (fs.existsSync(hostDir)) {
+      args.push('--volume', `${hostDir}:${hostDir}`);
+    }
+  }
+
   args.push(config.image ?? DEFAULT_IMAGE, 'sleep', 'infinity');
 
   // Profile sets TERM, HOST bindings, and proxy for all shells.

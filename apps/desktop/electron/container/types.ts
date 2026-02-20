@@ -63,6 +63,13 @@ export interface ContainerConfig {
    * Directories that don't exist on the host are silently skipped.
    */
   readOnlyMounts?: string[];
+  /**
+   * Additional host directories to bind-mount read-write into the container
+   * at the same absolute path. Used for cross-workspace access (e.g. the
+   * global workspace) where the agent needs both read and write access.
+   * Directories that don't exist on the host are silently skipped.
+   */
+  writableMounts?: string[];
 }
 
 /**

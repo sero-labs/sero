@@ -42,6 +42,7 @@ import {
   ensureInfra,
   containerManager,
   vcsManager,
+  buildContainerConfig,
   SERO_SESSION_DIR,
   SERO_CONFIG_PATH,
 } from './shared-infra';
@@ -261,14 +262,8 @@ export function registerAgentHandlers(): void {
       try {
         if (containerEnabled) {
           sendEvent({ type: 'container_starting', sessionId, workspaceId });
-          containerState = await containerManager.ensure({
-            workspaceId,
-            hostPath: wsPath,
-            readOnlyMounts: [
-              path.join(SERO_AGENT_DIR, 'skills'),
-              path.join(SERO_AGENT_DIR, 'prompts'),
-            ],
-          });
+          const containerConfig = await buildContainerConfig(workspaceId, wsPath);
+          containerState = await containerManager.ensure(containerConfig);
           sendEvent({
             type: 'container_ready',
             sessionId,

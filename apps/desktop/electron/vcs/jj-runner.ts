@@ -1,11 +1,10 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import path from 'path';
 
 import type { WorkspaceManager } from '../workspace';
 import type { ContainerManager } from '../container/index';
 import type { GitHubAuthManager } from '../github/auth-manager';
-import { SERO_AGENT_DIR } from '../env';
+import { buildContainerConfig } from '../ipc/shared-infra';
 import type { JjResult } from './types';
 
 const execFileAsync = promisify(execFile);
@@ -22,14 +21,8 @@ export class JjRunner {
   ) {}
 
   private async ensureContainer(workspaceId: string, workspacePath: string): Promise<void> {
-    await this.containerManager.ensure({
-      workspaceId,
-      hostPath: workspacePath,
-      readOnlyMounts: [
-        path.join(SERO_AGENT_DIR, 'skills'),
-        path.join(SERO_AGENT_DIR, 'prompts'),
-      ],
-    });
+    const config = await buildContainerConfig(workspaceId, workspacePath);
+    await this.containerManager.ensure(config);
   }
 
   async runCommand(

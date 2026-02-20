@@ -7,10 +7,8 @@
  */
 
 import { ipcMain } from 'electron';
-import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
-import { containerManager, workspaceManager } from './shared-infra';
-import { SERO_AGENT_DIR } from '../env';
+import { containerManager, workspaceManager, buildContainerConfig } from './shared-infra';
 
 export function registerContainerHandlers(): void {
   // Get container state for a workspace (returns null if no container)
@@ -51,14 +49,8 @@ export function registerContainerHandlers(): void {
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
 
-      const state = await containerManager.ensure({
-        workspaceId,
-        hostPath: wsPath,
-        readOnlyMounts: [
-          path.join(SERO_AGENT_DIR, 'skills'),
-          path.join(SERO_AGENT_DIR, 'prompts'),
-        ],
-      });
+      const config = await buildContainerConfig(workspaceId, wsPath);
+      const state = await containerManager.ensure(config);
       return state;
     },
   );

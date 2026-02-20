@@ -12,6 +12,7 @@
  * agent directory, independent of the Pi CLI's ~/.pi/agent/.
  */
 
+import path from 'path';
 import {
   SettingsManager,
   AuthStorage,
@@ -20,6 +21,7 @@ import {
 import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
 
 import { SERO_AGENT_DIR } from '../env';
+import type { ContainerConfig } from '../container/types';
 import { ContainerManager } from '../container/index';
 import { GitHubAuthManager } from '../github/auth-manager';
 import { workspaceManager } from '../workspace';
@@ -98,5 +100,35 @@ export async function ensureInfra(): Promise<SharedInfra> {
     modelRegistry: _modelRegistry!,
     settingsManager: _settingsManager!,
     model: _model!,
+  };
+}
+
+/**
+ * Build the standard ContainerConfig for a workspace.
+ *
+ * Centralises mount configuration so every call site (agent sessions,
+ * container IPC, VCS runner) gets the same mounts — including writable
+ * cross-workspace mounts (e.g. the global workspace for memories).
+ */
+export async function buildContainerConfig(
+  workspaceId: string,
+  hostPath: string,
+): Promise<ContainerConfig> {
+  // Other open workspaces are mounted read-write so the agent can
+  // access cross-workspace files (e.g. saving memories to global).
+  const openWorkspaces = await workspaceManager.getOpenWorkspaces();
+  const writableMounts = openWorkspaces
+    .filter((ws) => ws.id !== workspaceId)
+    .map((ws) => ws.path)
+    .filter((p): p is string => !!p && path.resolve(p) !== path.resolve(hostPath));
+
+  return {
+    workspaceId,
+    hostPath,
+    readOnlyMounts: [
+      path.join(SERO_AGENT_DIR, 'skills'),
+      path.join(SERO_AGENT_DIR, 'prompts'),
+    ],
+    writableMounts,
   };
 }
