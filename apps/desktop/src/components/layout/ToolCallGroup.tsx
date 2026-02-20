@@ -60,12 +60,12 @@ export function groupMessages(
       continue;
     }
 
-    // Skip empty assistant messages entirely — they appear between sequential
-    // tool calls (SDK emits one per tool-use block).  Keeping them — even
-    // streaming ones — causes the tool group to lose its "last item" position,
-    // flipping isFinalized and producing expand/collapse flapping.
-    // The header's streaming spinner is sufficient as a "thinking" indicator.
-    if (msg.type === 'assistant' && !msg.text?.trim()) {
+    // Skip empty assistant messages that have no content at all — they appear
+    // between sequential tool calls (SDK emits one per tool-use block).
+    // However, keep messages that have thinking content so the ThinkingBlock
+    // can render while the model is still reasoning (text is empty but
+    // thinking deltas are accumulating).
+    if (msg.type === 'assistant' && !msg.text?.trim() && !msg.thinking) {
       continue;
     }
 

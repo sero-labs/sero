@@ -10,6 +10,26 @@ import type {
 import { useSessionStore } from '@/stores/sessions';
 import { useContainerStore } from '@/stores/container';
 
+// ── Helpers ────────────────────────────────────────────────────
+
+/** Patch a single field on an assistant message by ID. */
+function patchAssistant(
+  agents: Record<string, AgentInstance>,
+  sid: string,
+  messageId: string,
+  patch: (msg: import('@/types/ipc').ChatAssistantMessage) => import('@/types/ipc').ChatAssistantMessage,
+) {
+  return {
+    ...agents,
+    [sid]: {
+      ...agents[sid],
+      messages: agents[sid].messages.map((m) =>
+        m.type === 'assistant' && m.id === messageId ? patch(m) : m,
+      ),
+    },
+  };
+}
+
 // ── Types ──────────────────────────────────────────────────────
 
 /** State for a single agent session in the pool. */
@@ -31,6 +51,8 @@ interface AgentState {
   agents: Record<string, AgentInstance>;
   /** Which session is currently shown in the ChatPanel. */
   focusedSessionId: string | null;
+  /** Whether to display thinking/reasoning blocks in the chat. */
+  showThinkingBlocks: boolean;
 
   // ── Actions ────────────────────────────────────────────────
 
@@ -54,6 +76,8 @@ interface AgentState {
   setThinkingLevel: (sessionId: string, level: string) => Promise<void>;
   /** Fetch model state for a session. */
   fetchModelState: (sessionId: string) => Promise<void>;
+  /** Toggle visibility of thinking/reasoning blocks. */
+  toggleThinkingBlocks: () => void;
 
   /** Subscribe to main-process events. Returns cleanup function. */
   initEventListener: () => () => void;
@@ -64,6 +88,7 @@ interface AgentState {
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: {},
   focusedSessionId: null,
+  showThinkingBlocks: false,
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
     // If already in pool, just focus it
@@ -261,6 +286,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
+  toggleThinkingBlocks: () => set((s) => ({ showThinkingBlocks: !s.showThinkingBlocks })),
+
   initEventListener: () => {
     const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
       const { agents } = get();
@@ -327,82 +354,57 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
         case 'text_delta':
           set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: {
-                ...s.agents[sid],
-                messages: s.agents[sid].messages.map((m) =>
-                  m.type === 'assistant' && m.id === event.messageId
-                    ? { ...m, text: m.text + event.delta }
-                    : m,
-                ),
-              },
-            },
+            agents: patchAssistant(s.agents, sid, event.messageId, (m) => ({
+              ...m, text: m.text + event.delta,
+            })),
+          }));
+          break;
+
+        case 'thinking_delta':
+          set((s) => ({
+            agents: patchAssistant(s.agents, sid, event.messageId, (m) => ({
+              ...m, thinking: (m.thinking ?? '') + event.delta,
+            })),
           }));
           break;
 
         case 'message_end':
           set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: {
-                ...s.agents[sid],
-                messages: s.agents[sid].messages.map((m) =>
-                  m.type === 'assistant' && m.id === event.messageId
-                    ? { ...m, text: event.text, isStreaming: false }
-                    : m,
-                ),
-              },
-            },
+            agents: patchAssistant(s.agents, sid, event.messageId, (m) => ({
+              ...m, text: event.text, thinking: event.thinking, isStreaming: false,
+            })),
           }));
           break;
 
-        case 'user_checkpoint':
+        case 'user_checkpoint': {
+          const { userMessageId, checkpoint } = event;
           set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: {
-                ...s.agents[sid],
-                messages: s.agents[sid].messages.map((m) =>
-                  m.type === 'user' && m.id === event.userMessageId
-                    ? ({ ...m, checkpoint: event.checkpoint } as ChatMessage)
-                    : m,
-                ),
-              },
-            },
+            agents: { ...s.agents, [sid]: { ...s.agents[sid],
+              messages: s.agents[sid].messages.map((m) =>
+                m.type === 'user' && m.id === userMessageId
+                  ? ({ ...m, checkpoint } as ChatMessage) : m),
+            } },
           }));
           break;
+        }
 
         case 'tool_start':
           set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: {
-                ...s.agents[sid],
-                messages: [...s.agents[sid].messages, event.tool],
-              },
-            },
+            agents: { ...s.agents, [sid]: { ...s.agents[sid],
+              messages: [...s.agents[sid].messages, event.tool],
+            } },
           }));
           break;
 
         case 'tool_end':
           set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: {
-                ...s.agents[sid],
-                messages: s.agents[sid].messages.map((m) =>
-                  m.type === 'tool' && m.toolCallId === event.toolCallId
-                    ? {
-                        ...m,
-                        output: event.output,
-                        isError: event.isError,
-                        state: event.isError ? 'error' : 'completed',
-                      } as ChatToolCallMessage
-                    : m,
-                ),
-              },
-            },
+            agents: { ...s.agents, [sid]: { ...s.agents[sid],
+              messages: s.agents[sid].messages.map((m) =>
+                m.type === 'tool' && m.toolCallId === event.toolCallId
+                  ? { ...m, output: event.output, isError: event.isError,
+                      state: event.isError ? 'error' : 'completed' } as ChatToolCallMessage
+                  : m),
+            } },
           }));
           break;
 

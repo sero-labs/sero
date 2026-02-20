@@ -151,6 +151,13 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
             messageId: entry.currentAssistantId,
             delta: ame.delta,
           });
+        } else if (ame.type === 'thinking_delta' && entry.currentAssistantId) {
+          sendEvent({
+            type: 'thinking_delta',
+            sessionId,
+            messageId: entry.currentAssistantId,
+            delta: ame.delta,
+          });
         }
         break;
       }
@@ -160,11 +167,16 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
           const textParts = event.message.content.filter(
             (c): c is { type: 'text'; text: string } => c.type === 'text',
           );
+          const thinkingParts = event.message.content.filter(
+            (c): c is { type: 'thinking'; thinking: string } => c.type === 'thinking',
+          );
+          const thinking = thinkingParts.map((c) => c.thinking).join('') || undefined;
           sendEvent({
             type: 'message_end',
             sessionId,
             messageId: entry.currentAssistantId,
             text: textParts.map((c) => c.text).join(''),
+            thinking,
           });
           entry.currentAssistantId = null;
         }

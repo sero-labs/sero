@@ -161,6 +161,8 @@ export interface ChatAssistantMessage {
   text: string;
   /** True while this message is still receiving deltas. */
   isStreaming: boolean;
+  /** Accumulated thinking/reasoning text (only present when model uses reasoning). */
+  thinking?: string;
 }
 
 export interface ChatToolCallMessage {
@@ -186,8 +188,9 @@ export type AgentStreamEvent =
   | { type: 'agent_end'; sessionId: string }
   | { type: 'messages_loaded'; sessionId: string; messages: ChatMessage[] }
   | { type: 'text_delta'; sessionId: string; messageId: string; delta: string }
+  | { type: 'thinking_delta'; sessionId: string; messageId: string; delta: string }
   | { type: 'message_start'; sessionId: string; message: ChatMessage }
-  | { type: 'message_end'; sessionId: string; messageId: string; text: string }
+  | { type: 'message_end'; sessionId: string; messageId: string; text: string; thinking?: string }
   | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
   | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; isError: boolean }
   | { type: 'user_checkpoint'; sessionId: string; userMessageId: string; checkpoint: ChatCheckpointRef }

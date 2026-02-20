@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Bot, MessageSquare, Loader2, AlertCircle, Settings2 } from 'lucide-react';
+import { Bot, MessageSquare, Loader2, AlertCircle, Settings2, Brain } from 'lucide-react';
 import {
   Conversation,
   ConversationContent,
@@ -33,6 +33,7 @@ import { ChatMessageItem } from './ChatMessageItem';
 import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
+import { cn } from '@/lib/utils';
 import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
 
 /** Built-in commands handled client-side (not sent to the agent). */
@@ -77,6 +78,8 @@ export function ChatPanel() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSession = sessionId ? sessions.find((s) => s.id === sessionId) : null;
   const sessionLabel = activeSession?.name || activeSession?.firstMessage;
+
+  const showThinkingBlocks = useAgentStore((s) => s.showThinkingBlocks);
 
   // Group consecutive tool calls into collapsible blocks
   const groupedItems = useMemo(() => groupMessages(messages), [messages]);
@@ -228,6 +231,7 @@ export function ChatPanel() {
                   <ChatMessageItem
                     key={item.message.id}
                     message={item.message}
+                    showThinking={showThinkingBlocks}
                     onRestoreCheckpoint={focusedWorkspaceId ? checkpoint.requestRestore : undefined}
                   />
                 );
@@ -296,6 +300,8 @@ export function ChatPanel() {
                   <ContextEditorMenuItem sessionId={sessionId} disabled={isStreaming} />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
+              {/* Show/hide thinking blocks */}
+              <ThinkingBlocksToggle disabled={!hasSession} />
               {/* Model + thinking level selector */}
               <ModelSelector disabled={!hasSession} />
             </PromptInputTools>
@@ -365,6 +371,35 @@ function ContextEditorMenuItem({
         <span className="ml-auto size-1.5 rounded-full bg-[var(--accent)]" />
       )}
     </PromptInputActionMenuItem>
+  );
+}
+
+// ── Thinking blocks toggle ─────────────────────────────────────
+
+function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
+  const focused = useFocusedAgent();
+  const showThinking = useAgentStore((s) => s.showThinkingBlocks);
+  const toggle = useAgentStore((s) => s.toggleThinkingBlocks);
+
+  const isReasoning = focused?.modelState?.model.reasoning ?? false;
+  const thinkingLevel = focused?.modelState?.thinkingLevel ?? 'off';
+  const isActive = isReasoning && thinkingLevel !== 'off';
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={disabled || !isActive}
+      title={showThinking ? 'Hide thinking blocks' : 'Show thinking blocks'}
+      className={cn(
+        'rounded-md p-1.5 transition-colors duration-150',
+        showThinking && isActive
+          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+          : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+        'disabled:pointer-events-none disabled:opacity-40',
+      )}
+    >
+      <Brain className="size-3.5" />
+    </button>
   );
 }
 

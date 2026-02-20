@@ -8,16 +8,20 @@ import {
   MessageResponse,
 } from '@/components/ai-elements/message';
 import { MessageAttachments } from './ChatAttachments';
+import { ThinkingBlock } from './ThinkingBlock';
 import type { ChatMessage } from '@/types/ipc';
 import type { ChatCheckpointRef } from '@/types/checkpoints';
 
 interface ChatMessageItemProps {
   message: ChatMessage;
+  /** Whether to display thinking/reasoning blocks. */
+  showThinking?: boolean;
   onRestoreCheckpoint?: (checkpoint: ChatCheckpointRef) => void;
 }
 
 export function ChatMessageItem({
   message,
+  showThinking,
   onRestoreCheckpoint,
 }: ChatMessageItemProps) {
   switch (message.type) {
@@ -55,9 +59,15 @@ export function ChatMessageItem({
     case 'assistant':
       return (
         <Message from="assistant">
+          {showThinking && message.thinking && (
+            <ThinkingBlock
+              thinking={message.thinking}
+              isStreaming={message.isStreaming && !message.text}
+            />
+          )}
           <MessageContent>
             <MessageResponse>{message.text}</MessageResponse>
-            {message.isStreaming && message.text === '' && (
+            {message.isStreaming && message.text === '' && !message.thinking && (
               <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
             )}
           </MessageContent>

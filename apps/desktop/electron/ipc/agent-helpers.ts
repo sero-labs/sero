@@ -193,9 +193,13 @@ export function convertSessionMessages(
         (c): c is { type: 'text'; text: string } => c.type === 'text',
       );
       const text = textParts.map((c) => c.text).join('');
+      const thinkingParts = msg.content.filter(
+        (c): c is { type: 'thinking'; thinking: string } => c.type === 'thinking',
+      );
+      const thinking = thinkingParts.map((c) => c.thinking).join('') || undefined;
 
       if (text) {
-        result.push({ type: 'assistant', id: nextId(), text, isStreaming: false });
+        result.push({ type: 'assistant', id: nextId(), text, isStreaming: false, thinking });
       }
 
       const toolCalls = msg.content.filter(
