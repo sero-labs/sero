@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
 import { WorkingCopySection } from './WorkingCopySection';
 import { BookmarksSection } from './BookmarksSection';
+import { GitHubAuthBanner } from './GitHubAuthBanner';
+import { PullRequestSection } from './PullRequestSection';
 import { ChangeLog } from './ChangeLog';
 import { RemotesSection } from './RemotesSection';
 
@@ -103,6 +105,15 @@ export function VcsPanel({ workspaceId, onOpenDiff }: VcsPanelProps) {
               workspaceId={workspaceId}
               bookmarks={ws?.bookmarks ?? []}
               remotes={ws?.remotes ?? []}
+              activePushBookmark={ws?.activePushBookmark ?? null}
+            />
+
+            <GitHubAuthBanner className="mx-2" />
+
+            <PullRequestSection
+              workspaceId={workspaceId}
+              bookmarks={ws?.bookmarks ?? []}
+              activePushBookmark={ws?.activePushBookmark ?? null}
             />
 
             <ChangeLog

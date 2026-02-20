@@ -18,6 +18,9 @@ interface WorkspaceVcsData extends VcsWorkspaceState {
   logEntries: ChangeEntry[];
   wcStatus: WorkingCopyStatus | null;
   bookmarks: Bookmark[];
+  activePushBookmark: string | null;
+  /** True once the user (or initial load) has set activePushBookmark. */
+  activePushBookmarkInitialized: boolean;
   remotes: Remote[];
   // Diff state
   lastDiff: string | null;
@@ -55,6 +58,8 @@ interface VcsStore {
   describe: (wsId: string, changeId: string, msg: string) => Promise<void>;
   createBookmark: (wsId: string, name: string, rev?: string) => Promise<void>;
   deleteBookmark: (wsId: string, name: string) => Promise<void>;
+  moveBookmark: (wsId: string, name: string, toRev: string) => Promise<void>;
+  setActivePushBookmark: (wsId: string, name: string | null) => void;
   addRemote: (wsId: string, name: string, url: string) => Promise<void>;
   removeRemote: (wsId: string, name: string) => Promise<void>;
   fetch: (wsId: string, remote?: string) => Promise<{ success: boolean; message: string }>;
@@ -81,6 +86,8 @@ function emptyWs(wsId: string): WorkspaceVcsData {
     logEntries: [],
     wcStatus: null,
     bookmarks: [],
+    activePushBookmark: null,
+    activePushBookmarkInitialized: false,
     remotes: [],
     lastDiff: null,
     lastDiffFiles: [],
@@ -187,17 +194,35 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     try {
       const status = await window.sero.vcs.status(wsId);
       updateWs(set, wsId, { wcStatus: status });
-    } catch {
-      // Status may fail if no JJ repo yet — not fatal
+    } catch (err) {
+      console.debug('[vcs] Failed to load status (may not have JJ repo yet):', err);
     }
   },
 
   loadBookmarks: async (wsId) => {
     try {
       const bookmarks = await window.sero.vcs.bookmarks(wsId);
-      updateWs(set, wsId, { bookmarks });
-    } catch {
-      // Not fatal
+      const ws = getWs(get(), wsId);
+      let activePushBookmark = ws.activePushBookmark;
+
+      // Clear if the selected bookmark was deleted
+      if (activePushBookmark && !bookmarks.some((b) => b.name === activePushBookmark)) {
+        activePushBookmark = null;
+      }
+
+      // Only auto-select on first initialization, not on every reload
+      // (otherwise the user's explicit "auto" choice gets overwritten)
+      if (!ws.activePushBookmarkInitialized && activePushBookmark === null && bookmarks.length > 0) {
+        activePushBookmark = bookmarks.find((b) => b.name === 'main')?.name ?? bookmarks[0]?.name ?? null;
+      }
+
+      updateWs(set, wsId, {
+        bookmarks,
+        activePushBookmark,
+        activePushBookmarkInitialized: ws.activePushBookmarkInitialized || bookmarks.length > 0,
+      });
+    } catch (err) {
+      console.warn('[vcs] Failed to load bookmarks:', err);
     }
   },
 
@@ -205,8 +230,8 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     try {
       const remotes = await window.sero.vcs.remotes(wsId);
       updateWs(set, wsId, { remotes });
-    } catch {
-      // Not fatal
+    } catch (err) {
+      console.warn('[vcs] Failed to load remotes:', err);
     }
   },
 
@@ -259,6 +284,18 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     await get().loadLog(wsId);
   },
 
+  moveBookmark: async (wsId, name, toRev) => {
+    await window.sero.vcs.moveBookmark(wsId, name, toRev);
+    await get().loadBookmarks(wsId);
+    await get().loadLog(wsId);
+  },
+
+  setActivePushBookmark: (wsId, name) => {
+    const ws = getWs(get(), wsId);
+    if (name && !ws.bookmarks.some((b) => b.name === name)) return;
+    updateWs(set, wsId, { activePushBookmark: name, activePushBookmarkInitialized: true });
+  },
+
   addRemote: async (wsId, name, url) => {
     await window.sero.vcs.addRemote(wsId, name, url);
     await get().loadRemotes(wsId);
@@ -277,6 +314,7 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
 
   push: async (wsId, bm, cId) => {
     const result = await window.sero.vcs.push(wsId, bm, cId);
+    updateWs(set, wsId, { error: result.success ? null : result.message });
     await get().loadBookmarks(wsId);
     return result;
   },

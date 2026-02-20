@@ -2,7 +2,7 @@
 import { loadSeroEnv, SERO_AGENT_DIR } from './env';
 loadSeroEnv();
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import path from 'path';
 import { registerAllIpcHandlers } from './ipc/index';
@@ -126,6 +126,17 @@ function createWindow() {
     if (level >= 2) { // 2 = warning, 3 = error
       console.error(`[renderer ${level === 3 ? 'ERROR' : 'WARN'}] ${message} (${sourceId}:${line})`);
     }
+  });
+
+  // Open external links (target="_blank", href to external domains) in the
+  // system browser instead of a new Electron window. This ensures the user's
+  // existing browser session (GitHub login, etc.) is used.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      void shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
   });
 
   // Give the file watcher manager access to the window for push events

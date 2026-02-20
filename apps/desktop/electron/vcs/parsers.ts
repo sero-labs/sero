@@ -168,17 +168,29 @@ export function parseDiffSummary(stdout: string): FileDiffEntry[] {
 
 // ── Bookmark parser ──────────────────────────────────────────
 
+/**
+ * Keep bookmark templates compatible with older JJ versions in containers
+ * (e.g. 0.28.x), where `json()` and `synced` aren't available.
+ */
 const BOOKMARK_TEMPLATE = [
   'name',
   'if(remote, remote, "local")',
-  'if(normal_target(), normal_target().change_id().short(12), "")',
-  'if(remote, "false", synced)',
+  // `normal_target` is a keyword in older JJ versions (not a callable).
+  'if(normal_target, normal_target.change_id().short(12), "")',
+  // `tracked` is available across 0.28+ and helps future sync UX decisions.
+  'if(tracked, "true", "false")',
 ].join(` ++ "${FIELD_SEP}" ++ `) + ` ++ "${RECORD_SEP}"`;
 
 export { BOOKMARK_TEMPLATE };
 
+interface BookmarkAccumulator {
+  name: string;
+  localChangeId?: string;
+  remoteTargets: Array<{ remote: string; changeId: string; tracked: boolean }>;
+}
+
 export function parseBookmarks(stdout: string): Bookmark[] {
-  const bookmarkMap = new Map<string, Bookmark>();
+  const byName = new Map<string, BookmarkAccumulator>();
   const records = stdout.split(RECORD_SEP);
 
   for (const record of records) {
@@ -191,33 +203,40 @@ export function parseBookmarks(stdout: string): Bookmark[] {
     const name = fields[0].trim();
     const remote = fields[1].trim();
     const changeId = fields[2].trim();
-    const synced = fields[3]?.trim() === 'true';
+    const tracked = fields[3]?.trim() === 'true';
     const isLocal = remote === 'local';
 
-    const existing = bookmarkMap.get(name);
-    if (existing) {
-      if (!isLocal) {
-        existing.remoteStatuses.push({
-          remote,
-          synced: existing.changeId === changeId,
-        });
-      } else {
-        // Local entry has synced info
-        existing.isLocal = true;
-      }
+    if (!name) continue;
+
+    const acc = byName.get(name) ?? { name, remoteTargets: [] };
+    if (isLocal) {
+      acc.localChangeId = changeId || acc.localChangeId || '';
     } else {
-      bookmarkMap.set(name, {
-        name,
-        changeId,
-        isLocal,
-        remoteStatuses: isLocal
-          ? []
-          : [{ remote, synced: false }],
-      });
+      acc.remoteTargets.push({ remote, changeId, tracked });
     }
+    byName.set(name, acc);
   }
 
-  return Array.from(bookmarkMap.values());
+  const bookmarks: Bookmark[] = [];
+  for (const acc of byName.values()) {
+    const localChangeId = acc.localChangeId ?? '';
+    const fallbackChangeId = acc.remoteTargets[0]?.changeId ?? '';
+    const effectiveChangeId = localChangeId || fallbackChangeId;
+
+    const remoteStatuses = acc.remoteTargets.map(({ remote, changeId }) => ({
+      remote,
+      synced: Boolean(localChangeId) && changeId === localChangeId,
+    }));
+
+    bookmarks.push({
+      name: acc.name,
+      changeId: effectiveChangeId,
+      isLocal: Boolean(localChangeId),
+      remoteStatuses,
+    });
+  }
+
+  return bookmarks;
 }
 
 // ── Remote parser ────────────────────────────────────────────

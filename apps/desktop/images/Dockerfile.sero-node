@@ -6,7 +6,7 @@ FROM node:22-slim
 RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends \
       tini \
-      git curl wget build-essential ca-certificates \
+      git gh openssh-client curl wget build-essential ca-certificates \
       procps less vim jq \
       iproute2 net-tools dnsutils \
       python3 python3-pip python3-venv && \
@@ -16,7 +16,7 @@ RUN apt-get update -qq && \
 # JJ (Jujutsu) — version control used by Sero for checkpointing, bookmarking,
 # forking, and undo. Pinned version for stability (JJ is pre-1.0).
 # Installed via official GitHub release binary (static, no deps).
-ARG JJ_VERSION=0.28.2
+ARG JJ_VERSION=0.38.0
 RUN ARCH=$(dpkg --print-architecture) && \
     case "$ARCH" in \
       amd64) JJ_ARCH="x86_64" ;; \

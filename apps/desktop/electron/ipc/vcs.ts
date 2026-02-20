@@ -1,7 +1,10 @@
 import { BrowserWindow, ipcMain } from 'electron';
 
 import { IpcChannels } from '../../src/types/ipc';
-import { vcsManager, vcsOps } from './shared-infra';
+import type { CreatePullRequestInput, PullRequestDraft } from '../../src/types/vcs';
+import { runAdhocAgent } from '../agents/adhoc-agent';
+import { buildPrDraftPrompt, parseDraft } from '../agents/pr-draft';
+import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from './shared-infra';
 
 const Ch = IpcChannels.vcs;
 
@@ -104,6 +107,41 @@ export function registerVcsHandlers(): void {
 
   ipcMain.handle(Ch.pushDryRun, async (_e, wsId: string, bookmark?: string, changeId?: string) =>
     vcsOps.pushDryRun(wsId, bookmark, changeId),
+  );
+
+  // ── Pull request workflow ────────────────────────────────
+
+  ipcMain.handle(Ch.prState, async (_e, wsId: string) =>
+    vcsPrOps.getState(wsId),
+  );
+
+  ipcMain.handle(Ch.prPreview, async (_e, wsId: string, sourceBranch?: string, targetBranch?: string) =>
+    vcsPrOps.preview(wsId, sourceBranch, targetBranch),
+  );
+
+  ipcMain.handle(Ch.prGenerateDraft, async (_e, wsId: string, sourceBranch: string, targetBranch?: string) => {
+    const workspacePath = workspaceManager.getPath(wsId);
+    if (!workspacePath) throw new Error(`Workspace not found: ${wsId}`);
+
+    const ctx = await vcsPrOps.buildDraftContext(wsId, sourceBranch, targetBranch);
+    const generated = await runAdhocAgent(
+      workspacePath,
+      buildPrDraftPrompt(ctx.fileSummary, ctx.patch),
+      'low',
+    );
+    const parsed = parseDraft(generated.text);
+
+    const draft: PullRequestDraft = {
+      ...ctx.preview,
+      title: parsed.title,
+      body: parsed.body,
+      model: generated.model,
+    };
+    return draft;
+  });
+
+  ipcMain.handle(Ch.prCreate, async (_e, wsId: string, input: CreatePullRequestInput) =>
+    vcsPrOps.create(wsId, input),
   );
 
   ipcMain.handle(Ch.undo, async (_e, wsId: string) => vcsOps.undo(wsId));

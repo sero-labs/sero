@@ -15,9 +15,10 @@ import {
   Check,
   X,
   CloudUpload,
+  GitBranch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useVcsStore } from '@/stores/vcs';
+import { useVcsStore, useWorkspaceVcs } from '@/stores/vcs';
 import type { ChangeEntry, FileDiffEntry } from '@/types/vcs';
 import { statusCode, statusColor, basename } from './vcs-utils';
 
@@ -29,10 +30,15 @@ interface Props {
 
 export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
   const store = useVcsStore();
+  const ws = useWorkspaceVcs(workspaceId);
   const [files, setFiles] = useState<FileDiffEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [descDraft, setDescDraft] = useState(entry.description);
+  const [showPushAs, setShowPushAs] = useState(false);
+  const [pushBranch, setPushBranch] = useState('');
+  const [pushing, setPushing] = useState(false);
+  const [pushNotice, setPushNotice] = useState<{ message: string; error: boolean } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +57,51 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     }
     setEditing(false);
   }, [workspaceId, entry.changeId, descDraft, entry.description, store]);
+
+  const showPushNotice = useCallback((message: string, error = false) => {
+    setPushNotice({ message, error });
+    setTimeout(() => setPushNotice(null), 4000);
+  }, []);
+
+  const handlePush = useCallback(async () => {
+    setPushing(true);
+    try {
+      const r = await store.push(workspaceId, ws?.activePushBookmark ?? undefined, entry.changeId);
+      showPushNotice(r.message || (r.success ? 'Push complete' : 'Push failed'), !r.success);
+    } catch (err) {
+      showPushNotice(err instanceof Error ? err.message : 'Push failed', true);
+    } finally {
+      setPushing(false);
+    }
+  }, [workspaceId, entry.changeId, ws?.activePushBookmark, store, showPushNotice]);
+
+  const handlePushAs = useCallback(async () => {
+    const branch = pushBranch.trim().replace(/\s+/g, '-');
+    if (!branch) return;
+
+    setPushing(true);
+    try {
+      // Read fresh bookmarks from the store to avoid race with stale render snapshot
+      const freshWs = useVcsStore.getState().byWorkspace[workspaceId];
+      const existing = freshWs?.bookmarks.find((b) => b.name === branch);
+      if (existing) {
+        await store.moveBookmark(workspaceId, branch, entry.changeId);
+      } else {
+        await store.createBookmark(workspaceId, branch, entry.changeId);
+      }
+
+      const r = await store.push(workspaceId, branch, entry.changeId);
+      showPushNotice(r.message || (r.success ? 'Push complete' : 'Push failed'), !r.success);
+      if (r.success) {
+        setShowPushAs(false);
+        setPushBranch('');
+      }
+    } catch (err) {
+      showPushNotice(err instanceof Error ? err.message : 'Push failed', true);
+    } finally {
+      setPushing(false);
+    }
+  }, [pushBranch, workspaceId, entry.changeId, store, showPushNotice]);
 
   return (
     <div className="border-t border-[var(--border-subtle)]/30 bg-[var(--bg-elevated)]/20 px-3 py-2">
@@ -166,11 +217,68 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
             <DetailAction
               icon={<CloudUpload className="size-3" />}
               label="Push"
-              onClick={() => void store.push(workspaceId, undefined, entry.changeId)}
+              onClick={() => void handlePush()}
+              disabled={pushing}
+            />
+            <DetailAction
+              icon={<GitBranch className="size-3" />}
+              label="Push as…"
+              onClick={() => setShowPushAs((v) => !v)}
+              disabled={pushing}
             />
           </>
         )}
       </div>
+
+      {showPushAs && (
+        <div className="mt-2 flex items-center gap-1.5">
+          <GitBranch className="size-3 shrink-0 text-[var(--text-muted)]" />
+          <input
+            autoFocus
+            value={pushBranch}
+            onChange={(e) => setPushBranch(e.target.value.replace(/\s+/g, '-'))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void handlePushAs();
+              if (e.key === 'Escape') setShowPushAs(false);
+            }}
+            placeholder="feature/my-branch"
+            className={cn(
+              'h-5 flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-base)]',
+              'px-1.5 text-[11px] text-[var(--text-primary)]',
+              'outline-none focus:border-[var(--border-focus)]',
+            )}
+          />
+          <button
+            onClick={() => void handlePushAs()}
+            disabled={pushing || !pushBranch.trim()}
+            className="text-emerald-500 hover:text-emerald-400 disabled:opacity-40"
+            title="Push to branch"
+          >
+            <Check className="size-3" />
+          </button>
+          <button
+            onClick={() => setShowPushAs(false)}
+            disabled={pushing}
+            className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] disabled:opacity-40"
+            title="Cancel"
+          >
+            <X className="size-3" />
+          </button>
+        </div>
+      )}
+
+      {pushNotice && (
+        <div
+          className={cn(
+            'mt-2 rounded px-2 py-1 text-[10px]',
+            pushNotice.error
+              ? 'bg-red-500/10 text-red-300'
+              : 'bg-emerald-500/10 text-emerald-300',
+          )}
+        >
+          {pushNotice.message}
+        </div>
+      )}
     </div>
   );
 }
@@ -180,19 +288,23 @@ function DetailAction({
   label,
   onClick,
   danger,
+  disabled,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       title={label}
       className={cn(
         'flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]',
         'transition-colors duration-100',
+        'disabled:opacity-40',
         danger
           ? 'text-[var(--text-muted)]/50 hover:bg-red-500/10 hover:text-red-400'
           : 'text-[var(--text-muted)]/50 hover:bg-[var(--bg-muted)] hover:text-[var(--text-secondary)]',

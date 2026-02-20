@@ -39,6 +39,11 @@ export { DevServerRegistry };
 
 const execFileAsync = promisify(execFile);
 
+/** Shell-safe quote for env values (handles tokens with special chars). */
+function shQuoteValue(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
 export class ContainerManager {
   /** workspaceId → containerId */
   private containers = new Map<string, string>();
@@ -55,6 +60,12 @@ export class ContainerManager {
   private httpProxy = new ContainerHttpProxy();
   /** Cached proxy URL once started, e.g. http://192.168.64.1:19800 */
   private proxyUrl: string | null = null;
+
+  /**
+   * Optional callback that returns extra env vars to inject into every exec().
+   * Used by GitHubAuthManager to inject GH_TOKEN + git credential config.
+   */
+  getExtraEnvVars: (() => Record<string, string>) | null = null;
 
   constructor() {
     this.terminals = new TerminalManager(
@@ -172,7 +183,8 @@ export class ContainerManager {
 
     if (cwd) args.push('-w', cwd);
 
-    // Inject env vars: dev servers bind 0.0.0.0, proxy for internet access.
+    // Inject env vars: dev servers bind 0.0.0.0, proxy for internet access,
+    // and GitHub auth (GH_TOKEN, git credential config) when available.
     // sh -c doesn't source profile.d, so we prepend exports directly.
     const envParts = ['export HOST=0.0.0.0'];
     if (this.proxyUrl) {
@@ -184,6 +196,13 @@ export class ContainerManager {
         `NO_PROXY=localhost,127.0.0.1,192.168.64.0/24`,
         `no_proxy=localhost,127.0.0.1,192.168.64.0/24`,
       );
+    }
+    // Inject GitHub auth env vars (GH_TOKEN, GIT_ASKPASS, URL rewrites)
+    if (this.getExtraEnvVars) {
+      const extra = this.getExtraEnvVars();
+      for (const [key, value] of Object.entries(extra)) {
+        envParts.push(`${key}=${shQuoteValue(value)}`);
+      }
     }
     const envPrefix = envParts.join(' ') + ';';
     args.push(cid, 'sh', '-c', `${envPrefix}${command}`);

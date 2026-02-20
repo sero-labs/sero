@@ -99,6 +99,54 @@ export interface SyncResult {
   message: string;
 }
 
+// ── Pull request workflow ───────────────────────────────────
+
+export interface PullRequestRef {
+  url: string;
+  number: number;
+  title: string;
+  baseBranch: string;
+}
+
+export interface PullRequestState {
+  defaultBaseBranch: string;
+  sourceBranches: string[];
+  targetBranches: string[];
+}
+
+export interface PullRequestPreview {
+  sourceBranch: string;
+  targetBranch: string;
+  defaultBaseBranch: string;
+  comparisonBase: string;
+  hasChanges: boolean;
+  changedFiles: number;
+  files: FileDiffEntry[];
+  blockingReason?: string;
+  existingPr?: PullRequestRef;
+}
+
+export interface PullRequestDraft extends PullRequestPreview {
+  title: string;
+  body: string;
+  model: string;
+}
+
+export interface CreatePullRequestInput {
+  sourceBranch: string;
+  targetBranch: string;
+  title: string;
+  body: string;
+  draft?: boolean;
+}
+
+export interface CreatePullRequestResult {
+  success: boolean;
+  message: string;
+  url?: string;
+  number?: number;
+}
+
 // ── Events ───────────────────────────────────────────────────
 
 export type VcsEvent =

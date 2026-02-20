@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, Bot, Bug, Sun, Moon, GitBranch } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { FolderOpen, Bug, Sun, Moon, GitBranch } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
-import { useActiveAgentCount } from '@/stores/agent';
 import { DevServerIndicator } from './DevServerPanel';
-import { useWorkspaceVcs } from '@/stores/vcs';
+import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
+import type { Bookmark } from '@/types/vcs';
 
 /**
  * StatusBar — bottom bar showing workspace info (à la VSCode).
@@ -16,7 +16,6 @@ export function StatusBar() {
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
   const activeWorkspace = useActiveWorkspace();
-  const agentCount = useActiveAgentCount();
   const vcsState = useWorkspaceVcs(activeWorkspace?.id ?? null);
 
   return (
@@ -44,18 +43,11 @@ export function StatusBar() {
       <div className="flex items-center gap-3">
         <DebugLogToggle />
         <DevServerIndicator />
-        {agentCount > 0 && (
-          <span className="flex items-center gap-1">
-            <Bot className="size-3" />
-            {agentCount} active
-          </span>
-        )}
-        {vcsState?.currentChangeId && (
-          <span className="flex items-center gap-1">
-            <GitBranch className="size-3" />
-            <span className="font-mono text-xs">{vcsState.currentChangeId}</span>
-          </span>
-        )}
+        <ActivePushBranchPicker
+          workspaceId={activeWorkspace?.id ?? null}
+          activePushBookmark={vcsState?.activePushBookmark ?? null}
+          bookmarks={vcsState?.bookmarks ?? []}
+        />
         <span>Sero v0.1.0</span>
         <button
           onClick={toggleTheme}
@@ -67,6 +59,77 @@ export function StatusBar() {
         </button>
       </div>
     </footer>
+  );
+}
+
+function ActivePushBranchPicker({
+  workspaceId,
+  activePushBookmark,
+  bookmarks,
+}: {
+  workspaceId: string | null;
+  activePushBookmark: string | null;
+  bookmarks: Bookmark[];
+}) {
+  const setActivePushBookmark = useVcsStore((s) => s.setActivePushBookmark);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (!rootRef.current?.contains(target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [open]);
+
+  if (!workspaceId) return null;
+  if (!activePushBookmark && bookmarks.length === 0) return null;
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title="Active push branch (click to change)"
+        className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
+      >
+        <GitBranch className="size-3" />
+        <span className="rounded-sm border border-blue-500/30 bg-blue-500/10 px-1 py-px font-mono text-xs text-blue-300">
+          {activePushBookmark ?? 'auto'}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute bottom-6 right-0 z-50 min-w-[180px] rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] p-1 shadow-lg">
+          <button
+            onClick={() => {
+              setActivePushBookmark(workspaceId, null);
+              setOpen(false);
+            }}
+            className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[var(--bg-muted)]"
+          >
+            <span>Auto (main/first)</span>
+            {!activePushBookmark && <span className="text-blue-300">active</span>}
+          </button>
+          {bookmarks.map((bm) => (
+            <button
+              key={bm.name}
+              onClick={() => {
+                setActivePushBookmark(workspaceId, bm.name);
+                setOpen(false);
+              }}
+              className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[var(--bg-muted)]"
+            >
+              <span className="truncate">{bm.name}</span>
+              {activePushBookmark === bm.name && <span className="text-blue-300">active</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
