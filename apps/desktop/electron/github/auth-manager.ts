@@ -18,8 +18,9 @@ import path from 'path';
 import { SERO_HOME } from '../env';
 
 // ── GitHub OAuth App ─────────────────────────────────────────
-// Client ID for "Sero Desktop" GitHub OAuth App (public, no secret needed for device flow)
-const GITHUB_CLIENT_ID = 'Ov23li1Y20YEkzPKsbvd';
+// Client ID for "Sero Desktop" GitHub OAuth App (public, no secret needed for device flow).
+// Device flow only — callback URL is unused (http://localhost placeholder).
+const GITHUB_CLIENT_ID = 'Ov23liG8cpbS8TskdGxy';
 
 const DEVICE_CODE_URL = 'https://github.com/login/device/code';
 const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -164,16 +165,15 @@ export class GitHubAuthManager {
   // ── Device Flow Steps ──────────────────────────────────────
 
   private async requestDeviceCode(): Promise<DeviceCodeResponse> {
+    const body = new URLSearchParams({
+      client_id: GITHUB_CLIENT_ID,
+      scope: SCOPES,
+    });
+
     const resp = await fetch(DEVICE_CODE_URL, {
       method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: GITHUB_CLIENT_ID,
-        scope: SCOPES,
-      }),
+      headers: { 'Accept': 'application/json' },
+      body,
     });
 
     if (!resp.ok) {
@@ -196,17 +196,16 @@ export class GitHubAuthManager {
       await sleep(interval);
       signal?.throwIfAborted();
 
+      const body = new URLSearchParams({
+        client_id: GITHUB_CLIENT_ID,
+        device_code: device.device_code,
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+      });
+
       const resp = await fetch(ACCESS_TOKEN_URL, {
         method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          client_id: GITHUB_CLIENT_ID,
-          device_code: device.device_code,
-          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        }),
+        headers: { 'Accept': 'application/json' },
+        body,
       });
 
       if (!resp.ok) continue;
