@@ -118,7 +118,9 @@ export function PullRequestSection({
       setBody(draft.body);
       setPreview(draft);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to generate PR draft';
       console.warn('[vcs-pr] Failed to generate pull request draft:', err);
+      setCreateFeedback({ message: msg, error: true });
     } finally {
       setGenerating(false);
     }

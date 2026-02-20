@@ -25,6 +25,8 @@ export interface AdhocAgentResult {
   model: string;
 }
 
+const ADHOC_TIMEOUT_MS = 30_000;
+
 export async function runAdhocAgent(
   workspacePath: string,
   prompt: string,
@@ -53,7 +55,12 @@ export async function runAdhocAgent(
   });
 
   try {
-    await session.prompt(prompt);
+    await Promise.race([
+      session.prompt(prompt),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Adhoc agent timed out')), ADHOC_TIMEOUT_MS),
+      ),
+    ]);
   } finally {
     unsub();
     session.dispose();

@@ -81,7 +81,9 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
 
     setPushing(true);
     try {
-      const existing = ws?.bookmarks.find((b) => b.name === branch);
+      // Read fresh bookmarks from the store to avoid race with stale render snapshot
+      const freshWs = useVcsStore.getState().byWorkspace[workspaceId];
+      const existing = freshWs?.bookmarks.find((b) => b.name === branch);
       if (existing) {
         await store.moveBookmark(workspaceId, branch, entry.changeId);
       } else {
@@ -99,7 +101,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     } finally {
       setPushing(false);
     }
-  }, [pushBranch, ws?.bookmarks, workspaceId, entry.changeId, store, showPushNotice]);
+  }, [pushBranch, workspaceId, entry.changeId, store, showPushNotice]);
 
   return (
     <div className="border-t border-[var(--border-subtle)]/30 bg-[var(--bg-elevated)]/20 px-3 py-2">

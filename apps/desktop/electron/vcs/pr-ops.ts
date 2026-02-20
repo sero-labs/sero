@@ -381,6 +381,17 @@ export class VcsPullRequestOps {
       };
     }
 
+    // Verify the source branch has been pushed — gh pr create will fail with a
+    // confusing GitHub API error if the branch only exists locally.
+    const bookmarks = await this.listBookmarks(workspaceId);
+    const sourceBm = bookmarks.find((b) => b.name === preview.sourceBranch);
+    if (sourceBm && sourceBm.remoteStatuses.length === 0) {
+      return {
+        success: false,
+        message: `Branch '${preview.sourceBranch}' has not been pushed to a remote. Push the branch first, then create the PR.`,
+      };
+    }
+
     const args = [
       'pr',
       'create',

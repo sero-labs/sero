@@ -19,6 +19,8 @@ interface WorkspaceVcsData extends VcsWorkspaceState {
   wcStatus: WorkingCopyStatus | null;
   bookmarks: Bookmark[];
   activePushBookmark: string | null;
+  /** True once the user (or initial load) has set activePushBookmark. */
+  activePushBookmarkInitialized: boolean;
   remotes: Remote[];
   // Diff state
   lastDiff: string | null;
@@ -85,6 +87,7 @@ function emptyWs(wsId: string): WorkspaceVcsData {
     wcStatus: null,
     bookmarks: [],
     activePushBookmark: null,
+    activePushBookmarkInitialized: false,
     remotes: [],
     lastDiff: null,
     lastDiffFiles: [],
@@ -191,8 +194,8 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     try {
       const status = await window.sero.vcs.status(wsId);
       updateWs(set, wsId, { wcStatus: status });
-    } catch {
-      // Status may fail if no JJ repo yet — not fatal
+    } catch (err) {
+      console.debug('[vcs] Failed to load status (may not have JJ repo yet):', err);
     }
   },
 
@@ -201,15 +204,25 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
       const bookmarks = await window.sero.vcs.bookmarks(wsId);
       const ws = getWs(get(), wsId);
       let activePushBookmark = ws.activePushBookmark;
+
+      // Clear if the selected bookmark was deleted
       if (activePushBookmark && !bookmarks.some((b) => b.name === activePushBookmark)) {
         activePushBookmark = null;
       }
-      if (!activePushBookmark) {
+
+      // Only auto-select on first initialization, not on every reload
+      // (otherwise the user's explicit "auto" choice gets overwritten)
+      if (!ws.activePushBookmarkInitialized && activePushBookmark === null && bookmarks.length > 0) {
         activePushBookmark = bookmarks.find((b) => b.name === 'main')?.name ?? bookmarks[0]?.name ?? null;
       }
-      updateWs(set, wsId, { bookmarks, activePushBookmark });
-    } catch {
-      // Not fatal
+
+      updateWs(set, wsId, {
+        bookmarks,
+        activePushBookmark,
+        activePushBookmarkInitialized: ws.activePushBookmarkInitialized || bookmarks.length > 0,
+      });
+    } catch (err) {
+      console.warn('[vcs] Failed to load bookmarks:', err);
     }
   },
 
@@ -217,8 +230,8 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     try {
       const remotes = await window.sero.vcs.remotes(wsId);
       updateWs(set, wsId, { remotes });
-    } catch {
-      // Not fatal
+    } catch (err) {
+      console.warn('[vcs] Failed to load remotes:', err);
     }
   },
 
@@ -280,7 +293,7 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
   setActivePushBookmark: (wsId, name) => {
     const ws = getWs(get(), wsId);
     if (name && !ws.bookmarks.some((b) => b.name === name)) return;
-    updateWs(set, wsId, { activePushBookmark: name });
+    updateWs(set, wsId, { activePushBookmark: name, activePushBookmarkInitialized: true });
   },
 
   addRemote: async (wsId, name, url) => {

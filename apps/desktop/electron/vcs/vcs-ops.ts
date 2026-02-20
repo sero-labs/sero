@@ -10,6 +10,7 @@ import {
   parseRemotes,
   parseOperationLog,
 } from './parsers';
+import { isAutoPushBookmark, inferConventionalType, slugifyBranchLabel } from './branch-naming';
 import type {
   ChangeEntry,
   WorkingCopyStatus,
@@ -22,8 +23,6 @@ import type {
 } from '../../src/types/vcs';
 
 const DEFAULT_PRIMARY_BOOKMARK = 'main';
-const AUTO_PUSH_BOOKMARK_PREFIX = 'push-';
-const CONVENTIONAL_TYPES = new Set(['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert']);
 
 export class VcsOps {
   constructor(private readonly runner: JjRunner) {}
@@ -199,79 +198,26 @@ export class VcsOps {
     return result.stdout.trim();
   }
 
-  private inferConventionalType(description: string): string {
-    const raw = description.trim();
-    if (!raw) return 'chore';
-
-    const explicit = raw.match(
-      /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?:/i,
-    );
-    if (explicit && CONVENTIONAL_TYPES.has(explicit[1].toLowerCase())) {
-      return explicit[1].toLowerCase();
-    }
-
-    const lower = raw.toLowerCase();
-    if (/\b(fix|bug|error|issue|hotfix|regression)\b/.test(lower)) return 'fix';
-    if (/\b(readme|docs?|documentation)\b/.test(lower)) return 'docs';
-    if (/\b(test|spec)\b/.test(lower)) return 'test';
-    if (/\b(refactor|cleanup|clean up)\b/.test(lower)) return 'refactor';
-    if (/\b(perf|performance|optimi[sz]e)\b/.test(lower)) return 'perf';
-    if (/\b(build|webpack|vite|rollup|tsconfig)\b/.test(lower)) return 'build';
-    if (/\b(ci|pipeline|github actions)\b/.test(lower)) return 'ci';
-    if (/\b(add|create|implement|introduce|support)\b/.test(lower)) return 'feat';
-    return 'chore';
-  }
-
-  private slugifyBranchLabel(description: string): string {
-    const withoutCheckpoint = description
-      .trim()
-      .replace(/^checkpoint:\s*/i, '')
-      .replace(
-        /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?:\s*/i,
-        '',
-      );
-
-    const slug = withoutCheckpoint
-      .toLowerCase()
-      .replace(/['"`]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .replace(/-{2,}/g, '-');
-
-    if (!slug) return 'checkpoint';
-    return slug.split('-').filter(Boolean).slice(0, 8).join('-').slice(0, 48) || 'checkpoint';
-  }
-
-  private isAutoPushBookmark(name: string): boolean {
-    return name.startsWith(AUTO_PUSH_BOOKMARK_PREFIX);
-  }
-
   private async suggestPushBookmarkForChange(
     workspaceId: string,
     changeId: string,
     bookmarks: Bookmark[],
   ): Promise<string> {
+    // 1. Prefer an existing bookmark already pointing at this exact change
     const localAtTarget = bookmarks
       .filter((bm) => bm.isLocal && bm.changeId === changeId)
       .map((bm) => bm.name);
 
     const preferredAtTarget = localAtTarget.find((name) => name === DEFAULT_PRIMARY_BOOKMARK)
-      ?? localAtTarget.find((name) => !this.isAutoPushBookmark(name));
+      ?? localAtTarget.find((name) => !isAutoPushBookmark(name));
     if (preferredAtTarget) return preferredAtTarget;
 
-    const localNames = bookmarks.filter((bm) => bm.isLocal).map((bm) => bm.name);
-    if (localNames.includes(DEFAULT_PRIMARY_BOOKMARK)) {
-      return DEFAULT_PRIMARY_BOOKMARK;
-    }
-
-    const nonAutoLocal = localNames.find((name) => !this.isAutoPushBookmark(name));
-    if (nonAutoLocal) return nonAutoLocal;
-
-    if (localNames.length === 0) return DEFAULT_PRIMARY_BOOKMARK;
-
+    // 2. Generate a descriptive feature branch name.
+    //    Never fall back to moving shared branches (e.g. main) to an arbitrary
+    //    change — that would silently rewrite shared history.
     const description = await this.getChangeDescription(workspaceId, changeId);
-    const type = this.inferConventionalType(description);
-    const label = this.slugifyBranchLabel(description);
+    const type = inferConventionalType(description);
+    const label = slugifyBranchLabel(description);
     return `${type}/${label}-${changeId.slice(0, 8)}`;
   }
 
@@ -314,7 +260,8 @@ export class VcsOps {
     try {
       const remotes = await this.listRemotes(workspaceId);
       return remotes.find((r) => r.name === 'origin')?.name ?? remotes[0]?.name;
-    } catch {
+    } catch (err) {
+      console.warn('[vcs-ops] Failed to resolve push remote:', err);
       return undefined;
     }
   }
@@ -346,8 +293,8 @@ export class VcsOps {
       try {
         const bookmarks = await this.listBookmarks(workspaceId);
         resolvedBookmark = await this.suggestPushBookmarkForChange(workspaceId, changeId, bookmarks);
-      } catch {
-        // Dry-run should stay best-effort.
+      } catch (err) {
+        console.warn('[vcs-ops] Dry-run bookmark suggestion failed (best-effort):', err);
       }
     }
 

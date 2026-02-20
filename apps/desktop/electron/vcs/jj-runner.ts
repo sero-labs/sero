@@ -51,6 +51,9 @@ export class JjRunner {
       await this.ensureContainer(workspaceId, workspacePath);
       // Non-interactive container pushes/fetches over SSH can't answer host-key prompts.
       // Accept new host keys automatically so first push to github.com succeeds.
+      // Security note: this is a TOFU (Trust On First Use) model — a MITM on the
+      // very first connection to a new host would go undetected. Acceptable for
+      // ephemeral containers; the user's GIT_SSH_COMMAND override takes precedence.
       const sshEnvPrefix =
         "export GIT_SSH_COMMAND=${GIT_SSH_COMMAND:-'ssh -o StrictHostKeyChecking=accept-new'};";
       const command = `${sshEnvPrefix} ${shQuote(program)} ${args.map(shQuote).join(' ')}`;
