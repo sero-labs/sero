@@ -348,6 +348,31 @@ interface SeroAPI {
   lsp: SeroLspAPI;
   debug: SeroDebugAPI;
   vcs: SeroVcsAPI;
+  github: SeroGitHubAPI;
+}
+
+// ── GitHub Auth ──────────────────────────────────────────────
+
+interface GitHubAuthStatus {
+  authenticated: boolean;
+  username?: string;
+  scopes?: string;
+}
+
+interface GitHubDeviceFlowEvent {
+  type: 'code' | 'polling' | 'success' | 'error';
+  userCode?: string;
+  verificationUri?: string;
+  message?: string;
+  username?: string;
+}
+
+interface SeroGitHubAPI {
+  status(): Promise<GitHubAuthStatus>;
+  login(): Promise<void>;
+  logout(): Promise<void>;
+  cancel(): Promise<void>;
+  onEvent(callback: (event: GitHubDeviceFlowEvent) => void): () => void;
 }
 
 declare global {

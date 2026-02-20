@@ -24,6 +24,7 @@ import { registerLspHandlers } from './lsp';
 import { registerDebugHandlers } from './debug';
 import { registerContextPresetsHandlers } from './context-presets';
 import { registerVcsHandlers } from './vcs';
+import { registerGitHubHandlers } from './github';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -44,4 +45,5 @@ export function registerAllIpcHandlers(): void {
   registerDebugHandlers();
   registerContextPresetsHandlers();
   registerVcsHandlers();
+  registerGitHubHandlers();
 }

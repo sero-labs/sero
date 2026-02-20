@@ -21,15 +21,25 @@ import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
 
 import { SERO_AGENT_DIR } from '../env';
 import { ContainerManager } from '../container/index';
+import { GitHubAuthManager } from '../github/auth-manager';
 import { workspaceManager } from '../workspace';
 import { FileWatcherManager } from '../file-watcher';
 import { LspManager } from '../lsp/lsp-manager';
 import { JjRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../vcs';
 
+// ── GitHub Auth Manager (singleton) ──────────────────────────
+
+export const githubAuth = new GitHubAuthManager();
+
 // ── Container Manager (singleton) ────────────────────────────
 
 export const containerManager = new ContainerManager();
-const jjRunner = new JjRunner(workspaceManager, containerManager);
+
+// Wire GitHub auth env vars into container exec so GH_TOKEN + git
+// credential config are available in every container command.
+containerManager.getExtraEnvVars = () => githubAuth.getAuthEnvVars();
+
+const jjRunner = new JjRunner(workspaceManager, containerManager, githubAuth);
 export const vcsManager = new VcsManager(workspaceManager, jjRunner);
 export const vcsOps = new VcsOps(jjRunner);
 export const vcsPrOps = new VcsPullRequestOps(jjRunner);

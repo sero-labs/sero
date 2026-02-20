@@ -348,6 +348,22 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.vcs.opLog, wsId, limit),
   },
 
+  github: {
+    status: (): Promise<{ authenticated: boolean; username?: string; scopes?: string }> =>
+      ipcRenderer.invoke(IpcChannels.github.status),
+    login: (): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.github.login),
+    logout: (): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.github.logout),
+    cancel: (): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.github.cancel),
+    onEvent: (callback: (event: unknown) => void): (() => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, data: unknown) => callback(data);
+      ipcRenderer.on(IpcChannels.github.event, handler);
+      return () => ipcRenderer.removeListener(IpcChannels.github.event, handler);
+    },
+  },
+
   terminal: {
     create: (workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.terminal.create, workspaceId, terminalId, cols, rows),

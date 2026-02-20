@@ -4,6 +4,7 @@ import path from 'path';
 
 import type { WorkspaceManager } from '../workspace';
 import type { ContainerManager } from '../container/index';
+import type { GitHubAuthManager } from '../github/auth-manager';
 import { SERO_AGENT_DIR } from '../env';
 import type { JjResult } from './types';
 
@@ -17,6 +18,7 @@ export class JjRunner {
   constructor(
     private readonly workspaceManager: WorkspaceManager,
     private readonly containerManager: ContainerManager,
+    private readonly githubAuth?: GitHubAuthManager,
   ) {}
 
   private async ensureContainer(workspaceId: string, workspacePath: string): Promise<void> {
@@ -49,15 +51,18 @@ export class JjRunner {
 
     if (useContainer) {
       await this.ensureContainer(workspaceId, workspacePath);
-      // Non-interactive container pushes/fetches over SSH can't answer host-key prompts.
-      // Accept new host keys automatically so first push to github.com succeeds.
-      // Security note: this is a TOFU (Trust On First Use) model — a MITM on the
-      // very first connection to a new host would go undetected. Acceptable for
-      // ephemeral containers; the user's GIT_SSH_COMMAND override takes precedence.
-      const sshEnvPrefix =
-        "export GIT_SSH_COMMAND=${GIT_SSH_COMMAND:-'ssh -o StrictHostKeyChecking=accept-new'};";
-      const command = `${sshEnvPrefix} ${shQuote(program)} ${args.map(shQuote).join(' ')}`;
+      // GitHub auth env vars (GH_TOKEN, GIT_ASKPASS, URL rewrites) are injected
+      // by ContainerManager.exec() via its getExtraEnvVars callback.
+      // No SSH workaround needed — all git traffic uses HTTPS with token auth.
+      const command = `${shQuote(program)} ${args.map(shQuote).join(' ')}`;
       return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs);
+    }
+
+    // Host execution — inject GitHub auth env vars into the process environment
+    const env = { ...process.env };
+    if (this.githubAuth) {
+      const authVars = this.githubAuth.getAuthEnvVars();
+      Object.assign(env, authVars);
     }
 
     try {
@@ -65,6 +70,7 @@ export class JjRunner {
         cwd: workspacePath,
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
+        env,
       });
       return { exitCode: 0, stdout, stderr };
     } catch (err: any) {

@@ -245,4 +245,11 @@ export const IpcChannels = {
     squash: 'sero:vcs:squash',
     opLog: 'sero:vcs:op-log',
   },
+  github: {
+    status: 'sero:github:status',
+    login: 'sero:github:login',
+    logout: 'sero:github:logout',
+    cancel: 'sero:github:cancel',
+    event: 'sero:github:event',
+  },
 } as const;

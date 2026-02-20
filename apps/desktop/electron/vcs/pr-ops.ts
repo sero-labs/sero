@@ -351,7 +351,7 @@ export class VcsPullRequestOps {
       return "GitHub CLI (`gh`) is not available in this workspace runtime. Install `gh` and retry.";
     }
     if (lower.includes('authentication')) {
-      return `${message}\nRun \`gh auth login\` in this workspace runtime and retry.`;
+      return `${message}\nConnect your GitHub account in Sero Settings → GitHub and retry.`;
     }
     return message;
   }
