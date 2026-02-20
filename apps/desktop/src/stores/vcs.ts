@@ -277,6 +277,7 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
 
   push: async (wsId, bm, cId) => {
     const result = await window.sero.vcs.push(wsId, bm, cId);
+    updateWs(set, wsId, { error: result.success ? null : result.message });
     await get().loadBookmarks(wsId);
     return result;
   },

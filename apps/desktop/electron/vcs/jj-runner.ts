@@ -44,7 +44,11 @@ export class JjRunner {
 
     if (useContainer) {
       await this.ensureContainer(workspaceId, workspacePath);
-      const command = `jj ${args.map(shQuote).join(' ')}`;
+      // Non-interactive container pushes/fetches over SSH can't answer host-key prompts.
+      // Accept new host keys automatically so first push to github.com succeeds.
+      const sshEnvPrefix =
+        "export GIT_SSH_COMMAND=${GIT_SSH_COMMAND:-'ssh -o StrictHostKeyChecking=accept-new'};";
+      const command = `${sshEnvPrefix} jj ${args.map(shQuote).join(' ')}`;
       return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs);
     }
 
