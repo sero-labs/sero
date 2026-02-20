@@ -30,7 +30,12 @@ export class JjRunner {
     });
   }
 
-  async run(workspaceId: string, args: string[], timeoutMs = 30_000): Promise<JjResult> {
+  async runCommand(
+    workspaceId: string,
+    program: string,
+    args: string[],
+    timeoutMs = 30_000,
+  ): Promise<JjResult> {
     const workspacePath = this.workspaceManager.getPath(workspaceId);
     if (!workspacePath) {
       return {
@@ -48,12 +53,12 @@ export class JjRunner {
       // Accept new host keys automatically so first push to github.com succeeds.
       const sshEnvPrefix =
         "export GIT_SSH_COMMAND=${GIT_SSH_COMMAND:-'ssh -o StrictHostKeyChecking=accept-new'};";
-      const command = `${sshEnvPrefix} jj ${args.map(shQuote).join(' ')}`;
+      const command = `${sshEnvPrefix} ${shQuote(program)} ${args.map(shQuote).join(' ')}`;
       return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs);
     }
 
     try {
-      const { stdout, stderr } = await execFileAsync('jj', args, {
+      const { stdout, stderr } = await execFileAsync(program, args, {
         cwd: workspacePath,
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
@@ -67,5 +72,9 @@ export class JjRunner {
         stderr: String(err?.stderr ?? err?.message ?? 'jj command failed'),
       };
     }
+  }
+
+  async run(workspaceId: string, args: string[], timeoutMs = 30_000): Promise<JjResult> {
+    return this.runCommand(workspaceId, 'jj', args, timeoutMs);
   }
 }

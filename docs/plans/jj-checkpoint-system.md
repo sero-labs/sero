@@ -2,7 +2,7 @@
 
 ## Status
 - State: In Progress
-- Updated: 2026-02-19
+- Updated: 2026-02-20
 
 ## Goal
 Implement Cursor/Windsurf/Codex-style workspace checkpoints in Sero, backed by JJ (colocated with Git), so users can restore any prior checkpoint and see rich diffs between checkpoints.
@@ -78,6 +78,33 @@ Implement Cursor/Windsurf/Codex-style workspace checkpoints in Sero, backed by J
   - [ ] diff between two checkpoints renders expected file changes
 - [ ] Update this plan’s checklist to final state.
 
+### Phase 7: Push Naming + Branch Policy
+- [x] Replace default `jj git push --change` flow for "push change" actions with bookmark-based push.
+- [x] Set first push branch to `main` when the workspace has no local bookmarks yet.
+- [x] Add conventional-style fallback branch naming (`feat/...`, `fix/...`, etc.) for ad-hoc change pushes.
+- [ ] Manual verify push naming policy:
+  - [ ] new remote first push -> `main`
+  - [ ] subsequent pushes via change action reuse canonical bookmark (no random `push-*`)
+  - [ ] generated fallback names are readable and stable
+
+### Phase 8: Pull Request Workflow (gh + AI Drafts)
+- [x] Add PR IPC contracts/channels (`prState`, `prPreview`, `prGenerateDraft`, `prCreate`).
+- [x] Add dedicated PR backend ops with branch eligibility checks:
+  - [x] source branch must not be default branch
+  - [x] source branch must have changes vs target branch
+  - [x] existing open PR detection for same source/target pair
+- [x] Add one-shot adhoc generation agent (Pi SDK) for cheap PR title/body drafts.
+- [x] Add prominent Pull Request section to Source Control:
+  - [x] source branch selection
+  - [x] configurable target branch
+  - [x] editable title and description
+  - [x] create PR button and result feedback
+- [x] Add container runtime dependency for `gh` CLI in `Dockerfile.sero-node`.
+- [ ] Manual verify PR flow:
+  - [ ] generate draft from diff context
+  - [ ] create PR to non-default target branch
+  - [ ] create PR error path when `gh` auth is missing
+
 ## Progress Log
 - 2026-02-18: Plan created.
 - 2026-02-18: Implemented core JJ backend (`electron/vcs/*`), VCS IPC + preload bridge, and workspace watcher-based checkpoint capture.
@@ -93,6 +120,16 @@ Implement Cursor/Windsurf/Codex-style workspace checkpoints in Sero, backed by J
 - 2026-02-19: Disabled filesystem-based auto-checkpointing in `VcsManager` (watch/unwatch now compatibility no-ops).
 - 2026-02-19: Updated extension turn checkpoint policy to checkpoint only after turns with mutating tool calls (`write`, `edit`, mutating `bash`), so manual-only edits remain grouped in working copy until explicit manual checkpoint.
 - 2026-02-19: Switched automatic checkpoint trigger from `turn_end` to `agent_end` so one user prompt that spans multiple internal PI turns/tool loops produces exactly one checkpoint.
+- 2026-02-20: Updated VCS push logic to auto-resolve a stable bookmark for change pushes (prefer existing/default, bootstrap `main` for first push, conventional-name fallback) to avoid JJ-generated random `push-*` branch names.
+- 2026-02-20: Reworked bookmark parsing to a JJ 0.28+ compatible template (`name`, `remote`, `normal_target`, `tracked`) and computed sync state in parser logic, removing reliance on unavailable template features (`json`, `synced`) in older container builds.
+- 2026-02-20: Updated container JJ pin in `Dockerfile.sero-node` from `0.28.2` to `0.38.0` to align with host and reduce cross-environment behavior drift.
+- 2026-02-20: Updated JJ push args to include `--allow-new` for bookmark pushes so first-time pushes of new branches/bookmarks succeed without manual CLI flags.
+- 2026-02-20: Modernized JJ push flow for 0.38 semantics: removed deprecated `--allow-new`, explicitly targets a remote (`origin` preferred), and auto-retries once after `git fetch` on stale-remote push errors.
+- 2026-02-20: Improved Source Control push UX: added per-change push result feedback and a direct "Push as…" branch flow that creates/moves a bookmark to the selected change and pushes it.
+- 2026-02-20: Added per-workspace "active push branch" selection in bookmarks UI (set-once, reused for consecutive pushes), wired default change pushes to use it, and surfaced it in the footer status bar.
+- 2026-02-20: Simplified footer signal/noise by removing active-agent count and using the footer branch control as the primary VCS quick-control affordance.
+- 2026-02-20: Rolled back "Switch to bookmark" from Source Control. Bookmark selection remains push-target-only to avoid rewriting immutable/shared history and to keep checkpoint restore as the primary workspace time-travel action.
+- 2026-02-20: Added PR workflow in Source Control: new gh-backed PR backend ops (`prState`/`prPreview`/`prGenerateDraft`/`prCreate`), a one-shot Pi SDK adhoc generation agent for fast draft title/body creation, and a prominent Pull Request UI section with editable fields and target-branch configuration.
 
 ## Risks to Watch
 - Chat custom-message fidelity: custom messages are currently surfaced as assistant-formatted messages (not a dedicated renderer type).

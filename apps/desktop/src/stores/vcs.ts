@@ -18,6 +18,7 @@ interface WorkspaceVcsData extends VcsWorkspaceState {
   logEntries: ChangeEntry[];
   wcStatus: WorkingCopyStatus | null;
   bookmarks: Bookmark[];
+  activePushBookmark: string | null;
   remotes: Remote[];
   // Diff state
   lastDiff: string | null;
@@ -55,6 +56,8 @@ interface VcsStore {
   describe: (wsId: string, changeId: string, msg: string) => Promise<void>;
   createBookmark: (wsId: string, name: string, rev?: string) => Promise<void>;
   deleteBookmark: (wsId: string, name: string) => Promise<void>;
+  moveBookmark: (wsId: string, name: string, toRev: string) => Promise<void>;
+  setActivePushBookmark: (wsId: string, name: string | null) => void;
   addRemote: (wsId: string, name: string, url: string) => Promise<void>;
   removeRemote: (wsId: string, name: string) => Promise<void>;
   fetch: (wsId: string, remote?: string) => Promise<{ success: boolean; message: string }>;
@@ -81,6 +84,7 @@ function emptyWs(wsId: string): WorkspaceVcsData {
     logEntries: [],
     wcStatus: null,
     bookmarks: [],
+    activePushBookmark: null,
     remotes: [],
     lastDiff: null,
     lastDiffFiles: [],
@@ -195,7 +199,15 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
   loadBookmarks: async (wsId) => {
     try {
       const bookmarks = await window.sero.vcs.bookmarks(wsId);
-      updateWs(set, wsId, { bookmarks });
+      const ws = getWs(get(), wsId);
+      let activePushBookmark = ws.activePushBookmark;
+      if (activePushBookmark && !bookmarks.some((b) => b.name === activePushBookmark)) {
+        activePushBookmark = null;
+      }
+      if (!activePushBookmark) {
+        activePushBookmark = bookmarks.find((b) => b.name === 'main')?.name ?? bookmarks[0]?.name ?? null;
+      }
+      updateWs(set, wsId, { bookmarks, activePushBookmark });
     } catch {
       // Not fatal
     }
@@ -257,6 +269,18 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     await window.sero.vcs.deleteBookmark(wsId, name);
     await get().loadBookmarks(wsId);
     await get().loadLog(wsId);
+  },
+
+  moveBookmark: async (wsId, name, toRev) => {
+    await window.sero.vcs.moveBookmark(wsId, name, toRev);
+    await get().loadBookmarks(wsId);
+    await get().loadLog(wsId);
+  },
+
+  setActivePushBookmark: (wsId, name) => {
+    const ws = getWs(get(), wsId);
+    if (name && !ws.bookmarks.some((b) => b.name === name)) return;
+    updateWs(set, wsId, { activePushBookmark: name });
   },
 
   addRemote: async (wsId, name, url) => {

@@ -24,7 +24,7 @@ import { ContainerManager } from '../container/index';
 import { workspaceManager } from '../workspace';
 import { FileWatcherManager } from '../file-watcher';
 import { LspManager } from '../lsp/lsp-manager';
-import { JjRunner, VcsManager, VcsOps } from '../vcs';
+import { JjRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../vcs';
 
 // ── Container Manager (singleton) ────────────────────────────
 
@@ -32,6 +32,7 @@ export const containerManager = new ContainerManager();
 const jjRunner = new JjRunner(workspaceManager, containerManager);
 export const vcsManager = new VcsManager(workspaceManager, jjRunner);
 export const vcsOps = new VcsOps(jjRunner);
+export const vcsPrOps = new VcsPullRequestOps(jjRunner);
 
 // ── Workspace Manager (re-export singleton) ──────────────────
 

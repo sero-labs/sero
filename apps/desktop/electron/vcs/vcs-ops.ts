@@ -1,10 +1,3 @@
-/**
- * VcsOps — rich VCS operations (log, status, bookmarks, remotes, push, fetch).
- *
- * Extends VcsManager's checkpoint-focused API with full JJ power tools.
- * Separated to keep each file under 500 LOC.
- */
-
 import type { JjRunner } from './jj-runner';
 import {
   LOG_TEMPLATE,
@@ -28,10 +21,12 @@ import type {
   PushPreview,
 } from '../../src/types/vcs';
 
+const DEFAULT_PRIMARY_BOOKMARK = 'main';
+const AUTO_PUSH_BOOKMARK_PREFIX = 'push-';
+const CONVENTIONAL_TYPES = new Set(['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert']);
+
 export class VcsOps {
   constructor(private readonly runner: JjRunner) {}
-
-  // ── Change Log ─────────────────────────────────────────────
 
   async getLogEntries(
     workspaceId: string,
@@ -42,58 +37,29 @@ export class VcsOps {
     if (revset) args.push('-r', revset);
 
     const result = await this.runner.run(workspaceId, args);
-    console.log('[vcs-ops] getLogEntries exit=%d stdout=%d bytes stderr=%s',
-      result.exitCode, result.stdout.length, result.stderr.slice(0, 200));
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Failed to load change log');
-    }
-
-    const entries = parseLogEntries(result.stdout);
-    console.log('[vcs-ops] getLogEntries parsed %d entries', entries.length);
-    return entries;
+    if (result.exitCode !== 0) throw new Error(result.stderr || 'Failed to load change log');
+    return parseLogEntries(result.stdout);
   }
-
-  // ── Working Copy Status ────────────────────────────────────
 
   async getStatus(workspaceId: string): Promise<WorkingCopyStatus> {
     const result = await this.runner.run(workspaceId, ['status']);
-    console.log('[vcs-ops] getStatus exit=%d stdout:\n%s', result.exitCode, result.stdout.slice(0, 500));
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Failed to get status');
-    }
-
-    const status = parseStatus(result.stdout);
-    console.log('[vcs-ops] getStatus parsed %d files, conflicts=%d', status.files.length, status.conflictCount);
-    return status;
+    if (result.exitCode !== 0) throw new Error(result.stderr || 'Failed to get status');
+    return parseStatus(result.stdout);
   }
-
-  // ── Diff Summary (structured file list) ────────────────────
 
   async getFileDiffSummary(
     workspaceId: string,
     from: string,
     to?: string,
   ): Promise<FileDiffEntry[]> {
-    // -r shows what a single revision introduced (vs its parents).
-    // --from/--to compares two arbitrary revisions.
     const args = to
       ? ['diff', '--summary', '--from', from, '--to', to]
       : ['diff', '--summary', '-r', from];
 
-    console.log('[vcs-ops] getFileDiffSummary args=%j', args);
     const result = await this.runner.run(workspaceId, args);
-    console.log('[vcs-ops] getFileDiffSummary exit=%d stdout:\n%s\nstderr: %s',
-      result.exitCode, result.stdout.slice(0, 500), result.stderr.slice(0, 200));
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Failed to get diff summary');
-    }
-
-    const files = parseDiffSummary(result.stdout);
-    console.log('[vcs-ops] getFileDiffSummary parsed %d files', files.length);
-    return files;
+    if (result.exitCode !== 0) throw new Error(result.stderr || 'Failed to get diff summary');
+    return parseDiffSummary(result.stdout);
   }
-
-  // ── File Content at Revision ───────────────────────────────
 
   async getFileContent(
     workspaceId: string,
@@ -114,8 +80,6 @@ export class VcsOps {
     return result.stdout;
   }
 
-  // ── Describe Change ────────────────────────────────────────
-
   async describeChange(
     workspaceId: string,
     changeId: string,
@@ -132,8 +96,6 @@ export class VcsOps {
       throw new Error(result.stderr || 'Failed to describe change');
     }
   }
-
-  // ── Bookmarks ──────────────────────────────────────────────
 
   async listBookmarks(workspaceId: string): Promise<Bookmark[]> {
     const result = await this.runner.run(workspaceId, [
@@ -193,8 +155,6 @@ export class VcsOps {
     }
   }
 
-  // ── Remotes ────────────────────────────────────────────────
-
   async listRemotes(workspaceId: string): Promise<Remote[]> {
     const result = await this.runner.run(workspaceId, ['git', 'remote', 'list']);
     if (result.exitCode !== 0) {
@@ -222,7 +182,147 @@ export class VcsOps {
     }
   }
 
-  // ── Fetch & Push ───────────────────────────────────────────
+  private async getChangeDescription(
+    workspaceId: string,
+    changeId: string,
+  ): Promise<string> {
+    const result = await this.runner.run(workspaceId, [
+      'log',
+      '--no-graph',
+      '-r',
+      changeId,
+      '-T',
+      'description.first_line()',
+    ]);
+
+    if (result.exitCode !== 0) return '';
+    return result.stdout.trim();
+  }
+
+  private inferConventionalType(description: string): string {
+    const raw = description.trim();
+    if (!raw) return 'chore';
+
+    const explicit = raw.match(
+      /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?:/i,
+    );
+    if (explicit && CONVENTIONAL_TYPES.has(explicit[1].toLowerCase())) {
+      return explicit[1].toLowerCase();
+    }
+
+    const lower = raw.toLowerCase();
+    if (/\b(fix|bug|error|issue|hotfix|regression)\b/.test(lower)) return 'fix';
+    if (/\b(readme|docs?|documentation)\b/.test(lower)) return 'docs';
+    if (/\b(test|spec)\b/.test(lower)) return 'test';
+    if (/\b(refactor|cleanup|clean up)\b/.test(lower)) return 'refactor';
+    if (/\b(perf|performance|optimi[sz]e)\b/.test(lower)) return 'perf';
+    if (/\b(build|webpack|vite|rollup|tsconfig)\b/.test(lower)) return 'build';
+    if (/\b(ci|pipeline|github actions)\b/.test(lower)) return 'ci';
+    if (/\b(add|create|implement|introduce|support)\b/.test(lower)) return 'feat';
+    return 'chore';
+  }
+
+  private slugifyBranchLabel(description: string): string {
+    const withoutCheckpoint = description
+      .trim()
+      .replace(/^checkpoint:\s*/i, '')
+      .replace(
+        /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?:\s*/i,
+        '',
+      );
+
+    const slug = withoutCheckpoint
+      .toLowerCase()
+      .replace(/['"`]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
+
+    if (!slug) return 'checkpoint';
+    return slug.split('-').filter(Boolean).slice(0, 8).join('-').slice(0, 48) || 'checkpoint';
+  }
+
+  private isAutoPushBookmark(name: string): boolean {
+    return name.startsWith(AUTO_PUSH_BOOKMARK_PREFIX);
+  }
+
+  private async suggestPushBookmarkForChange(
+    workspaceId: string,
+    changeId: string,
+    bookmarks: Bookmark[],
+  ): Promise<string> {
+    const localAtTarget = bookmarks
+      .filter((bm) => bm.isLocal && bm.changeId === changeId)
+      .map((bm) => bm.name);
+
+    const preferredAtTarget = localAtTarget.find((name) => name === DEFAULT_PRIMARY_BOOKMARK)
+      ?? localAtTarget.find((name) => !this.isAutoPushBookmark(name));
+    if (preferredAtTarget) return preferredAtTarget;
+
+    const localNames = bookmarks.filter((bm) => bm.isLocal).map((bm) => bm.name);
+    if (localNames.includes(DEFAULT_PRIMARY_BOOKMARK)) {
+      return DEFAULT_PRIMARY_BOOKMARK;
+    }
+
+    const nonAutoLocal = localNames.find((name) => !this.isAutoPushBookmark(name));
+    if (nonAutoLocal) return nonAutoLocal;
+
+    if (localNames.length === 0) return DEFAULT_PRIMARY_BOOKMARK;
+
+    const description = await this.getChangeDescription(workspaceId, changeId);
+    const type = this.inferConventionalType(description);
+    const label = this.slugifyBranchLabel(description);
+    return `${type}/${label}-${changeId.slice(0, 8)}`;
+  }
+
+  private async ensureBookmarkAtChange(
+    workspaceId: string,
+    bookmark: string,
+    changeId: string,
+  ): Promise<void> {
+    const create = await this.runner.run(workspaceId, [
+      'bookmark',
+      'create',
+      bookmark,
+      '-r',
+      changeId,
+    ]);
+    if (create.exitCode === 0) return;
+
+    const createErr = create.stderr.toLowerCase();
+    if (!createErr.includes('already exists')) {
+      throw new Error(create.stderr || `Failed to create bookmark '${bookmark}'`);
+    }
+
+    const move = await this.runner.run(workspaceId, [
+      'bookmark',
+      'move',
+      bookmark,
+      '--to',
+      changeId,
+    ]);
+
+    if (move.exitCode !== 0) {
+      const moveErr = move.stderr.toLowerCase();
+      if (!moveErr.includes('already points') && !moveErr.includes('already at')) {
+        throw new Error(move.stderr || `Failed to move bookmark '${bookmark}'`);
+      }
+    }
+  }
+
+  private async resolvePushRemote(workspaceId: string): Promise<string | undefined> {
+    try {
+      const remotes = await this.listRemotes(workspaceId);
+      return remotes.find((r) => r.name === 'origin')?.name ?? remotes[0]?.name;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private isStaleRemotePushError(stderr: string): boolean {
+    const msg = stderr.toLowerCase();
+    return msg.includes('unexpectedly moved on the remote') || msg.includes('stale info');
+  }
 
   async fetch(workspaceId: string, remote?: string): Promise<SyncResult> {
     const args = ['git', 'fetch'];
@@ -241,15 +341,27 @@ export class VcsOps {
     bookmark?: string,
     changeId?: string,
   ): Promise<PushPreview> {
+    let resolvedBookmark = bookmark;
+    if (!resolvedBookmark && changeId) {
+      try {
+        const bookmarks = await this.listBookmarks(workspaceId);
+        resolvedBookmark = await this.suggestPushBookmarkForChange(workspaceId, changeId, bookmarks);
+      } catch {
+        // Dry-run should stay best-effort.
+      }
+    }
+
+    const pushRemote = await this.resolvePushRemote(workspaceId);
     const args = ['git', 'push', '--dry-run'];
-    if (bookmark) args.push('--bookmark', bookmark);
+    if (pushRemote) args.push('--remote', pushRemote);
+    if (resolvedBookmark) args.push('--bookmark', resolvedBookmark);
     else if (changeId) args.push('--change', changeId);
 
     const result = await this.runner.run(workspaceId, args, 60_000);
     const output = result.stdout + '\n' + result.stderr;
 
     return {
-      bookmarks: bookmark ? [bookmark] : [],
+      bookmarks: resolvedBookmark ? [resolvedBookmark] : [],
       willCreate: [],
       message: output.trim(),
     };
@@ -260,19 +372,59 @@ export class VcsOps {
     bookmark?: string,
     changeId?: string,
   ): Promise<SyncResult> {
-    const args = ['git', 'push'];
-    if (bookmark) args.push('--bookmark', bookmark);
-    else if (changeId) args.push('--change', changeId);
+    let resolvedBookmark = bookmark;
+    if (resolvedBookmark && changeId) {
+      try {
+        await this.ensureBookmarkAtChange(workspaceId, resolvedBookmark, changeId);
+      } catch (err) {
+        return {
+          success: false,
+          message: err instanceof Error ? err.message : 'Failed to move push bookmark',
+        };
+      }
+    }
+    if (!resolvedBookmark && changeId) {
+      try {
+        const bookmarks = await this.listBookmarks(workspaceId);
+        resolvedBookmark = await this.suggestPushBookmarkForChange(workspaceId, changeId, bookmarks);
+        await this.ensureBookmarkAtChange(workspaceId, resolvedBookmark, changeId);
+      } catch (err) {
+        return {
+          success: false,
+          message: err instanceof Error ? err.message : 'Failed to prepare push bookmark',
+        };
+      }
+    }
 
-    const result = await this.runner.run(workspaceId, args, 120_000);
+    const pushRemote = await this.resolvePushRemote(workspaceId);
+    const buildPushArgs = (): string[] => {
+      const args = ['git', 'push'];
+      if (pushRemote) args.push('--remote', pushRemote);
+      if (resolvedBookmark) args.push('--bookmark', resolvedBookmark);
+      else if (changeId) args.push('--change', changeId);
+      return args;
+    };
+
+    let result = await this.runner.run(workspaceId, buildPushArgs(), 120_000);
+    if (result.exitCode !== 0 && this.isStaleRemotePushError(result.stderr || '')) {
+      await this.fetch(workspaceId, pushRemote);
+      result = await this.runner.run(workspaceId, buildPushArgs(), 120_000);
+    }
     if (result.exitCode !== 0) {
       return { success: false, message: result.stderr || 'Push failed' };
     }
 
-    return { success: true, message: result.stderr || result.stdout || 'Push complete' };
-  }
+    const output = result.stderr || result.stdout;
+    if (resolvedBookmark) {
+      const summary = `Pushed bookmark '${resolvedBookmark}'`;
+      return {
+        success: true,
+        message: output?.trim() ? `${summary}\n${output.trim()}` : summary,
+      };
+    }
 
-  // ── Undo & Abandon ────────────────────────────────────────
+    return { success: true, message: output || 'Push complete' };
+  }
 
   async undo(workspaceId: string): Promise<void> {
     const result = await this.runner.run(workspaceId, ['undo']);
@@ -288,8 +440,6 @@ export class VcsOps {
     }
   }
 
-  // ── Squash ─────────────────────────────────────────────────
-
   async squash(
     workspaceId: string,
     from?: string,
@@ -304,8 +454,6 @@ export class VcsOps {
       throw new Error(result.stderr || 'Squash failed');
     }
   }
-
-  // ── Operation Log ──────────────────────────────────────────
 
   async getOperationLog(
     workspaceId: string,

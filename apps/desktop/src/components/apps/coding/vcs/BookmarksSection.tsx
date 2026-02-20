@@ -9,11 +9,11 @@ import {
   Plus,
   Trash2,
   ArrowUpCircle,
-  ArrowDownCircle,
   Check,
   CloudDownload,
   CloudUpload,
   Loader2,
+  Star,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -25,9 +25,15 @@ interface Props {
   workspaceId: string;
   bookmarks: Bookmark[];
   remotes: Remote[];
+  activePushBookmark?: string | null;
 }
 
-export function BookmarksSection({ workspaceId, bookmarks, remotes }: Props) {
+export function BookmarksSection({
+  workspaceId,
+  bookmarks,
+  remotes,
+  activePushBookmark,
+}: Props) {
   const store = useVcsStore();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -69,6 +75,11 @@ export function BookmarksSection({ workspaceId, bookmarks, remotes }: Props) {
     }
   }, [workspaceId, store]);
 
+  const handleSetActive = useCallback((name: string) => {
+    store.setActivePushBookmark(workspaceId, name);
+    showToast(`Active push branch: ${name}`);
+  }, [workspaceId, store]);
+
   function showToast(msg: string) {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
@@ -87,11 +98,11 @@ export function BookmarksSection({ workspaceId, bookmarks, remotes }: Props) {
               </SectionAction>
               <SectionAction
                 onClick={() => {
-                  const first = bookmarks[0]?.name;
-                  if (first) void handlePush(first);
+                  const target = activePushBookmark ?? bookmarks[0]?.name;
+                  if (target) void handlePush(target);
                 }}
                 loading={pushing}
-                title="Push"
+                title={activePushBookmark ? `Push (${activePushBookmark})` : 'Push'}
               >
                 <CloudUpload className="size-3" />
               </SectionAction>
@@ -160,7 +171,9 @@ export function BookmarksSection({ workspaceId, bookmarks, remotes }: Props) {
               bookmark={bm}
               index={i}
               hasRemotes={hasRemotes}
+              isActive={activePushBookmark === bm.name}
               onPush={() => void handlePush(bm.name)}
+              onSetActive={() => handleSetActive(bm.name)}
               onDelete={() => void store.deleteBookmark(workspaceId, bm.name)}
             />
           ))
@@ -190,13 +203,17 @@ function BookmarkRow({
   bookmark,
   index,
   hasRemotes,
+  isActive,
   onPush,
+  onSetActive,
   onDelete,
 }: {
   bookmark: Bookmark;
   index: number;
   hasRemotes: boolean;
+  isActive: boolean;
   onPush: () => void;
+  onSetActive: () => void;
   onDelete: () => void;
 }) {
   const synced = bookmark.remoteStatuses.every((r) => r.synced);
@@ -216,6 +233,11 @@ function BookmarkRow({
       <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-[var(--text-secondary)]">
         {bookmark.name}
       </span>
+      {isActive && (
+        <span className="rounded-sm border border-blue-500/30 bg-blue-500/10 px-1 py-px text-[9px] text-blue-300">
+          active
+        </span>
+      )}
       <span className="shrink-0 font-mono text-[10px] text-[var(--text-muted)]/50">
         {bookmark.changeId.slice(0, 8)}
       </span>
@@ -233,6 +255,11 @@ function BookmarkRow({
 
       {/* Hover actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        {!isActive && (
+          <button onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-amber-300 transition-colors">
+            <Star className="size-3" />
+          </button>
+        )}
         {hasRemotes && !synced && (
           <button onClick={onPush} title="Push" className="text-[var(--text-muted)] hover:text-blue-400 transition-colors">
             <CloudUpload className="size-3" />

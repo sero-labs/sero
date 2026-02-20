@@ -32,6 +32,11 @@ import type {
   OperationEntry,
   SyncResult,
   PushPreview,
+  PullRequestState,
+  PullRequestPreview,
+  PullRequestDraft,
+  CreatePullRequestInput,
+  CreatePullRequestResult,
 } from './vcs';
 
 interface SeroWorkspaceAPI {
@@ -313,6 +318,10 @@ interface SeroVcsAPI {
   fetch(wsId: string, remote?: string): Promise<SyncResult>;
   push(wsId: string, bookmark?: string, changeId?: string): Promise<SyncResult>;
   pushDryRun(wsId: string, bookmark?: string, changeId?: string): Promise<PushPreview>;
+  prState(wsId: string): Promise<PullRequestState>;
+  prPreview(wsId: string, sourceBranch?: string, targetBranch?: string): Promise<PullRequestPreview>;
+  prGenerateDraft(wsId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestDraft>;
+  prCreate(wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult>;
   undo(wsId: string): Promise<void>;
   abandon(wsId: string, changeId: string): Promise<void>;
   squash(wsId: string, from?: string, into?: string): Promise<void>;
