@@ -636,6 +636,12 @@ because each remote has its own independent Tailwind build.
 ```css
 @import "tailwindcss";
 
+/* REQUIRED: Scan @sero/ui component sources so Tailwind generates CSS
+   for utility classes used inside shared components (Button, Card, etc.).
+   Without this, complex classes like has-[...]:flex-col won't be generated
+   and layouts will break. Path is relative to this CSS file. */
+@source "../../ui/src/components";
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -669,11 +675,18 @@ because each remote has its own independent Tailwind build.
 }
 ```
 
-**Why this is needed:** The `@theme inline` block tells Tailwind to generate
-utility classes like `bg-background`, `text-muted-foreground`,
-`border-border`, etc. Without it, those classes won't exist in your app's
-CSS output. The actual values come from the host's CSS variables at runtime,
-so your app automatically picks up the correct theme (light/dark).
+**Why this is needed:**
+
+- **`@source`**: Tailwind CSS 4 doesn't automatically scan monorepo
+  packages. Without this directive, Tailwind won't see the utility classes
+  inside `@sero/ui` components (e.g. `has-[>[data-align=block-end]]:flex-col`
+  in InputGroup), and layouts will silently break. The path is relative to
+  the CSS file — adjust based on your package's location.
+- **`@theme inline`**: Tells Tailwind to generate utility classes like
+  `bg-background`, `text-muted-foreground`, `border-border`, etc. Without
+  it, those classes won't exist in your app's CSS output. The actual values
+  come from the host's CSS variables at runtime, so your app automatically
+  picks up the correct theme (light/dark).
 
 You can add app-specific `@keyframes` and `@utility` rules to this file too.
 
