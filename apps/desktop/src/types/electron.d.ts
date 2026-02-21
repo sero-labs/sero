@@ -21,6 +21,8 @@ import type {
   ContextPreset,
   VoiceTranscriptionStatus,
   VoiceTranscriptionResult,
+  ResponseFeedbackEntry,
+  ResponseFeedbackState,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -223,6 +225,15 @@ interface SeroLayoutAPI {
   load(): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null>;
 }
 
+interface SeroFeedbackAPI {
+  /** Load all feedback entries from disk. */
+  load(): Promise<ResponseFeedbackState>;
+  /** Submit or update a feedback entry. Upserts by messageId. */
+  submit(entry: ResponseFeedbackEntry): Promise<void>;
+  /** Remove a feedback entry by messageId. */
+  remove(messageId: string): Promise<void>;
+}
+
 interface SeroEditorAPI {
   /** Read a file from the workspace (dual-mode: container or host). */
   readFile(workspaceId: string, filePath: string): Promise<string>;
@@ -353,6 +364,7 @@ interface SeroAPI {
   devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
   layout: SeroLayoutAPI;
+  feedback: SeroFeedbackAPI;
   editor: SeroEditorAPI;
   filetree: SeroFileTreeAPI;
   lsp: SeroLspAPI;

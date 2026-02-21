@@ -258,4 +258,12 @@ export const IpcChannels = {
     cancel: 'sero:github:cancel',
     event: 'sero:github:event',
   },
+  feedback: {
+    /** Load all feedback entries from disk. */
+    load: 'sero:feedback:load',
+    /** Submit or update a single feedback entry. */
+    submit: 'sero:feedback:submit',
+    /** Remove a feedback entry by message ID. */
+    remove: 'sero:feedback:remove',
+  },
 } as const;

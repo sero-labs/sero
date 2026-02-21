@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
 
 import {
@@ -9,6 +10,7 @@ import {
 } from '@sero/ui/components/ai-elements/message';
 import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';
+import { ResponseFeedback } from './ResponseFeedback';
 import type { ChatMessage } from '@/types/ipc';
 import type { ChatCheckpointRef } from '@/types/checkpoints';
 
@@ -17,12 +19,18 @@ interface ChatMessageItemProps {
   /** Whether to display thinking/reasoning blocks. */
   showThinking?: boolean;
   onRestoreCheckpoint?: (checkpoint: ChatCheckpointRef) => void;
+  /** Session ID for feedback attribution. */
+  sessionId?: string;
+  /** The user message text that preceded this assistant response. */
+  previousUserText?: string;
 }
 
 export function ChatMessageItem({
   message,
   showThinking,
   onRestoreCheckpoint,
+  sessionId,
+  previousUserText,
 }: ChatMessageItemProps) {
   switch (message.type) {
     case 'user': {
@@ -56,9 +64,23 @@ export function ChatMessageItem({
       );
     }
 
-    case 'assistant':
+    case 'assistant': {
+      const isDone = !message.isStreaming;
+      const hasContent = !!message.text?.trim();
+      const showFeedback = isDone && hasContent && !!sessionId;
+
+      // Truncate excerpts for storage (keep feedback entries lean)
+      const promptExcerpt = useMemo(
+        () => previousUserText?.slice(0, 300),
+        [previousUserText],
+      );
+      const responseExcerpt = useMemo(
+        () => message.text?.slice(0, 300),
+        [message.text],
+      );
+
       return (
-        <Message from="assistant">
+        <Message from="assistant" className="group/msg">
           {showThinking && message.thinking && (
             <ThinkingBlock
               thinking={message.thinking}
@@ -71,8 +93,17 @@ export function ChatMessageItem({
               <Loader2 className="size-4 animate-spin text-[var(--text-muted)]" />
             )}
           </MessageContent>
+          {showFeedback && (
+            <ResponseFeedback
+              messageId={message.id}
+              sessionId={sessionId}
+              promptExcerpt={promptExcerpt}
+              responseExcerpt={responseExcerpt}
+            />
+          )}
         </Message>
       );
+    }
 
     default:
       return null;

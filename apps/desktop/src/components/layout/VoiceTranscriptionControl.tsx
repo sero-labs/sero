@@ -1,27 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
-import { AlertCircle, Check, Loader2, Mic, Radio, SlidersHorizontal, Square } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, Check, Loader2, Mic, SlidersHorizontal, Square } from 'lucide-react';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
 import { cn } from '@sero/ui/lib/utils';
+import {
+  blobToDataUrl,
+  clearTimer,
+  formatInputLabel,
+  formatMicError,
+  formatMs,
+  pickRecorderMimeType,
+  requestAudioStream,
+  resolveActiveInputLabel,
+  resolveDeviceSelection,
+  stopStream,
+  type AudioInputOption,
+} from './voice-utils';
 
-const RECORDING_MIME_TYPES = [
-  'audio/webm;codecs=opus',
-  'audio/webm',
-  'audio/mp4',
-  'audio/ogg;codecs=opus',
-] as const;
-
-type VoicePhase = 'disabled' | 'idle' | 'recording' | 'processing' | 'error';
+type VoicePhase = 'disabled' | 'idle' | 'starting' | 'recording' | 'processing' | 'error';
 
 interface VoiceTranscriptionControlProps {
   disabled: boolean;
   onTranscript: (text: string) => void;
-}
-
-interface AudioInputOption {
-  id: string;
-  label: string;
 }
 
 export function VoiceTranscriptionControl({
@@ -179,7 +180,7 @@ export function VoiceTranscriptionControl({
   }, []);
 
   const startRecording = useCallback(async () => {
-    if (phase === 'processing') return;
+    if (phase === 'starting' || phase === 'recording' || phase === 'processing') return;
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setPhase('error');
@@ -193,6 +194,7 @@ export function VoiceTranscriptionControl({
       return;
     }
 
+    setPhase('starting');
     try {
       setError(null);
       const { stream, fellBackToDefault } = await requestAudioStream(selectedDeviceId);
@@ -251,17 +253,21 @@ export function VoiceTranscriptionControl({
       stopRecording();
       return;
     }
+    if (phase === 'starting' || phase === 'processing') return;
     void startRecording();
   }, [phase, startRecording, stopRecording]);
 
   const visible = phase !== 'disabled';
-  const micDisabled = phase === 'processing' || (disabled && phase !== 'recording');
-  const selectorDisabled = disabled || phase === 'recording' || phase === 'processing';
+  const micDisabled = phase === 'starting' || phase === 'processing' || (disabled && phase !== 'recording');
+  const selectorDisabled = disabled || phase === 'starting' || phase === 'recording' || phase === 'processing';
 
   const micTooltip = useMemo(() => {
     if (phase === 'recording') {
       const src = lastRecordingDeviceLabel || selectedDeviceLabel;
       return `Recording from ${src}. Click to stop (${formatMs(elapsedMs)}).`;
+    }
+    if (phase === 'starting') {
+      return 'Starting microphone...';
     }
     if (phase === 'processing') {
       return 'Transcribing audio with OpenAI...';
@@ -285,6 +291,7 @@ export function VoiceTranscriptionControl({
             className={cn(
               'relative rounded-md p-1.5 transition-all duration-150',
               phase === 'recording' && 'bg-rose-500/20 text-rose-300 shadow-[0_0_0_2px_rgba(244,63,94,0.16)]',
+              phase === 'starting' && 'bg-cyan-500/15 text-cyan-200',
               phase === 'processing' && 'bg-cyan-500/15 text-cyan-200',
               phase === 'error' && 'bg-amber-500/15 text-amber-200',
               phase === 'idle' && 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
@@ -293,6 +300,7 @@ export function VoiceTranscriptionControl({
             title={micTooltip}
           >
             {phase === 'recording' && <Square className="size-3.5 fill-current" />}
+            {phase === 'starting' && <Loader2 className="size-3.5 animate-spin" />}
             {phase === 'processing' && <Loader2 className="size-3.5 animate-spin" />}
             {phase === 'error' && <AlertCircle className="size-3.5" />}
             {phase === 'idle' && <Mic className="size-3.5" />}
@@ -370,129 +378,4 @@ export function VoiceTranscriptionControl({
       </Popover>
     </div>
   );
-}
-
-function formatInputLabel(label: string, index: number): string {
-  const trimmed = label.trim();
-  if (trimmed) return trimmed;
-  return `Microphone ${index + 1}`;
-}
-
-function resolveDeviceSelection(current: string, inputs: AudioInputOption[]): string {
-  if (!inputs.length) return 'default';
-  if (inputs.some((input) => input.id === current)) return current;
-
-  const defaultInput = inputs.find((input) => input.id === 'default');
-  if (defaultInput) return defaultInput.id;
-  return inputs[0].id;
-}
-
-async function requestAudioStream(
-  selectedDeviceId: string,
-): Promise<{ stream: MediaStream; fellBackToDefault: boolean }> {
-  if (selectedDeviceId && selectedDeviceId !== 'default') {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: selectedDeviceId } },
-      });
-      return { stream, fellBackToDefault: false };
-    } catch (err) {
-      if (isDeviceSelectionError(err)) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        return { stream, fellBackToDefault: true };
-      }
-      throw err;
-    }
-  }
-
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  return { stream, fellBackToDefault: false };
-}
-
-async function resolveActiveInputLabel(
-  stream: MediaStream,
-  selectedDeviceId: string,
-  inputs: AudioInputOption[],
-): Promise<string> {
-  const track = stream.getAudioTracks()[0];
-  const settingsDeviceId = track?.getSettings().deviceId;
-
-  if (settingsDeviceId) {
-    const exact = inputs.find((input) => input.id === settingsDeviceId);
-    if (exact) return exact.label;
-  }
-
-  const selected = inputs.find((input) => input.id === selectedDeviceId);
-  if (selected) return selected.label;
-
-  if (inputs[0]) return inputs[0].label;
-  return 'System default input';
-}
-
-function isDeviceSelectionError(err: unknown): boolean {
-  if (!(err instanceof DOMException)) return false;
-  return err.name === 'OverconstrainedError' || err.name === 'NotFoundError';
-}
-
-function formatMicError(err: unknown): string {
-  if (err instanceof DOMException) {
-    if (err.name === 'NotAllowedError') {
-      return 'Microphone access was denied. Allow access in macOS Privacy settings.';
-    }
-    if (err.name === 'NotFoundError') {
-      return 'No microphone input was found.';
-    }
-    if (err.name === 'NotReadableError') {
-      return 'The selected input is busy or unavailable.';
-    }
-  }
-
-  if (err instanceof Error) return err.message;
-  return 'Microphone access failed.';
-}
-
-function pickRecorderMimeType(): string {
-  for (const mimeType of RECORDING_MIME_TYPES) {
-    if (MediaRecorder.isTypeSupported(mimeType)) {
-      return mimeType;
-    }
-  }
-  return '';
-}
-
-function clearTimer(timerRef: MutableRefObject<number | null>): void {
-  if (timerRef.current === null) return;
-  window.clearInterval(timerRef.current);
-  timerRef.current = null;
-}
-
-function stopStream(stream: MediaStream | null): void {
-  if (!stream) return;
-  for (const track of stream.getTracks()) {
-    track.stop();
-  }
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        reject(new Error('Failed to encode audio recording.'));
-        return;
-      }
-      resolve(reader.result);
-    };
-    reader.onerror = () => {
-      reject(reader.error ?? new Error('Failed to read recorded audio.'));
-    };
-    reader.readAsDataURL(blob);
-  });
-}
-
-function formatMs(ms: number): string {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-  const secs = (totalSeconds % 60).toString().padStart(2, '0');
-  return `${mins}:${secs}`;
 }

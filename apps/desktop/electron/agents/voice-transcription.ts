@@ -6,6 +6,7 @@ import type {
 const OPENAI_TRANSCRIBE_MODEL = 'gpt-4o-mini-transcribe';
 const OPENAI_TRANSCRIBE_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25MB API limit
+const TRANSCRIBE_TIMEOUT_MS = 60_000;
 
 const MIME_TO_EXTENSION: Record<string, string> = {
   'audio/wav': 'wav',
@@ -42,24 +43,25 @@ interface OpenAiTranscriptionResponse {
   segments?: Array<{ text?: string }>;
 }
 
-export function getVoiceTranscriptionStatus(): VoiceTranscriptionStatus {
-  if (process.env.OPENAI_API_KEY?.trim()) {
+export function getVoiceTranscriptionStatus(apiKey?: string): VoiceTranscriptionStatus {
+  if (apiKey?.trim()) {
     return { enabled: true };
   }
 
   return {
     enabled: false,
-    reason: 'Voice transcription requires OPENAI_API_KEY.',
+    reason: 'Voice transcription requires an OpenAI API key (Settings or OPENAI_API_KEY).',
   };
 }
 
 export async function transcribeWithOpenAi(
   audioDataUrl: string,
   mimeType?: string,
+  apiKey?: string,
 ): Promise<VoiceTranscriptionResult> {
-  const key = process.env.OPENAI_API_KEY?.trim();
+  const key = apiKey?.trim();
   if (!key) {
-    throw new Error('OPENAI_API_KEY is missing.');
+    throw new Error('OpenAI API key is missing.');
   }
 
   const audio = parseAudioData(audioDataUrl, mimeType);
@@ -71,13 +73,26 @@ export async function transcribeWithOpenAi(
   // Force plain text output so the response shape is stable across SDK/API changes.
   form.append('response_format', 'text');
 
-  const response = await fetch(OPENAI_TRANSCRIBE_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-    },
-    body: form,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TRANSCRIBE_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(OPENAI_TRANSCRIBE_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+      },
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw new Error('Transcription timed out after 60 seconds. Please try a shorter recording.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const details = await readOpenAiError(response);
@@ -197,4 +212,8 @@ function firstText(...values: Array<string | undefined>): string {
     if (text) return text;
   }
   return '';
+}
+
+function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === 'AbortError';
 }

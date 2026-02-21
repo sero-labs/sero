@@ -33,6 +33,7 @@ import { ChatMessageItem } from './ChatMessageItem';
 import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
 import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
+import { useFeedbackStore } from '@/stores/feedback';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
 import { cn } from '@sero/ui/lib/utils';
 import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
@@ -62,6 +63,10 @@ export function ChatPanel() {
     const unsub = initEventListener();
     return unsub;
   }, [initEventListener]);
+
+  // Initialize feedback store (load ratings from disk)
+  const initFeedback = useFeedbackStore((s) => s.init);
+  useEffect(() => { initFeedback(); }, [initFeedback]);
 
   // ── OAuth login dialog state ───────────────────────────────
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
@@ -237,12 +242,28 @@ export function ChatPanel() {
                     />
                   );
                 }
+
+                // For assistant messages, find the most recent preceding user message
+                // to include as context in feedback entries.
+                let previousUserText: string | undefined;
+                if (item.message.type === 'assistant') {
+                  for (let j = index - 1; j >= 0; j--) {
+                    const prev = groupedItems[j];
+                    if (prev.kind === 'message' && prev.message.type === 'user') {
+                      previousUserText = prev.message.text;
+                      break;
+                    }
+                  }
+                }
+
                 return (
                   <ChatMessageItem
                     key={item.message.id}
                     message={item.message}
                     showThinking={showThinkingBlocks}
                     onRestoreCheckpoint={focusedWorkspaceId ? checkpoint.requestRestore : undefined}
+                    sessionId={sessionId ?? undefined}
+                    previousUserText={previousUserText}
                   />
                 );
               })}

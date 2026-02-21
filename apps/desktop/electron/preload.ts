@@ -20,6 +20,8 @@ import type {
   ContextPreset,
   VoiceTranscriptionStatus,
   VoiceTranscriptionResult,
+  ResponseFeedbackEntry,
+  ResponseFeedbackState,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -400,6 +402,15 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.layout.save, state),
     load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null> =>
       ipcRenderer.invoke(IpcChannels.layout.load),
+  },
+
+  feedback: {
+    load: (): Promise<ResponseFeedbackState> =>
+      ipcRenderer.invoke(IpcChannels.feedback.load),
+    submit: (entry: ResponseFeedbackEntry): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.feedback.submit, entry),
+    remove: (messageId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.feedback.remove, messageId),
   },
 
   editor: {
