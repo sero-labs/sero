@@ -18,6 +18,8 @@ import type {
   SessionContext,
   ContextOverrides,
   ContextPreset,
+  VoiceTranscriptionStatus,
+  VoiceTranscriptionResult,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -196,31 +198,30 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
   },
 
+  voice: {
+    status: (): Promise<VoiceTranscriptionStatus> =>
+      ipcRenderer.invoke(IpcChannels.voice.status),
+    transcribe: (audioDataUrl: string, mimeType?: string): Promise<VoiceTranscriptionResult> =>
+      ipcRenderer.invoke(IpcChannels.voice.transcribe, audioDataUrl, mimeType),
+  },
+
   auth: {
     getProviders: (): Promise<AuthProvidersResponse> =>
       ipcRenderer.invoke(IpcChannels.auth.getProviders),
-
     login: (providerId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.auth.login, providerId),
-
     logout: (providerId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.auth.logout, providerId),
-
     setApiKey: (providerId: string, key: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.auth.setApiKey, providerId, key),
-
     removeApiKey: (providerId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.auth.removeApiKey, providerId),
-
     respondPrompt: (value: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.auth.respondPrompt, value),
-
     respondManualCode: (value: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.auth.respondManualCode, value),
-
     cancel: (): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.auth.cancel),
-
     onEvent: (callback: (event: OAuthEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: OAuthEvent) => {
         callback(data);
@@ -235,10 +236,8 @@ contextBridge.exposeInMainWorld('sero', {
   container: {
     status: (workspaceId: string): Promise<ContainerInfo | null> =>
       ipcRenderer.invoke(IpcChannels.container.status, workspaceId),
-
     inspect: (workspaceId: string): Promise<ContainerInfo> =>
       ipcRenderer.invoke(IpcChannels.container.inspect, workspaceId),
-
     ensure: (workspaceId: string): Promise<ContainerInfo | null> =>
       ipcRenderer.invoke(IpcChannels.container.ensure, workspaceId),
   },
@@ -246,19 +245,14 @@ contextBridge.exposeInMainWorld('sero', {
   devServer: {
     list: (workspaceId?: string): Promise<DevServer[]> =>
       ipcRenderer.invoke(IpcChannels.devServer.list, workspaceId),
-
     stop: (serverId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.devServer.stop, serverId),
-
     restart: (serverId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.devServer.restart, serverId),
-
     unregister: (serverId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.devServer.unregister, serverId),
-
     openInBrowser: (serverId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.devServer.openInBrowser, serverId),
-
     onEvent: (callback: (event: DevServerEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: DevServerEvent) => {
         callback(data);

@@ -85,6 +85,12 @@ export const IpcChannels = {
     /** Send a prompt to an app's dedicated agent session. Returns text response. */
     prompt: 'sero:app-agent:prompt',
   },
+  voice: {
+    /** Check whether voice transcription is available (requires OPENAI_API_KEY). */
+    status: 'sero:voice:status',
+    /** Transcribe audio via OpenAI Speech-to-Text. */
+    transcribe: 'sero:voice:transcribe',
+  },
   auth: {
     /** Get all providers (OAuth + API key) with auth status. */
     getProviders: 'sero:auth:get-providers',

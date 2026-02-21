@@ -10,6 +10,7 @@ import { registerWorkspaceHandlers } from './workspace';
 import { registerSessionHandlers } from './sessions';
 import { registerAgentHandlers } from './agent';
 import { registerAppAgentHandlers } from './app-agent';
+import { registerVoiceHandlers } from './voice';
 import { registerShellHandlers } from './shell';
 import { registerAppStateHandlers } from './app-state';
 import { registerAppsHandlers } from './apps';
@@ -31,6 +32,7 @@ export function registerAllIpcHandlers(): void {
   registerSessionHandlers();
   registerAgentHandlers();
   registerAppAgentHandlers();
+  registerVoiceHandlers();
   registerShellHandlers();
   registerAppStateHandlers();
   registerAppsHandlers();

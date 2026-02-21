@@ -19,6 +19,8 @@ import type {
   SessionContext,
   ContextOverrides,
   ContextPreset,
+  VoiceTranscriptionStatus,
+  VoiceTranscriptionResult,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -164,6 +166,13 @@ interface SeroAuthAPI {
   cancel(): Promise<void>;
   /** Subscribe to OAuth flow events. Returns unsubscribe. */
   onEvent(callback: (event: OAuthEvent) => void): () => void;
+}
+
+interface SeroVoiceAPI {
+  /** Check whether voice transcription is available in this runtime. */
+  status(): Promise<VoiceTranscriptionStatus>;
+  /** Transcribe a recorded audio data URL. */
+  transcribe(audioDataUrl: string, mimeType?: string): Promise<VoiceTranscriptionResult>;
 }
 
 interface SeroContainerAPI {
@@ -338,6 +347,7 @@ interface SeroAPI {
   appState: SeroAppStateAPI;
   apps: SeroAppsAPI;
   appAgent: SeroAppAgentAPI;
+  voice: SeroVoiceAPI;
   auth: SeroAuthAPI;
   container: SeroContainerAPI;
   devServer: SeroDevServerAPI;

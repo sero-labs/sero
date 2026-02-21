@@ -317,6 +317,20 @@ export interface SeroAppManifest {
   packagePath: string;
 }
 
+// ── Voice Transcription ──────────────────────────────────────
+
+/** Voice transcription availability for renderer UI gating. */
+export interface VoiceTranscriptionStatus {
+  enabled: boolean;
+  reason?: string;
+}
+
+/** Result returned from the voice transcription endpoint. */
+export interface VoiceTranscriptionResult {
+  text: string;
+  model: string;
+}
+
 // ── OAuth / Auth ───────────────────────────────────────────────
 
 /** OAuth provider info surfaced to the renderer for the login dialog. */

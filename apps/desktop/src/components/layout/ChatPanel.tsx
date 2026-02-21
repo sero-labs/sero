@@ -31,6 +31,7 @@ import { groupMessages, ToolCallGroup } from './ToolCallGroup';
 import { ContextEditor } from './ContextEditor';
 import { ChatMessageItem } from './ChatMessageItem';
 import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
+import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
 import { cn } from '@sero/ui/lib/utils';
@@ -183,6 +184,15 @@ export function ChatPanel() {
     [input, sessionId, slashMenuOpen, sendPrompt],
   );
 
+  const handleTranscript = useCallback((text: string) => {
+    const transcript = text.trim();
+    if (!transcript) return;
+    setInput((prev) => {
+      if (!prev.trim()) return transcript;
+      return `${prev}${prev.endsWith('\n') ? '' : '\n'}${transcript}`;
+    });
+  }, []);
+
   const hasSession = !!sessionId;
 
   return (
@@ -300,6 +310,10 @@ export function ChatPanel() {
                   <ContextEditorMenuItem sessionId={sessionId} disabled={isStreaming} />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
+              <VoiceTranscriptionControl
+                disabled={!hasSession || isStreaming}
+                onTranscript={handleTranscript}
+              />
               {/* Show/hide thinking blocks */}
               <ThinkingBlocksToggle disabled={!hasSession} />
               {/* Model + thinking level selector */}
