@@ -87,6 +87,12 @@ export const IpcChannels = {
     /** Send a prompt to an app's dedicated agent session. Returns text response. */
     prompt: 'sero:app-agent:prompt',
   },
+  voice: {
+    /** Check whether voice transcription is available (requires OPENAI_API_KEY). */
+    status: 'sero:voice:status',
+    /** Transcribe audio via OpenAI Speech-to-Text. */
+    transcribe: 'sero:voice:transcribe',
+  },
   auth: {
     /** Get all providers (OAuth + API key) with auth status. */
     getProviders: 'sero:auth:get-providers',
@@ -253,5 +259,13 @@ export const IpcChannels = {
     logout: 'sero:github:logout',
     cancel: 'sero:github:cancel',
     event: 'sero:github:event',
+  },
+  feedback: {
+    /** Load all feedback entries from disk. */
+    load: 'sero:feedback:load',
+    /** Submit or update a single feedback entry. */
+    submit: 'sero:feedback:submit',
+    /** Remove a feedback entry by message ID. */
+    remove: 'sero:feedback:remove',
   },
 } as const;

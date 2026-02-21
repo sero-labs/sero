@@ -10,6 +10,7 @@ import { registerWorkspaceHandlers } from './workspace';
 import { registerSessionHandlers } from './sessions';
 import { registerAgentHandlers } from './agent';
 import { registerAppAgentHandlers } from './app-agent';
+import { registerVoiceHandlers } from './voice';
 import { registerShellHandlers } from './shell';
 import { registerAppStateHandlers } from './app-state';
 import { registerAppsHandlers } from './apps';
@@ -25,12 +26,14 @@ import { registerDebugHandlers } from './debug';
 import { registerContextPresetsHandlers } from './context-presets';
 import { registerVcsHandlers } from './vcs';
 import { registerGitHubHandlers } from './github';
+import { registerFeedbackHandlers } from './feedback';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
   registerSessionHandlers();
   registerAgentHandlers();
   registerAppAgentHandlers();
+  registerVoiceHandlers();
   registerShellHandlers();
   registerAppStateHandlers();
   registerAppsHandlers();
@@ -46,4 +49,5 @@ export function registerAllIpcHandlers(): void {
   registerContextPresetsHandlers();
   registerVcsHandlers();
   registerGitHubHandlers();
+  registerFeedbackHandlers();
 }

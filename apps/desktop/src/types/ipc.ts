@@ -317,6 +317,20 @@ export interface SeroAppManifest {
   packagePath: string;
 }
 
+// ── Voice Transcription ──────────────────────────────────────
+
+/** Voice transcription availability for renderer UI gating. */
+export interface VoiceTranscriptionStatus {
+  enabled: boolean;
+  reason?: string;
+}
+
+/** Result returned from the voice transcription endpoint. */
+export interface VoiceTranscriptionResult {
+  text: string;
+  model: string;
+}
+
 // ── OAuth / Auth ───────────────────────────────────────────────
 
 /** OAuth provider info surfaced to the renderer for the login dialog. */
@@ -355,6 +369,31 @@ export type OAuthEvent =
   | { type: 'success'; provider: string; message: string }
   | { type: 'error'; provider: string; message: string }
   | { type: 'cancelled' };
+
+// ── Response Feedback ──────────────────────────────────────────
+
+/** A single user feedback entry for an agent response. */
+export interface ResponseFeedbackEntry {
+  /** The assistant message ID this feedback is for. */
+  messageId: string;
+  /** Session ID where the response occurred. */
+  sessionId: string;
+  /** 'good' or 'bad' rating. */
+  rating: 'good' | 'bad';
+  /** ISO timestamp when feedback was submitted. */
+  timestamp: string;
+  /** First ~300 chars of the user prompt that preceded this response. */
+  promptExcerpt?: string;
+  /** First ~300 chars of the assistant response. */
+  responseExcerpt?: string;
+  /** Optional free-text note from the user. */
+  note?: string;
+}
+
+/** Full feedback state persisted to disk. */
+export interface ResponseFeedbackState {
+  entries: ResponseFeedbackEntry[];
+}
 
 // ── IPC Channels ───────────────────────────────────────────────
 

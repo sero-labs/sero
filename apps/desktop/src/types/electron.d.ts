@@ -19,6 +19,10 @@ import type {
   SessionContext,
   ContextOverrides,
   ContextPreset,
+  VoiceTranscriptionStatus,
+  VoiceTranscriptionResult,
+  ResponseFeedbackEntry,
+  ResponseFeedbackState,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -168,6 +172,13 @@ interface SeroAuthAPI {
   onEvent(callback: (event: OAuthEvent) => void): () => void;
 }
 
+interface SeroVoiceAPI {
+  /** Check whether voice transcription is available in this runtime. */
+  status(): Promise<VoiceTranscriptionStatus>;
+  /** Transcribe a recorded audio data URL. */
+  transcribe(audioDataUrl: string, mimeType?: string): Promise<VoiceTranscriptionResult>;
+}
+
 interface SeroContainerAPI {
   /** Get container state for a workspace. Returns null if no container. */
   status(workspaceId: string): Promise<ContainerInfo | null>;
@@ -214,6 +225,15 @@ interface SeroLayoutAPI {
   save(state: { mainSidebarOpen: boolean; chatPanelOpen: boolean }): Promise<void>;
   /** Load UI layout state from disk. Returns null if no saved state. */
   load(): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null>;
+}
+
+interface SeroFeedbackAPI {
+  /** Load all feedback entries from disk. */
+  load(): Promise<ResponseFeedbackState>;
+  /** Submit or update a feedback entry. Upserts by messageId. */
+  submit(entry: ResponseFeedbackEntry): Promise<void>;
+  /** Remove a feedback entry by messageId. */
+  remove(messageId: string): Promise<void>;
 }
 
 interface SeroEditorAPI {
@@ -340,11 +360,13 @@ interface SeroAPI {
   appState: SeroAppStateAPI;
   apps: SeroAppsAPI;
   appAgent: SeroAppAgentAPI;
+  voice: SeroVoiceAPI;
   auth: SeroAuthAPI;
   container: SeroContainerAPI;
   devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
   layout: SeroLayoutAPI;
+  feedback: SeroFeedbackAPI;
   editor: SeroEditorAPI;
   filetree: SeroFileTreeAPI;
   lsp: SeroLspAPI;
