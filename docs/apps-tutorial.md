@@ -102,6 +102,7 @@ packages/pi-myapp-extension/
 │   └── index.ts
 ├── ui/
 │   ├── MyApp.tsx
+│   ├── styles.css
 │   ├── tsconfig.json
 │   └── index.html
 └── README.md
@@ -146,6 +147,7 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
   },
   "devDependencies": {
     "@sero/app-runtime": "workspace:*",
+    "@sero/ui": "workspace:*",
     "@module-federation/vite": "^1.11.0",
     "@vitejs/plugin-react": "^4.7.0",
     "@tailwindcss/vite": "^4.1.18",
@@ -170,6 +172,9 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
   [Extension Dependencies](../docs/libs/pi-coding-agent/packages.md#dependencies).
 - `@sero/app-runtime` is a `devDependency` because it's shared via module
   federation at runtime — the host provides the singleton.
+- `@sero/ui` is a `devDependency` that provides shared shadcn/ui components
+  (`Button`, `Card`, etc.) and utilities (`cn`). Components are bundled into
+  your app at build time — no MF sharing needed.
 - `"devPort"` must be a unique port (see [Port conventions](#port-conventions)).
   The host auto-discovers this at build time — no manual Vite config edits
   needed.
@@ -433,8 +438,12 @@ It uses hooks from `@sero/app-runtime` to read/write the same state file.
 
 import { useState, useCallback } from 'react';
 import { useAppState, useAppInfo, useAgentPrompt } from '@sero/app-runtime';
+import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero/ui/components/ui/button';
+import { Card } from '@sero/ui/components/ui/card';
 import type { MyAppState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
+import './styles.css';
 
 export function MyApp() {
   const [state, updateState] = useAppState<MyAppState>(DEFAULT_STATE);
@@ -473,67 +482,79 @@ export function MyApp() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[var(--bg-base)]">
+    <div className="flex h-full flex-col bg-background p-4">
       {/* Header */}
-      <div className="border-b border-border/50 px-6 py-4">
-        <h1 className="text-lg font-semibold text-[var(--text-primary)]">
-          My App
-        </h1>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
+      <div className="mb-4">
+        <h1 className="text-lg font-semibold text-foreground">My App</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
           {state.items.length} items
         </p>
       </div>
 
       {/* Add form */}
-      <div className="border-b border-border/50 px-6 py-3">
-        <form onSubmit={(e) => { e.preventDefault(); addItem(); }} className="flex gap-2">
-          <input
-            type="text"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Add an item…"
-            className="flex-1 rounded-md border border-border/50 bg-[var(--bg-surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-          />
-          <button
-            type="submit"
-            disabled={!newTitle.trim()}
-            className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            Add
-          </button>
-        </form>
-      </div>
+      <form
+        onSubmit={(e) => { e.preventDefault(); addItem(); }}
+        className="mb-4 flex gap-2"
+      >
+        <input
+          type="text"
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Add an item…"
+          className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <Button size="sm" disabled={!newTitle.trim()}>
+          Add
+        </Button>
+      </form>
 
       {/* Item list */}
-      <div className="flex-1 overflow-y-auto">
+      <Card className="flex-1 gap-0 overflow-hidden py-0 shadow-none">
         {state.items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <p className="text-sm text-[var(--text-muted)]">No items yet</p>
+            <p className="text-sm text-muted-foreground">No items yet</p>
           </div>
         ) : (
-          <ul className="divide-y divide-border/30">
+          <div className="flex-1 overflow-y-auto">
             {state.items.map((item) => (
-              <li key={item.id} className="group flex items-center gap-3 px-6 py-2.5 hover:bg-[var(--bg-surface)]">
-                <span className="flex-1 text-sm text-[var(--text-primary)]">
+              <div
+                key={item.id}
+                className="group flex items-center gap-3 border-b px-4 py-2.5 last:border-b-0 hover:bg-secondary"
+              >
+                <span className="flex-1 text-sm text-foreground">
                   {item.title}
                 </span>
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
                   onClick={() => removeItem(item.id)}
-                  className="text-xs text-[var(--text-muted)] opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
                 >
                   Remove
-                </button>
-              </li>
+                </Button>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
 
 export default MyApp;
 ```
+
+**Key patterns in the UI:**
+
+- Import `Button`, `Card`, and other components from `@sero/ui/components/ui/*`
+  instead of writing raw HTML elements with custom classes.
+- Import `cn` from `@sero/ui/lib/utils` for conditional class name merging.
+- Import `./styles.css` for Tailwind + theme token mapping (see below).
+- Use Tailwind semantic color classes (`bg-background`, `text-foreground`,
+  `text-muted-foreground`, `bg-secondary`) instead of raw CSS variable
+  references like `bg-[var(--bg-base)]`.
+- Override shadcn component defaults via `className` — `cn()` and
+  `tailwind-merge` handle deduplication automatically.
 
 ### `vite.config.ts` (package root)
 
@@ -602,6 +623,59 @@ export default defineConfig({
   reads `devPort` to auto-configure Module Federation remotes.
 - Do NOT alias `@sero/app-runtime` — the MF plugin must intercept that import
   so the host's singleton is used at runtime.
+- `@sero/ui` does NOT need to be in `optimizeDeps.exclude` — unlike
+  `@sero/app-runtime`, it's bundled into your remote at build time (no
+  runtime singleton). Vite handles it automatically.
+
+### `ui/styles.css`
+
+Each app needs a small CSS file that imports Tailwind and maps the host's
+CSS variables to Tailwind utilities via `@theme inline`. This is required
+because each remote has its own independent Tailwind build.
+
+```css
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme tokens — maps Sero/shadcn CSS variables to Tailwind utilities.
+ * The CSS variables themselves are provided by the host shell at runtime.
+ */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+```
+
+**Why this is needed:** The `@theme inline` block tells Tailwind to generate
+utility classes like `bg-background`, `text-muted-foreground`,
+`border-border`, etc. Without it, those classes won't exist in your app's
+CSS output. The actual values come from the host's CSS variables at runtime,
+so your app automatically picks up the correct theme (light/dark).
+
+You can add app-specific `@keyframes` and `@utility` rules to this file too.
 
 ### `ui/tsconfig.json`
 
@@ -618,7 +692,9 @@ export default defineConfig({
     "noEmit": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": {
-      "@sero/app-runtime": ["../../app-runtime/src/index.ts"]
+      "@sero/app-runtime": ["../../app-runtime/src/index.ts"],
+      "@sero/ui": ["../../ui/src/index.ts"],
+      "@sero/ui/*": ["../../ui/src/*"]
     }
   },
   "include": ["./**/*", "../shared/**/*"]
@@ -816,8 +892,77 @@ const handleClick = async () => {
 
 ## Styling Guide
 
-Sero apps render inside the main app area. Use CSS variables from the Sero
-theme for consistency:
+Sero apps render inside the main app area. Use **`@sero/ui`** for pre-built
+shadcn/ui components and **Tailwind CSS** for layout and custom styling.
+
+### Using `@sero/ui` Components
+
+The `@sero/ui` package provides 60+ shadcn/ui components shared across the
+Sero platform. Import them via subpaths for tree-shaking:
+
+```tsx
+import { Button } from '@sero/ui/components/ui/button';
+import { Card } from '@sero/ui/components/ui/card';
+import { Badge } from '@sero/ui/components/ui/badge';
+import { cn } from '@sero/ui/lib/utils';
+```
+
+Common components for apps:
+
+| Component | Import path | Use for |
+|-----------|-------------|---------|
+| `Button` | `@sero/ui/components/ui/button` | Actions, toggles, form submissions |
+| `Card` | `@sero/ui/components/ui/card` | Content containers, panels, sections |
+| `Badge` | `@sero/ui/components/ui/badge` | Status indicators, counts |
+| `Separator` | `@sero/ui/components/ui/separator` | Visual dividers |
+| `ScrollArea` | `@sero/ui/components/ui/scroll-area` | Custom scrollable regions |
+| `Checkbox` | `@sero/ui/components/ui/checkbox` | Toggle items, multi-select |
+| `cn()` | `@sero/ui/lib/utils` | Class name merging (clsx + tailwind-merge) |
+
+**Customising components:** Override defaults via `className` — shadcn
+components are designed for this. `cn()` with `tailwind-merge` handles
+deduplication, so your overrides replace (not append to) conflicting defaults:
+
+```tsx
+// Card defaults: rounded-xl py-6 gap-6 shadow-sm
+// Your overrides replace those specific properties:
+<Card className="rounded-2xl py-0 gap-0 shadow-none">
+  {/* compact card with no gap or shadow */}
+</Card>
+
+// Button with conditional styling:
+<Button
+  variant="secondary"
+  className={cn('h-12 rounded-xl', isActive && 'bg-accent')}
+>
+  Click me
+</Button>
+```
+
+**Prefer `@sero/ui` components** over raw HTML elements with custom Tailwind
+classes. Use `<Button>` instead of `<button>`, `<Card>` instead of a styled
+`<div>`. This ensures visual consistency across Sero apps and gets you
+built-in accessibility, focus management, and theme support for free.
+
+### Tailwind Semantic Colors
+
+Use Tailwind's semantic color classes (powered by the `@theme inline` block
+in your `styles.css`) instead of raw CSS variable references:
+
+| Tailwind class | Instead of | Use for |
+|----------------|------------|---------|
+| `bg-background` | `bg-[var(--bg-base)]` | Primary background |
+| `bg-card` | `bg-[var(--bg-surface)]` | Card/panel backgrounds |
+| `bg-secondary` | `bg-[var(--bg-elevated)]` | Hover/active states |
+| `text-foreground` | `text-[var(--text-primary)]` | Main text |
+| `text-muted-foreground` | `text-[var(--text-muted)]` | Hints, metadata |
+| `border-border` | `border-[var(--border)]` | Standard borders |
+| `text-destructive` | `text-red-500` | Error/danger text |
+| `bg-primary` | — | Primary action backgrounds |
+
+### Sero Design System Variables
+
+For colours outside the shadcn palette, use Sero's CSS variables directly:
 
 | Variable | Usage |
 |----------|-------|
@@ -827,12 +972,11 @@ theme for consistency:
 | `var(--text-primary)` | Main text |
 | `var(--text-secondary)` | Less prominent text |
 | `var(--text-muted)` | Hints, metadata |
-| `var(--accent)` | Primary accent colour |
-| `var(--border)` or `border-border/50` | Borders |
 
-Tailwind CSS is available (shared from the host). Use standard Tailwind
-classes. The app fills `h-full w-full` — structure your layout with
-`flex flex-col` and `overflow-y-auto` for scrollable content.
+### Layout
+
+The app fills `h-full w-full` — structure your layout with `flex flex-col`
+and `overflow-y-auto` for scrollable content.
 
 ---
 
@@ -1165,7 +1309,18 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
 
 ## Reference Implementations
 
-The **Todo app** (`packages/pi-todo-extension/`) is the canonical reference:
+The **Calculator app** (`packages/pi-calc-extension/`) is the best reference
+for using `@sero/ui` components with Tailwind:
+
+| File | What to learn |
+|------|---------------|
+| `ui/CalcApp.tsx` | `Button` and `Card` from `@sero/ui`, `cn()` usage, container-scoped keyboard events |
+| `ui/styles.css` | Minimal Tailwind + `@theme inline` setup for remote apps |
+| `ui/calc-engine.ts` | Pure logic separated from React (testable, no side effects) |
+| `package.json` | `@sero/ui` as workspace devDependency |
+
+The **Todo app** (`packages/pi-todo-extension/`) is the canonical reference
+for app structure:
 
 | File | What to learn |
 |------|---------------|
