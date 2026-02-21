@@ -6,8 +6,8 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Switch } from '@/components/ui/switch';
+import { cn } from '@sero/ui/lib/utils';
+import { Switch } from '@sero/ui/components/ui/switch';
 
 // ── Color tint definitions ──────────────────────────────────────
 

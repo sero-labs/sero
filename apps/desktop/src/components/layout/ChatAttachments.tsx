@@ -4,10 +4,10 @@ import {
   AttachmentPreview,
   AttachmentInfo,
   AttachmentRemove,
-} from '@/components/ai-elements/attachments';
+} from '@sero/ui/components/ai-elements/attachments';
 import {
   usePromptInputAttachments,
-} from '@/components/ai-elements/prompt-input';
+} from '@sero/ui/components/ai-elements/prompt-input';
 import type { ChatAttachment } from '@/types/ipc';
 
 // ── Prompt input attachment bar (inline badges) ────────────────

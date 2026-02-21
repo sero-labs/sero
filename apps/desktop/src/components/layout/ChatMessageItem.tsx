@@ -6,7 +6,7 @@ import {
   MessageActions,
   MessageContent,
   MessageResponse,
-} from '@/components/ai-elements/message';
+} from '@sero/ui/components/ai-elements/message';
 import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';
 import type { ChatMessage } from '@/types/ipc';

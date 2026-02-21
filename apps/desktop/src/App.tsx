@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@sero/ui/components/ui/tooltip';
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
-} from '@/components/ui/resizable';
+} from '@sero/ui/components/ui/resizable';
 import { TitleBar } from '@/components/layout/TitleBar';
 import { MainSidebar } from '@/components/layout/MainSidebar';
 import { StatusBar } from '@/components/layout/StatusBar';

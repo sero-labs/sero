@@ -8,7 +8,7 @@
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
 import type { ChangeEntry } from '@/types/vcs';
 import { VcsSection } from './VcsSection';

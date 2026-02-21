@@ -8,7 +8,7 @@ import {
   AlertCircle,
   WrenchIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 import type { ChatToolCallMessage } from '@/types/ipc';
 import {
   Tool,
@@ -16,7 +16,7 @@ import {
   ToolContent,
   ToolInput,
   ToolOutput,
-} from '@/components/ai-elements/tool';
+} from '@sero/ui/components/ai-elements/tool';
 
 // ── Types ───────────────────────────────────────────────────────
 

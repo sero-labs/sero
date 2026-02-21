@@ -16,14 +16,14 @@ import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
 import { useSessionStore, useSessionsByWorkspace } from '@/stores/sessions';
 import { useStreamingSessionIds } from '@/stores/agent';
 import { useWorkspaceContainer, type ContainerStatus } from '@/stores/container';
-import { Button } from '@/components/ui/button';
+import { Button } from '@sero/ui/components/ui/button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
+} from '@sero/ui/components/ui/popover';
 import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 
 /**
  * WorkspaceTree — tree view of workspaces → sessions.

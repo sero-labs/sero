@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight, Brain, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 
 /**
  * ThinkingBlock — collapsible card that renders model thinking/reasoning text.

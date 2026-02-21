@@ -1,10 +1,10 @@
 import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
+import { Input } from '@sero/ui/components/ui/input';
+import { Separator } from '@sero/ui/components/ui/separator';
 import { useAppStore, type AppEntry } from '@/stores/app';
 import { useSessionStore } from '@/stores/sessions';
 import { WorkspaceTree } from './WorkspaceTree';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 
 /**
  * MainSidebar — the primary navigation sidebar.

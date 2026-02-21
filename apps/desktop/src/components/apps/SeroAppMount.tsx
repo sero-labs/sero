@@ -13,7 +13,7 @@ import type { SeroAppManifest } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { getFederatedComponent } from '@/lib/federation-registry';
-import { Spinner } from '@/components/ui/spinner';
+import { Spinner } from '@sero/ui/components/ui/spinner';
 
 // ── Props ────────────────────────────────────────────────────
 

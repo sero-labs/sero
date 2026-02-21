@@ -17,8 +17,8 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@sero/ui/components/ui/button';
+import { Input } from '@sero/ui/components/ui/input';
 import type { OAuthProviderInfo, ApiKeyProviderInfo } from '@/types/ipc';
 
 // ── Provider list ─────────────────────────────────────────────
