@@ -6,9 +6,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
+} from '@sero/ui/components/ui/dialog';
+import { Checkbox } from '@sero/ui/components/ui/checkbox';
+import { Button } from '@sero/ui/components/ui/button';
 
 export interface RestorePreviewFileChange {
   path: string;

@@ -8,7 +8,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { RefreshCw, Undo2, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
 import { WorkingCopySection } from './WorkingCopySection';
 import { BookmarksSection } from './BookmarksSection';

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "pnpm --filter @sero/desktop dev",
     "build": "turbo run build",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "clean": "rm -rf node_modules apps/*/.__mf__temp packages/*/.__mf__temp apps/*/node_modules packages/*/node_modules apps/*/.next apps/*/.turbo packages/*/.turbo apps/*/dist packages/*/dist apps/*/out packages/*/out .turbo"
   },
   "devDependencies": {
     "turbo": "^2.5.0"

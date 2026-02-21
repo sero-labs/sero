@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@sero/app-runtime": "workspace:*",
+    "@sero/ui": "workspace:*",
     "@module-federation/vite": "^1.11.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

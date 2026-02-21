@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 
 interface VcsSectionProps {
   title: string;

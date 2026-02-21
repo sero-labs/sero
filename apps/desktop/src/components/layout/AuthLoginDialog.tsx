@@ -17,7 +17,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@sero/ui/components/ui/dialog';
 import type { OAuthProviderInfo, ApiKeyProviderInfo, OAuthEvent } from '@/types/ipc';
 import {
   ProviderListView,

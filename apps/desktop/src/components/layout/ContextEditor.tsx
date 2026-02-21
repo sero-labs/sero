@@ -17,16 +17,16 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from '@sero/ui/components/ui/dialog';
+import { Switch } from '@sero/ui/components/ui/switch';
+import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@sero/ui/components/ui/select';
 import {
   useAllPresets,
   useHasOverrides,

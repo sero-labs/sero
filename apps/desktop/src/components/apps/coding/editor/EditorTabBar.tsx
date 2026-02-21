@@ -11,7 +11,7 @@ import {
   SortableContext, horizontalListSortingStrategy, useSortable, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 
 export interface EditorTab {
   path: string;

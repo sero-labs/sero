@@ -4,7 +4,7 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@/components/ui/popover';
+} from '@sero/ui/components/ui/popover';
 import type { SessionUsageStats } from '@/types/ipc';
 
 interface UsageBadgeProps {

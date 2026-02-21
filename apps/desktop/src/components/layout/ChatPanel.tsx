@@ -4,7 +4,7 @@ import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
+} from '@sero/ui/components/ai-elements/conversation';
 import {
   PromptInput,
   PromptInputBody,
@@ -19,7 +19,7 @@ import {
   PromptInputActionAddAttachments,
   PromptInputActionMenuItem,
   type PromptInputMessage,
-} from '@/components/ai-elements/prompt-input';
+} from '@sero/ui/components/ai-elements/prompt-input';
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import { SlashCommandMenu } from './SlashCommandMenu';
@@ -33,7 +33,7 @@ import { ChatMessageItem } from './ChatMessageItem';
 import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
-import { cn } from '@/lib/utils';
+import { cn } from '@sero/ui/lib/utils';
 import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
 
 /** Built-in commands handled client-side (not sent to the agent). */
