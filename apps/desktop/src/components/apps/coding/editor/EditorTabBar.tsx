@@ -24,6 +24,7 @@ interface Props {
   onSelectTab: (path: string) => void;
   onCloseTab: (path: string) => void;
   onReorderTabs: (paths: string[]) => void;
+  rightSlot?: React.ReactNode;
 }
 
 /* ── Single sortable tab ──────────────────────────────────── */
@@ -87,7 +88,7 @@ function fileIcon(name: string): string {
 
 /* ── Tab bar ──────────────────────────────────────────────── */
 
-export function EditorTabBar({ tabs, activeTab, onSelectTab, onCloseTab, onReorderTabs }: Props) {
+export function EditorTabBar({ tabs, activeTab, onSelectTab, onCloseTab, onReorderTabs, rightSlot }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [overflowLeft, setOverflowLeft] = useState(false);
   const [overflowRight, setOverflowRight] = useState(false);
@@ -140,19 +141,26 @@ export function EditorTabBar({ tabs, activeTab, onSelectTab, onCloseTab, onReord
       {overflowLeft && <div className="absolute top-0 bottom-px left-0 w-7 pointer-events-none z-10 bg-gradient-to-r from-[var(--bg-base)] to-transparent" />}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToHorizontal]}>
         <SortableContext items={tabs.map((t) => t.path)} strategy={horizontalListSortingStrategy}>
-          <div ref={scrollRef} className="flex items-stretch overflow-x-auto overflow-y-hidden h-full flex-1 scrollbar-none">
-            {tabs.map((tab) => (
-              <SortableEditorTab
-                key={tab.path} tab={tab} isActive={tab.path === activeTab}
-                onSelect={() => onSelectTab(tab.path)}
-                onClose={() => onCloseTab(tab.path)}
-                onMiddleClick={(e) => handleMiddleClick(e, tab.path)}
-              />
-            ))}
+          <div className="relative min-w-0 flex-1">
+            <div ref={scrollRef} className="flex h-full w-full items-stretch overflow-x-auto overflow-y-hidden scrollbar-none">
+              {tabs.map((tab) => (
+                <SortableEditorTab
+                  key={tab.path} tab={tab} isActive={tab.path === activeTab}
+                  onSelect={() => onSelectTab(tab.path)}
+                  onClose={() => onCloseTab(tab.path)}
+                  onMiddleClick={(e) => handleMiddleClick(e, tab.path)}
+                />
+              ))}
+            </div>
+            {overflowRight && <div className="absolute top-0 bottom-px right-0 w-7 pointer-events-none z-10 bg-gradient-to-l from-[var(--bg-base)] to-transparent" />}
           </div>
         </SortableContext>
       </DndContext>
-      {overflowRight && <div className="absolute top-0 bottom-px right-0 w-7 pointer-events-none z-10 bg-gradient-to-l from-[var(--bg-base)] to-transparent" />}
+      {rightSlot && (
+        <div className="shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50">
+          {rightSlot}
+        </div>
+      )}
     </div>
   );
 }

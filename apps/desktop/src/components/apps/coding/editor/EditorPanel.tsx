@@ -9,11 +9,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor as monacoEditor } from 'monaco-editor';
+import { Code2, Eye } from 'lucide-react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { useLsp } from '@/lsp/use-lsp';
 import { useContainerStore } from '@/stores/container';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { useAppStore } from '@/stores/app';
+import { MessageResponse } from '@sero/ui/components/ai-elements/message';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
+import { cn } from '@sero/ui/lib/utils';
 
 interface Props {
   workspaceId: string;
@@ -30,22 +34,25 @@ interface Props {
 const LANG_MAP: Record<string, string> = {
   ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
   mts: 'typescript', cts: 'typescript', mjs: 'javascript', cjs: 'javascript',
-  py: 'python', rs: 'rust', go: 'go', json: 'json', md: 'markdown',
+  py: 'python', rs: 'rust', go: 'go', json: 'json', md: 'markdown', mdx: 'markdown',
   css: 'css', html: 'html', yml: 'yaml', yaml: 'yaml', sh: 'shell',
   bash: 'shell', toml: 'toml', sql: 'sql',
 };
 
 function getLanguage(filePath: string): string {
-  const ext = filePath.split('.').pop() ?? '';
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   return LANG_MAP[ext] ?? 'plaintext';
 }
 
 export function EditorPanel({
   workspaceId, tabs, activeTab, onOpenTab, onCloseTab, onReorderTabs, onTabsChange,
 }: Props) {
+  type MarkdownViewMode = 'code' | 'preview';
+
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
   const [content, setContent] = useState('');
   const [language, setLanguage] = useState('typescript');
+  const [markdownViewMode, setMarkdownViewMode] = useState<MarkdownViewMode>('code');
 
   type Monaco = typeof import('monaco-editor');
 
@@ -63,6 +70,8 @@ export function EditorPanel({
   const isContainerWorkspace = activeWorkspace?.container ?? true;
   // Non-container workspaces are always ready; container workspaces must be running.
   const isReady = isContainerWorkspace ? containerStatus === 'running' : true;
+  const isMarkdownTab = !!activeTab && getLanguage(activeTab) === 'markdown';
+  const isMarkdownPreview = isMarkdownTab && markdownViewMode === 'preview';
 
   // ── LSP integration ──
   const { sendDidSave } = useLsp({
@@ -128,6 +137,16 @@ export function EditorPanel({
     }
   }, [workspaceId, activeTab, content, dirtyPaths, sendDidSave]);
 
+  const handleMarkdownModeChange = useCallback((nextMode: MarkdownViewMode) => {
+    if (nextMode === markdownViewMode) return;
+    if (nextMode === 'preview' && activeTab && editorRef.current) {
+      viewStateMapRef.current.set(activeTab, editorRef.current.saveViewState());
+      editorRef.current = null;
+      setEditorInstance(null);
+    }
+    setMarkdownViewMode(nextMode);
+  }, [markdownViewMode, activeTab]);
+
   // ── Close tab handler (manages state cleanup) ──
   const handleCloseTab = useCallback((path: string) => {
     const idx = tabs.indexOf(path);
@@ -168,7 +187,11 @@ export function EditorPanel({
     if (!(e.metaKey || e.ctrlKey)) return;
     if (e.key === 's') { e.preventDefault(); handleSave(); }
     else if (e.key === 'w') { e.preventDefault(); if (activeTab) handleCloseTab(activeTab); }
-  }, [handleSave, activeTab, handleCloseTab]);
+    else if (e.shiftKey && e.key.toLowerCase() === 'v' && isMarkdownTab) {
+      e.preventDefault();
+      handleMarkdownModeChange(markdownViewMode === 'code' ? 'preview' : 'code');
+    }
+  }, [handleSave, activeTab, handleCloseTab, isMarkdownTab, markdownViewMode, handleMarkdownModeChange]);
 
   // ── Open tab handler (save view state of current before switch) ──
   const handleOpenTab = useCallback((path: string) => {
@@ -201,6 +224,12 @@ export function EditorPanel({
       const vs = viewStateMapRef.current.get(model.uri.path);
       if (vs) setTimeout(() => { ed.restoreViewState(vs); ed.focus(); }, 0);
     });
+
+    const currentModel = ed.getModel();
+    if (currentModel) {
+      const vs = viewStateMapRef.current.get(currentModel.uri.path);
+      if (vs) setTimeout(() => { ed.restoreViewState(vs); ed.focus(); }, 0);
+    }
   }, []);
 
   // ── Handle file renames (from FileTree) ──
@@ -295,25 +324,75 @@ export function EditorPanel({
         tabs={tabDescriptors} activeTab={activeTab}
         onSelectTab={handleOpenTab} onCloseTab={handleCloseTab}
         onReorderTabs={onReorderTabs}
+        rightSlot={isMarkdownTab ? (
+          <div className="flex h-full items-center overflow-hidden">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Show markdown source"
+                  onClick={() => handleMarkdownModeChange('code')}
+                  className={cn(
+                    'inline-flex size-7 items-center justify-center transition-colors duration-150',
+                    markdownViewMode === 'code'
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
+                  )}
+                >
+                  <Code2 className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Code</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Show rendered markdown preview"
+                  onClick={() => handleMarkdownModeChange('preview')}
+                  className={cn(
+                    'inline-flex size-7 items-center justify-center transition-colors duration-150',
+                    markdownViewMode === 'preview'
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
+                  )}
+                >
+                  <Eye className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Preview</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : undefined}
       />
       <div className="flex-1 overflow-hidden min-h-0">
         {activeTab ? (
-          <Editor
-            height="100%" language={language} path={activeTab}
-            value={content} onChange={handleChange}
-            beforeMount={handleBeforeMount} onMount={handleEditorMount}
-            theme={appTheme === 'dark' ? 'vs-dark' : 'vs'}
-            options={{
-              fontSize: 13,
-              fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",
-              minimap: { enabled: false }, lineNumbers: 'on',
-              scrollBeyondLastLine: false, wordWrap: 'on', tabSize: 2,
-              padding: { top: 8 }, renderLineHighlight: 'gutter',
-              smoothScrolling: true, cursorBlinking: 'smooth',
-              cursorSmoothCaretAnimation: 'on',
-              bracketPairColorization: { enabled: true },
-            }}
-          />
+          isMarkdownPreview ? (
+            <div className="h-full overflow-auto">
+              <div className="mx-auto w-full max-w-[920px] px-6 py-5">
+                <MessageResponse className="text-[15px] leading-relaxed">
+                  {content}
+                </MessageResponse>
+              </div>
+            </div>
+          ) : (
+            <Editor
+              height="100%" language={language} path={activeTab}
+              value={content} onChange={handleChange}
+              beforeMount={handleBeforeMount} onMount={handleEditorMount}
+              theme={appTheme === 'dark' ? 'vs-dark' : 'vs'}
+              options={{
+                fontSize: 13,
+                fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",
+                minimap: { enabled: false }, lineNumbers: 'on',
+                scrollBeyondLastLine: false, wordWrap: 'on', tabSize: 2,
+                padding: { top: 8 }, renderLineHighlight: 'gutter',
+                smoothScrolling: true, cursorBlinking: 'smooth',
+                cursorSmoothCaretAnimation: 'on',
+                bracketPairColorization: { enabled: true },
+              }}
+            />
+          )
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] gap-2">
             <p className="text-4xl opacity-40">📝</p>
