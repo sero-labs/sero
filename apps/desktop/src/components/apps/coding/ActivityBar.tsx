@@ -52,12 +52,12 @@ export function ActivityBar({ activePanel, sidebarOpen, terminalOpen, onPanelCli
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
-                  isActive && 'text-[var(--text-primary)]',
+                  isActive && 'text-emerald-600 dark:text-emerald-400',
                 )}
               >
                 {item.icon}
                 {isActive && (
-                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-[var(--text-primary)]" />
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-emerald-600 dark:bg-emerald-400" />
                 )}
               </Button>
             </TooltipTrigger>
@@ -81,12 +81,12 @@ export function ActivityBar({ activePanel, sidebarOpen, terminalOpen, onPanelCli
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
-                  isActive && 'text-[var(--text-primary)]',
+                  isActive && 'text-emerald-600 dark:text-emerald-400',
                 )}
               >
                 {item.icon}
                 {isActive && (
-                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-[var(--text-primary)]" />
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-emerald-600 dark:bg-emerald-400" />
                 )}
               </Button>
             </TooltipTrigger>

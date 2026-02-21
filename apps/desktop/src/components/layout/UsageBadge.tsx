@@ -46,6 +46,7 @@ export function UsageBadge({ sessionId }: UsageBadgeProps) {
   const t = stats?.tokens ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
   const cost = stats?.cost ?? 0;
   const requestCount = stats?.requestCount ?? 0;
+  const formattedCost = fmtCost(cost);
 
   return (
     <Popover>
@@ -55,7 +56,7 @@ export function UsageBadge({ sessionId }: UsageBadgeProps) {
           title="Token usage & cost"
         >
           <Coins className="size-4" />
-          <span className='text-sm'>{fmtCost(cost)}</span>
+          <span className="text-sm tabular-nums text-emerald-600 dark:text-emerald-400">{formattedCost}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
