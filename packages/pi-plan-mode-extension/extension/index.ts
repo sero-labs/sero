@@ -386,9 +386,8 @@ After completing each step, call: plan_todos({ action: "complete_step", step: <n
     // Archive before resetting
     await archivePlan();
 
-    const list = steps.map((s) => `~~${s.text}~~`).join('\n');
     pi.sendMessage(
-      { customType: 'plan-complete', content: `**Plan Complete!** ✓\n\n${list}\n\n_Plan archived._`, display: true },
+      { customType: 'plan-complete', content: `**Plan Complete!** ✓`, display: true },
       { triggerTurn: false },
     );
     currentMode = 'normal';
