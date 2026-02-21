@@ -45,6 +45,16 @@ class AppStateManager {
     }
   }
 
+  // ── Remove ────────────────────────────────────────────────
+
+  async remove(filePath: string): Promise<void> {
+    try {
+      await fs.unlink(filePath);
+    } catch {
+      /* file already gone — fine */
+    }
+  }
+
   // ── Write (atomic, serialised) ───────────────────────────
 
   async write(filePath: string, data: unknown): Promise<void> {
@@ -81,11 +91,14 @@ class AppStateManager {
 
     // Ensure directory exists before watching
     const dir = path.dirname(filePath);
-    fs.mkdir(dir, { recursive: true }).then(() => {
-      // Touch file if missing so fs.watch has something to watch
-      fs.writeFile(filePath, '', { flag: 'wx' }).catch(() => {
+    fs.mkdir(dir, { recursive: true }).then(async () => {
+      // Touch file if missing so fs.watch has something to watch.
+      // MUST await — startWatcher needs the file to exist on disk.
+      try {
+        await fs.writeFile(filePath, '', { flag: 'wx' });
+      } catch {
         /* file already exists — fine */
-      });
+      }
 
       try {
         this.startWatcher(filePath);
@@ -128,14 +141,9 @@ class AppStateManager {
 
     const watcher = watch(filePath, { persistent: false }, (eventType) => {
       if (eventType === 'rename') {
-        // Inode changed — re-establish watcher then notify
-        setTimeout(() => {
-          const entry = this.watchers.get(filePath);
-          if (entry && entry.refCount > 0) {
-            this.startWatcher(filePath);
-            this.handleFileChange(filePath);
-          }
-        }, 50);
+        // Inode changed (atomic write) — re-establish watcher then notify.
+        // Retry up to 3 times in case the file is briefly absent.
+        this.reestablishWatcher(filePath, 0);
       } else if (eventType === 'change') {
         this.handleFileChange(filePath);
       }
@@ -144,6 +152,29 @@ class AppStateManager {
     const refCount = existing?.refCount ?? 0;
     const debounceTimer = existing?.debounceTimer ?? null;
     this.watchers.set(filePath, { watcher, refCount, debounceTimer });
+  }
+
+  /**
+   * Re-establish a watcher after a rename event (atomic write).
+   * Retries up to 3 times with increasing delay if the file is
+   * briefly absent between unlink and rename.
+   */
+  private reestablishWatcher(filePath: string, attempt: number): void {
+    const delay = attempt === 0 ? 50 : 150;
+    setTimeout(() => {
+      const entry = this.watchers.get(filePath);
+      if (!entry || entry.refCount <= 0) return;
+      try {
+        this.startWatcher(filePath);
+        this.handleFileChange(filePath);
+      } catch (err) {
+        if (attempt < 3) {
+          this.reestablishWatcher(filePath, attempt + 1);
+        } else {
+          console.error(`[AppStateManager] Failed to re-establish watcher for ${filePath}:`, err);
+        }
+      }
+    }, delay);
   }
 
   // ── Change notification ──────────────────────────────────

@@ -122,6 +122,8 @@ interface SeroAppStateAPI {
   read(filePath: string): Promise<unknown>;
   /** Write an app state JSON file (atomic + serialised). */
   write(filePath: string, data: unknown): Promise<void>;
+  /** Delete an app state / data file. */
+  remove(filePath: string): Promise<void>;
   /** Start watching a state file. Returns current state. */
   watch(filePath: string): Promise<unknown>;
   /** Stop watching a state file. */

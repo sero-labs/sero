@@ -18,6 +18,14 @@ export function registerAppStateHandlers(): void {
     },
   );
 
+  // Delete a file
+  ipcMain.handle(
+    IpcChannels.appState.remove,
+    async (_event, filePath: string): Promise<void> => {
+      await appStateManager.remove(filePath);
+    },
+  );
+
   // Write state file (atomic + serialised)
   ipcMain.handle(
     IpcChannels.appState.write,

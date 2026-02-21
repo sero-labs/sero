@@ -160,6 +160,9 @@ contextBridge.exposeInMainWorld('sero', {
     write: (filePath: string, data: unknown): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.appState.write, filePath, data),
 
+    remove: (filePath: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.appState.remove, filePath),
+
     watch: (filePath: string): Promise<unknown> =>
       ipcRenderer.invoke(IpcChannels.appState.watch, filePath),
 

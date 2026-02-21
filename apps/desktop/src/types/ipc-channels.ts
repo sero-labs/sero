@@ -68,6 +68,8 @@ export const IpcChannels = {
     read: 'sero:app-state:read',
     /** Write an app state JSON file (atomic). */
     write: 'sero:app-state:write',
+    /** Delete an app state / data file. */
+    remove: 'sero:app-state:remove',
     /** Start watching a state file. Returns current state. */
     watch: 'sero:app-state:watch',
     /** Stop watching a state file. */
