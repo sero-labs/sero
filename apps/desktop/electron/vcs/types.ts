@@ -1,5 +1,7 @@
 // Re-export shared VCS types from the canonical renderer location.
 // Electron-only types (JjResult, CreateCheckpointOptions) are defined below.
+import type { VcsCheckpointSource } from '../../src/types/vcs';
+
 export type {
   VcsCheckpointSource,
   VcsCheckpoint,
@@ -25,6 +27,6 @@ export interface JjResult {
 }
 
 export interface CreateCheckpointOptions {
-  source: import('../../src/types/vcs').VcsCheckpointSource;
+  source: VcsCheckpointSource;
   description?: string;
 }

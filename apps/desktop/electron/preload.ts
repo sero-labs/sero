@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannels } from '../src/types/ipc';
+import { userFeedbackBridge } from './preload/user-feedback';
+import { debugBridge, lspBridge } from './preload/debug-lsp';
 import type {
   WorkspaceInfo,
   WorkspaceConfig,
@@ -22,6 +24,7 @@ import type {
   VoiceTranscriptionResult,
   ResponseFeedbackEntry,
   ResponseFeedbackState,
+  ChatAttachment,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -100,7 +103,7 @@ contextBridge.exposeInMainWorld('sero', {
     prompt: (
       sessionId: string,
       text: string,
-      attachments?: import('../src/types/ipc').ChatAttachment[],
+      attachments?: ChatAttachment[],
       clientMessageId?: string,
     ): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.prompt, sessionId, text, attachments, clientMessageId),
@@ -432,6 +435,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.feedback.remove, messageId),
   },
 
+  userFeedback: userFeedbackBridge,
+
   editor: {
     readFile: (workspaceId: string, filePath: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.editor.readFile, workspaceId, filePath),
@@ -471,51 +476,8 @@ contextBridge.exposeInMainWorld('sero', {
     },
   },
 
-  debug: {
-    toggle: (): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.debug.toggle),
+  debug: debugBridge,
 
-    getState: (): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.debug.getState),
-
-    openLog: (): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.debug.openLog),
-
-    clearLog: (): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.debug.clearLog),
-
-    onStateChanged: (callback: (enabled: boolean) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, enabled: boolean) => {
-        callback(enabled);
-      };
-      ipcRenderer.on(IpcChannels.debug.stateChanged, handler);
-      return () => {
-        ipcRenderer.removeListener(IpcChannels.debug.stateChanged, handler);
-      };
-    },
-  },
-
-  lsp: {
-    start: (workspaceId: string, languageId: string) =>
-      ipcRenderer.invoke(IpcChannels.lsp.start, workspaceId, languageId),
-    stop: (workspaceId: string, language: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.lsp.stop, workspaceId, language),
-    request: (workspaceId: string, language: string, method: string, params?: unknown) =>
-      ipcRenderer.invoke(IpcChannels.lsp.request, workspaceId, language, method, params),
-    notify: (workspaceId: string, language: string, method: string, params?: unknown): void =>
-      ipcRenderer.send(IpcChannels.lsp.notify, workspaceId, language, method, params),
-    hasServer: (workspaceId: string, language: string): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.lsp.hasServer, workspaceId, language),
-    onNotification: (callback: (data: { workspaceId: string; language: string; notification: any }) => void): (() => void) => {
-      const handler = (_e: IpcRendererEvent, data: any) => callback(data);
-      ipcRenderer.on(IpcChannels.lsp.notification, handler);
-      return () => { ipcRenderer.removeListener(IpcChannels.lsp.notification, handler); };
-    },
-    onServerStopped: (callback: (data: { workspaceId: string; language: string }) => void): (() => void) => {
-      const handler = (_e: IpcRendererEvent, data: any) => callback(data);
-      ipcRenderer.on(IpcChannels.lsp.serverStopped, handler);
-      return () => { ipcRenderer.removeListener(IpcChannels.lsp.serverStopped, handler); };
-    },
-  },
+  lsp: lspBridge,
 
 });

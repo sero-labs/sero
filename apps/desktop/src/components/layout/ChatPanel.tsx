@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Bot, MessageSquare, Loader2, AlertCircle, Settings2, Brain, X } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Bot, Loader2, AlertCircle, X } from 'lucide-react';
 import {
   Conversation,
   ConversationContent,
@@ -17,10 +17,8 @@ import {
   PromptInputActionMenuTrigger,
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
-  PromptInputActionMenuItem,
-  type PromptInputMessage,
 } from '@sero/ui/components/ai-elements/prompt-input';
-import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
+import { useAgentStore, useFocusedAgent } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { FileReferenceMenu } from './FileReferenceMenu';
@@ -33,21 +31,16 @@ import { ContextEditor } from './ContextEditor';
 import { ChatMessageItem } from './ChatMessageItem';
 import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
 import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
-import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import { useFeedbackStore } from '@/stores/feedback';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
-import { useWorkspaceFiles, fuzzyMatchFiles } from '@/hooks/useWorkspaceFiles';
 import { useMessageQueue } from '@/hooks/useMessageQueue';
 import { useEditorBridge } from '@/stores/editor-bridge';
+import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
+import { useChatPromptInput } from '@/hooks/useChatPromptInput';
 import { createFilePathClickHandler } from './ClickableFilePath';
-import { cn } from '@sero/ui/lib/utils';
-import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
-
-/** Built-in commands handled client-side (not sent to the agent). */
-const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [
-  { name: 'login', description: 'Login with OAuth provider', source: 'extension' },
-  { name: 'logout', description: 'Logout from OAuth provider', source: 'extension' },
-];
+import { PendingQuestionCard } from './PendingQuestionCard';
+import { QuestionnaireNotice } from './QuestionnaireNotice';
+import { ContextEditorMenuItem, ThinkingBlocksToggle, EmptyState } from './ChatPanelHelpers';
 
 /**
  * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
@@ -56,16 +49,11 @@ const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [
  * Reads from the focused agent instance in the multi-session pool.
  */
 export function ChatPanel() {
-  const [input, setInput] = useState('');
   const focused = useFocusedAgent();
-  const commands = useFocusedCommands();
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
   const steerAgent = useAgentStore((s) => s.steerAgent);
   const abort = useAgentStore((s) => s.abort);
   const initEventListener = useAgentStore((s) => s.initEventListener);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  /** Tracks whether Ctrl/Meta was held on the most recent submit gesture. */
-  const modifierRef = useRef(false);
 
   // Subscribe to main-process events on mount
   useEffect(() => {
@@ -76,6 +64,9 @@ export function ChatPanel() {
   // Initialize feedback store (load ratings from disk)
   const initFeedback = useFeedbackStore((s) => s.init);
   useEffect(() => { initFeedback(); }, [initFeedback]);
+
+  // Initialize user-feedback IPC listeners (question/questionnaire tools)
+  useUserFeedbackInit();
 
   // ── OAuth login dialog state ───────────────────────────────
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
@@ -89,14 +80,27 @@ export function ChatPanel() {
   const focusedWorkspaceId = focused?.workspaceId ?? null;
   const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
 
-  // ── Workspace files for @ fuzzy search ─────────────────────
-  const { files: workspaceFiles } = useWorkspaceFiles(focusedWorkspaceId);
-
   // ── Follow-up message queue ────────────────────────────────
   const messageQueue = useMessageQueue({
     isStreaming,
     sessionId,
     sendPrompt,
+  });
+
+  const onLoginRequest = useCallback((mode: 'login' | 'logout') => {
+    setLoginMode(mode);
+    setLoginDialogOpen(true);
+  }, []);
+
+  // ── Prompt input (slash, @file, tab-complete, submit) ──────
+  const prompt = useChatPromptInput({
+    sessionId,
+    isStreaming,
+    focusedWorkspaceId,
+    sendPrompt,
+    steerAgent,
+    messageQueue,
+    onLoginRequest,
   });
 
   // ── Ctrl+click file paths in conversation ──────────────────
@@ -121,7 +125,6 @@ export function ChatPanel() {
 
   // Show an inline "thinking" indicator when the session is streaming but
   // nothing in the chat is visibly active (no streaming text, no running tools).
-  // This covers the gap when the SDK is generating a large tool call payload.
   const showThinking = useMemo(() => {
     if (!isStreaming || groupedItems.length === 0) return false;
     const last = groupedItems[groupedItems.length - 1];
@@ -134,170 +137,14 @@ export function ChatPanel() {
     if (sessionId) fetchModelState(sessionId);
   }, [sessionId, fetchModelState]);
 
-  // ── Slash command menu state ─────────────────────────────
-  // Merge SDK commands with built-in client-side commands
-  const allCommands = useMemo(
-    () => [...BUILTIN_COMMANDS, ...commands],
-    [commands],
-  );
-
-  // Open when input starts with "/" and has no newlines before it
-  const slashMenuOpen = useMemo(() => {
-    if (!allCommands.length) return false;
-    // Match "/" at start, optionally followed by partial command text (no spaces yet = still filtering)
-    return /^\/[^\s]*$/.test(input);
-  }, [input, allCommands]);
-
-  // Text after the "/" for filtering
-  const slashFilter = useMemo(() => {
-    if (!slashMenuOpen) return '';
-    return input.slice(1); // Remove leading "/"
-  }, [input, slashMenuOpen]);
-
-  const handleSlashSelect = useCallback(
-    (cmd: SeroSlashCommandInfo) => {
-      // Handle built-in commands that open UI instead of sending to agent
-      if (cmd.name === 'login') {
-        setInput('');
-        setLoginMode('login');
-        setLoginDialogOpen(true);
-        return;
-      }
-      if (cmd.name === 'logout') {
-        setInput('');
-        setLoginMode('logout');
-        setLoginDialogOpen(true);
-        return;
-      }
-      // Insert the command into input. Add trailing space for arguments.
-      setInput(`/${cmd.name} `);
-    },
-    [],
-  );
-
-  const handleSlashClose = useCallback(() => {
-    // User pressed Escape — clear the slash prefix
-    setInput('');
-  }, []);
-
-  // ── @ file reference menu state ────────────────────────────
-  // Match @<non-space-text> at the end of input — user is typing a file ref
-  const atMatch = useMemo(() => {
-    if (slashMenuOpen) return null;
-    const m = input.match(/@([^\s@]*)$/);
-    return m;
-  }, [input, slashMenuOpen]);
-
-  const fileMenuOpen = !!atMatch && !!sessionId;
-  const fileFilter = atMatch?.[1] ?? '';
-
-  const handleFileSelect = useCallback(
-    (filePath: string) => {
-      // Replace @<partial> with @<full_path> followed by a space
-      setInput((prev) => prev.replace(/@[^\s@]*$/, `@${filePath} `));
-      // Re-focus textarea
-      textareaRef.current?.focus();
-    },
-    [],
-  );
-
-  const handleFileMenuClose = useCallback(() => {
-    // Remove the dangling @ trigger
-    setInput((prev) => prev.replace(/@[^\s@]*$/, ''));
-  }, []);
-
-  // ── Tab path completion ────────────────────────────────────
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Capture modifier state on Enter so handleSubmit can distinguish
-      // steer (default) from followUp (Ctrl/Meta+Enter).
-      if (e.key === 'Enter' && !e.shiftKey) {
-        modifierRef.current = e.ctrlKey || e.metaKey;
-      }
-
-      // Tab completion: complete partial path when Tab is pressed
-      if (e.key === 'Tab' && !e.shiftKey && !slashMenuOpen && !fileMenuOpen) {
-        // Check if the text before cursor contains a partial path (after @ or standalone)
-        const cursorPos = e.currentTarget.selectionStart ?? input.length;
-        const textBefore = input.slice(0, cursorPos);
-        const pathMatch = textBefore.match(/@?([^\s@]+)$/);
-
-        if (pathMatch) {
-          const partial = pathMatch[1];
-          const matches = fuzzyMatchFiles(workspaceFiles, partial, 1);
-          if (matches.length > 0) {
-            e.preventDefault();
-            const completed = matches[0].path;
-            const prefix = textBefore.slice(0, textBefore.length - pathMatch[0].length);
-            const hasAt = pathMatch[0].startsWith('@');
-            const after = input.slice(cursorPos);
-            setInput(`${prefix}${hasAt ? '@' : ''}${completed}${after ? '' : ' '}${after}`);
-          }
-        }
-      }
-    },
-    [input, slashMenuOpen, fileMenuOpen, workspaceFiles],
-  );
-
-  const handleSubmit = useCallback(
-    (message: PromptInputMessage) => {
-      const text = (message.text ?? input).trim();
-      if ((!text && !message.files?.length) || !sessionId) return;
-      // Don't submit if slash menu or file menu is open (Enter selects from menu)
-      if (slashMenuOpen || fileMenuOpen) return;
-
-      // Intercept /login and /logout commands — handle client-side
-      if (text === '/login' || text.startsWith('/login ')) {
-        setInput('');
-        setLoginMode('login');
-        setLoginDialogOpen(true);
-        return;
-      }
-      if (text === '/logout' || text.startsWith('/logout ')) {
-        setInput('');
-        setLoginMode('logout');
-        setLoginDialogOpen(true);
-        return;
-      }
-
-      setInput('');
-
-      // Convert FileUIParts → ChatAttachments for persistence
-      const attachments: ChatAttachment[] | undefined = message.files?.length
-        ? message.files.map((f, i) => ({
-            id: `att-${Date.now()}-${i}`,
-            filename: f.filename,
-            mediaType: f.mediaType,
-            url: f.url,
-          }))
-        : undefined;
-
-      // During streaming: Ctrl/Meta → queue as follow-up; default → steer
-      if (isStreaming) {
-        const wantsFollowUp = modifierRef.current;
-        modifierRef.current = false;
-        if (wantsFollowUp) {
-          messageQueue.enqueue(text, attachments);
-        } else {
-          steerAgent(sessionId, text);
-        }
-        return;
-      }
-
-      modifierRef.current = false;
-      sendPrompt(sessionId, text, attachments);
-    },
-    [input, sessionId, slashMenuOpen, fileMenuOpen, isStreaming, sendPrompt, steerAgent, messageQueue],
-  );
-
   const handleTranscript = useCallback((text: string) => {
     const transcript = text.trim();
     if (!transcript) return;
-    setInput((prev) => {
+    prompt.setInput((prev) => {
       if (!prev.trim()) return transcript;
       return `${prev}${prev.endsWith('\n') ? '' : '\n'}${transcript}`;
     });
-  }, []);
+  }, [prompt]);
 
   const hasSession = !!sessionId;
 
@@ -332,10 +179,19 @@ export function ChatPanel() {
             <>
               {groupedItems.map((item, index) => {
                 if (item.kind === 'tool-group') {
-                  // A group is finalized when a non-tool item follows it,
-                  // or it's the last item and the session is no longer streaming.
                   const isLast = index === groupedItems.length - 1;
                   const isFinalized = !isLast || !isStreaming;
+
+                  // Replace a running questionnaire tool call with clickable notice
+                  const isRunningQuestionnaire =
+                    item.tools.length === 1 &&
+                    item.tools[0].toolName === 'questionnaire' &&
+                    (item.tools[0].state === 'pending' || item.tools[0].state === 'running');
+
+                  if (isRunningQuestionnaire) {
+                    return <QuestionnaireNotice key={item.id} tools={item.tools} />;
+                  }
+
                   return (
                     <ToolCallGroup
                       key={item.id}
@@ -346,8 +202,7 @@ export function ChatPanel() {
                   );
                 }
 
-                // For assistant messages, find the most recent preceding user message
-                // to include as context in feedback entries.
+                // For assistant messages, find preceding user message for feedback context
                 let previousUserText: string | undefined;
                 if (item.message.type === 'assistant') {
                   for (let j = index - 1; j >= 0; j--) {
@@ -390,36 +245,35 @@ export function ChatPanel() {
         <ConversationScrollButton />
       </Conversation>
 
+      {/* ── Pending question card (single questions only) ──── */}
+      <PendingQuestionCard />
+
       {/* ── Prompt input ────────────────────────────────────── */}
       <div className="relative shrink-0 p-2">
-        {/* Slash command autocomplete menu */}
         <SlashCommandMenu
-          commands={allCommands}
-          filter={slashFilter}
-          onSelect={handleSlashSelect}
-          onClose={handleSlashClose}
-          open={slashMenuOpen}
+          commands={prompt.allCommands}
+          filter={prompt.slashFilter}
+          onSelect={prompt.handleSlashSelect}
+          onClose={prompt.handleSlashClose}
+          open={prompt.slashMenuOpen}
         />
 
-        {/* @ file reference autocomplete menu */}
         <FileReferenceMenu
-          files={workspaceFiles}
-          filter={fileFilter}
-          onSelect={handleFileSelect}
-          onClose={handleFileMenuClose}
-          open={fileMenuOpen}
+          files={prompt.workspaceFiles}
+          filter={prompt.fileFilter}
+          onSelect={prompt.handleFileSelect}
+          onClose={prompt.handleFileMenuClose}
+          open={prompt.fileMenuOpen}
         />
 
         <PromptInput
-          onSubmit={handleSubmit}
+          onSubmit={prompt.handleSubmit}
           className="w-full"
           multiple
           globalDrop={hasSession}
         >
-          {/* Queued attachments + queued follow-up messages */}
           <PromptInputHeader>
             <PromptAttachmentsBar />
-            {/* Follow-up message queue badges */}
             {messageQueue.hasQueued && (
               <div className="flex flex-wrap gap-1 px-1">
                 {messageQueue.queue.map((msg) => (
@@ -443,10 +297,10 @@ export function ChatPanel() {
 
           <PromptInputBody>
             <PromptInputTextarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
+              ref={prompt.textareaRef}
+              value={prompt.input}
+              onChange={(e) => prompt.setInput(e.target.value)}
+              onKeyDown={prompt.handleKeyDown}
               placeholder={hasSession ? 'Ask Sero anything… (/ for commands, @ for files)' : 'Select a chat first…'}
               disabled={!hasSession}
             />
@@ -454,7 +308,6 @@ export function ChatPanel() {
 
           <PromptInputFooter>
             <PromptInputTools>
-              {/* "+" menu with attachments + context editor */}
               <PromptInputActionMenu>
                 <PromptInputActionMenuTrigger
                   tooltip={{ content: 'Actions', shortcut: '' }}
@@ -469,17 +322,15 @@ export function ChatPanel() {
                 disabled={!hasSession || isStreaming}
                 onTranscript={handleTranscript}
               />
-              {/* Show/hide thinking blocks */}
               <ThinkingBlocksToggle disabled={!hasSession} />
-              {/* Model + thinking level selector */}
               <ModelSelector disabled={!hasSession} />
             </PromptInputTools>
 
             {isStreaming ? (
               <div className="flex items-center gap-1.5">
                 <PromptInputSubmit
-                  disabled={!input.trim() || !hasSession}
-                  onClick={(e) => { modifierRef.current = e.ctrlKey || e.metaKey; }}
+                  disabled={!prompt.input.trim() || !hasSession}
+                  onClick={(e) => { prompt.modifierRef.current = e.ctrlKey || e.metaKey; }}
                   title="Send to steer agent (⌘+click to queue as follow-up)"
                 />
                 <button
@@ -490,7 +341,7 @@ export function ChatPanel() {
                 </button>
               </div>
             ) : (
-              <PromptInputSubmit disabled={!input.trim() || !hasSession} />
+              <PromptInputSubmit disabled={!prompt.input.trim() || !hasSession} />
             )}
           </PromptInputFooter>
         </PromptInput>
@@ -507,7 +358,6 @@ export function ChatPanel() {
         onConfirm={checkpoint.confirmRestore}
       />
 
-      {/* Auth login/logout dialog (OAuth + API key) */}
       <AuthLoginDialog
         open={loginDialogOpen}
         onOpenChange={setLoginDialogOpen}
@@ -515,77 +365,7 @@ export function ChatPanel() {
         onComplete={handleAuthComplete}
       />
 
-      {/* Context editor dialog (only for new sessions) */}
       {sessionId && <ContextEditor sessionId={sessionId} />}
-    </div>
-  );
-}
-
-// ── Context editor menu item ───────────────────────────────────
-
-function ContextEditorMenuItem({
-  sessionId,
-  disabled,
-}: {
-  sessionId: string | null;
-  disabled?: boolean;
-}) {
-  const openEditor = useContextEditorStore((s) => s.open);
-  const hasOverrides = useHasOverrides();
-
-  return (
-    <PromptInputActionMenuItem
-      disabled={disabled || !sessionId}
-      onSelect={(e) => {
-        e.preventDefault();
-        if (sessionId) openEditor(sessionId);
-      }}
-    >
-      <Settings2 className="mr-2 size-4" />
-      Session context
-      {hasOverrides && (
-        <span className="ml-auto size-1.5 rounded-full bg-[var(--accent)]" />
-      )}
-    </PromptInputActionMenuItem>
-  );
-}
-
-// ── Thinking blocks toggle ─────────────────────────────────────
-
-function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
-  const focused = useFocusedAgent();
-  const showThinking = useAgentStore((s) => s.showThinkingBlocks);
-  const toggle = useAgentStore((s) => s.toggleThinkingBlocks);
-
-  const isReasoning = focused?.modelState?.model.reasoning ?? false;
-  const thinkingLevel = focused?.modelState?.thinkingLevel ?? 'off';
-  const isActive = isReasoning && thinkingLevel !== 'off';
-
-  return (
-    <button
-      onClick={toggle}
-      disabled={disabled || !isActive}
-      title={showThinking ? 'Hide thinking blocks' : 'Show thinking blocks'}
-      className={cn(
-        'rounded-md p-1.5 transition-colors duration-150',
-        showThinking && isActive
-          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-          : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
-        'disabled:pointer-events-none disabled:opacity-40',
-      )}
-    >
-      <Brain className="size-3.5" />
-    </button>
-  );
-}
-
-// ── Empty state ────────────────────────────────────────────────
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-      <MessageSquare className="size-8 text-[var(--text-muted)]" />
-      <span className="text-xs text-[var(--text-muted)]">{message}</span>
     </div>
   );
 }

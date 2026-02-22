@@ -16,6 +16,6 @@
       "@electron/*": ["electron/*"]
     }
   },
-  "include": ["electron/**/*", "src/types/ipc.ts"],
+  "include": ["electron/**/*", "src/types/ipc.ts", "src/types/ipc-channels.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -23,6 +23,8 @@ import type {
   VoiceTranscriptionResult,
   ResponseFeedbackEntry,
   ResponseFeedbackState,
+  UserFeedbackPendingQuestion,
+  UserFeedbackResponse,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -238,6 +240,17 @@ interface SeroFeedbackAPI {
   remove(messageId: string): Promise<void>;
 }
 
+interface SeroUserFeedbackAPI {
+  /** Get all currently pending questions (for mount-time hydration). */
+  getPending(): Promise<UserFeedbackPendingQuestion[]>;
+  /** Send user's answer to a pending question/questionnaire. */
+  answer(response: UserFeedbackResponse): Promise<void>;
+  /** Listen for incoming question/questionnaire requests from extensions. */
+  onQuestion(callback: (data: UserFeedbackPendingQuestion) => void): () => void;
+  /** Listen for cancellation of a pending question. */
+  onCancel(callback: (data: { id: string }) => void): () => void;
+}
+
 interface SeroEditorAPI {
   /** Read a file from the workspace (dual-mode: container or host). */
   readFile(workspaceId: string, filePath: string): Promise<string>;
@@ -369,6 +382,7 @@ interface SeroAPI {
   terminal: SeroTerminalAPI;
   layout: SeroLayoutAPI;
   feedback: SeroFeedbackAPI;
+  userFeedback: SeroUserFeedbackAPI;
   editor: SeroEditorAPI;
   filetree: SeroFileTreeAPI;
   lsp: SeroLspAPI;

@@ -9,7 +9,7 @@ import {
   WrenchIcon,
 } from 'lucide-react';
 import { cn } from '@sero/ui/lib/utils';
-import type { ChatToolCallMessage } from '@/types/ipc';
+import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
 import {
   Tool,
   ToolHeader,
@@ -26,7 +26,7 @@ const FILE_PATH_TOOLS = new Set(['edit', 'read', 'write']);
 // ── Types ───────────────────────────────────────────────────────
 
 export type GroupedChatItem =
-  | { kind: 'message'; message: import('@/types/ipc').ChatMessage }
+  | { kind: 'message'; message: ChatMessage }
   | { kind: 'tool-group'; tools: ChatToolCallMessage[]; id: string };
 
 // ── Grouping utility ────────────────────────────────────────────
@@ -42,7 +42,7 @@ export type GroupedChatItem =
  * UI can show a "thinking" spinner.
  */
 export function groupMessages(
-  messages: import('@/types/ipc').ChatMessage[],
+  messages: ChatMessage[],
 ): GroupedChatItem[] {
   const result: GroupedChatItem[] = [];
   let toolBuffer: ChatToolCallMessage[] = [];

@@ -6,6 +6,7 @@ import type {
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionModelState,
+  ChatAssistantMessage,
 } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
 import { useContainerStore } from '@/stores/container';
@@ -17,7 +18,7 @@ function patchAssistant(
   agents: Record<string, AgentInstance>,
   sid: string,
   messageId: string,
-  patch: (msg: import('@/types/ipc').ChatAssistantMessage) => import('@/types/ipc').ChatAssistantMessage,
+  patch: (msg: ChatAssistantMessage) => ChatAssistantMessage,
 ) {
   return {
     ...agents,
