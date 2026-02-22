@@ -271,12 +271,16 @@ export class WorkspaceManager {
   }
 
   /**
-   * Create a new workspace under ~/.sero-ui/workspaces/.
+   * Create a new workspace.
+   * If `parentPath` is provided, the workspace directory is created there
+   * (e.g. /Users/me/projects/my-app). Otherwise falls back to ~/.sero-ui/workspaces/.
    */
-  async create(name: string): Promise<WorkspaceInfo> {
+  async create(name: string, parentPath?: string): Promise<WorkspaceInfo> {
     const id = this.slugify(name);
     const uniqueId = this.ensureUniqueId(id);
-    const wsPath = path.join(WORKSPACES_DIR, uniqueId);
+    const wsPath = parentPath
+      ? path.join(path.resolve(parentPath), uniqueId)
+      : path.join(WORKSPACES_DIR, uniqueId);
 
     await fs.mkdir(wsPath, { recursive: true });
 

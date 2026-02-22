@@ -54,8 +54,8 @@ contextBridge.exposeInMainWorld('sero', {
     list: (): Promise<WorkspaceInfo[]> =>
       ipcRenderer.invoke(IpcChannels.workspace.list),
 
-    create: (name: string): Promise<WorkspaceInfo> =>
-      ipcRenderer.invoke(IpcChannels.workspace.create, name),
+    create: (name: string, parentPath?: string): Promise<WorkspaceInfo> =>
+      ipcRenderer.invoke(IpcChannels.workspace.create, name, parentPath),
 
     remove: (id: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.workspace.remove, id),
