@@ -89,6 +89,12 @@ export const IpcChannels = {
     /** Send a prompt to an app's dedicated agent session. Returns text response. */
     prompt: 'sero:app-agent:prompt',
   },
+  imagegen: {
+    /** Generate images via Gemini Nano Banana. Returns generation metadata. */
+    generate: 'sero:imagegen:generate',
+    /** Read a saved image file as a data URI. */
+    readImage: 'sero:imagegen:read-image',
+  },
   voice: {
     /** Check whether voice transcription is available (requires OPENAI_API_KEY). */
     status: 'sero:voice:status',

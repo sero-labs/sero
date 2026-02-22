@@ -210,6 +210,13 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
   },
 
+  imagegen: {
+    generate: (workspaceId: string, params: any): Promise<any> =>
+      ipcRenderer.invoke(IpcChannels.imagegen.generate, workspaceId, params),
+    readImage: (filePath: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.imagegen.readImage, filePath),
+  },
+
   voice: {
     status: (): Promise<VoiceTranscriptionStatus> =>
       ipcRenderer.invoke(IpcChannels.voice.status),
