@@ -1,4 +1,7 @@
 @import "@sero/ui/styles/globals.css";
+@import "streamdown/styles.css";
+
+@source "../../node_modules/streamdown/dist/*.js";
 
 /* ── Desktop-specific styles ─────────────────────────────────── */
 

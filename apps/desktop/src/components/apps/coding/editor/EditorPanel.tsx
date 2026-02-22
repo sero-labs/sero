@@ -15,7 +15,10 @@ import { useLsp } from '@/lsp/use-lsp';
 import { useContainerStore } from '@/stores/container';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { useAppStore } from '@/stores/app';
-import { MessageResponse } from '@sero/ui/components/ai-elements/message';
+import { Streamdown } from 'streamdown';
+import { code } from '@streamdown/code';
+import { math } from '@streamdown/math';
+import { mermaid } from '@streamdown/mermaid';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
 import { cn } from '@sero/ui/lib/utils';
 
@@ -139,6 +142,15 @@ export function EditorPanel({
     })();
     return () => { cancelled = true; };
   }, [workspaceId, activeTab, isReady]);
+
+  // ── Default markdown files to preview mode when opened ──
+  useEffect(() => {
+    if (activeTab && getLanguage(activeTab) === 'markdown') {
+      setMarkdownViewMode('preview');
+    } else {
+      setMarkdownViewMode('code');
+    }
+  }, [activeTab]);
 
   // ── Editor change handler ──
   const handleChange = useCallback((value: string | undefined) => {
@@ -426,9 +438,12 @@ export function EditorPanel({
           isMarkdownPreview ? (
             <div className="h-full overflow-auto">
               <div className="mx-auto w-full max-w-[920px] px-6 py-5">
-                <MessageResponse className="text-[15px] leading-relaxed">
+                <Streamdown
+                  mode="static"
+                  plugins={{ code, math, mermaid }}
+                >
                   {content}
-                </MessageResponse>
+                </Streamdown>
               </div>
             </div>
           ) : (
