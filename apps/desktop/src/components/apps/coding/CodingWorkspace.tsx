@@ -19,6 +19,7 @@ import {
 } from '@/stores/terminal';
 import { useWorkspaceCodingUi, useCodingUiStore } from '@/stores/coding-ui';
 import { useVcsStore } from '@/stores/vcs';
+import { useEditorBridge } from '@/stores/editor-bridge';
 
 /**
  * CodingWorkspace — the full coding app, mounted into the main area.
@@ -165,6 +166,20 @@ export function CodingWorkspace() {
     },
     [workspaceId, activePanel, sidebarOpen, terminalOpen, termTabs.length, setCodingUi],
   );
+
+  // ── Editor bridge: open files from ChatPanel ctrl+click ──
+  useEffect(() => {
+    const unsub = useEditorBridge.subscribe((state) => {
+      if (state.pendingOpen?.workspaceId === workspaceId) {
+        const { filePath } = state.pendingOpen;
+        useEditorBridge.getState().consumeOpenRequest();
+        // Use the tab open logic below
+        setEditorTabs((prev) => (prev.includes(filePath) ? prev : [...prev, filePath]));
+        setActiveTab(filePath);
+      }
+    });
+    return unsub;
+  }, [workspaceId]);
 
   // ── Editor tab handlers ──
   const handleOpenTab = useCallback((path: string) => {

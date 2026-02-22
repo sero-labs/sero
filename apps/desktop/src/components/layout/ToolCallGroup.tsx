@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ChevronRight,
@@ -17,6 +17,8 @@ import {
   ToolInput,
   ToolOutput,
 } from '@sero/ui/components/ai-elements/tool';
+import { useEditorBridge } from '@/stores/editor-bridge';
+import { looksLikeFilePath } from './ClickableFilePath';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -154,7 +156,17 @@ function toolStatusDot(state: ChatToolCallMessage['state']) {
   }
 }
 
-function ToolLine({ tool, index }: { tool: ChatToolCallMessage; index: number }) {
+function ToolLine({
+  tool,
+  index,
+  workspaceId,
+}: {
+  tool: ChatToolCallMessage;
+  index: number;
+  workspaceId: string | null;
+}) {
+  const requestOpenFile = useEditorBridge((s) => s.requestOpenFile);
+
   const summary = useMemo(() => {
     const inp = tool.input;
     // Try to build a short summary from common tool input shapes
@@ -169,6 +181,23 @@ function ToolLine({ tool, index }: { tool: ChatToolCallMessage; index: number })
     return typeof first === 'string' ? first : '';
   }, [tool.input]);
 
+  const isFilePath = useMemo(
+    () => !!summary && looksLikeFilePath(summary),
+    [summary],
+  );
+
+  const handleSummaryClick = useCallback(
+    (e: React.MouseEvent) => {
+      if ((e.ctrlKey || e.metaKey) && isFilePath && workspaceId) {
+        e.preventDefault();
+        e.stopPropagation();
+        const filePath = summary.startsWith('/') ? summary : `/${summary}`;
+        requestOpenFile(workspaceId, filePath);
+      }
+    },
+    [isFilePath, workspaceId, summary, requestOpenFile],
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -4 }}
@@ -181,7 +210,15 @@ function ToolLine({ tool, index }: { tool: ChatToolCallMessage; index: number })
         {tool.toolName}
       </span>
       {summary && (
-        <span className="min-w-0 truncate text-[11px] text-[var(--text-muted)]/60">
+        <span
+          onClick={handleSummaryClick}
+          className={cn(
+            'min-w-0 truncate text-[11px] text-[var(--text-muted)]/60',
+            isFilePath && workspaceId &&
+              'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/30 underline-offset-2 hover:decoration-[var(--accent)] hover:text-[var(--text-secondary)]',
+          )}
+          title={isFilePath ? 'Ctrl+click to open in editor' : undefined}
+        >
           {summary}
         </span>
       )}
@@ -221,7 +258,14 @@ function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
 
 // ── Single tool call (matches group wrapper style) ──────────────
 
-function SingleToolCall({ tool }: { tool: ChatToolCallMessage }) {
+function SingleToolCall({
+  tool,
+  workspaceId,
+}: {
+  tool: ChatToolCallMessage;
+  workspaceId: string | null;
+}) {
+  const requestOpenFile = useEditorBridge((s) => s.requestOpenFile);
   const status = deriveGroupStatus([tool]);
   const isRunning = status === 'running';
   const isComplete = tool.state === 'completed' || tool.state === 'error';
@@ -239,6 +283,23 @@ function SingleToolCall({ tool }: { tool: ChatToolCallMessage }) {
     const first = Object.values(inp).find((v) => typeof v === 'string');
     return typeof first === 'string' ? first : '';
   }, [tool.input]);
+
+  const isFilePath = useMemo(
+    () => !!summary && looksLikeFilePath(summary),
+    [summary],
+  );
+
+  const handleSummaryClick = useCallback(
+    (e: React.MouseEvent) => {
+      if ((e.ctrlKey || e.metaKey) && isFilePath && workspaceId) {
+        e.preventDefault();
+        e.stopPropagation();
+        const filePath = summary.startsWith('/') ? summary : `/${summary}`;
+        requestOpenFile(workspaceId, filePath);
+      }
+    },
+    [isFilePath, workspaceId, summary, requestOpenFile],
+  );
 
   return (
     <motion.div
@@ -274,7 +335,15 @@ function SingleToolCall({ tool }: { tool: ChatToolCallMessage }) {
           {tool.toolName}
         </span>
         {summary && (
-          <span className="min-w-0 truncate text-[11px] text-[var(--text-muted)]/60">
+          <span
+            onClick={handleSummaryClick}
+            className={cn(
+              'min-w-0 truncate text-[11px] text-[var(--text-muted)]/60',
+              isFilePath && workspaceId &&
+                'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/30 underline-offset-2 hover:decoration-[var(--accent)] hover:text-[var(--text-secondary)]',
+            )}
+            title={isFilePath ? 'Ctrl+click to open in editor' : undefined}
+          >
             {summary}
           </span>
         )}
@@ -317,13 +386,16 @@ function SingleToolCall({ tool }: { tool: ChatToolCallMessage }) {
  * @param tools       — tool messages in this group
  * @param isFinalized — true when no more tools will be added to this group
  *                      (a non-tool message follows it, or the session stopped streaming)
+ * @param workspaceId — workspace ID for ctrl+click file path support
  */
 export function ToolCallGroup({
   tools,
   isFinalized = true,
+  workspaceId = null,
 }: {
   tools: ChatToolCallMessage[];
   isFinalized?: boolean;
+  workspaceId?: string | null;
 }) {
   const status = deriveGroupStatus(tools);
   const isRunning = status === 'running';
@@ -360,7 +432,7 @@ export function ToolCallGroup({
 
   // Single tool: render with matching group-style wrapper
   if (tools.length === 1) {
-    return <SingleToolCall tool={tools[0]} />;
+    return <SingleToolCall tool={tools[0]} workspaceId={workspaceId} />;
   }
 
   return (
@@ -417,7 +489,7 @@ export function ToolCallGroup({
                 <>
                   <div className="py-1">
                     {tools.map((tool, i) => (
-                      <ToolLine key={tool.id} tool={tool} index={i} />
+                      <ToolLine key={tool.id} tool={tool} index={i} workspaceId={workspaceId} />
                     ))}
                   </div>
                   <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
