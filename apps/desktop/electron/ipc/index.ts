@@ -27,6 +27,7 @@ import { registerContextPresetsHandlers } from './context-presets';
 import { registerVcsHandlers } from './vcs';
 import { registerGitHubHandlers } from './github';
 import { registerFeedbackHandlers } from './feedback';
+import { registerImagegenHandlers } from './imagegen';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -50,4 +51,5 @@ export function registerAllIpcHandlers(): void {
   registerVcsHandlers();
   registerGitHubHandlers();
   registerFeedbackHandlers();
+  registerImagegenHandlers();
 }

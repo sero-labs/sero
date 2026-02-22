@@ -189,12 +189,14 @@ export default function (pi: ExtensionAPI) {
   // ── Command: /todos ────────────────────────────────────────
 
   pi.registerCommand('todos', {
-    description: 'Show all workspace todos',
-    handler: async (_args, _ctx) => {
-      // Trigger the agent to list todos via the tool.
-      // This works in both Pi CLI and Sero — the agent calls
-      // the todo tool with action: list and renders the result.
-      pi.sendUserMessage('List all my current todos using the todo tool.');
+    description: 'Show all workspace todos (or pass instructions inline)',
+    handler: async (args, _ctx) => {
+      const instruction = args.trim();
+      if (instruction) {
+        pi.sendUserMessage(`Using the todo tool: ${instruction}`);
+      } else {
+        pi.sendUserMessage('List all my current todos using the todo tool.');
+      }
     },
   });
 }

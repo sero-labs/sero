@@ -297,9 +297,14 @@ export default function (pi: ExtensionAPI) {
   // ── Command: /notes ────────────────────────────────────────
 
   pi.registerCommand('notes', {
-    description: 'Show all notes',
-    handler: async (_args, _ctx) => {
-      pi.sendUserMessage('List all my notes using the notes tool.');
+    description: 'Show all notes (or pass instructions inline)',
+    handler: async (args, _ctx) => {
+      const instruction = args.trim();
+      if (instruction) {
+        pi.sendUserMessage(`Using the notes tool: ${instruction}`);
+      } else {
+        pi.sendUserMessage('List all my notes using the notes tool.');
+      }
     },
   });
 }
