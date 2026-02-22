@@ -477,11 +477,6 @@ export function ChatPanel() {
 
             {isStreaming ? (
               <div className="flex items-center gap-1.5">
-                {messageQueue.hasQueued && (
-                  <span className="text-[10px] text-blue-500">
-                    {messageQueue.queue.length} queued
-                  </span>
-                )}
                 <PromptInputSubmit
                   disabled={!input.trim() || !hasSession}
                   onClick={(e) => { modifierRef.current = e.ctrlKey || e.metaKey; }}
