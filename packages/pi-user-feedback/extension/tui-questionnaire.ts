@@ -5,7 +5,7 @@
  * Only used when ctx.hasUI === true.
  */
 
-import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth } from '@mariozechner/pi-tui';
+import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth, type Theme } from '@mariozechner/pi-tui';
 import type { ExtensionUIContext } from '@mariozechner/pi-coding-agent';
 import type { QuestionItem, QuestionAnswer } from '../shared/types';
 
@@ -180,7 +180,7 @@ function renderTabBar(
   currentTab: number,
   answers: Map<string, QuestionAnswer>,
   canSubmit: boolean,
-  theme: import('@mariozechner/pi-tui').Theme,
+  theme: Theme,
 ): string {
   const parts: string[] = ['← '];
   for (let i = 0; i < questions.length; i++) {
@@ -206,7 +206,7 @@ function renderOptionsList(
   opts: RenderOption[],
   selectedIndex: number,
   inputMode: boolean,
-  theme: import('@mariozechner/pi-tui').Theme,
+  theme: Theme,
   add: (s: string) => void,
 ) {
   for (let i = 0; i < opts.length; i++) {
@@ -228,7 +228,7 @@ function renderSubmitTab(
   questions: QuestionItem[],
   answers: Map<string, QuestionAnswer>,
   canSubmit: boolean,
-  theme: import('@mariozechner/pi-tui').Theme,
+  theme: Theme,
   add: (s: string) => void,
 ) {
   add(theme.fg('accent', theme.bold(' Ready to submit')));

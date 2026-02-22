@@ -1,7 +1,7 @@
 {
   "name": "@sero/user-feedback",
   "version": "0.1.0",
-  "description": "User feedback tools for Sero — question, questionnaire, and ask command",
+  "description": "User feedback tools for Sero — question and questionnaire",
   "keywords": ["pi-package"],
   "scripts": {
     "dev": "vite",
@@ -26,7 +26,6 @@
     "@sinclair/typebox": "^0.34.48"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": ">=0.52.0",
     "@mariozechner/pi-coding-agent": ">=0.52.0",
     "@mariozechner/pi-tui": ">=0.52.0"
   },

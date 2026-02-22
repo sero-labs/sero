@@ -9,25 +9,12 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { EventEmitter } from 'events';
 import { IpcChannels } from '../../src/types/ipc';
 import type {
   UserFeedbackPendingQuestion,
   UserFeedbackResponse,
 } from '../../src/types/ipc';
-
-// ── Shared EventEmitter (globalThis singleton) ─────────────────
-
-const EMITTER_KEY = '__seroUserFeedbackBus';
-
-function getEmitter(): EventEmitter {
-  const g = globalThis as Record<string, unknown>;
-  if (!g[EMITTER_KEY]) {
-    g[EMITTER_KEY] = new EventEmitter();
-    (g[EMITTER_KEY] as EventEmitter).setMaxListeners(50);
-  }
-  return g[EMITTER_KEY] as EventEmitter;
-}
+import { getUserFeedbackBus } from '../lib/user-feedback-bus';
 
 function sendToAllWindows(channel: string, data: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -42,8 +29,24 @@ function sendToAllWindows(channel: string, data: unknown): void {
 
 const pendingQuestions = new Map<string, UserFeedbackPendingQuestion>();
 
+/** Max age (ms) before an unanswered question is automatically evicted. */
+const PENDING_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+/** Evict questions older than PENDING_TTL_MS to prevent memory leaks. */
+function evictStale(): void {
+  const now = Date.now();
+  for (const [id, q] of pendingQuestions) {
+    if (now - new Date(q.timestamp).getTime() > PENDING_TTL_MS) {
+      pendingQuestions.delete(id);
+    }
+  }
+}
+
 export function registerUserFeedbackQuestionHandlers(): void {
-  const bus = getEmitter();
+  const bus = getUserFeedbackBus();
+
+  // Periodic cleanup of orphaned questions
+  setInterval(evictStale, 60_000);
 
   // ── Extension → Renderer: forward question requests ──────────
 

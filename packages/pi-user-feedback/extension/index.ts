@@ -1,10 +1,9 @@
 /**
  * User Feedback Pi Extension.
  *
- * Registers three capabilities:
- *   - `question` tool — ask a single question with options
- *   - `questionnaire` tool — ask multiple questions (tab-based in TUI, app UI in Sero)
- *   - `/ask` command — send a user message to trigger a turn
+ * Registers two tools:
+ *   - `question` — ask a single question with options
+ *   - `questionnaire` — ask multiple questions (tab-based in TUI, app UI in Sero)
  *
  * Dual-mode: uses TUI rendering in Pi CLI (ctx.hasUI === true) and
  * IPC-based rendering in Sero (ctx.hasUI === false).
@@ -94,7 +93,6 @@ function registerQuestionTool(pi: ExtensionAPI) {
         {
           id,
           type: 'question',
-          sessionId: '',
           toolCallId: _toolCallId,
           questions: [questionItem],
           timestamp: new Date().toISOString(),
@@ -185,7 +183,6 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
         {
           id,
           type: 'questionnaire',
-          sessionId: '',
           toolCallId: _toolCallId,
           questions,
           timestamp: new Date().toISOString(),

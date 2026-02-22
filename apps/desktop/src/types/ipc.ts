@@ -396,6 +396,10 @@ export interface ResponseFeedbackState {
 }
 
 // ── User Feedback (question / questionnaire tools) ─────────────
+//
+// Source of truth: packages/pi-user-feedback/shared/types.ts
+// These are mirrored here because the electron tsconfig's rootDir constraint
+// prevents cross-package imports. When modifying, update BOTH files.
 
 export interface UserFeedbackQuestionOption {
   value: string;
@@ -415,7 +419,6 @@ export interface UserFeedbackQuestionItem {
 export interface UserFeedbackPendingQuestion {
   id: string;
   type: 'question' | 'questionnaire';
-  sessionId: string;
   toolCallId: string;
   questions: UserFeedbackQuestionItem[];
   timestamp: string;

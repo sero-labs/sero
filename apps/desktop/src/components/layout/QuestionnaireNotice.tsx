@@ -22,8 +22,11 @@ export function QuestionnaireNotice({ tools }: Props) {
   const pending = useUserFeedbackStore((s) => s.getPending('questionnaire'));
   const setActiveApp = useAppStore((s) => s.setActiveApp);
 
-  // Derive question count from tool input
-  const questionsArr = tools[0]?.input?.questions;
+  // Derive question count from tool input with validation
+  const rawInput = tools[0]?.input;
+  const questionsArr = rawInput && typeof rawInput === 'object' && 'questions' in rawInput
+    ? (rawInput as { questions: unknown }).questions
+    : undefined;
   const count = Array.isArray(questionsArr) ? questionsArr.length : 0;
 
   const handleClick = useCallback(() => {
@@ -40,10 +43,14 @@ export function QuestionnaireNotice({ tools }: Props) {
 
   return (
     <motion.div
+      role="button"
+      tabIndex={0}
+      aria-label={`Open questionnaire${count > 0 ? ` with ${count} question${count !== 1 ? 's' : ''}` : ''} in User Feedback app`}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}
       className="cursor-pointer overflow-hidden rounded-lg border border-blue-500/20 bg-blue-500/[0.03] transition-colors hover:bg-blue-500/[0.06]"
     >
       <div className="flex items-center gap-2.5 px-3 py-2">
@@ -57,6 +64,7 @@ export function QuestionnaireNotice({ tools }: Props) {
         {pending && (
           <button
             onClick={handleCancel}
+            aria-label="Cancel questionnaire"
             className="rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
             title="Cancel questionnaire"
           >

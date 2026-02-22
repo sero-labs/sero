@@ -20,8 +20,6 @@ export interface PendingQuestion {
   id: string;
   /** Which tool triggered this: 'question' or 'questionnaire'. */
   type: 'question' | 'questionnaire';
-  /** The session ID where the tool is executing. */
-  sessionId: string;
   /** The tool call ID (for correlating with chat tool displays). */
   toolCallId: string;
   /** One or more questions to ask. */

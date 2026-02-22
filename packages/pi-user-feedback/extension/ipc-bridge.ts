@@ -9,19 +9,8 @@
  * In Pi CLI mode, the extension uses ctx.ui.custom() instead.
  */
 
-import { EventEmitter } from 'node:events';
 import type { PendingQuestion, QuestionResponse } from '../shared/types';
-
-const EMITTER_KEY = '__seroUserFeedbackBus';
-
-function getEmitter(): EventEmitter {
-  const g = globalThis as Record<string, unknown>;
-  if (!g[EMITTER_KEY]) {
-    g[EMITTER_KEY] = new EventEmitter();
-    (g[EMITTER_KEY] as EventEmitter).setMaxListeners(50);
-  }
-  return g[EMITTER_KEY] as EventEmitter;
-}
+import { getUserFeedbackBus } from '../shared/emitter';
 
 let questionCounter = 0;
 
@@ -41,7 +30,7 @@ export async function askQuestion(
   pending: PendingQuestion,
   signal?: AbortSignal,
 ): Promise<QuestionResponse> {
-  const bus = getEmitter();
+  const bus = getUserFeedbackBus();
 
   return new Promise<QuestionResponse>((resolve) => {
     const answerId = `answer:${pending.id}`;

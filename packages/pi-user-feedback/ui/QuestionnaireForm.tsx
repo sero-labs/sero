@@ -51,8 +51,9 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
       });
       setCustomMode(false);
       setCustomText('');
-      // Auto-advance
-      if (currentStep < questions.length) {
+      // Auto-advance to next question, but NOT past the last question
+      // (user should explicitly navigate to review to confirm answers)
+      if (currentStep < questions.length - 1) {
         setCurrentStep(currentStep + 1);
       }
     },
@@ -71,7 +72,8 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
     });
     setCustomMode(false);
     setCustomText('');
-    if (currentStep < questions.length) {
+    // Auto-advance to next question, but NOT past the last question
+    if (currentStep < questions.length - 1) {
       setCurrentStep(currentStep + 1);
     }
   }, [currentQ, customText, currentStep, questions.length, saveAnswer]);

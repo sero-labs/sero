@@ -75,6 +75,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
         </span>
         <button
           onClick={handleCancel}
+          aria-label="Cancel question"
           className="rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
           title="Cancel"
         >
@@ -145,6 +146,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
               variant="ghost"
               onClick={handleCustomSubmit}
               disabled={!customText.trim()}
+              aria-label="Submit custom answer"
               className="h-7 px-2 text-[var(--text-secondary)]"
             >
               <Send className="size-3" />
@@ -153,6 +155,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
               size="sm"
               variant="ghost"
               onClick={() => { setCustomMode(false); setCustomText(''); }}
+              aria-label="Cancel custom input"
               className="h-7 px-2 text-[var(--text-muted)]"
             >
               <X className="size-3" />

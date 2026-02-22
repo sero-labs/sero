@@ -15,5 +15,5 @@
       "@sero/ui/*": ["../../ui/src/*"]
     }
   },
-  "include": ["./**/*", "../shared/**/*"]
+  "include": ["./**/*", "../shared/types.ts"]
 }
