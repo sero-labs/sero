@@ -39,7 +39,10 @@ import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
 import { useWorkspaceFiles, fuzzyMatchFiles } from '@/hooks/useWorkspaceFiles';
 import { useMessageQueue } from '@/hooks/useMessageQueue';
 import { useEditorBridge } from '@/stores/editor-bridge';
+import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import { createFilePathClickHandler } from './ClickableFilePath';
+import { PendingQuestionCard } from './PendingQuestionCard';
+import { QuestionnaireNotice } from './QuestionnaireNotice';
 import { cn } from '@sero/ui/lib/utils';
 import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
 
@@ -76,6 +79,13 @@ export function ChatPanel() {
   // Initialize feedback store (load ratings from disk)
   const initFeedback = useFeedbackStore((s) => s.init);
   useEffect(() => { initFeedback(); }, [initFeedback]);
+
+  // Initialize user-feedback IPC listeners (question/questionnaire tools)
+  const initUserFeedback = useUserFeedbackStore((s) => s.initListeners);
+  useEffect(() => {
+    const unsub = initUserFeedback();
+    return unsub;
+  }, [initUserFeedback]);
 
   // ── OAuth login dialog state ───────────────────────────────
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
@@ -336,6 +346,19 @@ export function ChatPanel() {
                   // or it's the last item and the session is no longer streaming.
                   const isLast = index === groupedItems.length - 1;
                   const isFinalized = !isLast || !isStreaming;
+
+                  // Replace a running questionnaire tool call with the clickable
+                  // notice that switches to the User Feedback app. Once completed,
+                  // it falls back to the normal ToolCallGroup rendering.
+                  const isRunningQuestionnaire =
+                    item.tools.length === 1 &&
+                    item.tools[0].toolName === 'questionnaire' &&
+                    (item.tools[0].state === 'pending' || item.tools[0].state === 'running');
+
+                  if (isRunningQuestionnaire) {
+                    return <QuestionnaireNotice key={item.id} tools={item.tools} />;
+                  }
+
                   return (
                     <ToolCallGroup
                       key={item.id}
@@ -389,6 +412,9 @@ export function ChatPanel() {
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
+
+      {/* ── Pending question card (single questions only) ──── */}
+      <PendingQuestionCard />
 
       {/* ── Prompt input ────────────────────────────────────── */}
       <div className="relative shrink-0 p-2">

@@ -28,6 +28,7 @@ import { registerVcsHandlers } from './vcs';
 import { registerGitHubHandlers } from './github';
 import { registerFeedbackHandlers } from './feedback';
 import { registerImagegenHandlers } from './imagegen';
+import { registerUserFeedbackQuestionHandlers } from './user-feedback-questions';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -52,4 +53,5 @@ export function registerAllIpcHandlers(): void {
   registerGitHubHandlers();
   registerFeedbackHandlers();
   registerImagegenHandlers();
+  registerUserFeedbackQuestionHandlers();
 }

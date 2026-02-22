@@ -432,6 +432,46 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.feedback.remove, messageId),
   },
 
+  userFeedback: {
+    /** Get all currently pending questions (for mount-time hydration). */
+    getPending: (): Promise<import('../src/types/ipc').UserFeedbackPendingQuestion[]> =>
+      ipcRenderer.invoke(IpcChannels.userFeedback.getPending),
+
+    /** Send user's answer to a pending question/questionnaire. */
+    answer: (response: import('../src/types/ipc').UserFeedbackResponse): Promise<void> => {
+      // Fire a DOM event synchronously so all renderer stores (Zustand, federated app)
+      // can clear immediately — no IPC round-trip needed.
+      window.dispatchEvent(
+        new CustomEvent('sero:user-feedback:answered', { detail: { id: response.id } }),
+      );
+      return ipcRenderer.invoke(IpcChannels.userFeedback.answer, response);
+    },
+
+    /** Listen for incoming question/questionnaire requests from extensions. */
+    onQuestion: (
+      callback: (data: import('../src/types/ipc').UserFeedbackPendingQuestion) => void,
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: import('../src/types/ipc').UserFeedbackPendingQuestion,
+      ) => callback(data);
+      ipcRenderer.on(IpcChannels.userFeedback.question, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.userFeedback.question, handler);
+      };
+    },
+
+    /** Listen for cancellation of a pending question. */
+    onCancel: (callback: (data: { id: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { id: string }) =>
+        callback(data);
+      ipcRenderer.on(IpcChannels.userFeedback.cancel, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.userFeedback.cancel, handler);
+      };
+    },
+  },
+
   editor: {
     readFile: (workspaceId: string, filePath: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.editor.readFile, workspaceId, filePath),

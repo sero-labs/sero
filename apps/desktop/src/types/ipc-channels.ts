@@ -278,4 +278,14 @@ export const IpcChannels = {
     /** Remove a feedback entry by message ID. */
     remove: 'sero:feedback:remove',
   },
+  userFeedback: {
+    /** Main → renderer push: a question or questionnaire is pending. */
+    question: 'sero:user-feedback:question',
+    /** Main → renderer push: a pending question was cancelled (e.g. tool aborted). */
+    cancel: 'sero:user-feedback:cancel',
+    /** Renderer → main: user answered a pending question. */
+    answer: 'sero:user-feedback:answer',
+    /** Renderer → main: get all currently pending questions (for mount-time hydration). */
+    getPending: 'sero:user-feedback:get-pending',
+  },
 } as const;

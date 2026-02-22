@@ -395,6 +395,47 @@ export interface ResponseFeedbackState {
   entries: ResponseFeedbackEntry[];
 }
 
+// ── User Feedback (question / questionnaire tools) ─────────────
+
+export interface UserFeedbackQuestionOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface UserFeedbackQuestionItem {
+  id: string;
+  label: string;
+  prompt: string;
+  options: UserFeedbackQuestionOption[];
+  allowOther: boolean;
+}
+
+/** Sent from main → renderer when a question/questionnaire tool starts. */
+export interface UserFeedbackPendingQuestion {
+  id: string;
+  type: 'question' | 'questionnaire';
+  sessionId: string;
+  toolCallId: string;
+  questions: UserFeedbackQuestionItem[];
+  timestamp: string;
+}
+
+export interface UserFeedbackAnswer {
+  questionId: string;
+  value: string;
+  label: string;
+  wasCustom: boolean;
+  index?: number;
+}
+
+/** Sent from renderer → main when the user answers or cancels. */
+export interface UserFeedbackResponse {
+  id: string;
+  answers: UserFeedbackAnswer[];
+  cancelled: boolean;
+}
+
 // ── IPC Channels ───────────────────────────────────────────────
 
 // Extracted to keep ipc.ts under 500 LOC.
