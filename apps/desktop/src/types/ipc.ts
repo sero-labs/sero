@@ -415,10 +415,10 @@ export interface UserFeedbackQuestionItem {
   allowOther: boolean;
 }
 
-/** Sent from main → renderer when a question/questionnaire tool starts. */
+/** Sent from main → renderer when a question/questionnaire/interview tool starts. */
 export interface UserFeedbackPendingQuestion {
   id: string;
-  type: 'question' | 'questionnaire';
+  type: 'question' | 'questionnaire' | 'interview';
   toolCallId: string;
   questions: UserFeedbackQuestionItem[];
   timestamp: string;

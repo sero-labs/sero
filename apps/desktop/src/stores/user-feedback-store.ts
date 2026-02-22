@@ -22,7 +22,7 @@ interface UserFeedbackState {
   pending: Map<string, UserFeedbackPendingQuestion>;
 
   /** Get the first pending question of a given type (or any). */
-  getPending(type?: 'question' | 'questionnaire'): UserFeedbackPendingQuestion | null;
+  getPending(type?: 'question' | 'questionnaire' | 'interview'): UserFeedbackPendingQuestion | null;
 
   /** Submit an answer to a pending question. Removes it from pending. */
   answer(id: string, answers: UserFeedbackAnswer[]): Promise<void>;

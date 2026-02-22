@@ -18,8 +18,8 @@ export interface QuestionOption {
 export interface PendingQuestion {
   /** Unique ID for this question request. */
   id: string;
-  /** Which tool triggered this: 'question' or 'questionnaire'. */
-  type: 'question' | 'questionnaire';
+  /** Which tool triggered this: 'question', 'questionnaire', or 'interview'. */
+  type: 'question' | 'questionnaire' | 'interview';
   /** The tool call ID (for correlating with chat tool displays). */
   toolCallId: string;
   /** One or more questions to ask. */
