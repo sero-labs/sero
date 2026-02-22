@@ -235,7 +235,7 @@ export function App() {
               className={!mainSidebarOpen ? 'pointer-events-none opacity-0' : undefined}
             />
 
-            <ResizablePanel id="active-app-panel" minSize={40} className="min-w-0">
+            <ResizablePanel id="active-app-panel" minSize={40} className="min-w-0 flex flex-col">
               <ActiveApp app={activeApp} />
             </ResizablePanel>
 
@@ -288,8 +288,8 @@ function ActiveApp({ app }: { app: string }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 overflow-x-auto">
-      <div className="flex h-full min-h-0 min-w-[500px] flex-1">{content}</div>
+    <div className="flex min-h-0 min-w-[500px] flex-1 flex-col overflow-hidden">
+      {content}
     </div>
   );
 }

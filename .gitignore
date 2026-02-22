@@ -11,4 +11,5 @@ dist/
 # Playwright
 test-results/
 playwright-report/
+.playwright-cli/
 .sero-test-data/

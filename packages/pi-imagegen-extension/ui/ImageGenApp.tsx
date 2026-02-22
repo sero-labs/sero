@@ -85,9 +85,10 @@ export function ImageGenApp() {
     <div
       ref={containerRef}
       tabIndex={0}
-      className="flex h-full w-full flex-col bg-background outline-none"
+      data-slot="imagegen-root"
+      className="flex w-full min-h-0 flex-1 flex-col overflow-hidden bg-background outline-none"
     >
-      {/* Header + Form */}
+      {/* Header + Form — always visible */}
       <div className="shrink-0 border-b border-border px-5 py-4">
         <div className="mb-3 flex items-baseline gap-2">
           <h1 className="text-base font-semibold text-foreground">ImageGen</h1>
@@ -103,8 +104,8 @@ export function ImageGenApp() {
         )}
       </div>
 
-      {/* Gallery */}
-      <ScrollArea className="flex-1">
+      {/* Gallery — scrolls independently */}
+      <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-scrollbar]]:hover:opacity-100 [&_[data-slot=scroll-area-scrollbar]]:opacity-0 [&_[data-slot=scroll-area-scrollbar]]:transition-opacity">
         <div className="p-5">
           {hasGenerations ? (
             <Gallery generations={state.generations} onDelete={handleDelete} />
