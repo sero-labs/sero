@@ -10,6 +10,7 @@
  */
 
 import { promises as fs } from 'fs';
+import os from 'os';
 import path from 'path';
 
 import type {
@@ -276,6 +277,14 @@ export class WorkspaceManager {
    * (e.g. /Users/me/projects/my-app). Otherwise falls back to ~/.sero-ui/workspaces/.
    */
   async create(name: string, parentPath?: string): Promise<WorkspaceInfo> {
+    if (parentPath) {
+      const resolved = path.resolve(parentPath);
+      const home = os.homedir();
+      if (!resolved.startsWith(home + path.sep) && resolved !== home) {
+        throw new Error(`Workspace parent path must be under the user home directory (${home})`);
+      }
+    }
+
     const id = this.slugify(name);
     const uniqueId = this.ensureUniqueId(id);
     const wsPath = parentPath

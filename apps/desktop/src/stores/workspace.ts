@@ -125,7 +125,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activeWorkspaceId: workspace.id,
     }));
     // Auto-create and select a default session in the new workspace
-    await useSessionStore.getState().createSession(workspace.id);
+    try {
+      await useSessionStore.getState().createSession(workspace.id);
+    } catch (err) {
+      console.warn('Failed to auto-create session for new workspace:', err);
+    }
     return workspace;
   },
 
@@ -150,7 +154,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     });
     // Auto-create and select a default session for newly imported workspaces
     if (!isReopen) {
-      await useSessionStore.getState().createSession(workspace.id);
+      try {
+        await useSessionStore.getState().createSession(workspace.id);
+      } catch (err) {
+        console.warn('Failed to auto-create session for imported workspace:', err);
+      }
     }
     return workspace;
   },
