@@ -13,9 +13,9 @@ export const layout = {
   /** Title bar (drag region). */
   titleBar: 'header.title-bar',
   /** Toggle left sidebar button. */
-  sidebarToggle: 'button[title="Toggle sidebar"]',
+  sidebarToggle: 'button[aria-label="Toggle sidebar"]',
   /** Toggle right chat panel button. */
-  chatToggle: 'button[title="Toggle agent"]',
+  chatToggle: 'button[aria-label="Toggle agent"]',
   /** Status bar footer. */
   statusBar: 'footer',
 } as const;
@@ -37,7 +37,7 @@ export const chat = {
   /** The chat message input textarea. */
   input: 'textarea[name="message"]',
   /** Submit button (visible when not streaming). */
-  submitButton: 'button[type="submit"]',
+  submitButton: 'button[aria-label="Submit"]',
   /** Stop button (visible when streaming). */
   stopButton: 'button[aria-label="Stop"]',
   /** Agent streaming spinner. */

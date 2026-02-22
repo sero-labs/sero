@@ -66,6 +66,20 @@ test.describe('Agent - Session Management', () => {
 });
 
 test.describe('Agent - Chat Input', () => {
+  test.beforeAll(async () => {
+    // Ensure the chat panel is open — it may be closed by default or by
+    // persisted layout state in the test data directory.
+    const chatToggle = page.locator(layout.chatToggle);
+    await expect(chatToggle).toBeVisible();
+
+    // Check if the chat textarea is already visible
+    const isOpen = await page.locator(chat.input).isVisible().catch(() => false);
+    if (!isOpen) {
+      await chatToggle.click();
+      await page.waitForTimeout(500);
+    }
+  });
+
   test('should have a message textarea', async () => {
     const textarea = page.locator(chat.input);
     // The textarea should exist in the DOM
