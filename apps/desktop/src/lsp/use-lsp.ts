@@ -123,9 +123,11 @@ function ensureProvidersRegistered(monaco: Monaco, languageId: string): void {
           position: monacoToLspPos(position.lineNumber, position.column),
         });
         if (token.isCancellationRequested) return null;
-        return convertDefinition(result).map((loc) => ({
-          uri: monaco.Uri.parse(loc.uri), range: loc.range,
-        }));
+        return convertDefinition(result).map((loc) => {
+          // LSP returns file:// URIs; Monaco models use plain paths
+          const path = loc.uri.replace(/^file:\/\//, '');
+          return { uri: monaco.Uri.parse(path), range: loc.range };
+        });
       } catch { return null; }
     },
   });

@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import type { editor as monacoEditor } from 'monaco-editor';
+import type { editor as monacoEditor, IRange, IPosition } from 'monaco-editor';
 import { Code2, Eye } from 'lucide-react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { useLsp } from '@/lsp/use-lsp';
@@ -39,6 +39,22 @@ const LANG_MAP: Record<string, string> = {
   bash: 'shell', toml: 'toml', sql: 'sql',
 };
 
+/** Navigate editor to a position or selection range (used for go-to-definition). */
+function applyGoto(
+  ed: monacoEditor.IStandaloneCodeEditor,
+  selection: IRange | IPosition | null | undefined,
+): void {
+  if (!selection) return;
+  if ('startLineNumber' in selection) {
+    ed.setSelection(selection as IRange);
+    ed.revealRangeInCenter(selection as IRange);
+  } else {
+    ed.setPosition(selection as IPosition);
+    ed.revealPositionInCenter(selection as IPosition);
+  }
+  ed.focus();
+}
+
 function getLanguage(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   return LANG_MAP[ext] ?? 'plaintext';
@@ -63,6 +79,7 @@ export function EditorPanel({
   const monacoRef = useRef<Monaco | null>(null);
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const [editorInstance, setEditorInstance] = useState<monacoEditor.IStandaloneCodeEditor | null>(null);
+  const pendingGotoRef = useRef<{ path: string; selection: IRange | IPosition } | null>(null);
 
   const appTheme = useAppStore((s) => s.theme);
   const containerStatus = useContainerStore((s) => s.containers[workspaceId]?.status ?? 'none');
@@ -82,9 +99,22 @@ export function EditorPanel({
   // ── Load file when activeTab changes ──
   useEffect(() => {
     if (!activeTab) { setContent(''); return; }
+
+    // Apply a stored go-to-definition position after content is ready.
+    const schedulePendingGoto = () => {
+      const pending = pendingGotoRef.current;
+      if (!pending || pending.path !== activeTab) return;
+      pendingGotoRef.current = null;
+      setTimeout(() => {
+        const ed = editorRef.current;
+        if (ed) applyGoto(ed, pending.selection);
+      }, 50);
+    };
+
     if (contentMapRef.current.has(activeTab)) {
       setContent(contentMapRef.current.get(activeTab)!);
       setLanguage(getLanguage(activeTab));
+      schedulePendingGoto();
       return;
     }
     if (!isReady) return;
@@ -99,6 +129,7 @@ export function EditorPanel({
         contentMapRef.current.set(activeTab, fileContent);
         savedContentRef.current.set(activeTab, fileContent);
         setContent(fileContent);
+        schedulePendingGoto();
       } catch (err) {
         if (cancelled) return;
         const errContent = `// Error loading file: ${err}`;
@@ -202,6 +233,31 @@ export function EditorPanel({
     }
     onOpenTab(path);
   }, [activeTab, onOpenTab]);
+
+  // ── Go-to-definition: cross-file navigation ──
+  const handleOpenTabRef = useRef(handleOpenTab);
+  useEffect(() => { handleOpenTabRef.current = handleOpenTab; }, [handleOpenTab]);
+
+  useEffect(() => {
+    if (!monacoInstance) return;
+    const disposable = monacoInstance.editor.registerEditorOpener({
+      openCodeEditor(_source, resource, selectionOrPosition) {
+        const filePath = resource.path;
+        // Same-file: apply goto directly without switching tabs
+        if (filePath === activeTabRef.current && editorRef.current) {
+          if (selectionOrPosition) applyGoto(editorRef.current, selectionOrPosition);
+          return true;
+        }
+        // Cross-file: store pending goto and open the target tab
+        if (selectionOrPosition) {
+          pendingGotoRef.current = { path: filePath, selection: selectionOrPosition };
+        }
+        handleOpenTabRef.current(filePath);
+        return true;
+      },
+    });
+    return () => disposable.dispose();
+  }, [monacoInstance]);
 
   // ── Monaco lifecycle ──
   const handleBeforeMount = useCallback((monaco: Monaco) => {
