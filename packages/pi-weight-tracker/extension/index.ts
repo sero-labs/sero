@@ -315,9 +315,14 @@ export default function (pi: ExtensionAPI) {
   // ── Command: /weight ────────────────────────────────────────
 
   pi.registerCommand('weight', {
-    description: 'Show weight tracking status and summary',
-    handler: async (_args, _ctx) => {
-      pi.sendUserMessage('Show my weight tracking status using the weight tool.');
+    description: 'Show weight tracking status (or pass instructions inline)',
+    handler: async (args, _ctx) => {
+      const instruction = args.trim();
+      if (instruction) {
+        pi.sendUserMessage(`Using the weight tool: ${instruction}`);
+      } else {
+        pi.sendUserMessage('Show my weight tracking status using the weight tool.');
+      }
     },
   });
 }

@@ -188,7 +188,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand('generate-image', {
     description: 'Generate an image with Gemini Nano Banana',
     handler: async (args, _ctx) => {
-      const prompt = args.join(' ').trim();
+      const prompt = args.trim();
       if (!prompt) {
         pi.sendUserMessage(
           'I want to generate an image. Ask me what I\'d like to create, then use the generate_image tool.',
