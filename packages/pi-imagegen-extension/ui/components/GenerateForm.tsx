@@ -2,7 +2,7 @@
  * GenerateForm — prompt input + model/param controls for image generation.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
 import type { ImageModel, AspectRatio, GenerateParams } from '../../shared/types';
@@ -29,6 +29,18 @@ export function GenerateForm({ onGenerate, generating }: GenerateFormProps) {
   const [variations, setVariations] = useState(1);
   const [negativePrompt, setNegativePrompt] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea: min 2 rows, max 10 rows, then scroll
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
+    const maxHeight = lineHeight * 10;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, [prompt]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -50,6 +62,7 @@ export function GenerateForm({ onGenerate, generating }: GenerateFormProps) {
       {/* Prompt */}
       <div className="relative">
         <textarea
+          ref={textareaRef}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Describe the image you want to create…"
