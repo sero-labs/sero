@@ -3,12 +3,23 @@
 export type ImageModel = 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview';
 export type AspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '9:16' | '16:9';
 
+/** An image attached to a generation prompt (for editing / remixing). */
+export interface ImageAttachment {
+  id: string;
+  /** Full data URI (data:image/…;base64,…) */
+  dataUri: string;
+  mimeType: string;
+  filename: string;
+}
+
 export interface GenerateParams {
   prompt: string;
   model: ImageModel;
   variations: number;       // 1–4
   aspectRatio: AspectRatio;
   negativePrompt?: string;
+  /** Reference images for editing / remixing. */
+  attachments?: ImageAttachment[];
 }
 
 export interface GeneratedImage {

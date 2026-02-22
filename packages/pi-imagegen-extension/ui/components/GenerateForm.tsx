@@ -5,7 +5,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
-import type { ImageModel, AspectRatio, GenerateParams } from '../../shared/types';
+import type { ImageModel, AspectRatio, GenerateParams, ImageAttachment } from '../../shared/types';
+import { ImageAttachBar } from './ImageAttachBar';
 
 const ASPECT_RATIOS: { value: AspectRatio; label: string }[] = [
   { value: '1:1', label: '1:1' },
@@ -28,6 +29,7 @@ export function GenerateForm({ onGenerate, generating }: GenerateFormProps) {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
   const [variations, setVariations] = useState(1);
   const [negativePrompt, setNegativePrompt] = useState('');
+  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -52,9 +54,11 @@ export function GenerateForm({ onGenerate, generating }: GenerateFormProps) {
         aspectRatio,
         variations,
         negativePrompt: negativePrompt.trim() || undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
+      setAttachments([]);
     },
-    [prompt, model, aspectRatio, variations, negativePrompt, generating, onGenerate],
+    [prompt, model, aspectRatio, variations, negativePrompt, attachments, generating, onGenerate],
   );
 
   return (
@@ -159,6 +163,13 @@ export function GenerateForm({ onGenerate, generating }: GenerateFormProps) {
           {showAdvanced ? '▾ Less' : '▸ More'}
         </button>
       </div>
+
+      {/* Attachments */}
+      <ImageAttachBar
+        attachments={attachments}
+        onChange={setAttachments}
+        disabled={generating}
+      />
 
       {/* Advanced options */}
       {showAdvanced && (

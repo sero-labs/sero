@@ -215,6 +215,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.imagegen.generate, workspaceId, params),
     readImage: (filePath: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.imagegen.readImage, filePath),
+    deleteImage: (workspaceId: string, generationId: number, singleImageId?: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IpcChannels.imagegen.deleteImage, workspaceId, generationId, singleImageId),
   },
 
   voice: {

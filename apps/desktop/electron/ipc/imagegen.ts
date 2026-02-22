@@ -91,6 +91,50 @@ export function registerImagegenHandlers(): void {
   );
 
   ipcMain.handle(
+    IpcChannels.imagegen.deleteImage,
+    async (
+      _event,
+      workspaceId: string,
+      generationId: number,
+      singleImageId?: string,
+    ): Promise<{ ok: boolean; error?: string }> => {
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) throw new Error('No workspace path');
+
+      const statePath = path.join(wsPath, STATE_REL);
+      const state = await readState(statePath);
+
+      const idx = state.generations.findIndex((g: any) => g.id === generationId);
+      if (idx === -1) return { ok: false, error: 'Image not found' };
+
+      const gen = state.generations[idx];
+
+      if (singleImageId) {
+        // Remove a single image from the generation
+        const imgIdx = gen.images.findIndex((img: any) => img.id === singleImageId);
+        if (imgIdx === -1) return { ok: false, error: 'Image not found' };
+
+        const [removed] = gen.images.splice(imgIdx, 1);
+        try { await fs.unlink(removed.filePath); } catch { /* already gone */ }
+
+        // If no images remain, remove the entire generation
+        if (gen.images.length === 0) {
+          state.generations.splice(idx, 1);
+        }
+      } else {
+        // Remove the entire generation and all its files
+        const [removed] = state.generations.splice(idx, 1);
+        for (const img of removed.images ?? []) {
+          try { await fs.unlink(img.filePath); } catch { /* already gone */ }
+        }
+      }
+
+      await writeState(statePath, state);
+      return { ok: true };
+    },
+  );
+
+  ipcMain.handle(
     IpcChannels.imagegen.readImage,
     async (_event, filePath: string): Promise<string> => {
       const data = await fs.readFile(filePath);

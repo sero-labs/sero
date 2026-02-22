@@ -9,7 +9,7 @@
  * Items animate in with staggered delays.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import type { Generation } from '../../shared/types';
 import { MontageCard } from './MontageCard';
@@ -17,6 +17,7 @@ import { ImageViewer } from './ImageViewer';
 
 interface GalleryProps {
   generations: Generation[];
+  onDelete?: (generationId: number, singleImageId?: string) => void;
 }
 
 type BentoSize = 'large' | 'tall' | 'wide' | 'normal';
@@ -50,8 +51,23 @@ const sizeHeights: Record<BentoSize, number> = {
   normal: 200,
 };
 
-export function Gallery({ generations }: GalleryProps) {
-  const [viewer, setViewer] = useState<{ gen: Generation; index: number } | null>(null);
+export function Gallery({ generations, onDelete }: GalleryProps) {
+  // Store viewer by generation ID so it stays in sync with live state
+  const [viewerId, setViewerId] = useState<{ genId: number; index: number } | null>(null);
+
+  const viewerGen = viewerId
+    ? generations.find((g) => g.id === viewerId.genId) ?? null
+    : null;
+
+  // Auto-close viewer if the generation was fully deleted
+  useEffect(() => {
+    if (viewerId && !viewerGen) setViewerId(null);
+  }, [viewerId, viewerGen]);
+
+  // Clamp index if images were removed while viewer is open
+  const viewerIndex = viewerGen
+    ? Math.min(viewerId!.index, viewerGen.images.length - 1)
+    : 0;
 
   const items = useMemo(
     () =>
@@ -63,7 +79,7 @@ export function Gallery({ generations }: GalleryProps) {
   );
 
   const openViewer = (gen: Generation, imgIndex: number) => {
-    setViewer({ gen, index: imgIndex });
+    setViewerId({ genId: gen.id, index: imgIndex });
   };
 
   return (
@@ -86,6 +102,7 @@ export function Gallery({ generations }: GalleryProps) {
             <MontageCard
               generation={generation}
               onClick={openViewer}
+              onDelete={onDelete}
               style={{ height: '100%' }}
             />
           </div>
@@ -93,11 +110,12 @@ export function Gallery({ generations }: GalleryProps) {
       </div>
 
       {/* Full-size viewer overlay */}
-      {viewer && (
+      {viewerGen && (
         <ImageViewer
-          generation={viewer.gen}
-          initialIndex={viewer.index}
-          onClose={() => setViewer(null)}
+          generation={viewerGen}
+          initialIndex={viewerIndex}
+          onDelete={onDelete}
+          onClose={() => setViewerId(null)}
         />
       )}
     </>

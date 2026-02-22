@@ -21,12 +21,20 @@ import { ensureInfra } from '../ipc/shared-infra';
 export type ImageModel = 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview';
 export type AspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '9:16' | '16:9';
 
+export interface ImageAttachment {
+  id: string;
+  dataUri: string;
+  mimeType: string;
+  filename: string;
+}
+
 export interface ImageGenParams {
   prompt: string;
   model: ImageModel;
   variations: number;
   aspectRatio: AspectRatio;
   negativePrompt?: string;
+  attachments?: ImageAttachment[];
 }
 
 export interface GeneratedImageResult {
@@ -83,12 +91,15 @@ export async function generateImages(
   const results: GeneratedImageResult[] = [];
   const errors: string[] = [];
 
+  // Build content parts: text prompt + any attached images
+  const parts = buildContentParts(params);
+
   // Run variations in parallel
   const jobs = Array.from({ length: count }, async (_, i) => {
     try {
       const response = await client.models.generateContent({
         model: params.model,
-        contents: [{ parts: [{ text: buildPrompt(params) }] }],
+        contents: [{ parts }],
         config: {
           responseModalities: ['IMAGE', 'TEXT'],
           imageConfig: {
@@ -98,8 +109,8 @@ export async function generateImages(
       });
 
       // Extract image data from response
-      const parts = response.candidates?.[0]?.content?.parts ?? [];
-      for (const part of parts) {
+      const responseParts = response.candidates?.[0]?.content?.parts ?? [];
+      for (const part of responseParts) {
         if (part.inlineData?.data) {
           const ext = mimeToExt(part.inlineData.mimeType ?? 'image/png');
           const id = crypto.randomUUID();
@@ -131,12 +142,38 @@ export async function generateImages(
   return { images: results, error: errors.length > 0 ? errors.join('; ') : undefined };
 }
 
-function buildPrompt(params: ImageGenParams): string {
+function buildPromptText(params: ImageGenParams): string {
   let prompt = params.prompt;
   if (params.negativePrompt) {
     prompt += `\n\nAvoid: ${params.negativePrompt}`;
   }
   return prompt;
+}
+
+/** Strip the `data:<mime>;base64,` prefix from a data URI. */
+function stripDataUriPrefix(dataUri: string): string {
+  const idx = dataUri.indexOf(',');
+  return idx >= 0 ? dataUri.slice(idx + 1) : dataUri;
+}
+
+/**
+ * Build multimodal content parts: attached images first, then the text prompt.
+ * Gemini expects image parts before the text instruction for best results.
+ */
+function buildContentParts(params: ImageGenParams): Array<Record<string, any>> {
+  const parts: Array<Record<string, any>> = [];
+
+  for (const att of params.attachments ?? []) {
+    parts.push({
+      inlineData: {
+        mimeType: att.mimeType,
+        data: stripDataUriPrefix(att.dataUri),
+      },
+    });
+  }
+
+  parts.push({ text: buildPromptText(params) });
+  return parts;
 }
 
 function mimeToExt(mime: string): string {

@@ -8,19 +8,31 @@
 import { useEffect, useCallback, useState } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@sero/ui/components/ui/popover';
 import type { Generation } from '../../shared/types';
 import { useImageLoader } from '../hooks/use-image-loader';
 
 interface ImageViewerProps {
   generation: Generation;
   initialIndex: number;
+  onDelete?: (generationId: number, singleImageId?: string) => void;
   onClose: () => void;
 }
 
-export function ImageViewer({ generation, initialIndex, onClose }: ImageViewerProps) {
+export function ImageViewer({ generation, initialIndex, onDelete, onClose }: ImageViewerProps) {
   const [index, setIndex] = useState(initialIndex);
   const [closing, setClosing] = useState(false);
-  const image = generation.images[index];
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Clamp index when images array shrinks (e.g. after single-image delete)
+  const clampedIndex = Math.min(index, generation.images.length - 1);
+  if (clampedIndex !== index) setIndex(clampedIndex);
+
+  const image = generation.images[clampedIndex];
   const { dataUri, loading } = useImageLoader(image?.filePath);
   const total = generation.images.length;
 
@@ -55,15 +67,55 @@ export function ImageViewer({ generation, initialIndex, onClose }: ImageViewerPr
       )}
       onClick={close}
     >
-      {/* Close button */}
-      <button
-        onClick={close}
-        className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white/70 backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
+      {/* Top-right actions */}
+      <div
+        className="absolute right-5 top-5 z-10 flex items-center gap-3"
+        onClick={(e) => e.stopPropagation()}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </button>
+        {onDelete && (
+          <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="rounded-full bg-white/10 p-3 text-white/70 backdrop-blur-sm transition-colors hover:bg-red-500/80 hover:text-white"
+                aria-label="Delete image"
+              >
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                  <path d="M5.5 2h5M2.5 4h11M6 4v8M10 4v8M3.5 4l.5 9.5a1 1 0 001 .5h6a1 1 0 001-.5L12.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" align="end" className="w-56 p-3">
+              <p className="text-sm font-medium text-foreground">Delete this image?</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                This file will be permanently removed from disk.
+              </p>
+              <div className="mt-3 flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    setConfirmOpen(false);
+                    onDelete(generation.id, image?.id);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+        <button
+          onClick={close}
+          className="rounded-full bg-white/10 p-3 text-white/70 backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
+        >
+          <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+            <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
 
       {/* Main image */}
       <div

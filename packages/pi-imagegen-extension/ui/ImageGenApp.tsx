@@ -18,6 +18,7 @@ import './styles.css';
 interface SeroImagegenBridge {
   generate(workspaceId: string, params: any): Promise<{ generation: any; error?: string }>;
   readImage(filePath: string): Promise<string>;
+  deleteImage(workspaceId: string, generationId: number, singleImageId?: string): Promise<{ ok: boolean; error?: string }>;
 }
 
 function getBridge(): SeroImagegenBridge | null {
@@ -65,6 +66,19 @@ export function ImageGenApp() {
     [workspaceId],
   );
 
+  const handleDelete = useCallback(
+    async (generationId: number, singleImageId?: string) => {
+      const bridge = getBridge();
+      if (!bridge || !workspaceId) return;
+      try {
+        await bridge.deleteImage(workspaceId, generationId, singleImageId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Delete failed');
+      }
+    },
+    [workspaceId],
+  );
+
   const hasGenerations = state.generations.length > 0;
 
   return (
@@ -93,7 +107,7 @@ export function ImageGenApp() {
       <ScrollArea className="flex-1">
         <div className="p-5">
           {hasGenerations ? (
-            <Gallery generations={state.generations} />
+            <Gallery generations={state.generations} onDelete={handleDelete} />
           ) : (
             <EmptyState />
           )}
