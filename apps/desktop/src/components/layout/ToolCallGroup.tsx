@@ -20,6 +20,9 @@ import {
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { looksLikeFilePath } from './ClickableFilePath';
 
+/** Tools whose summary arg is a real file path worth linking. */
+const FILE_PATH_TOOLS = new Set(['edit', 'read', 'write']);
+
 // ── Types ───────────────────────────────────────────────────────
 
 export type GroupedChatItem =
@@ -182,8 +185,8 @@ function ToolLine({
   }, [tool.input]);
 
   const isFilePath = useMemo(
-    () => !!summary && looksLikeFilePath(summary),
-    [summary],
+    () => !!summary && FILE_PATH_TOOLS.has(tool.toolName) && looksLikeFilePath(summary),
+    [summary, tool.toolName],
   );
 
   const handleSummaryClick = useCallback(
@@ -213,9 +216,9 @@ function ToolLine({
         <span
           onClick={handleSummaryClick}
           className={cn(
-            'min-w-0 truncate text-[11px] text-[var(--text-muted)]/60',
+            'min-w-0 truncate text-[11px] text-[var(--text-secondary)]',
             isFilePath && workspaceId &&
-              'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/30 underline-offset-2 hover:decoration-[var(--accent)] hover:text-[var(--text-secondary)]',
+              'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/60 underline-offset-2 hover:decoration-[var(--accent)] hover:text-[var(--text-primary)]',
           )}
           title={isFilePath ? 'Ctrl+click to open in editor' : undefined}
         >
@@ -285,8 +288,8 @@ function SingleToolCall({
   }, [tool.input]);
 
   const isFilePath = useMemo(
-    () => !!summary && looksLikeFilePath(summary),
-    [summary],
+    () => !!summary && FILE_PATH_TOOLS.has(tool.toolName) && looksLikeFilePath(summary),
+    [summary, tool.toolName],
   );
 
   const handleSummaryClick = useCallback(
@@ -338,9 +341,9 @@ function SingleToolCall({
           <span
             onClick={handleSummaryClick}
             className={cn(
-              'min-w-0 truncate text-[11px] text-[var(--text-muted)]/60',
+              'min-w-0 truncate text-[11px] text-[var(--text-secondary)]',
               isFilePath && workspaceId &&
-                'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/30 underline-offset-2 hover:decoration-[var(--accent)] hover:text-[var(--text-secondary)]',
+                'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/60 underline-offset-2 hover:decoration-[var(--accent)] hover:text-[var(--text-primary)]',
             )}
             title={isFilePath ? 'Ctrl+click to open in editor' : undefined}
           >
@@ -498,7 +501,7 @@ export function ToolCallGroup({
                         e.stopPropagation();
                         setShowDetails(true);
                       }}
-                      className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+                      className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                     >
                       Show full details
                     </button>
@@ -517,7 +520,7 @@ export function ToolCallGroup({
                         e.stopPropagation();
                         setShowDetails(false);
                       }}
-                      className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+                      className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                     >
                       Collapse details
                     </button>

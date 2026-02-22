@@ -43,7 +43,7 @@ function HighlightedPath({
       {path.split('').map((char, i) => (
         <span
           key={i}
-          className={indexSet.has(i) ? 'text-[var(--accent)] font-semibold' : undefined}
+          className={indexSet.has(i) ? 'text-[var(--accent-code)] font-semibold' : undefined}
         >
           {char}
         </span>

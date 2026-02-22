@@ -24,6 +24,7 @@ const EXCLUDED_DIRS = [
   '.jj',
   '.svn',
   '.hg',
+  '.DS_Store',
 ];
 
 /** Max files to return (safety cap). */
