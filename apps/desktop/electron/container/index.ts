@@ -49,6 +49,8 @@ export class ContainerManager {
   private containers = new Map<string, string>();
   /** workspaceId → container IP (cached for port forwarding) */
   private containerIps = new Map<string, string>();
+  /** workspaceId → in-flight ensure() promise (deduplicates concurrent calls) */
+  private ensureInflight = new Map<string, Promise<ContainerState>>();
 
   /** Terminal PTY management — use directly from IPC handlers. */
   readonly terminals: TerminalManager;
@@ -116,8 +118,25 @@ export class ContainerManager {
   /**
    * Ensure a workspace has a running container. Creates if needed.
    * This is the primary entry point — lazy creation on first use.
+   *
+   * Concurrent calls for the same workspace are deduplicated: if an ensure
+   * is already in-flight, the same promise is returned instead of racing.
    */
   async ensure(config: ContainerConfig): Promise<ContainerState> {
+    const wsId = config.workspaceId;
+
+    // Deduplicate: return the in-flight promise if one exists
+    const inflight = this.ensureInflight.get(wsId);
+    if (inflight) return inflight;
+
+    const promise = this.ensureOnce(config).finally(() => {
+      this.ensureInflight.delete(wsId);
+    });
+    this.ensureInflight.set(wsId, promise);
+    return promise;
+  }
+
+  private async ensureOnce(config: ContainerConfig): Promise<ContainerState> {
     let state: ContainerState;
     try {
       state = await this.ensureInternal(config);

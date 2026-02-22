@@ -8,9 +8,6 @@ import {
   type SlashCommandInfo,
 } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
-import { promises as fs } from 'fs';
-import path from 'path';
-
 import { IpcChannels } from '../../src/types/ipc';
 import type {
   ChatMessage,
@@ -35,6 +32,7 @@ import {
   buildCommandList,
 } from './agent-helpers';
 import { logRawEvent, logTurnContext } from './debug';
+import { readGlobalAgentsMd } from './global-agents';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
 import { SERO_AGENT_DIR } from '../env';
@@ -233,19 +231,6 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
   });
 }
 
-async function readGlobalAgentsMd(): Promise<{ path: string; content: string } | null> {
-  const globalPath = workspaceManager.getPath('global');
-  if (!globalPath) return null;
-
-  const filePath = path.join(globalPath, 'AGENTS.md');
-  try {
-    const content = await fs.readFile(filePath, 'utf8');
-    return { path: filePath, content };
-  } catch {
-    return null;
-  }
-}
-
 export function registerAgentHandlers(): void {
   ipcMain.handle(
     IpcChannels.agent.open,
@@ -299,7 +284,7 @@ export function registerAgentHandlers(): void {
         : undefined;
       const builtinTools = useContainer ? [] : createCodingTools(wsPath);
 
-      const globalAgentsFile = await readGlobalAgentsMd();
+      const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
 
       const loader = new DefaultResourceLoader({
         cwd: wsPath,

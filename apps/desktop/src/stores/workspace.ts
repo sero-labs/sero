@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { WorkspaceInfo } from '@/types/ipc';
+import { useSessionStore } from '@/stores/sessions';
 
 // ── Store ──────────────────────────────────────────────────────
 
@@ -43,8 +44,8 @@ interface WorkspaceState {
   toggleCollapsed: (id: string) => void;
   /** Set the focused workspace. */
   setActiveWorkspace: (id: string | null) => void;
-  /** Create a new workspace under ~/.sero-ui/workspaces/. */
-  createWorkspace: (name: string) => Promise<WorkspaceInfo>;
+  /** Create a new workspace. Optionally specify a parent directory. */
+  createWorkspace: (name: string, parentPath?: string) => Promise<WorkspaceInfo>;
   /** Register an existing folder as a workspace (VSCode "Add Folder"). */
   addFolder: (folderPath: string, name?: string) => Promise<WorkspaceInfo>;
   /** Unregister a workspace. */
@@ -116,18 +117,25 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ activeWorkspaceId: id });
   },
 
-  createWorkspace: async (name) => {
-    const workspace = await window.sero.workspace.create(name);
+  createWorkspace: async (name, parentPath) => {
+    const workspace = await window.sero.workspace.create(name, parentPath);
     set((s) => ({
       workspaces: [...s.workspaces, workspace],
       openWorkspaceIds: [...s.openWorkspaceIds, workspace.id],
       activeWorkspaceId: workspace.id,
     }));
+    // Auto-create and select a default session in the new workspace
+    try {
+      await useSessionStore.getState().createSession(workspace.id);
+    } catch (err) {
+      console.warn('Failed to auto-create session for new workspace:', err);
+    }
     return workspace;
   },
 
   addFolder: async (folderPath, name) => {
     const workspace = await window.sero.workspace.addFolder(folderPath, name);
+    const isReopen = get().workspaces.some((w) => w.id === workspace.id);
     set((s) => {
       // Replace if already exists (re-added), otherwise append
       const existing = s.workspaces.findIndex((w) => w.id === workspace.id);
@@ -144,6 +152,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         activeWorkspaceId: workspace.id,
       };
     });
+    // Auto-create and select a default session for newly imported workspaces
+    if (!isReopen) {
+      try {
+        await useSessionStore.getState().createSession(workspace.id);
+      } catch (err) {
+        console.warn('Failed to auto-create session for imported workspace:', err);
+      }
+    }
     return workspace;
   },
 

@@ -101,6 +101,30 @@ export async function clearGhostContainer(cid: string): Promise<void> {
 
 /* ── Container lifecycle ──────────────────────────────────── */
 
+/** Check whether a delete/force error is just "container not found" (harmless). */
+function isNotFoundError(err: unknown): boolean {
+  const msg = errorMessage(err);
+  return msg.includes('not found') || msg.includes('no such container') || msg.includes('does not exist');
+}
+
+/**
+ * Force-remove a container, escalating to ghost recovery only when necessary.
+ *
+ * - If `delete --force` succeeds → done.
+ * - If it fails with "not found" → the name is already free, done.
+ * - If it fails with a ghost error → clear storage + restart system.
+ * - Any other failure → also escalate (the name is stuck).
+ */
+async function forceRemoveContainer(cid: string): Promise<void> {
+  try {
+    await execFileAsync(CONTAINER_BIN, ['delete', '--force', cid], { timeout: 15_000 });
+  } catch (delErr: unknown) {
+    if (isNotFoundError(delErr)) return; // Already gone — nothing to do
+    console.warn(`[container] delete --force failed for ${cid}, escalating to ghost recovery`);
+    await clearGhostContainer(cid);
+  }
+}
+
 /**
  * Check if a container already exists and try to get it running.
  * Returns the container state if successful, null if we need to create fresh.
@@ -115,13 +139,13 @@ export async function resolveExistingContainer(
   try {
     existing = await inspectFn(workspaceId);
   } catch {
-    // Container doesn't exist — clean any stale name reservation
+    // Container doesn't exist — try cleaning any stale name reservation.
+    // This is a light-touch attempt; if delete fails with "not found"
+    // that's fine — the name is already free for creation.
     try {
       await execFileAsync(CONTAINER_BIN, ['delete', '--force', cid], { timeout: 15_000 });
-    } catch (delErr: unknown) {
-      if (isGhostError(delErr)) {
-        await clearGhostContainer(cid);
-      }
+    } catch {
+      // Ignore — if the container truly doesn't exist, nothing to delete.
     }
     return null;
   }
@@ -143,17 +167,9 @@ export async function resolveExistingContainer(
     console.warn(`[container] Failed to start ${cid}:`, errorMessage(startErr));
   }
 
-  // Start failed — delete and let caller create fresh
-  try {
-    await execFileAsync(CONTAINER_BIN, ['delete', '--force', cid], { timeout: 15_000 });
-    console.log(`[container] Deleted corrupted container ${cid}, will recreate`);
-  } catch (delErr: unknown) {
-    if (isGhostError(delErr)) {
-      await clearGhostContainer(cid);
-    } else {
-      console.warn(`[container] Delete failed for ${cid}:`, errorMessage(delErr));
-    }
-  }
+  // Start failed — force-remove (escalates to ghost recovery if needed)
+  console.log(`[container] Removing corrupted container ${cid}, will recreate`);
+  await forceRemoveContainer(cid);
 
   return null;
 }
@@ -229,8 +245,23 @@ export async function createFreshContainer(
   try {
     await execFileAsync(CONTAINER_BIN, args, { timeout: 60_000 });
   } catch (err: unknown) {
-    const e = err as Record<string, unknown>;
-    throw new Error(`Failed to create container ${cid}: ${e.stderr || errorMessage(err)}`);
+    const errStr = String((err as Record<string, unknown>).stderr || errorMessage(err));
+
+    // If a stale container with the same name exists (e.g. from a previous
+    // run that wasn't cleaned up), force-remove it (escalating to ghost
+    // recovery if needed) and retry once.
+    if (errStr.includes('already exists')) {
+      console.warn(`[container] Stale container ${cid} detected, force-removing and retrying...`);
+      await forceRemoveContainer(cid);
+      try {
+        await execFileAsync(CONTAINER_BIN, args, { timeout: 60_000 });
+      } catch (retryErr: unknown) {
+        const re = retryErr as Record<string, unknown>;
+        throw new Error(`Failed to create container ${cid} after cleanup: ${re.stderr || errorMessage(retryErr)}`);
+      }
+    } else {
+      throw new Error(`Failed to create container ${cid}: ${errStr}`);
+    }
   }
 
   containerMap.set(config.workspaceId, cid);

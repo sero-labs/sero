@@ -46,8 +46,8 @@ import type {
 interface SeroWorkspaceAPI {
   /** List all registered workspaces (registry + config merged). */
   list(): Promise<WorkspaceInfo[]>;
-  /** Create a new workspace under ~/.sero-ui/workspaces/. */
-  create(name: string): Promise<WorkspaceInfo>;
+  /** Create a new workspace. Optionally specify a parent directory for the workspace folder. */
+  create(name: string, parentPath?: string): Promise<WorkspaceInfo>;
   /** Unregister a workspace (does not delete files). */
   remove(id: string): Promise<void>;
   /** Get full config for a workspace (.sero-workspace.json). */

@@ -24,11 +24,11 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 
-  // ── Create a new workspace under ~/.sero-ui/workspaces/ ────
+  // ── Create a new workspace ──────────────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.create,
-    async (_event, name: string): Promise<WorkspaceInfo> => {
-      return workspaceManager.create(name);
+    async (_event, name: string, parentPath?: string): Promise<WorkspaceInfo> => {
+      return workspaceManager.create(name, parentPath);
     },
   );
 
