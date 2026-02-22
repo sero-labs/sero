@@ -30,6 +30,8 @@ export const IpcChannels = {
   agent: {
     open: 'sero:agent:open',
     prompt: 'sero:agent:prompt',
+    /** Steer the agent mid-stream (interrupt after current tool, skip remaining). */
+    steer: 'sero:agent:steer',
     abort: 'sero:agent:abort',
     close: 'sero:agent:close',
     /** Get available slash commands for a session. */

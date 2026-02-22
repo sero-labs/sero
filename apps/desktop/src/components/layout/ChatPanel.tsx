@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Bot, MessageSquare, Loader2, AlertCircle, Settings2, Brain } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { Bot, MessageSquare, Loader2, AlertCircle, Settings2, Brain, X } from 'lucide-react';
 import {
   Conversation,
   ConversationContent,
@@ -23,6 +23,7 @@ import {
 import { useAgentStore, useFocusedAgent, useFocusedCommands } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import { SlashCommandMenu } from './SlashCommandMenu';
+import { FileReferenceMenu } from './FileReferenceMenu';
 import { PromptAttachmentsBar } from './ChatAttachments';
 import { UsageBadge } from './UsageBadge';
 import { ModelSelector } from './ModelSelector';
@@ -35,6 +36,10 @@ import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import { useFeedbackStore } from '@/stores/feedback';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
+import { useWorkspaceFiles, fuzzyMatchFiles } from '@/hooks/useWorkspaceFiles';
+import { useMessageQueue } from '@/hooks/useMessageQueue';
+import { useEditorBridge } from '@/stores/editor-bridge';
+import { createFilePathClickHandler } from './ClickableFilePath';
 import { cn } from '@sero/ui/lib/utils';
 import type { ChatAttachment, SeroSlashCommandInfo } from '@/types/ipc';
 
@@ -55,8 +60,12 @@ export function ChatPanel() {
   const focused = useFocusedAgent();
   const commands = useFocusedCommands();
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
+  const steerAgent = useAgentStore((s) => s.steerAgent);
   const abort = useAgentStore((s) => s.abort);
   const initEventListener = useAgentStore((s) => s.initEventListener);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /** Tracks whether Ctrl/Meta was held on the most recent submit gesture. */
+  const modifierRef = useRef(false);
 
   // Subscribe to main-process events on mount
   useEffect(() => {
@@ -79,6 +88,26 @@ export function ChatPanel() {
   const sessionId = focused?.sessionId ?? null;
   const focusedWorkspaceId = focused?.workspaceId ?? null;
   const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
+
+  // ── Workspace files for @ fuzzy search ─────────────────────
+  const { files: workspaceFiles } = useWorkspaceFiles(focusedWorkspaceId);
+
+  // ── Follow-up message queue ────────────────────────────────
+  const messageQueue = useMessageQueue({
+    isStreaming,
+    sessionId,
+    sendPrompt,
+  });
+
+  // ── Ctrl+click file paths in conversation ──────────────────
+  const requestOpenFile = useEditorBridge((s) => s.requestOpenFile);
+  const conversationClickHandler = useMemo(
+    () =>
+      focusedWorkspaceId
+        ? createFilePathClickHandler(focusedWorkspaceId, requestOpenFile)
+        : undefined,
+    [focusedWorkspaceId, requestOpenFile],
+  );
 
   // Resolve session name for the header badge
   const sessions = useSessionStore((s) => s.sessions);
@@ -151,12 +180,71 @@ export function ChatPanel() {
     setInput('');
   }, []);
 
+  // ── @ file reference menu state ────────────────────────────
+  // Match @<non-space-text> at the end of input — user is typing a file ref
+  const atMatch = useMemo(() => {
+    if (slashMenuOpen) return null;
+    const m = input.match(/@([^\s@]*)$/);
+    return m;
+  }, [input, slashMenuOpen]);
+
+  const fileMenuOpen = !!atMatch && !!sessionId;
+  const fileFilter = atMatch?.[1] ?? '';
+
+  const handleFileSelect = useCallback(
+    (filePath: string) => {
+      // Replace @<partial> with @<full_path> followed by a space
+      setInput((prev) => prev.replace(/@[^\s@]*$/, `@${filePath} `));
+      // Re-focus textarea
+      textareaRef.current?.focus();
+    },
+    [],
+  );
+
+  const handleFileMenuClose = useCallback(() => {
+    // Remove the dangling @ trigger
+    setInput((prev) => prev.replace(/@[^\s@]*$/, ''));
+  }, []);
+
+  // ── Tab path completion ────────────────────────────────────
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Capture modifier state on Enter so handleSubmit can distinguish
+      // steer (default) from followUp (Ctrl/Meta+Enter).
+      if (e.key === 'Enter' && !e.shiftKey) {
+        modifierRef.current = e.ctrlKey || e.metaKey;
+      }
+
+      // Tab completion: complete partial path when Tab is pressed
+      if (e.key === 'Tab' && !e.shiftKey && !slashMenuOpen && !fileMenuOpen) {
+        // Check if the text before cursor contains a partial path (after @ or standalone)
+        const cursorPos = e.currentTarget.selectionStart ?? input.length;
+        const textBefore = input.slice(0, cursorPos);
+        const pathMatch = textBefore.match(/@?([^\s@]+)$/);
+
+        if (pathMatch) {
+          const partial = pathMatch[1];
+          const matches = fuzzyMatchFiles(workspaceFiles, partial, 1);
+          if (matches.length > 0) {
+            e.preventDefault();
+            const completed = matches[0].path;
+            const prefix = textBefore.slice(0, textBefore.length - pathMatch[0].length);
+            const hasAt = pathMatch[0].startsWith('@');
+            const after = input.slice(cursorPos);
+            setInput(`${prefix}${hasAt ? '@' : ''}${completed}${after ? '' : ' '}${after}`);
+          }
+        }
+      }
+    },
+    [input, slashMenuOpen, fileMenuOpen, workspaceFiles],
+  );
+
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
       const text = (message.text ?? input).trim();
       if ((!text && !message.files?.length) || !sessionId) return;
-      // Don't submit if slash menu is open (Enter selects from menu instead)
-      if (slashMenuOpen) return;
+      // Don't submit if slash menu or file menu is open (Enter selects from menu)
+      if (slashMenuOpen || fileMenuOpen) return;
 
       // Intercept /login and /logout commands — handle client-side
       if (text === '/login' || text.startsWith('/login ')) {
@@ -184,9 +272,22 @@ export function ChatPanel() {
           }))
         : undefined;
 
+      // During streaming: Ctrl/Meta → queue as follow-up; default → steer
+      if (isStreaming) {
+        const wantsFollowUp = modifierRef.current;
+        modifierRef.current = false;
+        if (wantsFollowUp) {
+          messageQueue.enqueue(text, attachments);
+        } else {
+          steerAgent(sessionId, text);
+        }
+        return;
+      }
+
+      modifierRef.current = false;
       sendPrompt(sessionId, text, attachments);
     },
-    [input, sessionId, slashMenuOpen, sendPrompt],
+    [input, sessionId, slashMenuOpen, fileMenuOpen, isStreaming, sendPrompt, steerAgent, messageQueue],
   );
 
   const handleTranscript = useCallback((text: string) => {
@@ -221,7 +322,8 @@ export function ChatPanel() {
 
       {/* ── Conversation ────────────────────────────────────── */}
       <Conversation key={sessionId} className="min-h-0 flex-1" initial="instant">
-        <ConversationContent className="gap-4 p-3">
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
+        <ConversationContent className="gap-4 p-3" onClick={conversationClickHandler}>
           {!hasSession ? (
             <EmptyState message="Select or create a chat to begin" />
           ) : messages.length === 0 && !isStreaming ? (
@@ -239,6 +341,7 @@ export function ChatPanel() {
                       key={item.id}
                       tools={item.tools}
                       isFinalized={isFinalized}
+                      workspaceId={focusedWorkspaceId}
                     />
                   );
                 }
@@ -298,22 +401,53 @@ export function ChatPanel() {
           open={slashMenuOpen}
         />
 
+        {/* @ file reference autocomplete menu */}
+        <FileReferenceMenu
+          files={workspaceFiles}
+          filter={fileFilter}
+          onSelect={handleFileSelect}
+          onClose={handleFileMenuClose}
+          open={fileMenuOpen}
+        />
+
         <PromptInput
           onSubmit={handleSubmit}
           className="w-full"
           multiple
           globalDrop={hasSession}
         >
-          {/* Queued attachments shown as inline badges above the textarea */}
+          {/* Queued attachments + queued follow-up messages */}
           <PromptInputHeader>
             <PromptAttachmentsBar />
+            {/* Follow-up message queue badges */}
+            {messageQueue.hasQueued && (
+              <div className="flex flex-wrap gap-1 px-1">
+                {messageQueue.queue.map((msg) => (
+                  <span
+                    key={msg.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-600 dark:text-blue-400"
+                  >
+                    <span className="max-w-[150px] truncate">{msg.text}</span>
+                    <button
+                      onClick={() => messageQueue.dequeue(msg.id)}
+                      className="shrink-0 rounded-full p-0.5 hover:bg-blue-500/20"
+                      title="Remove queued message"
+                    >
+                      <X className="size-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </PromptInputHeader>
 
           <PromptInputBody>
             <PromptInputTextarea
+              ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={hasSession ? 'Ask Sero anything… (/ for commands)' : 'Select a chat first…'}
+              onKeyDown={handleKeyDown}
+              placeholder={hasSession ? 'Ask Sero anything… (/ for commands, @ for files)' : 'Select a chat first…'}
               disabled={!hasSession}
             />
           </PromptInputBody>
@@ -342,12 +476,19 @@ export function ChatPanel() {
             </PromptInputTools>
 
             {isStreaming ? (
-              <button
-                onClick={() => sessionId && abort(sessionId)}
-                className="rounded-md bg-destructive/10 px-2 py-1 font-medium text-sm text-destructive hover:bg-destructive/20"
-              >
-                Stop
-              </button>
+              <div className="flex items-center gap-1.5">
+                <PromptInputSubmit
+                  disabled={!input.trim() || !hasSession}
+                  onClick={(e) => { modifierRef.current = e.ctrlKey || e.metaKey; }}
+                  title="Send to steer agent (⌘+click to queue as follow-up)"
+                />
+                <button
+                  onClick={() => sessionId && abort(sessionId)}
+                  className="rounded-md bg-destructive/10 px-2 py-1 font-medium text-sm text-destructive hover:bg-destructive/20"
+                >
+                  Stop
+                </button>
+              </div>
             ) : (
               <PromptInputSubmit disabled={!input.trim() || !hasSession} />
             )}

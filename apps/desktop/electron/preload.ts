@@ -105,6 +105,13 @@ contextBridge.exposeInMainWorld('sero', {
     ): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.prompt, sessionId, text, attachments, clientMessageId),
 
+    steer: (
+      sessionId: string,
+      text: string,
+      clientMessageId?: string,
+    ): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.agent.steer, sessionId, text, clientMessageId),
+
     abort: (sessionId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.abort, sessionId),
 

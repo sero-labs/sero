@@ -62,6 +62,8 @@ interface AgentState {
   closeSession: (sessionId: string) => Promise<void>;
   /** Send a prompt to a specific session, optionally with file attachments. */
   sendPrompt: (sessionId: string, text: string, attachments?: ChatAttachment[]) => Promise<void>;
+  /** Steer the agent mid-stream (interrupt after current tool, skip remaining). */
+  steerAgent: (sessionId: string, text: string) => Promise<void>;
   /** Abort a specific session. */
   abort: (sessionId: string) => Promise<void>;
   /** Focus a session in the ChatPanel. */
@@ -212,6 +214,38 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             error: message,
             isStreaming: false,
           },
+        },
+      }));
+    }
+  },
+
+  steerAgent: async (sessionId, text) => {
+    const agent = get().agents[sessionId];
+    if (!agent) return;
+
+    // Optimistically add the user message (same as sendPrompt).
+    const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
+    set((s) => ({
+      agents: {
+        ...s.agents,
+        [sessionId]: {
+          ...s.agents[sessionId],
+          error: null,
+          messages: [...s.agents[sessionId].messages, userMsg],
+        },
+      },
+    }));
+
+    try {
+      await window.sero.agent.steer(sessionId, text, userMessageId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Steer failed';
+      console.error('[agent] steerAgent failed:', err);
+      set((s) => ({
+        agents: {
+          ...s.agents,
+          [sessionId]: { ...s.agents[sessionId], error: message },
         },
       }));
     }
