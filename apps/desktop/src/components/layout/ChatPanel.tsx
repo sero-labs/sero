@@ -182,13 +182,14 @@ export function ChatPanel() {
                   const isLast = index === groupedItems.length - 1;
                   const isFinalized = !isLast || !isStreaming;
 
-                  // Replace a running questionnaire tool call with clickable notice
-                  const isRunningQuestionnaire =
+                  // Replace a running questionnaire/interview tool call with clickable notice
+                  const feedbackToolName = item.tools[0]?.toolName;
+                  const isRunningFeedbackForm =
                     item.tools.length === 1 &&
-                    item.tools[0].toolName === 'questionnaire' &&
+                    (feedbackToolName === 'questionnaire' || feedbackToolName === 'interview') &&
                     (item.tools[0].state === 'pending' || item.tools[0].state === 'running');
 
-                  if (isRunningQuestionnaire) {
+                  if (isRunningFeedbackForm) {
                     return <QuestionnaireNotice key={item.id} tools={item.tools} />;
                   }
 

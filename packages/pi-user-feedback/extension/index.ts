@@ -1,9 +1,11 @@
 /**
  * User Feedback Pi Extension.
  *
- * Registers two tools:
+ * Registers three tools + one command:
  *   - `question` — ask a single question with options
  *   - `questionnaire` — ask multiple questions (tab-based in TUI, app UI in Sero)
+ *   - `interview` — open-ended iterative questions for deep-dive understanding
+ *   - `/interview <path>` — command that starts an interview → spec workflow
  *
  * Dual-mode: uses TUI rendering in Pi CLI (ctx.hasUI === true) and
  * IPC-based rendering in Sero (ctx.hasUI === false).
@@ -17,6 +19,7 @@ import type { QuestionItem, QuestionAnswer } from '../shared/types';
 import { nextQuestionId, askQuestion } from './ipc-bridge';
 import { askQuestionTUI } from './tui-question';
 import { askQuestionnaireTUI } from './tui-questionnaire';
+import { registerInterviewTool, registerInterviewCommand } from './interview-tool';
 
 // ── Schemas ────────────────────────────────────────────────────
 
@@ -48,6 +51,8 @@ const QuestionnaireParams = Type.Object({
 export default function userFeedback(pi: ExtensionAPI) {
   registerQuestionTool(pi);
   registerQuestionnaireTool(pi);
+  registerInterviewTool(pi);
+  registerInterviewCommand(pi);
 }
 
 // ── Question tool ──────────────────────────────────────────────

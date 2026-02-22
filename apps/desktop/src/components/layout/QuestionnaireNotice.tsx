@@ -1,6 +1,6 @@
 /**
  * QuestionnaireNotice — replaces the ToolCallGroup rendering for a running
- * questionnaire tool call. Clickable to switch to the User Feedback app.
+ * questionnaire or interview tool call. Clickable to switch to the User Feedback app.
  *
  * Rendered inline in the conversation where the tool call would normally appear.
  * Once the tool completes, ChatPanel falls back to the standard ToolCallGroup.
@@ -18,8 +18,14 @@ interface Props {
 }
 
 export function QuestionnaireNotice({ tools }: Props) {
+  const toolName = tools[0]?.toolName as 'questionnaire' | 'interview' | undefined;
+  const isInterview = toolName === 'interview';
+  const label = isInterview ? 'interview' : 'questionnaire';
+
   const cancel = useUserFeedbackStore((s) => s.cancel);
-  const pending = useUserFeedbackStore((s) => s.getPending('questionnaire'));
+  const pending = useUserFeedbackStore(
+    (s) => s.getPending(isInterview ? 'interview' : 'questionnaire'),
+  );
   const setActiveApp = useAppStore((s) => s.setActiveApp);
 
   // Derive question count from tool input with validation
@@ -45,7 +51,7 @@ export function QuestionnaireNotice({ tools }: Props) {
     <motion.div
       role="button"
       tabIndex={0}
-      aria-label={`Open questionnaire${count > 0 ? ` with ${count} question${count !== 1 ? 's' : ''}` : ''} in User Feedback app`}
+      aria-label={`Open ${label}${count > 0 ? ` with ${count} question${count !== 1 ? 's' : ''}` : ''} in User Feedback app`}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
@@ -57,16 +63,16 @@ export function QuestionnaireNotice({ tools }: Props) {
         <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
         <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-blue-500 dark:bg-blue-400" />
         <span className="flex-1 text-xs font-medium text-[var(--text-secondary)]">
-          questionnaire{count > 0 ? ` (${count} question${count !== 1 ? 's' : ''})` : ''}
+          {label}{count > 0 ? ` (${count} question${count !== 1 ? 's' : ''})` : ''}
           {' — switch to '}
           <strong className="text-[var(--text-primary)]">User Feedback</strong>
         </span>
         {pending && (
           <button
             onClick={handleCancel}
-            aria-label="Cancel questionnaire"
+            aria-label={`Cancel ${label}`}
             className="rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
-            title="Cancel questionnaire"
+            title={`Cancel ${label}`}
           >
             <X className="size-3.5" />
           </button>
