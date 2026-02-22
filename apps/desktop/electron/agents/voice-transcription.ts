@@ -67,7 +67,7 @@ export async function transcribeWithOpenAi(
   const audio = parseAudioData(audioDataUrl, mimeType);
 
   const form = new FormData();
-  const file = new Blob([audio.buffer], { type: audio.mimeType });
+  const file = new Blob([new Uint8Array(audio.buffer)], { type: audio.mimeType });
   form.append('file', file, `voice-note.${audio.extension}`);
   form.append('model', OPENAI_TRANSCRIBE_MODEL);
   // Force plain text output so the response shape is stable across SDK/API changes.

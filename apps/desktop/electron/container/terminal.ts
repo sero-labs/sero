@@ -6,6 +6,7 @@
 import type { IPty } from 'node-pty';
 import { CONTAINER_BIN } from './types';
 import { TerminalOutputBuffer } from './terminal-buffer';
+import { loadNodePty } from '../lib/native-pty';
 
 /** Callback invoked when a terminal process exits. */
 export type TerminalExitCallback = (terminalId: string) => void;
@@ -36,8 +37,7 @@ export class TerminalManager {
   createTerminal(workspaceId: string, terminalId: string, cols = 80, rows = 24): IPty {
     const cid = this.getContainerIdFn(workspaceId);
 
-    // node-pty is a native module — require at runtime so esbuild doesn't bundle it
-    const pty = require('node-pty') as typeof import('node-pty');
+    const pty = loadNodePty();
 
     // Electron may strip /usr/local/bin from PATH
     const env = { ...process.env } as Record<string, string>;
@@ -76,7 +76,7 @@ export class TerminalManager {
     cols = 80,
     rows = 24,
   ): IPty {
-    const pty = require('node-pty') as typeof import('node-pty');
+    const pty = loadNodePty();
 
     const env = { ...process.env } as Record<string, string>;
     if (env.PATH && !env.PATH.includes('/usr/local/bin')) {
