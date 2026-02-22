@@ -79,6 +79,8 @@ interface SeroAgentAPI {
   open(sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]>;
   /** Send a prompt to a specific session, optionally with file attachments. */
   prompt(sessionId: string, text: string, attachments?: ChatAttachment[], clientMessageId?: string): Promise<void>;
+  /** Steer the agent mid-stream: delivered after the current tool, skips remaining tools in the turn. */
+  steer(sessionId: string, text: string, clientMessageId?: string): Promise<void>;
   /** Abort a specific session's current operation. */
   abort(sessionId: string): Promise<void>;
   /** Close a specific session and dispose its AgentSession. */

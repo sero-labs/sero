@@ -60,9 +60,12 @@ export function ChatPanel() {
   const focused = useFocusedAgent();
   const commands = useFocusedCommands();
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
+  const steerAgent = useAgentStore((s) => s.steerAgent);
   const abort = useAgentStore((s) => s.abort);
   const initEventListener = useAgentStore((s) => s.initEventListener);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /** Tracks whether Ctrl/Meta was held on the most recent submit gesture. */
+  const modifierRef = useRef(false);
 
   // Subscribe to main-process events on mount
   useEffect(() => {
@@ -206,6 +209,12 @@ export function ChatPanel() {
   // ── Tab path completion ────────────────────────────────────
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Capture modifier state on Enter so handleSubmit can distinguish
+      // steer (default) from followUp (Ctrl/Meta+Enter).
+      if (e.key === 'Enter' && !e.shiftKey) {
+        modifierRef.current = e.ctrlKey || e.metaKey;
+      }
+
       // Tab completion: complete partial path when Tab is pressed
       if (e.key === 'Tab' && !e.shiftKey && !slashMenuOpen && !fileMenuOpen) {
         // Check if the text before cursor contains a partial path (after @ or standalone)
@@ -263,15 +272,22 @@ export function ChatPanel() {
           }))
         : undefined;
 
-      // If agent is streaming, queue the message instead of sending immediately
+      // During streaming: Ctrl/Meta → queue as follow-up; default → steer
       if (isStreaming) {
-        messageQueue.enqueue(text, attachments);
+        const wantsFollowUp = modifierRef.current;
+        modifierRef.current = false;
+        if (wantsFollowUp) {
+          messageQueue.enqueue(text, attachments);
+        } else {
+          steerAgent(sessionId, text);
+        }
         return;
       }
 
+      modifierRef.current = false;
       sendPrompt(sessionId, text, attachments);
     },
-    [input, sessionId, slashMenuOpen, fileMenuOpen, isStreaming, sendPrompt, messageQueue],
+    [input, sessionId, slashMenuOpen, fileMenuOpen, isStreaming, sendPrompt, steerAgent, messageQueue],
   );
 
   const handleTranscript = useCallback((text: string) => {
@@ -466,6 +482,11 @@ export function ChatPanel() {
                     {messageQueue.queue.length} queued
                   </span>
                 )}
+                <PromptInputSubmit
+                  disabled={!input.trim() || !hasSession}
+                  onClick={(e) => { modifierRef.current = e.ctrlKey || e.metaKey; }}
+                  title="Send to steer agent (⌘+click to queue as follow-up)"
+                />
                 <button
                   onClick={() => sessionId && abort(sessionId)}
                   className="rounded-md bg-destructive/10 px-2 py-1 font-medium text-sm text-destructive hover:bg-destructive/20"

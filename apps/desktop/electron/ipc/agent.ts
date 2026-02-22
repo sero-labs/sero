@@ -386,6 +386,26 @@ export function registerAgentHandlers(): void {
   );
 
   ipcMain.handle(
+    IpcChannels.agent.steer,
+    async (
+      _event,
+      sessionId: string,
+      text: string,
+      clientMessageId?: string,
+    ): Promise<void> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      // Emit the user message so the renderer can show it immediately
+      const userMessageId = clientMessageId?.trim() || nextId();
+      const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
+      sendEvent({ type: 'message_start', sessionId, message: userMsg });
+
+      await entry.session.steer(text);
+    },
+  );
+
+  ipcMain.handle(
     IpcChannels.agent.abort,
     async (_event, sessionId: string): Promise<void> => {
       const entry = pool.get(sessionId);
