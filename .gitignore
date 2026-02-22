@@ -7,3 +7,8 @@ dist/
 .vite/
 .__mf__temp/
 .turbo/
+
+# Playwright
+test-results/
+playwright-report/
+.sero-test-data/

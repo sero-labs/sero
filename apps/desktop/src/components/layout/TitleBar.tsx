@@ -34,6 +34,7 @@ export function TitleBar() {
               variant="ghost"
               size="icon-xs"
               onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
               className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             >
               <PanelLeft className="size-4" />
@@ -60,6 +61,7 @@ export function TitleBar() {
               variant="ghost"
               size="icon-xs"
               onClick={toggleChat}
+              aria-label="Toggle agent"
               className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             >
               <PanelRight className="size-4" />
