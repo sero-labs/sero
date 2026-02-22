@@ -24,6 +24,7 @@ import type {
   VoiceTranscriptionResult,
   ResponseFeedbackEntry,
   ResponseFeedbackState,
+  ChatAttachment,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -102,7 +103,7 @@ contextBridge.exposeInMainWorld('sero', {
     prompt: (
       sessionId: string,
       text: string,
-      attachments?: import('../src/types/ipc').ChatAttachment[],
+      attachments?: ChatAttachment[],
       clientMessageId?: string,
     ): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.prompt, sessionId, text, attachments, clientMessageId),

@@ -635,12 +635,9 @@ importers:
 
   packages/pi-user-feedback:
     dependencies:
-      '@mariozechner/pi-ai':
-        specifier: '>=0.52.0'
-        version: 0.52.12(@modelcontextprotocol/sdk@1.26.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: '>=0.52.0'
-        version: 0.52.12(@modelcontextprotocol/sdk@1.26.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.52.12
       '@mariozechner/pi-tui':
         specifier: '>=0.52.0'
         version: 0.52.12
