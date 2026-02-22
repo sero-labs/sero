@@ -121,6 +121,11 @@ This is set via `PI_CODING_AGENT_DIR` in `electron/env.ts` before any SDK import
 - `src/components/apps/<name>/` — self-contained app components
 - `src/components/ui/` — shadcn/ui primitives
 - `src/components/ai-elements/` — Vercel ai-elements chat components (source, not node_modules)
+- **Always use top-level imports.** Never use inline `import('...')` type
+  expressions (e.g. `param: import('./types').Foo`). Add a proper
+  `import type { Foo } from './types'` at the top of the file instead. The only
+  exception is native addons that **must** use `require()` at runtime — wrap
+  those in a typed helper module (see `electron/lib/native-pty.ts`).
 
 ### Creating a Sero App (IMPORTANT)
 
