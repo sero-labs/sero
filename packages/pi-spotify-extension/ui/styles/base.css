@@ -1,0 +1,176 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap');
+
+.sp-root {
+  --sp-bg: #f5f7fb;
+  --sp-surface: rgba(255, 255, 255, 0.72);
+  --sp-elevated: rgba(255, 255, 255, 0.9);
+  --sp-glass: rgba(255, 255, 255, 0.58);
+  --sp-border: rgba(24, 30, 46, 0.12);
+  --sp-border-strong: rgba(12, 18, 30, 0.2);
+  --sp-text: #131827;
+  --sp-muted: #5a6175;
+  --sp-accent: #1ed760;
+  --sp-accent-strong: #10b24a;
+  --sp-accent-soft: rgba(30, 215, 96, 0.16);
+  --sp-warm: #ff7a45;
+  --sp-shadow: 0 24px 70px rgba(9, 13, 26, 0.14);
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(140% 140% at 6% 10%, rgba(30, 215, 96, 0.12), transparent 52%),
+    radial-gradient(120% 120% at 100% 0%, rgba(255, 122, 69, 0.13), transparent 54%),
+    var(--sp-bg);
+  color: var(--sp-text);
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+}
+
+.dark .sp-root {
+  --sp-bg: #071017;
+  --sp-surface: rgba(11, 19, 29, 0.78);
+  --sp-elevated: rgba(17, 28, 41, 0.94);
+  --sp-glass: rgba(17, 28, 41, 0.7);
+  --sp-border: rgba(203, 214, 235, 0.16);
+  --sp-border-strong: rgba(203, 214, 235, 0.28);
+  --sp-text: #f4f8ff;
+  --sp-muted: #a6b1c3;
+  --sp-accent: #44e37d;
+  --sp-accent-strong: #30c464;
+  --sp-accent-soft: rgba(68, 227, 125, 0.2);
+  --sp-warm: #ff9d74;
+  --sp-shadow: 0 24px 74px rgba(0, 0, 0, 0.45);
+}
+
+.sp-backdrop {
+  position: absolute;
+  inset: -6%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.26;
+  filter: blur(42px) saturate(128%);
+  transform: scale(1.06);
+  animation: sp-float 22s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.sp-gradient-mesh {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.5), transparent 58%),
+    radial-gradient(circle at 85% 22%, rgba(255, 122, 69, 0.2), transparent 35%),
+    radial-gradient(circle at 16% 82%, rgba(30, 215, 96, 0.22), transparent 34%);
+  pointer-events: none;
+}
+
+.dark .sp-gradient-mesh {
+  background:
+    linear-gradient(135deg, rgba(15, 22, 34, 0.45), transparent 58%),
+    radial-gradient(circle at 85% 22%, rgba(255, 157, 116, 0.24), transparent 35%),
+    radial-gradient(circle at 16% 82%, rgba(68, 227, 125, 0.2), transparent 34%);
+}
+
+.sp-kicker {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--sp-warm);
+}
+
+.sp-muted {
+  margin: 0;
+  color: var(--sp-muted);
+}
+
+.sp-muted.tiny {
+  font-size: 12px;
+}
+
+.sp-primary-button,
+.sp-ghost-button {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.sp-primary-button {
+  min-height: 42px;
+  padding: 0 20px;
+  color: #06210e;
+  background: linear-gradient(120deg, var(--sp-accent), #6bef98);
+  box-shadow: 0 10px 24px rgba(16, 178, 74, 0.28);
+}
+
+.sp-primary-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(16, 178, 74, 0.34);
+}
+
+.sp-ghost-button {
+  min-height: 36px;
+  padding: 0 16px;
+  border-color: var(--sp-border-strong);
+  background: var(--sp-glass);
+  color: var(--sp-text);
+}
+
+.sp-ghost-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--sp-accent-strong);
+}
+
+.sp-primary-button:disabled,
+.sp-ghost-button:disabled {
+  opacity: 0.42;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.sp-image-fallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, var(--sp-warm), #ffd1ad);
+  color: #2a190c;
+  font-weight: 700;
+}
+
+.dark .sp-image-fallback {
+  color: #1a0f08;
+}
+
+.sp-image-fallback.mini {
+  width: 38px;
+  height: 38px;
+}
+
+@keyframes sp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sp-float {
+  0%,
+  100% {
+    transform: scale(1.06) translate(0, 0);
+  }
+
+  50% {
+    transform: scale(1.1) translate(1.2%, -1.4%);
+  }
+}

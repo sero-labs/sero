@@ -1,0 +1,117 @@
+.sp-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) 1fr;
+  gap: 16px;
+  width: 100%;
+  height: calc(100% - 108px);
+  padding: 16px;
+}
+
+.sp-connect-shell {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.sp-connect-card {
+  width: min(760px, 100%);
+  border-radius: 28px;
+  border: 1px solid var(--sp-border);
+  background: linear-gradient(165deg, var(--sp-elevated), var(--sp-surface));
+  box-shadow: var(--sp-shadow);
+  padding: clamp(24px, 4vw, 42px);
+  backdrop-filter: blur(14px);
+  animation: sp-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sp-connect-card h1 {
+  margin: 8px 0 8px;
+  font-family: 'Syne', 'Space Grotesk', sans-serif;
+  font-size: clamp(2rem, 6vw, 3rem);
+  letter-spacing: -0.03em;
+}
+
+.sp-connect-card .sp-muted {
+  max-width: 54ch;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.sp-field-grid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.sp-field-grid label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sp-muted);
+}
+
+.sp-field-grid input,
+.sp-search-row input {
+  border: 1px solid var(--sp-border);
+  border-radius: 14px;
+  background: var(--sp-glass);
+  color: var(--sp-text);
+  font: inherit;
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sp-field-grid input:focus,
+.sp-search-row input:focus {
+  border-color: var(--sp-accent-strong);
+  box-shadow: 0 0 0 4px var(--sp-accent-soft);
+}
+
+.sp-connect-card .sp-primary-button {
+  margin-top: 20px;
+}
+
+.sp-error {
+  margin: 10px 0 0;
+  color: #ff5a5f;
+  font-size: 13px;
+}
+
+.sp-steps {
+  margin: 18px 0 0;
+  color: var(--sp-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.sp-search-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+}
+
+@media (max-width: 1120px) {
+  .sp-shell {
+    grid-template-columns: 1fr;
+    height: calc(100% - 190px);
+    overflow: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .sp-shell {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .sp-search-row {
+    grid-template-columns: 1fr;
+  }
+}

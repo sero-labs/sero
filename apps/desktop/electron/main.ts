@@ -11,11 +11,16 @@ import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } fro
 import { discoverApps, registerAppPath } from './app-discovery';
 import { watchForNewApps } from './ipc/apps';
 import { containerManager, fileWatcherManager, lspManager, vcsManager } from './ipc/shared-infra';
+import { configureWidevine } from './widevine';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
 
 let mainWindow: BrowserWindow | null = null;
+
+// Spotify Web Playback SDK needs autoplay + EME support in the renderer.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+configureWidevine(app);
 
 /**
  * Bootstrap ~/.sero-ui/agent/ on first run.
@@ -112,6 +117,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      plugins: true,
     },
   });
 
