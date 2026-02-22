@@ -21,8 +21,9 @@ test.afterAll(async () => {
 
 test.describe('App Launch', () => {
   test('should create a visible window', async () => {
-    const visible = await isWindowVisible(app);
-    expect(visible).toBe(true);
+    // The window is created with show:false and shown on 'ready-to-show',
+    // which may fire after domcontentloaded. Poll briefly.
+    await expect.poll(() => isWindowVisible(app), { timeout: 10_000 }).toBe(true);
   });
 
   test('should set the correct window title', async () => {
