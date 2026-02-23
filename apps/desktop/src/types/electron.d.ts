@@ -25,6 +25,8 @@ import type {
   ResponseFeedbackState,
   UserFeedbackPendingQuestion,
   UserFeedbackResponse,
+  ProxyFetchRequest,
+  ProxyFetchResponse,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -231,6 +233,27 @@ interface SeroLayoutAPI {
   load(): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null>;
 }
 
+interface SeroNetAPI {
+  /**
+   * Proxy an HTTP request through the main process (bypasses CORS).
+   * Use this instead of direct fetch() when calling external APIs from app UIs.
+   */
+  fetch(request: ProxyFetchRequest): Promise<ProxyFetchResponse>;
+}
+
+interface SeroSafeStorageAPI {
+  /**
+   * Encrypt a string using the OS keychain (macOS Keychain / DPAPI).
+   * Returns base64-encoded encrypted data. Only decryptable by this app,
+   * on this machine, by the current OS user.
+   */
+  encrypt(plaintext: string): Promise<string>;
+  /** Decrypt a safeStorage-encrypted base64 string. */
+  decrypt(encryptedBase64: string): Promise<string>;
+  /** Check if OS-level encryption is available. */
+  available(): Promise<boolean>;
+}
+
 interface SeroFeedbackAPI {
   /** Load all feedback entries from disk. */
   load(): Promise<ResponseFeedbackState>;
@@ -381,6 +404,8 @@ interface SeroAPI {
   devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
   layout: SeroLayoutAPI;
+  net: SeroNetAPI;
+  safeStorage: SeroSafeStorageAPI;
   feedback: SeroFeedbackAPI;
   userFeedback: SeroUserFeedbackAPI;
   editor: SeroEditorAPI;

@@ -439,6 +439,24 @@ export interface UserFeedbackResponse {
   cancelled: boolean;
 }
 
+// ── Net Proxy ──────────────────────────────────────────────────
+
+/** Request payload for sero:net:fetch (main-process HTTP proxy). */
+export interface ProxyFetchRequest {
+  url: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+/** Response payload from sero:net:fetch. */
+export interface ProxyFetchResponse {
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: string;
+}
+
 // ── IPC Channels ───────────────────────────────────────────────
 
 // Extracted to keep ipc.ts under 500 LOC.

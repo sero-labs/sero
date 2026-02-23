@@ -716,6 +716,10 @@ You can add app-specific `@keyframes` and `@utility` rules to this file too.
 
 ### `ui/index.html`
 
+> **This file is required.** Because `vite.config.ts` sets `root: 'ui'`, Vite
+> expects `ui/index.html` as the build entry point. Without it, `vite build`
+> fails with `Could not resolve entry module "ui/index.html"`.
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
@@ -1265,6 +1269,11 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
 ---
 
 ## Troubleshooting
+
+**Build fails with `Could not resolve entry module "ui/index.html"`:**
+- You're missing `ui/index.html`. Every app with a web UI needs this file
+  because `vite.config.ts` sets `root: 'ui'`. Add a minimal HTML file — see
+  the [`ui/index.html`](#uiindexhtml) template above.
 
 **App doesn't appear in sidebar:**
 - Check that `sero.app.id` and `sero.app.name` are set in `package.json`.

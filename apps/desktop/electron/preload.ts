@@ -25,6 +25,8 @@ import type {
   ResponseFeedbackEntry,
   ResponseFeedbackState,
   ChatAttachment,
+  ProxyFetchRequest,
+  ProxyFetchResponse,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -424,6 +426,20 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.layout.save, state),
     load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null> =>
       ipcRenderer.invoke(IpcChannels.layout.load),
+  },
+
+  net: {
+    fetch: (request: ProxyFetchRequest): Promise<ProxyFetchResponse> =>
+      ipcRenderer.invoke(IpcChannels.net.fetch, request),
+  },
+
+  safeStorage: {
+    encrypt: (plaintext: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.safeStorage.encrypt, plaintext),
+    decrypt: (encryptedBase64: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.safeStorage.decrypt, encryptedBase64),
+    available: (): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.safeStorage.available),
   },
 
   feedback: {
