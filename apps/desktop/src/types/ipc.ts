@@ -292,6 +292,12 @@ export interface SeroAppManifest {
   id: string;
   /** Display name. */
   name: string;
+  /** Package description from package.json. */
+  description: string | null;
+  /** Package version from package.json. */
+  version: string | null;
+  /** npm package name from package.json. */
+  packageName: string | null;
   /** Lucide icon name (e.g. "check-square"). */
   icon: string;
   /** State file path relative to workspace root (workspace-scoped apps). */
