@@ -2,7 +2,7 @@
 import { loadSeroEnv, SERO_AGENT_DIR } from './env';
 loadSeroEnv();
 
-import { app, BrowserWindow, shell } from 'electron';
+import { app, components, BrowserWindow, session, shell } from 'electron';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import path from 'path';
 import { registerAllIpcHandlers } from './ipc/index';
@@ -16,6 +16,13 @@ import { containerManager, fileWatcherManager, lspManager, vcsManager } from './
 registerExtProtocolScheme();
 
 let mainWindow: BrowserWindow | null = null;
+
+// Spotify Web Playback SDK needs autoplay + EME support in the renderer.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// Use a mock keychain so macOS doesn't prompt for "Chromium Safe Storage"
+// access on every launch (the dev binary isn't code-signed so the grant
+// never sticks). Data is still persisted — just not keychain-encrypted.
+app.commandLine.appendSwitch('use-mock-keychain');
 
 /**
  * Bootstrap ~/.sero-ui/agent/ on first run.
@@ -112,6 +119,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      plugins: true,
     },
   });
 
@@ -181,6 +189,30 @@ app.whenReady().then(async () => {
   watchForNewApps(knownAppIds);
 
   registerAllIpcHandlers();
+
+  // ── Widevine CDM (castlabs ECS) ─────────────────────────────
+  // The castlabs Electron fork auto-downloads the Widevine CDM via the
+  // Component Updater. Wait for it before creating the window so that
+  // EME (Encrypted Media Extensions) is available from the first paint.
+  try {
+    await components.whenReady();
+    console.log('[sero] Widevine CDM ready:', components.status());
+  } catch (err) {
+    console.error('[sero] Widevine CDM install failed — DRM playback will be unavailable:', err);
+  }
+
+  // ── User-Agent ────────────────────────────────────────────────
+  // Strip "Electron/<version>" from the session User-Agent. Services like
+  // Spotify and Peacock reject Widevine license requests when they see an
+  // Electron UA. Removing the token makes requests look like regular Chrome
+  // (which is accurate — Electron IS Chromium). Must be set on the session,
+  // not via app.userAgentFallback, because Chromium sets a session-level
+  // default that takes priority over the fallback.
+  const cleanUA = session.defaultSession.getUserAgent()
+    .replace(/\sElectron\/[\S]+/, '')
+    .replace(/\s+sero\/[\S]+/i, '');
+  session.defaultSession.setUserAgent(cleanUA);
+  console.log('[sero] User-Agent:', cleanUA);
 
   // ── Container system bootstrap ───────────────────────────────
   // Ensure the container API server is running (non-blocking on failure)
