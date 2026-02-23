@@ -25,6 +25,8 @@ import type {
   ResponseFeedbackState,
   UserFeedbackPendingQuestion,
   UserFeedbackResponse,
+  ProxyFetchRequest,
+  ProxyFetchResponse,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -231,6 +233,14 @@ interface SeroLayoutAPI {
   load(): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null>;
 }
 
+interface SeroNetAPI {
+  /**
+   * Proxy an HTTP request through the main process (bypasses CORS).
+   * Use this instead of direct fetch() when calling external APIs from app UIs.
+   */
+  fetch(request: ProxyFetchRequest): Promise<ProxyFetchResponse>;
+}
+
 interface SeroFeedbackAPI {
   /** Load all feedback entries from disk. */
   load(): Promise<ResponseFeedbackState>;
@@ -381,6 +391,7 @@ interface SeroAPI {
   devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
   layout: SeroLayoutAPI;
+  net: SeroNetAPI;
   feedback: SeroFeedbackAPI;
   userFeedback: SeroUserFeedbackAPI;
   editor: SeroEditorAPI;

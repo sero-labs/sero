@@ -13,5 +13,6 @@
       "@sero/app-runtime": ["../../app-runtime/src/index.ts"]
     }
   },
-  "include": ["./**/*", "../shared/**/*"]
+  "include": ["./**/*", "../shared/**/*"],
+  "exclude": ["../task_plan.md"]
 }

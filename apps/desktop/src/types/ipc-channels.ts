@@ -270,6 +270,10 @@ export const IpcChannels = {
     cancel: 'sero:github:cancel',
     event: 'sero:github:event',
   },
+  net: {
+    /** Proxy an HTTP fetch through the main process (bypasses CORS). */
+    fetch: 'sero:net:fetch',
+  },
   feedback: {
     /** Load all feedback entries from disk. */
     load: 'sero:feedback:load',
