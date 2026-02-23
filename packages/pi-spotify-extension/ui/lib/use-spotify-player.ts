@@ -107,7 +107,7 @@ async function checkEmeSupport(): Promise<boolean> {
     await navigator.requestMediaKeySystemAccess('com.widevine.alpha', [
       {
         initDataTypes: ['cenc'],
-        videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"', robustness: 'SW_SECURE_CRYPTO' }],
+        audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"', robustness: 'SW_SECURE_CRYPTO' }],
       },
     ]);
     emeSupported = true;

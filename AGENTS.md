@@ -197,6 +197,20 @@ framework). See [docs/decisions.md](docs/decisions.md) AD-018 for full details.
   storage directories directly. NEVER restart the API server in normal operation.
 - **Container CLI** is at `/usr/local/bin/container` (v0.8.0+)
 
+### Widevine DRM / Castlabs Electron
+
+Sero uses the [castlabs Electron fork](https://github.com/castlabs/electron-releases)
+instead of stock Electron. This is a drop-in replacement that adds Widevine CDM
+support (required by the Spotify Web Playback SDK for audio decryption).
+
+- **`components.whenReady()`** must be awaited before `createWindow()` in
+  `electron/main.ts` — this triggers CDM download on first launch.
+- **VMP signing** is required on macOS. Without a production VMP signature,
+  Spotify's Widevine license server returns 500. Run `pnpm sign-vmp` (or
+  `bash scripts/sign-vmp.sh`) from `apps/desktop/`. Re-run after `pnpm install`.
+- **User-Agent** — `session.defaultSession.setUserAgent()` strips "Electron"
+  from the UA; some DRM services reject Electron UAs.
+
 ### node-pty Native Module (CRITICAL)
 
 Interactive terminals use `node-pty` to spawn `container exec -it` sessions.

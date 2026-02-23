@@ -17,14 +17,15 @@
     "test:e2e:headed": "npm run build && npx playwright test --project=local --headed",
     "container:nat": "sudo ./scripts/setup-container-nat.sh",
     "container:nat:teardown": "sudo ./scripts/setup-container-nat.sh --teardown",
-    "container:build-image": "cd images && container build -t sero-node:latest -f Dockerfile.sero-node ."
+    "container:build-image": "cd images && container build -t sero-node:latest -f Dockerfile.sero-node .",
+    "sign-vmp": "bash scripts/sign-vmp.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
-    "@google/genai": "^1.41.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@google/genai": "^1.41.0",
     "@headless-tree/core": "^1.6.3",
     "@headless-tree/react": "^1.6.3",
     "@hookform/resolvers": "^5.2.2",
@@ -101,7 +102,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^4.7.0",
     "concurrently": "^9.2.1",
-    "electron": "^33.4.11",
+    "electron": "github:castlabs/electron-releases#v33.4.11+wvcus",
     "electron-builder": "^25.1.8",
     "esbuild": "^0.27.3",
     "shadcn": "^3.8.4",

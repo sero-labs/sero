@@ -225,11 +225,18 @@ function mapPlaylist(raw: unknown): SpotifyPlaylist | null {
   }
 
   const owner = isRecord(raw.owner) ? raw.owner : null;
-  const tracks = isRecord(raw.tracks) ? raw.tracks : null;
+  // Spotify's API returns track counts under `tracks` or `items` depending
+  // on app quota mode. Check both.
+  const tracksMeta = isRecord(raw.tracks) ? raw.tracks : null;
+  const itemsMeta = isRecord(raw.items) ? raw.items : null;
   const images = Array.isArray(raw.images) ? raw.images : [];
   const art = images.find((img) => isRecord(img) && typeof img.url === 'string') as
     | { url: string }
     | undefined;
+
+  const totalTracks =
+    (tracksMeta && typeof tracksMeta.total === 'number' ? tracksMeta.total : 0)
+    || (itemsMeta && typeof itemsMeta.total === 'number' ? itemsMeta.total : 0);
 
   return {
     id: raw.id,
@@ -238,7 +245,7 @@ function mapPlaylist(raw: unknown): SpotifyPlaylist | null {
     description: typeof raw.description === 'string' ? decodeHtml(raw.description) : '',
     imageUrl: art?.url ?? null,
     ownerName: owner && typeof owner.display_name === 'string' ? owner.display_name : 'Unknown owner',
-    totalTracks: tracks && typeof tracks.total === 'number' ? tracks.total : 0,
+    totalTracks,
     snapshotId: typeof raw.snapshot_id === 'string' ? raw.snapshot_id : null,
   };
 }
@@ -294,13 +301,17 @@ export async function fetchPlaylistTracks(
   playlistId: string,
   limit = 100,
 ): Promise<SpotifyTrack[]> {
-  const payload = await spotifyApiRequest<{ items?: Array<{ track?: unknown }> }>(
+  // Use /items (not /tracks) — Spotify's Development Mode blocks the
+  // /tracks endpoint with 403 but /items works identically.
+  // Track data lives under `entry.item` instead of `entry.track`.
+  const clampedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+  const payload = await spotifyApiRequest<{ items?: Array<{ item?: unknown }> }>(
     accessToken,
-    `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=${Math.max(1, Math.min(100, Math.floor(limit)))}`,
+    `/playlists/${encodeURIComponent(playlistId)}/items?limit=${clampedLimit}&additional_types=track`,
   );
 
   return (payload.items ?? [])
-    .map((entry) => mapTrack(entry.track))
+    .map((entry) => mapTrack(entry.item))
     .filter((item): item is SpotifyTrack => Boolean(item));
 }
 

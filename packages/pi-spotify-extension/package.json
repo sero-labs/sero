@@ -20,7 +20,7 @@
       "stateFile": ".sero/apps/spotify/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "SpotifyApp",
-      "devPort": 5181
+      "devPort": 5185
     }
   },
   "dependencies": {
