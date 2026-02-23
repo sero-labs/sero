@@ -2,21 +2,26 @@
  * Shared state shape for the Starling Bank app.
  *
  * Both the Pi extension and the Sero web UI read/write a JSON file
- * matching this shape. The access token is stored encrypted with a
- * user-set PIN using AES-GCM (Web Crypto API in the UI).
+ * matching this shape.
+ *
+ * Security model:
+ *   - The access token is encrypted via Electron's safeStorage API
+ *     (macOS Keychain / Windows DPAPI). Only this app, on this machine,
+ *     by the current OS user can decrypt it.
+ *   - The PIN is a UX-level lock (prevents casual access). Its salted
+ *     hash is stored for quick verification, but the PIN itself is NOT
+ *     the encryption key — safeStorage is the security boundary.
  */
 
 // ── Auth ──────────────────────────────────────────────────────
 
 export interface AuthData {
-  /** AES-GCM encrypted access token, base64 */
+  /** safeStorage-encrypted access token, base64 */
   encryptedToken: string | null;
-  /** PBKDF2 salt, base64 */
-  salt: string | null;
-  /** AES-GCM initialisation vector, base64 */
-  iv: string | null;
-  /** SHA-256 hash of PIN for quick verification, hex */
+  /** SHA-256 hash of (pinSalt + PIN) for app-level lock verification, hex */
   pinHash: string | null;
+  /** Random salt for the PIN hash, base64 */
+  pinSalt: string | null;
 }
 
 // ── Starling API response types ───────────────────────────────
@@ -92,9 +97,8 @@ export interface StarlingState {
 export const DEFAULT_STATE: StarlingState = {
   auth: {
     encryptedToken: null,
-    salt: null,
-    iv: null,
     pinHash: null,
+    pinSalt: null,
   },
   cache: {
     accountHolder: null,

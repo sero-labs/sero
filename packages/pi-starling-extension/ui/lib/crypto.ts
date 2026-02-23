@@ -1,64 +1,41 @@
 /**
- * AES-GCM token encryption with PIN-derived key (PBKDF2).
+ * Crypto utilities for the Starling app.
+ *
+ * Token encryption uses Electron's safeStorage (OS keychain) via IPC.
+ * The PIN is a UX-level lock only — its salted hash is stored for
+ * quick verification, but the PIN is NOT the encryption key.
  */
 
-async function deriveKey(pin: string, salt: Uint8Array): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(pin),
-    'PBKDF2',
-    false,
-    ['deriveKey'],
-  );
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: salt.buffer as ArrayBuffer, iterations: 100000, hash: 'SHA-256' },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt'],
-  );
+// ── Token encryption (via Electron main process) ────────────
+
+export async function encryptToken(token: string): Promise<string> {
+  if (typeof window !== 'undefined' && window.sero?.safeStorage) {
+    return window.sero.safeStorage.encrypt(token);
+  }
+  // Fallback: base64 only (insecure, for non-Electron contexts)
+  return btoa(token);
 }
 
-export async function encryptToken(
-  token: string,
-  pin: string,
-): Promise<{ encrypted: string; salt: string; iv: string }> {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(pin, salt);
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    new TextEncoder().encode(token),
-  );
-  return {
-    encrypted: btoa(String.fromCharCode(...new Uint8Array(ciphertext))),
-    salt: btoa(String.fromCharCode(...salt)),
-    iv: btoa(String.fromCharCode(...iv)),
-  };
+export async function decryptToken(encryptedBase64: string): Promise<string> {
+  if (typeof window !== 'undefined' && window.sero?.safeStorage) {
+    return window.sero.safeStorage.decrypt(encryptedBase64);
+  }
+  // Fallback
+  return atob(encryptedBase64);
 }
 
-export async function decryptToken(
-  encrypted: string,
-  salt: string,
-  iv: string,
-  pin: string,
-): Promise<string> {
-  const saltBytes = Uint8Array.from(atob(salt), (c) => c.charCodeAt(0));
-  const ivBytes = Uint8Array.from(atob(iv), (c) => c.charCodeAt(0));
-  const cipherBytes = Uint8Array.from(atob(encrypted), (c) => c.charCodeAt(0));
-  const key = await deriveKey(pin, saltBytes);
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: ivBytes },
-    key,
-    cipherBytes,
-  );
-  return new TextDecoder().decode(plaintext);
+// ── PIN hashing (salted SHA-256) ────────────────────────────
+
+/** Generate a random salt for PIN hashing (base64). */
+export function generatePinSalt(): string {
+  const salt = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...salt));
 }
 
-export async function hashPin(pin: string): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+/** Hash a PIN with a salt. Returns hex string. */
+export async function hashPin(pin: string, salt: string): Promise<string> {
+  const data = new TextEncoder().encode(salt + pin);
+  const hash = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');

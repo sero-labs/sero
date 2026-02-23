@@ -433,6 +433,15 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.net.fetch, request),
   },
 
+  safeStorage: {
+    encrypt: (plaintext: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.safeStorage.encrypt, plaintext),
+    decrypt: (encryptedBase64: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.safeStorage.decrypt, encryptedBase64),
+    available: (): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.safeStorage.available),
+  },
+
   feedback: {
     load: (): Promise<ResponseFeedbackState> =>
       ipcRenderer.invoke(IpcChannels.feedback.load),

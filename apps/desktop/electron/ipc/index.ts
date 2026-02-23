@@ -29,6 +29,7 @@ import { registerGitHubHandlers } from './github';
 import { registerFeedbackHandlers } from './feedback';
 import { registerImagegenHandlers } from './imagegen';
 import { registerNetHandlers } from './net';
+import { registerSafeStorageHandlers } from './safe-storage';
 import { registerUserFeedbackQuestionHandlers } from './user-feedback-questions';
 
 export function registerAllIpcHandlers(): void {
@@ -55,5 +56,6 @@ export function registerAllIpcHandlers(): void {
   registerFeedbackHandlers();
   registerImagegenHandlers();
   registerNetHandlers();
+  registerSafeStorageHandlers();
   registerUserFeedbackQuestionHandlers();
 }

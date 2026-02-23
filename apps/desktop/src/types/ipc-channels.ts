@@ -274,6 +274,14 @@ export const IpcChannels = {
     /** Proxy an HTTP fetch through the main process (bypasses CORS). */
     fetch: 'sero:net:fetch',
   },
+  safeStorage: {
+    /** Encrypt a string via OS keychain (macOS Keychain / DPAPI). */
+    encrypt: 'sero:safe-storage:encrypt',
+    /** Decrypt a safeStorage-encrypted base64 string. */
+    decrypt: 'sero:safe-storage:decrypt',
+    /** Check if OS-level encryption is available. */
+    available: 'sero:safe-storage:available',
+  },
   feedback: {
     /** Load all feedback entries from disk. */
     load: 'sero:feedback:load',
