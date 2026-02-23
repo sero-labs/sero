@@ -10,8 +10,9 @@ import { ErrorBanner } from './LoginScreen';
 import { OverviewTab } from '../components/OverviewTab';
 import { TransactionsTab } from '../components/TransactionsTab';
 import { SavingsTab } from '../components/SavingsTab';
+import { SettingsTab } from '../components/SettingsTab';
 
-type DashTab = 'overview' | 'transactions' | 'savings';
+type DashTab = 'overview' | 'transactions' | 'savings' | 'settings';
 
 export function Dashboard({
   token,
@@ -30,8 +31,6 @@ export function Dashboard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryInfo, setRetryInfo] = useState<string | null>(null);
-  const [showForget, setShowForget] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
   const fetchingRef = useRef(false);
 
   const refreshData = useCallback(async () => {
@@ -108,8 +107,6 @@ export function Dashboard({
   const { balance, transactions, savingsGoals, accounts } = state.cache;
   const currency = accounts?.[0]?.currency || 'GBP';
 
-  const confirmPhrase = 'FORGET MY ACCOUNT';
-
   return (
     <div className="flex flex-1 flex-col overflow-hidden sb-animate-in">
       {/* Header */}
@@ -138,41 +135,8 @@ export function Dashboard({
               : <RefreshIcon />}
             Refresh
           </button>
-          <button onClick={onLock} className="sb-btn-ghost" style={{ padding: '5px 10px', fontSize: 12 }}>
-            Lock
-          </button>
-          <button onClick={() => setShowForget(true)} className="sb-btn-danger"
-            style={{ padding: '5px 10px', fontSize: 12 }}>
-            Forget
-          </button>
         </div>
       </div>
-
-      {/* Forget confirmation */}
-      {showForget && (
-        <div className="shrink-0 px-4 pt-3">
-          <div className="sb-card p-4 sb-animate-in" style={{ borderColor: 'rgba(248,113,113,0.25)' }}>
-            <p className="mb-2 text-sm" style={{ color: 'var(--sb-text)' }}>
-              Type <strong style={{ color: 'var(--sb-danger)' }}>{confirmPhrase}</strong> to permanently delete your token and data:
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="text" value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                placeholder={confirmPhrase}
-                className="sb-input flex-1"
-                style={{ fontFamily: "'DM Sans', sans-serif", letterSpacing: 0, fontSize: 13 }}
-                autoFocus
-              />
-              <button onClick={() => { setShowForget(false); setConfirmText(''); }}
-                className="sb-btn-ghost" style={{ padding: '5px 12px', fontSize: 12 }}>Cancel</button>
-              <button onClick={() => { if (confirmText.trim() === confirmPhrase) onForget(); }}
-                disabled={confirmText.trim() !== confirmPhrase}
-                className="sb-btn-danger" style={{ padding: '5px 12px', fontSize: 12 }}>Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Error banners */}
       {(error || retryInfo) && (
@@ -189,7 +153,7 @@ export function Dashboard({
 
       {/* Tabs */}
       <div className="flex shrink-0 px-3" style={{ borderBottom: '1px solid var(--sb-border)' }}>
-        {(['overview', 'transactions', 'savings'] as const).map((t) => (
+        {(['overview', 'transactions', 'savings', 'settings'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`sb-tab ${tab === t ? 'active' : ''}`}>
             {t}
           </button>
@@ -208,6 +172,7 @@ export function Dashboard({
             {tab === 'overview' && <OverviewTab balance={balance} transactions={transactions} currency={currency} />}
             {tab === 'transactions' && <TransactionsTab transactions={transactions} />}
             {tab === 'savings' && <SavingsTab savingsGoals={savingsGoals} />}
+            {tab === 'settings' && <SettingsTab onLock={onLock} onForget={onForget} lastFetchedAt={state.cache.lastFetchedAt} />}
           </>
         )}
       </div>
