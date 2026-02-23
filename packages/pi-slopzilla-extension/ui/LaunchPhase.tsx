@@ -5,7 +5,7 @@
  * the option to go back and generate more ideas.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { AppIdea, Complexity } from '../shared/types';
 import { launchIdea } from './sero-launcher';
 import type { LaunchStep } from './sero-launcher';
@@ -60,6 +60,12 @@ export function LaunchPhase({ idea, complexity, onLaunched, onBack }: LaunchPhas
   const [state, setState] = useState<LaunchState>('launching');
   const [step, setStep] = useState<LaunchStep>('creating-workspace');
   const [error, setError] = useState<string | null>(null);
+  const hasLaunched = useRef(false);
+
+  // Store onLaunched in a ref so the launch callback always sees the
+  // latest version without triggering re-fires via the effect.
+  const onLaunchedRef = useRef(onLaunched);
+  onLaunchedRef.current = onLaunched;
 
   const doLaunch = useCallback(async () => {
     setState('launching');
@@ -70,14 +76,18 @@ export function LaunchPhase({ idea, complexity, onLaunched, onBack }: LaunchPhas
       const prompt = buildPrompt(idea, complexity);
       const result = await launchIdea(idea.name, prompt, setStep);
       setState('success');
-      onLaunched(result.workspaceId, result.sessionId);
+      onLaunchedRef.current(result.workspaceId, result.sessionId);
     } catch (err) {
       setState('error');
       setError(err instanceof Error ? err.message : 'Failed to launch. The kaiju stumbled.');
     }
-  }, [idea, complexity, onLaunched]);
+  }, [idea, complexity]);
 
+  // Fire once on mount — the ref guard prevents re-launches if
+  // parent re-renders cause this component to stay mounted.
   useEffect(() => {
+    if (hasLaunched.current) return;
+    hasLaunched.current = true;
     doLaunch();
   }, [doLaunch]);
 
@@ -86,7 +96,11 @@ export function LaunchPhase({ idea, complexity, onLaunched, onBack }: LaunchPhas
   }
 
   if (state === 'error') {
-    return <ErrorView error={error} onRetry={doLaunch} onBack={onBack} />;
+    const handleRetry = () => {
+      hasLaunched.current = false;
+      doLaunch();
+    };
+    return <ErrorView error={error} onRetry={handleRetry} onBack={onBack} />;
   }
 
   return <SuccessView idea={idea} onBack={onBack} />;

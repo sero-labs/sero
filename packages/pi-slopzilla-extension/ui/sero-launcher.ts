@@ -4,14 +4,20 @@
  *
  * These APIs live on `window.sero` (exposed by the Electron preload)
  * but aren't part of @sero/app-runtime — they're shell-level APIs.
+ *
+ * NOTE: The types below are duplicated from the host app because
+ * federated remotes can't import host-only modules directly.
+ * If you change the host API, update these types to match.
  */
 
+// SYNC WITH: apps/desktop/src/types/ipc.ts — WorkspaceInfo
 interface WorkspaceInfo {
   id: string;
   name: string;
   path: string;
 }
 
+// SYNC WITH: apps/desktop/src/types/ipc.ts — SeroSessionInfo
 interface SessionInfo {
   path: string;
   id: string;
@@ -23,6 +29,7 @@ interface SessionInfo {
   firstMessage: string;
 }
 
+// SYNC WITH: apps/desktop/src/types/electron.d.ts — SeroWorkspaceAPI, SeroSessionsAPI, SeroAgentAPI
 interface SeroShellApi {
   workspace: {
     create: (name: string, parentPath?: string) => Promise<WorkspaceInfo>;

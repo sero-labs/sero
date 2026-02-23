@@ -10,7 +10,8 @@
  * State is persisted via useAppState so history survives across sessions.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, Component } from 'react';
+import type { ReactNode, ErrorInfo } from 'react';
 import { useAppState, useAI } from '@sero/app-runtime';
 import type { SlopZillaState, Complexity, AppIdea } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
@@ -20,6 +21,64 @@ import { GeneratingPhase } from './GeneratingPhase';
 import { PickingPhase } from './PickingPhase';
 import { LaunchPhase } from './LaunchPhase';
 import './styles.css';
+
+// ── Error Boundary ─────────────────────────────────────────
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  onReset?: () => void;
+}
+
+interface ErrorBoundaryState {
+  error: Error | null;
+}
+
+class PhaseErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[SlopZilla] Phase crashed:', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center px-6 py-12 relative z-10">
+          <pre
+            className="text-sm leading-tight font-mono select-none text-center mb-6"
+            style={{ color: 'var(--sz-red)' }}
+            aria-hidden="true"
+          >
+            {`    __\n   / x\\\n  | \\__/|\n  /|    |\\\n / | ~~ | \\\n   || ||\n  _||_||_`}
+          </pre>
+          <h2 className="sz-kaiju-text text-xl mb-2" style={{ color: 'var(--sz-red)' }}>
+            KAIJU MALFUNCTION!
+          </h2>
+          <p className="text-sm text-center mb-2" style={{ color: 'var(--sz-text)' }}>
+            Something went wrong inside SlopZilla.
+          </p>
+          <p className="text-xs text-center mb-6 max-w-sm" style={{ color: 'var(--sz-text-dim)' }}>
+            {this.state.error.message}
+          </p>
+          <button
+            className="sz-cta"
+            onClick={() => {
+              this.setState({ error: null });
+              this.props.onReset?.();
+            }}
+          >
+            <span>Reset SlopZilla</span>
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ── Idea parser ────────────────────────────────────────────
 
@@ -191,7 +250,7 @@ export function SlopZilla() {
         updateState((prev) => ({ ...prev, phase: 'config' }));
       }
     },
-    [ai, updateState],
+    [ai, state.history, updateState],
   );
 
   // ── Pick an idea ────────────────────────────────────────
@@ -276,30 +335,32 @@ export function SlopZilla() {
           </div>
         )}
 
-        {phase === 'config' && (
-          <ConfigPhase onGenerate={handleGenerate} />
-        )}
+        <PhaseErrorBoundary onReset={handleBack}>
+          {phase === 'config' && (
+            <ConfigPhase onGenerate={handleGenerate} />
+          )}
 
-        {phase === 'generating' && (
-          <GeneratingPhase />
-        )}
+          {phase === 'generating' && (
+            <GeneratingPhase />
+          )}
 
-        {phase === 'picking' && ideas && (
-          <PickingPhase
-            ideas={ideas}
-            onPick={handlePick}
-            onRegenerate={() => handleGenerate(complexity, state.technologies)}
-          />
-        )}
+          {phase === 'picking' && ideas && (
+            <PickingPhase
+              ideas={ideas}
+              onPick={handlePick}
+              onRegenerate={() => handleGenerate(complexity, state.technologies)}
+            />
+          )}
 
-        {phase === 'launching' && chosenIdea && (
-          <LaunchPhase
-            idea={chosenIdea}
-            complexity={complexity}
-            onLaunched={handleLaunched}
-            onBack={handleBack}
-          />
-        )}
+          {phase === 'launching' && chosenIdea && (
+            <LaunchPhase
+              idea={chosenIdea}
+              complexity={complexity}
+              onLaunched={handleLaunched}
+              onBack={handleBack}
+            />
+          )}
+        </PhaseErrorBoundary>
 
         {/* History footer */}
         {state.history.length > 0 && phase === 'config' && (
@@ -330,9 +391,9 @@ function HistoryFooter({ history }: { history: SlopZillaState['history'] }) {
         </span>
       </div>
       <div className="flex flex-wrap gap-2">
-        {[...history].reverse().map((entry, i) => (
+        {[...history].reverse().map((entry) => (
           <div
-            key={`${entry.workspaceId}-${i}`}
+            key={`${entry.workspaceId}-${entry.launchedAt}`}
             className="text-xs px-3 py-1.5 rounded-full"
             style={{
               background: 'var(--sz-neon-subtle)',

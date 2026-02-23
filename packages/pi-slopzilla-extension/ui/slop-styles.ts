@@ -6,8 +6,6 @@
  */
 
 export const SLOP_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Outfit:wght@300;400;500;600;700&display=swap');
-
   .sz-root {
     --sz-bg: var(--bg-base, #0a0a0f);
     --sz-bg-surface: var(--bg-surface, #111118);

@@ -68,7 +68,7 @@ export default function (pi: ExtensionAPI) {
       'View SlopZilla history — previously generated and launched app ideas. Actions: history (list all launched ideas).',
     parameters: Params,
 
-    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : statePath;
       if (!resolvedPath) {
         return {
@@ -77,23 +77,33 @@ export default function (pi: ExtensionAPI) {
         };
       }
       statePath = resolvedPath;
-      const state = await readState(statePath);
 
-      if (state.history.length === 0) {
+      const { action } = params as { action: 'history' };
+
+      if (action === 'history') {
+        const state = await readState(statePath);
+
+        if (state.history.length === 0) {
+          return {
+            content: [{
+              type: 'text',
+              text: 'No SlopZilla launches yet. Open the SlopZilla app to generate and launch some gloriously sloppy ideas!',
+            }],
+            details: {},
+          };
+        }
+
+        const lines = state.history.map((h, i) =>
+          `${i + 1}. ${h.idea.name} (slop: ${h.idea.slopScore}/10) — ${h.idea.tagline}\n   Tech: ${h.idea.techStack.join(', ')}\n   Launched: ${h.launchedAt}`,
+        );
         return {
-          content: [{
-            type: 'text',
-            text: 'No SlopZilla launches yet. Open the SlopZilla app to generate and launch some gloriously sloppy ideas!',
-          }],
+          content: [{ type: 'text', text: `SlopZilla Launch History:\n\n${lines.join('\n\n')}` }],
           details: {},
         };
       }
 
-      const lines = state.history.map((h, i) =>
-        `${i + 1}. ${h.idea.name} (slop: ${h.idea.slopScore}/10) — ${h.idea.tagline}\n   Tech: ${h.idea.techStack.join(', ')}\n   Launched: ${h.launchedAt}`,
-      );
       return {
-        content: [{ type: 'text', text: `SlopZilla Launch History:\n\n${lines.join('\n\n')}` }],
+        content: [{ type: 'text', text: `Unknown action: ${action}` }],
         details: {},
       };
     },
