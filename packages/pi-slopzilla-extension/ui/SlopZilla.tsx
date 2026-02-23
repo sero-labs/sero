@@ -92,7 +92,11 @@ function clampScore(n: number): number {
 
 // ── AI prompt builder ──────────────────────────────────────
 
-function buildIdeaPrompt(complexity: Complexity, technologies: string[]): string {
+function buildIdeaPrompt(
+  complexity: Complexity,
+  technologies: string[],
+  history: SlopZillaState['history'],
+): string {
   const complexityDesc = {
     low: 'Simple apps — something achievable in under an hour. Single page, minimal features, fun and quick.',
     medium: 'Medium complexity — a few features, decent UI, some state management. A solid afternoon project.',
@@ -103,10 +107,14 @@ function buildIdeaPrompt(complexity: Complexity, technologies: string[]): string
     ? `\n\nThe user wants these technologies used: ${technologies.join(', ')}. Incorporate them creatively into the ideas.`
     : '\n\nPick interesting and appropriate technologies for each idea.';
 
+  const historyClause = history.length > 0
+    ? `\n\nIMPORTANT — The user has already built these apps previously. Do NOT generate ideas that are the same or very similar to any of these:\n${history.map((h) => `- "${h.idea.name}": ${h.idea.tagline}`).join('\n')}\n\nCome up with completely different, fresh ideas.`
+    : '';
+
   return `You are SlopZilla, a kaiju-sized AI idea generator. Generate exactly 3 creative, fun, and slightly absurd app ideas. These should be real buildable apps, but with a humorous twist. Think weird mashups, unexpected use cases, or absurdly specific tools.
 
 Complexity level: ${complexity.toUpperCase()}
-${complexityDesc[complexity]}${techClause}
+${complexityDesc[complexity]}${techClause}${historyClause}
 
 Respond with a JSON array of exactly 3 objects. Each object must have these fields:
 - "name": string (catchy app name, 1-3 words)
@@ -150,7 +158,7 @@ export function SlopZilla() {
       }));
 
       try {
-        const prompt = buildIdeaPrompt(comp, technologies);
+        const prompt = buildIdeaPrompt(comp, technologies, state.history);
         const response = await ai.prompt(prompt);
         const parsed = parseIdeasResponse(response);
 
@@ -205,12 +213,9 @@ export function SlopZilla() {
 
   const handleLaunched = useCallback(
     (workspaceId: string, sessionId: string) => {
-      updateState((prev) => ({
-        ...prev,
-        phase: 'launched',
-        launchedWorkspaceId: workspaceId,
-        launchedSessionId: sessionId,
-        history: chosenIdea
+      updateState((prev) => {
+        const MAX_HISTORY = 10;
+        const newHistory = chosenIdea
           ? [
               ...prev.history,
               {
@@ -218,9 +223,17 @@ export function SlopZilla() {
                 launchedAt: new Date().toISOString(),
                 workspaceId,
               },
-            ]
-          : prev.history,
-      }));
+            ].slice(-MAX_HISTORY)
+          : prev.history;
+
+        return {
+          ...prev,
+          phase: 'launched' as const,
+          launchedWorkspaceId: workspaceId,
+          launchedSessionId: sessionId,
+          history: newHistory,
+        };
+      });
     },
     [chosenIdea, updateState],
   );
@@ -305,14 +318,19 @@ function HistoryFooter({ history }: { history: SlopZillaState['history'] }) {
       className="mt-auto px-6 py-4 relative z-10"
       style={{ borderTop: '1px solid var(--sz-border)' }}
     >
-      <h3
-        className="sz-kaiju-text text-xs mb-2"
-        style={{ color: 'var(--sz-neon-dim)' }}
-      >
-        Previous Rampage{history.length > 1 ? 's' : ''}
-      </h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3
+          className="sz-kaiju-text text-xs"
+          style={{ color: 'var(--sz-neon-dim)' }}
+        >
+          Destruction Log ({history.length}/10)
+        </h3>
+        <span className="text-xs" style={{ color: 'var(--sz-text-dim)', opacity: 0.5 }}>
+          SlopZilla remembers these to avoid repeats
+        </span>
+      </div>
       <div className="flex flex-wrap gap-2">
-        {history.slice(-5).reverse().map((entry, i) => (
+        {[...history].reverse().map((entry, i) => (
           <div
             key={`${entry.workspaceId}-${i}`}
             className="text-xs px-3 py-1.5 rounded-full"
@@ -321,6 +339,7 @@ function HistoryFooter({ history }: { history: SlopZillaState['history'] }) {
               color: 'var(--sz-text-dim)',
               border: '1px solid var(--sz-border)',
             }}
+            title={`${entry.idea.tagline} — launched ${new Date(entry.launchedAt).toLocaleDateString()}`}
           >
             {entry.idea.name}
             <span className="ml-1 opacity-50">
