@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AppIdea, Complexity } from '../shared/types';
 import { launchIdea } from './sero-launcher';
+import type { LaunchStep } from './sero-launcher';
 
 // ── Build prompt generator ─────────────────────────────────
 
@@ -57,15 +58,17 @@ interface LaunchPhaseProps {
 
 export function LaunchPhase({ idea, complexity, onLaunched, onBack }: LaunchPhaseProps) {
   const [state, setState] = useState<LaunchState>('launching');
+  const [step, setStep] = useState<LaunchStep>('creating-workspace');
   const [error, setError] = useState<string | null>(null);
 
   const doLaunch = useCallback(async () => {
     setState('launching');
+    setStep('creating-workspace');
     setError(null);
 
     try {
       const prompt = buildPrompt(idea, complexity);
-      const result = await launchIdea(idea.name, prompt);
+      const result = await launchIdea(idea.name, prompt, setStep);
       setState('success');
       onLaunched(result.workspaceId, result.sessionId);
     } catch (err) {
@@ -79,7 +82,7 @@ export function LaunchPhase({ idea, complexity, onLaunched, onBack }: LaunchPhas
   }, [doLaunch]);
 
   if (state === 'launching') {
-    return <LaunchingView idea={idea} />;
+    return <LaunchingView idea={idea} step={step} />;
   }
 
   if (state === 'error') {
@@ -89,9 +92,31 @@ export function LaunchPhase({ idea, complexity, onLaunched, onBack }: LaunchPhas
   return <SuccessView idea={idea} onBack={onBack} />;
 }
 
+// ── Launch step labels & order ─────────────────────────────
+
+const STEP_ORDER: LaunchStep[] = [
+  'creating-workspace',
+  'opening-workspace',
+  'creating-session',
+  'opening-agent',
+  'sending-prompt',
+  'done',
+];
+
+const STEP_LABELS: Record<LaunchStep, string> = {
+  'creating-workspace': 'Creating workspace',
+  'opening-workspace': 'Opening workspace',
+  'creating-session': 'Starting session',
+  'opening-agent': 'Waking the agent',
+  'sending-prompt': 'Unleashing the build prompt',
+  'done': 'Slop deployed!',
+};
+
 // ── Launching animation ────────────────────────────────────
 
-function LaunchingView({ idea }: { idea: AppIdea }) {
+function LaunchingView({ idea, step }: { idea: AppIdea; step: LaunchStep }) {
+  const currentIdx = STEP_ORDER.indexOf(step);
+
   return (
     <div className="sz-animate-fade-up flex flex-col items-center justify-center px-6 py-12 relative z-10">
       {/* Godzilla firing */}
@@ -123,18 +148,56 @@ function LaunchingView({ idea }: { idea: AppIdea }) {
         LAUNCHING SLOP
       </h2>
 
-      <p className="text-sm text-center mb-2" style={{ color: 'var(--sz-text)' }}>
+      <p className="text-sm text-center mb-4" style={{ color: 'var(--sz-text)' }}>
         Building workspace for <strong style={{ color: 'var(--sz-neon)' }}>{idea.name}</strong>
       </p>
 
-      <p className="text-xs text-center" style={{ color: 'var(--sz-text-dim)' }}>
-        Creating workspace &rarr; Opening session &rarr; Unleashing the agent
-      </p>
-
-      <div className="flex gap-3 mt-6">
-        <div className="sz-loading-dot" />
-        <div className="sz-loading-dot" />
-        <div className="sz-loading-dot" />
+      {/* Step-by-step progress */}
+      <div className="flex flex-col gap-1.5 mb-6 w-64">
+        {STEP_ORDER.slice(0, -1).map((s, i) => {
+          const isDone = i < currentIdx;
+          const isActive = i === currentIdx;
+          return (
+            <div key={s} className="flex items-center gap-2 text-xs">
+              <span
+                className="shrink-0 size-4 flex items-center justify-center rounded-full text-[10px] font-bold"
+                style={{
+                  background: isDone
+                    ? 'var(--sz-neon)'
+                    : isActive
+                      ? 'var(--sz-neon-subtle)'
+                      : 'transparent',
+                  color: isDone
+                    ? 'var(--sz-bg)'
+                    : isActive
+                      ? 'var(--sz-neon)'
+                      : 'var(--sz-text-dim)',
+                  border: isDone
+                    ? 'none'
+                    : `1px solid ${isActive ? 'var(--sz-neon)' : 'var(--sz-border)'}`,
+                  boxShadow: isActive ? '0 0 8px var(--sz-neon-glow)' : 'none',
+                }}
+              >
+                {isDone ? '✓' : i + 1}
+              </span>
+              <span
+                style={{
+                  color: isDone
+                    ? 'var(--sz-neon-dim)'
+                    : isActive
+                      ? 'var(--sz-neon)'
+                      : 'var(--sz-text-dim)',
+                  opacity: isDone ? 0.6 : 1,
+                }}
+              >
+                {STEP_LABELS[s]}
+                {isActive && (
+                  <span className="sz-animate-breathe ml-1">…</span>
+                )}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

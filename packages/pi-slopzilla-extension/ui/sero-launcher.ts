@@ -50,6 +50,27 @@ function getShellApi(): SeroShellApi {
   return sero;
 }
 
+// ── Launch steps ───────────────────────────────────────────
+
+export type LaunchStep =
+  | 'creating-workspace'
+  | 'opening-workspace'
+  | 'creating-session'
+  | 'opening-agent'
+  | 'sending-prompt'
+  | 'done';
+
+export type OnProgress = (step: LaunchStep) => void;
+
+/**
+ * Notify the host shell that a workspace was created/opened so the
+ * Zustand store picks it up without a restart.  The host's
+ * WorkspaceTree listens for this CustomEvent.
+ */
+function notifyWorkspaceChanged() {
+  window.dispatchEvent(new CustomEvent('sero:workspace-changed'));
+}
+
 /**
  * Create a new workspace, open a session, and kick off the agent
  * with a prompt to build the chosen app idea.
@@ -59,24 +80,33 @@ function getShellApi(): SeroShellApi {
 export async function launchIdea(
   ideaName: string,
   buildPrompt: string,
+  onProgress?: OnProgress,
 ): Promise<{ workspaceId: string; sessionId: string }> {
   const api = getShellApi();
 
   // 1. Create workspace
+  onProgress?.('creating-workspace');
   const wsName = `slopzilla-${ideaName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
   const workspace = await api.workspace.create(wsName);
 
   // 2. Open the workspace in the sidebar
+  onProgress?.('opening-workspace');
   await api.workspace.open(workspace.id);
+  notifyWorkspaceChanged();
 
   // 3. Create a session in that workspace
+  onProgress?.('creating-session');
   const session = await api.sessions.create(workspace.id);
 
   // 4. Open the agent session
+  onProgress?.('opening-agent');
   await api.agent.open(session.id, session.path, workspace.id);
+  notifyWorkspaceChanged();
 
   // 5. Send the build prompt
+  onProgress?.('sending-prompt');
   await api.agent.prompt(session.id, buildPrompt);
 
+  onProgress?.('done');
   return { workspaceId: workspace.id, sessionId: session.id };
 }

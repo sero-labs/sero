@@ -49,6 +49,16 @@ export function WorkspaceTree() {
     loadSessions();
   }, [loadWorkspaces, loadSessions]);
 
+  // Refresh when a federated app (e.g. SlopZilla) creates a workspace
+  useEffect(() => {
+    const refresh = () => {
+      loadWorkspaces();
+      loadSessions();
+    };
+    window.addEventListener('sero:workspace-changed', refresh);
+    return () => window.removeEventListener('sero:workspace-changed', refresh);
+  }, [loadWorkspaces, loadSessions]);
+
   if (isLoadingWorkspaces) {
     return (
       <div className="flex items-center justify-center py-8">
