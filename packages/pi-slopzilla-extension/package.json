@@ -20,7 +20,7 @@
       "stateFile": ".sero/apps/slopzilla/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "SlopZilla",
-      "devPort": 5178
+      "devPort": 5183
     }
   },
   "dependencies": {
