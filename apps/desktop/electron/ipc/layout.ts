@@ -17,6 +17,7 @@ const LAYOUT_FILE = path.join(SERO_AGENT_DIR, 'layout.json');
 export interface LayoutState {
   mainSidebarOpen: boolean;
   chatPanelOpen: boolean;
+  favouriteApps?: string[];
 }
 
 let writeQueue: Promise<void> = Promise.resolve();
@@ -24,9 +25,12 @@ let writeQueue: Promise<void> = Promise.resolve();
 function isLayoutState(value: unknown): value is LayoutState {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<LayoutState>;
+  const favouriteAppsValid = candidate.favouriteApps === undefined ||
+    Array.isArray(candidate.favouriteApps);
   return (
     typeof candidate.mainSidebarOpen === 'boolean' &&
-    typeof candidate.chatPanelOpen === 'boolean'
+    typeof candidate.chatPanelOpen === 'boolean' &&
+    favouriteAppsValid
   );
 }
 
@@ -34,7 +38,12 @@ function isLayoutState(value: unknown): value is LayoutState {
 function parseLayoutState(raw: string): LayoutState | null {
   try {
     const parsed = JSON.parse(raw.trim());
-    return isLayoutState(parsed) ? parsed : null;
+    if (!isLayoutState(parsed)) return null;
+    if (!Array.isArray(parsed.favouriteApps)) return parsed;
+    return {
+      ...parsed,
+      favouriteApps: parsed.favouriteApps.filter((id): id is string => typeof id === 'string'),
+    };
   } catch {
     return null;
   }

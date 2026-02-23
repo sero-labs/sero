@@ -32,6 +32,8 @@ interface PkgSeroApp {
 
 interface PkgJson {
   name?: string;
+  description?: string;
+  version?: string;
   sero?: { app?: PkgSeroApp };
 }
 
@@ -52,6 +54,9 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
   return {
     id: app.id,
     name: app.name,
+    description: typeof pkgJson.description === 'string' ? pkgJson.description : null,
+    version: typeof pkgJson.version === 'string' ? pkgJson.version : null,
+    packageName: typeof pkgJson.name === 'string' ? pkgJson.name : null,
     icon: app.icon || 'box',
     stateFile: app.stateFile,
     scope,

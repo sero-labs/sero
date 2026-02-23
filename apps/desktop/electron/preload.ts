@@ -422,9 +422,9 @@ contextBridge.exposeInMainWorld('sero', {
   },
 
   layout: {
-    save: (state: { mainSidebarOpen: boolean; chatPanelOpen: boolean }): Promise<void> =>
+    save: (state: { mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps: string[] }): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.layout.save, state),
-    load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean } | null> =>
+    load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps?: string[] } | null> =>
       ipcRenderer.invoke(IpcChannels.layout.load),
   },
 

@@ -1,52 +1,91 @@
-import { Search } from 'lucide-react';
+import { useState } from 'react';
+import { Grid2x2Plus, Search } from 'lucide-react';
+import { Button } from '@sero/ui/components/ui/button';
 import { Input } from '@sero/ui/components/ui/input';
 import { Separator } from '@sero/ui/components/ui/separator';
-import { useAppStore, type AppEntry } from '@/stores/app';
+import {
+  getDiscoveredApps,
+  getSidebarApps,
+  useAppStore,
+  type AppEntry,
+} from '@/stores/app';
 import { useSessionStore } from '@/stores/sessions';
+import { getAppIcon } from '@/lib/app-icons';
 import { WorkspaceTree } from './WorkspaceTree';
 import { cn } from '@sero/ui/lib/utils';
+import { AppStoreDialog } from './AppStoreDialog';
 
 /**
  * MainSidebar — the primary navigation sidebar.
  *
- * Top section: list of apps (built-in + discovered sero apps)
+ * Top section: sidebar-visible apps (built-ins + favourited discovered apps)
  * Bottom section: workspace → session tree loaded from Pi SDK
  */
 export function MainSidebar() {
+  const [appStoreOpen, setAppStoreOpen] = useState(false);
   const open = useAppStore((s) => s.mainSidebarOpen);
   const apps = useAppStore((s) => s.apps);
+  const favouriteApps = useAppStore((s) => s.favouriteApps);
+  const toggleFavourite = useAppStore((s) => s.toggleFavourite);
+  const isFavourite = useAppStore((s) => s.isFavourite);
   const activeApp = useAppStore((s) => s.activeApp);
   const setActiveApp = useAppStore((s) => s.setActiveApp);
+
+  const sidebarApps = getSidebarApps(apps, favouriteApps);
+  const discoveredApps = getDiscoveredApps(apps);
 
   if (!open) return null;
 
   return (
-    <aside className="flex h-full w-full min-w-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
-      {/* ── Apps ──────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-0.5 p-2">
-        <span className="px-2 pb-1 text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-          Apps
-        </span>
-        {apps.map((app) => (
-          <AppItem
-            key={app.id}
-            entry={app}
-            active={activeApp === app.id}
-            onClick={() => setActiveApp(app.id)}
-          />
-        ))}
-      </div>
+    <>
+      <aside className="flex h-full w-full min-w-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
+        {/* ── Apps ──────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-0.5 p-2">
+          <div className="flex items-center justify-between px-2 pb-1">
+            <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Apps
+            </span>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              aria-label="Open App Store"
+              onClick={() => setAppStoreOpen(true)}
+            >
+              <Grid2x2Plus className="size-3.5" />
+            </Button>
+          </div>
+          {sidebarApps.map((app) => (
+            <AppItem
+              key={app.id}
+              entry={app}
+              active={activeApp === app.id}
+              onClick={() => setActiveApp(app.id)}
+            />
+          ))}
+        </div>
 
-      <Separator className="mx-2" />
+        <Separator className="mx-2" />
 
-      {/* ── Search ────────────────────────────────────────────── */}
-      <SearchBar />
+        {/* ── Search ────────────────────────────────────────────── */}
+        <SearchBar />
 
-      {/* ── Workspace → Session tree ──────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col gap-1 p-2">
-        <WorkspaceTree />
-      </div>
-    </aside>
+        {/* ── Workspace → Session tree ──────────────────────────── */}
+        <div className="flex min-h-0 flex-1 flex-col gap-1 p-2">
+          <WorkspaceTree />
+        </div>
+      </aside>
+
+      <AppStoreDialog
+        open={appStoreOpen}
+        onOpenChange={setAppStoreOpen}
+        apps={discoveredApps}
+        activeApp={activeApp}
+        isFavourite={isFavourite}
+        onToggleFavourite={toggleFavourite}
+        onActivateApp={setActiveApp}
+      />
+    </>
   );
 }
 
@@ -73,16 +112,6 @@ function SearchBar() {
 
 // ── App list item ──────────────────────────────────────────────
 
-/** Map Lucide icon names to emoji for discovered apps (simple fallback). */
-const ICON_MAP: Record<string, string> = {
-  'check-square': '✅',
-  code: '💻',
-  calendar: '📅',
-  activity: '💪',
-  'piggy-bank': '🏦',
-  box: '📦',
-};
-
 function AppItem({
   entry,
   active,
@@ -92,8 +121,7 @@ function AppItem({
   active: boolean;
   onClick: () => void;
 }) {
-  // Built-in apps use their emoji directly; discovered apps map the Lucide name
-  const icon = entry.builtin ? entry.icon : (ICON_MAP[entry.icon] ?? '📦');
+  const Icon = getAppIcon(entry.icon);
 
   return (
     <button
@@ -105,7 +133,7 @@ function AppItem({
           : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
       )}
     >
-      <span className="text-sm">{icon}</span>
+      <Icon className="size-4 shrink-0" />
       <span className="truncate">{entry.label}</span>
     </button>
   );

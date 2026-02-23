@@ -14,8 +14,16 @@ export interface AppEntry {
 }
 
 const BUILTIN_APPS: AppEntry[] = [
-  { id: 'coding', label: 'Coding', icon: '💻', builtin: true, manifest: null },
+  { id: 'coding', label: 'Coding', icon: 'code', builtin: true, manifest: null },
 ];
+const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
+const DEFAULT_FAVOURITE_APP_IDS = ['todo', 'notes', 'planmode'] as const;
+
+interface PersistedLayoutState {
+  mainSidebarOpen: boolean;
+  chatPanelOpen: boolean;
+  favouriteApps: string[];
+}
 
 // ── Theme ──────────────────────────────────────────────────────
 export type Theme = 'dark' | 'light';
@@ -43,6 +51,11 @@ interface AppState {
   chatPanelOpen: boolean;
   setChatPanelOpen: (open: boolean) => void;
   toggleChatPanel: () => void;
+
+  // Favourites (sidebar-visible discovered apps)
+  favouriteApps: string[];
+  toggleFavourite: (appId: string) => void;
+  isFavourite: (appId: string) => boolean;
 
   // Active app
   activeApp: string;
@@ -86,11 +99,48 @@ function manifestToEntry(m: SeroAppManifest): AppEntry {
   };
 }
 
+function normaliseFavouriteApps(favouriteApps: string[] | undefined): string[] {
+  if (favouriteApps === undefined) return [...DEFAULT_FAVOURITE_APP_IDS];
+
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const id of favouriteApps) {
+    const normalized = id.trim();
+    if (!normalized) continue;
+    if (BUILTIN_APP_IDS.has(normalized)) continue;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    next.push(normalized);
+  }
+  return next;
+}
+
 /** Fire-and-forget save of layout state to disk. */
-function persistLayout(state: { mainSidebarOpen: boolean; chatPanelOpen: boolean }) {
+function persistLayout(state: PersistedLayoutState) {
   window.sero.layout.save(state).catch((err) => {
     console.warn('[app-store] Failed to persist layout:', err);
   });
+}
+
+export function getDiscoveredApps(apps: AppEntry[]): AppEntry[] {
+  return apps.filter((app) => !app.builtin);
+}
+
+export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEntry[] {
+  const builtins = apps.filter((app) => app.builtin);
+  const discoveredById = new Map<string, AppEntry>();
+  for (const app of apps) {
+    if (app.builtin) continue;
+    discoveredById.set(app.id, app);
+  }
+
+  const favourites: AppEntry[] = [];
+  for (const id of favouriteApps) {
+    const app = discoveredById.get(id);
+    if (app) favourites.push(app);
+  }
+
+  return [...builtins, ...favourites];
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -105,25 +155,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   mainSidebarOpen: true,
   setMainSidebarOpen: (open) => {
     set({ mainSidebarOpen: open });
-    persistLayout({ mainSidebarOpen: open, chatPanelOpen: get().chatPanelOpen });
+    persistLayout({
+      mainSidebarOpen: open,
+      chatPanelOpen: get().chatPanelOpen,
+      favouriteApps: get().favouriteApps,
+    });
   },
   toggleMainSidebar: () => {
     const next = !get().mainSidebarOpen;
     set({ mainSidebarOpen: next });
-    persistLayout({ mainSidebarOpen: next, chatPanelOpen: get().chatPanelOpen });
+    persistLayout({
+      mainSidebarOpen: next,
+      chatPanelOpen: get().chatPanelOpen,
+      favouriteApps: get().favouriteApps,
+    });
   },
 
   // Chat panel — defaults to true; hydrated from disk by loadLayout()
   chatPanelOpen: true,
   setChatPanelOpen: (open) => {
     set({ chatPanelOpen: open });
-    persistLayout({ mainSidebarOpen: get().mainSidebarOpen, chatPanelOpen: open });
+    persistLayout({
+      mainSidebarOpen: get().mainSidebarOpen,
+      chatPanelOpen: open,
+      favouriteApps: get().favouriteApps,
+    });
   },
   toggleChatPanel: () => {
     const next = !get().chatPanelOpen;
     set({ chatPanelOpen: next });
-    persistLayout({ mainSidebarOpen: get().mainSidebarOpen, chatPanelOpen: next });
+    persistLayout({
+      mainSidebarOpen: get().mainSidebarOpen,
+      chatPanelOpen: next,
+      favouriteApps: get().favouriteApps,
+    });
   },
+
+  favouriteApps: [...DEFAULT_FAVOURITE_APP_IDS],
+  toggleFavourite: (appId) => {
+    if (BUILTIN_APP_IDS.has(appId)) return;
+
+    const current = get();
+    const next = current.favouriteApps.includes(appId)
+      ? current.favouriteApps.filter((id) => id !== appId)
+      : [...current.favouriteApps, appId];
+
+    set({ favouriteApps: next });
+    persistLayout({
+      mainSidebarOpen: current.mainSidebarOpen,
+      chatPanelOpen: current.chatPanelOpen,
+      favouriteApps: next,
+    });
+  },
+  isFavourite: (appId) => get().favouriteApps.includes(appId),
 
   // Active app (persisted across reloads via sessionStorage)
   activeApp: sessionStorage.getItem('sero:activeApp') ?? 'coding',
@@ -155,6 +239,7 @@ export async function loadLayout(): Promise<void> {
       useAppStore.setState({
         mainSidebarOpen: state.mainSidebarOpen,
         chatPanelOpen: state.chatPanelOpen,
+        favouriteApps: normaliseFavouriteApps(state.favouriteApps),
         layoutReady: true,
       });
       return;
