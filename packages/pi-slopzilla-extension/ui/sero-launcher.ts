@@ -88,7 +88,7 @@ export async function launchIdea(
   ideaName: string,
   buildPrompt: string,
   onProgress?: OnProgress,
-): Promise<{ workspaceId: string; sessionId: string }> {
+): Promise<{ workspaceId: string; sessionId: string; sessionPath: string }> {
   const api = getShellApi();
 
   // 1. Create workspace
@@ -115,5 +115,5 @@ export async function launchIdea(
   await api.agent.prompt(session.id, buildPrompt);
 
   onProgress?.('done');
-  return { workspaceId: workspace.id, sessionId: session.id };
+  return { workspaceId: workspace.id, sessionId: session.id, sessionPath: session.path };
 }

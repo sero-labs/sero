@@ -1,50 +1,44 @@
 /**
- * ConfigPhase — the SlopZilla landing screen.
+ * ConfigPhase — the SlopZilla landing screen (Generate tab).
  *
- * User picks complexity (kaiju size) and optionally selects technologies.
- * Fun monster-movie poster aesthetic with radioactive green accents.
+ * Compact layout: inline hero, complexity picker, tech picker, generate CTA.
+ * Saved ideas and history live on the History tab now.
  */
 
 import { useState, useCallback } from 'react';
 import type { Complexity } from '../shared/types';
 import { TECH_OPTIONS } from '../shared/types';
 
-// ── Godzilla ASCII art (radioactive edition) ──────────────────
+// ── Compact Godzilla ASCII ────────────────────────────────
 
-const GODZILLA_ART = `
-         ___
-        /   \\
-       | o o |
-       |  ^  |
-       | '-' |
-      /|     |\\
-     / |\\___/| \\
-    /  |     |  \\
-   /___|     |___\\
-       |  |  |
-       |  |  |
-      _|  |  |_
-     (____|____)
-`;
+const GODZILLA_ART = `    ___
+   /   \\
+  | o o |
+  |  ^  |
+  | '-' |
+ /|     |\\
+/ |\\___/| \\
+  |  |  |
+ _|__|__|_`;
 
 const COMPLEXITY_DATA: { value: Complexity; label: string; kaiju: string; desc: string }[] = [
   {
     value: 'low',
     label: 'Baby Kaiju',
     kaiju: '( o_o)',
-    desc: 'Quick & dirty — a simple app you could build in a coffee break. Minimal features, maximum vibes.',
+    desc: 'Quick & dirty — build in a coffee break.',
   },
   {
     value: 'medium',
     label: 'Mega Kaiju',
     kaiju: '\\(O_O)/',
-    desc: 'A decent chunk of work — multiple features, some state management, real functionality.',
+    desc: 'Multiple features, decent UI, real functionality.',
   },
   {
     value: 'high',
     label: 'SLOPZILLA',
     kaiju: '\\[O_O]/ ~*',
-    desc: 'Full send. Complex architecture, multiple pages/views, external APIs, the works. Peak slop.',
+    desc: 'Full send. Complex architecture, the works.',
   },
 ];
 
@@ -71,28 +65,30 @@ export function ConfigPhase({ onGenerate }: ConfigPhaseProps) {
   }, [complexity, selectedTech, onGenerate]);
 
   return (
-    <div className="sz-animate-fade-up flex flex-col items-center px-6 py-8 relative z-10">
-      {/* Hero section */}
-      <div className="text-center mb-10">
+    <div className="sz-animate-fade-up flex flex-col items-center justify-center h-full px-6 py-6 relative z-10">
+      {/* Hero — art beside title */}
+      <div className="flex items-center gap-8 mb-8">
         <pre
-          className="text-xs leading-tight mb-4 select-none"
+          className="text-xs leading-tight select-none shrink-0"
           style={{ color: 'var(--sz-neon)', filter: 'drop-shadow(0 0 8px var(--sz-neon-glow))' }}
           aria-hidden="true"
         >
           {GODZILLA_ART}
         </pre>
-        <h1 className="sz-title sz-animate-breathe">SlopZilla</h1>
-        <p className="sz-subtitle mt-3">
-          The Kaiju-Sized AI Slop Idea Generator
-        </p>
-        <p className="mt-4 text-sm max-w-md mx-auto" style={{ color: 'var(--sz-text-dim)' }}>
-          Unleash the beast. Pick your destruction level, choose your weapons,
-          and let SlopZilla stomp out 3 gloriously unhinged app ideas for you to build.
-        </p>
+        <div>
+          <h1 className="sz-title sz-animate-breathe">SlopZilla</h1>
+          <p className="sz-subtitle mt-2">
+            The Kaiju-Sized AI Slop Idea Generator
+          </p>
+          <p className="mt-3 text-sm max-w-md" style={{ color: 'var(--sz-text-dim)' }}>
+            Pick your destruction level, choose your weapons, and let SlopZilla
+            stomp out 3 gloriously unhinged app ideas.
+          </p>
+        </div>
       </div>
 
       {/* Complexity picker */}
-      <div className="w-full max-w-2xl mb-10">
+      <div className="w-full max-w-2xl mb-8">
         <h2
           className="sz-kaiju-text text-sm mb-4 text-center"
           style={{ color: 'var(--sz-neon-dim)' }}
@@ -117,7 +113,7 @@ export function ConfigPhase({ onGenerate }: ConfigPhaseProps) {
                   {c.kaiju}
                 </div>
                 <h3
-                  className="sz-kaiju-text text-center text-base mb-2"
+                  className="sz-kaiju-text text-center text-base mb-1"
                   style={{ color: complexity === c.value ? 'var(--sz-neon)' : 'var(--sz-text)' }}
                 >
                   {c.label}
@@ -132,16 +128,13 @@ export function ConfigPhase({ onGenerate }: ConfigPhaseProps) {
       </div>
 
       {/* Tech picker */}
-      <div className="w-full max-w-2xl mb-10">
+      <div className="w-full max-w-2xl mb-8">
         <h2
-          className="sz-kaiju-text text-sm mb-2 text-center"
+          className="sz-kaiju-text text-sm mb-3 text-center"
           style={{ color: 'var(--sz-neon-dim)' }}
         >
           Arm Your Kaiju (Optional)
         </h2>
-        <p className="text-xs text-center mb-4" style={{ color: 'var(--sz-text-dim)' }}>
-          Pick technologies to include. Leave empty for maximum chaos.
-        </p>
         <div className="flex flex-wrap gap-2 justify-center">
           {TECH_OPTIONS.map((tech) => (
             <button

@@ -49,7 +49,7 @@ function FlavorText() {
 
 export function GeneratingPhase() {
   return (
-    <div className="sz-animate-fade-up flex flex-col items-center justify-center px-6 py-12 relative z-10">
+    <div className="sz-animate-fade-up flex flex-col items-center justify-center flex-1 px-6 py-12 relative z-10">
       {/* Stomping Godzilla */}
       <div className="sz-animate-stomp mb-8">
         <pre

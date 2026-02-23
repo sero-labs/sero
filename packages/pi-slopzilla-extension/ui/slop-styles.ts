@@ -28,6 +28,64 @@ export const SLOP_STYLES = `
     background: var(--sz-bg);
   }
 
+  /* ── Tab bar ── */
+
+  .sz-tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--sz-border);
+    background: var(--sz-bg);
+    flex-shrink: 0;
+  }
+
+  .sz-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    color: var(--sz-text-dim);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .sz-tab:hover {
+    color: var(--sz-text);
+  }
+
+  .sz-tab.active {
+    color: var(--sz-neon);
+    border-bottom-color: var(--sz-neon);
+  }
+
+  .sz-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--sz-neon-subtle);
+    color: var(--sz-neon-dim);
+    border: 1px solid var(--sz-border);
+  }
+
+  .sz-tab.active .sz-tab-badge {
+    background: var(--sz-neon-glow);
+    color: var(--sz-neon);
+    border-color: var(--sz-neon);
+  }
+
   /* ── Godzilla ASCII art ── */
 
   .sz-kaiju-text {
@@ -356,5 +414,43 @@ export const SLOP_STYLES = `
     transform-origin: left;
     animation: sz-fire-breath 1.5s ease-out infinite;
     border-radius: 2px;
+  }
+
+  /* ── Slop slider (remix phase) ── */
+
+  .sz-slop-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .sz-slop-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--sz-neon);
+    border: 2px solid var(--sz-bg);
+    box-shadow: 0 0 8px var(--sz-neon-glow);
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+  }
+
+  .sz-slop-slider::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 16px var(--sz-neon-glow-strong);
+  }
+
+  /* ── Line clamp utility ── */
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 `;

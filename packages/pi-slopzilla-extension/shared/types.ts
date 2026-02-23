@@ -7,7 +7,13 @@
 
 export type Complexity = 'low' | 'medium' | 'high';
 
-export type Phase = 'config' | 'generating' | 'picking' | 'launching' | 'launched';
+export type Phase =
+  | 'config'
+  | 'generating'
+  | 'picking'
+  | 'remix'
+  | 'launching'
+  | 'launched';
 
 export interface AppIdea {
   id: number;
@@ -18,10 +24,21 @@ export interface AppIdea {
   slopScore: number; // 1–10 how absurdly "sloppy" this idea is
 }
 
+/** An idea bookmarked for later without launching. */
+export interface SavedIdea {
+  idea: AppIdea;
+  savedAt: string; // ISO datetime
+}
+
+export type BuildStatus = 'launched' | 'complete' | 'failed';
+
 export interface HistoryEntry {
   idea: AppIdea;
   launchedAt: string; // ISO datetime
   workspaceId: string;
+  sessionId: string | null;
+  sessionPath: string | null;
+  status: BuildStatus;
 }
 
 export interface SlopZillaState {
@@ -33,6 +50,7 @@ export interface SlopZillaState {
   launchedWorkspaceId: string | null;
   launchedSessionId: string | null;
   history: HistoryEntry[];
+  savedIdeas: SavedIdea[];
 }
 
 export const DEFAULT_STATE: SlopZillaState = {
@@ -44,6 +62,7 @@ export const DEFAULT_STATE: SlopZillaState = {
   launchedWorkspaceId: null,
   launchedSessionId: null,
   history: [],
+  savedIdeas: [],
 };
 
 /** Technologies the user can pick from. */

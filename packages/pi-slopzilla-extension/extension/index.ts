@@ -2,11 +2,11 @@
  * SlopZilla Extension — Pi extension that tracks generated app ideas.
  *
  * The web UI is the primary interface — this extension provides a lightweight
- * tool so the agent can query SlopZilla's history, and a /slopzilla command
- * to prompt the user to open the app.
+ * tool so the agent can query SlopZilla's history and saved ideas, and a
+ * /slopzilla command to prompt the user to open the app.
  *
  * State: `~/.sero-ui/apps/slopzilla/state.json` (global scope)
- * Tools: slopzilla (list history of launched ideas)
+ * Tools: slopzilla (list history or saved ideas)
  * Commands: /slopzilla
  */
 
@@ -46,8 +46,34 @@ async function readState(filePath: string): Promise<SlopZillaState> {
 // ── Tool parameters ────────────────────────────────────────
 
 const Params = Type.Object({
-  action: StringEnum(['history'] as const),
+  action: StringEnum(['history', 'saved'] as const),
 });
+
+// ── Helpers ────────────────────────────────────────────────
+
+function formatHistory(state: SlopZillaState): string {
+  if (state.history.length === 0) {
+    return 'No SlopZilla launches yet. Open the SlopZilla app to generate and launch some gloriously sloppy ideas!';
+  }
+
+  const lines = state.history.map((h, i) => {
+    const status = h.status ?? 'launched';
+    return `${i + 1}. ${h.idea.name} (slop: ${h.idea.slopScore}/10, status: ${status}) — ${h.idea.tagline}\n   Tech: ${h.idea.techStack.join(', ')}\n   Launched: ${h.launchedAt}`;
+  });
+  return `SlopZilla Launch History:\n\n${lines.join('\n\n')}`;
+}
+
+function formatSaved(state: SlopZillaState): string {
+  const saved = state.savedIdeas ?? [];
+  if (saved.length === 0) {
+    return 'No saved ideas. Open SlopZilla to generate ideas and bookmark the best ones for later!';
+  }
+
+  const lines = saved.map((s, i) =>
+    `${i + 1}. ${s.idea.name} (slop: ${s.idea.slopScore}/10) — ${s.idea.tagline}\n   ${s.idea.description}\n   Tech: ${s.idea.techStack.join(', ')}\n   Saved: ${s.savedAt}`,
+  );
+  return `SlopZilla Saved Ideas (${saved.length}):\n\n${lines.join('\n\n')}`;
+}
 
 // ── Extension ──────────────────────────────────────────────
 
@@ -65,7 +91,7 @@ export default function (pi: ExtensionAPI) {
     name: 'slopzilla',
     label: 'SlopZilla',
     description:
-      'View SlopZilla history — previously generated and launched app ideas. Actions: history (list all launched ideas).',
+      'View SlopZilla data — previously launched ideas or saved/bookmarked ideas. Actions: history (list launches with status), saved (list bookmarked ideas).',
     parameters: Params,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -78,39 +104,22 @@ export default function (pi: ExtensionAPI) {
       }
       statePath = resolvedPath;
 
-      const { action } = params as { action: 'history' };
+      const { action } = params as { action: 'history' | 'saved' };
+      const state = await readState(statePath);
 
-      if (action === 'history') {
-        const state = await readState(statePath);
+      const text =
+        action === 'history'
+          ? formatHistory(state)
+          : formatSaved(state);
 
-        if (state.history.length === 0) {
-          return {
-            content: [{
-              type: 'text',
-              text: 'No SlopZilla launches yet. Open the SlopZilla app to generate and launch some gloriously sloppy ideas!',
-            }],
-            details: {},
-          };
-        }
-
-        const lines = state.history.map((h, i) =>
-          `${i + 1}. ${h.idea.name} (slop: ${h.idea.slopScore}/10) — ${h.idea.tagline}\n   Tech: ${h.idea.techStack.join(', ')}\n   Launched: ${h.launchedAt}`,
-        );
-        return {
-          content: [{ type: 'text', text: `SlopZilla Launch History:\n\n${lines.join('\n\n')}` }],
-          details: {},
-        };
-      }
-
-      return {
-        content: [{ type: 'text', text: `Unknown action: ${action}` }],
-        details: {},
-      };
+      return { content: [{ type: 'text', text }], details: {} };
     },
 
-    renderCall(_args, theme) {
+    renderCall(args, theme) {
+      const { action } = args as { action: string };
       return new Text(
-        theme.fg('toolTitle', theme.bold('slopzilla ')) + theme.fg('muted', 'history'),
+        theme.fg('toolTitle', theme.bold('slopzilla ')) +
+          theme.fg('muted', action ?? 'history'),
         0, 0,
       );
     },
