@@ -1,0 +1,48 @@
+{
+  "name": "@sero/slopzilla",
+  "version": "0.1.0",
+  "description": "SlopZilla — the kaiju-sized AI slop idea generator for Sero",
+  "keywords": ["pi-package"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extension/index.ts"]
+  },
+  "sero": {
+    "app": {
+      "id": "slopzilla",
+      "name": "SlopZilla",
+      "icon": "flame",
+      "scope": "global",
+      "stateFile": ".sero/apps/slopzilla/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "SlopZilla",
+      "devPort": 5178
+    }
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.52.0",
+    "@mariozechner/pi-coding-agent": ">=0.52.0",
+    "@mariozechner/pi-tui": ">=0.52.0"
+  },
+  "devDependencies": {
+    "@sero/app-runtime": "workspace:*",
+    "@sero/ui": "workspace:*",
+    "@module-federation/vite": "^1.11.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@tailwindcss/vite": "^4.1.18",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  }
+}
