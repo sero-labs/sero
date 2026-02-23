@@ -32,9 +32,9 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5183,
+    port: 5184,
     strictPort: true,
-    origin: 'http://localhost:5183',
+    origin: 'http://localhost:5184',
   },
   optimizeDeps: {
     exclude: ['@sero/app-runtime'],

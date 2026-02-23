@@ -20,7 +20,7 @@
       "stateFile": ".sero/apps/starling/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "StarlingApp",
-      "devPort": 5183
+      "devPort": 5184
     }
   },
   "dependencies": {
