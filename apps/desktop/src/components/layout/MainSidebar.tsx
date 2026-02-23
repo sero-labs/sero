@@ -133,7 +133,7 @@ function AppItem({
           : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
       )}
     >
-      <Icon className="size-4 shrink-0" />
+      <Icon className={cn('size-4 shrink-0', active && 'text-emerald-500')} />
       <span className="truncate">{entry.label}</span>
     </button>
   );
