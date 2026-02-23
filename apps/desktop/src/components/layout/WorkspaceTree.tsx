@@ -14,6 +14,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
 import { useSessionStore, useSessionsByWorkspace } from '@/stores/sessions';
 import { useStreamingSessionIds } from '@/stores/agent';
+import { useAppStore } from '@/stores/app';
 import { useWorkspaceContainer, type ContainerStatus } from '@/stores/container';
 import { Button } from '@sero/ui/components/ui/button';
 import {
@@ -48,6 +49,40 @@ export function WorkspaceTree() {
     loadWorkspaces();
     loadSessions();
   }, [loadWorkspaces, loadSessions]);
+
+  // Refresh when a federated app (e.g. SlopZilla) creates a workspace
+  useEffect(() => {
+    const refresh = () => {
+      loadWorkspaces();
+      loadSessions();
+    };
+    window.addEventListener('sero:workspace-changed', refresh);
+    return () => window.removeEventListener('sero:workspace-changed', refresh);
+  }, [loadWorkspaces, loadSessions]);
+
+  // Open a session in the ChatPanel when a federated app dispatches sero:open-session
+  const setActiveSession = useSessionStore((s) => s.setActiveSession);
+  const setChatPanelOpen = useAppStore((s) => s.setChatPanelOpen);
+  useEffect(() => {
+    const handleOpenSession = async (e: Event) => {
+      const { sessionId, sessionPath, workspaceId } =
+        (e as CustomEvent<{ sessionId: string | null; sessionPath: string | null; workspaceId: string }>).detail;
+
+      // Open the workspace in the sidebar first
+      await window.sero.workspace.open(workspaceId).catch(() => {});
+
+      if (sessionId && sessionPath) {
+        // Ensure the agent session is loaded in the pool
+        await window.sero.agent.open(sessionId, sessionPath, workspaceId).catch(() => {});
+        setActiveSession(sessionId);
+      }
+
+      // Expand the chat panel so the user can see the session
+      setChatPanelOpen(true);
+    };
+    window.addEventListener('sero:open-session', handleOpenSession);
+    return () => window.removeEventListener('sero:open-session', handleOpenSession);
+  }, [setActiveSession, setChatPanelOpen]);
 
   if (isLoadingWorkspaces) {
     return (
