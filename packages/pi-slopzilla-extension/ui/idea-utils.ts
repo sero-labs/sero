@@ -174,5 +174,7 @@ ${BUILD_COMPLEXITY_DESC[complexity]}
 4. Include a README.md explaining what it does and how to run it
 5. Make it actually work — this should be a real, functional app
 
+Don't use a subfolder for the app - put all the code in the root of the workspace.
+
 Have fun with it! This is SlopZilla-generated slop, so embrace the chaos and make something delightfully weird.`;
 }
