@@ -19,8 +19,8 @@ import type { WorkspaceInfo } from '../src/types/ipc';
 import type { ContainerState } from './container/index';
 import { buildContainerPromptBlock } from './container/system-prompt';
 import { registerSeroBuiltinCommands } from './sero-extension-commands';
-import { registerJjCheckpointFeatures } from './sero-extension-jj';
 import { buildCliPromptBlock } from './cli';
+import { registerGitCheckpointFeatures } from './sero-extension-git';
 
 /**
  * Creates an extension factory for a specific workspace session.
@@ -198,9 +198,9 @@ export function createSeroExtensionFactory(
       },
     });
 
-    // Re-implement PI CLI built-ins for SDK mode and register JJ checkpoint hooks.
+    // Re-implement PI CLI built-ins for SDK mode and register Git checkpoint hooks.
     registerSeroBuiltinCommands(pi, currentWorkspaceId);
-    registerJjCheckpointFeatures(pi, currentWorkspaceId);
+    registerGitCheckpointFeatures(pi, currentWorkspaceId);
   };
 }
 

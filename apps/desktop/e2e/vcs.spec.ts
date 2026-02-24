@@ -4,7 +4,7 @@ import { launchSeroApp, vcs } from './helpers';
 /**
  * VCS (Version Control System) functionality e2e tests.
  *
- * Tests the Jujutsu-based checkpoint system: listing checkpoints,
+ * Tests the Git-based checkpoint system: listing checkpoints,
  * creating manual checkpoints, viewing diffs, and restoring state.
  */
 
@@ -78,7 +78,7 @@ test.describe('VCS - Workspace State', () => {
       }
     }, workspaces[0].id);
 
-    // State may be null if jj is not installed in the test environment
+    // State may be null if git is not available in the test environment
     if (state !== null) {
       expect(state).toHaveProperty('workspaceId');
       expect(state).toHaveProperty('checkpoints');
@@ -141,7 +141,7 @@ test.describe('VCS - Checkpoint Lifecycle', () => {
       }
     }, testWorkspaceId);
 
-    // Checkpoint creation may fail if jj is not available
+    // Checkpoint creation may fail if git is not available
     if (checkpoint !== null) {
       expect(checkpoint).toHaveProperty('changeId');
       expect(checkpoint).toHaveProperty('description');
@@ -222,7 +222,7 @@ test.describe('VCS - Watch/Unwatch', () => {
       }
     }, wsId);
 
-    // Results depend on whether jj is available, but neither should crash the app
+    // Results depend on whether git is available, but neither should crash the app
     expect(typeof watchResult).toBe('string');
     expect(typeof unwatchResult).toBe('string');
   });

@@ -2,7 +2,7 @@
  * GitHubAuthManager — OAuth Device Flow for unified GitHub authentication.
  *
  * Login once from the Electron host, get a token that authenticates both
- * `gh` CLI (via GH_TOKEN) and git/jj push/fetch (via GIT_ASKPASS=gh).
+ * `gh` CLI (via GH_TOKEN) and git push/fetch (via GIT_ASKPASS=gh).
  *
  * Uses GitHub's Device Flow:
  *   1. POST /login/device/code → get user_code + verification_uri
@@ -140,7 +140,7 @@ export class GitHubAuthManager {
   }
 
   /**
-   * Build environment variables that authenticate both `gh` and git/jj.
+   * Build environment variables that authenticate both `gh` and git.
    * Returns empty object if not authenticated.
    */
   getAuthEnvVars(): Record<string, string> {

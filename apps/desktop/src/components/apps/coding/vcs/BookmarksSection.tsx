@@ -1,5 +1,5 @@
 /**
- * BookmarksSection — JJ bookmark list with remote tracking indicators.
+ * BookmarksSection — Git branch list with remote tracking indicators.
  */
 
 import { useCallback, useState } from 'react';
@@ -51,7 +51,7 @@ export function BookmarksSection({
       setNewName('');
       setShowCreate(false);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to create bookmark');
+      showToast(err instanceof Error ? err.message : 'Failed to create branch');
     }
   }, [workspaceId, newName, store]);
 
@@ -87,7 +87,7 @@ export function BookmarksSection({
 
   return (
     <VcsSection
-      title="Bookmarks"
+      title="Branches"
       count={bookmarks.length}
       actions={
         <div className="flex items-center gap-0.5">
@@ -108,14 +108,14 @@ export function BookmarksSection({
               </SectionAction>
             </>
           )}
-          <SectionAction onClick={() => setShowCreate((v) => !v)} title="Create bookmark">
+          <SectionAction onClick={() => setShowCreate((v) => !v)} title="Create branch">
             <Plus className="size-3" />
           </SectionAction>
         </div>
       }
     >
       <div className="pb-1.5">
-        {/* Create bookmark inline form */}
+        {/* Create branch inline form */}
         <AnimatePresence>
           {showCreate && (
             <motion.div
@@ -159,10 +159,10 @@ export function BookmarksSection({
           )}
         </AnimatePresence>
 
-        {/* Bookmark list */}
+        {/* Branch list */}
         {bookmarks.length === 0 ? (
           <div className="px-3 py-1.5 text-[11px] text-[var(--text-muted)]/60">
-            No bookmarks
+            No branches
           </div>
         ) : (
           bookmarks.map((bm, i) => (
@@ -197,7 +197,7 @@ export function BookmarksSection({
   );
 }
 
-// ── Bookmark row ─────────────────────────────────────────────
+// ── Branch row ───────────────────────────────────────────────
 
 function BookmarkRow({
   bookmark,

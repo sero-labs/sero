@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 
 import type { WorkspaceManager } from '../workspace';
 import type { CreateCheckpointOptions, VcsCheckpoint, VcsCheckpointSource, VcsEvent, VcsWorkspaceState } from './types';
-import { JjRunner } from './jj-runner';
+import { GitRunner } from './git-runner';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -14,16 +14,15 @@ function parseSourceFromDescription(description: string): VcsCheckpointSource {
   if (description.startsWith('checkpoint: filesystem')) return 'fs';
   if (description.startsWith('checkpoint: restore') || description.startsWith('restore:')) return 'restore';
   if (description.startsWith('checkpoint: manual')) return 'manual';
-  if (description.startsWith('wip:')) return parseSourceFromDescription(`checkpoint: ${description.slice(4).trim()}`);
   return 'manual';
 }
 
 export class VcsManager extends EventEmitter {
-  private readonly runner: JjRunner;
+  private readonly runner: GitRunner;
 
   constructor(
     private readonly workspaceManager: WorkspaceManager,
-    runner: JjRunner,
+    runner: GitRunner,
   ) {
     super();
     this.runner = runner;
@@ -34,15 +33,12 @@ export class VcsManager extends EventEmitter {
   }
 
   private async ensureRepoInitialized(workspaceId: string): Promise<void> {
-    const root = await this.runner.run(workspaceId, ['root']);
+    const root = await this.runner.run(workspaceId, ['rev-parse', '--git-dir']);
     if (root.exitCode === 0) return;
 
-    const init = await this.runner.run(workspaceId, ['git', 'init', '--colocate']);
-    if (init.exitCode === 0) return;
-
-    const fallback = await this.runner.run(workspaceId, ['init']);
-    if (fallback.exitCode !== 0) {
-      throw new Error(init.stderr || fallback.stderr || 'Failed to initialize JJ repository');
+    const init = await this.runner.run(workspaceId, ['init']);
+    if (init.exitCode !== 0) {
+      throw new Error(init.stderr || 'Failed to initialize Git repository');
     }
   }
 
@@ -50,16 +46,17 @@ export class VcsManager extends EventEmitter {
     await this.ensureRepoInitialized(workspaceId);
 
     const result = await this.runner.run(workspaceId, [
-      'log',
-      '-r',
-      '@',
-      '--no-graph',
-      '-T',
-      'change_id.short(12)',
+      'rev-parse',
+      '--short=12',
+      'HEAD',
     ]);
 
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Failed to resolve current change id');
+      // No commits yet — empty repo
+      if (result.stderr.includes('unknown revision') || result.stderr.includes('ambiguous argument')) {
+        return null;
+      }
+      throw new Error(result.stderr || 'Failed to resolve current commit');
     }
 
     const id = result.stdout.trim();
@@ -70,10 +67,8 @@ export class VcsManager extends EventEmitter {
     await this.ensureRepoInitialized(workspaceId);
 
     const result = await this.runner.run(workspaceId, [
-      'diff',
-      '-r',
-      '@',
-      '--summary',
+      'status',
+      '--porcelain',
     ]);
 
     if (result.exitCode !== 0) {
@@ -86,15 +81,14 @@ export class VcsManager extends EventEmitter {
   async listCheckpoints(workspaceId: string, limit = 40): Promise<VcsCheckpoint[]> {
     await this.ensureRepoInitialized(workspaceId);
 
-    // Template outputs: changeId<TAB>timestamp<TAB>description per line.
-    // author.timestamp() gives us the real commit time.
+    // Check for any commits at all
+    const hasCommits = await this.runner.run(workspaceId, ['rev-parse', 'HEAD']);
+    if (hasCommits.exitCode !== 0) return [];
+
     const result = await this.runner.run(workspaceId, [
       'log',
-      '--no-graph',
-      '--limit',
-      String(limit),
-      '-T',
-      'change_id.short(12) ++ "\\t" ++ author.timestamp().utc().format("%Y-%m-%dT%H:%M:%SZ") ++ "\\t" ++ description.first_line() ++ "\\n"',
+      `--max-count=${limit}`,
+      '--format=%h\t%aI\t%s',
     ]);
 
     if (result.exitCode !== 0) {
@@ -160,30 +154,27 @@ export class VcsManager extends EventEmitter {
     const hasChanges = await this.hasWorkingCopyChanges(workspaceId);
     if (!hasChanges) return null;
 
-    const currentChangeId = await this.getCurrentChangeId(workspaceId);
-    if (!currentChangeId) {
-      throw new Error('Unable to resolve current JJ change');
-    }
-
     const source: VcsCheckpointSource = options.source === 'fs' ? 'manual' : options.source;
     const description = (options.description?.trim() || this.buildDefaultDescription(source)).slice(0, 300);
 
-    const describe = await this.runner.run(workspaceId, ['describe', '-m', description]);
-    if (describe.exitCode !== 0) {
-      throw new Error(describe.stderr || 'Failed to describe checkpoint');
+    // Stage all changes
+    const add = await this.runner.run(workspaceId, ['add', '-A']);
+    if (add.exitCode !== 0) {
+      throw new Error(add.stderr || 'Failed to stage changes');
     }
 
-    const newWork = await this.runner.run(workspaceId, [
-      'new',
-      '-m',
-      `wip: ${source}`,
-    ]);
-    if (newWork.exitCode !== 0) {
-      throw new Error(newWork.stderr || 'Failed to advance to next working change');
+    // Commit
+    const commit = await this.runner.run(workspaceId, ['commit', '-m', description]);
+    if (commit.exitCode !== 0) {
+      throw new Error(commit.stderr || 'Failed to create checkpoint commit');
     }
+
+    // Get the SHA of the commit we just created
+    const sha = await this.runner.run(workspaceId, ['rev-parse', '--short=12', 'HEAD']);
+    const changeId = sha.exitCode === 0 ? sha.stdout.trim() : 'unknown';
 
     const checkpoint: VcsCheckpoint = {
-      changeId: currentChangeId,
+      changeId,
       description,
       source,
       createdAt: nowIso(),
@@ -201,21 +192,37 @@ export class VcsManager extends EventEmitter {
   /**
    * Restore workspace files to the state at the given checkpoint.
    *
-   * Uses `jj new <changeId>` (not `jj restore`) to create a new change
-   * on top of the target, keeping the timeline linear and intact.
+   * Uses `git checkout <sha> -- .` to restore all files to the checkpoint
+   * state, then stages and commits as a restore point to keep history linear.
    */
   async restoreCheckpoint(workspaceId: string, changeId: string): Promise<void> {
     await this.ensureRepoInitialized(workspaceId);
 
-    const restore = await this.runner.run(workspaceId, [
-      'new',
+    // Restore all files to the checkpoint state
+    const checkout = await this.runner.run(workspaceId, [
+      'checkout',
       changeId,
-      '-m',
-      `restore: ${changeId}`,
+      '--',
+      '.',
     ]);
 
-    if (restore.exitCode !== 0) {
-      throw new Error(restore.stderr || `Failed to restore checkpoint ${changeId}`);
+    if (checkout.exitCode !== 0) {
+      throw new Error(checkout.stderr || `Failed to restore checkpoint ${changeId}`);
+    }
+
+    // Also clean untracked files that didn't exist at the checkpoint
+    await this.runner.run(workspaceId, ['clean', '-fd']);
+
+    // Stage everything and commit the restore
+    await this.runner.run(workspaceId, ['add', '-A']);
+
+    const hasChanges = await this.hasWorkingCopyChanges(workspaceId);
+    if (hasChanges) {
+      await this.runner.run(workspaceId, [
+        'commit',
+        '-m',
+        `restore: ${changeId}`,
+      ]);
     }
 
     this.emitEvent({
@@ -228,11 +235,13 @@ export class VcsManager extends EventEmitter {
   async diff(workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string> {
     await this.ensureRepoInitialized(workspaceId);
 
-    const args = ['diff', '--from', fromChangeId];
+    const args = ['diff'];
     if (toChangeId?.trim()) {
-      args.push('--to', toChangeId.trim());
+      args.push(`${fromChangeId}..${toChangeId.trim()}`);
+    } else {
+      // Diff from the given commit to the current working tree
+      args.push(fromChangeId);
     }
-    args.push('--git');
 
     const diff = await this.runner.run(workspaceId, args, 60_000);
     if (diff.exitCode !== 0) {
@@ -244,7 +253,6 @@ export class VcsManager extends EventEmitter {
 
   watchWorkspace(workspaceId: string): void {
     // Explicit checkpoint mode: no automatic filesystem-based checkpointing.
-    // Keep API for compatibility with existing callers.
     void this.workspaceManager.getPath(workspaceId);
   }
 

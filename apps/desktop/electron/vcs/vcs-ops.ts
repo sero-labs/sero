@@ -1,14 +1,14 @@
-import type { JjRunner } from './jj-runner';
+import type { GitRunner } from './git-runner';
 import {
-  LOG_TEMPLATE,
-  BOOKMARK_TEMPLATE,
-  OP_LOG_TEMPLATE,
+  LOG_FORMAT,
+  BRANCH_FORMAT,
+  REFLOG_FORMAT,
   parseLogEntries,
   parseStatus,
   parseDiffSummary,
-  parseBookmarks,
+  parseBranches,
   parseRemotes,
-  parseOperationLog,
+  parseReflog,
 } from './parsers';
 import { isAutoPushBookmark, inferConventionalType, slugifyBranchLabel } from './branch-naming';
 import type {
@@ -22,26 +22,30 @@ import type {
   PushPreview,
 } from '../../src/types/vcs';
 
-const DEFAULT_PRIMARY_BOOKMARK = 'main';
+const DEFAULT_PRIMARY_BRANCH = 'main';
 
 export class VcsOps {
-  constructor(private readonly runner: JjRunner) {}
+  constructor(private readonly runner: GitRunner) {}
 
   async getLogEntries(
     workspaceId: string,
     limit = 40,
     revset?: string,
   ): Promise<ChangeEntry[]> {
-    const args = ['log', '--no-graph', '-T', LOG_TEMPLATE, '--limit', String(limit)];
-    if (revset) args.push('-r', revset);
+    const args = ['log', `--format=${LOG_FORMAT}`, `--max-count=${limit}`];
+    if (revset) args.push(revset);
 
     const result = await this.runner.run(workspaceId, args);
-    if (result.exitCode !== 0) throw new Error(result.stderr || 'Failed to load change log');
+    if (result.exitCode !== 0) {
+      // Empty repo — no commits yet
+      if (result.stderr.includes('does not have any commits')) return [];
+      throw new Error(result.stderr || 'Failed to load commit log');
+    }
     return parseLogEntries(result.stdout);
   }
 
   async getStatus(workspaceId: string): Promise<WorkingCopyStatus> {
-    const result = await this.runner.run(workspaceId, ['status']);
+    const result = await this.runner.run(workspaceId, ['status', '--porcelain']);
     if (result.exitCode !== 0) throw new Error(result.stderr || 'Failed to get status');
     return parseStatus(result.stdout);
   }
@@ -52,8 +56,8 @@ export class VcsOps {
     to?: string,
   ): Promise<FileDiffEntry[]> {
     const args = to
-      ? ['diff', '--summary', '--from', from, '--to', to]
-      : ['diff', '--summary', '-r', from];
+      ? ['diff', '--name-status', `${from}..${to}`]
+      : ['diff', '--name-status', from];
 
     const result = await this.runner.run(workspaceId, args);
     if (result.exitCode !== 0) throw new Error(result.stderr || 'Failed to get diff summary');
@@ -67,12 +71,12 @@ export class VcsOps {
   ): Promise<string> {
     const result = await this.runner.run(
       workspaceId,
-      ['file', 'show', '-r', revset, path],
+      ['show', `${revset}:${path}`],
       60_000,
     );
     if (result.exitCode !== 0) {
       // File might not exist at this revision — return empty
-      if (result.stderr.includes('No such path')) return '';
+      if (result.stderr.includes('does not exist') || result.stderr.includes('not exist in')) return '';
       throw new Error(result.stderr || 'Failed to read file at revision');
     }
 
@@ -84,56 +88,61 @@ export class VcsOps {
     changeId: string,
     message: string,
   ): Promise<void> {
+    // Git can only amend the HEAD commit's message directly.
+    const head = await this.runner.run(workspaceId, ['rev-parse', '--short', 'HEAD']);
+    const headSha = head.stdout.trim();
+
+    if (!headSha.startsWith(changeId.slice(0, headSha.length))) {
+      throw new Error('Can only edit the description of the most recent commit (HEAD)');
+    }
+
     const result = await this.runner.run(workspaceId, [
-      'describe',
-      '-r',
-      changeId,
+      'commit',
+      '--amend',
       '-m',
       message,
     ]);
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Failed to describe change');
+      throw new Error(result.stderr || 'Failed to update commit message');
     }
   }
 
   async listBookmarks(workspaceId: string): Promise<Bookmark[]> {
     const result = await this.runner.run(workspaceId, [
-      'bookmark',
-      'list',
-      '--all-remotes',
-      '-T',
-      BOOKMARK_TEMPLATE,
+      'branch',
+      `--format=${BRANCH_FORMAT}`,
     ]);
     if (result.exitCode !== 0) {
-      // No bookmarks yet is fine
-      if (result.stderr.includes('No bookmarks')) return [];
-      throw new Error(result.stderr || 'Failed to list bookmarks');
+      // No branches yet is fine (empty repo)
+      return [];
     }
 
-    return parseBookmarks(result.stdout);
+    return parseBranches(result.stdout);
   }
 
   async createBookmark(
     workspaceId: string,
     name: string,
-    revision = '@',
+    revision = 'HEAD',
   ): Promise<void> {
     const result = await this.runner.run(workspaceId, [
-      'bookmark',
-      'create',
+      'branch',
       name,
-      '-r',
       revision,
     ]);
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to create bookmark '${name}'`);
+      throw new Error(result.stderr || `Failed to create branch '${name}'`);
     }
   }
 
   async deleteBookmark(workspaceId: string, name: string): Promise<void> {
-    const result = await this.runner.run(workspaceId, ['bookmark', 'delete', name]);
+    const result = await this.runner.run(workspaceId, ['branch', '-d', name]);
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to delete bookmark '${name}'`);
+      // Try force delete
+      const force = await this.runner.run(workspaceId, ['branch', '-D', name]);
+      if (force.exitCode !== 0) {
+        throw new Error(force.stderr || `Failed to delete branch '${name}'`);
+      }
     }
   }
 
@@ -143,19 +152,18 @@ export class VcsOps {
     toRevision: string,
   ): Promise<void> {
     const result = await this.runner.run(workspaceId, [
-      'bookmark',
-      'move',
+      'branch',
+      '-f',
       name,
-      '--to',
       toRevision,
     ]);
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to move bookmark '${name}'`);
+      throw new Error(result.stderr || `Failed to move branch '${name}'`);
     }
   }
 
   async listRemotes(workspaceId: string): Promise<Remote[]> {
-    const result = await this.runner.run(workspaceId, ['git', 'remote', 'list']);
+    const result = await this.runner.run(workspaceId, ['remote', '-v']);
     if (result.exitCode !== 0) {
       return [];
     }
@@ -168,91 +176,78 @@ export class VcsOps {
     name: string,
     url: string,
   ): Promise<void> {
-    const result = await this.runner.run(workspaceId, ['git', 'remote', 'add', name, url]);
+    const result = await this.runner.run(workspaceId, ['remote', 'add', name, url]);
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || `Failed to add remote '${name}'`);
     }
   }
 
   async removeRemote(workspaceId: string, name: string): Promise<void> {
-    const result = await this.runner.run(workspaceId, ['git', 'remote', 'remove', name]);
+    const result = await this.runner.run(workspaceId, ['remote', 'remove', name]);
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || `Failed to remove remote '${name}'`);
     }
   }
 
-  private async getChangeDescription(
+  private async getCommitDescription(
     workspaceId: string,
     changeId: string,
   ): Promise<string> {
     const result = await this.runner.run(workspaceId, [
       'log',
-      '--no-graph',
-      '-r',
+      '--format=%s',
+      '-1',
       changeId,
-      '-T',
-      'description.first_line()',
     ]);
 
     if (result.exitCode !== 0) return '';
     return result.stdout.trim();
   }
 
-  private async suggestPushBookmarkForChange(
+  private async suggestPushBranchForCommit(
     workspaceId: string,
     changeId: string,
     bookmarks: Bookmark[],
   ): Promise<string> {
-    // 1. Prefer an existing bookmark already pointing at this exact change
+    // 1. Prefer an existing branch already pointing at this exact commit
     const localAtTarget = bookmarks
       .filter((bm) => bm.isLocal && bm.changeId === changeId)
       .map((bm) => bm.name);
 
-    const preferredAtTarget = localAtTarget.find((name) => name === DEFAULT_PRIMARY_BOOKMARK)
+    const preferredAtTarget = localAtTarget.find((name) => name === DEFAULT_PRIMARY_BRANCH)
       ?? localAtTarget.find((name) => !isAutoPushBookmark(name));
     if (preferredAtTarget) return preferredAtTarget;
 
-    // 2. Generate a descriptive feature branch name.
-    //    Never fall back to moving shared branches (e.g. main) to an arbitrary
-    //    change — that would silently rewrite shared history.
-    const description = await this.getChangeDescription(workspaceId, changeId);
+    // 2. Generate a descriptive feature branch name
+    const description = await this.getCommitDescription(workspaceId, changeId);
     const type = inferConventionalType(description);
     const label = slugifyBranchLabel(description);
     return `${type}/${label}-${changeId.slice(0, 8)}`;
   }
 
-  private async ensureBookmarkAtChange(
+  private async ensureBranchAtCommit(
     workspaceId: string,
-    bookmark: string,
+    branch: string,
     changeId: string,
   ): Promise<void> {
+    // Try creating the branch
     const create = await this.runner.run(workspaceId, [
-      'bookmark',
-      'create',
-      bookmark,
-      '-r',
+      'branch',
+      branch,
       changeId,
     ]);
     if (create.exitCode === 0) return;
 
-    const createErr = create.stderr.toLowerCase();
-    if (!createErr.includes('already exists')) {
-      throw new Error(create.stderr || `Failed to create bookmark '${bookmark}'`);
-    }
-
+    // Branch already exists — force move it
     const move = await this.runner.run(workspaceId, [
-      'bookmark',
-      'move',
-      bookmark,
-      '--to',
+      'branch',
+      '-f',
+      branch,
       changeId,
     ]);
 
     if (move.exitCode !== 0) {
-      const moveErr = move.stderr.toLowerCase();
-      if (!moveErr.includes('already points') && !moveErr.includes('already at')) {
-        throw new Error(move.stderr || `Failed to move bookmark '${bookmark}'`);
-      }
+      throw new Error(move.stderr || `Failed to set branch '${branch}' to ${changeId}`);
     }
   }
 
@@ -266,14 +261,10 @@ export class VcsOps {
     }
   }
 
-  private isStaleRemotePushError(stderr: string): boolean {
-    const msg = stderr.toLowerCase();
-    return msg.includes('unexpectedly moved on the remote') || msg.includes('stale info');
-  }
-
   async fetch(workspaceId: string, remote?: string): Promise<SyncResult> {
-    const args = ['git', 'fetch'];
-    if (remote) args.push('--remote', remote);
+    const args = ['fetch'];
+    if (remote) args.push(remote);
+    else args.push('--all');
 
     const result = await this.runner.run(workspaceId, args, 120_000);
     if (result.exitCode !== 0) {
@@ -288,27 +279,26 @@ export class VcsOps {
     bookmark?: string,
     changeId?: string,
   ): Promise<PushPreview> {
-    let resolvedBookmark = bookmark;
-    if (!resolvedBookmark && changeId) {
+    let resolvedBranch = bookmark;
+    if (!resolvedBranch && changeId) {
       try {
         const bookmarks = await this.listBookmarks(workspaceId);
-        resolvedBookmark = await this.suggestPushBookmarkForChange(workspaceId, changeId, bookmarks);
+        resolvedBranch = await this.suggestPushBranchForCommit(workspaceId, changeId, bookmarks);
       } catch (err) {
-        console.warn('[vcs-ops] Dry-run bookmark suggestion failed (best-effort):', err);
+        console.warn('[vcs-ops] Dry-run branch suggestion failed (best-effort):', err);
       }
     }
 
     const pushRemote = await this.resolvePushRemote(workspaceId);
-    const args = ['git', 'push', '--dry-run'];
-    if (pushRemote) args.push('--remote', pushRemote);
-    if (resolvedBookmark) args.push('--bookmark', resolvedBookmark);
-    else if (changeId) args.push('--change', changeId);
+    const args = ['push', '--dry-run'];
+    if (pushRemote) args.push(pushRemote);
+    if (resolvedBranch) args.push(resolvedBranch);
 
     const result = await this.runner.run(workspaceId, args, 60_000);
     const output = result.stdout + '\n' + result.stderr;
 
     return {
-      bookmarks: resolvedBookmark ? [resolvedBookmark] : [],
+      bookmarks: resolvedBranch ? [resolvedBranch] : [],
       willCreate: [],
       message: output.trim(),
     };
@@ -319,51 +309,46 @@ export class VcsOps {
     bookmark?: string,
     changeId?: string,
   ): Promise<SyncResult> {
-    let resolvedBookmark = bookmark;
-    if (resolvedBookmark && changeId) {
+    let resolvedBranch = bookmark;
+    if (resolvedBranch && changeId) {
       try {
-        await this.ensureBookmarkAtChange(workspaceId, resolvedBookmark, changeId);
+        await this.ensureBranchAtCommit(workspaceId, resolvedBranch, changeId);
       } catch (err) {
         return {
           success: false,
-          message: err instanceof Error ? err.message : 'Failed to move push bookmark',
+          message: err instanceof Error ? err.message : 'Failed to set push branch',
         };
       }
     }
-    if (!resolvedBookmark && changeId) {
+    if (!resolvedBranch && changeId) {
       try {
         const bookmarks = await this.listBookmarks(workspaceId);
-        resolvedBookmark = await this.suggestPushBookmarkForChange(workspaceId, changeId, bookmarks);
-        await this.ensureBookmarkAtChange(workspaceId, resolvedBookmark, changeId);
+        resolvedBranch = await this.suggestPushBranchForCommit(workspaceId, changeId, bookmarks);
+        await this.ensureBranchAtCommit(workspaceId, resolvedBranch, changeId);
       } catch (err) {
         return {
           success: false,
-          message: err instanceof Error ? err.message : 'Failed to prepare push bookmark',
+          message: err instanceof Error ? err.message : 'Failed to prepare push branch',
         };
       }
     }
 
     const pushRemote = await this.resolvePushRemote(workspaceId);
     const buildPushArgs = (): string[] => {
-      const args = ['git', 'push'];
-      if (pushRemote) args.push('--remote', pushRemote);
-      if (resolvedBookmark) args.push('--bookmark', resolvedBookmark);
-      else if (changeId) args.push('--change', changeId);
+      const args = ['push', '-u'];
+      if (pushRemote) args.push(pushRemote);
+      if (resolvedBranch) args.push(resolvedBranch);
       return args;
     };
 
-    let result = await this.runner.run(workspaceId, buildPushArgs(), 120_000);
-    if (result.exitCode !== 0 && this.isStaleRemotePushError(result.stderr || '')) {
-      await this.fetch(workspaceId, pushRemote);
-      result = await this.runner.run(workspaceId, buildPushArgs(), 120_000);
-    }
+    const result = await this.runner.run(workspaceId, buildPushArgs(), 120_000);
     if (result.exitCode !== 0) {
       return { success: false, message: result.stderr || 'Push failed' };
     }
 
     const output = result.stderr || result.stdout;
-    if (resolvedBookmark) {
-      const summary = `Pushed bookmark '${resolvedBookmark}'`;
+    if (resolvedBranch) {
+      const summary = `Pushed branch '${resolvedBranch}'`;
       return {
         success: true,
         message: output?.trim() ? `${summary}\n${output.trim()}` : summary,
@@ -374,16 +359,25 @@ export class VcsOps {
   }
 
   async undo(workspaceId: string): Promise<void> {
-    const result = await this.runner.run(workspaceId, ['undo']);
+    // Undo last commit by soft-resetting to HEAD~1 (keeps changes staged)
+    const result = await this.runner.run(workspaceId, ['reset', '--soft', 'HEAD~1']);
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Undo failed');
+      throw new Error(result.stderr || 'Undo failed — no commits to undo');
     }
   }
 
   async abandon(workspaceId: string, changeId: string): Promise<void> {
-    const result = await this.runner.run(workspaceId, ['abandon', changeId]);
+    // "Abandon" = drop a commit. Only supported for HEAD in a non-interactive flow.
+    const head = await this.runner.run(workspaceId, ['rev-parse', '--short', 'HEAD']);
+    const headSha = head.stdout.trim();
+
+    if (!headSha.startsWith(changeId.slice(0, headSha.length))) {
+      throw new Error('Can only drop the most recent commit (HEAD). Use interactive rebase for older commits.');
+    }
+
+    const result = await this.runner.run(workspaceId, ['reset', '--hard', 'HEAD~1']);
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to abandon ${changeId}`);
+      throw new Error(result.stderr || `Failed to drop commit ${changeId}`);
     }
   }
 
@@ -392,13 +386,17 @@ export class VcsOps {
     from?: string,
     into?: string,
   ): Promise<void> {
-    const args = ['squash'];
-    if (from) args.push('--from', from);
-    if (into) args.push('--into', into);
+    void from;
+    void into;
 
-    const result = await this.runner.run(workspaceId, args);
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Squash failed');
+    const soft = await this.runner.run(workspaceId, ['reset', '--soft', 'HEAD~1']);
+    if (soft.exitCode !== 0) {
+      throw new Error(soft.stderr || 'Squash failed — cannot reset');
+    }
+
+    const amend = await this.runner.run(workspaceId, ['commit', '--amend', '--no-edit']);
+    if (amend.exitCode !== 0) {
+      throw new Error(amend.stderr || 'Squash failed — cannot amend');
     }
   }
 
@@ -407,18 +405,15 @@ export class VcsOps {
     limit = 20,
   ): Promise<OperationEntry[]> {
     const result = await this.runner.run(workspaceId, [
-      'operation',
-      'log',
-      '--no-graph',
-      '-T',
-      OP_LOG_TEMPLATE,
-      '--limit',
+      'reflog',
+      `--format=${REFLOG_FORMAT}`,
+      `-n`,
       String(limit),
     ]);
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Failed to read operation log');
+      return [];
     }
 
-    return parseOperationLog(result.stdout);
+    return parseReflog(result.stdout);
   }
 }
