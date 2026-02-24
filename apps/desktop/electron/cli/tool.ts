@@ -1,0 +1,265 @@
+import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import { Type } from '@sinclair/typebox';
+import { containerManager, workspaceManager } from '../ipc/shared-infra';
+import { tokenizeCliInput, splitCommandLines } from './parser';
+import type { CliCommandContext, CliInvocation, CliResult } from './types';
+import type { CliRegistry } from './registry';
+import { getCliSessionBridge } from './session-bridge';
+
+const MAX_OUTPUT_BYTES = 50 * 1024;
+const MAX_OUTPUT_LINES = 2000;
+const DEFAULT_BATCH_TIMEOUT_SEC = 120;
+const MAX_PER_COMMAND_TIMEOUT_MS = 30_000;
+const TURN_COMMAND_LIMIT = 50;
+
+const SeroCliToolParams = Type.Object({
+  command: Type.String({
+    description:
+      'Sero CLI command string (e.g. "todo list"). Supports multi-line input for chaining (one command per line).',
+  }),
+  timeout: Type.Optional(
+    Type.Number({ description: 'Batch timeout in seconds (default: 120)' }),
+  ),
+});
+
+class CommandTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CommandTimeoutError';
+  }
+}
+
+interface CliBatchResult {
+  output: string;
+  exitCode: number;
+}
+
+function truncateOutput(text: string): string {
+  const lines = text.split('\n');
+  let outLines = lines;
+  let truncated = false;
+
+  if (lines.length > MAX_OUTPUT_LINES) {
+    outLines = lines.slice(0, MAX_OUTPUT_LINES);
+    truncated = true;
+  }
+
+  let out = outLines.join('\n');
+  while (Buffer.byteLength(out, 'utf8') > MAX_OUTPUT_BYTES && outLines.length > 1) {
+    outLines = outLines.slice(0, -1);
+    out = outLines.join('\n');
+    truncated = true;
+  }
+
+  if (!truncated) return out;
+  return `${out}\n\n[output truncated to 50KB / 2000 lines]`;
+}
+
+function timeoutForCommand(batchDeadline: number | null): number | null {
+  if (batchDeadline === null) return null;
+  const remaining = batchDeadline - Date.now();
+  if (remaining <= 0) throw new CommandTimeoutError('Batch timeout exceeded');
+  return Math.min(MAX_PER_COMMAND_TIMEOUT_MS, remaining);
+}
+
+async function runWithTimeout<T>(
+  fn: () => Promise<T>,
+  timeoutMs: number | null,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (signal?.aborted) throw new Error('Operation aborted');
+  if (!timeoutMs && !signal) return fn();
+
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  let abortListener: (() => void) | null = null;
+
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      let settled = false;
+      const finish = (cb: () => void) => {
+        if (settled) return;
+        settled = true;
+        cb();
+      };
+
+      if (timeoutMs) {
+        timeout = setTimeout(() => {
+          finish(() => reject(new CommandTimeoutError(`Command timed out after ${Math.ceil(timeoutMs / 1000)}s`)));
+        }, timeoutMs);
+      }
+
+      if (signal) {
+        abortListener = () => finish(() => reject(new Error('Operation aborted')));
+        signal.addEventListener('abort', abortListener, { once: true });
+      }
+
+      fn().then(
+        (value) => finish(() => resolve(value)),
+        (error) => finish(() => reject(error)),
+      );
+    });
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    if (signal && abortListener) signal.removeEventListener('abort', abortListener);
+  }
+}
+
+function normalizeCliResult(result: CliResult): CliResult {
+  return {
+    output: typeof result.output === 'string' ? result.output : String(result.output ?? ''),
+    exitCode: result.exitCode ?? 0,
+  };
+}
+
+function isHelpCommand(name: string): boolean {
+  return name === 'help';
+}
+
+function formatBatchEntry(line: string, output: string): string {
+  if (!output.trim()) return `$ sero ${line}`;
+  return `$ sero ${line}\n${output}`;
+}
+
+export async function executeCliBatch(
+  registry: CliRegistry,
+  commandText: string,
+  context: CliCommandContext,
+  batchTimeoutSec?: number,
+): Promise<CliBatchResult> {
+  const lines = splitCommandLines(commandText);
+  if (lines.length === 0) {
+    return { output: 'ERROR: No command provided', exitCode: 1 };
+  }
+
+  const single = lines.length === 1;
+  const batchDeadline = context.invocation.source === 'terminal'
+    ? null
+    : Date.now() + Math.max(1, Math.floor(batchTimeoutSec ?? DEFAULT_BATCH_TIMEOUT_SEC)) * 1000;
+
+  const sections: string[] = [];
+  let finalExitCode = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    let result: CliResult;
+    let timedOut = false;
+
+    try {
+      const tokens = tokenizeCliInput(line);
+      const resolved = registry.resolveTokens(tokens);
+
+      const turnId = context.invocation.turnId;
+      if (
+        context.invocation.source !== 'terminal' &&
+        turnId &&
+        !isHelpCommand(resolved.command.name)
+      ) {
+        const budget = getCliSessionBridge().consumeTurnBudget(context.workspaceId, turnId);
+        if (!budget.allowed) {
+          result = {
+            output: `ERROR: Rate limit: ${TURN_COMMAND_LIMIT} CLI commands per turn exceeded. Wait for the next turn.`,
+            exitCode: 1,
+          };
+          finalExitCode = 1;
+          if (single) {
+            return { output: truncateOutput(result.output), exitCode: 1 };
+          }
+          sections.push(formatBatchEntry(line, result.output));
+          sections.push(`[command ${i + 1}/${lines.length} failed with exit code 1 — remaining commands skipped]`);
+          break;
+        }
+      }
+
+      const perCommandTimeout = context.invocation.source === 'terminal'
+        ? null
+        : timeoutForCommand(batchDeadline);
+      result = normalizeCliResult(
+        await runWithTimeout(
+          () => resolved.command.execute(resolved.args, context),
+          perCommandTimeout,
+          context.invocation.signal,
+        ),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'CLI command failed';
+      timedOut = error instanceof CommandTimeoutError;
+      result = {
+        output: `ERROR: ${message}`,
+        exitCode: 1,
+      };
+    }
+
+    finalExitCode = result.exitCode ?? 0;
+
+    if (single) {
+      const output = context.invocation.source === 'terminal'
+        ? result.output
+        : truncateOutput(result.output);
+      return { output, exitCode: finalExitCode };
+    }
+
+    sections.push(formatBatchEntry(line, result.output));
+
+    if (finalExitCode !== 0) {
+      const suffix = timedOut
+        ? `[command ${i + 1}/${lines.length} timed out — remaining commands skipped]`
+        : `[command ${i + 1}/${lines.length} failed with exit code ${finalExitCode} — remaining commands skipped]`;
+      sections.push(suffix);
+      break;
+    }
+  }
+
+  const joined = sections.join('\n\n');
+  const output = context.invocation.source === 'terminal' ? joined : truncateOutput(joined);
+  return { output, exitCode: finalExitCode };
+}
+
+function buildInvocation(
+  workspaceId: string,
+  sessionId: string,
+  signal?: AbortSignal,
+): CliInvocation {
+  const bridge = getCliSessionBridge();
+  return {
+    workspaceId,
+    sessionId,
+    turnId: bridge.getActiveTurnId(sessionId),
+    source: 'tool',
+    signal,
+  };
+}
+
+export function createSeroCliTool(
+  registry: CliRegistry,
+  workspaceId: string,
+  sessionId: string,
+): ToolDefinition {
+  return {
+    name: 'sero-cli',
+    label: 'Sero CLI',
+    description:
+      'Execute Sero platform commands. Run `sero help` for commands. Supports multi-line input to chain commands (one per line).',
+    parameters: SeroCliToolParams,
+    async execute(_toolCallId, params, signal, _onUpdate, toolCtx) {
+      const cliParams = params as { command: string; timeout?: number };
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) {
+        return { content: [{ type: 'text', text: `ERROR: Workspace not found: ${workspaceId}` }], details: { exitCode: 1 } };
+      }
+
+      const context: CliCommandContext = {
+        workspaceId,
+        cwd: toolCtx?.cwd ?? wsPath,
+        invocation: buildInvocation(workspaceId, sessionId, signal),
+        workspaceManager,
+        containerManager,
+      };
+
+      const batch = await executeCliBatch(registry, cliParams.command, context, cliParams.timeout);
+      return {
+        content: [{ type: 'text', text: batch.output }],
+        details: { exitCode: batch.exitCode },
+      };
+    },
+  };
+}

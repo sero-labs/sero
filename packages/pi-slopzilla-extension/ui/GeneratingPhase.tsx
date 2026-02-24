@@ -6,15 +6,13 @@
 
 import { useState, useEffect } from 'react';
 
-const KAIJU_ART = `    __
-   /  @\\
-  | \\__/|
-  /|    |\\
- / | /\\ | \\
-/__|/  \\|__\\
-   || ||
-   || ||
-  _||_||_`;
+const KAIJU_ART = `      /\\/\\/\\
+     /  @    \\___
+    /    __   __/
+   |____/  \\_/
+     |    |
+    _|  _ |_
+   |__|| |__|`;
 
 const FLAVORS = [
   'Consulting the ancient scrolls of Stack Overflow...',

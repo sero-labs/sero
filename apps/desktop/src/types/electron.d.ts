@@ -228,9 +228,21 @@ interface SeroTerminalAPI {
 
 interface SeroLayoutAPI {
   /** Save UI layout state to disk. */
-  save(state: { mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps: string[] }): Promise<void>;
+  save(state: {
+    mainSidebarOpen: boolean;
+    chatPanelOpen: boolean;
+    favouriteApps: string[];
+    mainSidebarSizePct?: number;
+    chatPanelSizePct?: number;
+  }): Promise<void>;
   /** Load UI layout state from disk. Returns null if no saved state. */
-  load(): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps?: string[] } | null>;
+  load(): Promise<{
+    mainSidebarOpen: boolean;
+    chatPanelOpen: boolean;
+    favouriteApps?: string[];
+    mainSidebarSizePct?: number;
+    chatPanelSizePct?: number;
+  } | null>;
 }
 
 interface SeroNetAPI {

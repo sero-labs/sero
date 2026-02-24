@@ -13,7 +13,6 @@
  */
 
 import path from 'path';
-import { Type } from '@sinclair/typebox';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import type { WorkspaceManager } from './workspace';
 import type { WorkspaceInfo } from '../src/types/ipc';
@@ -21,6 +20,7 @@ import type { ContainerState } from './container/index';
 import { buildContainerPromptBlock } from './container/system-prompt';
 import { registerSeroBuiltinCommands } from './sero-extension-commands';
 import { registerJjCheckpointFeatures } from './sero-extension-jj';
+import { buildCliPromptBlock } from './cli';
 
 /**
  * Creates an extension factory for a specific workspace session.
@@ -32,46 +32,18 @@ import { registerJjCheckpointFeatures } from './sero-extension-jj';
 export function createSeroExtensionFactory(
   wsManager: WorkspaceManager,
   currentWorkspaceId: string,
+  _sessionId: string,
   containerState?: ContainerState,
 ) {
   return (pi: ExtensionAPI) => {
-    // ── Session title generation ───────────────────────────────
-    //
-    // On the first turn, inject a system prompt instruction telling
-    // the agent to call set_session_title with a short title.
-    // The tool sets the session name via pi.setSessionName().
-
-    let titleSet = false;
-
-    pi.registerTool({
-      name: 'set_session_title',
-      label: 'Set Session Title',
-      description: 'Set a short title for the current chat session. Call this once after your first response.',
-      parameters: Type.Object({
-        title: Type.String({ description: 'Concise title, 3-6 words' }),
-      }),
-      execute: async (_toolCallId, params) => {
-        const title = params.title?.trim();
-        
-        if (title) {
-          pi.setSessionName(title);
-          titleSet = true;
-        }
-        return {
-          content: [{ type: 'text', text: title ? `Session titled: ${title}` : 'No title provided' }],
-          details: {},
-        };
-      },
-    });
-
     // ── Composite prompt injection ─────────────────────────────
     //
     // Before each agent turn, inject summaries of other open workspaces
     // into the system prompt so the AI has cross-workspace awareness.
-    // On the first turn, also ask the agent to generate a session title.
 
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
+      systemPrompt += buildCliPromptBlock();
 
       // Inject container environment context if workspace is containerised
       if (containerState) {

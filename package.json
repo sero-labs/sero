@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.11.0",
   "scripts": {
+    "postinstall": "node scripts/rebuild-node-pty.mjs",
     "dev": "pnpm --filter @sero/desktop dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",

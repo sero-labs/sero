@@ -41,11 +41,13 @@ export function useSessionAgent() {
 
     if (!activeSession) return; // Sessions not loaded yet
 
-    // If already in the pool, just focus it
-    if (agents[activeSessionId]) {
+    // If fully initialized in the pool, just focus it.
+    // Partial entries (from events arriving before openSession) won't
+    // have a sessionId field — route those through openSession to repair.
+    if (agents[activeSessionId]?.sessionId) {
       focusSession(activeSessionId);
     } else {
-      // Opens in pool + focuses
+      // Opens in pool + focuses (also repairs partial entries)
       openSession(activeSessionId, activeSession.path, activeSession.workspaceId);
     }
   }, [activeSessionId, activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps

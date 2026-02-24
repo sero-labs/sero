@@ -16,8 +16,8 @@ import { readFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 
-/** Sero's root config directory. */
-export const SERO_HOME = path.join(os.homedir(), '.sero-ui');
+/** Sero's root config directory. Respects SERO_HOME env var for testing. */
+export const SERO_HOME = process.env.SERO_HOME || path.join(os.homedir(), '.sero-ui');
 
 /** Sero's agent directory — replaces ~/.pi/agent for all SDK calls. */
 export const SERO_AGENT_DIR = path.join(SERO_HOME, 'agent');

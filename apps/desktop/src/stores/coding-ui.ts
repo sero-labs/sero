@@ -14,12 +14,18 @@ export interface WorkspaceCodingUi {
   sidebarOpen: boolean;
   activePanel: CodingPanel;
   terminalOpen: boolean;
+  /** Last expanded size of the coding sidebar (explorer) as percentage. */
+  codingSidebarSizePct: number;
+  /** Last expanded size of the terminal panel as percentage. */
+  terminalSizePct: number;
 }
 
 const DEFAULT_CODING_UI: WorkspaceCodingUi = {
   sidebarOpen: true,
   activePanel: 'explorer',
   terminalOpen: false,
+  codingSidebarSizePct: 0,
+  terminalSizePct: 30,
 };
 
 interface CodingUiState {

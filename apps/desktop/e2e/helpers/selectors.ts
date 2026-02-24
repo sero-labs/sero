@@ -18,6 +18,22 @@ export const layout = {
   chatToggle: 'button[aria-label="Toggle agent"]',
   /** Status bar footer. */
   statusBar: 'footer',
+
+  // ── Resizable panels (data-testid from react-resizable-panels) ──
+  /** The top-level horizontal panel group in App.tsx. */
+  shellPanelGroup: '[data-testid="app-shell-panels"]',
+  /** Main sidebar panel (left, collapsible). */
+  sidebarPanel: '[data-testid="main-sidebar-panel"]',
+  /** Active app panel (center). */
+  activeAppPanel: '[data-testid="active-app-panel"]',
+  /** Chat panel (right, collapsible). */
+  chatPanel: '[data-testid="chat-panel"]',
+  /** Handle between sidebar and active-app. */
+  sidebarHandle: '[data-testid="app-shell-panels"] [data-separator]',
+  /** CodingWorkspace vertical panel group. */
+  codingVerticalGroup: '[data-testid="coding-vertical"]',
+  /** CodingWorkspace terminal panel. */
+  terminalPanel: '[data-testid="coding-terminal"]',
 } as const;
 
 // ── Sidebar ─────────────────────────────────────────────────────
@@ -99,6 +115,19 @@ export const workspace = {
   addButton: 'button[title="Add workspace folder"]',
   /** Workspace node in sidebar — use `.filter({ hasText })` for specific workspace. */
   workspaceNode: '[data-testid="workspace-node"]',
+  /** Workspace node by ID — use workspace.nodeById(id). */
+  nodeById: (id: string) => `[data-testid="workspace-node-${id}"]`,
+} as const;
+
+// ── File Tree ───────────────────────────────────────────────────
+
+export const fileTree = {
+  /** The file tree container. */
+  container: '[data-testid="file-tree"]',
+  /** Sidebar content area (coding panel body). */
+  sidebarContent: '[data-testid="coding-sidebar-content"]',
+  /** File tree item by filename. */
+  itemByName: (name: string) => `[data-testid="file-tree-item-${name}"]`,
 } as const;
 
 // ── Auth ────────────────────────────────────────────────────────

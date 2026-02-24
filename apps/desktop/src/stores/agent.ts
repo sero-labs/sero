@@ -94,29 +94,36 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   showThinkingBlocks: false,
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
-    // If already in pool, just focus it
-    if (get().agents[sessionId]) {
+    // If already fully initialized in pool, just focus it.
+    // Check for `sessionId` field — partial entries created by events
+    // (e.g. when a federated app calls agent.open via IPC directly)
+    // won't have it set and need to be repaired.
+    if (get().agents[sessionId]?.sessionId) {
       set({ focusedSessionId: sessionId });
       return;
     }
 
-    // Create placeholder immediately so UI shows loading state
-    set((s) => ({
-      agents: {
-        ...s.agents,
-        [sessionId]: {
-          sessionId,
-          sessionPath,
-          workspaceId,
-          messages: [],
-          isStreaming: false,
-          error: null,
-          commands: [],
-          modelState: null,
+    // Create or repair placeholder — preserve any messages/state
+    // accumulated from events before the store was properly initialized.
+    set((s) => {
+      const partial = s.agents[sessionId];
+      return {
+        agents: {
+          ...s.agents,
+          [sessionId]: {
+            sessionId,
+            sessionPath,
+            workspaceId,
+            messages: partial?.messages ?? [],
+            isStreaming: partial?.isStreaming ?? false,
+            error: partial?.error ?? null,
+            commands: partial?.commands ?? [],
+            modelState: partial?.modelState ?? null,
+          },
         },
-      },
-      focusedSessionId: sessionId,
-    }));
+        focusedSessionId: sessionId,
+      };
+    });
 
     try {
       const history = await window.sero.agent.open(sessionId, sessionPath, workspaceId);

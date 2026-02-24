@@ -11,15 +11,13 @@ import { TECH_OPTIONS } from '../shared/types';
 
 // ── Compact Godzilla ASCII ────────────────────────────────
 
-const GODZILLA_ART = `    ___
-   /   \\
-  | o o |
-  |  ^  |
-  | '-' |
- /|     |\\
-/ |\\___/| \\
-  |  |  |
- _|__|__|_`;
+const GODZILLA_ART = `      /\\/\\/\\
+     /  o    \\___
+    /    __   __/
+   |____/  \\_/
+     |      |
+    _|      |_
+   |__|    |__|`;
 
 const COMPLEXITY_DATA: { value: Complexity; label: string; kaiju: string; desc: string }[] = [
   {

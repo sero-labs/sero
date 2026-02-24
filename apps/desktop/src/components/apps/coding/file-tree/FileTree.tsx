@@ -11,8 +11,7 @@ import { FileIcon } from './file-icons';
 import { FileTreeContextMenu } from './file-tree-context-menu';
 import { moveItem, renameItem } from './file-tree-ops';
 import { cn } from '@sero/ui/lib/utils';
-import { useContainerStore } from '@/stores/container';
-import { useActiveWorkspace } from '@/stores/workspace';
+
 
 /* ── Types ───────────────────────────────────────────────────── */
 
@@ -92,16 +91,6 @@ export function FileTree({
   const loadingRef = useRef<Set<string>>(new Set());
   const expandedRef = useRef<Set<string>>(new Set([rootId]));
 
-  // Container readiness — mirrors the pattern in EditorPanel.
-  // Non-container workspaces are always ready; container workspaces
-  // must wait for the container to reach "running" status.
-  const containerStatus = useContainerStore(
-    (s) => s.containers[workspaceId]?.status ?? 'none',
-  );
-  const activeWorkspace = useActiveWorkspace();
-  const isContainerWorkspace = activeWorkspace?.container ?? true;
-  const isReady = isContainerWorkspace ? containerStatus === 'running' : true;
-
   /* ── Reset state when workspace / root changes ────────────
    *
    * `items` is initialised once on mount. When the user switches to a
@@ -129,7 +118,6 @@ export function FileTree({
   /* ── Load directory ──────────────────────────────────────── */
 
   const loadDirectory = useCallback(async (dirPath: string) => {
-    if (!isReady) return; // Container not running yet — skip to avoid errors
     if (loadingRef.current.has(dirPath)) return;
     loadingRef.current.add(dirPath);
     try {
@@ -158,9 +146,9 @@ export function FileTree({
     } finally {
       loadingRef.current.delete(dirPath);
     }
-  }, [workspaceId, isReady]);
+  }, [workspaceId]);
 
-  /* ── Load root on mount / when container becomes ready ──── */
+  /* ── Load root on mount / workspace change ────────────── */
 
   useEffect(() => { loadDirectory(rootId); }, [loadDirectory, rootId]);
 
@@ -301,7 +289,7 @@ export function FileTree({
   /* ── Render ──────────────────────────────────────────────── */
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto overflow-x-hidden">
+    <div className="flex h-full flex-col overflow-y-auto overflow-x-hidden" data-testid="file-tree">
       <Tree indent={INDENT} tree={tree} className="py-1">
         <AssistiveTreeDescription tree={tree} />
         {tree.getItems().map((item) => (
@@ -313,6 +301,7 @@ export function FileTree({
           >
             <TreeItem
               item={item}
+              data-testid={`file-tree-item-${item.getItemData()?.name ?? 'unknown'}`}
               className="hover:bg-white/[0.06] data-[selected=true]:bg-white/[0.10]"
             >
               <TreeItemLabel className="!px-1.5 !py-[3px]">

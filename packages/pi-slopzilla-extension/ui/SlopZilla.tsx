@@ -47,7 +47,7 @@ class PhaseErrorBoundary extends Component<EBProps, EBState> {
             className="text-sm leading-tight font-mono select-none text-center mb-6"
             style={{ color: 'var(--sz-red)' }}
             aria-hidden="true"
-          >{`    __\n   / x\\\n  | \\__/|\n  /|    |\\\n / | ~~ | \\\n   || ||\n  _||_||_`}</pre>
+          >{`      /\\/\\/\\\n     /  x    \\___\n    /    __   __/\n   |____/  \\_/\n     |  ~~  |\n    _| ~~~~ |_\n   |__|    |__|`}</pre>
           <h2 className="sz-kaiju-text text-xl mb-2" style={{ color: 'var(--sz-red)' }}>
             KAIJU MALFUNCTION!
           </h2>
