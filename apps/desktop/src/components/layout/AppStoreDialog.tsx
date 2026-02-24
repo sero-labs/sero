@@ -94,7 +94,7 @@ export function AppStoreDialog({
                 <p className="text-sm text-[var(--text-secondary)]">No apps match “{searchQuery}”.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid grid-cols-2 2xl:grid-cols-3 gap-3">
                 {filteredApps.map((app) => (
                   <AppStoreCard
                     key={app.id}
