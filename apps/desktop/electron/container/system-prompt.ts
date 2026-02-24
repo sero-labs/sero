@@ -41,6 +41,7 @@ ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''
   After each bash command, the tool output shows all detected server URLs — always tell
   the user the exact URL shown there (e.g. http://${containerIp ?? '<container-ip>'}:3000).
 - Any port is fine. Container servers never conflict with host services.
+- Whenever asked to start a dev server, ALWAYS check if it's running BEFORE responding. Sometimes dev servers can be stopped in the background.
 
 **CRITICAL — Starting background / long-running processes:**
 Each bash tool call runs in an isolated \`sh -c\` shell. To start a process that must outlive the command:
