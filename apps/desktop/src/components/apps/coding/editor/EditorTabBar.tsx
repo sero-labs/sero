@@ -12,6 +12,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@sero/ui/lib/utils';
+import { FileIcon } from '../file-tree/file-icons';
 
 export interface EditorTab {
   path: string;
@@ -56,7 +57,7 @@ function SortableEditorTab({ tab, isActive, onSelect, onClose, onMiddleClick }: 
       {...attributes} {...listeners}
       onClick={onSelect} onMouseDown={onMiddleClick} title={tab.path}
     >
-      <span className="text-[11px] shrink-0">{fileIcon(fileName)}</span>
+      <FileIcon fileName={fileName} extension={fileName.split('.').pop()?.toLowerCase()} className="size-3.5 shrink-0 text-[var(--text-muted)]" />
       <span className={cn('font-normal', isActive && 'font-medium')}>{fileName}</span>
       {tab.dirty && <span className="text-[9px] text-[var(--accent)] ml-0.5 shrink-0">●</span>}
       <button
@@ -74,16 +75,6 @@ function SortableEditorTab({ tab, isActive, onSelect, onClose, onMiddleClick }: 
       {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
     </div>
   );
-}
-
-function fileIcon(name: string): string {
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  const icons: Record<string, string> = {
-    ts: '🟦', tsx: '⚛️', js: '🟨', jsx: '⚛️', json: '📋', md: '📝',
-    css: '🎨', html: '🌐', py: '🐍', rs: '🦀', go: '🔷', sh: '⬛',
-    yml: '⚙️', yaml: '⚙️', toml: '⚙️',
-  };
-  return icons[ext] ?? '📄';
 }
 
 /* ── Tab bar ──────────────────────────────────────────────── */
