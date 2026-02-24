@@ -112,12 +112,13 @@ function LaunchingView({ idea, step }: { idea: AppIdea; step: LaunchStep }) {
         }}
         aria-hidden="true"
       >
-        {`   __
-  /  @>=========>
- | \\__/|
- /|    |\\
-/ | /\\ | \\
-  || ||`}
+        {`      /\\/\\/\\
+     /  @    \\___
+    /    __   __/>>=====>
+   |____/  \\_/
+     |      |
+    _|      |_
+   |__|    |__|`}
       </pre>
 
       {/* Fire beam */}
@@ -201,14 +202,13 @@ function SuccessView({ idea, onBack }: { idea: AppIdea; onBack: () => void }) {
         }}
         aria-hidden="true"
       >
-        {`    __
-   /  ^\\
-  | \\__/|  RAWR!
-  /|    |\\
- / |    | \\
-   |/\\/\\|
-   || ||
-  _||_||_`}
+        {`      /\\/\\/\\
+     /  ^    \\___
+    /    __   __/  RAWR!
+   |____/  \\_/
+     |\\    /|
+    _| \\  / |_
+   |__|  \\/|__|`}
       </pre>
 
       <h2
@@ -286,13 +286,13 @@ function ErrorView({
         style={{ color: 'var(--sz-red)' }}
         aria-hidden="true"
       >
-        {`    __
-   / x\\
-  | \\__/|
-  /|    |\\
- / | ~~ | \\
-   || ||
-  _||_||_`}
+        {`      /\\/\\/\\
+     /  x    \\___
+    /    __   __/
+   |____/  \\_/
+     |  ~~  |
+    _| ~~~~ |_
+   |__|    |__|`}
       </pre>
 
       <h2 className="sz-kaiju-text text-xl mb-2" style={{ color: 'var(--sz-red)' }}>
