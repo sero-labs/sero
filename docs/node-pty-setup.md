@@ -14,9 +14,32 @@ This error is misleading — it looks like a PATH or binary issue, but it's
 actually a **native module ABI mismatch**. The prebuilt `.node` file was
 compiled against a different Node ABI than the one running.
 
-## How to Fix
+### Root cause (why the bundled install script doesn't help)
 
-Rebuild node-pty from source against the current Node version:
+node-pty's own install script runs `node scripts/prebuild.js || node-gyp
+rebuild`. The `prebuild.js` checks whether `prebuilds/darwin-arm64/`
+**exists as a directory** — it does (it ships with the package), so the
+script exits 0 and `node-gyp rebuild` never runs. **The ABI of the binary
+inside that directory is never verified.** This is the upstream bug.
+
+## Automatic Fix (postinstall)
+
+The monorepo root `package.json` has a `postinstall` script that runs
+`scripts/rebuild-node-pty.mjs`. This script:
+
+1. Spawns a **subprocess** that `require()`s node-pty and tries a real
+   `pty.spawn()` (catches ABI mismatches that only surface at fork time).
+2. If the smoke test passes → exits immediately (~60ms no-op).
+3. If it fails → runs `node-gyp rebuild` and re-verifies in a fresh
+   subprocess.
+
+**This runs automatically after every `pnpm install`.** You should never
+need to rebuild manually unless the postinstall itself fails (see
+Troubleshooting).
+
+## Manual Fix
+
+If the automatic rebuild fails or you need to rebuild for another reason:
 
 ```bash
 cd /path/to/sero/sero   # monorepo root (where node_modules/.pnpm lives)
@@ -27,6 +50,12 @@ This compiles `pty.node` and `spawn-helper` for the exact Node ABI in use.
 The rebuilt binary lands in `node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/build/Release/pty.node`.
 
 ### Verify it works
+
+```bash
+node scripts/rebuild-node-pty.mjs
+```
+
+Or manually:
 
 ```bash
 cd apps/desktop
@@ -44,14 +73,15 @@ Should print `PTY_WORKS`. If you see `posix_spawnp failed`, the rebuild
 didn't work — check that `node-gyp`, Python 3, and Xcode command-line tools
 are installed.
 
-## When to Rebuild
+## When Rebuild Happens
 
-Rebuild is needed after:
+The postinstall script handles all of these automatically:
 
-- **Changing Node version** (e.g. Volta/nvm switch, Node upgrade)
 - **Running `pnpm install`** — pnpm may restore the prebuild, overwriting
-  the locally compiled binary
-- **Switching machines** — prebuilds are arch-specific
+  the locally compiled binary → postinstall detects and rebuilds
+- **Changing Node version** (e.g. Volta/nvm switch, Node upgrade) → next
+  `pnpm install` triggers postinstall
+- **Switching machines** — prebuilds are arch-specific → postinstall detects
 
 ## Why This Happens
 
