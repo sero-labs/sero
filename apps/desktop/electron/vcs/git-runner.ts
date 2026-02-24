@@ -5,7 +5,7 @@ import type { WorkspaceManager } from '../workspace';
 import type { ContainerManager } from '../container/index';
 import type { GitHubAuthManager } from '../github/auth-manager';
 import { buildContainerConfig } from '../ipc/shared-infra';
-import type { JjResult } from './types';
+import type { GitResult } from './types';
 
 const execFileAsync = promisify(execFile);
 
@@ -13,7 +13,7 @@ function shQuote(input: string): string {
   return `'${input.replace(/'/g, `'"'"'`)}'`;
 }
 
-export class JjRunner {
+export class GitRunner {
   constructor(
     private readonly workspaceManager: WorkspaceManager,
     private readonly containerManager: ContainerManager,
@@ -30,7 +30,7 @@ export class JjRunner {
     program: string,
     args: string[],
     timeoutMs = 30_000,
-  ): Promise<JjResult> {
+  ): Promise<GitResult> {
     const workspacePath = this.workspaceManager.getPath(workspaceId);
     if (!workspacePath) {
       return {
@@ -46,7 +46,6 @@ export class JjRunner {
       await this.ensureContainer(workspaceId, workspacePath);
       // GitHub auth env vars (GH_TOKEN, GIT_ASKPASS, URL rewrites) are injected
       // by ContainerManager.exec() via its getExtraEnvVars callback.
-      // No SSH workaround needed — all git traffic uses HTTPS with token auth.
       const command = `${shQuote(program)} ${args.map(shQuote).join(' ')}`;
       return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs);
     }
@@ -71,12 +70,12 @@ export class JjRunner {
       return {
         exitCode: code,
         stdout: String(err?.stdout ?? ''),
-        stderr: String(err?.stderr ?? err?.message ?? 'jj command failed'),
+        stderr: String(err?.stderr ?? err?.message ?? 'git command failed'),
       };
     }
   }
 
-  async run(workspaceId: string, args: string[], timeoutMs = 30_000): Promise<JjResult> {
-    return this.runCommand(workspaceId, 'jj', args, timeoutMs);
+  async run(workspaceId: string, args: string[], timeoutMs = 30_000): Promise<GitResult> {
+    return this.runCommand(workspaceId, 'git', args, timeoutMs);
   }
 }

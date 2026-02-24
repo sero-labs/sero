@@ -55,10 +55,10 @@ export function formatCustomMessage(msg: {
   return prefixed.trim() ? prefixed : null;
 }
 
-const CHECKPOINT_ENTRY = 'jj-checkpoint';
+const CHECKPOINT_ENTRY = 'git-checkpoint';
 
 /**
- * Find the session entry ID of a `jj-checkpoint` custom entry by changeId.
+ * Find the session entry ID of a `git-checkpoint` custom entry by changeId.
  *
  * With the shifted checkpoint mapping (user message N displays the checkpoint
  * from turn N-1), branching to the checkpoint entry itself keeps turns 0..N-1

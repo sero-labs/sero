@@ -1,8 +1,8 @@
 /**
- * JJ CLI output parsers.
+ * Git CLI output parsers.
  *
- * Parses structured template output from `jj log`, `jj status`,
- * `jj bookmark list`, `jj git remote list`, and `jj diff --summary`.
+ * Parses structured output from `git log`, `git status`,
+ * `git branch`, `git remote`, and `git diff --name-status`.
  */
 
 import type {
@@ -16,93 +16,132 @@ import type {
   OperationEntry,
 } from '../../src/types/vcs';
 
-// ── Separator used in JJ templates for unambiguous parsing ───
+// ── Separator used in Git format strings for unambiguous parsing ───
 
 const FIELD_SEP = '\x1f'; // ASCII Unit Separator
 const RECORD_SEP = '\x1e'; // ASCII Record Separator
 
-// ── JJ Log Template ─────────────────────────────────────────
+// ── Git Log Format ─────────────────────────────────────────
 
 /**
- * Template string for `jj log --no-graph -T <template>`.
- * Outputs one record per revision, fields separated by \x1f, records by \x1e.
+ * Format string for `git log --format=<format>`.
+ * Outputs one record per commit, fields separated by \x1f, records by \x1e.
+ *
+ * Fields: commitShort, commitFull, authorName, authorEmail, timestamp, subject,
+ *         refnames (branches + tags)
  */
-export const LOG_TEMPLATE = [
-  'change_id.short(12)',
-  'commit_id.short(12)',
-  'author.name()',
-  'author.email()',
-  'author.timestamp().utc().format("%Y-%m-%dT%H:%M:%SZ")',
-  'description.first_line()',
-  'empty',
-  'conflict',
-  'immutable',
-  'if(self.current_working_copy(), "true", "false")',
-  'bookmarks.map(|b| b.name()).join(",")',
-  'tags.map(|t| t.name()).join(",")',
-].join(` ++ "${FIELD_SEP}" ++ `) + ` ++ "${RECORD_SEP}"`;
+export const LOG_FORMAT = [
+  '%h',             // abbreviated commit hash
+  '%H',             // full commit hash
+  '%an',            // author name
+  '%ae',            // author email
+  '%aI',            // author date (ISO 8601)
+  '%s',             // subject (first line)
+  '%D',             // ref names (branches, tags)
+].join(FIELD_SEP) + RECORD_SEP;
 
 export function parseLogEntries(stdout: string): ChangeEntry[] {
   const entries: ChangeEntry[] = [];
   const records = stdout.split(RECORD_SEP);
-  console.log('[vcs-parser] parseLogEntries: %d records, first 500 chars:\n%s', records.length, stdout.slice(0, 500));
 
   for (const record of records) {
     const trimmed = record.trim();
     if (!trimmed) continue;
 
     const fields = trimmed.split(FIELD_SEP);
-    if (fields.length < 12) continue;
+    if (fields.length < 7) continue;
+
+    const refNames = fields[6].trim();
+    const { bookmarks, tags, isHead } = parseRefNames(refNames);
 
     entries.push({
       changeId: fields[0].trim(),
-      commitId: fields[1].trim(),
+      commitId: fields[1].trim().slice(0, 12),
       author: fields[2].trim(),
       email: fields[3].trim(),
       timestamp: fields[4].trim(),
       description: fields[5].trim() || '(no description)',
-      empty: fields[6].trim() === 'true',
-      conflict: fields[7].trim() === 'true',
-      immutable: fields[8].trim() === 'true',
-      isWorkingCopy: fields[9].trim() === 'true',
-      bookmarks: fields[10].trim() ? fields[10].trim().split(',') : [],
-      tags: fields[11].trim() ? fields[11].trim().split(',') : [],
+      empty: false,
+      conflict: false,
+      immutable: false,
+      isWorkingCopy: isHead,
+      bookmarks,
+      tags,
     });
   }
 
   return entries;
 }
 
-// ── Status parser ────────────────────────────────────────────
+/** Parse git's %D ref decoration into branches and tags. */
+function parseRefNames(refNames: string): { bookmarks: string[]; tags: string[]; isHead: boolean } {
+  const bookmarks: string[] = [];
+  const tags: string[] = [];
+  let isHead = false;
 
-function parseStatusLine(line: string): StatusFile | null {
-  const trimmed = line.trim();
-  if (!trimmed) return null;
+  if (!refNames) return { bookmarks, tags, isHead };
 
-  // JJ status format:  "M path/to/file" or "A path" or "D path" or "C path"
-  // Also: "R {old => new}"
-  const match = trimmed.match(/^([MADRC])\s+(.+)$/);
-  if (!match) {
-    console.log('[vcs-parser] parseStatusLine NO MATCH: %j', trimmed);
-    return null;
+  for (const ref of refNames.split(',')) {
+    const trimmed = ref.trim();
+    if (!trimmed) continue;
+
+    if (trimmed === 'HEAD') {
+      isHead = true;
+      continue;
+    }
+
+    // "HEAD -> main" means HEAD points to branch "main"
+    const headArrow = trimmed.match(/^HEAD -> (.+)$/);
+    if (headArrow) {
+      isHead = true;
+      bookmarks.push(headArrow[1].trim());
+      continue;
+    }
+
+    if (trimmed.startsWith('tag: ')) {
+      tags.push(trimmed.slice(5).trim());
+      continue;
+    }
+
+    // Skip remote tracking refs (origin/main, etc.) — we only show local branches
+    if (trimmed.includes('/')) continue;
+
+    bookmarks.push(trimmed);
   }
 
-  const [, code, rest] = match;
+  return { bookmarks, tags, isHead };
+}
+
+// ── Status parser ────────────────────────────────────────────
+
+function parseGitStatusLine(line: string): StatusFile | null {
+  if (line.length < 4) return null;
+
+  // Git porcelain v1: "XY path" or "XY old -> new"
+  const indexStatus = line[0];
+  const workTreeStatus = line[1];
+  const rest = line.slice(3);
+
+  // Use the most significant status (index takes priority if staged)
+  const code = indexStatus !== ' ' && indexStatus !== '?' ? indexStatus : workTreeStatus;
+
   const statusMap: Record<string, FileStatus> = {
     M: 'modified',
     A: 'added',
     D: 'deleted',
     R: 'renamed',
-    C: 'conflict',
+    C: 'copied',
+    U: 'conflict',
+    '?': 'added', // untracked → treat as added
   };
 
   const status = statusMap[code] || 'modified';
 
-  // Handle rename: "{old => new}"
-  if (status === 'renamed') {
-    const renameMatch = rest.match(/\{(.+?)\s+=>\s+(.+?)\}/);
-    if (renameMatch) {
-      return { path: renameMatch[2].trim(), status, oldPath: renameMatch[1].trim() };
+  // Handle rename: "old -> new"
+  if (status === 'renamed' || status === 'copied') {
+    const parts = rest.split(' -> ');
+    if (parts.length === 2) {
+      return { path: parts[1].trim(), status, oldPath: parts[0].trim() };
     }
   }
 
@@ -113,84 +152,66 @@ export function parseStatus(stdout: string): WorkingCopyStatus {
   const files: StatusFile[] = [];
   const lines = stdout.split('\n');
   let conflictCount = 0;
-  const parentChangeIds: string[] = [];
-  console.log('[vcs-parser] parseStatus input (%d lines):\n%s', lines.length, stdout.slice(0, 600));
 
-  // Extract parent info from "Working copy  : <id>" or "Parent commit: <id>"
   for (const line of lines) {
-    const parentMatch = line.match(/Parent commit:\s+(\S+)/);
-    if (parentMatch) {
-      parentChangeIds.push(parentMatch[1]);
-    }
+    if (!line) continue;
 
-    const wcMatch = line.match(/Working copy\s+:\s+(\S+)/);
-    if (wcMatch) {
-      // This is the working copy change, not a parent
+    const file = parseGitStatusLine(line);
+    if (file) {
+      files.push(file);
+      if (file.status === 'conflict') conflictCount++;
     }
   }
 
-  // Parse file status lines (they appear after the header section)
-  let inFileSection = false;
-  for (const line of lines) {
-    if (line.startsWith('Working copy changes:') || line.startsWith('Untracked paths:')) {
-      inFileSection = true;
-      continue;
-    }
-
-    if (inFileSection && line.trim()) {
-      const file = parseStatusLine(line);
-      if (file) {
-        files.push(file);
-        if (file.status === 'conflict') conflictCount++;
-      }
-    }
-  }
-
-  return { files, conflictCount, parentChangeIds };
+  return { files, conflictCount, parentChangeIds: [] };
 }
 
 // ── Diff summary parser ──────────────────────────────────────
 
+/** Parse output of `git diff --name-status`. */
 export function parseDiffSummary(stdout: string): FileDiffEntry[] {
   const entries: FileDiffEntry[] = [];
-  console.log('[vcs-parser] parseDiffSummary input:\n%s', stdout.slice(0, 600));
 
   for (const line of stdout.split('\n')) {
-    const file = parseStatusLine(line);
-    if (file) {
-      entries.push({ path: file.path, status: file.status, oldPath: file.oldPath });
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Format: "M\tpath" or "R100\told\tnew"
+    const parts = trimmed.split('\t');
+    if (parts.length < 2) continue;
+
+    const code = parts[0].charAt(0);
+    const statusMap: Record<string, FileStatus> = {
+      M: 'modified',
+      A: 'added',
+      D: 'deleted',
+      R: 'renamed',
+      C: 'copied',
+      U: 'conflict',
+    };
+    const status = statusMap[code] || 'modified';
+
+    if ((status === 'renamed' || status === 'copied') && parts.length >= 3) {
+      entries.push({ path: parts[2].trim(), status, oldPath: parts[1].trim() });
+    } else {
+      entries.push({ path: parts[1].trim(), status });
     }
   }
 
-  console.log('[vcs-parser] parseDiffSummary result: %d files', entries.length);
   return entries;
 }
 
-// ── Bookmark parser ──────────────────────────────────────────
+// ── Branch parser ────────────────────────────────────────────
 
 /**
- * Keep bookmark templates compatible with older JJ versions in containers
- * (e.g. 0.28.x), where `json()` and `synced` aren't available.
+ * Format string for `git branch --format=<format>`.
+ * For local branches.
  */
-const BOOKMARK_TEMPLATE = [
-  'name',
-  'if(remote, remote, "local")',
-  // `normal_target` is a keyword in older JJ versions (not a callable).
-  'if(normal_target, normal_target.change_id().short(12), "")',
-  // `tracked` is available across 0.28+ and helps future sync UX decisions.
-  'if(tracked, "true", "false")',
-].join(` ++ "${FIELD_SEP}" ++ `) + ` ++ "${RECORD_SEP}"`;
+export const BRANCH_FORMAT =
+  `%(refname:short)${FIELD_SEP}%(objectname:short)${FIELD_SEP}%(upstream:short)${FIELD_SEP}%(upstream:track)${RECORD_SEP}`;
 
-export { BOOKMARK_TEMPLATE };
-
-interface BookmarkAccumulator {
-  name: string;
-  localChangeId?: string;
-  remoteTargets: Array<{ remote: string; changeId: string; tracked: boolean }>;
-}
-
-export function parseBookmarks(stdout: string): Bookmark[] {
-  const byName = new Map<string, BookmarkAccumulator>();
+export function parseBranches(stdout: string): Bookmark[] {
+  const bookmarks: Bookmark[] = [];
   const records = stdout.split(RECORD_SEP);
 
   for (const record of records) {
@@ -198,40 +219,26 @@ export function parseBookmarks(stdout: string): Bookmark[] {
     if (!trimmed) continue;
 
     const fields = trimmed.split(FIELD_SEP);
-    if (fields.length < 3) continue;
+    if (fields.length < 2) continue;
 
     const name = fields[0].trim();
-    const remote = fields[1].trim();
-    const changeId = fields[2].trim();
-    const tracked = fields[3]?.trim() === 'true';
-    const isLocal = remote === 'local';
+    const commitId = fields[1].trim();
+    const upstream = fields[2]?.trim() || '';
+    const trackingStatus = fields[3]?.trim() || '';
 
     if (!name) continue;
 
-    const acc = byName.get(name) ?? { name, remoteTargets: [] };
-    if (isLocal) {
-      acc.localChangeId = changeId || acc.localChangeId || '';
-    } else {
-      acc.remoteTargets.push({ remote, changeId, tracked });
+    const remoteStatuses: Bookmark['remoteStatuses'] = [];
+    if (upstream) {
+      const remoteName = upstream.split('/')[0] || 'origin';
+      const synced = !trackingStatus || trackingStatus === '';
+      remoteStatuses.push({ remote: remoteName, synced });
     }
-    byName.set(name, acc);
-  }
-
-  const bookmarks: Bookmark[] = [];
-  for (const acc of byName.values()) {
-    const localChangeId = acc.localChangeId ?? '';
-    const fallbackChangeId = acc.remoteTargets[0]?.changeId ?? '';
-    const effectiveChangeId = localChangeId || fallbackChangeId;
-
-    const remoteStatuses = acc.remoteTargets.map(({ remote, changeId }) => ({
-      remote,
-      synced: Boolean(localChangeId) && changeId === localChangeId,
-    }));
 
     bookmarks.push({
-      name: acc.name,
-      changeId: effectiveChangeId,
-      isLocal: Boolean(localChangeId),
+      name,
+      changeId: commitId,
+      isLocal: true,
       remoteStatuses,
     });
   }
@@ -242,33 +249,31 @@ export function parseBookmarks(stdout: string): Bookmark[] {
 // ── Remote parser ────────────────────────────────────────────
 
 export function parseRemotes(stdout: string): Remote[] {
-  const remotes: Remote[] = [];
+  const remoteMap = new Map<string, string>();
 
   for (const line of stdout.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Format: "name url"  (space-separated)
-    const parts = trimmed.split(/\s+/);
-    if (parts.length >= 2) {
-      remotes.push({ name: parts[0], url: parts.slice(1).join(' ') });
+    // Format: "name\turl (fetch|push)"
+    const match = trimmed.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
+    if (match) {
+      // Prefer the fetch URL, but any will do
+      if (!remoteMap.has(match[1]) || match[3] === 'fetch') {
+        remoteMap.set(match[1], match[2]);
+      }
     }
   }
 
-  return remotes;
+  return Array.from(remoteMap, ([name, url]) => ({ name, url }));
 }
 
-// ── Operation log parser ─────────────────────────────────────
+// ── Reflog parser (replaces JJ operation log) ────────────────
 
-const OP_LOG_TEMPLATE = [
-  'self.id().short(12)',
-  'self.time().start().utc().format("%Y-%m-%dT%H:%M:%SZ")',
-  'self.description().first_line()',
-].join(` ++ "${FIELD_SEP}" ++ `) + ` ++ "${RECORD_SEP}"`;
+export const REFLOG_FORMAT =
+  `%h${FIELD_SEP}%aI${FIELD_SEP}%gs${RECORD_SEP}`;
 
-export { OP_LOG_TEMPLATE };
-
-export function parseOperationLog(stdout: string): OperationEntry[] {
+export function parseReflog(stdout: string): OperationEntry[] {
   const entries: OperationEntry[] = [];
   const records = stdout.split(RECORD_SEP);
 

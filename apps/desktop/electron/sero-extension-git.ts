@@ -2,8 +2,8 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
 import { vcsManager } from './ipc/shared-infra';
 
-const WORKSPACE_LINK_ENTRY = 'jj-workspace-link';
-const CHECKPOINT_ENTRY = 'jj-checkpoint';
+const WORKSPACE_LINK_ENTRY = 'git-workspace-link';
+const CHECKPOINT_ENTRY = 'git-checkpoint';
 
 type MixedEditCheckpointPolicy = 'merge-working-copy' | 'require-manual-first';
 
@@ -12,40 +12,53 @@ type MixedEditCheckpointPolicy = 'merge-working-copy' | 'require-manual-first';
 // create a single turn checkpoint that includes the full resulting workspace state.
 const MIXED_EDIT_CHECKPOINT_POLICY: MixedEditCheckpointPolicy = 'merge-working-copy';
 
-const GIT_COMMANDS_PATTERN =
-  /(^|&&|\|\||;|\|)\s*git\s+(commit|push|pull|checkout|branch|merge|rebase|status|diff|log|add|reset|stash|clone|init|fetch|tag|show|rm|mv|restore|switch|remote|config|clean|cherry-pick|revert|bisect|blame|grep|shortlog|describe|archive|bundle|submodule|worktree|reflog)/;
+/** Mutating git commands that the agent should not run directly. */
+const MUTATING_GIT_SUBCOMMANDS = new Set([
+  'add',
+  'commit',
+  'push',
+  'pull',
+  'checkout',
+  'switch',
+  'branch',
+  'merge',
+  'rebase',
+  'reset',
+  'stash',
+  'clone',
+  'init',
+  'tag',
+  'rm',
+  'mv',
+  'restore',
+  'remote',
+  'config',
+  'clean',
+  'cherry-pick',
+  'revert',
+  'bisect',
+  'submodule',
+  'worktree',
+]);
 
-const READ_ONLY_JJ = new Set([
+/** Read-only git commands the agent is allowed to use. */
+const READ_ONLY_GIT_SUBCOMMANDS = new Set([
   'status',
-  'st',
   'log',
   'diff',
   'show',
-  'file',
-  'workspace',
-  'op',
-  'help',
-  'version',
-  'config',
-  'root',
-]);
-
-const MUTATING_JJ = new Set([
-  'new',
-  'commit',
-  'ci',
+  'blame',
+  'grep',
+  'shortlog',
   'describe',
-  'desc',
-  'squash',
-  'split',
-  'rebase',
-  'abandon',
-  'edit',
-  'bookmark',
-  'undo',
-  'restore',
-  'resolve',
-  'git',
+  'rev-parse',
+  'ls-files',
+  'ls-tree',
+  'cat-file',
+  'reflog',
+  'branch', // read-only when used without flags
+  'remote', // read-only when used without add/remove
+  'fetch',  // fetch is safe to allow as read-only
 ]);
 
 const READ_ONLY_SHELL_COMMANDS = new Set([
@@ -85,7 +98,7 @@ function extractTextContent(content: unknown): string {
     .trim();
 }
 
-function extractJjSubcommands(command: string): string[] {
+function extractGitSubcommands(command: string): string[] {
   const segments = command
     .split(/&&|\|\||;|\|/)
     .map((s) => s.trim())
@@ -93,17 +106,18 @@ function extractJjSubcommands(command: string): string[] {
 
   const subs: string[] = [];
   for (const segment of segments) {
-    const match = segment.match(/(?:^|\s)jj\s+([a-zA-Z-]+)/);
+    const match = segment.match(/(?:^|\s)git\s+([a-zA-Z-]+)/);
     if (match?.[1]) subs.push(match[1]);
   }
   return subs;
 }
 
-function hasMutatingJj(command: string): boolean {
-  const subcommands = extractJjSubcommands(command);
+function hasMutatingGit(command: string): boolean {
+  const subcommands = extractGitSubcommands(command);
   for (const sub of subcommands) {
-    if (MUTATING_JJ.has(sub)) return true;
-    if (!READ_ONLY_JJ.has(sub)) return true;
+    if (MUTATING_GIT_SUBCOMMANDS.has(sub)) return true;
+    // If it's an unknown git subcommand, treat as mutating by default
+    if (!READ_ONLY_GIT_SUBCOMMANDS.has(sub)) return true;
   }
   return false;
 }
@@ -118,14 +132,14 @@ function isLikelyReadOnlySegment(segment: string): boolean {
 
   const tokens = withoutEnv.split(/\s+/);
   const cmd = tokens[0] ?? '';
-  const args = tokens.slice(1);
   if (!cmd) return true;
 
-  if (cmd === 'jj') {
-    return !hasMutatingJj(withoutEnv);
+  if (cmd === 'git') {
+    return !hasMutatingGit(withoutEnv);
   }
 
   if (cmd === 'sed') {
+    const args = tokens.slice(1);
     return args.includes('-n') && !args.includes('-i');
   }
 
@@ -160,7 +174,7 @@ function summarizeAgentRun(messages: unknown): string {
   return 'checkpoint: turn';
 }
 
-export function registerJjCheckpointFeatures(
+export function registerGitCheckpointFeatures(
   pi: ExtensionAPI,
   workspaceId: string,
 ): void {
@@ -213,7 +227,6 @@ export function registerJjCheckpointFeatures(
     try {
       hadWorkingCopyChangesAtAgentStart = await vcsManager.hasWorkingCopyChanges(workspaceId);
     } catch {
-      // Non-fatal: if detection fails, do not block automatic turn checkpointing.
       hadWorkingCopyChangesAtAgentStart = false;
     }
   });
@@ -229,17 +242,11 @@ export function registerJjCheckpointFeatures(
     const command = String((event.input as { command?: string }).command ?? '');
     if (!command.trim()) return;
 
-    if (GIT_COMMANDS_PATTERN.test(command)) {
+    // Block mutating git commands — checkpoint management is handled by Sero
+    if (hasMutatingGit(command)) {
       return {
         block: true,
-        reason: 'Git commands are blocked for agent tool calls. Use JJ-backed checkpoint tools and read-only jj commands.',
-      };
-    }
-
-    if (hasMutatingJj(command)) {
-      return {
-        block: true,
-        reason: 'Mutating jj commands are blocked in agent bash calls. Use read-only jj commands (status/log/diff/show).',
+        reason: 'Mutating git commands (commit, push, checkout, reset, etc.) are managed by Sero. Use read-only git commands (status, log, diff, show) instead.',
       };
     }
 
@@ -268,7 +275,7 @@ export function registerJjCheckpointFeatures(
   });
 
   pi.registerCommand('checkpoint', {
-    description: 'Create a JJ checkpoint from the current workspace state',
+    description: 'Create a Git checkpoint from the current workspace state',
     handler: async (args) => {
       const description = args?.trim() || undefined;
       try {
@@ -279,7 +286,7 @@ export function registerJjCheckpointFeatures(
 
         if (!checkpoint) {
           pi.sendMessage({
-            customType: 'jj-checkpoint',
+            customType: 'git-checkpoint',
             content: 'No file changes to checkpoint.',
             display: true,
           });
@@ -288,14 +295,14 @@ export function registerJjCheckpointFeatures(
 
         appendCheckpointEntry(checkpoint);
         pi.sendMessage({
-          customType: 'jj-checkpoint',
+          customType: 'git-checkpoint',
           content: `Checkpoint created: **${checkpoint.changeId}**`,
           display: true,
           details: checkpoint,
         });
       } catch (err) {
         pi.sendMessage({
-          customType: 'jj-checkpoint',
+          customType: 'git-checkpoint',
           content: `Checkpoint failed: ${err instanceof Error ? err.message : 'unknown error'}`,
           display: true,
         });
@@ -304,7 +311,7 @@ export function registerJjCheckpointFeatures(
   });
 
   pi.registerCommand('checkpoints', {
-    description: 'List recent JJ checkpoints',
+    description: 'List recent Git checkpoints',
     handler: async (args) => {
       const parsed = Number.parseInt(args?.trim() || '10', 10);
       const limit = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 50) : 10;
@@ -313,7 +320,7 @@ export function registerJjCheckpointFeatures(
         const checkpoints = await vcsManager.listCheckpoints(workspaceId, limit);
         if (!checkpoints.length) {
           pi.sendMessage({
-            customType: 'jj-checkpoint',
+            customType: 'git-checkpoint',
             content: 'No checkpoints found.',
             display: true,
           });
@@ -322,13 +329,13 @@ export function registerJjCheckpointFeatures(
 
         const lines = checkpoints.map((cp) => `- \`${cp.changeId}\` ${cp.description}`);
         pi.sendMessage({
-          customType: 'jj-checkpoint',
+          customType: 'git-checkpoint',
           content: `**Recent checkpoints (${checkpoints.length})**\n${lines.join('\n')}`,
           display: true,
         });
       } catch (err) {
         pi.sendMessage({
-          customType: 'jj-checkpoint',
+          customType: 'git-checkpoint',
           content: `Failed to list checkpoints: ${err instanceof Error ? err.message : 'unknown error'}`,
           display: true,
         });
@@ -337,13 +344,13 @@ export function registerJjCheckpointFeatures(
   });
 
   pi.registerCommand('restore', {
-    description: 'Restore the workspace files to a checkpoint: /restore <change-id>',
+    description: 'Restore the workspace files to a checkpoint: /restore <commit-sha>',
     handler: async (args) => {
       const changeId = args?.trim();
       if (!changeId) {
         pi.sendMessage({
-          customType: 'jj-checkpoint',
-          content: 'Usage: /restore <change-id>',
+          customType: 'git-checkpoint',
+          content: 'Usage: /restore <commit-sha>',
           display: true,
         });
         return;
@@ -353,13 +360,13 @@ export function registerJjCheckpointFeatures(
         await vcsManager.restoreCheckpoint(workspaceId, changeId);
         appendWorkspaceLink(changeId);
         pi.sendMessage({
-          customType: 'jj-checkpoint',
+          customType: 'git-checkpoint',
           content: `Workspace restored to **${changeId}**.`,
           display: true,
         });
       } catch (err) {
         pi.sendMessage({
-          customType: 'jj-checkpoint',
+          customType: 'git-checkpoint',
           content: `Restore failed: ${err instanceof Error ? err.message : 'unknown error'}`,
           display: true,
         });
@@ -376,8 +383,8 @@ export function registerJjCheckpointFeatures(
 
       if (!from) {
         pi.sendMessage({
-          customType: 'jj-checkpoint',
-          content: 'Usage: /diffcp <from-change-id> [to-change-id]',
+          customType: 'git-checkpoint',
+          content: 'Usage: /diffcp <from-commit-sha> [to-commit-sha]',
           display: true,
         });
         return;
@@ -386,14 +393,14 @@ export function registerJjCheckpointFeatures(
       try {
         const diff = await vcsManager.diff(workspaceId, from, to);
         pi.sendMessage({
-          customType: 'jj-checkpoint-diff',
+          customType: 'git-checkpoint-diff',
           content: diff || '(no diff output)',
           display: true,
-          details: { from, to: to ?? '@' },
+          details: { from, to: to ?? 'HEAD' },
         });
       } catch (err) {
         pi.sendMessage({
-          customType: 'jj-checkpoint',
+          customType: 'git-checkpoint',
           content: `Diff failed: ${err instanceof Error ? err.message : 'unknown error'}`,
           display: true,
         });

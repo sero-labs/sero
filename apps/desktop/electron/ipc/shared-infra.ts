@@ -27,7 +27,7 @@ import { GitHubAuthManager } from '../github/auth-manager';
 import { workspaceManager } from '../workspace';
 import { FileWatcherManager } from '../file-watcher';
 import { LspManager } from '../lsp/lsp-manager';
-import { JjRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../vcs';
+import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../vcs';
 
 // ── GitHub Auth Manager (singleton) ──────────────────────────
 
@@ -41,10 +41,10 @@ export const containerManager = new ContainerManager();
 // credential config are available in every container command.
 containerManager.getExtraEnvVars = () => githubAuth.getAuthEnvVars();
 
-const jjRunner = new JjRunner(workspaceManager, containerManager, githubAuth);
-export const vcsManager = new VcsManager(workspaceManager, jjRunner);
-export const vcsOps = new VcsOps(jjRunner);
-export const vcsPrOps = new VcsPullRequestOps(jjRunner);
+const gitRunner = new GitRunner(workspaceManager, containerManager, githubAuth);
+export const vcsManager = new VcsManager(workspaceManager, gitRunner);
+export const vcsOps = new VcsOps(gitRunner);
+export const vcsPrOps = new VcsPullRequestOps(gitRunner);
 
 // ── Workspace Manager (re-export singleton) ──────────────────
 

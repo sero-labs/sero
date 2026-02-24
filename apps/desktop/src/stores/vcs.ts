@@ -195,7 +195,7 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
       const status = await window.sero.vcs.status(wsId);
       updateWs(set, wsId, { wcStatus: status });
     } catch (err) {
-      console.debug('[vcs] Failed to load status (may not have JJ repo yet):', err);
+      console.debug('[vcs] Failed to load status (may not have Git repo yet):', err);
     }
   },
 

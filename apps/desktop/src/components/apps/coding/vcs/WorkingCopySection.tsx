@@ -105,7 +105,7 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
           <button
             onClick={handleCheckpoint}
             disabled={creating}
-            title="Create checkpoint"
+            title="Create commit"
             className={cn(
               'flex h-6 items-center gap-1 rounded px-2 text-[11px] font-medium',
               'bg-[var(--bg-elevated)] text-[var(--text-secondary)]',

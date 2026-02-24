@@ -1,7 +1,7 @@
 /**
  * ChangeLog — dense, paginated change history.
  *
- * Each row: glyph · changeId · age · description · [bookmarks]
+ * Each row: glyph · commitSha · age · description · [branches]
  * Click to expand inline detail. Context menu for actions.
  */
 
@@ -37,11 +37,11 @@ export function ChangeLog({ workspaceId, entries, hasMore, onOpenDiff }: Props) 
   }, [workspaceId, loadMore]);
 
   return (
-    <VcsSection title="Changes" count={entries.length} defaultOpen>
+    <VcsSection title="Commits" count={entries.length} defaultOpen>
       <div className="pb-1">
         {entries.length === 0 ? (
           <div className="px-3 py-2 text-[11px] text-[var(--text-muted)]/60">
-            No changes yet
+            No commits yet
           </div>
         ) : (
           entries.map((entry, i) => (

@@ -1,7 +1,7 @@
 /**
- * VcsPanel — rich JJ source control panel.
+ * VcsPanel — rich Git source control panel.
  *
- * Sections: Working Copy Status, Bookmarks, Change Log, Remotes.
+ * Sections: Working Copy Status, Branches, Commit Log, Remotes.
  * Each section is a collapsible animated group.
  */
 
@@ -55,7 +55,7 @@ export function VcsPanel({ workspaceId, onOpenDiff }: VcsPanelProps) {
           <HeaderButton
             onClick={handleUndo}
             loading={undoing}
-            title="Undo last JJ operation"
+            title="Undo last operation"
           >
             <Undo2 className="size-3.5" />
           </HeaderButton>

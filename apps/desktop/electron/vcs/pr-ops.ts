@@ -1,5 +1,5 @@
-import type { JjRunner } from './jj-runner';
-import { BOOKMARK_TEMPLATE, parseBookmarks, parseDiffSummary, parseRemotes } from './parsers';
+import type { GitRunner } from './git-runner';
+import { BRANCH_FORMAT, parseBranches, parseDiffSummary, parseRemotes } from './parsers';
 import type {
   Bookmark,
   CreatePullRequestInput,
@@ -26,22 +26,19 @@ export interface PullRequestDraftContext {
 }
 
 export class VcsPullRequestOps {
-  constructor(private readonly runner: JjRunner) {}
+  constructor(private readonly runner: GitRunner) {}
 
-  private async listBookmarks(workspaceId: string): Promise<Bookmark[]> {
+  private async listBranches(workspaceId: string): Promise<Bookmark[]> {
     const result = await this.runner.run(workspaceId, [
-      'bookmark',
-      'list',
-      '--all-remotes',
-      '-T',
-      BOOKMARK_TEMPLATE,
+      'branch',
+      `--format=${BRANCH_FORMAT}`,
     ]);
     if (result.exitCode !== 0) return [];
-    return parseBookmarks(result.stdout);
+    return parseBranches(result.stdout);
   }
 
   private async resolveRemote(workspaceId: string): Promise<string | undefined> {
-    const result = await this.runner.run(workspaceId, ['git', 'remote', 'list']);
+    const result = await this.runner.run(workspaceId, ['remote', '-v']);
     if (result.exitCode !== 0) return undefined;
     const remotes = parseRemotes(result.stdout);
     return remotes.find((r) => r.name === 'origin')?.name ?? remotes[0]?.name;
@@ -76,10 +73,10 @@ export class VcsPullRequestOps {
   }
 
   async getState(workspaceId: string): Promise<PullRequestState> {
-    const bookmarks = await this.listBookmarks(workspaceId);
+    const branches = await this.listBranches(workspaceId);
     const sourceBranches = Array.from(
       new Set(
-        bookmarks
+        branches
           .filter((b) => b.isLocal)
           .map((b) => b.name.trim())
           .filter(Boolean),
@@ -87,7 +84,7 @@ export class VcsPullRequestOps {
     ).sort((a, b) => a.localeCompare(b));
 
     const allBranchNames = new Set<string>();
-    for (const bm of bookmarks) {
+    for (const bm of branches) {
       const name = bm.name.trim();
       if (name) allBranchNames.add(name);
     }
@@ -126,33 +123,29 @@ export class VcsPullRequestOps {
     sourceBranch: string,
     targetBranch: string,
   ): Promise<DiffResult> {
-    const remote = await this.resolveRemote(workspaceId);
-    const candidates = new Set<string>([targetBranch]);
-    if (remote && !targetBranch.includes('@')) {
-      candidates.add(`${targetBranch}@${remote}`);
+    // Use the merge-base for three-dot diff semantics
+    const mergeBase = await this.runner.run(workspaceId, [
+      'merge-base',
+      targetBranch,
+      sourceBranch,
+    ]);
+
+    const base = mergeBase.exitCode === 0 ? mergeBase.stdout.trim() : targetBranch;
+
+    const result = await this.runner.run(workspaceId, [
+      'diff',
+      '--name-status',
+      `${base}..${sourceBranch}`,
+    ]);
+
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr || `Failed to diff ${targetBranch}..${sourceBranch}`);
     }
 
-    let lastErr = '';
-    for (const candidate of candidates) {
-      const result = await this.runner.run(workspaceId, [
-        'diff',
-        '--summary',
-        '--from',
-        candidate,
-        '--to',
-        sourceBranch,
-      ]);
-
-      if (result.exitCode === 0) {
-        return {
-          files: parseDiffSummary(result.stdout),
-          comparisonBase: candidate,
-        };
-      }
-      lastErr = result.stderr || `Failed to diff ${candidate}..${sourceBranch}`;
-    }
-
-    throw new Error(lastErr || `Failed to compare ${targetBranch} and ${sourceBranch}`);
+    return {
+      files: parseDiffSummary(result.stdout),
+      comparisonBase: base,
+    };
   }
 
   private async findExistingOpenPr(
@@ -232,7 +225,7 @@ export class VcsPullRequestOps {
         hasChanges: false,
         changedFiles: 0,
         files: [],
-        blockingReason: `Branch '${source}' is not a local bookmark. Push from a local branch first.`,
+        blockingReason: `Branch '${source}' is not a local branch. Push from a local branch first.`,
       };
     }
 
@@ -311,7 +304,7 @@ export class VcsPullRequestOps {
   ): Promise<string> {
     const result = await this.runner.run(
       workspaceId,
-      ['diff', '--git', '--from', comparisonBase, '--to', sourceBranch],
+      ['diff', `${comparisonBase}..${sourceBranch}`],
       120_000,
     );
     if (result.exitCode !== 0) return '';
@@ -381,11 +374,10 @@ export class VcsPullRequestOps {
       };
     }
 
-    // Verify the source branch has been pushed — gh pr create will fail with a
-    // confusing GitHub API error if the branch only exists locally.
-    const bookmarks = await this.listBookmarks(workspaceId);
-    const sourceBm = bookmarks.find((b) => b.name === preview.sourceBranch);
-    if (sourceBm && sourceBm.remoteStatuses.length === 0) {
+    // Verify the source branch has been pushed
+    const branches = await this.listBranches(workspaceId);
+    const sourceBr = branches.find((b) => b.name === preview.sourceBranch);
+    if (sourceBr && sourceBr.remoteStatuses.length === 0) {
       return {
         success: false,
         message: `Branch '${preview.sourceBranch}' has not been pushed to a remote. Push the branch first, then create the PR.`,
@@ -444,4 +436,3 @@ function extractGithubPrUrl(text: string): string | undefined {
   const match = text.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
   return match?.[0];
 }
-

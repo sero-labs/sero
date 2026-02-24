@@ -1,5 +1,5 @@
 // Re-export shared VCS types from the canonical renderer location.
-// Electron-only types (JjResult, CreateCheckpointOptions) are defined below.
+// Electron-only types (GitResult, CreateCheckpointOptions) are defined below.
 import type { VcsCheckpointSource } from '../../src/types/vcs';
 
 export type {
@@ -20,7 +20,7 @@ export type {
   PushPreview,
 } from '../../src/types/vcs';
 
-export interface JjResult {
+export interface GitResult {
   exitCode: number;
   stdout: string;
   stderr: string;
