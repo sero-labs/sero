@@ -148,6 +148,27 @@ test.describe('File tree — workspace click shows files', () => {
     await expect(tree.locator('text=index.ts')).toBeVisible({ timeout: 5000 });
     await expect(tree.locator('text=utils.ts')).toBeVisible({ timeout: 5000 });
   });
+
+  test('clicking a file opens it in the editor with content', async () => {
+    const tree = page.locator(fileTree.container);
+
+    // Click package.json (non-markdown so it opens in Monaco, not preview)
+    await tree.locator('text=package.json').click();
+
+    // The file content should appear in the editor area.
+    // Our test file contains "// package.json" — look for that text.
+    const editorArea = page.locator('[data-testid="active-app-panel"]');
+    await expect(editorArea.getByText('package.json').last()).toBeVisible({ timeout: 10_000 });
+
+    // Also verify readFile works via IPC (the underlying fix)
+    const content = await page.evaluate(
+      async (wsId) => {
+        return (window as any).sero.editor.readFile(wsId, '/workspace/package.json');
+      },
+      wsInfo.id,
+    );
+    expect(content).toContain('// package.json');
+  });
 });
 
 test.describe('File tree — switching workspaces updates file tree', () => {

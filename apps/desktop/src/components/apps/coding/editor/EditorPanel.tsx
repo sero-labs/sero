@@ -12,8 +12,6 @@ import type { editor as monacoEditor, IRange, IPosition } from 'monaco-editor';
 import { Code2, Eye } from 'lucide-react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { useLsp } from '@/lsp/use-lsp';
-import { useContainerStore } from '@/stores/container';
-import { useActiveWorkspace } from '@/stores/workspace';
 import { useAppStore } from '@/stores/app';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
@@ -85,11 +83,6 @@ export function EditorPanel({
   const pendingGotoRef = useRef<{ path: string; selection: IRange | IPosition } | null>(null);
 
   const appTheme = useAppStore((s) => s.theme);
-  const containerStatus = useContainerStore((s) => s.containers[workspaceId]?.status ?? 'none');
-  const activeWorkspace = useActiveWorkspace();
-  const isContainerWorkspace = activeWorkspace?.container ?? true;
-  // Non-container workspaces are always ready; container workspaces must be running.
-  const isReady = isContainerWorkspace ? containerStatus === 'running' : true;
   const isMarkdownTab = !!activeTab && getLanguage(activeTab) === 'markdown';
   const isMarkdownPreview = isMarkdownTab && markdownViewMode === 'preview';
 
@@ -120,7 +113,6 @@ export function EditorPanel({
       schedulePendingGoto();
       return;
     }
-    if (!isReady) return;
 
     setContent('');
     setLanguage(getLanguage(activeTab));
@@ -141,7 +133,7 @@ export function EditorPanel({
       }
     })();
     return () => { cancelled = true; };
-  }, [workspaceId, activeTab, isReady]);
+  }, [workspaceId, activeTab]);
 
   // ── Default markdown files to preview mode when opened ──
   useEffect(() => {
