@@ -317,6 +317,7 @@ function WorkspaceNode({
     <div>
       {/* Workspace header */}
       <button
+        data-testid={`workspace-node-${workspace.id}`}
         onClick={handleHeaderClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}

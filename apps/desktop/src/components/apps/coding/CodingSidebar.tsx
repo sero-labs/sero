@@ -45,7 +45,7 @@ export function CodingSidebar({ activePanel, workspaceId, fileTreeProps, onOpenD
       )}
 
       {/* ── Content ──────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+      <div className="flex flex-1 flex-col min-h-0 overflow-hidden" data-testid="coding-sidebar-content">
         {activePanel === 'explorer' && fileTreeProps ? (
           <FileTree {...fileTreeProps} />
         ) : activePanel === 'git' ? (

@@ -119,8 +119,15 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.readFile,
     async (_e, workspaceId: string, filePath: string) => {
-      if (await workspaceManager.isContainerEnabled(workspaceId)) {
-        return containerManager.readFile(workspaceId, filePath);
+      if (
+        await workspaceManager.isContainerEnabled(workspaceId) &&
+        containerManager.hasContainer(workspaceId)
+      ) {
+        try {
+          return await containerManager.readFile(workspaceId, filePath);
+        } catch {
+          // Container exec failed — fall through to host read
+        }
       }
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
@@ -143,8 +150,18 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.listFiles,
     async (_e, workspaceId: string, dirPath: string) => {
-      if (await workspaceManager.isContainerEnabled(workspaceId)) {
-        return containerManager.listFiles(workspaceId, dirPath);
+      // Use container listing only when the container is registered and running.
+      // Otherwise fall back to host listing so the file tree works before the
+      // container has been started (e.g. when clicking a workspace header).
+      if (
+        await workspaceManager.isContainerEnabled(workspaceId) &&
+        containerManager.hasContainer(workspaceId)
+      ) {
+        try {
+          return await containerManager.listFiles(workspaceId, dirPath);
+        } catch {
+          // Container exec failed — fall through to host listing
+        }
       }
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);

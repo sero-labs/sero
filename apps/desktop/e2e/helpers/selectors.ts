@@ -115,6 +115,19 @@ export const workspace = {
   addButton: 'button[title="Add workspace folder"]',
   /** Workspace node in sidebar — use `.filter({ hasText })` for specific workspace. */
   workspaceNode: '[data-testid="workspace-node"]',
+  /** Workspace node by ID — use workspace.nodeById(id). */
+  nodeById: (id: string) => `[data-testid="workspace-node-${id}"]`,
+} as const;
+
+// ── File Tree ───────────────────────────────────────────────────
+
+export const fileTree = {
+  /** The file tree container. */
+  container: '[data-testid="file-tree"]',
+  /** Sidebar content area (coding panel body). */
+  sidebarContent: '[data-testid="coding-sidebar-content"]',
+  /** File tree item by filename. */
+  itemByName: (name: string) => `[data-testid="file-tree-item-${name}"]`,
 } as const;
 
 // ── Auth ────────────────────────────────────────────────────────
