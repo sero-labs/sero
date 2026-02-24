@@ -47,6 +47,8 @@ import {
 import { createContainerTools } from '../container/tools';
 import type { ContainerState } from '../container/index';
 import { registerAgentModelContextHandlers } from './agent-model-context';
+import { installCliAgentBridge, noteCliTurnEnd, noteCliTurnStart } from '../cli/agent-bridge';
+import { createWorkspaceCliTool, bridgeExtensionTools } from '../cli';
 
 interface PoolEntry {
   session: AgentSession;
@@ -72,6 +74,7 @@ function sendEvent(event: AgentStreamEvent): void {
 function closePoolEntry(sessionId: string): void {
   const entry = pool.get(sessionId);
   if (!entry) return;
+  noteCliTurnEnd(sessionId);
   entry.unsubscribe();
   entry.session.dispose();
   pool.delete(sessionId);
@@ -91,6 +94,7 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
     logRawEvent(sessionId, event);
 
     if (event.type === 'turn_start') {
+      noteCliTurnStart(sessionId);
       logTurnContext(sessionId, session);
     }
 
@@ -100,6 +104,7 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
         break;
 
       case 'agent_end':
+        noteCliTurnEnd(sessionId);
         sendEvent({ type: 'agent_end', sessionId });
         {
           // Store the checkpoint from the just-completed turn so it can be
@@ -182,8 +187,6 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
       }
 
       case 'tool_execution_start': {
-        if (event.toolName === 'set_session_title') break;
-
         const toolMsg: ChatToolCallMessage = {
           type: 'tool',
           id: nextId(),
@@ -199,15 +202,6 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
       }
 
       case 'tool_execution_end': {
-        if (event.toolName === 'set_session_title') {
-          const newName = entry.session.sessionName;
-          if (newName && newName !== entry.lastSessionName) {
-            entry.lastSessionName = newName;
-            sendEvent({ type: 'session_name', sessionId, name: newName });
-          }
-          break;
-        }
-
         const result = event.result;
         let text: string | null = null;
         if (result?.content && Array.isArray(result.content)) {
@@ -232,6 +226,11 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
 }
 
 export function registerAgentHandlers(): void {
+  installCliAgentBridge({
+    getEntry: (id) => pool.get(id),
+    listEntries: () => [...pool.entries()],
+    sendEvent,
+  });
   ipcMain.handle(
     IpcChannels.agent.open,
     async (_event, sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]> => {
@@ -280,8 +279,8 @@ export function registerAgentHandlers(): void {
 
       const useContainer = !!containerState;
       const containerTools = useContainer
-        ? createContainerTools(containerManager, workspaceId)
-        : undefined;
+        ? createContainerTools(containerManager, workspaceId, sessionId)
+        : [createWorkspaceCliTool(workspaceId, sessionId)];
       const builtinTools = useContainer ? [] : createCodingTools(wsPath);
 
       const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
@@ -294,9 +293,11 @@ export function registerAgentHandlers(): void {
           createSeroExtensionFactory(
             workspaceManager,
             workspaceId,
+            sessionId,
             containerState ?? undefined,
           ),
         ],
+        extensionsOverride: bridgeExtensionTools,
         ...(globalAgentsFile && {
           agentsFilesOverride: (discovered) => ({
             agentsFiles: [globalAgentsFile, ...discovered.agentsFiles],

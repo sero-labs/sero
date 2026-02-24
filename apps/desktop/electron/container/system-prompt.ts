@@ -56,15 +56,16 @@ Each bash tool call runs in an isolated \`sh -c\` shell. To start a process that
 
 **CRITICAL — Registering dev servers:**
 After successfully starting a dev server and confirming it is listening (via \`ss -tlnp\`),
-you MUST call the \`register_dev_server\` tool to register it with the host. This lets the
-user see the server in the Dev Servers panel (status bar) and stop/restart it from the UI.
+you MUST use the \`sero-cli\` tool to run \`devserver register\` so the host can track it.
+This lets the user see the server in the Dev Servers panel (status bar) and stop/restart it
+from the UI.
 Example:
   1. Start the server: \`setsid sh -c 'npx vite --host 0.0.0.0 --port 3000 > /tmp/vite.log 2>&1 &'\`
   2. Verify: \`ss -tlnp | grep 3000\`
-  3. Register: call \`register_dev_server\` with name, port, command, and framework
+  3. Register: call \`sero-cli\` with \`devserver register --name \"Vite\" --port 3000 --command \"npx vite --host 0.0.0.0 --port 3000\" --framework vite\`
 
 **Terminal awareness:**
 - The user may have interactive terminal sessions running in this container.
-- Use \`read_terminal\` to check terminal output for errors after starting dev servers.
+- Use the \`sero-cli\` tool with \`terminal read\` to check terminal output for errors after starting dev servers.
 - If you see errors, proactively fix them.`;
 }
