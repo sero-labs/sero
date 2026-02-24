@@ -1,4 +1,7 @@
 import { execFile } from 'child_process';
+import { existsSync } from 'fs';
+import { homedir } from 'os';
+import path from 'path';
 import { promisify } from 'util';
 
 import type { WorkspaceManager } from '../workspace';
@@ -8,6 +11,39 @@ import { buildContainerConfig } from '../ipc/shared-infra';
 import type { GitResult } from './types';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Check if the host likely has SSH keys that can authenticate with GitHub.
+ * Cached after first check for the process lifetime.
+ */
+let _sshAvailable: boolean | null = null;
+async function isHostSshAvailable(): Promise<boolean> {
+  if (_sshAvailable !== null) return _sshAvailable;
+
+  // Quick check: do SSH key files exist?
+  const sshDir = path.join(homedir(), '.ssh');
+  const hasKeys = ['id_ed25519', 'id_rsa', 'id_ecdsa'].some((k) =>
+    existsSync(path.join(sshDir, k)),
+  );
+  if (!hasKeys) {
+    _sshAvailable = false;
+    return false;
+  }
+
+  // Verify SSH actually authenticates with GitHub
+  try {
+    const { stderr } = await execFileAsync('ssh', ['-T', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=5', 'git@github.com'], {
+      timeout: 10_000,
+    }).catch((err: any) => {
+      // ssh -T exits with code 1 on success ("You've successfully authenticated")
+      return { stdout: String(err?.stdout ?? ''), stderr: String(err?.stderr ?? '') };
+    });
+    _sshAvailable = stderr.includes('successfully authenticated');
+  } catch {
+    _sshAvailable = false;
+  }
+  return _sshAvailable;
+}
 
 function shQuote(input: string): string {
   return `'${input.replace(/'/g, `'"'"'`)}'`;
@@ -50,11 +86,23 @@ export class GitRunner {
       return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs);
     }
 
-    // Host execution — inject GitHub auth env vars into the process environment
+    // Host execution — inject GitHub auth env vars into the process environment.
+    // If the host has working SSH keys, skip the HTTPS URL rewrite so git uses
+    // SSH natively. SSH is more reliable for large pushes and avoids HTTP 400
+    // errors caused by payload size limits during HTTPS ref negotiation.
     const env = { ...process.env };
     if (this.githubAuth) {
       const authVars = this.githubAuth.getAuthEnvVars();
-      Object.assign(env, authVars);
+      const sshWorks = await isHostSshAvailable();
+      if (sshWorks) {
+        // Keep GH_TOKEN (for gh CLI) but drop the SSH→HTTPS rewrite + ASKPASS
+        // so git uses native SSH transport.
+        if (authVars.GH_TOKEN) {
+          env.GH_TOKEN = authVars.GH_TOKEN;
+        }
+      } else {
+        Object.assign(env, authVars);
+      }
     }
 
     try {
