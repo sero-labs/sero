@@ -65,5 +65,26 @@ Example:
 **Terminal awareness:**
 - The user may have interactive terminal sessions running in this container.
 - Use \`read_terminal\` to check terminal output for errors after starting dev servers.
-- If you see errors, proactively fix them.`;
+- If you see errors, proactively fix them.
+
+## Sero CLI
+
+The \`sero\` command-line tool is available for workspace management,
+productivity tools, integrations, and Sero app control. Use it via bash.
+
+**Discovery:** Run \`sero help\` to see all available commands, or
+\`sero help <command>\` for detailed usage of a specific command.
+
+**Common commands:**
+- \`sero notes\`, \`sero todo\` — Workspace notes and todos
+- \`sero calc\` — Evaluate math expressions
+- \`sero quote\` — Daily inspirational quote
+- \`sero weight\` — Track weight over time
+- \`sero plan\` — Task plan management
+- \`sero slopzilla\` — View SlopZilla history and bookmarks
+
+**Tips:**
+- Chain commands: \`sero notes add --title "X" --body "Y" && sero todo add "Z"\`
+- Use \`--json\` for structured output: \`sero notes list --json\`
+- Use \`--quiet\` to suppress non-essential output`;
 }

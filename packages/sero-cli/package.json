@@ -1,0 +1,14 @@
+{
+  "name": "@sero/cli",
+  "version": "0.1.0",
+  "description": "Sero CLI — workspace tools, integrations, and app control",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.3"
+  }
+}

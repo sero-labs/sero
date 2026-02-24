@@ -128,6 +128,7 @@ export async function buildContainerConfig(
     readOnlyMounts: [
       path.join(SERO_AGENT_DIR, 'skills'),
       path.join(SERO_AGENT_DIR, 'prompts'),
+      path.join(SERO_AGENT_DIR, 'cli'),
     ],
     writableMounts,
   };

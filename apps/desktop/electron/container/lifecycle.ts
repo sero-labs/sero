@@ -287,6 +287,22 @@ export async function createFreshContainer(
     /* non-fatal — proxy handles DNS when available */
   }
 
+  // Symlink the Sero CLI into PATH so 'sero' is available as a command.
+  // The CLI bundle is mounted read-only via readOnlyMounts.
+  for (const mountDir of config.readOnlyMounts ?? []) {
+    if (mountDir.endsWith('/cli')) {
+      try {
+        await execFn(
+          config.workspaceId,
+          `ln -sf ${mountDir}/sero.mjs /usr/local/bin/sero`,
+        );
+      } catch {
+        /* non-fatal — agent can still use 'node <path>/sero.mjs' */
+      }
+      break;
+    }
+  }
+
   // Initialize workspace as a colocated JJ+Git repo (idempotent)
   try {
     await execFn(
