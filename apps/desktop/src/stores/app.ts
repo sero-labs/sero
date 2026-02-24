@@ -23,6 +23,9 @@ interface PersistedLayoutState {
   mainSidebarOpen: boolean;
   chatPanelOpen: boolean;
   favouriteApps: string[];
+  /** Persisted panel size percentages (0–100). */
+  mainSidebarSizePct?: number;
+  chatPanelSizePct?: number;
 }
 
 // ── Theme ──────────────────────────────────────────────────────
@@ -51,6 +54,12 @@ interface AppState {
   chatPanelOpen: boolean;
   setChatPanelOpen: (open: boolean) => void;
   toggleChatPanel: () => void;
+
+  // Panel sizes (persisted percentages)
+  mainSidebarSizePct: number;
+  setMainSidebarSizePct: (pct: number) => void;
+  chatPanelSizePct: number;
+  setChatPanelSizePct: (pct: number) => void;
 
   // Favourites (sidebar-visible discovered apps)
   favouriteApps: string[];
@@ -115,8 +124,16 @@ function normaliseFavouriteApps(favouriteApps: string[] | undefined): string[] {
   return next;
 }
 
-/** Fire-and-forget save of layout state to disk. */
-function persistLayout(state: PersistedLayoutState) {
+/** Fire-and-forget save of full layout state to disk. */
+function persistLayout(partial: Partial<PersistedLayoutState>) {
+  const s = useAppStore.getState();
+  const state: PersistedLayoutState = {
+    mainSidebarOpen: partial.mainSidebarOpen ?? s.mainSidebarOpen,
+    chatPanelOpen: partial.chatPanelOpen ?? s.chatPanelOpen,
+    favouriteApps: partial.favouriteApps ?? s.favouriteApps,
+    mainSidebarSizePct: partial.mainSidebarSizePct ?? s.mainSidebarSizePct,
+    chatPanelSizePct: partial.chatPanelSizePct ?? s.chatPanelSizePct,
+  };
   window.sero.layout.save(state).catch((err) => {
     console.warn('[app-store] Failed to persist layout:', err);
   });
@@ -155,40 +172,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   mainSidebarOpen: true,
   setMainSidebarOpen: (open) => {
     set({ mainSidebarOpen: open });
-    persistLayout({
-      mainSidebarOpen: open,
-      chatPanelOpen: get().chatPanelOpen,
-      favouriteApps: get().favouriteApps,
-    });
+    persistLayout({ mainSidebarOpen: open });
   },
   toggleMainSidebar: () => {
     const next = !get().mainSidebarOpen;
     set({ mainSidebarOpen: next });
-    persistLayout({
-      mainSidebarOpen: next,
-      chatPanelOpen: get().chatPanelOpen,
-      favouriteApps: get().favouriteApps,
-    });
+    persistLayout({ mainSidebarOpen: next });
   },
 
   // Chat panel — defaults to true; hydrated from disk by loadLayout()
   chatPanelOpen: true,
   setChatPanelOpen: (open) => {
     set({ chatPanelOpen: open });
-    persistLayout({
-      mainSidebarOpen: get().mainSidebarOpen,
-      chatPanelOpen: open,
-      favouriteApps: get().favouriteApps,
-    });
+    persistLayout({ chatPanelOpen: open });
   },
   toggleChatPanel: () => {
     const next = !get().chatPanelOpen;
     set({ chatPanelOpen: next });
-    persistLayout({
-      mainSidebarOpen: get().mainSidebarOpen,
-      chatPanelOpen: next,
-      favouriteApps: get().favouriteApps,
-    });
+    persistLayout({ chatPanelOpen: next });
+  },
+
+  // Panel sizes — defaults; hydrated from disk by loadLayout()
+  mainSidebarSizePct: 20,
+  setMainSidebarSizePct: (pct) => {
+    set({ mainSidebarSizePct: pct });
+    persistLayout({ mainSidebarSizePct: pct });
+  },
+  chatPanelSizePct: 30,
+  setChatPanelSizePct: (pct) => {
+    set({ chatPanelSizePct: pct });
+    persistLayout({ chatPanelSizePct: pct });
   },
 
   favouriteApps: [...DEFAULT_FAVOURITE_APP_IDS],
@@ -201,11 +214,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       : [...current.favouriteApps, appId];
 
     set({ favouriteApps: next });
-    persistLayout({
-      mainSidebarOpen: current.mainSidebarOpen,
-      chatPanelOpen: current.chatPanelOpen,
-      favouriteApps: next,
-    });
+    persistLayout({ favouriteApps: next });
   },
   isFavourite: (appId) => get().favouriteApps.includes(appId),
 
@@ -236,12 +245,19 @@ export async function loadLayout(): Promise<void> {
   try {
     const state = await window.sero.layout.load();
     if (state) {
-      useAppStore.setState({
+      const update: Partial<AppState> & { layoutReady: true } = {
         mainSidebarOpen: state.mainSidebarOpen,
         chatPanelOpen: state.chatPanelOpen,
         favouriteApps: normaliseFavouriteApps(state.favouriteApps),
         layoutReady: true,
-      });
+      };
+      if (typeof state.mainSidebarSizePct === 'number' && state.mainSidebarSizePct > 0) {
+        update.mainSidebarSizePct = state.mainSidebarSizePct;
+      }
+      if (typeof state.chatPanelSizePct === 'number' && state.chatPanelSizePct > 0) {
+        update.chatPanelSizePct = state.chatPanelSizePct;
+      }
+      useAppStore.setState(update);
       return;
     }
   } catch (err) {

@@ -18,6 +18,9 @@ export interface LayoutState {
   mainSidebarOpen: boolean;
   chatPanelOpen: boolean;
   favouriteApps?: string[];
+  /** Persisted panel size percentages (0–100). */
+  mainSidebarSizePct?: number;
+  chatPanelSizePct?: number;
 }
 
 let writeQueue: Promise<void> = Promise.resolve();

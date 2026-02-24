@@ -40,7 +40,8 @@ export function CodingWorkspace() {
   const loadVcsWorkspace = useVcsStore((s) => s.loadWorkspace);
 
   // Per-workspace UI state
-  const { sidebarOpen, activePanel, terminalOpen } = useWorkspaceCodingUi(workspaceId);
+  const { sidebarOpen, activePanel, terminalOpen, codingSidebarSizePct, terminalSizePct } =
+    useWorkspaceCodingUi(workspaceId);
   const setCodingUi = useCodingUiStore((s) => s.set);
 
   // Terminal state
@@ -250,36 +251,101 @@ export function CodingWorkspace() {
 
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
   const isSidebarProgrammaticRef = useRef(false);
+  const terminalPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const isTerminalProgrammaticRef = useRef(true);
+  const TERMINAL_MIN_HEIGHT = 100;
+  const terminalLastExpandedPctRef = useRef(terminalSizePct || 30);
+  const terminalDefaultRef = useRef(
+    terminalOpen ? `${terminalSizePct || 30}%` : 0,
+  );
+  const codingSidebarLastExpandedPctRef = useRef(codingSidebarSizePct || 0);
 
   // Sync sidebar panel collapse/expand with sidebarOpen state
   useEffect(() => {
+    let rafId: number | null = null;
+    let rafId2: number | null = null;
     isSidebarProgrammaticRef.current = true;
-    const rafId = window.requestAnimationFrame(() => {
-      if (sidebarOpen) {
-        sidebarPanelRef.current?.expand();
-      } else {
-        sidebarPanelRef.current?.collapse();
-      }
-      window.requestAnimationFrame(() => {
+
+    if (!sidebarOpen) {
+      sidebarPanelRef.current?.collapse();
+      rafId = window.requestAnimationFrame(() => {
         isSidebarProgrammaticRef.current = false;
       });
-    });
+    } else {
+      rafId = window.requestAnimationFrame(() => {
+        sidebarPanelRef.current?.expand();
+        const target = codingSidebarLastExpandedPctRef.current;
+        if (target > 0) {
+          sidebarPanelRef.current?.resize(`${target}%`);
+        }
+        rafId2 = window.requestAnimationFrame(() => {
+          isSidebarProgrammaticRef.current = false;
+        });
+      });
+    }
+
     return () => {
-      window.cancelAnimationFrame(rafId);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (rafId2 !== null) window.cancelAnimationFrame(rafId2);
       isSidebarProgrammaticRef.current = false;
     };
   }, [sidebarOpen]);
 
   const handleSidebarResize = useCallback(
-    ({ inPixels }: { inPixels: number; asPercentage: number }) => {
+    ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
       if (isSidebarProgrammaticRef.current) return;
       if (inPixels <= 1) {
         setCodingUi(workspaceId, { sidebarOpen: false });
       } else if (!sidebarOpen && inPixels >= 120) {
         setCodingUi(workspaceId, { sidebarOpen: true });
+      } else {
+        codingSidebarLastExpandedPctRef.current = asPercentage;
+        setCodingUi(workspaceId, { codingSidebarSizePct: Math.round(asPercentage * 10) / 10 });
       }
     },
     [workspaceId, sidebarOpen, setCodingUi],
+  );
+
+  // Sync terminal panel collapse/expand with terminalOpen state
+  useEffect(() => {
+    let rafId: number | null = null;
+    let rafId2: number | null = null;
+    isTerminalProgrammaticRef.current = true;
+
+    if (!terminalOpen) {
+      terminalPanelRef.current?.collapse();
+      rafId = window.requestAnimationFrame(() => {
+        isTerminalProgrammaticRef.current = false;
+      });
+    } else {
+      rafId = window.requestAnimationFrame(() => {
+        const targetPct = terminalLastExpandedPctRef.current || 30;
+        terminalPanelRef.current?.expand();
+        terminalPanelRef.current?.resize(`${targetPct}%`);
+        rafId2 = window.requestAnimationFrame(() => {
+          isTerminalProgrammaticRef.current = false;
+        });
+      });
+    }
+
+    return () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      if (rafId2 !== null) window.cancelAnimationFrame(rafId2);
+      isTerminalProgrammaticRef.current = false;
+    };
+  }, [terminalOpen]);
+
+  const handleTerminalResize = useCallback(
+    ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
+      if (isTerminalProgrammaticRef.current) return;
+      if (inPixels <= 1) {
+        setCodingUi(workspaceId, { terminalOpen: false });
+      } else {
+        terminalLastExpandedPctRef.current = asPercentage;
+        setCodingUi(workspaceId, { terminalSizePct: Math.round(asPercentage * 10) / 10 });
+      }
+    },
+    [workspaceId, setCodingUi],
   );
 
   return (
@@ -291,7 +357,9 @@ export function CodingWorkspace() {
           terminalOpen={terminalOpen} onPanelClick={handlePanelClick}
         />
 
-        <ResizablePanelGroup id="coding-layout" orientation="horizontal" className="min-w-0 flex-1">
+        <ResizablePanelGroup id="coding-vertical" orientation="vertical" className="min-w-0 flex-1">
+          <ResizablePanel id="coding-main" minSize={20}>
+            <ResizablePanelGroup id="coding-layout" orientation="horizontal" className="h-full">
           <ResizablePanel
             id="coding-sidebar"
             panelRef={sidebarPanelRef}
@@ -356,30 +424,47 @@ export function CodingWorkspace() {
               )}
             </div>
           </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
+            </ResizablePanelGroup>
+          </ResizablePanel>
 
-      {/* ── Bottom: terminal spans full width ──────────────── */}
-      {terminalOpen && (
-        <div className="flex h-[250px] min-h-[100px] max-h-[60%] shrink-0 flex-col border-t border-[var(--border-default)]">
-          <TerminalTabs workspaceId={workspaceId} />
-          <div className="relative flex-1 min-h-0 bg-[#0a0a0b]">
-            {termTabs.map((tab) => (
-              <TerminalPanel
-                key={tab.id} terminalId={tab.id}
-                isActive={activeTerminalId === tab.id}
-              />
-            ))}
-            {termTabs.length === 0 && (
-              <div className="flex h-full items-center justify-center">
-                <span className="text-xs text-[var(--text-muted)]">
-                  No terminals — click + to create one
-                </span>
+          <ResizableHandle
+            disabled={!terminalOpen}
+            className={!terminalOpen ? 'pointer-events-none opacity-0' : undefined}
+          />
+
+          <ResizablePanel
+            id="coding-terminal"
+            panelRef={terminalPanelRef}
+            defaultSize={terminalDefaultRef.current}
+            minSize={TERMINAL_MIN_HEIGHT}
+            collapsible
+            collapsedSize={0}
+            onResize={handleTerminalResize}
+            style={{ overflow: 'hidden' }}
+          >
+            {terminalOpen && (
+              <div className="flex h-full flex-col border-t border-[var(--border-default)]">
+                <TerminalTabs workspaceId={workspaceId} />
+                <div className="relative flex-1 min-h-0 bg-[#0a0a0b]">
+                  {termTabs.map((tab) => (
+                    <TerminalPanel
+                      key={tab.id} terminalId={tab.id}
+                      isActive={activeTerminalId === tab.id}
+                    />
+                  ))}
+                  {termTabs.length === 0 && (
+                    <div className="flex h-full items-center justify-center">
+                      <span className="text-xs text-[var(--text-muted)]">
+                        No terminals — click + to create one
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 }

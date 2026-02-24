@@ -18,6 +18,22 @@ export const layout = {
   chatToggle: 'button[aria-label="Toggle agent"]',
   /** Status bar footer. */
   statusBar: 'footer',
+
+  // ── Resizable panels (data-testid from react-resizable-panels) ──
+  /** The top-level horizontal panel group in App.tsx. */
+  shellPanelGroup: '[data-testid="app-shell-panels"]',
+  /** Main sidebar panel (left, collapsible). */
+  sidebarPanel: '[data-testid="main-sidebar-panel"]',
+  /** Active app panel (center). */
+  activeAppPanel: '[data-testid="active-app-panel"]',
+  /** Chat panel (right, collapsible). */
+  chatPanel: '[data-testid="chat-panel"]',
+  /** Handle between sidebar and active-app. */
+  sidebarHandle: '[data-testid="app-shell-panels"] [data-separator]',
+  /** CodingWorkspace vertical panel group. */
+  codingVerticalGroup: '[data-testid="coding-vertical"]',
+  /** CodingWorkspace terminal panel. */
+  terminalPanel: '[data-testid="coding-terminal"]',
 } as const;
 
 // ── Sidebar ─────────────────────────────────────────────────────

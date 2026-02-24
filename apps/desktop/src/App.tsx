@@ -44,25 +44,24 @@ export function App() {
   const setChatPanelOpen = useAppStore((s) => s.setChatPanelOpen);
   const mainSidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
   const chatPanelRef = useRef<PanelImperativeHandle | null>(null);
-  // Start true — blocks onResize events fired during initial render (before
-  // the sync effects run). Without this, the handler sees the panel at its
-  // defaultSize, detects !open && inPixels >= min, and immediately re-opens.
   const isMainSidebarProgrammaticRef = useRef(true);
   const isChatPanelProgrammaticRef = useRef(true);
-  const MAIN_SIDEBAR_DEFAULT_SIZE_PCT = 20;
-  const CHAT_PANEL_DEFAULT_SIZE_PCT = 30;
-  const mainSidebarLastExpandedPctRef = useRef(MAIN_SIDEBAR_DEFAULT_SIZE_PCT);
-  const chatPanelLastExpandedPctRef = useRef(CHAT_PANEL_DEFAULT_SIZE_PCT);
 
   const MAIN_SIDEBAR_MIN_WIDTH = 200;
   const CHAT_PANEL_MIN_WIDTH = 300;
-  const COLLAPSE_PULL_PAST_MIN = 100;
-
-  const mainSidebarCollapsedSize = Math.max(
-    0,
-    MAIN_SIDEBAR_MIN_WIDTH - COLLAPSE_PULL_PAST_MIN * 2,
-  );
+  const mainSidebarCollapsedSize = 0;
   const chatPanelCollapsedSize = 0;
+
+  const mainSidebarLastExpandedPctRef = useRef(20);
+  const chatPanelLastExpandedPctRef = useRef(30);
+  const mainSidebarDefaultRef = useRef<string | number>(0);
+  const chatPanelDefaultRef = useRef<string | number>(0);
+  // Debounce disk persist so we don't write on every pixel of drag.
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Hydrate once — refs capture persisted values on the FIRST render where
+  // layoutReady=true, which is the same render that first mounts the panels
+  // (because the loading guard returns early until then).
+  const layoutHydratedRef = useRef(false);
 
   const appsReady = useAppStore((s) => s.appsReady);
   const layoutReady = useAppStore((s) => s.layoutReady);
@@ -72,6 +71,17 @@ export function App() {
 
   // Global keyboard shortcuts (⌘B sidebar, ⌘L chat)
   useKeyboardShortcuts();
+
+  // Hydrate refs from store once layout has loaded. Runs during render (not
+  // an effect) so refs are set BEFORE the JSX tree mounts the panels.
+  if (layoutReady && appsReady && !layoutHydratedRef.current) {
+    layoutHydratedRef.current = true;
+    const s = useAppStore.getState();
+    mainSidebarLastExpandedPctRef.current = s.mainSidebarSizePct;
+    chatPanelLastExpandedPctRef.current = s.chatPanelSizePct;
+    mainSidebarDefaultRef.current = s.mainSidebarOpen ? `${s.mainSidebarSizePct}%` : 0;
+    chatPanelDefaultRef.current = s.chatPanelOpen ? `${s.chatPanelSizePct}%` : 0;
+  }
 
   // Load layout + discover apps on startup
   useEffect(() => {
@@ -96,13 +106,12 @@ export function App() {
       }
 
       mainSidebarLastExpandedPctRef.current = asPercentage;
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = setTimeout(() => {
+        useAppStore.getState().setMainSidebarSizePct(Math.round(asPercentage * 10) / 10);
+      }, 300);
     },
-    [
-      appsReady,
-      mainSidebarCollapsedSize,
-      layoutReady,
-      setMainSidebarOpen,
-    ],
+    [appsReady, layoutReady, setMainSidebarOpen],
   );
 
   const handleChatPanelResize = useCallback(
@@ -116,13 +125,12 @@ export function App() {
       }
 
       chatPanelLastExpandedPctRef.current = asPercentage;
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = setTimeout(() => {
+        useAppStore.getState().setChatPanelSizePct(Math.round(asPercentage * 10) / 10);
+      }, 300);
     },
-    [
-      appsReady,
-      chatPanelCollapsedSize,
-      layoutReady,
-      setChatPanelOpen,
-    ],
+    [appsReady, layoutReady, setChatPanelOpen],
   );
 
   // ── Panel sync effects ──────────────────────────────────────
@@ -144,10 +152,7 @@ export function App() {
       });
     } else {
       rafId = window.requestAnimationFrame(() => {
-        const targetPct = Math.max(
-          MAIN_SIDEBAR_DEFAULT_SIZE_PCT,
-          mainSidebarLastExpandedPctRef.current,
-        );
+        const targetPct = mainSidebarLastExpandedPctRef.current;
         mainSidebarPanelRef.current?.expand();
         mainSidebarPanelRef.current?.resize(`${targetPct}%`);
         rafId2 = window.requestAnimationFrame(() => {
@@ -161,7 +166,7 @@ export function App() {
       if (rafId2 !== null) window.cancelAnimationFrame(rafId2);
       isMainSidebarProgrammaticRef.current = false;
     };
-  }, [mainSidebarOpen, layoutReady, appsReady, MAIN_SIDEBAR_DEFAULT_SIZE_PCT]);
+  }, [mainSidebarOpen, layoutReady, appsReady]);
 
   useEffect(() => {
     if (!layoutReady || !appsReady) return;
@@ -176,10 +181,7 @@ export function App() {
       });
     } else {
       rafId = window.requestAnimationFrame(() => {
-        const targetPct = Math.max(
-          CHAT_PANEL_DEFAULT_SIZE_PCT,
-          chatPanelLastExpandedPctRef.current,
-        );
+        const targetPct = chatPanelLastExpandedPctRef.current;
         chatPanelRef.current?.expand();
         chatPanelRef.current?.resize(`${targetPct}%`);
         rafId2 = window.requestAnimationFrame(() => {
@@ -193,7 +195,7 @@ export function App() {
       if (rafId2 !== null) window.cancelAnimationFrame(rafId2);
       isChatPanelProgrammaticRef.current = false;
     };
-  }, [chatPanelOpen, layoutReady, appsReady, CHAT_PANEL_DEFAULT_SIZE_PCT]);
+  }, [chatPanelOpen, layoutReady, appsReady]);
 
   // Wait for layout hydration + app discovery before rendering.
   // Layout must load first so panels render at the correct size (no flash).
@@ -219,9 +221,7 @@ export function App() {
             <ResizablePanel
               id="main-sidebar-panel"
               panelRef={mainSidebarPanelRef}
-              defaultSize={
-                mainSidebarOpen ? `${MAIN_SIDEBAR_DEFAULT_SIZE_PCT}%` : mainSidebarCollapsedSize
-              }
+              defaultSize={mainSidebarDefaultRef.current}
               minSize={MAIN_SIDEBAR_MIN_WIDTH}
               collapsible
               collapsedSize={mainSidebarCollapsedSize}
@@ -247,7 +247,7 @@ export function App() {
             <ResizablePanel
               id="chat-panel"
               panelRef={chatPanelRef}
-              defaultSize={chatPanelOpen ? `${CHAT_PANEL_DEFAULT_SIZE_PCT}%` : chatPanelCollapsedSize}
+              defaultSize={chatPanelDefaultRef.current}
               minSize={CHAT_PANEL_MIN_WIDTH}
               collapsible
               collapsedSize={chatPanelCollapsedSize}
