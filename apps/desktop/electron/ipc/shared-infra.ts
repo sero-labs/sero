@@ -20,14 +20,18 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
 
-import { SERO_AGENT_DIR } from '../env';
+import { SERO_AGENT_DIR, SERO_HOME } from '../env';
 import type { ContainerConfig } from '../container/types';
 import { ContainerManager } from '../container/index';
+import { GatewayServer } from '../gateway/index';
+import { WebChatServer } from '../gateway/channels/web';
+import { TailscaleIntegration } from '../gateway/tailscale';
 import { GitHubAuthManager } from '../github/auth-manager';
 import { workspaceManager } from '../workspace';
 import { FileWatcherManager } from '../file-watcher';
 import { LspManager } from '../lsp/lsp-manager';
 import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../vcs';
+import { ArtifactRegistry } from '../container/artifact-registry';
 
 // ── GitHub Auth Manager (singleton) ──────────────────────────
 
@@ -45,6 +49,30 @@ const gitRunner = new GitRunner(workspaceManager, containerManager, githubAuth);
 export const vcsManager = new VcsManager(workspaceManager, gitRunner);
 export const vcsOps = new VcsOps(gitRunner);
 export const vcsPrOps = new VcsPullRequestOps(gitRunner);
+
+// ── Artifact Registry (singleton) ────────────────────────────
+
+export const artifactRegistry = new ArtifactRegistry();
+
+// ── Gateway (singleton) ──────────────────────────────────────
+
+const GATEWAY_PORT = 18800;
+const WEB_CHAT_PORT = 18801;
+const GATEWAY_TOKEN_PATH = path.join(SERO_HOME, 'gateway-token');
+
+export const gatewayServer = new GatewayServer({
+  port: GATEWAY_PORT,
+  host: '127.0.0.1',
+  tokenPath: GATEWAY_TOKEN_PATH,
+});
+
+export const webChatServer = new WebChatServer({
+  port: WEB_CHAT_PORT,
+  host: '127.0.0.1',
+  gatewayWsUrl: `ws://127.0.0.1:${GATEWAY_PORT}`,
+});
+
+export const tailscale = new TailscaleIntegration();
 
 // ── Workspace Manager (re-export singleton) ──────────────────
 

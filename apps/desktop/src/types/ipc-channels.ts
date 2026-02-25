@@ -300,4 +300,30 @@ export const IpcChannels = {
     /** Renderer → main: get all currently pending questions (for mount-time hydration). */
     getPending: 'sero:user-feedback:get-pending',
   },
+  artifacts: {
+    /** List all artifacts, optionally filtered by session. */
+    list: 'sero:artifacts:list',
+    /** Get a single artifact by ID. */
+    get: 'sero:artifacts:get',
+    /** Remove an artifact by ID. */
+    remove: 'sero:artifacts:remove',
+    /** Clear all artifacts for a session. */
+    clearSession: 'sero:artifacts:clear-session',
+    /** Main → renderer push channel for artifact events. */
+    event: 'sero:artifacts:event',
+  },
+  gateway: {
+    /** Get gateway server status (running, port, clients). */
+    getStatus: 'sero:gateway:get-status',
+    /** Get the auth token for display / sharing. */
+    getToken: 'sero:gateway:get-token',
+    /** Enable or disable the gateway. */
+    setEnabled: 'sero:gateway:set-enabled',
+    /** Get current gateway configuration. */
+    getConfig: 'sero:gateway:get-config',
+    /** Update gateway configuration. */
+    setConfig: 'sero:gateway:set-config',
+    /** Main → renderer push channel for gateway events. */
+    event: 'sero:gateway:event',
+  },
 } as const;

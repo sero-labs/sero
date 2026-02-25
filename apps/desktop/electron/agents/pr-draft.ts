@@ -4,7 +4,11 @@
  * Separated from IPC handlers for testability.
  */
 
-export function buildPrDraftPrompt(fileSummary: string, patch: string): string {
+export function buildPrDraftPrompt(
+  fileSummary: string,
+  patch: string,
+  artifactSummary?: string | null,
+): string {
   return [
     'You are generating a GitHub pull request title and description.',
     'Output only valid JSON with this exact shape: {"title":"...","body":"..."}',
@@ -17,12 +21,20 @@ export function buildPrDraftPrompt(fileSummary: string, patch: string): string {
     '- include sections: Summary, Changes, Testing',
     '- use bullet points in each section',
     '- no placeholders and no backticks around section titles',
+    ...(artifactSummary
+      ? [
+          '- include a Verification section at the end with the agent verification evidence provided below',
+        ]
+      : []),
     '',
     'Changed files (status + path):',
     fileSummary || '(no file summary available)',
     '',
     'Patch (possibly truncated):',
     patch || '(no patch available)',
+    ...(artifactSummary
+      ? ['', 'Agent verification evidence:', artifactSummary]
+      : []),
   ].join('\n');
 }
 

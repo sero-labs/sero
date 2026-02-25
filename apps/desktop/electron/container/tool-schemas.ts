@@ -104,6 +104,83 @@ export const RegisterDevServerParams = Type.Object({
   ),
 });
 
+export const BrowserParams = Type.Object({
+  action: Type.Union(
+    [
+      Type.Literal('launch'),
+      Type.Literal('navigate'),
+      Type.Literal('click'),
+      Type.Literal('type'),
+      Type.Literal('press_key'),
+      Type.Literal('screenshot'),
+      Type.Literal('scroll'),
+      Type.Literal('evaluate'),
+      Type.Literal('get_text'),
+      Type.Literal('wait'),
+      Type.Literal('close'),
+    ],
+    {
+      description:
+        'The browser action to perform. ' +
+        'launch: start browser (optionally navigate to url). ' +
+        'navigate: go to a URL. ' +
+        'click: click a CSS selector or x,y coordinates. ' +
+        'type: type text into selector or focused element. ' +
+        'press_key: press a key (Enter, Tab, Escape, etc). ' +
+        'screenshot: capture the page as an image. ' +
+        'scroll: scroll up/down. ' +
+        'evaluate: run JavaScript in the page. ' +
+        'get_text: extract text content from the page or an element. ' +
+        'wait: wait for a selector or timeout. ' +
+        'close: close the browser.',
+    },
+  ),
+  url: Type.Optional(Type.String({ description: 'URL for launch/navigate actions' })),
+  selector: Type.Optional(
+    Type.String({ description: 'CSS selector for click/type/screenshot/scroll/get_text/wait' }),
+  ),
+  x: Type.Optional(Type.Number({ description: 'X coordinate for click (use with y)' })),
+  y: Type.Optional(Type.Number({ description: 'Y coordinate for click (use with x)' })),
+  text: Type.Optional(Type.String({ description: 'Text to type (for type action)' })),
+  clear: Type.Optional(
+    Type.Boolean({ description: 'Clear the field before typing (default: false)' }),
+  ),
+  key: Type.Optional(
+    Type.String({ description: 'Key to press for press_key action (e.g. "Enter", "Tab", "Escape")' }),
+  ),
+  expression: Type.Optional(
+    Type.String({ description: 'JavaScript expression to evaluate in the page' }),
+  ),
+  direction: Type.Optional(
+    Type.Union([Type.Literal('up'), Type.Literal('down')], {
+      description: 'Scroll direction (default: "down")',
+    }),
+  ),
+  amount: Type.Optional(
+    Type.Number({ description: 'Scroll amount in pixels (default: 500)' }),
+  ),
+  full_page: Type.Optional(
+    Type.Boolean({ description: 'Capture full page screenshot (default: false)' }),
+  ),
+  timeout: Type.Optional(
+    Type.Number({ description: 'Timeout in ms for wait action (default: 10000)' }),
+  ),
+  wait_until: Type.Optional(
+    Type.String({
+      description: 'Navigation wait strategy: "domcontentloaded", "load", "networkidle" (default: "domcontentloaded")',
+    }),
+  ),
+  viewport: Type.Optional(
+    Type.Object(
+      {
+        width: Type.Optional(Type.Number({ description: 'Viewport width (default: 1280)' })),
+        height: Type.Optional(Type.Number({ description: 'Viewport height (default: 720)' })),
+      },
+      { description: 'Viewport size for launch action' },
+    ),
+  ),
+});
+
 // ── Shared helpers ──────────────────────────────────────────
 
 /** Resolve a potentially relative path against the workspace root. */

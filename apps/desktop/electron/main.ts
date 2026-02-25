@@ -10,7 +10,8 @@ import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
 import { watchForNewApps } from './ipc/apps';
-import { containerManager, fileWatcherManager, lspManager, vcsManager } from './ipc/shared-infra';
+import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './ipc/shared-infra';
+import { startGateway, stopGateway } from './ipc/gateway';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -243,6 +244,19 @@ app.whenReady().then(async () => {
   // Clean up orphaned sero-* containers from previous crashes
   await cleanupOrphanedContainers();
 
+  // ── Gateway ──────────────────────────────────────────────────
+  // Start the WebSocket gateway + web chat UI. The agent ops bridge
+  // is already wired by registerAgentHandlers() above, so the gateway
+  // can proxy prompts/steer/abort to the agent pool.
+  // Set SERO_GATEWAY=1 to auto-start (disabled by default).
+  if (process.env.SERO_GATEWAY === '1') {
+    try {
+      await startGateway();
+    } catch (err) {
+      console.error('[sero] Gateway failed to start:', err);
+    }
+  }
+
   createWindow();
 });
 
@@ -260,6 +274,11 @@ app.on('activate', () => {
 app.on('before-quit', async (e) => {
   e.preventDefault();
   console.log('[sero] Shutting down — cleaning up containers, terminals, LSP, watchers...');
+
+  // Stop gateway services
+  if (gatewayServer.getStatus().running) {
+    await stopGateway();
+  }
 
   // Dispose LSP servers and file watchers
   await lspManager.disposeAll();

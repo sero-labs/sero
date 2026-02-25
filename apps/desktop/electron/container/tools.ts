@@ -9,6 +9,7 @@
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import type { ContainerManager } from './index';
 import { createBash, createRead, createWrite, createEdit } from './tools-coding';
+import { createBrowser } from './tools-browser';
 import { createWorkspaceCliTool } from '../cli';
 
 /**
@@ -25,6 +26,7 @@ export function createContainerTools(
     createRead(cm, workspaceId),
     createWrite(cm, workspaceId),
     createEdit(cm, workspaceId),
+    createBrowser(cm, workspaceId),
     createWorkspaceCliTool(workspaceId, sessionId),
   ];
 }

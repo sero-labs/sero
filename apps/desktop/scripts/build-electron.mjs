@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -11,7 +12,7 @@ const shared = {
   format: 'esm',
   bundle: true,
   sourcemap: true,
-  external: ['electron', 'node-pty', '@mariozechner/*', '@sinclair/typebox', '@google/genai'],
+  external: ['electron', 'node-pty', '@mariozechner/*', '@sinclair/typebox', '@google/genai', 'ws', 'discord.js'],
   outdir: 'dist/electron',
   logLevel: 'info',
   // Keep import.meta.url working for ESM dependencies (pi SDK)
@@ -33,6 +34,12 @@ await build({
   entryPoints: ['electron/main.ts'],
   outExtension: { '.js': '.mjs' },
 });
+
+// Copy non-JS assets that the main process reads at runtime
+fs.copyFileSync(
+  path.join(projectRoot, 'electron/container/browser-helper.py'),
+  path.join(projectRoot, 'dist/electron/browser-helper.py'),
+);
 
 // Preload — must be CJS for Electron's preload context
 await build({
