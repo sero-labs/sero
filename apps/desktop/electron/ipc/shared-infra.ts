@@ -28,6 +28,7 @@ import { workspaceManager } from '../workspace';
 import { FileWatcherManager } from '../file-watcher';
 import { LspManager } from '../lsp/lsp-manager';
 import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../vcs';
+import { ArtifactRegistry } from '../container/artifact-registry';
 
 // ── GitHub Auth Manager (singleton) ──────────────────────────
 
@@ -45,6 +46,10 @@ const gitRunner = new GitRunner(workspaceManager, containerManager, githubAuth);
 export const vcsManager = new VcsManager(workspaceManager, gitRunner);
 export const vcsOps = new VcsOps(gitRunner);
 export const vcsPrOps = new VcsPullRequestOps(gitRunner);
+
+// ── Artifact Registry (singleton) ────────────────────────────
+
+export const artifactRegistry = new ArtifactRegistry();
 
 // ── Workspace Manager (re-export singleton) ──────────────────
 

@@ -1,5 +1,6 @@
 import type { LoadExtensionsResult } from '@mariozechner/pi-coding-agent';
 import { registerAppStateCliCommands } from './commands/appstate';
+import { registerArtifactCliCommands } from './commands/artifacts';
 import { registerDevServerCliCommands } from './commands/devserver';
 import { registerEditorCliCommands } from './commands/editor';
 import { registerSessionCliCommands } from './commands/session';
@@ -18,6 +19,7 @@ function registerCoreCommands(target: CliRegistry): void {
   registerSessionCliCommands(target);
   registerVcsCliCommands(target);
   registerDevServerCliCommands(target);
+  registerArtifactCliCommands(target);
   registerEditorCliCommands(target);
   registerAppStateCliCommands(target);
   registerTerminalCliCommands(target);
