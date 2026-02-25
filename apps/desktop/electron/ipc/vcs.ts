@@ -144,6 +144,21 @@ export function registerVcsHandlers(): void {
     vcsPrOps.create(wsId, input),
   );
 
+  ipcMain.handle(Ch.prGenerateDemoVideo, async (_e, wsId: string, sourceBranch: string, targetBranch?: string) => {
+    const preview = await vcsPrOps.preview(wsId, sourceBranch, targetBranch);
+    if (preview.blockingReason || !preview.hasChanges) {
+      throw new Error(preview.blockingReason || 'No changes available for demo video');
+    }
+    const { generateDemoVideo } = await import('../vcs/demo-video');
+    return generateDemoVideo(vcsPrOps.getRunner(), {
+      workspaceId: wsId,
+      sourceBranch: preview.sourceBranch,
+      targetBranch: preview.targetBranch,
+      comparisonBase: preview.comparisonBase,
+      files: preview.files,
+    });
+  });
+
   ipcMain.handle(Ch.undo, async (_e, wsId: string) => vcsOps.undo(wsId));
 
   ipcMain.handle(Ch.abandon, async (_e, wsId: string, changeId: string) =>

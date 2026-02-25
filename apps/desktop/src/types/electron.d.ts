@@ -394,6 +394,8 @@ interface SeroVcsAPI {
   prPreview(wsId: string, sourceBranch?: string, targetBranch?: string): Promise<PullRequestPreview>;
   prGenerateDraft(wsId: string, sourceBranch: string, targetBranch?: string): Promise<PullRequestDraft>;
   prCreate(wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult>;
+  /** Generate a demo video walkthrough from the PR diff. */
+  prGenerateDemoVideo(wsId: string, sourceBranch: string, targetBranch?: string): Promise<{ filePath: string; fileName: string; mimeType: string; sizeBytes: number }>;
   undo(wsId: string): Promise<void>;
   abandon(wsId: string, changeId: string): Promise<void>;
   squash(wsId: string, from?: string, into?: string): Promise<void>;

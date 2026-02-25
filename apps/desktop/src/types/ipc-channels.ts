@@ -258,6 +258,8 @@ export const IpcChannels = {
     prPreview: 'sero:vcs:pr-preview',
     prGenerateDraft: 'sero:vcs:pr-generate-draft',
     prCreate: 'sero:vcs:pr-create',
+    /** Generate a demo video for a PR (preview before creation). */
+    prGenerateDemoVideo: 'sero:vcs:pr-generate-demo-video',
     undo: 'sero:vcs:undo',
     abandon: 'sero:vcs:abandon',
     squash: 'sero:vcs:squash',

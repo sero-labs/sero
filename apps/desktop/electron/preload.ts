@@ -358,6 +358,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.vcs.prGenerateDraft, wsId, sourceBranch, targetBranch),
     prCreate: (wsId: string, input: CreatePullRequestInput): Promise<CreatePullRequestResult> =>
       ipcRenderer.invoke(IpcChannels.vcs.prCreate, wsId, input),
+    prGenerateDemoVideo: (wsId: string, sourceBranch: string, targetBranch?: string): Promise<{ filePath: string; fileName: string; mimeType: string; sizeBytes: number }> =>
+      ipcRenderer.invoke(IpcChannels.vcs.prGenerateDemoVideo, wsId, sourceBranch, targetBranch),
     undo: (wsId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.vcs.undo, wsId),
     abandon: (wsId: string, changeId: string): Promise<void> =>

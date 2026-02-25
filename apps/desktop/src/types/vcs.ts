@@ -138,6 +138,8 @@ export interface CreatePullRequestInput {
   title: string;
   body: string;
   draft?: boolean;
+  /** When true, generate and attach a demo video walkthrough to the PR. */
+  includeDemoVideo?: boolean;
 }
 
 export interface CreatePullRequestResult {

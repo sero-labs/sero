@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { GitBranch, Sparkles, Loader2, Github } from 'lucide-react';
+import { GitBranch, Sparkles, Loader2, Github, Video } from 'lucide-react';
 import { cn } from '@sero/ui/lib/utils';
 import type {
   Bookmark,
@@ -30,6 +30,7 @@ export function PullRequestSection({
   const [checkingPreview, setCheckingPreview] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [includeDemoVideo, setIncludeDemoVideo] = useState(true);
   const [createFeedback, setCreateFeedback] = useState<{
     message: string;
     error: boolean;
@@ -135,6 +136,7 @@ export function PullRequestSection({
         targetBranch: targetBranch.trim() || prState?.defaultBaseBranch || 'main',
         title,
         body,
+        includeDemoVideo,
       });
       setCreateFeedback({ message: result.message, error: !result.success, url: result.url });
       if (result.success) {
@@ -160,6 +162,7 @@ export function PullRequestSection({
     prState?.defaultBaseBranch,
     title,
     body,
+    includeDemoVideo,
   ]);
 
   const blockingReason = preview?.blockingReason;
@@ -271,6 +274,23 @@ export function PullRequestSection({
             'text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]',
           )}
         />
+
+        <label className="flex cursor-pointer items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 px-2 py-1.5">
+          <input
+            type="checkbox"
+            checked={includeDemoVideo}
+            onChange={(e) => setIncludeDemoVideo(e.target.checked)}
+            disabled={generating || creating}
+            className="size-3 accent-blue-500"
+          />
+          <Video className="size-3 text-[var(--text-muted)]/70" />
+          <span className="text-[10px] text-[var(--text-secondary)]">
+            Attach demo video
+          </span>
+          <span className="text-[9px] text-[var(--text-muted)]/50">
+            Auto-generated walkthrough of changes
+          </span>
+        </label>
 
         <div className="flex items-center gap-1.5">
           <button

@@ -10,3 +10,5 @@ export { GitRunner } from './git-runner';
 export { VcsManager } from './vcs-manager';
 export { VcsOps } from './vcs-ops';
 export { VcsPullRequestOps } from './pr-ops';
+export { generateDemoVideo } from './demo-video';
+export type { DemoVideoOptions, DemoVideoResult } from './demo-video';

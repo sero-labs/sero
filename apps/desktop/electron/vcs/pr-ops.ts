@@ -1,5 +1,6 @@
 import type { GitRunner } from './git-runner';
 import { BRANCH_FORMAT, parseBranches, parseDiffSummary, parseRemotes } from './parsers';
+import { attachDemoVideoToPr } from './demo-video-upload';
 import type {
   Bookmark,
   CreatePullRequestInput,
@@ -27,6 +28,11 @@ export interface PullRequestDraftContext {
 
 export class VcsPullRequestOps {
   constructor(private readonly runner: GitRunner) {}
+
+  /** Expose runner for demo video generation in IPC handlers. */
+  getRunner(): GitRunner {
+    return this.runner;
+  }
 
   private async listBranches(workspaceId: string): Promise<Bookmark[]> {
     const result = await this.runner.run(workspaceId, [
@@ -407,10 +413,22 @@ export class VcsPullRequestOps {
     }
 
     const url = extractGithubPrUrl(result.stdout) ?? extractGithubPrUrl(result.stderr);
+    const prNumber = url ? extractPrNumber(url) : undefined;
+
+    // Attach demo video if requested
+    if (input.includeDemoVideo && url && prNumber) {
+      try {
+        await attachDemoVideoToPr(this.runner, workspaceId, preview, prNumber);
+      } catch (err) {
+        console.warn('[pr-ops] Demo video attachment failed (PR was still created):', err);
+      }
+    }
+
     return {
       success: true,
       message: url ? `Pull request created: ${url}` : 'Pull request created successfully.',
       url,
+      number: prNumber,
     };
   }
 }
@@ -435,4 +453,9 @@ function statusSymbol(status: FileDiffEntry['status']): string {
 function extractGithubPrUrl(text: string): string | undefined {
   const match = text.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
   return match?.[0];
+}
+
+function extractPrNumber(url: string): number | undefined {
+  const match = url.match(/\/pull\/(\d+)/);
+  return match ? Number(match[1]) : undefined;
 }
