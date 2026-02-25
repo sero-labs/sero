@@ -62,7 +62,8 @@ export class WebChatServer {
     });
   }
 
-  private buildHtml(): string {
+  /** Build the chat UI HTML. Public so the gateway can embed it. */
+  buildHtml(): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -143,7 +144,17 @@ export class WebChatServer {
   </div>
 </div>
 <script>
-const GW_URL = '${this.config.gatewayWsUrl}';
+// Auto-detect the gateway WS URL from the page's own origin.
+// When served from the gateway port (18800) or via Tailscale,
+// the WS server is on the same host:port. When served from the
+// standalone web chat port (18801), use the configured URL.
+const GW_URL = (function() {
+  const loc = location;
+  const isStandalonePort = loc.port === '${this.config.port}';
+  if (isStandalonePort) return '${this.config.gatewayWsUrl}';
+  const wsProto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+  return wsProto + '//' + loc.host;
+})();
 let ws = null;
 let token = new URLSearchParams(location.search).get('token') || '';
 let sessionId = 'web-' + Date.now();

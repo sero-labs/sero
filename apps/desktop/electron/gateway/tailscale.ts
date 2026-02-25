@@ -94,9 +94,12 @@ export class TailscaleIntegration {
     if (!bin) return null;
 
     try {
+      // `tailscale serve --bg <port>` exposes http://127.0.0.1:<port>
+      // on the tailnet at https://<hostname>:<port>. Traffic is
+      // automatically TLS-terminated by Tailscale.
       await execFileAsync(
         bin,
-        ['serve', '--bg', '--https', String(port), `http://127.0.0.1:${port}`],
+        ['serve', '--bg', String(port)],
         { timeout: 15000 },
       );
       this.servingPort = port;
@@ -112,7 +115,7 @@ export class TailscaleIntegration {
     }
   }
 
-  /** Stop serving a port on the tailnet. */
+  /** Stop serving on the tailnet. */
   async unserve(): Promise<void> {
     if (!this.servingPort) return;
 
@@ -120,11 +123,7 @@ export class TailscaleIntegration {
     if (!bin) return;
 
     try {
-      await execFileAsync(
-        bin,
-        ['serve', '--https', String(this.servingPort), 'off'],
-        { timeout: 10000 },
-      );
+      await execFileAsync(bin, ['serve', 'reset'], { timeout: 10000 });
       console.log(`[tailscale] Stopped serving port ${this.servingPort}`);
     } catch {
       // May not be serving

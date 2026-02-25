@@ -31,6 +31,13 @@ export interface GatewayConfig {
   tokenPath: string;
 }
 
+/**
+ * Optional callback that returns the web chat HTML.
+ * When set, the gateway's HTTP server also serves the chat UI at "/",
+ * so only a single port needs to be exposed via Tailscale.
+ */
+type WebChatHtmlProvider = () => string;
+
 interface ConnectedClient {
   ws: WebSocket;
   clientType: string;
@@ -73,6 +80,7 @@ export class GatewayServer {
   private clients = new Map<WebSocket, ConnectedClient>();
   private agentOps: GatewayAgentOps | null = null;
   private config: GatewayConfig;
+  private webChatHtml: WebChatHtmlProvider | null = null;
 
   constructor(config: GatewayConfig) {
     this.config = config;
@@ -84,11 +92,33 @@ export class GatewayServer {
     this.agentOps = ops;
   }
 
+  /**
+   * Provide a web chat HTML generator so the gateway also serves the
+   * chat UI on HTTP requests to "/". This lets a single port (18800)
+   * serve both WS and the web UI — critical for Tailscale where only
+   * one port is exposed.
+   */
+  setWebChatHtml(provider: WebChatHtmlProvider): void {
+    this.webChatHtml = provider;
+  }
+
   /** Start the gateway server. */
   async start(): Promise<void> {
     if (this.wss) return;
 
-    this.httpServer = http.createServer();
+    this.httpServer = http.createServer((req, res) => {
+      const pathname = (req.url ?? '/').split('?')[0];
+      if (this.webChatHtml && (pathname === '/' || pathname === '/index.html')) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(this.webChatHtml());
+      } else if (pathname === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } else {
+        res.writeHead(404);
+        res.end('Not Found');
+      }
+    });
     this.wss = new WebSocketServer({ server: this.httpServer });
 
     this.wss.on('connection', (ws) => this.handleConnection(ws));

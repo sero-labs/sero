@@ -5,7 +5,7 @@
  * routes messages to the gateway, and streams responses back.
  */
 
-import type { GatewayServer } from '../index';
+import type { GatewayServer, GatewayAgentOps } from '../index';
 import type { GatewayPushEvent } from '../protocol';
 
 // discord.js is dynamically imported to avoid hard dependency at startup
@@ -32,13 +32,15 @@ interface ActiveSession {
 export class DiscordAdapter {
   private client: InstanceType<typeof import('discord.js').Client> | null = null;
   private gateway: GatewayServer;
+  private agentOps: GatewayAgentOps;
   private config: DiscordAdapterConfig;
   /** channelId → active session info */
   private sessions = new Map<string, ActiveSession>();
   private unsubscribeEvents: (() => void) | null = null;
 
-  constructor(gateway: GatewayServer, config: DiscordAdapterConfig) {
+  constructor(gateway: GatewayServer, agentOps: GatewayAgentOps, config: DiscordAdapterConfig) {
     this.gateway = gateway;
+    this.agentOps = agentOps;
     this.config = config;
   }
 
@@ -140,18 +142,18 @@ export class DiscordAdapter {
       // Non-critical
     }
 
-    // Route to gateway
+    // Route to agent
     try {
-      // The gateway's pushEvent will stream responses back via our subscription
-      await this.gateway
-        .getStatus(); // Verify gateway is running
-
-      // For now, use a simple approach: accumulate text deltas and flush periodically
       session.responseBuffer = '';
       if (session.flushTimer) clearTimeout(session.flushTimer);
 
-      // Notify that we're working on it
-      await msg.reply('Working on it...');
+      // Open a session (creates one if needed) and send the prompt.
+      // Events flow back via the gateway event bridge → handleGatewayEvent.
+      await this.agentOps.openSession(
+        session.sessionId,
+        this.config.defaultWorkspaceId,
+      );
+      await this.agentOps.prompt(session.sessionId, text);
     } catch (err) {
       await msg.reply(
         `Error: ${err instanceof Error ? err.message : 'Something went wrong'}`,

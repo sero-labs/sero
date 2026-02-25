@@ -1,4 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
+import { appendFileSync } from 'fs';
+import os from 'os';
 import {
   createAgentSession,
   SessionManager,
@@ -26,20 +28,19 @@ import {
   formatCustomMessage,
   convertSessionMessages,
   buildCheckpointMapByTurn,
-  findCheckpointEntryId,
   attachmentsToImages,
   readHiddenCommands,
   buildCommandList,
 } from './agent-helpers';
 import { logRawEvent, logTurnContext } from './debug';
 import { readGlobalAgentsMd } from './global-agents';
+import { registerAgentCheckpointHandlers } from './agent-checkpoint';
 import { workspaceManager } from '../workspace';
 import { createSeroExtensionFactory } from '../sero-extension';
 import { SERO_AGENT_DIR } from '../env';
 import {
   ensureInfra,
   containerManager,
-  vcsManager,
   buildContainerConfig,
   SERO_SESSION_DIR,
   SERO_CONFIG_PATH,
@@ -49,6 +50,7 @@ import type { ContainerState } from '../container/index';
 import { registerAgentModelContextHandlers } from './agent-model-context';
 import { installCliAgentBridge, noteCliTurnEnd, noteCliTurnStart } from '../cli/agent-bridge';
 import { createWorkspaceCliTool, bridgeExtensionTools } from '../cli';
+import { installGatewayAgentOps, forwardEventToGateway } from '../gateway/agent-bridge';
 
 interface PoolEntry {
   session: AgentSession;
@@ -69,6 +71,7 @@ function sendEvent(event: AgentStreamEvent): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(IpcChannels.agent.event, event);
   }
+  forwardEventToGateway(event as unknown as Record<string, unknown>);
 }
 
 function closePoolEntry(sessionId: string): void {
@@ -225,117 +228,134 @@ function subscribeToSession(sessionId: string, session: AgentSession): () => voi
   });
 }
 
+/** Open (or return) an agent session — shared by IPC handler and gateway. */
+async function openSessionInternal(
+  sessionId: string, sessionPath: string, workspaceId: string,
+): Promise<ChatMessage[]> {
+  const existing = pool.get(sessionId);
+  if (existing) {
+    return convertSessionMessages(
+      existing.session.messages,
+      buildCheckpointMapByTurn(existing.session, existing.workspaceId),
+    );
+  }
+
+  const infra = await ensureInfra();
+  const wsPath = workspaceManager.getPath(workspaceId);
+  if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+
+  const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
+  let containerState: ContainerState | null = null;
+  if (!containerEnabled) {
+    console.log(`[agent] Container disabled for workspace ${workspaceId}, using host tools`);
+  }
+  try {
+    if (containerEnabled) {
+      sendEvent({ type: 'container_starting', sessionId, workspaceId });
+      const containerConfig = await buildContainerConfig(workspaceId, wsPath);
+      containerState = await containerManager.ensure(containerConfig);
+      sendEvent({ type: 'container_ready', sessionId, workspaceId, ipAddress: containerState.ipAddress });
+    }
+  } catch (containerErr: any) {
+    console.error(`[agent] Container failed for ${workspaceId}:`, containerErr?.message);
+    sendEvent({ type: 'container_error', sessionId, workspaceId, error: containerErr?.message ?? 'Container failed to start' });
+  }
+
+  const useContainer = !!containerState;
+  const containerTools = useContainer
+    ? createContainerTools(containerManager, workspaceId, sessionId)
+    : [createWorkspaceCliTool(workspaceId, sessionId)];
+  const builtinTools = useContainer ? [] : createCodingTools(wsPath);
+  const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
+
+  const loader = new DefaultResourceLoader({
+    cwd: wsPath,
+    agentDir: SERO_AGENT_DIR,
+    settingsManager: infra.settingsManager,
+    extensionFactories: [
+      createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, containerState ?? undefined),
+    ],
+    extensionsOverride: bridgeExtensionTools,
+    ...(globalAgentsFile && {
+      agentsFilesOverride: (discovered: { agentsFiles: string[] }) => ({
+        agentsFiles: [globalAgentsFile, ...discovered.agentsFiles],
+      }),
+    }),
+  });
+  await loader.reload();
+
+  const { session } = await createAgentSession({
+    cwd: wsPath,
+    agentDir: SERO_AGENT_DIR,
+    authStorage: infra.authStorage,
+    modelRegistry: infra.modelRegistry,
+    tools: builtinTools,
+    customTools: containerTools,
+    resourceLoader: loader,
+    sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
+    settingsManager: infra.settingsManager,
+  });
+
+  const unsubscribe = subscribeToSession(sessionId, session);
+  pool.set(sessionId, {
+    session, loader, unsubscribe, workspaceId,
+    currentAssistantId: null,
+    lastSessionName: session.sessionName,
+    lastCompletedCheckpoint: null,
+    contextOverrides: null,
+    originalToolNames: null,
+  });
+
+  return convertSessionMessages(session.messages, buildCheckpointMapByTurn(session, workspaceId));
+}
+
 export function registerAgentHandlers(): void {
   installCliAgentBridge({
     getEntry: (id) => pool.get(id),
     listEntries: () => [...pool.entries()],
     sendEvent,
   });
+
+  // ── Gateway agent bridge ─────────────────────────────────
+  installGatewayAgentOps({
+    openSession: async (sessionId, workspaceId) => {
+      if (pool.has(sessionId)) return;
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+      const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);
+      const sessionPath = sm.getSessionFile()!;
+      appendFileSync(sessionPath, JSON.stringify(sm.getHeader()) + '\n');
+      await openSessionInternal(sessionId, sessionPath, workspaceId);
+    },
+    prompt: async (sessionId, text) => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+      await entry.session.prompt(text);
+    },
+    steer: async (sessionId, text) => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+      await entry.session.steer(text);
+    },
+    abort: async (sessionId) => {
+      const entry = pool.get(sessionId);
+      if (entry) await entry.session.abort();
+    },
+    listWorkspaces: async () => {
+      const ws = await workspaceManager.list();
+      return ws.map((w) => ({ id: w.id, name: w.name, path: w.path || '' }));
+    },
+    listSessions: async (workspaceId) => {
+      const wsPath = workspaceManager.getPath(workspaceId);
+      const all = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
+      return all.filter((s) => s.cwd === wsPath).map((s) => ({ id: s.id, name: s.name || '' }));
+    },
+  });
+
   ipcMain.handle(
     IpcChannels.agent.open,
-    async (_event, sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]> => {
-      const existing = pool.get(sessionId);
-      if (existing) {
-        return convertSessionMessages(
-          existing.session.messages,
-          buildCheckpointMapByTurn(existing.session, existing.workspaceId),
-        );
-      }
-
-      const infra = await ensureInfra();
-
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) {
-        throw new Error(`Workspace not found: ${workspaceId}`);
-      }
-
-      const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
-
-      let containerState: ContainerState | null = null;
-      if (!containerEnabled) {
-        console.log(`[agent] Container disabled for workspace ${workspaceId}, using host tools`);
-      }
-      try {
-        if (containerEnabled) {
-          sendEvent({ type: 'container_starting', sessionId, workspaceId });
-          const containerConfig = await buildContainerConfig(workspaceId, wsPath);
-          containerState = await containerManager.ensure(containerConfig);
-          sendEvent({
-            type: 'container_ready',
-            sessionId,
-            workspaceId,
-            ipAddress: containerState.ipAddress,
-          });
-        }
-      } catch (containerErr: any) {
-        console.error(`[agent] Container failed for ${workspaceId}:`, containerErr?.message);
-        sendEvent({
-          type: 'container_error',
-          sessionId,
-          workspaceId,
-          error: containerErr?.message ?? 'Container failed to start',
-        });
-      }
-
-      const useContainer = !!containerState;
-      const containerTools = useContainer
-        ? createContainerTools(containerManager, workspaceId, sessionId)
-        : [createWorkspaceCliTool(workspaceId, sessionId)];
-      const builtinTools = useContainer ? [] : createCodingTools(wsPath);
-
-      const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
-
-      const loader = new DefaultResourceLoader({
-        cwd: wsPath,
-        agentDir: SERO_AGENT_DIR,
-        settingsManager: infra.settingsManager,
-        extensionFactories: [
-          createSeroExtensionFactory(
-            workspaceManager,
-            workspaceId,
-            sessionId,
-            containerState ?? undefined,
-          ),
-        ],
-        extensionsOverride: bridgeExtensionTools,
-        ...(globalAgentsFile && {
-          agentsFilesOverride: (discovered) => ({
-            agentsFiles: [globalAgentsFile, ...discovered.agentsFiles],
-          }),
-        }),
-      });
-      await loader.reload();
-
-      const { session } = await createAgentSession({
-        cwd: wsPath,
-        agentDir: SERO_AGENT_DIR,
-        authStorage: infra.authStorage,
-        modelRegistry: infra.modelRegistry,
-        tools: builtinTools,
-        customTools: containerTools,
-        resourceLoader: loader,
-        sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
-        settingsManager: infra.settingsManager,
-      });
-
-      const unsubscribe = subscribeToSession(sessionId, session);
-      pool.set(sessionId, {
-        session,
-        loader,
-        unsubscribe,
-        workspaceId,
-        currentAssistantId: null,
-        lastSessionName: session.sessionName,
-        lastCompletedCheckpoint: null,
-        contextOverrides: null,
-        originalToolNames: null,
-      });
-
-      return convertSessionMessages(
-        session.messages,
-        buildCheckpointMapByTurn(session, workspaceId),
-      );
-    },
+    async (_e, sessionId: string, sessionPath: string, workspaceId: string) =>
+      openSessionInternal(sessionId, sessionPath, workspaceId),
   );
 
   ipcMain.handle(
@@ -445,45 +465,10 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  ipcMain.handle(
-    IpcChannels.agent.restoreToCheckpoint,
-    async (_event, sessionId: string, changeId: string): Promise<ChatMessage[]> => {
-      const entry = pool.get(sessionId);
-      if (!entry) throw new Error(`No active session: ${sessionId}`);
-
-      if (entry.session.agent.state.isStreaming) {
-        throw new Error('Cannot restore while agent is streaming');
-      }
-
-      // 1. Restore filesystem via VCS
-      await vcsManager.restoreCheckpoint(entry.workspaceId, changeId);
-
-      // 2. Branch session tree to the checkpoint entry. With the shifted
-      //    mapping (user message N carries checkpoint from turn N-1),
-      //    the checkpoint entry is the last entry of turn N-1. Branching
-      //    to it keeps turns 0..N-1 visible and hides turn N onward.
-      const branchTargetId = findCheckpointEntryId(entry.session, changeId);
-      if (branchTargetId) {
-        entry.session.sessionManager.branch(branchTargetId);
-        const ctx = entry.session.sessionManager.buildSessionContext();
-        entry.session.agent.replaceMessages(ctx.messages);
-      } else {
-        console.warn(`[checkpoint] No session entry for changeId=${changeId} — VCS-only restore`);
-      }
-
-      // 3. Clear any stale checkpoint so it isn't attached to the next message
-      entry.lastCompletedCheckpoint = null;
-
-      // 4. Rebuild and send updated messages to the renderer
-      const chatMessages = convertSessionMessages(
-        entry.session.messages,
-        buildCheckpointMapByTurn(entry.session, entry.workspaceId),
-      );
-      sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
-
-      return chatMessages;
-    },
-  );
+  registerAgentCheckpointHandlers({
+    getEntry: (sessionId) => pool.get(sessionId),
+    sendEvent,
+  });
 
   registerAgentModelContextHandlers({
     getEntry: (sessionId) => pool.get(sessionId),

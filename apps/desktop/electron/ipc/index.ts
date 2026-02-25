@@ -31,6 +31,7 @@ import { registerImagegenHandlers } from './imagegen';
 import { registerNetHandlers } from './net';
 import { registerSafeStorageHandlers } from './safe-storage';
 import { registerUserFeedbackQuestionHandlers } from './user-feedback-questions';
+import { registerGatewayHandlers } from './gateway';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -58,4 +59,5 @@ export function registerAllIpcHandlers(): void {
   registerNetHandlers();
   registerSafeStorageHandlers();
   registerUserFeedbackQuestionHandlers();
+  registerGatewayHandlers();
 }

@@ -19,9 +19,12 @@ import { BrowserParams, shellEscape } from './tool-schemas';
 
 const HELPER_CONTAINER_PATH = '/tmp/sero-browser-helper.py';
 const HELPER_SOURCE_PATH = path.join(__dirname, 'browser-helper.py');
+const BROWSER_SERVER_PORT = 19222;
 
 /** Track which workspaces have had the helper script injected. */
 const injectedWorkspaces = new Set<string>();
+/** Track which workspaces have a running TCP server. */
+const serverWorkspaces = new Set<string>();
 
 /**
  * Inject the browser helper Python script into the container if not
@@ -37,6 +40,71 @@ async function ensureHelperInjected(
   await cm.writeFile(workspaceId, HELPER_CONTAINER_PATH, helperSource);
   await cm.exec(workspaceId, `chmod +x '${HELPER_CONTAINER_PATH}'`);
   injectedWorkspaces.add(workspaceId);
+}
+
+/**
+ * Ensure the persistent TCP browser server is running inside the
+ * container.  The server keeps browser state (Playwright browser,
+ * context, page) alive across individual tool calls.
+ *
+ * On first call: injects the helper script and starts the server.
+ * On subsequent calls: pings the server; restarts if it died.
+ */
+async function ensureServerRunning(
+  cm: ContainerManager,
+  workspaceId: string,
+): Promise<void> {
+  // Fast path — already tracked and still responding.
+  if (serverWorkspaces.has(workspaceId)) {
+    const ping = await cm.exec(
+      workspaceId,
+      `python3 '${HELPER_CONTAINER_PATH}' --ping ${BROWSER_SERVER_PORT}`,
+      undefined,
+      5_000,
+    );
+    if (ping.exitCode === 0 && ping.stdout.includes('"ok"')) return;
+
+    // Server died — reset tracking so we re-inject + restart.
+    serverWorkspaces.delete(workspaceId);
+    injectedWorkspaces.delete(workspaceId);
+  }
+
+  await ensureHelperInjected(cm, workspaceId);
+
+  // Kill any stale server process before starting fresh.
+  await cm.exec(
+    workspaceId,
+    `pkill -f 'sero-browser-helper.py --tcp-server' 2>/dev/null || true`,
+    undefined,
+    5_000,
+  );
+
+  // Start the server in the background.
+  await cm.exec(
+    workspaceId,
+    `nohup python3 '${HELPER_CONTAINER_PATH}' --tcp-server ${BROWSER_SERVER_PORT} > /tmp/sero-browser.log 2>&1 &`,
+    undefined,
+    5_000,
+  );
+
+  // Poll until the server is ready (up to 5 s).
+  for (let i = 0; i < 10; i++) {
+    await new Promise<void>((r) => setTimeout(r, 500));
+    const ping = await cm.exec(
+      workspaceId,
+      `python3 '${HELPER_CONTAINER_PATH}' --ping ${BROWSER_SERVER_PORT}`,
+      undefined,
+      5_000,
+    );
+    if (ping.exitCode === 0 && ping.stdout.includes('"ok"')) {
+      serverWorkspaces.add(workspaceId);
+      return;
+    }
+  }
+
+  throw new Error(
+    'Failed to start browser helper server. Check /tmp/sero-browser.log inside the container.',
+  );
 }
 
 /** Max base64 screenshot size before we compress to JPEG (500KB). */
@@ -65,8 +133,8 @@ export function createBrowser(
     ) => {
       if (signal?.aborted) throw new Error('Operation aborted');
 
-      // Ensure helper script is in the container
-      await ensureHelperInjected(cm, workspaceId);
+      // Ensure the persistent browser server is running.
+      await ensureServerRunning(cm, workspaceId);
 
       // Build the JSON command from params
       const command: Record<string, unknown> = { action: params.action };
@@ -90,11 +158,11 @@ export function createBrowser(
       const jsonCmd = JSON.stringify(command);
       const escapedJson = shellEscape(jsonCmd);
 
-      // Execute the helper script with the JSON command via stdin
-      // Use a 60s timeout for browser operations (page loads can be slow)
+      // Send command to the persistent TCP server via the --send client.
+      // The server keeps the browser alive between calls.
       const result = await cm.exec(
         workspaceId,
-        `echo '${escapedJson}' | python3 '${HELPER_CONTAINER_PATH}'`,
+        `echo '${escapedJson}' | python3 '${HELPER_CONTAINER_PATH}' --send ${BROWSER_SERVER_PORT}`,
         undefined,
         60_000,
       );

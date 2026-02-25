@@ -285,10 +285,171 @@ def handle_command(cmd):
         return {"ok": False, "error": str(e), "traceback": traceback.format_exc()}
 
 
+# ── TCP server mode ───────────────────────────────────────────
+#
+# The browser tool spawns a new `cm.exec()` per action, which means a
+# new Python process each time.  Module-level globals (_browser etc.)
+# die with the process.  To persist browser state across tool calls we
+# run this script as a persistent TCP server inside the container.
+#
+#   --tcp-server PORT   Run as a daemon, accept one JSON command per
+#                       TCP connection, keep browser alive between them.
+#   --send PORT         Client: read JSON from stdin, send to server,
+#                       print the server's response to stdout.
+#   --ping PORT         Health-check: connect, send __ping, print pong.
+
+BROWSER_PORT_DEFAULT = 19222
+
+
+def _parse_port_arg(flag):
+    """Return the integer port following *flag* in sys.argv, or the default."""
+    idx = sys.argv.index(flag)
+    if idx + 1 < len(sys.argv):
+        return int(sys.argv[idx + 1])
+    return BROWSER_PORT_DEFAULT
+
+
+def run_tcp_server(port):
+    """Persistent TCP server — browser state survives across requests."""
+    import signal
+    import socket
+
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", port))
+    srv.listen(2)
+
+    def _on_signal(_signum, _frame):
+        close({})
+        srv.close()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, _on_signal)
+    signal.signal(signal.SIGINT, _on_signal)
+
+    sys.stderr.write(f"Browser helper server listening on 127.0.0.1:{port}\n")
+    sys.stderr.flush()
+
+    while True:
+        try:
+            conn, _ = srv.accept()
+        except OSError:
+            break
+
+        try:
+            buf = b""
+            while b"\n" not in buf:
+                chunk = conn.recv(8192)
+                if not chunk:
+                    break
+                buf += chunk
+
+            line = buf.decode("utf-8").strip()
+            if not line:
+                result = {"ok": False, "error": "Empty input"}
+            else:
+                try:
+                    cmd = json.loads(line)
+                except json.JSONDecodeError as e:
+                    result = {"ok": False, "error": f"Invalid JSON: {e}"}
+                else:
+                    if cmd.get("action") == "__ping":
+                        result = {"ok": True, "message": "pong"}
+                    elif cmd.get("action") == "__shutdown":
+                        conn.sendall(json.dumps({"ok": True}).encode("utf-8"))
+                        conn.close()
+                        break
+                    else:
+                        result = handle_command(cmd)
+
+            conn.sendall(json.dumps(result).encode("utf-8"))
+        except Exception as e:
+            try:
+                err = {"ok": False, "error": str(e), "traceback": traceback.format_exc()}
+                conn.sendall(json.dumps(err).encode("utf-8"))
+            except Exception:
+                pass
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    srv.close()
+    close({})  # clean up browser on exit
+
+
+def send_to_server(port):
+    """Client: read JSON from stdin, send to server, print response."""
+    import socket
+
+    raw = sys.stdin.read().strip()
+    if not raw:
+        print(json.dumps({"ok": False, "error": "No input"}))
+        return
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(60)
+    try:
+        sock.connect(("127.0.0.1", port))
+        sock.sendall(raw.encode("utf-8") + b"\n")
+
+        data = b""
+        while True:
+            chunk = sock.recv(65536)
+            if not chunk:
+                break
+            data += chunk
+
+        print(data.decode("utf-8"), end="")
+    except ConnectionRefusedError:
+        print(json.dumps({"ok": False, "error": "Browser server not running"}))
+        sys.exit(1)
+    except socket.timeout:
+        print(json.dumps({"ok": False, "error": "Browser server timed out"}))
+        sys.exit(1)
+    finally:
+        sock.close()
+
+
+def ping_server(port):
+    """Health-check: connect, send __ping, expect pong."""
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(5)
+    try:
+        sock.connect(("127.0.0.1", port))
+        sock.sendall(b'{"action":"__ping"}\n')
+
+        data = b""
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+
+        print(data.decode("utf-8"), end="")
+    except (ConnectionRefusedError, socket.timeout, OSError):
+        print(json.dumps({"ok": False, "error": "Server not running"}))
+        sys.exit(1)
+    finally:
+        sock.close()
+
+
+# ── Entry point ───────────────────────────────────────────────
+
+
 def main():
-    """Main entry point. Reads JSON commands from stdin."""
-    if "--server" in sys.argv:
-        # Multi-command mode: read one JSON per line from stdin
+    """Main entry point — dispatch by CLI flags."""
+    if "--tcp-server" in sys.argv:
+        run_tcp_server(_parse_port_arg("--tcp-server"))
+    elif "--send" in sys.argv:
+        send_to_server(_parse_port_arg("--send"))
+    elif "--ping" in sys.argv:
+        ping_server(_parse_port_arg("--ping"))
+    elif "--server" in sys.argv:
+        # Legacy multi-command mode: one JSON per line from stdin
         for line in sys.stdin:
             line = line.strip()
             if not line:

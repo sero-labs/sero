@@ -25,6 +25,7 @@ export class GatewayAuth {
       const stored = fs.readFileSync(this.tokenPath, 'utf-8').trim();
       if (stored.length >= TOKEN_LENGTH) {
         this.token = stored;
+        console.log(`[gateway] Auth token loaded: ${this.token.slice(0, 8)}…${this.token.slice(-4)} (full token: cat ${this.tokenPath})`);
         return this.token;
       }
     } catch {
@@ -38,7 +39,7 @@ export class GatewayAuth {
     const dir = path.dirname(this.tokenPath);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(this.tokenPath, this.token, { mode: 0o600 });
-    console.log(`[gateway] Auth token generated and saved to ${this.tokenPath}`);
+    console.log(`[gateway] Auth token generated: ${this.token.slice(0, 8)}…${this.token.slice(-4)} (full token: cat ${this.tokenPath})`);
 
     return this.token;
   }
