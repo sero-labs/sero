@@ -274,6 +274,18 @@ export const IpcChannels = {
     /** Proxy an HTTP fetch through the main process (bypasses CORS). */
     fetch: 'sero:net:fetch',
   },
+  google: {
+    /** Execute a gogcli data command (gog --json --no-input <service> <args>). */
+    execute: 'sero:google:execute',
+    /** Get Google auth status (configured, authenticated, email). */
+    authStatus: 'sero:google:auth-status',
+    /** Start Google OAuth2 sign-in flow (opens browser). */
+    login: 'sero:google:login',
+    /** Sign out of Google. */
+    logout: 'sero:google:logout',
+    /** Main → renderer push: auth flow progress events. */
+    authEvent: 'sero:google:auth-event',
+  },
   safeStorage: {
     /** Encrypt a string via OS keychain (macOS Keychain / DPAPI). */
     encrypt: 'sero:safe-storage:encrypt',

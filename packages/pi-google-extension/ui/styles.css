@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* Scan @sero/ui component sources so Tailwind generates their utility classes */
+@source "../../ui/src/components";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme tokens — maps Sero/shadcn CSS variables to Tailwind utilities.
+ * The CSS variables themselves are provided by the host shell at runtime.
+ */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* ── Google app animations ──────────────────────────────────── */
+
+@keyframes g-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes g-slide-in {
+  from { opacity: 0; height: 0; }
+  to { opacity: 1; height: var(--expanded-height, auto); }
+}
+
+@keyframes g-pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@utility animate-g-fade-in {
+  animation: g-fade-in 0.2s ease-out both;
+}
+
+@utility animate-g-pulse {
+  animation: g-pulse-dot 2s ease-in-out infinite;
+}

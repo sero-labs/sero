@@ -32,6 +32,7 @@ import { registerNetHandlers } from './net';
 import { registerSafeStorageHandlers } from './safe-storage';
 import { registerUserFeedbackQuestionHandlers } from './user-feedback-questions';
 import { registerGatewayHandlers } from './gateway';
+import { registerGoogleApiHandlers } from './google-api';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -60,4 +61,5 @@ export function registerAllIpcHandlers(): void {
   registerSafeStorageHandlers();
   registerUserFeedbackQuestionHandlers();
   registerGatewayHandlers();
+  registerGoogleApiHandlers();
 }

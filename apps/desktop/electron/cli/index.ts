@@ -53,6 +53,8 @@ const TOOLS_TO_BRIDGE = new Set([
   'calc',
   'daily_quote',
   'weight',
+  'gmail',
+  'gcal',
 ]);
 
 /**
@@ -99,6 +101,8 @@ Quick reference (run \`sero help\` for full list):
   sero workspace info
   sero vcs status
   sero devserver list
+  sero gmail search --query "newer_than:3d"
+  sero gcal today
   sero google auth list
   sero google gmail search 'newer_than:1d'
   sero google calendar events primary --today
