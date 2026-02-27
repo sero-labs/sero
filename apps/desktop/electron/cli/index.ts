@@ -3,6 +3,7 @@ import { registerAppStateCliCommands } from './commands/appstate';
 import { registerArtifactCliCommands } from './commands/artifacts';
 import { registerDevServerCliCommands } from './commands/devserver';
 import { registerEditorCliCommands } from './commands/editor';
+import { registerGoogleCliCommands } from './commands/google';
 import { registerSessionCliCommands } from './commands/session';
 import { registerTerminalCliCommands } from './commands/terminal';
 import { registerVcsCliCommands } from './commands/vcs';
@@ -23,6 +24,7 @@ function registerCoreCommands(target: CliRegistry): void {
   registerEditorCliCommands(target);
   registerAppStateCliCommands(target);
   registerTerminalCliCommands(target);
+  registerGoogleCliCommands(target);
   registerHelpCliCommand(target);
 }
 
@@ -51,6 +53,8 @@ const TOOLS_TO_BRIDGE = new Set([
   'calc',
   'daily_quote',
   'weight',
+  'gmail',
+  'gcal',
 ]);
 
 /**
@@ -97,6 +101,11 @@ Quick reference (run \`sero help\` for full list):
   sero workspace info
   sero vcs status
   sero devserver list
+  sero gmail search --query "newer_than:3d"
+  sero gcal today
+  sero google auth list
+  sero google gmail search 'newer_than:1d'
+  sero google calendar events primary --today
 
 Chain commands (one per line):
   sero todo list

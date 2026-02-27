@@ -149,6 +149,37 @@ interface SeroAppsAPI {
   onNewAppDetected(callback: (appName: string) => void): () => void;
 }
 
+interface GogExecResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+interface GoogleAuthStatus {
+  configured: boolean;
+  authenticated: boolean;
+  email?: string;
+}
+
+interface GoogleAuthEvent {
+  type: 'browser' | 'waiting' | 'success' | 'error';
+  message: string;
+  email?: string;
+}
+
+interface SeroGoogleAPI {
+  /** Execute a gogcli data command: gog --json --no-input <service> <args>. */
+  execute(service: string, subArgs: string[]): Promise<GogExecResult>;
+  /** Get current auth status. */
+  authStatus(): Promise<GoogleAuthStatus>;
+  /** Start OAuth2 sign-in (opens browser). Resolves when complete. */
+  login(): Promise<void>;
+  /** Sign out. */
+  logout(): Promise<void>;
+  /** Subscribe to auth flow progress events. Returns unsubscribe. */
+  onAuthEvent(callback: (event: GoogleAuthEvent) => void): () => void;
+}
+
 interface SeroAppAgentAPI {
   /**
    * Send a prompt to an app's dedicated agent session.
@@ -410,6 +441,7 @@ interface SeroAPI {
   appState: SeroAppStateAPI;
   apps: SeroAppsAPI;
   appAgent: SeroAppAgentAPI;
+  google: SeroGoogleAPI;
   voice: SeroVoiceAPI;
   auth: SeroAuthAPI;
   container: SeroContainerAPI;

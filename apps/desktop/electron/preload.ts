@@ -49,7 +49,6 @@ import type {
 
 contextBridge.exposeInMainWorld('sero', {
   platform: process.platform,
-
   shell: {
     showItemInFolder: (fullPath: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.shell.showItemInFolder, fullPath),
@@ -90,10 +89,8 @@ contextBridge.exposeInMainWorld('sero', {
   sessions: {
     list: (workspaceId?: string): Promise<SeroSessionInfo[]> =>
       ipcRenderer.invoke(IpcChannels.sessions.list, workspaceId),
-
     create: (workspaceId?: string): Promise<SeroSessionInfo> =>
       ipcRenderer.invoke(IpcChannels.sessions.create, workspaceId),
-
     delete: (sessionPath: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.sessions.delete, sessionPath),
   },
@@ -213,6 +210,18 @@ contextBridge.exposeInMainWorld('sero', {
   appAgent: {
     prompt: (appId: string, workspaceId: string, text: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
+  },
+
+  google: {
+    execute: (service: string, subArgs: string[]) => ipcRenderer.invoke(IpcChannels.google.execute, service, subArgs),
+    authStatus: () => ipcRenderer.invoke(IpcChannels.google.authStatus),
+    login: () => ipcRenderer.invoke(IpcChannels.google.login),
+    logout: () => ipcRenderer.invoke(IpcChannels.google.logout),
+    onAuthEvent: (cb: (event: any) => void) => {
+      const handler = (_e: IpcRendererEvent, event: any) => cb(event);
+      ipcRenderer.on(IpcChannels.google.authEvent, handler);
+      return () => { ipcRenderer.removeListener(IpcChannels.google.authEvent, handler); };
+    },
   },
 
   imagegen: {
@@ -427,7 +436,6 @@ contextBridge.exposeInMainWorld('sero', {
     load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps?: string[] } | null> =>
       ipcRenderer.invoke(IpcChannels.layout.load),
   },
-
   net: {
     fetch: (request: ProxyFetchRequest): Promise<ProxyFetchResponse> =>
       ipcRenderer.invoke(IpcChannels.net.fetch, request),
@@ -470,30 +478,22 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.editor.getRootPath, workspaceId),
     isContainer: (workspaceId: string): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannels.editor.isContainer, workspaceId),
-    rename: (workspaceId: string, oldPath: string, newPath: string): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.editor.rename, workspaceId, oldPath, newPath),
-    delete: (workspaceId: string, itemPath: string): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.editor.delete, workspaceId, itemPath),
-    createFile: (workspaceId: string, filePath: string): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.editor.createFile, workspaceId, filePath),
-    createDir: (workspaceId: string, dirPath: string): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.editor.createDir, workspaceId, dirPath),
+    rename: (wId: string, o: string, n: string): Promise<boolean> => ipcRenderer.invoke(IpcChannels.editor.rename, wId, o, n),
+    delete: (wId: string, p: string): Promise<boolean> => ipcRenderer.invoke(IpcChannels.editor.delete, wId, p),
+    createFile: (wId: string, p: string): Promise<boolean> => ipcRenderer.invoke(IpcChannels.editor.createFile, wId, p),
+    createDir: (wId: string, p: string): Promise<boolean> => ipcRenderer.invoke(IpcChannels.editor.createDir, wId, p),
   },
 
   filetree: {
-    watch: (workspaceId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.filetree.watch, workspaceId),
-    unwatch: (workspaceId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.filetree.unwatch, workspaceId),
-    onChanged: (callback: (data: { workspaceId: string; directories: string[] }) => void): (() => void) => {
-      const handler = (_e: IpcRendererEvent, data: { workspaceId: string; directories: string[] }) => callback(data);
-      ipcRenderer.on(IpcChannels.filetree.changed, handler);
-      return () => { ipcRenderer.removeListener(IpcChannels.filetree.changed, handler); };
+    watch: (wId: string): Promise<void> => ipcRenderer.invoke(IpcChannels.filetree.watch, wId),
+    unwatch: (wId: string): Promise<void> => ipcRenderer.invoke(IpcChannels.filetree.unwatch, wId),
+    onChanged: (cb: (d: { workspaceId: string; directories: string[] }) => void): (() => void) => {
+      const h = (_e: IpcRendererEvent, d: { workspaceId: string; directories: string[] }) => cb(d);
+      ipcRenderer.on(IpcChannels.filetree.changed, h);
+      return () => { ipcRenderer.removeListener(IpcChannels.filetree.changed, h); };
     },
   },
 
   debug: debugBridge,
-
   lsp: lspBridge,
-
 });
