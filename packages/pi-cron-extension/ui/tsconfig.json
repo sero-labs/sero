@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@sero/app-runtime": ["../../app-runtime/src/index.ts"],
+      "@sero/ui": ["../../ui/src/index.ts"],
+      "@sero/ui/*": ["../../ui/src/*"]
+    }
+  },
+  "include": ["./**/*", "../shared/**/*"]
+}

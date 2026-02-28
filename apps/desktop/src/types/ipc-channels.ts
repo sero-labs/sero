@@ -61,6 +61,8 @@ export const IpcChannels = {
     /** Save all user context editor presets to disk. */
     save: 'sero:context-presets:save',
   },
+  /** Main → renderer push: extension notification (toast / desktop). */
+  notification: 'sero:notification',
   shell: {
     /** Open a path in the native file explorer. */
     showItemInFolder: 'sero:shell:show-item-in-folder',

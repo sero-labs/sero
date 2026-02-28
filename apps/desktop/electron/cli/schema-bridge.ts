@@ -15,6 +15,7 @@
 import type { ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
 import type { CliCommand, CliCommandContext, CliResult } from './types';
 import { parseFlags } from './commands/utils';
+import { showNotification } from '../notifications';
 
 // ── Schema introspection ────────────────────────────────────
 
@@ -213,6 +214,32 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
  * Side effects (pi.sendMessage, pi.setActiveTools, etc.) work through
  * the extension's closure-captured `pi` reference.
  */
+/**
+ * Minimal ExtensionCommandContext for bridged commands.
+ *
+ * The Pi SDK command handler expects `ctx.ui.notify()` etc. We provide
+ * a lightweight shim so extensions don't crash when called via the CLI
+ * bridge. `notify` is real (shows desktop notification); everything
+ * else is a safe no-op.
+ */
+function buildCommandContext(ctx: CliCommandContext): Record<string, unknown> {
+  return {
+    cwd: ctx.cwd,
+    hasUI: true,
+    ui: {
+      select: async () => undefined,
+      confirm: async () => false,
+      input: async () => undefined,
+      notify: (message: string, type?: 'info' | 'warning' | 'error') => {
+        showNotification(message, type ?? 'info');
+      },
+      onTerminalInput: () => () => {},
+      setStatus: () => {},
+      setWorkingMessage: () => {},
+    },
+  };
+}
+
 export function bridgeCommand(name: string, cmd: RegisteredCommand): CliCommand {
   return {
     name,
@@ -221,7 +248,7 @@ export function bridgeCommand(name: string, cmd: RegisteredCommand): CliCommand 
     group: 'App Commands',
     execute: async (args: string[], ctx: CliCommandContext): Promise<CliResult> => {
       try {
-        await cmd.handler(args.join(' '), { cwd: ctx.cwd } as any);
+        await cmd.handler(args.join(' '), buildCommandContext(ctx) as any);
         return { output: `/${name} executed`, exitCode: 0 };
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Command failed';
