@@ -277,8 +277,11 @@ async function openSessionInternal(
     ],
     extensionsOverride: bridgeExtensionTools,
     ...(globalAgentsFile && {
-      agentsFilesOverride: (discovered: { agentsFiles: string[] }) => ({
-        agentsFiles: [globalAgentsFile, ...discovered.agentsFiles],
+      agentsFilesOverride: (discovered: { agentsFiles: Array<{ path: string; content: string }> }) => ({
+        agentsFiles: [
+          globalAgentsFile,
+          ...discovered.agentsFiles.filter((f) => f.path !== globalAgentsFile.path),
+        ],
       }),
     }),
   });
