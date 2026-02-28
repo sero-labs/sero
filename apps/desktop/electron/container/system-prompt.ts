@@ -30,7 +30,7 @@ ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''
 **Cross-workspace access:**
 - Other open workspaces (including the global workspace) are mounted into this container at their original host paths.
 - You CAN read and write files using their absolute host paths (e.g. /Users/.../workspaces/global/MEMORY.md).
-- This means cross-workspace operations like saving memories to the global workspace work normally — use the paths shown in the Open Workspaces section.
+- This means cross-workspace operations like saving memories to the global workspace work normally — use \`sero workspace list\` to find workspace paths.
 
 **CRITICAL — Dev servers and networking:**
 - Dev servers MUST bind to 0.0.0.0, not localhost/127.0.0.1, so they are accessible from the host.

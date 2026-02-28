@@ -141,6 +141,12 @@ all `packages/pi-*/` directories that have a `sero.app` manifest in their
 `electron/main.ts`, or `dev.sh` are needed — just create the package, run
 `pnpm install`, and restart the dev server.
 
+**Tool bridging (AD-020):** All extension tools are automatically bridged into
+the single `sero-cli` tool — they do NOT appear as standalone tool schemas.
+Always use `pi.registerTool()` in extensions, never `customTools` in
+`createAgentSession()`. New tools must be added to `TOOLS_TO_BRIDGE` in
+`electron/cli/index.ts`. See [docs/decisions.md](docs/decisions.md) AD-020.
+
 ### IPC Data Flow (IMPORTANT)
 
 All data between the UI and the agent passes through **four layers**. When adding

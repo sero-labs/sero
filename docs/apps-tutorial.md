@@ -425,6 +425,32 @@ export default function (pi: ExtensionAPI) {
 - Extension tools should keep output concise. See
   [Output Truncation](../docs/libs/pi-coding-agent/extensions.md#output-truncation).
 
+> **⚠️ Tool bridging — no standalone tool schemas in Sero.**
+>
+> All extension tools are automatically bridged into the single `sero-cli`
+> tool at runtime (see [AD-020](../docs/decisions.md#ad-020)). Your tool's
+> JSON schema is **removed** from the agent's tool list and re-registered
+> as a CLI subcommand (e.g. `sero myapp list`, `sero myapp add "title"`).
+>
+> **What this means for you:**
+> - Write your `pi.registerTool()` exactly as shown above — no changes needed.
+> - The bridge is automatic: any tool registered by a Pi extension is
+>   intercepted and moved into `sero-cli`.
+> - The tool name becomes a CLI command. Params map to positional args
+>   (required first) and `--flags` (optional). Array/object params accept
+>   JSON strings.
+> - Your tool works unchanged in the **Pi CLI** (where it remains a
+>   standalone tool). The bridging is Sero-only.
+> - **Do NOT** register tools directly as `customTools` in `createAgentSession`
+>   — those bypass the bridge and waste token budget. All app tools must go
+>   through Pi extension `registerTool()`.
+>
+> **Why:** Each standalone tool schema costs ~200–400 tokens. With 15+
+> extensions, that's 3,000–5,000 tokens of tool schemas on every turn —
+> before the user even sends a message. The `sero-cli` bridge collapses
+> all app tools into one schema (just `command` + `timeout`), saving
+> thousands of tokens per session. See [AD-020](../docs/decisions.md#ad-020).
+
 ## Step 4: Build the Web UI
 
 The UI is a React component loaded into Sero via
@@ -1068,6 +1094,18 @@ Pi CLI it's unset, so the extension falls back to the workspace-relative path
 ---
 
 ## Conventions and Rules
+
+### Tool registration
+
+**All app tools go through the `sero-cli` bridge.** Never add app tools as
+`customTools` in `createAgentSession()` — always use `pi.registerTool()` in
+your extension. The bridge in `electron/cli/index.ts` (`TOOLS_TO_BRIDGE`)
+automatically intercepts extension tools, removes their schemas from the
+agent's tool context, and re-registers them as CLI subcommands.
+
+If you add a new extension tool and it appears as a standalone tool in the
+agent (visible in the system prompt's tool list alongside bash/read/write/edit),
+add its name to `TOOLS_TO_BRIDGE` in `apps/desktop/electron/cli/index.ts`.
 
 ### Naming
 

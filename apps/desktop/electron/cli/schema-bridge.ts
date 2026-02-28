@@ -17,7 +17,7 @@ import { parseFlags } from './commands/utils';
 
 interface SchemaProp {
   name: string;
-  type: string; // 'string' | 'number' | 'integer' | 'boolean'
+  type: string; // 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object'
   description: string;
   required: boolean;
   enumValues?: string[];
@@ -69,6 +69,12 @@ function coerceValue(value: string | true, prop: SchemaProp): unknown {
   }
   if (prop.type === 'boolean') {
     return value === 'true' || value === '1';
+  }
+  // Array/object params: try JSON.parse so complex tools can pass structured data
+  if (prop.type === 'array' || prop.type === 'object') {
+    if (typeof value === 'string') {
+      try { return JSON.parse(value); } catch { return value; }
+    }
   }
   return value;
 }
@@ -123,15 +129,18 @@ function generateHelp(
   if (required.length) {
     lines.push('', 'Required:');
     for (const p of required) {
+      const isComplex = p.type === 'array' || p.type === 'object';
       const enumHint = p.enumValues ? ` {${p.enumValues.join(', ')}}` : '';
-      lines.push(`  ${p.name}${enumHint} — ${p.description || p.name}`);
+      const typeHint = isComplex ? ' (JSON)' : '';
+      lines.push(`  ${p.name}${enumHint}${typeHint} — ${p.description || p.name}`);
     }
   }
 
   if (optional.length) {
     lines.push('', 'Options:');
     for (const p of optional) {
-      const typeHint = p.type !== 'string' ? ` (${p.type})` : '';
+      const isComplex = p.type === 'array' || p.type === 'object';
+      const typeHint = isComplex ? ' (JSON)' : p.type !== 'string' ? ` (${p.type})` : '';
       lines.push(`  --${p.name}${typeHint} — ${p.description || p.name}`);
     }
   }

@@ -5,7 +5,7 @@
  * DefaultResourceLoader. Has closure access to the WorkspaceManager.
  *
  * Provides:
- *   - Composite environment context injection (before_agent_start)
+ *   - Container + CLI prompt injection (before_agent_start)
  *   - @ws:id/path expansion in user input (input event)
  *   - /workspace command (list, info, open, close)
  *   - /pwd command (print workspace-relative cwd)
@@ -15,7 +15,6 @@
 import path from 'path';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import type { WorkspaceManager } from './workspace';
-import type { WorkspaceInfo } from '../src/types/ipc';
 import type { ContainerState } from './container/index';
 import { buildContainerPromptBlock } from './container/system-prompt';
 import { registerSeroBuiltinCommands } from './sero-extension-commands';
@@ -36,10 +35,7 @@ export function createSeroExtensionFactory(
   containerState?: ContainerState,
 ) {
   return (pi: ExtensionAPI) => {
-    // ── Composite prompt injection ─────────────────────────────
-    //
-    // Before each agent turn, inject summaries of other open workspaces
-    // into the system prompt so the AI has cross-workspace awareness.
+    // ── System prompt injection ───────────────────────────────
 
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
@@ -51,11 +47,6 @@ export function createSeroExtensionFactory(
           currentWorkspaceId,
           containerState.ipAddress,
         );
-      }
-
-      const compositeBlock = await buildCompositeBlock(wsManager, currentWorkspaceId);
-      if (compositeBlock) {
-        systemPrompt += compositeBlock;
       }
 
       if (systemPrompt !== event.systemPrompt) {
@@ -205,38 +196,6 @@ export function createSeroExtensionFactory(
 }
 
 // ── Helpers ──────────────────────────────────────────────────
-
-/**
- * Build the composite environment block for the system prompt.
- * Returns null if there are no other open workspaces to mention.
- */
-async function buildCompositeBlock(
-  wsManager: WorkspaceManager,
-  activeWorkspaceId: string,
-): Promise<string | null> {
-  const openWorkspaces = await wsManager.getOpenWorkspaces();
-  const others = openWorkspaces.filter((ws) => ws.id !== activeWorkspaceId);
-
-  if (others.length === 0) return null;
-
-  const entries = others.map((ws) => {
-    let entry = `- **${ws.name}** (\`${ws.id}\`): ${ws.description || ws.path}`;
-    entry += `\n  Path: \`${ws.path}\``;
-    if (ws.contextHints?.length) {
-      entry += `\n  Context: ${ws.contextHints.join('; ')}`;
-    }
-    return entry;
-  });
-
-  return (
-    '\n\n## Open Workspaces (Composite Environment)\n\n' +
-    'The following workspaces are also open in the user\'s environment. ' +
-    'You have awareness of their content and purpose. To read files from ' +
-    'another workspace, use their absolute path. The user may reference ' +
-    'them with @ws:workspace-id/path syntax.\n\n' +
-    entries.join('\n\n')
-  );
-}
 
 /**
  * Expand @ws:workspace-id/path references to absolute paths.

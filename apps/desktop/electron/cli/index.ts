@@ -47,14 +47,38 @@ export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
  * Add a tool name here to move it from the agent's tool list into
  * the `sero-cli` help — zero per-tool code needed.
  */
+/**
+ * Extension tools to collapse into the single `sero-cli` tool.
+ * Every app/extension tool should be listed here — only core coding
+ * tools (bash, read, write, edit, browser) and tools that depend on
+ * SDK internals (ctx.sessionManager) remain as standalone tools.
+ *
+ * DO NOT bridge tools that use ctx.sessionManager, ctx.getContextUsage,
+ * or other SDK context — the CLI bridge only passes { cwd }.
+ */
 const TOOLS_TO_BRIDGE = new Set([
+  // Data & productivity
   'todo',
   'notes',
   'calc',
   'daily_quote',
   'weight',
+  // Google
   'gmail',
   'gcal',
+  // Media & services
+  'generate_image',
+  'spotify',
+  'starling',
+  // Planning & context
+  'plan_todos',
+  'slopzilla',
+  // User interaction
+  'question',
+  'questionnaire',
+  'interview',
+  // NOT bridged — these depend on ctx.sessionManager (SDK internals):
+  // 'context_tag', 'context_log', 'context_checkout'
 ]);
 
 /**
