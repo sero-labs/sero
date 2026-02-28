@@ -8,6 +8,7 @@
 import { spawn } from 'node:child_process';
 import type { CronJob, CronRunResult } from '../shared/types';
 import { matchesCron } from '../shared/cron';
+import { info, warn, error as logError } from './logger';
 
 // ── Subprocess runner ───────────────────────────────────────────
 
@@ -27,6 +28,12 @@ export function runPiSubprocess(
     if (model) args.push('--model', model);
     args.push(prompt);
 
+    info('subprocess:spawn', {
+      model: model ?? 'default',
+      promptLen: prompt.length,
+      timeoutMs,
+    });
+
     const child = spawn('pi', args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env },
@@ -44,10 +51,18 @@ export function runPiSubprocess(
     });
 
     child.on('close', (code) => {
+      const level = code === 0 || stdout ? 'ok' : 'fail';
+      info('subprocess:exit', {
+        exitCode: code ?? 1,
+        level,
+        stdoutLen: stdout.length,
+        stderrLen: stderr.length,
+      });
       resolve({ stdout, stderr, exitCode: code ?? 1 });
     });
 
     child.on('error', (err) => {
+      logError('subprocess:error', { error: err.message });
       resolve({ stdout, stderr: `${stderr}\n${err.message}`, exitCode: 1 });
     });
   });
@@ -80,6 +95,8 @@ export class CronScheduler {
   start(jobs: CronJob[]): void {
     if (this.timer) return;
     this.jobs = jobs;
+    const enabled = jobs.filter((j) => !j.disabled).length;
+    info('scheduler:start', { totalJobs: jobs.length, enabled });
     this.tick();
     this.timer = setInterval(() => this.tick(), TICK_INTERVAL_MS);
   }
@@ -88,6 +105,7 @@ export class CronScheduler {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
+      info('scheduler:stop', { runningJobs: [...this.running] });
     }
   }
 
@@ -110,8 +128,12 @@ export class CronScheduler {
   runNow(name: string): string {
     const job = this.jobs.find((j) => j.name === name);
     if (!job) return `Job "${name}" not found.`;
-    if (this.running.has(name)) return `Job "${name}" is already running.`;
+    if (this.running.has(name)) {
+      warn('job:already-running', { job: name });
+      return `Job "${name}" is already running.`;
+    }
 
+    info('job:trigger-manual', { job: name });
     this.running.add(name);
     this.execute(job).finally(() => this.running.delete(name));
     return `✓ Triggered "${name}"`;
@@ -132,10 +154,16 @@ export class CronScheduler {
 
       try {
         if (!matchesCron(job.schedule, now)) continue;
-      } catch {
+      } catch (err) {
+        warn('job:bad-schedule', {
+          job: job.name,
+          schedule: job.schedule,
+          error: err instanceof Error ? err.message : 'parse error',
+        });
         continue;
       }
 
+      info('job:trigger-scheduled', { job: job.name, schedule: job.schedule });
       this.running.add(job.name);
       this.execute(job).finally(() => this.running.delete(job.name));
     }
@@ -143,6 +171,11 @@ export class CronScheduler {
 
   private async execute(job: CronJob): Promise<void> {
     const startedAt = new Date();
+    info('job:start', {
+      job: job.name,
+      model: job.model ?? 'default',
+      promptLen: job.prompt.length,
+    });
     this.callbacks.onJobStart?.(job);
 
     try {
@@ -155,6 +188,7 @@ export class CronScheduler {
         );
       }
 
+      info('job:complete', { job: job.name, durationMs, ok: true });
       this.callbacks.onJobComplete?.({
         jobName: job.name,
         startedAt: startedAt.toISOString(),
@@ -166,6 +200,12 @@ export class CronScheduler {
       const message =
         err instanceof Error ? err.message.slice(0, 2000) : 'Unknown error';
 
+      logError('job:complete', {
+        job: job.name,
+        durationMs,
+        ok: false,
+        error: message.slice(0, 500),
+      });
       this.callbacks.onJobComplete?.({
         jobName: job.name,
         startedAt: startedAt.toISOString(),

@@ -19,6 +19,7 @@ import type { CronState, CronJob, CronRunResult } from '../shared/types';
 import { DEFAULT_CRON_STATE, MAX_RUN_RESULTS } from '../shared/types';
 import { validateCron } from '../shared/cron';
 import { CronScheduler, runPiSubprocess } from './scheduler';
+import { initLogger, setLogPath, info, warn, error as logError } from './logger';
 
 // ── State file path ────────────────────────────────────────────
 
@@ -116,8 +117,14 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function startScheduler(): Promise<string> {
-    if (scheduler?.isRunning()) return 'Scheduler is already running.';
-    if (!statePath) return 'Error: no state path resolved.';
+    if (scheduler?.isRunning()) {
+      warn('scheduler:start-skipped', { reason: 'already running' });
+      return 'Scheduler is already running.';
+    }
+    if (!statePath) {
+      logError('scheduler:start-failed', { reason: 'no state path' });
+      return 'Error: no state path resolved.';
+    }
 
     const state = await readState(statePath);
     scheduler = createScheduler();
@@ -130,7 +137,10 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function stopScheduler(): Promise<string> {
-    if (!scheduler?.isRunning()) return 'Scheduler is not running.';
+    if (!scheduler?.isRunning()) {
+      warn('scheduler:stop-skipped', { reason: 'not running' });
+      return 'Scheduler is not running.';
+    }
     scheduler.stop();
     scheduler = null;
 
@@ -147,16 +157,19 @@ export default function (pi: ExtensionAPI) {
 
   pi.on('session_start', async (_event, ctx) => {
     statePath = resolveStatePath(ctx.cwd);
+    initLogger(pi, statePath);
+    info('session:start', { cwd: ctx.cwd, statePath });
+
     const state = await readState(statePath);
 
     if (state.autostart && state.jobs.length > 0) {
-      // Autostart: boot the scheduler immediately
+      info('scheduler:autostart', { jobs: state.jobs.length });
       scheduler = createScheduler();
       scheduler.start(state.jobs);
       state.schedulerActive = true;
       await writeState(statePath, state);
     } else if (state.schedulerActive) {
-      // Reset stale flag (scheduler doesn't survive restarts)
+      info('scheduler:reset-stale-flag');
       state.schedulerActive = false;
       await writeState(statePath, state);
     }
@@ -164,9 +177,12 @@ export default function (pi: ExtensionAPI) {
 
   pi.on('session_switch', async (_event, ctx) => {
     statePath = resolveStatePath(ctx.cwd);
+    setLogPath(statePath);
+    info('session:switch', { cwd: ctx.cwd });
   });
 
   pi.on('session_shutdown', async () => {
+    info('session:shutdown', { schedulerWasRunning: scheduler?.isRunning() ?? false });
     if (scheduler?.isRunning()) {
       scheduler.stop();
       scheduler = null;
@@ -212,12 +228,14 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : statePath;
       if (!resolvedPath) {
+        logError('tool:no-state-path');
         return {
           content: [{ type: 'text', text: 'Error: no state path' }],
           details: {},
         };
       }
       statePath = resolvedPath;
+      info('tool:execute', { action: params.action, name: params.name });
       const state = await readState(statePath);
       let result: string;
 
@@ -364,6 +382,10 @@ export default function (pi: ExtensionAPI) {
           }
           // Run directly — no scheduler required. The scheduler is for
           // timed execution; ad-hoc "run now" just spawns the subprocess.
+          info('job:trigger-adhoc', {
+            job: runJob.name,
+            model: runJob.model ?? 'default',
+          });
           result = `✓ Triggered "${params.name}" — running in background`;
           {
             // Fire-and-forget: spawn subprocess + record result
@@ -379,9 +401,23 @@ export default function (pi: ExtensionAPI) {
                   ok,
                   error: ok ? undefined : (sub.stderr || `Exit code ${sub.exitCode}`).slice(0, 2000),
                 };
+                if (ok) {
+                  info('job:adhoc-complete', { job: runJob.name, durationMs });
+                } else {
+                  logError('job:adhoc-failed', {
+                    job: runJob.name,
+                    durationMs,
+                    error: runResult.error?.slice(0, 500),
+                  });
+                }
                 await appendRunResult(runResult);
               })
-              .catch(() => {});
+              .catch((err) => {
+                logError('job:adhoc-crash', {
+                  job: runJob.name,
+                  error: err instanceof Error ? err.message : 'unknown',
+                });
+              });
           }
           break;
         }
