@@ -93,6 +93,7 @@ const CronParams = Type.Object({
 // ── Extension ──────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
+  console.log('[cron] extension loaded');
   let statePath = '';
   let scheduler: CronScheduler | null = null;
 
@@ -235,6 +236,8 @@ export default function (pi: ExtensionAPI) {
         };
       }
       statePath = resolvedPath;
+      // Ensure logger is initialised (session_start may not have fired yet)
+      initLogger(pi, statePath);
       info('tool:execute', { action: params.action, name: params.name });
       const state = await readState(statePath);
       let result: string;
