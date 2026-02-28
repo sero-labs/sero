@@ -26,10 +26,10 @@
     "@sinclair/typebox": "^0.34.48"
   },
   "peerDependencies": {
-    "@mariozechner/pi-agent-core": ">=0.52.0",
-    "@mariozechner/pi-ai": ">=0.52.0",
-    "@mariozechner/pi-coding-agent": ">=0.52.0",
-    "@mariozechner/pi-tui": ">=0.52.0"
+    "@mariozechner/pi-agent-core": ">=0.55.3",
+    "@mariozechner/pi-ai": ">=0.55.3",
+    "@mariozechner/pi-coding-agent": ">=0.55.3",
+    "@mariozechner/pi-tui": ">=0.55.3"
   },
   "devDependencies": {
     "@sero/app-runtime": "workspace:*",
