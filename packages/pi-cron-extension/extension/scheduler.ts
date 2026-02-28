@@ -32,13 +32,23 @@ export function runPiSubprocess(
       model: model ?? 'default',
       promptLen: prompt.length,
       timeoutMs,
+      args: args.slice(0, -1), // log flags, not the full prompt
     });
 
-    const child = spawn('pi', args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
-      timeout: timeoutMs,
-    });
+    let child;
+    try {
+      child = spawn('pi', args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env },
+        timeout: timeoutMs,
+      });
+    } catch (err) {
+      // spawn can throw synchronously (e.g. ENOENT before event loop)
+      const msg = err instanceof Error ? err.message : String(err);
+      logError('subprocess:spawn-failed', { error: msg });
+      resolve({ stdout: '', stderr: msg, exitCode: 1 });
+      return;
+    }
 
     let stdout = '';
     let stderr = '';

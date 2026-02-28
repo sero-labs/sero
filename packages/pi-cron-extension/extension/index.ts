@@ -413,10 +413,9 @@ export default function (pi: ExtensionAPI) {
                 await appendRunResult(runResult);
               })
               .catch((err) => {
-                logError('job:adhoc-crash', {
-                  job: runJob.name,
-                  error: err instanceof Error ? err.message : 'unknown',
-                });
+                const msg = err instanceof Error ? err.message : String(err);
+                logError('job:adhoc-crash', { job: runJob.name, error: msg });
+                console.error(`[cron] adhoc run crashed: ${runJob.name}`, err);
               });
           }
           break;

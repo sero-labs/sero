@@ -4,8 +4,8 @@
  * Writes structured log lines to ~/.sero-ui/apps/cron/cron.log (Sero)
  * or .sero/apps/cron/cron.log (Pi CLI fallback). Rotates at 1 MB.
  *
- * Also emits to the Pi event bus (channel: "cron") so other extensions
- * or the host can subscribe.
+ * Always logs to console as well so errors appear in
+ * /tmp/sero-electron.log even if the file logger isn't initialised.
  */
 
 import { appendFileSync, statSync, renameSync, mkdirSync } from 'node:fs';
@@ -14,6 +14,7 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR';
 
+const TAG = '[cron]';
 const CHANNEL = 'cron';
 const MAX_LOG_SIZE = 1_048_576; // 1 MB
 
@@ -27,11 +28,10 @@ export function initLogger(pi: ExtensionAPI, statePath: string): void {
   piRef = pi;
   logFilePath = path.join(path.dirname(statePath), 'cron.log');
 
-  // Ensure directory exists
   try {
     mkdirSync(path.dirname(logFilePath), { recursive: true });
   } catch {
-    // ignore — directory may already exist
+    // directory may already exist
   }
 }
 
@@ -50,20 +50,34 @@ export function log(
 ): void {
   const ts = new Date().toISOString();
   const payload = data ? ` ${JSON.stringify(data)}` : '';
-  const line = `${ts} [${level}] ${event}${payload}\n`;
+  const line = `${ts} [${level}] ${event}${payload}`;
+
+  // ── Console (always — shows up in /tmp/sero-electron.log) ─
+  const consoleLine = `${TAG} ${line}`;
+  if (level === 'ERROR') {
+    console.error(consoleLine);
+  } else if (level === 'WARN') {
+    console.warn(consoleLine);
+  } else {
+    console.log(consoleLine);
+  }
 
   // ── File ──────────────────────────────────────────────────
   if (logFilePath) {
     try {
       rotateIfNeeded();
-      appendFileSync(logFilePath, line, 'utf8');
+      appendFileSync(logFilePath, line + '\n', 'utf8');
     } catch {
       // Swallow — logging must never crash the extension
     }
   }
 
   // ── Event bus (for host / other extensions) ───────────────
-  piRef?.events.emit('log', { channel: CHANNEL, event, level, data });
+  try {
+    piRef?.events.emit('log', { channel: CHANNEL, event, level, data });
+  } catch {
+    // event bus may not be ready
+  }
 }
 
 // ── Rotation ───────────────────────────────────────────────────
