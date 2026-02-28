@@ -18,7 +18,7 @@ import { Type } from '@sinclair/typebox';
 import type { CronState, CronJob, CronRunResult } from '../shared/types';
 import { DEFAULT_CRON_STATE, MAX_RUN_RESULTS } from '../shared/types';
 import { validateCron } from '../shared/cron';
-import { CronScheduler } from './scheduler';
+import { CronScheduler, runPiSubprocess } from './scheduler';
 
 // ── State file path ────────────────────────────────────────────
 
@@ -357,12 +357,32 @@ export default function (pi: ExtensionAPI) {
             result = 'Missing required field: name';
             break;
           }
-          if (!scheduler?.isRunning()) {
-            result =
-              'Scheduler is not active. Use `/cron on` to start it first.';
+          const runJob = state.jobs.find((j) => j.name === params.name);
+          if (!runJob) {
+            result = `Job "${params.name}" not found.`;
             break;
           }
-          result = scheduler.runNow(params.name);
+          // Run directly — no scheduler required. The scheduler is for
+          // timed execution; ad-hoc "run now" just spawns the subprocess.
+          result = `✓ Triggered "${params.name}" — running in background`;
+          {
+            // Fire-and-forget: spawn subprocess + record result
+            const startedAt = new Date();
+            runPiSubprocess(runJob.prompt, runJob.model)
+              .then(async (sub) => {
+                const durationMs = Date.now() - startedAt.getTime();
+                const ok = sub.exitCode === 0 || !!sub.stdout;
+                const runResult: CronRunResult = {
+                  jobName: runJob.name,
+                  startedAt: startedAt.toISOString(),
+                  durationMs,
+                  ok,
+                  error: ok ? undefined : (sub.stderr || `Exit code ${sub.exitCode}`).slice(0, 2000),
+                };
+                await appendRunResult(runResult);
+              })
+              .catch(() => {});
+          }
           break;
         }
 

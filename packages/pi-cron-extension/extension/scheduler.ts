@@ -17,7 +17,7 @@ interface RunResult {
   exitCode: number;
 }
 
-function runPiSubprocess(
+export function runPiSubprocess(
   prompt: string,
   model?: string,
   timeoutMs = 600_000,
