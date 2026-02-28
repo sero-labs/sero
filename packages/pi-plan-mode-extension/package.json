@@ -13,6 +13,9 @@
   "pi": {
     "extensions": [
       "./extension/index.ts"
+    ],
+    "skills": [
+      "./skills"
     ]
   },
   "sero": {
