@@ -5,11 +5,14 @@
  * the tool's TypeBox parameter schema for arg parsing, type coercion,
  * and help generation. No per-tool custom parsing needed.
  *
+ * Also bridges extension slash commands into CLI commands so the agent
+ * can invoke them via `sero <command-name>`.
+ *
  * Used by `extensionsOverride` in agent.ts to intercept extension tools
  * and re-register them as CLI commands (removing them from agent context).
  */
 
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
 import type { CliCommand, CliCommandContext, CliResult } from './types';
 import { parseFlags } from './commands/utils';
 
@@ -191,6 +194,35 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
         const text = extractText(result);
         const isError = text.startsWith('Error:') || text.startsWith('ERROR:');
         return { output: text, exitCode: isError ? 1 : 0 };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Command failed';
+        return { output: `ERROR: ${msg}`, exitCode: 1 };
+      }
+    },
+  };
+}
+
+// ── Bridge an extension slash command into a CliCommand ─────
+
+/**
+ * Wraps a Pi extension command (registered via `pi.registerCommand()`)
+ * into a CLI command so the agent can invoke it via `sero <name> [args]`.
+ *
+ * The command handler receives `{ cwd }` as context — it can use
+ * `ctx.cwd` but not session-level APIs like `ctx.sessionManager`.
+ * Side effects (pi.sendMessage, pi.setActiveTools, etc.) work through
+ * the extension's closure-captured `pi` reference.
+ */
+export function bridgeCommand(name: string, cmd: RegisteredCommand): CliCommand {
+  return {
+    name,
+    summary: cmd.description ?? name,
+    source: 'app',
+    group: 'App Commands',
+    execute: async (args: string[], ctx: CliCommandContext): Promise<CliResult> => {
+      try {
+        await cmd.handler(args.join(' '), { cwd: ctx.cwd } as any);
+        return { output: `/${name} executed`, exitCode: 0 };
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Command failed';
         return { output: `ERROR: ${msg}`, exitCode: 1 };
