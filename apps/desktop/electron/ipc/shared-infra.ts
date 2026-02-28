@@ -109,7 +109,7 @@ export interface SharedInfra {
 /** Lazy-init shared infrastructure. Called once, then cached. */
 export async function ensureInfra(): Promise<SharedInfra> {
   if (!_authStorage) {
-    _authStorage = new AuthStorage(`${SERO_AGENT_DIR}/auth.json`);
+    _authStorage = AuthStorage.create(`${SERO_AGENT_DIR}/auth.json`);
     _modelRegistry = new ModelRegistry(_authStorage);
     _settingsManager = SettingsManager.create(
       SERO_AGENT_DIR,

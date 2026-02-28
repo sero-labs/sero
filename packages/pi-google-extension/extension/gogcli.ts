@@ -44,6 +44,16 @@ function enhancedPath(): string {
 }
 
 /**
+ * Keyring password for Sero-managed Google tokens.
+ *
+ * When a user authenticates Google through Sero's UI, the refresh token
+ * is imported into gogcli's file-based keyring under this password.
+ * We set the same password here so gogcli can find those tokens — no
+ * separate `gog auth` flow required.
+ */
+const GOG_KEYRING_PASSWORD = 'sero-google-keyring';
+
+/**
  * Run a gogcli command and return raw output.
  */
 export function runGog(
@@ -59,7 +69,7 @@ export function runGog(
     const child = execFile(findGog(), fullArgs, {
       timeout: opts?.timeoutMs ?? GOG_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env, PATH: enhancedPath() },
+      env: { ...process.env, PATH: enhancedPath(), GOG_KEYRING_PASSWORD },
     }, (error, stdout, stderr) => {
       if (error && (error as any).code === 'ENOENT') {
         resolve({ stdout: '', stderr: 'gog binary not found', exitCode: 127 });

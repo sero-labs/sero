@@ -2,14 +2,18 @@
   "name": "@sero/daily-quote",
   "version": "0.1.0",
   "description": "Daily inspirational quote app for Sero — AI-generated wisdom each day",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit -p ui/tsconfig.json"
   },
   "pi": {
-    "extensions": ["./extension/index.ts"]
+    "extensions": [
+      "./extension/index.ts"
+    ]
   },
   "sero": {
     "app": {
@@ -32,12 +36,13 @@
     "@mariozechner/pi-tui": ">=0.55.3"
   },
   "devDependencies": {
-    "@sero/app-runtime": "workspace:*",
     "@module-federation/vite": "^1.11.0",
+    "@sero/app-runtime": "workspace:*",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^22.19.11",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.7.0",
-    "@tailwindcss/vite": "^4.1.18",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwindcss": "^4.1.18",

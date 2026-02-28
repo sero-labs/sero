@@ -2,82 +2,15 @@
  * Google CLI commands — wraps gogcli (https://github.com/steipete/gogcli)
  * to give Sero agents access to Gmail, Calendar, and Google auth.
  *
- * All commands delegate to the `gog` binary running inside the workspace
- * container via `containerManager.exec()`.
+ * Container workspaces: delegates to `gog` inside the container.
+ * Filesystem workspaces (e.g. global): runs `gog` locally on the host
+ * using Sero-managed Google OAuth tokens (GOG_KEYRING_PASSWORD).
  */
 
-import { containerManager } from '../../ipc/shared-infra';
 import type { CliRegistry } from '../registry';
 import type { CliCommandContext, CliResult } from '../types';
-import { fail, ok, parseFlags, requireFlagString } from './utils';
-
-// ── Shell helpers ────────────────────────────────────────────
-
-/** Single-quote a value for safe inclusion in a sh -c command string. */
-function shQuote(value: string): string {
-  return `'${value.replace(/'/g, `'"'"'`)}'`;
-}
-
-/** Build a shell-safe command string from an array of arguments. */
-function buildCommand(args: string[]): string {
-  return args.map(shQuote).join(' ');
-}
-
-// ── gog execution ────────────────────────────────────────────
-
-const GOG_TIMEOUT_MS = 30_000;
-const GOG_AUTH_TIMEOUT_MS = 60_000;
-
-interface GogResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-}
-
-async function runGog(
-  gogArgs: string[],
-  ctx: CliCommandContext,
-  opts?: { json?: boolean; account?: string; timeoutMs?: number; noInput?: boolean },
-): Promise<GogResult> {
-  const parts = ['gog'];
-  if (opts?.account) parts.push('--account', opts.account);
-  if (opts?.json) parts.push('--json');
-  if (opts?.noInput !== false) parts.push('--no-input');
-  parts.push(...gogArgs);
-
-  const command = buildCommand(parts);
-  const timeout = opts?.timeoutMs ?? GOG_TIMEOUT_MS;
-
-  return containerManager.exec(ctx.workspaceId, command, undefined, timeout);
-}
-
-function gogResultToCliResult(result: GogResult): CliResult {
-  if (result.exitCode === 127) {
-    return fail(
-      'gogcli (gog) not found in container. Install it: brew install steipete/tap/gogcli\n' +
-      'See https://github.com/steipete/gogcli for details.',
-    );
-  }
-
-  const output = result.stdout.trim();
-  const stderr = result.stderr.trim();
-
-  if (result.exitCode !== 0) {
-    // Surface the most useful error message
-    const errorText = stderr || output || 'Command failed';
-    if (errorText.includes('no authenticated accounts') || errorText.includes('not authenticated')) {
-      return fail(`${errorText}\n\nHint: Run "sero google auth add <email>" to authenticate a Google account.`);
-    }
-    return fail(errorText);
-  }
-
-  // Combine stdout (primary) with any stderr warnings
-  const parts = [output];
-  if (stderr && !stderr.startsWith('{')) {
-    parts.push(`\n[stderr] ${stderr}`);
-  }
-  return ok(parts.join(''));
-}
+import { fail, parseFlags, requireFlagString } from './utils';
+import { runGog, gogResultToCliResult, GOG_AUTH_TIMEOUT_MS } from './gog-runner';
 
 // ── Helpers ──────────────────────────────────────────────────
 

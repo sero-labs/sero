@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
     "extensions": ["./extension/index.ts"]
@@ -35,6 +35,7 @@
     "@sero/app-runtime": "workspace:*",
     "@sero/ui": "workspace:*",
     "@module-federation/vite": "^1.11.0",
+    "@types/node": "^22.19.11",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.7.0",
