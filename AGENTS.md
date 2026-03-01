@@ -182,6 +182,16 @@ the feature appears to work in the UI but silently fails at the agent.
   (e.g. for federated modules in `@sero/app-runtime`) is passed via context
   providers or the `window.sero` IPC bridge — never via `localStorage`.
 
+### Desktop Notifications (`sero:notify` EventBus)
+
+Extensions show native desktop notifications via the shared Pi SDK EventBus —
+no `require('electron')` needed.
+
+- **Extension emits:** `pi.events.emit('sero:notify', { message, type?, source?, sound?, subtitle? })`
+- **Host listens:** `electron/sero-extension.ts` → calls `showNotification()` from `electron/notifications.ts`
+- `sound` — `true` (default chime), a macOS sound name (`"Glass"`, `"Hero"`, etc.), or `false` (silent)
+- `type` — `'info'` | `'warning'` | `'error'` (default: `'info'`)
+
 ### Container Integration (AD-018)
 
 Every workspace runs inside a native macOS container (Apple Containerization

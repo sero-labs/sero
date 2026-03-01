@@ -15,10 +15,18 @@ React UI is Sero-only.
   mum") or create them from the UI.
 - **Snooze** — snooze fired reminders for 5 min, 15 min, 30 min, 1 hour,
   3 hours, or until tomorrow 9am.
+- **Configurable notification sounds** — pick from 14 macOS system sounds
+  (Glass, Hero, Ping, Pop, etc.) or disable sound entirely. Settings
+  accessible via the 🔔 button in the scheduler bar.
+- **Job completion notifications** — desktop notification when any cron job
+  finishes (✅ success or ❌ failure with duration).
 - **Visual dashboard** — three tabs (Reminders, Jobs, History) for managing
   everything. Live cron expression validation with human-readable previews.
-- **Agent tools** — two LLM-callable tools (`reminder` and `cron`) so you
-  can manage everything through natural conversation.
+- **Run output capture** — agent responses from cron job runs are saved and
+  viewable in the History tab. Latest result auto-expands; older results
+  show an inline preview with a toggle to expand.
+- **Agent tools** — three LLM-callable tools (`current_time`, `reminder`,
+  and `cron`) so you can manage everything through natural conversation.
 - **No database** — all state is stored as JSON in a single file. Both the
   UI and the extension read/write the same file; changes sync instantly.
 - **Scheduler off by default** — nothing runs until you start it. Toggle from
@@ -27,7 +35,8 @@ React UI is Sero-only.
   subprocess with a 10-minute timeout. Jobs can't interfere with each other
   or with your active chat.
 - **Run history** — the last 50 cron job execution results (pass/fail,
-  duration, errors) are visible in the History tab.
+  duration, output, errors) are visible in the History tab. Clear history
+  with one click.
 - **Global scope** — jobs and reminders are personal, not per-workspace.
   Your schedule persists across all projects.
 
@@ -49,7 +58,7 @@ Click **Cron** (🕐) in the Sero sidebar. The dashboard has three tabs:
 |-----|---------------|
 | **Reminders** | All reminders with status filters, snooze, and management |
 | **Jobs** | Configured cron jobs with status, schedule, and actions |
-| **History** | Recent cron job execution results with pass/fail and timing |
+| **History** | Recent cron job execution results with expandable output |
 
 ---
 
@@ -59,7 +68,8 @@ Click **Cron** (🕐) in the Sero sidebar. The dashboard has three tabs:
 
 **From the chat (recommended):**
 
-Ask the agent naturally — it will use the `reminder` tool:
+Ask the agent naturally — it will use the `current_time` and `reminder`
+tools:
 
 ```
 Set a reminder for 1 hour to phone mum
@@ -261,12 +271,60 @@ time you start it. The scheduler also stops automatically when Sero quits.
 
 Toggle the **Autostart** switch in the status bar to have the scheduler
 start automatically whenever Sero launches. When enabled, the extension
-boots the scheduler on session start (as long as at least one job or
-reminder exists). The setting persists across restarts.
+boots the scheduler eagerly at extension load time (no need to open a chat
+or send a message first). The setting persists across restarts.
+
+#### Notification sound settings
+
+Click the **🔔** icon in the scheduler bar to configure notification sounds:
+
+- **Play sound** — toggle on/off
+- **Sound** — choose from 14 macOS system sounds: Glass, Hero, Ping, Pop,
+  Purr, Submarine, Tink, Basso, Blow, Bottle, Frog, Funk, Morse, Sosumi
+
+Sound settings apply to both reminder notifications and job completion
+notifications. The setting persists in `state.json`.
+
+> **macOS notification persistence:** To make notifications stay on screen
+> until dismissed (instead of auto-closing), go to **System Settings →
+> Notifications → Electron** (or **Sero** when packaged) and set the
+> notification style to **Alerts**.
+
+---
+
+### Run History
+
+The History tab shows the last 50 job execution results.
+
+Each row shows the job name, duration, a status indicator (green = success,
+red = failure), and how long ago it ran.
+
+**Viewing output:** Rows with captured output show a `▸ Output` button.
+Click to expand and see the agent's full response. The most recent result
+auto-expands if it has output. When collapsed, a truncated preview of the
+first line is shown inline.
+
+**Clearing history:** Click the **Clear** button in the top-right corner
+of the History tab to remove all run results.
 
 ---
 
 ## Agent Tool Reference
+
+### `current_time` tool
+
+Returns the current date and time. The LLM should call this **before**
+creating reminders with relative times (e.g. "in 5 minutes", "in 1 hour")
+to compute an accurate `fire_at` value.
+
+**Returns:**
+
+```
+Current time: 2026-03-01T13:45:00.000Z
+Local: Saturday, 1 March 2026 at 13:45:00 GMT
+Timezone: UTC+0:00
+Unix: 1772541900000
+```
 
 ### `reminder` tool
 
@@ -293,7 +351,7 @@ the `sero-cli` tool automatically.
 | `notes` | Optional extra details |
 | `channel` | `"notification"` (desktop, default) or `"email"` (not yet implemented) |
 | `type` | `"once"` (default) — fires at `fire_at`; `"recurring"` — fires on `schedule` |
-| `fire_at` | ISO datetime for one-time reminders (e.g. `"2025-03-15T14:30:00"`) |
+| `fire_at` | ISO datetime for one-time reminders. Call `current_time` first for accurate values. |
 | `schedule` | Cron expression for recurring (e.g. `"0 9 * * 5"` = Fridays at 9am) |
 | `snooze_minutes` | Minutes to snooze (default 15). Use `-1` for "tomorrow 9am". |
 
@@ -329,29 +387,32 @@ name with a thinking-level suffix (`sonnet:high`).
 
 ```
 packages/pi-cron-extension/
-├── package.json                # Pi + Sero manifest (global scope, port 5188)
-├── vite.config.ts              # Module Federation remote config
+├── package.json                 # Pi + Sero manifest (global scope, port 5188)
+├── vite.config.ts               # Module Federation remote config
 ├── shared/
-│   ├── types.ts                # CronJob, Reminder, CronState, CronRunResult
-│   ├── cron.ts                 # 5-field parser, validator, cronToHuman
+│   ├── types.ts                 # CronJob, Reminder, NotificationSettings, CronState
+│   ├── cron.ts                  # 5-field parser, validator, cronToHuman
 │   └── reminder-utils.ts       # Fire-time checks, snooze, status helpers
 ├── extension/
-│   ├── index.ts                # Tools (cron + reminder), /cron cmd, lifecycle
-│   ├── scheduler.ts            # CronScheduler — tick loop, jobs + reminders
-│   ├── actions.ts              # Cron job action handlers
-│   ├── reminder-actions.ts     # Reminder action handlers (CRUD + snooze)
-│   ├── notifier.ts             # Desktop notification delivery
-│   └── logger.ts               # File-based structured logger
+│   ├── index.ts                 # Singleton scheduler, tools, /cron cmd, lifecycle
+│   ├── state-io.ts              # Path resolution, atomic read/write, mutex
+│   ├── state-watcher.ts         # Directory-based fs.watch → scheduler sync
+│   ├── scheduler.ts             # CronScheduler — tick loop, jobs + reminders
+│   ├── actions.ts               # Cron job action handlers
+│   ├── reminder-actions.ts      # Reminder action handlers (CRUD + snooze)
+│   ├── notifier.ts              # sero:notify EventBus emitter
+│   └── logger.ts                # File-based structured logger
 └── ui/
     ├── CronApp.tsx              # Root — tabs (Reminders, Jobs, History)
     ├── components/
-    │   ├── SchedulerBar.tsx     # Status indicator + start/stop + autostart
+    │   ├── SchedulerBar.tsx     # Status + notification settings + start/stop
+    │   ├── NotificationSettings.tsx # Sound toggle + sound picker popover
     │   ├── ReminderCard.tsx     # Single reminder with snooze dropdown
     │   ├── ReminderForm.tsx     # Add/edit reminder dialog
     │   ├── ReminderList.tsx     # Filterable reminder list with sorting
     │   ├── JobCard.tsx          # Single job display with actions
     │   ├── JobForm.tsx          # Add/edit job dialog with presets
-    │   └── RunHistory.tsx       # Recent cron execution results
+    │   └── RunHistory.tsx       # Execution results with expandable output
     ├── lib/
     │   └── cron-utils.ts        # Presets, formatDuration, timeAgo
     ├── styles.css               # Tailwind + theme tokens + animations
@@ -368,7 +429,7 @@ packages/pi-cron-extension/
                  │                 │
            Pi Extension        React UI
            (cron + reminder    (useAppState)
-            tools)                 │
+            + current_time)        │
                  │                 ▼
                  ▼            Dashboard
            CronScheduler      ├─ Reminders tab
@@ -376,7 +437,7 @@ packages/pi-cron-extension/
            ├─ cron matching   └─ History tab
            ├─ reminder checks
            ├─ snooze expiry
-           └─ notifications
+           └─ sero:notify → desktop notifications
 ```
 
 Both sides read and write the same JSON file. The file IS the API:
@@ -384,11 +445,34 @@ Both sides read and write the same JSON file. The file IS the API:
 - **Extension → file**: tool calls and scheduler events write to
   `state.json` with atomic writes (temp + rename) protected by an
   async mutex.
-- **File → UI**: Sero's `AppStateManager` watches the file with `fs.watch`
-  and pushes updates to the renderer via IPC. React re-renders instantly.
+- **File → scheduler**: a directory-based `fs.watch` detects changes
+  (including atomic renames) and syncs updated jobs/reminders into the
+  scheduler's in-memory state.
+- **File → UI**: Sero's `AppStateManager` watches the file and pushes
+  updates to the renderer via IPC. React re-renders instantly.
 - **UI → file**: `useAppState` calls write through IPC to the main process,
-  which performs the same atomic write. The extension picks up changes on
-  its next read.
+  which performs the same atomic write.
+
+### Notifications
+
+The extension uses the **`sero:notify` EventBus pattern** for
+notifications. This keeps extensions decoupled from Electron:
+
+1. The extension emits `pi.events.emit('sero:notify', { message, type, sound, source })`
+2. The Sero host extension factory listens on `pi.events.on('sero:notify', ...)`
+3. The listener calls `showNotification()` which uses Electron's native
+   `Notification` API with configurable macOS system sounds.
+
+Any Pi extension can use this pattern — no `require('electron')` needed.
+In the Pi CLI (where the Sero host isn't present), notifications fall back
+to `console.log`.
+
+### Singleton scheduler
+
+The scheduler is a **module-level singleton**. The extension's default
+export may be called multiple times (once per Sero session), but all
+invocations share the same `initialized` flag, `scheduler` instance, and
+`stateWatcher`. This prevents duplicate job execution.
 
 ### State shape
 
@@ -399,6 +483,7 @@ interface CronState {
   schedulerActive: boolean;
   autostart: boolean;
   lastRunResults: CronRunResult[];  // Capped at 50
+  notificationSettings?: NotificationSettings;
 }
 
 interface CronJob {
@@ -431,6 +516,12 @@ interface CronRunResult {
   durationMs: number;
   ok: boolean;
   error?: string;
+  output?: string;     // Agent response (extension noise stripped)
+}
+
+interface NotificationSettings {
+  soundEnabled: boolean;     // Whether to play a sound
+  soundName: string;         // macOS sound name (default: "Glass")
 }
 ```
 
@@ -441,7 +532,7 @@ Jobs and reminders are personal, not project-specific. State lives at
 In the Pi CLI (where `SERO_HOME` is unset), the extension falls back to
 `.sero/apps/cron/state.json` relative to the working directory.
 
-### Scheduler
+### Scheduler internals
 
 The scheduler is an in-memory `setInterval` loop that ticks every 30 seconds.
 
@@ -451,7 +542,9 @@ The scheduler is an in-memory `setInterval` loop that ticks every 30 seconds.
 2. Matches each job's cron expression against the current local time.
 3. For matches, spawns `pi -p --no-session <prompt>` as a child process
    with a 10-minute timeout.
-4. Appends the result to `lastRunResults` in the state file.
+4. Captures the agent's response (stripping extension loading noise).
+5. Appends the result (with output) to `lastRunResults` in the state file.
+6. Fires a desktop notification on completion.
 
 **Reminders** (checked every tick):
 
@@ -459,21 +552,10 @@ The scheduler is an in-memory `setInterval` loop that ticks every 30 seconds.
 2. **Active one-time**: fires if `fireAt ≤ now` and hasn't fired yet.
 3. **Active recurring**: fires if cron expression matches (once per minute).
 4. **Snoozed**: fires if `snoozedUntil ≤ now`.
-5. On fire: shows desktop notification, updates `lastFiredAt`, and
-   transitions status (one-time → completed, recurring → stays active,
-   snoozed → completed or active depending on type).
-
-### Notifications
-
-Desktop notifications use Electron's `Notification` API when running
-inside Sero. In the Pi CLI (where Electron is unavailable), notifications
-fall back to `console.log`.
-
-> **Email channel**: The `email` channel is accepted as a configuration
-> option on reminders but is **not yet functional**. When selected, the
-> extension logs a warning and falls back to a desktop notification with
-> a "(email pending)" prefix. Implementing email delivery will require
-> SMTP configuration or an email API integration in a future release.
+5. On fire: shows desktop notification (with configured sound), updates
+   `lastFiredAt`, and transitions status (one-time → completed,
+   recurring → stays active, snoozed → completed or active depending on
+   type).
 
 ---
 
@@ -525,10 +607,12 @@ extension for the Sero platform. Key differences:
 |---|---|---|
 | **Storage** | `~/.pi/agent/pi-cron.tab` (custom text format) | `~/.sero-ui/apps/cron/state.json` (JSON) |
 | **UI** | Vanilla HTML/CSS/JS served via pi-webserver | React + Tailwind via Module Federation |
-| **State sync** | File watcher on `.tab` file reloads scheduler | `useAppState` + `fs.watch` syncs UI and extension |
+| **State sync** | File watcher on `.tab` file reloads scheduler | Directory-based `fs.watch` + `useAppState` |
 | **Scope** | Tied to `~/.pi/agent/` | Global (`~/.sero-ui/`) with Pi CLI fallback |
-| **Lock file** | PID lock at `~/.pi/agent/pi-cron.lock` | Not needed — single Electron process |
+| **Lock file** | PID lock at `~/.pi/agent/pi-cron.lock` | Not needed — singleton scheduler in Electron process |
 | **Web server** | Mounts on pi-webserver (`/cron`, `/api/cron`) | Not needed — federated UI is embedded |
 | **Settings** | `settings.json` → `pi-cron` key | State file only (scheduler toggled via UI or command) |
 | **Reminders** | Not supported | One-time + recurring reminders with snooze and notifications |
+| **Notifications** | Not supported | `sero:notify` EventBus → Electron Notification API with configurable sounds |
+| **Output capture** | Not supported | Agent responses saved in run results, viewable in History tab |
 | **Event API** | `cron:*` events for inter-extension communication | Not ported — apps communicate via shared state |
