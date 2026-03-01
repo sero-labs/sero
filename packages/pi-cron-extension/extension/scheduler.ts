@@ -18,18 +18,26 @@ interface RunResult {
   exitCode: number;
 }
 
+export interface SubprocessOptions {
+  model?: string;
+  cwd?: string;
+  timeoutMs?: number;
+}
+
 export function runPiSubprocess(
   prompt: string,
-  model?: string,
-  timeoutMs = 600_000,
+  opts: SubprocessOptions = {},
 ): Promise<RunResult> {
+  const { model, cwd, timeoutMs = 600_000 } = opts;
+
   return new Promise((resolve) => {
-    const args = ['-p', '--no-session', '--no-extensions'];
+    const args = ['-p', '--no-session'];
     if (model) args.push('--model', model);
     args.push(prompt);
 
     info('subprocess:spawn', {
       model: model ?? 'default',
+      cwd: cwd ?? process.cwd(),
       promptLen: prompt.length,
       timeoutMs,
       args: args.slice(0, -1), // log flags, not the full prompt
@@ -39,7 +47,8 @@ export function runPiSubprocess(
     try {
       child = spawn('pi', args, {
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env },
+        env: { ...process.env, SERO_CRON_SUBPROCESS: '1' },
+        cwd: cwd || undefined,
         timeout: timeoutMs,
       });
     } catch (err) {
@@ -61,12 +70,15 @@ export function runPiSubprocess(
     });
 
     child.on('close', (code) => {
-      const level = code === 0 || stdout ? 'ok' : 'fail';
+      const ok = code === 0 || !!stdout;
       info('subprocess:exit', {
         exitCode: code ?? 1,
-        level,
+        ok,
         stdoutLen: stdout.length,
         stderrLen: stderr.length,
+        // Log first 500 chars of output for debugging
+        stdoutPreview: stdout.slice(0, 500),
+        ...(stderr && { stderrPreview: stderr.slice(0, 500) }),
       });
       resolve({ stdout, stderr, exitCode: code ?? 1 });
     });
@@ -95,6 +107,7 @@ export class CronScheduler {
   private running = new Set<string>();
   private jobs: CronJob[] = [];
   private callbacks: SchedulerCallbacks;
+  private cwd: string | undefined;
 
   constructor(callbacks?: SchedulerCallbacks) {
     this.callbacks = callbacks ?? {};
@@ -102,11 +115,12 @@ export class CronScheduler {
 
   // ── Lifecycle ───────────────────────────────────────────
 
-  start(jobs: CronJob[]): void {
+  start(jobs: CronJob[], cwd?: string): void {
     if (this.timer) return;
     this.jobs = jobs;
+    this.cwd = cwd;
     const enabled = jobs.filter((j) => !j.disabled).length;
-    info('scheduler:start', { totalJobs: jobs.length, enabled });
+    info('scheduler:start', { totalJobs: jobs.length, enabled, cwd });
     this.tick();
     this.timer = setInterval(() => this.tick(), TICK_INTERVAL_MS);
   }
@@ -189,7 +203,10 @@ export class CronScheduler {
     this.callbacks.onJobStart?.(job);
 
     try {
-      const result = await runPiSubprocess(job.prompt, job.model);
+      const result = await runPiSubprocess(job.prompt, {
+        model: job.model,
+        cwd: this.cwd,
+      });
       const durationMs = Date.now() - startedAt.getTime();
 
       if (result.exitCode !== 0 && !result.stdout) {

@@ -95,6 +95,7 @@ const CronParams = Type.Object({
 export default function (pi: ExtensionAPI) {
   console.log('[cron] extension loaded');
   let statePath = '';
+  let workspaceCwd = '';
   let scheduler: CronScheduler | null = null;
 
   // ── Scheduler callbacks ────────────────────────────────────
@@ -129,7 +130,7 @@ export default function (pi: ExtensionAPI) {
 
     const state = await readState(statePath);
     scheduler = createScheduler();
-    scheduler.start(state.jobs);
+    scheduler.start(state.jobs, workspaceCwd);
 
     state.schedulerActive = true;
     await writeState(statePath, state);
@@ -158,15 +159,23 @@ export default function (pi: ExtensionAPI) {
 
   pi.on('session_start', async (_event, ctx) => {
     statePath = resolveStatePath(ctx.cwd);
+    workspaceCwd = ctx.cwd;
     initLogger(pi, statePath);
     info('session:start', { cwd: ctx.cwd, statePath });
+
+    // Skip scheduler in cron subprocess to prevent fork-bomb recursion.
+    // The subprocess only needs the tool registrations, not the scheduler.
+    if (process.env.SERO_CRON_SUBPROCESS) {
+      info('session:start:subprocess-mode');
+      return;
+    }
 
     const state = await readState(statePath);
 
     if (state.autostart && state.jobs.length > 0) {
       info('scheduler:autostart', { jobs: state.jobs.length });
       scheduler = createScheduler();
-      scheduler.start(state.jobs);
+      scheduler.start(state.jobs, workspaceCwd);
       state.schedulerActive = true;
       await writeState(statePath, state);
     } else if (state.schedulerActive) {
@@ -385,15 +394,18 @@ export default function (pi: ExtensionAPI) {
           }
           // Run directly — no scheduler required. The scheduler is for
           // timed execution; ad-hoc "run now" just spawns the subprocess.
+          // Use ctx.cwd if available (tool context), fall back to stored workspace cwd
+          const runCwd = (ctx ? ctx.cwd : workspaceCwd) || workspaceCwd;
           info('job:trigger-adhoc', {
             job: runJob.name,
             model: runJob.model ?? 'default',
+            cwd: runCwd,
           });
           result = `✓ Triggered "${params.name}" — running in background`;
           {
             // Fire-and-forget: spawn subprocess + record result
             const startedAt = new Date();
-            runPiSubprocess(runJob.prompt, runJob.model)
+            runPiSubprocess(runJob.prompt, { model: runJob.model, cwd: runCwd })
               .then(async (sub) => {
                 const durationMs = Date.now() - startedAt.getTime();
                 const ok = sub.exitCode === 0 || !!sub.stdout;
