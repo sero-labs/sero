@@ -48,6 +48,7 @@ import {
 import { createContainerTools } from '../container/tools';
 import type { ContainerState } from '../container/index';
 import { registerAgentModelContextHandlers } from './agent-model-context';
+import { createSeroUIContext } from '../extension-ui-context';
 import { installCliAgentBridge, noteCliTurnEnd, noteCliTurnStart } from '../cli/agent-bridge';
 import { createWorkspaceCliTool, bridgeExtensionTools } from '../cli';
 import { installGatewayAgentOps, forwardEventToGateway } from '../gateway/agent-bridge';
@@ -298,6 +299,9 @@ async function openSessionInternal(
     sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
     settingsManager: infra.settingsManager,
   });
+
+  // Provide a real UIContext so extensions get working ctx.ui.notify()
+  session.extensionRunner?.setUIContext(createSeroUIContext());
 
   const unsubscribe = subscribeToSession(sessionId, session);
   pool.set(sessionId, {

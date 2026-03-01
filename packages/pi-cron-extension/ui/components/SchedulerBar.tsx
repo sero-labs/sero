@@ -1,0 +1,96 @@
+/**
+ * SchedulerBar — status indicator, autostart toggle, and start/stop button.
+ */
+
+import { Badge } from '@sero/ui/components/ui/badge';
+import { Button } from '@sero/ui/components/ui/button';
+import { Switch } from '@sero/ui/components/ui/switch';
+import { cn } from '@sero/ui/lib/utils';
+
+interface SchedulerBarProps {
+  active: boolean;
+  autostart: boolean;
+  jobCount: number;
+  activeCount: number;
+  disabledCount: number;
+  onToggle: () => void;
+  onAutostartChange: (enabled: boolean) => void;
+}
+
+export function SchedulerBar({
+  active,
+  autostart,
+  jobCount,
+  activeCount,
+  disabledCount,
+  onToggle,
+  onAutostartChange,
+}: SchedulerBarProps) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5">
+      {/* Status dot + label */}
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            'h-2.5 w-2.5 rounded-full',
+            active
+              ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]'
+              : 'bg-muted-foreground/40',
+          )}
+        />
+        <span className="text-sm font-medium text-foreground">
+          {active ? 'Scheduler Active' : 'Scheduler Inactive'}
+        </span>
+      </div>
+
+      {/* Stats */}
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className="text-xs">
+          {jobCount} {jobCount === 1 ? 'job' : 'jobs'}
+        </Badge>
+        {activeCount > 0 && (
+          <Badge
+            variant="outline"
+            className="border-emerald-500/30 text-xs text-emerald-500"
+          >
+            {activeCount} active
+          </Badge>
+        )}
+        {disabledCount > 0 && (
+          <Badge
+            variant="outline"
+            className="text-xs text-muted-foreground"
+          >
+            {disabledCount} paused
+          </Badge>
+        )}
+      </div>
+
+      <div className="flex-1" />
+
+      {/* Autostart toggle */}
+      <label className="flex items-center gap-1.5">
+        <span className="text-[11px] text-muted-foreground">Autostart</span>
+        <Switch
+          checked={autostart}
+          onCheckedChange={onAutostartChange}
+          className="scale-75"
+        />
+      </label>
+
+      {/* Start / Stop button */}
+      <Button
+        variant={active ? 'destructive' : 'default'}
+        size="sm"
+        onClick={onToggle}
+        className={cn(
+          'text-xs',
+          !active &&
+            'bg-emerald-600 text-white hover:bg-emerald-700',
+        )}
+      >
+        {active ? '⏸ Stop' : '▶ Start'}
+      </Button>
+    </div>
+  );
+}

@@ -15,6 +15,7 @@
 import type { ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
 import type { CliCommand, CliCommandContext, CliResult } from './types';
 import { parseFlags } from './commands/utils';
+import { createSeroUIContext } from '../extension-ui-context';
 
 // ── Schema introspection ────────────────────────────────────
 
@@ -213,6 +214,16 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
  * Side effects (pi.sendMessage, pi.setActiveTools, etc.) work through
  * the extension's closure-captured `pi` reference.
  */
+/**
+ * Build a minimal ExtensionCommandContext for bridged commands.
+ *
+ * Reuses the canonical `createSeroUIContext()` so there's a single
+ * source of truth for the UIContext shim across Sero.
+ */
+function buildCommandContext(ctx: CliCommandContext): Record<string, unknown> {
+  return { cwd: ctx.cwd, hasUI: true, ui: createSeroUIContext() };
+}
+
 export function bridgeCommand(name: string, cmd: RegisteredCommand): CliCommand {
   return {
     name,
@@ -221,7 +232,7 @@ export function bridgeCommand(name: string, cmd: RegisteredCommand): CliCommand 
     group: 'App Commands',
     execute: async (args: string[], ctx: CliCommandContext): Promise<CliResult> => {
       try {
-        await cmd.handler(args.join(' '), { cwd: ctx.cwd } as any);
+        await cmd.handler(args.join(' '), buildCommandContext(ctx) as any);
         return { output: `/${name} executed`, exitCode: 0 };
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Command failed';

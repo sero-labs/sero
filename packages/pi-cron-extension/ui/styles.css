@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* Scan @sero/ui component sources so Tailwind generates CSS
+   for utility classes used inside shared components (e.g. Button,
+   Badge, Dialog). Without this, classes used only in @sero/ui
+   won't be included in the bundle since Tailwind doesn't scan
+   node_modules by default. Path is relative to this file and
+   resolves to packages/ui/src/components within the monorepo. */
+@source "../../ui/src/components";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* ── Cron-specific animations ─────────────────────────── */
+
+@keyframes cron-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@utility animate-cron-pulse {
+  animation: cron-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cron-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@utility animate-cron-fade-in {
+  animation: cron-fade-in 0.25s ease-out both;
+}
