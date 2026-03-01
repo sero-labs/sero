@@ -119,14 +119,15 @@ export async function handleReminderAdd(
     if (err) return `Error: invalid cron expression — ${err}`;
   }
 
-  const channel = validateChannel(params.channel);
+  const chResult = validateChannel(params.channel);
+  if (!chResult.ok) return chResult.error;
   const id = generateId();
 
   const reminder: Reminder = {
     id,
     title: params.title,
     notes: params.notes,
-    channel,
+    channel: chResult.channel,
     type,
     status: 'active',
     createdAt: new Date().toISOString(),
@@ -163,7 +164,11 @@ export async function handleReminderUpdate(
 
   if (params.title) reminder.title = params.title;
   if (params.notes !== undefined) reminder.notes = params.notes || undefined;
-  if (params.channel) reminder.channel = validateChannel(params.channel);
+  if (params.channel) {
+    const chResult = validateChannel(params.channel);
+    if (!chResult.ok) return chResult.error;
+    reminder.channel = chResult.channel;
+  }
 
   if (params.fire_at) {
     const d = new Date(params.fire_at);
@@ -275,9 +280,9 @@ export async function handleReminderToggle(
 
 // ── Helpers ─────────────────────────────────────────────────────
 
-function validateChannel(ch?: string): 'notification' | 'email' {
-  if (ch === 'email') return 'email';
-  return 'notification';
+function validateChannel(ch?: string): { ok: true; channel: 'notification' | 'email' } | { ok: false; error: string } {
+  if (ch === 'email') return { ok: false, error: 'Error: email channel is not yet supported. Use "notification" (desktop) instead.' };
+  return { ok: true, channel: 'notification' };
 }
 
 function pruneCompleted(state: CronState): void {

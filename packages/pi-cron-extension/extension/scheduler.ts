@@ -123,7 +123,6 @@ export class CronScheduler {
   private reminders: Reminder[] = [];
   private callbacks: SchedulerCallbacks;
   private cwd: string | undefined;
-  private tickCount = 0;
 
   constructor(callbacks?: SchedulerCallbacks) {
     this.callbacks = callbacks ?? {};
@@ -208,26 +207,11 @@ export class CronScheduler {
 
   private tick(): void {
     const now = new Date();
-    this.tickCount++;
     const currentMinute = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
 
     // Only fire cron jobs once per minute (reminders checked every tick)
     const isNewMinute = currentMinute !== this.lastTickMinute;
     if (isNewMinute) this.lastTickMinute = currentMinute;
-
-    // ── Heartbeat log (every ~5 min = 10 ticks) ──────────
-    if (this.tickCount % 10 === 0) {
-      const activeReminders = this.reminders.filter(
-        (r) => r.status === 'active' || r.status === 'snoozed',
-      ).length;
-      info('scheduler:heartbeat', {
-        tick: this.tickCount,
-        jobs: this.jobs.length,
-        reminders: this.reminders.length,
-        activeReminders,
-        running: [...this.running],
-      });
-    }
 
     // ── Cron jobs (once per minute) ───────────────────────
     if (isNewMinute) {
@@ -259,24 +243,7 @@ export class CronScheduler {
     if (this.reminders.length === 0) return;
 
     for (const reminder of this.reminders) {
-      const fires = shouldFire(reminder, now);
-
-      // Log first check for each reminder (diagnostics)
-      if (reminder.status === 'active' || reminder.status === 'snoozed') {
-        if (this.tickCount <= 2 || this.tickCount % 10 === 0) {
-          info('reminder:check', {
-            id: reminder.id,
-            status: reminder.status,
-            type: reminder.type,
-            fireAt: reminder.fireAt,
-            snoozedUntil: reminder.snoozedUntil,
-            now: now.toISOString(),
-            shouldFire: fires,
-          });
-        }
-      }
-
-      if (!fires) continue;
+      if (!shouldFire(reminder, now)) continue;
 
       info('reminder:fire', {
         id: reminder.id,
@@ -355,16 +322,18 @@ export class CronScheduler {
 
 /**
  * Strip extension loading noise from subprocess stdout.
- * Lines like "[cron] ...", "[plan-mode] ..." are internal logs,
- * not the agent's actual response.
+ * Matches known Pi extension log prefixes — avoids stripping
+ * legitimate output like Markdown checkboxes or bracketed references.
  */
+const KNOWN_EXT_PREFIXES = /^\[(cron|plan-mode|sero|git|container|workspace|terminal|auth)\]/;
+
 export function stripExtensionNoise(stdout: string): string {
   return stdout
     .split('\n')
     .filter((line) => {
       if (!line.trim()) return false;
-      // Skip extension console.log noise
-      if (/^\[[\w-]+\]/.test(line)) return false;
+      // Skip known extension console.log noise
+      if (KNOWN_EXT_PREFIXES.test(line)) return false;
       // Skip Pi SDK startup messages
       if (line.startsWith('Loading') || line.startsWith('Loaded')) return false;
       return true;

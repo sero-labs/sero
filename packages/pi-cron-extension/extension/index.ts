@@ -37,12 +37,16 @@ import {
 
 // ── Module-level singleton state ───────────────────────────────
 // Shared across all invocations of the default export (multiple sessions).
+// The scheduler is ref-counted: each session_start increments, each
+// session_shutdown decrements. The scheduler only stops when all sessions
+// have shut down (refCount reaches 0).
 
 let statePath = '';
 let workspaceCwd = '';
 let scheduler: CronScheduler | null = null;
 let stateWatcher: StateWatcher | null = null;
 let initialized = false;
+let sessionRefCount = 0;
 
 function getStatePath(): string { return statePath; }
 function getScheduler(): CronScheduler | null { return scheduler; }
@@ -121,10 +125,10 @@ async function ensureInitialized(cwd: string): Promise<void> {
     info('scheduler:autostart', { jobs: state.jobs.length, reminders: state.reminders.length });
     scheduler = createScheduler();
     scheduler.start(state.jobs, workspaceCwd, state.reminders);
-    startStateWatcher();
-    stateWatcher?.markOwnWrite();
     state.schedulerActive = true;
+    // Write first to ensure the directory exists before arming the watcher
     await writeState(statePath, state);
+    startStateWatcher();
   } else if (state.schedulerActive) {
     info('scheduler:reset-stale-flag');
     state.schedulerActive = false;
@@ -144,9 +148,10 @@ async function startScheduler(): Promise<string> {
   const state = await readState(statePath);
   scheduler = createScheduler();
   scheduler.start(state.jobs, workspaceCwd, state.reminders);
-  startStateWatcher();
   state.schedulerActive = true;
+  // Write first to ensure the directory exists before arming the watcher
   await writeState(statePath, state);
+  startStateWatcher();
   const activeReminders = state.reminders.filter(
     (r) => r.status === 'active' || r.status === 'snoozed',
   ).length;
@@ -227,20 +232,40 @@ export default function (pi: ExtensionAPI) {
   pi.on('session_start', async (_event, ctx) => {
     if (!initialized) initLogger(pi, resolveStatePath(ctx.cwd));
     await ensureInitialized(ctx.cwd);
-    info('session:start', { cwd: ctx.cwd });
+    sessionRefCount++;
+    info('session:start', { cwd: ctx.cwd, refCount: sessionRefCount });
   });
 
   pi.on('session_switch', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
-    setLogPath(statePath);
+    // Only update the global statePath if it resolves to the same location.
+    // In Sero mode (SERO_HOME set) all sessions share one path. In Pi CLI
+    // mode different cwds would resolve differently — don't overwrite so
+    // the scheduler keeps writing to the original state file.
+    const newPath = resolveStatePath(ctx.cwd);
+    if (newPath === statePath) {
+      setLogPath(statePath);
+    } else {
+      warn('session:switch-path-mismatch', {
+        current: statePath,
+        requested: newPath,
+        hint: 'Ignoring — scheduler bound to original state path',
+      });
+    }
     info('session:switch', { cwd: ctx.cwd });
   });
 
   pi.on('session_shutdown', async () => {
-    info('session:shutdown', { schedulerWasRunning: scheduler?.isRunning() ?? false });
-    stateWatcher?.stop();
-    stateWatcher = null;
-    if (scheduler?.isRunning()) { scheduler.stop(); scheduler = null; }
+    sessionRefCount = Math.max(0, sessionRefCount - 1);
+    info('session:shutdown', { refCount: sessionRefCount, schedulerRunning: scheduler?.isRunning() ?? false });
+
+    // Only tear down the singleton when the last session exits
+    if (sessionRefCount === 0) {
+      stateWatcher?.stop();
+      stateWatcher = null;
+      if (scheduler?.isRunning()) { scheduler.stop(); scheduler = null; }
+      // Allow re-initialization if a new session starts later
+      initialized = false;
+    }
   });
 
   // ── Command: /cron ─────────────────────────────────────────
