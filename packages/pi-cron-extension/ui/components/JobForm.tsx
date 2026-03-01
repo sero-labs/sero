@@ -14,6 +14,7 @@ import {
 import { cn } from '@sero/ui/lib/utils';
 import { validateCron, cronToHuman } from '../../shared/cron';
 import { CRON_PRESETS } from '../lib/cron-utils';
+import { ModelPicker } from './ModelPicker';
 import type { CronJob } from '../../shared/types';
 
 interface JobFormProps {
@@ -229,16 +230,9 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Model
             </label>
-            <input
-              type="text"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="sonnet"
-              className={cn(inputCls, 'font-mono')}
-            />
+            <ModelPicker value={model} onChange={setModel} />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Model pattern or ID — e.g. "sonnet", "openai/gpt-4o",
-              "gemini:high". Leave blank for default.
+              Choose a model or leave as default.
             </p>
           </div>
         </form>

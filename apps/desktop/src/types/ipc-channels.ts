@@ -89,6 +89,10 @@ export const IpcChannels = {
     /** Send a prompt to an app's dedicated agent session. Returns text response. */
     prompt: 'sero:app-agent:prompt',
   },
+  models: {
+    /** List all available models (session-independent). Returns AvailableModelGroup[]. */
+    list: 'sero:models:list',
+  },
   imagegen: {
     /** Generate images via Gemini Nano Banana. Returns generation metadata. */
     generate: 'sero:imagegen:generate',

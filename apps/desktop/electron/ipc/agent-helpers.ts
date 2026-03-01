@@ -307,12 +307,12 @@ const PROVIDER_LOGO_MAP: Record<string, string> = {
   'kimi-coding': 'openai',
 };
 
-function providerLogo(provider: string): string {
+export function providerLogo(provider: string): string {
   const slug = PROVIDER_LOGO_MAP[provider] ?? provider;
   return `https://models.dev/logos/${slug}.svg`;
 }
 
-function providerDisplayName(provider: string): string {
+export function providerDisplayName(provider: string): string {
   return PROVIDER_NAMES[provider] ?? provider.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
