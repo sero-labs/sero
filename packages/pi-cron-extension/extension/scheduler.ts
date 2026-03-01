@@ -11,16 +11,28 @@ import { matchesCron } from '../shared/cron';
 import { shouldFire, statusAfterFire } from '../shared/reminder-utils';
 import { info, warn, error as logError } from './logger';
 
-// ── Subprocess runner ───────────────────────────────────────────
+// ── Job runner types ────────────────────────────────────────────
 
-/** Maximum buffer size per stream (1 MB). Prevents OOM on chatty jobs. */
-const MAX_BUFFER = 1_048_576;
-
-interface RunResult {
+export interface RunResult {
   stdout: string;
   stderr: string;
   exitCode: number;
 }
+
+/**
+ * A function that executes a prompt and returns the result.
+ * The scheduler uses this to run jobs — callers can inject a transient
+ * session runner (Sero) or fall back to the subprocess runner (Pi CLI).
+ */
+export type JobRunner = (
+  prompt: string,
+  opts: SubprocessOptions,
+) => Promise<RunResult>;
+
+// ── Subprocess runner (default / Pi CLI fallback) ───────────────
+
+/** Maximum buffer size per stream (1 MB). Prevents OOM on chatty jobs. */
+const MAX_BUFFER = 1_048_576;
 
 export interface SubprocessOptions {
   model?: string;
@@ -122,10 +134,12 @@ export class CronScheduler {
   private jobs: CronJob[] = [];
   private reminders: Reminder[] = [];
   private callbacks: SchedulerCallbacks;
+  private jobRunner: JobRunner;
   private cwd: string | undefined;
 
-  constructor(callbacks?: SchedulerCallbacks) {
+  constructor(callbacks?: SchedulerCallbacks, jobRunner?: JobRunner) {
     this.callbacks = callbacks ?? {};
+    this.jobRunner = jobRunner ?? runPiSubprocess;
   }
 
   // ── Lifecycle ───────────────────────────────────────────
@@ -284,7 +298,7 @@ export class CronScheduler {
           job.prompt
         : job.prompt;
 
-      const result = await runPiSubprocess(prompt, {
+      const result = await this.jobRunner(prompt, {
         model: job.model,
         cwd: this.cwd,
       });

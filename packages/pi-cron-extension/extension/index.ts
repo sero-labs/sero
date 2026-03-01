@@ -21,7 +21,8 @@ import { Type } from '@sinclair/typebox';
 import type { CronRunResult, Reminder } from '../shared/types';
 import { MAX_RUN_RESULTS } from '../shared/types';
 import { resolveStatePath, withStateLock, readState, writeState } from './state-io';
-import { CronScheduler } from './scheduler';
+import { CronScheduler, type JobRunner } from './scheduler';
+import { runTransientJob } from './transient-session';
 import { StateWatcher } from './state-watcher';
 import { initLogger, setLogPath, info, warn, error as logError } from './logger';
 import { initNotifier, notifyReminder, notifyJobComplete } from './notifier';
@@ -80,19 +81,36 @@ async function persistReminderUpdate(updated: Reminder): Promise<void> {
   });
 }
 
+/**
+ * Resolve the job runner for this environment.
+ * In Sero mode (SERO_HOME set), use transient in-memory sessions so
+ * jobs run independently of user sessions and clean up after themselves.
+ * In Pi CLI mode, fall back to the subprocess runner.
+ */
+function resolveJobRunner(): JobRunner | undefined {
+  if (process.env.SERO_HOME) {
+    info('scheduler:using-transient-sessions');
+    return runTransientJob;
+  }
+  return undefined; // uses default subprocess runner
+}
+
 function createScheduler(): CronScheduler {
-  return new CronScheduler({
-    onJobComplete: async (result) => {
-      await appendRunResult(result).catch(() => {});
-      const state = statePath ? await readState(statePath) : null;
-      notifyJobComplete(result.jobName, result.ok, result.durationMs, state?.notificationSettings ?? undefined);
+  return new CronScheduler(
+    {
+      onJobComplete: async (result) => {
+        await appendRunResult(result).catch(() => {});
+        const state = statePath ? await readState(statePath) : null;
+        notifyJobComplete(result.jobName, result.ok, result.durationMs, state?.notificationSettings ?? undefined);
+      },
+      onReminderFire: async (reminder) => {
+        const state = statePath ? await readState(statePath) : null;
+        notifyReminder(reminder, state?.notificationSettings ?? undefined);
+      },
+      onReminderUpdate: (updated) => { persistReminderUpdate(updated).catch(() => {}); },
     },
-    onReminderFire: async (reminder) => {
-      const state = statePath ? await readState(statePath) : null;
-      notifyReminder(reminder, state?.notificationSettings ?? undefined);
-    },
-    onReminderUpdate: (updated) => { persistReminderUpdate(updated).catch(() => {}); },
-  });
+    resolveJobRunner(),
+  );
 }
 
 function startStateWatcher(): void {
