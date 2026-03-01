@@ -1,6 +1,8 @@
 /**
  * CronApp — Sero web UI for the cron scheduler extension.
  *
+ * Tabs: Jobs | Reminders | History
+ *
  * Uses useAppState to read/write the same state.json the Pi extension
  * writes. Changes from either direction are reflected instantly.
  */
@@ -9,112 +11,157 @@ import { useState, useCallback, useMemo } from 'react';
 import { useAppState, useAgentPrompt } from '@sero/app-runtime';
 import { Button } from '@sero/ui/components/ui/button';
 import { Card } from '@sero/ui/components/ui/card';
-import type { CronState, CronJob } from '../shared/types';
-import { DEFAULT_CRON_STATE } from '../shared/types';
+import type { CronState, CronJob, Reminder, NotificationSettings } from '../shared/types';
+import { DEFAULT_CRON_STATE, DEFAULT_NOTIFICATION_SETTINGS } from '../shared/types';
+import { snoozeReminder } from '../shared/reminder-utils';
 import { SchedulerBar } from './components/SchedulerBar';
 import { JobCard } from './components/JobCard';
 import { JobForm } from './components/JobForm';
 import { RunHistory } from './components/RunHistory';
+import { ReminderList } from './components/ReminderList';
+import { ReminderForm } from './components/ReminderForm';
 import './styles.css';
 
-type Tab = 'jobs' | 'history';
+type Tab = 'jobs' | 'reminders' | 'history';
 
 export function CronApp() {
   const [state, updateState] = useAppState<CronState>(DEFAULT_CRON_STATE);
   const prompt = useAgentPrompt();
 
-  const [showForm, setShowForm] = useState(false);
+  const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<CronJob | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('jobs');
+  const [showReminderForm, setShowReminderForm] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('reminders');
+
+  // Ensure reminders array exists (migration)
+  const reminders = state.reminders ?? [];
 
   // ── Derived stats ────────────────────────────────────────
 
   const stats = useMemo(() => {
-    const total = state.jobs.length;
-    const active = state.jobs.filter((j) => !j.disabled).length;
-    const disabled = total - active;
-    return { total, active, disabled };
-  }, [state.jobs]);
+    const totalJobs = state.jobs.length;
+    const activeJobs = state.jobs.filter((j) => !j.disabled).length;
+    const disabledJobs = totalJobs - activeJobs;
+    const totalReminders = reminders.length;
+    const activeReminders = reminders.filter(
+      (r) => r.status === 'active' || r.status === 'snoozed',
+    ).length;
+    return { totalJobs, activeJobs, disabledJobs, totalReminders, activeReminders };
+  }, [state.jobs, reminders]);
 
-  // ── Scheduler toggle (via agent) ─────────────────────────
+  // ── Scheduler toggle ─────────────────────────────────────
 
   const toggleScheduler = useCallback(() => {
-    if (state.schedulerActive) {
-      prompt('Stop the cron scheduler using /cron off');
-    } else {
-      prompt('Start the cron scheduler using /cron on');
-    }
+    prompt(state.schedulerActive
+      ? 'Stop the cron scheduler using /cron off'
+      : 'Start the cron scheduler using /cron on');
   }, [state.schedulerActive, prompt]);
 
-  // ── Autostart toggle ─────────────────────────────────────
-
   const handleAutostartChange = useCallback(
-    (enabled: boolean) => {
-      updateState((prev) => ({ ...prev, autostart: enabled }));
-    },
+    (enabled: boolean) => updateState((prev) => ({ ...prev, autostart: enabled })),
+    [updateState],
+  );
+
+  const handleNotificationSettingsChange = useCallback(
+    (settings: NotificationSettings) =>
+      updateState((prev) => ({ ...prev, notificationSettings: settings })),
     [updateState],
   );
 
   // ── Job CRUD ─────────────────────────────────────────────
 
-  const handleAddJob = useCallback(() => {
-    setEditingJob(null);
-    setShowForm(true);
+  const handleAddJob = useCallback(() => { setEditingJob(null); setShowJobForm(true); }, []);
+
+  const handleEditJob = useCallback((name: string) => {
+    const job = state.jobs.find((j) => j.name === name);
+    if (job) { setEditingJob(job); setShowJobForm(true); }
+  }, [state.jobs]);
+
+  const handleSaveJob = useCallback((job: CronJob) => {
+    updateState((prev) => {
+      const idx = prev.jobs.findIndex((j) => j.name === job.name);
+      const jobs = idx >= 0
+        ? prev.jobs.map((j) => (j.name === job.name ? job : j))
+        : [...prev.jobs, job];
+      return { ...prev, jobs };
+    });
+  }, [updateState]);
+
+  const handleToggleJobEnabled = useCallback((name: string) => {
+    updateState((prev) => ({
+      ...prev,
+      jobs: prev.jobs.map((j) => j.name === name ? { ...j, disabled: !j.disabled } : j),
+    }));
+  }, [updateState]);
+
+  const handleRemoveJob = useCallback((name: string) => {
+    updateState((prev) => ({ ...prev, jobs: prev.jobs.filter((j) => j.name !== name) }));
+  }, [updateState]);
+
+  const handleRunJob = useCallback((name: string) => {
+    prompt(`Run the cron job "${name}" immediately using the cron tool with action run.`);
+  }, [prompt]);
+
+  // ── Reminder CRUD ────────────────────────────────────────
+
+  const handleAddReminder = useCallback(() => {
+    setEditingReminder(null); setShowReminderForm(true);
   }, []);
 
-  const handleEditJob = useCallback(
-    (name: string) => {
-      const job = state.jobs.find((j) => j.name === name);
-      if (job) {
-        setEditingJob(job);
-        setShowForm(true);
-      }
-    },
-    [state.jobs],
-  );
+  const handleEditReminder = useCallback((id: string) => {
+    const r = reminders.find((rem) => rem.id === id);
+    if (r) { setEditingReminder(r); setShowReminderForm(true); }
+  }, [reminders]);
 
-  const handleSaveJob = useCallback(
-    (job: CronJob) => {
-      updateState((prev) => {
-        const existing = prev.jobs.findIndex((j) => j.name === job.name);
-        const jobs =
-          existing >= 0
-            ? prev.jobs.map((j) => (j.name === job.name ? job : j))
-            : [...prev.jobs, job];
-        return { ...prev, jobs };
-      });
-    },
-    [updateState],
-  );
+  const handleSaveReminder = useCallback((reminder: Reminder) => {
+    updateState((prev) => {
+      const list = prev.reminders ?? [];
+      const idx = list.findIndex((r) => r.id === reminder.id);
+      const updated = idx >= 0
+        ? list.map((r) => (r.id === reminder.id ? reminder : r))
+        : [...list, reminder];
+      return { ...prev, reminders: updated };
+    });
+  }, [updateState]);
 
-  const handleToggleEnabled = useCallback(
-    (name: string) => {
-      updateState((prev) => ({
-        ...prev,
-        jobs: prev.jobs.map((j) =>
-          j.name === name ? { ...j, disabled: !j.disabled } : j,
-        ),
-      }));
-    },
-    [updateState],
-  );
+  const handleRemoveReminder = useCallback((id: string) => {
+    updateState((prev) => ({
+      ...prev,
+      reminders: (prev.reminders ?? []).filter((r) => r.id !== id),
+    }));
+  }, [updateState]);
 
-  const handleRemoveJob = useCallback(
-    (name: string) => {
-      updateState((prev) => ({
-        ...prev,
-        jobs: prev.jobs.filter((j) => j.name !== name),
-      }));
-    },
-    [updateState],
-  );
+  const handleSnoozeReminder = useCallback((id: string, minutes: number) => {
+    updateState((prev) => ({
+      ...prev,
+      reminders: (prev.reminders ?? []).map((r) =>
+        r.id === id ? snoozeReminder(r, minutes) : r,
+      ),
+    }));
+  }, [updateState]);
 
-  const handleRunJob = useCallback(
-    (name: string) => {
-      prompt(`Run the cron job "${name}" immediately using the cron tool with action run.`);
-    },
-    [prompt],
-  );
+  const handleCompleteReminder = useCallback((id: string) => {
+    updateState((prev) => ({
+      ...prev,
+      reminders: (prev.reminders ?? []).map((r) =>
+        r.id === id
+          ? { ...r, status: 'completed' as const, completedAt: new Date().toISOString(), snoozedUntil: undefined }
+          : r,
+      ),
+    }));
+  }, [updateState]);
+
+  const handleToggleReminderEnabled = useCallback((id: string) => {
+    updateState((prev) => ({
+      ...prev,
+      reminders: (prev.reminders ?? []).map((r) =>
+        r.id === id
+          ? { ...r, status: r.status === 'disabled' ? 'active' as const : 'disabled' as const, snoozedUntil: undefined }
+          : r,
+      ),
+    }));
+  }, [updateState]);
 
   // ── Render ───────────────────────────────────────────────
 
@@ -124,15 +171,20 @@ export function CronApp() {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">
-            ⏰ Cron Scheduler
+            ⏰ Scheduler & Reminders
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Schedule recurring agent prompts
+            Cron jobs, reminders, and notifications
           </p>
         </div>
-        <Button size="sm" onClick={handleAddJob}>
-          + New Job
-        </Button>
+        <div className="flex gap-2">
+          {activeTab === 'reminders' && (
+            <Button size="sm" onClick={handleAddReminder}>+ Reminder</Button>
+          )}
+          {activeTab === 'jobs' && (
+            <Button size="sm" onClick={handleAddJob}>+ Job</Button>
+          )}
+        </div>
       </div>
 
       {/* Scheduler status bar */}
@@ -140,73 +192,90 @@ export function CronApp() {
         <SchedulerBar
           active={state.schedulerActive}
           autostart={state.autostart}
-          jobCount={stats.total}
-          activeCount={stats.active}
-          disabledCount={stats.disabled}
+          jobCount={stats.totalJobs}
+          activeCount={stats.activeJobs}
+          disabledCount={stats.disabledJobs}
+          reminderCount={stats.activeReminders}
+          notificationSettings={state.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS}
           onToggle={toggleScheduler}
           onAutostartChange={handleAutostartChange}
+          onNotificationSettingsChange={handleNotificationSettingsChange}
         />
       </div>
 
       {/* Tab bar */}
       <div className="mb-3 flex gap-1 border-b border-border">
-        {(['jobs', 'history'] as const).map((tab) => (
+        {([
+          { key: 'reminders' as const, label: `Reminders (${stats.totalReminders})` },
+          { key: 'jobs' as const, label: `Jobs (${stats.totalJobs})` },
+          { key: 'history' as const, label: `History (${state.lastRunResults.length})` },
+        ]).map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
             className={`border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${
-              activeTab === tab
+              activeTab === tab.key
                 ? 'border-primary text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {tab === 'jobs'
-              ? `Jobs (${stats.total})`
-              : `History (${state.lastRunResults.length})`}
+            {tab.label}
           </button>
         ))}
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'jobs' ? (
+        {activeTab === 'reminders' && (
+          <ReminderList
+            reminders={reminders}
+            onEdit={handleEditReminder}
+            onRemove={handleRemoveReminder}
+            onSnooze={handleSnoozeReminder}
+            onComplete={handleCompleteReminder}
+            onToggleEnabled={handleToggleReminderEnabled}
+            onAdd={handleAddReminder}
+          />
+        )}
+        {activeTab === 'jobs' && (
           <JobsTab
             jobs={state.jobs}
             schedulerActive={state.schedulerActive}
             onEdit={handleEditJob}
-            onToggleEnabled={handleToggleEnabled}
+            onToggleEnabled={handleToggleJobEnabled}
             onRemove={handleRemoveJob}
             onRun={handleRunJob}
             onAdd={handleAddJob}
           />
-        ) : (
+        )}
+        {activeTab === 'history' && (
           <Card className="gap-0 py-0 shadow-none">
             <RunHistory results={state.lastRunResults} />
           </Card>
         )}
       </div>
 
-      {/* Add/Edit dialog */}
+      {/* Dialogs */}
       <JobForm
-        open={showForm}
-        onClose={() => setShowForm(false)}
+        open={showJobForm}
+        onClose={() => setShowJobForm(false)}
         onSave={handleSaveJob}
         editingJob={editingJob}
+      />
+      <ReminderForm
+        open={showReminderForm}
+        onClose={() => setShowReminderForm(false)}
+        onSave={handleSaveReminder}
+        editingReminder={editingReminder}
       />
     </div>
   );
 }
 
-// ── Sub-component ──────────────────────────────────────────────
+// ── Jobs sub-component ─────────────────────────────────────────
 
 function JobsTab({
-  jobs,
-  schedulerActive,
-  onEdit,
-  onToggleEnabled,
-  onRemove,
-  onRun,
-  onAdd,
+  jobs, schedulerActive, onEdit, onToggleEnabled, onRemove, onRun, onAdd,
 }: {
   jobs: CronJob[];
   schedulerActive: boolean;
@@ -220,16 +289,11 @@ function JobsTab({
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center animate-cron-fade-in">
         <div className="mb-4 text-4xl">⏰</div>
-        <h2 className="text-base font-medium text-foreground">
-          No cron jobs yet
-        </h2>
+        <h2 className="text-base font-medium text-foreground">No cron jobs yet</h2>
         <p className="mt-1.5 max-w-[240px] text-xs leading-relaxed text-muted-foreground">
-          Create a job to schedule recurring agent prompts, or ask the agent to
-          set one up for you.
+          Create a job to schedule recurring agent prompts.
         </p>
-        <Button size="sm" className="mt-4" onClick={onAdd}>
-          + New Job
-        </Button>
+        <Button size="sm" className="mt-4" onClick={onAdd}>+ New Job</Button>
       </div>
     );
   }

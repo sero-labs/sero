@@ -1,13 +1,14 @@
 /**
  * Cron scheduler — ticks every 30s, matches jobs against local time,
- * and spawns isolated `pi -p` subprocesses.
+ * spawns isolated `pi -p` subprocesses, and fires reminders.
  *
  * Adapted from pi-cron for Sero's JSON state format.
  */
 
 import { spawn } from 'node:child_process';
-import type { CronJob, CronRunResult } from '../shared/types';
+import type { CronJob, CronRunResult, Reminder } from '../shared/types';
 import { matchesCron } from '../shared/cron';
+import { shouldFire, statusAfterFire } from '../shared/reminder-utils';
 import { info, warn, error as logError } from './logger';
 
 // ── Subprocess runner ───────────────────────────────────────────
@@ -104,6 +105,10 @@ export function runPiSubprocess(
 export interface SchedulerCallbacks {
   onJobStart?: (job: CronJob) => void;
   onJobComplete?: (result: CronRunResult) => void;
+  /** Called when a reminder fires — the callback should show the notification. */
+  onReminderFire?: (reminder: Reminder) => void;
+  /** Called after a reminder fires with the updated reminder (for state persistence). */
+  onReminderUpdate?: (updated: Reminder) => void;
 }
 
 // ── Scheduler ───────────────────────────────────────────────────
@@ -115,8 +120,10 @@ export class CronScheduler {
   private lastTickMinute = '';
   private running = new Set<string>();
   private jobs: CronJob[] = [];
+  private reminders: Reminder[] = [];
   private callbacks: SchedulerCallbacks;
   private cwd: string | undefined;
+  private tickCount = 0;
 
   constructor(callbacks?: SchedulerCallbacks) {
     this.callbacks = callbacks ?? {};
@@ -124,12 +131,16 @@ export class CronScheduler {
 
   // ── Lifecycle ───────────────────────────────────────────
 
-  start(jobs: CronJob[], cwd?: string): void {
+  start(jobs: CronJob[], cwd?: string, reminders?: Reminder[]): void {
     if (this.timer) return;
     this.jobs = jobs;
+    this.reminders = reminders ?? [];
     this.cwd = cwd;
     const enabled = jobs.filter((j) => !j.disabled).length;
-    info('scheduler:start', { totalJobs: jobs.length, enabled, cwd });
+    const activeReminders = this.reminders.filter(
+      (r) => r.status === 'active' || r.status === 'snoozed',
+    ).length;
+    info('scheduler:start', { totalJobs: jobs.length, enabled, activeReminders, cwd });
     this.tick();
     this.timer = setInterval(() => this.tick(), TICK_INTERVAL_MS);
   }
@@ -149,6 +160,27 @@ export class CronScheduler {
   /** Update the jobs list (called when state changes externally). */
   updateJobs(jobs: CronJob[]): void {
     this.jobs = jobs;
+  }
+
+  /** Update the reminders list (called when state changes externally). */
+  updateReminders(reminders: Reminder[]): void {
+    const prev = this.reminders.length;
+    this.reminders = reminders;
+    const active = reminders.filter(
+      (r) => r.status === 'active' || r.status === 'snoozed',
+    ).length;
+    if (prev !== reminders.length || active > 0) {
+      info('scheduler:reminders-updated', {
+        previous: prev,
+        current: reminders.length,
+        active,
+      });
+    }
+  }
+
+  /** Get the count of in-memory reminders (for diagnostics). */
+  getReminderCount(): number {
+    return this.reminders.length;
   }
 
   /** Get names of currently executing jobs. */
@@ -176,29 +208,93 @@ export class CronScheduler {
 
   private tick(): void {
     const now = new Date();
+    this.tickCount++;
     const currentMinute = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
 
-    // Only fire once per minute
-    if (currentMinute === this.lastTickMinute) return;
-    this.lastTickMinute = currentMinute;
+    // Only fire cron jobs once per minute (reminders checked every tick)
+    const isNewMinute = currentMinute !== this.lastTickMinute;
+    if (isNewMinute) this.lastTickMinute = currentMinute;
 
-    for (const job of this.jobs) {
-      if (job.disabled || this.running.has(job.name)) continue;
+    // ── Heartbeat log (every ~5 min = 10 ticks) ──────────
+    if (this.tickCount % 10 === 0) {
+      const activeReminders = this.reminders.filter(
+        (r) => r.status === 'active' || r.status === 'snoozed',
+      ).length;
+      info('scheduler:heartbeat', {
+        tick: this.tickCount,
+        jobs: this.jobs.length,
+        reminders: this.reminders.length,
+        activeReminders,
+        running: [...this.running],
+      });
+    }
 
-      try {
-        if (!matchesCron(job.schedule, now)) continue;
-      } catch (err) {
-        warn('job:bad-schedule', {
-          job: job.name,
-          schedule: job.schedule,
-          error: err instanceof Error ? err.message : 'parse error',
-        });
-        continue;
+    // ── Cron jobs (once per minute) ───────────────────────
+    if (isNewMinute) {
+      for (const job of this.jobs) {
+        if (job.disabled || this.running.has(job.name)) continue;
+
+        try {
+          if (!matchesCron(job.schedule, now)) continue;
+        } catch (err) {
+          warn('job:bad-schedule', {
+            job: job.name,
+            schedule: job.schedule,
+            error: err instanceof Error ? err.message : 'parse error',
+          });
+          continue;
+        }
+
+        info('job:trigger-scheduled', { job: job.name, schedule: job.schedule });
+        this.running.add(job.name);
+        this.execute(job).finally(() => this.running.delete(job.name));
+      }
+    }
+
+    // ── Reminders (every tick — important for snoozed/once) ─
+    this.tickReminders(now);
+  }
+
+  private tickReminders(now: Date): void {
+    if (this.reminders.length === 0) return;
+
+    for (const reminder of this.reminders) {
+      const fires = shouldFire(reminder, now);
+
+      // Log first check for each reminder (diagnostics)
+      if (reminder.status === 'active' || reminder.status === 'snoozed') {
+        if (this.tickCount <= 2 || this.tickCount % 10 === 0) {
+          info('reminder:check', {
+            id: reminder.id,
+            status: reminder.status,
+            type: reminder.type,
+            fireAt: reminder.fireAt,
+            snoozedUntil: reminder.snoozedUntil,
+            now: now.toISOString(),
+            shouldFire: fires,
+          });
+        }
       }
 
-      info('job:trigger-scheduled', { job: job.name, schedule: job.schedule });
-      this.running.add(job.name);
-      this.execute(job).finally(() => this.running.delete(job.name));
+      if (!fires) continue;
+
+      info('reminder:fire', {
+        id: reminder.id,
+        title: reminder.title,
+        type: reminder.type,
+        channel: reminder.channel,
+      });
+
+      // Notify
+      this.callbacks.onReminderFire?.(reminder);
+
+      // Compute post-fire state
+      const updated = statusAfterFire(reminder);
+      this.callbacks.onReminderUpdate?.(updated);
+
+      // Update in-memory list so we don't re-fire this tick
+      const idx = this.reminders.findIndex((r) => r.id === reminder.id);
+      if (idx >= 0) this.reminders[idx] = updated;
     }
   }
 
@@ -224,12 +320,14 @@ export class CronScheduler {
         );
       }
 
-      info('job:complete', { job: job.name, durationMs, ok: true });
+      const output = stripExtensionNoise(result.stdout);
+      info('job:complete', { job: job.name, durationMs, ok: true, outputLen: output.length });
       this.callbacks.onJobComplete?.({
         jobName: job.name,
         startedAt: startedAt.toISOString(),
         durationMs,
         ok: true,
+        output: output.slice(0, 4000), // cap at 4KB
       });
     } catch (err: unknown) {
       const durationMs = Date.now() - startedAt.getTime();
@@ -251,4 +349,26 @@ export class CronScheduler {
       });
     }
   }
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+
+/**
+ * Strip extension loading noise from subprocess stdout.
+ * Lines like "[cron] ...", "[plan-mode] ..." are internal logs,
+ * not the agent's actual response.
+ */
+export function stripExtensionNoise(stdout: string): string {
+  return stdout
+    .split('\n')
+    .filter((line) => {
+      if (!line.trim()) return false;
+      // Skip extension console.log noise
+      if (/^\[[\w-]+\]/.test(line)) return false;
+      // Skip Pi SDK startup messages
+      if (line.startsWith('Loading') || line.startsWith('Loaded')) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
 }
