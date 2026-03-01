@@ -275,7 +275,16 @@ export class CronScheduler {
     this.callbacks.onJobStart?.(job);
 
     try {
-      const result = await runPiSubprocess(job.prompt, {
+      // Prepend workspace context so the agent knows the real working
+      // directory and never tries to use container paths like /workspace.
+      const prompt = this.cwd
+        ? `[Your working directory is ${this.cwd}. ` +
+          `Use relative paths (e.g. "daily-reports/file.md") to save files here. ` +
+          `The path "/workspace" does not exist — always prefer relative paths.]\n\n` +
+          job.prompt
+        : job.prompt;
+
+      const result = await runPiSubprocess(prompt, {
         model: job.model,
         cwd: this.cwd,
       });
