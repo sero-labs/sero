@@ -7,7 +7,7 @@
 
 import type { CronState, CronJob, CronRunResult } from '../shared/types';
 import { validateCron } from '../shared/cron';
-import type { CronScheduler } from './scheduler';
+import { type CronScheduler, stripExtensionNoise } from './scheduler';
 import { runPiSubprocess } from './scheduler';
 import { info, error as logError } from './logger';
 
@@ -188,11 +188,13 @@ export function handleRun(
     .then(async (sub) => {
       const durationMs = Date.now() - startedAt.getTime();
       const ok = sub.exitCode === 0 || !!sub.stdout;
+      const output = stripExtensionNoise(sub.stdout);
       const runResult: CronRunResult = {
         jobName: runJob.name,
         startedAt: startedAt.toISOString(),
         durationMs,
         ok,
+        output: output.slice(0, 4000),
         error: ok
           ? undefined
           : (sub.stderr || `Exit code ${sub.exitCode}`).slice(0, 2000),

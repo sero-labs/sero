@@ -1,323 +1,404 @@
 /**
- * Cron Extension — Pi extension for managing scheduled cron jobs.
+ * Cron Extension — Pi extension for managing scheduled cron jobs and reminders.
  *
  * Global-scoped: state at ~/.sero-ui/apps/cron/state.json (Sero)
  * or .sero/apps/cron/state.json relative to cwd (Pi CLI fallback).
  *
- * Tools (LLM-callable): cron (list, add, update, remove, enable, disable, run)
- * Commands (user): /cron
+ * Tools: current_time, cron, reminder
+ * Commands: /cron
+ *
+ * IMPORTANT: The scheduler is a MODULE-LEVEL singleton. The default export
+ * may be called multiple times (once per Sero session), but only one
+ * scheduler exists per process. This prevents double job execution.
  */
 
-import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { StringEnum } from '@mariozechner/pi-ai';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
-import type { CronState, CronRunResult } from '../shared/types';
-import { DEFAULT_CRON_STATE, MAX_RUN_RESULTS } from '../shared/types';
+import type { CronRunResult, Reminder } from '../shared/types';
+import { MAX_RUN_RESULTS } from '../shared/types';
+import { resolveStatePath, withStateLock, readState, writeState } from './state-io';
 import { CronScheduler } from './scheduler';
+import { StateWatcher } from './state-watcher';
 import { initLogger, setLogPath, info, warn, error as logError } from './logger';
+import { initNotifier, notifyReminder, notifyJobComplete } from './notifier';
 import {
   handleList, handleAdd, handleUpdate, handleRemove,
-  handleToggle, handleRun,
-  type ActionDeps,
+  handleToggle, handleRun, type ActionDeps,
 } from './actions';
+import {
+  handleReminderList, handleReminderAdd, handleReminderUpdate,
+  handleReminderRemove, handleReminderSnooze, handleReminderComplete,
+  handleReminderToggle, type ReminderActionDeps,
+} from './reminder-actions';
 
-// ── State file path ────────────────────────────────────────────
+// ── Module-level singleton state ───────────────────────────────
+// Shared across all invocations of the default export (multiple sessions).
+// The scheduler is ref-counted: each session_start increments, each
+// session_shutdown decrements. The scheduler only stops when all sessions
+// have shut down (refCount reaches 0).
 
-const STATE_REL_PATH = path.join('.sero', 'apps', 'cron', 'state.json');
+let statePath = '';
+let workspaceCwd = '';
+let scheduler: CronScheduler | null = null;
+let stateWatcher: StateWatcher | null = null;
+let initialized = false;
+let sessionRefCount = 0;
 
-function resolveStatePath(cwd: string): string {
-  const seroHome = process.env.SERO_HOME;
-  if (seroHome) {
-    return path.join(seroHome, 'apps', 'cron', 'state.json');
+function getStatePath(): string { return statePath; }
+function getScheduler(): CronScheduler | null { return scheduler; }
+function getCwd(): string { return workspaceCwd; }
+
+// ── Scheduler helpers (module-level, use singleton state) ──────
+
+async function appendRunResult(result: CronRunResult): Promise<void> {
+  if (!statePath) return;
+  await withStateLock(async () => {
+    const state = await readState(statePath);
+    state.lastRunResults.unshift(result);
+    if (state.lastRunResults.length > MAX_RUN_RESULTS) {
+      state.lastRunResults = state.lastRunResults.slice(0, MAX_RUN_RESULTS);
+    }
+    stateWatcher?.markOwnWrite();
+    await writeState(statePath, state);
+  });
+}
+
+async function persistReminderUpdate(updated: Reminder): Promise<void> {
+  if (!statePath) return;
+  await withStateLock(async () => {
+    const state = await readState(statePath);
+    const idx = state.reminders.findIndex((r) => r.id === updated.id);
+    if (idx >= 0) {
+      state.reminders[idx] = updated;
+      stateWatcher?.markOwnWrite();
+      await writeState(statePath, state);
+    }
+  });
+}
+
+function createScheduler(): CronScheduler {
+  return new CronScheduler({
+    onJobComplete: async (result) => {
+      await appendRunResult(result).catch(() => {});
+      const state = statePath ? await readState(statePath) : null;
+      notifyJobComplete(result.jobName, result.ok, result.durationMs, state?.notificationSettings ?? undefined);
+    },
+    onReminderFire: async (reminder) => {
+      const state = statePath ? await readState(statePath) : null;
+      notifyReminder(reminder, state?.notificationSettings ?? undefined);
+    },
+    onReminderUpdate: (updated) => { persistReminderUpdate(updated).catch(() => {}); },
+  });
+}
+
+function startStateWatcher(): void {
+  stateWatcher?.stop();
+  if (!statePath) return;
+  stateWatcher = new StateWatcher(statePath, () => scheduler);
+  stateWatcher.start();
+}
+
+// ── Initialization (runs once per process) ─────────────────────
+
+async function ensureInitialized(cwd: string): Promise<void> {
+  if (initialized) return;
+  initialized = true;
+
+  statePath = resolveStatePath(cwd);
+  workspaceCwd = cwd;
+  // Logger init needs a pi ref — deferred to first pi.on or tool call
+  info('init', { cwd, statePath });
+
+  if (process.env.SERO_CRON_SUBPROCESS) {
+    info('init:subprocess-mode');
+    return;
   }
-  return path.join(cwd, STATE_REL_PATH);
-}
 
-// ── File I/O (atomic writes with mutex) ────────────────────────
+  const state = await readState(statePath);
+  const hasWork = state.jobs.length > 0 || (state.reminders?.length ?? 0) > 0;
 
-/**
- * Simple async mutex to serialise read-modify-write cycles on state.json.
- * Prevents concurrent tool calls or scheduler callbacks from clobbering
- * each other's writes.
- */
-let stateMutexQueue: Promise<void> = Promise.resolve();
-
-function withStateLock<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = stateMutexQueue;
-  let resolve: () => void;
-  stateMutexQueue = new Promise<void>((r) => { resolve = r; });
-  return prev.then(fn).finally(() => resolve!());
-}
-
-async function readState(filePath: string): Promise<CronState> {
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw) as CronState;
-  } catch {
-    return { ...DEFAULT_CRON_STATE, jobs: [], lastRunResults: [] };
+  if (state.autostart && hasWork) {
+    info('scheduler:autostart', { jobs: state.jobs.length, reminders: state.reminders.length });
+    scheduler = createScheduler();
+    scheduler.start(state.jobs, workspaceCwd, state.reminders);
+    state.schedulerActive = true;
+    // Write first to ensure the directory exists before arming the watcher
+    await writeState(statePath, state);
+    startStateWatcher();
+  } else if (state.schedulerActive) {
+    info('scheduler:reset-stale-flag');
+    state.schedulerActive = false;
+    await writeState(statePath, state);
   }
 }
 
-async function writeState(
-  filePath: string,
-  state: CronState,
-): Promise<void> {
-  const dir = path.dirname(filePath);
-  await fs.mkdir(dir, { recursive: true });
-
-  const tmpPath = `${filePath}.tmp.${Date.now()}`;
-  await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
-  await fs.rename(tmpPath, filePath);
+async function startScheduler(): Promise<string> {
+  if (scheduler?.isRunning()) {
+    warn('scheduler:start-skipped', { reason: 'already running' });
+    return 'Scheduler is already running.';
+  }
+  if (!statePath) {
+    logError('scheduler:start-failed', { reason: 'no state path' });
+    return 'Error: no state path resolved.';
+  }
+  const state = await readState(statePath);
+  scheduler = createScheduler();
+  scheduler.start(state.jobs, workspaceCwd, state.reminders);
+  state.schedulerActive = true;
+  // Write first to ensure the directory exists before arming the watcher
+  await writeState(statePath, state);
+  startStateWatcher();
+  const activeReminders = state.reminders.filter(
+    (r) => r.status === 'active' || r.status === 'snoozed',
+  ).length;
+  info('scheduler:started', { jobs: state.jobs.length, activeReminders });
+  return `✓ Scheduler started (${state.jobs.length} jobs, ${activeReminders} reminders)`;
 }
 
-// ── Tool parameters ────────────────────────────────────────────
+async function stopScheduler(): Promise<string> {
+  if (!scheduler?.isRunning()) {
+    warn('scheduler:stop-skipped', { reason: 'not running' });
+    return 'Scheduler is not running.';
+  }
+  stateWatcher?.stop();
+  stateWatcher = null;
+  scheduler.stop();
+  scheduler = null;
+  if (statePath) {
+    const state = await readState(statePath);
+    state.schedulerActive = false;
+    await writeState(statePath, state);
+  }
+  return '✓ Scheduler stopped';
+}
+
+// ── Tool parameter schemas ─────────────────────────────────────
 
 const CronParams = Type.Object({
-  action: StringEnum([
-    'list', 'add', 'update', 'remove',
-    'enable', 'disable', 'run',
-  ] as const),
-  name: Type.Optional(
-    Type.String({ description: 'Job name (required for all except list)' }),
-  ),
-  schedule: Type.Optional(
-    Type.String({
-      description:
-        'Cron expression: "min hour dom month dow". Example: "0 9 * * 1-5" = weekdays at 9am',
-    }),
-  ),
-  prompt: Type.Optional(
-    Type.String({
-      description: 'Prompt to send to the agent when the job fires',
-    }),
-  ),
-  channel: Type.Optional(
-    Type.String({ description: 'Channel tag for grouping (default: "cron")' }),
-  ),
-  model: Type.Optional(
-    Type.String({
-      description:
-        'Model pattern or ID for this job (e.g. "sonnet", "openai/gpt-4o"). ' +
-        'Supports "provider/id" and optional ":<thinking>" suffix. ' +
-        'Omit to use the default model.',
-    }),
-  ),
+  action: StringEnum(['list', 'add', 'update', 'remove', 'enable', 'disable', 'run'] as const),
+  name: Type.Optional(Type.String({ description: 'Job name (required for all except list)' })),
+  schedule: Type.Optional(Type.String({
+    description: 'Cron expression: "min hour dom month dow". Example: "0 9 * * 1-5" = weekdays at 9am',
+  })),
+  prompt: Type.Optional(Type.String({ description: 'Prompt to send to the agent when the job fires' })),
+  channel: Type.Optional(Type.String({ description: 'Channel tag for grouping (default: "cron")' })),
+  model: Type.Optional(Type.String({ description: 'Model pattern or ID. Omit for default.' })),
 });
 
-// ── Extension ──────────────────────────────────────────────────
+const ReminderParams = Type.Object({
+  action: StringEnum(['list', 'add', 'update', 'remove', 'snooze', 'complete', 'enable', 'disable'] as const),
+  id: Type.Optional(Type.String({ description: 'Reminder ID (required for all except list/add)' })),
+  title: Type.Optional(Type.String({ description: 'Reminder title (required for add)' })),
+  notes: Type.Optional(Type.String({ description: 'Optional notes or details' })),
+  channel: Type.Optional(Type.String({ description: 'Delivery channel: "notification" (default) or "email"' })),
+  type: Type.Optional(Type.String({ description: '"once" (default) or "recurring"' })),
+  fire_at: Type.Optional(Type.String({
+    description: 'ISO datetime for one-time reminders. IMPORTANT: call current_time first to get the accurate current time.',
+  })),
+  schedule: Type.Optional(Type.String({ description: 'Cron expression for recurring reminders' })),
+  snooze_minutes: Type.Optional(Type.Number({ description: 'Snooze duration in minutes (default: 15). -1 for tomorrow 9am.' })),
+});
+
+// ── Extension factory (called per session) ─────────────────────
 
 export default function (pi: ExtensionAPI) {
   console.log('[cron] extension loaded');
-  let statePath = '';
-  let workspaceCwd = '';
-  let scheduler: CronScheduler | null = null;
 
-  // ── Scheduler callbacks ────────────────────────────────────
+  // Wire notification emitter (last writer wins — all pi instances share the same EventBus)
+  initNotifier(pi.events.emit.bind(pi.events));
 
-  async function appendRunResult(result: CronRunResult): Promise<void> {
-    if (!statePath) return;
-    await withStateLock(async () => {
-      const state = await readState(statePath);
-      state.lastRunResults.unshift(result);
-      if (state.lastRunResults.length > MAX_RUN_RESULTS) {
-        state.lastRunResults = state.lastRunResults.slice(0, MAX_RUN_RESULTS);
-      }
-      await writeState(statePath, state);
+  // Initialize logger with pi ref (needed for console prefix)
+  // Only the first call sets the file path; subsequent calls update the pi ref.
+  if (statePath) {
+    initLogger(pi, statePath);
+  }
+
+  // Eagerly initialize in Sero mode (once per process)
+  const seroHome = process.env.SERO_HOME;
+  if (seroHome && !process.env.SERO_CRON_SUBPROCESS && !initialized) {
+    const globalCwd = path.join(seroHome, 'workspaces', 'global');
+    initLogger(pi, resolveStatePath(globalCwd));
+    ensureInitialized(globalCwd).catch((err) => {
+      console.error('[cron] eager init failed:', err);
     });
-  }
-
-  function createScheduler(): CronScheduler {
-    return new CronScheduler({
-      onJobComplete: (result) => {
-        appendRunResult(result).catch(() => {});
-      },
-    });
-  }
-
-  async function startScheduler(): Promise<string> {
-    if (scheduler?.isRunning()) {
-      warn('scheduler:start-skipped', { reason: 'already running' });
-      return 'Scheduler is already running.';
-    }
-    if (!statePath) {
-      logError('scheduler:start-failed', { reason: 'no state path' });
-      return 'Error: no state path resolved.';
-    }
-
-    const state = await readState(statePath);
-    scheduler = createScheduler();
-    scheduler.start(state.jobs, workspaceCwd);
-
-    state.schedulerActive = true;
-    await writeState(statePath, state);
-
-    return `✓ Cron scheduler started (${state.jobs.length} jobs loaded)`;
-  }
-
-  async function stopScheduler(): Promise<string> {
-    if (!scheduler?.isRunning()) {
-      warn('scheduler:stop-skipped', { reason: 'not running' });
-      return 'Scheduler is not running.';
-    }
-    scheduler.stop();
-    scheduler = null;
-
-    if (statePath) {
-      const state = await readState(statePath);
-      state.schedulerActive = false;
-      await writeState(statePath, state);
-    }
-
-    return '✓ Cron scheduler stopped';
   }
 
   // ── Lifecycle ──────────────────────────────────────────────
 
   pi.on('session_start', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
-    workspaceCwd = ctx.cwd;
-    initLogger(pi, statePath);
-    info('session:start', { cwd: ctx.cwd, statePath });
-
-    // Skip scheduler in cron subprocess to prevent fork-bomb recursion.
-    // The subprocess only needs the tool registrations, not the scheduler.
-    if (process.env.SERO_CRON_SUBPROCESS) {
-      info('session:start:subprocess-mode');
-      return;
-    }
-
-    const state = await readState(statePath);
-
-    if (state.autostart && state.jobs.length > 0) {
-      info('scheduler:autostart', { jobs: state.jobs.length });
-      scheduler = createScheduler();
-      scheduler.start(state.jobs, workspaceCwd);
-      state.schedulerActive = true;
-      await writeState(statePath, state);
-    } else if (state.schedulerActive) {
-      info('scheduler:reset-stale-flag');
-      state.schedulerActive = false;
-      await writeState(statePath, state);
-    }
+    if (!initialized) initLogger(pi, resolveStatePath(ctx.cwd));
+    await ensureInitialized(ctx.cwd);
+    sessionRefCount++;
+    info('session:start', { cwd: ctx.cwd, refCount: sessionRefCount });
   });
 
   pi.on('session_switch', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
-    setLogPath(statePath);
+    // Only update the global statePath if it resolves to the same location.
+    // In Sero mode (SERO_HOME set) all sessions share one path. In Pi CLI
+    // mode different cwds would resolve differently — don't overwrite so
+    // the scheduler keeps writing to the original state file.
+    const newPath = resolveStatePath(ctx.cwd);
+    if (newPath === statePath) {
+      setLogPath(statePath);
+    } else {
+      warn('session:switch-path-mismatch', {
+        current: statePath,
+        requested: newPath,
+        hint: 'Ignoring — scheduler bound to original state path',
+      });
+    }
     info('session:switch', { cwd: ctx.cwd });
   });
 
   pi.on('session_shutdown', async () => {
-    info('session:shutdown', { schedulerWasRunning: scheduler?.isRunning() ?? false });
-    if (scheduler?.isRunning()) {
-      scheduler.stop();
-      scheduler = null;
+    sessionRefCount = Math.max(0, sessionRefCount - 1);
+    info('session:shutdown', { refCount: sessionRefCount, schedulerRunning: scheduler?.isRunning() ?? false });
+
+    // Only tear down the singleton when the last session exits
+    if (sessionRefCount === 0) {
+      stateWatcher?.stop();
+      stateWatcher = null;
+      if (scheduler?.isRunning()) { scheduler.stop(); scheduler = null; }
+      // Allow re-initialization if a new session starts later
+      initialized = false;
     }
   });
 
   // ── Command: /cron ─────────────────────────────────────────
 
   pi.registerCommand('cron', {
-    description: 'Toggle cron scheduler: /cron on | /cron off | /cron status',
+    description: 'Toggle scheduler: /cron on | /cron off | /cron status',
     handler: async (args, ctx) => {
+      if (ctx.cwd) await ensureInitialized(ctx.cwd);
       const arg = args?.trim().toLowerCase();
-
       if (arg === 'on' || arg === 'start') {
-        const result = await startScheduler();
-        ctx.ui?.notify(result, result.startsWith('✓') ? 'info' : 'error');
+        const r = await startScheduler();
+        ctx.ui?.notify(r, r.startsWith('✓') ? 'info' : 'error');
       } else if (arg === 'off' || arg === 'stop') {
-        const result = await stopScheduler();
-        ctx.ui?.notify(result, result.startsWith('✓') ? 'info' : 'error');
+        const r = await stopScheduler();
+        ctx.ui?.notify(r, r.startsWith('✓') ? 'info' : 'error');
       } else {
         const active = scheduler?.isRunning() ?? false;
         const state = await readState(statePath);
-        const lines = [
-          `Scheduler: ${active ? '✅ active' : '⏸ inactive'}`,
-          `Jobs: ${state.jobs.length}`,
-        ];
-        ctx.ui?.notify(lines.join(' · '), 'info');
+        const remCount = state.reminders.filter((r) => r.status === 'active' || r.status === 'snoozed').length;
+        ctx.ui?.notify(`Scheduler: ${active ? '✅ active' : '⏸ inactive'} · Jobs: ${state.jobs.length} · Reminders: ${remCount}`, 'info');
       }
+    },
+  });
+
+  // ── Tool: current_time ─────────────────────────────────────
+
+  pi.registerTool({
+    name: 'current_time',
+    label: 'Current Time',
+    description: 'Get the current date and time. Call this BEFORE creating reminders with relative times.',
+    parameters: Type.Object({}),
+    async execute() {
+      const now = new Date();
+      const iso = now.toISOString();
+      const local = now.toLocaleString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' });
+      const offset = -now.getTimezoneOffset();
+      const offsetStr = `UTC${offset >= 0 ? '+' : ''}${Math.floor(offset / 60)}:${String(Math.abs(offset) % 60).padStart(2, '0')}`;
+      return { content: [{ type: 'text' as const, text: `Current time: ${iso}\nLocal: ${local}\nTimezone: ${offsetStr}\nUnix: ${now.getTime()}` }], details: {} };
+    },
+    renderCall(_args, theme) { return new Text(theme.fg('toolTitle', theme.bold('current_time')), 0, 0); },
+    renderResult(result, _o, theme) {
+      const msg = result.content[0]?.type === 'text' ? result.content[0].text : '';
+      return new Text(theme.fg('muted', `🕐 ${msg.split('\n')[0]?.replace('Current time: ', '') ?? ''}`), 0, 0);
     },
   });
 
   // ── Tool: cron ─────────────────────────────────────────────
 
+  registerCronTool(pi);
+
+  // ── Tool: reminder ─────────────────────────────────────────
+
+  registerReminderTool(pi);
+}
+
+// ── Tool registrations ─────────────────────────────────────────
+
+function registerCronTool(pi: ExtensionAPI) {
   pi.registerTool({
-    name: 'cron',
-    label: 'Cron',
-    description:
-      'Manage scheduled cron jobs. ' +
-      'Actions: list, add, update, remove, enable, disable, run. ' +
-      'Jobs are stored globally and persist across sessions.',
+    name: 'cron', label: 'Cron',
+    description: 'Manage scheduled cron jobs. Actions: list, add, update, remove, enable, disable, run.',
     parameters: CronParams,
-
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : statePath;
-      if (!resolvedPath) {
-        logError('tool:no-state-path');
-        return {
-          content: [{ type: 'text', text: 'Error: no state path' }],
-          details: {},
-        };
-      }
-      statePath = resolvedPath;
-      initLogger(pi, statePath);
-      info('tool:execute', { action: params.action, name: params.name });
-
-      // Serialise state mutations to prevent concurrent read-modify-write races
+      if (ctx?.cwd) await ensureInitialized(ctx.cwd);
+      const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : getStatePath();
+      if (!resolvedPath) return { content: [{ type: 'text', text: 'Error: no state path' }], details: {} };
       const result = await withStateLock(async () => {
-        const state = await readState(statePath);
-        const deps: ActionDeps = {
-          state,
-          statePath,
-          scheduler,
-          workspaceCwd,
-          writeState,
-          appendRunResult,
-          ctxCwd: ctx?.cwd,
-        };
-
+        const state = await readState(resolvedPath);
+        const deps: ActionDeps = { state, statePath: resolvedPath, scheduler: getScheduler(), workspaceCwd: getCwd(), writeState, appendRunResult, ctxCwd: ctx?.cwd };
         switch (params.action) {
-          case 'list':    return handleList(deps);
-          case 'add':     return handleAdd(params, deps);
-          case 'update':  return handleUpdate(params, deps);
-          case 'remove':  return handleRemove(params, deps);
-          case 'enable':  return handleToggle(params, deps, false);
+          case 'list': return handleList(deps);
+          case 'add': return handleAdd(params, deps);
+          case 'update': return handleUpdate(params, deps);
+          case 'remove': return handleRemove(params, deps);
+          case 'enable': return handleToggle(params, deps, false);
           case 'disable': return handleToggle(params, deps, true);
-          case 'run':     return handleRun(params, deps);
-          default:        return `Unknown action: ${params.action}`;
+          case 'run': return handleRun(params, deps);
+          default: return `Unknown action: ${params.action}`;
         }
       });
-
-      return {
-        content: [{ type: 'text' as const, text: result }],
-        details: {},
-      };
+      return { content: [{ type: 'text' as const, text: result }], details: {} };
     },
-
     renderCall(args, theme) {
-      let text = theme.fg('toolTitle', theme.bold('cron '));
-      text += theme.fg('muted', args.action);
-      if (args.name) text += ` ${theme.fg('accent', args.name)}`;
-      if (args.schedule) text += ` ${theme.fg('dim', args.schedule)}`;
-      return new Text(text, 0, 0);
+      let t = theme.fg('toolTitle', theme.bold('cron ')); t += theme.fg('muted', args.action);
+      if (args.name) t += ` ${theme.fg('accent', args.name)}`;
+      return new Text(t, 0, 0);
     },
+    renderResult(result, _o, theme) {
+      const msg = result.content[0]?.type === 'text' ? result.content[0].text : '';
+      return new Text(msg.startsWith('Error:') ? theme.fg('error', msg) : theme.fg('success', '✓ ') + theme.fg('muted', msg), 0, 0);
+    },
+  });
+}
 
-    renderResult(result, _options, theme) {
-      const text = result.content[0];
-      const msg = text?.type === 'text' ? text.text : '';
-      if (msg.startsWith('Error:') || msg.includes('not found')) {
-        return new Text(theme.fg('error', msg), 0, 0);
-      }
-      return new Text(
-        theme.fg('success', '✓ ') + theme.fg('muted', msg),
-        0,
-        0,
-      );
+function registerReminderTool(pi: ExtensionAPI) {
+  pi.registerTool({
+    name: 'reminder', label: 'Reminder',
+    description: 'Manage reminders with desktop notifications. Actions: list, add, update, remove, snooze, complete, enable, disable. ' +
+      'IMPORTANT: For relative times, call current_time first to get accurate time, then compute fire_at.',
+    parameters: ReminderParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      if (ctx?.cwd) await ensureInitialized(ctx.cwd);
+      const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : getStatePath();
+      if (!resolvedPath) return { content: [{ type: 'text', text: 'Error: no state path' }], details: {} };
+      const result = await withStateLock(async () => {
+        const state = await readState(resolvedPath);
+        const deps: ReminderActionDeps = { state, statePath: resolvedPath, writeState };
+        let res: string;
+        switch (params.action) {
+          case 'list': res = handleReminderList(deps); break;
+          case 'add': res = await handleReminderAdd(params, deps); break;
+          case 'update': res = await handleReminderUpdate(params, deps); break;
+          case 'remove': res = await handleReminderRemove(params, deps); break;
+          case 'snooze': res = await handleReminderSnooze(params, deps); break;
+          case 'complete': res = await handleReminderComplete(params, deps); break;
+          case 'enable': res = await handleReminderToggle(params, deps, false); break;
+          case 'disable': res = await handleReminderToggle(params, deps, true); break;
+          default: res = `Unknown action: ${params.action}`;
+        }
+        getScheduler()?.updateReminders(state.reminders);
+        return res;
+      });
+      return { content: [{ type: 'text' as const, text: result }], details: {} };
+    },
+    renderCall(args, theme) {
+      let t = theme.fg('toolTitle', theme.bold('reminder ')); t += theme.fg('muted', args.action);
+      if (args.title) t += ` ${theme.fg('dim', `"${args.title}"`)}`;
+      if (args.id) t += ` ${theme.fg('accent', args.id)}`;
+      return new Text(t, 0, 0);
+    },
+    renderResult(result, _o, theme) {
+      const msg = result.content[0]?.type === 'text' ? result.content[0].text : '';
+      return new Text(msg.startsWith('Error:') ? theme.fg('error', msg) : msg.startsWith('✓') ? theme.fg('success', '✓ ') + theme.fg('muted', msg.slice(2)) : theme.fg('muted', msg), 0, 0);
     },
   });
 }

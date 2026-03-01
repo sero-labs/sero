@@ -156,7 +156,7 @@ export function JobCard({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            className="bg-destructive text-white hover:bg-destructive/90"
+            className="bg-red-600 text-white hover:bg-red-700"
             onClick={() => onRemove(job.name)}
           >
             Remove

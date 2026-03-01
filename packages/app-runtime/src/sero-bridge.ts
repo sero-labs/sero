@@ -22,9 +22,32 @@ export interface SeroAppAgentBridge {
   prompt(appId: string, workspaceId: string, text: string): Promise<string>;
 }
 
+// ── Model types (subset of desktop's ipc types) ──────────────
+
+/** Serialisable model info for app modules. */
+export interface AppModelInfo {
+  provider: string;
+  modelId: string;
+  name: string;
+  reasoning: boolean;
+}
+
+/** A group of models under a single provider. */
+export interface AppModelGroup {
+  provider: string;
+  displayName: string;
+  logo: string;
+  models: AppModelInfo[];
+}
+
+export interface SeroModelsBridge {
+  list(): Promise<AppModelGroup[]>;
+}
+
 export interface SeroBridge {
   appState: SeroAppStateBridge;
   appAgent: SeroAppAgentBridge;
+  models?: SeroModelsBridge;
 }
 
 /**

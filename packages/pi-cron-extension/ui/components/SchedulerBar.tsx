@@ -1,11 +1,14 @@
 /**
- * SchedulerBar — status indicator, autostart toggle, and start/stop button.
+ * SchedulerBar — status indicator, autostart toggle, notification settings,
+ * and start/stop button.
  */
 
 import { Badge } from '@sero/ui/components/ui/badge';
 import { Button } from '@sero/ui/components/ui/button';
 import { Switch } from '@sero/ui/components/ui/switch';
 import { cn } from '@sero/ui/lib/utils';
+import type { NotificationSettings as NotifSettings } from '../../shared/types';
+import { NotificationSettings } from './NotificationSettings';
 
 interface SchedulerBarProps {
   active: boolean;
@@ -13,8 +16,11 @@ interface SchedulerBarProps {
   jobCount: number;
   activeCount: number;
   disabledCount: number;
+  reminderCount?: number;
+  notificationSettings?: NotifSettings;
   onToggle: () => void;
   onAutostartChange: (enabled: boolean) => void;
+  onNotificationSettingsChange?: (settings: NotifSettings) => void;
 }
 
 export function SchedulerBar({
@@ -23,8 +29,11 @@ export function SchedulerBar({
   jobCount,
   activeCount,
   disabledCount,
+  reminderCount,
+  notificationSettings,
   onToggle,
   onAutostartChange,
+  onNotificationSettingsChange,
 }: SchedulerBarProps) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5">
@@ -64,9 +73,25 @@ export function SchedulerBar({
             {disabledCount} paused
           </Badge>
         )}
+        {(reminderCount ?? 0) > 0 && (
+          <Badge
+            variant="outline"
+            className="border-amber-500/30 text-xs text-amber-500"
+          >
+            🔔 {reminderCount} reminder{reminderCount === 1 ? '' : 's'}
+          </Badge>
+        )}
       </div>
 
       <div className="flex-1" />
+
+      {/* Notification sound settings */}
+      {onNotificationSettingsChange && notificationSettings && (
+        <NotificationSettings
+          settings={notificationSettings}
+          onChange={onNotificationSettingsChange}
+        />
+      )}
 
       {/* Autostart toggle */}
       <label className="flex items-center gap-1.5">

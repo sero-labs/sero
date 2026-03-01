@@ -212,6 +212,11 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
   },
 
+  models: {
+    list: (): Promise<import('../src/types/ipc').AvailableModelGroup[]> =>
+      ipcRenderer.invoke(IpcChannels.models.list),
+  },
+
   google: {
     execute: (service: string, subArgs: string[]) => ipcRenderer.invoke(IpcChannels.google.execute, service, subArgs),
     authStatus: () => ipcRenderer.invoke(IpcChannels.google.authStatus),

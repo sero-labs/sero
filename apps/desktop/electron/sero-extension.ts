@@ -7,6 +7,7 @@
  * Provides:
  *   - Container + CLI prompt injection (before_agent_start)
  *   - @ws:id/path expansion in user input (input event)
+ *   - sero:notify event bus → desktop notifications (all extensions)
  *   - /workspace command (list, info, open, close)
  *   - /pwd command (print workspace-relative cwd)
  *   - PI CLI built-in equivalents: /reload, /compact, /name, /session, /model, /thinking
@@ -20,6 +21,7 @@ import { buildContainerPromptBlock } from './container/system-prompt';
 import { registerSeroBuiltinCommands } from './sero-extension-commands';
 import { buildCliPromptBlock } from './cli';
 import { registerGitCheckpointFeatures } from './sero-extension-git';
+import { showNotification, type NotificationType } from './notifications';
 
 /**
  * Creates an extension factory for a specific workspace session.
@@ -52,6 +54,28 @@ export function createSeroExtensionFactory(
       if (systemPrompt !== event.systemPrompt) {
         return { systemPrompt };
       }
+    });
+
+    // ── sero:notify — shared notification bus ───────────────────
+    //
+    // Any extension can emit 'sero:notify' on pi.events to show a
+    // native desktop notification. This keeps extensions decoupled
+    // from Electron — they use the Pi SDK EventBus, the host handles
+    // the platform-specific display.
+    //
+    // Payload: { message, type?, source?, sound?, subtitle? }
+
+    pi.events.on('sero:notify', (data: unknown) => {
+      const p = data as Record<string, unknown> | undefined;
+      if (!p?.message || typeof p.message !== 'string') return;
+      showNotification({
+        message: p.message,
+        type: (['info', 'warning', 'error'].includes(p.type as string)
+          ? p.type : 'info') as NotificationType,
+        source: typeof p.source === 'string' ? p.source : undefined,
+        sound: typeof p.sound === 'string' || typeof p.sound === 'boolean' ? p.sound : undefined,
+        subtitle: typeof p.subtitle === 'string' ? p.subtitle : undefined,
+      });
     });
 
     // ── @ws: path expansion ────────────────────────────────────
