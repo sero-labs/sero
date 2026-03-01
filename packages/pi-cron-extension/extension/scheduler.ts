@@ -12,6 +12,9 @@ import { info, warn, error as logError } from './logger';
 
 // ── Subprocess runner ───────────────────────────────────────────
 
+/** Maximum buffer size per stream (1 MB). Prevents OOM on chatty jobs. */
+const MAX_BUFFER = 1_048_576;
+
 interface RunResult {
   stdout: string;
   stderr: string;
@@ -63,10 +66,16 @@ export function runPiSubprocess(
     let stderr = '';
 
     child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
+      if (stdout.length < MAX_BUFFER) {
+        stdout += chunk.toString();
+        if (stdout.length > MAX_BUFFER) stdout = stdout.slice(0, MAX_BUFFER);
+      }
     });
     child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
+      if (stderr.length < MAX_BUFFER) {
+        stderr += chunk.toString();
+        if (stderr.length > MAX_BUFFER) stderr = stderr.slice(0, MAX_BUFFER);
+      }
     });
 
     child.on('close', (code) => {

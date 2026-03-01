@@ -15,11 +15,15 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
-import type { CronState, CronJob, CronRunResult } from '../shared/types';
+import type { CronState, CronRunResult } from '../shared/types';
 import { DEFAULT_CRON_STATE, MAX_RUN_RESULTS } from '../shared/types';
-import { validateCron } from '../shared/cron';
-import { CronScheduler, runPiSubprocess } from './scheduler';
+import { CronScheduler } from './scheduler';
 import { initLogger, setLogPath, info, warn, error as logError } from './logger';
+import {
+  handleList, handleAdd, handleUpdate, handleRemove,
+  handleToggle, handleRun,
+  type ActionDeps,
+} from './actions';
 
 // ── State file path ────────────────────────────────────────────
 
@@ -33,7 +37,21 @@ function resolveStatePath(cwd: string): string {
   return path.join(cwd, STATE_REL_PATH);
 }
 
-// ── File I/O (atomic writes) ───────────────────────────────────
+// ── File I/O (atomic writes with mutex) ────────────────────────
+
+/**
+ * Simple async mutex to serialise read-modify-write cycles on state.json.
+ * Prevents concurrent tool calls or scheduler callbacks from clobbering
+ * each other's writes.
+ */
+let stateMutexQueue: Promise<void> = Promise.resolve();
+
+function withStateLock<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = stateMutexQueue;
+  let resolve: () => void;
+  stateMutexQueue = new Promise<void>((r) => { resolve = r; });
+  return prev.then(fn).finally(() => resolve!());
+}
 
 async function readState(filePath: string): Promise<CronState> {
   try {
@@ -102,12 +120,14 @@ export default function (pi: ExtensionAPI) {
 
   async function appendRunResult(result: CronRunResult): Promise<void> {
     if (!statePath) return;
-    const state = await readState(statePath);
-    state.lastRunResults.unshift(result);
-    if (state.lastRunResults.length > MAX_RUN_RESULTS) {
-      state.lastRunResults = state.lastRunResults.slice(0, MAX_RUN_RESULTS);
-    }
-    await writeState(statePath, state);
+    await withStateLock(async () => {
+      const state = await readState(statePath);
+      state.lastRunResults.unshift(result);
+      if (state.lastRunResults.length > MAX_RUN_RESULTS) {
+        state.lastRunResults = state.lastRunResults.slice(0, MAX_RUN_RESULTS);
+      }
+      await writeState(statePath, state);
+    });
   }
 
   function createScheduler(): CronScheduler {
@@ -245,200 +265,33 @@ export default function (pi: ExtensionAPI) {
         };
       }
       statePath = resolvedPath;
-      // Ensure logger is initialised (session_start may not have fired yet)
       initLogger(pi, statePath);
       info('tool:execute', { action: params.action, name: params.name });
-      const state = await readState(statePath);
-      let result: string;
 
-      switch (params.action) {
-        case 'list': {
-          if (state.jobs.length === 0) {
-            result = 'No cron jobs configured.';
-          } else {
-            const running = scheduler?.getRunningNames() ?? [];
-            const lines = state.jobs.map((j) => {
-              const status = j.disabled
-                ? '⏸ disabled'
-                : running.includes(j.name)
-                  ? '🔄 running'
-                  : '✅ active';
-              const ch = j.channel !== 'cron' ? ` [${j.channel}]` : '';
-              const mdl = j.model ? ` (${j.model})` : '';
-              return `- **${j.name}** \`${j.schedule}\` ${status}${ch}${mdl}\n  ${j.prompt.slice(0, 80)}`;
-            });
-            const note = scheduler?.isRunning()
-              ? ''
-              : '\n\n⚠️ Scheduler is inactive. Use `/cron on` to start.';
-            result = `**Cron Jobs (${state.jobs.length}):**\n\n${lines.join('\n\n')}${note}`;
-          }
-          break;
+      // Serialise state mutations to prevent concurrent read-modify-write races
+      const result = await withStateLock(async () => {
+        const state = await readState(statePath);
+        const deps: ActionDeps = {
+          state,
+          statePath,
+          scheduler,
+          workspaceCwd,
+          writeState,
+          appendRunResult,
+          ctxCwd: ctx?.cwd,
+        };
+
+        switch (params.action) {
+          case 'list':    return handleList(deps);
+          case 'add':     return handleAdd(params, deps);
+          case 'update':  return handleUpdate(params, deps);
+          case 'remove':  return handleRemove(params, deps);
+          case 'enable':  return handleToggle(params, deps, false);
+          case 'disable': return handleToggle(params, deps, true);
+          case 'run':     return handleRun(params, deps);
+          default:        return `Unknown action: ${params.action}`;
         }
-
-        case 'add': {
-          if (!params.name || !params.schedule || !params.prompt) {
-            result = 'Missing required fields: name, schedule, and prompt.';
-            break;
-          }
-          const err = validateCron(params.schedule);
-          if (err) {
-            result = `Invalid cron expression: ${err}`;
-            break;
-          }
-          if (state.jobs.find((j) => j.name === params.name)) {
-            result = `Job "${params.name}" already exists.`;
-            break;
-          }
-          const newJob: CronJob = {
-            name: params.name,
-            schedule: params.schedule,
-            prompt: params.prompt,
-            channel: params.channel ?? 'cron',
-            disabled: false,
-          };
-          if (params.model) newJob.model = params.model;
-          state.jobs.push(newJob);
-          await writeState(statePath, state);
-          scheduler?.updateJobs(state.jobs);
-          result = `✓ Added cron job "${params.name}" (${params.schedule})`;
-          break;
-        }
-
-        case 'update': {
-          if (!params.name) {
-            result = 'Missing required field: name';
-            break;
-          }
-          const job = state.jobs.find((j) => j.name === params.name);
-          if (!job) {
-            result = `Job "${params.name}" not found.`;
-            break;
-          }
-          if (params.schedule) {
-            const err = validateCron(params.schedule);
-            if (err) {
-              result = `Invalid cron expression: ${err}`;
-              break;
-            }
-            job.schedule = params.schedule;
-          }
-          if (params.prompt) job.prompt = params.prompt;
-          if (params.channel) job.channel = params.channel;
-          if (params.model !== undefined) job.model = params.model || undefined;
-          await writeState(statePath, state);
-          scheduler?.updateJobs(state.jobs);
-          result = `✓ Updated "${params.name}"`;
-          break;
-        }
-
-        case 'remove': {
-          if (!params.name) {
-            result = 'Missing required field: name';
-            break;
-          }
-          const idx = state.jobs.findIndex((j) => j.name === params.name);
-          if (idx === -1) {
-            result = `Job "${params.name}" not found.`;
-            break;
-          }
-          state.jobs.splice(idx, 1);
-          await writeState(statePath, state);
-          scheduler?.updateJobs(state.jobs);
-          result = `✓ Removed "${params.name}"`;
-          break;
-        }
-
-        case 'enable': {
-          if (!params.name) {
-            result = 'Missing required field: name';
-            break;
-          }
-          const job = state.jobs.find((j) => j.name === params.name);
-          if (!job) {
-            result = `Job "${params.name}" not found.`;
-            break;
-          }
-          job.disabled = false;
-          await writeState(statePath, state);
-          scheduler?.updateJobs(state.jobs);
-          result = `✓ Enabled "${params.name}"`;
-          break;
-        }
-
-        case 'disable': {
-          if (!params.name) {
-            result = 'Missing required field: name';
-            break;
-          }
-          const job = state.jobs.find((j) => j.name === params.name);
-          if (!job) {
-            result = `Job "${params.name}" not found.`;
-            break;
-          }
-          job.disabled = true;
-          await writeState(statePath, state);
-          scheduler?.updateJobs(state.jobs);
-          result = `✓ Disabled "${params.name}"`;
-          break;
-        }
-
-        case 'run': {
-          if (!params.name) {
-            result = 'Missing required field: name';
-            break;
-          }
-          const runJob = state.jobs.find((j) => j.name === params.name);
-          if (!runJob) {
-            result = `Job "${params.name}" not found.`;
-            break;
-          }
-          // Run directly — no scheduler required. The scheduler is for
-          // timed execution; ad-hoc "run now" just spawns the subprocess.
-          // Use ctx.cwd if available (tool context), fall back to stored workspace cwd
-          const runCwd = (ctx ? ctx.cwd : workspaceCwd) || workspaceCwd;
-          info('job:trigger-adhoc', {
-            job: runJob.name,
-            model: runJob.model ?? 'default',
-            cwd: runCwd,
-          });
-          result = `✓ Triggered "${params.name}" — running in background`;
-          {
-            // Fire-and-forget: spawn subprocess + record result
-            const startedAt = new Date();
-            runPiSubprocess(runJob.prompt, { model: runJob.model, cwd: runCwd })
-              .then(async (sub) => {
-                const durationMs = Date.now() - startedAt.getTime();
-                const ok = sub.exitCode === 0 || !!sub.stdout;
-                const runResult: CronRunResult = {
-                  jobName: runJob.name,
-                  startedAt: startedAt.toISOString(),
-                  durationMs,
-                  ok,
-                  error: ok ? undefined : (sub.stderr || `Exit code ${sub.exitCode}`).slice(0, 2000),
-                };
-                if (ok) {
-                  info('job:adhoc-complete', { job: runJob.name, durationMs });
-                } else {
-                  logError('job:adhoc-failed', {
-                    job: runJob.name,
-                    durationMs,
-                    error: runResult.error?.slice(0, 500),
-                  });
-                }
-                await appendRunResult(runResult);
-              })
-              .catch((err) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                logError('job:adhoc-crash', { job: runJob.name, error: msg });
-                console.error(`[cron] adhoc run crashed: ${runJob.name}`, err);
-              });
-          }
-          break;
-        }
-
-        default:
-          result = `Unknown action: ${params.action}`;
-      }
+      });
 
       return {
         content: [{ type: 'text' as const, text: result }],

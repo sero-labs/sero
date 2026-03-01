@@ -22,7 +22,7 @@ export function RunHistory({ results }: RunHistoryProps) {
 
   return (
     <div className="flex flex-col">
-      {results.slice(0, 20).map((r, i) => (
+      {results.map((r, i) => (
         <div
           key={`${r.jobName}-${r.startedAt}`}
           className={cn(

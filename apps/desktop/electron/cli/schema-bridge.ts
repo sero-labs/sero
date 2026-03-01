@@ -15,7 +15,7 @@
 import type { ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
 import type { CliCommand, CliCommandContext, CliResult } from './types';
 import { parseFlags } from './commands/utils';
-import { showNotification } from '../notifications';
+import { createSeroUIContext } from '../extension-ui-context';
 
 // ── Schema introspection ────────────────────────────────────
 
@@ -215,29 +215,13 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
  * the extension's closure-captured `pi` reference.
  */
 /**
- * Minimal ExtensionCommandContext for bridged commands.
+ * Build a minimal ExtensionCommandContext for bridged commands.
  *
- * The Pi SDK command handler expects `ctx.ui.notify()` etc. We provide
- * a lightweight shim so extensions don't crash when called via the CLI
- * bridge. `notify` is real (shows desktop notification); everything
- * else is a safe no-op.
+ * Reuses the canonical `createSeroUIContext()` so there's a single
+ * source of truth for the UIContext shim across Sero.
  */
 function buildCommandContext(ctx: CliCommandContext): Record<string, unknown> {
-  return {
-    cwd: ctx.cwd,
-    hasUI: true,
-    ui: {
-      select: async () => undefined,
-      confirm: async () => false,
-      input: async () => undefined,
-      notify: (message: string, type?: 'info' | 'warning' | 'error') => {
-        showNotification(message, type ?? 'info');
-      },
-      onTerminalInput: () => () => {},
-      setStatus: () => {},
-      setWorkingMessage: () => {},
-    },
-  };
+  return { cwd: ctx.cwd, hasUI: true, ui: createSeroUIContext() };
 }
 
 export function bridgeCommand(name: string, cmd: RegisteredCommand): CliCommand {

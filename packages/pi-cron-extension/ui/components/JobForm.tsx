@@ -32,6 +32,7 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
   const [prompt, setPrompt] = useState('');
   const [channel, setChannel] = useState('cron');
   const [model, setModel] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   // Reset form when opening
@@ -50,9 +51,27 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
         setChannel('cron');
         setModel('');
       }
+      setNameError(null);
       setScheduleError(null);
     }
   }, [open, editingJob]);
+
+  // Validate name on change
+  useEffect(() => {
+    if (!name.trim()) {
+      setNameError(null);
+      return;
+    }
+    if (/\s/.test(name)) {
+      setNameError('Name must not contain spaces');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      setNameError('Only letters, numbers, hyphens, and underscores allowed');
+      return;
+    }
+    setNameError(null);
+  }, [name]);
 
   // Validate schedule on change
   useEffect(() => {
@@ -66,6 +85,7 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
 
   const canSave =
     name.trim() &&
+    !nameError &&
     schedule.trim() &&
     prompt.trim() &&
     !scheduleError;
@@ -82,7 +102,7 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
     if (model.trim()) job.model = model.trim();
     onSave(job);
     onClose();
-  }, [canSave, name, schedule, prompt, channel, editingJob, onSave, onClose]);
+  }, [canSave, name, schedule, prompt, channel, model, editingJob, onSave, onClose]);
 
   const inputCls =
     'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
@@ -117,9 +137,15 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
               disabled={isEditing}
               autoFocus={!isEditing}
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Unique identifier, no spaces
-            </p>
+            {nameError ? (
+              <p className="mt-1 text-[11px] text-destructive">
+                {nameError}
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Unique identifier — letters, numbers, hyphens, underscores only
+              </p>
+            )}
           </div>
 
           {/* Schedule */}

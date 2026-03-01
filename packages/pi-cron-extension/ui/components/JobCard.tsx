@@ -2,6 +2,17 @@
  * JobCard — displays a single cron job with actions.
  */
 
+import { useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@sero/ui/components/ui/alert-dialog';
 import { Badge } from '@sero/ui/components/ui/badge';
 import { Button } from '@sero/ui/components/ui/button';
 import { Card } from '@sero/ui/components/ui/card';
@@ -26,9 +37,11 @@ export function JobCard({
   onRun,
   schedulerActive,
 }: JobCardProps) {
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const human = cronToHuman(job.schedule);
 
   return (
+    <>
     <Card
       className={cn(
         'gap-0 py-0 shadow-none transition-colors',
@@ -122,12 +135,35 @@ export function JobCard({
             variant="ghost"
             size="sm"
             className="h-7 text-xs text-destructive hover:text-destructive"
-            onClick={() => onRemove(job.name)}
+            onClick={() => setShowRemoveConfirm(true)}
           >
             Remove
           </Button>
         </div>
       </div>
     </Card>
+
+    {/* Remove confirmation */}
+    <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove "{job.name}"?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete the cron job. This action cannot be
+            undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-white hover:bg-destructive/90"
+            onClick={() => onRemove(job.name)}
+          >
+            Remove
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
