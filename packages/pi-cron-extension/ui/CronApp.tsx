@@ -163,6 +163,12 @@ export function CronApp() {
     }));
   }, [updateState]);
 
+  // ── History ───────────────────────────────────────────────
+
+  const handleClearHistory = useCallback(() => {
+    updateState((prev) => ({ ...prev, lastRunResults: [] }));
+  }, [updateState]);
+
   // ── Render ───────────────────────────────────────────────
 
   return (
@@ -183,6 +189,11 @@ export function CronApp() {
           )}
           {activeTab === 'jobs' && (
             <Button size="sm" onClick={handleAddJob}>+ Job</Button>
+          )}
+          {activeTab === 'history' && state.lastRunResults.length > 0 && (
+            <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={handleClearHistory}>
+              Clear
+            </Button>
           )}
         </div>
       </div>
