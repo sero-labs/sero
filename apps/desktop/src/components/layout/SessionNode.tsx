@@ -50,7 +50,7 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
 
       {/* Title + metadata */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium text-[var(--text-primary)]">
+        <span className={cn('truncate text-sm font-medium', isActive ? 'text-emerald-500' : 'text-[var(--text-primary)]')}>
           {title}
         </span>
         <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
