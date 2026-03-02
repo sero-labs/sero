@@ -17,7 +17,7 @@ import {
   createCodingTools,
 } from '@mariozechner/pi-coding-agent';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import { info, warn, error as logError } from './logger';
+import { info, error as logError } from './logger';
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -50,6 +50,7 @@ const activeSessions = new Set<string>();
 /** Queue of waiting jobs. */
 const waitQueue: Array<{
   resolve: () => void;
+  reject: (err: Error) => void;
   jobKey: string;
 }> = [];
 
@@ -90,8 +91,8 @@ function acquireSlot(jobKey: string): Promise<void> {
   }
 
   // Queue and wait
-  return new Promise<void>((resolve) => {
-    waitQueue.push({ resolve, jobKey });
+  return new Promise<void>((resolve, reject) => {
+    waitQueue.push({ resolve, reject, jobKey });
   });
 }
 
@@ -103,7 +104,8 @@ function releaseSlot(jobKey: string): void {
   while (waitQueue.length > 0 && activeSessions.size < maxConcurrent) {
     const next = waitQueue.shift()!;
     if (activeSessions.has(next.jobKey)) {
-      // Skip — this job started via another path (shouldn't happen, but be safe)
+      // Reject — this job started via another path (shouldn't happen, but be safe)
+      next.reject(new Error(`Job "${next.jobKey}" is already running`));
       continue;
     }
     activeSessions.add(next.jobKey);
@@ -126,7 +128,7 @@ export async function runTransientSession(
   prompt: string,
   opts: SessionRunOptions = {},
 ): Promise<SessionRunResult> {
-  const { cwd, timeoutMs = 600_000, agentDir } = opts;
+  const { cwd, model, timeoutMs = 600_000, agentDir } = opts;
   const startedAt = Date.now();
 
   // ── Acquire concurrency slot ────────────────────────────
@@ -157,6 +159,7 @@ export async function runTransientSession(
     try {
       const sessionResult = await createAgentSession({
         cwd: cwd || process.cwd(),
+        model,
         agentDir: agentDir || process.env.PI_CODING_AGENT_DIR || undefined,
         tools: createCodingTools(cwd || process.cwd()),
         sessionManager: SessionManager.inMemory(cwd || process.cwd()),

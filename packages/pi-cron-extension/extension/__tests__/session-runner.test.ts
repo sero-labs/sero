@@ -134,6 +134,31 @@ describe('runTransientSession', () => {
     );
   });
 
+  it('passes model to createAgentSession', async () => {
+    await runTransientSession('model-job', 'Do work', {
+      model: 'sonnet',
+      cwd: '/test/workspace',
+    });
+
+    expect(createAgentSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'sonnet',
+      }),
+    );
+  });
+
+  it('omits model when not specified', async () => {
+    await runTransientSession('no-model-job', 'Do work', {
+      cwd: '/test/workspace',
+    });
+
+    expect(createAgentSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: undefined,
+      }),
+    );
+  });
+
   it('uses SessionManager.inMemory() — no files persisted', async () => {
     const { SessionManager } = await import('@mariozechner/pi-coding-agent');
     await runTransientSession('job-1', 'test');
