@@ -1,23 +1,133 @@
 /**
- * PendingQuestionCard — interactive single-question card for ChatPanel.
+ * PendingQuestionCard — interactive card for ChatPanel.
  *
- * Renders when the agent's `question` tool is waiting for user input.
+ * Renders for two pending question types:
+ *   - `question` — standard blue-themed option picker
+ *   - `permission` — warning-styled amber/red card for dangerous command approval
+ *
  * Styled to match ToolCallGroup's visual language.
  */
 
 import { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, X, Send } from 'lucide-react';
+import { ChevronRight, X, Send, ShieldAlert } from 'lucide-react';
 import { Button } from '@sero/ui/components/ui/button';
 import { cn } from '@sero/ui/lib/utils';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import type { UserFeedbackPendingQuestion, UserFeedbackAnswer } from '@/types/ipc';
 
 export function PendingQuestionCard() {
-  const pending = useUserFeedbackStore((s) => s.getPending('question'));
+  const questionPending = useUserFeedbackStore((s) => s.getPending('question'));
+  const permissionPending = useUserFeedbackStore((s) => s.getPending('permission'));
+
+  // Permission gates take priority — show them first
+  const pending = permissionPending ?? questionPending;
   if (!pending) return null;
+
+  if (pending.type === 'permission') {
+    return <PermissionGateCard question={pending} />;
+  }
   return <QuestionCardInner question={pending} />;
 }
+
+// ── Permission Gate Card (warning style) ─────────────────────────
+
+function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestion }) {
+  const answer = useUserFeedbackStore((s) => s.answer);
+  const cancel = useUserFeedbackStore((s) => s.cancel);
+
+  const q = question.questions[0];
+  if (!q) return null;
+
+  // Extract the command from the prompt (between the two newlines after "detected:")
+  const commandMatch = q.prompt.match(/:\n\n\s+(.+)\n\n/);
+  const command = commandMatch?.[1]?.trim() ?? q.prompt;
+
+  const handleAllow = useCallback(() => {
+    const ans: UserFeedbackAnswer = {
+      questionId: q.id,
+      value: 'allow',
+      label: 'Allow',
+      wasCustom: false,
+      index: 1,
+    };
+    answer(question.id, [ans]);
+  }, [q.id, question.id, answer]);
+
+  const handleBlock = useCallback(() => {
+    const ans: UserFeedbackAnswer = {
+      questionId: q.id,
+      value: 'block',
+      label: 'Block',
+      wasCustom: false,
+      index: 2,
+    };
+    answer(question.id, [ans]);
+  }, [q.id, question.id, answer]);
+
+  const handleCancel = useCallback(() => {
+    cancel(question.id);
+  }, [question.id, cancel]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 6 }}
+      transition={{ duration: 0.2 }}
+      className="mx-3 mb-2 overflow-hidden rounded-lg border border-amber-500/30 bg-amber-500/[0.06]"
+    >
+      {/* Warning header */}
+      <div className="flex items-center gap-2.5 px-3 py-2">
+        <ShieldAlert className="size-3.5 text-amber-500" />
+        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-amber-500" />
+        <span className="flex-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+          dangerous command — approval required
+        </span>
+        <button
+          onClick={handleCancel}
+          aria-label="Block command"
+          className="rounded p-0.5 text-[var(--text-muted)] hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400"
+          title="Block (cancel)"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+
+      {/* Command display */}
+      <div className="border-t border-amber-500/20 px-3 pt-2.5 pb-2">
+        <code className="block whitespace-pre-wrap break-all rounded-md border border-red-500/20 bg-red-500/[0.06] px-2.5 py-1.5 font-mono text-[12px] leading-relaxed text-red-600 dark:text-red-400">
+          {command}
+        </code>
+      </div>
+
+      {/* Allow / Block buttons */}
+      <div className="flex items-center gap-2 border-t border-amber-500/20 px-3 py-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleAllow}
+          className="h-7 gap-1.5 border border-amber-500/30 px-3 text-xs font-medium text-amber-600 hover:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/10"
+        >
+          Allow
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleBlock}
+          className="h-7 gap-1.5 border border-red-500/30 bg-red-500/[0.08] px-3 text-xs font-medium text-red-600 hover:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/15"
+        >
+          Block
+        </Button>
+        <span className="ml-auto text-[10px] text-[var(--text-muted)]">
+          Esc to block
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Standard Question Card ───────────────────────────────────────
 
 function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion }) {
   const answer = useUserFeedbackStore((s) => s.answer);

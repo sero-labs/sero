@@ -5,8 +5,8 @@
  * Only used when ctx.hasUI === true.
  */
 
-import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth, type Theme } from '@mariozechner/pi-tui';
-import type { ExtensionUIContext } from '@mariozechner/pi-coding-agent';
+import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth } from '@mariozechner/pi-tui';
+import type { ExtensionUIContext, Theme } from '@mariozechner/pi-coding-agent';
 import type { QuestionItem, QuestionAnswer } from '../shared/types';
 
 interface RenderOption {

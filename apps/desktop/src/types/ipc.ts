@@ -421,10 +421,10 @@ export interface UserFeedbackQuestionItem {
   allowOther: boolean;
 }
 
-/** Sent from main → renderer when a question/questionnaire/interview tool starts. */
+/** Sent from main → renderer when a question/questionnaire/interview/permission tool starts. */
 export interface UserFeedbackPendingQuestion {
   id: string;
-  type: 'question' | 'questionnaire' | 'interview';
+  type: 'question' | 'questionnaire' | 'interview' | 'permission';
   toolCallId: string;
   questions: UserFeedbackQuestionItem[];
   timestamp: string;

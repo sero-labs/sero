@@ -12,6 +12,18 @@
 import type { PendingQuestion, QuestionResponse } from '../shared/types';
 import { getUserFeedbackBus } from '../shared/emitter';
 
+/**
+ * Check if Sero's IPC bridge is active.
+ *
+ * When the Electron IPC handler registers (registerUserFeedbackQuestionHandlers),
+ * it adds a listener for 'question-request' on the shared bus.
+ * In Pi CLI mode, no such listener exists.
+ */
+export function hasSeroIPCBridge(): boolean {
+  const bus = getUserFeedbackBus();
+  return bus.listenerCount('question-request') > 0;
+}
+
 let questionCounter = 0;
 
 /** Generate a unique question ID. */

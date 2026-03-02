@@ -7,8 +7,8 @@
  *   - `interview` — open-ended iterative questions for deep-dive understanding
  *   - `/interview <path>` — command that starts an interview → spec workflow
  *
- * Dual-mode: uses TUI rendering in Pi CLI (ctx.hasUI === true) and
- * IPC-based rendering in Sero (ctx.hasUI === false).
+ * Dual-mode: uses IPC bridge when Sero is active (detected via event bus
+ * listeners), otherwise falls back to TUI rendering in Pi CLI.
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
@@ -16,10 +16,11 @@ import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
 import type { QuestionItem, QuestionAnswer } from '../shared/types';
-import { nextQuestionId, askQuestion } from './ipc-bridge';
+import { nextQuestionId, askQuestion, hasSeroIPCBridge } from './ipc-bridge';
 import { askQuestionTUI } from './tui-question';
 import { askQuestionnaireTUI } from './tui-questionnaire';
 import { registerInterviewTool, registerInterviewCommand } from './interview-tool';
+import { registerPermissionGate } from './permission-gate';
 
 // ── Schemas ────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ export default function userFeedback(pi: ExtensionAPI) {
   registerQuestionnaireTool(pi);
   registerInterviewTool(pi);
   registerInterviewCommand(pi);
+  registerPermissionGate(pi);
 }
 
 // ── Question tool ──────────────────────────────────────────────
@@ -86,33 +88,41 @@ function registerQuestionTool(pi: ExtensionAPI) {
         allowOther: true,
       };
 
+      // ── Sero mode: IPC bridge ──────────────────────────────
+      if (hasSeroIPCBridge()) {
+        const id = nextQuestionId();
+        const response = await askQuestion(
+          {
+            id,
+            type: 'question',
+            toolCallId: _toolCallId,
+            questions: [questionItem],
+            timestamp: new Date().toISOString(),
+          },
+          signal,
+        );
+
+        if (response.cancelled || response.answers.length === 0) {
+          return {
+            content: [{ type: 'text', text: 'User cancelled the selection' }],
+            details: { question: params.question, options: questionItem.options.map((o) => o.label), answer: null },
+          };
+        }
+
+        return buildQuestionResult(params.question, questionItem.options, response.answers[0]);
+      }
+
       // ── Pi CLI mode: TUI ───────────────────────────────────
       if (ctx.hasUI) {
         const answer = await askQuestionTUI(ctx.ui, questionItem);
         return buildQuestionResult(params.question, questionItem.options, answer);
       }
 
-      // ── Sero mode: IPC bridge ──────────────────────────────
-      const id = nextQuestionId();
-      const response = await askQuestion(
-        {
-          id,
-          type: 'question',
-          toolCallId: _toolCallId,
-          questions: [questionItem],
-          timestamp: new Date().toISOString(),
-        },
-        signal,
-      );
-
-      if (response.cancelled || response.answers.length === 0) {
-        return {
-          content: [{ type: 'text', text: 'User cancelled the selection' }],
-          details: { question: params.question, options: questionItem.options.map((o) => o.label), answer: null },
-        };
-      }
-
-      return buildQuestionResult(params.question, questionItem.options, response.answers[0]);
+      // Non-interactive — no way to ask
+      return {
+        content: [{ type: 'text', text: 'Error: No UI available to ask the user' }],
+        details: { question: params.question, options: questionItem.options.map((o) => o.label), answer: null },
+      };
     },
 
     renderCall(args, theme) {
@@ -176,26 +186,34 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
         allowOther: q.allowOther !== false,
       }));
 
+      // ── Sero mode: IPC bridge ──────────────────────────────
+      if (hasSeroIPCBridge()) {
+        const id = nextQuestionId();
+        const response = await askQuestion(
+          {
+            id,
+            type: 'questionnaire',
+            toolCallId: _toolCallId,
+            questions,
+            timestamp: new Date().toISOString(),
+          },
+          signal,
+        );
+
+        return buildQuestionnaireResult(questions, response.answers, response.cancelled);
+      }
+
       // ── Pi CLI mode: TUI ───────────────────────────────────
       if (ctx.hasUI) {
         const result = await askQuestionnaireTUI(ctx.ui, questions);
         return buildQuestionnaireResult(questions, result.answers, result.cancelled);
       }
 
-      // ── Sero mode: IPC bridge ──────────────────────────────
-      const id = nextQuestionId();
-      const response = await askQuestion(
-        {
-          id,
-          type: 'questionnaire',
-          toolCallId: _toolCallId,
-          questions,
-          timestamp: new Date().toISOString(),
-        },
-        signal,
-      );
-
-      return buildQuestionnaireResult(questions, response.answers, response.cancelled);
+      // Non-interactive — no way to ask
+      return {
+        content: [{ type: 'text', text: 'Error: No UI available to ask the user' }],
+        details: { questions, answers: [], cancelled: true },
+      };
     },
 
     renderCall(args, theme) {

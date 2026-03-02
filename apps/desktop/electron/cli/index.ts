@@ -73,10 +73,8 @@ const TOOLS_TO_BRIDGE = new Set([
   // Planning & context
   'plan_todos',
   'slopzilla',
-  // User interaction
-  'question',
-  'questionnaire',
-  'interview',
+  // NOT bridged — complex schemas (arrays of objects) that need structured params:
+  // 'question', 'questionnaire', 'interview'
   // NOT bridged — these depend on ctx.sessionManager (SDK internals):
   // 'context_tag', 'context_log', 'context_checkout'
 ]);
