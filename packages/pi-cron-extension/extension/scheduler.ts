@@ -1,104 +1,17 @@
 /**
  * Cron scheduler — ticks every 30s, matches jobs against local time,
- * spawns isolated `pi -p` subprocesses, and fires reminders.
+ * runs prompts in transient in-memory sessions, and fires reminders.
  *
- * Adapted from pi-cron for Sero's JSON state format.
+ * Jobs execute via session-runner.ts which creates disposable
+ * AgentSession instances (SessionManager.inMemory). No orphaned
+ * session files, no interference with user sessions.
  */
 
-import { spawn } from 'node:child_process';
 import type { CronJob, CronRunResult, Reminder } from '../shared/types';
 import { matchesCron } from '../shared/cron';
 import { shouldFire, statusAfterFire } from '../shared/reminder-utils';
+import { runTransientSession, type SessionRunOptions } from './session-runner';
 import { info, warn, error as logError } from './logger';
-
-// ── Subprocess runner ───────────────────────────────────────────
-
-/** Maximum buffer size per stream (1 MB). Prevents OOM on chatty jobs. */
-const MAX_BUFFER = 1_048_576;
-
-interface RunResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-}
-
-export interface SubprocessOptions {
-  model?: string;
-  cwd?: string;
-  timeoutMs?: number;
-}
-
-export function runPiSubprocess(
-  prompt: string,
-  opts: SubprocessOptions = {},
-): Promise<RunResult> {
-  const { model, cwd, timeoutMs = 600_000 } = opts;
-
-  return new Promise((resolve) => {
-    const args = ['-p', '--no-session'];
-    if (model) args.push('--model', model);
-    args.push(prompt);
-
-    info('subprocess:spawn', {
-      model: model ?? 'default',
-      cwd: cwd ?? process.cwd(),
-      promptLen: prompt.length,
-      timeoutMs,
-      args: args.slice(0, -1), // log flags, not the full prompt
-    });
-
-    let child;
-    try {
-      child = spawn('pi', args, {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, SERO_CRON_SUBPROCESS: '1' },
-        cwd: cwd || undefined,
-        timeout: timeoutMs,
-      });
-    } catch (err) {
-      // spawn can throw synchronously (e.g. ENOENT before event loop)
-      const msg = err instanceof Error ? err.message : String(err);
-      logError('subprocess:spawn-failed', { error: msg });
-      resolve({ stdout: '', stderr: msg, exitCode: 1 });
-      return;
-    }
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (chunk: Buffer) => {
-      if (stdout.length < MAX_BUFFER) {
-        stdout += chunk.toString();
-        if (stdout.length > MAX_BUFFER) stdout = stdout.slice(0, MAX_BUFFER);
-      }
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (stderr.length < MAX_BUFFER) {
-        stderr += chunk.toString();
-        if (stderr.length > MAX_BUFFER) stderr = stderr.slice(0, MAX_BUFFER);
-      }
-    });
-
-    child.on('close', (code) => {
-      const ok = code === 0 || !!stdout;
-      info('subprocess:exit', {
-        exitCode: code ?? 1,
-        ok,
-        stdoutLen: stdout.length,
-        stderrLen: stderr.length,
-        // Log first 500 chars of output for debugging
-        stdoutPreview: stdout.slice(0, 500),
-        ...(stderr && { stderrPreview: stderr.slice(0, 500) }),
-      });
-      resolve({ stdout, stderr, exitCode: code ?? 1 });
-    });
-
-    child.on('error', (err) => {
-      logError('subprocess:error', { error: err.message });
-      resolve({ stdout, stderr: `${stderr}\n${err.message}`, exitCode: 1 });
-    });
-  });
-}
 
 // ── Event types ─────────────────────────────────────────────────
 
@@ -284,26 +197,29 @@ export class CronScheduler {
           job.prompt
         : job.prompt;
 
-      const result = await runPiSubprocess(prompt, {
+      const sessionOpts: SessionRunOptions = {
         model: job.model,
         cwd: this.cwd,
-      });
-      const durationMs = Date.now() - startedAt.getTime();
+      };
 
-      if (result.exitCode !== 0 && !result.stdout) {
-        throw new Error(
-          result.stderr || `Process exited with code ${result.exitCode}`,
-        );
+      const result = await runTransientSession(job.name, prompt, sessionOpts);
+
+      if (result.exitCode !== 0 && !result.output) {
+        throw new Error(result.error || `Session failed with code ${result.exitCode}`);
       }
 
-      const output = stripExtensionNoise(result.stdout);
-      info('job:complete', { job: job.name, durationMs, ok: true, outputLen: output.length });
+      info('job:complete', {
+        job: job.name,
+        durationMs: result.durationMs,
+        ok: true,
+        outputLen: result.output.length,
+      });
       this.callbacks.onJobComplete?.({
         jobName: job.name,
         startedAt: startedAt.toISOString(),
-        durationMs,
+        durationMs: result.durationMs,
         ok: true,
-        output: output.slice(0, 4000), // cap at 4KB
+        output: result.output.slice(0, 4000),
       });
     } catch (err: unknown) {
       const durationMs = Date.now() - startedAt.getTime();
@@ -325,28 +241,4 @@ export class CronScheduler {
       });
     }
   }
-}
-
-// ── Helpers ─────────────────────────────────────────────────────
-
-/**
- * Strip extension loading noise from subprocess stdout.
- * Matches known Pi extension log prefixes — avoids stripping
- * legitimate output like Markdown checkboxes or bracketed references.
- */
-const KNOWN_EXT_PREFIXES = /^\[(cron|plan-mode|sero|git|container|workspace|terminal|auth)\]/;
-
-export function stripExtensionNoise(stdout: string): string {
-  return stdout
-    .split('\n')
-    .filter((line) => {
-      if (!line.trim()) return false;
-      // Skip known extension console.log noise
-      if (KNOWN_EXT_PREFIXES.test(line)) return false;
-      // Skip Pi SDK startup messages
-      if (line.startsWith('Loading') || line.startsWith('Loaded')) return false;
-      return true;
-    })
-    .join('\n')
-    .trim();
 }

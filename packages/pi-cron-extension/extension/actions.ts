@@ -7,8 +7,8 @@
 
 import type { CronState, CronJob, CronRunResult } from '../shared/types';
 import { validateCron } from '../shared/cron';
-import { type CronScheduler, stripExtensionNoise } from './scheduler';
-import { runPiSubprocess } from './scheduler';
+import type { CronScheduler } from './scheduler';
+import { runTransientSession } from './session-runner';
 import { info, error as logError } from './logger';
 
 export interface ActionDeps {
@@ -182,29 +182,28 @@ export function handleRun(
     cwd: runCwd,
   });
 
-  // Fire-and-forget: spawn subprocess + record result
+  // Fire-and-forget: run in transient session + record result
   const startedAt = new Date();
-  runPiSubprocess(runJob.prompt, { model: runJob.model, cwd: runCwd })
-    .then(async (sub) => {
-      const durationMs = Date.now() - startedAt.getTime();
-      const ok = sub.exitCode === 0 || !!sub.stdout;
-      const output = stripExtensionNoise(sub.stdout);
+  runTransientSession(runJob.name, runJob.prompt, {
+    model: runJob.model,
+    cwd: runCwd,
+  })
+    .then(async (result) => {
+      const ok = result.exitCode === 0 || !!result.output;
       const runResult: CronRunResult = {
         jobName: runJob.name,
         startedAt: startedAt.toISOString(),
-        durationMs,
+        durationMs: result.durationMs,
         ok,
-        output: output.slice(0, 4000),
-        error: ok
-          ? undefined
-          : (sub.stderr || `Exit code ${sub.exitCode}`).slice(0, 2000),
+        output: result.output.slice(0, 4000),
+        error: ok ? undefined : (result.error ?? 'Unknown error').slice(0, 2000),
       };
       if (ok) {
-        info('job:adhoc-complete', { job: runJob.name, durationMs });
+        info('job:adhoc-complete', { job: runJob.name, durationMs: result.durationMs });
       } else {
         logError('job:adhoc-failed', {
           job: runJob.name,
-          durationMs,
+          durationMs: result.durationMs,
           error: runResult.error?.slice(0, 500),
         });
       }
