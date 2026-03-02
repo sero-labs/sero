@@ -463,6 +463,9 @@ importers:
       vite:
         specifier: ^6.4.1
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2)
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3))(yaml@2.8.2)
 
   packages/pi-daily-quote:
     dependencies:

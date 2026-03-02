@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p ui/tsconfig.json"
   },
   "pi": {
@@ -36,6 +38,7 @@
     "@mariozechner/pi-tui": ">=0.55.3"
   },
   "devDependencies": {
+    "vitest": "^4.0.18",
     "@module-federation/vite": "^1.11.0",
     "@sero/app-runtime": "workspace:*",
     "@sero/ui": "workspace:*",

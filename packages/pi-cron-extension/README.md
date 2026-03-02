@@ -31,9 +31,13 @@ React UI is Sero-only.
   UI and the extension read/write the same file; changes sync instantly.
 - **Scheduler off by default** — nothing runs until you start it. Toggle from
   the UI or with `/cron on`.
-- **Isolated job execution** — each cron job runs as a `pi -p --no-session`
-  subprocess with a 10-minute timeout. Jobs can't interfere with each other
-  or with your active chat.
+- **Isolated job execution** — each cron job runs in a dedicated transient
+  `AgentSession` with `SessionManager.inMemory()`. Sessions are created on
+  demand, never persisted to disk, and disposed immediately after the job
+  completes. Jobs can't interfere with each other or with your active chat.
+- **Concurrency control** — at most 2 cron jobs run simultaneously (configurable).
+  Additional jobs queue and execute when a slot frees up. Duplicate runs of the
+  same job are rejected immediately.
 - **Run history** — the last 50 cron job execution results (pass/fail,
   duration, output, errors) are visible in the History tab. Clear history
   with one click.
@@ -398,10 +402,14 @@ packages/pi-cron-extension/
 │   ├── state-io.ts              # Path resolution, atomic read/write, mutex
 │   ├── state-watcher.ts         # Directory-based fs.watch → scheduler sync
 │   ├── scheduler.ts             # CronScheduler — tick loop, jobs + reminders
+│   ├── session-runner.ts        # Transient in-memory AgentSession runner
 │   ├── actions.ts               # Cron job action handlers
 │   ├── reminder-actions.ts      # Reminder action handlers (CRUD + snooze)
 │   ├── notifier.ts              # sero:notify EventBus emitter
-│   └── logger.ts                # File-based structured logger
+│   ├── logger.ts                # File-based structured logger
+│   └── __tests__/
+│       ├── session-runner.test.ts  # Concurrency, cleanup, re-entrancy, timeout
+│       └── scheduler.test.ts      # Tick execution, callbacks, running-set mgmt
 └── ui/
     ├── CronApp.tsx              # Root — tabs (Reminders, Jobs, History)
     ├── components/
@@ -540,11 +548,18 @@ The scheduler is an in-memory `setInterval` loop that ticks every 30 seconds.
 
 1. Iterates all non-disabled jobs.
 2. Matches each job's cron expression against the current local time.
-3. For matches, spawns `pi -p --no-session <prompt>` as a child process
-   with a 10-minute timeout.
-4. Captures the agent's response (stripping extension loading noise).
-5. Appends the result (with output) to `lastRunResults` in the state file.
-6. Fires a desktop notification on completion.
+3. For matches, creates a transient `AgentSession` via `session-runner.ts`:
+   - Acquires a concurrency slot (max 2 concurrent, duplicate job key rejected).
+   - Sets `SERO_CRON_SUBPROCESS=1` to prevent the cron extension from
+     starting a second scheduler inside the transient session (re-entrancy guard).
+   - Calls `createAgentSession()` with `SessionManager.inMemory()` — no
+     session files are written to disk.
+   - Sends the prompt and waits for completion (10-minute timeout).
+   - Extracts the agent's text response from the last assistant message.
+   - Disposes the session and releases the concurrency slot (guaranteed
+     via `finally` blocks, even on errors or timeouts).
+4. Appends the result (with output) to `lastRunResults` in the state file.
+5. Fires a desktop notification on completion.
 
 **Reminders** (checked every tick):
 
@@ -581,6 +596,28 @@ The cron remote runs on port **5188**. Edits to files in `ui/` trigger
 live reload (~300ms). Extension changes (`extension/`) require a full
 restart.
 
+### Tests
+
+```bash
+pnpm --filter @sero/cron test         # Run once
+pnpm --filter @sero/cron test:watch   # Watch mode
+```
+
+The test suite (34 tests) covers:
+
+- **Session runner** (20 tests) — session lifecycle (create → prompt →
+  dispose), `SessionManager.inMemory()` usage, cleanup on errors,
+  re-entrancy guard (`SERO_CRON_SUBPROCESS` env management), concurrency
+  limits (max slots, duplicate rejection, slot release), timeout + abort,
+  and output extraction from assistant messages.
+- **Scheduler** (14 tests) — job execution via transient sessions,
+  `onJobStart` / `onJobComplete` callbacks (success + failure),
+  running-set dedup and cleanup, tick-based cron matching, disabled-job
+  skipping, once-per-minute guard, and lifecycle (stop, updateJobs).
+
+All Pi SDK dependencies are mocked — tests run in <1s with no network or
+auth required.
+
 ### Typecheck
 
 ```bash
@@ -609,6 +646,7 @@ extension for the Sero platform. Key differences:
 | **UI** | Vanilla HTML/CSS/JS served via pi-webserver | React + Tailwind via Module Federation |
 | **State sync** | File watcher on `.tab` file reloads scheduler | Directory-based `fs.watch` + `useAppState` |
 | **Scope** | Tied to `~/.pi/agent/` | Global (`~/.sero-ui/`) with Pi CLI fallback |
+| **Job execution** | `pi -p --no-session` subprocess | In-process transient `AgentSession` (in-memory, disposed after use) |
 | **Lock file** | PID lock at `~/.pi/agent/pi-cron.lock` | Not needed — singleton scheduler in Electron process |
 | **Web server** | Mounts on pi-webserver (`/cron`, `/api/cron`) | Not needed — federated UI is embedded |
 | **Settings** | `settings.json` → `pi-cron` key | State file only (scheduler toggled via UI or command) |
