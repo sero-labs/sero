@@ -27,6 +27,8 @@ interface SessionsState {
   setSearchQuery: (q: string) => void;
   /** Update a session's display name in-memory (e.g., from agent title generation). */
   updateSessionName: (sessionId: string, name: string) => void;
+  /** Rename a session via IPC (persists to session file). */
+  renameSession: (sessionId: string, name: string) => Promise<void>;
 }
 
 /** Sort sessions by modified date, newest first. */
@@ -97,6 +99,16 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
   setSearchQuery: (q) => set({ searchQuery: q }),
 
   updateSessionName: (sessionId, name) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, name } : sess,
+      ),
+    }));
+  },
+
+  renameSession: async (sessionId, name) => {
+    await window.sero.sessions.rename(sessionId, name);
+    // Also update in-memory immediately for snappy UI
     set((s) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId ? { ...sess, name } : sess,

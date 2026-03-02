@@ -26,6 +26,7 @@ export const IpcChannels = {
     list: 'sero:sessions:list',
     create: 'sero:sessions:create',
     delete: 'sero:sessions:delete',
+    rename: 'sero:sessions:rename',
   },
   agent: {
     open: 'sero:agent:open',

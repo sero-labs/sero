@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useSessionStore } from '@/stores/sessions';
 import { useStreamingSessionIds } from '@/stores/agent';
 import { Button } from '@sero/ui/components/ui/button';
@@ -15,9 +15,14 @@ import { cn } from '@sero/ui/lib/utils';
 
 export function SessionNode({ session }: { session: SeroSessionInfo }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
+  const renameSession = useSessionStore((s) => s.renameSession);
   const streamingIds = useStreamingSessionIds();
 
   const isActive = activeSessionId === session.id;
@@ -25,6 +30,34 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
 
   const title = session.name || session.firstMessage || 'New chat';
   const modified = formatRelativeDate(session.modified);
+
+  // Focus the input when entering rename mode
+  useEffect(() => {
+    if (isRenaming) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [isRenaming]);
+
+  const startRename = () => {
+    setRenameValue(session.name || session.firstMessage || '');
+    setIsRenaming(true);
+  };
+
+  const commitRename = async () => {
+    const trimmed = renameValue.trim();
+    setIsRenaming(false);
+    if (!trimmed || trimmed === title) return;
+    try {
+      await renameSession(session.id, trimmed);
+    } catch (err) {
+      console.error('[SessionNode] rename failed:', err);
+    }
+  };
+
+  const cancelRename = () => {
+    setIsRenaming(false);
+  };
 
   const handleDelete = async () => {
     setConfirmOpen(false);
@@ -34,6 +67,7 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
   return (
     <button
       onClick={() => setActiveSession(session.id)}
+      onDoubleClick={(e) => { e.stopPropagation(); startRename(); }}
       className={cn(
         'group flex w-full items-center gap-4 rounded-md px-2 py-1 text-left transition-colors',
         isActive
@@ -50,9 +84,25 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
 
       {/* Title + metadata */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className={cn('truncate text-sm font-medium', isActive ? 'text-emerald-500' : 'text-[var(--text-primary)]')}>
-          {title}
-        </span>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') cancelRename();
+            }}
+            onBlur={commitRename}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full truncate rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 py-0 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-emerald-500"
+          />
+        ) : (
+          <span className={cn('truncate text-sm font-medium', isActive ? 'text-emerald-500' : 'text-[var(--text-primary)]')}>
+            {title}
+          </span>
+        )}
         <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
           <span>{modified}</span>
           {session.messageCount > 0 && (
@@ -64,49 +114,62 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
         </div>
       </div>
 
-      {/* Delete with confirmation popover */}
-      <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <PopoverTrigger asChild>
-          <span
-            role="button"
-            tabIndex={-1}
-            onClick={(e) => { e.stopPropagation(); setConfirmOpen(true); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setConfirmOpen(true); } }}
-            className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-[var(--bg-base)] group-hover:opacity-100"
-            title="Delete session"
-          >
-            <Trash2 className="size-3 text-[var(--text-muted)]" />
-          </span>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          side="right"
-          className="w-52 p-3"
-          onClick={(e) => e.stopPropagation()}
+      {/* Actions: rename + delete */}
+      <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <span
+          role="button"
+          tabIndex={-1}
+          onClick={(e) => { e.stopPropagation(); startRename(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startRename(); } }}
+          className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+          title="Rename session"
         >
-          <p className="mb-3 text-xs text-[var(--text-secondary)]">
-            Delete this session?
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-sm"
-              onClick={(e) => { e.stopPropagation(); setConfirmOpen(false); }}
+          <Pencil className="size-3 text-[var(--text-muted)]" />
+        </span>
+
+        <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <PopoverTrigger asChild>
+            <span
+              role="button"
+              tabIndex={-1}
+              onClick={(e) => { e.stopPropagation(); setConfirmOpen(true); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setConfirmOpen(true); } }}
+              className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+              title="Delete session"
             >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="h-6 px-2 text-sm"
-              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-            >
-              Delete
-            </Button>
-          </div>
-        </PopoverContent>
-      </Popover>
+              <Trash2 className="size-3 text-[var(--text-muted)]" />
+            </span>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            side="right"
+            className="w-52 p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="mb-3 text-xs text-[var(--text-secondary)]">
+              Delete this session?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-sm"
+                onClick={(e) => { e.stopPropagation(); setConfirmOpen(false); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-6 px-2 text-sm"
+                onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+              >
+                Delete
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </span>
     </button>
   );
 }

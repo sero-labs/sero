@@ -472,6 +472,18 @@ export function registerAgentHandlers(): void {
     },
   );
 
+  // ── Rename session ────────────────────────────────────────
+  ipcMain.handle(
+    IpcChannels.sessions.rename,
+    async (_event, sessionId: string, name: string): Promise<void> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+      entry.session.setSessionName(name);
+      entry.lastSessionName = name;
+      sendEvent({ type: 'session_name', sessionId, name });
+    },
+  );
+
   registerAgentCheckpointHandlers({
     getEntry: (sessionId) => pool.get(sessionId),
     sendEvent,

@@ -93,6 +93,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.sessions.create, workspaceId),
     delete: (sessionPath: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.sessions.delete, sessionPath),
+    rename: (sessionId: string, name: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.sessions.rename, sessionId, name),
   },
 
   agent: {

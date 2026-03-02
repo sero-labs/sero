@@ -76,6 +76,8 @@ interface SeroSessionsAPI {
   /** Create a session bound to a workspace. Defaults to global. */
   create(workspaceId?: string): Promise<SeroSessionInfo>;
   delete(sessionPath: string): Promise<void>;
+  /** Rename a session. Requires the session to be open in the agent pool. */
+  rename(sessionId: string, name: string): Promise<void>;
 }
 
 interface SeroAgentAPI {
