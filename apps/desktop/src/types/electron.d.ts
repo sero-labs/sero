@@ -460,8 +460,8 @@ interface SeroSkillsAPI {
   listSkills(): Promise<SkillSummary[]>;
   /** Read full skill data by absolute filePath (from listSkills). */
   readSkill(filePath: string): Promise<SkillFileData>;
-  /** Create or update a skill's SKILL.md. Uses filePath if set, else creates new. */
-  writeSkill(data: SkillFileData): Promise<void>;
+  /** Create or update a skill's SKILL.md. Returns the written filePath. */
+  writeSkill(data: SkillFileData): Promise<string>;
   /** Delete a skill directory by the absolute filePath of its SKILL.md. */
   deleteSkill(filePath: string): Promise<void>;
 }

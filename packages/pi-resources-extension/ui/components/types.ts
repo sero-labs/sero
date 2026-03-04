@@ -22,12 +22,15 @@ export interface AgentFileData {
 
 // ── Skill types ──────────────────────────────────────────────
 
+/** Skill source — matches the SDK's source identifiers. */
+export type SkillSource = 'user' | 'project' | 'path';
+
 /** Skill summary (from listSkills IPC — mirrors SDK Skill). */
 export interface SkillSummary {
   name: string;
   description: string;
   filePath: string;
-  source: string;
+  source: SkillSource;
 }
 
 /** Full skill file data (from readSkill IPC). */

@@ -13,198 +13,35 @@ import { AgentList } from './components/AgentList';
 import { AgentEditor } from './components/AgentEditor';
 import { SkillList } from './components/SkillList';
 import { SkillEditor } from './components/SkillEditor';
-import type {
-  ResourceTab,
-  AgentSummary,
-  AgentFileData,
-  SkillSummary,
-  SkillFileData,
-} from './components/types';
+import { useAgentCrud } from './hooks/useAgentCrud';
+import { useSkillCrud } from './hooks/useSkillCrud';
+import type { ResourceTab } from './components/types';
 import './styles.css';
-
-const NEW_AGENT: AgentFileData = {
-  name: '',
-  description: '',
-  model: '',
-  thinking: '',
-  timeoutMs: undefined,
-  tools: [],
-  systemPrompt: '',
-};
-
-const NEW_SKILL: SkillFileData = {
-  name: '',
-  description: '',
-  extraFrontmatter: {},
-  body: '',
-};
 
 export function ResourcesApp() {
   const [tab, setTab] = useState<ResourceTab>('agents');
-
-  // ── Agent state ────────────────────────────────────────────
-  const [agents, setAgents] = useState<AgentSummary[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [editingAgent, setEditingAgent] = useState<AgentFileData | null>(null);
-  const [isNewAgent, setIsNewAgent] = useState(false);
-
-  // ── Skill state ────────────────────────────────────────────
-  const [skills, setSkills] = useState<SkillSummary[]>([]);
-  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
-  const [editingSkill, setEditingSkill] = useState<SkillFileData | null>(null);
-  const [isNewSkill, setIsNewSkill] = useState(false);
-
-  // ── Shared state ───────────────────────────────────────────
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Refresh helpers ────────────────────────────────────────
+  const setErrorMsg = useCallback((msg: string) => setError(msg), []);
 
-  const refreshAgents = useCallback(async () => {
-    try {
-      const list = await window.sero.subagent.listAgents();
-      setAgents(list.map((a) => ({
-        name: a.name,
-        description: a.description,
-        model: a.model,
-        thinking: a.thinking,
-        timeoutMs: a.timeoutMs,
-      })));
-    } catch (err) {
-      setError('Failed to load agents');
-      console.error('[resources-app] refreshAgents failed:', err);
-    }
-  }, []);
+  const agentCrud = useAgentCrud(setErrorMsg, setSaving);
+  const skillCrud = useSkillCrud(setErrorMsg, setSaving);
 
-  const refreshSkills = useCallback(async () => {
-    try {
-      const list = await window.sero.skills.listSkills();
-      setSkills(list);
-    } catch (err) {
-      setError('Failed to load skills');
-      console.error('[resources-app] refreshSkills failed:', err);
-    }
-  }, []);
+  // ── Initial load ───────────────────────────────────────────
 
-  const refresh = useCallback(async () => {
+  useEffect(() => {
     setLoading(true);
     setError(null);
-    await Promise.all([refreshAgents(), refreshSkills()]);
-    setLoading(false);
-  }, [refreshAgents, refreshSkills]);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  // ── Agent actions ──────────────────────────────────────────
-
-  const selectAgent = useCallback(async (name: string) => {
-    try {
-      setSelectedAgent(name);
-      setIsNewAgent(false);
-      const data = await window.sero.subagent.readAgent(name);
-      setEditingAgent(data);
-      setError(null);
-    } catch (err) {
-      setError(`Failed to load agent '${name}'`);
-    }
+    Promise.all([agentCrud.refresh(), skillCrud.refresh()]).finally(() =>
+      setLoading(false),
+    );
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const startNewAgent = useCallback(() => {
-    setSelectedAgent(null);
-    setIsNewAgent(true);
-    setEditingAgent({ ...NEW_AGENT });
-  }, []);
-
-  const saveAgent = useCallback(async (data: AgentFileData) => {
-    setSaving(true);
-    try {
-      await window.sero.subagent.writeAgent(data);
-      await refreshAgents();
-      setSelectedAgent(data.name);
-      setIsNewAgent(false);
-      setEditingAgent(data);
-      setError(null);
-    } catch (err) {
-      setError(`Failed to save agent '${data.name}'`);
-    } finally {
-      setSaving(false);
-    }
-  }, [refreshAgents]);
-
-  const deleteAgent = useCallback(async (name: string) => {
-    try {
-      await window.sero.subagent.deleteAgent(name);
-      if (selectedAgent === name) {
-        setSelectedAgent(null);
-        setEditingAgent(null);
-        setIsNewAgent(false);
-      }
-      await refreshAgents();
-      setError(null);
-    } catch (err) {
-      setError(`Failed to delete agent '${name}'`);
-    }
-  }, [selectedAgent, refreshAgents]);
-
-  // ── Skill actions ──────────────────────────────────────────
-  // selectedSkill tracks filePath (unique), not name (can collide).
-
-  const selectSkill = useCallback(async (filePath: string) => {
-    try {
-      setSelectedSkill(filePath);
-      setIsNewSkill(false);
-      const data = await window.sero.skills.readSkill(filePath);
-      setEditingSkill(data);
-      setError(null);
-    } catch (err) {
-      const name = filePath.split('/').at(-2) ?? filePath;
-      setError(`Failed to load skill '${name}'`);
-    }
-  }, []);
-
-  const startNewSkill = useCallback(() => {
-    setSelectedSkill(null);
-    setIsNewSkill(true);
-    setEditingSkill({ ...NEW_SKILL, extraFrontmatter: {} });
-  }, []);
-
-  const saveSkill = useCallback(async (data: SkillFileData) => {
-    setSaving(true);
-    try {
-      await window.sero.skills.writeSkill(data);
-      await refreshSkills();
-      // After save, select by filePath if available (existing), else stay on new
-      if (data.filePath) {
-        setSelectedSkill(data.filePath);
-      }
-      setIsNewSkill(false);
-      setEditingSkill(data);
-      setError(null);
-    } catch (err) {
-      setError(`Failed to save skill '${data.name}'`);
-    } finally {
-      setSaving(false);
-    }
-  }, [refreshSkills]);
-
-  const deleteSkill = useCallback(async (filePath: string) => {
-    try {
-      await window.sero.skills.deleteSkill(filePath);
-      if (selectedSkill === filePath) {
-        setSelectedSkill(null);
-        setEditingSkill(null);
-        setIsNewSkill(false);
-      }
-      await refreshSkills();
-      setError(null);
-    } catch (err) {
-      const name = filePath.split('/').at(-2) ?? filePath;
-      setError(`Failed to delete skill '${name}'`);
-    }
-  }, [selectedSkill, refreshSkills]);
-
-  // ── Tab switching clears editor selection ──────────────────
+  // ── Tab switching ──────────────────────────────────────────
 
   const switchTab = useCallback((newTab: ResourceTab) => {
     setTab(newTab);
@@ -214,12 +51,7 @@ export function ResourcesApp() {
   // ── Derived values for current tab ─────────────────────────
 
   const isAgents = tab === 'agents';
-  const hasEditor = isAgents ? !!editingAgent : !!editingSkill;
-  const emptyIcon = isAgents ? '🧠' : '⚡';
-  const emptyLabel = isAgents
-    ? 'Select an agent to edit, or create a new one'
-    : 'Select a skill to edit, or create a new one';
-  const startNew = isAgents ? startNewAgent : startNewSkill;
+  const startNew = isAgents ? agentCrud.startNew : skillCrud.startNew;
 
   return (
     <div className="flex h-full w-full bg-background text-foreground">
@@ -238,17 +70,24 @@ export function ResourcesApp() {
         {/* Actions row */}
         <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
           <span className="flex-1 text-xs text-muted-foreground">
-            {isAgents ? `${agents.length} agents` : `${skills.length} skills`}
+            {isAgents
+              ? `${agentCrud.agents.length} agents`
+              : `${skillCrud.skills.length} skills`}
           </span>
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={isAgents ? refreshAgents : refreshSkills}
+            onClick={isAgents ? agentCrud.refresh : skillCrud.refresh}
             title="Refresh"
           >
             <span className="text-xs">↻</span>
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={startNew} title={`New ${isAgents ? 'Agent' : 'Skill'}`}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={startNew}
+            title={`New ${isAgents ? 'Agent' : 'Skill'}`}
+          >
             <span className="text-xs">+</span>
           </Button>
         </div>
@@ -259,9 +98,17 @@ export function ResourcesApp() {
             <span className="text-xs text-muted-foreground">Loading…</span>
           </div>
         ) : isAgents ? (
-          <AgentList agents={agents} selected={selectedAgent} onSelect={selectAgent} />
+          <AgentList
+            agents={agentCrud.agents}
+            selected={agentCrud.selected}
+            onSelect={agentCrud.select}
+          />
         ) : (
-          <SkillList skills={skills} selected={selectedSkill} onSelect={selectSkill} />
+          <SkillList
+            skills={skillCrud.skills}
+            selected={skillCrud.selected}
+            onSelect={skillCrud.select}
+          />
         )}
       </div>
 
@@ -273,34 +120,53 @@ export function ResourcesApp() {
           </div>
         )}
 
-        {isAgents && editingAgent ? (
+        {isAgents && agentCrud.editing ? (
           <AgentEditor
-            data={editingAgent}
-            isNew={isNewAgent}
+            data={agentCrud.editing}
+            isNew={agentCrud.isNew}
             saving={saving}
-            onSave={saveAgent}
-            onDelete={deleteAgent}
-            onChange={setEditingAgent}
+            onSave={agentCrud.save}
+            onDelete={agentCrud.remove}
+            onChange={agentCrud.setEditing}
           />
-        ) : !isAgents && editingSkill ? (
+        ) : !isAgents && skillCrud.editing ? (
           <SkillEditor
-            data={editingSkill}
-            isNew={isNewSkill}
+            data={skillCrud.editing}
+            isNew={skillCrud.isNew}
             saving={saving}
-            onSave={saveSkill}
-            onDelete={deleteSkill}
-            onChange={setEditingSkill}
+            source={skillCrud.selectedSource}
+            onSave={skillCrud.save}
+            onDelete={skillCrud.remove}
+            onChange={skillCrud.setEditing}
           />
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3">
-            <span className="text-5xl opacity-20">{emptyIcon}</span>
-            <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-            <Button variant="secondary" size="sm" onClick={startNew}>
-              + New {isAgents ? 'Agent' : 'Skill'}
-            </Button>
-          </div>
+          <EmptyState isAgents={isAgents} onNew={startNew} />
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Empty state placeholder ──────────────────────────────────
+
+function EmptyState({
+  isAgents,
+  onNew,
+}: {
+  isAgents: boolean;
+  onNew: () => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3">
+      <span className="text-5xl opacity-20">{isAgents ? '🧠' : '⚡'}</span>
+      <p className="text-sm text-muted-foreground">
+        {isAgents
+          ? 'Select an agent to edit, or create a new one'
+          : 'Select a skill to edit, or create a new one'}
+      </p>
+      <Button variant="secondary" size="sm" onClick={onNew}>
+        + New {isAgents ? 'Agent' : 'Skill'}
+      </Button>
     </div>
   );
 }

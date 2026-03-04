@@ -477,7 +477,7 @@ export type {
   SubagentEvent,
 } from './subagent';
 
-export type { SkillSummary, SkillFileData } from './skills';
+export type { SkillSource, SkillSummary, SkillFileData } from './skills';
 
 // ── IPC Channels ───────────────────────────────────────────────
 

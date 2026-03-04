@@ -5,27 +5,31 @@
 import { useCallback } from 'react';
 import { Button } from '@sero/ui/components/ui/button';
 import { cn } from '@sero/ui/lib/utils';
-import type { SkillFileData } from './types';
+import type { SkillFileData, SkillSource } from './types';
 
 interface SkillEditorProps {
   data: SkillFileData;
   isNew: boolean;
   saving: boolean;
+  /** Source of the skill — only 'user' skills can be deleted. */
+  source: SkillSource | null;
   onSave: (data: SkillFileData) => void;
   /** Called with the skill's filePath for existing skills. */
   onDelete: (filePath: string) => void;
   onChange: (data: SkillFileData) => void;
 }
 
-const NAME_RE = /^[a-z0-9][a-z0-9._-]*$/;
+/** Must match VALID_SKILL_NAME in electron/ipc/skills.ts */
+const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
-export function SkillEditor({ data, isNew, saving, onSave, onDelete, onChange }: SkillEditorProps) {
+export function SkillEditor({ data, isNew, saving, source, onSave, onDelete, onChange }: SkillEditorProps) {
   const update = useCallback(
     (partial: Partial<SkillFileData>) => onChange({ ...data, ...partial }),
     [data, onChange],
   );
 
   const canSave = data.name.length > 0 && NAME_RE.test(data.name) && data.body.length > 0;
+  const canDelete = !isNew && data.filePath && source === 'user';
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +43,12 @@ export function SkillEditor({ data, isNew, saving, onSave, onDelete, onChange }:
         <span className="flex-1 text-sm font-medium text-foreground truncate">
           {isNew ? 'New Skill' : data.name}
         </span>
-        {!isNew && data.filePath && (
+        {source && source !== 'user' && (
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {source}
+          </span>
+        )}
+        {canDelete && (
           <Button
             type="button"
             variant="ghost"
@@ -57,7 +66,7 @@ export function SkillEditor({ data, isNew, saving, onSave, onDelete, onChange }:
 
       {/* ── Metadata fields ────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
-        <Field label="Name" hint="lowercase, hyphens/dots">
+        <Field label="Name" hint="lowercase, hyphens only">
           <input
             type="text"
             value={data.name}

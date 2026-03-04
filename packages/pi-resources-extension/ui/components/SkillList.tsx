@@ -40,9 +40,16 @@ export function SkillList({ skills, selected, onSelect }: SkillListProps) {
             selected === skill.filePath && 'bg-secondary border-l-2 border-l-primary',
           )}
         >
-          <span className="text-sm font-medium text-foreground truncate">
-            {skill.name}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-medium text-foreground truncate flex-1">
+              {skill.name}
+            </span>
+            {skill.source !== 'user' && (
+              <span className="shrink-0 rounded bg-muted px-1 py-px text-[9px] text-muted-foreground">
+                {skill.source}
+              </span>
+            )}
+          </div>
           <p className="text-[11px] text-muted-foreground truncate leading-snug">
             {skill.description || 'No description'}
           </p>

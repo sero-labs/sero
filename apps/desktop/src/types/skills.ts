@@ -5,14 +5,17 @@
  * `@mariozechner/pi-coding-agent/core/skills`.
  */
 
+/** Skill source — matches the SDK's source identifiers. */
+export type SkillSource = 'user' | 'project' | 'path';
+
 /** Summary of a discovered skill (renderer-safe subset of SDK Skill). */
 export interface SkillSummary {
   name: string;
   description: string;
   /** Absolute path to the SKILL.md file. */
   filePath: string;
-  /** Source: 'user' | 'project' | 'path'. */
-  source: string;
+  /** Where the skill was discovered from. */
+  source: SkillSource;
 }
 
 /**

@@ -38,11 +38,21 @@ const VALID_SKILL_NAME = /^[a-z0-9][a-z0-9-]*$/;
 
 // ── Frontmatter serialization (SDK only provides parsing) ────
 
+function serializeValue(val: unknown): string {
+  if (Array.isArray(val)) {
+    return `[${val.map((v) => String(v)).join(', ')}]`;
+  }
+  if (typeof val === 'object' && val !== null) {
+    return JSON.stringify(val);
+  }
+  return String(val);
+}
+
 function serializeFrontmatter(fields: Record<string, unknown>): string {
   const lines: string[] = [];
   for (const [key, val] of Object.entries(fields)) {
     if (val === undefined || val === null || val === '') continue;
-    lines.push(`${key}: ${String(val)}`);
+    lines.push(`${key}: ${serializeValue(val)}`);
   }
   return lines.length > 0 ? `---\n${lines.join('\n')}\n---\n` : '';
 }
@@ -60,7 +70,7 @@ export function registerSkillHandlers(): void {
           name: s.name,
           description: s.description,
           filePath: s.filePath,
-          source: s.source,
+          source: s.source as SkillSummary['source'],
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     },
@@ -77,7 +87,7 @@ export function registerSkillHandlers(): void {
       const { frontmatter, body } = parseFrontmatter<SkillFrontmatter>(raw);
 
       const parentDir = path.basename(path.dirname(filePath));
-      const { name: fmName, description, 'disable-model-invocation': _dmi, ...extra } = frontmatter;
+      const { name: fmName, description, ...extra } = frontmatter;
 
       return {
         name: fmName || parentDir,
@@ -92,10 +102,11 @@ export function registerSkillHandlers(): void {
   /**
    * Write a skill. If `filePath` is provided, overwrites that file.
    * Otherwise creates a new skill at SKILLS_DIR/<name>/SKILL.md.
+   * Returns the absolute filePath of the written file.
    */
   ipcMain.handle(
     IpcChannels.skills.writeSkill,
-    async (_e, data: SkillFileData): Promise<void> => {
+    async (_e, data: SkillFileData): Promise<string> => {
       let targetPath: string;
 
       if (data.filePath) {
@@ -119,10 +130,11 @@ export function registerSkillHandlers(): void {
         ...data.extraFrontmatter,
       };
 
-      const content = serializeFrontmatter(fmFields) + '\n' + data.body;
+      const content = serializeFrontmatter(fmFields) + data.body;
       const tmpPath = `${targetPath}.tmp.${Date.now()}`;
       await writeFile(tmpPath, content, 'utf-8');
       await rename(tmpPath, targetPath);
+      return targetPath;
     },
   );
 

@@ -33,7 +33,7 @@ interface SkillSummaryIPC {
   name: string;
   description: string;
   filePath: string;
-  source: string;
+  source: 'user' | 'project' | 'path';
 }
 
 interface SkillFileDataIPC {
@@ -47,7 +47,8 @@ interface SkillFileDataIPC {
 interface SeroSkillsBridge {
   listSkills(): Promise<SkillSummaryIPC[]>;
   readSkill(filePath: string): Promise<SkillFileDataIPC>;
-  writeSkill(data: SkillFileDataIPC): Promise<void>;
+  /** Returns the absolute filePath of the written file. */
+  writeSkill(data: SkillFileDataIPC): Promise<string>;
   deleteSkill(filePath: string): Promise<void>;
 }
 
