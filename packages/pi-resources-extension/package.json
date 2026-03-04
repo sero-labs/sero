@@ -1,7 +1,7 @@
 {
-  "name": "@sero/agents",
+  "name": "@sero/resources",
   "version": "0.1.0",
-  "description": "Agent definition manager for Sero",
+  "description": "Agent and skill editor for Sero",
   "keywords": ["pi-package"],
   "scripts": {
     "dev": "vite",
@@ -13,14 +13,14 @@
   },
   "sero": {
     "app": {
-      "id": "agents",
-      "name": "Agents",
-      "icon": "brain",
+      "id": "resources",
+      "name": "Resources",
+      "icon": "library",
       "scope": "global",
-      "stateFile": ".sero/apps/agents/state.json",
+      "stateFile": ".sero/apps/resources/state.json",
       "ui": "./dist/ui/remoteEntry.js",
-      "component": "AgentsApp",
-      "devPort": 5189
+      "component": "ResourcesApp",
+      "devPort": 5190
     }
   },
   "dependencies": {

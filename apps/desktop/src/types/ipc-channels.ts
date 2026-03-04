@@ -288,6 +288,12 @@ export const IpcChannels = {
     writeAgent: 'sero:subagent:write-agent',
     deleteAgent: 'sero:subagent:delete-agent',
   },
+  skills: {
+    listSkills: 'sero:skills:list',
+    readSkill: 'sero:skills:read',
+    writeSkill: 'sero:skills:write',
+    deleteSkill: 'sero:skills:delete',
+  },
   google: {
     /** Execute a gogcli data command (gog --json --no-input <service> <args>). */
     execute: 'sero:google:execute',

@@ -30,6 +30,8 @@ import type {
   SubagentEvent,
   SubagentAgentSummary,
   SubagentEntry,
+  SkillSummary,
+  SkillFileData,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -453,6 +455,17 @@ interface SeroSubagentAPI {
   deleteAgent(name: string): Promise<void>;
 }
 
+interface SeroSkillsAPI {
+  /** List all discovered skills (uses SDK loadSkillsFromDir). */
+  listSkills(): Promise<SkillSummary[]>;
+  /** Read full skill data by absolute filePath (from listSkills). */
+  readSkill(filePath: string): Promise<SkillFileData>;
+  /** Create or update a skill's SKILL.md. Uses filePath if set, else creates new. */
+  writeSkill(data: SkillFileData): Promise<void>;
+  /** Delete a skill directory by the absolute filePath of its SKILL.md. */
+  deleteSkill(filePath: string): Promise<void>;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -480,6 +493,7 @@ interface SeroAPI {
   debug: SeroDebugAPI;
   vcs: SeroVcsAPI;
   subagent: SeroSubagentAPI;
+  skills: SeroSkillsAPI;
   github: SeroGitHubAPI;
 }
 

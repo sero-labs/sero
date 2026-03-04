@@ -35,6 +35,7 @@ import { registerGatewayHandlers } from './gateway';
 import { registerGoogleApiHandlers } from './google-api';
 import { registerModelsHandlers } from './models';
 import { registerSubagentHandlers } from './subagent';
+import { registerSkillHandlers } from './skills';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -66,4 +67,5 @@ export function registerAllIpcHandlers(): void {
   registerGoogleApiHandlers();
   registerModelsHandlers();
   registerSubagentHandlers();
+  registerSkillHandlers();
 }

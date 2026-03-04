@@ -3,6 +3,7 @@ import { IpcChannels } from '../src/types/ipc';
 import { userFeedbackBridge } from './preload/user-feedback';
 import { debugBridge, lspBridge } from './preload/debug-lsp';
 import { subagentBridge } from './preload/subagent';
+import { skillsBridge } from './preload/skills';
 import type {
   WorkspaceInfo,
   WorkspaceConfig,
@@ -468,6 +469,7 @@ contextBridge.exposeInMainWorld('sero', {
   },
 
   subagent: subagentBridge,
+  skills: skillsBridge,
 
   userFeedback: userFeedbackBridge,
 

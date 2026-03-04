@@ -9,12 +9,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
     federation({
-      name: 'sero_agents',
+      name: 'sero_resources',
       filename: 'remoteEntry.js',
       dts: false,
       manifest: true,
       exposes: {
-        './AgentsApp': './ui/AgentsApp.tsx',
+        './ResourcesApp': './ui/ResourcesApp.tsx',
       },
       shared: {
         react: { singleton: true },
@@ -25,9 +25,9 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5189,
+    port: 5190,
     strictPort: true,
-    origin: 'http://localhost:5189',
+    origin: 'http://localhost:5190',
   },
   optimizeDeps: {
     exclude: ['@sero/app-runtime'],
