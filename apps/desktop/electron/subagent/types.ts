@@ -1,18 +1,19 @@
 /**
  * Subagent system types — shared across discovery, pool, runner, tracker, and tools.
+ *
+ * IPC-crossing types (SubagentStatus, SubagentMode, SubagentUsage, SubagentEntry,
+ * SubagentToolActivity) are defined once in src/types/subagent.ts and re-exported
+ * here. Main-process-only types (AgentConfig, RunnerConfig, etc.) are defined below.
  */
 
-// ── Status & Mode ────────────────────────────────────────────
-
-export type SubagentStatus =
-  | 'queued'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'aborted'
-  | 'timed_out';
-
-export type SubagentMode = 'single' | 'parallel' | 'chain';
+// Re-export IPC-shared types as the single source of truth
+export type {
+  SubagentStatus,
+  SubagentMode,
+  SubagentUsage,
+  SubagentEntry,
+  SubagentToolActivity,
+} from '../../src/types/subagent';
 
 // ── Agent Config (from .md discovery) ────────────────────────
 
@@ -37,67 +38,6 @@ export interface AgentConfig {
   source: 'global';
   /** Absolute path to the .md file. */
   filePath: string;
-}
-
-// ── Subagent Entry (tracker state) ───────────────────────────
-
-export interface SubagentUsage {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  totalTokens: number;
-  cost: number;
-}
-
-export interface SubagentEntry {
-  /** Unique run ID. */
-  id: string;
-  /** Agent config name (or 'ad-hoc'). */
-  agentName: string;
-  /** First 200 chars of the task prompt. */
-  taskPreview: string;
-  /** Current status. */
-  status: SubagentStatus;
-  /** Unix ms when the run started. */
-  startedAt: number;
-  /** Unix ms when the run completed (or null if still running). */
-  completedAt: number | null;
-  /** Duration in milliseconds (or null if still running). */
-  durationMs: number | null;
-  /** Which main session spawned this. */
-  parentSessionId: string;
-  /** Workspace this run belongs to. */
-  workspaceId: string;
-  /** Execution mode. */
-  mode: SubagentMode;
-  /** Step index in chain mode. */
-  chainStep?: number;
-  /** Token and cost usage. */
-  usage: SubagentUsage;
-  /** Model used for this run. */
-  model: string | null;
-  /** Recent tool activity (last N tool calls). */
-  toolActivity: SubagentToolActivity[];
-  /** Live output text (streamed during execution). */
-  liveOutput: string;
-  /** First 500 chars of the response. */
-  responsePreview?: string;
-  /** Complete response text. */
-  fullResponse?: string;
-  /** Error message if failed. */
-  error?: string;
-}
-
-// ── Tool Activity ────────────────────────────────────────────
-
-export interface SubagentToolActivity {
-  /** Tool name (e.g. 'read', 'bash', 'edit'). */
-  toolName: string;
-  /** Short summary of args (e.g. file path, command). */
-  argsSummary: string;
-  /** Whether this tool call is still running. */
-  running: boolean;
 }
 
 // ── Settings ─────────────────────────────────────────────────

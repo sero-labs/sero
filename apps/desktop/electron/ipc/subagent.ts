@@ -6,7 +6,7 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
+import { readFile, writeFile, unlink, mkdir, rename } from 'fs/promises';
 import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
 import { subagentManager } from './shared-infra';
@@ -19,6 +19,15 @@ import type {
 } from '../../src/types/ipc';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
+
+/** Validate agent name to prevent path traversal. */
+const VALID_AGENT_NAME = /^[a-z0-9-]+$/;
+
+function validateAgentName(name: string): void {
+  if (!VALID_AGENT_NAME.test(name)) {
+    throw new Error(`Invalid agent name '${name}'. Use only lowercase letters, numbers, and hyphens.`);
+  }
+}
 
 function sendToAllWindows(channel: string, ...args: unknown[]): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -133,7 +142,7 @@ export function registerSubagentHandlers(): void {
   ipcMain.handle(
     IpcChannels.subagent.abort,
     async (_e, subagentId: string) => {
-      subagentManager.tracker.abort(subagentId);
+      subagentManager.abortOne(subagentId);
     },
   );
 
@@ -142,6 +151,7 @@ export function registerSubagentHandlers(): void {
   ipcMain.handle(
     IpcChannels.subagent.readAgent,
     async (_e, name: string): Promise<SubagentAgentFile> => {
+      validateAgentName(name);
       const filePath = path.join(AGENTS_DIR, `${name}.md`);
       const raw = await readFile(filePath, 'utf-8');
       return parseAgentFile(raw, name);
@@ -151,12 +161,12 @@ export function registerSubagentHandlers(): void {
   ipcMain.handle(
     IpcChannels.subagent.writeAgent,
     async (_e, data: SubagentAgentFile): Promise<void> => {
+      validateAgentName(data.name);
       await mkdir(AGENTS_DIR, { recursive: true });
       const filePath = path.join(AGENTS_DIR, `${data.name}.md`);
       const content = serializeAgentFile(data);
       const tmpPath = `${filePath}.tmp.${Date.now()}`;
       await writeFile(tmpPath, content, 'utf-8');
-      const { rename } = await import('fs/promises');
       await rename(tmpPath, filePath);
     },
   );
@@ -164,6 +174,7 @@ export function registerSubagentHandlers(): void {
   ipcMain.handle(
     IpcChannels.subagent.deleteAgent,
     async (_e, name: string): Promise<void> => {
+      validateAgentName(name);
       const filePath = path.join(AGENTS_DIR, `${name}.md`);
       await unlink(filePath);
     },

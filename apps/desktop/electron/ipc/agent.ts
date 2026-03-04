@@ -14,8 +14,6 @@ import { IpcChannels } from '../../src/types/ipc';
 import type {
   ChatMessage,
   ChatAttachment,
-  ChatAssistantMessage,
-  ChatToolCallMessage,
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionUsageStats,
@@ -25,14 +23,13 @@ import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 
 import {
   nextId,
-  formatCustomMessage,
   convertSessionMessages,
   buildCheckpointMapByTurn,
   attachmentsToImages,
   readHiddenCommands,
   buildCommandList,
 } from './agent-helpers';
-import { logRawEvent, logTurnContext } from './debug';
+import { subscribeToSession } from './agent-subscription';
 import { readGlobalAgentsMd } from './global-agents';
 import { registerAgentCheckpointHandlers } from './agent-checkpoint';
 import { workspaceManager } from '../workspace';
@@ -50,7 +47,7 @@ import { createContainerTools } from '../container/tools';
 import type { ContainerState } from '../container/index';
 import { registerAgentModelContextHandlers } from './agent-model-context';
 import { createSeroUIContext } from '../extension-ui-context';
-import { installCliAgentBridge, noteCliTurnEnd, noteCliTurnStart } from '../cli/agent-bridge';
+import { installCliAgentBridge, noteCliTurnEnd } from '../cli/agent-bridge';
 import { createWorkspaceCliTool, bridgeExtensionTools } from '../cli';
 import { installGatewayAgentOps, forwardEventToGateway } from '../gateway/agent-bridge';
 
@@ -89,145 +86,6 @@ function disposeAll(): void {
   for (const sessionId of pool.keys()) {
     closePoolEntry(sessionId);
   }
-}
-
-function subscribeToSession(sessionId: string, session: AgentSession): () => void {
-  return session.subscribe((event) => {
-    const entry = pool.get(sessionId);
-    if (!entry) return;
-
-    logRawEvent(sessionId, event);
-
-    if (event.type === 'turn_start') {
-      noteCliTurnStart(sessionId);
-      logTurnContext(sessionId, session);
-    }
-
-    switch (event.type) {
-      case 'agent_start':
-        sendEvent({ type: 'agent_start', sessionId });
-        break;
-
-      case 'agent_end':
-        noteCliTurnEnd(sessionId);
-        sendEvent({ type: 'agent_end', sessionId });
-        {
-          // Store the checkpoint from the just-completed turn so it can be
-          // attached to the NEXT user message (shifted-by-one mapping:
-          // "restore on message N" → state before message N → end of turn N-1).
-          const checkpoints = buildCheckpointMapByTurn(entry.session, entry.workspaceId);
-          const userCount = entry.session.messages.filter((m) => m.role === 'user').length;
-          const lastTurnIdx = userCount - 1;
-          const checkpoint = checkpoints.get(lastTurnIdx);
-          if (checkpoint) {
-            entry.lastCompletedCheckpoint = checkpoint;
-          }
-        }
-        break;
-
-      case 'message_start': {
-        if (event.message.role === 'assistant') {
-          const chatMsg: ChatAssistantMessage = {
-            type: 'assistant',
-            id: nextId(),
-            text: '',
-            isStreaming: true,
-          };
-          entry.currentAssistantId = chatMsg.id;
-          sendEvent({ type: 'message_start', sessionId, message: chatMsg });
-        } else if (event.message.role === 'custom') {
-          const prefixed = formatCustomMessage(event.message as any);
-          if (!prefixed) break;
-
-          const chatMsg: ChatAssistantMessage = {
-            type: 'assistant',
-            id: nextId(),
-            text: prefixed,
-            isStreaming: false,
-          };
-          sendEvent({ type: 'message_start', sessionId, message: chatMsg });
-        }
-        break;
-      }
-
-      case 'message_update': {
-        const ame = event.assistantMessageEvent;
-        if (ame.type === 'text_delta' && entry.currentAssistantId) {
-          sendEvent({
-            type: 'text_delta',
-            sessionId,
-            messageId: entry.currentAssistantId,
-            delta: ame.delta,
-          });
-        } else if (ame.type === 'thinking_delta' && entry.currentAssistantId) {
-          sendEvent({
-            type: 'thinking_delta',
-            sessionId,
-            messageId: entry.currentAssistantId,
-            delta: ame.delta,
-          });
-        }
-        break;
-      }
-
-      case 'message_end': {
-        if (event.message.role === 'assistant' && entry.currentAssistantId) {
-          const textParts = event.message.content.filter(
-            (c): c is { type: 'text'; text: string } => c.type === 'text',
-          );
-          const thinkingParts = event.message.content.filter(
-            (c): c is { type: 'thinking'; thinking: string } => c.type === 'thinking',
-          );
-          const thinking = thinkingParts.map((c) => c.thinking).join('') || undefined;
-          sendEvent({
-            type: 'message_end',
-            sessionId,
-            messageId: entry.currentAssistantId,
-            text: textParts.map((c) => c.text).join(''),
-            thinking,
-          });
-          entry.currentAssistantId = null;
-        }
-        break;
-      }
-
-      case 'tool_execution_start': {
-        const toolMsg: ChatToolCallMessage = {
-          type: 'tool',
-          id: nextId(),
-          toolCallId: event.toolCallId,
-          toolName: event.toolName,
-          input: event.args ?? {},
-          output: null,
-          isError: false,
-          state: 'running',
-        };
-        sendEvent({ type: 'tool_start', sessionId, tool: toolMsg });
-        break;
-      }
-
-      case 'tool_execution_end': {
-        const result = event.result;
-        let text: string | null = null;
-        if (result?.content && Array.isArray(result.content)) {
-          text = result.content
-            .filter((c: { type: string }) => c.type === 'text')
-            .map((c: { text: string }) => c.text)
-            .join('\n') || null;
-        } else if (typeof result === 'string') {
-          text = result;
-        }
-        sendEvent({
-          type: 'tool_end',
-          sessionId,
-          toolCallId: event.toolCallId,
-          output: text,
-          isError: event.isError,
-        });
-        break;
-      }
-    }
-  });
 }
 
 /** Open (or return) an agent session — shared by IPC handler and gateway. */
@@ -307,7 +165,11 @@ async function openSessionInternal(
   // Provide a real UIContext so extensions get working ctx.ui.notify()
   session.extensionRunner?.setUIContext(createSeroUIContext());
 
-  const unsubscribe = subscribeToSession(sessionId, session);
+  const unsubscribe = subscribeToSession(
+    sessionId, session,
+    () => pool.get(sessionId),
+    sendEvent,
+  );
   pool.set(sessionId, {
     session, loader, unsubscribe, workspaceId,
     currentAssistantId: null,

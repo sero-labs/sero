@@ -137,7 +137,7 @@ export async function ensureInfra(): Promise<SharedInfra> {
   };
 
   // Wire subagent manager deps lazily (avoids circular imports)
-  if (!subagentManager['deps']) {
+  if (!subagentManager.isInitialized) {
     subagentManager.setDeps({
       infra,
       workspaceManager,

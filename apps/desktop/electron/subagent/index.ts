@@ -79,6 +79,11 @@ export class SubagentManager {
     this.tracker = new SubagentTracker();
   }
 
+  /** Whether setDeps() has been called. */
+  get isInitialized(): boolean {
+    return this.deps !== null;
+  }
+
   /** Lazily inject dependencies (avoids circular imports at module load). */
   setDeps(deps: RunnerDeps): void {
     this.deps = deps;
@@ -334,6 +339,14 @@ export class SubagentManager {
 
   abortAll(parentSessionId: string): void {
     this.pool.abortAll(parentSessionId);
+  }
+
+  /** Abort a single subagent run by ID. Signals the AbortController and updates the tracker. */
+  abortOne(subagentId: string): void {
+    const aborted = this.pool.abortOne(subagentId);
+    if (aborted) {
+      this.tracker.abort(subagentId);
+    }
   }
 
   snapshot(workspaceId: string): SubagentEntry[] {

@@ -10,6 +10,7 @@ interface Waiter {
 interface SlotInfo {
   parentSessionId: string;
   controller: AbortController;
+  callGroup?: string;
 }
 
 export class ConcurrencyPool {
@@ -76,7 +77,7 @@ export class ConcurrencyPool {
     }
 
     // Register the slot
-    this.active.set(key, { parentSessionId, controller });
+    this.active.set(key, { parentSessionId, controller, callGroup });
 
     // Track abort controller by parent session
     let controllers = this.parentAbortMap.get(parentSessionId);
@@ -139,16 +140,59 @@ export class ConcurrencyPool {
       }
     }
 
-    // Clean up: remove the aborted controllers and slots
+    // Clean up: remove the aborted controllers, slots, and callCounts
     for (const [key, info] of this.active) {
       if (info.parentSessionId === parentSessionId) {
         this.active.delete(key);
+        // Decrement per-call count for the slot's call group
+        if (info.callGroup) {
+          const count = this.callCounts.get(info.callGroup) ?? 0;
+          if (count > 1) {
+            this.callCounts.set(info.callGroup, count - 1);
+          } else {
+            this.callCounts.delete(info.callGroup);
+          }
+        }
       }
     }
     this.parentAbortMap.delete(parentSessionId);
 
     // Wake up waiters since slots were freed
     this.drainWaiters();
+  }
+
+  /**
+   * Abort a single slot by key. Returns true if found and aborted.
+   */
+  abortOne(key: string): boolean {
+    const info = this.active.get(key);
+    if (!info) return false;
+
+    try {
+      info.controller.abort();
+    } catch {
+      // AbortController.abort() shouldn't throw, but be safe
+    }
+
+    // Clean up slot, callCounts, and parent map
+    this.active.delete(key);
+    if (info.callGroup) {
+      const count = this.callCounts.get(info.callGroup) ?? 0;
+      if (count > 1) {
+        this.callCounts.set(info.callGroup, count - 1);
+      } else {
+        this.callCounts.delete(info.callGroup);
+      }
+    }
+    const controllers = this.parentAbortMap.get(info.parentSessionId);
+    if (controllers) {
+      controllers.delete(info.controller);
+      if (controllers.size === 0) {
+        this.parentAbortMap.delete(info.parentSessionId);
+      }
+    }
+    this.drainWaiters();
+    return true;
   }
 
   /** Wake FIFO waiters as capacity becomes available. */
