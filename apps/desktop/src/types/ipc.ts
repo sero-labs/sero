@@ -477,6 +477,8 @@ export type {
   SubagentEvent,
 } from './subagent';
 
+export type { SkillSource, SkillSummary, SkillFileData } from './skills';
+
 // ── IPC Channels ───────────────────────────────────────────────
 
 // Extracted to keep ipc.ts under 500 LOC.
