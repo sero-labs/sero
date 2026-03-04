@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannels } from '../src/types/ipc';
 import { userFeedbackBridge } from './preload/user-feedback';
 import { debugBridge, lspBridge } from './preload/debug-lsp';
+import { subagentBridge } from './preload/subagent';
 import type {
   WorkspaceInfo,
   WorkspaceConfig,
@@ -465,6 +466,8 @@ contextBridge.exposeInMainWorld('sero', {
     remove: (messageId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.feedback.remove, messageId),
   },
+
+  subagent: subagentBridge,
 
   userFeedback: userFeedbackBridge,
 

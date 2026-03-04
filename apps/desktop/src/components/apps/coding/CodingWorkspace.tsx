@@ -355,6 +355,7 @@ export function CodingWorkspace() {
         <ActivityBar
           activePanel={activePanel} sidebarOpen={sidebarOpen}
           terminalOpen={terminalOpen} onPanelClick={handlePanelClick}
+          workspaceId={workspaceId}
         />
 
         <ResizablePanelGroup id="coding-vertical" orientation="vertical" className="min-w-0 flex-1">

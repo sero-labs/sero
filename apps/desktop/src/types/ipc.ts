@@ -463,6 +463,20 @@ export interface ProxyFetchResponse {
   body: string;
 }
 
+// ── Subagent Orchestration ─────────────────────────────────────
+
+// Extracted to keep ipc.ts under 500 LOC.
+export type {
+  SubagentAgentSummary,
+  SubagentStatus,
+  SubagentMode,
+  SubagentUsage,
+  SubagentEntry,
+  SubagentToolActivity,
+  SubagentAgentFile,
+  SubagentEvent,
+} from './subagent';
+
 // ── IPC Channels ───────────────────────────────────────────────
 
 // Extracted to keep ipc.ts under 500 LOC.

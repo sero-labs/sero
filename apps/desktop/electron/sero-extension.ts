@@ -22,6 +22,9 @@ import { registerSeroBuiltinCommands } from './sero-extension-commands';
 import { buildCliPromptBlock } from './cli';
 import { registerGitCheckpointFeatures } from './sero-extension-git';
 import { showNotification, type NotificationType } from './notifications';
+import { registerSubagentTool, registerCreateAgentTool } from './subagent/tool';
+import { buildSubagentPromptBlock } from './subagent/prompt';
+import type { SubagentManager } from './subagent/index';
 
 /**
  * Creates an extension factory for a specific workspace session.
@@ -30,11 +33,17 @@ import { showNotification, type NotificationType } from './notifications';
  * @param currentWorkspaceId - The workspace this session belongs to
  * @param containerState - Container state if workspace has a running container
  */
+export interface SeroExtensionOptions {
+  subagentManager?: SubagentManager;
+  enableAgentManagementTools?: boolean;
+}
+
 export function createSeroExtensionFactory(
   wsManager: WorkspaceManager,
   currentWorkspaceId: string,
   _sessionId: string,
   containerState?: ContainerState,
+  options?: SeroExtensionOptions,
 ) {
   return (pi: ExtensionAPI) => {
     // ── System prompt injection ───────────────────────────────
@@ -49,6 +58,11 @@ export function createSeroExtensionFactory(
           currentWorkspaceId,
           containerState.ipAddress,
         );
+      }
+
+      // Inject subagent guidance for main sessions
+      if (options?.enableAgentManagementTools) {
+        systemPrompt += buildSubagentPromptBlock();
       }
 
       if (systemPrompt !== event.systemPrompt) {
@@ -216,6 +230,12 @@ export function createSeroExtensionFactory(
     // Re-implement PI CLI built-ins for SDK mode and register Git checkpoint hooks.
     registerSeroBuiltinCommands(pi, currentWorkspaceId);
     registerGitCheckpointFeatures(pi, currentWorkspaceId);
+
+    // ── Subagent tools (main sessions only) ──────────────────
+    if (options?.enableAgentManagementTools && options.subagentManager) {
+      registerSubagentTool(pi, options.subagentManager, _sessionId, currentWorkspaceId);
+      registerCreateAgentTool(pi);
+    }
   };
 }
 

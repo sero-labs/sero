@@ -1,10 +1,12 @@
-import { Files, Search, GitBranch, Terminal } from 'lucide-react';
+import { useMemo } from 'react';
+import { Files, Search, GitBranch, Terminal, Network } from 'lucide-react';
 import { Button } from '@sero/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
 import { cn } from '@sero/ui/lib/utils';
+import { useSubagentStore } from '@/stores/subagent';
 
 // ── Types ──────────────────────────────────────────────────────
-export type CodingPanel = 'explorer' | 'search' | 'git' | 'terminal';
+export type CodingPanel = 'explorer' | 'search' | 'git' | 'orchestration' | 'terminal';
 
 interface ActivityItem {
   id: CodingPanel;
@@ -18,6 +20,7 @@ const items: ActivityItem[] = [
   { id: 'explorer', label: 'Explorer', icon: <Files className="size-[18px]" /> },
   { id: 'search', label: 'Search', icon: <Search className="size-[18px]" /> },
   { id: 'git', label: 'Source Control', icon: <GitBranch className="size-[18px]" /> },
+  { id: 'orchestration', label: 'Orchestration', icon: <Network className="size-[18px]" /> },
   { id: 'terminal', label: 'Terminal', icon: <Terminal className="size-[18px]" />, bottom: true },
 ];
 
@@ -27,14 +30,27 @@ interface ActivityBarProps {
   sidebarOpen: boolean;
   terminalOpen: boolean;
   onPanelClick: (panel: CodingPanel) => void;
+  workspaceId?: string;
 }
 
 /**
  * ActivityBar — narrow icon strip for the coding workspace.
  *
- * Explorer, Search, Source Control (top) and Terminal (bottom).
+ * Explorer, Search, Source Control, Orchestration (top) and Terminal (bottom).
+ * Shows a badge on the orchestration icon when subagents are running.
  */
-export function ActivityBar({ activePanel, sidebarOpen, terminalOpen, onPanelClick }: ActivityBarProps) {
+export function ActivityBar({
+  activePanel, sidebarOpen, terminalOpen, onPanelClick, workspaceId,
+}: ActivityBarProps) {
+  const entries = useSubagentStore((s) => s.entries);
+
+  const runningCount = useMemo(() => {
+    if (!workspaceId) return 0;
+    return Object.values(entries).filter(
+      (e) => e.workspaceId === workspaceId && (e.status === 'running' || e.status === 'queued'),
+    ).length;
+  }, [entries, workspaceId]);
+
   const topItems = items.filter((i) => !i.bottom);
   const bottomItems = items.filter((i) => i.bottom);
 
@@ -43,6 +59,7 @@ export function ActivityBar({ activePanel, sidebarOpen, terminalOpen, onPanelCli
       {/* Top items */}
       {topItems.map((item) => {
         const isActive = sidebarOpen && activePanel === item.id;
+        const showBadge = item.id === 'orchestration' && runningCount > 0;
         return (
           <Tooltip key={item.id}>
             <TooltipTrigger asChild>
@@ -59,9 +76,17 @@ export function ActivityBar({ activePanel, sidebarOpen, terminalOpen, onPanelCli
                 {isActive && (
                   <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-emerald-600 dark:bg-emerald-400" />
                 )}
+                {showBadge && (
+                  <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold text-white">
+                    {runningCount > 9 ? '9+' : runningCount}
+                  </span>
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">{item.label}</TooltipContent>
+            <TooltipContent side="right">
+              {item.label}
+              {showBadge && ` (${runningCount} running)`}
+            </TooltipContent>
           </Tooltip>
         );
       })}

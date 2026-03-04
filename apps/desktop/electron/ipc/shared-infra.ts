@@ -86,6 +86,12 @@ export const fileWatcherManager = new FileWatcherManager();
 
 export const lspManager = new LspManager(containerManager);
 
+// ── Subagent Manager (singleton) ─────────────────────────────
+
+import { SubagentManager } from '../subagent/index';
+
+export const subagentManager = new SubagentManager();
+
 // ── Shared state ─────────────────────────────────────────────
 
 let _authStorage: AuthStorage | null = null;
@@ -123,12 +129,35 @@ export async function ensureInfra(): Promise<SharedInfra> {
     if (!_model) throw new Error('Model claude-opus-4-6 not found in registry');
   }
 
-  return {
+  const infra = {
     authStorage: _authStorage,
     modelRegistry: _modelRegistry!,
     settingsManager: _settingsManager!,
     model: _model!,
   };
+
+  // Wire subagent manager deps lazily (avoids circular imports)
+  if (!subagentManager.isInitialized) {
+    subagentManager.setDeps({
+      infra,
+      workspaceManager,
+      containerManager,
+    });
+
+    // Load subagent settings from settings.json
+    const raw = _settingsManager!.get?.('subagent') as Record<string, unknown> | undefined;
+    if (raw) {
+      subagentManager.updateSettings({
+        maxConcurrent: typeof raw.maxConcurrent === 'number' ? raw.maxConcurrent : undefined,
+        maxTotal: typeof raw.maxTotal === 'number' ? raw.maxTotal : undefined,
+        timeoutMs: typeof raw.timeoutMs === 'number' ? raw.timeoutMs : undefined,
+        model: typeof raw.model === 'string' ? raw.model : undefined,
+        thinking: typeof raw.thinking === 'string' ? raw.thinking : undefined,
+      });
+    }
+  }
+
+  return infra;
 }
 
 /**

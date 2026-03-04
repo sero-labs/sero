@@ -279,6 +279,15 @@ export const IpcChannels = {
     /** Proxy an HTTP fetch through the main process (bypasses CORS). */
     fetch: 'sero:net:fetch',
   },
+  subagent: {
+    event: 'sero:subagent:event',
+    listAgents: 'sero:subagent:list-agents',
+    snapshot: 'sero:subagent:snapshot',
+    abort: 'sero:subagent:abort',
+    readAgent: 'sero:subagent:read-agent',
+    writeAgent: 'sero:subagent:write-agent',
+    deleteAgent: 'sero:subagent:delete-agent',
+  },
   google: {
     /** Execute a gogcli data command (gog --json --no-input <service> <args>). */
     execute: 'sero:google:execute',

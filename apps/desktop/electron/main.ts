@@ -191,6 +191,10 @@ app.whenReady().then(async () => {
 
   registerAllIpcHandlers();
 
+  // ── Copy default agent templates if first launch ──────────
+  const { ensureDefaultAgents } = await import('./subagent/setup');
+  ensureDefaultAgents().catch((err) => console.warn('[sero] Agent template copy failed:', err));
+
   // ── Widevine CDM (castlabs ECS) ─────────────────────────────
   // The castlabs Electron fork auto-downloads the Widevine CDM via the
   // Component Updater. Wait for it before creating the window so that
