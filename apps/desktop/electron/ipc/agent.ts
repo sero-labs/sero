@@ -42,6 +42,7 @@ import {
   ensureInfra,
   containerManager,
   buildContainerConfig,
+  subagentManager,
   SERO_SESSION_DIR,
   SERO_CONFIG_PATH,
 } from './shared-infra';
@@ -274,7 +275,10 @@ async function openSessionInternal(
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
     extensionFactories: [
-      createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, containerState ?? undefined),
+      createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, containerState ?? undefined, {
+        subagentManager,
+        enableAgentManagementTools: true,
+      }),
     ],
     extensionsOverride: bridgeExtensionTools,
     ...(globalAgentsFile && {
@@ -424,6 +428,8 @@ export function registerAgentHandlers(): void {
       const entry = pool.get(sessionId);
       if (entry) {
         await entry.session.abort();
+        // Cascade abort to any running subagents spawned by this session
+        subagentManager.abortAll(sessionId);
       }
     },
   );

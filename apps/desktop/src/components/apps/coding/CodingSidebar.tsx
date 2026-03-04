@@ -1,11 +1,13 @@
 import type { CodingPanel } from './ActivityBar';
 import { FileTree } from './file-tree/FileTree';
 import { VcsPanel } from './vcs/VcsPanel';
+import { OrchestrationPanel } from './orchestration/OrchestrationPanel';
 
 const panelTitles: Record<CodingPanel, string> = {
   explorer: 'Explorer',
   search: 'Search',
   git: 'Source Control',
+  orchestration: 'Orchestration',
   terminal: 'Terminal',
 };
 
@@ -35,8 +37,8 @@ export function CodingSidebar({ activePanel, workspaceId, fileTreeProps, onOpenD
 
   return (
     <aside className="flex h-full w-full flex-col bg-[var(--bg-surface)]">
-      {/* ── Header (hidden for git — VcsPanel has its own) ── */}
-      {activePanel !== 'git' && (
+      {/* ── Header (hidden for git/orchestration — they have their own) ── */}
+      {activePanel !== 'git' && activePanel !== 'orchestration' && (
         <div className="flex h-7 shrink-0 items-center px-4">
           <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
             {title}
@@ -50,6 +52,8 @@ export function CodingSidebar({ activePanel, workspaceId, fileTreeProps, onOpenD
           <FileTree {...fileTreeProps} />
         ) : activePanel === 'git' ? (
           <VcsPanel workspaceId={workspaceId} onOpenDiff={onOpenDiff} />
+        ) : activePanel === 'orchestration' ? (
+          <OrchestrationPanel workspaceId={workspaceId} />
         ) : (
           <div className="flex flex-1 items-center justify-center p-4">
             <span className="text-xs text-[var(--text-muted)]">{title} panel</span>

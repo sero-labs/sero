@@ -34,6 +34,7 @@ import { registerUserFeedbackQuestionHandlers } from './user-feedback-questions'
 import { registerGatewayHandlers } from './gateway';
 import { registerGoogleApiHandlers } from './google-api';
 import { registerModelsHandlers } from './models';
+import { registerSubagentHandlers } from './subagent';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -64,4 +65,5 @@ export function registerAllIpcHandlers(): void {
   registerGatewayHandlers();
   registerGoogleApiHandlers();
   registerModelsHandlers();
+  registerSubagentHandlers();
 }

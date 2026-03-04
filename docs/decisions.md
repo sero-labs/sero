@@ -263,3 +263,43 @@ browser, sero-cli) instead of 16+. Saves ~2,000–3,000 tokens per session.
 - **Core coding tools** (bash, read, write, edit, browser) remain standalone
   because models are trained to use them with structured parameters.
 - Tools work unchanged in the **Pi CLI** — the bridge is Sero-only.
+
+## AD-021: Subagent Orchestration System
+
+**Problem:** The main agent's context window gets polluted when handling complex
+multi-part tasks. No way to delegate specialist work to isolated agents or
+parallelise independent subtasks.
+
+**Decision:** In-process subagent system using transient `AgentSession` instances
+via the Pi SDK. Markdown-first agent definitions, three execution modes
+(single/parallel/chain), and a desktop UI panel for monitoring.
+
+**Key design choices:**
+
+- **In-process sessions, not subprocesses** — Reuses SharedInfra,
+  ContainerManager, and prompt infrastructure. No IPC overhead.
+- **Global-only agents** — `.md` files in `~/.sero-ui/agent/agents/`. Simpler
+  discovery model; project-scoped agents deferred to v2.
+- **Dynamic discovery** — Agent files are re-read on every tool call. Agents
+  added mid-session are immediately available.
+- **`subagent` is standalone** — Deliberate exception to AD-020. Registered via
+  `pi.registerTool()` (not bridged into `sero-cli`) so the main agent can pass
+  structured nested parameters directly.
+- **No recursion** — Subagents cannot spawn further subagents or call
+  `create_agent`. Child sessions use a reduced extension factory.
+- **Reduced child extension factory** — Injects Sero CLI + container prompt
+  blocks only. No external extension package loading in v1.
+- **Snapshot + events for UI** — Renderer uses mount-time snapshot hydration plus
+  live IPC events. Mirrors the user-feedback pattern.
+- **Orchestration in coding sidebar** — Uses the existing `ActivityBar` +
+  `CodingSidebar` structure. No new shell-level panel.
+
+**Concurrency model:**
+- `maxConcurrent` (default: 4) — per-invocation fan-out cap
+- `maxTotal` (default: 8) — global active child session cap
+- `AbortController` cascade from parent session
+
+**References:**
+- Design spec: [docs/subagent-design-spec.md](subagent-design-spec.md)
+- PRD: [docs/subagent-prd.md](subagent-prd.md)
+- E2E test procedures: [docs/testing/e2e-subagent-testing.md](testing/e2e-subagent-testing.md)

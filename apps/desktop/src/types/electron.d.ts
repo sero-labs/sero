@@ -27,6 +27,9 @@ import type {
   UserFeedbackResponse,
   ProxyFetchRequest,
   ProxyFetchResponse,
+  SubagentEvent,
+  SubagentAgentSummary,
+  SubagentEntry,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -433,6 +436,23 @@ interface SeroVcsAPI {
   opLog(wsId: string, limit?: number): Promise<OperationEntry[]>;
 }
 
+interface SeroSubagentAPI {
+  /** Subscribe to live subagent events. Returns unsubscribe function. */
+  onEvent(callback: (event: SubagentEvent) => void): () => void;
+  /** List all discovered agents. */
+  listAgents(): Promise<SubagentAgentSummary[]>;
+  /** Get snapshot of all subagent entries for a workspace. */
+  snapshot(workspaceId: string): Promise<SubagentEntry[]>;
+  /** Abort a specific subagent run. */
+  abort(subagentId: string): Promise<void>;
+  /** Read full agent file data (including system prompt). */
+  readAgent(name: string): Promise<SubagentAgentFile>;
+  /** Create or update an agent .md file. */
+  writeAgent(data: SubagentAgentFile): Promise<void>;
+  /** Delete an agent .md file. */
+  deleteAgent(name: string): Promise<void>;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -459,6 +479,7 @@ interface SeroAPI {
   lsp: SeroLspAPI;
   debug: SeroDebugAPI;
   vcs: SeroVcsAPI;
+  subagent: SeroSubagentAPI;
   github: SeroGitHubAPI;
 }
 

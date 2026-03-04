@@ -1,7 +1,7 @@
 # Subagent Orchestration — PRD
 
 > **Source spec**: [docs/subagent-design-spec.md](subagent-design-spec.md)
-> **Status**: 🔴 Not Started
+> **Status**: 🟢 Complete
 > **Last updated**: 2026-03-03
 
 ---
@@ -35,7 +35,7 @@ Commit all changes once acceptance criteria passes at the end of each story.
 
 ### Story 1.1 — Types & Data Models
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Define all shared types used across the subagent system.
 
@@ -63,7 +63,7 @@ Define all shared types used across the subagent system.
 
 ### Story 1.2 — Agent Discovery
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Load and parse `.md` agent definitions from `~/.sero-ui/agent/agents/`.
 
@@ -103,7 +103,7 @@ Load and parse `.md` agent definitions from `~/.sero-ui/agent/agents/`.
 
 ### Story 1.3 — Concurrency Pool
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Manages global and per-call concurrency limits, plus abort cascading.
 
@@ -140,7 +140,7 @@ Manages global and per-call concurrency limits, plus abort cascading.
 
 ### Story 1.4 — Subagent Tracker
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Real-time status tracking and event emission for subagent runs.
 
@@ -178,7 +178,7 @@ Real-time status tracking and event emission for subagent runs.
 
 ### Story 1.5 — Config Resolution
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Implement the 5-level precedence chain for resolving model, thinking, and timeout.
 
@@ -210,7 +210,7 @@ Implement the 5-level precedence chain for resolving model, thinking, and timeou
 
 ### Story 1.6 — Subagent Runner
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Execute a single subagent task via a transient `AgentSession`.
 
@@ -252,7 +252,7 @@ Execute a single subagent task via a transient `AgentSession`.
 
 ### Story 1.7 — SubagentManager Façade
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Public API that ties discovery, pool, runner, and tracker together.
 
@@ -285,7 +285,7 @@ Public API that ties discovery, pool, runner, and tracker together.
 
 ### Story 1.8 — Integration Tests (Core Engine)
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 End-to-end tests of the manager with mocked `createAgentSession`.
 
@@ -315,7 +315,7 @@ End-to-end tests of the manager with mocked `createAgentSession`.
 
 ### Story 2.1 — SubagentManager Singleton on SharedInfra
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Instantiate and export `SubagentManager` from the shared infrastructure module.
 
@@ -336,7 +336,7 @@ Instantiate and export `SubagentManager` from the shared infrastructure module.
 
 ### Story 2.2 — `subagent` Tool Definition
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Define the `subagent` tool schema and execution logic.
 
@@ -373,7 +373,7 @@ Define the `subagent` tool schema and execution logic.
 
 ### Story 2.3 — `create_agent` Tool Definition
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Define the `create_agent` tool that writes new agent `.md` files.
 
@@ -405,7 +405,7 @@ Define the `create_agent` tool that writes new agent `.md` files.
 
 ### Story 2.4 — Extension Factory Integration
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Wire `subagent` and `create_agent` tools into the Sero extension factory for
 main sessions. Build the subagent resource loader for child sessions.
@@ -435,7 +435,7 @@ main sessions. Build the subagent resource loader for child sessions.
 
 ### Story 2.5 — System Prompt Block
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Add subagent guidance to the main-session system prompt.
 
@@ -459,7 +459,7 @@ Add subagent guidance to the main-session system prompt.
 
 ### Story 2.6 — Abort Cascade Wiring
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Connect the main agent pool's abort handler to `SubagentManager.abortAll()`.
 
@@ -479,7 +479,7 @@ Connect the main agent pool's abort handler to `SubagentManager.abortAll()`.
 
 ### Story 2.7 — Integration Test (Tool → Manager → Session)
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Full pipeline test with mocked sessions.
 
@@ -504,7 +504,7 @@ Full pipeline test with mocked sessions.
 
 ### Story 3.1 — Agent Template Files
 
-**Status**: 🔴 `[parallel]`
+**Status**: 🟢 Complete `[parallel]`
 
 Create the 4 built-in agent `.md` files.
 
@@ -526,7 +526,7 @@ Create the 4 built-in agent `.md` files.
 
 ### Story 3.2 — First-Launch Copy Logic
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 On Electron startup, copy template agents to the user directory if it's empty.
 
@@ -560,7 +560,7 @@ On Electron startup, copy template agents to the user directory if it's empty.
 
 ### Story 4.1 — IPC Channel Constants & Shared Types
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Add subagent IPC channels and event types to the shared type files.
 
@@ -584,7 +584,7 @@ Add subagent IPC channels and event types to the shared type files.
 
 ### Story 4.2 — IPC Handlers (Main Process)
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Handle subagent IPC from renderer.
 
@@ -607,7 +607,7 @@ Handle subagent IPC from renderer.
 
 ### Story 4.3 — Preload Bridge
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Expose subagent IPC methods on `window.sero`.
 
@@ -628,7 +628,7 @@ Expose subagent IPC methods on `window.sero`.
 
 ### Story 4.4 — Zustand Store
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Renderer-side state management for subagent data.
 
@@ -660,7 +660,7 @@ Renderer-side state management for subagent data.
 
 ### Story 4.5 — ActivityBar: Orchestration Item
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Add the orchestration icon to the coding workspace activity bar.
 
@@ -685,7 +685,7 @@ Add the orchestration icon to the coding workspace activity bar.
 
 ### Story 4.6 — OrchestrationPanel (Container)
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Top-level orchestration panel that composes the list and summary.
 
@@ -707,7 +707,7 @@ Top-level orchestration panel that composes the list and summary.
 
 ### Story 4.7 — SubagentList & SubagentCard
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Scrollable list of subagent run cards.
 
@@ -736,7 +736,7 @@ Scrollable list of subagent run cards.
 
 ### Story 4.8 — SubagentOutput (Expandable Detail)
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Expandable output viewer within a card.
 
@@ -757,7 +757,7 @@ Expandable output viewer within a card.
 
 ### Story 4.9 — SubagentSummary Bar
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Aggregate stats bar at the bottom of the orchestration panel.
 
@@ -778,7 +778,7 @@ Aggregate stats bar at the bottom of the orchestration panel.
 
 ### Story 4.10 — UI States & Edge Cases
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Polish all UI states described in the spec.
 
@@ -802,7 +802,7 @@ Polish all UI states described in the spec.
 
 ### Story 5.1 — Error Containment Audit
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Verify all error paths are handled gracefully.
 
@@ -821,7 +821,7 @@ Verify all error paths are handled gracefully.
 
 ### Story 5.2 — Concurrency & Race Condition Audit
 
-**Status**: 🔴 `[parallel]`
+**Status**: 🟢 Complete `[parallel]`
 
 Verify concurrency limits and resource cleanup.
 
@@ -839,7 +839,7 @@ Verify concurrency limits and resource cleanup.
 
 ### Story 5.3 — Manual E2E Verification
 
-**Status**: 🔴
+**Status**: 🟢 Complete
 
 Add manual E2E test procedure to docs.
 
@@ -861,7 +861,7 @@ Add manual E2E test procedure to docs.
 
 ### Story 5.4 — Architecture Decision Record
 
-**Status**: 🔴 `[parallel]`
+**Status**: 🟢 Complete `[parallel]`
 
 Record the subagent decision in the project decisions log.
 
