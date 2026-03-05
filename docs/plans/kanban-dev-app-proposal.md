@@ -159,22 +159,79 @@ This uses the existing single/parallel/chain modes. The Kanban app just
 needs to **orchestrate the right sequence of subagent calls** via the
 card session's system prompt and planning output.
 
-### 3.5 VCS = Branch-Per-Card
+### 3.5 VCS = Git Worktrees for Parallel Isolation
 
-The existing VCS system provides everything needed:
+**The problem:** A workspace maps to one git repo on disk. If two cards are
+In Progress simultaneously and both modify files, they'll stomp on each
+other — agents sharing a single working tree is a recipe for merge hell.
 
-| VCS Feature | Kanban Usage |
-|-------------|-------------|
-| **Branches** (`VcsOps.createBookmark`) | Auto-create `feat/add-oauth-<id>` per card |
-| **Checkpoints** (`VcsManager.createCheckpoint`) | Snapshot after each subtask completes |
-| **Restore** (`VcsManager.restoreCheckpoint`) | Roll back a card's work if it goes wrong |
-| **PR creation** (`VcsPullRequestOps.create`) | Auto-create PR when card moves to Review |
-| **Push** (`VcsOps.push`) | Push the card's branch to remote |
-| **Branch naming** (`branch-naming.ts`) | Already has `inferConventionalType` + `slugifyBranchLabel` |
+**The solution: `git worktree`.**  Each active card gets its own worktree,
+which is a lightweight checkout of the repo that shares the `.git` object
+store but has an independent working directory and branch. This gives us
+true filesystem-level isolation with near-zero overhead.
 
-The card session works on its own branch. The VCS checkpoint system provides
-safe rollback points. When implementation is complete, the existing PR
-creation flow opens a PR with the diff summary auto-generated.
+```
+Workspace: ~/projects/my-app/                  ← main repo
+├── .git/
+├── .sero/apps/kanban/state.json
+├── src/...                                     ← user's working tree
+│
+├── .sero/worktrees/card-a1b2c3d4/              ← Card A worktree
+│   ├── src/...                                 ← isolated checkout
+│   └── (branch: feat/add-oauth-a1b2c3d4)
+│
+└── .sero/worktrees/card-e5f6g7h8/              ← Card B worktree
+    ├── src/...                                 ← isolated checkout
+    └── (branch: fix/rate-limiting-e5f6g7h8)
+```
+
+#### Worktree lifecycle
+
+| Stage | Git operation |
+|-------|---------------|
+| **Card → Planning** | `git worktree add .sero/worktrees/card-<id> -b feat/<slug>-<id>` |
+| **Subtask completes** | `git add -A && git commit` inside the worktree (checkpoint) |
+| **Card → Review** | `git push -u origin feat/<slug>-<id>` from the worktree |
+| **Card → Done** | `git worktree remove .sero/worktrees/card-<id>` + optional branch cleanup |
+| **Card cancelled** | `git worktree remove --force` + `git branch -D` |
+
+#### Why worktrees over branches-only
+
+| Approach | Problem |
+|----------|---------|
+| **Single working tree + branch switching** | Can't run two cards in parallel — `git checkout` changes all files. Agents would need to stash/switch constantly. |
+| **Separate clones** | Wastes disk (full copy of repo), no shared object store, harder to coordinate. |
+| **Git worktrees** | Shared `.git`, independent file trees, native git support, each agent session gets its own `cwd`. Near-zero disk overhead. |
+
+#### Integration with existing VCS
+
+The existing VCS stack needs minimal changes:
+
+| Component | Change needed |
+|-----------|---------------|
+| **GitRunner** | Add optional `cwd` override (currently resolves from `workspaceManager.getPath`). Worktree sessions pass the worktree path instead. ~5 LOC. |
+| **VcsManager** | `createCheckpoint()` already does `git add -A && commit` — works as-is in any cwd. |
+| **VcsOps** | `createBookmark()`, `push()`, `listBookmarks()` — all work with worktree cwd. |
+| **VcsPullRequestOps** | PR creation pushes the worktree's branch — no changes needed. |
+| **branch-naming.ts** | `inferConventionalType` + `slugifyBranchLabel` reused directly. |
+| **sero-extension-git.ts** | Unblock `worktree` from the mutating-commands blocklist for the orchestrator (not for user agents). |
+
+#### New: WorktreeManager (~100 LOC)
+
+```typescript
+class WorktreeManager {
+  async create(workspaceId: string, cardId: string, branchName: string): Promise<string>;
+  async remove(workspaceId: string, cardId: string, force?: boolean): Promise<void>;
+  async list(workspaceId: string): Promise<WorktreeInfo[]>;
+  getPath(workspaceId: string, cardId: string): string;
+}
+```
+
+#### .gitignore consideration
+
+Add `.sero/worktrees/` to the workspace `.gitignore` so worktree directories
+aren't tracked by the main repo. The `.sero/` directory is already
+conventionally ignored.
 
 ### 3.6 CLI Integration
 
@@ -200,20 +257,26 @@ sero-cli kanban cancel <card-id>        # Cancel and clean up
 │                                                                   │
 │  KanbanOrchestrator (new)                                        │
 │    ├─ Watches state.json for column transitions                  │
-│    ├─ On card → Planning: spawns planning session                │
-│    ├─ On card → In Progress: spawns implementation session       │
-│    ├─ On card → Review: triggers review + PR creation            │
+│    ├─ On card → Planning: creates worktree + spawns session      │
+│    ├─ On card → In Progress: runs implementation in worktree     │
+│    ├─ On card → Review: triggers review + PR from worktree       │
+│    ├─ On card → Done: removes worktree, cleans up                │
 │    ├─ Uses AgentPool to create/manage card sessions              │
 │    └─ Uses SubagentManager for parallel subtask execution        │
 │                                                                   │
+│  WorktreeManager (new, ~100 LOC)                                 │
+│    ├─ git worktree add/remove per card                           │
+│    ├─ Maps cardId → worktree path                                │
+│    └─ Provides cwd override for card agent sessions              │
+│                                                                   │
 │  AgentPool (existing)                                            │
-│    ├─ User's interactive session                                 │
-│    ├─ Card session A (autonomous)                                │
-│    └─ Card session B (autonomous)                                │
+│    ├─ User's interactive session (main working tree)             │
+│    ├─ Card session A (cwd = worktree A)                          │
+│    └─ Card session B (cwd = worktree B)                          │
 │                                                                   │
 │  VcsManager + VcsOps + VcsPullRequestOps (existing)              │
-│    ├─ Branch creation per card                                   │
-│    ├─ Checkpoints per subtask                                    │
+│    ├─ Checkpoints per subtask (in worktree cwd)                  │
+│    ├─ Push from worktree branch                                  │
 │    └─ PR creation on review                                      │
 │                                                                   │
 │  SubagentManager (existing)                                      │
@@ -228,12 +291,13 @@ sero-cli kanban cancel <card-id>        # Cancel and clean up
 
 ┌─ Renderer ────────────────────────────────────────────────────────┐
 │                                                                   │
-│  KanbanApp (module federation remote)                            │
+│  KanbanApp (module federation remote, motion/react animations)   │
 │    ├─ useAppState<KanbanState>() — reactive board state          │
-│    ├─ Board view — columns, cards, drag-and-drop                 │
+│    ├─ Board view — columns, cards, drag-and-drop with Reorder    │
 │    ├─ Card detail — subtasks, progress, agent activity, logs     │
 │    ├─ useAgentPrompt() — send commands to agent from UI          │
-│    └─ Real-time progress indicators per card                     │
+│    ├─ Real-time progress indicators per card                     │
+│    └─ AnimatePresence for card transitions between columns       │
 │                                                                   │
 │  ChatPanel (existing, unchanged)                                 │
 │    └─ Shows card session output when focused                     │
@@ -268,29 +332,34 @@ class KanbanOrchestrator {
   }
 
   private async runPlanningPhase(card: Card) {
-    // 1. Create a session for this card
-    // 2. Run analyst + scout subagents to understand the codebase
-    // 3. Generate subtask breakdown
-    // 4. Update card state with plan
-    // 5. Ask user for approval (user-feedback pattern)
+    // 1. Create worktree: git worktree add .sero/worktrees/card-<id> -b feat/<slug>-<id>
+    // 2. Create a session for this card (cwd = worktree path)
+    // 3. Run analyst + scout subagents to understand the codebase
+    // 4. Generate subtask breakdown (with non-overlapping file scopes)
+    // 5. Update card state with plan
+    // 6. Ask user for approval (user-feedback pattern)
   }
 
   private async runImplementationPhase(card: Card) {
-    // 1. Create branch: feat/<slug>-<id>
+    // 1. Worktree already created in planning phase
+    //    cwd = .sero/worktrees/card-<id>/ (isolated checkout)
     // 2. For each subtask group (respecting dependencies):
     //    a. Fan out independent subtasks as parallel subagents
+    //       (all sharing the same worktree cwd — safe because
+    //        planning assigns non-overlapping file scopes)
     //    b. Create VCS checkpoint after each completes
-    // 3. Run tests
+    // 3. Run tests in the worktree
     // 4. If tests pass → move to review
     // 5. If tests fail → retry or ask user
   }
 
   private async runReviewPhase(card: Card) {
-    // 1. Run reviewer subagent on the full diff
+    // 1. Run reviewer subagent on the full diff (in worktree cwd)
     // 2. Run test-writer to fill coverage gaps
-    // 3. Push branch
+    // 3. Push worktree branch: git push -u origin feat/<slug>-<id>
     // 4. Create PR via VcsPullRequestOps
     // 5. Update card with PR URL
+    // 6. On merge → git worktree remove .sero/worktrees/card-<id>
   }
 }
 ```
@@ -325,6 +394,7 @@ export interface Card {
   column: Column;
   status: CardStatus;
   branch?: string;                // Git branch name
+  worktreePath?: string;          // Absolute path to git worktree for this card
   sessionId?: string;             // Sero session driving work
   subtasks: Subtask[];
   plan?: string;                  // Planning agent's proposed approach
@@ -380,12 +450,14 @@ export interface KanbanState {
 | Component | Scope |
 |-----------|-------|
 | **KanbanOrchestrator** | State machine reacting to column transitions. ~300 LOC. |
+| **WorktreeManager** | `git worktree add/remove/list` per card. Provides cwd for card sessions. ~100 LOC. |
 | **`pi-kanban-extension`** | Standard Pi extension with `kanban` tool + `/kanban` command. ~200 LOC. |
-| **Board UI** | React components: `KanbanApp`, `BoardView`, `ColumnView`, `CardView`, `CardDetail`, `SubtaskList`. Uses existing shadcn + `@sero/app-runtime`. ~400 LOC total across components. |
+| **Board UI** | React components: `KanbanApp`, `BoardView`, `ColumnView`, `CardView`, `CardDetail`, `SubtaskList`. Uses existing shadcn + `@sero/app-runtime` + `motion/react`. Rich animations following ToolCallGroup patterns. ~500 LOC total across components. |
 | **Agent definitions** | 2-3 new `.md` agent files: `planner.md`, `implementer.md`. Reviewer and analyst already exist. |
 | **Card session prompt builder** | Constructs system prompts for card sessions from card data + plan. ~100 LOC. |
+| **GitRunner cwd override** | Add optional `cwd` param so worktree sessions can override workspace path. ~5 LOC. |
 
-**Estimated new code: ~1,000 LOC** (plus agent `.md` templates). Everything
+**Estimated new code: ~1,200 LOC** (plus agent `.md` templates). Everything
 else is wiring existing systems together.
 
 ---
@@ -423,8 +495,10 @@ else is wiring existing systems together.
 
 ### Autonomous Implementation
 
-8. Agent creates branch `feat/add-oauth-support-a1b2c3d4`
-9. Subtasks 1-3 run in parallel via subagents (independent file scope)
+8. Agent creates a git worktree at `.sero/worktrees/card-a1b2c3d4/` on
+   branch `feat/add-oauth-support-a1b2c3d4` — fully isolated from the
+   user's working tree
+9. Subtasks 1-3 run in parallel via subagents (all in the worktree cwd)
 10. Card shows real-time progress: `▓▓▓░░░ 3/5 subtasks`
 11. Each completed subtask creates a VCS checkpoint
 12. Subtask 4 (UI changes) depends on subtask 2 → runs after
@@ -475,7 +549,184 @@ Desktop notifications (via existing `sero:notify`) for:
 
 ---
 
-## 9. Phasing
+## 9. UX & Animation Design
+
+The board UI should feel alive — every state change is visible, smooth, and
+satisfying. We use `motion/react` (already a dependency at `^12.34.0`)
+following the same patterns established in `ToolCallGroup.tsx` and the VCS
+panel components.
+
+### Animation Language
+
+Following the existing Sero conventions (extracted from ToolCallGroup,
+ThinkingBlock, BookmarksSection, VcsSection):
+
+| Pattern | Config | Usage |
+|---------|--------|-------|
+| **Card entrance** | `initial={{ opacity: 0, y: 6 }}` `animate={{ opacity: 1, y: 0 }}` `duration: 0.2` | New card appearing on the board |
+| **Collapse/expand** | `height: 0 ↔ 'auto'`, `ease: [0.25, 0.46, 0.45, 0.94]` | Card detail panel, subtask list |
+| **Chevron rotation** | `type: 'spring', stiffness: 300, damping: 25` | Expand toggles on cards |
+| **List stagger** | `delay: index * 0.03` | Subtask items, column cards |
+| **Status dot pulse** | `animate-pulse` on running | Active agent indicator |
+| **Drag reorder** | `Reorder` from motion/react | Cards within/between columns |
+
+### Component Animation Breakdown
+
+#### BoardView
+
+```tsx
+// Columns use layout animation for smooth reflow when card counts change
+<motion.div layout className="flex gap-4 overflow-x-auto p-4">
+  {columns.map(col => (
+    <ColumnView key={col.id} column={col} cards={cardsByColumn[col.id]} />
+  ))}
+</motion.div>
+```
+
+#### ColumnView
+
+```tsx
+// Cards within a column are drag-reorderable
+<Reorder.Group
+  axis="y"
+  values={cards}
+  onReorder={handleReorder}
+  className="flex flex-col gap-2"
+>
+  <AnimatePresence mode="popLayout">
+    {cards.map((card, i) => (
+      <Reorder.Item key={card.id} value={card}>
+        <CardView card={card} index={i} />
+      </Reorder.Item>
+    ))}
+  </AnimatePresence>
+</Reorder.Group>
+```
+
+#### CardView
+
+Cards follow the ToolCallGroup wrapper pattern — rounded container with
+state-driven border colors and subtle background tints:
+
+```tsx
+<motion.div
+  layout
+  initial={{ opacity: 0, y: 6 }}
+  animate={{ opacity: 1, y: 0 }}
+  exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
+  transition={{ duration: 0.2 }}
+  className={cn(
+    'group overflow-hidden rounded-lg border transition-colors duration-200',
+    // State-driven colors (matches ToolCallGroup pattern)
+    status === 'agent-working'
+      ? 'border-blue-500/20 bg-blue-500/[0.03]'
+      : status === 'failed'
+        ? 'border-red-500/20 bg-red-500/[0.03]'
+        : status === 'waiting-input'
+          ? 'border-amber-500/20 bg-amber-500/[0.03]'
+          : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
+  )}
+>
+  {/* Progress bar — smooth width animation */}
+  {status === 'agent-working' && (
+    <motion.div
+      className="h-0.5 bg-blue-500/60"
+      initial={{ width: '0%' }}
+      animate={{ width: `${progress}%` }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+    />
+  )}
+
+  {/* Card content */}
+  <div className="px-3 py-2.5">
+    <div className="flex items-center gap-2">
+      {statusDot(card.status)}
+      <span className="text-sm font-medium text-[var(--text-primary)] truncate">
+        {card.title}
+      </span>
+    </div>
+
+    {/* Subtask summary with stagger animation */}
+    <AnimatePresence>
+      {expanded && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="overflow-hidden"
+        >
+          {card.subtasks.map((st, i) => (
+            <motion.div
+              key={st.id}
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.12, delay: i * 0.025 }}
+              className="flex items-center gap-2 py-0.5"
+            >
+              {subtaskStatusDot(st.status)}
+              <span className="text-[11px] text-[var(--text-secondary)]">
+                {st.title}
+              </span>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+</motion.div>
+```
+
+#### CardDetail (Slide-over panel)
+
+When clicking a card, a detail panel slides in from the right:
+
+```tsx
+<AnimatePresence>
+  {selectedCard && (
+    <motion.div
+      initial={{ x: '100%', opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: '100%', opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      className="fixed right-0 top-0 h-full w-[420px] border-l ..."
+    >
+      {/* Plan section, subtask list, agent activity, VCS info */}
+    </motion.div>
+  )}
+</AnimatePresence>
+```
+
+### Real-time Feedback Signals
+
+Every card shows live status without requiring interaction:
+
+| Signal | Visual | Animation |
+|--------|--------|-----------|
+| **Agent thinking** | Pulsing blue dot + shimmer on card border | `animate-pulse` + `animate-[shimmer]` |
+| **Subtask completing** | Dot transitions green, checkmark appears | Spring scale from 0→1 |
+| **Progress bar** | Thin bar at top of card | Smooth width transition |
+| **Waiting for input** | Amber pulse + bell icon | Gentle bounce (`y: [0, -2, 0]` repeat) |
+| **Error** | Red border flash + error badge | Flash once then settle |
+| **Card moving columns** | Card lifts, slides to new column | `layout` animation via motion |
+| **PR created** | Green badge slides in from right | `initial={{ opacity: 0, x: 8 }}` |
+
+### Design System Integration
+
+Uses existing `@sero/ui` components (shadcn) + CSS variables:
+
+- **Colors**: `var(--text-primary)`, `var(--text-secondary)`, `var(--text-muted)`,
+  `var(--border-subtle)`, `var(--bg-elevated)`, `var(--accent)`
+- **Typography**: `text-xs`/`text-sm`/`text-[11px]` following ToolCallGroup
+- **Status colors**: Blue (active), emerald (complete), red (error),
+  amber (waiting), zinc (idle) — same palette as ToolCallGroup status dots
+- **Border patterns**: `border-{color}-500/20` + `bg-{color}-500/[0.03]` for
+  state-tinted containers (established pattern)
+- **Icons**: Lucide (`CheckCircle2`, `Loader2`, `XCircle`, `AlertCircle`, etc.)
+
+---
+
+## 10. Phasing
 
 ### Phase 1: Static Board (Sero App)
 
@@ -519,12 +770,12 @@ Build the `pi-kanban-extension` as a standard Sero app:
 
 ---
 
-## 10. Risks & Mitigations
+## 11. Risks & Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
 | Agents produce low-quality code | Reviewer subagent + test runner as gates. User approval at review stage. Checkpoints for rollback. |
-| Parallel agents conflict on files | Planning phase assigns independent file scope per subtask. System prompt reinforces this. |
+| Parallel agents conflict on files | Git worktrees give each card full filesystem isolation. Within a card, planning assigns non-overlapping file scopes per subtask. |
 | Cost explosion from many concurrent agents | `maxConcurrentCards` setting. Subagent cost tracking visible on each card. Budget alerts in v2. |
 | Long-running cards block workspace | Cards run in sessions, not the user's main session. User can chat and work normally. |
 | Complex dependency chains between subtasks | Planning agent models dependencies. Chain mode for sequential work. Parallel only for truly independent tasks. |
@@ -532,7 +783,7 @@ Build the `pi-kanban-extension` as a standard Sero app:
 
 ---
 
-## 11. Why This Design
+## 12. Why This Design
 
 **Minimal new code.** The entire backend is essentially a state machine
 (KanbanOrchestrator) that calls existing Sero APIs. No new IPC channels,
@@ -542,9 +793,10 @@ building blocks:
 - Sero App framework → board UI + state management
 - AgentPool → card sessions
 - SubagentManager → parallel subtask execution
-- VCS → branching, checkpoints, PRs
+- VCS + git worktrees → isolated branches, checkpoints, PRs
 - User feedback → human checkpoints
 - Notifications → status updates
+- motion/react → polished, animated board UX (already in the stack)
 
 **The Kanban board is a UX layer on top of capabilities Sero already has.**
 The difference is that today, a user has to orchestrate these manually
