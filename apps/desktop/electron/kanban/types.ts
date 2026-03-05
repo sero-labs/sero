@@ -19,6 +19,20 @@ export interface Subtask {
   checkpointId?: string;
 }
 
+export interface PlanningToolEntry {
+  tool: string;
+  args: string;
+  running: boolean;
+}
+
+export interface PlanningProgress {
+  phase: string;
+  startedAt: number;
+  agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
+  recentTools: PlanningToolEntry[];
+  log: string[];
+}
+
 export interface Card {
   id: string;
   title: string;
@@ -35,6 +49,7 @@ export interface Card {
   prUrl?: string;
   prNumber?: number;
   lastCheckpoint?: string;
+  planningProgress?: PlanningProgress;
   error?: string;
   createdAt: string;
   updatedAt: string;

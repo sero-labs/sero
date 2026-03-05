@@ -19,6 +19,20 @@ export interface Subtask {
   checkpointId?: string; // VCS checkpoint after completion
 }
 
+export interface PlanningToolEntry {
+  tool: string;     // e.g. 'read', 'bash', 'grep'
+  args: string;     // Short summary of args
+  running: boolean; // Still active?
+}
+
+export interface PlanningProgress {
+  phase: string;               // e.g. 'Analysing codebase', 'Generating plan'
+  startedAt: number;           // Epoch ms
+  agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
+  recentTools: PlanningToolEntry[];  // Last ~15 tool calls
+  log: string[];               // Recent onUpdate lines (last ~20)
+}
+
 export interface Card {
   id: string;
   title: string;
@@ -35,6 +49,7 @@ export interface Card {
   prUrl?: string; // Pull request URL
   prNumber?: number;
   lastCheckpoint?: string; // Latest VCS checkpoint ID
+  planningProgress?: PlanningProgress; // Live progress during planning phase
   error?: string; // Last error message
   createdAt: string; // ISO
   updatedAt: string; // ISO

@@ -14,10 +14,127 @@
 
 import path from 'path';
 
-import type { KanbanState, Card, Column } from './types';
+import type { KanbanState, Card, Column, PlanningProgress, PlanningToolEntry } from './types';
 import { WorktreeManager } from './worktree-manager';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
+
+// ── Planning Progress Tracker ───────────────────────────────
+
+const MAX_RECENT_TOOLS = 15;
+const MAX_LOG_LINES = 20;
+const PROGRESS_FLUSH_MS = 800; // Debounce interval for writing progress to disk
+
+/**
+ * Tracks live planning activity for a single card and debounces
+ * writes to the state file so the UI gets ~1 update per second.
+ */
+class PlanningProgressTracker {
+  private progress: PlanningProgress;
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private dirty = false;
+
+  constructor(
+    private readonly stateFilePath: string,
+    private readonly cardId: string,
+    private readonly writeCard: (stateFilePath: string, cardId: string, update: Partial<Card>) => Promise<void>,
+  ) {
+    this.progress = {
+      phase: 'Analysing codebase',
+      startedAt: Date.now(),
+      agents: [],
+      recentTools: [],
+      log: [],
+    };
+  }
+
+  setPhase(phase: string): void {
+    this.progress.phase = phase;
+    this.scheduleDirtyFlush();
+  }
+
+  addAgent(name: string): void {
+    this.progress.agents.push({ name, status: 'running' });
+    this.scheduleDirtyFlush();
+  }
+
+  completeAgent(name: string): void {
+    const agent = this.progress.agents.find((a) => a.name === name);
+    if (agent) agent.status = 'completed';
+    this.scheduleDirtyFlush();
+  }
+
+  /** Parse an onUpdate line and extract tool info if present. */
+  addLogLine(text: string): void {
+    // Lines look like: "  📂 read: /path/to/file" or "  📂 bash: find ..."
+    const toolMatch = text.match(/\s*\S+\s+(\w+):\s*(.+)/);
+    if (toolMatch) {
+      const [, tool, args] = toolMatch;
+      // Update running state of previous tool with same name
+      for (const t of this.progress.recentTools) {
+        if (t.running) t.running = false;
+      }
+      this.progress.recentTools.push({
+        tool,
+        args: args.slice(0, 120), // Truncate long paths
+        running: true,
+      });
+      if (this.progress.recentTools.length > MAX_RECENT_TOOLS) {
+        this.progress.recentTools = this.progress.recentTools.slice(-MAX_RECENT_TOOLS);
+      }
+    }
+
+    // Also keep raw log lines
+    this.progress.log.push(text.trim());
+    if (this.progress.log.length > MAX_LOG_LINES) {
+      this.progress.log = this.progress.log.slice(-MAX_LOG_LINES);
+    }
+
+    this.scheduleDirtyFlush();
+  }
+
+  private scheduleDirtyFlush(): void {
+    this.dirty = true;
+    if (!this.flushTimer) {
+      this.flushTimer = setTimeout(() => this.flush(), PROGRESS_FLUSH_MS);
+    }
+  }
+
+  /** Write current progress to the card state file. */
+  async flush(): Promise<void> {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    if (!this.dirty) return;
+    this.dirty = false;
+
+    // Mark all tools as no longer running before flush
+    // (the latest one may still be running, but it's a good-enough snapshot)
+    try {
+      await this.writeCard(this.stateFilePath, this.cardId, {
+        planningProgress: { ...this.progress },
+      });
+    } catch (err) {
+      console.warn(`[kanban-orchestrator] Failed to flush planning progress for card #${this.cardId}:`, err);
+    }
+  }
+
+  /** Final cleanup — clear progress from card. */
+  async clear(): Promise<void> {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    try {
+      await this.writeCard(this.stateFilePath, this.cardId, {
+        planningProgress: undefined,
+      });
+    } catch {
+      // Best-effort cleanup
+    }
+  }
+}
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -231,10 +348,17 @@ export class KanbanOrchestrator {
       return;
     }
 
+    // Create progress tracker for live UI feedback
+    const tracker = new PlanningProgressTracker(
+      workspace.stateFilePath,
+      card.id,
+      (fp, id, update) => this.updateCard(fp, id, update),
+    );
+
     try {
       console.log(`[kanban-orchestrator] Starting planning phase for card #${card.id} "${card.title}"`);
 
-      // 1. Update card status to agent-working
+      // 1. Update card status to agent-working + initial progress
       await this.updateCard(workspace.stateFilePath, card.id, {
         status: 'agent-working',
       });
@@ -262,14 +386,17 @@ export class KanbanOrchestrator {
         workspace,
         card,
         workspacePath,
+        tracker,
       );
 
-      // 4. Update card with plan and subtasks, set waiting-input for approval
+      // 4. Clear progress and update card with plan + subtasks
+      await tracker.clear();
       console.log(`[kanban-orchestrator] Planning agents finished for card #${card.id} — ${planResult.subtasks.length} subtasks generated`);
       await this.updateCard(workspace.stateFilePath, card.id, {
         status: 'waiting-input',
         plan: planResult.plan,
         subtasks: planResult.subtasks,
+        planningProgress: undefined,
       });
 
       console.log(`[kanban-orchestrator] Card #${card.id} planning complete — waiting for approval`);
@@ -277,9 +404,11 @@ export class KanbanOrchestrator {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[kanban-orchestrator] Planning failed for card #${card.id}:`, errMsg);
 
+      await tracker.clear();
       await this.updateCard(workspace.stateFilePath, card.id, {
         status: 'failed',
         error: `Planning failed: ${errMsg}`,
+        planningProgress: undefined,
       });
     } finally {
       this.planningInProgress.delete(card.id);
@@ -290,6 +419,7 @@ export class KanbanOrchestrator {
     workspace: WatchedWorkspace,
     card: Card,
     workspacePath: string,
+    tracker: PlanningProgressTracker,
   ): Promise<{
     plan: string;
     subtasks: Card['subtasks'];
@@ -302,7 +432,12 @@ export class KanbanOrchestrator {
     // Build the task prompt for the planning chain
     const taskDescription = buildPlanningPrompt(card);
 
-    // Run analyst + scout in parallel to gather codebase context
+    // Phase 1: analyst + scout in parallel
+    tracker.setPhase('Analysing codebase');
+    tracker.addAgent('analyst');
+    tracker.addAgent('scout');
+    await tracker.flush(); // Ensure initial state is visible immediately
+
     console.log(`[kanban-orchestrator] Dispatching analyst + scout agents in parallel for card #${card.id}`);
     const reconResult = await subagentManager.runParallel({
       tasks: [
@@ -319,12 +454,20 @@ export class KanbanOrchestrator {
       workspaceId: workspace.workspaceId,
       onUpdate: (text) => {
         console.log(`[kanban-orchestrator] [card-${card.id}] ${text}`);
+        tracker.addLogLine(text);
       },
     });
 
+    tracker.completeAgent('analyst');
+    tracker.completeAgent('scout');
+
     console.log(`[kanban-orchestrator] Recon complete for card #${card.id} (${reconResult.length} chars). Running planner agent…`);
 
-    // Chain: use analysis results to generate a concrete plan with subtasks
+    // Phase 2: planner agent synthesises subtasks
+    tracker.setPhase('Generating plan');
+    tracker.addAgent('planner');
+    await tracker.flush();
+
     const planResult = await subagentManager.runSingle({
       task: buildSubtaskGenerationPrompt(card, reconResult),
       systemPrompt: PLANNER_SYSTEM_PROMPT,
@@ -332,8 +475,12 @@ export class KanbanOrchestrator {
       workspaceId: workspace.workspaceId,
       onUpdate: (text) => {
         console.log(`[kanban-orchestrator] [card-${card.id}] ${text}`);
+        tracker.addLogLine(text);
       },
     });
+
+    tracker.completeAgent('planner');
+    await tracker.flush();
 
     console.log(`[kanban-orchestrator] Planner agent complete for card #${card.id} (${planResult.length} chars). Parsing…`);
 
