@@ -4,6 +4,8 @@
 
 export { KanbanOrchestrator } from './orchestrator';
 export { WorktreeManager } from './worktree-manager';
+export { resolveExecutionWaves } from './wave-resolver';
+export { createCheckpointInWorktree, getWorktreeDiff } from './worktree-git';
 export type { WorktreeInfo } from './worktree-manager';
 export type {
   Card,
@@ -13,4 +15,5 @@ export type {
   Subtask,
   Priority,
   CardStatus,
+  ImplementationProgress,
 } from './types';

@@ -109,6 +109,21 @@ export function CardView({
           </div>
         )}
 
+        {/* Implementation status banner */}
+        {card.column === 'in-progress' && card.status === 'agent-working' && (
+          <div className="mt-1.5 ml-4 flex items-center gap-1.5">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400"
+              style={{ animation: 'kb-pulse 2s ease-in-out infinite' }}
+            />
+            <span className="text-[10px] font-medium text-indigo-400">
+              Implementing… {card.subtasks.length > 0
+                ? `${card.subtasks.filter((s) => s.status === 'completed').length}/${card.subtasks.length}`
+                : ''}
+            </span>
+          </div>
+        )}
+
         {/* Description preview */}
         {card.description && (
           <p className="mt-1.5 ml-4 line-clamp-2 text-[11px] leading-relaxed text-[var(--kb-muted)]">

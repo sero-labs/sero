@@ -46,10 +46,10 @@ export async function runSubagent(
   config: RunnerConfig,
   deps: RunnerDeps,
 ): Promise<RunResult> {
-  const { agent, task, resolved, workspaceId, signal, onProgress } = config;
+  const { agent, task, resolved, workspaceId, signal, onProgress, cwdOverride } = config;
   const { infra, workspaceManager, containerManager } = deps;
 
-  const wsPath = workspaceManager.getPath(workspaceId);
+  const wsPath = cwdOverride ?? workspaceManager.getPath(workspaceId);
   if (!wsPath) {
     return { response: '', usage: { ...EMPTY_USAGE }, error: `Workspace '${workspaceId}' not found` };
   }

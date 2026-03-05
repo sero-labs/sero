@@ -105,6 +105,8 @@ export interface RunnerConfig {
   mode: SubagentMode;
   /** Chain step index (if chain mode). */
   chainStep?: number;
+  /** Override the working directory (e.g. for git worktree execution). */
+  cwdOverride?: string;
   /** AbortController signal. */
   signal: AbortSignal;
   /** Progress callback. */

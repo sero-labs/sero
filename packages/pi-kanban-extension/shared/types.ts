@@ -33,6 +33,16 @@ export interface PlanningProgress {
   log: string[];               // Recent onUpdate lines (last ~20)
 }
 
+export interface ImplementationProgress {
+  phase: string;               // e.g. 'Wave 2/4'
+  startedAt: number;           // Epoch ms
+  currentWave: number;         // Current wave index (1-based)
+  totalWaves: number;          // Total number of execution waves
+  agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
+  recentTools: PlanningToolEntry[];  // Last ~15 tool calls
+  log: string[];               // Recent onUpdate lines (last ~20)
+}
+
 export interface Card {
   id: string;
   title: string;
@@ -50,6 +60,7 @@ export interface Card {
   prNumber?: number;
   lastCheckpoint?: string; // Latest VCS checkpoint ID
   planningProgress?: PlanningProgress; // Live progress during planning phase
+  implementationProgress?: ImplementationProgress; // Live progress during implementation phase
   error?: string; // Last error message
   createdAt: string; // ISO
   updatedAt: string; // ISO

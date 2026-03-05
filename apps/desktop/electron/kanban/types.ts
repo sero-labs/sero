@@ -33,6 +33,16 @@ export interface PlanningProgress {
   log: string[];
 }
 
+export interface ImplementationProgress {
+  phase: string;
+  startedAt: number;
+  currentWave: number;
+  totalWaves: number;
+  agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
+  recentTools: PlanningToolEntry[];
+  log: string[];
+}
+
 export interface Card {
   id: string;
   title: string;
@@ -50,6 +60,7 @@ export interface Card {
   prNumber?: number;
   lastCheckpoint?: string;
   planningProgress?: PlanningProgress;
+  implementationProgress?: ImplementationProgress;
   error?: string;
   createdAt: string;
   updatedAt: string;

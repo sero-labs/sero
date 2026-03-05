@@ -41,6 +41,8 @@ interface RunSingleParams {
   systemPrompt?: string;
   parentSessionId: string;
   workspaceId: string;
+  /** Override the working directory (e.g. for git worktree execution). */
+  cwd?: string;
   onUpdate?: (text: string) => void;
 }
 
@@ -157,6 +159,7 @@ export class SubagentManager {
         {
           agent, task, resolved, workspaceId, parentSessionId,
           mode: 'single', signal: controller.signal,
+          cwdOverride: params.cwd,
           onProgress: (usage) => this.tracker.progress(runId, usage),
           onToolActivity: (name, summary, running) => this.tracker.updateToolActivity(runId, name, summary, running),
           onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),
