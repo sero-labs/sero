@@ -92,6 +92,12 @@ import { SubagentManager } from '../subagent/index';
 
 export const subagentManager = new SubagentManager();
 
+// ── Kanban Orchestrator (singleton) ──────────────────────────
+
+import { KanbanOrchestrator } from '../kanban/index';
+
+export const kanbanOrchestrator = new KanbanOrchestrator();
+
 // ── Shared state ─────────────────────────────────────────────
 
 let _authStorage: AuthStorage | null = null;
@@ -156,6 +162,12 @@ export async function ensureInfra(): Promise<SharedInfra> {
       });
     }
   }
+
+  // Wire kanban orchestrator deps lazily
+  kanbanOrchestrator.setDeps({
+    subagentManager,
+    getWorkspacePath: (wsId) => workspaceManager.getPath(wsId),
+  });
 
   return infra;
 }

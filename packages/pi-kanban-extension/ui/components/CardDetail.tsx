@@ -59,6 +59,40 @@ export function CardDetail({
     [card, onUpdate],
   );
 
+  const handleStartPlanning = useCallback(() => {
+    if (!card) return;
+    onUpdate((prev) => ({
+      ...prev,
+      cards: prev.cards.map((c) =>
+        c.id === card.id
+          ? {
+              ...c,
+              column: 'planning' as Column,
+              status: 'agent-working' as const,
+              updatedAt: new Date().toISOString(),
+            }
+          : c,
+      ),
+    }));
+  }, [card, onUpdate]);
+
+  const handleApprovePlan = useCallback(() => {
+    if (!card) return;
+    onUpdate((prev) => ({
+      ...prev,
+      cards: prev.cards.map((c) =>
+        c.id === card.id
+          ? {
+              ...c,
+              column: 'in-progress' as Column,
+              status: 'idle' as const,
+              updatedAt: new Date().toISOString(),
+            }
+          : c,
+      ),
+    }));
+  }, [card, onUpdate]);
+
   const handleDelete = useCallback(() => {
     if (!card) return;
     onUpdate((prev) => ({
@@ -260,6 +294,121 @@ export function CardDetail({
                         PR: <span className="font-medium" style={{ color: '#34d399' }}>#{card.prNumber}</span>
                       </p>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Planning action buttons */}
+              {card.column === 'backlog' && card.status === 'idle' && (
+                <div style={{ marginBottom: '20px' }}>
+                  <button
+                    onClick={handleStartPlanning}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(129, 140, 248, 0.3)',
+                      backgroundColor: 'rgba(129, 140, 248, 0.1)',
+                      color: '#818cf8',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    Start Planning
+                  </button>
+                  <p style={{ fontSize: '11px', color: '#5c5e6a', marginTop: '6px', lineHeight: 1.4 }}>
+                    Moves card to Planning and triggers automated codebase analysis and subtask generation.
+                  </p>
+                </div>
+              )}
+
+              {card.column === 'planning' && card.status === 'agent-working' && (
+                <div
+                  style={{
+                    marginBottom: '20px',
+                    padding: '14px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.04)',
+                  }}
+                >
+                  <div className="flex items-center" style={{ gap: '10px', marginBottom: '6px' }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: '#3b82f6',
+                        animation: 'kb-pulse 2s ease-in-out infinite',
+                      }}
+                    />
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#60a5fa' }}>
+                      Planning in progress…
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#5c5e6a', lineHeight: 1.4 }}>
+                    Analysing codebase and generating implementation plan with subtasks.
+                  </p>
+                </div>
+              )}
+
+              {card.column === 'planning' && card.status === 'waiting-input' && (
+                <div style={{ marginBottom: '20px' }}>
+                  <div
+                    style={{
+                      padding: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(245, 158, 11, 0.2)',
+                      backgroundColor: 'rgba(245, 158, 11, 0.04)',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    <div className="flex items-center" style={{ gap: '10px', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 500, color: '#f59e0b' }}>
+                        Plan ready — awaiting approval
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#5c5e6a', lineHeight: 1.4 }}>
+                      Review the plan and subtasks below, then approve to advance to implementation.
+                    </p>
+                  </div>
+                  <div className="flex" style={{ gap: '8px' }}>
+                    <button
+                      onClick={handleApprovePlan}
+                      style={{
+                        flex: 1,
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: '#818cf8',
+                        color: '#fff',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      Approve &amp; Start
+                    </button>
+                    <button
+                      onClick={() => handleMove('backlog')}
+                      style={{
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        backgroundColor: 'transparent',
+                        color: '#8b8d97',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      Reject
+                    </button>
                   </div>
                 </div>
               )}

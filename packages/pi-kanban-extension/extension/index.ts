@@ -101,7 +101,7 @@ function formatBoard(state: KanbanState): string {
 // ── Tool parameters ────────────────────────────────────────────
 
 const KanbanParams = Type.Object({
-  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show'] as const),
+  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve'] as const),
   title: Type.Optional(Type.String({ description: 'Card title (for add)' })),
   id: Type.Optional(Type.String({ description: 'Card ID' })),
   column: Type.Optional(StringEnum(COLUMNS)),
@@ -127,7 +127,7 @@ export default function (pi: ExtensionAPI) {
     name: 'kanban',
     label: 'Kanban',
     description:
-      'Manage the workspace Kanban board. Actions: list (show board), add (requires title), move (requires id + column), update (requires id, optional title/description/priority), delete (requires id), show (requires id, detailed view).',
+      'Manage the workspace Kanban board. Actions: list (show board), add (requires title), move (requires id + column), update (requires id, optional title/description/priority), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning and trigger automated analysis), approve (requires id — approve plan and advance card to in-progress).',
     parameters: KanbanParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -287,6 +287,90 @@ export default function (pi: ExtensionAPI) {
           }
           return {
             content: [{ type: 'text', text: formatCard(card, true) }],
+            details: {},
+          };
+        }
+
+        case 'start': {
+          if (!params.id) {
+            return {
+              content: [{ type: 'text', text: 'Error: id is required for start' }],
+              details: {},
+            };
+          }
+          const card = state.cards.find((c) => c.id === params.id);
+          if (!card) {
+            return {
+              content: [{ type: 'text', text: `Card #${params.id} not found` }],
+              details: {},
+            };
+          }
+          if (card.column !== 'backlog') {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Card #${card.id} is in "${COLUMN_LABELS[card.column]}" — only backlog cards can be started`,
+                },
+              ],
+              details: {},
+            };
+          }
+          card.column = 'planning';
+          card.status = 'agent-working';
+          card.updatedAt = new Date().toISOString();
+          await writeState(statePath, state);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Started #${card.id} "${card.title}" → Planning. Automated analysis will begin shortly.`,
+              },
+            ],
+            details: {},
+          };
+        }
+
+        case 'approve': {
+          if (!params.id) {
+            return {
+              content: [{ type: 'text', text: 'Error: id is required for approve' }],
+              details: {},
+            };
+          }
+          const card = state.cards.find((c) => c.id === params.id);
+          if (!card) {
+            return {
+              content: [{ type: 'text', text: `Card #${params.id} not found` }],
+              details: {},
+            };
+          }
+          if (card.column !== 'planning' || card.status !== 'waiting-input') {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Card #${card.id} is not awaiting approval (column: ${card.column}, status: ${card.status})`,
+                },
+              ],
+              details: {},
+            };
+          }
+          card.column = 'in-progress';
+          card.status = 'idle';
+          card.updatedAt = new Date().toISOString();
+          await writeState(statePath, state);
+
+          const subtaskInfo = card.subtasks.length > 0
+            ? ` with ${card.subtasks.length} subtasks`
+            : '';
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Approved #${card.id} "${card.title}" → In Progress${subtaskInfo}`,
+              },
+            ],
             details: {},
           };
         }

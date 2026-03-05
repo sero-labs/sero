@@ -83,6 +83,32 @@ export function CardView({
           </div>
         </div>
 
+        {/* Planning status banner */}
+        {card.column === 'planning' && card.status === 'agent-working' && (
+          <div className="mt-1.5 ml-4 flex items-center gap-1.5">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400"
+              style={{ animation: 'kb-pulse 2s ease-in-out infinite' }}
+            />
+            <span className="text-[10px] font-medium text-blue-400">Planning…</span>
+          </div>
+        )}
+        {card.column === 'planning' && card.status === 'waiting-input' && (
+          <div className="mt-1.5 ml-4">
+            <span
+              className="inline-flex items-center rounded-md text-[10px] font-medium leading-none"
+              style={{
+                padding: '3px 7px',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                color: '#f59e0b',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+              }}
+            >
+              Awaiting approval
+            </span>
+          </div>
+        )}
+
         {/* Description preview */}
         {card.description && (
           <p className="mt-1.5 ml-4 line-clamp-2 text-[11px] leading-relaxed text-[var(--kb-muted)]">
