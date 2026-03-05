@@ -12,7 +12,7 @@
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import { appStateManager } from '../app-state';
-import { kanbanOrchestrator } from './shared-infra';
+import { kanbanOrchestrator, ensureInfra } from './shared-infra';
 import type { KanbanState } from '../kanban/types';
 
 const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
@@ -20,10 +20,14 @@ const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
 /** Notify the orchestrator if this is a kanban state file. */
 function notifyKanbanOrchestrator(filePath: string, data: unknown): void {
   if (filePath.endsWith(KANBAN_STATE_SUFFIX) && data) {
-    // Fire-and-forget — don't block the write
-    kanbanOrchestrator.onStateChange(filePath, data as KanbanState).catch((err) => {
-      console.error('[app-state] Kanban orchestrator error:', err);
-    });
+    console.log(`[app-state] Kanban state file written: ${filePath} — notifying orchestrator`);
+    // Ensure shared infrastructure is initialised (deps injected) before
+    // forwarding the state change. Fire-and-forget — don't block the write.
+    ensureInfra()
+      .then(() => kanbanOrchestrator.onStateChange(filePath, data as KanbanState))
+      .catch((err) => {
+        console.error('[app-state] Kanban orchestrator error:', err);
+      });
   }
 }
 

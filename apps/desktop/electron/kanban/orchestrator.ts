@@ -13,7 +13,6 @@
  */
 
 import path from 'path';
-import { BrowserWindow } from 'electron';
 
 import type { KanbanState, Card, Column } from './types';
 import { WorktreeManager } from './worktree-manager';
@@ -25,6 +24,8 @@ import type { SubagentManager } from '../subagent/index';
 interface OrchestratorDeps {
   subagentManager: SubagentManager;
   getWorkspacePath: (workspaceId: string) => string | null;
+  /** Reverse lookup: given an absolute path, find the workspace that contains it. */
+  findWorkspaceByPath: (absPath: string) => { id: string; path: string } | null;
 }
 
 interface WatchedWorkspace {
@@ -47,6 +48,7 @@ export class KanbanOrchestrator {
    */
   setDeps(deps: OrchestratorDeps): void {
     this.deps = deps;
+    console.log('[kanban-orchestrator] Dependencies injected');
   }
 
   /**
@@ -95,6 +97,13 @@ export class KanbanOrchestrator {
    * Detects column transitions and triggers appropriate phase handlers.
    */
   async onStateChange(stateFilePath: string, newState: KanbanState): Promise<void> {
+    console.log(`[kanban-orchestrator] onStateChange called for ${stateFilePath}`);
+
+    if (!this.deps) {
+      console.warn('[kanban-orchestrator] onStateChange called before setDeps() — ignoring');
+      return;
+    }
+
     // Find which workspace this belongs to
     let workspace: WatchedWorkspace | null = null;
     for (const [, entry] of this.watched) {
@@ -103,14 +112,70 @@ export class KanbanOrchestrator {
         break;
       }
     }
-    if (!workspace || !newState?.cards) return;
+
+    // Auto-watch: if we haven't seen this workspace yet, register it now.
+    // The state file path pattern is {workspacePath}/.sero/apps/kanban/state.json
+    //
+    // Important: when auto-watching we deliberately seed the baseline with an
+    // EMPTY column map so the incoming state is treated as "all new cards".
+    // This ensures that cards already in the 'planning' column with
+    // 'agent-working' status will be detected as transitions and trigger the
+    // planning phase (since prevColumn will be undefined → handled below).
+    if (!workspace) {
+      console.log('[kanban-orchestrator] Workspace not yet watched — attempting auto-registration');
+      const suffix = '/.sero/apps/kanban/state.json';
+      const idx = stateFilePath.indexOf(suffix);
+      if (idx !== -1) {
+        const workspacePath = stateFilePath.substring(0, idx);
+        const ws = this.deps.findWorkspaceByPath(workspacePath);
+        if (ws) {
+          console.log(`[kanban-orchestrator] Auto-watching workspace "${ws.id}" at ${ws.path}`);
+          // Register with empty baseline so all cards look "new"
+          const emptyBaseline = new Map<string, Column>();
+          this.watched.set(ws.id, {
+            workspaceId: ws.id,
+            stateFilePath,
+            lastColumnMap: emptyBaseline,
+          });
+          appStateManager.watch(stateFilePath);
+          workspace = this.watched.get(ws.id) ?? null;
+        } else {
+          console.warn(`[kanban-orchestrator] Could not find workspace for path: ${workspacePath}`);
+        }
+      } else {
+        console.warn(`[kanban-orchestrator] State file path does not match expected pattern: ${stateFilePath}`);
+      }
+    }
+
+    if (!workspace || !newState?.cards) {
+      console.warn('[kanban-orchestrator] No workspace or no cards — skipping', {
+        hasWorkspace: !!workspace,
+        hasCards: !!newState?.cards,
+        cardCount: newState?.cards?.length,
+      });
+      return;
+    }
+
+    console.log(`[kanban-orchestrator] Processing ${newState.cards.length} cards for workspace "${workspace.workspaceId}"`);
+
 
     // Detect transitions
     for (const card of newState.cards) {
       const prevColumn = workspace.lastColumnMap.get(card.id);
 
       if (prevColumn && prevColumn !== card.column) {
+        console.log(`[kanban-orchestrator] Transition detected: card #${card.id} "${card.title}" ${prevColumn} → ${card.column}`);
         await this.handleTransition(workspace, card, prevColumn, card.column);
+      } else if (!prevColumn) {
+        // First time seeing this card. If it's already in 'planning' with
+        // 'agent-working' status, that means planning was requested but the
+        // orchestrator wasn't watching yet. Trigger the planning phase now.
+        if (card.column === 'planning' && card.status === 'agent-working') {
+          console.log(`[kanban-orchestrator] Card #${card.id} "${card.title}" already in planning/agent-working — triggering planning phase`);
+          await this.handleTransition(workspace, card, 'backlog', 'planning');
+        } else {
+          console.log(`[kanban-orchestrator] New card #${card.id} "${card.title}" in column "${card.column}" — seeding baseline`);
+        }
       }
     }
 
@@ -167,17 +232,23 @@ export class KanbanOrchestrator {
     }
 
     try {
+      console.log(`[kanban-orchestrator] Starting planning phase for card #${card.id} "${card.title}"`);
+
       // 1. Update card status to agent-working
       await this.updateCard(workspace.stateFilePath, card.id, {
         status: 'agent-working',
       });
+      console.log(`[kanban-orchestrator] Card #${card.id} status set to agent-working`);
 
       // 2. Create worktree for isolation
+      console.log(`[kanban-orchestrator] Creating worktree for card #${card.id} at workspace ${workspacePath}`);
       const { worktreePath, branchName } = await this.worktreeManager.create(
         workspacePath,
         card.id,
         card.title,
       );
+
+      console.log(`[kanban-orchestrator] Worktree created: branch=${branchName}, path=${worktreePath}`);
 
       // Update card with branch/worktree info
       await this.updateCard(workspace.stateFilePath, card.id, {
@@ -186,6 +257,7 @@ export class KanbanOrchestrator {
       });
 
       // 3. Run planning agents (analyst + scout in parallel, then synthesise)
+      console.log(`[kanban-orchestrator] Running planning agents for card #${card.id}`);
       const planResult = await this.runPlanningAgents(
         workspace,
         card,
@@ -193,6 +265,7 @@ export class KanbanOrchestrator {
       );
 
       // 4. Update card with plan and subtasks, set waiting-input for approval
+      console.log(`[kanban-orchestrator] Planning agents finished for card #${card.id} — ${planResult.subtasks.length} subtasks generated`);
       await this.updateCard(workspace.stateFilePath, card.id, {
         status: 'waiting-input',
         plan: planResult.plan,
@@ -230,6 +303,7 @@ export class KanbanOrchestrator {
     const taskDescription = buildPlanningPrompt(card);
 
     // Run analyst + scout in parallel to gather codebase context
+    console.log(`[kanban-orchestrator] Dispatching analyst + scout agents in parallel for card #${card.id}`);
     const reconResult = await subagentManager.runParallel({
       tasks: [
         {
@@ -248,6 +322,8 @@ export class KanbanOrchestrator {
       },
     });
 
+    console.log(`[kanban-orchestrator] Recon complete for card #${card.id} (${reconResult.length} chars). Running planner agent…`);
+
     // Chain: use analysis results to generate a concrete plan with subtasks
     const planResult = await subagentManager.runSingle({
       task: buildSubtaskGenerationPrompt(card, reconResult),
@@ -259,8 +335,12 @@ export class KanbanOrchestrator {
       },
     });
 
+    console.log(`[kanban-orchestrator] Planner agent complete for card #${card.id} (${planResult.length} chars). Parsing…`);
+
     // Parse the plan result into structured subtasks
-    return parsePlanResult(planResult);
+    const parsed = parsePlanResult(planResult);
+    console.log(`[kanban-orchestrator] Parsed plan for card #${card.id}: ${parsed.subtasks.length} subtasks, plan length ${parsed.plan.length}`);
+    return parsed;
   }
 
   // ── State Helpers ─────────────────────────────────────────

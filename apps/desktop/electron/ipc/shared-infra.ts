@@ -166,7 +166,11 @@ export async function ensureInfra(): Promise<SharedInfra> {
   // Wire kanban orchestrator deps lazily
   kanbanOrchestrator.setDeps({
     subagentManager,
-    getWorkspacePath: (wsId) => workspaceManager.getPath(wsId),
+    getWorkspacePath: (wsId) => workspaceManager.getPath(wsId) ?? null,
+    findWorkspaceByPath: (absPath) => {
+      const entry = workspaceManager.findByPath(absPath);
+      return entry ? { id: entry.id, path: entry.path } : null;
+    },
   });
 
   return infra;
