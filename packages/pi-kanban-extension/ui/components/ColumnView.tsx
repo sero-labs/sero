@@ -99,7 +99,7 @@ export function ColumnView({
       onDrop={handleDrop}
     >
       {/* Column header */}
-      <div className="shrink-0 flex items-center gap-2.5 px-3 py-2.5">
+      <div className="shrink-0 flex items-center gap-2.5 px-4 py-3">
         <span
           className="size-2 rounded-full shrink-0"
           style={{ backgroundColor: accentColor }}
@@ -118,7 +118,7 @@ export function ColumnView({
       </div>
 
       {/* Cards area */}
-      <div className="flex-1 overflow-y-auto kb-scrollbar px-2 pb-2">
+      <div className="flex-1 overflow-y-auto kb-scrollbar px-3 pb-2">
         {cards.length > 0 ? (
           <Reorder.Group
             axis="y"
@@ -154,7 +154,7 @@ export function ColumnView({
       </div>
 
       {/* Add card — bottom of column */}
-      <div className="shrink-0 px-2 pb-2">
+      <div className="shrink-0 px-3 pb-3">
         <AnimatePresence mode="wait">
           {!adding ? (
             <motion.button

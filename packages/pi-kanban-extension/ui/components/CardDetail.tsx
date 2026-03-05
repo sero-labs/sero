@@ -1,8 +1,8 @@
 /**
  * CardDetail — slide-over panel showing full card information.
  *
- * Spring-physics slide-in from the right. Shows card metadata,
- * subtask list, plan, error, and actions.
+ * Uses absolute positioning within the kb-root container so it
+ * doesn't escape the app bounds. Solid background, spring animation.
  */
 
 import { useCallback } from 'react';
@@ -71,23 +71,24 @@ export function CardDetail({
     <AnimatePresence>
       {card && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — absolute within kb-root */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-40 bg-black/40"
+            className="absolute inset-0 z-40 bg-black/40"
             onClick={onClose}
           />
 
-          {/* Panel */}
+          {/* Panel — absolute within kb-root, solid background */}
           <motion.div
             initial={{ x: '100%', opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed right-0 top-0 z-50 flex h-full w-[420px] flex-col border-l border-[var(--kb-border)] bg-[var(--kb-bg)]"
+            className="absolute right-0 top-0 bottom-0 z-50 flex w-[400px] max-w-[85%] flex-col border-l border-[var(--kb-border)]"
+            style={{ backgroundColor: 'var(--kb-bg)' }}
           >
             {/* Header */}
             <div className="shrink-0 flex items-center justify-between border-b border-[var(--kb-border)] px-5 py-3">
@@ -112,7 +113,7 @@ export function CardDetail({
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto kb-scrollbar p-5 space-y-5">
+            <div className="flex-1 overflow-y-auto kb-scrollbar px-5 py-5 space-y-5">
               {/* Title */}
               <h2 className="text-lg font-medium leading-snug text-[var(--kb-text)]">
                 {card.title}
@@ -218,10 +219,10 @@ export function CardDetail({
             </div>
 
             {/* Actions footer */}
-            <div className="shrink-0 border-t border-[var(--kb-border)] p-4 space-y-3">
+            <div className="shrink-0 border-t border-[var(--kb-border)] px-5 py-4 space-y-3">
               {/* Move to column */}
               <div>
-                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--kb-dim)]">
+                <span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-[var(--kb-dim)]">
                   Move to
                 </span>
                 <div className="flex flex-wrap gap-1.5">

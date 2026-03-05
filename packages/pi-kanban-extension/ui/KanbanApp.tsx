@@ -191,9 +191,9 @@ export function KanbanApp() {
   return (
     <>
       <style>{CUSTOM_STYLES}</style>
-      <div className="kb-root flex h-full w-full flex-col overflow-hidden">
+      <div className="kb-root relative flex h-full w-full flex-col overflow-hidden">
         {/* Header bar */}
-        <div className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-[var(--kb-border)]">
+        <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[var(--kb-border)]">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-medium tracking-tight text-[var(--kb-text)]">
               Kanban
