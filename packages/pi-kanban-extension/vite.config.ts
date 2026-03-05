@@ -1,7 +1,7 @@
 /**
  * Vite config for the kanban extension's federated UI (remote).
  *
- * Runs its own dev server on port 5175. The host (Sero on 5173)
+ * Runs its own dev server on port 5189. The host (Sero on 5173)
  * declares this as a remote and imports components via MF.
  *
  * `server.origin` ensures all chunk URLs are absolute so the host
@@ -39,9 +39,9 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5175,
+    port: 5189,
     strictPort: true,
-    origin: 'http://localhost:5175',
+    origin: 'http://localhost:5189',
   },
   optimizeDeps: {
     exclude: ['@sero/app-runtime'],
