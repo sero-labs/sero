@@ -104,6 +104,7 @@ let _authStorage: AuthStorage | null = null;
 let _modelRegistry: ModelRegistry | null = null;
 let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
 let _model: Model<Api> | null = null;
+let _kanbanRecoveryDone = false;
 
 /** Sero session storage. */
 export const SERO_SESSION_DIR = `${SERO_AGENT_DIR}/sessions`;
@@ -173,6 +174,15 @@ export async function ensureInfra(): Promise<SharedInfra> {
     },
   });
 
+  // Recover kanban cards stuck in agent-working after restart (once)
+  if (!_kanbanRecoveryDone) {
+    _kanbanRecoveryDone = true;
+    const allWorkspaces = await workspaceManager.getOpenWorkspaces();
+    kanbanOrchestrator.recoverStuckCards(allWorkspaces).catch((err) => {
+      console.error('[kanban-orchestrator] Startup recovery failed:', err);
+    });
+  }
+
   return infra;
 }
 
@@ -186,14 +196,21 @@ export async function ensureInfra(): Promise<SharedInfra> {
 export async function buildContainerConfig(
   workspaceId: string,
   hostPath: string,
+  opts?: { isolated?: boolean },
 ): Promise<ContainerConfig> {
-  // Other open workspaces are mounted read-write so the agent can
-  // access cross-workspace files (e.g. saving memories to global).
-  const openWorkspaces = await workspaceManager.getOpenWorkspaces();
-  const writableMounts = openWorkspaces
-    .filter((ws) => ws.id !== workspaceId)
-    .map((ws) => ws.path)
-    .filter((p): p is string => !!p && path.resolve(p) !== path.resolve(hostPath));
+  // When isolated, only mount the workspace's own files — no cross-workspace
+  // access. Used by kanban subagents to enforce workspace-level isolation.
+  let writableMounts: string[] = [];
+
+  if (!opts?.isolated) {
+    // Other open workspaces are mounted read-write so the agent can
+    // access cross-workspace files (e.g. saving memories to global).
+    const openWorkspaces = await workspaceManager.getOpenWorkspaces();
+    writableMounts = openWorkspaces
+      .filter((ws) => ws.id !== workspaceId)
+      .map((ws) => ws.path)
+      .filter((p): p is string => !!p && path.resolve(p) !== path.resolve(hostPath));
+  }
 
   return {
     workspaceId,

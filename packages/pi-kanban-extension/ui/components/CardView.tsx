@@ -49,14 +49,14 @@ export function CardView({
       transition={{ duration: 0.2 }}
       onClick={handleClick}
       className={cn(
-        'group cursor-pointer overflow-hidden rounded-lg border transition-colors duration-200',
+        'group cursor-pointer overflow-hidden rounded-lg border bg-[#1e2029] transition-colors duration-200',
         card.status === 'agent-working'
-          ? 'border-blue-500/25 bg-blue-500/[0.04]'
+          ? 'border-blue-500/25'
           : card.status === 'failed'
-            ? 'border-red-500/25 bg-red-500/[0.04]'
+            ? 'border-red-500/25'
             : card.status === 'waiting-input'
-              ? 'border-amber-500/25 bg-amber-500/[0.04]'
-              : 'border-[var(--kb-border)] bg-[var(--kb-surface)] hover:border-[var(--kb-accent)]/20',
+              ? 'border-amber-500/25'
+              : 'border-[var(--kb-border)] hover:border-[var(--kb-accent)]/20',
       )}
     >
       {/* Progress bar for agent-working cards */}
@@ -105,6 +105,34 @@ export function CardView({
               }}
             >
               Awaiting approval
+            </span>
+          </div>
+        )}
+
+        {/* Review status banners */}
+        {card.column === 'review' && card.status === 'agent-working' && (
+          <div className="mt-1.5 ml-4 flex items-center gap-1.5">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-violet-400"
+              style={{ animation: 'kb-pulse 2s ease-in-out infinite' }}
+            />
+            <span className="text-[10px] font-medium text-violet-400">
+              {card.reviewProgress?.phase ?? 'Reviewing…'}
+            </span>
+          </div>
+        )}
+        {card.column === 'review' && card.status === 'waiting-input' && card.prUrl && (
+          <div className="mt-1.5 ml-4">
+            <span
+              className="inline-flex items-center rounded-md text-[10px] font-medium leading-none"
+              style={{
+                padding: '3px 7px',
+                backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                color: '#34d399',
+                border: '1px solid rgba(52, 211, 153, 0.2)',
+              }}
+            >
+              PR ready — merge &amp; mark done
             </span>
           </div>
         )}

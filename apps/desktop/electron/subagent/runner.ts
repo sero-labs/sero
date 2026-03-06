@@ -19,9 +19,11 @@ import type { WorkspaceManager } from '../workspace';
 import type { ContainerManager } from '../container/index';
 import type { ContainerState } from '../container/types';
 import { createContainerTools } from '../container/tools';
+import { WORKSPACE_DIR } from '../container/tool-schemas';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '../env';
 import { logRawEvent, logTurnContext } from '../ipc/debug';
+import path from 'path';
 
 const EMPTY_USAGE: SubagentUsage = {
   inputTokens: 0,
@@ -46,7 +48,7 @@ export async function runSubagent(
   config: RunnerConfig,
   deps: RunnerDeps,
 ): Promise<RunResult> {
-  const { agent, task, resolved, workspaceId, signal, onProgress, cwdOverride } = config;
+  const { agent, task, resolved, workspaceId, signal, onProgress, cwdOverride, isolated } = config;
   const { infra, workspaceManager, containerManager } = deps;
 
   const wsPath = cwdOverride ?? workspaceManager.getPath(workspaceId);
@@ -68,7 +70,7 @@ export async function runSubagent(
   if (containerEnabled) {
     try {
       const { buildContainerConfig } = await import('../ipc/shared-infra');
-      const containerConfig = await buildContainerConfig(workspaceId, wsPath);
+      const containerConfig = await buildContainerConfig(workspaceId, wsPath, { isolated });
       containerState = await containerManager.ensure(containerConfig);
     } catch (err: unknown) {
       console.warn('[subagent/runner] Container not available, using host tools:', (err as Error)?.message);
@@ -76,8 +78,22 @@ export async function runSubagent(
   }
 
   const useContainer = !!containerState;
+
+  // Translate host cwdOverride to a container path so tools run in the
+  // correct directory (e.g. a git worktree subdirectory, not /workspace).
+  let containerCwd: string | undefined;
+  if (cwdOverride && useContainer) {
+    const workspaceRoot = workspaceManager.getPath(workspaceId);
+    if (workspaceRoot && cwdOverride.startsWith(workspaceRoot)) {
+      const rel = path.relative(workspaceRoot, cwdOverride);
+      if (rel && !rel.startsWith('..')) {
+        containerCwd = `${WORKSPACE_DIR}/${rel}`;
+      }
+    }
+  }
+
   const containerTools = useContainer
-    ? createContainerTools(containerManager, workspaceId, subagentSessionId)
+    ? createContainerTools(containerManager, workspaceId, subagentSessionId, containerCwd)
     : [];
   const builtinTools = useContainer ? [] : createCodingTools(wsPath);
 

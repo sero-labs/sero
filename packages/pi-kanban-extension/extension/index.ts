@@ -5,103 +5,23 @@
  * Works in Pi CLI (no Sero dependency) and in Sero (where the web UI
  * watches the same file for live updates).
  *
- * Tools (LLM-callable): kanban (list, add, move, update, delete, show)
+ * Tools (LLM-callable): kanban (list, add, move, update, delete, show, start, approve, complete, retry)
  * Commands (user): /kanban
  */
 
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import { StringEnum } from '@mariozechner/pi-ai';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
-import type { KanbanState, Card, Column, Priority } from '../shared/types';
-import {
-  DEFAULT_KANBAN_STATE,
-  COLUMNS,
-  COLUMN_LABELS,
-  PRIORITY_ORDER,
-  createCard,
-} from '../shared/types';
-
-// ── State file path ────────────────────────────────────────────
-
-const STATE_REL_PATH = path.join('.sero', 'apps', 'kanban', 'state.json');
-
-function resolveStatePath(cwd: string): string {
-  return path.join(cwd, STATE_REL_PATH);
-}
-
-// ── File I/O (atomic writes) ───────────────────────────────────
-
-async function readState(filePath: string): Promise<KanbanState> {
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw) as KanbanState;
-  } catch {
-    return { ...DEFAULT_KANBAN_STATE };
-  }
-}
-
-async function writeState(filePath: string, state: KanbanState): Promise<void> {
-  const dir = path.dirname(filePath);
-  await fs.mkdir(dir, { recursive: true });
-
-  const tmpPath = `${filePath}.tmp.${Date.now()}`;
-  await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
-  await fs.rename(tmpPath, filePath);
-}
-
-// ── Helpers ─────────────────────────────────────────────────────
-
-function formatCard(card: Card, verbose = false): string {
-  const priority = card.priority === 'critical' ? '!!!' : card.priority === 'high' ? '!!' : card.priority === 'medium' ? '!' : '';
-  const status =
-    card.status === 'agent-working' ? ' [working]' :
-    card.status === 'waiting-input' ? ' [waiting]' :
-    card.status === 'paused' ? ' [paused]' :
-    card.status === 'failed' ? ' [FAILED]' : '';
-
-  let line = `#${card.id} ${priority ? `(${priority}) ` : ''}${card.title} — ${COLUMN_LABELS[card.column]}${status}`;
-
-  if (verbose) {
-    if (card.description) line += `\n   ${card.description}`;
-    if (card.subtasks.length > 0) {
-      const done = card.subtasks.filter((s) => s.status === 'completed').length;
-      line += `\n   Subtasks: ${done}/${card.subtasks.length}`;
-    }
-    if (card.branch) line += `\n   Branch: ${card.branch}`;
-    if (card.prUrl) line += `\n   PR: ${card.prUrl}`;
-    if (card.error) line += `\n   Error: ${card.error}`;
-  }
-
-  return line;
-}
-
-function formatBoard(state: KanbanState): string {
-  if (state.cards.length === 0) return 'No cards on the board.';
-
-  const lines: string[] = [];
-  for (const col of COLUMNS) {
-    const cards = state.cards
-      .filter((c) => c.column === col)
-      .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-    if (cards.length === 0) continue;
-
-    lines.push(`\n## ${COLUMN_LABELS[col]} (${cards.length})`);
-    for (const card of cards) {
-      lines.push(`  ${formatCard(card)}`);
-    }
-  }
-
-  return lines.join('\n');
-}
+import type { Column, Priority } from '../shared/types';
+import { COLUMNS, COLUMN_LABELS, createCard } from '../shared/types';
+import { resolveStatePath, readState, writeState, formatCard, formatBoard } from './state-io';
 
 // ── Tool parameters ────────────────────────────────────────────
 
 const KanbanParams = Type.Object({
-  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve'] as const),
+  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve', 'complete', 'retry'] as const),
   title: Type.Optional(Type.String({ description: 'Card title (for add)' })),
   id: Type.Optional(Type.String({ description: 'Card ID' })),
   column: Type.Optional(StringEnum(COLUMNS)),
@@ -127,7 +47,7 @@ export default function (pi: ExtensionAPI) {
     name: 'kanban',
     label: 'Kanban',
     description:
-      'Manage the workspace Kanban board. Actions: list (show board), add (requires title), move (requires id + column), update (requires id, optional title/description/priority), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning and trigger automated analysis), approve (requires id — approve plan and advance card to in-progress).',
+      'Manage the workspace Kanban board. Actions: list (show board), add (requires title), move (requires id + column), update (requires id, optional title/description/priority), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning and trigger automated analysis), approve (requires id — approve plan and advance card to in-progress), complete (requires id — mark card as done, clean up worktree), retry (requires id — re-trigger the current phase for a stuck or failed card).',
     parameters: KanbanParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -369,6 +289,96 @@ export default function (pi: ExtensionAPI) {
               {
                 type: 'text',
                 text: `Approved #${card.id} "${card.title}" → In Progress${subtaskInfo}`,
+              },
+            ],
+            details: {},
+          };
+        }
+
+        case 'retry': {
+          if (!params.id) {
+            return {
+              content: [{ type: 'text', text: 'Error: id is required for retry' }],
+              details: {},
+            };
+          }
+          const card = state.cards.find((c) => c.id === params.id);
+          if (!card) {
+            return {
+              content: [{ type: 'text', text: `Card #${params.id} not found` }],
+              details: {},
+            };
+          }
+          const retryableColumns: Column[] = ['planning', 'in-progress', 'review'];
+          if (!retryableColumns.includes(card.column)) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Card #${card.id} is in "${COLUMN_LABELS[card.column]}" — retry only works for planning, in-progress, or review cards`,
+                },
+              ],
+              details: {},
+            };
+          }
+          if (card.status === 'agent-working') {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Card #${card.id} is already being processed (status: agent-working)`,
+                },
+              ],
+              details: {},
+            };
+          }
+          card.status = 'agent-working';
+          card.error = undefined;
+          card.updatedAt = new Date().toISOString();
+          await writeState(statePath, state);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Retrying #${card.id} "${card.title}" in ${COLUMN_LABELS[card.column]}. Orchestrator will pick it up shortly.`,
+              },
+            ],
+            details: {},
+          };
+        }
+
+        case 'complete': {
+          if (!params.id) {
+            return {
+              content: [{ type: 'text', text: 'Error: id is required for complete' }],
+              details: {},
+            };
+          }
+          const card = state.cards.find((c) => c.id === params.id);
+          if (!card) {
+            return {
+              content: [{ type: 'text', text: `Card #${params.id} not found` }],
+              details: {},
+            };
+          }
+          if (card.column === 'done') {
+            return {
+              content: [{ type: 'text', text: `Card #${card.id} is already done` }],
+              details: {},
+            };
+          }
+          card.column = 'done';
+          card.status = 'idle';
+          card.completedAt = card.completedAt ?? new Date().toISOString();
+          card.updatedAt = new Date().toISOString();
+          await writeState(statePath, state);
+
+          const prInfo = card.prUrl ? ` (PR: ${card.prUrl})` : '';
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Completed #${card.id} "${card.title}" → Done${prInfo}`,
               },
             ],
             details: {},

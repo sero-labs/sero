@@ -20,9 +20,9 @@ launch. You can edit or delete them freely.
 | Agent | Model | Thinking | What it does |
 |-------|-------|----------|-------------|
 | **scout** | claude-haiku-4-5 | off | Fast reconnaissance — scans structure, reports findings as bullet points. Cheap and quick. |
-| **analyst** | claude-sonnet-4-5 | medium | Deep codebase analysis — maps structure, identifies patterns, produces structured reports. |
-| **reviewer** | claude-sonnet-4-5 | high | Code review — finds correctness, performance, security, and maintainability issues with severity ratings. |
-| **test-writer** | claude-sonnet-4-5 | medium | Test generation — reads source files and writes comprehensive vitest unit tests. |
+| **analyst** | claude-sonnet-4-6 | medium | Deep codebase analysis — maps structure, identifies patterns, produces structured reports. |
+| **reviewer** | claude-sonnet-4-6 | high | Code review — finds correctness, performance, security, and maintainability issues with severity ratings. |
+| **test-writer** | claude-sonnet-4-6 | medium | Test generation — reads source files and writes comprehensive vitest unit tests. |
 
 ### When the agent picks each one
 
@@ -162,7 +162,7 @@ Create a `.md` file in `~/.sero-ui/agent/agents/` with JSON frontmatter:
 {
   "name": "migrator",
   "description": "Database migration specialist",
-  "model": "claude-sonnet-4-5",
+  "model": "claude-sonnet-4-6",
   "thinking": "medium"
 }
 ​```
@@ -180,7 +180,7 @@ before applying.
 |-------|----------|-------------|
 | `name` | ✅ | Unique identifier. Lowercase letters, numbers, hyphens only. |
 | `description` | ✅ | Short description of what the agent does. |
-| `model` | | Default model (e.g. `"claude-sonnet-4-5"`, `"claude-haiku-4-5"`). Falls back to your session default. |
+| `model` | | Default model (e.g. `"claude-sonnet-4-6"`, `"claude-haiku-4-5"`). Falls back to your session default. |
 | `thinking` | | Thinking level: `"off"`, `"low"`, `"medium"`, `"high"`. |
 | `timeoutMs` | | Timeout in milliseconds. Default: 600000 (10 minutes). |
 | `tools` | | Tool names (parsed but not enforced in v1 — all agents get full tool access). |
@@ -217,7 +217,7 @@ Each subagent run appears as a card:
 
 ```
 🔄 reviewer — "Review auth.ts for security issues"
-   claude-sonnet-4-5 · 12s · 2.4k tokens · $0.03
+   claude-sonnet-4-6 · 12s · 2.4k tokens · $0.03
 
 ✅ scout — "Map the project structure"
    claude-haiku-4-5 · 3s · 800 tokens · $0.001
@@ -278,7 +278,7 @@ Each task in a parallel or chain call can have its own overrides:
 {
   "tasks": [
     { "agent": "scout", "task": "Fast scan", "model": "claude-haiku-4-5" },
-    { "agent": "reviewer", "task": "Deep review", "model": "claude-sonnet-4-5", "thinking": "high" }
+    { "agent": "reviewer", "task": "Deep review", "model": "claude-sonnet-4-6", "thinking": "high" }
   ]
 }
 ```

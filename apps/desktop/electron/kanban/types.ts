@@ -43,6 +43,14 @@ export interface ImplementationProgress {
   log: string[];
 }
 
+export interface ReviewProgress {
+  phase: string;
+  startedAt: number;
+  agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
+  recentTools: PlanningToolEntry[];
+  log: string[];
+}
+
 export interface Card {
   id: string;
   title: string;
@@ -58,9 +66,11 @@ export interface Card {
   plan?: string;
   prUrl?: string;
   prNumber?: number;
+  reviewFilePath?: string;
   lastCheckpoint?: string;
   planningProgress?: PlanningProgress;
   implementationProgress?: ImplementationProgress;
+  reviewProgress?: ReviewProgress;
   error?: string;
   createdAt: string;
   updatedAt: string;

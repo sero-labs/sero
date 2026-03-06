@@ -14,6 +14,10 @@ import { CardStatusDot, SubtaskStatusDot } from './StatusDot';
 import { PriorityBadge } from './PriorityBadge';
 import { PlanningActivityPanel } from './PlanningActivityPanel';
 import { ImplementationActivityPanel } from './ImplementationActivityPanel';
+import { ReviewActivityPanel } from './ReviewActivityPanel';
+import { ReviewStatusPanel } from './ReviewStatusPanel';
+import { PlanApprovalPanel } from './PlanApprovalPanel';
+import { DescriptionEditor } from './DescriptionEditor';
 import { CardDetailFooter } from './CardDetailFooter';
 
 export function CardDetail({
@@ -89,6 +93,43 @@ export function CardDetail({
               ...c,
               column: 'in-progress' as Column,
               status: 'idle' as const,
+              updatedAt: new Date().toISOString(),
+            }
+          : c,
+      ),
+    }));
+  }, [card, onUpdate]);
+
+  const handleComplete = useCallback(() => {
+    if (!card) return;
+    onUpdate((prev) => ({
+      ...prev,
+      cards: prev.cards.map((c) =>
+        c.id === card.id
+          ? {
+              ...c,
+              column: 'done' as Column,
+              status: 'idle' as const,
+              completedAt: c.completedAt ?? new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+          : c,
+      ),
+    }));
+  }, [card, onUpdate]);
+
+  const handleRetry = useCallback(() => {
+    if (!card) return;
+    const retryable: Column[] = ['planning', 'in-progress', 'review'];
+    if (!retryable.includes(card.column)) return;
+    onUpdate((prev) => ({
+      ...prev,
+      cards: prev.cards.map((c) =>
+        c.id === card.id
+          ? {
+              ...c,
+              status: 'agent-working' as const,
+              error: undefined,
               updatedAt: new Date().toISOString(),
             }
           : c,
@@ -181,15 +222,8 @@ export function CardDetail({
                 <PriorityBadge priority={card.priority} />
               </div>
 
-              {/* Description */}
-              {card.description && (
-                <div style={{ marginBottom: '20px' }}>
-                  <SectionTitle>Description</SectionTitle>
-                  <p className="text-sm leading-relaxed" style={{ color: '#8b8d97' }}>
-                    {card.description}
-                  </p>
-                </div>
-              )}
+              {/* Description — editable with AI enhance */}
+              <DescriptionEditor card={card} onUpdate={onUpdate} />
 
               {/* Acceptance criteria */}
               {card.acceptance.length > 0 && (
@@ -332,66 +366,25 @@ export function CardDetail({
               )}
 
               {card.column === 'planning' && card.status === 'waiting-input' && (
-                <div style={{ marginBottom: '20px' }}>
-                  <div
-                    style={{
-                      padding: '14px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(245, 158, 11, 0.2)',
-                      backgroundColor: 'rgba(245, 158, 11, 0.04)',
-                      marginBottom: '12px',
-                    }}
-                  >
-                    <div className="flex items-center" style={{ gap: '10px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 500, color: '#f59e0b' }}>
-                        Plan ready — awaiting approval
-                      </span>
-                    </div>
-                    <p style={{ fontSize: '11px', color: '#5c5e6a', lineHeight: 1.4 }}>
-                      Review the plan and subtasks below, then approve to advance to implementation.
-                    </p>
-                  </div>
-                  <div className="flex" style={{ gap: '8px' }}>
-                    <button
-                      onClick={handleApprovePlan}
-                      style={{
-                        flex: 1,
-                        padding: '10px 16px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        backgroundColor: '#818cf8',
-                        color: '#fff',
-                        fontSize: '13px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      Approve &amp; Start
-                    </button>
-                    <button
-                      onClick={() => handleMove('backlog')}
-                      style={{
-                        padding: '10px 16px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        backgroundColor: 'transparent',
-                        color: '#8b8d97',
-                        fontSize: '13px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
+                <PlanApprovalPanel
+                  onApprove={handleApprovePlan}
+                  onReject={() => handleMove('backlog')}
+                />
               )}
 
               {/* Implementation activity panel */}
               {card.column === 'in-progress' && card.status === 'agent-working' && (
                 <ImplementationActivityPanel card={card} progress={card.implementationProgress} />
+              )}
+
+              {/* Review activity panel */}
+              {card.column === 'review' && card.status === 'agent-working' && (
+                <ReviewActivityPanel progress={card.reviewProgress} />
+              )}
+
+              {/* PR ready — awaiting user completion */}
+              {card.column === 'review' && card.status === 'waiting-input' && card.prUrl && (
+                <ReviewStatusPanel card={card} onComplete={handleComplete} />
               )}
 
               {/* Error */}
@@ -418,6 +411,35 @@ export function CardDetail({
                     Error
                   </h3>
                   <p className="text-xs leading-relaxed" style={{ color: '#fca5a5' }}>{card.error}</p>
+                </div>
+              )}
+
+              {/* Retry button for stuck/failed cards in active columns */}
+              {(card.column === 'planning' || card.column === 'in-progress' || card.column === 'review')
+                && (card.status === 'failed' || card.status === 'idle') && (
+                <div style={{ marginBottom: '20px' }}>
+                  <button
+                    onClick={handleRetry}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                      color: '#f59e0b',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {card.status === 'failed' ? 'Retry' : `Resume ${COLUMN_LABELS[card.column]}`}
+                  </button>
+                  <p style={{ fontSize: '11px', color: '#5c5e6a', marginTop: '6px', lineHeight: 1.4 }}>
+                    {card.status === 'failed'
+                      ? 'Re-triggers the current phase. Clears the error and restarts.'
+                      : 'This card appears stuck. Retry to re-trigger the orchestrator.'}
+                  </p>
                 </div>
               )}
             </div>

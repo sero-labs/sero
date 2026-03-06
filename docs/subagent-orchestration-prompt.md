@@ -35,7 +35,7 @@ All agents and workflows are defined as `.md` files with YAML frontmatter. This 
 ---
 name: reviewer
 description: Code review specialist
-model: claude-sonnet-4-5
+model: claude-sonnet-4-6
 tools: read, bash, grep
 extensions: []
 ---

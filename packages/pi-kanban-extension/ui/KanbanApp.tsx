@@ -30,7 +30,7 @@ const CUSTOM_STYLES = `
 
   .kb-root {
     --kb-bg: #0f1117;
-    --kb-surface: #191b23;
+    --kb-surface: #1e2029;
     --kb-elevated: #22252f;
     --kb-text: #e8e4df;
     --kb-muted: #8b8d97;
@@ -48,7 +48,7 @@ const CUSTOM_STYLES = `
   @supports (color: var(--bg-base)) {
     .kb-root {
       --kb-bg: var(--bg-base, #0f1117);
-      --kb-surface: var(--bg-surface, #191b23);
+      --kb-surface: var(--bg-surface, #1e2029);
       --kb-elevated: var(--bg-elevated, #22252f);
       --kb-text: var(--text-primary, #e8e4df);
       --kb-border: var(--border, rgba(255, 255, 255, 0.07));
@@ -193,15 +193,17 @@ export function KanbanApp() {
       <style>{CUSTOM_STYLES}</style>
       <div className="kb-root relative flex h-full w-full flex-col overflow-hidden">
         {/* Header bar */}
-        <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[var(--kb-border)]">
+        <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-[var(--kb-border)]">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-medium tracking-tight text-[var(--kb-text)]">
               Kanban
             </h1>
             {totalCards > 0 && (
-              <div className="flex items-center gap-3 ml-2">
+              <div className="flex items-center gap-2 ml-3 pl-3 border-l border-[var(--kb-border)]">
                 <Stat label="total" value={totalCards} />
+                <span className="text-[10px] text-[var(--kb-dim)]">·</span>
                 <Stat label="active" value={activeCards} color="text-blue-400" />
+                <span className="text-[10px] text-[var(--kb-dim)]">·</span>
                 <Stat label="done" value={doneCards} color="text-emerald-400" />
               </div>
             )}
@@ -291,7 +293,7 @@ function EmptyState({ onAddCard }: { onAddCard: (title: string, priority: Priori
           <button
             type="submit"
             disabled={!title.trim()}
-            className="rounded-lg bg-[var(--kb-accent)] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[var(--kb-accent-hover)] hover:shadow-[0_0_20px_var(--kb-accent-glow)] disabled:opacity-30 disabled:cursor-default"
+            className="rounded-lg border border-indigo-400/30 bg-indigo-400/10 px-4 py-2 text-sm font-medium text-[var(--kb-accent)] transition-all hover:bg-indigo-400/[0.15] disabled:opacity-30 disabled:cursor-default"
           >
             Add
           </button>

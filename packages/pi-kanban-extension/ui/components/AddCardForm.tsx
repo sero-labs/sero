@@ -99,7 +99,7 @@ export function AddCardForm({
                 <button
                   type="submit"
                   disabled={!title.trim()}
-                  className="rounded-md bg-[var(--kb-accent)] px-2.5 py-1 text-[11px] font-medium text-white transition-opacity disabled:opacity-30"
+                  className="rounded-md border border-indigo-400/30 bg-indigo-400/10 px-2.5 py-1 text-[11px] font-medium text-[var(--kb-accent)] transition-all disabled:opacity-30"
                 >
                   Add
                 </button>

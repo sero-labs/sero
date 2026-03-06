@@ -94,6 +94,7 @@ async function executeSingleSubtask(
       parentSessionId,
       workspaceId: deps.workspaceId,
       cwd: worktreePath,
+      isolated: true,
       onUpdate: (text) => tracker.addLogLine(text),
     });
 
@@ -141,6 +142,7 @@ async function executeParallelSubtasks(
         parentSessionId,
         workspaceId: deps.workspaceId,
         cwd: worktreePath,
+        isolated: true,
         onUpdate: (text) => tracker.addLogLine(text),
       });
 

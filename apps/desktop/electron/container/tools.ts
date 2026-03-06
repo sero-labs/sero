@@ -15,17 +15,21 @@ import { createWorkspaceCliTool } from '../cli';
 /**
  * Build all container tools for a workspace.
  * These are passed as `customTools` to `createAgentSession()`.
+ *
+ * @param containerCwd — override the default `/workspace` CWD for coding tools
+ *   (e.g. when running in a git worktree subdirectory).
  */
 export function createContainerTools(
   cm: ContainerManager,
   workspaceId: string,
   sessionId: string,
+  containerCwd?: string,
 ): ToolDefinition[] {
   return [
-    createBash(cm, workspaceId),
-    createRead(cm, workspaceId),
-    createWrite(cm, workspaceId),
-    createEdit(cm, workspaceId),
+    createBash(cm, workspaceId, containerCwd),
+    createRead(cm, workspaceId, containerCwd),
+    createWrite(cm, workspaceId, containerCwd),
+    createEdit(cm, workspaceId, containerCwd),
     createBrowser(cm, workspaceId),
     createWorkspaceCliTool(workspaceId, sessionId),
   ];

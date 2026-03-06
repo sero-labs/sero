@@ -111,7 +111,7 @@ export function ColumnView({
           key={cards.length}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="ml-auto rounded-full bg-[var(--kb-elevated)] px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-[var(--kb-dim)]"
+          className="ml-auto text-[10px] font-medium tabular-nums text-[var(--kb-dim)]"
         >
           {cards.length}
         </motion.span>
@@ -154,7 +154,7 @@ export function ColumnView({
       </div>
 
       {/* Add card — bottom of column */}
-      <div className="shrink-0 px-3 pb-3">
+      <div className="shrink-0 px-3 py-3 border-t border-[var(--kb-border)]">
         <AnimatePresence mode="wait">
           {!adding ? (
             <motion.button
@@ -166,9 +166,9 @@ export function ColumnView({
                 setAdding(true);
                 requestAnimationFrame(() => inputRef.current?.focus());
               }}
-              className="w-full rounded-md py-1.5 text-[11px] text-[var(--kb-dim)] transition-colors hover:bg-[var(--kb-elevated)] hover:text-[var(--kb-muted)]"
+              className="w-full rounded-lg border border-dashed border-[var(--kb-border)] py-2 text-[11px] font-medium text-[var(--kb-dim)] transition-all hover:border-indigo-400/20 hover:bg-indigo-400/[0.04] hover:text-[var(--kb-muted)]"
             >
-              + Add
+              + Add card
             </motion.button>
           ) : (
             <motion.form
@@ -203,7 +203,7 @@ export function ColumnView({
               <button
                 type="submit"
                 disabled={!newTitle.trim()}
-                className="shrink-0 rounded-md bg-[var(--kb-accent)] px-2.5 py-1.5 text-[11px] font-medium text-white transition-opacity disabled:opacity-30"
+                className="shrink-0 rounded-md border border-indigo-400/30 bg-indigo-400/10 px-2.5 py-1.5 text-[11px] font-medium text-[var(--kb-accent)] transition-all disabled:opacity-30"
               >
                 Add
               </button>

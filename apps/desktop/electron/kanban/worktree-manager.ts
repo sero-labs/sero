@@ -18,6 +18,58 @@ import { inferConventionalType, slugifyBranchLabel } from '../vcs/branch-naming'
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Ensure a workspace directory is a git repo with at least one commit.
+ * Required before `git worktree add` can function.
+ *
+ * - No `.git` → runs `git init`
+ * - No commits → creates an initial empty commit
+ *
+ * @returns true if the repo was bootstrapped (greenfield), false if already existed.
+ */
+export async function ensureGitReady(workspacePath: string): Promise<boolean> {
+  let bootstrapped = false;
+
+  // Check if it's a git repo
+  try {
+    await execFileAsync('git', ['rev-parse', '--git-dir'], {
+      cwd: workspacePath,
+      timeout: 5_000,
+    });
+  } catch {
+    console.log(`[worktree] Initialising git repo in ${workspacePath}`);
+    await execFileAsync('git', ['init'], { cwd: workspacePath, timeout: 10_000 });
+    bootstrapped = true;
+  }
+
+  // Ensure .sero/ is in .gitignore
+  const gitignorePath = path.join(workspacePath, '.gitignore');
+  try {
+    const content = await fs.readFile(gitignorePath, 'utf8').catch(() => '');
+    if (!content.includes('.sero/')) {
+      const line = content.endsWith('\n') || content === '' ? '.sero/\n' : '\n.sero/\n';
+      await fs.writeFile(gitignorePath, content + line, 'utf8');
+    }
+  } catch { /* best-effort */ }
+
+  // Check if there are any commits
+  try {
+    await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: workspacePath,
+      timeout: 5_000,
+    });
+  } catch {
+    console.log('[worktree] Creating initial commit (greenfield project)');
+    await execFileAsync('git', ['add', '-A'], { cwd: workspacePath, timeout: 10_000 });
+    await execFileAsync('git', [
+      'commit', '--allow-empty', '-m', 'Initial commit',
+    ], { cwd: workspacePath, timeout: 10_000 });
+    bootstrapped = true;
+  }
+
+  return bootstrapped;
+}
+
 export interface WorktreeInfo {
   cardId: string;
   branchName: string;
@@ -56,7 +108,10 @@ export class WorktreeManager {
     workspacePath: string,
     cardId: string,
     cardTitle: string,
-  ): Promise<{ worktreePath: string; branchName: string }> {
+  ): Promise<{ worktreePath: string; branchName: string; greenfield: boolean }> {
+    // Ensure the workspace is a valid git repo with at least one commit
+    const greenfield = await ensureGitReady(workspacePath);
+
     const worktreePath = this.getPath(workspacePath, cardId);
     const branchName = this.buildBranchName(cardTitle, cardId);
 
@@ -91,8 +146,8 @@ export class WorktreeManager {
       }
     }
 
-    console.log(`[worktree] Created worktree for card-${cardId} at ${worktreePath} (branch: ${branchName})`);
-    return { worktreePath, branchName };
+    console.log(`[worktree] Created worktree for card-${cardId} at ${worktreePath} (branch: ${branchName})${greenfield ? ' [greenfield]' : ''}`);
+    return { worktreePath, branchName, greenfield };
   }
 
   /**

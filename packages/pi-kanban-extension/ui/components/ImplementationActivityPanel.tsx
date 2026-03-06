@@ -154,7 +154,7 @@ export function ImplementationActivityPanel({
                 fontWeight: 500,
                 padding: '3px 8px',
                 borderRadius: '4px',
-                maxWidth: '180px',
+                maxWidth: '100%',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',

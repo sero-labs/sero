@@ -1,56 +1,55 @@
-# Phase 3: Implementation Automation — Task Plan
+# Kanban Restart Recovery — Task Plan
 
 ## Goal
-Add implementation automation to the Kanban orchestrator. When a card is approved
-(moves `planning → in-progress`), the orchestrator executes subtasks in dependency
-waves via subagents in the card's worktree, creates VCS checkpoints per subtask,
-tracks progress in the UI, and auto-advances to review on completion.
+Cards stuck in active columns (planning, in-progress, review) after an app
+restart should be recoverable via a manual `retry` action. The orchestrator
+should detect cards with `agent-working` status that aren't currently being
+processed and trigger the appropriate phase handler.
 
-## Phases
+## Implementation — `complete`
 
-### Phase 1: Refactor existing code (500 LOC compliance) — `complete`
-- [x] Extract `PlanningProgressTracker` → `electron/kanban/planning-progress.ts`
-- [x] Extract prompt builders + parser → `electron/kanban/prompts.ts`
-- [x] Extract `PlanningActivityPanel` → `ui/components/PlanningActivityPanel.tsx`
-- [x] Extract `CardDetailFooter` → `ui/components/CardDetailFooter.tsx`
-- [x] Extract `subtask-executor.ts` from orchestrator
-- [x] Verify all files ≤ 500 LOC ✓
+### 1. Orchestrator retry detection
+- [x] Added `isRetryableColumn()` helper (planning, in-progress, review)
+- [x] Added `isCurrentlyProcessing()` check (all three `*InProgress` sets)
+- [x] Extended `onStateChange` with third branch: same column + `agent-working` + not processing → trigger handler
+- [x] This covers both manual retry AND automatic restart recovery (if status was left as `agent-working`)
 
-### Phase 2: Add implementation types — `complete`
-- [x] Add `ImplementationProgress` to `shared/types.ts`
-- [x] Mirror in `electron/kanban/types.ts`
-- [x] Add `implementationProgress` field to Card in both type files
+### 2. Extension `retry` action
+- [x] Added `retry` to tool actions enum + description
+- [x] Validates: card in active column, not already `agent-working`
+- [x] Sets `status: 'agent-working'`, clears `error`, writes state
+- [x] Orchestrator picks up the state change and triggers the phase
 
-### Phase 3: Add cwd override to subagent runner — `complete`
-- [x] Add optional `cwd` to `RunSingleParams` in SubagentManager
-- [x] Add optional `cwdOverride` to `RunnerConfig` in types.ts
-- [x] Pass through runner.ts — uses cwdOverride for wsPath resolution
+### 3. UI Retry button
+- [x] Added `handleRetry` callback in CardDetail
+- [x] Shows "Retry" / "Resume {Column}" button for failed/idle cards in active columns
+- [x] Includes explanatory helper text
 
-### Phase 4: Add worktree git helpers — `complete`
-- [x] Create `electron/kanban/worktree-git.ts`
-- [x] `createCheckpointInWorktree(worktreePath, message)` — git add + commit
-- [x] `getWorktreeDiff(worktreePath)` — diff from branch base
+### 4. Refactoring (500 LOC compliance)
+- [x] Extracted `extension/state-io.ts` (I/O + formatting helpers)
+- [x] Extracted `PlanApprovalPanel.tsx` (plan approval UI)
+- [x] All files ≤ 500 LOC ✓
 
-### Phase 5: Implement runImplementationPhase — `complete`
-- [x] Wave resolver: `wave-resolver.ts` — groups subtasks by dependency order
-- [x] Implementation progress tracker: `implementation-progress.ts`
-- [x] Subtask executor: `subtask-executor.ts` — wave execution + checkpoints
-- [x] Orchestrator handles `planning → in-progress` transition
-- [x] Build subtask agent prompts with card plan + context
-- [x] Auto-advance to review on completion
-- [x] Error handling: propagates failures with error messages
+### 5. Typecheck
+- [x] apps/desktop: tsc --noEmit ✓
+- [x] packages/pi-kanban-extension ui: tsc --noEmit ✓
 
-### Phase 6: UI updates — `complete`
-- [x] `ImplementationActivityPanel.tsx` — wave progress, agent pills, tool feed
-- [x] In-progress status indicators on CardView ("Implementing… 3/8")
-- [x] Wire `ImplementationProgress` display in CardDetail
+## Flow
 
-### Phase 7: Typecheck — `complete`
-- [x] `apps/desktop`: tsc --noEmit ✓
-- [x] `packages/pi-kanban-extension` ui: tsc --noEmit ✓
-- [x] `packages/pi-kanban-extension` extension: tsc --noEmit ✓
+```
+User clicks "Resume Review" (or runs `kanban retry 1`)
+  → state.json: card.status = 'agent-working', card.error = undefined
+  → appStateManager detects file change
+  → orchestrator.onStateChange() fires
+  → card.column === prevColumn (no transition)
+  → card.status === 'agent-working' && isRetryable && !processing
+  → handleTransition(card, 'review', 'review')
+  → runReviewPhase() starts
+```
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |-------|---------|------------|
-| (none) | | |
+| TS2345: `includes()` narrowing | 1 | Used explicit `===` comparisons instead of `as const` array |
+| extension/index.ts 508 LOC | 1 | Extracted `state-io.ts` (I/O + formatters) |
+| CardDetail.tsx 532 LOC | 1 | Extracted `PlanApprovalPanel.tsx` |

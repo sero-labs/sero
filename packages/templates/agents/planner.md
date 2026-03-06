@@ -2,7 +2,7 @@
 {
   "name": "planner",
   "description": "Implementation planning and subtask decomposition",
-  "model": "claude-sonnet-4-5",
+  "model": "claude-sonnet-4-6",
   "thinking": "high",
   "tools": ["read", "bash", "grep", "find", "ls"]
 }

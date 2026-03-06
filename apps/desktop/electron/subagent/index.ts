@@ -43,6 +43,8 @@ interface RunSingleParams {
   workspaceId: string;
   /** Override the working directory (e.g. for git worktree execution). */
   cwd?: string;
+  /** Restrict to own workspace only — no cross-workspace mounts in container. */
+  isolated?: boolean;
   onUpdate?: (text: string) => void;
 }
 
@@ -160,6 +162,7 @@ export class SubagentManager {
           agent, task, resolved, workspaceId, parentSessionId,
           mode: 'single', signal: controller.signal,
           cwdOverride: params.cwd,
+          isolated: params.isolated,
           onProgress: (usage) => this.tracker.progress(runId, usage),
           onToolActivity: (name, summary, running) => this.tracker.updateToolActivity(runId, name, summary, running),
           onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),
@@ -198,6 +201,8 @@ export class SubagentManager {
     timeoutMs?: number;
     parentSessionId: string;
     workspaceId: string;
+    /** Restrict to own workspace only — no cross-workspace mounts in container. */
+    isolated?: boolean;
     onUpdate?: (text: string) => void;
   }): Promise<string> {
     if (!this.deps) throw new Error('SubagentManager not initialized');
@@ -230,6 +235,7 @@ export class SubagentManager {
               agent, task: t.task, resolved, workspaceId: params.workspaceId,
               parentSessionId: params.parentSessionId, mode: 'parallel',
               signal: controller.signal,
+              isolated: params.isolated,
               onProgress: (usage) => this.tracker.progress(runId, usage),
               onToolActivity: (name, summary, running) => this.tracker.updateToolActivity(runId, name, summary, running),
               onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),
