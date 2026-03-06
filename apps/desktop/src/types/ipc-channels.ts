@@ -294,6 +294,12 @@ export const IpcChannels = {
     writeSkill: 'sero:skills:write',
     deleteSkill: 'sero:skills:delete',
   },
+  prompts: {
+    listPrompts: 'sero:prompts:list',
+    readPrompt: 'sero:prompts:read',
+    writePrompt: 'sero:prompts:write',
+    deletePrompt: 'sero:prompts:delete',
+  },
   google: {
     /** Execute a gogcli data command (gog --json --no-input <service> <args>). */
     execute: 'sero:google:execute',

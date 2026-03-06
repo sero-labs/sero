@@ -52,11 +52,36 @@ interface SeroSkillsBridge {
   deleteSkill(filePath: string): Promise<void>;
 }
 
+// ── Prompt template types ────────────────────────────────────
+
+interface PromptTemplateSummaryIPC {
+  name: string;
+  description: string;
+  filePath: string;
+  relativePath: string;
+}
+
+interface PromptTemplateFileDataIPC {
+  name: string;
+  description: string;
+  filePath?: string;
+  body: string;
+}
+
+interface SeroPromptsBridge {
+  listPrompts(): Promise<PromptTemplateSummaryIPC[]>;
+  readPrompt(filePath: string): Promise<PromptTemplateFileDataIPC>;
+  /** Returns the absolute filePath of the written file. */
+  writePrompt(data: PromptTemplateFileDataIPC): Promise<string>;
+  deletePrompt(filePath: string): Promise<void>;
+}
+
 // ── Window declaration ───────────────────────────────────────
 
 interface Window {
   sero: {
     subagent: SeroSubagentBridge;
     skills: SeroSkillsBridge;
+    prompts: SeroPromptsBridge;
   };
 }

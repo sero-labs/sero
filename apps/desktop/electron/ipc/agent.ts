@@ -66,6 +66,17 @@ interface PoolEntry {
 
 const pool = new Map<string, PoolEntry>();
 
+/**
+ * Reload the ResourceLoader for every active session in the pool.
+ * Called after prompt template / skill edits so changes take
+ * effect without restarting Sero.
+ */
+export async function reloadAllSessionResources(): Promise<void> {
+  await Promise.all(
+    [...pool.values()].map((entry) => entry.loader.reload()),
+  );
+}
+
 function sendEvent(event: AgentStreamEvent): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(IpcChannels.agent.event, event);

@@ -18,6 +18,7 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { IpcChannels } from '../../src/types/ipc';
 import { SERO_AGENT_DIR } from '../env';
+import { reloadAllSessionResources } from './agent';
 import type { SkillSummary, SkillFileData } from '../../src/types/skills';
 
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
@@ -134,6 +135,13 @@ export function registerSkillHandlers(): void {
       const tmpPath = `${targetPath}.tmp.${Date.now()}`;
       await writeFile(tmpPath, content, 'utf-8');
       await rename(tmpPath, targetPath);
+
+      // Hot-reload all active sessions so the updated skill is
+      // available immediately without restarting Sero.
+      reloadAllSessionResources().catch((err) =>
+        console.error('[skills] reloadAllSessionResources failed:', err),
+      );
+
       return targetPath;
     },
   );
@@ -152,6 +160,11 @@ export function registerSkillHandlers(): void {
         throw new Error('Cannot delete the skills root directory');
       }
       await rm(skillDir, { recursive: true });
+
+      // Hot-reload so deleted skill disappears from active sessions.
+      reloadAllSessionResources().catch((err) =>
+        console.error('[skills] reloadAllSessionResources failed:', err),
+      );
     },
   );
 }

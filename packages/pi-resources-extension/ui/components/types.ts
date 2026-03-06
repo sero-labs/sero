@@ -43,7 +43,25 @@ export interface SkillFileData {
   body: string;
 }
 
+// ── Prompt template types ────────────────────────────────────
+
+/** Summary of a discovered prompt template (for list view). */
+export interface PromptTemplateSummary {
+  name: string;
+  description: string;
+  filePath: string;
+  relativePath: string;
+}
+
+/** Full prompt template data for editing. */
+export interface PromptTemplateFileData {
+  name: string;
+  description: string;
+  filePath?: string;
+  body: string;
+}
+
 // ── Shared types ─────────────────────────────────────────────
 
 /** Which resource tab is active. */
-export type ResourceTab = 'agents' | 'skills';
+export type ResourceTab = 'agents' | 'skills' | 'prompts';

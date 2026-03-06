@@ -32,6 +32,8 @@ import type {
   SubagentEntry,
   SkillSummary,
   SkillFileData,
+  PromptTemplateSummary,
+  PromptTemplateFileData,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -466,6 +468,17 @@ interface SeroSkillsAPI {
   deleteSkill(filePath: string): Promise<void>;
 }
 
+interface SeroPromptsAPI {
+  /** List all discovered prompt templates (recursive under prompts/). */
+  listPrompts(): Promise<PromptTemplateSummary[]>;
+  /** Read full prompt template data by absolute filePath. */
+  readPrompt(filePath: string): Promise<PromptTemplateFileData>;
+  /** Create or update a prompt template. Returns the written filePath. */
+  writePrompt(data: PromptTemplateFileData): Promise<string>;
+  /** Delete a prompt template by its absolute filePath. */
+  deletePrompt(filePath: string): Promise<void>;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -494,6 +507,7 @@ interface SeroAPI {
   vcs: SeroVcsAPI;
   subagent: SeroSubagentAPI;
   skills: SeroSkillsAPI;
+  prompts: SeroPromptsAPI;
   github: SeroGitHubAPI;
 }
 

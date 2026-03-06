@@ -36,6 +36,7 @@ import { registerGoogleApiHandlers } from './google-api';
 import { registerModelsHandlers } from './models';
 import { registerSubagentHandlers } from './subagent';
 import { registerSkillHandlers } from './skills';
+import { registerPromptHandlers } from './prompts';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -68,4 +69,5 @@ export function registerAllIpcHandlers(): void {
   registerModelsHandlers();
   registerSubagentHandlers();
   registerSkillHandlers();
+  registerPromptHandlers();
 }

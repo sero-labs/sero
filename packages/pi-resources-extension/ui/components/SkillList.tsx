@@ -35,13 +35,13 @@ export function SkillList({ skills, selected, onSelect }: SkillListProps) {
           key={skill.filePath}
           onClick={() => onSelect(skill.filePath)}
           className={cn(
-            'flex w-full flex-col gap-0.5 border-b border-border/50 px-3 py-2.5 text-left transition-colors',
+            'flex w-full min-w-0 flex-col gap-0.5 overflow-hidden border-b border-border/50 px-3 py-2.5 text-left transition-colors',
             'hover:bg-secondary/50',
             selected === skill.filePath && 'bg-secondary border-l-2 border-l-primary',
           )}
         >
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium text-foreground truncate flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
               {skill.name}
             </span>
             {skill.source !== 'user' && (
@@ -50,7 +50,7 @@ export function SkillList({ skills, selected, onSelect }: SkillListProps) {
               </span>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground truncate leading-snug">
+          <p className="w-full truncate text-[11px] leading-snug text-muted-foreground">
             {skill.description || 'No description'}
           </p>
         </button>

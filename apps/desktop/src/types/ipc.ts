@@ -478,6 +478,7 @@ export type {
 } from './subagent';
 
 export type { SkillSource, SkillSummary, SkillFileData } from './skills';
+export type { PromptTemplateSummary, PromptTemplateFileData } from './prompts';
 
 // ── IPC Channels ───────────────────────────────────────────────
 

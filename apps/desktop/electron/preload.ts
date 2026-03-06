@@ -4,6 +4,7 @@ import { userFeedbackBridge } from './preload/user-feedback';
 import { debugBridge, lspBridge } from './preload/debug-lsp';
 import { subagentBridge } from './preload/subagent';
 import { skillsBridge } from './preload/skills';
+import { promptsBridge } from './preload/prompts';
 import type {
   WorkspaceInfo,
   WorkspaceConfig,
@@ -470,6 +471,7 @@ contextBridge.exposeInMainWorld('sero', {
 
   subagent: subagentBridge,
   skills: skillsBridge,
+  prompts: promptsBridge,
 
   userFeedback: userFeedbackBridge,
 
