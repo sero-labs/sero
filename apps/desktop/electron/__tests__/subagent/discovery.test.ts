@@ -22,7 +22,7 @@ describe('discoverAgents', () => {
   it('parses a valid .md file with full JSON frontmatter', async () => {
     await writeMd('analyst.md', [
       '```json',
-      '{ "name": "analyst", "description": "Codebase analysis", "model": "claude-sonnet-4-5", "thinking": "medium", "timeoutMs": 300000, "tools": ["read", "bash"] }',
+      '{ "name": "analyst", "description": "Codebase analysis", "model": "claude-sonnet-4-6", "thinking": "medium", "timeoutMs": 300000, "tools": ["read", "bash"] }',
       '```',
       '',
       'You are a senior analyst.',
@@ -32,7 +32,7 @@ describe('discoverAgents', () => {
     expect(agents).toHaveLength(1);
     expect(agents[0].name).toBe('analyst');
     expect(agents[0].description).toBe('Codebase analysis');
-    expect(agents[0].model).toBe('claude-sonnet-4-5');
+    expect(agents[0].model).toBe('claude-sonnet-4-6');
     expect(agents[0].thinking).toBe('medium');
     expect(agents[0].timeoutMs).toBe(300000);
     expect(agents[0].tools).toEqual(['read', 'bash']);
@@ -105,7 +105,7 @@ describe('discoverAgents', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const agents = await discoverAgents(tmpDir, {
-      isValidModel: (m) => m === 'claude-sonnet-4-5',
+      isValidModel: (m) => m === 'claude-sonnet-4-6',
     });
     expect(agents).toHaveLength(1);
     expect(warnSpy).toHaveBeenCalledWith(

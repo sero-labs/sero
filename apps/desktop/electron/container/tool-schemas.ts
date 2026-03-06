@@ -183,9 +183,9 @@ export const BrowserParams = Type.Object({
 
 // ── Shared helpers ──────────────────────────────────────────
 
-/** Resolve a potentially relative path against the workspace root. */
-export function resolveContainerPath(p: string): string {
-  return p.startsWith('/') ? p : `${WORKSPACE_DIR}/${p}`;
+/** Resolve a potentially relative path against the workspace root (or a custom basedir). */
+export function resolveContainerPath(p: string, basedir: string = WORKSPACE_DIR): string {
+  return p.startsWith('/') ? p : `${basedir}/${p}`;
 }
 
 /** Shell-escape single quotes in a path. */

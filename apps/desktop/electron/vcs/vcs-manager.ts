@@ -53,7 +53,11 @@ export class VcsManager extends EventEmitter {
 
     if (result.exitCode !== 0) {
       // No commits yet — empty repo
-      if (result.stderr.includes('unknown revision') || result.stderr.includes('ambiguous argument')) {
+      if (
+        result.stderr.includes('unknown revision') ||
+        result.stderr.includes('ambiguous argument') ||
+        result.stderr.includes('Needed a single revision')
+      ) {
         return null;
       }
       throw new Error(result.stderr || 'Failed to resolve current commit');

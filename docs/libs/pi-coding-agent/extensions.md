@@ -1087,7 +1087,7 @@ pi.setActiveTools(["read", "bash"]); // Switch to read-only
 Set the current model. Returns `false` if no API key is available for the model. See [models.md](models.md) for configuring custom models.
 
 ```typescript
-const model = ctx.modelRegistry.find("anthropic", "claude-sonnet-4-5");
+const model = ctx.modelRegistry.find("anthropic", "claude-sonnet-4-6");
 if (model) {
   const success = await pi.setModel(model);
   if (!success) {

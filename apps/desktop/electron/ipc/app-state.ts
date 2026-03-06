@@ -3,11 +3,33 @@
  *
  * Bridges renderer ↔ AppStateManager for reading, writing, and
  * watching app state JSON files.
+ *
+ * Also notifies the KanbanOrchestrator when the kanban state file
+ * is written, so it can detect column transitions and trigger
+ * automated phases (planning, implementation, review).
  */
 
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import { appStateManager } from '../app-state';
+import { kanbanOrchestrator, ensureInfra } from './shared-infra';
+import type { KanbanState } from '../kanban/types';
+
+const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
+
+/** Notify the orchestrator if this is a kanban state file. */
+function notifyKanbanOrchestrator(filePath: string, data: unknown): void {
+  if (filePath.endsWith(KANBAN_STATE_SUFFIX) && data) {
+    console.log(`[app-state] Kanban state file written: ${filePath} — notifying orchestrator`);
+    // Ensure shared infrastructure is initialised (deps injected) before
+    // forwarding the state change. Fire-and-forget — don't block the write.
+    ensureInfra()
+      .then(() => kanbanOrchestrator.onStateChange(filePath, data as KanbanState))
+      .catch((err) => {
+        console.error('[app-state] Kanban orchestrator error:', err);
+      });
+  }
+}
 
 export function registerAppStateHandlers(): void {
   // Read state file
@@ -31,6 +53,7 @@ export function registerAppStateHandlers(): void {
     IpcChannels.appState.write,
     async (_event, filePath: string, data: unknown): Promise<void> => {
       await appStateManager.write(filePath, data);
+      notifyKanbanOrchestrator(filePath, data);
     },
   );
 

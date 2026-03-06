@@ -78,7 +78,7 @@ describe('resolveConfig', () => {
       undefined,
     );
 
-    expect(result.model).toBe('claude-sonnet-4-5');
+    expect(result.model).toBe('claude-sonnet-4-6');
     expect(result.thinking).toBe('high');
     expect(result.timeoutMs).toBe(600_000);
   });

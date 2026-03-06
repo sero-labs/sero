@@ -138,7 +138,7 @@ apps/desktop/
 ---
 name: reviewer
 description: Code review specialist
-model: claude-sonnet-4-5
+model: claude-sonnet-4-6
 tools: read, bash, grep
 extensions: []
 thinking: high
@@ -556,7 +556,7 @@ can override).
 ---
 name: analyst
 description: Codebase analysis and planning
-model: claude-sonnet-4-5
+model: claude-sonnet-4-6
 tools: read, bash, grep, find, ls
 thinking: medium
 ---
@@ -577,7 +577,7 @@ Output your analysis as structured markdown with clear sections.
 ---
 name: reviewer
 description: Code review specialist
-model: claude-sonnet-4-5
+model: claude-sonnet-4-6
 tools: read, bash, grep, find
 thinking: high
 ---
@@ -599,7 +599,7 @@ or maintainability.
 ---
 name: test-writer
 description: Unit test generation
-model: claude-sonnet-4-5
+model: claude-sonnet-4-6
 tools: read, write, bash, edit
 thinking: medium
 ---

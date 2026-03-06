@@ -710,7 +710,7 @@ This keeps the feature aligned with the current `ActivityBar` and
 ┌─ Orchestration ──────────────────────┐
 │                                      │
 │  🔄 reviewer — "Review PR #42"       │
-│     claude-sonnet-4-5 · 12s · 2.4k   │
+│     claude-sonnet-4-6 · 12s · 2.4k   │
 │     [$0.03]                          │
 │                                      │
 │  🔄 scout — "Map auth module"        │
@@ -718,7 +718,7 @@ This keeps the feature aligned with the current `ActivityBar` and
 │     [$0.001]                         │
 │                                      │
 │  ✅ analyst — "Coverage analysis"    │
-│     claude-sonnet-4-5 · 28s · 5.1k   │
+│     claude-sonnet-4-6 · 28s · 5.1k   │
 │     [$0.05]                          │
 │     ▼ Output                         │
 │     │ The codebase has 42 modules... │
@@ -741,7 +741,7 @@ This keeps the feature aligned with the current `ActivityBar` and
 ---
 name: analyst
 description: Codebase analysis and planning
-model: claude-sonnet-4-5
+model: claude-sonnet-4-6
 tools:
   - read
   - bash
@@ -767,7 +767,7 @@ Output your analysis as structured markdown with clear sections.
 ---
 name: reviewer
 description: Code review specialist
-model: claude-sonnet-4-5
+model: claude-sonnet-4-6
 tools:
   - read
   - bash
@@ -793,7 +793,7 @@ maintainability.
 ---
 name: test-writer
 description: Unit test generation
-model: claude-sonnet-4-5
+model: claude-sonnet-4-6
 tools:
   - read
   - write

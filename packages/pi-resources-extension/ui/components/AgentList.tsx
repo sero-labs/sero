@@ -21,7 +21,7 @@ const THINKING_COLORS: Record<string, string> = {
 
 function modelShort(model?: string): string {
   if (!model) return '';
-  // claude-sonnet-4-5 → sonnet-4-5
+  // claude-sonnet-4-6 → sonnet-4-6
   return model.replace(/^claude-/, '');
 }
 

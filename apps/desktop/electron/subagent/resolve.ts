@@ -18,7 +18,7 @@ import type {
 
 /** Defaults used as the absolute fallback. */
 const HARDCODED_DEFAULTS = {
-  model: 'claude-sonnet-4-5',
+  model: 'claude-sonnet-4-6',
   thinking: 'high',
   timeoutMs: 600_000,
 } as const;

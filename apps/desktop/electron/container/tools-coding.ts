@@ -43,7 +43,8 @@ import {
 
 // ── Bash ────────────────────────────────────────────────────
 
-export function createBash(cm: ContainerManager, workspaceId: string): ToolDefinition {
+export function createBash(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+  const cwd = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'bash',
     label: 'bash',
@@ -60,7 +61,7 @@ export function createBash(cm: ContainerManager, workspaceId: string): ToolDefin
       const result = await cm.exec(
         workspaceId,
         params.command,
-        WORKSPACE_DIR,
+        cwd,
         timeoutMs,
       );
       const combined = (
@@ -114,7 +115,8 @@ export function createBash(cm: ContainerManager, workspaceId: string): ToolDefin
 
 // ── Read ────────────────────────────────────────────────────
 
-export function createRead(cm: ContainerManager, workspaceId: string): ToolDefinition {
+export function createRead(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+  const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'read',
     label: 'read',
@@ -129,7 +131,7 @@ export function createRead(cm: ContainerManager, workspaceId: string): ToolDefin
     execute: async (_toolCallId, params: Static<typeof ReadParams>, signal?) => {
       if (signal?.aborted) throw new Error('Operation aborted');
 
-      const absPath = resolveContainerPath(params.path);
+      const absPath = resolveContainerPath(params.path, basedir);
       const escaped = shellEscape(absPath);
 
       // ── Image detection by magic bytes ──────────────────
@@ -245,7 +247,8 @@ export function createRead(cm: ContainerManager, workspaceId: string): ToolDefin
 
 // ── Write ───────────────────────────────────────────────────
 
-export function createWrite(cm: ContainerManager, workspaceId: string): ToolDefinition {
+export function createWrite(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+  const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'write',
     label: 'write',
@@ -256,7 +259,7 @@ export function createWrite(cm: ContainerManager, workspaceId: string): ToolDefi
     execute: async (_toolCallId, params: Static<typeof WriteParams>, signal?) => {
       if (signal?.aborted) throw new Error('Operation aborted');
 
-      const absPath = resolveContainerPath(params.path);
+      const absPath = resolveContainerPath(params.path, basedir);
       await cm.writeFile(workspaceId, absPath, params.content);
       return {
         content: [
@@ -273,7 +276,8 @@ export function createWrite(cm: ContainerManager, workspaceId: string): ToolDefi
 
 // ── Edit ────────────────────────────────────────────────────
 
-export function createEdit(cm: ContainerManager, workspaceId: string): ToolDefinition {
+export function createEdit(cm: ContainerManager, workspaceId: string, containerCwd?: string): ToolDefinition {
+  const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
     name: 'edit',
     label: 'edit',
@@ -284,7 +288,7 @@ export function createEdit(cm: ContainerManager, workspaceId: string): ToolDefin
     execute: async (_toolCallId, params: Static<typeof EditParams>, signal?) => {
       if (signal?.aborted) throw new Error('Operation aborted');
 
-      const absPath = resolveContainerPath(params.path);
+      const absPath = resolveContainerPath(params.path, basedir);
       const escaped = shellEscape(absPath);
 
       // Read current file content

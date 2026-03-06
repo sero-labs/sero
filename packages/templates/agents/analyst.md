@@ -2,7 +2,7 @@
 {
   "name": "analyst",
   "description": "Codebase analysis and planning",
-  "model": "claude-sonnet-4-5",
+  "model": "claude-sonnet-4-6",
   "thinking": "medium",
   "tools": ["read", "bash", "grep", "find", "ls"]
 }
