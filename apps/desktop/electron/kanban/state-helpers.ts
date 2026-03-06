@@ -6,12 +6,19 @@
  */
 
 import type { Card, KanbanState } from './types';
-import { DEFAULT_KANBAN_STATE } from './types';
 import { appStateManager } from '../app-state';
 
 /** Fallback state used when the file is empty/missing. */
 function fallbackState(): KanbanState {
-  return { ...DEFAULT_KANBAN_STATE, cards: [] };
+  return {
+    cards: [],
+    nextId: 1,
+    settings: {
+      autoAdvance: true,
+      maxConcurrentCards: 3,
+      requireApproval: { plan: true, pr: true },
+    },
+  };
 }
 
 /** Atomically update a single card's fields in the state file. */
