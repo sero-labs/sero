@@ -128,9 +128,12 @@ export class WorktreeManager {
         cwd: workspacePath,
         timeout: 30_000,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const stderr = err && typeof err === 'object' && 'stderr' in err
+        ? String((err as { stderr: unknown }).stderr) : '';
+      const message = err instanceof Error ? err.message : String(err);
       // If branch already exists, try without -b
-      if (err?.stderr?.includes('already exists')) {
+      if (stderr.includes('already exists')) {
         await execFileAsync('git', [
           'worktree', 'add',
           worktreePath,
@@ -141,7 +144,7 @@ export class WorktreeManager {
         });
       } else {
         throw new Error(
-          `Failed to create worktree for card ${cardId}: ${err?.stderr || err?.message || 'Unknown error'}`,
+          `Failed to create worktree for card ${cardId}: ${stderr || message || 'Unknown error'}`,
         );
       }
     }
@@ -182,15 +185,18 @@ export class WorktreeManager {
         cwd: workspacePath,
         timeout: 15_000,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const stderr = err && typeof err === 'object' && 'stderr' in err
+        ? String((err as { stderr: unknown }).stderr) : '';
+      const message = err instanceof Error ? err.message : String(err);
       // If the directory is already gone, prune instead
-      if (err?.stderr?.includes('is not a working tree')) {
+      if (stderr.includes('is not a working tree')) {
         await execFileAsync('git', ['worktree', 'prune'], {
           cwd: workspacePath,
           timeout: 10_000,
         });
       } else {
-        console.warn(`[worktree] Failed to remove card-${cardId}:`, err?.stderr || err?.message);
+        console.warn(`[worktree] Failed to remove card-${cardId}:`, stderr || message);
       }
     }
 

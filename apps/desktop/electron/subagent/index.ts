@@ -192,6 +192,98 @@ export class SubagentManager {
     }
   }
 
+  /**
+   * Like runSingle(), but returns a structured result instead of
+   * embedding error signals in the response string.
+   *
+   * Use this when the caller needs to distinguish errors from
+   * agent responses that happen to start with "Error:".
+   */
+  async runSingleStructured(params: RunSingleParams): Promise<{ response: string; error?: string }> {
+    if (!this.deps) throw new Error('SubagentManager not initialized — call setDeps()');
+
+    const { task, parentSessionId, workspaceId, onUpdate } = params;
+
+    let agent: AgentConfig;
+    try {
+      agent = await this.resolveAgent(params.agent, params.systemPrompt);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      onUpdate?.(`❌ ${params.agent ?? 'ad-hoc'} failed — ${msg}`);
+      return { response: '', error: msg };
+    }
+
+    const callOverride: TaskOverride = {
+      model: params.model,
+      thinking: params.thinking,
+      timeoutMs: params.timeoutMs,
+    };
+
+    const resolved = resolveConfig(
+      undefined, callOverride, agent, this.settings,
+      { model: undefined, thinking: undefined },
+    );
+
+    const runId = randomUUID();
+    const controller = new AbortController();
+
+    const entry: SubagentEntry = {
+      id: runId,
+      agentName: agent.name,
+      taskPreview: task.slice(0, 200),
+      status: 'running',
+      startedAt: Date.now(),
+      completedAt: null,
+      durationMs: null,
+      parentSessionId,
+      workspaceId,
+      mode: 'single',
+      usage: { ...EMPTY_USAGE },
+      model: resolved.model,
+      toolActivity: [],
+      liveOutput: '',
+    };
+
+    try {
+      await this.pool.acquireSlot(runId, parentSessionId, controller);
+      this.tracker.start(entry);
+      onUpdate?.(`🔄 ${agent.name} started — "${task.slice(0, 80)}"`);
+
+      const result = await runSubagent(
+        {
+          agent, task, resolved, workspaceId, parentSessionId,
+          mode: 'single', signal: controller.signal,
+          cwdOverride: params.cwd,
+          isolated: params.isolated,
+          onProgress: (usage) => this.tracker.progress(runId, usage),
+          onToolActivity: (name, summary, running) => this.tracker.updateToolActivity(runId, name, summary, running),
+          onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),
+          onUpdate,
+        },
+        this.deps,
+      );
+
+      if (result.error) {
+        this.tracker.fail(runId, result.error, result.usage);
+        onUpdate?.(`❌ ${agent.name} failed — ${result.error}`);
+        return { response: '', error: result.error };
+      }
+
+      this.tracker.complete(runId, result.response, result.usage);
+      const durationSec = Math.round((Date.now() - entry.startedAt) / 1000);
+      const tokenCount = result.usage.totalTokens;
+      onUpdate?.(`✅ ${agent.name} completed (${durationSec}s, ${tokenCount} tokens)`);
+      return { response: result.response };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.tracker.fail(runId, msg);
+      onUpdate?.(`❌ ${agent.name} failed — ${msg}`);
+      return { response: '', error: msg };
+    } finally {
+      this.pool.releaseSlot(runId, parentSessionId);
+    }
+  }
+
   // ── Parallel Mode ──────────────────────────────────────────
 
   async runParallel(params: {

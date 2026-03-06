@@ -88,7 +88,7 @@ async function executeSingleSubtask(
   const taskPrompt = buildSubtaskPrompt(card, subtaskId);
 
   try {
-    const result = await deps.subagentManager.runSingle({
+    const result = await deps.subagentManager.runSingleStructured({
       task: taskPrompt,
       systemPrompt: IMPLEMENTER_SYSTEM_PROMPT,
       parentSessionId,
@@ -98,7 +98,7 @@ async function executeSingleSubtask(
       onUpdate: (text) => tracker.addLogLine(text),
     });
 
-    if (result.startsWith('Error:')) {
+    if (result.error) {
       await updateSubtaskStatuses(stateFilePath, card.id, [subtaskId], 'failed');
       tracker.completeAgent(subtask?.title ?? subtaskId, 'failed');
       return;
@@ -117,6 +117,12 @@ async function executeSingleSubtask(
 }
 
 // ── Parallel Subtasks ───────────────────────────────────────
+//
+// ⚠️  All parallel subtasks share the SAME worktree directory.
+// The planner prompt requests non-overlapping file scopes, but this
+// is a soft constraint (LLM-generated). If two agents write to the
+// same file or both run `git add`, they may conflict. Consider
+// per-subtask stash/branch isolation if this becomes an issue.
 
 async function executeParallelSubtasks(
   deps: SubtaskExecutorDeps,
@@ -136,7 +142,7 @@ async function executeParallelSubtasks(
     tasks.map(async (t) => {
       const taskPrompt = buildSubtaskPrompt(card, t.stId);
 
-      const result = await deps.subagentManager.runSingle({
+      const result = await deps.subagentManager.runSingleStructured({
         task: taskPrompt,
         systemPrompt: IMPLEMENTER_SYSTEM_PROMPT,
         parentSessionId,
@@ -146,10 +152,10 @@ async function executeParallelSubtasks(
         onUpdate: (text) => tracker.addLogLine(text),
       });
 
-      if (result.startsWith('Error:')) {
+      if (result.error) {
         await updateSubtaskStatuses(stateFilePath, card.id, [t.stId], 'failed');
         tracker.completeAgent(t.title, 'failed');
-        throw new Error(result);
+        throw new Error(result.error);
       }
 
       const checkpointId = await createCheckpointInWorktree(
@@ -157,7 +163,7 @@ async function executeParallelSubtasks(
       );
       await markSubtaskCompleted(stateFilePath, card.id, t.stId, checkpointId);
       tracker.completeAgent(t.title, 'completed');
-      return result;
+      return result.response;
     }),
   );
 
@@ -169,6 +175,10 @@ async function executeParallelSubtasks(
 }
 
 // ── State Helpers ───────────────────────────────────────────
+//
+// Use appStateManager.update() for atomic read-modify-write.
+// This prevents race conditions when parallel subtasks complete
+// near-simultaneously and both try to update the same state file.
 
 async function updateSubtaskStatuses(
   stateFilePath: string,
@@ -176,19 +186,22 @@ async function updateSubtaskStatuses(
   subtaskIds: string[],
   status: 'pending' | 'in-progress' | 'completed' | 'failed',
 ): Promise<void> {
-  const raw = await appStateManager.read(stateFilePath) as KanbanState | null;
-  if (!raw) return;
-  const cards = raw.cards.map((c) => {
-    if (c.id !== cardId) return c;
+  await appStateManager.update<KanbanState>(stateFilePath, (raw) => {
+    if (!raw) return { cards: [], nextId: 1, settings: { autoAdvance: true, maxConcurrentCards: 3, requireApproval: { plan: true, pr: true } } };
     return {
-      ...c,
-      subtasks: c.subtasks.map((s) =>
-        subtaskIds.includes(s.id) ? { ...s, status } : s,
-      ),
-      updatedAt: new Date().toISOString(),
+      ...raw,
+      cards: raw.cards.map((c) => {
+        if (c.id !== cardId) return c;
+        return {
+          ...c,
+          subtasks: c.subtasks.map((s) =>
+            subtaskIds.includes(s.id) ? { ...s, status } : s,
+          ),
+          updatedAt: new Date().toISOString(),
+        };
+      }),
     };
   });
-  await appStateManager.write(stateFilePath, { ...raw, cards });
 }
 
 async function markSubtaskCompleted(
@@ -197,20 +210,23 @@ async function markSubtaskCompleted(
   subtaskId: string,
   checkpointId: string | null,
 ): Promise<void> {
-  const raw = await appStateManager.read(stateFilePath) as KanbanState | null;
-  if (!raw) return;
-  const cards = raw.cards.map((c) => {
-    if (c.id !== cardId) return c;
+  await appStateManager.update<KanbanState>(stateFilePath, (raw) => {
+    if (!raw) return { cards: [], nextId: 1, settings: { autoAdvance: true, maxConcurrentCards: 3, requireApproval: { plan: true, pr: true } } };
     return {
-      ...c,
-      subtasks: c.subtasks.map((s) =>
-        s.id === subtaskId
-          ? { ...s, status: 'completed' as const, checkpointId: checkpointId ?? undefined }
-          : s,
-      ),
-      lastCheckpoint: checkpointId ?? c.lastCheckpoint,
-      updatedAt: new Date().toISOString(),
+      ...raw,
+      cards: raw.cards.map((c) => {
+        if (c.id !== cardId) return c;
+        return {
+          ...c,
+          subtasks: c.subtasks.map((s) =>
+            s.id === subtaskId
+              ? { ...s, status: 'completed' as const, checkpointId: checkpointId ?? undefined }
+              : s,
+          ),
+          lastCheckpoint: checkpointId ?? c.lastCheckpoint,
+          updatedAt: new Date().toISOString(),
+        };
+      }),
     };
   });
-  await appStateManager.write(stateFilePath, { ...raw, cards });
 }

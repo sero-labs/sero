@@ -11,6 +11,18 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
+/** Extract stderr and message from an execFile error. */
+function execError(err: unknown): { stderr: string; message: string } {
+  if (err && typeof err === 'object') {
+    const e = err as { stderr?: unknown; message?: unknown };
+    return {
+      stderr: typeof e.stderr === 'string' ? e.stderr : '',
+      message: typeof e.message === 'string' ? e.message : String(err),
+    };
+  }
+  return { stderr: '', message: String(err) };
+}
+
 /**
  * Create a VCS checkpoint (git add + commit) in a worktree directory.
  *
@@ -70,9 +82,10 @@ export async function pushWorktreeBranch(
     });
     console.log(`[worktree-git] Pushed branch ${branchName}`);
     return true;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const { stderr, message } = execError(err);
     // Force-push if rejected (e.g. rebased branch)
-    if (err?.stderr?.includes('rejected') || err?.stderr?.includes('non-fast-forward')) {
+    if (stderr.includes('rejected') || stderr.includes('non-fast-forward')) {
       try {
         await execFileAsync('git', ['push', '-u', '--force-with-lease', 'origin', branchName], {
           cwd: worktreePath,
@@ -84,7 +97,7 @@ export async function pushWorktreeBranch(
         // fall through
       }
     }
-    console.error(`[worktree-git] Push failed for ${branchName}:`, err?.stderr || err?.message);
+    console.error(`[worktree-git] Push failed for ${branchName}:`, stderr || message);
     return false;
   }
 }
@@ -241,14 +254,16 @@ async function fetchRemoteRefs(worktreePath: string): Promise<void> {
  *
  * Strategy:
  * 1. Remote has main/master with shared history → use it.
- * 2. Otherwise → force-push main from the feature branch's root commit
- *    (guaranteed ancestor). Fixes broken/disconnected remote branches.
+ * 2. Remote has main/master but no shared history → check if it
+ *    contains real work (multiple commits). If so, abort rather
+ *    than overwrite someone's branch.
+ * 3. Remote has no default branch at all, or it's an empty/orphan
+ *    branch → push main from the feature branch's root commit.
  */
 export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<string> {
-  // 1. Check if remote already has a default branch that shares history
-  //    with the current branch. A disconnected branch (e.g. from a
-  //    previous failed empty-tree attempt) is treated as non-existent.
   await fetchRemoteRefs(worktreePath);
+
+  // 1. Look for a remote default branch with shared history
   for (const branch of ['main', 'master']) {
     try {
       const r = await execFileAsync('git', ['ls-remote', '--heads', 'origin', branch], {
@@ -266,9 +281,39 @@ export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<s
     } catch { /* no shared history or doesn't exist — try next */ }
   }
 
-  // 2. Remote has no usable default branch. Find the root commit of the
-  //    feature branch — it's a guaranteed ancestor — and force-push it
-  //    as 'main'. This also fixes a previously broken remote 'main'.
+  // 2. Remote branch exists but has no shared history — check if it
+  //    contains real work before overwriting. A branch with >1 commit
+  //    likely has meaningful content we should not destroy.
+  for (const branch of ['main', 'master']) {
+    try {
+      const r = await execFileAsync('git', ['ls-remote', '--heads', 'origin', branch], {
+        cwd: worktreePath,
+        timeout: 15_000,
+      });
+      if (!r.stdout.trim()) continue;
+
+      // Count commits on the remote branch
+      const countResult = await execFileAsync('git', [
+        'rev-list', '--count', `origin/${branch}`,
+      ], { cwd: worktreePath, timeout: 10_000 });
+      const commitCount = parseInt(countResult.stdout.trim(), 10);
+
+      if (commitCount > 1) {
+        // Remote branch has real work — do NOT overwrite. Use it as-is
+        // even though history is disconnected; the PR may show a large
+        // diff but we avoid data loss.
+        console.warn(
+          `[worktree-git] Remote '${branch}' has ${commitCount} commits but no shared history with HEAD. ` +
+          `Using it as PR base to avoid overwriting existing work.`,
+        );
+        return branch;
+      }
+      // Single commit (likely orphan/placeholder) — safe to overwrite below
+    } catch { /* doesn't exist or fetch failed — try next */ }
+  }
+
+  // 3. No usable remote branch, or it's a single-commit orphan.
+  //    Push the feature branch's root commit as 'main'.
   console.log('[worktree-git] Setting up remote main from feature branch root commit');
   try {
     const rootResult = await execFileAsync('git', ['rev-list', '--max-parents=0', 'HEAD'], {
@@ -282,16 +327,16 @@ export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<s
         cwd: worktreePath,
         timeout: 5_000,
       });
-      // Force-push to overwrite any broken remote main
-      await execFileAsync('git', ['push', '--force', '-u', 'origin', 'main'], {
+      // Use --force-with-lease for safety (fails if remote was updated since fetch)
+      await execFileAsync('git', ['push', '--force-with-lease', '-u', 'origin', 'main'], {
         cwd: worktreePath,
         timeout: 30_000,
       });
       console.log(`[worktree-git] Created main at root commit ${rootCommit.slice(0, 12)} and pushed`);
       return 'main';
     }
-  } catch (err: any) {
-    console.error('[worktree-git] Failed to create default branch:', err?.message);
+  } catch (err: unknown) {
+    console.error('[worktree-git] Failed to create default branch:', execError(err).message);
   }
 
   return 'main';
@@ -363,17 +408,18 @@ export async function createPrFromWorktree(
       return { success: true, url, number: prNumber };
     }
     return { success: true, url: result.stdout.trim(), number: 0 };
-  } catch (err: any) {
-    const stderr = String(err?.stderr ?? err?.message ?? 'Unknown error');
+  } catch (err: unknown) {
+    const { stderr, message } = execError(err);
+    const errorDetail = stderr || message || 'Unknown error';
 
     // Check if a PR already exists
-    if (stderr.includes('already exists')) {
+    if (errorDetail.includes('already exists')) {
       const existing = await findExistingPr(worktreePath);
       if (existing) return { success: true, ...existing };
     }
 
-    console.error('[worktree-git] PR creation failed:', stderr);
-    return { success: false, error: stderr };
+    console.error('[worktree-git] PR creation failed:', errorDetail);
+    return { success: false, error: errorDetail };
   }
 }
 

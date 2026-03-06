@@ -5,6 +5,7 @@
 export { KanbanOrchestrator } from './orchestrator';
 export { WorktreeManager, ensureGitReady } from './worktree-manager';
 export { resolveExecutionWaves } from './wave-resolver';
+export { updateCard, readCard } from './state-helpers';
 export {
   createCheckpointInWorktree,
   getWorktreeDiff,
@@ -12,6 +13,7 @@ export {
   pushWorktreeBranch,
   createPrFromWorktree,
 } from './worktree-git';
+export type { WriteCardFn } from './base-progress';
 export type { WorktreeInfo } from './worktree-manager';
 export type {
   Card,

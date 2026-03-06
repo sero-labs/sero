@@ -20,6 +20,7 @@ import { executeReview } from './review-executor';
 import { executePlanning } from './planning-executor';
 import { resolveExecutionWaves } from './wave-resolver';
 import { executeWaves } from './subtask-executor';
+import { updateCard, readCard } from './state-helpers';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
 
@@ -229,21 +230,21 @@ export class KanbanOrchestrator {
 
     const tracker = new PlanningProgressTracker(
       workspace.stateFilePath, card.id,
-      (fp, id, update) => this.updateCard(fp, id, update),
+      updateCard,
     );
 
     try {
-      await this.updateCard(workspace.stateFilePath, card.id, { status: 'agent-working' });
+      await updateCard(workspace.stateFilePath, card.id, { status: 'agent-working' });
 
       const { worktreePath, branchName, greenfield } = await this.worktreeManager.create(
         workspacePath, card.id, card.title,
       );
-      await this.updateCard(workspace.stateFilePath, card.id, { branch: branchName, worktreePath });
+      await updateCard(workspace.stateFilePath, card.id, { branch: branchName, worktreePath });
 
       const planResult = await this.runPlanningAgents(workspace, card, tracker, greenfield);
 
       await tracker.clear();
-      await this.updateCard(workspace.stateFilePath, card.id, {
+      await updateCard(workspace.stateFilePath, card.id, {
         status: 'waiting-input',
         plan: planResult.plan,
         subtasks: planResult.subtasks,
@@ -254,7 +255,7 @@ export class KanbanOrchestrator {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[kanban-orchestrator] Planning failed for card #${card.id}:`, errMsg);
       await tracker.clear();
-      await this.updateCard(workspace.stateFilePath, card.id, {
+      await updateCard(workspace.stateFilePath, card.id, {
         status: 'failed', error: `Planning failed: ${errMsg}`, planningProgress: undefined,
       });
     } finally {
@@ -292,7 +293,7 @@ export class KanbanOrchestrator {
 
     const worktreePath = freshCard.worktreePath;
     if (!worktreePath) {
-      await this.updateCard(workspace.stateFilePath, card.id, {
+      await updateCard(workspace.stateFilePath, card.id, {
         status: 'failed', error: 'No worktree path — was planning phase completed?',
       });
       this.implementationInProgress.delete(card.id);
@@ -301,16 +302,16 @@ export class KanbanOrchestrator {
 
     const tracker = new ImplementationProgressTracker(
       workspace.stateFilePath, card.id,
-      (fp, id, update) => this.updateCard(fp, id, update),
+      updateCard,
     );
 
     try {
       console.log(`[kanban-orchestrator] Starting implementation for card #${card.id}`);
-      await this.updateCard(workspace.stateFilePath, card.id, { status: 'agent-working' });
+      await updateCard(workspace.stateFilePath, card.id, { status: 'agent-working' });
 
       // Reset all subtasks to pending
       const subtasks = freshCard.subtasks.map((s) => ({ ...s, status: 'pending' as const }));
-      await this.updateCard(workspace.stateFilePath, card.id, { subtasks });
+      await updateCard(workspace.stateFilePath, card.id, { subtasks });
 
       const waves = resolveExecutionWaves(subtasks);
       console.log(`[kanban-orchestrator] Card #${card.id}: ${waves.length} waves, ${subtasks.length} subtasks`);
@@ -326,7 +327,7 @@ export class KanbanOrchestrator {
 
       // All done — advance to review
       await tracker.clear();
-      await this.updateCard(workspace.stateFilePath, card.id, {
+      await updateCard(workspace.stateFilePath, card.id, {
         status: 'idle',
         column: 'review',
         implementationProgress: undefined,
@@ -336,7 +337,7 @@ export class KanbanOrchestrator {
       // Directly chain to review phase. The updateCard above writes via
       // appStateManager.write() which bypasses IPC, so onStateChange is
       // never called. We must trigger the next phase explicitly.
-      const reviewCard = await this.readCard(workspace.stateFilePath, card.id);
+      const reviewCard = await readCard(workspace.stateFilePath, card.id);
       if (reviewCard) {
         workspace.lastColumnMap.set(card.id, 'review');
         await this.handleTransition(workspace, reviewCard, 'in-progress', 'review');
@@ -345,7 +346,7 @@ export class KanbanOrchestrator {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[kanban-orchestrator] Implementation failed for card #${card.id}:`, errMsg);
       await tracker.clear();
-      await this.updateCard(workspace.stateFilePath, card.id, {
+      await updateCard(workspace.stateFilePath, card.id, {
         status: 'failed',
         error: `Implementation failed: ${errMsg}`,
         implementationProgress: undefined,
@@ -371,7 +372,7 @@ export class KanbanOrchestrator {
     const worktreePath = freshCard.worktreePath;
     const branchName = freshCard.branch;
     if (!worktreePath || !branchName) {
-      await this.updateCard(workspace.stateFilePath, card.id, {
+      await updateCard(workspace.stateFilePath, card.id, {
         status: 'failed', error: 'No worktree/branch — was implementation phase completed?',
       });
       this.reviewInProgress.delete(card.id);
@@ -380,12 +381,12 @@ export class KanbanOrchestrator {
 
     const tracker = new ReviewProgressTracker(
       workspace.stateFilePath, card.id,
-      (fp, id, update) => this.updateCard(fp, id, update),
+      updateCard,
     );
 
     try {
       console.log(`[kanban-orchestrator] Starting review for card #${card.id}`);
-      await this.updateCard(workspace.stateFilePath, card.id, { status: 'agent-working' });
+      await updateCard(workspace.stateFilePath, card.id, { status: 'agent-working' });
 
       const result = await executeReview(
         { subagentManager: this.deps.subagentManager, workspaceId: workspace.workspaceId },
@@ -398,7 +399,7 @@ export class KanbanOrchestrator {
       await tracker.clear();
 
       if (result.success) {
-        await this.updateCard(workspace.stateFilePath, card.id, {
+        await updateCard(workspace.stateFilePath, card.id, {
           status: 'waiting-input',
           prUrl: result.prUrl,
           prNumber: result.prNumber,
@@ -407,7 +408,7 @@ export class KanbanOrchestrator {
         });
         console.log(`[kanban-orchestrator] Card #${card.id} PR created: ${result.prUrl}`);
       } else {
-        await this.updateCard(workspace.stateFilePath, card.id, {
+        await updateCard(workspace.stateFilePath, card.id, {
           status: 'failed',
           error: result.error ?? 'Review failed',
           // Persist the review cache path even on failure so retry skips the subagent
@@ -419,7 +420,7 @@ export class KanbanOrchestrator {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[kanban-orchestrator] Review failed for card #${card.id}:`, errMsg);
       await tracker.clear();
-      await this.updateCard(workspace.stateFilePath, card.id, {
+      await updateCard(workspace.stateFilePath, card.id, {
         status: 'failed',
         error: `Review failed: ${errMsg}`,
         reviewProgress: undefined,
@@ -447,7 +448,7 @@ export class KanbanOrchestrator {
         console.log(`[kanban-orchestrator] Cleaned up worktree for card #${card.id}`);
       }
 
-      await this.updateCard(workspace.stateFilePath, card.id, {
+      await updateCard(workspace.stateFilePath, card.id, {
         status: 'idle',
         worktreePath: undefined,
         completedAt: new Date().toISOString(),
@@ -468,26 +469,6 @@ export class KanbanOrchestrator {
       || this.implementationInProgress.has(cardId)
       || this.reviewInProgress.has(cardId)
     );
-  }
-
-  // ── State Helpers ─────────────────────────────────────
-
-  private async updateCard(
-    stateFilePath: string,
-    cardId: string,
-    update: Partial<Card>,
-  ): Promise<void> {
-    const raw = await appStateManager.read(stateFilePath) as KanbanState | null;
-    if (!raw) return;
-    const cards = raw.cards.map((c) =>
-      c.id === cardId ? { ...c, ...update, updatedAt: new Date().toISOString() } : c,
-    );
-    await appStateManager.write(stateFilePath, { ...raw, cards });
-  }
-
-  private async readCard(stateFilePath: string, cardId: string): Promise<Card | null> {
-    const raw = await appStateManager.read(stateFilePath) as KanbanState | null;
-    return raw?.cards.find((c) => c.id === cardId) ?? null;
   }
 
   // ── Cleanup ───────────────────────────────────────────

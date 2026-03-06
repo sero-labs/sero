@@ -65,6 +65,28 @@ class AppStateManager {
     await next;
   }
 
+  /**
+   * Atomic read-modify-write: the updater callback runs inside the
+   * serialised write queue so no concurrent read can see stale data.
+   *
+   * Use this instead of separate read() + write() when multiple
+   * callers may update the same file concurrently (e.g. parallel
+   * subtask completion in the kanban orchestrator).
+   */
+  async update<T = unknown>(
+    filePath: string,
+    updater: (current: T | null) => T,
+  ): Promise<void> {
+    const prev = this.writeQueues.get(filePath) ?? Promise.resolve();
+    const next = prev.then(async () => {
+      const current = await this.read(filePath) as T | null;
+      const updated = updater(current);
+      await this.atomicWrite(filePath, updated);
+    });
+    this.writeQueues.set(filePath, next);
+    await next;
+  }
+
   private async atomicWrite(filePath: string, data: unknown): Promise<void> {
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
