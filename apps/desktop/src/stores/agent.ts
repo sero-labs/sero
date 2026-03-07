@@ -118,6 +118,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   collaborationSpecialists: [],
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
+    // Reset collaboration mode when switching sessions
+    set({ collaborationMode: false, collaborationStatus: 'idle', collaborationResult: null, collaborationSpecialists: [] });
+
     // If already fully initialized in pool, just focus it.
     // Check for `sessionId` field — partial entries created by events
     // (e.g. when a federated app calls agent.open via IPC directly)
