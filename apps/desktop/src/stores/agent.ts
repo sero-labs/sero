@@ -2,14 +2,11 @@ import { create } from 'zustand';
 import type {
   ChatMessage,
   ChatAttachment,
-  ChatToolCallMessage,
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionModelState,
 } from '@/types/ipc';
 import type { CollaborationEvent } from '@/types/collaboration';
-import { useSessionStore } from '@/stores/sessions';
-import { useContainerStore } from '@/stores/container';
 import {
   applyCollaborationEvent,
   removeCollaborationSession,
@@ -19,7 +16,11 @@ import {
   toggleCollaborationModeForSession,
 } from '@/stores/agent-collaboration';
 import type { AgentState } from '@/stores/agent-types';
-import { patchAssistant } from '@/stores/agent-utils';
+import {
+  patchAssistant,
+  drainDeltaBuffer,
+  handleAgentStreamEvent,
+} from '@/stores/agent-utils';
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: {},
@@ -325,162 +326,32 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   initEventListener: () => {
-    const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
-      const { agents } = get();
-      const sid = event.sessionId;
-
-      // Ignore events for sessions we don't track (already closed).
-      if (!agents[sid] && event.type !== 'agent_start' && event.type !== 'message_start') {
-        return;
-      }
-
-      switch (event.type) {
-        case 'agent_start':
-          set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: { ...s.agents[sid], isStreaming: true },
-            },
-          }));
-          break;
-
-        case 'agent_end':
-          set((s) => {
-            const agent = s.agents[sid];
-            if (!agent) return s;
-            // Mark any in-flight tools as cancelled (they'll never receive a tool_end).
-            const messages = agent.messages.map((m) =>
-              m.type === 'tool' && (m.state === 'pending' || m.state === 'running')
-                ? { ...m, state: 'cancelled' as const }
-                : m,
-            );
-            return {
-              agents: {
-                ...s.agents,
-                [sid]: { ...agent, isStreaming: false, messages },
-              },
-            };
-          });
-          break;
-
-        case 'messages_loaded':
-          set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: { ...s.agents[sid], messages: event.messages },
-            },
-          }));
-          break;
-
-        case 'message_start':
-          // Skip user messages — they're added optimistically in sendPrompt
-          // to avoid duplicates and ensure attachments render immediately.
-          if (event.message.type === 'user') break;
-
-          set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: {
-                ...s.agents[sid],
-                messages: [...(s.agents[sid]?.messages ?? []), event.message],
-              },
-            },
-          }));
-          break;
-
-        case 'text_delta':
-          set((s) => ({
-            agents: patchAssistant(s.agents, sid, event.messageId, (m) => ({
-              ...m, text: m.text + event.delta,
-            })),
-          }));
-          break;
-
-        case 'thinking_delta':
-          set((s) => ({
-            agents: patchAssistant(s.agents, sid, event.messageId, (m) => ({
-              ...m, thinking: (m.thinking ?? '') + event.delta,
-            })),
-          }));
-          break;
-
-        case 'message_end':
-          set((s) => ({
-            agents: patchAssistant(s.agents, sid, event.messageId, (m) => ({
-              ...m, text: event.text, thinking: event.thinking, isStreaming: false,
-            })),
-          }));
-          break;
-
-        case 'user_checkpoint': {
-          const { userMessageId, checkpoint } = event;
-          set((s) => ({
-            agents: { ...s.agents, [sid]: { ...s.agents[sid],
-              messages: s.agents[sid].messages.map((m) =>
-                m.type === 'user' && m.id === userMessageId
-                  ? ({ ...m, checkpoint } as ChatMessage) : m),
-            } },
-          }));
-          break;
+    // Flush buffered text/thinking deltas into the store in one batch.
+    const flushDeltas = () => {
+      const { text, thinking } = drainDeltaBuffer();
+      if (text.size === 0 && thinking.size === 0) return;
+      set((s) => {
+        let agents = s.agents;
+        for (const [sessionId, msgMap] of text) {
+          for (const [messageId, delta] of msgMap) {
+            agents = patchAssistant(agents, sessionId, messageId, (m) => ({
+              ...m, text: m.text + delta,
+            }));
+          }
         }
+        for (const [sessionId, msgMap] of thinking) {
+          for (const [messageId, delta] of msgMap) {
+            agents = patchAssistant(agents, sessionId, messageId, (m) => ({
+              ...m, thinking: (m.thinking ?? '') + delta,
+            }));
+          }
+        }
+        return { agents };
+      });
+    };
 
-        case 'tool_start':
-          set((s) => ({
-            agents: { ...s.agents, [sid]: { ...s.agents[sid],
-              messages: [...s.agents[sid].messages, event.tool],
-            } },
-          }));
-          break;
-
-        case 'tool_end':
-          set((s) => ({
-            agents: { ...s.agents, [sid]: { ...s.agents[sid],
-              messages: s.agents[sid].messages.map((m) =>
-                m.type === 'tool' && m.toolCallId === event.toolCallId
-                  ? { ...m, output: event.output, isError: event.isError,
-                      state: event.isError ? 'error' : 'completed' } as ChatToolCallMessage
-                  : m),
-            } },
-          }));
-          break;
-
-        case 'session_name':
-          useSessionStore.getState().updateSessionName(sid, event.name);
-          break;
-
-        case 'model_change':
-          set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: { ...s.agents[sid], modelState: event.state },
-            },
-          }));
-          break;
-
-        case 'error':
-          set((s) => ({
-            agents: {
-              ...s.agents,
-              [sid]: {
-                ...s.agents[sid],
-                error: event.error,
-                isStreaming: false,
-              },
-            },
-          }));
-          break;
-
-        // Container lifecycle events — update container store.
-        case 'container_starting':
-          useContainerStore.getState().setStarting(event.workspaceId);
-          break;
-        case 'container_ready':
-          useContainerStore.getState().setRunning(event.workspaceId, event.ipAddress);
-          break;
-        case 'container_error':
-          useContainerStore.getState().setError(event.workspaceId, event.error);
-          break;
-      }
+    const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
+      handleAgentStreamEvent(event, set, get, flushDeltas);
     });
 
     return unsubscribe;

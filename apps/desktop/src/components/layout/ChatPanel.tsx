@@ -1,51 +1,30 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Bot, Loader2, AlertCircle, X } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
+import { Bot, Loader2, AlertCircle } from 'lucide-react';
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@sero/ui/components/ai-elements/conversation';
-import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputTextarea,
-  PromptInputHeader,
-  PromptInputFooter,
-  PromptInputTools,
-  PromptInputSubmit,
-  PromptInputActionMenu,
-  PromptInputActionMenuTrigger,
-  PromptInputActionMenuContent,
-  PromptInputActionAddAttachments,
-} from '@sero/ui/components/ai-elements/prompt-input';
 import { useAgentStore } from '@/stores/agent';
 import {
   useFocusedAgent,
   useFocusedCollaborationMode,
 } from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
-import { SlashCommandMenu } from './SlashCommandMenu';
-import { FileReferenceMenu } from './FileReferenceMenu';
-import { PromptAttachmentsBar } from './ChatAttachments';
 import { UsageBadge } from './UsageBadge';
-import { ModelSelector } from './ModelSelector';
-import { AuthLoginDialog } from './AuthLoginDialog';
 import { groupMessages, ToolCallGroup } from './ToolCallGroup';
-import { ContextEditor } from './ContextEditor';
 import { ChatMessageItem } from './ChatMessageItem';
 import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
-import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
 import { useFeedbackStore } from '@/stores/feedback';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
-import { useMessageQueue } from '@/hooks/useMessageQueue';
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
-import { useChatPromptInput } from '@/hooks/useChatPromptInput';
 import { createFilePathClickHandler } from './ClickableFilePath';
 import { PendingQuestionCard } from './PendingQuestionCard';
 import { QuestionnaireNotice } from './QuestionnaireNotice';
-import { ContextEditorMenuItem, ThinkingBlocksToggle, CollaborationToggle, EmptyState } from './ChatPanelHelpers';
+import { EmptyState } from './ChatPanelHelpers';
 import { CollaborationStatusBanner, CollaborationDetails } from './CollaborationResponse';
+import { ChatPromptArea } from './ChatPromptArea';
 
 /**
  * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
@@ -55,11 +34,6 @@ import { CollaborationStatusBanner, CollaborationDetails } from './Collaboration
  */
 export function ChatPanel() {
   const focused = useFocusedAgent();
-  const sendPrompt = useAgentStore((s) => s.sendPrompt);
-  const sendCollaborationPrompt = useAgentStore((s) => s.sendCollaborationPrompt);
-  const collaborationMode = useFocusedCollaborationMode();
-  const steerAgent = useAgentStore((s) => s.steerAgent);
-  const abort = useAgentStore((s) => s.abort);
   const initEventListener = useAgentStore((s) => s.initEventListener);
   const initCollaborationListener = useAgentStore((s) => s.initCollaborationListener);
 
@@ -82,10 +56,7 @@ export function ChatPanel() {
   // Initialize user-feedback IPC listeners (question/questionnaire tools)
   useUserFeedbackInit();
 
-  // ── OAuth login dialog state ───────────────────────────────
-  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
-  const [loginMode, setLoginMode] = useState<'login' | 'logout'>('login');
-  const fetchModelState = useAgentStore((s) => s.fetchModelState);
+  const collaborationMode = useFocusedCollaborationMode();
 
   const messages = focused?.messages ?? [];
   const isStreaming = focused?.isStreaming ?? false;
@@ -94,30 +65,11 @@ export function ChatPanel() {
   const focusedWorkspaceId = focused?.workspaceId ?? null;
   const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
 
-  // ── Follow-up message queue ────────────────────────────────
-  const messageQueue = useMessageQueue({
-    isStreaming,
-    sessionId,
-    sendPrompt,
-  });
-
-  const onLoginRequest = useCallback((mode: 'login' | 'logout') => {
-    setLoginMode(mode);
-    setLoginDialogOpen(true);
-  }, []);
-
-  // ── Prompt input (slash, @file, tab-complete, submit) ──────
-  const prompt = useChatPromptInput({
-    sessionId,
-    isStreaming,
-    focusedWorkspaceId,
-    sendPrompt,
-    sendCollaborationPrompt,
-    collaborationMode,
-    steerAgent,
-    messageQueue,
-    onLoginRequest,
-  });
+  // Stable callback ref for ChatMessageItem memo
+  const stableRestoreHandler = useMemo(
+    () => (focusedWorkspaceId ? checkpoint.requestRestore : undefined),
+    [focusedWorkspaceId, checkpoint.requestRestore],
+  );
 
   // ── Ctrl+click file paths in conversation ──────────────────
   const requestOpenFile = useEditorBridge((s) => s.requestOpenFile);
@@ -139,6 +91,22 @@ export function ChatPanel() {
   // Group consecutive tool calls into collapsible blocks
   const groupedItems = useMemo(() => groupMessages(messages), [messages]);
 
+  // Precompute previousUserText for each item index so we avoid an O(n)
+  // backwards scan per assistant message during render.
+  const previousUserTextMap = useMemo(() => {
+    const map = new Map<number, string>();
+    let lastUserText: string | undefined;
+    for (let i = 0; i < groupedItems.length; i++) {
+      const item = groupedItems[i];
+      if (item.kind === 'message' && item.message.type === 'user') {
+        lastUserText = item.message.text;
+      } else if (item.kind === 'message' && item.message.type === 'assistant' && lastUserText) {
+        map.set(i, lastUserText);
+      }
+    }
+    return map;
+  }, [groupedItems]);
+
   // Show an inline "thinking" indicator when the session is streaming but
   // nothing in the chat is visibly active (no streaming text, no running tools).
   const showThinking = useMemo(() => {
@@ -148,19 +116,6 @@ export function ChatPanel() {
     if (last.kind === 'tool-group' && last.tools.some((t) => t.state === 'pending' || t.state === 'running')) return false;
     return true;
   }, [isStreaming, groupedItems]);
-
-  const handleAuthComplete = useCallback(() => {
-    if (sessionId) fetchModelState(sessionId);
-  }, [sessionId, fetchModelState]);
-
-  const handleTranscript = useCallback((text: string) => {
-    const transcript = text.trim();
-    if (!transcript) return;
-    prompt.setInput((prev) => {
-      if (!prev.trim()) return transcript;
-      return `${prev}${prev.endsWith('\n') ? '' : '\n'}${transcript}`;
-    });
-  }, [prompt]);
 
   const hasSession = !!sessionId;
 
@@ -183,9 +138,6 @@ export function ChatPanel() {
           </span>
         )}
         {sessionId && <UsageBadge sessionId={sessionId} />}
-        {isStreaming && (
-          <Loader2 className="size-3 animate-spin text-emerald-500" />
-        )}
       </div>
 
       {/* ── Conversation ────────────────────────────────────── */}
@@ -224,26 +176,14 @@ export function ChatPanel() {
                   );
                 }
 
-                // For assistant messages, find preceding user message for feedback context
-                let previousUserText: string | undefined;
-                if (item.message.type === 'assistant') {
-                  for (let j = index - 1; j >= 0; j--) {
-                    const prev = groupedItems[j];
-                    if (prev.kind === 'message' && prev.message.type === 'user') {
-                      previousUserText = prev.message.text;
-                      break;
-                    }
-                  }
-                }
-
                 return (
                   <ChatMessageItem
                     key={item.message.id}
                     message={item.message}
                     showThinking={showThinkingBlocks}
-                    onRestoreCheckpoint={focusedWorkspaceId ? checkpoint.requestRestore : undefined}
+                    onRestoreCheckpoint={stableRestoreHandler}
                     sessionId={sessionId ?? undefined}
-                    previousUserText={previousUserText}
+                    previousUserText={previousUserTextMap.get(index)}
                   />
                 );
               })}
@@ -274,105 +214,12 @@ export function ChatPanel() {
       {/* ── Pending question card (single questions only) ──── */}
       <PendingQuestionCard />
 
-      {/* ── Prompt input ────────────────────────────────────── */}
-      <div className="relative shrink-0 p-2">
-        <SlashCommandMenu
-          commands={prompt.allCommands}
-          filter={prompt.slashFilter}
-          onSelect={prompt.handleSlashSelect}
-          onClose={prompt.handleSlashClose}
-          open={prompt.slashMenuOpen}
-        />
-
-        <FileReferenceMenu
-          files={prompt.workspaceFiles}
-          filter={prompt.fileFilter}
-          onSelect={prompt.handleFileSelect}
-          onClose={prompt.handleFileMenuClose}
-          open={prompt.fileMenuOpen}
-        />
-
-        <PromptInput
-          onSubmit={prompt.handleSubmit}
-          className="w-full"
-          multiple
-          globalDrop={hasSession}
-        >
-          <PromptInputHeader>
-            <PromptAttachmentsBar />
-            {messageQueue.hasQueued && (
-              <div className="flex flex-wrap gap-1 px-1">
-                {messageQueue.queue.map((msg) => (
-                  <span
-                    key={msg.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-600 dark:text-blue-400"
-                  >
-                    <span className="max-w-[150px] truncate">{msg.text}</span>
-                    <button
-                      onClick={() => messageQueue.dequeue(msg.id)}
-                      className="shrink-0 rounded-full p-0.5 hover:bg-blue-500/20"
-                      title="Remove queued message"
-                    >
-                      <X className="size-2.5" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </PromptInputHeader>
-
-          <PromptInputBody>
-            <PromptInputTextarea
-              ref={prompt.textareaRef}
-              value={prompt.input}
-              onChange={(e) => prompt.setInput(e.target.value)}
-              onKeyDown={prompt.handleKeyDown}
-              placeholder={hasSession ? (collaborationMode ? '4-Agent Collaboration active — ask a complex question…' : 'Ask Sero anything… (/ for commands, @ for files)') : 'Select a chat first…'}
-              disabled={!hasSession}
-            />
-          </PromptInputBody>
-
-          <PromptInputFooter>
-            <PromptInputTools>
-              <PromptInputActionMenu>
-                <PromptInputActionMenuTrigger
-                  tooltip={{ content: 'Actions', shortcut: '' }}
-                  disabled={!hasSession}
-                />
-                <PromptInputActionMenuContent>
-                  <PromptInputActionAddAttachments />
-                  <ContextEditorMenuItem sessionId={sessionId} disabled={isStreaming} />
-                </PromptInputActionMenuContent>
-              </PromptInputActionMenu>
-              <VoiceTranscriptionControl
-                disabled={!hasSession || isStreaming}
-                onTranscript={handleTranscript}
-              />
-              <CollaborationToggle disabled={!hasSession} />
-              <ThinkingBlocksToggle disabled={!hasSession} />
-              <ModelSelector disabled={!hasSession} />
-            </PromptInputTools>
-
-            {isStreaming ? (
-              <div className="flex items-center gap-1.5">
-                <PromptInputSubmit
-                  disabled={!prompt.input.trim() || !hasSession}
-                  onClick={(e) => { prompt.modifierRef.current = e.ctrlKey || e.metaKey; }}
-                  title="Send to steer agent (⌘+click to queue as follow-up)"
-                />
-                <button
-                  onClick={() => sessionId && abort(sessionId)}
-                  className="rounded-md bg-destructive/10 px-2 py-1 font-medium text-sm text-destructive hover:bg-destructive/20"
-                >
-                  Stop
-                </button>
-              </div>
-            ) : (
-              <PromptInputSubmit disabled={!prompt.input.trim() || !hasSession} />
-            )}
-          </PromptInputFooter>
-        </PromptInput>
-      </div>
+      {/* ── Prompt input (memo'd — skips re-renders during streaming) */}
+      <ChatPromptArea
+        sessionId={sessionId}
+        isStreaming={isStreaming}
+        focusedWorkspaceId={focusedWorkspaceId}
+      />
 
       <CheckpointRestoreDialog
         open={checkpoint.dialogOpen}
@@ -384,15 +231,6 @@ export function ChatPanel() {
         onOpenChange={checkpoint.setDialogOpen}
         onConfirm={checkpoint.confirmRestore}
       />
-
-      <AuthLoginDialog
-        open={loginDialogOpen}
-        onOpenChange={setLoginDialogOpen}
-        mode={loginMode}
-        onComplete={handleAuthComplete}
-      />
-
-      {sessionId && <ContextEditor sessionId={sessionId} />}
     </div>
   );
 }

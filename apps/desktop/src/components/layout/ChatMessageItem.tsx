@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
 
 import {
@@ -25,7 +25,7 @@ interface ChatMessageItemProps {
   previousUserText?: string;
 }
 
-export function ChatMessageItem({
+export const ChatMessageItem = memo(function ChatMessageItem({
   message,
   showThinking,
   onRestoreCheckpoint,
@@ -108,4 +108,4 @@ export function ChatMessageItem({
     default:
       return null;
   }
-}
+});
