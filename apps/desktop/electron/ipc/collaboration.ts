@@ -2,19 +2,15 @@
  * IPC handlers for the 4-agent collaboration framework.
  *
  * The collaboration prompt handler:
- * 1. Runs the 4-agent collaboration (specialists + coordinator)
- * 2. Feeds the synthesized result back through the MAIN agent session
+ * 1. Extracts conversation history from the main session for context
+ * 2. Runs the 4-agent collaboration (specialists + coordinator)
+ * 3. Feeds the synthesized result back through the MAIN agent session
  *    so the conversation is persisted and follow-up queries have context.
- *
- * This means the main session's AgentSession sees the user message and
- * generates a response informed by the collaboration — preserving full
- * session history for follow-ups.
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import type { CollaborationEvent } from '../../src/types/collaboration';
-import type { ChatMessage, ChatAttachment } from '../../src/types/ipc';
 import { runCollaboration } from '../collaboration/index';
 import { subagentManager } from './shared-infra';
 import { getAgentPoolEntry } from './agent';
@@ -23,6 +19,49 @@ function sendCollabEvent(event: CollaborationEvent): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(IpcChannels.collaboration.event, event);
   }
+}
+
+/**
+ * Extract a concise conversation summary from the main session's messages
+ * so specialists have context for follow-up queries.
+ *
+ * Returns empty string if this is the first message (no history needed).
+ */
+function extractConversationContext(
+  messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>,
+): string {
+  if (!messages || messages.length === 0) return '';
+
+  // Build a condensed history from the last few turns (max ~6 messages)
+  const recent = messages.slice(-6);
+  const lines: string[] = [];
+
+  for (const msg of recent) {
+    const role = msg.role === 'user' ? 'User' : 'Assistant';
+    const text = msg.content
+      .filter((c): c is { type: 'text'; text: string } => c.type === 'text' && typeof c.text === 'string')
+      .map((c) => c.text)
+      .join('');
+
+    if (!text) continue;
+
+    // Truncate long messages to keep context window reasonable
+    const truncated = text.length > 1500 ? text.slice(0, 1500) + '…' : text;
+    lines.push(`[${role}]: ${truncated}`);
+  }
+
+  if (lines.length === 0) return '';
+
+  return `## Prior Conversation Context\nThe following is the recent conversation history. The user's new message below is a follow-up.\n\n${lines.join('\n\n')}\n\n---\n\n`;
+}
+
+/**
+ * Build the task prompt for specialists, including conversation history
+ * when this is a follow-up query.
+ */
+function buildSpecialistQuery(query: string, conversationContext: string): string {
+  if (!conversationContext) return query;
+  return `${conversationContext}## Current Query\n${query}`;
 }
 
 /**
@@ -58,9 +97,20 @@ export function registerCollaborationHandlers(): void {
       sendCollabEvent({ type: 'collab_start', sessionId });
 
       try {
+        // Extract conversation history from the main session so specialists
+        // have context for follow-up queries.
+        const entry = getAgentPoolEntry(sessionId);
+        let conversationContext = '';
+        if (entry) {
+          conversationContext = extractConversationContext(entry.session.messages);
+        }
+
+        // Build the contextualised query for specialists
+        const specialistQuery = buildSpecialistQuery(query, conversationContext);
+
         // Phase 1+2: Run specialists in parallel, then coordinator synthesis
         const result = await runCollaboration(
-          query,
+          specialistQuery,
           sessionId,
           workspaceId,
           subagentManager,
@@ -82,7 +132,6 @@ export function registerCollaborationHandlers(): void {
         // Phase 3: Feed the synthesis through the main agent session so the
         // conversation is persisted. The main session's response will stream
         // back through the normal agent event channel.
-        const entry = getAgentPoolEntry(sessionId);
         if (entry) {
           const injectionPrompt = buildInjectionPrompt(query, result.finalResponse);
           await entry.session.prompt(injectionPrompt);
