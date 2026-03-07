@@ -158,6 +158,33 @@ export async function runSubagent(
     // Track usage, tool activity, live output + debug logging
     const { onToolActivity, onTextDelta, onUpdate: onStatusUpdate } = config;
     const usage: SubagentUsage = { ...EMPTY_USAGE };
+
+    // ── Per-tool stall detection ──────────────────────────────
+    // If a single tool call runs longer than toolStallTimeoutMs, abort.
+    const toolStallMs = resolved.toolStallTimeoutMs ?? 120_000;
+    let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
+    let activeToolName: string | null = null;
+
+    function clearStallTimer(): void {
+      if (activeToolStallTimer) {
+        clearTimeout(activeToolStallTimer);
+        activeToolStallTimer = null;
+      }
+      activeToolName = null;
+    }
+
+    function startStallTimer(toolName: string): void {
+      clearStallTimer();
+      if (toolStallMs <= 0) return; // disabled
+      activeToolName = toolName;
+      activeToolStallTimer = setTimeout(() => {
+        const stallMsg = `Tool '${toolName}' stalled after ${Math.round(toolStallMs / 1000)}s — auto-aborting`;
+        console.warn(`[subagent/runner] ${stallMsg}`);
+        onStatusUpdate?.(`⚠️ ${stallMsg}`);
+        try { session?.abort(); } catch { /* ignore */ }
+      }, toolStallMs);
+    }
+
     const unsub = session.subscribe((event: Record<string, unknown>) => {
       // Forward all events to the debug log (same file as main sessions)
       logRawEvent(subagentSessionId, event);
@@ -166,18 +193,20 @@ export async function runSubagent(
         logTurnContext(subagentSessionId, session!);
       }
 
-      // Tool execution events → tool activity feed
+      // Tool execution events → tool activity feed + stall detection
       if (event.type === 'tool_execution_start') {
         const toolName = (event.toolName as string) ?? 'unknown';
         const args = event.args as Record<string, unknown> | undefined;
         const summary = extractToolArgsSummary(toolName, args);
         onToolActivity?.(toolName, summary, true);
         onStatusUpdate?.(`  📂 ${toolName}: ${summary}`);
+        startStallTimer(toolName);
       }
 
       if (event.type === 'tool_execution_end') {
         const toolName = (event.toolName as string) ?? 'unknown';
         onToolActivity?.(toolName, '', false);
+        clearStallTimer();
       }
 
       // Text deltas → live output stream
@@ -189,6 +218,7 @@ export async function runSubagent(
       }
 
       if (event.type === 'agent_end') {
+        clearStallTimer();
         try {
           const stats = session?.getSessionStats();
           if (stats) {
@@ -208,6 +238,7 @@ export async function runSubagent(
     await session.prompt(task);
 
     clearTimeout(timeoutId);
+    clearStallTimer();
     signal.removeEventListener('abort', abortHandler);
     unsub();
 
@@ -243,6 +274,7 @@ export async function runSubagent(
 
     return { response: '', usage: { ...EMPTY_USAGE }, error: errorMsg };
   } finally {
+    clearStallTimer();
     try { session?.dispose(); } catch { /* ignore */ }
   }
 }

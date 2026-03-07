@@ -49,6 +49,12 @@ export interface SubagentSettings {
   maxTotal: number;
   /** Default timeout in ms. Default: 600_000 (10 min). */
   timeoutMs: number;
+  /**
+   * Per-tool stall timeout in ms. If a single tool call (especially bash)
+   * runs longer than this without completing, the subagent is auto-aborted.
+   * Default: 120_000 (2 min). Set to 0 to disable.
+   */
+  toolStallTimeoutMs: number;
   /** Default model if agent/call omit one. */
   model: string | null;
   /** Default thinking level if agent/call omit one. */
@@ -61,6 +67,7 @@ export const DEFAULT_SUBAGENT_SETTINGS: SubagentSettings = {
   maxConcurrent: 4,
   maxTotal: 8,
   timeoutMs: 600_000,
+  toolStallTimeoutMs: 120_000,
   model: null,
   thinking: null,
   blockedExtensions: [],
@@ -86,6 +93,8 @@ export interface ResolvedConfig {
   thinking: string;
   /** Concrete timeout in milliseconds. */
   timeoutMs: number;
+  /** Per-tool stall timeout in milliseconds. 0 = disabled. */
+  toolStallTimeoutMs: number;
 }
 
 // ── Runner Config (full config for a single run) ─────────────
