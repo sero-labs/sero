@@ -1,13 +1,17 @@
 /**
  * ResearchApp — Sero web UI for the multi-agent research orchestrator.
  *
- * Shows research progress: active workstreams, line counts, status, and history.
+ * Shows research progress: active workstreams, section detail, and history.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useState, useCallback, useContext } from 'react';
 import { useAppState, useAgentPrompt } from '@sero/app-runtime';
+import { AppContext } from '@sero/app-runtime';
 import type { ResearchState, ResearchSession, ResearchAgent, AgentStatus } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
+import { useResearchActivity, type AgentActivity } from './useResearchActivity';
+import { AgentActivityPanel } from './AgentActivityPanel';
+import { IdleView } from './IdleView';
 
 // ── Styles ───────────────────────────────────────────────────
 
@@ -51,8 +55,12 @@ const CUSTOM_STYLES = `
   .rs-progress-bar { height: 3px; border-radius: 2px; background: var(--rs-bg-elevated); overflow: hidden; margin-top: 12px; }
   .rs-progress-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
 
-  .rs-agent-card { padding: 14px 16px; border-radius: 8px; transition: background 0.15s; margin-bottom: 2px; }
+  .rs-agent-card { padding: 14px 16px; border-radius: 8px; transition: background 0.15s; margin-bottom: 2px; cursor: pointer; user-select: none; }
   .rs-agent-card:hover { background: var(--rs-bg-elevated); }
+
+  .rs-section-list { padding: 0 16px 10px 56px; }
+  .rs-section-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; color: var(--rs-muted); }
+  .rs-section-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
   .rs-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
@@ -62,6 +70,12 @@ const CUSTOM_STYLES = `
   .rs-button.primary:hover:not(:disabled) { background: var(--rs-accent-hover); box-shadow: 0 0 20px var(--rs-accent-glow); }
   .rs-button.secondary { background: var(--rs-bg-elevated); color: var(--rs-muted); }
   .rs-button.secondary:hover:not(:disabled) { color: var(--rs-text); }
+  .rs-button.danger { background: rgba(248, 113, 113, 0.12); color: var(--rs-danger); }
+  .rs-button.danger:hover:not(:disabled) { background: rgba(248, 113, 113, 0.2); }
+
+  .rs-input { flex: 1; border: 1px solid var(--rs-border); border-radius: 8px; padding: 8px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; background: var(--rs-bg-elevated); color: var(--rs-text); outline: none; transition: border-color 0.15s; }
+  .rs-input::placeholder { color: var(--rs-dim); }
+  .rs-input:focus { border-color: var(--rs-accent); }
 
   .rs-empty-orb { width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, var(--rs-accent) 0%, transparent 70%); opacity: 0.15; animation: rs-pulse 3s ease-in-out infinite; }
   @keyframes rs-pulse {
@@ -77,20 +91,60 @@ const CUSTOM_STYLES = `
 // ── Main Component ─────────────────────────────────────────
 
 export function ResearchApp() {
-  const [state] = useAppState<ResearchState>(DEFAULT_STATE);
+  const [state, updateState] = useAppState<ResearchState>(DEFAULT_STATE);
   const prompt = useAgentPrompt();
+  const ctx = useContext(AppContext);
+  const workspaceId = ctx?.workspaceId ?? '';
 
-  const startResearch = useCallback(() => {
-    prompt('/research');
+  // Track live subagent activity for running research agents
+  const agentActivity = useResearchActivity(
+    state.current?.agents ?? [],
+    workspaceId,
+  );
+
+  const startResearch = useCallback((question: string) => {
+    prompt(`/research ${question}`);
   }, [prompt]);
 
-  const checkStatus = useCallback(() => {
-    prompt('Check the status of the current research using the research tool with action "status".');
+  const approveResearch = useCallback(() => {
+    prompt(
+      'Approve the research plan and begin. Call research(action: "approve") ' +
+      'then follow the returned instructions to launch all agents in parallel using the subagent tool.',
+    );
   }, [prompt]);
 
   const cancelResearch = useCallback(() => {
-    prompt('Cancel the current research using the research tool with action "cancel".');
-  }, [prompt]);
+    // Immediate UI update — don't wait for agent to process
+    updateState((prev) => {
+      if (!prev.current) return prev;
+      return {
+        ...prev,
+        history: [{
+          question: prev.current.question,
+          outputDir: prev.current.outputDir,
+          agentCount: prev.current.agents.length,
+          completedAt: new Date().toISOString(),
+        }, ...prev.history],
+        current: null,
+      };
+    });
+  }, [updateState]);
+
+  const dismissResearch = useCallback(() => {
+    updateState((prev) => {
+      if (!prev.current) return prev;
+      return {
+        ...prev,
+        history: [{
+          question: prev.current.question,
+          outputDir: prev.current.outputDir,
+          agentCount: prev.current.agents.length,
+          completedAt: prev.current.completedAt || new Date().toISOString(),
+        }, ...prev.history],
+        current: null,
+      };
+    });
+  }, [updateState]);
 
   return (
     <>
@@ -98,7 +152,13 @@ export function ResearchApp() {
       <div className="rs-root" style={{ display: 'flex', height: '100%', width: '100%', flexDirection: 'column', overflow: 'hidden', padding: 24 }}>
         <div className="rs-card" style={{ display: 'flex', flex: '1 1 0%', flexDirection: 'column', overflow: 'hidden' }}>
           {state.current ? (
-            <ActiveResearch session={state.current} onCheckStatus={checkStatus} onCancel={cancelResearch} />
+            <ActiveResearch
+              session={state.current}
+              agentActivity={agentActivity}
+              onApprove={approveResearch}
+              onCancel={cancelResearch}
+              onDismiss={dismissResearch}
+            />
           ) : (
             <IdleView onStart={startResearch} history={state.history} />
           )}
@@ -110,12 +170,17 @@ export function ResearchApp() {
 
 // ── Active Research View ───────────────────────────────────
 
-function ActiveResearch({ session, onCheckStatus, onCancel }: {
+function ActiveResearch({ session, agentActivity, onApprove, onCancel, onDismiss }: {
   session: ResearchSession;
-  onCheckStatus: () => void;
+  agentActivity: Map<string, AgentActivity>;
+  onApprove: () => void;
   onCancel: () => void;
+  onDismiss: () => void;
 }) {
-  const completed = session.agents.filter((a) => a.status === 'complete').length;
+  // Count completions using effective status (live subagent data)
+  const completed = session.agents.filter((a) =>
+    deriveEffectiveStatus(a.status, agentActivity.get(a.name)) === 'complete',
+  ).length;
   const total = session.agents.length;
   const progress = total > 0 ? (completed / total) * 100 : 0;
 
@@ -125,15 +190,17 @@ function ActiveResearch({ session, onCheckStatus, onCancel }: {
       <div style={{ flex: '1 1 0%', overflowY: 'auto', padding: '8px 20px' }}>
         <div className="rs-animate-in">
           {session.agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
+            <AgentCard key={agent.id} agent={agent} activity={agentActivity.get(agent.name)} />
           ))}
           {session.phase === 'synthesizing' && <SynthesisCard />}
         </div>
       </div>
-      <ActionBar phase={session.phase} onCheckStatus={onCheckStatus} onCancel={onCancel} />
+      <ActionBar phase={session.phase} onApprove={onApprove} onCancel={onCancel} onDismiss={onDismiss} />
     </>
   );
 }
+
+// ── Header ─────────────────────────────────────────────────
 
 function Header({ session, completed, total, progress }: {
   session: ResearchSession; completed: number; total: number; progress: number;
@@ -174,40 +241,77 @@ function Header({ session, completed, total, progress }: {
   );
 }
 
-function AgentCard({ agent }: { agent: ResearchAgent }) {
-  const icon = statusIconChar(agent.status);
-  const statusColor = statusColorVar(agent.status);
+// ── Agent Card (expandable sections) ───────────────────────
+
+function AgentCard({ agent, activity }: { agent: ResearchAgent; activity?: AgentActivity }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Derive effective status: prefer live subagent status over stale state file
+  const effectiveStatus: AgentStatus = deriveEffectiveStatus(agent.status, activity);
+  const isRunning = effectiveStatus === 'running';
+
+  const icon = statusIconChar(effectiveStatus);
+  const statusColor = statusColorVar(effectiveStatus);
 
   return (
-    <div className="rs-agent-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{
-        width: 28, height: 28, borderRadius: 8,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, flexShrink: 0,
-        background: `${statusColor}18`,
-        border: `1.5px solid ${statusColor}40`,
-      }}>
-        {agent.status === 'running' ? <Spinner size={14} /> : icon}
-      </div>
-      <div style={{ flex: '1 1 0%', minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--rs-text)' }}>
-          Agent {agent.id}: {agent.name}
+    <div>
+      <div className="rs-agent-card" style={{ display: 'flex', alignItems: 'center', gap: 12 }} onClick={() => setExpanded(!expanded)}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 14, flexShrink: 0,
+          background: `${statusColor}18`,
+          border: `1.5px solid ${statusColor}40`,
+        }}>
+          {isRunning ? <Spinner size={14} /> : icon}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--rs-muted)', marginTop: 2 }}>
-          {agent.sections.length} sections
-          {agent.lineCount > 0 && ` · ${agent.lineCount} lines`}
-          {agent.status === 'stuck' && ' · ⚠️ Stuck'}
+        <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--rs-text)' }}>
+            Agent {agent.id}: {agent.name}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--rs-muted)', marginTop: 2 }}>
+            {agent.sections.length} sections
+            {agent.lineCount > 0 && ` · ${agent.lineCount} lines`}
+            {effectiveStatus === 'stuck' && ' · ⚠️ Stuck'}
+          </div>
         </div>
+        <span className="rs-badge" style={{ background: `${statusColor}18`, color: statusColor }}>
+          {effectiveStatus}
+        </span>
+        <Chevron expanded={expanded} />
       </div>
-      <span className="rs-badge" style={{
-        background: `${statusColor}18`,
-        color: statusColor,
-      }}>
-        {agent.status}
-      </span>
+
+      {expanded && (
+        <div className="rs-section-list">
+          {isRunning ? (
+            /* When running: show only the activity panel */
+            activity ? (
+              <AgentActivityPanel activity={activity} />
+            ) : (
+              <p style={{ fontSize: 11, color: 'var(--rs-dim)', padding: '4px 0', lineHeight: 1.4 }}>
+                Waiting for agent to start…
+              </p>
+            )
+          ) : (
+            /* When not running: show sections */
+            agent.sections.map((s, i) => (
+              <div key={i} className="rs-section-item">
+                <div className="rs-section-dot" style={{
+                  background: s.completed ? 'var(--rs-success)' : 'var(--rs-dim)',
+                }} />
+                <span style={s.completed ? { color: 'var(--rs-success)' } : undefined}>
+                  {s.title}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
+// ── Synthesis Card ─────────────────────────────────────────
 
 function SynthesisCard() {
   return (
@@ -234,6 +338,8 @@ function SynthesisCard() {
   );
 }
 
+// ── Phase Badge ────────────────────────────────────────────
+
 function PhaseBadge({ phase }: { phase: string }) {
   const config: Record<string, { label: string; bg: string; color: string }> = {
     idle: { label: 'Idle', bg: 'var(--rs-bg-elevated)', color: 'var(--rs-dim)' },
@@ -248,77 +354,63 @@ function PhaseBadge({ phase }: { phase: string }) {
   return <span className="rs-badge" style={{ background: bg, color }}>{label}</span>;
 }
 
-function ActionBar({ phase, onCheckStatus, onCancel }: {
-  phase: string; onCheckStatus: () => void; onCancel: () => void;
+// ── Action Bar ─────────────────────────────────────────────
+
+function ActionBar({ phase, onApprove, onCancel, onDismiss }: {
+  phase: string;
+  onApprove: () => void;
+  onCancel: () => void;
+  onDismiss: () => void;
 }) {
   return (
     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', borderTop: '1px solid var(--rs-border)' }}>
-      {(phase === 'researching' || phase === 'synthesizing') && (
+      {phase === 'awaiting_approval' && (
         <>
-          <button onClick={onCheckStatus} className="rs-button primary">Check Status</button>
+          <button onClick={onApprove} className="rs-button primary">Approve &amp; Launch</button>
           <button onClick={onCancel} className="rs-button secondary">Cancel</button>
         </>
       )}
-      {phase === 'awaiting_approval' && (
-        <span style={{ fontSize: 12, color: 'var(--rs-warning)' }}>
-          Approve the plan in the chat to begin research
-        </span>
+      {(phase === 'researching' || phase === 'synthesizing') && (
+        <button onClick={onCancel} className="rs-button danger">Cancel Research</button>
       )}
-      {phase === 'complete' && (
-        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--rs-success)' }}>
-          ✓ Research complete — check the output files
-        </span>
+      {(phase === 'complete' || phase === 'failed') && (
+        <>
+          {phase === 'complete' && (
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--rs-success)', marginRight: 'auto' }}>
+              ✓ Research complete — check the output files
+            </span>
+          )}
+          {phase === 'failed' && (
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--rs-danger)', marginRight: 'auto' }}>
+              Research failed or was cancelled
+            </span>
+          )}
+          <button onClick={onDismiss} className="rs-button secondary">Dismiss</button>
+        </>
       )}
     </div>
   );
 }
 
-// ── Idle View ───────────────────────────────────────────────
-
-function IdleView({ onStart, history }: {
-  onStart: () => void;
-  history: Array<{ question: string; outputDir: string; agentCount: number; completedAt: string }>;
-}) {
-  return (
-    <>
-      <div style={{ flex: '1 1 0%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', textAlign: 'center' }}>
-        <div className="rs-empty-orb rs-animate-in" style={{ marginBottom: 20 }} />
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: 'var(--rs-text)', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-          Multi-Agent Research
-        </h2>
-        <p style={{ margin: '8px 0 20px', maxWidth: 300, fontSize: 14, lineHeight: 1.6, color: 'var(--rs-muted)' }}>
-          Decompose any question into parallel workstreams. Multiple agents research simultaneously and synthesize results.
-        </p>
-        <button onClick={onStart} className="rs-button primary">Start Research</button>
-      </div>
-
-      {history.length > 0 && (
-        <div style={{ flexShrink: 0, borderTop: '1px solid var(--rs-border)', padding: '16px 20px' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--rs-dim)', marginBottom: 8 }}>
-            History
-          </div>
-          {history.slice(0, 5).map((entry, i) => (
-            <div key={i} style={{ fontSize: 13, color: 'var(--rs-muted)', padding: '6px 0', borderBottom: i < history.length - 1 ? '1px solid var(--rs-border)' : 'none' }}>
-              <div style={{ color: 'var(--rs-text)', fontWeight: 400 }}>
-                {entry.question.length > 70 ? entry.question.slice(0, 70) + '…' : entry.question}
-              </div>
-              <div style={{ fontSize: 11, marginTop: 2 }}>
-                {entry.agentCount} agents · {entry.outputDir}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
-
-// ── Icons ──────────────────────────────────────────────────
+// ── Icons & Utils ──────────────────────────────────────────
 
 function Spinner({ size = 14 }: { size?: number }) {
   return (
     <svg className="rs-spinner" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
       <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function Chevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      width={14} height={14} viewBox="0 0 24 24"
+      fill="none" stroke="var(--rs-dim)" strokeWidth={2}
+      strokeLinecap="round" strokeLinejoin="round"
+      style={{ transition: 'transform 0.15s', transform: expanded ? 'rotate(90deg)' : 'rotate(0)' }}
+    >
+      <path d="M9 18l6-6-6-6" />
     </svg>
   );
 }
@@ -341,6 +433,27 @@ function statusColorVar(status: AgentStatus): string {
     case 'complete': return 'var(--rs-success)';
     case 'failed': return 'var(--rs-danger)';
   }
+}
+
+/**
+ * Derive the effective agent status by combining the state file status
+ * with live subagent activity. The state file only updates on explicit
+ * status checks, so the subagent tracker is the source of truth for
+ * whether an agent has actually completed.
+ */
+function deriveEffectiveStatus(
+  stateStatus: AgentStatus,
+  activity?: AgentActivity,
+): AgentStatus {
+  if (!activity) return stateStatus;
+
+  // Map subagent statuses to research agent statuses
+  if (activity.status === 'completed') return 'complete';
+  if (activity.status === 'failed' || activity.status === 'timed_out') return 'failed';
+  if (activity.status === 'aborted') return 'failed';
+  if (activity.status === 'running' || activity.status === 'queued') return 'running';
+
+  return stateStatus;
 }
 
 export default ResearchApp;

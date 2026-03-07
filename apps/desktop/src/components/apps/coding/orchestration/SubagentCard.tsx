@@ -5,10 +5,11 @@
  * Matches the rounded-border card style from ToolCallGroup.
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronRight, Loader2, CheckCircle2, XCircle, AlertCircle, Clock } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { ChevronRight, Loader2, CheckCircle2, XCircle, AlertCircle, Clock, Square } from 'lucide-react';
 import { cn } from '@sero/ui/lib/utils';
 import type { SubagentEntry, SubagentToolActivity } from '@/types/ipc';
+import { useSubagentStore } from '@/stores/subagent';
 import { SubagentOutput } from './SubagentOutput';
 
 interface SubagentCardProps {
@@ -131,10 +132,14 @@ function LiveOutputPreview({ text }: { text: string }) {
 
 // ── Main Card ───────────────────────────────────────────────
 
+/** Threshold (ms) after which a running card shows a "may be stalled" hint. */
+const STALL_HINT_MS = 90_000;
+
 export function SubagentCard({ entry }: SubagentCardProps) {
   const isRunning = entry.status === 'running' || entry.status === 'queued';
   const isFailed = entry.status === 'failed' || entry.status === 'timed_out';
   const isAborted = entry.status === 'aborted';
+  const abort = useSubagentStore((s) => s.abort);
 
   // Ticking elapsed timer
   const [elapsed, setElapsed] = useState(entry.durationMs ?? 0);
@@ -148,6 +153,15 @@ export function SubagentCard({ entry }: SubagentCardProps) {
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [isRunning, entry.startedAt, entry.durationMs]);
+
+  // Stall hint: show when running and a tool has been active for a while
+  const mayBeStalled = isRunning
+    && elapsed > STALL_HINT_MS
+    && entry.toolActivity.some((t) => t.running);
+
+  const handleAbort = useCallback(() => {
+    abort(entry.id);
+  }, [abort, entry.id]);
 
   // Expand/collapse state
   const [expanded, setExpanded] = useState(false);
@@ -191,6 +205,21 @@ export function SubagentCard({ entry }: SubagentCardProps) {
             <span className="text-emerald-500">{formatCost(entry.usage.cost)}</span>
           )}
         </div>
+        {/* Stop button (running only) */}
+        {isRunning && (
+          <button
+            onClick={handleAbort}
+            className={cn(
+              'ml-1 flex items-center justify-center rounded p-1 transition-colors',
+              mayBeStalled
+                ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-red-400',
+            )}
+            title={mayBeStalled ? 'Stop — tool appears stalled' : 'Stop subagent'}
+          >
+            <Square className="size-3 fill-current" />
+          </button>
+        )}
       </div>
 
       {/* ── Task preview ───────────────────────────────── */}
@@ -202,6 +231,16 @@ export function SubagentCard({ entry }: SubagentCardProps) {
       {isRunning && entry.toolActivity.length > 0 && (
         <div className="px-3 pb-1">
           <ToolActivityFeed activity={entry.toolActivity} />
+        </div>
+      )}
+
+      {/* ── Stall warning ──────────────────────────────── */}
+      {mayBeStalled && (
+        <div className="flex items-center gap-1.5 border-t border-yellow-500/20 bg-yellow-500/[0.05] px-3 py-1">
+          <AlertCircle className="size-3 shrink-0 text-yellow-500" />
+          <span className="text-[10px] text-yellow-400">
+            Tool may be stalled — stop or wait for auto-timeout
+          </span>
         </div>
       )}
 

@@ -95,12 +95,12 @@ If an agent gets stuck (line count unchanged for 2+ check-ins):
 
 When ALL research agents are complete:
 1. Read all agent output files
-2. Launch a synthesis agent using the **subagent** tool:
+2. Launch the synthesis using **exactly** this subagent call. You MUST use agent `"research-analyst"` — do NOT use `"researcher"` or any other agent:
 
 ```
 subagent({
-  task: "Read the research outputs and synthesize...",
-  systemPrompt: "[synthesis prompt]"
+  agent: "research-analyst",
+  task: "Read the research outputs at [file paths] and create a synthesis document at [output dir]/synthesis.md"
 })
 ```
 
@@ -118,8 +118,9 @@ Call `research({ action: "status" })` one final time to mark the session complet
 ## Key Rules
 
 1. **Always show the plan before launching** — never skip user approval
-2. **Write-after-every-search** — agents that research without writing get stuck
-3. **Kill and relaunch stuck agents** — don't wait for self-correction
-4. **Skeleton files first** — create output files with headers before launch
-5. **Non-overlapping workstreams** — each agent covers a distinct aspect
+2. **Auto-synthesize** — when all research agents complete, launch the synthesis agent IMMEDIATELY without asking the user. The entire pipeline (research → synthesis) is automatic after approval.
+3. **Write-after-every-search** — agents that research without writing get stuck
+4. **Kill and relaunch stuck agents** — don't wait for self-correction
+5. **Skeleton files first** — create output files with headers before launch
+6. **Non-overlapping workstreams** — each agent covers a distinct aspect
 6. **Cite everything** — every claim must have an inline source URL

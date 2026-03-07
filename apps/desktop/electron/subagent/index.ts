@@ -75,6 +75,7 @@ export class SubagentManager {
       maxConcurrent: settings?.maxConcurrent ?? 4,
       maxTotal: settings?.maxTotal ?? 8,
       timeoutMs: settings?.timeoutMs ?? 600_000,
+      toolStallTimeoutMs: settings?.toolStallTimeoutMs ?? 120_000,
       model: settings?.model ?? null,
       thinking: settings?.thinking ?? null,
       blockedExtensions: settings?.blockedExtensions ?? [],

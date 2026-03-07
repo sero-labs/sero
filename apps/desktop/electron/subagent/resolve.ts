@@ -21,6 +21,7 @@ const HARDCODED_DEFAULTS = {
   model: 'claude-sonnet-4-6',
   thinking: 'high',
   timeoutMs: 600_000,
+  toolStallTimeoutMs: 120_000,
 } as const;
 
 export interface SessionDefaults {
@@ -38,7 +39,7 @@ export function resolveConfig(
   taskOverride?: TaskOverride,
   callOverride?: TaskOverride,
   agentConfig?: Pick<AgentConfig, 'model' | 'thinking' | 'timeoutMs'>,
-  settings?: Pick<SubagentSettings, 'model' | 'thinking' | 'timeoutMs'>,
+  settings?: Pick<SubagentSettings, 'model' | 'thinking' | 'timeoutMs' | 'toolStallTimeoutMs'>,
   sessionDefaults?: SessionDefaults,
 ): ResolvedConfig {
   const model = firstDefined(
@@ -67,7 +68,9 @@ export function resolveConfig(
     HARDCODED_DEFAULTS.timeoutMs,
   );
 
-  return { model, thinking, timeoutMs };
+  const toolStallTimeoutMs = settings?.toolStallTimeoutMs ?? HARDCODED_DEFAULTS.toolStallTimeoutMs;
+
+  return { model, thinking, timeoutMs, toolStallTimeoutMs };
 }
 
 /**

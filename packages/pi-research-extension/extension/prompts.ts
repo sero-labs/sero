@@ -19,9 +19,37 @@ Your Workstream: "${agent.name}"
 ## Sections to Cover
 ${sectionList}
 
+Tavily web search and information gathering tools are available (tavily-ai-skills).
+Use them strategically to find high-quality information. Here are the key skills at your disposal:
+
+*search* - Search the web using Tavily's API
+- Returns relevant results with content snippets, scores, and metadata
+- Best for finding web content on any topic
+- No coding required
+
+*research* - AI-synthesized research on any topic
+- Provides comprehensive results with citations
+- Supports structured JSON output for pipelines
+- Grounded in web data
+- Best for deep-dive research questions
+
+*extract* - Extract content from specific URLs
+- Returns clean markdown/text from web pages
+- Use when you have specific URLs and need their content
+- Better than search when you know exactly where to look
+
+*crawl* - Crawl websites and save as local markdown
+- Download documentation, knowledge bases, or web content
+- Saves pages locally for offline access or analysis
+- Best for systematically capturing entire websites
+
+*tavily-best-practices* - Production-ready Tavily integration guide
+- Reference for building agentic workflows, RAG systems, or autonomous agents
+- Best practices for web search, extraction, crawling, and research
+
 ## CRITICAL: Write Protocol
 You MUST follow this strict alternating pattern:
-1. Search for information (web search, read sources)
+1. Search for information (web search using Tavily skill, read sources)
 2. IMMEDIATELY write findings to your output file
 3. Search again
 4. IMMEDIATELY write again

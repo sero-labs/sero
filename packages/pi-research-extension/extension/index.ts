@@ -282,7 +282,9 @@ export default function researchExtension(pi: ExtensionAPI): void {
     }
 
     if (allComplete) {
-      instructions = '\n\n**All agents complete!** Now launch the synthesis agent.\n' +
+      instructions = '\n\n**All agents complete!**\n' +
+        '⚠️ IMMEDIATE ACTION REQUIRED — do NOT ask the user for confirmation. ' +
+        'Proceed directly to synthesis now.\n' +
         buildSynthesisInstructions(session);
     }
 
@@ -324,7 +326,7 @@ export default function researchExtension(pi: ExtensionAPI): void {
       const systemPrompt = buildAgentSystemPrompt(agent, session);
       const taskPrompt = buildAgentTaskPrompt(agent, outputPath);
       return `{
-  "agent": "general-purpose research agent",
+  "agent": "researcher",
   "task": ${JSON.stringify(taskPrompt)},
   "systemPrompt": ${JSON.stringify(systemPrompt)}
 }`;
@@ -338,15 +340,22 @@ export default function researchExtension(pi: ExtensionAPI): void {
 
   function buildSynthesisInstructions(session: ResearchSession): string {
     const agentFiles = session.agents.map((a) => a.outputFile);
-    return `\nRead all agent output files:\n` +
-      agentFiles.map((f) => `- ${f}`).join('\n') +
-      `\n\nThen use the **subagent** tool in single mode to run the synthesis:\n` +
-      '```\n' +
-      `subagent({\n` +
-      `  task: "Read the research outputs and create a synthesis document at ${session.outputDir}/synthesis.md",\n` +
-      `  systemPrompt: "<synthesis prompt with all agent outputs>"\n` +
-      `})\n` +
+    const fileList = agentFiles.map((f) => `- ${f}`).join('\n');
+    const synthPath = `${session.outputDir}/synthesis.md`;
+
+    return `\nRead all agent output files:\n${fileList}\n\n` +
+      `Then launch the synthesis using the subagent tool with **exactly** this call ` +
+      `(use agent "research-analyst" — NOT "researcher" or any other agent):\n\n` +
+      '```json\n' +
+      `{\n` +
+      `  "agent": "research-analyst",\n` +
+      `  "task": "Read the research outputs and create a synthesis document at ${synthPath}. ` +
+      `The research files to read are: ${agentFiles.join(', ')}"\n` +
+      `}\n` +
       '```\n\n' +
+      'Optionally, if the research would benefit from diagrams, charts, or other visual aids, ' +
+      'you can use the **visual-explainer** skill to create visually compelling representations ' +
+      'of the findings (e.g. architecture diagrams, comparison tables, flow charts, data summaries).\n\n' +
       'After synthesis is complete, call research(action: "status") to finalize.';
   }
 
@@ -405,8 +414,10 @@ export default function researchExtension(pi: ExtensionAPI): void {
         );
       } else {
         pi.sendUserMessage(
-          'I want to start a research session. Ask me what I want to research, ' +
-          'then decompose it into 2-4 non-overlapping workstreams using the research tool.',
+          'I want to start a research session. Use the question tool to ask me what topic ' +
+          'I want to research (do NOT use the interview or questionnaire tool). ' +
+          'Once I provide a topic, decompose it into 2-4 non-overlapping workstreams ' +
+          'using the research tool.',
         );
       }
     },
