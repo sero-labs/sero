@@ -14,6 +14,9 @@ import type {
 
 // ── Store ────────────────────────────────────────────────────
 
+/** Terminal statuses that count as "done". */
+const TERMINAL_STATUSES = new Set(['completed', 'failed', 'aborted', 'timed_out']);
+
 interface SubagentState {
   /** All entries keyed by run ID. */
   entries: Record<string, SubagentEntry>;
@@ -27,6 +30,9 @@ interface SubagentState {
 
   /** Abort a specific subagent. */
   abort(subagentId: string): Promise<void>;
+
+  /** Remove all finished entries for a workspace. */
+  clearCompleted(workspaceId: string): void;
 
   /** Initialize IPC event listeners. Returns cleanup function. */
   initListeners(): () => void;
@@ -54,6 +60,19 @@ export const useSubagentStore = create<SubagentState>((set, get) => ({
 
   async abort(subagentId: string) {
     await window.sero.subagent.abort(subagentId);
+  },
+
+  clearCompleted(workspaceId: string) {
+    set((state) => {
+      const next: Record<string, SubagentEntry> = {};
+      for (const [id, entry] of Object.entries(state.entries)) {
+        if (entry.workspaceId === workspaceId && TERMINAL_STATUSES.has(entry.status)) {
+          continue; // drop it
+        }
+        next[id] = entry;
+      }
+      return { entries: next };
+    });
   },
 
   initListeners() {
