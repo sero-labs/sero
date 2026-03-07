@@ -71,7 +71,9 @@ export function CollaborationStatusBanner() {
 
   if (status === 'idle' || status === 'complete') return null;
 
-  const completedCount = specialists.length;
+  // Phase 2 runs analyst + visionary (2 agents). The researcher from phase 1
+  // is already in the list, so subtract 1 to get the phase-2 completion count.
+  const phase2Completed = Math.max(0, specialists.length - 1);
 
   return (
     <div className="mx-3 mb-2 flex items-center gap-2 rounded-md bg-violet-500/10 px-3 py-2 text-xs text-violet-600 dark:text-violet-400">
@@ -80,7 +82,7 @@ export function CollaborationStatusBanner() {
         <span>4-Agent Collaboration: Researcher gathering facts...</span>
       )}
       {status === 'specialists' && (
-        <span>4-Agent Collaboration: Analyst &amp; Visionary analyzing research ({completedCount}/3 complete)...</span>
+        <span>4-Agent Collaboration: Research ✓ — Analyst &amp; Visionary analyzing ({phase2Completed}/2 complete)...</span>
       )}
       {status === 'synthesis' && (
         <span>4-Agent Collaboration: Coordinator synthesizing final response...</span>

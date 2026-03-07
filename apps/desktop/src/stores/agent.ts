@@ -106,6 +106,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       });
     }
   },
+
   closeSession: async (sessionId) => {
     try {
       await window.sero.agent.close(sessionId);
@@ -121,6 +122,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       };
     });
   },
+
   sendPrompt: async (sessionId, text, attachments) => {
     const agent = get().agents[sessionId];
     if (!agent) return;
@@ -163,6 +165,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       }));
     }
   },
+
   steerAgent: async (sessionId, text) => {
     const agent = get().agents[sessionId];
     if (!agent) return;
@@ -194,6 +197,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       }));
     }
   },
+
   abort: async (sessionId) => {
     try {
       await window.sero.agent.abort(sessionId);
@@ -201,12 +205,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       console.error('[agent] abort failed:', err);
     }
   },
+
   focusSession: (sessionId) =>
     set((s) => ({
       focusedSessionId: sessionId,
       collaborations: resetCollaborationSession(s.collaborations, sessionId),
     })),
+
   clearFocus: () => set({ focusedSessionId: null }),
+
   reloadResources: async (sessionId) => {
     try {
       const commands = await window.sero.agent.reloadResources(sessionId);
@@ -224,6 +231,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       console.error('[agent] reloadResources failed:', err);
     }
   },
+
   setModel: async (sessionId, provider, modelId) => {
     try {
       const state = await window.sero.agent.setModel(sessionId, provider, modelId);
@@ -236,6 +244,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       console.error('[agent] setModel failed:', err);
     }
   },
+
   setThinkingLevel: async (sessionId, level) => {
     try {
       const state = await window.sero.agent.setThinkingLevel(sessionId, level);
@@ -298,9 +307,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       // back via the normal agent event channel (message_start, text_delta,
       // message_end), so the conversation is fully persisted and follow-ups
       // have context. We do NOT manually add the assistant message here.
-      await window.sero.collaboration.prompt(
-        sessionId, agent.workspaceId, text, userMessageId,
-      );
+      await window.sero.collaboration.prompt(sessionId, agent.workspaceId, text);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Collaboration failed';
       set((s) => ({

@@ -6,8 +6,8 @@
  * agent names and provides the Coordinator's synthesis prompt builder.
  */
 
-/** Role identifiers for the four collaboration agents. */
-export type CollaborationRole = 'coordinator' | 'researcher' | 'analyst' | 'visionary';
+import type { CollaborationRole } from '../../src/types/collaboration';
+export type { CollaborationRole } from '../../src/types/collaboration';
 
 /**
  * Map of collaboration role → discovered agent name (from .md frontmatter).

@@ -30,6 +30,6 @@ export type CollaborationEvent =
   | { type: 'collab_start'; sessionId: string }
   | { type: 'collab_phase'; sessionId: string; phase: 'research' | 'specialists' | 'synthesis' }
   | { type: 'collab_specialist_start'; sessionId: string; role: CollaborationRole; agentName: string }
-  | { type: 'collab_specialist_end'; sessionId: string; role: CollaborationRole; agentName: string; response: string; error?: string }
+  | { type: 'collab_specialist_end'; sessionId: string; role: CollaborationRole; agentName: string; response: string; durationMs: number; error?: string }
   | { type: 'collab_end'; sessionId: string; result: CollaborationResult }
   | { type: 'collab_error'; sessionId: string; error: string };

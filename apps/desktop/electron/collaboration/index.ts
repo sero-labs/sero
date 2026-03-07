@@ -19,25 +19,9 @@ import {
   PARALLEL_SPECIALIST_ROLES,
   ROLE_AGENT_NAMES,
   buildCoordinatorSynthesisPrompt,
-  type CollaborationRole,
 } from './agents';
-
-export interface CollaborationResult {
-  /** The final synthesized response from the Coordinator. */
-  finalResponse: string;
-  /** Individual specialist outputs for transparency. */
-  specialistOutputs: {
-    role: CollaborationRole;
-    agentName: string;
-    response: string;
-    error?: string;
-    durationMs: number;
-  }[];
-  /** Total duration including synthesis. */
-  totalDurationMs: number;
-  /** Whether any specialist failed. */
-  hasErrors: boolean;
-}
+import type { CollaborationRole, CollaborationResult } from '../../src/types/collaboration';
+export type { CollaborationResult } from '../../src/types/collaboration';
 
 export interface CollaborationCallbacks {
   /** Called when each phase starts. */
@@ -45,7 +29,7 @@ export interface CollaborationCallbacks {
   /** Called when a specialist starts. */
   onSpecialistStart?: (role: CollaborationRole, agentName: string) => void;
   /** Called when a specialist completes. */
-  onSpecialistEnd?: (role: CollaborationRole, agentName: string, response: string, error?: string) => void;
+  onSpecialistEnd?: (role: CollaborationRole, agentName: string, response: string, durationMs: number, error?: string) => void;
   /** General status updates. */
   onUpdate?: (text: string) => void;
 }
@@ -75,7 +59,7 @@ async function runSpecialist(
   });
 
   const durationMs = Date.now() - specStart;
-  callbacks?.onSpecialistEnd?.(role, agentName, result.response, result.error);
+  callbacks?.onSpecialistEnd?.(role, agentName, result.response, durationMs, result.error);
 
   return {
     role,

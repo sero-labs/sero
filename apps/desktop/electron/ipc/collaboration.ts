@@ -91,7 +91,6 @@ export function registerCollaborationHandlers(): void {
       sessionId: string,
       workspaceId: string,
       query: string,
-      clientMessageId?: string,
     ) => {
       if (!subagentManager.isInitialized) {
         sendCollabEvent({ type: 'collab_error', sessionId, error: 'Subagent system not initialized' });
@@ -125,8 +124,8 @@ export function registerCollaborationHandlers(): void {
             onSpecialistStart: (role, agentName) => {
               sendCollabEvent({ type: 'collab_specialist_start', sessionId, role, agentName });
             },
-            onSpecialistEnd: (role, agentName, response, error) => {
-              sendCollabEvent({ type: 'collab_specialist_end', sessionId, role, agentName, response, error });
+            onSpecialistEnd: (role, agentName, response, durationMs, error) => {
+              sendCollabEvent({ type: 'collab_specialist_end', sessionId, role, agentName, response, durationMs, error });
             },
           },
         );

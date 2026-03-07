@@ -131,7 +131,7 @@ export function applyCollaborationEvent(
               agentName: event.agentName,
               response: event.response,
               error: event.error,
-              durationMs: 0,
+              durationMs: event.durationMs,
             },
           ],
         },
@@ -155,7 +155,15 @@ export function applyCollaborationEvent(
           status: 'error',
         },
       };
-  }
 
-  return collaborations;
+    case 'collab_specialist_start':
+      // No state change needed — specialist progress is tracked via collab_specialist_end.
+      return collaborations;
+
+    default: {
+      // Exhaustive check — ensures all event types are handled at compile time.
+      const _exhaustive: never = event;
+      return collaborations;
+    }
+  }
 }

@@ -11,11 +11,9 @@ import type {
   SubagentEvent,
   SubagentAgentSummary,
 } from '@/types/ipc';
+import { TERMINAL_STATUSES } from './subagent-constants';
 
 // ── Store ────────────────────────────────────────────────────
-
-/** Terminal statuses that count as "done". */
-const TERMINAL_STATUSES = new Set(['completed', 'failed', 'aborted', 'timed_out']);
 
 interface SubagentState {
   /** All entries keyed by run ID. */

@@ -8,11 +8,10 @@
 import { useEffect, useMemo, useCallback } from 'react';
 import { Network, X } from 'lucide-react';
 import { useSubagentStore } from '@/stores/subagent';
+import { TERMINAL_STATUSES } from '@/stores/subagent-constants';
 import { SubagentList } from './SubagentList';
 import { SubagentSummary } from './SubagentSummary';
 import type { SubagentEntry } from '@/types/ipc';
-
-const TERMINAL_STATUSES = new Set(['completed', 'failed', 'aborted', 'timed_out']);
 
 const STATUS_SORT_ORDER: Record<string, number> = {
   running: 0,
