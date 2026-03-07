@@ -34,6 +34,8 @@ import type {
   SkillFileData,
   PromptTemplateSummary,
   PromptTemplateFileData,
+  CollaborationResult,
+  CollaborationEvent,
 } from './ipc';
 import type {
   VcsCheckpoint,
@@ -479,6 +481,13 @@ interface SeroPromptsAPI {
   deletePrompt(filePath: string): Promise<void>;
 }
 
+interface SeroCollaborationAPI {
+  /** Send a prompt through the 4-agent collaboration framework. */
+  prompt(sessionId: string, workspaceId: string, query: string): Promise<CollaborationResult>;
+  /** Subscribe to collaboration lifecycle events. Returns unsubscribe. */
+  onEvent(callback: (event: CollaborationEvent) => void): () => void;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -486,6 +495,7 @@ interface SeroAPI {
   workspace: SeroWorkspaceAPI;
   sessions: SeroSessionsAPI;
   agent: SeroAgentAPI;
+  collaboration: SeroCollaborationAPI;
   appState: SeroAppStateAPI;
   apps: SeroAppsAPI;
   appAgent: SeroAppAgentAPI;

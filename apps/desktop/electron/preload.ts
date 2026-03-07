@@ -469,6 +469,21 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.feedback.remove, messageId),
   },
 
+  collaboration: {
+    prompt: (sessionId: string, workspaceId: string, query: string): Promise<unknown> =>
+      ipcRenderer.invoke(IpcChannels.collaboration.prompt, sessionId, workspaceId, query),
+
+    onEvent: (callback: (event: import('../src/types/collaboration').CollaborationEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: import('../src/types/collaboration').CollaborationEvent) => {
+        callback(data);
+      };
+      ipcRenderer.on(IpcChannels.collaboration.event, handler);
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.collaboration.event, handler);
+      };
+    },
+  },
+
   subagent: subagentBridge,
   skills: skillsBridge,
   prompts: promptsBridge,

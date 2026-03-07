@@ -22,6 +22,8 @@ interface UseChatPromptInputOptions {
   isStreaming: boolean;
   focusedWorkspaceId: string | null;
   sendPrompt: (sessionId: string, text: string, attachments?: ChatAttachment[]) => void;
+  sendCollaborationPrompt: (sessionId: string, text: string) => void;
+  collaborationMode: boolean;
   steerAgent: (sessionId: string, text: string) => void;
   messageQueue: { enqueue: (text: string, attachments?: ChatAttachment[]) => void };
   onLoginRequest: (mode: 'login' | 'logout') => void;
@@ -32,6 +34,8 @@ export function useChatPromptInput({
   isStreaming,
   focusedWorkspaceId,
   sendPrompt,
+  sendCollaborationPrompt,
+  collaborationMode,
   steerAgent,
   messageQueue,
   onLoginRequest,
@@ -166,9 +170,15 @@ export function useChatPromptInput({
       }
 
       modifierRef.current = false;
-      sendPrompt(sessionId, text, attachments);
+
+      // Route through 4-agent collaboration framework when enabled
+      if (collaborationMode && !attachments?.length) {
+        sendCollaborationPrompt(sessionId, text);
+      } else {
+        sendPrompt(sessionId, text, attachments);
+      }
     },
-    [input, sessionId, slashMenuOpen, fileMenuOpen, isStreaming, sendPrompt, steerAgent, messageQueue, onLoginRequest],
+    [input, sessionId, slashMenuOpen, fileMenuOpen, isStreaming, sendPrompt, sendCollaborationPrompt, collaborationMode, steerAgent, messageQueue, onLoginRequest],
   );
 
   return {

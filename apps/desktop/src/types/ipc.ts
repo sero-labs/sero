@@ -477,6 +477,16 @@ export type {
   SubagentEvent,
 } from './subagent';
 
+// ── Collaboration Framework ────────────────────────────────────
+
+export type {
+  CollaborationRole,
+  CollaborationStatus,
+  CollaborationSpecialistOutput,
+  CollaborationResult,
+  CollaborationEvent,
+} from './collaboration';
+
 export type { SkillSource, SkillSummary, SkillFileData } from './skills';
 export type { PromptTemplateSummary, PromptTemplateFileData } from './prompts';
 

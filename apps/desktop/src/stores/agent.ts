@@ -8,6 +8,12 @@ import type {
   SessionModelState,
   ChatAssistantMessage,
 } from '@/types/ipc';
+import type {
+  CollaborationEvent,
+  CollaborationStatus,
+  CollaborationResult,
+  CollaborationSpecialistOutput,
+} from '@/types/collaboration';
 import { useSessionStore } from '@/stores/sessions';
 import { useContainerStore } from '@/stores/container';
 
@@ -54,6 +60,14 @@ interface AgentState {
   focusedSessionId: string | null;
   /** Whether to display thinking/reasoning blocks in the chat. */
   showThinkingBlocks: boolean;
+  /** Whether 4-agent collaboration mode is enabled. */
+  collaborationMode: boolean;
+  /** Current collaboration status for the focused session. */
+  collaborationStatus: CollaborationStatus;
+  /** Last collaboration result (specialist outputs for expandable display). */
+  collaborationResult: CollaborationResult | null;
+  /** Live specialist outputs as they complete (before final result). */
+  collaborationSpecialists: CollaborationSpecialistOutput[];
 
   // ── Actions ────────────────────────────────────────────────
 
@@ -81,9 +95,15 @@ interface AgentState {
   fetchModelState: (sessionId: string) => Promise<void>;
   /** Toggle visibility of thinking/reasoning blocks. */
   toggleThinkingBlocks: () => void;
+  /** Toggle 4-agent collaboration mode on/off. */
+  toggleCollaborationMode: () => void;
+  /** Send a prompt through the collaboration framework. */
+  sendCollaborationPrompt: (sessionId: string, text: string) => Promise<void>;
 
   /** Subscribe to main-process events. Returns cleanup function. */
   initEventListener: () => () => void;
+  /** Subscribe to collaboration events. Returns cleanup function. */
+  initCollaborationListener: () => () => void;
 }
 
 // ── Store ──────────────────────────────────────────────────────
@@ -92,6 +112,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   agents: {},
   focusedSessionId: null,
   showThinkingBlocks: false,
+  collaborationMode: false,
+  collaborationStatus: 'idle',
+  collaborationResult: null,
+  collaborationSpecialists: [],
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
     // If already fully initialized in pool, just focus it.
@@ -330,6 +354,74 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   toggleThinkingBlocks: () => set((s) => ({ showThinkingBlocks: !s.showThinkingBlocks })),
 
+  toggleCollaborationMode: () => set((s) => ({ collaborationMode: !s.collaborationMode })),
+
+  sendCollaborationPrompt: async (sessionId, text) => {
+    const agent = get().agents[sessionId];
+    if (!agent) return;
+
+    // Reset collaboration state
+    set({
+      collaborationStatus: 'specialists',
+      collaborationResult: null,
+      collaborationSpecialists: [],
+    });
+
+    // Optimistically add the user message
+    const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
+    set((s) => ({
+      agents: {
+        ...s.agents,
+        [sessionId]: {
+          ...s.agents[sessionId],
+          error: null,
+          isStreaming: true,
+          messages: [...s.agents[sessionId].messages, userMsg],
+        },
+      },
+    }));
+
+    try {
+      const result = await window.sero.collaboration.prompt(sessionId, agent.workspaceId, text);
+
+      // Add the synthesized response as an assistant message
+      const collabResult = result as CollaborationResult;
+      const assistantMsg: ChatMessage = {
+        type: 'assistant',
+        id: `collab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: collabResult.finalResponse,
+        isStreaming: false,
+      };
+
+      set((s) => ({
+        collaborationStatus: 'complete',
+        collaborationResult: collabResult,
+        agents: {
+          ...s.agents,
+          [sessionId]: {
+            ...s.agents[sessionId],
+            isStreaming: false,
+            messages: [...s.agents[sessionId].messages, assistantMsg],
+          },
+        },
+      }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Collaboration failed';
+      set((s) => ({
+        collaborationStatus: 'error',
+        agents: {
+          ...s.agents,
+          [sessionId]: {
+            ...s.agents[sessionId],
+            error: message,
+            isStreaming: false,
+          },
+        },
+      }));
+    }
+  },
+
   initEventListener: () => {
     const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
       const { agents } = get();
@@ -485,6 +577,39 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           break;
         case 'container_error':
           useContainerStore.getState().setError(event.workspaceId, event.error);
+          break;
+      }
+    });
+
+    return unsubscribe;
+  },
+
+  initCollaborationListener: () => {
+    const unsubscribe = window.sero.collaboration.onEvent((event: CollaborationEvent) => {
+      switch (event.type) {
+        case 'collab_start':
+          set({ collaborationStatus: 'specialists', collaborationSpecialists: [], collaborationResult: null });
+          break;
+
+        case 'collab_phase':
+          set({ collaborationStatus: event.phase === 'synthesis' ? 'synthesis' : 'specialists' });
+          break;
+
+        case 'collab_specialist_end':
+          set((s) => ({
+            collaborationSpecialists: [
+              ...s.collaborationSpecialists,
+              { role: event.role, agentName: event.agentName, response: event.response, error: event.error, durationMs: 0 },
+            ],
+          }));
+          break;
+
+        case 'collab_end':
+          set({ collaborationStatus: 'complete', collaborationResult: event.result });
+          break;
+
+        case 'collab_error':
+          set({ collaborationStatus: 'error' });
           break;
       }
     });

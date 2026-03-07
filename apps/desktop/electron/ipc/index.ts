@@ -37,6 +37,7 @@ import { registerModelsHandlers } from './models';
 import { registerSubagentHandlers } from './subagent';
 import { registerSkillHandlers } from './skills';
 import { registerPromptHandlers } from './prompts';
+import { registerCollaborationHandlers } from './collaboration';
 
 export function registerAllIpcHandlers(): void {
   registerWorkspaceHandlers();
@@ -70,4 +71,5 @@ export function registerAllIpcHandlers(): void {
   registerSubagentHandlers();
   registerSkillHandlers();
   registerPromptHandlers();
+  registerCollaborationHandlers();
 }

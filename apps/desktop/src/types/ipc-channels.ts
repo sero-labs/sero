@@ -350,6 +350,12 @@ export const IpcChannels = {
     /** Main → renderer push channel for artifact events. */
     event: 'sero:artifacts:event',
   },
+  collaboration: {
+    /** Send a prompt through the 4-agent collaboration framework. */
+    prompt: 'sero:collaboration:prompt',
+    /** Main → renderer push channel for collaboration lifecycle events. */
+    event: 'sero:collaboration:event',
+  },
   gateway: {
     /** Get gateway server status (running, port, clients). */
     getStatus: 'sero:gateway:get-status',

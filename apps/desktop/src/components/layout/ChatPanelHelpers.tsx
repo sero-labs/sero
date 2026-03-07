@@ -6,7 +6,7 @@
  * - EmptyState — placeholder when no session / no messages
  */
 
-import { Settings2, Brain, MessageSquare } from 'lucide-react';
+import { Settings2, Brain, MessageSquare, Users } from 'lucide-react';
 import {
   PromptInputActionMenuItem,
 } from '@sero/ui/components/ai-elements/prompt-input';
@@ -68,6 +68,30 @@ export function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
       )}
     >
       <Brain className="size-3.5" />
+    </button>
+  );
+}
+
+// ── Collaboration mode toggle ──────────────────────────────────
+
+export function CollaborationToggle({ disabled }: { disabled: boolean }) {
+  const isActive = useAgentStore((s) => s.collaborationMode);
+  const toggle = useAgentStore((s) => s.toggleCollaborationMode);
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={disabled}
+      title={isActive ? 'Disable 4-agent collaboration mode' : 'Enable 4-agent collaboration mode'}
+      className={cn(
+        'rounded-md p-1.5 transition-colors duration-150',
+        isActive
+          ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400'
+          : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+        'disabled:pointer-events-none disabled:opacity-40',
+      )}
+    >
+      <Users className="size-3.5" />
     </button>
   );
 }
