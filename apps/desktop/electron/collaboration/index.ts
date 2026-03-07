@@ -6,13 +6,15 @@
  * 2. Their outputs are collected
  * 3. The Coordinator synthesizes them into one unified response
  *
- * Leverages the existing SubagentManager for execution.
+ * Agents are discovered from .md files by the SubagentManager (same pattern
+ * as the kanban planning-executor and review-executor).
  */
 
-import { randomUUID } from 'crypto';
 import type { SubagentManager } from '../subagent';
 import {
-  SPECIALIST_AGENTS,
+  SPECIALIST_ROLES,
+  ROLE_AGENT_NAMES,
+  ROLE_LABELS,
   buildCoordinatorSynthesisPrompt,
   type CollaborationRole,
 } from './agents';
@@ -41,8 +43,6 @@ export interface CollaborationCallbacks {
   onSpecialistStart?: (role: CollaborationRole, agentName: string) => void;
   /** Called when a specialist completes. */
   onSpecialistEnd?: (role: CollaborationRole, agentName: string, response: string, error?: string) => void;
-  /** Called with live text deltas from the synthesis phase. */
-  onSynthesisDelta?: (delta: string) => void;
   /** General status updates. */
   onUpdate?: (text: string) => void;
 }
@@ -69,13 +69,16 @@ export async function runCollaboration(
   callbacks?.onUpdate?.('Starting 4-agent collaboration — running specialists in parallel...');
 
   const specialistResults = await Promise.allSettled(
-    SPECIALIST_AGENTS.map(async ({ role, agent }) => {
+    SPECIALIST_ROLES.map(async (role) => {
+      const agentName = ROLE_AGENT_NAMES[role];
+      const label = ROLE_LABELS[role];
       const specStart = Date.now();
-      callbacks?.onSpecialistStart?.(role, agent.name);
+
+      callbacks?.onSpecialistStart?.(role, agentName);
 
       const result = await manager.runSingleStructured({
+        agent: agentName,
         task: query,
-        systemPrompt: agent.systemPrompt,
         parentSessionId,
         workspaceId,
         onUpdate: callbacks?.onUpdate,
@@ -84,25 +87,26 @@ export async function runCollaboration(
       const durationMs = Date.now() - specStart;
       const output = {
         role,
-        agentName: agent.name,
+        agentName,
         response: result.response,
         error: result.error,
         durationMs,
       };
 
-      callbacks?.onSpecialistEnd?.(role, agent.name, result.response, result.error);
+      callbacks?.onSpecialistEnd?.(role, agentName, result.response, result.error);
       return output;
     }),
   );
 
-  // Collect results
-  for (const result of specialistResults) {
+  // Collect results, preserving role ordering
+  for (let i = 0; i < specialistResults.length; i++) {
+    const result = specialistResults[i];
     if (result.status === 'fulfilled') {
       specialistOutputs.push(result.value);
     } else {
       specialistOutputs.push({
-        role: 'researcher', // fallback — shouldn't happen
-        agentName: 'unknown',
+        role: SPECIALIST_ROLES[i],
+        agentName: ROLE_AGENT_NAMES[SPECIALIST_ROLES[i]],
         response: '',
         error: result.reason?.message ?? 'Unknown error',
         durationMs: 0,
@@ -120,6 +124,7 @@ export async function runCollaboration(
   callbacks?.onPhaseStart?.('synthesis');
   callbacks?.onUpdate?.('Specialists complete — Coordinator synthesizing final response...');
 
+  const coordinatorName = ROLE_AGENT_NAMES['coordinator'];
   const synthesisPrompt = buildCoordinatorSynthesisPrompt(
     query,
     researcherOutput?.response || '(Researcher failed to produce output)',
@@ -128,6 +133,7 @@ export async function runCollaboration(
   );
 
   const synthesisResult = await manager.runSingleStructured({
+    agent: coordinatorName,
     task: synthesisPrompt,
     parentSessionId,
     workspaceId,

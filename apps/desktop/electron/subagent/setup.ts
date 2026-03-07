@@ -2,11 +2,11 @@
  * First-launch agent template setup.
  *
  * Copies built-in agent templates to ~/.sero-ui/agent/agents/
- * if the directory is empty or doesn't exist. Preserves user edits
- * on subsequent launches.
+ * if they don't already exist. Preserves user edits — only copies
+ * templates whose filename is missing from the target directory.
  */
 
-import { readdir, copyFile, mkdir } from 'fs/promises';
+import { readdir, copyFile, mkdir, access } from 'fs/promises';
 import path from 'path';
 import { SERO_AGENT_DIR } from '../env';
 
@@ -25,23 +25,19 @@ function getTemplatesDir(): string {
 }
 
 /**
- * Copy default agent templates if the user's agents directory is empty.
+ * Copy default agent templates, adding any missing ones.
  *
- * Call once from electron/main.ts at startup. Fast no-op if agents exist.
+ * Call once from electron/main.ts at startup. Only copies templates
+ * whose filename doesn't already exist in the user's agents directory,
+ * so user edits are never overwritten.
  */
 export async function ensureDefaultAgents(): Promise<void> {
   try {
     // Ensure the directory exists
     await mkdir(AGENTS_DIR, { recursive: true });
 
-    // Check if there are any existing .md files
-    const existing = await readdir(AGENTS_DIR);
-    const hasMdFiles = existing.some((f) => f.endsWith('.md'));
-
-    if (hasMdFiles) {
-      console.log('[subagent/setup] Agents directory already has .md files, skipping copy');
-      return;
-    }
+    // Get existing files
+    const existing = new Set(await readdir(AGENTS_DIR));
 
     // Copy templates
     const templatesDir = getTemplatesDir();
@@ -54,14 +50,21 @@ export async function ensureDefaultAgents(): Promise<void> {
     }
 
     const mdFiles = templateFiles.filter((f) => f.endsWith('.md'));
+    let copied = 0;
+
     for (const file of mdFiles) {
+      if (existing.has(file)) continue; // Don't overwrite user edits
+
       const src = path.join(templatesDir, file);
       const dest = path.join(AGENTS_DIR, file);
       await copyFile(src, dest);
       console.log(`[subagent/setup] Copied template: ${file}`);
+      copied++;
     }
 
-    console.log(`[subagent/setup] Copied ${mdFiles.length} agent templates to ${AGENTS_DIR}`);
+    if (copied > 0) {
+      console.log(`[subagent/setup] Copied ${copied} new agent template(s) to ${AGENTS_DIR}`);
+    }
   } catch (err) {
     console.warn('[subagent/setup] Failed to copy agent templates:', err);
   }
