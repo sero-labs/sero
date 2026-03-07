@@ -5,7 +5,6 @@ import { OrchestrationPanel } from './orchestration/OrchestrationPanel';
 
 const panelTitles: Record<CodingPanel, string> = {
   explorer: 'Explorer',
-  search: 'Search',
   git: 'Source Control',
   orchestration: 'Orchestration',
   terminal: 'Terminal',

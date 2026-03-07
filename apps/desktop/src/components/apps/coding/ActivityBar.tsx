@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import { Files, Search, GitBranch, Terminal, Network } from 'lucide-react';
+import { Files, GitBranch, Terminal, Network } from 'lucide-react';
 import { Button } from '@sero/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
 import { cn } from '@sero/ui/lib/utils';
 import { useSubagentStore } from '@/stores/subagent';
 
 // ── Types ──────────────────────────────────────────────────────
-export type CodingPanel = 'explorer' | 'search' | 'git' | 'orchestration' | 'terminal';
+export type CodingPanel = 'explorer' | 'git' | 'orchestration' | 'terminal';
 
 interface ActivityItem {
   id: CodingPanel;
@@ -18,7 +18,6 @@ interface ActivityItem {
 
 const items: ActivityItem[] = [
   { id: 'explorer', label: 'Explorer', icon: <Files className="size-[18px]" /> },
-  { id: 'search', label: 'Search', icon: <Search className="size-[18px]" /> },
   { id: 'git', label: 'Source Control', icon: <GitBranch className="size-[18px]" /> },
   { id: 'orchestration', label: 'Orchestration', icon: <Network className="size-[18px]" /> },
   { id: 'terminal', label: 'Terminal', icon: <Terminal className="size-[18px]" />, bottom: true },
