@@ -8,7 +8,7 @@
 
 import type { Card, KanbanState, Subtask } from './types';
 import type { ImplementationProgressTracker } from './implementation-progress';
-import { buildSubtaskPrompt, IMPLEMENTER_SYSTEM_PROMPT } from './prompts';
+import { buildSubtaskPrompt } from './prompts';
 import { createCheckpointInWorktree } from './worktree-git';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
@@ -89,8 +89,8 @@ async function executeSingleSubtask(
 
   try {
     const result = await deps.subagentManager.runSingleStructured({
+      agent: 'implementer',
       task: taskPrompt,
-      systemPrompt: IMPLEMENTER_SYSTEM_PROMPT,
       parentSessionId,
       workspaceId: deps.workspaceId,
       cwd: worktreePath,
@@ -143,8 +143,8 @@ async function executeParallelSubtasks(
       const taskPrompt = buildSubtaskPrompt(card, t.stId);
 
       const result = await deps.subagentManager.runSingleStructured({
+        agent: 'implementer',
         task: taskPrompt,
-        systemPrompt: IMPLEMENTER_SYSTEM_PROMPT,
         parentSessionId,
         workspaceId: deps.workspaceId,
         cwd: worktreePath,

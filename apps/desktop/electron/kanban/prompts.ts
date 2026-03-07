@@ -115,22 +115,6 @@ ${completedSubtasks ? `## Already Completed\n${completedSubtasks}\n` : ''}
 - When done, provide a brief summary of what you implemented`;
 }
 
-export const IMPLEMENTER_SYSTEM_PROMPT = `You are an expert software engineer implementing a specific subtask within a larger feature.
-
-You work methodically:
-1. Read relevant existing files to understand patterns and conventions
-2. Plan the minimal changes needed for your subtask
-3. Implement with clean, well-typed code
-4. Verify your changes are consistent with the codebase
-
-Key rules:
-- Stay focused on your assigned subtask only
-- Follow existing code style and patterns
-- Create well-structured, readable code
-- Do not start dev servers or long-running processes
-
-${WORKSPACE_SCOPE_DIRECTIVE}`;
-
 // ── Review Prompts ───────────────────────────────────────────
 
 export const REVIEWER_SYSTEM_PROMPT = `You are a senior code reviewer. You review diffs thoroughly and produce a structured review with a PR title and description.
