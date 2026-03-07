@@ -470,8 +470,8 @@ contextBridge.exposeInMainWorld('sero', {
   },
 
   collaboration: {
-    prompt: (sessionId: string, workspaceId: string, query: string): Promise<unknown> =>
-      ipcRenderer.invoke(IpcChannels.collaboration.prompt, sessionId, workspaceId, query),
+    prompt: (sessionId: string, workspaceId: string, query: string, clientMessageId?: string): Promise<unknown> =>
+      ipcRenderer.invoke(IpcChannels.collaboration.prompt, sessionId, workspaceId, query, clientMessageId),
 
     onEvent: (callback: (event: import('../src/types/collaboration').CollaborationEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: import('../src/types/collaboration').CollaborationEvent) => {

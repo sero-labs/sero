@@ -367,7 +367,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       collaborationSpecialists: [],
     });
 
-    // Optimistically add the user message
+    // Optimistically add the user message so it appears immediately.
+    // The main session will also emit a message_start for the user message
+    // but those are skipped in the event handler (same as sendPrompt).
     const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
     set((s) => ({
@@ -383,29 +385,17 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }));
 
     try {
-      const result = await window.sero.collaboration.prompt(sessionId, agent.workspaceId, text);
+      // This runs the 4-agent collaboration AND then feeds the synthesis
+      // through the main agent session. The main session's response streams
+      // back via the normal agent event channel (message_start, text_delta,
+      // message_end), so the conversation is fully persisted and follow-ups
+      // have context. We do NOT manually add the assistant message here.
+      await window.sero.collaboration.prompt(
+        sessionId, agent.workspaceId, text, userMessageId,
+      );
 
-      // Add the synthesized response as an assistant message
-      const collabResult = result as CollaborationResult;
-      const assistantMsg: ChatMessage = {
-        type: 'assistant',
-        id: `collab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        text: collabResult.finalResponse,
-        isStreaming: false,
-      };
-
-      set((s) => ({
-        collaborationStatus: 'complete',
-        collaborationResult: collabResult,
-        agents: {
-          ...s.agents,
-          [sessionId]: {
-            ...s.agents[sessionId],
-            isStreaming: false,
-            messages: [...s.agents[sessionId].messages, assistantMsg],
-          },
-        },
-      }));
+      // The collaboration result is set via the collab_end event listener,
+      // and isStreaming is cleared by the agent_end event from the main session.
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Collaboration failed';
       set((s) => ({

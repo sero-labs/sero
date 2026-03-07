@@ -67,6 +67,15 @@ interface PoolEntry {
 const pool = new Map<string, PoolEntry>();
 
 /**
+ * Get a pool entry by session ID.
+ * Used by the collaboration handler to feed synthesized results
+ * back through the main agent session.
+ */
+export function getAgentPoolEntry(sessionId: string): PoolEntry | undefined {
+  return pool.get(sessionId);
+}
+
+/**
  * Reload the ResourceLoader for every active session in the pool.
  * Called after prompt template / skill edits so changes take
  * effect without restarting Sero.
