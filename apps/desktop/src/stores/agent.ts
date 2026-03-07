@@ -362,7 +362,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
     // Reset collaboration state
     set({
-      collaborationStatus: 'specialists',
+      collaborationStatus: 'research',
       collaborationResult: null,
       collaborationSpecialists: [],
     });
@@ -578,11 +578,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     const unsubscribe = window.sero.collaboration.onEvent((event: CollaborationEvent) => {
       switch (event.type) {
         case 'collab_start':
-          set({ collaborationStatus: 'specialists', collaborationSpecialists: [], collaborationResult: null });
+          set({ collaborationStatus: 'research', collaborationSpecialists: [], collaborationResult: null });
           break;
 
         case 'collab_phase':
-          set({ collaborationStatus: event.phase === 'synthesis' ? 'synthesis' : 'specialists' });
+          set({ collaborationStatus: event.phase });
           break;
 
         case 'collab_specialist_end':

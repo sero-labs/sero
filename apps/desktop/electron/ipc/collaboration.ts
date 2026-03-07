@@ -121,7 +121,7 @@ export function registerCollaborationHandlers(): void {
         // Build the contextualised query for specialists
         const specialistQuery = buildSpecialistQuery(query, conversationContext);
 
-        // Phase 1+2: Run specialists in parallel, then coordinator synthesis
+        // Run two-phase fan-out: researcher first, then analyst+visionary, then synthesis
         const result = await runCollaboration(
           specialistQuery,
           sessionId,

@@ -6,7 +6,7 @@
 export type CollaborationRole = 'coordinator' | 'researcher' | 'analyst' | 'visionary';
 
 /** Status of the collaboration run. */
-export type CollaborationStatus = 'idle' | 'specialists' | 'synthesis' | 'complete' | 'error';
+export type CollaborationStatus = 'idle' | 'research' | 'specialists' | 'synthesis' | 'complete' | 'error';
 
 /** A single specialist's output for display in the UI. */
 export interface CollaborationSpecialistOutput {
@@ -28,7 +28,7 @@ export interface CollaborationResult {
 /** Events pushed from main → renderer during collaboration. */
 export type CollaborationEvent =
   | { type: 'collab_start'; sessionId: string }
-  | { type: 'collab_phase'; sessionId: string; phase: 'specialists' | 'synthesis' }
+  | { type: 'collab_phase'; sessionId: string; phase: 'research' | 'specialists' | 'synthesis' }
   | { type: 'collab_specialist_start'; sessionId: string; role: CollaborationRole; agentName: string }
   | { type: 'collab_specialist_end'; sessionId: string; role: CollaborationRole; agentName: string; response: string; error?: string }
   | { type: 'collab_end'; sessionId: string; result: CollaborationResult }

@@ -70,8 +70,11 @@ export function CollaborationStatusBanner() {
   return (
     <div className="mx-3 mb-2 flex items-center gap-2 rounded-md bg-violet-500/10 px-3 py-2 text-xs text-violet-600 dark:text-violet-400">
       <Loader2 className="size-3.5 animate-spin" />
+      {status === 'research' && (
+        <span>4-Agent Collaboration: Researcher gathering facts...</span>
+      )}
       {status === 'specialists' && (
-        <span>4-Agent Collaboration: Running specialists ({completedCount}/3 complete)...</span>
+        <span>4-Agent Collaboration: Analyst &amp; Visionary analyzing research ({completedCount}/3 complete)...</span>
       )}
       {status === 'synthesis' && (
         <span>4-Agent Collaboration: Coordinator synthesizing final response...</span>

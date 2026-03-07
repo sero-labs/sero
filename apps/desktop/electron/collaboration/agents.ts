@@ -25,8 +25,8 @@ export const ROLE_AGENT_NAMES: Record<CollaborationRole, string> = {
   visionary: 'visionary',
 };
 
-/** The three specialist roles (run in parallel before coordination). */
-export const SPECIALIST_ROLES: CollaborationRole[] = ['researcher', 'analyst', 'visionary'];
+/** Phase 2 specialists that run in parallel after the researcher. */
+export const PARALLEL_SPECIALIST_ROLES: CollaborationRole[] = ['analyst', 'visionary'];
 
 /** Human-readable labels for UI display. */
 export const ROLE_LABELS: Record<CollaborationRole, string> = {
