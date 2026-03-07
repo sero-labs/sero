@@ -18,6 +18,7 @@ import type {
 } from '../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 import { resizeImageForApi } from '../utils/image-resize';
+import { extractOriginalCollaborationQuery } from './collaboration-message';
 
 // ── ID generation ────────────────────────────────────────────
 
@@ -171,13 +172,15 @@ export function convertSessionMessages(
   for (const msg of messages) {
     if (msg.role === 'user') {
       userTurn++;
-      const text =
+      const rawText =
         typeof msg.content === 'string'
           ? msg.content
           : msg.content
               .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
               .map((c) => c.text)
               .join('\n');
+      // Strip collaboration injection wrapper so the UI shows the original query
+      const text = extractOriginalCollaborationQuery(rawText);
       // Shifted by one: user message N shows the checkpoint from the
       // *previous* turn (N-1). "Restore on message N" means "go back to
       // the state just before I sent message N", which is the end of turn N-1.

@@ -5,9 +5,10 @@
  * subagent list + summary bar, or an empty state placeholder.
  */
 
-import { useEffect, useMemo } from 'react';
-import { Network } from 'lucide-react';
+import { useEffect, useMemo, useCallback } from 'react';
+import { Network, X } from 'lucide-react';
 import { useSubagentStore } from '@/stores/subagent';
+import { TERMINAL_STATUSES } from '@/stores/subagent-constants';
 import { SubagentList } from './SubagentList';
 import { SubagentSummary } from './SubagentSummary';
 import type { SubagentEntry } from '@/types/ipc';
@@ -38,6 +39,7 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
   const hydrate = useSubagentStore((s) => s.hydrate);
   const hydrated = useSubagentStore((s) => s.hydrated);
   const initListeners = useSubagentStore((s) => s.initListeners);
+  const clearCompleted = useSubagentStore((s) => s.clearCompleted);
   const entries = useSubagentStore((s) => s.entries);
 
   // Derive filtered + sorted entries — stable unless `entries` record changes
@@ -48,6 +50,15 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
       ),
     [entries, workspaceId],
   );
+
+  const hasCompleted = useMemo(
+    () => filtered.some((e) => TERMINAL_STATUSES.has(e.status)),
+    [filtered],
+  );
+
+  const handleClearCompleted = useCallback(() => {
+    clearCompleted(workspaceId);
+  }, [clearCompleted, workspaceId]);
 
   // Hydrate on mount and workspace change
   useEffect(() => {
@@ -63,7 +74,7 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
   if (!hydrated) {
     return (
       <div className="flex h-full flex-col">
-        <Header />
+        <Header showClear={false} onClear={handleClearCompleted} />
         <div className="flex flex-1 items-center justify-center">
           <span className="text-xs text-[var(--text-muted)]">Loading…</span>
         </div>
@@ -74,7 +85,7 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
   if (filtered.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <Header />
+        <Header showClear={false} onClear={handleClearCompleted} />
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4">
           <Network className="size-8 text-[var(--text-muted)] opacity-40" />
           <span className="text-xs text-[var(--text-muted)]">No subagent activity</span>
@@ -85,7 +96,7 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <Header />
+      <Header showClear={hasCompleted} onClear={handleClearCompleted} />
       <div className="flex-1 overflow-y-auto min-h-0">
         <SubagentList entries={filtered} />
       </div>
@@ -94,12 +105,22 @@ export function OrchestrationPanel({ workspaceId }: OrchestrationPanelProps) {
   );
 }
 
-function Header() {
+function Header({ showClear, onClear }: { showClear: boolean; onClear: () => void }) {
   return (
-    <div className="flex h-7 shrink-0 items-center px-4">
+    <div className="flex h-7 shrink-0 items-center justify-between px-4">
       <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
         Orchestration
       </span>
+      {showClear && (
+        <button
+          onClick={onClear}
+          className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+          title="Clear completed runs"
+        >
+          <X className="size-3" />
+          <span>Clear</span>
+        </button>
+      )}
     </div>
   );
 }

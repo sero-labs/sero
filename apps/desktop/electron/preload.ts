@@ -5,6 +5,9 @@ import { debugBridge, lspBridge } from './preload/debug-lsp';
 import { subagentBridge } from './preload/subagent';
 import { skillsBridge } from './preload/skills';
 import { promptsBridge } from './preload/prompts';
+import { collaborationBridge } from './preload/collaboration';
+import { modelsBridge } from './preload/models';
+import { googleBridge, imagegenBridge } from './preload/google-imagegen';
 import type {
   WorkspaceInfo,
   WorkspaceConfig,
@@ -217,31 +220,10 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
   },
 
-  models: {
-    list: (): Promise<import('../src/types/ipc').AvailableModelGroup[]> =>
-      ipcRenderer.invoke(IpcChannels.models.list),
-  },
+  models: modelsBridge,
 
-  google: {
-    execute: (service: string, subArgs: string[]) => ipcRenderer.invoke(IpcChannels.google.execute, service, subArgs),
-    authStatus: () => ipcRenderer.invoke(IpcChannels.google.authStatus),
-    login: () => ipcRenderer.invoke(IpcChannels.google.login),
-    logout: () => ipcRenderer.invoke(IpcChannels.google.logout),
-    onAuthEvent: (cb: (event: any) => void) => {
-      const handler = (_e: IpcRendererEvent, event: any) => cb(event);
-      ipcRenderer.on(IpcChannels.google.authEvent, handler);
-      return () => { ipcRenderer.removeListener(IpcChannels.google.authEvent, handler); };
-    },
-  },
-
-  imagegen: {
-    generate: (workspaceId: string, params: any): Promise<any> =>
-      ipcRenderer.invoke(IpcChannels.imagegen.generate, workspaceId, params),
-    readImage: (filePath: string): Promise<string> =>
-      ipcRenderer.invoke(IpcChannels.imagegen.readImage, filePath),
-    deleteImage: (workspaceId: string, generationId: number, singleImageId?: string): Promise<{ ok: boolean; error?: string }> =>
-      ipcRenderer.invoke(IpcChannels.imagegen.deleteImage, workspaceId, generationId, singleImageId),
-  },
+  google: googleBridge,
+  imagegen: imagegenBridge,
 
   voice: {
     status: (): Promise<VoiceTranscriptionStatus> =>
@@ -468,6 +450,8 @@ contextBridge.exposeInMainWorld('sero', {
     remove: (messageId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.feedback.remove, messageId),
   },
+
+  collaboration: collaborationBridge,
 
   subagent: subagentBridge,
   skills: skillsBridge,

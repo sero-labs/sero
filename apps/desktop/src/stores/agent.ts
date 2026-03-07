@@ -6,100 +6,39 @@ import type {
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionModelState,
-  ChatAssistantMessage,
 } from '@/types/ipc';
+import type { CollaborationEvent } from '@/types/collaboration';
 import { useSessionStore } from '@/stores/sessions';
 import { useContainerStore } from '@/stores/container';
-
-// ── Helpers ────────────────────────────────────────────────────
-
-/** Patch a single field on an assistant message by ID. */
-function patchAssistant(
-  agents: Record<string, AgentInstance>,
-  sid: string,
-  messageId: string,
-  patch: (msg: ChatAssistantMessage) => ChatAssistantMessage,
-) {
-  return {
-    ...agents,
-    [sid]: {
-      ...agents[sid],
-      messages: agents[sid].messages.map((m) =>
-        m.type === 'assistant' && m.id === messageId ? patch(m) : m,
-      ),
-    },
-  };
-}
-
-// ── Types ──────────────────────────────────────────────────────
-
-/** State for a single agent session in the pool. */
-export interface AgentInstance {
-  sessionId: string;
-  sessionPath: string;
-  workspaceId: string;
-  messages: ChatMessage[];
-  isStreaming: boolean;
-  error: string | null;
-  /** Available slash commands for this session (fetched on open). */
-  commands: SeroSlashCommandInfo[];
-  /** Current model + thinking level state. */
-  modelState: SessionModelState | null;
-}
-
-interface AgentState {
-  /** All active agent instances, keyed by session ID. */
-  agents: Record<string, AgentInstance>;
-  /** Which session is currently shown in the ChatPanel. */
-  focusedSessionId: string | null;
-  /** Whether to display thinking/reasoning blocks in the chat. */
-  showThinkingBlocks: boolean;
-
-  // ── Actions ────────────────────────────────────────────────
-
-  /** Open a session — creates an AgentSession in the main-process pool. */
-  openSession: (sessionId: string, sessionPath: string, workspaceId: string) => Promise<void>;
-  /** Close a session — disposes its AgentSession. */
-  closeSession: (sessionId: string) => Promise<void>;
-  /** Send a prompt to a specific session, optionally with file attachments. */
-  sendPrompt: (sessionId: string, text: string, attachments?: ChatAttachment[]) => Promise<void>;
-  /** Steer the agent mid-stream (interrupt after current tool, skip remaining). */
-  steerAgent: (sessionId: string, text: string) => Promise<void>;
-  /** Abort a specific session. */
-  abort: (sessionId: string) => Promise<void>;
-  /** Focus a session in the ChatPanel. */
-  focusSession: (sessionId: string) => void;
-  /** Clear focus (no session shown in ChatPanel). */
-  clearFocus: () => void;
-  /** Reload resources (skills, prompts, extensions) for a session. */
-  reloadResources: (sessionId: string) => Promise<void>;
-  /** Set the model for a session. */
-  setModel: (sessionId: string, provider: string, modelId: string) => Promise<void>;
-  /** Set thinking level for a session. */
-  setThinkingLevel: (sessionId: string, level: string) => Promise<void>;
-  /** Fetch model state for a session. */
-  fetchModelState: (sessionId: string) => Promise<void>;
-  /** Toggle visibility of thinking/reasoning blocks. */
-  toggleThinkingBlocks: () => void;
-
-  /** Subscribe to main-process events. Returns cleanup function. */
-  initEventListener: () => () => void;
-}
-
-// ── Store ──────────────────────────────────────────────────────
+import {
+  applyCollaborationEvent,
+  removeCollaborationSession,
+  resetCollaborationSession,
+  setCollaborationErrorForSession,
+  startCollaborationForSession,
+  toggleCollaborationModeForSession,
+} from '@/stores/agent-collaboration';
+import type { AgentState } from '@/stores/agent-types';
+import { patchAssistant } from '@/stores/agent-utils';
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: {},
   focusedSessionId: null,
   showThinkingBlocks: false,
+  collaborations: {},
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
-    // If already fully initialized in pool, just focus it.
+    // Reset collaboration mode when switching sessions.
+    set((s) => ({
+      focusedSessionId: sessionId,
+      collaborations: resetCollaborationSession(s.collaborations, sessionId),
+    }));
+
+    // If already fully initialized in the pool, just focus it.
     // Check for `sessionId` field — partial entries created by events
     // (e.g. when a federated app calls agent.open via IPC directly)
     // won't have it set and need to be repaired.
     if (get().agents[sessionId]?.sessionId) {
-      set({ focusedSessionId: sessionId });
       return;
     }
 
@@ -121,14 +60,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             modelState: partial?.modelState ?? null,
           },
         },
-        focusedSessionId: sessionId,
       };
     });
 
     try {
       const history = await window.sero.agent.open(sessionId, sessionPath, workspaceId);
 
-      // Fetch available slash commands for this session (non-blocking on failure)
+      // Fetch available slash commands for this session (non-blocking on failure).
       let commands: SeroSlashCommandInfo[] = [];
       try {
         commands = await window.sero.agent.getCommands(sessionId);
@@ -136,14 +74,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         console.warn('[agent] Failed to fetch commands:', cmdErr);
       }
 
-      // Fetch initial model state (non-blocking)
+      // Fetch initial model state (non-blocking).
       let modelState: SessionModelState | null = null;
       try {
         modelState = await window.sero.agent.getModelState(sessionId);
       } catch (err) {
         console.warn('[agent] Failed to fetch model state:', err);
       }
-
       set((s) => ({
         agents: {
           ...s.agents,
@@ -163,7 +100,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         return {
           agents: rest,
           focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
-          // Note: error is stored per-agent, but since we're removing it, we just log
+          // Note: error is stored per-agent, but since we're removing it, we just log.
+          collaborations: removeCollaborationSession(s.collaborations, sessionId),
         };
       });
     }
@@ -180,6 +118,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       return {
         agents: rest,
         focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
+        collaborations: removeCollaborationSession(s.collaborations, sessionId),
       };
     });
   },
@@ -267,7 +206,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  focusSession: (sessionId) => set({ focusedSessionId: sessionId }),
+  focusSession: (sessionId) =>
+    set((s) => ({
+      focusedSessionId: sessionId,
+      collaborations: resetCollaborationSession(s.collaborations, sessionId),
+    })),
 
   clearFocus: () => set({ focusedSessionId: null }),
 
@@ -330,12 +273,63 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   toggleThinkingBlocks: () => set((s) => ({ showThinkingBlocks: !s.showThinkingBlocks })),
 
+  toggleCollaborationMode: () =>
+    set((s) => {
+      if (!s.focusedSessionId) return s;
+      return {
+        collaborations: toggleCollaborationModeForSession(s.collaborations, s.focusedSessionId),
+      };
+    }),
+
+  sendCollaborationPrompt: async (sessionId, text) => {
+    const agent = get().agents[sessionId];
+    if (!agent) return;
+
+    // Reset collaboration state for this session before the new run starts.
+    const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
+    set((s) => ({
+      collaborations: startCollaborationForSession(s.collaborations, sessionId),
+      agents: {
+        ...s.agents,
+        [sessionId]: {
+          ...s.agents[sessionId],
+          error: null,
+          isStreaming: true,
+          messages: [...s.agents[sessionId].messages, userMsg],
+        },
+      },
+    }));
+
+    try {
+      // This runs the 4-agent collaboration AND then feeds the synthesis
+      // through the main agent session. The main session's response streams
+      // back via the normal agent event channel (message_start, text_delta,
+      // message_end), so the conversation is fully persisted and follow-ups
+      // have context. We do NOT manually add the assistant message here.
+      await window.sero.collaboration.prompt(sessionId, agent.workspaceId, text);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Collaboration failed';
+      set((s) => ({
+        collaborations: setCollaborationErrorForSession(s.collaborations, sessionId),
+        agents: {
+          ...s.agents,
+          [sessionId]: {
+            ...s.agents[sessionId],
+            error: message,
+            isStreaming: false,
+          },
+        },
+      }));
+    }
+  },
+
   initEventListener: () => {
     const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
       const { agents } = get();
       const sid = event.sessionId;
 
-      // Ignore events for sessions we don't track (already closed)
+      // Ignore events for sessions we don't track (already closed).
       if (!agents[sid] && event.type !== 'agent_start' && event.type !== 'message_start') {
         return;
       }
@@ -354,7 +348,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           set((s) => {
             const agent = s.agents[sid];
             if (!agent) return s;
-            // Mark any in-flight tools as cancelled (they'll never receive a tool_end)
+            // Mark any in-flight tools as cancelled (they'll never receive a tool_end).
             const messages = agent.messages.map((m) =>
               m.type === 'tool' && (m.state === 'pending' || m.state === 'running')
                 ? { ...m, state: 'cancelled' as const }
@@ -476,7 +470,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           }));
           break;
 
-        // Container lifecycle events — update container store
+        // Container lifecycle events — update container store.
         case 'container_starting':
           useContainerStore.getState().setStarting(event.workspaceId);
           break;
@@ -491,41 +485,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
     return unsubscribe;
   },
+
+  initCollaborationListener: () => {
+    return window.sero.collaboration.onEvent((event: CollaborationEvent) => {
+      set((s) => ({
+        collaborations: applyCollaborationEvent(s.collaborations, event),
+      }));
+    });
+  },
 }));
-
-// ── Selectors ──────────────────────────────────────────────────
-
-/** The focused agent instance (shown in ChatPanel), or null. */
-export function useFocusedAgent(): AgentInstance | null {
-  const agents = useAgentStore((s) => s.agents);
-  const focusedId = useAgentStore((s) => s.focusedSessionId);
-  if (!focusedId) return null;
-  return agents[focusedId] ?? null;
-}
-
-/** IDs of sessions currently streaming (for sidebar active indicators). */
-export function useStreamingSessionIds(): string[] {
-  const agents = useAgentStore((s) => s.agents);
-  return Object.values(agents)
-    .filter((a) => a.isStreaming)
-    .map((a) => a.sessionId);
-}
-
-/** Count of active agent sessions in the pool. */
-export function useActiveAgentCount(): number {
-  const agents = useAgentStore((s) => s.agents);
-  return Object.keys(agents).length;
-}
-
-/** Check if a specific session has an active agent. */
-export function useIsSessionActive(sessionId: string): boolean {
-  return useAgentStore((s) => !!s.agents[sessionId]);
-}
-
-/** Slash commands available for the focused session. */
-export function useFocusedCommands(): SeroSlashCommandInfo[] {
-  const agents = useAgentStore((s) => s.agents);
-  const focusedId = useAgentStore((s) => s.focusedSessionId);
-  if (!focusedId) return [];
-  return agents[focusedId]?.commands ?? [];
-}

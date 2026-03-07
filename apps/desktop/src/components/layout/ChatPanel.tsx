@@ -18,7 +18,11 @@ import {
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
 } from '@sero/ui/components/ai-elements/prompt-input';
-import { useAgentStore, useFocusedAgent } from '@/stores/agent';
+import { useAgentStore } from '@/stores/agent';
+import {
+  useFocusedAgent,
+  useFocusedCollaborationMode,
+} from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { FileReferenceMenu } from './FileReferenceMenu';
@@ -40,7 +44,8 @@ import { useChatPromptInput } from '@/hooks/useChatPromptInput';
 import { createFilePathClickHandler } from './ClickableFilePath';
 import { PendingQuestionCard } from './PendingQuestionCard';
 import { QuestionnaireNotice } from './QuestionnaireNotice';
-import { ContextEditorMenuItem, ThinkingBlocksToggle, EmptyState } from './ChatPanelHelpers';
+import { ContextEditorMenuItem, ThinkingBlocksToggle, CollaborationToggle, EmptyState } from './ChatPanelHelpers';
+import { CollaborationStatusBanner, CollaborationDetails } from './CollaborationResponse';
 
 /**
  * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
@@ -51,15 +56,24 @@ import { ContextEditorMenuItem, ThinkingBlocksToggle, EmptyState } from './ChatP
 export function ChatPanel() {
   const focused = useFocusedAgent();
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
+  const sendCollaborationPrompt = useAgentStore((s) => s.sendCollaborationPrompt);
+  const collaborationMode = useFocusedCollaborationMode();
   const steerAgent = useAgentStore((s) => s.steerAgent);
   const abort = useAgentStore((s) => s.abort);
   const initEventListener = useAgentStore((s) => s.initEventListener);
+  const initCollaborationListener = useAgentStore((s) => s.initCollaborationListener);
 
   // Subscribe to main-process events on mount
   useEffect(() => {
     const unsub = initEventListener();
     return unsub;
   }, [initEventListener]);
+
+  // Subscribe to collaboration events on mount
+  useEffect(() => {
+    const unsub = initCollaborationListener();
+    return unsub;
+  }, [initCollaborationListener]);
 
   // Initialize feedback store (load ratings from disk)
   const initFeedback = useFeedbackStore((s) => s.init);
@@ -98,6 +112,8 @@ export function ChatPanel() {
     isStreaming,
     focusedWorkspaceId,
     sendPrompt,
+    sendCollaborationPrompt,
+    collaborationMode,
     steerAgent,
     messageQueue,
     onLoginRequest,
@@ -159,6 +175,11 @@ export function ChatPanel() {
         {sessionLabel && (
           <span className="truncate text-xs rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[var(--text-muted)]" style={{ maxWidth: '60%' }}>
             {sessionLabel}
+          </span>
+        )}
+        {collaborationMode && (
+          <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+            4-Agent
           </span>
         )}
         {sessionId && <UsageBadge sessionId={sessionId} />}
@@ -246,6 +267,10 @@ export function ChatPanel() {
         <ConversationScrollButton />
       </Conversation>
 
+      {/* ── Collaboration status + expandable details ──────── */}
+      <CollaborationStatusBanner />
+      <CollaborationDetails />
+
       {/* ── Pending question card (single questions only) ──── */}
       <PendingQuestionCard />
 
@@ -302,7 +327,7 @@ export function ChatPanel() {
               value={prompt.input}
               onChange={(e) => prompt.setInput(e.target.value)}
               onKeyDown={prompt.handleKeyDown}
-              placeholder={hasSession ? 'Ask Sero anything… (/ for commands, @ for files)' : 'Select a chat first…'}
+              placeholder={hasSession ? (collaborationMode ? '4-Agent Collaboration active — ask a complex question…' : 'Ask Sero anything… (/ for commands, @ for files)') : 'Select a chat first…'}
               disabled={!hasSession}
             />
           </PromptInputBody>
@@ -323,6 +348,7 @@ export function ChatPanel() {
                 disabled={!hasSession || isStreaming}
                 onTranscript={handleTranscript}
               />
+              <CollaborationToggle disabled={!hasSession} />
               <ThinkingBlocksToggle disabled={!hasSession} />
               <ModelSelector disabled={!hasSession} />
             </PromptInputTools>

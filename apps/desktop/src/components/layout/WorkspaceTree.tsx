@@ -13,7 +13,7 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
 import { useSessionStore, useSessionsByWorkspace } from '@/stores/sessions';
-import { useStreamingSessionIds } from '@/stores/agent';
+import { useStreamingSessionIds } from '@/stores/agent-selectors';
 import { useAppStore } from '@/stores/app';
 import { useWorkspaceContainer, type ContainerStatus } from '@/stores/container';
 import { Button } from '@sero/ui/components/ui/button';
@@ -440,5 +440,4 @@ function WorkspaceNode({
     </div>
   );
 }
-
 
