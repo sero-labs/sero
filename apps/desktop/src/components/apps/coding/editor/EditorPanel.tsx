@@ -26,6 +26,8 @@ interface Props {
   activeTab: string | null;
   onOpenTab: (path: string) => void;
   onCloseTab: (path: string) => void;
+  onCloseOtherTabs: (path: string) => void;
+  onCloseAllTabs: () => void;
   onReorderTabs: (paths: string[]) => void;
   onTabsChange: (tabs: string[], activeTab: string | null) => void;
 }
@@ -62,7 +64,7 @@ function getLanguage(filePath: string): string {
 }
 
 export function EditorPanel({
-  workspaceId, tabs, activeTab, onOpenTab, onCloseTab, onReorderTabs, onTabsChange,
+  workspaceId, tabs, activeTab, onOpenTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, onReorderTabs, onTabsChange,
 }: Props) {
   type MarkdownViewMode = 'code' | 'preview';
 
@@ -216,6 +218,36 @@ export function EditorPanel({
       setContent('');
     }
   }, [tabs, activeTab, onCloseTab]);
+
+  // ── Close other / all tabs ──
+  const cleanupTabRefs = useCallback((path: string) => {
+    contentMapRef.current.delete(path);
+    savedContentRef.current.delete(path);
+    viewStateMapRef.current.delete(path);
+    setDirtyPaths((prev) => { if (!prev.has(path)) return prev; const next = new Set(prev); next.delete(path); return next; });
+    if (monacoRef.current) {
+      const uri = monacoRef.current.Uri.parse(path);
+      monacoRef.current.editor.getModel(uri)?.dispose();
+    }
+  }, []);
+
+  const handleCloseOtherTabs = useCallback((keepPath: string) => {
+    if (activeTab && editorRef.current) {
+      viewStateMapRef.current.set(activeTab, editorRef.current.saveViewState());
+    }
+    for (const p of tabs) {
+      if (p !== keepPath) cleanupTabRefs(p);
+    }
+    onCloseOtherTabs(keepPath);
+    setContent(contentMapRef.current.get(keepPath) ?? '');
+    setLanguage(getLanguage(keepPath));
+  }, [tabs, activeTab, onCloseOtherTabs, cleanupTabRefs]);
+
+  const handleCloseAllTabs = useCallback(() => {
+    for (const p of tabs) cleanupTabRefs(p);
+    onCloseAllTabs();
+    setContent('');
+  }, [tabs, onCloseAllTabs, cleanupTabRefs]);
 
   // ── Keyboard shortcuts ──
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -383,6 +415,7 @@ export function EditorPanel({
       <EditorTabBar
         tabs={tabDescriptors} activeTab={activeTab}
         onSelectTab={handleOpenTab} onCloseTab={handleCloseTab}
+        onCloseOtherTabs={handleCloseOtherTabs} onCloseAllTabs={handleCloseAllTabs}
         onReorderTabs={onReorderTabs}
         rightSlot={isMarkdownTab ? (
           <div className="flex h-full items-center overflow-hidden">

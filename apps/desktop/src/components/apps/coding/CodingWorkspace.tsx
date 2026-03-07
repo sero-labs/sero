@@ -201,6 +201,16 @@ export function CodingWorkspace() {
     });
   }, []);
 
+  const handleCloseOtherTabs = useCallback((keepPath: string) => {
+    setEditorTabs([keepPath]);
+    setActiveTab(keepPath);
+  }, []);
+
+  const handleCloseAllTabs = useCallback(() => {
+    setEditorTabs([]);
+    setActiveTab(null);
+  }, []);
+
   const handleReorderTabs = useCallback((newOrder: string[]) => {
     setEditorTabs(newOrder);
   }, []);
@@ -420,6 +430,7 @@ export function CodingWorkspace() {
                   workspaceId={workspaceId}
                   tabs={editorTabs} activeTab={activeTab}
                   onOpenTab={handleOpenTab} onCloseTab={handleCloseTab}
+                  onCloseOtherTabs={handleCloseOtherTabs} onCloseAllTabs={handleCloseAllTabs}
                   onReorderTabs={handleReorderTabs} onTabsChange={handleTabsChange}
                 />
               )}
