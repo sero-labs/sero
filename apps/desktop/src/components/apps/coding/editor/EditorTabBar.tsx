@@ -12,6 +12,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@sero/ui/lib/utils';
+import {
+  ContextMenu, ContextMenuTrigger, ContextMenuContent,
+  ContextMenuItem, ContextMenuSeparator,
+} from '@sero/ui/components/ui/context-menu';
 import { FileIcon } from '../file-tree/file-icons';
 
 export interface EditorTab {
@@ -24,15 +28,18 @@ interface Props {
   activeTab: string | null;
   onSelectTab: (path: string) => void;
   onCloseTab: (path: string) => void;
+  onCloseOtherTabs: (path: string) => void;
+  onCloseAllTabs: () => void;
   onReorderTabs: (paths: string[]) => void;
   rightSlot?: React.ReactNode;
 }
 
 /* ── Single sortable tab ──────────────────────────────────── */
 
-function SortableEditorTab({ tab, isActive, onSelect, onClose, onMiddleClick }: {
+function SortableEditorTab({ tab, isActive, onSelect, onClose, onCloseOthers, onCloseAll, onMiddleClick }: {
   tab: EditorTab; isActive: boolean;
   onSelect: () => void; onClose: () => void;
+  onCloseOthers: () => void; onCloseAll: () => void;
   onMiddleClick: (e: React.MouseEvent) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.path });
@@ -45,41 +52,50 @@ function SortableEditorTab({ tab, isActive, onSelect, onClose, onMiddleClick }: 
   const fileName = tab.path.split('/').pop() ?? tab.path;
 
   return (
-    <div
-      ref={setNodeRef} style={style}
-      className={cn(
-        'flex items-center gap-1 px-2.5 h-full cursor-pointer shrink-0 select-none',
-        'border-r border-[var(--border-subtle)] text-xs whitespace-nowrap transition-colors',
-        'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
-        isActive && 'bg-[var(--bg-elevated)] text-[var(--text-primary)] relative',
-      )}
-      data-tab-path={tab.path}
-      {...attributes} {...listeners}
-      onClick={onSelect} onMouseDown={onMiddleClick} title={tab.path}
-    >
-      <FileIcon fileName={fileName} extension={fileName.split('.').pop()?.toLowerCase()} className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-      <span className={cn('font-normal', isActive && 'font-medium')}>{fileName}</span>
-      {tab.dirty && <span className="text-[9px] text-[var(--accent)] ml-0.5 shrink-0">●</span>}
-      <button
-        className={cn(
-          'flex items-center justify-center size-4 border-none bg-transparent',
-          'text-[var(--text-muted)] text-sm leading-none cursor-pointer rounded-sm',
-          'ml-0.5 opacity-0 transition-opacity shrink-0',
-          'group-hover:opacity-60 hover:!opacity-100 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
-          (isActive) && 'opacity-60',
-        )}
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
-        onMouseDown={(e) => e.stopPropagation()}
-        title="Close"
-      >×</button>
-      {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          ref={setNodeRef} style={style}
+          className={cn(
+            'flex items-center gap-1 px-2.5 h-full cursor-pointer shrink-0 select-none',
+            'border-r border-[var(--border-subtle)] text-xs whitespace-nowrap transition-colors',
+            'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+            isActive && 'bg-[var(--bg-elevated)] text-[var(--text-primary)] relative',
+          )}
+          data-tab-path={tab.path}
+          {...attributes} {...listeners}
+          onClick={onSelect} onMouseDown={onMiddleClick} title={tab.path}
+        >
+          <FileIcon fileName={fileName} extension={fileName.split('.').pop()?.toLowerCase()} className="size-3.5 shrink-0 text-[var(--text-muted)]" />
+          <span className={cn('font-normal', isActive && 'font-medium')}>{fileName}</span>
+          {tab.dirty && <span className="text-[9px] text-[var(--accent)] ml-0.5 shrink-0">●</span>}
+          <button
+            className={cn(
+              'flex items-center justify-center size-4 border-none bg-transparent',
+              'text-[var(--text-muted)] text-sm leading-none cursor-pointer rounded-sm',
+              'ml-0.5 opacity-0 transition-opacity shrink-0',
+              'group-hover:opacity-60 hover:!opacity-100 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]',
+              (isActive) && 'opacity-60',
+            )}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="Close"
+          >×</button>
+          {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-44">
+        <ContextMenuItem onSelect={onClose}>Close</ContextMenuItem>
+        <ContextMenuItem onSelect={onCloseOthers}>Close Others</ContextMenuItem>
+        <ContextMenuItem onSelect={onCloseAll}>Close All</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
 /* ── Tab bar ──────────────────────────────────────────────── */
 
-export function EditorTabBar({ tabs, activeTab, onSelectTab, onCloseTab, onReorderTabs, rightSlot }: Props) {
+export function EditorTabBar({ tabs, activeTab, onSelectTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, onReorderTabs, rightSlot }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [overflowLeft, setOverflowLeft] = useState(false);
   const [overflowRight, setOverflowRight] = useState(false);
@@ -139,6 +155,8 @@ export function EditorTabBar({ tabs, activeTab, onSelectTab, onCloseTab, onReord
                   key={tab.path} tab={tab} isActive={tab.path === activeTab}
                   onSelect={() => onSelectTab(tab.path)}
                   onClose={() => onCloseTab(tab.path)}
+                  onCloseOthers={() => onCloseOtherTabs(tab.path)}
+                  onCloseAll={onCloseAllTabs}
                   onMiddleClick={(e) => handleMiddleClick(e, tab.path)}
                 />
               ))}
