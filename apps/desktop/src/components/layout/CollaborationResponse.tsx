@@ -7,7 +7,11 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Search, BarChart3, Lightbulb, Loader2, Users } from 'lucide-react';
-import { useAgentStore } from '@/stores/agent';
+import {
+  useFocusedCollaborationResult,
+  useFocusedCollaborationSpecialists,
+  useFocusedCollaborationStatus,
+} from '@/stores/agent-selectors';
 import { cn } from '@sero/ui/lib/utils';
 import type { CollaborationRole, CollaborationSpecialistOutput } from '@/types/collaboration';
 
@@ -46,8 +50,10 @@ function SpecialistCard({ output }: { output: CollaborationSpecialistOutput }) {
           {output.error ? (
             <p className="text-xs text-destructive">{output.error}</p>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none text-xs whitespace-pre-wrap">
-              {output.response}
+            <div className="max-h-[min(50vh,28rem)] overflow-y-auto overscroll-contain pr-1">
+              <div className="prose prose-sm dark:prose-invert max-w-none break-words text-xs whitespace-pre-wrap">
+                {output.response}
+              </div>
             </div>
           )}
         </div>
@@ -60,8 +66,8 @@ function SpecialistCard({ output }: { output: CollaborationSpecialistOutput }) {
  * Collaboration status indicator shown during active collaboration.
  */
 export function CollaborationStatusBanner() {
-  const status = useAgentStore((s) => s.collaborationStatus);
-  const specialists = useAgentStore((s) => s.collaborationSpecialists);
+  const status = useFocusedCollaborationStatus();
+  const specialists = useFocusedCollaborationSpecialists();
 
   if (status === 'idle' || status === 'complete') return null;
 
@@ -91,7 +97,7 @@ export function CollaborationStatusBanner() {
  * Rendered below the assistant message that was produced by collaboration.
  */
 export function CollaborationDetails() {
-  const result = useAgentStore((s) => s.collaborationResult);
+  const result = useFocusedCollaborationResult();
   const [expanded, setExpanded] = useState(false);
 
   if (!result) return null;

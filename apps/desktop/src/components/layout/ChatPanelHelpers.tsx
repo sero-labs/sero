@@ -10,7 +10,11 @@ import { Settings2, Brain, MessageSquare, Users } from 'lucide-react';
 import {
   PromptInputActionMenuItem,
 } from '@sero/ui/components/ai-elements/prompt-input';
-import { useAgentStore, useFocusedAgent } from '@/stores/agent';
+import { useAgentStore } from '@/stores/agent';
+import {
+  useFocusedAgent,
+  useFocusedCollaborationMode,
+} from '@/stores/agent-selectors';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import { cn } from '@sero/ui/lib/utils';
 
@@ -75,7 +79,7 @@ export function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
 // ── Collaboration mode toggle ──────────────────────────────────
 
 export function CollaborationToggle({ disabled }: { disabled: boolean }) {
-  const isActive = useAgentStore((s) => s.collaborationMode);
+  const isActive = useFocusedCollaborationMode();
   const toggle = useAgentStore((s) => s.toggleCollaborationMode);
 
   return (

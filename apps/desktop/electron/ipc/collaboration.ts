@@ -14,16 +14,7 @@ import type { CollaborationEvent } from '../../src/types/collaboration';
 import { runCollaboration } from '../collaboration/index';
 import { subagentManager } from './shared-infra';
 import { getAgentPoolEntry } from './agent';
-
-/**
- * Detect collaboration injection prompts and extract the original user query.
- * Reused from agent-helpers but kept local to avoid circular imports.
- */
-const COLLAB_INJECTION_RE = /^A multi-agent collaboration team[\s\S]*?<user-query>([\s\S]*?)<\/user-query>/;
-function stripCollabInjection(text: string): string {
-  const match = text.match(COLLAB_INJECTION_RE);
-  return match ? match[1].trim() : text;
-}
+import { extractOriginalCollaborationQuery } from './collaboration-message';
 
 function sendCollabEvent(event: CollaborationEvent): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -56,7 +47,7 @@ function extractConversationContext(
     if (!text) continue;
 
     // Strip collaboration injection wrappers so specialists see clean queries
-    const cleaned = msg.role === 'user' ? stripCollabInjection(text) : text;
+    const cleaned = msg.role === 'user' ? extractOriginalCollaborationQuery(text) : text;
 
     // Truncate long messages to keep context window reasonable
     const truncated = cleaned.length > 1500 ? cleaned.slice(0, 1500) + '…' : cleaned;

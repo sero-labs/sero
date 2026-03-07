@@ -18,7 +18,11 @@ import {
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
 } from '@sero/ui/components/ai-elements/prompt-input';
-import { useAgentStore, useFocusedAgent } from '@/stores/agent';
+import { useAgentStore } from '@/stores/agent';
+import {
+  useFocusedAgent,
+  useFocusedCollaborationMode,
+} from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { FileReferenceMenu } from './FileReferenceMenu';
@@ -53,7 +57,7 @@ export function ChatPanel() {
   const focused = useFocusedAgent();
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
   const sendCollaborationPrompt = useAgentStore((s) => s.sendCollaborationPrompt);
-  const collaborationMode = useAgentStore((s) => s.collaborationMode);
+  const collaborationMode = useFocusedCollaborationMode();
   const steerAgent = useAgentStore((s) => s.steerAgent);
   const abort = useAgentStore((s) => s.abort);
   const initEventListener = useAgentStore((s) => s.initEventListener);

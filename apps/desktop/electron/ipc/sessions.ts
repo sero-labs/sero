@@ -18,6 +18,7 @@ import { IpcChannels } from '../../src/types/ipc';
 import type { SeroSessionInfo } from '../../src/types/ipc';
 import { workspaceManager } from '../workspace';
 import { SERO_SESSION_DIR } from './shared-infra';
+import { extractOriginalCollaborationQuery } from './collaboration-message';
 
 /**
  * Legacy cwd used before workspaces existed.
@@ -68,7 +69,7 @@ function toSeroSessionInfo(info: {
     created: info.created.toISOString(),
     modified: info.modified.toISOString(),
     messageCount: info.messageCount,
-    firstMessage: info.firstMessage,
+    firstMessage: extractOriginalCollaborationQuery(info.firstMessage),
   };
 }
 

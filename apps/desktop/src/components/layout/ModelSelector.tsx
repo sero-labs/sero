@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, Check, Brain, Zap, Sparkles, Search } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
-import { useAgentStore, useFocusedAgent } from '@/stores/agent';
+import { useAgentStore } from '@/stores/agent';
+import { useFocusedAgent } from '@/stores/agent-selectors';
 import {
   THINKING_LEVELS,
   THINKING_LABELS,

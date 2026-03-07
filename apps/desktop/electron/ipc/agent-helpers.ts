@@ -18,6 +18,7 @@ import type {
 } from '../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 import { resizeImageForApi } from '../utils/image-resize';
+import { extractOriginalCollaborationQuery } from './collaboration-message';
 
 // ── ID generation ────────────────────────────────────────────
 
@@ -159,19 +160,6 @@ export function validateProvider(provider: string): KnownProvider {
   throw new Error(`Unknown provider: "${provider}". Available: ${KNOWN_PROVIDERS.join(', ')}`);
 }
 
-// ── Collaboration injection detection ────────────────────────
-
-/**
- * Detect collaboration injection prompts and extract the original user query.
- * The injection prompt wraps the original query in <user-query> tags.
- */
-const COLLAB_INJECTION_RE = /^A multi-agent collaboration team[\s\S]*?<user-query>([\s\S]*?)<\/user-query>/;
-
-function extractOriginalQuery(text: string): string {
-  const match = text.match(COLLAB_INJECTION_RE);
-  return match ? match[1].trim() : text;
-}
-
 // ── Message conversion ───────────────────────────────────────
 
 export function convertSessionMessages(
@@ -192,7 +180,7 @@ export function convertSessionMessages(
               .map((c) => c.text)
               .join('\n');
       // Strip collaboration injection wrapper so the UI shows the original query
-      const text = extractOriginalQuery(rawText);
+      const text = extractOriginalCollaborationQuery(rawText);
       // Shifted by one: user message N shows the checkpoint from the
       // *previous* turn (N-1). "Restore on message N" means "go back to
       // the state just before I sent message N", which is the end of turn N-1.

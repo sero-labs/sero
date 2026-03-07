@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useSessionStore } from '@/stores/sessions';
-import { useStreamingSessionIds } from '@/stores/agent';
+import { useStreamingSessionIds } from '@/stores/agent-selectors';
 import { Button } from '@sero/ui/components/ui/button';
 import {
   Popover,
