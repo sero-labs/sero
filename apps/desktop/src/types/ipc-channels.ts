@@ -25,6 +25,10 @@ export const IpcChannels = {
     addReference: 'sero:workspace:add-reference',
     /** Remove a workspace reference. Args: id, refId. */
     removeReference: 'sero:workspace:remove-reference',
+    /** Add an arbitrary folder mount. Args: id, folderPath. */
+    addMount: 'sero:workspace:add-mount',
+    /** Remove an arbitrary folder mount. Args: id, folderPath. */
+    removeMount: 'sero:workspace:remove-mount',
   },
   sessions: {
     list: 'sero:sessions:list',

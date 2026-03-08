@@ -208,12 +208,20 @@ export async function buildContainerConfig(
   let writableMounts: string[] = [];
 
   if (!opts?.isolated) {
-    // Mount only explicitly referenced workspaces — not all open ones.
+    // Mount explicitly referenced workspaces
     const refs = await workspaceManager.getReferences(workspaceId);
     for (const refId of refs) {
       const refPath = workspaceManager.getPath(refId);
       if (refPath && path.resolve(refPath) !== path.resolve(hostPath)) {
         writableMounts.push(refPath);
+      }
+    }
+
+    // Mount arbitrary host folders
+    const extraMounts = await workspaceManager.getMounts(workspaceId);
+    for (const mp of extraMounts) {
+      if (path.resolve(mp) !== path.resolve(hostPath) && !writableMounts.includes(mp)) {
+        writableMounts.push(mp);
       }
     }
   }

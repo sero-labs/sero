@@ -18,6 +18,7 @@ import type {
 import { SERO_HOME, SERO_AGENT_DIR } from './env';
 import { inferWorkspaceFromMessage } from './workspace-inference';
 import { slugify, ensureUniqueId, prettifyName } from './workspace-utils';
+import * as mounts from './workspace-mounts';
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
@@ -410,62 +411,21 @@ export class WorkspaceManager {
   }
 
   /** Write a modified config to disk and invalidate the cache. */
-  private async persistConfig(id: string, workspacePath: string, config: WorkspaceConfig): Promise<void> {
+  async persistConfig(id: string, workspacePath: string, config: WorkspaceConfig): Promise<void> {
     this.configCache.delete(id);
     const configPath = path.join(workspacePath, '.sero-workspace.json');
     const json = JSON.stringify(config, null, 2) + '\n';
     await fs.writeFile(configPath, json, 'utf8');
   }
 
-  /**
-   * Get the list of workspace references for a workspace.
-   * Filters out stale references (workspaces that no longer exist).
-   */
-  async getReferences(id: string): Promise<string[]> {
-    const config = await this.getConfig(id);
-    const refs = config?.references ?? [];
-    return refs.filter((refId) => !!this.findEntry(refId));
-  }
+  // ── References & mounts (delegated to workspace-mounts.ts) ──
 
-  /** Add a workspace reference. Prevents self-references and circular (mutual) references. */
-  async addReference(id: string, refId: string): Promise<void> {
-    if (id === refId) throw new Error('A workspace cannot reference itself');
-    const entry = this.findEntry(id);
-    if (!entry) throw new Error(`Workspace not found: ${id}`);
-    if (!this.findEntry(refId)) throw new Error(`Referenced workspace not found: ${refId}`);
-
-    // Prevent circular references: if the target already references us, block
-    const targetRefs = await this.getReferences(refId);
-    if (targetRefs.includes(id)) {
-      throw new Error(
-        `Circular reference: "${refId}" already references "${id}"`,
-      );
-    }
-
-    const config = await this.readConfig(entry.path);
-    if (!config) throw new Error(`No config for workspace: ${id}`);
-
-    const refs = config.references ?? [];
-    if (refs.includes(refId)) return; // already referenced
-
-    config.references = [...refs, refId];
-    await this.persistConfig(id, entry.path, config);
-  }
-
-  /** Remove a workspace reference. */
-  async removeReference(id: string, refId: string): Promise<void> {
-    const entry = this.findEntry(id);
-    if (!entry) throw new Error(`Workspace not found: ${id}`);
-
-    const config = await this.readConfig(entry.path);
-    if (!config) throw new Error(`No config for workspace: ${id}`);
-
-    const refs = config.references ?? [];
-    if (!refs.includes(refId)) return; // not referenced
-
-    config.references = refs.filter((r) => r !== refId);
-    await this.persistConfig(id, entry.path, config);
-  }
+  getReferences(id: string) { return mounts.getReferences(this, id); }
+  addReference(id: string, refId: string) { return mounts.addReference(this, id, refId); }
+  removeReference(id: string, refId: string) { return mounts.removeReference(this, id, refId); }
+  getMounts(id: string) { return mounts.getMounts(this, id); }
+  addMount(id: string, p: string) { return mounts.addMount(this, id, p); }
+  removeMount(id: string, p: string) { return mounts.removeMount(this, id, p); }
 
   /** Merge registry entry + config into WorkspaceInfo. */
   private async getInfo(entry: WorkspaceRegistryEntry): Promise<WorkspaceInfo | null> {
@@ -481,6 +441,7 @@ export class WorkspaceManager {
       open: entry.open,
       container: config?.container !== false,
       references: config?.references ?? [],
+      mounts: config?.mounts ?? [],
     };
   }
 

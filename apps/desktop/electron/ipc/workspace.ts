@@ -106,7 +106,24 @@ export function registerWorkspaceHandlers(): void {
     IpcChannels.workspace.removeReference,
     async (_event, id: string, refId: string): Promise<void> => {
       await workspaceManager.removeReference(id, refId);
-      // Recreate the container without the removed mount
+      await recreateContainerIfRunning(id);
+    },
+  );
+
+  // ── Add arbitrary folder mount ─────────────────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.addMount,
+    async (_event, id: string, folderPath: string): Promise<void> => {
+      await workspaceManager.addMount(id, folderPath);
+      await recreateContainerIfRunning(id);
+    },
+  );
+
+  // ── Remove arbitrary folder mount ──────────────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.removeMount,
+    async (_event, id: string, folderPath: string): Promise<void> => {
+      await workspaceManager.removeMount(id, folderPath);
       await recreateContainerIfRunning(id);
     },
   );

@@ -72,6 +72,10 @@ interface SeroWorkspaceAPI {
   addReference(id: string, refId: string): Promise<void>;
   /** Remove a workspace reference. */
   removeReference(id: string, refId: string): Promise<void>;
+  /** Mount an arbitrary host folder into this workspace's container. */
+  addMount(id: string, folderPath: string): Promise<void>;
+  /** Remove an arbitrary folder mount. */
+  removeMount(id: string, folderPath: string): Promise<void>;
 }
 
 interface SeroSessionsAPI {

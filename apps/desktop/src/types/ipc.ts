@@ -30,6 +30,8 @@ export interface WorkspaceInfo {
   container: boolean;
   /** IDs of other workspaces mounted into this workspace's container. */
   references: string[];
+  /** Arbitrary host folders mounted read-write into this workspace's container. */
+  mounts: string[];
 }
 
 /** Full workspace config from .sero-workspace.json at workspace root. */
@@ -58,6 +60,12 @@ export interface WorkspaceConfig {
    * read-write access to the referenced workspace's files.
    */
   references?: string[];
+  /**
+   * Arbitrary host directories mounted read-write into this workspace's
+   * container. Unlike references, these are raw absolute paths — not
+   * workspace IDs.
+   */
+  mounts?: string[];
 }
 
 // ── Sessions ───────────────────────────────────────────────────

@@ -339,12 +339,12 @@ function WorkspaceNode({
           {workspace.name}
         </span>
         <ContainerIndicator workspaceId={workspace.id} containerEnabled={workspace.container} />
-        {workspace.references.length > 0 && (
+        {(workspace.references.length + workspace.mounts.length) > 0 && (
           <span
             className="flex size-3.5 items-center justify-center rounded-full bg-[var(--bg-base)] text-[8px] font-bold text-[var(--text-muted)]"
-            title={`${workspace.references.length} workspace reference${workspace.references.length > 1 ? 's' : ''}`}
+            title={`${workspace.references.length + workspace.mounts.length} mount${workspace.references.length + workspace.mounts.length > 1 ? 's' : ''}`}
           >
-            {workspace.references.length}
+            {workspace.references.length + workspace.mounts.length}
           </span>
         )}
 
