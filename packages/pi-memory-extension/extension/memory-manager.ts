@@ -17,6 +17,11 @@ import os from 'node:os';
 
 import type { MemorySearchResult, MemoryFileList } from '../shared/types';
 
+// ── Constants ──────────────────────────────────────────────────
+
+/** Only these root-level .md files are managed by the memory system. */
+const MEMORY_ROOT_FILES = new Set(['MEMORY.md', 'IDENTITY.md', 'USER.md']);
+
 // ── Path resolution ────────────────────────────────────────────
 
 /** Resolve the global workspace root, where all memory files live. */
@@ -141,7 +146,10 @@ export async function searchFiles(
       continue;
     }
 
-    const mdFiles = entries.filter((f) => f.endsWith('.md')).sort();
+    // At the root level, only search known memory files (not AGENTS.md etc.)
+    const mdFiles = entries
+      .filter((f) => (prefix ? f.endsWith('.md') : MEMORY_ROOT_FILES.has(f)))
+      .sort();
 
     for (const file of mdFiles) {
       if (results.length >= maxResults) break;
@@ -174,7 +182,8 @@ export async function listFiles(root: string): Promise<MemoryFileList> {
 
   try {
     const entries = await fs.readdir(root);
-    for (const f of entries.filter((e) => e.endsWith('.md')).sort()) {
+    // Only list known memory files (not AGENTS.md, README.md, etc.)
+    for (const f of entries.filter((e) => MEMORY_ROOT_FILES.has(e)).sort()) {
       rootFiles.push(f);
     }
   } catch {

@@ -7,6 +7,9 @@
  * On first run (no MEMORY.md), injects bootstrap instructions that
  * tell the agent to use the `questionnaire` tool to collect answers,
  * then write results to memory files.
+ *
+ * Bootstrap status is cached after the first check and reset on
+ * each `session_start` to avoid redundant filesystem I/O per turn.
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
@@ -21,10 +24,35 @@ import {
   USER_QUESTIONS,
   MEMORY_QUESTIONS,
 } from './bootstrap';
+import type { BootstrapStatus } from './bootstrap';
 
 // ── Max injection size (tokens are ~4 chars) ───────────────────
 
 const MAX_INJECTION_CHARS = 4000;
+
+// ── Bootstrap status cache ─────────────────────────────────────
+//
+// Avoid checking the filesystem on every `before_agent_start`.
+// Reset on `session_start` so a new session re-checks once.
+
+let cachedStatus: BootstrapStatus | null = null;
+
+async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
+  if (!cachedStatus) {
+    cachedStatus = await checkBootstrapStatus();
+  }
+  return cachedStatus;
+}
+
+/** Call on session_start to re-check bootstrap state. */
+export function resetBootstrapCache(): void {
+  cachedStatus = null;
+}
+
+/** Call after the agent writes memory files during bootstrap. */
+export function markBootstrapDone(): void {
+  cachedStatus = { needsBootstrap: false, existingUserContent: null };
+}
 
 // ── Normal mode: build context from existing files ─────────────
 
@@ -72,6 +100,10 @@ function getMemoryInstructions(): string {
 // ── Bootstrap mode: questionnaire-driven setup ─────────────────
 
 function buildBootstrapInstructions(existingUserContent: string | null): string {
+  const identityJson = JSON.stringify(IDENTITY_QUESTIONS, null, 2);
+  const userJson = JSON.stringify(USER_QUESTIONS, null, 2);
+  const memoryJson = JSON.stringify(MEMORY_QUESTIONS, null, 2);
+
   const userNote = existingUserContent
     ? `\n\nNote: USER.md already has content:\n\`\`\`\n${existingUserContent}\n\`\`\`\nConfirm this is correct with the user rather than re-asking. Skip the user questionnaire if the content looks good.`
     : '';
@@ -84,7 +116,7 @@ Use the \`questionnaire\` tool to ask the user three rounds of questions, then w
 
 ### Step 1: Identity Setup
 Call the \`questionnaire\` tool with these questions to configure the agent persona:
-${IDENTITY_QUESTIONS}
+${identityJson}
 
 After receiving answers, write IDENTITY.md:
 \`sero memory write --target identity --mode overwrite --content "# Identity\\n\\n- **Name:** <agent_name answer>\\n- **Style:** <personality answer>\\n- **Rules:** <rules answer>"\`
@@ -93,7 +125,7 @@ After receiving answers, write IDENTITY.md:
 ${existingUserContent
     ? 'Ask the user if the existing USER.md content above is correct. If they want changes, ask what to update. Only rewrite if needed.'
     : `Call the \`questionnaire\` tool with these questions:
-${USER_QUESTIONS}
+${userJson}
 
 After receiving answers, write USER.md:
 \`sero memory write --target user --mode overwrite --content "# User\\n\\n- **Name:** <name>\\n- **Role:** <role>\\n- **Location:** <location>\\n- **Tech Stack:** <stack>\\n- **Communication:** <communication>"\``
@@ -101,7 +133,7 @@ After receiving answers, write USER.md:
 
 ### Step 3: Long-term Memory
 Call the \`questionnaire\` tool with these questions:
-${MEMORY_QUESTIONS}
+${memoryJson}
 
 After receiving answers, write MEMORY.md:
 \`sero memory write --target memory --mode overwrite --content "# Memory\\n\\n## Technical Knowledge\\n\\n<tech_knowledge>\\n\\n## Coding Preferences\\n\\n<coding_prefs>\\n\\n## Active Projects\\n\\n<projects>"\`
@@ -116,8 +148,13 @@ After receiving answers, write MEMORY.md:
 // ── Register hooks ─────────────────────────────────────────────
 
 export function registerContextInjection(pi: ExtensionAPI): void {
+  // Reset cache on each new session so bootstrap status is re-checked once
+  pi.on('session_start', () => {
+    resetBootstrapCache();
+  });
+
   pi.on('before_agent_start', async (event) => {
-    const status = await checkBootstrapStatus();
+    const status = await getCachedBootstrapStatus();
 
     let addition: string;
     if (status.needsBootstrap) {

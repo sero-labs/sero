@@ -11,6 +11,7 @@ import { StringEnum } from '@mariozechner/pi-ai';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
+import type { Static } from '@sinclair/typebox';
 
 import {
   resolveMemoryRoot,
@@ -47,6 +48,8 @@ const MemoryParams = Type.Object({
     Type.Number({ description: 'Max search results (default: 20)' }),
   ),
 });
+
+type MemoryParamsType = Static<typeof MemoryParams>;
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -155,15 +158,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
       const root = resolveMemoryRoot();
       await ensureDirectories(root);
 
-      const p = params as {
-        action: string;
-        target?: string;
-        content?: string;
-        mode?: string;
-        date?: string;
-        query?: string;
-        max_results?: number;
-      };
+      const p = params as MemoryParamsType;
 
       switch (p.action) {
         case 'read':

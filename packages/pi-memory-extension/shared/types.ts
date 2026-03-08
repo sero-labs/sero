@@ -19,3 +19,23 @@ export interface MemoryFileList {
   root: string[];
   daily: string[];
 }
+
+// ── Questionnaire types (matches Pi SDK `questionnaire` tool) ──
+
+export interface QuestionOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface QuestionDef {
+  id: string;
+  label?: string;
+  prompt: string;
+  options: QuestionOption[];
+  allowOther?: boolean;
+}
+
+export interface QuestionnairePayload {
+  questions: QuestionDef[];
+}

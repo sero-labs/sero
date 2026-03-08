@@ -15,12 +15,11 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
 import { checkBootstrapStatus } from './bootstrap';
-import { registerContextInjection } from './context-injector';
+import { registerContextInjection, markBootstrapDone } from './context-injector';
 import { registerMemoryTool } from './memory-tool';
 
 export default function memoryExtension(pi: ExtensionAPI): void {
-  // Notify the user on first run (directories are created, but files
-  // are written by the agent after collecting questionnaire answers)
+  // Warm the bootstrap cache on session start and notify on first run
   pi.on('session_start', async () => {
     const status = await checkBootstrapStatus();
     if (status.needsBootstrap) {
@@ -32,6 +31,17 @@ export default function memoryExtension(pi: ExtensionAPI): void {
         },
         { triggerTurn: false },
       );
+    }
+  });
+
+  // After each agent turn, if bootstrap was in progress and
+  // memory files are now written, update the cache so subsequent
+  // turns switch to normal context injection.
+  pi.on('agent_end', async () => {
+    // Re-check; if MEMORY.md now exists, mark bootstrap done
+    const status = await checkBootstrapStatus();
+    if (!status.needsBootstrap) {
+      markBootstrapDone();
     }
   });
 
