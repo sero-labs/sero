@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAppState } from '@sero/app-runtime';
-import { ClipboardList, MessageCircleQuestion, Mic } from 'lucide-react';
+import { ClipboardList, MessageCircleQuestion, Mic, Loader2, Sparkles } from 'lucide-react';
 import { QuestionnaireForm } from './QuestionnaireForm';
 import { InterviewForm } from './InterviewForm';
 import type {
@@ -73,6 +73,8 @@ export function UserFeedbackApp() {
       const response: UserFeedbackResponse = { id, answers, cancelled: false };
       await window.sero.userFeedback.answer(response);
       setPending(null);
+      // Clear onboarding flag when questionnaire completes
+      sessionStorage.removeItem('sero:onboarding');
       updateState((prev) => ({ ...prev, lastActivity: new Date().toISOString() }));
     },
     [updateState],
@@ -103,6 +105,12 @@ export function UserFeedbackApp() {
 }
 
 function IdleState() {
+  const isOnboarding = sessionStorage.getItem('sero:onboarding') === 'memory-setup';
+
+  if (isOnboarding) {
+    return <OnboardingWaitState />;
+  }
+
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 bg-background p-8">
       <div className="flex items-center gap-3 text-muted-foreground">
@@ -128,6 +136,29 @@ function IdleState() {
         <ul className="mt-1 space-y-1">
           <li>• <code className="rounded bg-secondary px-1">/interview &lt;path&gt;</code> — start an interview and write a spec</li>
         </ul>
+      </div>
+    </div>
+  );
+}
+
+function OnboardingWaitState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-6 bg-background p-8">
+      <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10">
+        <Sparkles className="size-8 text-primary" />
+      </div>
+      <div className="text-center">
+        <h2 className="text-xl font-semibold text-foreground">
+          Setting up your profile
+        </h2>
+        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+          The agent is preparing a few questions to get to know you.
+          This will only take a moment.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" />
+        <span className="text-sm">Preparing questionnaire…</span>
       </div>
     </div>
   );

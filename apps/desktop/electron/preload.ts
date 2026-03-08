@@ -9,6 +9,7 @@ import { collaborationBridge } from './preload/collaboration';
 import { modelsBridge } from './preload/models';
 import { googleBridge, imagegenBridge } from './preload/google-imagegen';
 import type {
+  ProfileInfo,
   WorkspaceInfo,
   WorkspaceConfig,
   SeroSessionInfo,
@@ -60,6 +61,31 @@ contextBridge.exposeInMainWorld('sero', {
   shell: {
     showItemInFolder: (fullPath: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.shell.showItemInFolder, fullPath),
+  },
+
+  profiles: {
+    list: (): Promise<ProfileInfo[]> =>
+      ipcRenderer.invoke(IpcChannels.profiles.list),
+    getActive: (): Promise<ProfileInfo | null> =>
+      ipcRenderer.invoke(IpcChannels.profiles.getActive),
+    hasActive: (): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.profiles.hasActive),
+    create: (name: string, profilePath?: string, copyAuthFromId?: string): Promise<ProfileInfo> =>
+      ipcRenderer.invoke(IpcChannels.profiles.create, name, profilePath, copyAuthFromId),
+    switch: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.profiles.switch, id),
+    rename: (id: string, newName: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.profiles.rename, id, newName),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.profiles.delete, id),
+    pickFolder: (): Promise<string | null> =>
+      ipcRenderer.invoke(IpcChannels.profiles.pickFolder),
+    needsOnboarding: (): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.profiles.needsOnboarding),
+    markOnboardingDone: (): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.profiles.markOnboardingDone),
+    listAuthSources: (): Promise<ProfileInfo[]> =>
+      ipcRenderer.invoke(IpcChannels.profiles.listAuthSources),
   },
 
   workspace: {

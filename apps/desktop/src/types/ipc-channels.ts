@@ -388,4 +388,28 @@ export const IpcChannels = {
     /** Main → renderer push channel for gateway events. */
     event: 'sero:gateway:event',
   },
+  profiles: {
+    /** List all profiles with active flag. */
+    list: 'sero:profiles:list',
+    /** Get the currently active profile. */
+    getActive: 'sero:profiles:get-active',
+    /** Check if a valid active profile exists. */
+    hasActive: 'sero:profiles:has-active',
+    /** Create a new profile. Args: name, path?. */
+    create: 'sero:profiles:create',
+    /** Switch to a profile (triggers app restart). Args: id. */
+    switch: 'sero:profiles:switch',
+    /** Rename a profile. Args: id, newName. */
+    rename: 'sero:profiles:rename',
+    /** Delete a profile (unregister only). Args: id. */
+    delete: 'sero:profiles:delete',
+    /** Open native folder picker for custom profile path. */
+    pickFolder: 'sero:profiles:pick-folder',
+    /** Check if onboarding is needed (no .onboarding-complete marker). */
+    needsOnboarding: 'sero:profiles:needs-onboarding',
+    /** Mark onboarding as complete (persists across restarts). */
+    markOnboardingDone: 'sero:profiles:mark-onboarding-done',
+    /** List other profiles that have auth.json (for import during creation). */
+    listAuthSources: 'sero:profiles:list-auth-sources',
+  },
 } as const;

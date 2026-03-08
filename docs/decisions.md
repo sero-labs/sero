@@ -303,3 +303,45 @@ via the Pi SDK. Markdown-first agent definitions, three execution modes
 - Design spec: [docs/subagent-design-spec.md](subagent-design-spec.md)
 - PRD: [docs/subagent-prd.md](subagent-prd.md)
 - E2E test procedures: [docs/testing/e2e-subagent-testing.md](testing/e2e-subagent-testing.md)
+
+## AD-022: Multi-Profile System
+
+**Problem:** Sero is a single-user app with all state under `~/.sero-ui/`.
+Users who want separate environments for work, personal, and research
+contexts must share workspaces, sessions, auth tokens, and settings.
+
+**Decision:** Profile system that maps each profile to an independent
+`SERO_HOME` directory. Profiles are registered in a fixed-location
+`~/.sero-ui/profiles.json` file. Switching profiles restarts the app.
+
+**Key design choices:**
+
+- **Profile = SERO_HOME** — Existing architecture already resolves all state
+  from `SERO_HOME`. Changing this one variable at startup scopes everything:
+  workspaces, sessions, auth, settings, layout, app state, skills, etc.
+  Zero changes needed to existing data-flow code.
+- **Fixed registry location** — `~/.sero-ui/profiles.json` is the one file
+  read before anything else. It must live at a known path because we don't
+  know the profile (and thus `SERO_HOME`) until we read it.
+- **Restart-based switching** — `app.relaunch()` + `app.exit()`. Lazy
+  singletons in `shared-infra.ts` (AuthStorage, ModelRegistry, etc.) are
+  initialised once and never reset. A clean restart is the only safe way to
+  ensure no stale state leaks between profiles.
+- **Automatic migration** — Existing `~/.sero-ui/` installations are silently
+  enrolled as a "Default" profile. No data moved, no manual action needed.
+- **Profile-scoped localStorage** — All `localStorage`/`sessionStorage` keys
+  are prefixed with `sero:p:<profileId>:` to prevent cross-contamination.
+  Legacy un-prefixed keys are auto-migrated on first read.
+- **Per-profile Chromium userData** — `app.setPath('userData')` routes to
+  `~/Library/Application Support/sero/profiles/<profileId>/`, isolating
+  cookies, DOM storage, and caches.
+- **Name ≠ folder** — Profile `name` is a user-editable display label,
+  independent of the filesystem path. A profile named "Work" can live at
+  `/data/sero-work/`.
+
+**What's NOT profile-scoped:**
+- Electron binary and app code (shared)
+- Volta/Node.js toolchain (shared)
+- The `profiles.json` registry itself (shared)
+
+See [docs/profiles.md](profiles.md) for the full user guide.

@@ -16,6 +16,7 @@ import type {
   UserFeedbackResponse,
   UserFeedbackAnswer,
 } from '@/types/ipc';
+import { useAppStore } from '@/stores/app';
 
 interface UserFeedbackState {
   /** Currently pending questions (keyed by id for quick lookup). */
@@ -63,13 +64,15 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => ({
   },
 
   initListeners() {
-    // New question arrived from an extension tool
+    // New question arrived from an extension tool — add to pending
+    // and auto-switch to User Feedback app so the user sees it immediately.
     const unsubQuestion = window.sero.userFeedback.onQuestion((data) => {
       set((state) => {
         const next = new Map(state.pending);
         next.set(data.id, data);
         return { pending: next };
       });
+      useAppStore.getState().setActiveApp('userfeedback');
     });
 
     // Main process cancelled a question (e.g. tool aborted)

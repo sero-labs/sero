@@ -27,7 +27,7 @@ export const IDENTITY_QUESTIONS: QuestionnairePayload = {
   questions: [
     {
       id: 'agent_name',
-      label: 'Name',
+      label: 'AI Name',
       prompt: 'What should the AI assistant call itself?',
       options: [
         { value: 'Sero', label: 'Sero' },

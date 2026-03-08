@@ -6,6 +6,7 @@
  * this directory and add its registration call below.
  */
 
+import { registerProfileHandlers } from './profiles';
 import { registerWorkspaceHandlers } from './workspace';
 import { registerSessionHandlers } from './sessions';
 import { registerAgentHandlers } from './agent';
@@ -40,6 +41,7 @@ import { registerPromptHandlers } from './prompts';
 import { registerCollaborationHandlers } from './collaboration';
 
 export function registerAllIpcHandlers(): void {
+  registerProfileHandlers();
   registerWorkspaceHandlers();
   registerSessionHandlers();
   registerAgentHandlers();

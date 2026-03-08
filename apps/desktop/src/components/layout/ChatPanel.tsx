@@ -199,12 +199,7 @@ export function ChatPanel() {
             </div>
           )}
 
-          {error && (
-            <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              <AlertCircle className="size-3.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
+          {error && <ChatError error={error} />}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
@@ -233,6 +228,47 @@ export function ChatPanel() {
         onOpenChange={checkpoint.setDialogOpen}
         onConfirm={checkpoint.confirmRestore}
       />
+    </div>
+  );
+}
+
+// ── Inline error banner ──────────────────────────────────────
+
+/** Detect auth / API-key errors and show a friendly message. */
+function isAuthError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes('no api key') ||
+    lower.includes('api key not found') ||
+    lower.includes('authentication') ||
+    lower.includes('unauthorized') ||
+    lower.includes('401')
+  );
+}
+
+function ChatError({ error }: { error: string }) {
+  const friendly = isAuthError(error);
+
+  return (
+    <div className="mx-3 mb-2 flex flex-col gap-1.5 rounded-md bg-destructive/10 px-3 py-2.5 text-xs">
+      {friendly ? (
+        <>
+          <div className="flex items-start gap-2 text-destructive">
+            <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+            <span className="font-medium">Not signed in</span>
+          </div>
+          <p className="pl-[22px] text-[var(--text-muted)]">
+            You need to authenticate before using the agent. Type{' '}
+            <code className="rounded bg-[var(--bg-elevated)] px-1 py-0.5 text-[var(--text-secondary)]">/login</code>{' '}
+            in the chat input to sign in.
+          </p>
+        </>
+      ) : (
+        <div className="flex items-start gap-2 text-destructive">
+          <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+          <span className="break-words break-all">{error}</span>
+        </div>
+      )}
     </div>
   );
 }

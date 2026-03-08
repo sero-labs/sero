@@ -13,6 +13,9 @@ import { ChatPanel } from '@/components/layout/ChatPanel';
 import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
 import { useAppStore, discoverAndRegisterApps, listenForNewApps, loadLayout } from '@/stores/app';
+import { useProfileStore, loadProfiles } from '@/stores/profiles';
+import { ProfileSetup } from '@/components/profiles/ProfileSetup';
+import { OnboardingWizard } from '@/components/profiles/OnboardingWizard';
 import { subscribeDevServerEvents } from '@/stores/dev-server';
 import { NewAppBanner } from '@/components/layout/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
@@ -66,6 +69,8 @@ export function App() {
 
   const appsReady = useAppStore((s) => s.appsReady);
   const layoutReady = useAppStore((s) => s.layoutReady);
+  const profileReady = useProfileStore((s) => s.ready);
+  const hasActiveProfile = useProfileStore((s) => s.hasActiveProfile);
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
@@ -84,8 +89,9 @@ export function App() {
     chatPanelDefaultRef.current = s.chatPanelOpen ? `${s.chatPanelSizePct}%` : 0;
   }
 
-  // Load layout + discover apps on startup
+  // Load profiles + layout + discover apps on startup
   useEffect(() => {
+    loadProfiles();
     loadLayout();
     discoverAndRegisterApps();
     return listenForNewApps();
@@ -198,14 +204,18 @@ export function App() {
     };
   }, [chatPanelOpen, layoutReady, appsReady]);
 
-  // Wait for layout hydration + app discovery before rendering.
-  // Layout must load first so panels render at the correct size (no flash).
-  if (!appsReady || !layoutReady) {
+  // Wait for profile + layout hydration + app discovery before rendering.
+  if (!profileReady || !appsReady || !layoutReady) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[var(--bg-base)]">
         <span className="text-xs text-[var(--text-muted)]">Loading…</span>
       </div>
     );
+  }
+
+  // No active profile → show first-run setup screen
+  if (!hasActiveProfile) {
+    return <ProfileSetup />;
   }
 
   return (
@@ -261,6 +271,7 @@ export function App() {
 
         <CommandMenu />
         <NewAppBanner />
+        <OnboardingWizard />
         <StatusBar />
       </div>
     </TooltipProvider>

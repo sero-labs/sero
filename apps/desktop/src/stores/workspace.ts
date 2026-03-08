@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
+import { getLocalItem, setLocalItem, removeLocalItem } from '@/lib/profile-storage';
 
 // ── Store ──────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ interface WorkspaceState {
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],
-  activeWorkspaceId: localStorage.getItem(ACTIVE_WS_KEY) || null,
+  activeWorkspaceId: getLocalItem(ACTIVE_WS_KEY) || null,
   isLoading: false,
   error: null,
 
@@ -116,8 +117,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   setActiveWorkspace: (id) => {
-    if (id) localStorage.setItem(ACTIVE_WS_KEY, id);
-    else localStorage.removeItem(ACTIVE_WS_KEY);
+    if (id) setLocalItem(ACTIVE_WS_KEY, id);
+    else removeLocalItem(ACTIVE_WS_KEY);
     set({ activeWorkspaceId: id });
   },
 

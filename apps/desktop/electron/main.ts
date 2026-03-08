@@ -1,15 +1,29 @@
 // Load .env BEFORE any SDK imports (they read process.env at module level)
-import { loadSeroEnv, SERO_AGENT_DIR } from './env';
+import { loadSeroEnv, SERO_AGENT_DIR, SERO_HOME, ACTIVE_PROFILE_ID } from './env';
 loadSeroEnv();
 
 import { app, components, BrowserWindow, session, shell } from 'electron';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import path from 'path';
+
+// ── Per-profile Chromium userData isolation ──────────────────
+// Set userData path BEFORE app.whenReady() so Chromium initialises with the
+// correct directory. This isolates cookies, localStorage, caches, and
+// session data between profiles.
+if (ACTIVE_PROFILE_ID) {
+  const profileUserData = path.join(
+    app.getPath('userData'),
+    'profiles',
+    ACTIVE_PROFILE_ID,
+  );
+  app.setPath('userData', profileUserData);
+}
 import { registerAllIpcHandlers } from './ipc/index';
 import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
 import { watchForNewApps } from './ipc/apps';
+import { ensureDefaultAgents, ensureProfileTemplates } from './profile/setup';
 import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './ipc/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './csp';
@@ -49,8 +63,13 @@ function bootstrapAgentDir(): void {
 }
 
 /**
- * Discover all pi-* package directories that contain a sero.app manifest.
+ * Discover all pi-* extension packages (with or without a sero.app UI).
  * Returns absolute paths. Works at runtime (from dist/electron/).
+ *
+ * A directory qualifies if it has a package.json with either:
+ *   - a `piExtension` field (Pi SDK extension entry point), or
+ *   - a `sero.app` manifest (Sero UI app), or
+ *   - an `extension/` subdirectory (convention for Sero extensions)
  */
 function discoverSeroPackagePaths(): string[] {
   // __dirname is apps/desktop/dist/electron/ at runtime → packages/ is 4 levels up
@@ -62,7 +81,7 @@ function discoverSeroPackagePaths(): string[] {
       .filter((p) => {
         try {
           const pkg = JSON.parse(readFileSync(path.join(p, 'package.json'), 'utf8'));
-          return pkg.sero?.app != null;
+          return pkg.pi?.extensions != null || pkg.piExtension != null || pkg.sero?.app != null || existsSync(path.join(p, 'extension'));
         } catch {
           return false;
         }
@@ -192,9 +211,9 @@ app.whenReady().then(async () => {
 
   registerAllIpcHandlers();
 
-  // ── Copy default agent templates if first launch ──────────
-  const { ensureDefaultAgents } = await import('./subagent/setup');
+  // ── Copy default templates if first launch ─────────────────
   ensureDefaultAgents().catch((err) => console.warn('[sero] Agent template copy failed:', err));
+  ensureProfileTemplates().catch((err) => console.warn('[sero] Profile template copy failed:', err));
 
   // ── Widevine CDM (castlabs ECS) ─────────────────────────────
   // The castlabs Electron fork auto-downloads the Widevine CDM via the

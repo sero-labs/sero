@@ -113,10 +113,6 @@ export class WorkspaceManager {
     if (!this.findEntry('global')) {
       const globalPath = path.join(WORKSPACES_DIR, 'global');
       await fs.mkdir(globalPath, { recursive: true });
-      // Create conventional subdirectories
-      await fs.mkdir(path.join(globalPath, 'knowledge'), { recursive: true });
-      await fs.mkdir(path.join(globalPath, 'finance'), { recursive: true });
-      await fs.mkdir(path.join(globalPath, 'templates'), { recursive: true });
       await this.writeConfig(globalPath, DEFAULT_GLOBAL_CONFIG);
       this.registry.workspaces.push({
         id: 'global',
