@@ -19,6 +19,7 @@ import type {
   SessionUsageStats,
   ContextUsageInfo,
   ContextOverrides,
+  SeroSessionInfo,
 } from '../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 
@@ -460,6 +461,46 @@ export function registerAgentHandlers(): void {
       sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
 
       return chatMessages;
+    },
+  );
+
+  // ── Fork session (extract branch to new file) ─────────────
+  ipcMain.handle(
+    IpcChannels.agent.forkSession,
+    async (_event, sessionId: string): Promise<SeroSessionInfo> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      if (entry.session.agent.state.isStreaming) {
+        throw new Error('Cannot fork while agent is streaming');
+      }
+
+      const sm = entry.session.sessionManager;
+      const leafId = sm.getLeafId();
+      if (!leafId) throw new Error('Session has no entries to fork');
+
+      // createBranchedSession extracts the current branch to a new .jsonl file
+      const newSessionPath = sm.createBranchedSession(leafId);
+
+      // Open the new file to read its header
+      const newSm = SessionManager.open(newSessionPath, SERO_SESSION_DIR);
+      const header = newSm.getHeader();
+      const branch = newSm.getBranch();
+      const now = new Date();
+
+      return {
+        path: newSessionPath,
+        id: newSm.getSessionId(),
+        cwd: header.cwd,
+        workspaceId: entry.workspaceId,
+        name: undefined,
+        created: now.toISOString(),
+        modified: now.toISOString(),
+        messageCount: branch.filter(
+          (e) => e.type === 'message' && e.message.role === 'user',
+        ).length,
+        firstMessage: '',
+      };
     },
   );
 

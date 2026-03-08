@@ -47,6 +47,8 @@ export const IpcChannels = {
     compact: 'sero:agent:compact',
     /** Clear session by branching from root. Args: sessionId. */
     clearSession: 'sero:agent:clear-session',
+    /** Fork session: extract current branch to a new session file. Args: sessionId. */
+    forkSession: 'sero:agent:fork-session',
     /** Get current model + thinking state for a session. */
     getModelState: 'sero:agent:get-model-state',
     /** Set model for a session. Args: sessionId, provider, modelId. */

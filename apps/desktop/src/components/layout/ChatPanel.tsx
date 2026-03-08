@@ -138,7 +138,7 @@ export function ChatPanel() {
             4-Agent
           </span>
         )}
-        {sessionId && <ContextBadge sessionId={sessionId} workspaceId={focusedWorkspaceId} />}
+        {sessionId && <ContextBadge sessionId={sessionId} />}
         {sessionId && <UsageBadge sessionId={sessionId} />}
       </div>
 

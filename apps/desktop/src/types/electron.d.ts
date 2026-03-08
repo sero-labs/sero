@@ -102,6 +102,8 @@ interface SeroAgentAPI {
   compact(sessionId: string, customInstructions?: string): Promise<{ success: boolean; error?: string }>;
   /** Clear session by branching from root (resets conversation, keeps session). */
   clearSession(sessionId: string): Promise<ChatMessage[]>;
+  /** Fork session: extract current branch to a new session file. Returns the new session info. */
+  forkSession(sessionId: string): Promise<SeroSessionInfo>;
   /** Get current model + thinking level state. */
   getModelState(sessionId: string): Promise<SessionModelState | null>;
   /** Set the model for a session. */

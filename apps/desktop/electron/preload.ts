@@ -147,6 +147,9 @@ contextBridge.exposeInMainWorld('sero', {
     clearSession: (sessionId: string): Promise<ChatMessage[]> =>
       ipcRenderer.invoke(IpcChannels.agent.clearSession, sessionId),
 
+    forkSession: (sessionId: string): Promise<SeroSessionInfo> =>
+      ipcRenderer.invoke(IpcChannels.agent.forkSession, sessionId),
+
     getModelState: (sessionId: string): Promise<SessionModelState | null> =>
       ipcRenderer.invoke(IpcChannels.agent.getModelState, sessionId),
 

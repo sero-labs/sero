@@ -10,7 +10,6 @@ import type { ContextUsageInfo } from '@/types/ipc';
 
 interface ContextBadgeProps {
   sessionId: string;
-  workspaceId: string | null;
 }
 
 /**
@@ -18,13 +17,15 @@ interface ContextBadgeProps {
  * fork session, or clear session.
  * Auto-refreshes on agent turn completion.
  */
-export function ContextBadge({ sessionId, workspaceId }: ContextBadgeProps) {
+export function ContextBadge({ sessionId }: ContextBadgeProps) {
   const [usage, setUsage] = useState<ContextUsageInfo | null>(null);
   const [compacting, setCompacting] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [compactInstructions, setCompactInstructions] = useState('');
+  const [forking, setForking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const createSession = useSessionStore((s) => s.createSession);
+  const loadSessions = useSessionStore((s) => s.loadSessions);
+  const setActiveSession = useSessionStore((s) => s.setActiveSession);
 
   const fetchUsage = useCallback(async () => {
     try {
@@ -72,12 +73,17 @@ export function ContextBadge({ sessionId, workspaceId }: ContextBadgeProps) {
   };
 
   const handleFork = async () => {
-    if (!workspaceId) return;
     setActionError(null);
+    setForking(true);
     try {
-      await createSession(workspaceId);
+      const newSession = await window.sero.agent.forkSession(sessionId);
+      // Refresh session list so the forked session appears, then select it
+      await loadSessions();
+      setActiveSession(newSession.id);
     } catch (err: any) {
       setActionError(err?.message || 'Fork failed');
+    } finally {
+      setForking(false);
     }
   };
 
@@ -109,7 +115,7 @@ export function ContextBadge({ sessionId, workspaceId }: ContextBadgeProps) {
         ? 'bg-amber-500'
         : 'bg-red-500';
 
-  const busy = compacting || clearing;
+  const busy = compacting || clearing || forking;
 
   return (
     <Popover>
@@ -192,17 +198,19 @@ export function ContextBadge({ sessionId, workspaceId }: ContextBadgeProps) {
 
         {/* Session actions */}
         <div className="border-t border-[var(--border-subtle)] pt-2 flex gap-2">
-          {workspaceId && (
-            <button
-              onClick={handleFork}
-              disabled={busy}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
-              title="Create a new session in this workspace"
-            >
+          <button
+            onClick={handleFork}
+            disabled={busy}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+            title="Fork: copy conversation to a new session"
+          >
+            {forking ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
               <GitFork className="size-3" />
-              Fork
-            </button>
-          )}
+            )}
+            Fork
+          </button>
           <button
             onClick={handleClear}
             disabled={busy}
