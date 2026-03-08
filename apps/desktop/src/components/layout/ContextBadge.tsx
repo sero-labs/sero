@@ -132,7 +132,7 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
           title="Context window usage"
         >
           <Gauge className="size-3.5" />
-          <span className={`text-xs tabular-nums ${healthColor}`}>
+          <span className="text-sm tabular-nums text-emerald-600 dark:text-emerald-400">
             {hasData ? `${Math.round(percent)}%` : '—'}
           </span>
         </button>
