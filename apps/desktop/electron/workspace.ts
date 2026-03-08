@@ -1,12 +1,8 @@
 /**
  * WorkspaceManager — manages the workspace registry and configs.
  *
- * Registry lives at ~/.sero-ui/agent/workspaces.json.
- * Each workspace has a .sero-workspace.json at its root directory.
- *
- * One system default workspace is created on first run:
- *   - global (cross-cutting personal data, ad-hoc tasks)
- *
+ * Registry: ~/.sero-ui/agent/workspaces.json
+ * Per-workspace config: .sero-workspace.json at workspace root.
  */
 
 import { promises as fs } from 'fs';
@@ -21,6 +17,7 @@ import type {
 
 import { SERO_HOME, SERO_AGENT_DIR } from './env';
 import { inferWorkspaceFromMessage } from './workspace-inference';
+import { slugify, ensureUniqueId, prettifyName } from './workspace-utils';
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
@@ -225,7 +222,7 @@ export class WorkspaceManager {
     }
 
     // Derive ID from folder name
-    const id = this.slugify(path.basename(absPath));
+    const id = slugify(path.basename(absPath));
     const uniqueId = this.ensureUniqueId(id);
 
     // Check if already registered (by path) — reopen if closed
@@ -248,7 +245,7 @@ export class WorkspaceManager {
     if (!config) {
       config = {
         id: uniqueId,
-        name: name || this.prettifyName(path.basename(absPath)),
+        name: name || prettifyName(path.basename(absPath)),
       };
       await this.writeConfig(absPath, config);
     }
@@ -285,7 +282,7 @@ export class WorkspaceManager {
       }
     }
 
-    const id = this.slugify(name);
+    const id = slugify(name);
     const uniqueId = this.ensureUniqueId(id);
     const wsPath = parentPath
       ? path.join(path.resolve(parentPath), uniqueId)
@@ -357,14 +354,9 @@ export class WorkspaceManager {
     return [...this.openIds];
   }
 
-  /**
-   * Infer the best workspace for a given message.
-   * Checks keywords against contextHints, tags, and names of open workspaces.
-   * Returns workspace ID or 'global' if no match.
-   */
+  /** Infer the best workspace for a message (keywords vs contextHints/tags/names). */
   async inferWorkspace(message: string): Promise<string> {
-    const openWorkspaces = await this.getOpenWorkspaces();
-    return inferWorkspaceFromMessage(message, openWorkspaces);
+    return inferWorkspaceFromMessage(message, await this.getOpenWorkspaces());
   }
 
   /** Get full WorkspaceInfo for all open workspaces. */
@@ -414,27 +406,41 @@ export class WorkspaceManager {
     if (!config) throw new Error(`No config for workspace: ${id}`);
 
     config.container = enabled;
+    await this.persistConfig(id, entry.path, config);
+  }
+
+  /** Write a modified config to disk and invalidate the cache. */
+  private async persistConfig(id: string, workspacePath: string, config: WorkspaceConfig): Promise<void> {
     this.configCache.delete(id);
-    const configPath = path.join(entry.path, '.sero-workspace.json');
+    const configPath = path.join(workspacePath, '.sero-workspace.json');
     const json = JSON.stringify(config, null, 2) + '\n';
     await fs.writeFile(configPath, json, 'utf8');
   }
 
-  /** Get the list of workspace references for a workspace. */
+  /**
+   * Get the list of workspace references for a workspace.
+   * Filters out stale references (workspaces that no longer exist).
+   */
   async getReferences(id: string): Promise<string[]> {
     const config = await this.getConfig(id);
-    return config?.references ?? [];
+    const refs = config?.references ?? [];
+    return refs.filter((refId) => !!this.findEntry(refId));
   }
 
-  /**
-   * Add a workspace reference. The referenced workspace's directory will be
-   * mounted into this workspace's container.
-   */
+  /** Add a workspace reference. Prevents self-references and circular (mutual) references. */
   async addReference(id: string, refId: string): Promise<void> {
     if (id === refId) throw new Error('A workspace cannot reference itself');
     const entry = this.findEntry(id);
     if (!entry) throw new Error(`Workspace not found: ${id}`);
     if (!this.findEntry(refId)) throw new Error(`Referenced workspace not found: ${refId}`);
+
+    // Prevent circular references: if the target already references us, block
+    const targetRefs = await this.getReferences(refId);
+    if (targetRefs.includes(id)) {
+      throw new Error(
+        `Circular reference: "${refId}" already references "${id}"`,
+      );
+    }
 
     const config = await this.readConfig(entry.path);
     if (!config) throw new Error(`No config for workspace: ${id}`);
@@ -443,10 +449,7 @@ export class WorkspaceManager {
     if (refs.includes(refId)) return; // already referenced
 
     config.references = [...refs, refId];
-    this.configCache.delete(id);
-    const configPath = path.join(entry.path, '.sero-workspace.json');
-    const json = JSON.stringify(config, null, 2) + '\n';
-    await fs.writeFile(configPath, json, 'utf8');
+    await this.persistConfig(id, entry.path, config);
   }
 
   /** Remove a workspace reference. */
@@ -461,10 +464,7 @@ export class WorkspaceManager {
     if (!refs.includes(refId)) return; // not referenced
 
     config.references = refs.filter((r) => r !== refId);
-    this.configCache.delete(id);
-    const configPath = path.join(entry.path, '.sero-workspace.json');
-    const json = JSON.stringify(config, null, 2) + '\n';
-    await fs.writeFile(configPath, json, 'utf8');
+    await this.persistConfig(id, entry.path, config);
   }
 
   /** Merge registry entry + config into WorkspaceInfo. */
@@ -473,7 +473,7 @@ export class WorkspaceManager {
 
     return {
       id: entry.id,
-      name: config?.name || this.prettifyName(entry.id),
+      name: config?.name || prettifyName(entry.id),
       path: entry.path,
       description: config?.description,
       contextHints: config?.contextHints,
@@ -484,30 +484,10 @@ export class WorkspaceManager {
     };
   }
 
-  /** Convert a string to a kebab-case slug. */
-  private slugify(input: string): string {
-    return input
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      || 'workspace';
-  }
-
-  /** Ensure an ID is unique in the registry. Appends -2, -3, etc. if needed. */
+  /** Ensure an ID is unique in the registry. */
   private ensureUniqueId(baseId: string): string {
     const existing = new Set(this.registry.workspaces.map((w) => w.id));
-    if (!existing.has(baseId)) return baseId;
-
-    let n = 2;
-    while (existing.has(`${baseId}-${n}`)) n++;
-    return `${baseId}-${n}`;
-  }
-
-  /** Convert a slug/folder name into a display name. */
-  private prettifyName(slug: string): string {
-    return slug
-      .replace(/[-_]+/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return ensureUniqueId(baseId, existing);
   }
 }
 
