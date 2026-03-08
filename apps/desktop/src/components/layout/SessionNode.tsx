@@ -105,12 +105,12 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
         )}
         <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
           <span>{modified}</span>
-          {session.messageCount > 0 && (
+          {/* {session.messageCount > 0 && (
             <>
               <span>·</span>
               <span>{session.messageCount} msg{session.messageCount !== 1 ? 's' : ''}</span>
             </>
-          )}
+          )} */}
         </div>
       </div>
 
