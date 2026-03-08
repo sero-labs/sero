@@ -52,7 +52,7 @@ export function UsageBadge({ sessionId }: UsageBadgeProps) {
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           title="Token usage & cost"
         >
           <Coins className="size-4" />

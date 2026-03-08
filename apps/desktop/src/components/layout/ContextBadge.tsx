@@ -128,7 +128,7 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
     <Popover onOpenChange={() => { setConfirmClear(false); setActionError(null); }}>
       <PopoverTrigger asChild>
         <button
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           title="Context window usage"
         >
           <Gauge className="size-3.5" />
