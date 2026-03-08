@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Gauge, Loader2, GitFork, Trash2 } from 'lucide-react';
+import { Gauge, Loader2, GitFork, Trash2, Check } from 'lucide-react';
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
 } from '@sero/ui/components/ui/popover';
+import { useSessionStore } from '@/stores/sessions';
 import type { ContextUsageInfo } from '@/types/ipc';
 
 interface ContextBadgeProps {
@@ -23,7 +24,9 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [compactInstructions, setCompactInstructions] = useState('');
   const [forking, setForking] = useState(false);
+  const [forkSuccess, setForkSuccess] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const loadSessions = useSessionStore((s) => s.loadSessions);
 
   const fetchUsage = useCallback(async () => {
     try {
@@ -73,10 +76,13 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
 
   const handleFork = async () => {
     setActionError(null);
+    setForkSuccess(false);
     setForking(true);
     try {
       await window.sero.agent.forkSession(sessionId);
-      // Fork created — user can switch to it from the session list.
+      await loadSessions();
+      setForkSuccess(true);
+      setTimeout(() => setForkSuccess(false), 2000);
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Fork failed');
     } finally {
@@ -125,7 +131,7 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
   const busy = compacting || clearing || forking;
 
   return (
-    <Popover onOpenChange={() => { setConfirmClear(false); setActionError(null); }}>
+    <Popover onOpenChange={() => { setConfirmClear(false); setForkSuccess(false); setActionError(null); }}>
       <PopoverTrigger asChild>
         <button
           className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
@@ -169,6 +175,7 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
           onFork={handleFork}
           onClear={handleClear}
           forking={forking}
+          forkSuccess={forkSuccess}
           clearing={clearing}
           confirmClear={confirmClear}
           busy={busy}
@@ -250,22 +257,27 @@ interface SessionActionsProps {
   onFork: () => void;
   onClear: () => void;
   forking: boolean;
+  forkSuccess: boolean;
   clearing: boolean;
   confirmClear: boolean;
   busy: boolean;
 }
 
-function SessionActions({ onFork, onClear, forking, clearing, confirmClear, busy }: SessionActionsProps) {
+function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confirmClear, busy }: SessionActionsProps) {
   return (
     <div className="border-t border-[var(--border-subtle)] pt-2 flex gap-2">
       <button
         onClick={onFork}
-        disabled={busy}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+        disabled={busy || forkSuccess}
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+          forkSuccess
+            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+            : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+        }`}
         title="Fork: copy conversation to a new session"
       >
-        {forking ? <Loader2 className="size-3 animate-spin" /> : <GitFork className="size-3" />}
-        Fork
+        {forking ? <Loader2 className="size-3 animate-spin" /> : forkSuccess ? <Check className="size-3" /> : <GitFork className="size-3" />}
+        {forkSuccess ? 'Forked!' : 'Fork'}
       </button>
       <button
         onClick={onClear}
