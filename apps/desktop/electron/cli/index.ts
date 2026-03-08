@@ -64,6 +64,8 @@ const TOOLS_TO_BRIDGE = new Set([
   'daily_quote',
   'weight',
   'memory',
+  'memory_search',
+  'scratchpad',
   // Google
   'gmail',
   'gcal',

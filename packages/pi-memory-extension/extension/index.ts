@@ -1,15 +1,16 @@
 /**
- * Memory Extension — persistent memory for Sero.
+ * Memory Extension — persistent memory for Sero with QMD semantic search.
  *
  * Stores long-term facts (MEMORY.md), agent identity (IDENTITY.md),
- * user profile (USER.md), and daily logs in the global workspace.
- * All files are git-tracked via Sero's existing checkpoint system.
+ * user profile (USER.md), scratchpad (SCRATCHPAD.md), and daily logs
+ * in the global workspace. All files are git-tracked via Sero's
+ * existing checkpoint system.
  *
- * On first run, the agent uses the `questionnaire` tool to ask the
- * user setup questions, then writes answers to memory files.
+ * QMD provides keyword, semantic, and hybrid search across all files.
+ * Selective injection surfaces relevant past memories before each turn.
  *
- * Tools (LLM-callable): memory (read, write, search, list)
- * Hooks: before_agent_start (context injection + bootstrap)
+ * Tools: memory (read/write/search/list), memory_search, scratchpad
+ * Hooks: before_agent_start (context injection), session lifecycle
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
@@ -17,9 +18,14 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { checkBootstrapStatus } from './bootstrap';
 import { registerContextInjection, markBootstrapDone } from './context-injector';
 import { registerMemoryTool } from './memory-tool';
+import { registerSearchTool } from './search-tool';
+import { registerScratchpadTool } from './scratchpad';
+import { registerSessionLifecycle } from './session-lifecycle';
+import { initQmd, isQmdAvailable } from './qmd';
 
 export default function memoryExtension(pi: ExtensionAPI): void {
-  // Warm the bootstrap cache on session start and notify on first run
+  // ── Session start: bootstrap check + QMD init ──────────────
+
   pi.on('session_start', async () => {
     const status = await checkBootstrapStatus();
     if (status.needsBootstrap) {
@@ -32,26 +38,40 @@ export default function memoryExtension(pi: ExtensionAPI): void {
         { triggerTurn: false },
       );
     }
+
+    // Init QMD (detect → auto-install → setup collection)
+    const qmdReady = await initQmd();
+    if (!qmdReady) {
+      // Non-fatal: core memory works without QMD
+      console.log('[memory] QMD not available — semantic search disabled');
+    }
   });
 
-  // After each agent turn, if bootstrap was in progress and
-  // memory files are now written, update the cache so subsequent
-  // turns switch to normal context injection.
+  // ── Post-turn: detect bootstrap completion ─────────────────
+
   pi.on('agent_end', async () => {
-    // Re-check; if MEMORY.md now exists, mark bootstrap done
     const status = await checkBootstrapStatus();
     if (!status.needsBootstrap) {
       markBootstrapDone();
     }
   });
 
-  // Inject memory context (or bootstrap instructions) into the system prompt
+  // ── Context injection (priority-ordered + selective search) ─
+
   registerContextInjection(pi);
 
-  // Register the memory tool (bridged into sero-cli via AD-020)
-  registerMemoryTool(pi);
+  // ── Tools (all bridged into sero-cli via AD-020) ───────────
 
-  // /memory slash command for the user
+  registerMemoryTool(pi);
+  registerSearchTool(pi);
+  registerScratchpadTool(pi);
+
+  // ── Session lifecycle (handoff + exit summary) ─────────────
+
+  registerSessionLifecycle(pi);
+
+  // ── Slash commands ─────────────────────────────────────────
+
   pi.registerCommand('memory', {
     description: 'Show memory files or manage them (pass instructions inline)',
     handler: async (args) => {
@@ -60,6 +80,18 @@ export default function memoryExtension(pi: ExtensionAPI): void {
         pi.sendUserMessage(`Using the memory tool: ${instruction}`);
       } else {
         pi.sendUserMessage('List all memory files using the memory tool.');
+      }
+    },
+  });
+
+  pi.registerCommand('scratchpad', {
+    description: 'Show scratchpad or manage items (pass instructions inline)',
+    handler: async (args) => {
+      const instruction = args.trim();
+      if (instruction) {
+        pi.sendUserMessage(`Using the scratchpad tool: ${instruction}`);
+      } else {
+        pi.sendUserMessage('List all scratchpad items using the scratchpad tool.');
       }
     },
   });

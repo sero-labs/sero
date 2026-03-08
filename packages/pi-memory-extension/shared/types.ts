@@ -7,7 +7,7 @@ export type WriteMode = 'append' | 'overwrite';
 /** Available memory tool actions. */
 export type MemoryAction = 'read' | 'write' | 'search' | 'list';
 
-/** A single search result. */
+/** A single grep search result. */
 export interface MemorySearchResult {
   file: string;
   line: number;
@@ -18,6 +18,37 @@ export interface MemorySearchResult {
 export interface MemoryFileList {
   root: string[];
   daily: string[];
+}
+
+// ── QMD search ─────────────────────────────────────────────────
+
+/** A single QMD search result (keyword, semantic, or deep). */
+export interface QmdSearchResult {
+  path?: string;
+  file?: string;
+  score?: number;
+  content?: string;
+  chunk?: string;
+  snippet?: string;
+  [key: string]: unknown;
+}
+
+/** Extract the file path from a QMD result (normalises path/file fields). */
+export function getResultPath(r: QmdSearchResult): string | undefined {
+  return r.path ?? r.file;
+}
+
+/** Extract the text content from a QMD result (normalises content/chunk/snippet fields). */
+export function getResultText(r: QmdSearchResult): string {
+  return r.content ?? r.chunk ?? r.snippet ?? '';
+}
+
+// ── Scratchpad ─────────────────────────────────────────────────
+
+export interface ScratchpadItem {
+  done: boolean;
+  text: string;
+  meta: string; // <!-- timestamp --> comment line
 }
 
 // ── Questionnaire types (matches Pi SDK `questionnaire` tool) ──

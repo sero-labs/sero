@@ -1,22 +1,26 @@
 /**
- * ContextInjector — injects memory files into the system prompt.
+ * ContextInjector — injects memory context into the system prompt.
  *
- * Hooks into `before_agent_start` so that MEMORY.md, IDENTITY.md,
- * and USER.md are available to the agent at the start of every turn.
+ * Priority ordering (8K total budget):
+ *   1. IDENTITY.md + USER.md      (2.0K) — persona, never truncated
+ *   2. Open scratchpad items      (1.5K) — active work context
+ *   3. QMD search results         (2.5K) — auto-retrieved relevant memories
+ *   4. MEMORY.md (long-term)      (2.0K) — curated facts, middle-truncated
  *
- * On first run (no MEMORY.md), injects bootstrap instructions that
- * tell the agent to use the `questionnaire` tool to collect answers,
- * then write results to memory files.
+ * Daily logs are NOT injected directly — they're surfaced through
+ * selective injection (priority 3) when relevant to the current prompt.
  *
- * Bootstrap status is cached after the first check and reset on
- * each `session_start` to avoid redundant filesystem I/O per turn.
+ * On first run (no MEMORY.md), injects bootstrap instructions instead.
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
 import {
   resolveMemoryRoot,
-  getContextFiles,
+  readFile,
+  getMemoryPath,
+  getIdentityPath,
+  getUserPath,
 } from './memory-manager';
 import {
   checkBootstrapStatus,
@@ -25,15 +29,18 @@ import {
   MEMORY_QUESTIONS,
 } from './bootstrap';
 import type { BootstrapStatus } from './bootstrap';
+import { getOpenScratchpadItems, formatScratchpadForInjection } from './scratchpad';
+import { searchRelevantMemories, isQmdAvailable } from './qmd';
 
-// ── Max injection size (tokens are ~4 chars) ───────────────────
+// ── Budget constants (character limits, ~4 chars per token) ────
 
-const MAX_INJECTION_CHARS = 4000;
+const BUDGET_IDENTITY_USER = 2_000; // ~500 tokens
+const BUDGET_SCRATCHPAD    = 1_500; // ~375 tokens
+const BUDGET_SEARCH        = 2_500; // ~625 tokens
+const BUDGET_MEMORY        = 2_000; // ~500 tokens
+const BUDGET_TOTAL         = 8_000; // ~2K tokens — safety cap (sub-budgets sum to this)
 
 // ── Bootstrap status cache ─────────────────────────────────────
-//
-// Avoid checking the filesystem on every `before_agent_start`.
-// Reset on `session_start` so a new session re-checks once.
 
 let cachedStatus: BootstrapStatus | null = null;
 
@@ -44,60 +51,108 @@ async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
   return cachedStatus;
 }
 
-/** Call on session_start to re-check bootstrap state. */
 export function resetBootstrapCache(): void {
   cachedStatus = null;
 }
 
-/** Call after the agent writes memory files during bootstrap. */
 export function markBootstrapDone(): void {
   cachedStatus = { needsBootstrap: false, existingUserContent: null };
 }
 
-// ── Normal mode: build context from existing files ─────────────
+// ── Truncation helpers ─────────────────────────────────────────
 
-async function buildContextBlock(root: string): Promise<string> {
-  const files = await getContextFiles(root);
-  if (files.length === 0) return '';
+function truncateStart(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars - 30) + '\n\n_[truncated]_';
+}
 
+function truncateMiddle(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const marker = '\n\n... (truncated) ...\n\n';
+  const keep = maxChars - marker.length;
+  if (keep <= 0) return text.slice(0, maxChars);
+  const head = Math.ceil(keep / 2);
+  const tail = Math.floor(keep / 2);
+  return text.slice(0, head) + marker + text.slice(text.length - tail);
+}
+
+// ── Build normal-mode context ──────────────────────────────────
+
+async function buildPriorityContext(
+  root: string,
+  prompt: string,
+): Promise<string> {
   const sections: string[] = [];
   let totalChars = 0;
 
-  for (const file of files) {
-    const section = `### ${file.name}\n\n${file.content}`;
-    if (totalChars + section.length > MAX_INJECTION_CHARS) {
-      const remaining = MAX_INJECTION_CHARS - totalChars;
-      if (remaining > 100) {
-        const truncated = file.content.slice(0, remaining - 80);
-        const target = file.name.replace('.md', '').toLowerCase();
-        sections.push(
-          `### ${file.name}\n\n${truncated}\n\n_[truncated — use \`sero memory read --target ${target}\` for full content]_`,
-        );
-      }
-      break;
-    }
-    sections.push(section);
-    totalChars += section.length;
+  function addSection(content: string): boolean {
+    if (!content.trim()) return false;
+    if (totalChars + content.length > BUDGET_TOTAL) return false;
+    sections.push(content);
+    totalChars += content.length;
+    return true;
   }
 
-  return `\n\n## Memory\n\nThe following memory files are loaded from the global workspace. Use the \`sero-cli\` tool with \`memory\` commands to manage them.\n\n${sections.join('\n\n---\n\n')}`;
+  // Priority 1: IDENTITY.md + USER.md (combined budget)
+  const identityContent = await readFile(getIdentityPath(root));
+  const userContent = await readFile(getUserPath(root));
+  const identityParts: string[] = [];
+  if (identityContent?.trim()) identityParts.push(`### IDENTITY.md\n\n${identityContent.trim()}`);
+  if (userContent?.trim()) identityParts.push(`### USER.md\n\n${userContent.trim()}`);
+  if (identityParts.length > 0) {
+    addSection(truncateStart(identityParts.join('\n\n---\n\n'), BUDGET_IDENTITY_USER));
+  }
+
+  // Priority 2: Open scratchpad items
+  const openItems = await getOpenScratchpadItems();
+  if (openItems.length > 0) {
+    const scratchpadBlock = formatScratchpadForInjection(openItems);
+    addSection(truncateStart(scratchpadBlock, BUDGET_SCRATCHPAD));
+  }
+
+  // Priority 3: QMD selective injection (search results)
+  const skipSearch = process.env.SERO_MEMORY_NO_SEARCH === '1';
+  if (!skipSearch && isQmdAvailable() && prompt) {
+    const searchResults = await searchRelevantMemories(prompt);
+    if (searchResults.trim()) {
+      const searchBlock = `## Relevant memories (auto-retrieved)\n\n${searchResults}`;
+      addSection(truncateStart(searchBlock, BUDGET_SEARCH));
+    }
+  }
+
+  // Priority 4: MEMORY.md (long-term)
+  const memoryContent = await readFile(getMemoryPath(root));
+  if (memoryContent?.trim()) {
+    const memoryBlock = `## MEMORY.md (long-term)\n\n${memoryContent.trim()}`;
+    addSection(truncateMiddle(memoryBlock, BUDGET_MEMORY));
+  }
+
+  if (sections.length === 0) return '';
+  return `\n\n## Memory\n\n${sections.join('\n\n---\n\n')}`;
 }
 
 function getMemoryInstructions(): string {
+  const searchLine = isQmdAvailable()
+    ? '- `sero memory_search --query "..." [--mode keyword|semantic|deep]` — semantic search across all memory files'
+    : '';
+
   return [
     '\n\n**Memory commands:**',
     '- `sero memory write --target memory --content "..."` — save a long-term fact or decision',
     '- `sero memory write --target daily --content "..."` — log something to today\'s daily note',
     '- `sero memory read --target memory|identity|user|daily` — read a memory file',
-    '- `sero memory search --query "..."` — search across all memory files',
+    '- `sero memory search --query "..."` — grep search across memory files',
+    searchLine,
+    '- `sero scratchpad add "..."` — add item to scratchpad checklist',
     '- `sero memory list` — list all memory files',
     '',
+    'Use #tags (e.g. #decision, #preference) and [[links]] (e.g. [[auth-strategy]]) in memory content to improve search recall.',
     'Proactively save important facts, user preferences, and decisions to memory.',
     'When the user shares something worth remembering, write it to the appropriate target.',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
-// ── Bootstrap mode: questionnaire-driven setup ─────────────────
+// ── Bootstrap mode ─────────────────────────────────────────────
 
 function buildBootstrapInstructions(existingUserContent: string | null): string {
   const identityJson = JSON.stringify(IDENTITY_QUESTIONS, null, 2);
@@ -148,7 +203,6 @@ After receiving answers, write MEMORY.md:
 // ── Register hooks ─────────────────────────────────────────────
 
 export function registerContextInjection(pi: ExtensionAPI): void {
-  // Reset cache on each new session so bootstrap status is re-checked once
   pi.on('session_start', () => {
     resetBootstrapCache();
   });
@@ -161,7 +215,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
       addition = buildBootstrapInstructions(status.existingUserContent);
     } else {
       const root = resolveMemoryRoot();
-      const contextBlock = await buildContextBlock(root);
+      const contextBlock = await buildPriorityContext(root, event.prompt ?? '');
       addition = contextBlock + getMemoryInstructions();
     }
 
