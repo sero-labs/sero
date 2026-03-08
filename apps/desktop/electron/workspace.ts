@@ -420,6 +420,53 @@ export class WorkspaceManager {
     await fs.writeFile(configPath, json, 'utf8');
   }
 
+  /** Get the list of workspace references for a workspace. */
+  async getReferences(id: string): Promise<string[]> {
+    const config = await this.getConfig(id);
+    return config?.references ?? [];
+  }
+
+  /**
+   * Add a workspace reference. The referenced workspace's directory will be
+   * mounted into this workspace's container.
+   */
+  async addReference(id: string, refId: string): Promise<void> {
+    if (id === refId) throw new Error('A workspace cannot reference itself');
+    const entry = this.findEntry(id);
+    if (!entry) throw new Error(`Workspace not found: ${id}`);
+    if (!this.findEntry(refId)) throw new Error(`Referenced workspace not found: ${refId}`);
+
+    const config = await this.readConfig(entry.path);
+    if (!config) throw new Error(`No config for workspace: ${id}`);
+
+    const refs = config.references ?? [];
+    if (refs.includes(refId)) return; // already referenced
+
+    config.references = [...refs, refId];
+    this.configCache.delete(id);
+    const configPath = path.join(entry.path, '.sero-workspace.json');
+    const json = JSON.stringify(config, null, 2) + '\n';
+    await fs.writeFile(configPath, json, 'utf8');
+  }
+
+  /** Remove a workspace reference. */
+  async removeReference(id: string, refId: string): Promise<void> {
+    const entry = this.findEntry(id);
+    if (!entry) throw new Error(`Workspace not found: ${id}`);
+
+    const config = await this.readConfig(entry.path);
+    if (!config) throw new Error(`No config for workspace: ${id}`);
+
+    const refs = config.references ?? [];
+    if (!refs.includes(refId)) return; // not referenced
+
+    config.references = refs.filter((r) => r !== refId);
+    this.configCache.delete(id);
+    const configPath = path.join(entry.path, '.sero-workspace.json');
+    const json = JSON.stringify(config, null, 2) + '\n';
+    await fs.writeFile(configPath, json, 'utf8');
+  }
+
   /** Merge registry entry + config into WorkspaceInfo. */
   private async getInfo(entry: WorkspaceRegistryEntry): Promise<WorkspaceInfo | null> {
     const config = await this.readConfig(entry.path);
@@ -433,6 +480,7 @@ export class WorkspaceManager {
       tags: config?.tags,
       open: entry.open,
       container: config?.container !== false,
+      references: config?.references ?? [],
     };
   }
 

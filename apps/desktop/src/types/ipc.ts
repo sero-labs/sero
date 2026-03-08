@@ -28,6 +28,8 @@ export interface WorkspaceInfo {
   open: boolean;
   /** Whether this workspace runs inside a container. Defaults to true. */
   container: boolean;
+  /** IDs of other workspaces mounted into this workspace's container. */
+  references: string[];
 }
 
 /** Full workspace config from .sero-workspace.json at workspace root. */
@@ -49,6 +51,13 @@ export interface WorkspaceConfig {
   exclude?: string[];
   /** Tags for categorisation and inference. */
   tags?: string[];
+  /**
+   * IDs of other workspaces whose directories are mounted into this
+   * workspace's container. By default containers run in isolated mode
+   * with no cross-workspace access; adding a reference explicitly grants
+   * read-write access to the referenced workspace's files.
+   */
+  references?: string[];
 }
 
 // ── Sessions ───────────────────────────────────────────────────

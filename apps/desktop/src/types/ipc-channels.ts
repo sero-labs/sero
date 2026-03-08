@@ -21,6 +21,10 @@ export const IpcChannels = {
     infer: 'sero:workspace:infer',
     /** Toggle container mode for a workspace. Args: id, enabled. */
     setContainer: 'sero:workspace:set-container',
+    /** Add a workspace reference (mount another workspace). Args: id, refId. */
+    addReference: 'sero:workspace:add-reference',
+    /** Remove a workspace reference. Args: id, refId. */
+    removeReference: 'sero:workspace:remove-reference',
   },
   sessions: {
     list: 'sero:sessions:list',

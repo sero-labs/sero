@@ -9,6 +9,7 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import type { WorkspaceInfo, WorkspaceConfig } from '../../src/types/ipc';
 import { workspaceManager } from '../workspace';
+import { containerManager, buildContainerConfig } from './shared-infra';
 
 export function registerWorkspaceHandlers(): void {
   // ── List all registered workspaces ─────────────────────────
@@ -88,6 +89,26 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 
+  // ── Add workspace reference ────────────────────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.addReference,
+    async (_event, id: string, refId: string): Promise<void> => {
+      await workspaceManager.addReference(id, refId);
+      // Recreate the container with the new mount if it's running
+      await recreateContainerIfRunning(id);
+    },
+  );
+
+  // ── Remove workspace reference ────────────────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.removeReference,
+    async (_event, id: string, refId: string): Promise<void> => {
+      await workspaceManager.removeReference(id, refId);
+      // Recreate the container without the removed mount
+      await recreateContainerIfRunning(id);
+    },
+  );
+
   // ── Native folder picker dialog ────────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.pickFolder,
@@ -105,4 +126,31 @@ export function registerWorkspaceHandlers(): void {
       return result.filePaths[0];
     },
   );
+}
+
+/**
+ * Recreate a workspace's container if it's currently running so that
+ * mount changes (added/removed references) take effect dynamically.
+ */
+async function recreateContainerIfRunning(workspaceId: string): Promise<void> {
+  if (!containerManager.hasContainer(workspaceId)) return;
+
+  try {
+    const state = await containerManager.inspect(workspaceId);
+    if (state.state !== 'running') return;
+  } catch {
+    return; // No container to recreate
+  }
+
+  const wsPath = workspaceManager.getPath(workspaceId);
+  if (!wsPath) return;
+
+  try {
+    await containerManager.remove(workspaceId);
+    const config = await buildContainerConfig(workspaceId, wsPath);
+    await containerManager.ensure(config);
+    console.log(`[workspace] Recreated container for ${workspaceId} with updated references`);
+  } catch (err) {
+    console.error(`[workspace] Failed to recreate container for ${workspaceId}:`, err);
+  }
 }
