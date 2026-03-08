@@ -12,6 +12,7 @@ import {
   DefaultResourceLoader,
   createCodingTools,
 } from '@mariozechner/pi-coding-agent';
+import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from './types';
 import type { SharedInfra } from '../ipc/shared-infra';
@@ -110,6 +111,18 @@ export async function runSubagent(
 
   let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
 
+  // Stall timer state — hoisted above try so finally can access clearStallTimer
+  let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
+  let activeToolName: string | null = null;
+
+  function clearStallTimer(): void {
+    if (activeToolStallTimer) {
+      clearTimeout(activeToolStallTimer);
+      activeToolStallTimer = null;
+    }
+    activeToolName = null;
+  }
+
   try {
     const result = await createAgentSession({
       cwd: wsPath,
@@ -122,7 +135,7 @@ export async function runSubagent(
       sessionManager: SessionManager.inMemory(wsPath),
       settingsManager: infra.settingsManager,
       systemPromptSuffix: agent.systemPrompt,
-    });
+    } as Parameters<typeof createAgentSession>[0]);
     session = result.session;
 
     // Try to set the resolved model — needs provider/modelId lookup
@@ -139,7 +152,7 @@ export async function runSubagent(
 
     // Set thinking level
     try {
-      session.setThinkingLevel(resolved.thinking);
+      session.setThinkingLevel(resolved.thinking as ThinkingLevel);
     } catch {
       // Fall back to default
     }
@@ -162,16 +175,6 @@ export async function runSubagent(
     // ── Per-tool stall detection ──────────────────────────────
     // If a single tool call runs longer than toolStallTimeoutMs, abort.
     const toolStallMs = resolved.toolStallTimeoutMs ?? 120_000;
-    let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
-    let activeToolName: string | null = null;
-
-    function clearStallTimer(): void {
-      if (activeToolStallTimer) {
-        clearTimeout(activeToolStallTimer);
-        activeToolStallTimer = null;
-      }
-      activeToolName = null;
-    }
 
     function startStallTimer(toolName: string): void {
       clearStallTimer();
@@ -248,7 +251,7 @@ export async function runSubagent(
     }
 
     // Extract the full response from session messages
-    const response = extractResponse(session);
+    const response = extractResponse(session as unknown as Parameters<typeof extractResponse>[0]);
 
     // Final usage stats
     try {

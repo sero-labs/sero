@@ -4,24 +4,23 @@
  * Split from electron.d.ts to keep each file under 500 LOC.
  */
 
-import type {
-  VcsCheckpoint,
-  VcsEvent,
-  VcsWorkspaceState,
-  ChangeEntry,
-  WorkingCopyStatus,
-  FileDiffEntry,
-  Bookmark,
-  Remote,
-  OperationEntry,
-  SyncResult,
-  PushPreview,
-  PullRequestState,
-  PullRequestPreview,
-  PullRequestDraft,
-  CreatePullRequestInput,
-  CreatePullRequestResult,
-} from './vcs';
+type VcsTypes = typeof import('./vcs');
+type VcsCheckpoint = import('./vcs').VcsCheckpoint;
+type VcsEvent = import('./vcs').VcsEvent;
+type VcsWorkspaceState = import('./vcs').VcsWorkspaceState;
+type ChangeEntry = import('./vcs').ChangeEntry;
+type WorkingCopyStatus = import('./vcs').WorkingCopyStatus;
+type FileDiffEntry = import('./vcs').FileDiffEntry;
+type Bookmark = import('./vcs').Bookmark;
+type Remote = import('./vcs').Remote;
+type OperationEntry = import('./vcs').OperationEntry;
+type SyncResult = import('./vcs').SyncResult;
+type PushPreview = import('./vcs').PushPreview;
+type PullRequestState = import('./vcs').PullRequestState;
+type PullRequestPreview = import('./vcs').PullRequestPreview;
+type PullRequestDraft = import('./vcs').PullRequestDraft;
+type CreatePullRequestInput = import('./vcs').CreatePullRequestInput;
+type CreatePullRequestResult = import('./vcs').CreatePullRequestResult;
 
 interface SeroEditorAPI {
   /** Read a file from the workspace (dual-mode: container or host). */

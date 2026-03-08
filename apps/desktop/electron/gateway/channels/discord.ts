@@ -93,7 +93,7 @@ export class DiscordAdapter {
   }
 
   private async handleMessage(
-    msg: InstanceType<typeof import('discord.js').Message>,
+    msg: import('discord.js').Message,
   ): Promise<void> {
     // Ignore bot messages
     if (msg.author.bot) return;
@@ -162,7 +162,7 @@ export class DiscordAdapter {
   }
 
   private async handleCommand(
-    msg: InstanceType<typeof import('discord.js').Message>,
+    msg: import('discord.js').Message,
     command: string,
   ): Promise<void> {
     switch (command) {

@@ -105,7 +105,7 @@ export function registerCollaborationHandlers(): void {
         const entry = getAgentPoolEntry(sessionId);
         let conversationContext = '';
         if (entry) {
-          conversationContext = extractConversationContext(entry.session.messages);
+          conversationContext = extractConversationContext(entry.session.messages as Array<{ role: string; content: Array<{ type: string; text?: string }> }>);
         }
 
         // Build the contextualised query for specialists

@@ -127,10 +127,12 @@ export function createBrowser(
       'Always launch first, then interact, screenshot to verify, and close when done.',
     parameters: BrowserParams,
     execute: async (
-      _toolCallId,
+      _toolCallId: string,
       params: Static<typeof BrowserParams>,
-      signal?,
-    ) => {
+      signal: AbortSignal | undefined,
+      _onUpdate: unknown,
+      _ctx: unknown,
+    ): Promise<any> => {
       if (signal?.aborted) throw new Error('Operation aborted');
 
       // Ensure the persistent browser server is running.
