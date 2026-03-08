@@ -24,16 +24,19 @@ function buildCSP(): string {
   // -- script-src --
   // Dev needs 'unsafe-inline' for Vite's injected HMR client script and
   // the inline <script> in index.html (theme flash prevention).
-  // Prod uses a nonce or hash ideally, but the inline theme script is tiny
-  // and controlled by us, so 'unsafe-inline' is acceptable here.
+  // 'wasm-unsafe-eval' is required for Shiki's Oniguruma WASM engine
+  // (syntax highlighting in the editor). This is narrower than 'unsafe-eval'
+  // — it only allows WebAssembly compilation, not arbitrary JS eval().
   const scriptSrc = [
     "'self'",
     "'unsafe-inline'",
+    "'wasm-unsafe-eval'",
     'blob:',
-    'https://sdk.scdn.co',     // Spotify Web Playback SDK
+    'https://sdk.scdn.co',          // Spotify Web Playback SDK
+    'https://cdn.jsdelivr.net',     // Monaco Editor CDN
     ...(isDev
-      ? ['http://localhost:*']  // Vite dev + MF remotes
-      : ['sero-ext:']),         // Federated extension assets
+      ? ['http://localhost:*']      // Vite dev + MF remotes
+      : ['sero-ext:']),             // Federated extension assets
   ];
 
   // -- connect-src --
@@ -59,6 +62,7 @@ function buildCSP(): string {
     'blob:',
     'https://*.scdn.co',       // Spotify album art
     'https://*.spotifycdn.com',
+    'https://models.dev',      // AI model provider logos
     ...(isDev ? ['http://localhost:*'] : ['sero-ext:']),
   ];
 
