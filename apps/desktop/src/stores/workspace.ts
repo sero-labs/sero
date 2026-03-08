@@ -52,6 +52,14 @@ interface WorkspaceState {
   removeWorkspace: (id: string) => Promise<void>;
   /** Toggle container mode for a workspace. */
   toggleContainer: (id: string) => Promise<void>;
+  /** Add a workspace reference. Mounts the referenced workspace into the container. */
+  addReference: (id: string, refId: string) => Promise<void>;
+  /** Remove a workspace reference. */
+  removeReference: (id: string, refId: string) => Promise<void>;
+  /** Mount an arbitrary host folder into this workspace's container. */
+  addMount: (id: string, folderPath: string) => Promise<void>;
+  /** Remove an arbitrary folder mount. */
+  removeMount: (id: string, folderPath: string) => Promise<void>;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -180,6 +188,50 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set((s) => ({
       workspaces: s.workspaces.map((w) =>
         w.id === id ? { ...w, container: newValue } : w,
+      ),
+    }));
+  },
+
+  addReference: async (id, refId) => {
+    await window.sero.workspace.addReference(id, refId);
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === id && !w.references.includes(refId)
+          ? { ...w, references: [...w.references, refId] }
+          : w,
+      ),
+    }));
+  },
+
+  removeReference: async (id, refId) => {
+    await window.sero.workspace.removeReference(id, refId);
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === id
+          ? { ...w, references: w.references.filter((r) => r !== refId) }
+          : w,
+      ),
+    }));
+  },
+
+  addMount: async (id, folderPath) => {
+    await window.sero.workspace.addMount(id, folderPath);
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === id && !w.mounts.includes(folderPath)
+          ? { ...w, mounts: [...w.mounts, folderPath] }
+          : w,
+      ),
+    }));
+  },
+
+  removeMount: async (id, folderPath) => {
+    await window.sero.workspace.removeMount(id, folderPath);
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === id
+          ? { ...w, mounts: w.mounts.filter((m) => m !== folderPath) }
+          : w,
       ),
     }));
   },

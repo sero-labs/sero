@@ -26,6 +26,7 @@ import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
 import { cn } from '@sero/ui/lib/utils';
 import { SessionNode } from './SessionNode';
 import { PickView, CreateView } from './AddWorkspaceViews';
+import { WorkspaceReferencesMenu } from './WorkspaceReferencesMenu';
 
 /**
  * WorkspaceTree — tree view of workspaces → sessions.
@@ -338,6 +339,14 @@ function WorkspaceNode({
           {workspace.name}
         </span>
         <ContainerIndicator workspaceId={workspace.id} containerEnabled={workspace.container} />
+        {(workspace.references.length + workspace.mounts.length) > 0 && (
+          <span
+            className="flex size-3.5 items-center justify-center rounded-full bg-[var(--bg-base)] text-[8px] font-bold text-[var(--text-muted)]"
+            title={`${workspace.references.length + workspace.mounts.length} mount${workspace.references.length + workspace.mounts.length > 1 ? 's' : ''}`}
+          >
+            {workspace.references.length + workspace.mounts.length}
+          </span>
+        )}
 
         {/* Right side: crossfade between count and actions */}
         <span className="relative ml-auto flex h-5 shrink-0 items-center justify-end">
@@ -375,6 +384,9 @@ function WorkspaceNode({
                     <Monitor className="size-3 text-[var(--text-muted)]" />
                   )}
                 </span>
+                {workspace.container && (
+                  <WorkspaceReferencesMenu workspace={workspace} />
+                )}
                 {!isDefault && (
                   <>
                     <span

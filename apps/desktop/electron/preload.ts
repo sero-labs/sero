@@ -92,6 +92,18 @@ contextBridge.exposeInMainWorld('sero', {
 
     setContainer: (id: string, enabled: boolean): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.workspace.setContainer, id, enabled),
+
+    addReference: (id: string, refId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.addReference, id, refId),
+
+    removeReference: (id: string, refId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.removeReference, id, refId),
+
+    addMount: (id: string, folderPath: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.addMount, id, folderPath),
+
+    removeMount: (id: string, folderPath: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.removeMount, id, folderPath),
   },
 
   sessions: {

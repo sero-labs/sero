@@ -190,26 +190,40 @@ export async function ensureInfra(): Promise<SharedInfra> {
  * Build the standard ContainerConfig for a workspace.
  *
  * Centralises mount configuration so every call site (agent sessions,
- * container IPC, VCS runner) gets the same mounts — including writable
- * cross-workspace mounts (e.g. the global workspace for memories).
+ * container IPC, VCS runner) gets the same mounts.
+ *
+ * By default, containers run in **isolated** mode — only the workspace's
+ * own files are mounted. To grant access to another workspace's files,
+ * add it as a reference via `WorkspaceManager.addReference()`. The
+ * referenced workspace's directory is then mounted read-write.
+ *
+ * Pass `opts.isolated` to force full isolation even when references
+ * exist (used by kanban subagents).
  */
 export async function buildContainerConfig(
   workspaceId: string,
   hostPath: string,
   opts?: { isolated?: boolean },
 ): Promise<ContainerConfig> {
-  // When isolated, only mount the workspace's own files — no cross-workspace
-  // access. Used by kanban subagents to enforce workspace-level isolation.
   let writableMounts: string[] = [];
 
   if (!opts?.isolated) {
-    // Other open workspaces are mounted read-write so the agent can
-    // access cross-workspace files (e.g. saving memories to global).
-    const openWorkspaces = await workspaceManager.getOpenWorkspaces();
-    writableMounts = openWorkspaces
-      .filter((ws) => ws.id !== workspaceId)
-      .map((ws) => ws.path)
-      .filter((p): p is string => !!p && path.resolve(p) !== path.resolve(hostPath));
+    // Mount explicitly referenced workspaces
+    const refs = await workspaceManager.getReferences(workspaceId);
+    for (const refId of refs) {
+      const refPath = workspaceManager.getPath(refId);
+      if (refPath && path.resolve(refPath) !== path.resolve(hostPath)) {
+        writableMounts.push(refPath);
+      }
+    }
+
+    // Mount arbitrary host folders
+    const extraMounts = await workspaceManager.getMounts(workspaceId);
+    for (const mp of extraMounts) {
+      if (path.resolve(mp) !== path.resolve(hostPath) && !writableMounts.includes(mp)) {
+        writableMounts.push(mp);
+      }
+    }
   }
 
   return {

@@ -68,6 +68,14 @@ interface SeroWorkspaceAPI {
   infer(message: string): Promise<string>;
   /** Enable or disable container mode for a workspace. */
   setContainer(id: string, enabled: boolean): Promise<void>;
+  /** Add a workspace reference (mount another workspace into this one's container). */
+  addReference(id: string, refId: string): Promise<void>;
+  /** Remove a workspace reference. */
+  removeReference(id: string, refId: string): Promise<void>;
+  /** Mount an arbitrary host folder into this workspace's container. */
+  addMount(id: string, folderPath: string): Promise<void>;
+  /** Remove an arbitrary folder mount. */
+  removeMount(id: string, folderPath: string): Promise<void>;
 }
 
 interface SeroSessionsAPI {

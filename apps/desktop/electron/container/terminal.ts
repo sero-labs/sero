@@ -137,6 +137,11 @@ export class TerminalManager {
     return buf ? buf.readLines(lines) : '';
   }
 
+  /** Get terminal IDs for a workspace (empty array if none). */
+  getWorkspaceTerminalIds(workspaceId: string): string[] {
+    return this.workspaceTerminals.get(workspaceId) ?? [];
+  }
+
   /** Read recent output from ALL terminals for a workspace. */
   readWorkspaceTerminalOutput(workspaceId: string, lines = 80): string {
     const terminalIds = this.workspaceTerminals.get(workspaceId) ?? [];
