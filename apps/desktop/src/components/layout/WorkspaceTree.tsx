@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Box,
+  ChevronsDownUp,
   ChevronDown,
   ChevronRight,
   FolderOpen,
@@ -99,7 +100,10 @@ export function WorkspaceTree() {
         <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Workspaces
         </span>
-        <AddWorkspaceMenu />
+        <div className="flex items-center gap-0.5">
+          <CollapseAllButton />
+          <AddWorkspaceMenu />
+        </div>
       </div>
 
       {/* Tree */}
@@ -119,6 +123,25 @@ export function WorkspaceTree() {
         )}
       </div>
     </div>
+  );
+}
+
+// ── Collapse All button ────────────────────────────────────────
+
+function CollapseAllButton() {
+  const collapseAll = useWorkspaceStore((s) => s.collapseAll);
+  const hasExpanded = useWorkspaceStore((s) => s.workspaces.some((w) => w.open));
+
+  if (!hasExpanded) return null;
+
+  return (
+    <button
+      onClick={collapseAll}
+      className="rounded-md p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+      title="Collapse all"
+    >
+      <ChevronsDownUp className="size-3.5" />
+    </button>
   );
 }
 

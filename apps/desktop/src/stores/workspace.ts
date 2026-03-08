@@ -35,6 +35,8 @@ interface WorkspaceState {
   closeWorkspace: (id: string) => void;
   /** Toggle expanded/collapsed state of a workspace tree node. */
   toggleCollapsed: (id: string) => void;
+  /** Collapse all workspace tree nodes. */
+  collapseAll: () => void;
   /** Set the focused workspace. */
   setActiveWorkspace: (id: string | null) => void;
   /** Create a new workspace. Optionally specify a parent directory. */
@@ -98,6 +100,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const workspace = get().workspaces.find((w) => w.id === id);
     if (workspace) {
       saveExpandedDebounced(id, workspace.open);
+    }
+  },
+
+  collapseAll: () => {
+    set((s) => ({
+      workspaces: s.workspaces.map((w) => ({ ...w, open: false })),
+    }));
+    // Persist each workspace's collapsed state
+    for (const w of get().workspaces) {
+      window.sero.workspace.setExpanded(w.id, false).catch((err) => {
+        console.error('[workspace] Failed to persist collapseAll:', err);
+      });
     }
   },
 
