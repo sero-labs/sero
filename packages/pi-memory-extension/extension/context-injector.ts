@@ -32,13 +32,13 @@ import type { BootstrapStatus } from './bootstrap';
 import { getOpenScratchpadItems, formatScratchpadForInjection } from './scratchpad';
 import { searchRelevantMemories, isQmdAvailable } from './qmd';
 
-// ── Budget constants ───────────────────────────────────────────
+// ── Budget constants (character limits, ~4 chars per token) ────
 
-const BUDGET_IDENTITY_USER = 2_000;
-const BUDGET_SCRATCHPAD    = 1_500;
-const BUDGET_SEARCH        = 2_500;
-const BUDGET_MEMORY        = 2_000;
-const BUDGET_TOTAL         = 8_000;
+const BUDGET_IDENTITY_USER = 2_000; // ~500 tokens
+const BUDGET_SCRATCHPAD    = 1_500; // ~375 tokens
+const BUDGET_SEARCH        = 2_500; // ~625 tokens
+const BUDGET_MEMORY        = 2_000; // ~500 tokens
+const BUDGET_TOTAL         = 8_000; // ~2K tokens — safety cap (sub-budgets sum to this)
 
 // ── Bootstrap status cache ─────────────────────────────────────
 

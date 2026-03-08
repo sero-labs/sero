@@ -20,6 +20,29 @@ export interface MemoryFileList {
   daily: string[];
 }
 
+// ── QMD search ─────────────────────────────────────────────────
+
+/** A single QMD search result (keyword, semantic, or deep). */
+export interface QmdSearchResult {
+  path?: string;
+  file?: string;
+  score?: number;
+  content?: string;
+  chunk?: string;
+  snippet?: string;
+  [key: string]: unknown;
+}
+
+/** Extract the file path from a QMD result (normalises path/file fields). */
+export function getResultPath(r: QmdSearchResult): string | undefined {
+  return r.path ?? r.file;
+}
+
+/** Extract the text content from a QMD result (normalises content/chunk/snippet fields). */
+export function getResultText(r: QmdSearchResult): string {
+  return r.content ?? r.chunk ?? r.snippet ?? '';
+}
+
 // ── Scratchpad ─────────────────────────────────────────────────
 
 export interface ScratchpadItem {

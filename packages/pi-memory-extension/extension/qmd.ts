@@ -15,6 +15,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { resolveMemoryRoot } from './memory-manager';
+import { getResultPath, getResultText } from '../shared/types';
+import type { QmdSearchResult } from '../shared/types';
+// Re-export so consumers can import from './qmd'
+export type { QmdSearchResult } from '../shared/types';
 
 // ── State ──────────────────────────────────────────────────────
 
@@ -91,7 +95,6 @@ export async function tryInstallQmd(): Promise<boolean> {
 }
 
 export function installInstructions(): string {
-  const root = resolveMemoryRoot();
   return [
     'memory_search requires qmd (semantic search engine).',
     '',
@@ -162,6 +165,8 @@ export async function initQmd(): Promise<boolean> {
     // Try auto-install
     const installed = await tryInstallQmd();
     if (installed) {
+      // Re-resolve paths — qmd is now in ~/.bun/bin/ which findBinary checks
+      resolvePaths();
       qmdAvailable = await detectQmd();
     }
   }
@@ -180,24 +185,6 @@ export async function initQmd(): Promise<boolean> {
 // ── Search ─────────────────────────────────────────────────────
 
 export type QmdSearchMode = 'keyword' | 'semantic' | 'deep';
-
-export interface QmdSearchResult {
-  path?: string;
-  file?: string;
-  score?: number;
-  content?: string;
-  chunk?: string;
-  snippet?: string;
-  [key: string]: unknown;
-}
-
-function getResultPath(r: QmdSearchResult): string | undefined {
-  return r.path ?? r.file;
-}
-
-function getResultText(r: QmdSearchResult): string {
-  return r.content ?? r.chunk ?? r.snippet ?? '';
-}
 
 function stripAnsi(text: string): string {
   // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
@@ -256,11 +243,12 @@ export async function searchRelevantMemories(prompt: string): Promise<string> {
     const hasCol = await checkCollection();
     if (!hasCol) return '';
 
+    let timeoutId: ReturnType<typeof setTimeout>;
     const { results } = await Promise.race([
-      runSearch('keyword', sanitised, 3),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), SEARCH_TIMEOUT_MS),
-      ),
+      runSearch('keyword', sanitised, 3).finally(() => clearTimeout(timeoutId)),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('timeout')), SEARCH_TIMEOUT_MS);
+      }),
     ]);
 
     if (!results || results.length === 0) return '';

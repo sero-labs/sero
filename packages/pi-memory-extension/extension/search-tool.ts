@@ -23,7 +23,7 @@ import {
   setupCollection,
   installInstructions,
 } from './qmd';
-import type { QmdSearchResult } from './qmd';
+import { getResultPath, getResultText } from '../shared/types';
 
 // ── Parameters ─────────────────────────────────────────────────
 
@@ -38,14 +38,6 @@ const SearchParams = Type.Object({
 });
 
 // ── Helpers ─────────────────────────────────────────────────────
-
-function getResultPath(r: QmdSearchResult): string | undefined {
-  return r.path ?? r.file;
-}
-
-function getResultText(r: QmdSearchResult): string {
-  return r.content ?? r.chunk ?? r.snippet ?? '';
-}
 
 function text(t: string, isError = false) {
   return {

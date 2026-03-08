@@ -10,7 +10,7 @@
  *   daily log. Uses reasoning_effort: low for cost control.
  */
 
-import type { ExtensionAPI, SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, SessionMessageEntry } from '@mariozechner/pi-coding-agent';
 import { complete, type Message } from '@mariozechner/pi-ai';
 import { convertToLlm, serializeConversation } from '@mariozechner/pi-coding-agent';
 
@@ -110,11 +110,12 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
 
   pi.on('session_shutdown', async (_event, ctx) => {
     try {
-      // Extract conversation messages
+      // Extract conversation messages using the SDK's discriminated union
       const branch = ctx.sessionManager.getBranch();
-      const messages = branch
-        .filter((entry: SessionEntry) => entry.type === 'message')
-        .map((entry: SessionEntry & { type: 'message' }) => entry.message);
+      const messageEntries = branch.filter(
+        (entry): entry is SessionMessageEntry => entry.type === 'message',
+      );
+      const messages = messageEntries.map((entry) => entry.message);
 
       if (messages.length === 0) return;
       if (!ctx.model) return;
