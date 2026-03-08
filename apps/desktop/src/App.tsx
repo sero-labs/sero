@@ -17,6 +17,7 @@ import { subscribeDevServerEvents } from '@/stores/dev-server';
 import { NewAppBanner } from '@/components/layout/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { CommandMenu } from '@/components/layout/CommandMenu';
 
 /**
  * App shell.
@@ -258,6 +259,7 @@ export function App() {
           </ResizablePanelGroup>
         </div>
 
+        <CommandMenu />
         <NewAppBanner />
         <StatusBar />
       </div>
