@@ -63,6 +63,7 @@ const TOOLS_TO_BRIDGE = new Set([
   'calc',
   'daily_quote',
   'weight',
+  'memory',
   // Google
   'gmail',
   'gcal',
