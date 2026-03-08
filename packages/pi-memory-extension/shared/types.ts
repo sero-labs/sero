@@ -7,7 +7,7 @@ export type WriteMode = 'append' | 'overwrite';
 /** Available memory tool actions. */
 export type MemoryAction = 'read' | 'write' | 'search' | 'list';
 
-/** A single search result. */
+/** A single grep search result. */
 export interface MemorySearchResult {
   file: string;
   line: number;
@@ -18,6 +18,14 @@ export interface MemorySearchResult {
 export interface MemoryFileList {
   root: string[];
   daily: string[];
+}
+
+// ── Scratchpad ─────────────────────────────────────────────────
+
+export interface ScratchpadItem {
+  done: boolean;
+  text: string;
+  meta: string; // <!-- timestamp --> comment line
 }
 
 // ── Questionnaire types (matches Pi SDK `questionnaire` tool) ──

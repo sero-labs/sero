@@ -24,6 +24,7 @@ import {
   listFiles,
   todayStr,
 } from './memory-manager';
+import { scheduleQmdUpdate } from './qmd';
 
 // ── Tool parameters ────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ async function handleWrite(
     await appendFile(resolved.path, content);
   }
 
+  scheduleQmdUpdate();
   const verb = mode === 'overwrite' ? 'Wrote to' : 'Appended to';
   return text(`${verb} ${resolved.displayName}`);
 }

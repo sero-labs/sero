@@ -20,7 +20,7 @@ import type { MemorySearchResult, MemoryFileList } from '../shared/types';
 // ── Constants ──────────────────────────────────────────────────
 
 /** Only these root-level .md files are managed by the memory system. */
-const MEMORY_ROOT_FILES = new Set(['MEMORY.md', 'IDENTITY.md', 'USER.md']);
+const MEMORY_ROOT_FILES = new Set(['MEMORY.md', 'IDENTITY.md', 'USER.md', 'SCRATCHPAD.md']);
 
 // ── Path resolution ────────────────────────────────────────────
 
