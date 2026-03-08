@@ -102,7 +102,7 @@ export function OnboardingWizard() {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[onboarding] Memory prompt failed:', msg);
 
-      if (msg.includes('Authentication failed') || msg.includes('auth') || msg.includes('credentials')) {
+      if (msg.includes('Authentication failed') || msg.includes('authentication') || msg.includes('unauthorized') || msg.includes('401') || msg.includes('No API key') || msg.includes('credentials')) {
         // Copied credentials were invalid/expired → show auth dialog
         setPhase('auth');
       } else {

@@ -33,7 +33,12 @@ export interface ProfileRegistry {
   profiles: ProfileEntry[];
 }
 
-/** Profile info surfaced to the renderer via IPC. */
+/**
+ * Profile info surfaced to the renderer via IPC.
+ *
+ * ⚠️  KEEP IN SYNC with the renderer-side duplicate in src/types/ipc.ts.
+ *     Both files define the same shape — if you change one, change the other.
+ */
 export interface ProfileInfo {
   id: string;
   name: string;

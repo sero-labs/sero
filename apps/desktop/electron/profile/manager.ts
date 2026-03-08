@@ -7,6 +7,10 @@
  * This module is intentionally synchronous-first for the critical path
  * (reading the active profile at startup in env.ts). Async methods are
  * used for mutations that happen after the app is running.
+ *
+ * ⚠️  This module is imported by env.ts at process startup.
+ *     Do NOT import anything that reads SERO_HOME or SERO_AGENT_DIR at
+ *     module level — those are not yet initialised when this runs.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';

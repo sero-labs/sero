@@ -3,6 +3,10 @@
  *
  * Called synchronously during env.ts bootstrap, before any SDK imports.
  *
+ * ⚠️  This module is imported by env.ts at process startup.
+ *     Do NOT import anything that reads SERO_HOME or SERO_AGENT_DIR at
+ *     module level — those are not yet initialised when this runs.
+ *
  * Migration logic:
  * 1. If profiles.json exists → nothing to do (already migrated)
  * 2. If ~/.sero-ui/agent/ exists → existing user, create "Default" profile

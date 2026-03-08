@@ -7,7 +7,12 @@
 
 // ── Profiles ───────────────────────────────────────────────────
 
-/** Profile info surfaced to the renderer via IPC. */
+/**
+ * Profile info surfaced to the renderer via IPC.
+ *
+ * ⚠️  KEEP IN SYNC with the Electron-side duplicate in electron/profile/types.ts.
+ *     Both files define the same shape — if you change one, change the other.
+ */
 export interface ProfileInfo {
   /** Unique identifier. */
   id: string;

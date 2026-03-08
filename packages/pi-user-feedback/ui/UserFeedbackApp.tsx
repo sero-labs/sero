@@ -9,7 +9,7 @@
  * not here. This app activates for questionnaires and interviews.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppState } from '@sero/app-runtime';
 import { ClipboardList, MessageCircleQuestion, Mic, Loader2, Sparkles } from 'lucide-react';
 import { QuestionnaireForm } from './QuestionnaireForm';
@@ -73,8 +73,8 @@ export function UserFeedbackApp() {
       const response: UserFeedbackResponse = { id, answers, cancelled: false };
       await window.sero.userFeedback.answer(response);
       setPending(null);
-      // Clear onboarding flag when questionnaire completes
-      sessionStorage.removeItem('sero:onboarding');
+      // Mark onboarding done (idempotent — OnboardingWizard may also call this)
+      window.sero.profiles.markOnboardingDone().catch(() => {});
       updateState((prev) => ({ ...prev, lastActivity: new Date().toISOString() }));
     },
     [updateState],
@@ -105,7 +105,16 @@ export function UserFeedbackApp() {
 }
 
 function IdleState() {
-  const isOnboarding = sessionStorage.getItem('sero:onboarding') === 'memory-setup';
+  const [isOnboarding, setIsOnboarding] = useState(false);
+  const checkedRef = useRef(false);
+
+  useEffect(() => {
+    if (checkedRef.current) return;
+    checkedRef.current = true;
+    window.sero.profiles.needsOnboarding()
+      .then(setIsOnboarding)
+      .catch(() => setIsOnboarding(false));
+  }, []);
 
   if (isOnboarding) {
     return <OnboardingWaitState />;

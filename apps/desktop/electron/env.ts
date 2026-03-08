@@ -120,24 +120,18 @@ export const SERO_HOME = resolveProfileHome();
 /** Sero's agent directory — replaces ~/.pi/agent for all SDK calls. */
 export const SERO_AGENT_DIR = path.join(SERO_HOME, 'agent');
 
-/**
- * The active profile ID (null if no profile yet).
- * Read AFTER resolveProfileHome() has run, so any auto-repair is reflected.
- */
-export const ACTIVE_PROFILE_ID: string | null = (() => {
-  if (process.env.SERO_HOME_OVERRIDE) return null;
-  const registry = readRegistrySync();
-  return registry.activeProfileId;
-})();
+// Re-read the registry ONCE (not per-constant) after resolveProfileHome()
+// has run any auto-repair. This avoids 3× synchronous file reads at startup.
+const _postResolveRegistry = process.env.SERO_HOME_OVERRIDE
+  ? { activeProfileId: null as string | null, profiles: [] as { id: string }[] }
+  : readRegistrySync();
 
-/**
- * Whether the app has a valid active profile.
- * Read AFTER resolveProfileHome() has run, so any auto-repair is reflected.
- */
-export const HAS_ACTIVE_PROFILE: boolean = (() => {
-  const registry = readRegistrySync();
-  return registry.profiles.length > 0 && registry.activeProfileId !== null;
-})();
+/** The active profile ID (null if no profile yet). */
+export const ACTIVE_PROFILE_ID: string | null = _postResolveRegistry.activeProfileId;
+
+/** Whether the app has a valid active profile. */
+export const HAS_ACTIVE_PROFILE: boolean =
+  _postResolveRegistry.profiles.length > 0 && _postResolveRegistry.activeProfileId !== null;
 
 const ENV_PATH = path.join(SERO_AGENT_DIR, '.env');
 
