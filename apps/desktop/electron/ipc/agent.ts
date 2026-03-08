@@ -17,6 +17,7 @@ import type {
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionUsageStats,
+  ContextUsageInfo,
   ContextOverrides,
 } from '../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../src/types/checkpoints';
@@ -357,6 +358,71 @@ export function registerAgentHandlers(): void {
         cost: stats.cost,
         requestCount: stats.userMessages,
       };
+    },
+  );
+
+  // ── Context usage ─────────────────────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.getContextUsage,
+    async (_event, sessionId: string): Promise<ContextUsageInfo | null> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return null;
+
+      const model = entry.session.model;
+      if (!model) return null;
+
+      const contextWindow = model.contextWindow;
+      const state = entry.session.agent.state;
+
+      // Estimate current context tokens from session state
+      let tokens = 0;
+      const est = (s: string) => Math.ceil(s.length / 4);
+
+      // System prompt
+      if (state.systemPrompt) tokens += est(state.systemPrompt);
+
+      // Tool definitions
+      if (state.tools) tokens += est(JSON.stringify(state.tools.map((t: any) => ({
+        name: t.name, description: t.description, parameters: t.parameters,
+      }))));
+
+      // Messages
+      for (const msg of state.messages) {
+        if (typeof msg.content === 'string') {
+          tokens += est(msg.content);
+        } else if (Array.isArray(msg.content)) {
+          for (const part of msg.content as any[]) {
+            if (part.type === 'text') tokens += est(part.text || '');
+            else if (part.type === 'thinking') tokens += est(part.thinking || '');
+            else if (part.type === 'toolCall') tokens += est(JSON.stringify(part));
+            else if (part.type === 'toolResult') tokens += est(JSON.stringify(part));
+          }
+        }
+      }
+
+      const percent = contextWindow > 0 ? (tokens / contextWindow) * 100 : 0;
+
+      return {
+        tokens,
+        contextWindow,
+        percent: Math.min(percent, 100),
+      };
+    },
+  );
+
+  // ── Manual compaction ────────────────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.compact,
+    async (_event, sessionId: string, customInstructions?: string): Promise<{ success: boolean; error?: string }> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return { success: false, error: 'No active session' };
+
+      try {
+        await entry.session.compact(customInstructions);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Compaction failed' };
+      }
     },
   );
 

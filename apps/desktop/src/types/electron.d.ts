@@ -17,6 +17,7 @@ import type {
   SeroSlashCommandInfo,
   SeroAppManifest,
   SessionUsageStats,
+  ContextUsageInfo,
   SessionModelState,
   AuthProvidersResponse,
   OAuthEvent,
@@ -95,6 +96,10 @@ interface SeroAgentAPI {
   reloadResources(sessionId: string): Promise<SeroSlashCommandInfo[]>;
   /** Get usage stats (tokens + cost) for a session. */
   getUsage(sessionId: string): Promise<SessionUsageStats | null>;
+  /** Get context window usage (tokens, contextWindow, percent) for a session. */
+  getContextUsage(sessionId: string): Promise<ContextUsageInfo | null>;
+  /** Trigger manual compaction. Returns success/error. */
+  compact(sessionId: string, customInstructions?: string): Promise<{ success: boolean; error?: string }>;
   /** Get current model + thinking level state. */
   getModelState(sessionId: string): Promise<SessionModelState | null>;
   /** Set the model for a session. */

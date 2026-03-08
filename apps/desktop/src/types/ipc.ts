@@ -284,6 +284,16 @@ export interface SessionUsageStats {
   requestCount: number;
 }
 
+/** Context window usage info for the active session. */
+export interface ContextUsageInfo {
+  /** Estimated tokens currently in the context window. */
+  tokens: number;
+  /** Model's maximum context window size in tokens. */
+  contextWindow: number;
+  /** Usage percentage (0–100). */
+  percent: number;
+}
+
 // ── Sero Apps ──────────────────────────────────────────────────
 
 /** Manifest for a Sero app discovered from a Pi package. */
