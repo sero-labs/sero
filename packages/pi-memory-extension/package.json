@@ -1,0 +1,28 @@
+{
+  "name": "@sero/memory",
+  "version": "0.1.0",
+  "description": "Persistent memory system for Sero — long-term facts, identity, user profile, and daily logs",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p extension/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.55.3",
+    "@mariozechner/pi-coding-agent": ">=0.55.3",
+    "@mariozechner/pi-tui": ">=0.55.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.11",
+    "typescript": "^5.9.3"
+  }
+}
