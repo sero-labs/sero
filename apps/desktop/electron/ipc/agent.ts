@@ -17,7 +17,10 @@ import type {
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionUsageStats,
+  ContextUsageInfo,
+  CompactResult,
   ContextOverrides,
+  SeroSessionInfo,
 } from '../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 
@@ -360,6 +363,114 @@ export function registerAgentHandlers(): void {
     },
   );
 
+  // ── Context usage (SDK: uses actual API-reported usage.input as baseline) ──
+  ipcMain.handle(
+    IpcChannels.agent.getContextUsage,
+    async (_event, sessionId: string): Promise<ContextUsageInfo | null> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return null;
+      return entry.session.getContextUsage() ?? null;
+    },
+  );
+
+  // ── Manual compaction ────────────────────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.compact,
+    async (_event, sessionId: string, customInstructions?: string): Promise<CompactResult> => {
+      const entry = pool.get(sessionId);
+      if (!entry) return { success: false, error: 'No active session' };
+
+      try {
+        const result = await entry.session.compact(customInstructions);
+        return { success: true, tokensBefore: result.tokensBefore };
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Compaction failed' };
+      }
+    },
+  );
+
+  // ── Clear session (navigate to root via SDK) ───────────────
+  ipcMain.handle(
+    IpcChannels.agent.clearSession,
+    async (_event, sessionId: string): Promise<ChatMessage[]> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      if (entry.session.agent.state.isStreaming) {
+        throw new Error('Cannot clear while agent is streaming');
+      }
+
+      const sm = entry.session.sessionManager;
+      const branch = sm.getBranch();
+      if (branch.length === 0) {
+        return convertSessionMessages(
+          entry.session.messages,
+          buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+        );
+      }
+
+      // Use the SDK's navigateTree which fires session_before_tree /
+      // session_tree extension events.  Navigating to the first entry
+      // (a user message with parentId=null) causes the SDK to call
+      // resetLeaf(), fully clearing the conversation context.
+      const rootId = branch[0].id;
+      const result = await entry.session.navigateTree(rootId, { summarize: false });
+      if (result.cancelled) {
+        throw new Error('Clear was cancelled by an extension');
+      }
+      entry.lastCompletedCheckpoint = null;
+
+      const chatMessages = convertSessionMessages(
+        entry.session.messages,
+        buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+      );
+      sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
+
+      return chatMessages;
+    },
+  );
+
+  // ── Fork session (extract branch to new file) ─────────────
+  // Uses sm.createBranchedSession() directly — session.fork() switches
+  // the active session to the fork, but Sero wants "fork & stay."
+  ipcMain.handle(
+    IpcChannels.agent.forkSession,
+    async (_event, sessionId: string): Promise<SeroSessionInfo> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      if (entry.session.agent.state.isStreaming) {
+        throw new Error('Cannot fork while agent is streaming');
+      }
+
+      const sm = entry.session.sessionManager;
+      const leafId = sm.getLeafId();
+      if (!leafId) throw new Error('Session has no entries to fork');
+
+      const newSessionPath = sm.createBranchedSession(leafId);
+      if (!newSessionPath) throw new Error('Failed to create forked session file');
+
+      // Read metadata from the new session file (not fabricated timestamps)
+      const newSm = SessionManager.open(newSessionPath, SERO_SESSION_DIR);
+      const header = newSm.getHeader();
+      if (!header) throw new Error('Forked session has no header');
+      const branch = newSm.getBranch();
+
+      return {
+        path: newSessionPath,
+        id: newSm.getSessionId(),
+        cwd: header.cwd,
+        workspaceId: entry.workspaceId,
+        name: newSm.getSessionName(),
+        created: header.timestamp,
+        modified: header.timestamp,
+        messageCount: branch.filter(
+          (e) => e.type === 'message' && e.message.role === 'user',
+        ).length,
+        firstMessage: '',
+      };
+    },
+  );
   // ── Rename session ────────────────────────────────────────
   ipcMain.handle(
     IpcChannels.sessions.rename,

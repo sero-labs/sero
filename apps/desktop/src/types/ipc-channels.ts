@@ -41,6 +41,14 @@ export const IpcChannels = {
     reloadResources: 'sero:agent:reload-resources',
     /** Get usage stats for a session. */
     getUsage: 'sero:agent:get-usage',
+    /** Get context window usage for a session. */
+    getContextUsage: 'sero:agent:get-context-usage',
+    /** Trigger manual compaction. Args: sessionId, customInstructions?. */
+    compact: 'sero:agent:compact',
+    /** Clear session by branching from root. Args: sessionId. */
+    clearSession: 'sero:agent:clear-session',
+    /** Fork session: extract current branch to a new session file. Args: sessionId. */
+    forkSession: 'sero:agent:fork-session',
     /** Get current model + thinking state for a session. */
     getModelState: 'sero:agent:get-model-state',
     /** Set model for a session. Args: sessionId, provider, modelId. */

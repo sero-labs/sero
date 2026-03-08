@@ -17,6 +17,8 @@ import type {
   SeroSlashCommandInfo,
   SeroAppManifest,
   SessionUsageStats,
+  ContextUsageInfo,
+  CompactResult,
   SessionModelState,
   AuthProvidersResponse,
   OAuthEvent,
@@ -136,6 +138,18 @@ contextBridge.exposeInMainWorld('sero', {
 
     getUsage: (sessionId: string): Promise<SessionUsageStats | null> =>
       ipcRenderer.invoke(IpcChannels.agent.getUsage, sessionId),
+
+    getContextUsage: (sessionId: string): Promise<ContextUsageInfo | null> =>
+      ipcRenderer.invoke(IpcChannels.agent.getContextUsage, sessionId),
+
+    compact: (sessionId: string, customInstructions?: string): Promise<CompactResult> =>
+      ipcRenderer.invoke(IpcChannels.agent.compact, sessionId, customInstructions),
+
+    clearSession: (sessionId: string): Promise<ChatMessage[]> =>
+      ipcRenderer.invoke(IpcChannels.agent.clearSession, sessionId),
+
+    forkSession: (sessionId: string): Promise<SeroSessionInfo> =>
+      ipcRenderer.invoke(IpcChannels.agent.forkSession, sessionId),
 
     getModelState: (sessionId: string): Promise<SessionModelState | null> =>
       ipcRenderer.invoke(IpcChannels.agent.getModelState, sessionId),

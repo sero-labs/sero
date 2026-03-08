@@ -12,6 +12,7 @@ import {
 } from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
 import { UsageBadge } from './UsageBadge';
+import { ContextBadge } from './ContextBadge';
 import { groupMessages, ToolCallGroup } from './ToolCallGroup';
 import { ChatMessageItem } from './ChatMessageItem';
 import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
@@ -137,6 +138,7 @@ export function ChatPanel() {
             4-Agent
           </span>
         )}
+        {sessionId && <ContextBadge sessionId={sessionId} />}
         {sessionId && <UsageBadge sessionId={sessionId} />}
       </div>
 

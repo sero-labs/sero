@@ -284,6 +284,24 @@ export interface SessionUsageStats {
   requestCount: number;
 }
 
+/** Context window usage info for the active session. Mirrors the Pi SDK's ContextUsage type. */
+export interface ContextUsageInfo {
+  /** Estimated context tokens, or null if unknown (e.g. right after compaction, before next LLM response). */
+  tokens: number | null;
+  /** Model's maximum context window size in tokens. */
+  contextWindow: number;
+  /** Usage percentage (0–100), or null if tokens is unknown. */
+  percent: number | null;
+}
+
+/** Result from manual compaction. */
+export interface CompactResult {
+  success: boolean;
+  /** Approximate context tokens before compaction (only present on success). */
+  tokensBefore?: number;
+  error?: string;
+}
+
 // ── Sero Apps ──────────────────────────────────────────────────
 
 /** Manifest for a Sero app discovered from a Pi package. */
