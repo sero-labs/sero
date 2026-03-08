@@ -1,25 +1,30 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Gauge, Loader2 } from 'lucide-react';
+import { Gauge, Loader2, GitFork, Trash2 } from 'lucide-react';
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
 } from '@sero/ui/components/ui/popover';
+import { useSessionStore } from '@/stores/sessions';
 import type { ContextUsageInfo } from '@/types/ipc';
 
 interface ContextBadgeProps {
   sessionId: string;
+  workspaceId: string | null;
 }
 
 /**
- * Compact badge showing context window usage %. Click for details + compact.
+ * Compact badge showing context window usage %. Click for details + compact,
+ * fork session, or clear session.
  * Auto-refreshes on agent turn completion.
  */
-export function ContextBadge({ sessionId }: ContextBadgeProps) {
+export function ContextBadge({ sessionId, workspaceId }: ContextBadgeProps) {
   const [usage, setUsage] = useState<ContextUsageInfo | null>(null);
   const [compacting, setCompacting] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [compactInstructions, setCompactInstructions] = useState('');
-  const [compactError, setCompactError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const createSession = useSessionStore((s) => s.createSession);
 
   const fetchUsage = useCallback(async () => {
     try {
@@ -46,7 +51,7 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
   }, [sessionId, fetchUsage]);
 
   const handleCompact = async () => {
-    setCompactError(null);
+    setActionError(null);
     setCompacting(true);
     try {
       const result = await window.sero.agent.compact(
@@ -54,16 +59,38 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
         compactInstructions.trim() || undefined,
       );
       if (!result.success) {
-        setCompactError(result.error || 'Compaction failed');
+        setActionError(result.error || 'Compaction failed');
       } else {
         setCompactInstructions('');
-        // Refresh usage after compaction
         setTimeout(fetchUsage, 500);
       }
     } catch (err: any) {
-      setCompactError(err?.message || 'Compaction failed');
+      setActionError(err?.message || 'Compaction failed');
     } finally {
       setCompacting(false);
+    }
+  };
+
+  const handleFork = async () => {
+    if (!workspaceId) return;
+    setActionError(null);
+    try {
+      await createSession(workspaceId);
+    } catch (err: any) {
+      setActionError(err?.message || 'Fork failed');
+    }
+  };
+
+  const handleClear = async () => {
+    setActionError(null);
+    setClearing(true);
+    try {
+      await window.sero.agent.clearSession(sessionId);
+      setTimeout(fetchUsage, 300);
+    } catch (err: any) {
+      setActionError(err?.message || 'Clear failed');
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -81,6 +108,8 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
       : percent < 80
         ? 'bg-amber-500'
         : 'bg-red-500';
+
+  const busy = compacting || clearing;
 
   return (
     <Popover>
@@ -101,7 +130,7 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
         sideOffset={4}
         className="text-sm w-64 space-y-3 bg-[var(--bg-elevated)] p-3"
       >
-        <div className="font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Context Usage
         </div>
 
@@ -136,14 +165,14 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
                 value={compactInstructions}
                 onChange={(e) => setCompactInstructions(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !compacting) handleCompact();
+                  if (e.key === 'Enter' && !busy) handleCompact();
                 }}
                 className="w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)]"
-                disabled={compacting}
+                disabled={busy}
               />
               <button
                 onClick={handleCompact}
-                disabled={compacting}
+                disabled={busy}
                 className="flex w-full items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
               >
                 {compacting ? (
@@ -155,13 +184,42 @@ export function ContextBadge({ sessionId }: ContextBadgeProps) {
                   'Compact Now'
                 )}
               </button>
-              {compactError && (
-                <p className="text-xs text-red-500">{compactError}</p>
-              )}
             </div>
           </>
         ) : (
           <p className="text-xs text-[var(--text-muted)]">No usage data available.</p>
+        )}
+
+        {/* Session actions */}
+        <div className="border-t border-[var(--border-subtle)] pt-2 flex gap-2">
+          {workspaceId && (
+            <button
+              onClick={handleFork}
+              disabled={busy}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+              title="Create a new session in this workspace"
+            >
+              <GitFork className="size-3" />
+              Fork
+            </button>
+          )}
+          <button
+            onClick={handleClear}
+            disabled={busy}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+            title="Reset conversation (branch from root)"
+          >
+            {clearing ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Trash2 className="size-3" />
+            )}
+            Clear
+          </button>
+        </div>
+
+        {actionError && (
+          <p className="text-xs text-red-500">{actionError}</p>
         )}
       </PopoverContent>
     </Popover>

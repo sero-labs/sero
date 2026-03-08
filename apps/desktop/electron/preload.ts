@@ -144,6 +144,9 @@ contextBridge.exposeInMainWorld('sero', {
     compact: (sessionId: string, customInstructions?: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke(IpcChannels.agent.compact, sessionId, customInstructions),
 
+    clearSession: (sessionId: string): Promise<ChatMessage[]> =>
+      ipcRenderer.invoke(IpcChannels.agent.clearSession, sessionId),
+
     getModelState: (sessionId: string): Promise<SessionModelState | null> =>
       ipcRenderer.invoke(IpcChannels.agent.getModelState, sessionId),
 

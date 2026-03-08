@@ -100,6 +100,8 @@ interface SeroAgentAPI {
   getContextUsage(sessionId: string): Promise<ContextUsageInfo | null>;
   /** Trigger manual compaction. Returns success/error. */
   compact(sessionId: string, customInstructions?: string): Promise<{ success: boolean; error?: string }>;
+  /** Clear session by branching from root (resets conversation, keeps session). */
+  clearSession(sessionId: string): Promise<ChatMessage[]>;
   /** Get current model + thinking level state. */
   getModelState(sessionId: string): Promise<SessionModelState | null>;
   /** Set the model for a session. */

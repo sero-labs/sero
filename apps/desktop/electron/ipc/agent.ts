@@ -426,6 +426,43 @@ export function registerAgentHandlers(): void {
     },
   );
 
+  // ── Clear session (branch from root) ──────────────────────
+  ipcMain.handle(
+    IpcChannels.agent.clearSession,
+    async (_event, sessionId: string): Promise<ChatMessage[]> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+
+      if (entry.session.agent.state.isStreaming) {
+        throw new Error('Cannot clear while agent is streaming');
+      }
+
+      const sm = entry.session.sessionManager;
+      const branch = sm.getBranch();
+      if (branch.length === 0) {
+        // Already empty — nothing to clear
+        return convertSessionMessages(
+          entry.session.messages,
+          buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+        );
+      }
+
+      const rootId = branch[0].id;
+      sm.branch(rootId);
+      const ctx = sm.buildSessionContext();
+      entry.session.agent.replaceMessages(ctx.messages);
+      entry.lastCompletedCheckpoint = null;
+
+      const chatMessages = convertSessionMessages(
+        entry.session.messages,
+        buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+      );
+      sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
+
+      return chatMessages;
+    },
+  );
+
   // ── Rename session ────────────────────────────────────────
   ipcMain.handle(
     IpcChannels.sessions.rename,

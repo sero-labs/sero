@@ -45,6 +45,8 @@ export const IpcChannels = {
     getContextUsage: 'sero:agent:get-context-usage',
     /** Trigger manual compaction. Args: sessionId, customInstructions?. */
     compact: 'sero:agent:compact',
+    /** Clear session by branching from root. Args: sessionId. */
+    clearSession: 'sero:agent:clear-session',
     /** Get current model + thinking state for a session. */
     getModelState: 'sero:agent:get-model-state',
     /** Set model for a session. Args: sessionId, provider, modelId. */
