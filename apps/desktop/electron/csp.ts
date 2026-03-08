@@ -53,7 +53,7 @@ function buildCSP(): string {
   // -- style-src --
   // 'unsafe-inline' is required for Tailwind's runtime styles and any
   // inline style= attributes used in components.
-  const styleSrc = ["'self'", "'unsafe-inline'", ...(isDev ? ['http://localhost:*'] : ['sero-ext:'])];
+  const styleSrc = ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', ...(isDev ? ['http://localhost:*'] : ['sero-ext:'])];
 
   // -- img-src --
   const imgSrc = [
