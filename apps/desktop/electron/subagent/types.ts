@@ -6,6 +6,12 @@
  * here. Main-process-only types (AgentConfig, RunnerConfig, etc.) are defined below.
  */
 
+// Import IPC-shared types for local use
+import type {
+  SubagentMode as _SubagentMode,
+  SubagentUsage as _SubagentUsage,
+} from '../../src/types/subagent';
+
 // Re-export IPC-shared types as the single source of truth
 export type {
   SubagentStatus,
@@ -14,6 +20,10 @@ export type {
   SubagentEntry,
   SubagentToolActivity,
 } from '../../src/types/subagent';
+
+// Local aliases for use within this file
+type SubagentUsage = _SubagentUsage;
+type SubagentMode = _SubagentMode;
 
 // ── Agent Config (from .md discovery) ────────────────────────
 

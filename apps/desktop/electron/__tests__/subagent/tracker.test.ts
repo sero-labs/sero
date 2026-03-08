@@ -16,6 +16,8 @@ function makeEntry(overrides: Partial<SubagentEntry> = {}): SubagentEntry {
     mode: 'single',
     usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, cost: 0 },
     model: 'claude-sonnet-4-6',
+    toolActivity: [],
+    liveOutput: '',
     ...overrides,
   };
 }

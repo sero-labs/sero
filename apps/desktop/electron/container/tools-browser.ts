@@ -13,7 +13,8 @@ import fs from 'fs';
 import path from 'path';
 
 import type { Static } from '@sinclair/typebox';
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
 import type { ContainerManager } from './index';
 import { BrowserParams, shellEscape } from './tool-schemas';
 
@@ -127,10 +128,12 @@ export function createBrowser(
       'Always launch first, then interact, screenshot to verify, and close when done.',
     parameters: BrowserParams,
     execute: async (
-      _toolCallId,
+      _toolCallId: string,
       params: Static<typeof BrowserParams>,
-      signal?,
-    ) => {
+      signal: AbortSignal | undefined,
+      _onUpdate: AgentToolUpdateCallback | undefined,
+      _ctx: ExtensionContext,
+    ): Promise<AgentToolResult<unknown>> => {
       if (signal?.aborted) throw new Error('Operation aborted');
 
       // Ensure the persistent browser server is running.
@@ -267,7 +270,7 @@ print(base64.b64encode(out.getvalue()).decode(), end='')
         });
       }
 
-      return { content };
+      return { content, details: undefined };
     },
   };
 }

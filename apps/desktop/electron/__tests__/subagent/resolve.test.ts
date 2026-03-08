@@ -7,7 +7,7 @@ describe('resolveConfig', () => {
       { model: 'task-model', thinking: 'low', timeoutMs: 1000 },
       { model: 'call-model', thinking: 'high', timeoutMs: 2000 },
       { model: 'agent-model', thinking: 'medium', timeoutMs: 3000 },
-      { model: 'settings-model', thinking: 'off', timeoutMs: 4000 },
+      { model: 'settings-model', thinking: 'off', timeoutMs: 4000, toolStallTimeoutMs: 120_000 },
       { model: 'session-model', thinking: 'high' },
     );
 
@@ -21,7 +21,7 @@ describe('resolveConfig', () => {
       undefined,
       { model: 'call-model', thinking: 'high', timeoutMs: 2000 },
       { model: 'agent-model', thinking: 'medium', timeoutMs: 3000 },
-      { model: 'settings-model', thinking: 'off', timeoutMs: 4000 },
+      { model: 'settings-model', thinking: 'off', timeoutMs: 4000, toolStallTimeoutMs: 120_000 },
     );
 
     expect(result.model).toBe('call-model');
@@ -34,7 +34,7 @@ describe('resolveConfig', () => {
       undefined,
       undefined,
       { model: 'agent-model', thinking: 'medium', timeoutMs: 3000 },
-      { model: 'settings-model', thinking: 'off', timeoutMs: 4000 },
+      { model: 'settings-model', thinking: 'off', timeoutMs: 4000, toolStallTimeoutMs: 120_000 },
     );
 
     expect(result.model).toBe('agent-model');
@@ -47,7 +47,7 @@ describe('resolveConfig', () => {
       undefined,
       undefined,
       undefined,
-      { model: 'settings-model', thinking: 'off', timeoutMs: 4000 },
+      { model: 'settings-model', thinking: 'off', timeoutMs: 4000, toolStallTimeoutMs: 120_000 },
       { model: 'session-model', thinking: 'high' },
     );
 
@@ -88,7 +88,7 @@ describe('resolveConfig', () => {
       undefined,
       undefined,
       undefined,
-      { model: null, thinking: null, timeoutMs: 300_000 },
+      { model: null, thinking: null, timeoutMs: 300_000, toolStallTimeoutMs: 120_000 },
       { model: 'session-model' },
     );
 

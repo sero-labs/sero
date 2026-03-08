@@ -9,6 +9,7 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
+import type { AgentMessage } from '@mariozechner/pi-agent-core';
 import { IpcChannels } from '../../src/types/ipc';
 import type { CollaborationEvent } from '../../src/types/collaboration';
 import { runCollaboration } from '../collaboration/index';
@@ -29,18 +30,27 @@ function sendCollabEvent(event: CollaborationEvent): void {
  * Returns empty string if this is the first message (no history needed).
  */
 function extractConversationContext(
-  messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>,
+  messages: AgentMessage[],
 ): string {
   if (!messages || messages.length === 0) return '';
 
   // Build a condensed history from the last few turns (max ~6 messages)
+  // Filter to user/assistant messages that have role + content
   const recent = messages.slice(-6);
   const lines: string[] = [];
 
   for (const msg of recent) {
-    const role = msg.role === 'user' ? 'User' : 'Assistant';
-    const text = msg.content
-      .filter((c): c is { type: 'text'; text: string } => c.type === 'text' && typeof c.text === 'string')
+    if (!('role' in msg) || !('content' in msg)) continue;
+    const { role: rawRole, content: rawContent } = msg as { role: string; content: unknown };
+    if (rawRole !== 'user' && rawRole !== 'assistant') continue;
+
+    const role = rawRole === 'user' ? 'User' : 'Assistant';
+    const contentParts = typeof rawContent === 'string'
+      ? [{ type: 'text' as const, text: rawContent }]
+      : Array.isArray(rawContent) ? rawContent : [];
+    const text = contentParts
+      .filter((c): c is { type: 'text'; text: string } =>
+        typeof c === 'object' && c !== null && c.type === 'text' && 'text' in c)
       .map((c) => c.text)
       .join('');
 

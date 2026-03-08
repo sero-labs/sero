@@ -152,7 +152,7 @@ export async function ensureInfra(): Promise<SharedInfra> {
     });
 
     // Load subagent settings from settings.json
-    const raw = _settingsManager!.get?.('subagent') as Record<string, unknown> | undefined;
+    const raw = (_settingsManager!.getGlobalSettings() as Record<string, unknown>)?.['subagent'] as Record<string, unknown> | undefined;
     if (raw) {
       subagentManager.updateSettings({
         maxConcurrent: typeof raw.maxConcurrent === 'number' ? raw.maxConcurrent : undefined,

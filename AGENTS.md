@@ -47,6 +47,17 @@ pnpm typecheck             # Typecheck all (turbo)
 - [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty native module rebuild guide (MUST READ if terminals fail)
 - [docs/libs/container.md](docs/libs/container.md) — Apple Container CLI reference + ghost container protocol
 
+## Typecheck Before Commit (CRITICAL)
+
+**You MUST run `pnpm typecheck` from the monorepo root before committing any code.** This runs `turbo run typecheck` across all packages (renderer, electron main process, and every app/extension).
+
+- **All packages must pass with zero errors.** Do not commit code that introduces type errors.
+- **Do not ignore, suppress, or work around failures** with `@ts-ignore`, `@ts-expect-error`, or `any` casts unless there is no other viable fix — and even then, leave a comment explaining why.
+- **If typecheck fails, fix the errors before committing.** Do not defer fixes to a follow-up commit.
+- **The desktop app runs two tsconfigs:** `tsc --noEmit` (renderer/src) and `tsc -p tsconfig.electron.json --noEmit` (electron main process). Both must pass.
+
+---
+
 ## File Size Rules (CRITICAL)
 
 1. **NEVER let a source file exceed 500 lines of code.** If a source file you are creating or editing grows beyond 500 LOC, you **MUST** refactor it immediately — split the code into smaller modules grouped by related functionality. - This doesn't apply to documentation.

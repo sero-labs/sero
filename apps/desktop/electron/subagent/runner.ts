@@ -12,6 +12,7 @@ import {
   DefaultResourceLoader,
   createCodingTools,
 } from '@mariozechner/pi-coding-agent';
+import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from './types';
 import type { SharedInfra } from '../ipc/shared-infra';
@@ -110,6 +111,18 @@ export async function runSubagent(
 
   let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
 
+  // Stall timer state — hoisted above try so finally can access clearStallTimer
+  let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
+  let activeToolName: string | null = null;
+
+  function clearStallTimer(): void {
+    if (activeToolStallTimer) {
+      clearTimeout(activeToolStallTimer);
+      activeToolStallTimer = null;
+    }
+    activeToolName = null;
+  }
+
   try {
     const result = await createAgentSession({
       cwd: wsPath,
@@ -122,7 +135,7 @@ export async function runSubagent(
       sessionManager: SessionManager.inMemory(wsPath),
       settingsManager: infra.settingsManager,
       systemPromptSuffix: agent.systemPrompt,
-    });
+    } as Parameters<typeof createAgentSession>[0]); // systemPromptSuffix is a Sero extension not in the SDK's public type
     session = result.session;
 
     // Try to set the resolved model — needs provider/modelId lookup
@@ -139,7 +152,7 @@ export async function runSubagent(
 
     // Set thinking level
     try {
-      session.setThinkingLevel(resolved.thinking);
+      session.setThinkingLevel(resolved.thinking as ThinkingLevel);
     } catch {
       // Fall back to default
     }
@@ -162,16 +175,6 @@ export async function runSubagent(
     // ── Per-tool stall detection ──────────────────────────────
     // If a single tool call runs longer than toolStallTimeoutMs, abort.
     const toolStallMs = resolved.toolStallTimeoutMs ?? 120_000;
-    let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
-    let activeToolName: string | null = null;
-
-    function clearStallTimer(): void {
-      if (activeToolStallTimer) {
-        clearTimeout(activeToolStallTimer);
-        activeToolStallTimer = null;
-      }
-      activeToolName = null;
-    }
 
     function startStallTimer(toolName: string): void {
       clearStallTimer();
@@ -248,7 +251,7 @@ export async function runSubagent(
     }
 
     // Extract the full response from session messages
-    const response = extractResponse(session);
+    const response = extractResponse(session.messages);
 
     // Final usage stats
     try {
@@ -300,14 +303,17 @@ function extractToolArgsSummary(toolName: string, args?: Record<string, unknown>
 /**
  * Extract the full text response from a session's messages.
  */
-function extractResponse(session: { messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }> }): string {
-  const assistantMessages = session.messages.filter((m) => m.role === 'assistant');
+function extractResponse(messages: AgentMessage[]): string {
+  const assistantMessages = messages.filter(
+    (m): m is Extract<AgentMessage, { role: 'assistant' }> =>
+      'role' in m && m.role === 'assistant',
+  );
   if (assistantMessages.length === 0) return '';
 
   // Get the last assistant message's text content
   const lastMsg = assistantMessages[assistantMessages.length - 1];
   return lastMsg.content
-    .filter((c): c is { type: 'text'; text: string } => c.type === 'text' && typeof c.text === 'string')
+    .filter((c): c is { type: 'text'; text: string } => c.type === 'text' && 'text' in c)
     .map((c) => c.text)
     .join('');
 }
