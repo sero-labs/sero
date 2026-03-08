@@ -8,7 +8,6 @@
 
 // Import IPC-shared types for local use
 import type {
-  SubagentStatus as _SubagentStatus,
   SubagentMode as _SubagentMode,
   SubagentUsage as _SubagentUsage,
 } from '../../src/types/subagent';

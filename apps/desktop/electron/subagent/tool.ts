@@ -11,7 +11,8 @@
 import { writeFile, readdir, mkdir } from 'fs/promises';
 import path from 'path';
 import { Type } from '@sinclair/typebox';
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
 import type { SubagentManager } from './index';
 import { SERO_AGENT_DIR } from '../env';
 
@@ -65,7 +66,7 @@ export function registerSubagentTool(
       'parallel (tasks array), chain (sequential with {previous} placeholder).',
     parameters: SubagentParams,
 
-    async execute(_toolCallId, params, _signal, onUpdate, _ctx): Promise<any> {
+    async execute(_toolCallId, params, _signal, onUpdate: AgentToolUpdateCallback | undefined, _ctx): Promise<AgentToolResult<undefined>> {
       // Wrap the SDK's onUpdate callback into a simple text callback for our helpers
       const textUpdate: OnUpdate = onUpdate
         ? (text: string) => onUpdate({ content: [{ type: 'text' as const, text }], details: undefined })
@@ -82,7 +83,7 @@ export function registerSubagentTool(
   });
 }
 
-type ToolResult = { content: Array<{ type: 'text'; text: string }>; details?: Record<string, unknown> };
+type ToolResult = AgentToolResult<undefined>;
 type OnUpdate = ((text: string) => void) | undefined;
 
 async function executeSingle(
@@ -97,10 +98,10 @@ async function executeSingle(
   const systemPrompt = p.systemPrompt as string | undefined;
 
   if (!task) {
-    return { content: [{ type: 'text', text: 'Error: "task" is required for single mode' }] };
+    return { content: [{ type: 'text', text: 'Error: "task" is required for single mode' }], details: undefined };
   }
   if (!agent && !systemPrompt) {
-    return { content: [{ type: 'text', text: 'Error: either "agent" or "systemPrompt" is required' }] };
+    return { content: [{ type: 'text', text: 'Error: either "agent" or "systemPrompt" is required' }], details: undefined };
   }
 
   const response = await manager.runSingle({
@@ -115,7 +116,7 @@ async function executeSingle(
     onUpdate,
   });
 
-  return { content: [{ type: 'text', text: response }] };
+  return { content: [{ type: 'text', text: response }], details: undefined };
 }
 
 async function executeParallel(
@@ -137,7 +138,7 @@ async function executeParallel(
     onUpdate,
   });
 
-  return { content: [{ type: 'text', text: response }] };
+  return { content: [{ type: 'text', text: response }], details: undefined };
 }
 
 async function executeChain(
@@ -159,7 +160,7 @@ async function executeChain(
     onUpdate,
   });
 
-  return { content: [{ type: 'text', text: response }] };
+  return { content: [{ type: 'text', text: response }], details: undefined };
 }
 
 // ── create_agent Tool ────────────────────────────────────────
@@ -185,13 +186,14 @@ export function registerCreateAgentTool(pi: ExtensionAPI): void {
     description: 'Create a new named agent definition (.md file with JSON frontmatter).',
     parameters: CreateAgentParams,
 
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx): Promise<any> {
+    async execute(_toolCallId, params, _signal, _onUpdate: AgentToolUpdateCallback | undefined, _ctx): Promise<AgentToolResult<undefined>> {
       const { name, description, systemPrompt, model, thinking, timeoutMs } = params;
 
       // Validate name format
       if (!VALID_NAME_RE.test(name)) {
         return {
           content: [{ type: 'text', text: `Error: Invalid agent name '${name}'. Use only lowercase letters, numbers, and hyphens.` }],
+          details: undefined,
         };
       }
 
@@ -202,6 +204,7 @@ export function registerCreateAgentTool(pi: ExtensionAPI): void {
         if (existing.includes(`${name}.md`)) {
           return {
             content: [{ type: 'text', text: `Error: Agent '${name}' already exists at ${path.join(AGENTS_DIR, name + '.md')}` }],
+            details: undefined,
           };
         }
       } catch { /* directory will be created below */ }
@@ -226,6 +229,7 @@ export function registerCreateAgentTool(pi: ExtensionAPI): void {
 
       return {
         content: [{ type: 'text', text: `Agent '${name}' created at ${filePath}` }],
+        details: undefined,
       };
     },
   });

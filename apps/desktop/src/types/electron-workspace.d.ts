@@ -4,7 +4,6 @@
  * Split from electron.d.ts to keep each file under 500 LOC.
  */
 
-type VcsTypes = typeof import('./vcs');
 type VcsCheckpoint = import('./vcs').VcsCheckpoint;
 type VcsEvent = import('./vcs').VcsEvent;
 type VcsWorkspaceState = import('./vcs').VcsWorkspaceState;
