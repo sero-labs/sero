@@ -104,6 +104,9 @@ contextBridge.exposeInMainWorld('sero', {
 
     removeMount: (id: string, folderPath: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.workspace.removeMount, id, folderPath),
+
+    setExpanded: (id: string, expanded: boolean): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.setExpanded, id, expanded),
   },
 
   sessions: {

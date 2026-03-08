@@ -4,27 +4,22 @@ import { useSessionStore } from '@/stores/sessions';
 
 // ── Store ──────────────────────────────────────────────────────
 
-const COLLAPSED_KEY = 'sero:workspace:collapsed';
 const ACTIVE_WS_KEY = 'sero:workspace:active';
 
-function loadCollapsed(): string[] {
-  try {
-    const raw = localStorage.getItem(COLLAPSED_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function saveCollapsed(ids: string[]) {
-  localStorage.setItem(COLLAPSED_KEY, JSON.stringify(ids));
+/** Debounced save of expanded state to main process (avoids excessive disk writes). */
+let expandedSaveTimer: ReturnType<typeof setTimeout> | null = null;
+function saveExpandedDebounced(id: string, expanded: boolean) {
+  if (expandedSaveTimer) clearTimeout(expandedSaveTimer);
+  expandedSaveTimer = setTimeout(() => {
+    window.sero.workspace.setExpanded(id, expanded).catch((err) => {
+      console.error('[workspace] Failed to persist expanded state:', err);
+    });
+  }, 300);
 }
 
 interface WorkspaceState {
-  /** All registered workspaces. */
+  /** All registered workspaces. Presence in this list = visible in sidebar. */
   workspaces: WorkspaceInfo[];
-  /** IDs of workspaces currently open in the sidebar. */
-  openWorkspaceIds: string[];
-  /** IDs of workspaces collapsed in the tree view. */
-  collapsedIds: string[];
   /** Currently focused workspace (drives sidebar highlight, status bar). */
   activeWorkspaceId: string | null;
   /** Loading state. */
@@ -34,13 +29,11 @@ interface WorkspaceState {
 
   // ── Actions ────────────────────────────────────────────────
 
-  /** Load all workspaces from main process. Uses persisted open state. */
+  /** Load all workspaces from main process. */
   loadWorkspaces: () => Promise<void>;
-  /** Add a workspace to the sidebar. */
-  openWorkspace: (id: string) => void;
-  /** Remove a workspace from the sidebar. */
+  /** Close a workspace — removes it from the registry entirely. */
   closeWorkspace: (id: string) => void;
-  /** Toggle collapsed/expanded state of a workspace node. */
+  /** Toggle expanded/collapsed state of a workspace tree node. */
   toggleCollapsed: (id: string) => void;
   /** Set the focused workspace. */
   setActiveWorkspace: (id: string | null) => void;
@@ -48,8 +41,6 @@ interface WorkspaceState {
   createWorkspace: (name: string, parentPath?: string) => Promise<WorkspaceInfo>;
   /** Register an existing folder as a workspace (VSCode "Add Folder"). */
   addFolder: (folderPath: string, name?: string) => Promise<WorkspaceInfo>;
-  /** Unregister a workspace. */
-  removeWorkspace: (id: string) => Promise<void>;
   /** Toggle container mode for a workspace. */
   toggleContainer: (id: string) => Promise<void>;
   /** Add a workspace reference. Mounts the referenced workspace into the container. */
@@ -64,8 +55,6 @@ interface WorkspaceState {
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],
-  openWorkspaceIds: [],
-  collapsedIds: loadCollapsed(),
   activeWorkspaceId: localStorage.getItem(ACTIVE_WS_KEY) || null,
   isLoading: false,
   error: null,
@@ -74,11 +63,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const workspaces = await window.sero.workspace.list();
-      const openIds = workspaces.filter((w) => w.open).map((w) => w.id);
+
+      // One-time migration: clean up legacy localStorage keys
+      localStorage.removeItem('sero:workspace:collapsed');
 
       set({
         workspaces,
-        openWorkspaceIds: openIds,
         activeWorkspaceId: get().activeWorkspaceId ?? 'global',
         isLoading: false,
       });
@@ -89,34 +79,26 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  openWorkspace: (id) => {
-    set((s) => {
-      if (s.openWorkspaceIds.includes(id)) return s;
-      return { openWorkspaceIds: [...s.openWorkspaceIds, id] };
-    });
-    // Sync to main process composite environment
-    window.sero.workspace.open(id).catch(console.error);
-  },
-
   closeWorkspace: (id) => {
     if (id === 'global') return; // Can't close global
     set((s) => ({
-      openWorkspaceIds: s.openWorkspaceIds.filter((wId) => wId !== id),
-      // If we closed the active workspace, fall back to global
+      workspaces: s.workspaces.filter((w) => w.id !== id),
       activeWorkspaceId: s.activeWorkspaceId === id ? 'global' : s.activeWorkspaceId,
     }));
-    // Sync to main process
+    // Remove from registry on disk
     window.sero.workspace.close(id).catch(console.error);
   },
 
   toggleCollapsed: (id) => {
-    set((s) => {
-      const collapsed = s.collapsedIds.includes(id)
-        ? s.collapsedIds.filter((cid) => cid !== id)
-        : [...s.collapsedIds, id];
-      saveCollapsed(collapsed);
-      return { collapsedIds: collapsed };
-    });
+    set((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === id ? { ...w, open: !w.open } : w,
+      ),
+    }));
+    const workspace = get().workspaces.find((w) => w.id === id);
+    if (workspace) {
+      saveExpandedDebounced(id, workspace.open);
+    }
   },
 
   setActiveWorkspace: (id) => {
@@ -129,7 +111,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const workspace = await window.sero.workspace.create(name, parentPath);
     set((s) => ({
       workspaces: [...s.workspaces, workspace],
-      openWorkspaceIds: [...s.openWorkspaceIds, workspace.id],
       activeWorkspaceId: workspace.id,
     }));
     // Auto-create and select a default session in the new workspace
@@ -154,9 +135,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
       return {
         workspaces,
-        openWorkspaceIds: s.openWorkspaceIds.includes(workspace.id)
-          ? s.openWorkspaceIds
-          : [...s.openWorkspaceIds, workspace.id],
         activeWorkspaceId: workspace.id,
       };
     });
@@ -169,15 +147,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }
     }
     return workspace;
-  },
-
-  removeWorkspace: async (id) => {
-    await window.sero.workspace.remove(id);
-    set((s) => ({
-      workspaces: s.workspaces.filter((w) => w.id !== id),
-      openWorkspaceIds: s.openWorkspaceIds.filter((wId) => wId !== id),
-      activeWorkspaceId: s.activeWorkspaceId === id ? 'global' : s.activeWorkspaceId,
-    }));
   },
 
   toggleContainer: async (id) => {
@@ -239,11 +208,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
 // ── Selectors ──────────────────────────────────────────────────
 
-/** Workspaces currently in the composite environment. */
+/** All registered workspaces (presence = visible in sidebar). */
 export function useOpenWorkspaces(): WorkspaceInfo[] {
-  const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const openIds = useWorkspaceStore((s) => s.openWorkspaceIds);
-  return workspaces.filter((w) => openIds.includes(w.id));
+  return useWorkspaceStore((s) => s.workspaces);
 }
 
 /** The currently active/focused workspace. */

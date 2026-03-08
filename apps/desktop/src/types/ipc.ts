@@ -13,7 +13,7 @@ export interface WorkspaceRegistryEntry {
   id: string;
   /** Absolute path to workspace root. */
   path: string;
-  /** Whether the workspace is visible in the sidebar. Persisted. */
+  /** Whether the workspace tree node is expanded in the sidebar. */
   open: boolean;
 }
 

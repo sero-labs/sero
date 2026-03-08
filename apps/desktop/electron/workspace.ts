@@ -50,12 +50,6 @@ export class WorkspaceManager {
   private registry: WorkspaceRegistry = { workspaces: [] };
   private configCache: Map<string, WorkspaceConfig> = new Map();
 
-  /**
-   * IDs of workspaces currently open in the sidebar.
-   * Seeded from persisted `open` flags on init. Synced back to registry on change.
-   */
-  private openIds: Set<string> = new Set();
-
   // ── Lifecycle ──────────────────────────────────────────────
 
   /** Load registry from disk. Creates defaults if first run. */
@@ -64,11 +58,6 @@ export class WorkspaceManager {
     await this.loadRegistry();
     await this.ensureDefaults();
     await this.migrateDefaultContainerOff();
-
-    // Seed from persisted open state
-    for (const entry of this.registry.workspaces) {
-      if (entry.open) this.openIds.add(entry.id);
-    }
   }
 
   /** Ensure required directories exist. */
@@ -231,9 +220,9 @@ export class WorkspaceManager {
       (w) => path.resolve(w.path) === absPath,
     );
     if (existing) {
+      // Already registered — just ensure it's expanded
       if (!existing.open) {
         existing.open = true;
-        this.openIds.add(existing.id);
         await this.saveRegistry();
       }
       const info = await this.getInfo(existing);
@@ -251,14 +240,13 @@ export class WorkspaceManager {
       await this.writeConfig(absPath, config);
     }
 
-    // Register — new workspaces start open
+    // Register — new workspaces start expanded
     const entry: WorkspaceRegistryEntry = {
       id: config.id || uniqueId,
       path: absPath,
       open: true,
     };
     this.registry.workspaces.push(entry);
-    this.openIds.add(entry.id);
     await this.saveRegistry();
 
     // Clear cache for this workspace
@@ -303,7 +291,6 @@ export class WorkspaceManager {
       open: true,
     };
     this.registry.workspaces.push(entry);
-    this.openIds.add(entry.id);
     await this.saveRegistry();
 
     const info = await this.getInfo(entry);
@@ -322,7 +309,6 @@ export class WorkspaceManager {
 
     this.registry.workspaces = this.registry.workspaces.filter((w) => w.id !== id);
     this.configCache.delete(id);
-    this.openIds.delete(id);
     await this.saveRegistry();
 
     // Clean up editor state file
@@ -330,29 +316,43 @@ export class WorkspaceManager {
     await fs.rm(editorStateFile, { force: true }).catch(() => {});
   }
 
-  // ── Open / Close (sidebar visibility, persisted) ───────────
+  // ── Open / Close ────────────────────────────────────────────
+  //
+  // Presence in the registry = visible in sidebar.
+  // `open` field = tree node expanded/collapsed.
+  // `close` removes the workspace from the registry entirely.
 
-  /** Open a workspace in the sidebar. */
+  /** Expand a workspace tree node. Used by federated apps after creating a workspace. */
   async open(id: string): Promise<void> {
-    const entry = this.findEntry(id);
-    if (!entry) throw new Error(`Workspace not found: ${id}`);
-    this.openIds.add(id);
-    entry.open = true;
-    await this.saveRegistry();
+    await this.setExpanded(id, true);
   }
 
-  /** Close a workspace in the sidebar. */
+  /**
+   * Remove a workspace from the registry (close = remove from sidebar).
+   * Does NOT delete files. Re-add via addFolder to restore.
+   */
   async close(id: string): Promise<void> {
+    if (id === 'global') return; // Can't close default workspace
+    this.registry.workspaces = this.registry.workspaces.filter((w) => w.id !== id);
+    this.configCache.delete(id);
+    await this.saveRegistry();
+
+    // Clean up editor state file
+    const editorStateFile = path.join(EDITOR_STATE_DIR, `${id}.json`);
+    await fs.rm(editorStateFile, { force: true }).catch(() => {});
+  }
+
+  /** Set expanded/collapsed state for a workspace tree node. */
+  async setExpanded(id: string, expanded: boolean): Promise<void> {
     const entry = this.findEntry(id);
     if (!entry) return;
-    this.openIds.delete(id);
-    entry.open = false;
+    entry.open = expanded;
     await this.saveRegistry();
   }
 
-  /** Get IDs of workspaces currently in the composite environment. */
+  /** Get IDs of all registered workspaces. */
   getOpenIds(): string[] {
-    return [...this.openIds];
+    return this.registry.workspaces.map((w) => w.id);
   }
 
   /** Infer the best workspace for a message (keywords vs contextHints/tags/names). */
@@ -360,16 +360,9 @@ export class WorkspaceManager {
     return inferWorkspaceFromMessage(message, await this.getOpenWorkspaces());
   }
 
-  /** Get full WorkspaceInfo for all open workspaces. */
+  /** Get full WorkspaceInfo for all registered workspaces. */
   async getOpenWorkspaces(): Promise<WorkspaceInfo[]> {
-    const result: WorkspaceInfo[] = [];
-    for (const id of this.openIds) {
-      const entry = this.findEntry(id);
-      if (!entry) continue;
-      const info = await this.getInfo(entry);
-      if (info) result.push(info);
-    }
-    return result;
+    return this.list();
   }
 
   /** Find workspace by ID. */

@@ -120,11 +120,9 @@ export function createSeroExtensionFactory(
         switch (subcommand) {
           case 'list': {
             const all = await wsManager.list();
-            const openIds = new Set(wsManager.getOpenIds());
             const lines = all.map((w) => {
-              const open = openIds.has(w.id) ? '●' : '○';
               const current = w.id === currentWorkspaceId ? ' ← current' : '';
-              return `  ${open} ${w.name} (${w.id}) — ${w.path}${current}`;
+              return `  ● ${w.name} (${w.id}) — ${w.path}${current}`;
             });
             pi.sendMessage({
               customType: 'sero-workspace',

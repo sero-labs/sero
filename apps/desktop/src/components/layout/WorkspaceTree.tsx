@@ -8,7 +8,6 @@ import {
   Minus,
   Monitor,
   Plus,
-  Trash2,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
@@ -268,18 +267,15 @@ function WorkspaceNode({
   sessions: SeroSessionInfo[];
 }) {
   const [hovered, setHovered] = useState(false);
-  const collapsedIds = useWorkspaceStore((s) => s.collapsedIds);
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((s) => s.closeWorkspace);
-  const removeWorkspace = useWorkspaceStore((s) => s.removeWorkspace);
   const toggleContainer = useWorkspaceStore((s) => s.toggleContainer);
   const createSession = useSessionStore((s) => s.createSession);
-  const loadSessions = useSessionStore((s) => s.loadSessions);
   const streamingIds = useStreamingSessionIds();
 
-  const expanded = !collapsedIds.includes(workspace.id);
+  const expanded = workspace.open;
   const isActive = activeWorkspaceId === workspace.id;
   const hasStreaming = sessions.some((s) => streamingIds.includes(s.id));
   const isDefault = workspace.id === 'global';
@@ -303,15 +299,6 @@ function WorkspaceNode({
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
     closeWorkspace(workspace.id);
-  };
-
-  const handleRemove = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!window.confirm(`Remove workspace "${workspace.name}"?\n\nThis will unregister it from Sero. The folder and its files will not be deleted.`)) {
-      return;
-    }
-    await removeWorkspace(workspace.id);
-    await loadSessions();
   };
 
   return (
@@ -388,28 +375,16 @@ function WorkspaceNode({
                   <WorkspaceReferencesMenu workspace={workspace} />
                 )}
                 {!isDefault && (
-                  <>
-                    <span
-                      role="button"
-                      tabIndex={-1}
-                      onClick={handleClose}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleClose(e as unknown as React.MouseEvent); } }}
-                      className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-                      title="Close workspace"
-                    >
-                      <Minus className="size-3 text-[var(--text-muted)]" />
-                    </span>
-                    <span
-                      role="button"
-                      tabIndex={-1}
-                      onClick={handleRemove}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleRemove(e as unknown as React.MouseEvent); } }}
-                      className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-                      title="Remove workspace"
-                    >
-                      <Trash2 className="size-3 text-[var(--text-muted)]" />
-                    </span>
-                  </>
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={handleClose}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleClose(e as unknown as React.MouseEvent); } }}
+                    className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+                    title="Close workspace"
+                  >
+                    <Minus className="size-3 text-[var(--text-muted)]" />
+                  </span>
                 )}
               </motion.span>
             ) : (

@@ -58,9 +58,9 @@ interface SeroWorkspaceAPI {
   getConfig(id: string): Promise<WorkspaceConfig | null>;
   /** Register an existing folder as a workspace. Creates config if missing. */
   addFolder(folderPath: string, name?: string): Promise<WorkspaceInfo>;
-  /** Open workspace in sidebar (persisted). */
+  /** Expand workspace tree node (persisted). Also used by federated apps. */
   open(id: string): Promise<void>;
-  /** Close workspace in sidebar (persisted). */
+  /** Remove workspace from registry. Re-add via addFolder to restore. */
   close(id: string): Promise<void>;
   /** Open native folder picker. Returns selected path or null. */
   pickFolder(): Promise<string | null>;
@@ -76,6 +76,8 @@ interface SeroWorkspaceAPI {
   addMount(id: string, folderPath: string): Promise<void>;
   /** Remove an arbitrary folder mount. */
   removeMount(id: string, folderPath: string): Promise<void>;
+  /** Set expanded/collapsed state for a workspace tree node. */
+  setExpanded(id: string, expanded: boolean): Promise<void>;
 }
 
 interface SeroSessionsAPI {

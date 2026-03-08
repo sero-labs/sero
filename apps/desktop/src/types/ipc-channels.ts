@@ -29,6 +29,8 @@ export const IpcChannels = {
     addMount: 'sero:workspace:add-mount',
     /** Remove an arbitrary folder mount. Args: id, folderPath. */
     removeMount: 'sero:workspace:remove-mount',
+    /** Set expanded/collapsed state for a workspace tree node. */
+    setExpanded: 'sero:workspace:set-expanded',
   },
   sessions: {
     list: 'sero:sessions:list',

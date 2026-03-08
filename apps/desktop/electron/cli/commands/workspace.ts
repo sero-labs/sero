@@ -3,16 +3,15 @@ import type { CliRegistry } from '../registry';
 import type { CliCommandContext } from '../types';
 import { fail, ok } from './utils';
 
-function formatWorkspaceList(currentWorkspaceId: string, openIds: Set<string>) {
+function formatWorkspaceList(currentWorkspaceId: string) {
   return async () => {
     const list = await workspaceManager.list();
     if (list.length === 0) return 'No workspaces registered.';
     return list
       .map((ws) => {
-        const open = openIds.has(ws.id) ? '●' : '○';
         const current = ws.id === currentWorkspaceId ? ' (current)' : '';
         const container = ws.container ? 'container' : 'host';
-        return `${open} ${ws.name} (${ws.id}) [${container}]${current}\n  ${ws.path}`;
+        return `● ${ws.name} (${ws.id}) [${container}]${current}\n  ${ws.path}`;
       })
       .join('\n');
   };
@@ -25,8 +24,7 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
   try {
     switch (action) {
       case 'list': {
-        const openIds = new Set(workspaceManager.getOpenIds());
-        const output = await formatWorkspaceList(ctx.workspaceId, openIds)();
+        const output = await formatWorkspaceList(ctx.workspaceId)();
         return ok(output);
       }
 
@@ -49,13 +47,14 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
       case 'open': {
         if (!rest[0]) return fail('Usage: sero workspace open <id>');
         await workspaceManager.open(rest[0]);
-        return ok(`Opened workspace: ${rest[0]}`);
+        return ok(`Expanded workspace: ${rest[0]}`);
       }
 
       case 'close': {
         if (!rest[0]) return fail('Usage: sero workspace close <id>');
+        if (rest[0] === 'global') return fail('Cannot close the default workspace');
         await workspaceManager.close(rest[0]);
-        return ok(`Closed workspace: ${rest[0]}`);
+        return ok(`Closed workspace: ${rest[0]} (re-add via addFolder to restore)`);
       }
 
       default:

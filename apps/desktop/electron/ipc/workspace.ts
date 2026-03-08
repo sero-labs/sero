@@ -59,7 +59,7 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 
-  // ── Open workspace (show in sidebar, persisted) ─────────────
+  // ── Expand workspace tree node ───────────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.open,
     async (_event, id: string): Promise<void> => {
@@ -67,11 +67,19 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 
-  // ── Close workspace (hide from sidebar, persisted) ─────────
+  // ── Close workspace (remove from registry) ─────────────────
   ipcMain.handle(
     IpcChannels.workspace.close,
     async (_event, id: string): Promise<void> => {
       return workspaceManager.close(id);
+    },
+  );
+
+  // ── Set expanded/collapsed state ───────────────────────────
+  ipcMain.handle(
+    IpcChannels.workspace.setExpanded,
+    async (_event, id: string, expanded: boolean): Promise<void> => {
+      return workspaceManager.setExpanded(id, expanded);
     },
   );
 
