@@ -12,6 +12,7 @@ import { discoverApps, registerAppPath } from './app-discovery';
 import { watchForNewApps } from './ipc/apps';
 import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './ipc/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
+import { setupContentSecurityPolicy } from './csp';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -205,6 +206,11 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('[sero] Widevine CDM install failed — DRM playback will be unavailable:', err);
   }
+
+  // ── Content Security Policy ────────────────────────────────────
+  // Set a strict CSP on all renderer responses to silence Electron's
+  // "Insecure Content-Security-Policy" warning and reduce attack surface.
+  setupContentSecurityPolicy();
 
   // ── User-Agent ────────────────────────────────────────────────
   // Strip "Electron/<version>" from the session User-Agent. Services like
