@@ -22,7 +22,14 @@ export function tokenizeCliInput(input: string): string[] {
     const ch = input[i]!;
 
     if (escaping) {
-      current += ch;
+      // Only consume the backslash for actual escape sequences that
+      // affect tokenisation. For everything else (e.g. \n, \t), keep
+      // the backslash so downstream handlers can interpret it.
+      if (ch === '"' || ch === "'" || ch === '\\' || ch === ' ') {
+        current += ch;
+      } else {
+        current += '\\' + ch;
+      }
       escaping = false;
       continue;
     }

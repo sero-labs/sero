@@ -132,12 +132,13 @@ async function buildPriorityContext(
 }
 
 function getMemoryInstructions(): string {
+  const root = resolveMemoryRoot();
   const searchLine = isQmdAvailable()
     ? '- `sero memory_search --query "..." [--mode keyword|semantic|deep]` — semantic search across all memory files'
     : '';
 
   return [
-    '\n\n**Memory commands:**',
+    `\n\n**Memory commands** (all files in \`${root}\` — do NOT access memory files outside this path):`,
     '- `sero memory write --target memory --content "..."` — save a long-term fact or decision',
     '- `sero memory write --target daily --content "..."` — log something to today\'s daily note',
     '- `sero memory read --target memory|identity|user|daily` — read a memory file',
@@ -155,6 +156,7 @@ function getMemoryInstructions(): string {
 // ── Bootstrap mode ─────────────────────────────────────────────
 
 function buildBootstrapInstructions(existingUserContent: string | null): string {
+  const root = resolveMemoryRoot();
   const identityJson = JSON.stringify(IDENTITY_QUESTIONS, null, 2);
   const userJson = JSON.stringify(USER_QUESTIONS, null, 2);
   const memoryJson = JSON.stringify(MEMORY_QUESTIONS, null, 2);
@@ -170,24 +172,22 @@ The memory system is not yet initialised. You MUST set it up now before doing an
 Use the \`questionnaire\` tool to ask the user three rounds of questions, then write the answers to memory files.${userNote}
 
 ### Step 1: Identity Setup
-Call the \`questionnaire\` tool with these questions to configure the agent persona:
+YOU MUST Call the \`questionnaire\` tool with these questions to configure the agent persona:
 ${identityJson}
 
 After receiving answers, write IDENTITY.md:
 \`sero memory write --target identity --mode overwrite --content "# Identity\\n\\n- **Name:** <agent_name answer>\\n- **Style:** <personality answer>\\n- **Rules:** <rules answer>"\`
 
-### Step 2: User Profile${existingUserContent ? ' (verify existing)' : ''}
-${existingUserContent
-    ? 'Ask the user if the existing USER.md content above is correct. If they want changes, ask what to update. Only rewrite if needed.'
-    : `Call the \`questionnaire\` tool with these questions:
+### Step 2: User Profile setup
+YOU MUST Call the \`questionnaire\` tool again with these questions to configure the user profile:
 ${userJson}
 
 After receiving answers, write USER.md:
-\`sero memory write --target user --mode overwrite --content "# User\\n\\n- **Name:** <name>\\n- **Role:** <role>\\n- **Location:** <location>\\n- **Tech Stack:** <stack>\\n- **Communication:** <communication>"\``
-}
+\`sero memory write --target user --mode overwrite --content "# User\\n\\n- **Name:** <name>\\n- **Role:** <role>\\n- **Location:** <location>\\n- **Tech Stack:** <stack>\\n- **Communication:** <communication>"\`
+
 
 ### Step 3: Long-term Memory
-Call the \`questionnaire\` tool with these questions:
+YOU MUST Call the \`questionnaire\` tool again with these questions:
 ${memoryJson}
 
 After receiving answers, write MEMORY.md:

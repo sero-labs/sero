@@ -1,14 +1,13 @@
 /**
- * InterviewForm — open-ended interview form for the dedicated Sero app UI.
+ * InterviewForm — single-page interview form for the Sero app UI.
  *
- * Shows all interview questions with text areas (no predefined options).
- * Auto-focuses the first unanswered question. Answers can be edited
- * freely before submitting the batch.
+ * Shows all questions at once in a scrollable layout. Each question
+ * has a text input that auto-grows. Submit when ready, skip any question.
+ * Emerald-green Sero styling throughout.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@sero/ui/components/ui/button';
-import { Card } from '@sero/ui/components/ui/card';
 import { cn } from '@sero/ui/lib/utils';
 import type {
   UserFeedbackPendingQuestion,
@@ -25,21 +24,11 @@ interface Props {
 export function InterviewForm({ question, onSubmit, onCancel }: Props) {
   const questions = question.questions;
   const [answers, setAnswers] = useState<Map<string, string>>(new Map());
-  const textareaRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
+  const firstRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-focus first unanswered question on mount
-  useEffect(() => {
-    const first = questions.find((q) => !answers.has(q.id));
-    if (first) {
-      const el = textareaRefs.current.get(first.id);
-      el?.focus();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { firstRef.current?.focus(); }, []);
 
-  const allAnswered = questions.every((q) => {
-    const v = answers.get(q.id);
-    return v !== undefined && v.trim().length > 0;
-  });
+  const answeredCount = [...answers.values()].filter((v) => v.trim().length > 0).length;
 
   const setAnswer = useCallback((qId: string, text: string) => {
     setAnswers((prev) => new Map(prev).set(qId, text));
@@ -50,150 +39,115 @@ export function InterviewForm({ question, onSubmit, onCancel }: Props) {
     for (const q of questions) {
       const text = answers.get(q.id)?.trim();
       if (text) {
-        result.push({
-          questionId: q.id,
-          value: text,
-          label: text,
-          wasCustom: true,
-        });
+        result.push({ questionId: q.id, value: text, label: text, wasCustom: true });
       }
     }
     onSubmit(question.id, result);
   }, [question.id, questions, answers, onSubmit]);
 
   return (
-    <div className="flex h-full flex-col bg-background p-4">
+    <div className="flex h-full flex-col bg-[var(--bg-base)] p-4">
       {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-lg font-semibold text-foreground">Interview</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Answer each question below. All responses are free-text.
-        </p>
-        <ProgressDots questions={questions} answers={answers} />
+      <div className="mb-4 flex items-baseline justify-between">
+        <h1 className="text-lg font-semibold text-[var(--text-primary)]">Interview</h1>
+        <span className="text-xs text-[var(--text-muted)]">
+          {answeredCount} of {questions.length} answered
+        </span>
       </div>
 
-      {/* Questions */}
-      <Card className="flex-1 gap-0 overflow-y-auto p-4 shadow-none">
-        <div className="space-y-6">
-          {questions.map((q, i) => (
-            <InterviewQuestion
-              key={q.id}
-              index={i}
-              question={q}
-              value={answers.get(q.id) ?? ''}
-              onChange={(text) => setAnswer(q.id, text)}
-              onRef={(el) => {
-                if (el) textareaRefs.current.set(q.id, el);
-                else textareaRefs.current.delete(q.id);
-              }}
-            />
-          ))}
-        </div>
-      </Card>
+      {/* All questions — scrollable */}
+      <div className="flex-1 space-y-5 overflow-y-auto pr-1">
+        {questions.map((q, i) => (
+          <QuestionRow
+            key={q.id}
+            question={q}
+            index={i}
+            value={answers.get(q.id) ?? ''}
+            onChange={(text) => setAnswer(q.id, text)}
+            inputRef={i === 0 ? firstRef : undefined}
+          />
+        ))}
+      </div>
 
       {/* Footer */}
-      <div className="mt-3 flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onCancel(question.id)}
-        >
+      <div className="mt-3 flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
+        <Button variant="ghost" size="sm" onClick={() => onCancel(question.id)}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={!allAnswered} size="sm">
-          Submit All Answers
+        <Button
+          size="sm"
+          onClick={handleSubmit}
+          disabled={answeredCount === 0}
+          className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
+        >
+          Submit {answeredCount > 0 ? `(${answeredCount})` : ''}
         </Button>
       </div>
     </div>
   );
 }
 
-// ── Sub-components ─────────────────────────────────────────────
+// ── Question row ───────────────────────────────────────────────
 
-function ProgressDots({
-  questions,
-  answers,
-}: {
-  questions: UserFeedbackQuestionItem[];
-  answers: Map<string, string>;
-}) {
-  return (
-    <div className="mt-2 flex items-center gap-1.5">
-      {questions.map((q, i) => {
-        const hasAnswer = (answers.get(q.id)?.trim().length ?? 0) > 0;
-        return (
-          <span
-            key={q.id}
-            className={cn(
-              'flex size-6 items-center justify-center rounded-full text-[10px] font-medium transition-colors',
-              hasAnswer
-                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                : 'bg-secondary text-muted-foreground',
-            )}
-          >
-            {hasAnswer ? '✓' : i + 1}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function InterviewQuestion({
-  index,
+function QuestionRow({
   question,
+  index,
   value,
   onChange,
-  onRef,
+  inputRef,
 }: {
-  index: number;
   question: UserFeedbackQuestionItem;
+  index: number;
   value: string;
   onChange: (text: string) => void;
-  onRef: (el: HTMLTextAreaElement | null) => void;
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const localRef = useRef<HTMLTextAreaElement>(null);
+  const ref = inputRef ?? localRef;
+  const hasValue = value.trim().length > 0;
 
-  // Auto-resize textarea to content
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       onChange(e.target.value);
-      // Auto-grow
       const el = e.target;
       el.style.height = 'auto';
-      el.style.height = `${el.scrollHeight}px`;
+      el.style.height = `${Math.max(el.scrollHeight, 36)}px`;
     },
     [onChange],
   );
 
-  // Register ref
-  useEffect(() => {
-    onRef(textareaRef.current);
-    return () => onRef(null);
-  }, [onRef]);
-
   return (
-    <div>
-      <div className="mb-2 flex items-start gap-2">
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-medium text-muted-foreground">
-          {index + 1}
-        </span>
-        <p className="text-sm font-medium text-foreground">{question.prompt}</p>
-      </div>
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={handleChange}
-        placeholder="Type your answer…"
-        rows={2}
+    <div className="flex gap-3">
+      {/* Number badge */}
+      <span
         className={cn(
-          'ml-7 w-[calc(100%-1.75rem)] resize-none rounded-md border px-3 py-2 text-sm',
-          'border-input bg-background text-foreground',
-          'placeholder:text-muted-foreground',
-          'focus:outline-none focus:ring-1 focus:ring-ring',
-          'transition-colors',
+          'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium',
+          hasValue
+            ? 'bg-emerald-500/15 text-emerald-400'
+            : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]',
         )}
-      />
+      >
+        {hasValue ? '✓' : index + 1}
+      </span>
+
+      {/* Question + input */}
+      <div className="min-w-0 flex-1">
+        <p className="mb-1.5 text-sm text-[var(--text-primary)]">{question.prompt}</p>
+        <textarea
+          ref={ref}
+          value={value}
+          onChange={handleChange}
+          placeholder="Type your answer…"
+          rows={1}
+          className={cn(
+            'w-full resize-none rounded-md border px-2.5 py-1.5 text-sm',
+            'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)]',
+            'placeholder:text-[var(--text-muted)]',
+            'focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/40',
+            'transition-colors',
+          )}
+        />
+      </div>
     </div>
   );
 }

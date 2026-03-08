@@ -79,12 +79,16 @@ async function handleRead(
 async function handleWrite(
   root: string,
   target?: string,
-  content?: string,
+  rawContent?: string,
   mode?: string,
   date?: string,
 ) {
-  if (!content) return text('Error: content is required for write action.');
+  if (!rawContent) return text('Error: content is required for write action.');
   if (!target) return text('Error: target is required for write action.');
+
+  // The agent sends escaped newlines in JSON (e.g. "# Title\\n\\nBody").
+  // Unescape so the file has real line breaks.
+  const content = rawContent.replace(/\\n/g, '\n');
 
   const resolved = resolveTargetPath(root, target, date);
   if (!resolved) {

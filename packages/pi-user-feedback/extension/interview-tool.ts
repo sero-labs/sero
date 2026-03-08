@@ -14,7 +14,7 @@ import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
 import type { QuestionItem, QuestionAnswer } from '../shared/types';
-import { nextQuestionId, askQuestion } from './ipc-bridge';
+import { nextQuestionId, askQuestion, hasSeroIPCBridge } from './ipc-bridge';
 import { askInterviewTUI } from './tui-interview';
 
 // ── Schema ─────────────────────────────────────────────────────
@@ -48,6 +48,7 @@ export function registerInterviewTool(pi: ExtensionAPI) {
     parameters: InterviewParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+
       if (params.questions.length === 0) {
         return {
           content: [{ type: 'text', text: 'Error: No questions provided' }],
@@ -63,26 +64,34 @@ export function registerInterviewTool(pi: ExtensionAPI) {
         allowOther: true,
       }));
 
+      // ── Sero mode: IPC bridge (must check first) ───────────
+      if (hasSeroIPCBridge()) {
+        const id = nextQuestionId();
+        const response = await askQuestion(
+          {
+            id,
+            type: 'interview',
+            toolCallId: _toolCallId,
+            questions,
+            timestamp: new Date().toISOString(),
+          },
+          signal,
+        );
+
+        return buildInterviewResult(questions, response.answers, response.cancelled);
+      }
+
       // ── Pi CLI mode: TUI ───────────────────────────────────
       if (ctx.hasUI) {
         const result = await askInterviewTUI(ctx.ui, questions);
         return buildInterviewResult(questions, result.answers, result.cancelled);
       }
 
-      // ── Sero mode: IPC bridge ──────────────────────────────
-      const id = nextQuestionId();
-      const response = await askQuestion(
-        {
-          id,
-          type: 'interview',
-          toolCallId: _toolCallId,
-          questions,
-          timestamp: new Date().toISOString(),
-        },
-        signal,
-      );
-
-      return buildInterviewResult(questions, response.answers, response.cancelled);
+      // Non-interactive — no way to ask
+      return {
+        content: [{ type: 'text' as const, text: 'Error: No UI available to ask the user' }],
+        details: { questions, answers: [], cancelled: true },
+      };
     },
 
     renderCall(args, theme) {

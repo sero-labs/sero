@@ -1,5 +1,11 @@
 import { create } from 'zustand';
 import type { SeroAppManifest } from '@/types/ipc';
+import {
+  getLocalItem,
+  setLocalItem,
+  getSessionItem,
+  setSessionItem,
+} from '@/lib/profile-storage';
 
 // ── Built-in apps (always present) ────────────────────────────
 
@@ -79,10 +85,8 @@ interface AppState {
 const THEME_STORAGE_KEY = 'sero:theme';
 
 function getStoredTheme(): Theme {
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch { /* ignore */ }
+  const stored = getLocalItem(THEME_STORAGE_KEY);
+  if (stored === 'light' || stored === 'dark') return stored;
   return 'dark';
 }
 
@@ -93,7 +97,7 @@ function applyTheme(theme: Theme) {
   } else {
     root.classList.remove('dark');
   }
-  try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch { /* ignore */ }
+  setLocalItem(THEME_STORAGE_KEY, theme);
 }
 
 /** Map a SeroAppManifest → AppEntry. */
@@ -219,9 +223,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFavourite: (appId) => get().favouriteApps.includes(appId),
 
   // Active app (persisted across reloads via sessionStorage)
-  activeApp: sessionStorage.getItem('sero:activeApp') ?? 'coding',
+  activeApp: getSessionItem('sero:activeApp') ?? 'coding',
   setActiveApp: (app) => {
-    sessionStorage.setItem('sero:activeApp', app);
+    setSessionItem('sero:activeApp', app);
     set({ activeApp: app });
   },
 

@@ -51,13 +51,10 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
       });
       setCustomMode(false);
       setCustomText('');
-      // Auto-advance to next question, but NOT past the last question
-      // (user should explicitly navigate to review to confirm answers)
-      if (currentStep < questions.length - 1) {
-        setCurrentStep(currentStep + 1);
-      }
+      // Auto-advance to next question (or to review after the last question)
+      setCurrentStep(currentStep + 1);
     },
-    [currentQ, currentStep, questions.length, saveAnswer],
+    [currentQ, currentStep, saveAnswer],
   );
 
   const handleCustomSubmit = useCallback(() => {
@@ -72,11 +69,9 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
     });
     setCustomMode(false);
     setCustomText('');
-    // Auto-advance to next question, but NOT past the last question
-    if (currentStep < questions.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  }, [currentQ, customText, currentStep, questions.length, saveAnswer]);
+    // Auto-advance to next question (or to review after the last question)
+    setCurrentStep(currentStep + 1);
+  }, [currentQ, customText, currentStep, saveAnswer]);
 
   const handleSubmit = useCallback(() => {
     onSubmit(question.id, Array.from(answers.values()));
@@ -99,7 +94,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
               className={cn(
                 'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
                 i === currentStep && !isReview
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-emerald-500 text-white'
                   : answers.has(q.id)
                     ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                     : 'bg-secondary text-muted-foreground',
@@ -113,7 +108,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
             className={cn(
               'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
               isReview
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-emerald-500 text-white'
                 : allAnswered
                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                   : 'bg-secondary text-muted-foreground',
@@ -165,13 +160,23 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
             </Button>
           )}
           {!isReview && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setCurrentStep(currentStep + 1)}
-            >
-              {currentStep < questions.length - 1 ? 'Next' : 'Review'}
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setCurrentStep(currentStep + 1); setCustomMode(false); setCustomText(''); }}
+              >
+                Skip
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => { setCurrentStep(currentStep + 1); setCustomMode(false); setCustomText(''); }}
+                disabled={!currentQ || !answers.has(currentQ.id)}
+              >
+                {currentStep < questions.length - 1 ? 'Next' : 'Review'}
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -215,13 +220,13 @@ function QuestionStep({
               className={cn(
                 'flex w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors',
                 isSelected
-                  ? 'border-primary bg-primary/5'
+                  ? 'border-emerald-500/40 bg-emerald-500/5'
                   : 'border-transparent hover:border-border hover:bg-secondary',
               )}
             >
               <span className={cn(
                 'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium',
-                isSelected ? 'border-primary text-primary' : 'border-[var(--border)] text-muted-foreground',
+                isSelected ? 'border-emerald-500 text-emerald-400' : 'border-[var(--border)] text-muted-foreground',
               )}>
                 {i + 1}
               </span>
@@ -296,7 +301,7 @@ function ReviewStep({
                 </div>
                 <button
                   onClick={() => onGoToStep(i)}
-                  className="shrink-0 text-xs text-primary hover:underline"
+                  className="shrink-0 text-xs text-emerald-400 hover:underline"
                 >
                   Edit
                 </button>
@@ -306,7 +311,7 @@ function ReviewStep({
                   {answer.wasCustom ? `✎ ${answer.label}` : `${answer.index}. ${answer.label}`}
                 </p>
               ) : (
-                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">Not answered</p>
+                <p className="mt-2 text-xs text-muted-foreground">Skipped</p>
               )}
             </div>
           );
@@ -314,7 +319,7 @@ function ReviewStep({
       </div>
 
       <div className="mt-6 flex justify-end">
-        <Button onClick={onSubmit} disabled={!allAnswered}>
+        <Button onClick={onSubmit} disabled={answers.size === 0}>
           Submit All Answers
         </Button>
       </div>

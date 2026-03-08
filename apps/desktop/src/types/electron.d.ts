@@ -8,6 +8,7 @@
 /// <reference path="./electron-workspace.d.ts" />
 
 import type {
+  ProfileInfo,
   WorkspaceInfo,
   WorkspaceConfig,
   SeroSessionInfo,
@@ -385,9 +386,35 @@ interface SeroCollaborationAPI {
   onEvent(callback: (event: CollaborationEvent) => void): () => void;
 }
 
+interface SeroProfilesAPI {
+  /** List all profiles with active flag. */
+  list(): Promise<ProfileInfo[]>;
+  /** Get the currently active profile. */
+  getActive(): Promise<ProfileInfo | null>;
+  /** Check if a valid active profile exists. */
+  hasActive(): Promise<boolean>;
+  /** Create a new profile. Returns the created profile info. */
+  create(name: string, profilePath?: string, copyAuthFromId?: string): Promise<ProfileInfo>;
+  /** Switch to a profile. Triggers app restart. */
+  switch(id: string): Promise<void>;
+  /** Rename a profile's display name. */
+  rename(id: string, newName: string): Promise<void>;
+  /** Delete a profile (unregister only — files stay). */
+  delete(id: string): Promise<void>;
+  /** Open native folder picker for custom profile path. */
+  pickFolder(): Promise<string | null>;
+  /** Check if onboarding is needed for this profile. */
+  needsOnboarding(): Promise<boolean>;
+  /** Mark onboarding as complete — won't show again. */
+  markOnboardingDone(): Promise<void>;
+  /** List other profiles that have an auth.json available for import. */
+  listAuthSources(): Promise<ProfileInfo[]>;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
+  profiles: SeroProfilesAPI;
   contextPresets: SeroContextPresetsAPI;
   workspace: SeroWorkspaceAPI;
   sessions: SeroSessionsAPI;

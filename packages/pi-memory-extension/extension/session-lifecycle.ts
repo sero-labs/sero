@@ -33,7 +33,7 @@ const SUMMARY_MAX_CHARS = 80_000;
 const SUMMARY_SYSTEM_PROMPT = [
   'You are a session recap assistant.',
   'Read the conversation and extract key decisions, lessons learned, notes, and follow-ups.',
-  'Return ONLY markdown in the specified format, without any extra commentary.',
+  'Return ONLY markdown in the specified format, without any extra commentary.'
 ].join('\n');
 
 // ── Helpers ────────────────────────────────────────────────────

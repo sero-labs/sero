@@ -178,7 +178,7 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
         id: q.id,
         label: q.label || `Q${i + 1}`,
         prompt: q.prompt,
-        options: q.options.map((o) => ({
+        options: (q.options ?? []).map((o) => ({
           value: o.value ?? o.label,
           label: o.label,
           description: o.description,

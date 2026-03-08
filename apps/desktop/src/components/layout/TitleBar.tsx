@@ -3,6 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/
 import { PanelLeft, PanelRight } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
+import { ProfileSwitcher } from '@/components/profiles/ProfileSwitcher';
 
 /**
  * TitleBar — macOS-style custom title bar.
@@ -53,6 +54,10 @@ export function TitleBar() {
 
       {/* ── Right-side actions ────────────────────────────────── */}
       <div className="no-drag flex shrink-0 items-center gap-1 pr-3">
+        <ProfileSwitcher />
+
+        <div className="mx-1 h-4 w-px bg-[var(--border-default)]" />
+
         <span className="text-sm text-[var(--text-muted)]">⌘K</span>
 
         <Tooltip>

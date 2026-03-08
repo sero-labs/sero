@@ -186,12 +186,24 @@ the feature appears to work in the UI but silently fails at the agent.
   (`src/`). Changes to `electron/preload.ts` or `electron/ipc/` require
   `node scripts/build-electron.mjs` **and** an Electron restart to take effect.
 
-### State Management Rules
+### State Management Rules (CRITICAL)
 
-- **IMPORTANT - DO NOT use `localStorage` for app state** unless explicitly instructed. All
-  shared state lives in Zustand stores (`src/stores/`). Cross-boundary state
-  (e.g. for federated modules in `@sero/app-runtime`) is passed via context
-  providers or the `window.sero` IPC bridge — never via `localStorage`.
+- **NEVER use `localStorage` or `sessionStorage` directly** without explicit
+  approval from the project owner. This applies to ALL code — renderer
+  components, stores, federated modules, and extensions.
+  - **Renderer stores** that need to persist a small value across reloads MUST
+    use the profile-scoped helpers in `src/lib/profile-storage.ts`
+    (`getLocalItem`, `setLocalItem`, etc.). Raw `localStorage` calls bypass
+    profile isolation and will contaminate other profiles.
+  - **`sessionStorage`** is forbidden entirely. Any state that must survive
+    within a session should be tracked in a Zustand store, in a file inside
+    `SERO_HOME` via IPC, or in the profile registry (`profiles.json`).
+  - All shared state lives in Zustand stores (`src/stores/`). Cross-boundary
+    state (e.g. for federated modules in `@sero/app-runtime`) is passed via
+    context providers or the `window.sero` IPC bridge.
+  - If you think you need browser storage, **ask first** — there is almost
+    always a better alternative (Zustand, IPC-backed file state, or the
+    profile registry).
 
 ### Desktop Notifications (`sero:notify` EventBus)
 
