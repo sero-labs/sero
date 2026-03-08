@@ -18,6 +18,7 @@ import type {
   SeroSlashCommandInfo,
   SessionUsageStats,
   ContextUsageInfo,
+  CompactResult,
   ContextOverrides,
   SeroSessionInfo,
 } from '../../src/types/ipc';
@@ -362,72 +363,33 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Context usage ─────────────────────────────────────────
+  // ── Context usage (SDK: uses actual API-reported usage.input as baseline) ──
   ipcMain.handle(
     IpcChannels.agent.getContextUsage,
     async (_event, sessionId: string): Promise<ContextUsageInfo | null> => {
       const entry = pool.get(sessionId);
       if (!entry) return null;
-
-      const model = entry.session.model;
-      if (!model) return null;
-
-      const contextWindow = model.contextWindow;
-      const state = entry.session.agent.state;
-
-      // Estimate current context tokens from session state
-      let tokens = 0;
-      const est = (s: string) => Math.ceil(s.length / 4);
-
-      // System prompt
-      if (state.systemPrompt) tokens += est(state.systemPrompt);
-
-      // Tool definitions
-      if (state.tools) tokens += est(JSON.stringify(state.tools.map((t: any) => ({
-        name: t.name, description: t.description, parameters: t.parameters,
-      }))));
-
-      // Messages
-      for (const msg of state.messages) {
-        if (typeof msg.content === 'string') {
-          tokens += est(msg.content);
-        } else if (Array.isArray(msg.content)) {
-          for (const part of msg.content as any[]) {
-            if (part.type === 'text') tokens += est(part.text || '');
-            else if (part.type === 'thinking') tokens += est(part.thinking || '');
-            else if (part.type === 'toolCall') tokens += est(JSON.stringify(part));
-            else if (part.type === 'toolResult') tokens += est(JSON.stringify(part));
-          }
-        }
-      }
-
-      const percent = contextWindow > 0 ? (tokens / contextWindow) * 100 : 0;
-
-      return {
-        tokens,
-        contextWindow,
-        percent: Math.min(percent, 100),
-      };
+      return entry.session.getContextUsage() ?? null;
     },
   );
 
   // ── Manual compaction ────────────────────────────────────
   ipcMain.handle(
     IpcChannels.agent.compact,
-    async (_event, sessionId: string, customInstructions?: string): Promise<{ success: boolean; error?: string }> => {
+    async (_event, sessionId: string, customInstructions?: string): Promise<CompactResult> => {
       const entry = pool.get(sessionId);
       if (!entry) return { success: false, error: 'No active session' };
 
       try {
-        await entry.session.compact(customInstructions);
-        return { success: true };
+        const result = await entry.session.compact(customInstructions);
+        return { success: true, tokensBefore: result.tokensBefore };
       } catch (err: any) {
         return { success: false, error: err?.message || 'Compaction failed' };
       }
     },
   );
 
-  // ── Clear session (branch from root) ──────────────────────
+  // ── Clear session (navigate to root via SDK) ───────────────
   ipcMain.handle(
     IpcChannels.agent.clearSession,
     async (_event, sessionId: string): Promise<ChatMessage[]> => {
@@ -441,17 +403,21 @@ export function registerAgentHandlers(): void {
       const sm = entry.session.sessionManager;
       const branch = sm.getBranch();
       if (branch.length === 0) {
-        // Already empty — nothing to clear
         return convertSessionMessages(
           entry.session.messages,
           buildCheckpointMapByTurn(entry.session, entry.workspaceId),
         );
       }
 
+      // Use the SDK's navigateTree which fires session_before_tree /
+      // session_tree extension events.  Navigating to the first entry
+      // (a user message with parentId=null) causes the SDK to call
+      // resetLeaf(), fully clearing the conversation context.
       const rootId = branch[0].id;
-      sm.branch(rootId);
-      const ctx = sm.buildSessionContext();
-      entry.session.agent.replaceMessages(ctx.messages);
+      const result = await entry.session.navigateTree(rootId, { summarize: false });
+      if (result.cancelled) {
+        throw new Error('Clear was cancelled by an extension');
+      }
       entry.lastCompletedCheckpoint = null;
 
       const chatMessages = convertSessionMessages(
@@ -465,6 +431,8 @@ export function registerAgentHandlers(): void {
   );
 
   // ── Fork session (extract branch to new file) ─────────────
+  // Uses sm.createBranchedSession() directly — session.fork() switches
+  // the active session to the fork, but Sero wants "fork & stay."
   ipcMain.handle(
     IpcChannels.agent.forkSession,
     async (_event, sessionId: string): Promise<SeroSessionInfo> => {
@@ -479,23 +447,23 @@ export function registerAgentHandlers(): void {
       const leafId = sm.getLeafId();
       if (!leafId) throw new Error('Session has no entries to fork');
 
-      // createBranchedSession extracts the current branch to a new .jsonl file
       const newSessionPath = sm.createBranchedSession(leafId);
+      if (!newSessionPath) throw new Error('Failed to create forked session file');
 
-      // Open the new file to read its header
+      // Read metadata from the new session file (not fabricated timestamps)
       const newSm = SessionManager.open(newSessionPath, SERO_SESSION_DIR);
       const header = newSm.getHeader();
+      if (!header) throw new Error('Forked session has no header');
       const branch = newSm.getBranch();
-      const now = new Date();
 
       return {
         path: newSessionPath,
         id: newSm.getSessionId(),
         cwd: header.cwd,
         workspaceId: entry.workspaceId,
-        name: undefined,
-        created: now.toISOString(),
-        modified: now.toISOString(),
+        name: newSm.getSessionName(),
+        created: header.timestamp,
+        modified: header.timestamp,
         messageCount: branch.filter(
           (e) => e.type === 'message' && e.message.role === 'user',
         ).length,
@@ -503,7 +471,6 @@ export function registerAgentHandlers(): void {
       };
     },
   );
-
   // ── Rename session ────────────────────────────────────────
   ipcMain.handle(
     IpcChannels.sessions.rename,

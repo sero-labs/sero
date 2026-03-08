@@ -18,6 +18,7 @@ import type {
   SeroAppManifest,
   SessionUsageStats,
   ContextUsageInfo,
+  CompactResult,
   SessionModelState,
   AuthProvidersResponse,
   OAuthEvent,
@@ -141,7 +142,7 @@ contextBridge.exposeInMainWorld('sero', {
     getContextUsage: (sessionId: string): Promise<ContextUsageInfo | null> =>
       ipcRenderer.invoke(IpcChannels.agent.getContextUsage, sessionId),
 
-    compact: (sessionId: string, customInstructions?: string): Promise<{ success: boolean; error?: string }> =>
+    compact: (sessionId: string, customInstructions?: string): Promise<CompactResult> =>
       ipcRenderer.invoke(IpcChannels.agent.compact, sessionId, customInstructions),
 
     clearSession: (sessionId: string): Promise<ChatMessage[]> =>

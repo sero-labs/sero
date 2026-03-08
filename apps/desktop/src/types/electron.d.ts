@@ -18,6 +18,7 @@ import type {
   SeroAppManifest,
   SessionUsageStats,
   ContextUsageInfo,
+  CompactResult,
   SessionModelState,
   AuthProvidersResponse,
   OAuthEvent,
@@ -98,8 +99,8 @@ interface SeroAgentAPI {
   getUsage(sessionId: string): Promise<SessionUsageStats | null>;
   /** Get context window usage (tokens, contextWindow, percent) for a session. */
   getContextUsage(sessionId: string): Promise<ContextUsageInfo | null>;
-  /** Trigger manual compaction. Returns success/error. */
-  compact(sessionId: string, customInstructions?: string): Promise<{ success: boolean; error?: string }>;
+  /** Trigger manual compaction. Returns success/error + token stats. */
+  compact(sessionId: string, customInstructions?: string): Promise<CompactResult>;
   /** Clear session by branching from root (resets conversation, keeps session). */
   clearSession(sessionId: string): Promise<ChatMessage[]>;
   /** Fork session: extract current branch to a new session file. Returns the new session info. */
