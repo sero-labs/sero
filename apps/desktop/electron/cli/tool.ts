@@ -257,9 +257,32 @@ export function createSeroCliTool(
 
       const batch = await executeCliBatch(registry, cliParams.command, context, cliParams.timeout);
       return {
-        content: [{ type: 'text', text: batch.output }],
+        content: parseOutputContent(batch.output),
         details: { exitCode: batch.exitCode },
       };
     },
   };
+}
+
+/**
+ * Parse CLI output for embedded image content.
+ *
+ * Commands like `sero app screenshot` return JSON with
+ * `{ type: 'image', format: 'png', base64: '...' }`. Converts to
+ * Pi SDK ImageContent so the agent can see screenshots.
+ */
+function parseOutputContent(
+  output: string,
+): Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> {
+  try {
+    const parsed = JSON.parse(output);
+    if (parsed?.type === 'image' && parsed.base64) {
+      const blocks: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = [];
+      if (parsed.message) blocks.push({ type: 'text', text: parsed.message });
+      if (parsed.description) blocks.push({ type: 'text', text: parsed.description });
+      blocks.push({ type: 'image', data: parsed.base64, mimeType: parsed.format === 'png' ? 'image/png' : 'image/jpeg' });
+      return blocks;
+    }
+  } catch { /* not JSON */ }
+  return [{ type: 'text', text: output }];
 }

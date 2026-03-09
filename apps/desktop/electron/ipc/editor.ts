@@ -170,6 +170,30 @@ export function registerEditorHandlers(): void {
     },
   );
 
+  // Read a binary file as base64 (for image previews in the editor)
+  ipcMain.handle(
+    IpcChannels.editor.readBinaryFile,
+    async (_e, workspaceId: string, filePath: string): Promise<string> => {
+      // For containers, use container exec to base64-encode the file
+      if (
+        await workspaceManager.isContainerEnabled(workspaceId) &&
+        containerManager.hasContainer(workspaceId)
+      ) {
+        try {
+          const result = await containerManager.exec(workspaceId, `base64 < ${JSON.stringify(filePath)}`);
+          return result.stdout.trim();
+        } catch {
+          // Fall through to host read
+        }
+      }
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+      const absPath = toHostPath(wsPath, filePath);
+      const buf = await fs.readFile(absPath);
+      return buf.toString('base64');
+    },
+  );
+
   ipcMain.handle(
     IpcChannels.editor.writeFile,
     async (_e, workspaceId: string, filePath: string, content: string) => {

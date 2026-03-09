@@ -53,6 +53,11 @@ import type {
   PromptTemplateFileData,
   CollaborationResult,
   CollaborationEvent,
+  AppControlEntry,
+  AppInteractionParams,
+  AppInteractionResult,
+  AppPanelRect,
+  AppRecordingStatus,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -381,6 +386,29 @@ interface SeroCollaborationAPI {
   onEvent(callback: (event: CollaborationEvent) => void): () => void;
 }
 
+interface SeroAppControlAPI {
+  /** List all available apps (built-in + discovered). */
+  list(): Promise<AppControlEntry[]>;
+  /** Get the currently active app ID. */
+  active(): Promise<string>;
+  /** Switch to a specific app by ID. Returns true if successful. */
+  open(appId: string): Promise<boolean>;
+  /** Get detailed info for a specific app. */
+  info(appId: string): Promise<AppControlEntry | null>;
+  /** Capture a screenshot of the app panel. Returns base64 PNG or null. */
+  screenshot(): Promise<string | null>;
+  /** Execute a DOM interaction in the app panel. */
+  interact(params: AppInteractionParams): Promise<AppInteractionResult>;
+  /** Get the app panel's bounding rect for screenshot targeting. */
+  getAppRect(): Promise<AppPanelRect | null>;
+  /** Start recording the app panel. */
+  recordStart(): Promise<boolean>;
+  /** Stop recording. Returns saved directory path or null. */
+  recordStop(): Promise<string | null>;
+  /** Get current recording status. */
+  recordStatus(): Promise<AppRecordingStatus>;
+}
+
 interface SeroProfilesAPI {
   /** List all profiles with active flag. */
   list(): Promise<ProfileInfo[]>;
@@ -417,6 +445,7 @@ interface SeroAPI {
   collaboration: SeroCollaborationAPI;
   appState: SeroAppStateAPI;
   apps: SeroAppsAPI;
+  appControl: SeroAppControlAPI;
   appAgent: SeroAppAgentAPI;
   google: SeroGoogleAPI;
   voice: SeroVoiceAPI;

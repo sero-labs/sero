@@ -26,6 +26,8 @@ import type {
 export interface SeroEditorAPI {
   /** Read a file from the workspace (dual-mode: container or host). */
   readFile(workspaceId: string, filePath: string): Promise<string>;
+  /** Read a binary file as base64 (for image previews). */
+  readBinaryFile(workspaceId: string, filePath: string): Promise<string>;
   /** Write a file to the workspace (dual-mode: container or host). */
   writeFile(workspaceId: string, filePath: string, content: string): Promise<void>;
   /** List files in a directory (dual-mode: container or host). */

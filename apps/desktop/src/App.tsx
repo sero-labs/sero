@@ -21,6 +21,7 @@ import { NewAppBanner } from '@/components/layout/NewAppBanner';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { CommandMenu } from '@/components/layout/CommandMenu';
+import { initAppControlBridge } from '@/lib/app-control-bridge';
 
 /**
  * App shell.
@@ -100,6 +101,11 @@ export function App() {
   // Subscribe to dev server events from main process
   useEffect(() => {
     return subscribeDevServerEvents();
+  }, []);
+
+  // Initialize app control bridge (window.__appControl) for agent interaction
+  useEffect(() => {
+    return initAppControlBridge();
   }, []);
 
   const handleMainSidebarResize = useCallback(
@@ -301,7 +307,7 @@ function ActiveApp({ app }: { app: string }) {
   }
 
   return (
-    <div className="flex min-h-0 min-w-[500px] flex-1 flex-col overflow-hidden">
+    <div data-app-panel className="flex min-h-0 min-w-[500px] flex-1 flex-col overflow-hidden">
       {content}
     </div>
   );

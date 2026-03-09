@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent App Control — Sero Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============ THEME — Catppuccin Mocha inspired ============ */
+  :root {
+    --font-body: 'Space Grotesk', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+    --bg: #1e1e2e;
+    --surface: #24243a;
+    --surface2: #2a2a44;
+    --surface-elevated: #30304d;
+    --border: rgba(205, 214, 244, 0.06);
+    --border-bright: rgba(205, 214, 244, 0.14);
+    --text: #cdd6f4;
+    --text-dim: #6c7086;
+
+    --mauve: #cba6f7;
+    --mauve-dim: rgba(203, 166, 247, 0.10);
+    --blue: #89b4fa;
+    --blue-dim: rgba(137, 180, 250, 0.10);
+    --green: #a6e3a1;
+    --green-dim: rgba(166, 227, 161, 0.10);
+    --peach: #fab387;
+    --peach-dim: rgba(250, 179, 135, 0.10);
+    --red: #f38ba8;
+    --red-dim: rgba(243, 139, 168, 0.10);
+    --teal: #94e2d5;
+    --teal-dim: rgba(148, 226, 213, 0.10);
+    --yellow: #f9e2af;
+    --yellow-dim: rgba(249, 226, 175, 0.10);
+    --lavender: #b4befe;
+    --lavender-dim: rgba(180, 190, 254, 0.10);
+    --sky: #89dceb;
+    --sky-dim: rgba(137, 220, 235, 0.10);
+    --pink: #f5c2e7;
+    --pink-dim: rgba(245, 194, 231, 0.10);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #eff1f5;
+      --surface: #ffffff;
+      --surface2: #e6e9ef;
+      --surface-elevated: #ffffff;
+      --border: rgba(76, 79, 105, 0.08);
+      --border-bright: rgba(76, 79, 105, 0.16);
+      --text: #4c4f69;
+      --text-dim: #9ca0b0;
+
+      --mauve: #8839ef;
+      --mauve-dim: rgba(136, 57, 239, 0.08);
+      --blue: #1e66f5;
+      --blue-dim: rgba(30, 102, 245, 0.08);
+      --green: #40a02b;
+      --green-dim: rgba(64, 160, 43, 0.08);
+      --peach: #fe640b;
+      --peach-dim: rgba(254, 100, 11, 0.08);
+      --red: #d20f39;
+      --red-dim: rgba(210, 15, 57, 0.08);
+      --teal: #179299;
+      --teal-dim: rgba(23, 146, 153, 0.08);
+      --yellow: #df8e1d;
+      --yellow-dim: rgba(223, 142, 29, 0.08);
+      --lavender: #7287fd;
+      --lavender-dim: rgba(114, 135, 253, 0.08);
+      --sky: #04a5e5;
+      --sky-dim: rgba(4, 165, 229, 0.08);
+      --pink: #ea76cb;
+      --pink-dim: rgba(234, 118, 203, 0.08);
+    }
+  }
+
+  /* ============ RESET + BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 15% 10%, var(--mauve-dim) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 20%, var(--blue-dim) 0%, transparent 40%),
+      radial-gradient(ellipse at 50% 95%, var(--teal-dim) 0%, transparent 35%);
+    color: var(--text);
+    font-family: var(--font-body);
+    padding: 48px 40px 60px;
+    min-height: 100vh;
+    overflow-wrap: break-word;
+  }
+
+  /* ============ ANIMATION ============ */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeScale {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes drawLine {
+    from { stroke-dashoffset: 100; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  .anim-up {
+    animation: fadeUp 0.45s ease-out both;
+    animation-delay: calc(var(--i, 0) * 0.06s);
+  }
+  .anim-scale {
+    animation: fadeScale 0.35s ease-out both;
+    animation-delay: calc(var(--i, 0) * 0.06s);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ============ LAYOUT ============ */
+  .page {
+    max-width: 1120px;
+    margin: 0 auto;
+  }
+
+  /* ============ HEADER ============ */
+  .header { margin-bottom: 48px; }
+
+  .badge-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  .badge--mauve { background: var(--mauve-dim); color: var(--mauve); }
+  .badge--blue { background: var(--blue-dim); color: var(--blue); }
+  .badge--green { background: var(--green-dim); color: var(--green); }
+  .badge--peach { background: var(--peach-dim); color: var(--peach); }
+
+  h1 {
+    font-size: 42px;
+    font-weight: 700;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--mauve), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-wrap: balance;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 680px;
+  }
+
+  .subtitle code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--mauve-dim);
+    color: var(--mauve);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ============ KPI ROW ============ */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 48px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+
+  .kpi:hover { border-color: var(--border-bright); }
+
+  .kpi__value {
+    font-size: 28px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+  }
+
+  .kpi__label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ============ SECTION TITLES ============ */
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-bright);
+  }
+
+  /* ============ CARDS ============ */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    border-color: var(--border-bright);
+  }
+
+  .card--hero {
+    background: var(--surface-elevated);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
+  }
+
+  .card--recessed {
+    background: color-mix(in srgb, var(--bg) 70%, var(--surface) 30%);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  .card__label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card__label .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .card__label .pulse {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  .card__desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .card__desc code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* ============ COLOR VARIANTS ============ */
+  .c-mauve .card__label { color: var(--mauve); }
+  .c-mauve .dot { background: var(--mauve); }
+  .c-mauve code { background: var(--mauve-dim); color: var(--mauve); }
+  .c-mauve { border-color: color-mix(in srgb, var(--border) 60%, var(--mauve) 40%); }
+
+  .c-blue .card__label { color: var(--blue); }
+  .c-blue .dot { background: var(--blue); }
+  .c-blue code { background: var(--blue-dim); color: var(--blue); }
+  .c-blue { border-color: color-mix(in srgb, var(--border) 60%, var(--blue) 40%); }
+
+  .c-green .card__label { color: var(--green); }
+  .c-green .dot { background: var(--green); }
+  .c-green code { background: var(--green-dim); color: var(--green); }
+  .c-green { border-color: color-mix(in srgb, var(--border) 60%, var(--green) 40%); }
+
+  .c-peach .card__label { color: var(--peach); }
+  .c-peach .dot { background: var(--peach); }
+  .c-peach code { background: var(--peach-dim); color: var(--peach); }
+  .c-peach { border-color: color-mix(in srgb, var(--border) 60%, var(--peach) 40%); }
+
+  .c-teal .card__label { color: var(--teal); }
+  .c-teal .dot { background: var(--teal); }
+  .c-teal code { background: var(--teal-dim); color: var(--teal); }
+  .c-teal { border-color: color-mix(in srgb, var(--border) 60%, var(--teal) 40%); }
+
+  .c-yellow .card__label { color: var(--yellow); }
+  .c-yellow .dot { background: var(--yellow); }
+  .c-yellow code { background: var(--yellow-dim); color: var(--yellow); }
+  .c-yellow { border-color: color-mix(in srgb, var(--border) 60%, var(--yellow) 40%); }
+
+  .c-red .card__label { color: var(--red); }
+  .c-red .dot { background: var(--red); }
+  .c-red code { background: var(--red-dim); color: var(--red); }
+  .c-red { border-color: color-mix(in srgb, var(--border) 60%, var(--red) 40%); }
+
+  .c-lavender .card__label { color: var(--lavender); }
+  .c-lavender .dot { background: var(--lavender); }
+  .c-lavender code { background: var(--lavender-dim); color: var(--lavender); }
+  .c-lavender { border-color: color-mix(in srgb, var(--border) 60%, var(--lavender) 40%); }
+
+  .c-sky .card__label { color: var(--sky); }
+  .c-sky .dot { background: var(--sky); }
+  .c-sky code { background: var(--sky-dim); color: var(--sky); }
+  .c-sky { border-color: color-mix(in srgb, var(--border) 60%, var(--sky) 40%); }
+
+  .c-pink .card__label { color: var(--pink); }
+  .c-pink .dot { background: var(--pink); }
+  .c-pink code { background: var(--pink-dim); color: var(--pink); }
+  .c-pink { border-color: color-mix(in srgb, var(--border) 60%, var(--pink) 40%); }
+
+  /* ============ FLOW ARROWS ============ */
+  .flow-arrow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 6px 0;
+  }
+
+  .flow-arrow svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: var(--border-bright);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ============ INNER GRID ============ */
+  .inner-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .inner-grid--2 { grid-template-columns: 1fr 1fr; }
+  .inner-grid--3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .inner-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+
+  .inner-card .title {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+
+  .inner-card .desc {
+    color: var(--text-dim);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .inner-card code {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ============ PIPELINE ============ */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding: 4px 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .pipe-step {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 110px;
+    flex-shrink: 0;
+    text-align: center;
+    transition: border-color 0.15s;
+  }
+
+  .pipe-step:hover { border-color: var(--border-bright); }
+
+  .pipe-step .num {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+  }
+
+  .pipe-step .name {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .pipe-step .detail {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+
+  .pipe-arrow {
+    flex-shrink: 0;
+    padding: 0 3px;
+    color: var(--text-dim);
+    font-size: 14px;
+    opacity: 0.5;
+  }
+
+  /* ============ COMMAND GRID ============ */
+  .cmd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+  }
+
+  .cmd {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    transition: border-color 0.15s;
+  }
+
+  .cmd:hover { border-color: var(--border-bright); }
+
+  .cmd__icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+  }
+
+  .cmd__name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .cmd__desc {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }
+
+  /* ============ CODE BLOCK ============ */
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .code-block .line { display: block; }
+  .code-block .comment { color: var(--text-dim); }
+  .code-block .key { color: var(--blue); }
+  .code-block .str { color: var(--green); }
+  .code-block .fn { color: var(--mauve); }
+  .code-block .type { color: var(--yellow); }
+  .code-block .op { color: var(--sky); }
+  .code-block .dim { color: var(--text-dim); }
+
+  /* ============ SIDE-BY-SIDE ============ */
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .split > * { min-width: 0; }
+
+  /* ============ NODE LIST ============ */
+  .node-list {
+    list-style: none;
+    font-size: 12px;
+    line-height: 1.9;
+  }
+
+  .node-list li {
+    padding-left: 14px;
+    position: relative;
+  }
+
+  .node-list li::before {
+    content: '›';
+    color: var(--text-dim);
+    font-weight: 700;
+    position: absolute;
+    left: 0;
+  }
+
+  .node-list code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* ============ PROCESS TAG ============ */
+  .proc-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-transform: uppercase;
+  }
+
+  .proc-tag--main { background: var(--mauve-dim); color: var(--mauve); }
+  .proc-tag--renderer { background: var(--blue-dim); color: var(--blue); }
+  .proc-tag--agent { background: var(--green-dim); color: var(--green); }
+
+  /* ============ SPACING ============ */
+  .mb-16 { margin-bottom: 16px; }
+  .mb-24 { margin-bottom: 24px; }
+  .mb-48 { margin-bottom: 48px; }
+  .mt-6 { margin-top: 6px; }
+  .gap-16 { gap: 16px; }
+  .d-grid { display: grid; }
+
+  /* ============ CALLOUT ============ */
+  .callout {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--peach);
+    border-radius: 0 10px 10px 0;
+    padding: 16px 20px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-dim);
+  }
+
+  .callout strong { color: var(--text); font-weight: 600; }
+
+  .callout code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--peach-dim);
+    color: var(--peach);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 768px) {
+    body { padding: 20px 16px 40px; }
+    h1 { font-size: 28px; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .inner-grid--2, .inner-grid--3 { grid-template-columns: 1fr; }
+    .split { grid-template-columns: 1fr; }
+    .pipeline { flex-wrap: wrap; gap: 6px; }
+    .pipe-arrow { display: none; }
+    .cmd-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ═══════ HEADER ═══════ -->
+  <header class="header anim-up" style="--i:0">
+    <div class="badge-row">
+      <span class="badge badge--mauve">AD-020 COMPLIANT</span>
+      <span class="badge badge--blue">ELECTRON + REACT</span>
+      <span class="badge badge--green">ZERO NEW TOOL SCHEMAS</span>
+      <span class="badge badge--peach">NATIVE SCREENSHOTS</span>
+    </div>
+    <h1>Agent App Control</h1>
+    <p class="subtitle">
+      How the Sero agent navigates apps, takes screenshots, clicks buttons, types text,
+      and reads content — all through the single <code>sero-cli</code> tool bridge.
+      No new tool schemas. No token cost increase.
+    </p>
+  </header>
+
+  <!-- ═══════ KPIs ═══════ -->
+  <div class="kpi-row">
+    <div class="kpi anim-scale c-mauve" style="--i:1">
+      <div class="kpi__value" style="color:var(--mauve)">11</div>
+      <div class="kpi__label">Subcommands</div>
+    </div>
+    <div class="kpi anim-scale c-blue" style="--i:2">
+      <div class="kpi__value" style="color:var(--blue)">4</div>
+      <div class="kpi__label">Process Layers</div>
+    </div>
+    <div class="kpi anim-scale c-green" style="--i:3">
+      <div class="kpi__value" style="color:var(--green)">0</div>
+      <div class="kpi__label">Extra Tool Schemas</div>
+    </div>
+    <div class="kpi anim-scale c-peach" style="--i:4">
+      <div class="kpi__value" style="color:var(--peach)">7</div>
+      <div class="kpi__label">Files Created</div>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 1: The Request Pipeline ═══════ -->
+  <div class="section-title anim-up" style="--i:5">The Request Pipeline</div>
+
+  <!-- Layer 1: Agent -->
+  <div class="card card--hero c-green anim-up mb-16" style="--i:6">
+    <div class="card__label">
+      <span class="dot pulse"></span> Agent (Pi SDK)
+      <span class="proc-tag proc-tag--agent">agent process</span>
+    </div>
+    <div class="card__desc mb-16">
+      The AI agent decides to interact with the UI. It calls the single
+      <code>sero-cli</code> tool — the same tool used for <em>every</em> Sero command.
+      No dedicated tool schema means zero additional tokens in the system prompt.
+    </div>
+    <div class="code-block">
+      <span class="line"><span class="comment">// Agent's tool call — this is all the agent sees</span></span>
+      <span class="line"><span class="fn">sero-cli</span>({ <span class="key">command</span>: <span class="str">"app screenshot --app todo"</span> })</span>
+    </div>
+  </div>
+
+  <div class="flow-arrow anim-up" style="--i:7">
+    <svg viewBox="0 0 20 20"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg>
+    tool call → executeCliBatch()
+  </div>
+
+  <!-- Layer 2: CLI Registry -->
+  <div class="card c-mauve anim-up mb-16" style="--i:8">
+    <div class="card__label">
+      <span class="dot"></span> CLI Registry &amp; Router
+      <span class="proc-tag proc-tag--main">electron main</span>
+    </div>
+    <div class="card__desc mb-16">
+      <code>tool.ts</code> tokenizes the command string, resolves it through
+      <code>CliRegistry</code>, and dispatches to the <code>app</code> command handler.
+      Multi-line batching, rate limiting, and timeouts are handled at this layer.
+    </div>
+    <div class="inner-grid inner-grid--3">
+      <div class="inner-card c-mauve">
+        <div class="title" style="color:var(--mauve)">Tokenize</div>
+        <div class="desc"><code>"app screenshot"</code> → <code>["app", "screenshot"]</code></div>
+      </div>
+      <div class="inner-card c-mauve">
+        <div class="title" style="color:var(--mauve)">Resolve</div>
+        <div class="desc">Registry matches <code>app</code> → <code>handleApp()</code></div>
+      </div>
+      <div class="inner-card c-mauve">
+        <div class="title" style="color:var(--mauve)">Execute</div>
+        <div class="desc">Routes to <code>handleScreenshot()</code> subcommand</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow anim-up" style="--i:9">
+    <svg viewBox="0 0 20 20"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg>
+    executeJavaScript() / capturePage()
+  </div>
+
+  <!-- Layer 3: Main ↔ Renderer bridge -->
+  <div class="card card--hero c-blue anim-up mb-16" style="--i:10">
+    <div class="card__label">
+      <span class="dot pulse"></span> Cross-Process Bridge
+      <span class="proc-tag proc-tag--main">main</span>
+      <span style="color:var(--text-dim);font-size:10px">↔</span>
+      <span class="proc-tag proc-tag--renderer">renderer</span>
+    </div>
+    <div class="card__desc mb-16">
+      The critical boundary. CLI commands in the main process reach the renderer
+      via <code>webContents.executeJavaScript()</code> calling methods on
+      <code>window.__appControl</code>. Screenshots use Electron's native
+      <code>webContents.capturePage()</code> with a precise clip rect from the app panel.
+    </div>
+    <div class="split">
+      <div>
+        <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--mauve);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Main Process → Renderer</div>
+        <div class="code-block">
+          <span class="line"><span class="comment">// app-control.ts (main)</span></span>
+          <span class="line"><span class="key">const</span> rect = <span class="key">await</span> <span class="fn">exec</span>&lt;<span class="type">AppPanelRect</span>&gt;(</span>
+          <span class="line">  <span class="str">'window.__appControl?.getAppRect()'</span></span>
+          <span class="line">);</span>
+          <span class="line"><span class="key">const</span> image = <span class="key">await</span></span>
+          <span class="line">  win.<span class="fn">webContents.capturePage</span>({</span>
+          <span class="line">    <span class="key">x</span>: rect.x, <span class="key">y</span>: rect.y,</span>
+          <span class="line">    <span class="key">width</span>: rect.width, <span class="key">height</span>: rect.height</span>
+          <span class="line">  });</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Renderer Bridge</div>
+        <div class="code-block">
+          <span class="line"><span class="comment">// app-control-bridge.ts (renderer)</span></span>
+          <span class="line">window.<span class="key">__appControl</span> = {</span>
+          <span class="line">  <span class="fn">getAppRect</span>() {</span>
+          <span class="line">    <span class="key">const</span> el = <span class="fn">querySelector</span>(</span>
+          <span class="line">      <span class="str">'[data-app-panel]'</span></span>
+          <span class="line">    );</span>
+          <span class="line">    <span class="key">return</span> el.<span class="fn">getBoundingClientRect</span>();</span>
+          <span class="line">  },</span>
+          <span class="line">  <span class="dim">// + 10 more methods...</span></span>
+          <span class="line">};</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow anim-up" style="--i:11">
+    <svg viewBox="0 0 20 20"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg>
+    Zustand store / DOM operations
+  </div>
+
+  <!-- Layer 4: Renderer + DOM -->
+  <div class="card c-teal anim-up mb-16" style="--i:12">
+    <div class="card__label">
+      <span class="dot"></span> Renderer — Zustand &amp; DOM Engine
+      <span class="proc-tag proc-tag--renderer">renderer</span>
+    </div>
+    <div class="card__desc mb-16">
+      Navigation commands (<code>openApp</code>, <code>getList</code>) read and write the
+      Zustand <code>useAppStore</code>. Interaction commands (<code>click</code>,
+      <code>type</code>, <code>scroll</code>) operate directly on the DOM within the
+      <code>[data-app-panel]</code> container — dispatching real browser events.
+    </div>
+    <div class="inner-grid inner-grid--2">
+      <div class="inner-card c-teal">
+        <div class="title" style="color:var(--teal)">Zustand Store</div>
+        <div class="desc">
+          <code>useAppStore.getState().apps</code> for listing,
+          <code>setActiveApp(id)</code> for navigation.
+          Agent sees the same app list as the sidebar.
+        </div>
+      </div>
+      <div class="inner-card c-teal">
+        <div class="title" style="color:var(--teal)">DOM Interaction</div>
+        <div class="desc">
+          <code>querySelector()</code> scoped to <code>[data-app-panel]</code>,
+          <code>.click()</code>, <code>.focus()</code>,
+          value setter via prototype descriptor, <code>dispatchEvent()</code>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow anim-up" style="--i:13">
+    <svg viewBox="0 0 20 20"><path d="M10 2 L10 12 M10 12 L10 4 M6 8 L10 4 L14 8"/></svg>
+    base64 PNG ← capturePage()
+  </div>
+
+  <!-- Layer 5: Response -->
+  <div class="card c-peach anim-up mb-48" style="--i:14">
+    <div class="card__label">
+      <span class="dot"></span> Response — Image Content Transform
+      <span class="proc-tag proc-tag--main">electron main</span>
+    </div>
+    <div class="card__desc mb-16">
+      <code>parseOutputContent()</code> in <code>tool.ts</code> detects JSON output
+      with <code>{ type: 'image', base64: '...' }</code> and converts it to Pi SDK
+      <code>ImageContent</code> blocks. The agent sees the screenshot as a real image
+      in the conversation — not raw base64 text.
+    </div>
+    <div class="split">
+      <div class="code-block">
+        <span class="line"><span class="comment">// CLI command returns:</span></span>
+        <span class="line">{ <span class="key">type</span>: <span class="str">'image'</span>,</span>
+        <span class="line">  <span class="key">format</span>: <span class="str">'png'</span>,</span>
+        <span class="line">  <span class="key">base64</span>: <span class="str">'iVBOR...'</span>,</span>
+        <span class="line">  <span class="key">description</span>: <span class="str">'Screenshot of todo'</span> }</span>
+      </div>
+      <div class="code-block">
+        <span class="line"><span class="comment">// parseOutputContent() transforms to:</span></span>
+        <span class="line">[</span>
+        <span class="line">  { <span class="key">type</span>: <span class="str">'text'</span>, <span class="key">text</span>: <span class="str">'Screenshot of todo'</span> },</span>
+        <span class="line">  { <span class="key">type</span>: <span class="str">'image'</span>,</span>
+        <span class="line">    <span class="key">data</span>: <span class="str">'iVBOR...'</span>,</span>
+        <span class="line">    <span class="key">mimeType</span>: <span class="str">'image/png'</span> }</span>
+        <span class="line">]</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 2: All Commands ═══════ -->
+  <div class="section-title anim-up" style="--i:15">Available Commands</div>
+
+  <div class="cmd-grid mb-48">
+    <div class="cmd anim-up" style="--i:16">
+      <div class="cmd__icon">📋</div>
+      <div><div class="cmd__name">app list</div><div class="cmd__desc">All available apps</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:16">
+      <div class="cmd__icon">🚀</div>
+      <div><div class="cmd__name">app open &lt;id&gt;</div><div class="cmd__desc">Switch to an app</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:17">
+      <div class="cmd__icon">🎯</div>
+      <div><div class="cmd__name">app active</div><div class="cmd__desc">Currently active app</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:17">
+      <div class="cmd__icon">ℹ️</div>
+      <div><div class="cmd__name">app info &lt;id&gt;</div><div class="cmd__desc">App metadata</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:18">
+      <div class="cmd__icon">📸</div>
+      <div><div class="cmd__name">app screenshot</div><div class="cmd__desc">Capture app panel as PNG</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:18">
+      <div class="cmd__icon">👆</div>
+      <div><div class="cmd__name">app click</div><div class="cmd__desc">CSS selector or x,y coords</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:19">
+      <div class="cmd__icon">⌨️</div>
+      <div><div class="cmd__name">app type</div><div class="cmd__desc">Type text into inputs</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:19">
+      <div class="cmd__icon">📜</div>
+      <div><div class="cmd__name">app scroll</div><div class="cmd__desc">Scroll direction + amount</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:20">
+      <div class="cmd__icon">🔍</div>
+      <div><div class="cmd__name">app get-text</div><div class="cmd__desc">Read text from elements</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:20">
+      <div class="cmd__icon">🔴</div>
+      <div><div class="cmd__name">app record</div><div class="cmd__desc">Start/stop frame recording</div></div>
+    </div>
+    <div class="cmd anim-up" style="--i:21">
+      <div class="cmd__icon">✋</div>
+      <div><div class="cmd__name">app hover</div><div class="cmd__desc">Trigger hover state</div></div>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 3: File Architecture ═══════ -->
+  <div class="section-title anim-up" style="--i:22">File Architecture</div>
+
+  <div class="split mb-48">
+    <div class="card c-lavender anim-up" style="--i:23">
+      <div class="card__label"><span class="dot"></span> New Files Created</div>
+      <ul class="node-list c-lavender">
+        <li><code>src/types/app-control.ts</code> shared type definitions</li>
+        <li><code>src/lib/app-control-bridge.ts</code> renderer bridge + DOM engine</li>
+        <li><code>electron/ipc/app-control.ts</code> main IPC handlers</li>
+        <li><code>electron/cli/commands/app-control.ts</code> CLI subcommands</li>
+        <li><code>src/components/.../ImagePreview.tsx</code> image file viewer</li>
+      </ul>
+    </div>
+    <div class="card c-sky anim-up" style="--i:24">
+      <div class="card__label"><span class="dot"></span> Modified Files</div>
+      <ul class="node-list c-sky">
+        <li><code>src/types/ipc-channels.ts</code> +12 IPC channels</li>
+        <li><code>src/types/electron.d.ts</code> SeroAppControlAPI</li>
+        <li><code>electron/preload.ts</code> appControl bridge</li>
+        <li><code>electron/cli/index.ts</code> command registration</li>
+        <li><code>electron/cli/tool.ts</code> parseOutputContent()</li>
+        <li><code>src/App.tsx</code> data-app-panel + init bridge</li>
+        <li><code>electron/ipc/editor.ts</code> readBinaryFile</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 4: Design Decisions ═══════ -->
+  <div class="section-title anim-up" style="--i:25">Key Design Decisions</div>
+
+  <div class="d-grid gap-16 mb-48">
+    <div class="card c-yellow anim-up" style="--i:26">
+      <div class="card__label"><span class="dot"></span> Why executeJavaScript() instead of IPC?</div>
+      <div class="card__desc">
+        The main process needs to call <em>functions</em> on the renderer (get rect, interact with DOM)
+        and get return values. <code>contextBridge</code> only exposes renderer→main direction.
+        <code>executeJavaScript()</code> lets us call <code>window.__appControl</code> methods
+        and <code>await</code> results directly — simpler than IPC roundtrips with
+        <code>invoke</code>/<code>handle</code> pairs for each method.
+      </div>
+    </div>
+
+    <div class="card c-red anim-up" style="--i:27">
+      <div class="card__label"><span class="dot"></span> Why capturePage() not html2canvas?</div>
+      <div class="card__desc">
+        Electron's native <code>webContents.capturePage(rect)</code> captures pixels at the compositor level —
+        it sees <em>everything</em> including iframes, canvases, and WebGL. Zero dependencies.
+        The clip rect comes from <code>[data-app-panel].getBoundingClientRect()</code> so only
+        the app area is captured, not the sidebar or chat panel.
+      </div>
+    </div>
+
+    <div class="card c-pink anim-up" style="--i:28">
+      <div class="card__label"><span class="dot"></span> Why auto-screenshot after interactions?</div>
+      <div class="card__desc">
+        When the agent clicks a button or types text, it needs to <em>see</em> the result.
+        Every interaction (click, type, scroll, hover, select) automatically captures a
+        screenshot after a 200ms settle delay and returns it as an <code>ImageContent</code> block.
+        The agent gets visual confirmation without a separate screenshot command.
+      </div>
+    </div>
+
+    <div class="callout anim-up" style="--i:29">
+      <strong>AD-020 Compliance</strong> — All 11 subcommands are routed through the
+      existing <code>sero-cli</code> tool. The agent's tool schema payload stays identical.
+      Zero additional tokens in the system prompt. This is the same pattern used by
+      every other Sero extension (todo, cron, kanban, etc).
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 5: Image Preview ═══════ -->
+  <div class="section-title anim-up" style="--i:30">Bonus: Image Preview in Editor</div>
+
+  <div class="card c-green anim-up mb-48" style="--i:31">
+    <div class="card__label"><span class="dot"></span> ImagePreview Component</div>
+    <div class="card__desc mb-16">
+      When the agent saves a screenshot to disk and the user opens it in the CodingWorkspace editor,
+      it used to render as garbled binary text in Monaco. Now, <code>isImageFile()</code> detects
+      image extensions and swaps in an <code>&lt;ImagePreview&gt;</code> component that loads the
+      file as base64 via a new <code>readBinaryFile</code> IPC channel.
+    </div>
+    <div class="inner-grid inner-grid--3">
+      <div class="inner-card c-green">
+        <div class="title" style="color:var(--green)">Detection</div>
+        <div class="desc">
+          <code>isImageFile()</code> checks extension against 11 formats:
+          png, jpg, gif, webp, svg, bmp, ico, avif, tiff…
+        </div>
+      </div>
+      <div class="inner-card c-green">
+        <div class="title" style="color:var(--green)">Binary IPC</div>
+        <div class="desc">
+          <code>readBinaryFile()</code> reads via <code>fs.readFile</code> on host
+          or <code>base64 &lt;</code> in containers. Returns base64 string.
+        </div>
+      </div>
+      <div class="inner-card c-green">
+        <div class="title" style="color:var(--green)">Preview</div>
+        <div class="desc">
+          Centered <code>&lt;img&gt;</code> with checkerboard transparency background,
+          metadata bar showing dimensions and file size.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

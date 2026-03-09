@@ -11,6 +11,7 @@ import Editor from '@monaco-editor/react';
 import type { editor as monacoEditor, IRange, IPosition } from 'monaco-editor';
 import { Code2, Eye } from 'lucide-react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
+import { ImagePreview, isImageFile } from './ImagePreview';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
 import { Streamdown } from 'streamdown';
@@ -87,6 +88,7 @@ export function EditorPanel({
   const appTheme = useAppStore((s) => s.theme);
   const isMarkdownTab = !!activeTab && getLanguage(activeTab) === 'markdown';
   const isMarkdownPreview = isMarkdownTab && markdownViewMode === 'preview';
+  const isImageTab = !!activeTab && isImageFile(activeTab);
 
   // ── LSP integration ──
   const { sendDidSave } = useLsp({
@@ -97,6 +99,8 @@ export function EditorPanel({
   // ── Load file when activeTab changes ──
   useEffect(() => {
     if (!activeTab) { setContent(''); return; }
+    // Image files are handled by ImagePreview — skip text loading
+    if (isImageFile(activeTab)) { setContent(''); setLanguage('plaintext'); return; }
 
     // Apply a stored go-to-definition position after content is ready.
     const schedulePendingGoto = () => {
@@ -460,7 +464,9 @@ export function EditorPanel({
       />
       <div className="flex-1 overflow-hidden min-h-0">
         {activeTab ? (
-          isMarkdownPreview ? (
+          isImageTab ? (
+            <ImagePreview workspaceId={workspaceId} filePath={activeTab} />
+          ) : isMarkdownPreview ? (
             <div className="h-full overflow-auto">
               <div className="mx-auto w-full max-w-[920px] px-6 py-5">
                 <Streamdown

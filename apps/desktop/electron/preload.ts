@@ -36,6 +36,11 @@ import type {
   ChatAttachment,
   ProxyFetchRequest,
   ProxyFetchResponse,
+  AppControlEntry,
+  AppInteractionParams,
+  AppInteractionResult,
+  AppPanelRect,
+  AppRecordingStatus,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -273,6 +278,29 @@ contextBridge.exposeInMainWorld('sero', {
   appAgent: {
     prompt: (appId: string, workspaceId: string, text: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
+  },
+
+  appControl: {
+    list: (): Promise<AppControlEntry[]> =>
+      ipcRenderer.invoke(IpcChannels.appControl.list),
+    active: (): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.appControl.active),
+    open: (appId: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.appControl.open, appId),
+    info: (appId: string): Promise<AppControlEntry | null> =>
+      ipcRenderer.invoke(IpcChannels.appControl.info, appId),
+    screenshot: (): Promise<string | null> =>
+      ipcRenderer.invoke(IpcChannels.appControl.screenshot),
+    interact: (params: AppInteractionParams): Promise<AppInteractionResult> =>
+      ipcRenderer.invoke(IpcChannels.appControl.interact, params),
+    getAppRect: (): Promise<AppPanelRect | null> =>
+      ipcRenderer.invoke(IpcChannels.appControl.getAppRect),
+    recordStart: (): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.appControl.recordStart),
+    recordStop: (): Promise<string | null> =>
+      ipcRenderer.invoke(IpcChannels.appControl.recordStop),
+    recordStatus: (): Promise<AppRecordingStatus> =>
+      ipcRenderer.invoke(IpcChannels.appControl.recordStatus),
   },
 
   models: modelsBridge,
@@ -517,6 +545,8 @@ contextBridge.exposeInMainWorld('sero', {
   editor: {
     readFile: (workspaceId: string, filePath: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.editor.readFile, workspaceId, filePath),
+    readBinaryFile: (workspaceId: string, filePath: string): Promise<string> =>
+      ipcRenderer.invoke(IpcChannels.editor.readBinaryFile, workspaceId, filePath),
     writeFile: (workspaceId: string, filePath: string, content: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.editor.writeFile, workspaceId, filePath, content),
     listFiles: (workspaceId: string, dirPath: string) =>

@@ -1,4 +1,5 @@
 import type { LoadExtensionsResult } from '@mariozechner/pi-coding-agent';
+import { registerAppControlCliCommands } from './commands/app-control';
 import { registerAppStateCliCommands } from './commands/appstate';
 import { registerArtifactCliCommands } from './commands/artifacts';
 import { registerDevServerCliCommands } from './commands/devserver';
@@ -16,6 +17,7 @@ import { createSeroCliTool } from './tool';
 let registry: CliRegistry | null = null;
 
 function registerCoreCommands(target: CliRegistry): void {
+  registerAppControlCliCommands(target);
   registerWorkspaceCliCommands(target);
   registerSessionCliCommands(target);
   registerVcsCliCommands(target);

@@ -193,6 +193,8 @@ export const IpcChannels = {
   editor: {
     /** Read a file from the workspace (dual-mode: container or host). */
     readFile: 'sero:editor:read-file',
+    /** Read a binary file as base64 (for image preview). */
+    readBinaryFile: 'sero:editor:read-binary-file',
     /** Write a file to the workspace (dual-mode: container or host). */
     writeFile: 'sero:editor:write-file',
     /** List files in a directory (dual-mode: container or host). */
@@ -387,6 +389,28 @@ export const IpcChannels = {
     setConfig: 'sero:gateway:set-config',
     /** Main → renderer push channel for gateway events. */
     event: 'sero:gateway:event',
+  },
+  appControl: {
+    /** List all available apps with manifest info. */
+    list: 'sero:app-control:list',
+    /** Get the currently active app ID. */
+    active: 'sero:app-control:active',
+    /** Switch to a specific app by ID. */
+    open: 'sero:app-control:open',
+    /** Get detailed info for an app by ID. */
+    info: 'sero:app-control:info',
+    /** Capture a screenshot of the app panel area. Returns base64 PNG. */
+    screenshot: 'sero:app-control:screenshot',
+    /** Execute a DOM interaction in the app panel. */
+    interact: 'sero:app-control:interact',
+    /** Get the app panel's bounding rect (for capturePage). */
+    getAppRect: 'sero:app-control:get-app-rect',
+    /** Start screen recording of the app panel. */
+    recordStart: 'sero:app-control:record-start',
+    /** Stop screen recording. Returns saved directory path. */
+    recordStop: 'sero:app-control:record-stop',
+    /** Get current recording status. */
+    recordStatus: 'sero:app-control:record-status',
   },
   profiles: {
     /** List all profiles with active flag. */

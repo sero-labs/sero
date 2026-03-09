@@ -551,4 +551,13 @@ export type { PromptTemplateSummary, PromptTemplateFileData } from './prompts';
 // ── IPC Channels ───────────────────────────────────────────────
 
 // Extracted to keep ipc.ts under 500 LOC.
+// ── App Control (extracted to app-control.ts) ─────────────────
+export type {
+  AppControlEntry,
+  AppInteractionResult,
+  AppInteractionParams,
+  AppPanelRect,
+  AppRecordingStatus,
+} from './app-control';
+
 export { IpcChannels } from './ipc-channels';

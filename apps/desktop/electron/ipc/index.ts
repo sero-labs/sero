@@ -39,6 +39,7 @@ import { registerSubagentHandlers } from './subagent';
 import { registerSkillHandlers } from './skills';
 import { registerPromptHandlers } from './prompts';
 import { registerCollaborationHandlers } from './collaboration';
+import { registerAppControlHandlers } from './app-control';
 
 export function registerAllIpcHandlers(): void {
   registerProfileHandlers();
@@ -74,4 +75,5 @@ export function registerAllIpcHandlers(): void {
   registerSkillHandlers();
   registerPromptHandlers();
   registerCollaborationHandlers();
+  registerAppControlHandlers();
 }
