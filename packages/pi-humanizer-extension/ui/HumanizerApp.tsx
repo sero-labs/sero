@@ -210,7 +210,7 @@ export function HumanizerApp() {
       {/* Toolbar: presets + action button */}
       <Toolbar
         activePresetIds={activePresetIds}
-        customPresets={state.customPresets ?? []}
+        allPresets={allPresets}
         onTogglePreset={handleTogglePreset}
         onAddCustom={handleAddCustomPreset}
         onRemoveCustom={handleRemoveCustomPreset}
@@ -342,7 +342,7 @@ function Header({
 
 function Toolbar({
   activePresetIds,
-  customPresets,
+  allPresets,
   onTogglePreset,
   onAddCustom,
   onRemoveCustom,
@@ -353,7 +353,7 @@ function Toolbar({
   error,
 }: {
   activePresetIds: Set<string>;
-  customPresets: InstructionPreset[];
+  allPresets: InstructionPreset[];
   onTogglePreset: (id: string) => void;
   onAddCustom: (preset: InstructionPreset) => void;
   onRemoveCustom: (id: string) => void;
@@ -369,7 +369,7 @@ function Toolbar({
         <div className="min-w-0 flex-1">
           <InstructionPresets
             activeIds={activePresetIds}
-            customPresets={customPresets}
+            allPresets={allPresets}
             onToggle={onTogglePreset}
             onAddCustom={onAddCustom}
             onRemoveCustom={onRemoveCustom}

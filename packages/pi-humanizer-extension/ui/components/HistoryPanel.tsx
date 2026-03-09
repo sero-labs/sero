@@ -6,7 +6,7 @@
  * Much more usable than a wall of text or a flat list.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
 import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
@@ -24,16 +24,25 @@ export function HistoryPanel({ entries, onLoad, onClearHistory }: HistoryPanelPr
     sorted.length > 0 ? sorted[0].id : null,
   );
   const [confirmClear, setConfirmClear] = useState(false);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Clear the auto-reset timer on unmount to avoid setState on unmounted component
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    };
+  }, []);
 
   const selected = sorted.find((e) => e.id === selectedId) ?? null;
 
   const handleClear = useCallback(() => {
     if (confirmClear) {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
       onClearHistory();
       setConfirmClear(false);
     } else {
       setConfirmClear(true);
-      setTimeout(() => setConfirmClear(false), 3000);
+      confirmTimerRef.current = setTimeout(() => setConfirmClear(false), 3000);
     }
   }, [confirmClear, onClearHistory]);
 
@@ -51,54 +60,54 @@ export function HistoryPanel({ entries, onLoad, onClearHistory }: HistoryPanelPr
       <div className="flex min-h-0 flex-1">
         {/* Left: entry list */}
         <ScrollArea className="w-[220px] shrink-0 border-r border-border/15">
-            <div className="flex flex-col py-1">
-              {sorted.map((entry) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  onClick={() => setSelectedId(entry.id)}
+          <div className="flex flex-col py-1">
+            {sorted.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => setSelectedId(entry.id)}
+                className={cn(
+                  'flex flex-col gap-0.5 px-3 py-2.5 text-left',
+                  'transition-colors duration-100',
+                  entry.id === selectedId
+                    ? 'bg-emerald-500/10'
+                    : 'hover:bg-background/30',
+                )}
+              >
+                <span
                   className={cn(
-                    'flex flex-col gap-0.5 px-3 py-2.5 text-left',
-                    'transition-colors duration-100',
+                    'text-[10px]',
                     entry.id === selectedId
-                      ? 'bg-emerald-500/10'
-                      : 'hover:bg-background/30',
+                      ? 'text-emerald-400/70'
+                      : 'text-muted-foreground/35',
                   )}
                 >
-                  <span
-                    className={cn(
-                      'text-[10px]',
-                      entry.id === selectedId
-                        ? 'text-emerald-400/70'
-                        : 'text-muted-foreground/35',
-                    )}
-                  >
-                    {formatRelativeTime(entry.createdAt)}
-                  </span>
-                  <span
-                    className={cn(
-                      'truncate text-[12px] leading-snug',
-                      entry.id === selectedId
-                        ? 'text-foreground/90'
-                        : 'text-foreground/50',
-                    )}
-                  >
-                    {firstLine(entry.inputText)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
+                  {formatRelativeTime(entry.createdAt)}
+                </span>
+                <span
+                  className={cn(
+                    'truncate text-[12px] leading-snug',
+                    entry.id === selectedId
+                      ? 'text-foreground/90'
+                      : 'text-foreground/50',
+                  )}
+                >
+                  {firstLine(entry.inputText)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
 
-          {/* Right: detail preview */}
-          {selected ? (
-            <DetailPane entry={selected} onLoad={onLoad} />
-          ) : (
-            <div className="flex flex-1 items-center justify-center">
-              <p className="text-xs text-muted-foreground/30">Select an entry</p>
-            </div>
-          )}
-        </div>
+        {/* Right: detail preview */}
+        {selected ? (
+          <DetailPane entry={selected} onLoad={onLoad} />
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <p className="text-xs text-muted-foreground/30">Select an entry</p>
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="flex items-center justify-center border-t border-border/10 py-2">

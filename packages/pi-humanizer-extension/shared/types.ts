@@ -24,7 +24,8 @@ export interface InstructionPreset {
 export interface HumanizerState {
   entries: HumanizeEntry[];
   nextId: number;
-  customPresets: InstructionPreset[];
+  /** Optional for backwards-compat with existing state.json files. */
+  customPresets?: InstructionPreset[];
 }
 
 export const DEFAULT_STATE: HumanizerState = {

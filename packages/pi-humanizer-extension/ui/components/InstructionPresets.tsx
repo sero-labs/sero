@@ -19,11 +19,10 @@ import {
   DialogFooter,
 } from '@sero/ui/components/ui/dialog';
 import type { InstructionPreset } from '../../shared/types';
-import { BUILT_IN_PRESETS } from '../lib/presets';
 
 interface InstructionPresetsProps {
   activeIds: Set<string>;
-  customPresets: InstructionPreset[];
+  allPresets: InstructionPreset[];
   onToggle: (id: string) => void;
   onAddCustom: (preset: InstructionPreset) => void;
   onRemoveCustom: (id: string) => void;
@@ -31,7 +30,7 @@ interface InstructionPresetsProps {
 
 export function InstructionPresets({
   activeIds,
-  customPresets,
+  allPresets,
   onToggle,
   onAddCustom,
   onRemoveCustom,
@@ -39,8 +38,6 @@ export function InstructionPresets({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
-
-  const allPresets = [...BUILT_IN_PRESETS, ...customPresets];
 
   const activePresets = allPresets.filter((p) => activeIds.has(p.id));
 
@@ -88,10 +85,10 @@ export function InstructionPresets({
             >
               {preset.label}
               {!preset.builtIn && (
-                <span
-                  role="button"
+                <button
+                  type="button"
                   className={cn(
-                    'ml-0.5 text-[10px] leading-none transition-colors',
+                    'ml-0.5 bg-transparent border-none p-0 text-[10px] leading-none transition-colors cursor-pointer',
                     isActive
                       ? 'text-indigo-400/50 hover:text-indigo-300'
                       : 'text-muted-foreground/30 hover:text-destructive',
@@ -102,7 +99,7 @@ export function InstructionPresets({
                   }}
                 >
                   ×
-                </span>
+                </button>
               )}
             </button>
           );
