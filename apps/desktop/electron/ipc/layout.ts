@@ -10,39 +10,30 @@ import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
+import type { LayoutState } from '../../src/types/layout';
 import { SERO_AGENT_DIR } from '../env';
 
-const LAYOUT_FILE = path.join(SERO_AGENT_DIR, 'layout.json');
+export type { LayoutState };
 
-export interface LayoutState {
-  mainSidebarOpen: boolean;
-  chatPanelOpen: boolean;
-  favouriteApps?: string[];
-  /** Persisted panel size percentages (0–100). */
-  mainSidebarSizePct?: number;
-  chatPanelSizePct?: number;
-  /** UI theme preference. */
-  theme?: string;
-  /** Last active workspace ID. */
-  activeWorkspaceId?: string | null;
-  /** Last active app tab. */
-  activeApp?: string;
-  /** Last active session ID. */
-  activeSessionId?: string | null;
-}
+const LAYOUT_FILE = path.join(SERO_AGENT_DIR, 'layout.json');
 
 let writeQueue: Promise<void> = Promise.resolve();
 
 function isLayoutState(value: unknown): value is LayoutState {
   if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<LayoutState>;
-  const favouriteAppsValid = candidate.favouriteApps === undefined ||
-    Array.isArray(candidate.favouriteApps);
-  return (
-    typeof candidate.mainSidebarOpen === 'boolean' &&
-    typeof candidate.chatPanelOpen === 'boolean' &&
-    favouriteAppsValid
-  );
+  const c = value as Record<string, unknown>;
+  // Required booleans
+  if (typeof c.mainSidebarOpen !== 'boolean') return false;
+  if (typeof c.chatPanelOpen !== 'boolean') return false;
+  // Optional array
+  if (c.favouriteApps !== undefined && !Array.isArray(c.favouriteApps)) return false;
+  // Optional strings — reject wrong types to prevent garbage propagation
+  if (c.theme !== undefined && typeof c.theme !== 'string') return false;
+  if (c.activeApp !== undefined && typeof c.activeApp !== 'string') return false;
+  // Nullable strings
+  if (c.activeWorkspaceId !== undefined && c.activeWorkspaceId !== null && typeof c.activeWorkspaceId !== 'string') return false;
+  if (c.activeSessionId !== undefined && c.activeSessionId !== null && typeof c.activeSessionId !== 'string') return false;
+  return true;
 }
 
 /** Parse layout JSON. Returns the state if valid, null otherwise. */

@@ -20,7 +20,7 @@ Each profile is a self-contained Sero installation:
 | App state | `<profile>/workspaces/*/` |
 | API keys (.env) | `<profile>/agent/.env` |
 | Browser data (cookies, cache) | Per-profile Chromium userData |
-| UI state (localStorage) | Prefixed by profile ID |
+| UI state (layout.json) | `<profile>/agent/layout.json` |
 
 ## How It Works
 
@@ -113,7 +113,7 @@ See [decisions.md](decisions.md) for the full architecture decision record.
 | `electron/env.ts` | Resolves SERO_HOME from active profile |
 | `electron/ipc/profiles.ts` | IPC handlers |
 | `src/stores/profiles.ts` | Renderer profile state |
-| `src/lib/profile-storage.ts` | Profile-scoped localStorage |
+| `src/lib/persist-layout.ts` | Filesystem-backed layout persistence |
 | `src/components/profiles/` | UI components |
 
 ### Startup Sequence

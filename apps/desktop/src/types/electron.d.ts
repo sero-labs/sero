@@ -12,6 +12,7 @@ import type {
   SeroDebugAPI,
   SeroVcsAPI,
 } from './electron-workspace';
+import type { LayoutState, LoadedLayoutState } from './layout';
 
 import type {
   ProfileInfo,
@@ -286,29 +287,9 @@ interface SeroTerminalAPI {
 
 interface SeroLayoutAPI {
   /** Save UI layout state to disk. */
-  save(state: {
-    mainSidebarOpen: boolean;
-    chatPanelOpen: boolean;
-    favouriteApps: string[];
-    mainSidebarSizePct?: number;
-    chatPanelSizePct?: number;
-    theme?: string;
-    activeWorkspaceId?: string | null;
-    activeApp?: string;
-    activeSessionId?: string | null;
-  }): Promise<void>;
+  save(state: LayoutState): Promise<void>;
   /** Load UI layout state from disk. Returns null if no saved state. */
-  load(): Promise<{
-    mainSidebarOpen: boolean;
-    chatPanelOpen: boolean;
-    favouriteApps?: string[];
-    mainSidebarSizePct?: number;
-    chatPanelSizePct?: number;
-    theme?: string;
-    activeWorkspaceId?: string | null;
-    activeApp?: string;
-    activeSessionId?: string | null;
-  } | null>;
+  load(): Promise<LoadedLayoutState | null>;
 }
 
 interface SeroNetAPI {

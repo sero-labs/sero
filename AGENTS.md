@@ -276,10 +276,9 @@ project owner. Do not introduce them under any circumstances.
    must go through the filesystem-backed layout file via `persistLayout()`
    from `src/lib/persist-layout.ts` and `window.sero.layout.save/load`. The
    old `profile-storage.ts` module has been removed. If you need a new
-   persisted key, add it to the `PersistedLayoutState` interface in
-   `src/lib/persist-layout.ts`, the `LayoutState` interface in
-   `electron/ipc/layout.ts`, and the `SeroLayoutAPI` types in
-   `src/types/electron.d.ts`.
+   persisted key, add it to the `LayoutState` interface in
+   `src/types/layout.ts` — that is the single source of truth used by the
+   renderer, electron main process, and IPC bridge types.
 
 2. **No inline `import('...')` type expressions.** Never write
    `param: import('./types').Foo` or `type X = import('./module').Bar`.
@@ -296,3 +295,4 @@ project owner. Do not introduce them under any circumstances.
 - When creating documentation or plans, save them in @docs/ or a subfolder by type
 - When asked to create a PR, use the Github CLI
 - When reviewing a PR, always make sure there's good type safety
+- **Prefer `useDebouncedCallback` / `createDebouncedFn`** from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns. When you encounter an existing hand-rolled debounce, refactor it to use these helpers.

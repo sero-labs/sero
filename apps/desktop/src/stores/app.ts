@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { SeroAppManifest } from '@/types/ipc';
 import { persistLayout } from '@/lib/persist-layout';
+import { useWorkspaceStore } from '@/stores/workspace';
+import { useSessionStore } from '@/stores/sessions';
 
 // ── Built-in apps (always present) ────────────────────────────
 
@@ -194,7 +196,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Theme (hydrated from layout file on startup)
-  theme: 'dark' as Theme,
+  theme: 'dark',
   setTheme: (theme) => {
     applyTheme(theme);
     set({ theme });
@@ -238,14 +240,12 @@ export async function loadLayout(): Promise<void> {
       }
       useAppStore.setState(update);
 
-      // Hydrate active workspace into workspace store (lazy import to avoid circular dep)
+      // Hydrate active workspace into workspace store
       if (state.activeWorkspaceId !== undefined) {
-        const { useWorkspaceStore } = await import('@/stores/workspace');
         useWorkspaceStore.setState({ activeWorkspaceId: state.activeWorkspaceId ?? null });
       }
       // Hydrate active session into session store
       if (state.activeSessionId !== undefined) {
-        const { useSessionStore } = await import('@/stores/sessions');
         useSessionStore.setState({ activeSessionId: state.activeSessionId ?? null });
       }
       return;
