@@ -1,0 +1,300 @@
+/**
+ * LogViewer — displays Sero log files with auto-refresh.
+ *
+ * Lists known log files (electron, vite, remotes) on the left,
+ * shows the selected log's tail on the right with auto-scroll.
+ */
+
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
+import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero/ui/components/ui/button';
+import { Badge } from '@sero/ui/components/ui/badge';
+import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
+
+
+// ── Types ──────────────────────────────────────────────────
+
+interface LogEntry {
+  key: string;
+  label: string;
+  path: string;
+}
+
+const KNOWN_LOGS: LogEntry[] = [
+  { key: 'electron', label: 'Electron', path: '/tmp/sero-electron.log' },
+  { key: 'vite', label: 'Vite Host', path: '/tmp/sero-vite.log' },
+];
+
+// ── LogViewer ──────────────────────────────────────────────
+
+export const LogViewer = memo(function LogViewer() {
+  const [logs, setLogs] = useState<LogEntry[]>(KNOWN_LOGS);
+  const [selectedKey, setSelectedKey] = useState<string>('electron');
+  const [discovering, setDiscovering] = useState(true);
+
+  // Discover remote logs from session list
+  useEffect(() => {
+    const discover = async () => {
+      try {
+        const sero = (window as unknown as { sero: { sessions: { list(): Promise<{ id: string; path: string }[]> } } }).sero;
+        const sessions = await sero.sessions.list();
+        // Extract unique remote names from session paths (heuristic)
+        const remoteNames = new Set<string>();
+        // Instead, scan for known remotes from the app discovery
+        const apps = await (window as unknown as { sero: { apps: { discover(): Promise<{ id: string; name: string }[]> } } }).sero.apps.discover();
+        for (const app of apps) {
+          remoteNames.add(app.id);
+        }
+
+        const remoteLogs: LogEntry[] = [];
+        for (const name of Array.from(remoteNames).sort()) {
+          remoteLogs.push({
+            key: `remote-${name}`,
+            label: `Remote: ${name}`,
+            path: `/tmp/sero-remote-${name}.log`,
+          });
+        }
+
+        setLogs([...KNOWN_LOGS, ...remoteLogs]);
+        void sessions; // used for type narrowing only
+      } catch {
+        // Discovery failed — keep known logs only
+      } finally {
+        setDiscovering(false);
+      }
+    };
+    discover();
+  }, []);
+
+  const selectedLog = logs.find((l) => l.key === selectedKey) ?? null;
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <LogSidebar
+        logs={logs}
+        selectedKey={selectedKey}
+        discovering={discovering}
+        onSelect={setSelectedKey}
+      />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div key={selectedKey} className="admin-fade-in h-full">
+          {selectedLog ? (
+            <LogContent log={selectedLog} />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-xs text-muted-foreground/50">Select a log file</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ── Log sidebar ────────────────────────────────────────────
+
+const LogSidebar = memo(function LogSidebar({
+  logs,
+  selectedKey,
+  discovering,
+  onSelect,
+}: {
+  logs: LogEntry[];
+  selectedKey: string;
+  discovering: boolean;
+  onSelect: (key: string) => void;
+}) {
+  return (
+    <div className="flex w-56 flex-col border-r border-border/30">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+          Log Files
+        </p>
+        {discovering && (
+          <span className="admin-loading text-[9px] text-muted-foreground/30">…</span>
+        )}
+      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        {logs.map((log) => (
+          <button
+            key={log.key}
+            onClick={() => onSelect(log.key)}
+            className={cn(
+              'admin-sidebar-item w-full px-3 py-2 text-left transition-colors duration-150',
+              'hover:bg-secondary/50',
+              log.key === selectedKey && 'bg-emerald-500/8 border-r-2 border-emerald-400',
+            )}
+          >
+            <span className={cn(
+              'text-xs font-medium',
+              log.key === selectedKey ? 'text-emerald-400' : 'text-foreground/80',
+            )}>
+              {log.label}
+            </span>
+            <p className="mt-0.5 text-[10px] text-muted-foreground/40 font-mono">
+              {log.path}
+            </p>
+          </button>
+        ))}
+      </ScrollArea>
+    </div>
+  );
+});
+
+// ── Log content viewer ─────────────────────────────────────
+
+function LogContent({ log }: { log: LogEntry }) {
+  const [lines, setLines] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadLog = useCallback(async () => {
+    try {
+      const sero = (window as unknown as {
+        sero: { appState: { readText(p: string): Promise<string | null> } };
+      }).sero;
+      const text = await sero.appState.readText(log.path);
+      if (text === null) {
+        setLines([]);
+        setError('File not found');
+      } else {
+        setLines(text.split('\n'));
+        setError(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to read log');
+      setLines([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [log.path]);
+
+  // Initial load
+  useEffect(() => {
+    setLoading(true);
+    loadLog();
+  }, [loadLog]);
+
+  // Auto-refresh timer
+  useEffect(() => {
+    if (autoRefresh) {
+      timerRef.current = setInterval(loadLog, 3000);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [autoRefresh, loadLog]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [lines]);
+
+  const handleReveal = useCallback(async () => {
+    try {
+      const sero = (window as unknown as { sero: { shell: { showItemInFolder(p: string): Promise<void> } } }).sero;
+      await sero.shell.showItemInFolder(log.path);
+    } catch {
+      // Ignore
+    }
+  }, [log.path]);
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="admin-loading text-xs text-muted-foreground">Loading…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between border-b border-border/30 px-4 py-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-foreground/80">{log.label}</span>
+          <span className="font-mono text-[10px] text-muted-foreground/40">{log.path}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              'h-6 px-2 text-[11px]',
+              autoRefresh ? 'text-emerald-400' : 'text-muted-foreground',
+            )}
+            onClick={() => setAutoRefresh(!autoRefresh)}
+          >
+            {autoRefresh ? '● Auto' : '○ Auto'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[11px] text-muted-foreground"
+            onClick={loadLog}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[11px] text-muted-foreground"
+            onClick={handleReveal}
+          >
+            Reveal
+          </Button>
+        </div>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="border-b border-destructive/20 bg-destructive/5 px-4 py-1.5">
+          <p className="text-[11px] text-destructive">{error}</p>
+        </div>
+      )}
+
+      {/* Log lines */}
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="px-4 py-2 font-mono text-[11px] leading-[1.6]">
+          {lines.length === 0 ? (
+            <p className="text-muted-foreground/40 italic">Empty log</p>
+          ) : (
+            lines.map((line, i) => (
+              <div key={i} className="admin-log-line flex gap-2 rounded px-1 py-px">
+                <span className="w-8 shrink-0 text-right text-muted-foreground/30 select-none">
+                  {i + 1}
+                </span>
+                <span className={cn(
+                  'flex-1 break-all',
+                  line.toLowerCase().includes('error') ? 'text-destructive/80' :
+                  line.toLowerCase().includes('warn') ? 'text-amber-400/70' :
+                  'text-foreground/70',
+                )}>
+                  {line || '\u00A0'}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-border/30 px-4 py-1.5">
+        <p className="text-[10px] text-muted-foreground/40">
+          {lines.length} lines
+          {autoRefresh && (
+            <span className="ml-2 text-emerald-400/50">● Refreshing every 3s</span>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}

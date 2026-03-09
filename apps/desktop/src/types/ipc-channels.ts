@@ -87,6 +87,8 @@ export const IpcChannels = {
   appState: {
     /** Read an app state JSON file. */
     read: 'sero:app-state:read',
+    /** Read a file as raw UTF-8 text (no JSON parsing). */
+    readText: 'sero:app-state:read-text',
     /** Write an app state JSON file (atomic). */
     write: 'sero:app-state:write',
     /** Delete an app state / data file. */

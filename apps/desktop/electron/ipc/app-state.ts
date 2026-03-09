@@ -40,6 +40,14 @@ export function registerAppStateHandlers(): void {
     },
   );
 
+  // Read file as raw text (no JSON parsing)
+  ipcMain.handle(
+    IpcChannels.appState.readText,
+    async (_event, filePath: string): Promise<string | null> => {
+      return appStateManager.readText(filePath);
+    },
+  );
+
   // Delete a file
   ipcMain.handle(
     IpcChannels.appState.remove,

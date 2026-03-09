@@ -45,6 +45,15 @@ class AppStateManager {
     }
   }
 
+  /** Read a file as raw UTF-8 text (no JSON parsing). Returns null if missing. */
+  async readText(filePath: string): Promise<string | null> {
+    try {
+      return await fs.readFile(filePath, 'utf8');
+    } catch {
+      return null;
+    }
+  }
+
   // ── Remove ────────────────────────────────────────────────
 
   async remove(filePath: string): Promise<void> {
