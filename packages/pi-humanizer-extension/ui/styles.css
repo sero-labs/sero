@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @source "../../ui/src/components";
+@source "./components";
+@source "./lib";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -30,12 +32,138 @@
   --color-ring: var(--ring);
 }
 
-/* Loading dots animation */
-@keyframes humanizer-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+/* ── View Transition names ──────────────────────────────── */
+/* Named elements get individually tracked by the browser's
+   view transition engine — each gets its own morph animation
+   instead of the default full-page crossfade. */
+
+.vt-header   { view-transition-name: humanizer-header; }
+.vt-toolbar  { view-transition-name: humanizer-toolbar; }
+.vt-input-pane  { view-transition-name: humanizer-input; }
+.vt-output-pane { view-transition-name: humanizer-output; }
+
+/* ── View Transition animations ─────────────────────────── */
+
+/* Header + toolbar stay put (no animation, just morph) */
+::view-transition-old(humanizer-header),
+::view-transition-new(humanizer-header),
+::view-transition-old(humanizer-toolbar),
+::view-transition-new(humanizer-toolbar) {
+  animation-duration: 0.35s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.humanizer-dot {
-  animation: humanizer-pulse 1s ease-in-out infinite;
+/* Input pane morphs (shrinks from full → half width) */
+::view-transition-old(humanizer-input) {
+  animation: vt-input-out 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-new(humanizer-input) {
+  animation: vt-input-in 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes vt-input-out {
+  to { opacity: 0.3; }
+}
+@keyframes vt-input-in {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
+/* Output pane slides in from right with emerald glow */
+::view-transition-old(humanizer-output) {
+  animation: vt-output-exit 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-new(humanizer-output) {
+  animation: vt-output-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vt-output-enter {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes vt-output-exit {
+  to {
+    opacity: 0;
+    transform: translateX(40px);
+    filter: blur(4px);
+  }
+}
+
+/* Default page-level transition (for history toggle, etc.) */
+::view-transition-old(root) {
+  animation: vt-fade-out 0.25s ease;
+}
+::view-transition-new(root) {
+  animation: vt-fade-in 0.3s ease;
+}
+
+@keyframes vt-fade-out {
+  to { opacity: 0; transform: scale(0.98); }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Output pane glow ─────────────────────────────────── */
+
+.humanizer-output-pane {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.03) 0%,
+    transparent 50%,
+    rgba(99, 102, 241, 0.02) 100%
+  );
+}
+
+/* ── Textarea polish ──────────────────────────────────── */
+
+.humanizer-textarea {
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
+  /* Kill the global :focus-visible outline from Sero's base CSS */
+  outline: none !important;
+}
+
+.humanizer-textarea:focus-visible {
+  outline: none !important;
+}
+
+.humanizer-textarea::selection {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+/* ── Chip press effect ────────────────────────────────── */
+
+.humanizer-chip:active {
+  transform: scale(0.95);
+  transition-duration: 80ms;
+}
+
+/* ── Button glow pulse while loading ──────────────────── */
+
+.humanizer-button:disabled {
+  opacity: 1;
+}
+
+.humanizer-button:disabled:has(svg) {
+  animation: humanizer-glow 2s ease-in-out infinite;
+}
+
+@keyframes humanizer-glow {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(16, 185, 129, 0.35);
+  }
 }
