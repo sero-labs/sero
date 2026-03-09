@@ -9,11 +9,13 @@
  * automated phases (planning, implementation, review).
  */
 
+import path from 'path';
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import { appStateManager } from '../app-state';
 import { kanbanOrchestrator, ensureInfra } from './shared-infra';
 import type { KanbanState } from '../kanban/types';
+import { SERO_HOME } from '../env';
 
 const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
 
@@ -37,6 +39,22 @@ export function registerAppStateHandlers(): void {
     IpcChannels.appState.read,
     async (_event, filePath: string): Promise<unknown> => {
       return appStateManager.read(filePath);
+    },
+  );
+
+  // Read file as raw text (no JSON parsing).
+  // Restricted to SERO_HOME and /tmp/sero-* to prevent arbitrary file reads.
+  ipcMain.handle(
+    IpcChannels.appState.readText,
+    async (_event, filePath: string): Promise<string | null> => {
+      const resolved = path.resolve(filePath);
+      const seroHome = path.resolve(SERO_HOME);
+      const isSeroPath = resolved.startsWith(seroHome + path.sep) || resolved === seroHome;
+      const isSeroLog = resolved.startsWith('/tmp/sero-');
+      if (!isSeroPath && !isSeroLog) {
+        throw new Error(`readText: access denied — path must be under SERO_HOME or /tmp/sero-*`);
+      }
+      return appStateManager.readText(resolved);
     },
   );
 

@@ -1,0 +1,49 @@
+{
+  "name": "@sero/admin",
+  "version": "0.1.0",
+  "description": "Sero Admin — config editor, log viewer, and session browser",
+  "keywords": ["pi-package"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extension/index.ts"]
+  },
+  "sero": {
+    "app": {
+      "id": "admin",
+      "name": "Admin",
+      "icon": "settings",
+      "scope": "global",
+      "stateFile": ".sero/apps/admin/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "AdminApp",
+      "devPort": 5193
+    }
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.55.3",
+    "@mariozechner/pi-coding-agent": ">=0.55.3",
+    "@mariozechner/pi-tui": ">=0.55.3"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "^1.11.0",
+    "@sero/app-runtime": "workspace:*",
+    "@sero/ui": "workspace:*",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^22.19.11",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  }
+}

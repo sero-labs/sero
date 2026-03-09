@@ -163,6 +163,8 @@ interface SeroShellAPI {
 interface SeroAppStateAPI {
   /** Read an app state JSON file. */
   read(filePath: string): Promise<unknown>;
+  /** Read a file as raw UTF-8 text (no JSON parsing). Returns null if missing. */
+  readText(filePath: string): Promise<string | null>;
   /** Write an app state JSON file (atomic + serialised). */
   write(filePath: string, data: unknown): Promise<void>;
   /** Delete an app state / data file. */
