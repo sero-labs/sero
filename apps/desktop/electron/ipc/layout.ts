@@ -21,6 +21,14 @@ export interface LayoutState {
   /** Persisted panel size percentages (0–100). */
   mainSidebarSizePct?: number;
   chatPanelSizePct?: number;
+  /** UI theme preference. */
+  theme?: string;
+  /** Last active workspace ID. */
+  activeWorkspaceId?: string | null;
+  /** Last active app tab. */
+  activeApp?: string;
+  /** Last active session ID. */
+  activeSessionId?: string | null;
 }
 
 let writeQueue: Promise<void> = Promise.resolve();

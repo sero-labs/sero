@@ -188,13 +188,12 @@ the feature appears to work in the UI but silently fails at the agent.
 
 ### State Management Rules (CRITICAL)
 
-- **NEVER use `localStorage` or `sessionStorage` directly** without explicit
-  approval from the project owner. This applies to ALL code — renderer
-  components, stores, federated modules, and extensions.
-  - **Renderer stores** that need to persist a small value across reloads MUST
-    use the profile-scoped helpers in `src/lib/profile-storage.ts`
-    (`getLocalItem`, `setLocalItem`, etc.). Raw `localStorage` calls bypass
-    profile isolation and will contaminate other profiles.
+- **NEVER use `localStorage` or `sessionStorage`** — this is an absolute ban,
+  not a guideline. All renderer state that must persist across reloads is
+  stored in the filesystem-backed layout file (`~/.sero-ui/layout.json`) via
+  the `persistLayout()` helper in `src/lib/persist-layout.ts` and the
+  `window.sero.layout.save/load` IPC bridge. There is no profile-storage
+  module — it was removed.
   - **`sessionStorage`** is forbidden entirely. Any state that must survive
     within a session should be tracked in a Zustand store, in a file inside
     `SERO_HOME` via IPC, or in the profile registry (`profiles.json`).
@@ -203,7 +202,7 @@ the feature appears to work in the UI but silently fails at the agent.
     context providers or the `window.sero` IPC bridge.
   - If you think you need browser storage, **ask first** — there is almost
     always a better alternative (Zustand, IPC-backed file state, or the
-    profile registry).
+    layout file).
 
 ### Desktop Notifications (`sero:notify` EventBus)
 
@@ -267,6 +266,31 @@ npx node-gyp rebuild --directory=node_modules/.pnpm/node-pty@1.1.0/node_modules/
 (may restore prebuilds), or switching machines.
 
 See [docs/node-pty-setup.md](docs/node-pty-setup.md) for full troubleshooting.
+
+### Banned Patterns (CRITICAL)
+
+These patterns are **absolutely forbidden** without explicit approval from the
+project owner. Do not introduce them under any circumstances.
+
+1. **No `localStorage` or `sessionStorage`.** All persistent renderer state
+   must go through the filesystem-backed layout file via `persistLayout()`
+   from `src/lib/persist-layout.ts` and `window.sero.layout.save/load`. The
+   old `profile-storage.ts` module has been removed. If you need a new
+   persisted key, add it to the `PersistedLayoutState` interface in
+   `src/lib/persist-layout.ts`, the `LayoutState` interface in
+   `electron/ipc/layout.ts`, and the `SeroLayoutAPI` types in
+   `src/types/electron.d.ts`.
+
+2. **No inline `import('...')` type expressions.** Never write
+   `param: import('./types').Foo` or `type X = import('./module').Bar`.
+   Always use a proper `import type { Foo } from './types'` at the top of the
+   file. The only exception is native addons that **must** use `require()` at
+   runtime — wrap those in a typed helper module.
+
+3. **No unnecessary dynamic `await import('...')`** for source-file modules.
+   Use standard top-level imports. Dynamic imports are only acceptable for
+   truly optional runtime dependencies (e.g. native addons that may not be
+   installed) — not for lazy-loading local source modules.
 
 ### General
 - When creating documentation or plans, save them in @docs/ or a subfolder by type

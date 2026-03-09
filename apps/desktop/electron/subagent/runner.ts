@@ -16,6 +16,7 @@ import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from './types';
 import type { SharedInfra } from '../ipc/shared-infra';
+import { buildContainerConfig } from '../ipc/shared-infra';
 import type { WorkspaceManager } from '../workspace';
 import type { ContainerManager } from '../container/index';
 import type { ContainerState } from '../container/types';
@@ -70,7 +71,6 @@ export async function runSubagent(
   const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
   if (containerEnabled) {
     try {
-      const { buildContainerConfig } = await import('../ipc/shared-infra');
       const containerConfig = await buildContainerConfig(workspaceId, wsPath, { isolated });
       containerState = await containerManager.ensure(containerConfig);
     } catch (err: unknown) {
