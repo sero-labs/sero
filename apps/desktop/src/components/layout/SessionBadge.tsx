@@ -250,8 +250,9 @@ function ContextSection({
       </div>
 
       <div className="border-t border-[var(--border-subtle)] pt-2 space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">Compact context</label>
+        <label htmlFor="compact-instructions" className="text-xs text-[var(--text-muted)]">Compact context</label>
         <input
+          id="compact-instructions"
           type="text"
           placeholder="Custom instructions (optional)"
           value={compactInstructions}
