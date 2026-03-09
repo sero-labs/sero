@@ -11,7 +11,6 @@ title = "Sero Secret Scanning"
     '''\.test\.ts$''',
     '''\.spec\.ts$''',
     '''__tests__/''',
-    '''\.md$''',
   ]
 
   # Known non-secret patterns (e.g. placeholder values)

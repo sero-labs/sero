@@ -6,7 +6,7 @@
 # Install gitleaks: brew install gitleaks
 
 if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks detect --verbose --config .gitleaks.toml
+  gitleaks protect --staged --verbose --config .gitleaks.toml
   if [ $? -ne 0 ]; then
     echo ""
     echo "🚨 gitleaks found potential secrets in staged files."

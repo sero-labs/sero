@@ -36,11 +36,19 @@ const MODEL_PRICING: Record<string, PricingTier> = {
 /** Default pricing for unknown models — uses Sonnet-tier as conservative default. */
 const DEFAULT_PRICING: PricingTier = { inputPerM: 3, outputPerM: 15 };
 
-/** Resolve pricing tier from a model ID string. */
+/**
+ * Pricing keys sorted by length descending so longer (more specific)
+ * keys match first — e.g. 'gpt-4o' before 'gpt-4'.
+ */
+const SORTED_PRICING_KEYS = Object.keys(MODEL_PRICING).sort(
+  (a, b) => b.length - a.length,
+);
+
+/** Resolve pricing tier from a model ID string (longest match wins). */
 function getPricing(modelId: string): PricingTier {
   const lower = modelId.toLowerCase();
-  for (const [key, tier] of Object.entries(MODEL_PRICING)) {
-    if (lower.includes(key)) return tier;
+  for (const key of SORTED_PRICING_KEYS) {
+    if (lower.includes(key)) return MODEL_PRICING[key];
   }
   return DEFAULT_PRICING;
 }
@@ -100,11 +108,12 @@ export class CostTracker {
       (inputTokens / 1_000_000) * pricing.inputPerM +
       (outputTokens / 1_000_000) * pricing.outputPerM;
 
-    // Reset daily counter on day change
+    // Reset daily counter and prune stale sessions on day change
     const today = this.todayKey();
     if (today !== this.dailyDate) {
       this.dailyCost = 0;
       this.dailyDate = today;
+      this.pruneStaleSessionCosts();
     }
 
     // Update session cost
@@ -198,18 +207,43 @@ export class CostTracker {
 
   // ── Internal ──────────────────────────────────────────────
 
+  /** UTC date key — daily limits reset at UTC midnight. */
   private todayKey(): string {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  /** Evict session cost entries that haven't been updated in >24h. */
+  private pruneStaleSessionCosts(): void {
+    // Simple heuristic: on day change, clear sessions that are no longer
+    // active (not currently running a prompt). Active sessions are kept.
+    for (const id of this.sessionCosts.keys()) {
+      if (!this.activeSessions.has(id)) {
+        this.sessionCosts.delete(id);
+      }
+    }
+  }
+
+  /** Return value if it's a positive number, otherwise the fallback. */
+  private static positiveNum(val: unknown, fallback: number): number {
+    return typeof val === 'number' && val > 0 && Number.isFinite(val)
+      ? val
+      : fallback;
   }
 
   private loadConfig(): CostLimitsConfig {
     try {
       const raw = fs.readFileSync(this.configPath, 'utf-8');
-      const parsed = JSON.parse(raw) as Partial<CostLimitsConfig>;
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
       return {
-        maxCostPerSession: parsed.maxCostPerSession ?? DEFAULT_LIMITS.maxCostPerSession,
-        maxCostPerDay: parsed.maxCostPerDay ?? DEFAULT_LIMITS.maxCostPerDay,
-        maxConcurrentSessions: parsed.maxConcurrentSessions ?? DEFAULT_LIMITS.maxConcurrentSessions,
+        maxCostPerSession: CostTracker.positiveNum(
+          parsed.maxCostPerSession, DEFAULT_LIMITS.maxCostPerSession,
+        ),
+        maxCostPerDay: CostTracker.positiveNum(
+          parsed.maxCostPerDay, DEFAULT_LIMITS.maxCostPerDay,
+        ),
+        maxConcurrentSessions: CostTracker.positiveNum(
+          parsed.maxConcurrentSessions, DEFAULT_LIMITS.maxConcurrentSessions,
+        ),
       };
     } catch {
       // File doesn't exist or is invalid — write defaults
