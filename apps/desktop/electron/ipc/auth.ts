@@ -17,7 +17,8 @@
  *   Main writes directly to auth.json via AuthStorage.
  */
 
-import { ipcMain, BrowserWindow, shell } from 'electron';
+import fs from 'fs';
+import { ipcMain, BrowserWindow, shell, type WebContents } from 'electron';
 import { getOAuthProviders, getEnvApiKey } from '@mariozechner/pi-ai';
 import type { OAuthProviderId } from '@mariozechner/pi-ai';
 
@@ -29,6 +30,40 @@ import type {
   OAuthEvent,
 } from '../../src/types/ipc';
 import { ensureInfra } from './shared-infra';
+import { AUTH_JSON_PATH } from '../env';
+
+// ── auth.json permission hardening ───────────────────────────
+// The Pi SDK writes auth.json with default permissions (0o644).
+// We enforce 0o600 after every write to prevent other users from
+// reading API keys on multi-user systems.
+
+/** Ensure auth.json has 0o600 permissions. No-op if file doesn't exist. */
+function hardenAuthJsonPermissions(): void {
+  try {
+    fs.chmodSync(AUTH_JSON_PATH, 0o600);
+  } catch {
+    // File may not exist yet — that's fine
+  }
+}
+
+/**
+ * Check auth.json permissions at startup and repair if needed.
+ * Logs a warning if permissions were wrong.
+ */
+function repairAuthJsonPermissionsOnStartup(): void {
+  try {
+    const stat = fs.statSync(AUTH_JSON_PATH);
+    const mode = stat.mode & 0o777;
+    if (mode !== 0o600) {
+      fs.chmodSync(AUTH_JSON_PATH, 0o600);
+      console.warn(
+        `[auth] Repaired auth.json permissions: 0o${mode.toString(8)} → 0o600`,
+      );
+    }
+  } catch {
+    // File doesn't exist yet — nothing to repair
+  }
+}
 
 // ── API-key provider definitions ─────────────────────────────
 // Providers that accept a plain API key (not OAuth).
@@ -59,10 +94,28 @@ let promptRejecter: ((err: Error) => void) | null = null;
 let manualCodeResolver: ((value: string) => void) | null = null;
 let manualCodeRejecter: ((err: Error) => void) | null = null;
 
-/** Send an OAuth event to all renderer windows. */
+/**
+ * The webContents that initiated the current login flow.
+ * Events are sent only to this target to prevent leaking OAuth data
+ * to unrelated windows (DevTools, webviews, detached panels).
+ */
+let loginOriginWebContents: WebContents | null = null;
+
+/**
+ * Send an OAuth event to the originating window only.
+ * Falls back to the focused window if the originator was destroyed.
+ */
 function sendAuthEvent(event: OAuthEvent): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(IpcChannels.auth.event, event);
+  if (loginOriginWebContents && !loginOriginWebContents.isDestroyed()) {
+    loginOriginWebContents.send(IpcChannels.auth.event, event);
+    return;
+  }
+  // Fallback: originating window was closed mid-flow
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused) {
+    focused.webContents.send(IpcChannels.auth.event, event);
+  } else {
+    console.warn('[auth] No window available to send OAuth event:', event.type);
   }
 }
 
@@ -73,11 +126,15 @@ function clearPending(): void {
   manualCodeResolver = null;
   manualCodeRejecter = null;
   abortController = null;
+  loginOriginWebContents = null;
 }
 
 // ── Registration ─────────────────────────────────────────────
 
 export function registerAuthHandlers(): void {
+  // Repair auth.json permissions on startup if they've drifted
+  repairAuthJsonPermissionsOnStartup();
+
   // ── Get all providers (OAuth + API key) with auth status ──
   ipcMain.handle(
     IpcChannels.auth.getProviders,
@@ -114,7 +171,10 @@ export function registerAuthHandlers(): void {
   // ── Start login ────────────────────────────────────────────
   ipcMain.handle(
     IpcChannels.auth.login,
-    async (_event, providerId: string): Promise<void> => {
+    async (ipcEvent, providerId: string): Promise<void> => {
+      // Track originating window so OAuth events go only to it
+      loginOriginWebContents = ipcEvent.sender;
+
       const infra = await ensureInfra();
       const providers = getOAuthProviders();
       const provider = providers.find((p) => p.id === providerId);
@@ -196,6 +256,7 @@ export function registerAuthHandlers(): void {
 
         // Success — refresh model registry so new credentials are picked up
         infra.modelRegistry.refresh();
+        hardenAuthJsonPermissions();
 
         sendAuthEvent({
           type: 'success',
@@ -235,6 +296,7 @@ export function registerAuthHandlers(): void {
     async (_event, providerId: string, key: string): Promise<void> => {
       const infra = await ensureInfra();
       infra.authStorage.set(providerId, { type: 'api_key', key });
+      hardenAuthJsonPermissions();
       infra.modelRegistry.refresh();
     },
   );

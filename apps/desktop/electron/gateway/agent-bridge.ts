@@ -14,6 +14,7 @@
 
 import type { GatewayAgentOps } from './index';
 import type { GatewayPushEvent } from './protocol';
+import type { CostTracker } from './cost-tracker';
 
 // ── Agent operations bridge ─────────────────────────────────
 
@@ -38,10 +39,16 @@ interface EventSink {
 }
 
 let _sink: EventSink | null = null;
+let _costTracker: CostTracker | null = null;
 
 /** Called by gateway.ts once the server is started. */
 export function setGatewayEventSink(sink: EventSink): void {
   _sink = sink;
+}
+
+/** Called by gateway.ts to enable cost tracking for forwarded events. */
+export function setGatewayCostTracker(tracker: CostTracker): void {
+  _costTracker = tracker;
 }
 
 /**
@@ -53,6 +60,19 @@ export function forwardEventToGateway(event: Record<string, unknown>): void {
 
   const sessionId = event.sessionId as string | undefined;
   if (!sessionId) return;
+
+  // Record token usage for cost tracking (from message_end events)
+  if (_costTracker && event.type === 'message_end') {
+    const usage = event.usage as Record<string, unknown> | undefined;
+    const model = (event.model as string) ?? 'unknown';
+    if (usage) {
+      const inputTokens = (usage.inputTokens as number) ?? (usage.input_tokens as number) ?? 0;
+      const outputTokens = (usage.outputTokens as number) ?? (usage.output_tokens as number) ?? 0;
+      if (inputTokens > 0 || outputTokens > 0) {
+        _costTracker.recordUsage(sessionId, model, inputTokens, outputTokens);
+      }
+    }
+  }
 
   const mapped = mapAgentEvent(sessionId, event);
   if (mapped) {

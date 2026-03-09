@@ -22,8 +22,9 @@ import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
 
 import { GatewayAuth } from './auth';
+import { CostTracker } from './cost-tracker';
 import { RateLimiter } from './rate-limiter';
-import { sendResponse, routeAgentRequest } from './request-handler';
+import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './request-handler';
 import { redactSecrets } from '../lib/secret-redact';
 import {
   validateRequest,
@@ -61,6 +62,8 @@ export interface GatewayConfig {
   host: string;
   /** Path to the auth token file. */
   tokenPath: string;
+  /** Directory for gateway config files (cost limits, etc.). */
+  configDir: string;
 }
 
 /**
@@ -126,9 +129,13 @@ export class GatewayServer {
     blockMs: 5 * 60_000,
   });
 
+  /** Cost tracker for gateway-initiated sessions. */
+  readonly costTracker: CostTracker;
+
   constructor(config: GatewayConfig) {
     this.config = config;
     this.auth = new GatewayAuth(config.tokenPath);
+    this.costTracker = new CostTracker(config.configDir);
   }
 
   /** Register agent operations handler (call before start). */
@@ -201,6 +208,7 @@ export class GatewayServer {
       this.idleCheckTimer = null;
     }
     this.authLimiter.dispose();
+    disposeIdempotencyStore();
 
     for (const [ws] of this.clients) {
       ws.close(1001, 'Gateway shutting down');
@@ -471,6 +479,7 @@ export class GatewayServer {
       request,
       (sessionId) => client.subscribedSessions.add(sessionId),
       () => this.getStatus(),
+      this.costTracker,
     );
   }
 }

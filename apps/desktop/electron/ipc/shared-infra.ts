@@ -64,6 +64,7 @@ export const gatewayServer = new GatewayServer({
   port: GATEWAY_PORT,
   host: '127.0.0.1',
   tokenPath: GATEWAY_TOKEN_PATH,
+  configDir: SERO_HOME,
 });
 
 export const webChatServer = new WebChatServer({

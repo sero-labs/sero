@@ -5,7 +5,7 @@
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import { gatewayServer, tailscale, webChatServer } from './shared-infra';
-import { getGatewayAgentOps, setGatewayEventSink } from '../gateway/agent-bridge';
+import { getGatewayAgentOps, setGatewayEventSink, setGatewayCostTracker } from '../gateway/agent-bridge';
 import { DiscordAdapter } from '../gateway/channels/discord';
 
 export interface GatewayConfig {
@@ -102,6 +102,8 @@ async function startGateway(): Promise<void> {
     gatewayServer.getToken();
     // Wire event forwarding: agent events → gateway WebSocket clients.
     setGatewayEventSink(gatewayServer);
+    // Wire cost tracking for gateway-initiated sessions.
+    setGatewayCostTracker(gatewayServer.costTracker);
   } catch (err) {
     console.error('[gateway] Failed to start:', err);
     return;

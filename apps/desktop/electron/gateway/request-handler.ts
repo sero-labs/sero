@@ -8,6 +8,48 @@
 import { WebSocket } from 'ws';
 import type { GatewayRequest, GatewayResponse } from './protocol';
 import type { GatewayAgentOps } from './index';
+import type { CostTracker } from './cost-tracker';
+
+// ── Idempotency store ───────────────────────────────────────
+// Prevents duplicate prompt execution from network retries.
+// Keys expire after 5 minutes.
+
+const IDEMPOTENCY_TTL_MS = 5 * 60_000;
+const IDEMPOTENCY_CLEANUP_MS = 60_000;
+
+interface IdempotencyEntry {
+  timestamp: number;
+  status: 'pending' | 'done';
+}
+
+const idempotencyStore = new Map<string, IdempotencyEntry>();
+let idempotencyCleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Start the cleanup timer on first use. */
+function ensureIdempotencyTimer(): void {
+  if (idempotencyCleanupTimer) return;
+  idempotencyCleanupTimer = setInterval(() => {
+    const cutoff = Date.now() - IDEMPOTENCY_TTL_MS;
+    for (const [key, entry] of idempotencyStore) {
+      if (entry.timestamp < cutoff) {
+        idempotencyStore.delete(key);
+      }
+    }
+  }, IDEMPOTENCY_CLEANUP_MS);
+  // Prevent the timer from keeping the process alive
+  if (idempotencyCleanupTimer.unref) {
+    idempotencyCleanupTimer.unref();
+  }
+}
+
+/** Clean up the idempotency store timer. Call on gateway shutdown. */
+export function disposeIdempotencyStore(): void {
+  if (idempotencyCleanupTimer) {
+    clearInterval(idempotencyCleanupTimer);
+    idempotencyCleanupTimer = null;
+  }
+  idempotencyStore.clear();
+}
 
 /** Send a JSON response to a WebSocket client. */
 export function sendResponse(ws: WebSocket, msg: GatewayResponse): void {
@@ -27,18 +69,61 @@ export async function routeAgentRequest(
   request: GatewayRequest,
   subscribeToSession: (sessionId: string) => void,
   getStatus: () => { running: boolean; port: number; host: string; clients: number },
+  costTracker: CostTracker,
 ): Promise<void> {
   switch (request.type) {
     case 'prompt': {
+      // Idempotency check — prevent duplicate execution from retries
+      const idemKey = request.idempotencyKey;
+      if (idemKey) {
+        ensureIdempotencyTimer();
+        const existing = idempotencyStore.get(idemKey);
+        if (existing) {
+          if (existing.status === 'done') {
+            sendResponse(ws, { type: 'ok', requestType: 'prompt' });
+            return;
+          }
+          // Still pending — a duplicate retry while the first is running
+          sendResponse(ws, {
+            type: 'error',
+            requestType: 'prompt',
+            message: 'Request already in progress (duplicate idempotency key)',
+          });
+          return;
+        }
+        idempotencyStore.set(idemKey, { timestamp: Date.now(), status: 'pending' });
+      }
+
+      // Cost limit check — reject before running the prompt
+      const check = costTracker.checkLimits(request.sessionId);
+      if (!check.allowed) {
+        if (idemKey) idempotencyStore.delete(idemKey);
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'prompt',
+          message: `Cost limit exceeded: ${check.reason}`,
+        });
+        return;
+      }
+
       try {
         // Subscribe client to this session for push events
         subscribeToSession(request.sessionId);
         // Ensure session is open
         await agentOps.openSession(request.sessionId, request.workspaceId);
+        // Track session as active for concurrency limiting
+        costTracker.markActive(request.sessionId);
         // Send prompt
         await agentOps.prompt(request.sessionId, request.text);
+        costTracker.markInactive(request.sessionId);
+        if (idemKey) {
+          idempotencyStore.set(idemKey, { timestamp: Date.now(), status: 'done' });
+        }
         sendResponse(ws, { type: 'ok', requestType: 'prompt' });
       } catch (err) {
+        costTracker.markInactive(request.sessionId);
+        // Remove pending entry on failure so the client can retry
+        if (idemKey) idempotencyStore.delete(idemKey);
         sendResponse(ws, {
           type: 'error',
           requestType: 'prompt',
