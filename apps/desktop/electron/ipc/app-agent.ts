@@ -72,13 +72,22 @@ async function resolveAppSkillPaths(packagePath: string): Promise<string[]> {
 /**
  * Find an app's package path by its id using app discovery.
  * Result is cached after first call.
+ *
+ * TODO: Wire up clearAppManifestCache() to hot-install events so
+ * newly added apps are picked up without an Electron restart.
  */
 let appManifestCache: Map<string, string> | null = null;
 
 async function getAppPackagePath(appId: string): Promise<string | null> {
   if (!appManifestCache) {
-    const apps = await discoverApps();
-    appManifestCache = new Map(apps.map((a) => [a.id, a.packagePath]));
+    try {
+      const apps = await discoverApps();
+      appManifestCache = new Map(apps.map((a) => [a.id, a.packagePath]));
+    } catch (err) {
+      console.error('[app-agent] Failed to discover apps for skill resolution:', err);
+      // Return null so the session still starts (just without skills)
+      return null;
+    }
   }
   return appManifestCache.get(appId) ?? null;
 }

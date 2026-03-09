@@ -305,4 +305,4 @@ function HistoryPanel({
   );
 }
 
-export default HumanizerApp;
+

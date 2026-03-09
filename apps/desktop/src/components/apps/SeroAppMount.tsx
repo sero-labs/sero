@@ -53,7 +53,10 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const contextValue = useMemo<AppContextValue>(
     () => ({
       appId: manifest.id,
-      workspaceId: isGlobal ? (activeWorkspaceId || 'global') : (activeWorkspaceId ?? ''),
+      // Global apps use 'global' as a stable key when no workspace is selected.
+      // Workspace-scoped apps are guarded by the `!isGlobal && !workspacePath`
+      // check below — they never render without an activeWorkspaceId.
+      workspaceId: isGlobal ? (activeWorkspaceId || 'global') : activeWorkspaceId!,
       workspacePath,
       stateFilePath,
       promptAgent,

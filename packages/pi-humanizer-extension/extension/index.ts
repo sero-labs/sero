@@ -22,14 +22,12 @@ import { DEFAULT_STATE } from '../shared/types';
 
 // ── State file path ────────────────────────────────────────
 
-const STATE_REL_PATH = path.join('.sero', 'apps', 'humanizer', 'state.json');
-
-function resolveStatePath(cwd: string): string {
+function statePath(): string {
   const seroHome = process.env.SERO_HOME;
-  if (seroHome) {
-    return path.join(seroHome, 'apps', 'humanizer', 'state.json');
+  if (!seroHome) {
+    throw new Error('SERO_HOME is not set — humanizer requires the Sero desktop environment');
   }
-  return path.join(cwd, STATE_REL_PATH);
+  return path.join(seroHome, 'apps', 'humanizer', 'state.json');
 }
 
 // ── File I/O ───────────────────────────────────────────────
@@ -77,15 +75,6 @@ function formatHistory(state: HumanizerState): string {
 // ── Extension ──────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
-  let statePath = '';
-
-  pi.on('session_start', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
-  });
-  pi.on('session_switch', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
-  });
-
   pi.registerTool({
     name: 'humanize',
     label: 'Humanize',
@@ -93,16 +82,9 @@ export default function (pi: ExtensionAPI) {
       'Manage humanized text history. Actions: list (show recent humanizations), save (store a humanization result — requires input + output).',
     parameters: Params,
 
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : statePath;
-      if (!resolvedPath) {
-        return {
-          content: [{ type: 'text', text: 'Error: no workspace cwd' }],
-          details: {},
-        };
-      }
-      statePath = resolvedPath;
-      const state = await readState(statePath);
+    async execute(_toolCallId, params) {
+      const filePath = statePath();
+      const state = await readState(filePath);
 
       switch (params.action) {
         case 'list': {
@@ -128,7 +110,7 @@ export default function (pi: ExtensionAPI) {
           };
           state.entries = [...state.entries.slice(-19), entry]; // keep last 20
           state.nextId++;
-          await writeState(statePath, state);
+          await writeState(filePath, state);
           return {
             content: [{ type: 'text', text: `Saved humanization #${entry.id}` }],
             details: {},
