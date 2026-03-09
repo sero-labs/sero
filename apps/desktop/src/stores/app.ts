@@ -1,11 +1,8 @@
 import { create } from 'zustand';
 import type { SeroAppManifest } from '@/types/ipc';
-import {
-  getLocalItem,
-  setLocalItem,
-  getSessionItem,
-  setSessionItem,
-} from '@/lib/profile-storage';
+import { persistLayout } from '@/lib/persist-layout';
+import { useWorkspaceStore } from '@/stores/workspace';
+import { useSessionStore } from '@/stores/sessions';
 
 // ── Built-in apps (always present) ────────────────────────────
 
@@ -25,14 +22,6 @@ const BUILTIN_APPS: AppEntry[] = [
 const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
 const DEFAULT_FAVOURITE_APP_IDS = ['todo', 'notes', 'planmode'] as const;
 
-interface PersistedLayoutState {
-  mainSidebarOpen: boolean;
-  chatPanelOpen: boolean;
-  favouriteApps: string[];
-  /** Persisted panel size percentages (0–100). */
-  mainSidebarSizePct?: number;
-  chatPanelSizePct?: number;
-}
 
 // ── Theme ──────────────────────────────────────────────────────
 export type Theme = 'dark' | 'light';
@@ -82,14 +71,6 @@ interface AppState {
   toggleTheme: () => void;
 }
 
-const THEME_STORAGE_KEY = 'sero:theme';
-
-function getStoredTheme(): Theme {
-  const stored = getLocalItem(THEME_STORAGE_KEY);
-  if (stored === 'light' || stored === 'dark') return stored;
-  return 'dark';
-}
-
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === 'dark') {
@@ -97,7 +78,6 @@ function applyTheme(theme: Theme) {
   } else {
     root.classList.remove('dark');
   }
-  setLocalItem(THEME_STORAGE_KEY, theme);
 }
 
 /** Map a SeroAppManifest → AppEntry. */
@@ -128,20 +108,6 @@ function normaliseFavouriteApps(favouriteApps: string[] | undefined): string[] {
   return next;
 }
 
-/** Fire-and-forget save of full layout state to disk. */
-function persistLayout(partial: Partial<PersistedLayoutState>) {
-  const s = useAppStore.getState();
-  const state: PersistedLayoutState = {
-    mainSidebarOpen: partial.mainSidebarOpen ?? s.mainSidebarOpen,
-    chatPanelOpen: partial.chatPanelOpen ?? s.chatPanelOpen,
-    favouriteApps: partial.favouriteApps ?? s.favouriteApps,
-    mainSidebarSizePct: partial.mainSidebarSizePct ?? s.mainSidebarSizePct,
-    chatPanelSizePct: partial.chatPanelSizePct ?? s.chatPanelSizePct,
-  };
-  window.sero.layout.save(state).catch((err) => {
-    console.warn('[app-store] Failed to persist layout:', err);
-  });
-}
 
 export function getDiscoveredApps(apps: AppEntry[]): AppEntry[] {
   return apps.filter((app) => !app.builtin);
@@ -222,29 +188,31 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   isFavourite: (appId) => get().favouriteApps.includes(appId),
 
-  // Active app (persisted across reloads via sessionStorage)
-  activeApp: getSessionItem('sero:activeApp') ?? 'coding',
+  // Active app (hydrated from layout file on startup)
+  activeApp: 'coding',
   setActiveApp: (app) => {
-    setSessionItem('sero:activeApp', app);
     set({ activeApp: app });
+    persistLayout({ activeApp: app });
   },
 
-  // Theme (hydrate from localStorage)
-  theme: getStoredTheme(),
+  // Theme (hydrated from layout file on startup)
+  theme: 'dark',
   setTheme: (theme) => {
     applyTheme(theme);
     set({ theme });
+    persistLayout({ theme });
   },
   toggleTheme: () => {
     const next = get().theme === 'dark' ? 'light' : 'dark';
     applyTheme(next);
     set({ theme: next });
+    persistLayout({ theme: next });
   },
 }));
 
 // ── Layout hydration (call once on startup) ───────────────────
 
-/** Load layout state from disk and hydrate the store. */
+/** Load layout state from disk and hydrate all stores. */
 export async function loadLayout(): Promise<void> {
   try {
     const state = await window.sero.layout.load();
@@ -261,7 +229,25 @@ export async function loadLayout(): Promise<void> {
       if (typeof state.chatPanelSizePct === 'number' && state.chatPanelSizePct > 0) {
         update.chatPanelSizePct = state.chatPanelSizePct;
       }
+      // Hydrate theme
+      if (state.theme === 'light' || state.theme === 'dark') {
+        update.theme = state.theme;
+        applyTheme(state.theme);
+      }
+      // Hydrate active app
+      if (state.activeApp && typeof state.activeApp === 'string') {
+        update.activeApp = state.activeApp;
+      }
       useAppStore.setState(update);
+
+      // Hydrate active workspace into workspace store
+      if (state.activeWorkspaceId !== undefined) {
+        useWorkspaceStore.setState({ activeWorkspaceId: state.activeWorkspaceId ?? null });
+      }
+      // Hydrate active session into session store
+      if (state.activeSessionId !== undefined) {
+        useSessionStore.setState({ activeSessionId: state.activeSessionId ?? null });
+      }
       return;
     }
   } catch (err) {

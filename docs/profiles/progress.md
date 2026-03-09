@@ -31,12 +31,13 @@
 - [x] `src/components/profiles/CreateProfileDialog.tsx` — New profile dialog
 - [x] `src/components/layout/TitleBar.tsx` — Integrated ProfileSwitcher
 
-### Phase 5: localStorage Scoping ✅
-- [x] `src/lib/profile-storage.ts` — Profile-prefixed storage helpers
-- [x] `src/stores/workspace.ts` — Uses profile-scoped storage
-- [x] `src/stores/sessions.ts` — Uses profile-scoped storage
-- [x] `src/stores/app.ts` — Uses profile-scoped storage
-- [x] Legacy key auto-migration on first read
+### Phase 5: Layout Persistence (Filesystem-backed) ✅
+- [x] `src/lib/persist-layout.ts` — Debounced IPC-backed layout persistence
+- [x] `src/types/layout.ts` — Shared `LayoutState` / `LoadedLayoutState` types
+- [x] `src/stores/workspace.ts` — Uses `persistLayout()` via IPC
+- [x] `src/stores/sessions.ts` — Uses `persistLayout()` via IPC
+- [x] `src/stores/app.ts` — Uses `persistLayout()` via IPC
+- [x] `localStorage`/`sessionStorage` fully removed (profile-storage.ts deleted)
 
 ### Phase 6: Electron userData Isolation ✅
 - [x] `electron/main.ts` — Per-profile Chromium userData via `app.setPath()`
@@ -53,7 +54,7 @@
 - `electron/profile/migration.ts` (66 lines)
 - `electron/ipc/profiles.ts` (90 lines)
 - `src/stores/profiles.ts` (148 lines)
-- `src/lib/profile-storage.ts` (89 lines)
+- `src/lib/persist-layout.ts` (65 lines)
 - `src/components/profiles/ProfileSetup.tsx` (46 lines)
 - `src/components/profiles/ProfileForm.tsx` (137 lines)
 - `src/components/profiles/ProfileSwitcher.tsx` (113 lines)

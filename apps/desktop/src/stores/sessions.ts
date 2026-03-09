@@ -1,9 +1,7 @@
 import { create } from 'zustand';
 import type { SeroSessionInfo } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { getLocalItem, setLocalItem, removeLocalItem } from '@/lib/profile-storage';
-
-const ACTIVE_SESSION_KEY = 'sero:session:active';
+import { persistLayout } from '@/lib/persist-layout';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -43,7 +41,7 @@ function sortByModified(sessions: SeroSessionInfo[]): SeroSessionInfo[] {
 
 export const useSessionStore = create<SessionsState>((set, get) => ({
   sessions: [],
-  activeSessionId: getLocalItem(ACTIVE_SESSION_KEY) || null,
+  activeSessionId: null,
   searchQuery: '',
   isLoading: false,
   error: null,
@@ -76,7 +74,7 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
     await window.sero.sessions.delete(sessionPath);
     const remaining = sessions.filter((s) => s.path !== sessionPath);
     const clearActive = target && activeSessionId === target.id;
-    if (clearActive) removeLocalItem(ACTIVE_SESSION_KEY);
+    if (clearActive) persistLayout({ activeSessionId: null });
     set({
       sessions: remaining,
       activeSessionId: clearActive ? null : activeSessionId,
@@ -84,10 +82,8 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
   },
 
   setActiveSession: (id) => {
-    
-    if (id) setLocalItem(ACTIVE_SESSION_KEY, id);
-    else removeLocalItem(ACTIVE_SESSION_KEY);
     set({ activeSessionId: id });
+    persistLayout({ activeSessionId: id });
     // Also activate the parent workspace so the title bar updates
     if (id) {
       const session = get().sessions.find((s) => s.id === id);

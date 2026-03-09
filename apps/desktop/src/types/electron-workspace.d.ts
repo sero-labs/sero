@@ -4,24 +4,26 @@
  * Split from electron.d.ts to keep each file under 500 LOC.
  */
 
-type VcsCheckpoint = import('./vcs').VcsCheckpoint;
-type VcsEvent = import('./vcs').VcsEvent;
-type VcsWorkspaceState = import('./vcs').VcsWorkspaceState;
-type ChangeEntry = import('./vcs').ChangeEntry;
-type WorkingCopyStatus = import('./vcs').WorkingCopyStatus;
-type FileDiffEntry = import('./vcs').FileDiffEntry;
-type Bookmark = import('./vcs').Bookmark;
-type Remote = import('./vcs').Remote;
-type OperationEntry = import('./vcs').OperationEntry;
-type SyncResult = import('./vcs').SyncResult;
-type PushPreview = import('./vcs').PushPreview;
-type PullRequestState = import('./vcs').PullRequestState;
-type PullRequestPreview = import('./vcs').PullRequestPreview;
-type PullRequestDraft = import('./vcs').PullRequestDraft;
-type CreatePullRequestInput = import('./vcs').CreatePullRequestInput;
-type CreatePullRequestResult = import('./vcs').CreatePullRequestResult;
+import type {
+  VcsCheckpoint,
+  VcsEvent,
+  VcsWorkspaceState,
+  ChangeEntry,
+  WorkingCopyStatus,
+  FileDiffEntry,
+  Bookmark,
+  Remote,
+  OperationEntry,
+  SyncResult,
+  PushPreview,
+  PullRequestState,
+  PullRequestPreview,
+  PullRequestDraft,
+  CreatePullRequestInput,
+  CreatePullRequestResult,
+} from './vcs';
 
-interface SeroEditorAPI {
+export interface SeroEditorAPI {
   /** Read a file from the workspace (dual-mode: container or host). */
   readFile(workspaceId: string, filePath: string): Promise<string>;
   /** Write a file to the workspace (dual-mode: container or host). */
@@ -48,7 +50,7 @@ interface SeroEditorAPI {
   createDir(workspaceId: string, dirPath: string): Promise<boolean>;
 }
 
-interface SeroFileTreeAPI {
+export interface SeroFileTreeAPI {
   /** Start watching a workspace directory for changes. */
   watch(workspaceId: string): Promise<void>;
   /** Stop watching a workspace directory. */
@@ -57,7 +59,7 @@ interface SeroFileTreeAPI {
   onChanged(callback: (data: { workspaceId: string; directories: string[] }) => void): () => void;
 }
 
-interface SeroLspAPI {
+export interface SeroLspAPI {
   /** Start a language server for a workspace/language. */
   start(workspaceId: string, languageId: string): Promise<{ capabilities: Record<string, unknown>; language: string }>;
   /** Stop a language server. */
@@ -74,7 +76,7 @@ interface SeroLspAPI {
   onServerStopped(callback: (data: { workspaceId: string; language: string }) => void): () => void;
 }
 
-interface SeroDebugAPI {
+export interface SeroDebugAPI {
   /** Toggle debug logging on/off. Returns new enabled state. */
   toggle(): Promise<boolean>;
   /** Get current debug logging state. */
@@ -87,7 +89,7 @@ interface SeroDebugAPI {
   onStateChanged(callback: (enabled: boolean) => void): () => void;
 }
 
-interface SeroVcsAPI {
+export interface SeroVcsAPI {
   /** List recent checkpoints for a workspace. */
   listCheckpoints(workspaceId: string, limit?: number): Promise<VcsCheckpoint[]>;
   /** Get current workspace VCS state (current change + checkpoint list). */

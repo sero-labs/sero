@@ -4,7 +4,9 @@
 
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
-import { gatewayServer, tailscale } from './shared-infra';
+import { gatewayServer, tailscale, webChatServer } from './shared-infra';
+import { getGatewayAgentOps, setGatewayEventSink } from '../gateway/agent-bridge';
+import { DiscordAdapter } from '../gateway/channels/discord';
 
 export interface GatewayConfig {
   enabled: boolean;
@@ -82,8 +84,6 @@ export function registerGatewayHandlers(): void {
 export { startGateway, stopGateway };
 
 async function startGateway(): Promise<void> {
-  const { getGatewayAgentOps, setGatewayEventSink } = await import('../gateway/agent-bridge');
-
   // Wire agent operations
   const ops = getGatewayAgentOps();
   if (ops) {
@@ -94,7 +94,6 @@ async function startGateway(): Promise<void> {
 
   // Register web chat HTML so the gateway also serves it at "/" on
   // the same port — essential for Tailscale (single port exposure).
-  const { webChatServer } = await import('./shared-infra');
   gatewayServer.setWebChatHtml(() => webChatServer.buildHtml());
 
   try {
@@ -128,7 +127,6 @@ async function startGateway(): Promise<void> {
   console.log(`[gateway] Discord: ${gatewayConfig.discordBotToken ? 'configured' : 'not configured'}`);
   if (gatewayConfig.discordBotToken && ops) {
     try {
-      const { DiscordAdapter } = await import('../gateway/channels/discord');
       const discord = new DiscordAdapter(gatewayServer, ops, {
         botToken: gatewayConfig.discordBotToken,
         allowedUsers: gatewayConfig.discordAllowedUsers,
@@ -144,7 +142,6 @@ async function startGateway(): Promise<void> {
 async function stopGateway(): Promise<void> {
   await tailscale.unserve();
 
-  const { webChatServer } = await import('./shared-infra');
   await webChatServer.stop();
 
   await gatewayServer.stop();

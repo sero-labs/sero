@@ -1,11 +1,9 @@
 import { create } from 'zustand';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
-import { getLocalItem, setLocalItem, removeLocalItem } from '@/lib/profile-storage';
+import { persistLayout } from '@/lib/persist-layout';
 
 // ── Store ──────────────────────────────────────────────────────
-
-const ACTIVE_WS_KEY = 'sero:workspace:active';
 
 /** Debounced save of expanded state to main process (avoids excessive disk writes). */
 let expandedSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -58,7 +56,7 @@ interface WorkspaceState {
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],
-  activeWorkspaceId: getLocalItem(ACTIVE_WS_KEY) || null,
+  activeWorkspaceId: null,
   isLoading: false,
   error: null,
 
@@ -66,9 +64,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const workspaces = await window.sero.workspace.list();
-
-      // One-time migration: clean up legacy localStorage keys
-      localStorage.removeItem('sero:workspace:collapsed');
 
       set({
         workspaces,
@@ -117,9 +112,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   setActiveWorkspace: (id) => {
-    if (id) setLocalItem(ACTIVE_WS_KEY, id);
-    else removeLocalItem(ACTIVE_WS_KEY);
     set({ activeWorkspaceId: id });
+    persistLayout({ activeWorkspaceId: id });
   },
 
   createWorkspace: async (name, parentPath) => {

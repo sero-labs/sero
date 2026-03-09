@@ -5,7 +5,14 @@
  * electron-workspace.d.ts to keep each file under 500 LOC.
  */
 
-/// <reference path="./electron-workspace.d.ts" />
+import type {
+  SeroEditorAPI,
+  SeroFileTreeAPI,
+  SeroLspAPI,
+  SeroDebugAPI,
+  SeroVcsAPI,
+} from './electron-workspace';
+import type { LayoutState, LoadedLayoutState } from './layout';
 
 import type {
   ProfileInfo,
@@ -280,21 +287,9 @@ interface SeroTerminalAPI {
 
 interface SeroLayoutAPI {
   /** Save UI layout state to disk. */
-  save(state: {
-    mainSidebarOpen: boolean;
-    chatPanelOpen: boolean;
-    favouriteApps: string[];
-    mainSidebarSizePct?: number;
-    chatPanelSizePct?: number;
-  }): Promise<void>;
+  save(state: LayoutState): Promise<void>;
   /** Load UI layout state from disk. Returns null if no saved state. */
-  load(): Promise<{
-    mainSidebarOpen: boolean;
-    chatPanelOpen: boolean;
-    favouriteApps?: string[];
-    mainSidebarSizePct?: number;
-    chatPanelSizePct?: number;
-  } | null>;
+  load(): Promise<LoadedLayoutState | null>;
 }
 
 interface SeroNetAPI {

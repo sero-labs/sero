@@ -8,7 +8,6 @@
 
 import { create } from 'zustand';
 import type { ProfileInfo } from '@/types/ipc';
-import { setStorageProfileId } from '@/lib/profile-storage';
 
 interface ProfileState {
   /** All registered profiles. */
@@ -60,11 +59,6 @@ export async function loadProfiles(): Promise<void> {
       window.sero.profiles.list(),
       window.sero.profiles.getActive(),
     ]);
-
-    // Set the profile ID for localStorage scoping BEFORE any store hydration
-    if (active) {
-      setStorageProfileId(active.id);
-    }
 
     useProfileStore.setState({
       profiles,
