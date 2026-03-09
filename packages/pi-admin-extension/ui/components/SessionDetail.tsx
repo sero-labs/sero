@@ -2,16 +2,18 @@
  * SessionDetail — session message viewer.
  *
  * Reads the JSONL file directly via `readText` (no agent.open side
- * effects). Parses each line into a lightweight entry. Uses natural
- * row heights so short messages are compact and long ones show more
- * preview text without wasted space.
+ * effects). Parses each line into a lightweight entry. Uses CSS
+ * `content-visibility: auto` to skip layout/paint for off-screen
+ * rows — not true virtualisation, but effective for most session sizes.
  */
 
 import { useState, useEffect, useMemo, memo } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
 import { Badge } from '@sero/ui/components/ui/badge';
+import { getSero } from '../hooks/useSeroFiles';
 import type { SessionFileInfo } from '../hooks/useSeroFiles';
+import { formatTime } from '../lib/format';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -50,13 +52,7 @@ export const SessionDetail = memo(function SessionDetail({
 
     const load = async () => {
       try {
-        const sero = (window as unknown as {
-          sero: {
-            sessions: { list(): Promise<{ id: string; path: string }[]> };
-            appState: { readText(p: string): Promise<string | null> };
-          };
-        }).sero;
-
+        const sero = getSero();
         const allSessions = await sero.sessions.list();
         const target = allSessions.find((s) => s.id === sessionId);
         if (!target) {
@@ -124,7 +120,7 @@ export const SessionDetail = memo(function SessionDetail({
         </Badge>
       </div>
 
-      {/* Message list — natural heights, no virtualisation */}
+      {/* Message list — CSS content-visibility for off-screen skip */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {messages.map((msg) => (
           <MessageRow
@@ -242,7 +238,7 @@ const MessageDetailOverlay = memo(function MessageDetailOverlay({
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <pre className="admin-editor px-4 py-3 text-[11px] leading-[1.6] text-foreground/80 whitespace-pre-wrap break-all">
+          <pre className="admin-editor whitespace-pre-wrap break-all px-4 py-3 text-[11px] leading-[1.6] text-foreground/80">
             {jsonText}
           </pre>
         </div>
@@ -333,16 +329,4 @@ function extractPreview(data: Record<string, unknown>): string {
   }
 
   return `[${msg.role || 'message'}]`;
-}
-
-function formatTime(ts: string): string {
-  try {
-    return new Date(ts).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  } catch {
-    return '';
-  }
 }

@@ -204,6 +204,39 @@ the feature appears to work in the UI but silently fails at the agent.
     always a better alternative (Zustand, IPC-backed file state, or the
     layout file).
 
+### Avoid `useEffect` — Prefer Zustand (CRITICAL)
+
+**Do not reach for React `useEffect` as a first resort.** Most uses of
+`useEffect` in this codebase can (and should) be replaced with Zustand
+store actions, subscriptions, or derived state. `useEffect` causes
+unnecessary render cycles, hides data flow, and makes components harder
+to reason about.
+
+**Preferred alternatives:**
+
+| Instead of…                                  | Use…                                                              |
+|----------------------------------------------|-------------------------------------------------------------------|
+| `useEffect` to fetch data on mount           | Zustand async action called from an event handler or store init   |
+| `useEffect` to sync two pieces of state      | Zustand derived state / selector, or compute inline during render |
+| `useEffect` to react to prop/state changes   | Zustand `subscribe()` or `useStore` selector with equality check  |
+| `useEffect` to run cleanup on unmount        | Zustand store `destroy()` / cleanup action                        |
+| `useEffect` + `setState` (set-on-render)     | Compute the value directly — no effect needed                     |
+
+**When `useEffect` is acceptable:**
+
+- Subscribing to **external, non-React sources** (DOM events, IPC listeners,
+  `IntersectionObserver`, timers) that genuinely require setup/teardown.
+- One-shot initialisation in **leaf components** with no store equivalent
+  (e.g. a `ref`-based scroll-to-bottom).
+- Third-party library integration that requires imperative lifecycle hooks.
+
+**Refactor on encounter:** When you touch a file that contains a `useEffect`
+that could be replaced with a Zustand pattern, **refactor it as part of
+your change.** Do not leave avoidable `useEffect` calls behind in files
+you are already modifying.
+
+---
+
 ### Desktop Notifications (`sero:notify` EventBus)
 
 Extensions show native desktop notifications via the shared Pi SDK EventBus —

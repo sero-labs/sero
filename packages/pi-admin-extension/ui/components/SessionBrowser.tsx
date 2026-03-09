@@ -1,11 +1,13 @@
 /**
- * SessionBrowser — session list + virtualized message viewer.
+ * SessionBrowser — session list + message viewer.
  *
  * Sessions can be very large (500KB+ JSONL files with hundreds of
  * messages). We use:
  *  1. Session list from the sessions API (lightweight metadata)
- *  2. On select: load via appState.read and parse incrementally
- *  3. Virtualized rendering — only messages in the viewport are mounted
+ *  2. On select: load via appState.readText and parse JSONL
+ *  3. CSS content-visibility: auto — browser skips layout/paint
+ *     for off-screen rows, keeping scroll smooth without true
+ *     virtualisation.
  */
 
 import { useCallback, memo } from 'react';

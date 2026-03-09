@@ -78,6 +78,7 @@ export const CONFIG_FILES: ConfigFile[] = [
     relativePath: 'agent/.env',
     description: 'Environment variables for extensions (API keys, etc.)',
     sensitive: true,
+    readOnly: true,
   },
 ];
 

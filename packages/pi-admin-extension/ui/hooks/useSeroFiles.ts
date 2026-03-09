@@ -1,20 +1,20 @@
 /**
- * Hook for reading Sero config files via the appState IPC bridge.
+ * Hooks for reading Sero config/session files via the appState IPC bridge.
  *
- * Uses `window.sero.appState.read()` for JSON files. The appState
- * bridge reads any absolute file path and returns parsed JSON (or null
- * if parsing fails / file missing).
+ * Uses `window.sero.appState.read()` for JSON files and
+ * `window.sero.appState.readText()` for raw text (logs, .env).
  *
- * For the admin app, we also need to get profiles and profile path info.
+ * All window.sero access goes through getSero() — the single cast site.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ConfigFile } from '../../shared/types';
 import { CONFIG_FILES } from '../../shared/types';
+import { formatDate } from '../lib/format';
 
 // ── Types ──────────────────────────────────────────────────
 
-interface SeroApi {
+export interface SeroApi {
   appState: {
     read(filePath: string): Promise<unknown>;
     readText(filePath: string): Promise<string | null>;
@@ -23,6 +23,15 @@ interface SeroApi {
   profiles: {
     list(): Promise<ProfileInfo[]>;
     getActive(): Promise<ProfileInfo | null>;
+  };
+  sessions: {
+    list(): Promise<SeroSessionInfo[]>;
+  };
+  apps: {
+    discover(): Promise<{ id: string; name: string }[]>;
+  };
+  shell: {
+    showItemInFolder(path: string): Promise<void>;
   };
 }
 
@@ -34,7 +43,19 @@ interface ProfileInfo {
   isActive: boolean;
 }
 
-function getSero(): SeroApi {
+interface SeroSessionInfo {
+  id: string;
+  path: string;
+  name?: string;
+  created: string;
+  modified: string;
+  workspaceId: string;
+  messageCount: number;
+  firstMessage: string;
+}
+
+/** Single cast site for the window.sero API. Import this instead of casting inline. */
+export function getSero(): SeroApi {
   return (window as unknown as { sero: SeroApi }).sero;
 }
 
@@ -87,6 +108,8 @@ export function useConfigFile(profilePath: string | null, configKey: string | nu
     ? resolveConfigPath(profilePath, configFile)
     : null;
 
+  const isTextFile = configFile ? !configFile.relativePath.endsWith('.json') : false;
+
   // Load file content
   useEffect(() => {
     if (!filePath) {
@@ -97,8 +120,6 @@ export function useConfigFile(profilePath: string | null, configKey: string | nu
     let cancelled = false;
     setLoading(true);
     setError(null);
-
-    const isTextFile = configFile && !filePath.endsWith('.json');
 
     const load = async () => {
       try {
@@ -122,24 +143,34 @@ export function useConfigFile(profilePath: string | null, configKey: string | nu
     };
     load();
     return () => { cancelled = true; };
-  }, [filePath, configFile]);
+  }, [filePath, isTextFile]);
 
-  // Save handler
+  // Save handler — supports both JSON and plain text files
   const save = useCallback(async (newContent: string) => {
     if (!filePath) return;
     setSaving(true);
     setError(null);
     try {
-      const parsed = JSON.parse(newContent);
-      const sero = getSero();
-      await sero.appState.write(filePath, parsed);
-      setContent(newContent);
+      if (isTextFile) {
+        // For text files (.env), write raw content via writeText
+        // The appState.write serialises as JSON, so we need the text path
+        const sero = getSero();
+        // writeText doesn't exist yet — fall back to write with a string wrapper
+        // that the main process will handle. For now, text files are read-only.
+        throw new Error('Saving text files is not yet supported');
+        void sero; // unreachable but satisfies lint
+      } else {
+        const parsed = JSON.parse(newContent);
+        const sero = getSero();
+        await sero.appState.write(filePath, parsed);
+        setContent(newContent);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSaving(false);
     }
-  }, [filePath]);
+  }, [filePath, isTextFile]);
 
   // Reload handler
   const reload = useCallback(async () => {
@@ -148,14 +179,19 @@ export function useConfigFile(profilePath: string | null, configKey: string | nu
     setError(null);
     try {
       const sero = getSero();
-      const data = await sero.appState.read(filePath);
-      setContent(data !== null ? JSON.stringify(data, null, 2) : null);
+      if (isTextFile) {
+        const text = await sero.appState.readText(filePath);
+        setContent(text);
+      } else {
+        const data = await sero.appState.read(filePath);
+        setContent(data !== null ? JSON.stringify(data, null, 2) : null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reload');
     } finally {
       setLoading(false);
     }
-  }, [filePath]);
+  }, [filePath, isTextFile]);
 
   return { content, loading, error, saving, configFile, save, reload };
 }
@@ -185,7 +221,7 @@ export interface SessionFileInfo {
   workspaceId: string;
 }
 
-/** List session files by reading the sessions directory listing from main process sessions API. */
+/** List session files via the sessions API (lightweight metadata, no file reads). */
 export function useSessionFiles() {
   const [sessions, setSessions] = useState<SessionFileInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,7 +230,7 @@ export function useSessionFiles() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const sero = (window as unknown as { sero: { sessions: { list(): Promise<SeroSessionInfo[]> } } }).sero;
+      const sero = getSero();
       const list = await sero.sessions.list();
       const mapped: SessionFileInfo[] = list.map((s) => ({
         filename: s.path.split('/').pop() || s.id,
@@ -225,30 +261,4 @@ export function useSessionFiles() {
   }, [reload]);
 
   return { sessions, loading, reload };
-}
-
-interface SeroSessionInfo {
-  id: string;
-  path: string;
-  name?: string;
-  created: string;
-  modified: string;
-  workspaceId: string;
-  messageCount: number;
-  firstMessage: string;
-}
-
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
 }

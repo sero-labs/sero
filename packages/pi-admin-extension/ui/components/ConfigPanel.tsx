@@ -5,7 +5,7 @@
  * JSON content in an editable textarea on the right. Supports save + reload.
  */
 
-import { useState, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
 import { Badge } from '@sero/ui/components/ui/badge';
@@ -125,6 +125,56 @@ const ConfigFileItem = memo(function ConfigFileItem({
   );
 });
 
+// ── Sensitive file auth gate ───────────────────────────────
+
+/**
+ * Sensitive files (auth.json, .env) require an explicit unlock step
+ * before content is revealed. This prevents accidental exposure of
+ * secrets when someone glances at the screen.
+ */
+function SensitiveAuthGate({
+  label,
+  onUnlock,
+}: {
+  label: string;
+  onUnlock: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-amber-400/70"
+        >
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium text-foreground/80">{label}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground/60">
+          This file contains sensitive data (API keys, tokens).
+        </p>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="border-amber-500/30 text-xs text-amber-400 hover:bg-amber-500/10"
+        onClick={onUnlock}
+      >
+        Reveal contents
+      </Button>
+    </div>
+  );
+}
+
 // ── JSON Editor ────────────────────────────────────────────
 
 function ConfigEditor({
@@ -139,20 +189,35 @@ function ConfigEditor({
 
   const [editContent, setEditContent] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [sensitiveUnlocked, setSensitiveUnlocked] = useState(false);
 
-  // When content loads, sync to edit state
+  // Reset edit state AND re-lock sensitive files when switching configs
+  useEffect(() => {
+    setEditContent(null);
+    setParseError(null);
+    setSensitiveUnlocked(false);
+  }, [configKey]);
+
   const displayContent = editContent ?? content;
+
+  const isJsonFile = configFile?.relativePath.endsWith('.json') ?? true;
+  const isSensitive = configFile?.sensitive ?? false;
+  const isReadOnly = configFile?.readOnly ?? false;
 
   const handleEdit = useCallback((value: string) => {
     setEditContent(value);
-    // Validate JSON
-    try {
-      JSON.parse(value);
+    // Validate JSON (skip for non-JSON files like .env)
+    if (isJsonFile) {
+      try {
+        JSON.parse(value);
+        setParseError(null);
+      } catch (err) {
+        setParseError(err instanceof Error ? err.message : 'Invalid JSON');
+      }
+    } else {
       setParseError(null);
-    } catch (err) {
-      setParseError(err instanceof Error ? err.message : 'Invalid JSON');
     }
-  }, []);
+  }, [isJsonFile]);
 
   const handleSave = useCallback(async () => {
     if (!editContent || parseError) return;
@@ -172,14 +237,22 @@ function ConfigEditor({
   }, []);
 
   const hasChanges = editContent !== null && editContent !== content;
-  const isSensitive = configFile?.sensitive ?? false;
-  const isReadOnly = configFile?.readOnly ?? false;
 
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="admin-loading text-xs text-muted-foreground">Loading…</div>
       </div>
+    );
+  }
+
+  // Gate sensitive files behind an explicit unlock
+  if (isSensitive && !sensitiveUnlocked) {
+    return (
+      <SensitiveAuthGate
+        label={configFile?.label ?? configKey}
+        onUnlock={() => setSensitiveUnlocked(true)}
+      />
     );
   }
 
@@ -196,6 +269,16 @@ function ConfigEditor({
           )}
         </div>
         <div className="flex items-center gap-1.5">
+          {isSensitive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[11px] text-amber-400/70"
+              onClick={() => setSensitiveUnlocked(false)}
+            >
+              Lock
+            </Button>
+          )}
           {hasChanges && (
             <>
               <Button
@@ -252,6 +335,7 @@ function ConfigEditor({
               'px-4 py-3 text-[12px] leading-[1.6] text-foreground/90',
               isReadOnly && 'opacity-60 cursor-default',
             )}
+            // fieldSizing: 'content' is Chromium-only (Chrome 123+), fine for Electron
             style={{ fieldSizing: 'content' } as React.CSSProperties}
           />
         )}

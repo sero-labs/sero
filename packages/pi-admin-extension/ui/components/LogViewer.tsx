@@ -3,14 +3,17 @@
  *
  * Lists known log files (electron, vite, remotes) on the left,
  * shows the selected log's tail on the right with auto-scroll.
+ * Large logs are capped at MAX_DISPLAY_LINES to avoid jank.
  */
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
-import { Badge } from '@sero/ui/components/ui/badge';
 import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
+import { getSero } from '../hooks/useSeroFiles';
 
+/** Max lines rendered. Logs beyond this show only the tail. */
+const MAX_DISPLAY_LINES = 5000;
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -32,31 +35,23 @@ export const LogViewer = memo(function LogViewer() {
   const [selectedKey, setSelectedKey] = useState<string>('electron');
   const [discovering, setDiscovering] = useState(true);
 
-  // Discover remote logs from session list
+  // Discover remote logs from app discovery API
   useEffect(() => {
     const discover = async () => {
       try {
-        const sero = (window as unknown as { sero: { sessions: { list(): Promise<{ id: string; path: string }[]> } } }).sero;
-        const sessions = await sero.sessions.list();
-        // Extract unique remote names from session paths (heuristic)
-        const remoteNames = new Set<string>();
-        // Instead, scan for known remotes from the app discovery
-        const apps = await (window as unknown as { sero: { apps: { discover(): Promise<{ id: string; name: string }[]> } } }).sero.apps.discover();
-        for (const app of apps) {
-          remoteNames.add(app.id);
-        }
+        const sero = getSero();
+        const apps = await sero.apps.discover();
 
-        const remoteLogs: LogEntry[] = [];
-        for (const name of Array.from(remoteNames).sort()) {
-          remoteLogs.push({
+        const remoteLogs: LogEntry[] = apps
+          .map((app) => app.id)
+          .sort()
+          .map((name) => ({
             key: `remote-${name}`,
             label: `Remote: ${name}`,
             path: `/tmp/sero-remote-${name}.log`,
-          });
-        }
+          }));
 
         setLogs([...KNOWN_LOGS, ...remoteLogs]);
-        void sessions; // used for type narrowing only
       } catch {
         // Discovery failed — keep known logs only
       } finally {
@@ -131,7 +126,7 @@ const LogSidebar = memo(function LogSidebar({
             )}>
               {log.label}
             </span>
-            <p className="mt-0.5 text-[10px] text-muted-foreground/40 font-mono">
+            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/40">
               {log.path}
             </p>
           </button>
@@ -145,6 +140,7 @@ const LogSidebar = memo(function LogSidebar({
 
 function LogContent({ log }: { log: LogEntry }) {
   const [lines, setLines] = useState<string[]>([]);
+  const [totalLines, setTotalLines] = useState(0);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,20 +149,23 @@ function LogContent({ log }: { log: LogEntry }) {
 
   const loadLog = useCallback(async () => {
     try {
-      const sero = (window as unknown as {
-        sero: { appState: { readText(p: string): Promise<string | null> } };
-      }).sero;
+      const sero = getSero();
       const text = await sero.appState.readText(log.path);
       if (text === null) {
         setLines([]);
+        setTotalLines(0);
         setError('File not found');
       } else {
-        setLines(text.split('\n'));
+        const allLines = text.split('\n');
+        setTotalLines(allLines.length);
+        // Cap displayed lines to avoid jank on large logs
+        setLines(allLines.slice(-MAX_DISPLAY_LINES));
         setError(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to read log');
       setLines([]);
+      setTotalLines(0);
     } finally {
       setLoading(false);
     }
@@ -200,7 +199,7 @@ function LogContent({ log }: { log: LogEntry }) {
 
   const handleReveal = useCallback(async () => {
     try {
-      const sero = (window as unknown as { sero: { shell: { showItemInFolder(p: string): Promise<void> } } }).sero;
+      const sero = getSero();
       await sero.shell.showItemInFolder(log.path);
     } catch {
       // Ignore
@@ -214,6 +213,9 @@ function LogContent({ log }: { log: LogEntry }) {
       </div>
     );
   }
+
+  // Line numbers offset when truncated
+  const lineOffset = totalLines - lines.length;
 
   return (
     <div className="flex h-full flex-col">
@@ -261,16 +263,25 @@ function LogContent({ log }: { log: LogEntry }) {
         </div>
       )}
 
+      {/* Truncation notice */}
+      {lineOffset > 0 && (
+        <div className="border-b border-amber-500/20 bg-amber-500/5 px-4 py-1">
+          <p className="text-[10px] text-amber-400/70">
+            Showing last {MAX_DISPLAY_LINES.toLocaleString()} of {totalLines.toLocaleString()} lines
+          </p>
+        </div>
+      )}
+
       {/* Log lines */}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="px-4 py-2 font-mono text-[11px] leading-[1.6]">
           {lines.length === 0 ? (
-            <p className="text-muted-foreground/40 italic">Empty log</p>
+            <p className="italic text-muted-foreground/40">Empty log</p>
           ) : (
             lines.map((line, i) => (
               <div key={i} className="admin-log-line flex gap-2 rounded px-1 py-px">
-                <span className="w-8 shrink-0 text-right text-muted-foreground/30 select-none">
-                  {i + 1}
+                <span className="w-8 shrink-0 select-none text-right text-muted-foreground/30">
+                  {lineOffset + i + 1}
                 </span>
                 <span className={cn(
                   'flex-1 break-all',
@@ -289,7 +300,7 @@ function LogContent({ log }: { log: LogEntry }) {
       {/* Footer */}
       <div className="border-t border-border/30 px-4 py-1.5">
         <p className="text-[10px] text-muted-foreground/40">
-          {lines.length} lines
+          {totalLines} lines
           {autoRefresh && (
             <span className="ml-2 text-emerald-400/50">● Refreshing every 3s</span>
           )}

@@ -97,6 +97,13 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
+          // Sensitive files are blocked from agent/CLI access entirely
+          if (cf.sensitive) {
+            return {
+              content: [{ type: 'text', text: `Access denied: "${cf.label}" contains sensitive data. View it in the Admin UI.` }],
+              details: {},
+            };
+          }
           const filePath = path.resolve(seroHome, cf.relativePath);
           const content = await safeReadFile(filePath);
           if (content === null) {
@@ -105,16 +112,8 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
-          // Mask sensitive values
-          let display = content;
-          if (cf.sensitive) {
-            display = content.replace(
-              /("(?:key|token|secret|password|apiKey)":\s*")([^"]{4})[^"]*(")/gi,
-              '$1$2****$3',
-            );
-          }
           return {
-            content: [{ type: 'text', text: `# ${cf.label}\n\n${display}` }],
+            content: [{ type: 'text', text: `# ${cf.label}\n\n${content}` }],
             details: {},
           };
         }

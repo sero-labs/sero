@@ -4,9 +4,9 @@
  * Three-tab interface:
  *  - Config: browse and edit Sero configuration files
  *  - Logs: view Sero log files with auto-refresh
- *  - Sessions: browse session data with virtualized rendering
+ *  - Sessions: browse session data (CSS content-visibility skip)
  *
- * Uses View Transitions API for smooth tab switching.
+ * Uses CSS fade transitions for smooth tab switching.
  * Profile-aware — shows active profile and reads from the correct path.
  */
 
