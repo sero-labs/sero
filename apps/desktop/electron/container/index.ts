@@ -39,9 +39,12 @@ export { DevServerRegistry };
 
 const execFileAsync = promisify(execFile);
 
-/** Shell-safe quote for env values (handles tokens with special chars). */
-function shQuoteValue(value: string): string {
-  return `'${value.replace(/'/g, `'"'"'`)}'`;
+/**
+ * Validate that an env var name is safe (alphanumeric + underscore only).
+ * Rejects names containing shell metacharacters.
+ */
+function isValidEnvName(name: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
 }
 
 export class ContainerManager {
@@ -202,29 +205,31 @@ export class ContainerManager {
 
     if (cwd) args.push('-w', cwd);
 
-    // Inject env vars: dev servers bind 0.0.0.0, proxy for internet access,
-    // and GitHub auth (GH_TOKEN, git credential config) when available.
-    // sh -c doesn't source profile.d, so we prepend exports directly.
-    const envParts = ['export HOST=0.0.0.0'];
+    // Inject env vars via container CLI's --env flags (not shell concatenation).
+    // This avoids shell injection risks from env value interpolation.
+    args.push('--env', 'HOST=0.0.0.0');
     if (this.proxyUrl) {
-      envParts.push(
-        `HTTP_PROXY=${this.proxyUrl}`,
-        `HTTPS_PROXY=${this.proxyUrl}`,
-        `http_proxy=${this.proxyUrl}`,
-        `https_proxy=${this.proxyUrl}`,
-        `NO_PROXY=localhost,127.0.0.1,192.168.64.0/24`,
-        `no_proxy=localhost,127.0.0.1,192.168.64.0/24`,
+      args.push(
+        '--env', `HTTP_PROXY=${this.proxyUrl}`,
+        '--env', `HTTPS_PROXY=${this.proxyUrl}`,
+        '--env', `http_proxy=${this.proxyUrl}`,
+        '--env', `https_proxy=${this.proxyUrl}`,
+        '--env', 'NO_PROXY=localhost,127.0.0.1,192.168.64.0/24',
+        '--env', 'no_proxy=localhost,127.0.0.1,192.168.64.0/24',
       );
     }
     // Inject GitHub auth env vars (GH_TOKEN, GIT_ASKPASS, URL rewrites)
     if (this.getExtraEnvVars) {
       const extra = this.getExtraEnvVars();
       for (const [key, value] of Object.entries(extra)) {
-        envParts.push(`${key}=${shQuoteValue(value)}`);
+        if (!isValidEnvName(key)) {
+          console.warn(`[container] Skipping invalid env var name: ${key}`);
+          continue;
+        }
+        args.push('--env', `${key}=${value}`);
       }
     }
-    const envPrefix = envParts.join(' ') + ';';
-    args.push(cid, 'sh', '-c', `${envPrefix}${command}`);
+    args.push(cid, 'sh', '-c', command);
 
     const timeout = timeoutMs ?? 120_000;
 

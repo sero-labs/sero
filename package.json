@@ -8,9 +8,11 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "rebuild-electron": "bash apps/desktop/scripts/rebuild-electron.sh",
-    "clean": "rm -rf node_modules apps/*/.__mf__temp packages/*/.__mf__temp apps/*/node_modules packages/*/node_modules apps/*/.next apps/*/.turbo packages/*/.turbo apps/*/dist packages/*/dist apps/*/out packages/*/out .turbo"
+    "clean": "rm -rf node_modules apps/*/.__mf__temp packages/*/.__mf__temp apps/*/node_modules packages/*/node_modules apps/*/.next apps/*/.turbo packages/*/.turbo apps/*/dist packages/*/dist apps/*/out packages/*/out .turbo",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "turbo": "^2.5.0"
   }
 }

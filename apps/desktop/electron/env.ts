@@ -120,6 +120,9 @@ export const SERO_HOME = resolveProfileHome();
 /** Sero's agent directory — replaces ~/.pi/agent for all SDK calls. */
 export const SERO_AGENT_DIR = path.join(SERO_HOME, 'agent');
 
+/** Path to auth.json (API keys + OAuth tokens). Used for permission hardening. */
+export const AUTH_JSON_PATH = path.join(SERO_AGENT_DIR, 'auth.json');
+
 // Re-read the registry ONCE (not per-constant) after resolveProfileHome()
 // has run any auto-repair. This avoids 3× synchronous file reads at startup.
 const _postResolveRegistry = process.env.SERO_HOME_OVERRIDE

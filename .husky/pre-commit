@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+
+# Pre-commit secret scanning with gitleaks.
+# Prevents accidental commits of API keys, tokens, and passwords.
+#
+# Install gitleaks: brew install gitleaks
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks detect --verbose --config .gitleaks.toml
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "🚨 gitleaks found potential secrets in staged files."
+    echo "   Review the findings above and remove any secrets before committing."
+    echo "   To bypass (use with caution): git commit --no-verify"
+    exit 1
+  fi
+else
+  echo "⚠️  gitleaks not installed — skipping secret scan (brew install gitleaks)"
+fi

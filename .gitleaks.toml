@@ -1,0 +1,21 @@
+# Gitleaks configuration for Sero monorepo
+# https://github.com/gitleaks/gitleaks
+
+title = "Sero Secret Scanning"
+
+[allowlist]
+  description = "Known safe patterns"
+
+  # Test fixtures and example configs
+  paths = [
+    '''\.test\.ts$''',
+    '''\.spec\.ts$''',
+    '''__tests__/''',
+    '''\.md$''',
+  ]
+
+  # Known non-secret patterns (e.g. placeholder values)
+  regexes = [
+    '''sk-test-[a-zA-Z0-9]+''',
+    '''PLACEHOLDER''',
+  ]

@@ -3,6 +3,12 @@
  *
  * A single bearer token is generated on first run and stored on disk.
  * All gateway clients must present this token to connect.
+ *
+ * TODO(security): Per-workspace token scoping — the current flat access model
+ * lets any authenticated client access all workspaces. For a single-user app
+ * with a secret token on localhost this is acceptable, but if multi-user or
+ * untrusted client scenarios arise, add workspace-scoped tokens.
+ * See docs/security/outstanding-hardening.md #1.
  */
 
 import crypto from 'crypto';
