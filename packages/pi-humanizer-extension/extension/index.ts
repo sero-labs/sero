@@ -1,12 +1,12 @@
 /**
- * Humanizer Extension — Pi extension for humanizing AI-generated text.
+ * Humanizer Extension — Pi extension for text transformation.
  *
- * Provides a lightweight tool so the agent can query humanization history,
- * and registers the humanizer skill so the agent can apply it directly.
+ * Provides a tool for querying/saving transformation history,
+ * and registers the humanizer skill for AI-pattern removal.
  *
  * State: `~/.sero-ui/apps/humanizer/state.json` (global scope)
  * Skills: `skills/humanizer/SKILL.md`
- * Tools: humanize (list history)
+ * Tools: humanize (list/save history)
  * Commands: /humanize
  */
 
@@ -54,22 +54,24 @@ async function writeState(filePath: string, state: HumanizerState): Promise<void
 const Params = Type.Object({
   action: StringEnum(['list', 'save'] as const),
   input: Type.Optional(Type.String({ description: 'Original text (for save)' })),
-  output: Type.Optional(Type.String({ description: 'Humanized text (for save)' })),
-  instructions: Type.Optional(Type.String({ description: 'Instructions used (for save)' })),
+  output: Type.Optional(Type.String({ description: 'Transformed text (for save)' })),
+  instructions: Type.Optional(Type.String({ description: 'Instructions/modifiers used (for save)' })),
+  styles: Type.Optional(Type.String({ description: 'Comma-separated style IDs used (for save)' })),
 });
 
 // ── Helpers ────────────────────────────────────────────────
 
 function formatHistory(state: HumanizerState): string {
   if (state.entries.length === 0) {
-    return 'No humanizations yet. Use the Humanizer app or ask me to humanize some text.';
+    return 'No transformations yet. Use the Humanizer app or ask me to transform some text.';
   }
   const lines = state.entries.slice(-10).map((e, i) => {
     const preview = e.inputText.slice(0, 80).replace(/\n/g, ' ');
-    const instr = e.instructions ? ` (instructions: ${e.instructions.slice(0, 40)})` : '';
-    return `${i + 1}. [${e.createdAt}]${instr}\n   Input: "${preview}..."`;
+    const styleStr = e.styleIds?.length ? ` [styles: ${e.styleIds.join(', ')}]` : '';
+    const instrStr = e.instructions ? ` (modifiers: ${e.instructions.slice(0, 40)})` : '';
+    return `${i + 1}. [${e.createdAt}]${styleStr}${instrStr}\n   Input: "${preview}..."`;
   });
-  return `Recent humanizations (${state.entries.length} total):\n\n${lines.join('\n\n')}`;
+  return `Recent transformations (${state.entries.length} total):\n\n${lines.join('\n\n')}`;
 }
 
 // ── Extension ──────────────────────────────────────────────
@@ -79,7 +81,8 @@ export default function (pi: ExtensionAPI) {
     name: 'humanize',
     label: 'Humanize',
     description:
-      'Manage humanized text history. Actions: list (show recent humanizations), save (store a humanization result — requires input + output).',
+      'Manage text transformation history. Actions: list (show recent transformations), ' +
+      'save (store a transformation — requires input + output, optional styles + instructions).',
     parameters: Params,
 
     async execute(_toolCallId, params) {
@@ -107,12 +110,13 @@ export default function (pi: ExtensionAPI) {
             instructions: params.instructions ?? '',
             outputText: params.output,
             createdAt: new Date().toISOString(),
+            styleIds: params.styles ? params.styles.split(',').map((s) => s.trim()) : undefined,
           };
           state.entries = [...state.entries.slice(-19), entry]; // keep last 20
           state.nextId++;
           await writeState(filePath, state);
           return {
-            content: [{ type: 'text', text: `Saved humanization #${entry.id}` }],
+            content: [{ type: 'text', text: `Saved transformation #${entry.id}` }],
             details: {},
           };
         }
@@ -147,10 +151,10 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand('humanize', {
-    description: 'Open the Humanizer — remove AI writing patterns from text',
+    description: 'Open the Humanizer — transform text with creative writing styles',
     handler: async (_args, _ctx) => {
       pi.sendUserMessage(
-        'Show my recent humanizations using the humanize tool with action list.',
+        'Show my recent transformations using the humanize tool with action list.',
       );
     },
   });

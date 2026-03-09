@@ -1,13 +1,13 @@
 /**
- * Built-in instruction presets for the humanizer.
+ * Built-in modifiers for the Humanizer.
  *
- * These are always available and cannot be deleted.
- * Users can create additional custom presets that persist in state.
+ * Modifiers layer additional constraints on top of the selected style(s).
+ * They're always available and cannot be deleted. Users can create custom modifiers.
  */
 
-import type { InstructionPreset } from '../../shared/types';
+import type { Modifier } from '../../shared/types';
 
-export const BUILT_IN_PRESETS: InstructionPreset[] = [
+export const BUILT_IN_MODIFIERS: Modifier[] = [
   {
     id: 'casual',
     label: 'Casual',
@@ -15,15 +15,9 @@ export const BUILT_IN_PRESETS: InstructionPreset[] = [
     builtIn: true,
   },
   {
-    id: 'academic',
-    label: 'Academic',
-    prompt: 'Maintain a formal academic register. Use precise language and cite-ready phrasing. Avoid first person.',
-    builtIn: true,
-  },
-  {
-    id: 'technical',
-    label: 'Technical',
-    prompt: 'Preserve all technical terms, code references, and domain-specific jargon exactly. Only humanize the surrounding prose.',
+    id: 'formal',
+    label: 'Formal',
+    prompt: 'Maintain a formal register. Use precise language. Avoid contractions and slang.',
     builtIn: true,
   },
   {
@@ -47,7 +41,13 @@ export const BUILT_IN_PRESETS: InstructionPreset[] = [
   {
     id: 'minimal',
     label: 'Minimal edits',
-    prompt: 'Make the fewest changes possible. Only fix the most obvious AI tells — leave everything else untouched.',
+    prompt: 'Make the fewest changes possible. Preserve the original structure and most wording.',
+    builtIn: true,
+  },
+  {
+    id: 'expand',
+    label: 'Expand',
+    prompt: 'Flesh out the ideas fully. Add detail, examples, and texture. Don\'t be brief.',
     builtIn: true,
   },
 ];

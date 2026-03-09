@@ -20,6 +20,12 @@ export interface SeroAppStateBridge {
 
 export interface SeroAppAgentBridge {
   prompt(appId: string, workspaceId: string, text: string): Promise<string>;
+  promptStream?(
+    appId: string,
+    workspaceId: string,
+    text: string,
+    onDelta: (delta: string) => void,
+  ): Promise<string>;
 }
 
 // ── Model types (subset of desktop's ipc types) ──────────────

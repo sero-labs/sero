@@ -278,6 +278,28 @@ contextBridge.exposeInMainWorld('sero', {
   appAgent: {
     prompt: (appId: string, workspaceId: string, text: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
+
+    promptStream: (
+      appId: string,
+      workspaceId: string,
+      text: string,
+      onDelta: (delta: string) => void,
+    ): Promise<string> => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { appId: string; workspaceId: string; delta: string },
+      ) => {
+        if (data.appId === appId && data.workspaceId === workspaceId) {
+          onDelta(data.delta);
+        }
+      };
+      ipcRenderer.on(IpcChannels.appAgent.streamEvent, handler);
+      return ipcRenderer
+        .invoke(IpcChannels.appAgent.promptStream, appId, workspaceId, text)
+        .finally(() => {
+          ipcRenderer.removeListener(IpcChannels.appAgent.streamEvent, handler);
+        });
+    },
   },
 
   appControl: {

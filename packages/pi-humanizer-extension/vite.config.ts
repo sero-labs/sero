@@ -28,6 +28,7 @@ export default defineConfig({
         'react/': { singleton: true },
         'react-dom': { singleton: true },
         'react-dom/': { singleton: true },
+        streamdown: { singleton: true },
       },
     }),
   ],

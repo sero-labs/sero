@@ -140,16 +140,21 @@ function DetailPane({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Instruction badge + load button */}
+      {/* Style + instruction badges + load button */}
       <div className="flex items-center justify-between border-b border-border/10 px-4 py-2">
         <div className="flex items-center gap-2">
+          {entry.styleIds && entry.styleIds.length > 0 && (
+            <span className="rounded-md bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-400/70">
+              {entry.styleIds.join(' + ')}
+            </span>
+          )}
           {entry.instructions ? (
             <span className="rounded-md bg-indigo-500/10 px-2 py-0.5 text-[10px] font-medium text-indigo-400/70">
-              {entry.instructions}
+              {entry.instructions.length > 50 ? `${entry.instructions.slice(0, 50)}…` : entry.instructions}
             </span>
-          ) : (
-            <span className="text-[10px] text-muted-foreground/30">No instructions</span>
-          )}
+          ) : !entry.styleIds?.length ? (
+            <span className="text-[10px] text-muted-foreground/30">No style or instructions</span>
+          ) : null}
         </div>
         <Button
           size="sm"
@@ -180,7 +185,7 @@ function DetailPane({
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="px-4 py-1.5">
             <span className="text-[10px] font-semibold tracking-wider uppercase text-emerald-400/60">
-              Humanized
+              Transformed
             </span>
           </div>
           <ScrollArea className="min-h-0 flex-1">

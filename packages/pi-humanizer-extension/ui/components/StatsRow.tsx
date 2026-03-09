@@ -1,16 +1,18 @@
 /**
  * StatsRow — inline word/char/reading-time display.
  *
- * Compact single-line stats shown beneath text areas.
+ * Memoized to skip rerenders when the text prop is unchanged
+ * (e.g. the input-side footer during streaming).
  */
 
+import { memo } from 'react';
 import { computeStats } from '../lib/text-stats';
 
 interface StatsRowProps {
   text: string;
 }
 
-export function StatsRow({ text }: StatsRowProps) {
+export const StatsRow = memo(function StatsRow({ text }: StatsRowProps) {
   const stats = computeStats(text);
   if (stats.words === 0) return null;
 
@@ -23,4 +25,4 @@ export function StatsRow({ text }: StatsRowProps) {
       <span>{stats.readingTime} read</span>
     </div>
   );
-}
+});

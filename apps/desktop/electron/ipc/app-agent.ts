@@ -206,6 +206,53 @@ export function registerAppAgentHandlers(): void {
     },
   );
 
+  /**
+   * sero:app-agent:prompt-stream
+   *
+   * Like prompt, but pushes text_delta events to the renderer as they
+   * arrive via `webContents.send()`. The renderer subscribes to
+   * `sero:app-agent:stream-event` before invoking this. Returns the
+   * final accumulated text.
+   */
+  ipcMain.handle(
+    IpcChannels.appAgent.promptStream,
+    async (
+      event,
+      appId: string,
+      workspaceId: string,
+      text: string,
+    ): Promise<string> => {
+      const session = await getOrCreateAppSession(appId, workspaceId);
+      const sender = event.sender;
+
+      let responseText = '';
+      const unsubscribe = session.subscribe((sessionEvent) => {
+        if (sessionEvent.type === 'message_update') {
+          const ame = sessionEvent.assistantMessageEvent;
+          if (ame.type === 'text_delta') {
+            responseText += ame.delta;
+            // Push each delta to the renderer immediately
+            if (!sender.isDestroyed()) {
+              sender.send(IpcChannels.appAgent.streamEvent, {
+                appId,
+                workspaceId,
+                delta: ame.delta,
+              });
+            }
+          }
+        }
+      });
+
+      try {
+        await session.prompt(text);
+      } finally {
+        unsubscribe();
+      }
+
+      return responseText;
+    },
+  );
+
   // ── Cleanup on app quit ────────────────────────────────────
   app.on('before-quit', () => {
     disposeAllAppSessions();

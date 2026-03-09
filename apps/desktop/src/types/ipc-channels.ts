@@ -107,6 +107,10 @@ export const IpcChannels = {
   appAgent: {
     /** Send a prompt to an app's dedicated agent session. Returns text response. */
     prompt: 'sero:app-agent:prompt',
+    /** Send a prompt and stream text deltas back. Returns final text. */
+    promptStream: 'sero:app-agent:prompt-stream',
+    /** Push channel for text deltas during streaming. */
+    streamEvent: 'sero:app-agent:stream-event',
   },
   models: {
     /** List all available models (session-independent). Returns AvailableModelGroup[]. */

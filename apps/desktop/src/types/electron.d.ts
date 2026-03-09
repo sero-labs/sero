@@ -219,6 +219,17 @@ interface SeroAppAgentAPI {
    * Returns the full text response. No active chat session required.
    */
   prompt(appId: string, workspaceId: string, text: string): Promise<string>;
+
+  /**
+   * Send a prompt and stream text deltas back via callback.
+   * Returns the final accumulated text when complete.
+   */
+  promptStream(
+    appId: string,
+    workspaceId: string,
+    text: string,
+    onDelta: (delta: string) => void,
+  ): Promise<string>;
 }
 
 interface SeroAuthAPI {

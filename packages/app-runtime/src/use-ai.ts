@@ -18,6 +18,8 @@ import { getSeroApi } from './sero-bridge';
 export interface AppAI {
   /** Send a prompt to the app's dedicated agent session. Returns the LLM's text response. */
   prompt: (text: string) => Promise<string>;
+  /** Send a prompt and receive text deltas as they stream in. Returns the final full text. */
+  promptStream: (text: string, onDelta: (delta: string) => void) => Promise<string>;
 }
 
 export function useAI(): AppAI {
@@ -35,5 +37,23 @@ export function useAI(): AppAI {
     [ctx],
   );
 
-  return useMemo(() => ({ prompt }), [prompt]);
+  const promptStream = useCallback(
+    async (text: string, onDelta: (delta: string) => void): Promise<string> => {
+      if (!ctx?.appId || !ctx?.workspaceId) {
+        throw new Error('[useAI] No app context — must be used inside a Sero app');
+      }
+
+      const { appAgent } = getSeroApi();
+
+      // Fall back to non-streaming if bridge doesn't support it
+      if (!appAgent.promptStream) {
+        return appAgent.prompt(ctx.appId, ctx.workspaceId, text);
+      }
+
+      return appAgent.promptStream(ctx.appId, ctx.workspaceId, text, onDelta);
+    },
+    [ctx],
+  );
+
+  return useMemo(() => ({ prompt, promptStream }), [prompt, promptStream]);
 }

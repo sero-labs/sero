@@ -1,8 +1,10 @@
 @import "tailwindcss";
+@import "streamdown/styles.css";
 
 @source "../../ui/src/components";
 @source "./components";
 @source "./lib";
+@source "../../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
 

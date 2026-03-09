@@ -1,27 +1,34 @@
 /**
  * HumanizerApp — main Sero app component.
  *
+ * Supports multiple writing styles (Humanizer, Sci-Fi, 70's Rock, etc.)
+ * that can be combined. Modifiers layer additional constraints on top.
+ *
  * Two layout modes driven by View Transitions API:
  *  - Input mode: full-width textarea filling the space
- *  - Result mode: side-by-side split — original left, humanized right
+ *  - Result mode: side-by-side split — original left, transformed right
  *
- * The transition between modes is animated via named view-transition
- * elements so the input pane smoothly shrinks while output slides in.
+ * Performance: during streaming, incoming deltas are buffered and
+ * flushed to React state once per animation frame (~60 fps). Heavy
+ * child subtrees (Header, Toolbar) are wrapped in React.memo so they
+ * skip rerenders caused by output text changes.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, memo } from 'react';
 import { useAppState, useAI } from '@sero/app-runtime';
 import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
 import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
-import type { HumanizerState, HumanizeEntry, InstructionPreset } from '../shared/types';
+import { Streamdown } from 'streamdown';
+import type { HumanizerState, HumanizeEntry, Style, Modifier } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
-import { buildHumanizePrompt } from './humanize-prompt';
-import { InstructionPresets } from './components/InstructionPresets';
+import { buildPrompt, getActionLabel, getPlaceholder } from './prompt-builder';
+import { Header } from './components/Header';
+import { Toolbar } from './components/Toolbar';
 import { HistoryPanel } from './components/HistoryPanel';
-import { StatsRow } from './components/StatsRow';
 import { PanelActions } from './components/PanelActions';
-import { BUILT_IN_PRESETS } from './lib/presets';
+import { PaneHeader, PaneFooter } from './components/EditorPanes';
+import { BUILT_IN_STYLES } from './lib/styles';
+import { BUILT_IN_MODIFIERS } from './lib/presets';
 import { withViewTransition } from './lib/view-transition';
 import './styles.css';
 
@@ -37,25 +44,46 @@ export function HumanizerApp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [activePresetIds, setActivePresetIds] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState(false);
+  const [activeStyleIds, setActiveStyleIds] = useState<Set<string>>(new Set());
+  const [activeModifierIds, setActiveModifierIds] = useState<Set<string>>(new Set());
 
-  const allPresets = useMemo(
-    () => [...BUILT_IN_PRESETS, ...(state.customPresets ?? [])],
+  // ── rAF batching refs for streaming ──────────────────────
+
+  const pendingDeltaRef = useRef('');
+  const rafIdRef = useRef(0);
+
+  // ── Derived data ─────────────────────────────────────────
+
+  const allStyles = useMemo(
+    () => [...BUILT_IN_STYLES, ...(state.customStyles ?? [])],
+    [state.customStyles],
+  );
+
+  const allModifiers = useMemo(
+    () => [...BUILT_IN_MODIFIERS, ...(state.customPresets ?? [])],
     [state.customPresets],
   );
 
-  const combinedInstructions = useMemo(() => {
-    if (activePresetIds.size === 0) return '';
-    return allPresets
-      .filter((p) => activePresetIds.has(p.id))
-      .map((p) => p.prompt)
-      .join(' ');
-  }, [activePresetIds, allPresets]);
+  const activeStyles = useMemo(
+    () => allStyles.filter((s) => activeStyleIds.has(s.id)),
+    [allStyles, activeStyleIds],
+  );
 
-  // ── Preset management ────────────────────────────────────
+  const activeModifiers = useMemo(
+    () => allModifiers.filter((m) => activeModifierIds.has(m.id)),
+    [allModifiers, activeModifierIds],
+  );
 
-  const handleTogglePreset = useCallback((id: string) => {
-    setActivePresetIds((prev) => {
+  const actionLabel = useMemo(() => getActionLabel(activeStyles), [activeStyles]);
+  const placeholder = useMemo(() => getPlaceholder(activeStyles), [activeStyles]);
+  const hasInput = useMemo(() => inputText.trim().length > 0, [inputText]);
+  const hasOutput = outputText.length > 0;
+
+  // ── Style management ─────────────────────────────────────
+
+  const handleToggleStyle = useCallback((id: string) => {
+    setActiveStyleIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -63,19 +91,55 @@ export function HumanizerApp() {
     });
   }, []);
 
-  const handleAddCustomPreset = useCallback(
-    (preset: InstructionPreset) => {
+  const handleAddCustomStyle = useCallback(
+    (style: Style) => {
       updateState((prev) => ({
         ...prev,
-        customPresets: [...(prev.customPresets ?? []), preset],
+        customStyles: [...(prev.customStyles ?? []), style],
       }));
     },
     [updateState],
   );
 
-  const handleRemoveCustomPreset = useCallback(
+  const handleRemoveCustomStyle = useCallback(
     (id: string) => {
-      setActivePresetIds((prev) => {
+      setActiveStyleIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      updateState((prev) => ({
+        ...prev,
+        customStyles: (prev.customStyles ?? []).filter((s) => s.id !== id),
+      }));
+    },
+    [updateState],
+  );
+
+  // ── Modifier management ──────────────────────────────────
+
+  const handleToggleModifier = useCallback((id: string) => {
+    setActiveModifierIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleAddCustomModifier = useCallback(
+    (modifier: Modifier) => {
+      updateState((prev) => ({
+        ...prev,
+        customPresets: [...(prev.customPresets ?? []), modifier],
+      }));
+    },
+    [updateState],
+  );
+
+  const handleRemoveCustomModifier = useCallback(
+    (id: string) => {
+      setActiveModifierIds((prev) => {
         const next = new Set(prev);
         next.delete(id);
         return next;
@@ -88,9 +152,9 @@ export function HumanizerApp() {
     [updateState],
   );
 
-  // ── Humanize ─────────────────────────────────────────────
+  // ── Transform ────────────────────────────────────────────
 
-  const handleHumanize = useCallback(async () => {
+  const handleTransform = useCallback(async () => {
     const text = inputText.trim();
     if (!text) return;
 
@@ -98,36 +162,53 @@ export function HumanizerApp() {
     setError(null);
     setOutputText('');
     setCopied(false);
+    setSaved(false);
+    pendingDeltaRef.current = '';
+
+    let isFirstDelta = true;
 
     try {
-      const prompt = buildHumanizePrompt(text, combinedInstructions || undefined);
-      const response = await ai.prompt(prompt);
-
-      // Animate the layout shift with View Transitions
-      withViewTransition(() => {
-        setOutputText(response);
+      const prompt = buildPrompt({
+        text,
+        styles: activeStyles,
+        modifiers: activeModifiers,
       });
 
-      updateState((prev) => {
-        const entry: HumanizeEntry = {
-          id: prev.nextId,
-          inputText: text,
-          instructions: combinedInstructions,
-          outputText: response,
-          createdAt: new Date().toISOString(),
-        };
-        return {
-          ...prev,
-          entries: [...prev.entries.slice(-19), entry],
-          nextId: prev.nextId + 1,
-        };
+      const response = await ai.promptStream(prompt, (delta) => {
+        if (isFirstDelta) {
+          isFirstDelta = false;
+          // First delta triggers the view transition synchronously
+          withViewTransition(() => {
+            setOutputText(delta);
+          });
+          return;
+        }
+
+        // Buffer subsequent deltas — flush once per animation frame
+        pendingDeltaRef.current += delta;
+        if (!rafIdRef.current) {
+          rafIdRef.current = requestAnimationFrame(() => {
+            const buffered = pendingDeltaRef.current;
+            pendingDeltaRef.current = '';
+            rafIdRef.current = 0;
+            setOutputText((prev) => prev + buffered);
+          });
+        }
       });
+
+      // Flush any remaining buffer and set the authoritative final text
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = 0;
+      }
+      pendingDeltaRef.current = '';
+      setOutputText(response);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Humanization failed');
+      setError(err instanceof Error ? err.message : 'Transformation failed');
     } finally {
       setLoading(false);
     }
-  }, [inputText, combinedInstructions, ai, updateState]);
+  }, [inputText, activeStyles, activeModifiers, ai]);
 
   // ── Actions ──────────────────────────────────────────────
 
@@ -142,11 +223,33 @@ export function HumanizerApp() {
     }
   }, [outputText]);
 
+  const handleSave = useCallback(() => {
+    if (!outputText || saved) return;
+    const modifierText = activeModifiers.map((m) => m.prompt).join(' ');
+    updateState((prev) => {
+      const entry: HumanizeEntry = {
+        id: prev.nextId,
+        inputText: inputText.trim(),
+        instructions: modifierText,
+        outputText,
+        createdAt: new Date().toISOString(),
+        styleIds: activeStyles.map((s) => s.id),
+      };
+      return {
+        ...prev,
+        entries: [...prev.entries.slice(-19), entry],
+        nextId: prev.nextId + 1,
+      };
+    });
+    setSaved(true);
+  }, [outputText, saved, inputText, activeStyles, activeModifiers, updateState]);
+
   const handleUseAsInput = useCallback(() => {
     withViewTransition(() => {
       setInputText(outputText);
       setOutputText('');
       setCopied(false);
+      setSaved(false);
     });
   }, [outputText]);
 
@@ -156,6 +259,7 @@ export function HumanizerApp() {
       setOutputText('');
       setError(null);
       setCopied(false);
+      setSaved(false);
     });
   }, []);
 
@@ -168,15 +272,18 @@ export function HumanizerApp() {
   }, []);
 
   const handleClearHistory = useCallback(() => {
-    updateState((prev) => ({
-      ...prev,
-      entries: [],
-    }));
+    updateState((prev) => ({ ...prev, entries: [] }));
     withViewTransition(() => setView('editor'));
   }, [updateState]);
 
-  const hasInput = inputText.trim().length > 0;
-  const hasOutput = !!outputText;
+  // Stable callback — avoids creating a new function ref each render
+  const handleShowHistory = useCallback(() => {
+    withViewTransition(() => setView('history'));
+  }, []);
+
+  const handleShowEditor = useCallback(() => {
+    withViewTransition(() => setView('editor'));
+  }, []);
 
   // ── History view ─────────────────────────────────────────
 
@@ -186,7 +293,7 @@ export function HumanizerApp() {
         <Header
           historyCount={state.entries.length}
           isHistory
-          onToggleView={() => withViewTransition(() => setView('editor'))}
+          onToggleView={handleShowEditor}
         />
         <HistoryPanel
           entries={state.entries}
@@ -204,19 +311,24 @@ export function HumanizerApp() {
       <Header
         historyCount={state.entries.length}
         isHistory={false}
-        onToggleView={() => withViewTransition(() => setView('history'))}
+        onToggleView={handleShowHistory}
       />
 
-      {/* Toolbar: presets + action button */}
       <Toolbar
-        activePresetIds={activePresetIds}
-        allPresets={allPresets}
-        onTogglePreset={handleTogglePreset}
-        onAddCustom={handleAddCustomPreset}
-        onRemoveCustom={handleRemoveCustomPreset}
+        allStyles={allStyles}
+        allModifiers={allModifiers}
+        activeStyleIds={activeStyleIds}
+        activeModifierIds={activeModifierIds}
+        onToggleStyle={handleToggleStyle}
+        onAddCustomStyle={handleAddCustomStyle}
+        onRemoveCustomStyle={handleRemoveCustomStyle}
+        onToggleModifier={handleToggleModifier}
+        onAddCustomModifier={handleAddCustomModifier}
+        onRemoveCustomModifier={handleRemoveCustomModifier}
         hasInput={hasInput}
         loading={loading}
-        onHumanize={handleHumanize}
+        actionLabel={actionLabel}
+        onTransform={handleTransform}
         onClear={handleClear}
         error={error}
       />
@@ -224,242 +336,141 @@ export function HumanizerApp() {
       {/* Main content area */}
       <div className="flex min-h-0 flex-1">
         {hasOutput ? (
-          /* ── Side-by-side split ────────────────────────── */
-          <div className="flex min-h-0 flex-1">
-            {/* Input pane */}
-            <div
-              className="vt-input-pane flex min-h-0 flex-1 flex-col border-r border-border/30"
-            >
-              <PaneHeader label="Original" variant="muted" />
-              <ScrollArea className="min-h-0 flex-1">
-                <textarea
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  className={cn(
-                    'humanizer-textarea field-sizing-content',
-                    'w-full min-h-[120px] resize-none bg-transparent',
-                    'px-4 py-3',
-                    'text-[13.5px] leading-[1.75] text-foreground/60',
-                  )}
-                />
-              </ScrollArea>
-              <PaneFooter text={inputText} />
-            </div>
-
-            {/* Output pane */}
-            <div
-              className="vt-output-pane flex min-h-0 flex-1 flex-col humanizer-output-pane"
-            >
-              <PaneHeader label="Humanized" variant="accent">
-                <PanelActions
-                  copied={copied}
-                  onCopy={handleCopy}
-                  onRefine={handleUseAsInput}
-                />
-              </PaneHeader>
-              <ScrollArea className="min-h-0 flex-1">
-                <div
-                  className={cn(
-                    'whitespace-pre-wrap px-4 py-3',
-                    'text-[13.5px] leading-[1.75] text-foreground',
-                    'selection:bg-emerald-500/20',
-                  )}
-                >
-                  {outputText}
-                </div>
-              </ScrollArea>
-              <PaneFooter text={outputText} />
-            </div>
-          </div>
-        ) : (
-          /* ── Full-width input ──────────────────────────── */
-          <div
-            className="vt-input-pane flex min-h-0 flex-1 flex-col"
-          >
-            <ScrollArea className="min-h-0 flex-1">
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Paste your AI-generated text here…"
-                className={cn(
-                  'humanizer-textarea field-sizing-content',
-                  'w-full min-h-[200px] resize-none bg-transparent',
-                  'px-5 py-4',
-                  'text-[13.5px] leading-[1.75] text-foreground',
-                  'placeholder:text-muted-foreground/30',
-                )}
-              />
-            </ScrollArea>
-            {hasInput && <PaneFooter text={inputText} />}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Header ─────────────────────────────────────────────────
-
-function Header({
-  historyCount,
-  isHistory,
-  onToggleView,
-}: {
-  historyCount: number;
-  isHistory: boolean;
-  onToggleView: () => void;
-}) {
-  return (
-    <div className="vt-header flex items-center justify-between border-b border-border/50 px-4 py-2.5">
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
-            <path d="M12 20h9" /><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z" />
-          </svg>
-        </div>
-        <h1 className="text-sm font-semibold text-foreground">Humanizer</h1>
-      </div>
-      {historyCount > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            'h-7 rounded-lg px-2.5 text-xs',
-            isHistory
-              ? 'text-foreground'
-              : 'text-muted-foreground/60 hover:text-foreground',
-          )}
-          onClick={onToggleView}
-        >
-          {isHistory ? '← Back' : `History · ${historyCount}`}
-        </Button>
-      )}
-    </div>
-  );
-}
-
-// ── Toolbar ────────────────────────────────────────────────
-
-function Toolbar({
-  activePresetIds,
-  allPresets,
-  onTogglePreset,
-  onAddCustom,
-  onRemoveCustom,
-  hasInput,
-  loading,
-  onHumanize,
-  onClear,
-  error,
-}: {
-  activePresetIds: Set<string>;
-  allPresets: InstructionPreset[];
-  onTogglePreset: (id: string) => void;
-  onAddCustom: (preset: InstructionPreset) => void;
-  onRemoveCustom: (id: string) => void;
-  hasInput: boolean;
-  loading: boolean;
-  onHumanize: () => void;
-  onClear: () => void;
-  error: string | null;
-}) {
-  return (
-    <div className="vt-toolbar flex flex-col gap-2.5 border-b border-border/40 px-4 py-3">
-      <div className="flex items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <InstructionPresets
-            activeIds={activePresetIds}
-            allPresets={allPresets}
-            onToggle={onTogglePreset}
-            onAddCustom={onAddCustom}
-            onRemoveCustom={onRemoveCustom}
+          <SplitView
+            inputText={inputText}
+            outputText={outputText}
+            copied={copied}
+            saved={saved}
+            loading={loading}
+            onInputChange={setInputText}
+            onCopy={handleCopy}
+            onSave={handleSave}
+            onRefine={handleUseAsInput}
           />
-        </div>
-
-        <div className="flex shrink-0 items-center gap-3 pt-0.5">
-          {hasInput && !loading && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="rounded-md px-2 py-1 text-[11px] text-muted-foreground/50 transition-colors hover:bg-secondary hover:text-muted-foreground"
-            >
-              Clear
-            </button>
-          )}
-          <Button
-            size="sm"
-            disabled={!hasInput || loading}
-            onClick={onHumanize}
-            className={cn(
-              'humanizer-button',
-              'h-8 rounded-lg px-5 text-xs font-medium',
-              'bg-emerald-600 text-white hover:bg-emerald-500',
-              'transition-all duration-200',
-              !loading && hasInput && 'shadow-[0_0_20px_rgba(16,185,129,0.3)]',
-            )}
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <LoadingSpinner />
-                Working…
-              </span>
-            ) : (
-              'Humanize'
-            )}
-          </Button>
-        </div>
+        ) : (
+          <FullWidthInput
+            inputText={inputText}
+            placeholder={placeholder}
+            hasInput={hasInput}
+            onInputChange={setInputText}
+          />
+        )}
       </div>
-
-      {error && (
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
-          {error}
-        </div>
-      )}
     </div>
   );
 }
 
-// ── Pane header / footer ───────────────────────────────────
+// ── Split view (original + transformed) ────────────────────
 
-function PaneHeader({
-  label,
-  variant,
-  children,
+const SplitView = memo(function SplitView({
+  inputText,
+  outputText,
+  copied,
+  saved,
+  loading,
+  onInputChange,
+  onCopy,
+  onSave,
+  onRefine,
 }: {
-  label: string;
-  variant: 'muted' | 'accent';
-  children?: React.ReactNode;
+  inputText: string;
+  outputText: string;
+  copied: boolean;
+  saved: boolean;
+  loading: boolean;
+  onInputChange: (text: string) => void;
+  onCopy: () => void;
+  onSave: () => void;
+  onRefine: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-border/30 px-4 py-1.5">
-      <span
-        className={cn(
-          'text-[11px] font-semibold tracking-wider uppercase',
-          variant === 'accent' ? 'text-emerald-400' : 'text-muted-foreground/40',
-        )}
-      >
-        {label}
-      </span>
-      {children}
+    <div className="flex min-h-0 flex-1">
+      <InputPane text={inputText} onChange={onInputChange} />
+
+      {/* Output pane — only this subtree needs to update on each delta */}
+      <div className="vt-output-pane flex min-h-0 flex-1 flex-col humanizer-output-pane">
+        <PaneHeader label="Transformed" variant="accent">
+          <PanelActions copied={copied} saved={saved} onCopy={onCopy} onSave={onSave} onRefine={onRefine} />
+        </PaneHeader>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="px-4 py-3 text-[13.5px] leading-[1.75] text-foreground selection:bg-emerald-500/20">
+            <Streamdown
+              mode={loading ? 'streaming' : 'static'}
+              isAnimating={loading}
+              animated={loading}
+              caret={loading ? 'block' : undefined}
+            >
+              {outputText}
+            </Streamdown>
+          </div>
+        </ScrollArea>
+        {!loading && <PaneFooter text={outputText} />}
+      </div>
     </div>
   );
-}
+});
 
-function PaneFooter({ text }: { text: string }) {
+// ── Input pane (stable during streaming) ───────────────────
+
+const InputPane = memo(function InputPane({
+  text,
+  onChange,
+}: {
+  text: string;
+  onChange: (text: string) => void;
+}) {
   return (
-    <div className="border-t border-border/30 px-4 py-1.5">
-      <StatsRow text={text} />
+    <div className="vt-input-pane flex min-h-0 flex-1 flex-col border-r border-border/30">
+      <PaneHeader label="Original" variant="muted" />
+      <ScrollArea className="min-h-0 flex-1">
+        <textarea
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn(
+            'humanizer-textarea field-sizing-content',
+            'w-full min-h-[120px] resize-none bg-transparent',
+            'px-4 py-3',
+            'text-[13.5px] leading-[1.75] text-foreground/60',
+          )}
+        />
+      </ScrollArea>
+      <PaneFooter text={text} />
     </div>
   );
-}
+});
 
-function LoadingSpinner() {
+// ── Full-width input ───────────────────────────────────────
+
+const FullWidthInput = memo(function FullWidthInput({
+  inputText,
+  placeholder,
+  hasInput,
+  onInputChange,
+}: {
+  inputText: string;
+  placeholder: string;
+  hasInput: boolean;
+  onInputChange: (text: string) => void;
+}) {
   return (
-    <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" className="opacity-20" />
-      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    <div className="vt-input-pane flex min-h-0 flex-1 flex-col">
+      <ScrollArea className="min-h-0 flex-1">
+        <textarea
+          value={inputText}
+          onChange={(e) => onInputChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn(
+            'humanizer-textarea field-sizing-content',
+            'w-full min-h-[200px] resize-none bg-transparent',
+            'px-5 py-4',
+            'text-[13.5px] leading-[1.75] text-foreground',
+            'placeholder:text-muted-foreground/30',
+          )}
+        />
+      </ScrollArea>
+      {hasInput && <PaneFooter text={inputText} />}
+    </div>
   );
-}
+});
 
 export default HumanizerApp;

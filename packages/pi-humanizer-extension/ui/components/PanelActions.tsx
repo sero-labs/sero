@@ -1,7 +1,11 @@
 /**
- * PanelActions — copy + refine buttons for the output pane header.
+ * PanelActions — copy, save, and refine buttons for the output pane header.
+ *
+ * Wrapped in React.memo — copied/saved are stable during streaming
+ * (only change on user interaction, not on text deltas).
  */
 
+import { memo } from 'react';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
 import {
@@ -13,11 +17,19 @@ import {
 
 interface PanelActionsProps {
   copied: boolean;
+  saved: boolean;
   onCopy: () => void;
+  onSave: () => void;
   onRefine: () => void;
 }
 
-export function PanelActions({ copied, onCopy, onRefine }: PanelActionsProps) {
+export const PanelActions = memo(function PanelActions({
+  copied,
+  saved,
+  onCopy,
+  onSave,
+  onRefine,
+}: PanelActionsProps) {
   return (
     <TooltipProvider>
       <div className="flex items-center gap-1">
@@ -37,6 +49,42 @@ export function PanelActions({ copied, onCopy, onRefine }: PanelActionsProps) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>Move to input for another pass</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={saved ? 'default' : 'ghost'}
+              size="sm"
+              disabled={saved}
+              className={cn(
+                'h-6 rounded-md px-2 text-[11px] transition-all duration-200',
+                saved
+                  ? 'bg-violet-600 text-white hover:bg-violet-600'
+                  : 'text-muted-foreground/50 hover:text-foreground',
+              )}
+              onClick={onSave}
+            >
+              {saved ? (
+                <span className="flex items-center gap-1">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Saved
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                  </svg>
+                  Save
+                </span>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{saved ? 'Saved to history' : 'Save to history'}</TooltipContent>
         </Tooltip>
 
         <Button
@@ -70,4 +118,4 @@ export function PanelActions({ copied, onCopy, onRefine }: PanelActionsProps) {
       </div>
     </TooltipProvider>
   );
-}
+});
