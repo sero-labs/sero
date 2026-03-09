@@ -67,7 +67,7 @@ export interface CostLimitsConfig {
 const DEFAULT_LIMITS: CostLimitsConfig = {
   maxCostPerSession: 5.0,
   maxCostPerDay: 50.0,
-  maxConcurrentSessions: 3,
+  maxConcurrentSessions: 10,
 };
 
 // ── Cost Tracker ────────────────────────────────────────────
