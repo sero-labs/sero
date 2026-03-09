@@ -53,7 +53,7 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const contextValue = useMemo<AppContextValue>(
     () => ({
       appId: manifest.id,
-      workspaceId: activeWorkspaceId ?? '',
+      workspaceId: isGlobal ? (activeWorkspaceId || 'global') : (activeWorkspaceId ?? ''),
       workspacePath,
       stateFilePath,
       promptAgent,
