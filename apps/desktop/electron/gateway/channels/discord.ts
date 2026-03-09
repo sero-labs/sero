@@ -49,7 +49,7 @@ export class DiscordAdapter {
     if (this.config.allowedUsers.length === 0) {
       console.warn(
         '[discord] SERO_DISCORD_USERS is empty — Discord adapter disabled for security. ' +
-        'Set SERO_DISCORD_USERS to a comma-separated list of Discord user IDs to enable.',
+        'Set SERO_DISCORD_USERS to a comma-separated list of Discord usernames or user IDs to enable.',
       );
       return;
     }
@@ -111,7 +111,20 @@ export class DiscordAdapter {
     if (this.config.allowedUsers.length === 0) {
       return;
     }
-    if (!this.config.allowedUsers.includes(msg.author.id)) {
+    // Match by numeric user ID, username, or legacy tag (User#1234).
+    // This lets SERO_DISCORD_USERS accept either format.
+    const isAllowed = this.config.allowedUsers.some((allowed) => {
+      const lower = allowed.toLowerCase();
+      return (
+        msg.author.id === allowed ||
+        msg.author.username.toLowerCase() === lower ||
+        msg.author.tag.toLowerCase() === lower
+      );
+    });
+    if (!isAllowed) {
+      console.warn(
+        `[discord] Message rejected from unauthorized user: ${msg.author.tag} (${msg.author.id})`,
+      );
       return;
     }
 
