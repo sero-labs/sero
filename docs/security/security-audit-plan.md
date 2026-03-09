@@ -96,10 +96,10 @@ Sero is an Electron-based agent workspace that runs AI coding sessions inside ma
 
 #### Hardening Actions
 
-1. **Add rate limiting on failed auth attempts** — After 5 failed attempts from the same IP within 60s, block for 5 minutes. Currently no rate limiting exists.
-2. **Remove `?token=` URL parameter support** from web chat (`channels/web.ts`). Replace with a login prompt that sends the token over WebSocket only.
-3. **Add `Referrer-Policy: no-referrer` header** to all HTTP responses from the gateway.
-4. **Log failed authentication attempts** with client IP and timestamp for audit trails.
+1. ~~**Add rate limiting on failed auth attempts**~~ ✅ — After 5 failed attempts from the same IP within 60s, block for 5 minutes. Implemented in `gateway/rate-limiter.ts`.
+2. ~~**Remove `?token=` URL parameter support**~~ ✅ — Token no longer read from URL in `channels/web.ts`. Auth overlay always shown.
+3. ~~**Add `Referrer-Policy: no-referrer` header**~~ ✅ — Added to all HTTP responses from gateway and web chat server.
+4. ~~**Log failed authentication attempts**~~ ✅ — Client IP and type logged on auth failure.
 
 ### 3.2 Authorization & Access Control
 
@@ -504,40 +504,40 @@ Based on code review, the following issues have been identified before active te
 
 | ID | Finding | Location | Status |
 |----|---------|----------|--------|
-| F-01 | No rate limiting on gateway (auth or requests) | `gateway/index.ts` | Open |
-| F-02 | Discord bot open to all users by default | `gateway/channels/discord.ts` | Open |
-| F-03 | No per-workspace access control on gateway | `gateway/index.ts` | Open |
+| F-01 | No rate limiting on gateway (auth or requests) | `gateway/index.ts` | **Fixed** — Added `RateLimiter` (5 failures/60s → 5min block) in `gateway/rate-limiter.ts` |
+| F-02 | Discord bot open to all users by default | `gateway/channels/discord.ts` | **Fixed** — Fail-closed: adapter refuses to start when `SERO_DISCORD_USERS` is empty |
+| F-03 | No per-workspace access control on gateway | `gateway/index.ts` | Open — requires design for per-workspace token scoping |
 
 ### High
 
 | ID | Finding | Location | Status |
 |----|---------|----------|--------|
-| F-04 | Token passed in URL query parameter | `gateway/channels/web.ts` | Open |
-| F-05 | `auth.json` file permissions not explicitly set to `0600` | `electron/ipc/auth.ts` | Open |
-| F-06 | Base64 fallback for credential storage (no warning) | `safe-storage.ts:25-26` | Open |
-| F-07 | Hardcoded Google keyring password | `google/auth-manager.ts:65` | Open |
-| F-08 | No message size limit on WebSocket server | `gateway/index.ts` | Open |
-| F-09 | No cost caps for gateway-initiated sessions | `gateway/index.ts` | Open |
+| F-04 | Token passed in URL query parameter | `gateway/channels/web.ts` | **Fixed** — Removed `?token=` URL support; auth overlay required |
+| F-05 | `auth.json` file permissions not explicitly set to `0600` | `electron/ipc/auth.ts` | Open — requires upstream Pi SDK `AuthStorage` changes |
+| F-06 | Base64 fallback for credential storage (no warning) | `safe-storage.ts:25-26` | **Fixed** — Added warning log + renderer notification on fallback |
+| F-07 | Hardcoded Google keyring password | `google/auth-manager.ts:65` | **Fixed** — Derived from `hostname + uid` via SHA-256 |
+| F-08 | No message size limit on WebSocket server | `gateway/index.ts` | **Fixed** — `maxPayload: 1MB` on `ws.Server` |
+| F-09 | No cost caps for gateway-initiated sessions | `gateway/index.ts` | Open — requires cost tracking infrastructure |
 
 ### Medium
 
 | ID | Finding | Location | Status |
 |----|---------|----------|--------|
-| F-10 | Shell command concatenation in container exec | `container/index.ts:227` | Open |
+| F-10 | Shell command concatenation in container exec | `container/index.ts:227` | Open — container provides secondary barrier |
 | F-11 | Idempotency key defined but not enforced | `gateway/protocol.ts:22` | Open |
 | F-12 | OAuth events broadcast to all windows | `electron/ipc/auth.ts:62-67` | Open |
-| F-13 | No SSRF protection in net proxy | `electron/ipc/net.ts` | Open |
-| F-14 | Net proxy passes headers unfiltered | `electron/ipc/net.ts` | Open |
-| F-15 | No symlink resolution in path validation | `electron/ipc/editor.ts:43-57` | Open |
-| F-16 | No max connection limit on WebSocket server | `gateway/index.ts` | Open |
+| F-13 | No SSRF protection in net proxy | `electron/ipc/net.ts` | **Fixed** — DNS resolution + private IP blocking + protocol allowlist |
+| F-14 | Net proxy passes headers unfiltered | `electron/ipc/net.ts` | **Fixed** — Blocked host/cookie/authorization headers |
+| F-15 | No symlink resolution in path validation | `electron/ipc/editor.ts:43-57` | **Fixed** — Added `realpathSync()` + null byte + path length checks |
+| F-16 | No max connection limit on WebSocket server | `gateway/index.ts` | **Fixed** — 50 total, 10 per IP |
 
 ### Low
 
 | ID | Finding | Location | Status |
 |----|---------|----------|--------|
-| F-17 | No navigation restriction handlers | `electron/main.ts` | Open |
-| F-18 | No audit logging for gateway operations | `gateway/index.ts` | Open |
-| F-19 | No secret pattern redaction in logs | Various | Open |
+| F-17 | No navigation restriction handlers | `electron/main.ts` | **Fixed** — `will-navigate` blocks untrusted origins, `setWindowOpenHandler` always denies, `setPermissionRequestHandler` blocks unnecessary permissions |
+| F-18 | No audit logging for gateway operations | `gateway/index.ts` | **Partial** — Auth failures logged with IP; structured audit log file deferred |
+| F-19 | No secret pattern redaction in logs | Various | **Fixed** — `lib/secret-redact.ts` provides pattern-based redaction for known key formats |
 
 ---
 
@@ -545,30 +545,30 @@ Based on code review, the following issues have been identified before active te
 
 ### Priority 1 — Immediate (Gateway & Secrets)
 
-1. **Rate limiting on gateway** — Implement token bucket or sliding window rate limiter for both authentication attempts and authenticated requests.
-2. **Remove `?token=` URL support** — Force token entry via WebSocket `connect` message only.
-3. **Fail-closed Discord** — Disable Discord adapter when no user whitelist is configured.
-4. **Set `auth.json` permissions** — Add `{ mode: 0o600 }` to all writes.
-5. **WebSocket `maxPayload`** — Set to 1MB in `ws.Server` options.
-6. **Max connections** — Limit to 50 total, 10 per IP.
+1. ~~**Rate limiting on gateway**~~ ✅ — Sliding window rate limiter in `gateway/rate-limiter.ts`. 5 failures / 60s → 5 min block per IP.
+2. ~~**Remove `?token=` URL support**~~ ✅ — Token no longer read from `location.search`. Auth overlay always shown.
+3. ~~**Fail-closed Discord**~~ ✅ — Adapter refuses to start when `SERO_DISCORD_USERS` is empty. Warning logged.
+4. **Set `auth.json` permissions** — Requires upstream Pi SDK `AuthStorage` changes. Open.
+5. ~~**WebSocket `maxPayload`**~~ ✅ — Set to 1 MB in `ws.Server` constructor.
+6. ~~**Max connections**~~ ✅ — 50 total, 10 per IP. Enforced in `handleConnection()`.
 
 ### Priority 2 — Short-Term (Access Control & Injection)
 
-7. **Per-workspace gateway tokens** — Scope tokens to specific workspaces.
-8. **Cost caps** — Configurable per-session and daily cost limits.
-9. **IPC input validation** — Add Zod schemas to all main-process IPC handlers.
-10. **Symlink resolution** — Use `fs.realpathSync()` before path boundary checks.
-11. **SSRF protection** — Block private IPs in net proxy.
-12. **Secret redaction** — Add pattern-based redaction to all log outputs.
+7. **Per-workspace gateway tokens** — Open. Requires token scoping design.
+8. **Cost caps** — Open. Requires cost tracking infrastructure.
+9. **IPC input validation** — Open. Zod integration planned.
+10. ~~**Symlink resolution**~~ ✅ — `realpathSync()` added to `toHostPath()` in `editor.ts`. Also added null byte stripping and 4096-char path length limit.
+11. ~~**SSRF protection**~~ ✅ — DNS resolution check + private IP blocking + protocol allowlist in `ipc/net.ts`.
+12. ~~**Secret redaction**~~ ✅ — `lib/secret-redact.ts` with patterns for Anthropic, OpenAI, GitHub, Google, xAI, and generic tokens.
 
 ### Priority 3 — Medium-Term (Defense in Depth)
 
-13. **Navigation restrictions** — Block `will-navigate` to untrusted origins.
-14. **Audit logging** — Structured JSON logs for all gateway and auth operations.
-15. **Pre-commit secret scanning** — Add `gitleaks` hook.
-16. **Extension sandboxing** — Evaluate running extension UI in isolated `<webview>`.
-17. **Google keyring password derivation** — Replace hardcoded password.
-18. **Base64 fallback warning** — UI toast + log warning when encryption unavailable.
+13. ~~**Navigation restrictions**~~ ✅ — `will-navigate` blocks untrusted origins. `setWindowOpenHandler` always denies (external links open in system browser). `setPermissionRequestHandler` blocks unnecessary permissions.
+14. **Audit logging** — Partial. Auth failures logged with IP. Structured JSON audit log file deferred.
+15. **Pre-commit secret scanning** — Open. `gitleaks` hook planned.
+16. **Extension sandboxing** — Open. Evaluate `<webview>` isolation.
+17. ~~**Google keyring password derivation**~~ ✅ — Password derived from `hostname + uid` via SHA-256 in `google/auth-manager.ts`.
+18. ~~**Base64 fallback warning**~~ ✅ — Console warning + renderer `sero:security-warning` IPC event in `ipc/safe-storage.ts`.
 
 ---
 

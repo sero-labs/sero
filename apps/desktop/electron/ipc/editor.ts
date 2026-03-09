@@ -11,7 +11,7 @@
 
 import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, realpathSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
 import { containerManager, workspaceManager } from './shared-infra';
@@ -33,14 +33,28 @@ function editorStatePath(workspaceId: string): string {
 
 const WORKSPACE_PREFIX = '/workspace';
 
+/** Maximum allowed path length (prevents DoS via absurdly long paths). */
+const MAX_PATH_LENGTH = 4096;
+
 /**
  * Translate a /workspace-prefixed path to an absolute host path.
  * If the path doesn't start with /workspace, treat it as relative.
  *
  * **Security:** The resolved path is checked against the workspace root.
- * Throws if the result escapes the workspace (e.g. via `..` traversal).
+ * Throws if the result escapes the workspace (e.g. via `..` traversal,
+ * symlink escapes, null bytes, or excessively long paths).
  */
 function toHostPath(workspacePath: string, filePath: string): string {
+  // Reject null bytes (could truncate path in native code)
+  if (filePath.includes('\0')) {
+    throw new Error('Path contains null bytes');
+  }
+
+  // Reject excessively long paths
+  if (filePath.length > MAX_PATH_LENGTH) {
+    throw new Error(`Path too long (max ${MAX_PATH_LENGTH} characters)`);
+  }
+
   let raw: string;
   if (filePath.startsWith(WORKSPACE_PREFIX)) {
     const relative = filePath.slice(WORKSPACE_PREFIX.length);
@@ -54,6 +68,27 @@ function toHostPath(workspacePath: string, filePath: string): string {
   if (!resolved.startsWith(root + path.sep) && resolved !== root) {
     throw new Error(`Path escapes workspace: ${filePath}`);
   }
+
+  // Resolve symlinks to catch symlink escape attacks
+  // (e.g., a symlink inside workspace pointing to /etc/)
+  try {
+    const realResolved = realpathSync(resolved);
+    const realRoot = realpathSync(root);
+    if (!realResolved.startsWith(realRoot + path.sep) && realResolved !== realRoot) {
+      throw new Error(`Symlink escapes workspace: ${filePath}`);
+    }
+  } catch (err) {
+    // If the file doesn't exist yet (e.g., write to new file), realpathSync
+    // will throw ENOENT. In that case, the resolve() check above is sufficient.
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+      // File doesn't exist yet — the path.resolve check is sufficient
+    } else if (err instanceof Error && err.message.includes('escapes workspace')) {
+      throw err;
+    }
+    // Other errors (permission denied, etc.) — allow the operation to proceed
+    // and let the actual fs operation handle the error
+  }
+
   return resolved;
 }
 

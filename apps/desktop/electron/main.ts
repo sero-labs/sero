@@ -157,16 +157,52 @@ function createWindow() {
     }
   });
 
+  // ── Security: navigation restrictions ──────────────────────────
+  // Block navigation to untrusted origins. Only allow the dev server
+  // (in development) and the production renderer HTML (file: protocol).
+  // All other navigation attempts (e.g., from XSS or malicious content)
+  // are blocked.
+  const isDev = process.env.NODE_ENV === 'development';
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    try {
+      const parsed = new URL(navigationUrl);
+      // Production: only file: protocol (local renderer HTML) is allowed
+      if (parsed.protocol === 'file:') return;
+      // Development: allow the Vite dev server origin
+      if (isDev && parsed.origin === 'http://localhost:5173') return;
+      console.warn(`[security] Blocked navigation to untrusted origin: ${navigationUrl}`);
+      event.preventDefault();
+    } catch {
+      event.preventDefault();
+    }
+  });
+
   // Open external links (target="_blank", href to external domains) in the
   // system browser instead of a new Electron window. This ensures the user's
   // existing browser session (GitHub login, etc.) is used.
+  // Also blocks file:// and other dangerous protocols from opening new windows.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       void shell.openExternal(url);
-      return { action: 'deny' };
     }
-    return { action: 'allow' };
+    // Always deny new windows — external links open in system browser
+    return { action: 'deny' };
   });
+
+  // ── Security: deny unnecessary permissions ──────────────────
+  // Block permission requests for capabilities Sero doesn't need.
+  // Only media (for Spotify) is allowed.
+  const allowedPermissions = new Set(['media']);
+  mainWindow.webContents.session.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      if (allowedPermissions.has(permission)) {
+        callback(true);
+      } else {
+        console.warn(`[security] Denied permission request: ${permission}`);
+        callback(false);
+      }
+    },
+  );
 
   // Give the file watcher manager access to the window for push events
   fileWatcherManager.setWindow(mainWindow);
