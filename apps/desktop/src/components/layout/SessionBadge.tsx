@@ -165,11 +165,6 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
             percent={percent}
             healthColor={healthColor}
             barColor={barColor}
-            compactInstructions={compactInstructions}
-            onInstructionsChange={setCompactInstructions}
-            onCompact={handleCompact}
-            compacting={compacting}
-            busy={busy}
           />
         ) : (
           <p className="text-xs text-[var(--text-muted)]">
@@ -195,6 +190,15 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
           </div>
         </div>
 
+        {/* ── Compact context ──────────────────────────────── */}
+        <CompactSection
+          compactInstructions={compactInstructions}
+          onInstructionsChange={setCompactInstructions}
+          onCompact={handleCompact}
+          compacting={compacting}
+          busy={busy}
+        />
+
         {/* ── Session actions ──────────────────────────────── */}
         <SessionActions
           onFork={handleFork}
@@ -219,18 +223,9 @@ interface ContextSectionProps {
   percent: number;
   healthColor: string;
   barColor: string;
-  compactInstructions: string;
-  onInstructionsChange: (v: string) => void;
-  onCompact: () => void;
-  compacting: boolean;
-  busy: boolean;
 }
 
-function ContextSection({
-  usage, percent, healthColor, barColor,
-  compactInstructions, onInstructionsChange, onCompact,
-  compacting, busy,
-}: ContextSectionProps) {
+function ContextSection({ usage, percent, healthColor, barColor }: ContextSectionProps) {
   return (
     <>
       <div className="flex items-baseline justify-between">
@@ -248,32 +243,47 @@ function ContextSection({
           style={{ width: `${Math.min(percent, 100)}%` }}
         />
       </div>
-
-      <div className="border-t border-[var(--border-subtle)] pt-2 space-y-2">
-        <label htmlFor="compact-instructions" className="text-xs text-[var(--text-muted)]">Compact context</label>
-        <input
-          id="compact-instructions"
-          type="text"
-          placeholder="Custom instructions (optional)"
-          value={compactInstructions}
-          onChange={(e) => onInstructionsChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !busy) onCompact(); }}
-          className="w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)]"
-          disabled={busy}
-        />
-        <button
-          onClick={onCompact}
-          disabled={busy}
-          className="flex w-full items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
-        >
-          {compacting ? (
-            <><Loader2 className="size-3 animate-spin" /> Compacting…</>
-          ) : (
-            'Compact Now'
-          )}
-        </button>
-      </div>
     </>
+  );
+}
+
+interface CompactSectionProps {
+  compactInstructions: string;
+  onInstructionsChange: (v: string) => void;
+  onCompact: () => void;
+  compacting: boolean;
+  busy: boolean;
+}
+
+function CompactSection({
+  compactInstructions, onInstructionsChange, onCompact,
+  compacting, busy,
+}: CompactSectionProps) {
+  return (
+    <div className="border-t border-[var(--border-subtle)] pt-2 space-y-2">
+      <label htmlFor="compact-instructions" className="text-xs text-[var(--text-muted)]">Compact context</label>
+      <input
+        id="compact-instructions"
+        type="text"
+        placeholder="Custom instructions (optional)"
+        value={compactInstructions}
+        onChange={(e) => onInstructionsChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !busy) onCompact(); }}
+        className="w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)]"
+        disabled={busy}
+      />
+      <button
+        onClick={onCompact}
+        disabled={busy}
+        className="flex w-full items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+      >
+        {compacting ? (
+          <><Loader2 className="size-3 animate-spin" /> Compacting…</>
+        ) : (
+          'Compact Now'
+        )}
+      </button>
+    </div>
   );
 }
 
