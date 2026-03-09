@@ -28,6 +28,10 @@ export class WebChatServer {
     if (this.server) return;
 
     this.server = http.createServer((req, res) => {
+      // Security: prevent token leakage via Referer headers
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+
       if (req.url === '/' || req.url === '/index.html') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(this.buildHtml());
@@ -156,7 +160,10 @@ const GW_URL = (function() {
   return wsProto + '//' + loc.host;
 })();
 let ws = null;
-let token = new URLSearchParams(location.search).get('token') || '';
+// Security: never read token from URL query string — it leaks via
+// Referer headers, browser history, and server logs. Users must enter
+// the token via the auth overlay password field.
+let token = '';
 let sessionId = 'web-' + Date.now();
 let workspaceId = '';
 let currentAgentMsg = null;
@@ -251,20 +258,15 @@ function sendMessage() {
   input.style.height = 'auto';
 }
 
-// Auth
-if (token) {
-  authOverlay.style.display = 'none';
-  connect();
-} else {
-  $('#auth-btn').onclick = () => {
-    token = $('#token-input').value.trim();
-    if (token) {
-      authOverlay.style.display = 'none';
-      connect();
-    }
-  };
-  $('#token-input').onkeydown = (e) => { if (e.key === 'Enter') $('#auth-btn').click(); };
-}
+// Auth — always require manual token entry via the overlay
+$('#auth-btn').onclick = () => {
+  token = $('#token-input').value.trim();
+  if (token) {
+    authOverlay.style.display = 'none';
+    connect();
+  }
+};
+$('#token-input').onkeydown = (e) => { if (e.key === 'Enter') $('#auth-btn').click(); };
 
 // Input handling
 sendBtn.onclick = sendMessage;

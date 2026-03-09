@@ -45,6 +45,15 @@ export class DiscordAdapter {
   }
 
   async start(): Promise<void> {
+    // Security: fail-closed — refuse to start if no user whitelist
+    if (this.config.allowedUsers.length === 0) {
+      console.warn(
+        '[discord] SERO_DISCORD_USERS is empty — Discord adapter disabled for security. ' +
+        'Set SERO_DISCORD_USERS to a comma-separated list of Discord user IDs to enable.',
+      );
+      return;
+    }
+
     try {
       Discord = await import('discord.js');
     } catch {
@@ -98,11 +107,11 @@ export class DiscordAdapter {
     // Ignore bot messages
     if (msg.author.bot) return;
 
-    // Access control
-    if (
-      this.config.allowedUsers.length > 0 &&
-      !this.config.allowedUsers.includes(msg.author.id)
-    ) {
+    // Access control — fail-closed: if no allowedUsers configured, deny all
+    if (this.config.allowedUsers.length === 0) {
+      return;
+    }
+    if (!this.config.allowedUsers.includes(msg.author.id)) {
       return;
     }
 

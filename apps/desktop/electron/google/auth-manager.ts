@@ -13,7 +13,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
-import { homedir } from 'node:os';
+import { homedir, hostname, userInfo } from 'node:os';
 import path from 'node:path';
 
 // ── Lazy env access ──────────────────────────────────────────
@@ -54,15 +54,33 @@ function findGog(): string {
   return paths.find((p) => existsSync(p)) ?? 'gog';
 }
 
+/**
+ * Derive a machine-specific keyring password instead of using a hardcoded value.
+ * Combines hostname, uid, and a salt so the password varies per machine/user.
+ */
+function deriveKeyringPassword(): string {
+  const host = hostname();
+  let uid: string;
+  try {
+    uid = String(userInfo().uid);
+  } catch {
+    uid = 'unknown';
+  }
+  return crypto.createHash('sha256')
+    .update(`sero-google-keyring:${host}:${uid}`)
+    .digest('hex')
+    .slice(0, 32);
+}
+
 function gogEnv(): NodeJS.ProcessEnv {
   const extra = ['/opt/homebrew/bin', '/usr/local/bin',
     path.join(homedir(), '.local/bin'), path.join(homedir(), 'go/bin')];
   return {
     ...process.env,
     PATH: [...extra, process.env.PATH || ''].join(':'),
-    // File-based keyring (no macOS Keychain prompts). Password is fixed
-    // because the file lives in a user-only directory anyway.
-    GOG_KEYRING_PASSWORD: 'sero-google-keyring',
+    // File-based keyring (no macOS Keychain prompts). Password is derived
+    // from machine-specific data so it's not trivially guessable.
+    GOG_KEYRING_PASSWORD: deriveKeyringPassword(),
   };
 }
 

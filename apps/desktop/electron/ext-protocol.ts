@@ -61,6 +61,11 @@ export function setupExtProtocol(): void {
     const appId = url.hostname;
     let filePath = decodeURIComponent(url.pathname);
 
+    // Security: reject null bytes
+    if (filePath.includes('\0')) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
     // Strip leading slash
     if (filePath.startsWith('/')) filePath = filePath.slice(1);
     if (!filePath) filePath = 'mf-manifest.json';
@@ -71,11 +76,11 @@ export function setupExtProtocol(): void {
     }
 
     // Resolve to the dist/ui directory in the package
-    const distDir = path.join(manifest.packagePath, 'dist', 'ui');
-    const fullPath = path.join(distDir, filePath);
+    const distDir = path.resolve(manifest.packagePath, 'dist', 'ui');
+    const fullPath = path.resolve(distDir, filePath);
 
-    // Security: ensure resolved path is within dist dir
-    if (!fullPath.startsWith(distDir)) {
+    // Security: ensure resolved path is within dist dir (prevents traversal)
+    if (!fullPath.startsWith(distDir + path.sep) && fullPath !== distDir) {
       return new Response('Forbidden', { status: 403 });
     }
 

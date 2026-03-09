@@ -1,0 +1,57 @@
+/**
+ * Secret redaction utility — scans strings for known API key and token
+ * patterns and replaces them with a redacted placeholder.
+ *
+ * Used to sanitize log output, error messages, and agent text_delta
+ * events before they are displayed or persisted.
+ */
+
+/** Known API key prefixes and their provider names. */
+const SECRET_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  // Anthropic API keys (sk-ant-api03-...)
+  { pattern: /sk-ant-[A-Za-z0-9_-]{20,}/g, label: 'ANTHROPIC_KEY' },
+  // OpenAI API keys (sk-proj-... or sk-...)
+  { pattern: /sk-proj-[A-Za-z0-9_-]{20,}/g, label: 'OPENAI_KEY' },
+  { pattern: /sk-[A-Za-z0-9]{20,}/g, label: 'API_KEY' },
+  // GitHub tokens (ghp_, gho_, ghu_, ghs_, ghr_)
+  { pattern: /gh[pousr]_[A-Za-z0-9_]{30,}/g, label: 'GITHUB_TOKEN' },
+  // Google API keys (AIza...)
+  { pattern: /AIza[A-Za-z0-9_-]{30,}/g, label: 'GOOGLE_KEY' },
+  // OpenRouter keys (sk-or-...)
+  { pattern: /sk-or-[A-Za-z0-9_-]{20,}/g, label: 'OPENROUTER_KEY' },
+  // xAI keys (xai-...)
+  { pattern: /xai-[A-Za-z0-9_-]{20,}/g, label: 'XAI_KEY' },
+  // Generic bearer tokens in header-like strings
+  { pattern: /Bearer [A-Za-z0-9_.-]{20,}/g, label: 'BEARER_TOKEN' },
+  // Generic long hex strings that look like tokens (64+ hex chars)
+  { pattern: /\b[0-9a-f]{64,}\b/gi, label: 'HEX_TOKEN' },
+];
+
+/**
+ * Redact known secret patterns from a string.
+ * Returns the string with secrets replaced by `[REDACTED:<label>]`.
+ */
+export function redactSecrets(input: string): string {
+  let result = input;
+  for (const { pattern, label } of SECRET_PATTERNS) {
+    // Reset lastIndex since we reuse RegExp objects with /g flag
+    pattern.lastIndex = 0;
+    result = result.replace(pattern, `[REDACTED:${label}]`);
+  }
+  return result;
+}
+
+/**
+ * Create a redacting console wrapper for use in security-sensitive contexts.
+ * Wraps console.log/warn/error to redact secrets before output.
+ */
+export function createRedactingLogger(prefix: string) {
+  return {
+    log: (...args: unknown[]) =>
+      console.log(prefix, ...args.map((a) => (typeof a === 'string' ? redactSecrets(a) : a))),
+    warn: (...args: unknown[]) =>
+      console.warn(prefix, ...args.map((a) => (typeof a === 'string' ? redactSecrets(a) : a))),
+    error: (...args: unknown[]) =>
+      console.error(prefix, ...args.map((a) => (typeof a === 'string' ? redactSecrets(a) : a))),
+  };
+}
