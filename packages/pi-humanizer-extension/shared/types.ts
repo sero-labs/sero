@@ -13,12 +13,23 @@ export interface HumanizeEntry {
   createdAt: string; // ISO string
 }
 
+/** A user-created instruction preset. */
+export interface InstructionPreset {
+  id: string;
+  label: string;
+  prompt: string;
+  builtIn?: boolean;
+}
+
 export interface HumanizerState {
   entries: HumanizeEntry[];
   nextId: number;
+  /** Optional for backwards-compat with existing state.json files. */
+  customPresets?: InstructionPreset[];
 }
 
 export const DEFAULT_STATE: HumanizerState = {
   entries: [],
   nextId: 1,
+  customPresets: [],
 };
