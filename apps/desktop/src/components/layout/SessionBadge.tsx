@@ -174,7 +174,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
 
         {/* ── Usage / cost section ─────────────────────────── */}
         <div className="border-t border-[var(--border-subtle)] pt-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
             Token Usage
           </div>
           <div className="space-y-1">
@@ -261,7 +261,9 @@ function CompactSection({
 }: CompactSectionProps) {
   return (
     <div className="border-t border-[var(--border-subtle)] pt-2 space-y-2">
-      <label htmlFor="compact-instructions" className="text-xs text-[var(--text-muted)]">Compact context</label>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+        Session
+      </div>
       <input
         id="compact-instructions"
         type="text"
@@ -303,11 +305,10 @@ function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confi
       <button
         onClick={onFork}
         disabled={busy || forkSuccess}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
-          forkSuccess
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${forkSuccess
             ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
             : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-        }`}
+          }`}
         title="Fork: copy conversation to a new session"
       >
         {forking ? <Loader2 className="size-3 animate-spin" /> : forkSuccess ? <Check className="size-3" /> : <GitFork className="size-3" />}
@@ -316,11 +317,10 @@ function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confi
       <button
         onClick={onClear}
         disabled={busy}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
-          confirmClear
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${confirmClear
             ? 'bg-red-500/20 text-red-600 dark:text-red-400'
             : 'bg-[var(--bg-surface)] text-red-600 dark:text-red-400 hover:bg-red-500/10'
-        }`}
+          }`}
         title="Reset conversation (branch from root)"
       >
         {clearing ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
