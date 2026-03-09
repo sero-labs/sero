@@ -13,6 +13,7 @@
 
 import { protocol, net } from 'electron';
 import path from 'path';
+import { realpathSync } from 'fs';
 import type { SeroAppManifest } from '../src/types/ipc';
 
 // ── App registry (populated by discovery) ────────────────────
@@ -82,6 +83,18 @@ export function setupExtProtocol(): void {
     // Security: ensure resolved path is within dist dir (prevents traversal)
     if (!fullPath.startsWith(distDir + path.sep) && fullPath !== distDir) {
       return new Response('Forbidden', { status: 403 });
+    }
+
+    // Security: resolve symlinks to catch symlink escape attacks
+    // (e.g., a symlink inside dist/ui/ pointing to /etc/passwd)
+    try {
+      const realPath = realpathSync(fullPath);
+      const realDistDir = realpathSync(distDir);
+      if (!realPath.startsWith(realDistDir + path.sep) && realPath !== realDistDir) {
+        return new Response('Forbidden', { status: 403 });
+      }
+    } catch {
+      // File doesn't exist — let net.fetch handle the 404 below
     }
 
     try {

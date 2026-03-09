@@ -57,6 +57,12 @@ function findGog(): string {
 /**
  * Derive a machine-specific keyring password instead of using a hardcoded value.
  * Combines hostname, uid, and a salt so the password varies per machine/user.
+ *
+ * NOTE: This is defense-in-depth, not a real secret — hostname and uid are
+ * both easily discoverable by any local user. The primary protection is
+ * file permissions on the keyring file itself (user-only directory).
+ * TODO: Consider using Electron safeStorage or macOS Keychain for the
+ * keyring password if stronger isolation is needed.
  */
 function deriveKeyringPassword(): string {
   const host = hostname();

@@ -21,11 +21,15 @@ const dnsLookup = promisify(dns.lookup);
 
 // ── SSRF protection ──────────────────────────────────────────
 
-/** Headers that should not be forwarded from renderer requests. */
+/**
+ * Headers that affect routing and should not be forwarded.
+ * Note: `authorization` and `cookie` are intentionally NOT blocked —
+ * renderer apps (e.g. Starling Bank) legitimately send auth headers
+ * to external APIs. SSRF is mitigated by private IP blocking, not
+ * header stripping.
+ */
 const BLOCKED_HEADERS = new Set([
   'host',
-  'cookie',
-  'authorization',
   'proxy-authorization',
 ]);
 
@@ -50,11 +54,16 @@ function isPrivateIp(ip: string): boolean {
 }
 
 /**
- * Validate a URL for SSRF safety:
- *  - Must be http: or https:
- *  - Hostname must not resolve to a private IP
+ * Resolve hostname and validate for SSRF safety.
+ * Returns the resolved IP address so the caller can pin it (preventing
+ * DNS rebinding / TOCTOU attacks where a second resolution returns a
+ * different IP).
+ *
+ * Checks:
+ *  - Protocol must be http: or https:
+ *  - Hostname must not resolve to a private/reserved IP
  */
-async function validateUrlForSsrf(urlStr: string): Promise<void> {
+async function validateAndResolve(urlStr: string): Promise<{ parsed: URL; resolvedIp: string | null }> {
   let parsed: URL;
   try {
     parsed = new URL(urlStr);
@@ -67,23 +76,26 @@ async function validateUrlForSsrf(urlStr: string): Promise<void> {
     throw new Error(`Blocked protocol: ${parsed.protocol}`);
   }
 
-  // Resolve hostname to check for private IPs
   const hostname = parsed.hostname;
 
-  // Direct IP check (no DNS needed)
+  // Direct IP literal check (no DNS needed)
   if (isPrivateIp(hostname)) {
     throw new Error(`Blocked request to private IP: ${hostname}`);
   }
 
-  // DNS resolution check — hostname may resolve to a private IP
+  // DNS resolution check — hostname may resolve to a private IP.
+  // We return the resolved IP so the caller can pin it in the fetch
+  // request, preventing DNS rebinding attacks.
   try {
     const { address } = await dnsLookup(hostname);
     if (isPrivateIp(address)) {
       throw new Error(`Blocked request: hostname "${hostname}" resolves to private IP ${address}`);
     }
+    return { parsed, resolvedIp: address };
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('Blocked')) throw err;
     // DNS lookup failed — allow the request to proceed and let fetch handle the error
+    return { parsed, resolvedIp: null };
   }
 }
 
@@ -106,12 +118,29 @@ export function registerNetHandlers(): void {
     async (_event, request: ProxyFetchRequest): Promise<ProxyFetchResponse> => {
       const { url, method = 'GET', headers = {}, body } = request;
 
-      // SSRF protection: validate URL before making request
-      await validateUrlForSsrf(url);
+      // SSRF protection: validate URL and resolve hostname.
+      // We get back the resolved IP to pin it, preventing DNS rebinding
+      // attacks where a second resolution returns a private IP.
+      const { parsed, resolvedIp } = await validateAndResolve(url);
 
       const sanitizedHeaders = sanitizeHeaders(headers);
 
-      const res = await fetch(url, {
+      // Pin the resolved IP to prevent DNS rebinding: replace the
+      // hostname with the validated IP so fetch() doesn't re-resolve.
+      // For HTTPS, we can't replace the hostname (TLS cert validation
+      // requires the original domain), but DNS rebinding to private IPs
+      // over HTTPS is impractical since the attacker would also need a
+      // valid TLS cert for the private IP — a much higher bar.
+      let fetchUrl = url;
+      if (resolvedIp && parsed.protocol === 'http:') {
+        const originalHost = parsed.host;
+        parsed.hostname = resolvedIp;
+        fetchUrl = parsed.toString();
+        // Set Host header so the target server sees the original hostname
+        sanitizedHeaders['host'] = originalHost;
+      }
+
+      const res = await fetch(fetchUrl, {
         method,
         headers: sanitizedHeaders,
         body: body ?? undefined,

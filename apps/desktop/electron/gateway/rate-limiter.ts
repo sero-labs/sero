@@ -61,8 +61,9 @@ export class RateLimiter {
     // Record this attempt
     entry.attempts.push(now);
 
-    // Check if limit exceeded
-    if (entry.attempts.length > this.config.maxAttempts) {
+    // Check if limit exceeded — block when attempts reach maxAttempts
+    // (e.g. maxAttempts: 5 means the 5th failed attempt triggers a block)
+    if (entry.attempts.length >= this.config.maxAttempts) {
       entry.blockedUntil = now + this.config.blockMs;
       return false;
     }

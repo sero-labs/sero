@@ -159,17 +159,19 @@ function createWindow() {
 
   // ── Security: navigation restrictions ──────────────────────────
   // Block navigation to untrusted origins. Only allow the dev server
-  // and the production renderer HTML. All other navigation attempts
-  // (e.g., from XSS or malicious content) are blocked.
+  // (in development) and the production renderer HTML (file: protocol).
+  // All other navigation attempts (e.g., from XSS or malicious content)
+  // are blocked.
+  const isDev = process.env.NODE_ENV === 'development';
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-    const allowedOrigins = ['http://localhost:5173'];
     try {
       const parsed = new URL(navigationUrl);
-      const origin = parsed.origin;
-      if (!allowedOrigins.includes(origin) && parsed.protocol !== 'file:') {
-        console.warn(`[security] Blocked navigation to untrusted origin: ${navigationUrl}`);
-        event.preventDefault();
-      }
+      // Production: only file: protocol (local renderer HTML) is allowed
+      if (parsed.protocol === 'file:') return;
+      // Development: allow the Vite dev server origin
+      if (isDev && parsed.origin === 'http://localhost:5173') return;
+      console.warn(`[security] Blocked navigation to untrusted origin: ${navigationUrl}`);
+      event.preventDefault();
     } catch {
       event.preventDefault();
     }

@@ -23,6 +23,7 @@ import http from 'http';
 
 import { GatewayAuth } from './auth';
 import { RateLimiter } from './rate-limiter';
+import { sendResponse, routeAgentRequest } from './request-handler';
 import { redactSecrets } from '../lib/secret-redact';
 import {
   validateRequest,
@@ -267,10 +268,13 @@ export class GatewayServer {
 
   // ── Internal ──────────────────────────────────────────────
 
-  /** Extract client IP from the HTTP upgrade request. */
+  /**
+   * Extract client IP from the HTTP upgrade request.
+   * Always uses the socket address — never trusts X-Forwarded-For since
+   * the gateway can be directly exposed (e.g. via Tailscale) and clients
+   * could spoof XFF to bypass rate limiting and per-IP connection limits.
+   */
   private getClientIp(req: http.IncomingMessage): string {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
     return req.socket.remoteAddress ?? 'unknown';
   }
 
@@ -364,7 +368,7 @@ export class GatewayServer {
         const raw = JSON.parse(data.toString());
         const request = validateRequest(raw);
         if (!request) {
-          this.send(ws, {
+          sendResponse(ws, {
             type: 'error',
             requestType: 'unknown',
             message: 'Invalid request format',
@@ -378,7 +382,7 @@ export class GatewayServer {
 
         await this.handleRequest(ws, client, request);
       } catch (err) {
-        this.send(ws, {
+        sendResponse(ws, {
           type: 'error',
           requestType: 'unknown',
           message: err instanceof Error ? redactSecrets(err.message) : 'Internal error',
@@ -407,7 +411,7 @@ export class GatewayServer {
       // Check rate limiter before validating token
       if (!this.authLimiter.check(client.remoteIp)) {
         console.warn(`[gateway] Auth rate-limited: ${client.remoteIp}`);
-        this.send(ws, {
+        sendResponse(ws, {
           type: 'error',
           requestType: 'connect',
           message: 'Too many authentication attempts. Try again later.',
@@ -420,7 +424,7 @@ export class GatewayServer {
         console.warn(
           `[gateway] Auth failed: ${client.remoteIp} (client type: ${request.clientType})`,
         );
-        this.send(ws, {
+        sendResponse(ws, {
           type: 'error',
           requestType: 'connect',
           message: 'Invalid authentication token',
@@ -438,13 +442,13 @@ export class GatewayServer {
       console.log(
         `[gateway] Client authenticated: ${client.clientType} (${client.clientId}) from ${client.remoteIp}`,
       );
-      this.send(ws, { type: 'ok', requestType: 'connect' });
+      sendResponse(ws, { type: 'ok', requestType: 'connect' });
       return;
     }
 
     // All other requests require authentication
     if (!client.authenticated) {
-      this.send(ws, {
+      sendResponse(ws, {
         type: 'error',
         requestType: request.type,
         message: 'Not authenticated. Send a connect request first.',
@@ -453,7 +457,7 @@ export class GatewayServer {
     }
 
     if (!this.agentOps) {
-      this.send(ws, {
+      sendResponse(ws, {
         type: 'error',
         requestType: request.type,
         message: 'Agent operations not available',
@@ -461,111 +465,12 @@ export class GatewayServer {
       return;
     }
 
-    switch (request.type) {
-      case 'prompt': {
-        try {
-          // Subscribe client to this session for push events
-          client.subscribedSessions.add(request.sessionId);
-          // Ensure session is open
-          await this.agentOps.openSession(
-            request.sessionId,
-            request.workspaceId,
-          );
-          // Send prompt
-          await this.agentOps.prompt(request.sessionId, request.text);
-          this.send(ws, { type: 'ok', requestType: 'prompt' });
-        } catch (err) {
-          this.send(ws, {
-            type: 'error',
-            requestType: 'prompt',
-            message: err instanceof Error ? err.message : 'Prompt failed',
-          });
-        }
-        break;
-      }
-
-      case 'steer': {
-        try {
-          await this.agentOps.steer(request.sessionId, request.text);
-          this.send(ws, { type: 'ok', requestType: 'steer' });
-        } catch (err) {
-          this.send(ws, {
-            type: 'error',
-            requestType: 'steer',
-            message: err instanceof Error ? err.message : 'Steer failed',
-          });
-        }
-        break;
-      }
-
-      case 'abort': {
-        try {
-          await this.agentOps.abort(request.sessionId);
-          this.send(ws, { type: 'ok', requestType: 'abort' });
-        } catch (err) {
-          this.send(ws, {
-            type: 'error',
-            requestType: 'abort',
-            message: err instanceof Error ? err.message : 'Abort failed',
-          });
-        }
-        break;
-      }
-
-      case 'status': {
-        this.send(ws, {
-          type: 'ok',
-          requestType: 'status',
-          data: this.getStatus(),
-        });
-        break;
-      }
-
-      case 'list_workspaces': {
-        try {
-          const workspaces = await this.agentOps.listWorkspaces();
-          this.send(ws, {
-            type: 'ok',
-            requestType: 'list_workspaces',
-            data: workspaces,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: 'error',
-            requestType: 'list_workspaces',
-            message:
-              err instanceof Error ? err.message : 'List workspaces failed',
-          });
-        }
-        break;
-      }
-
-      case 'list_sessions': {
-        try {
-          const sessions = await this.agentOps.listSessions(
-            request.workspaceId,
-          );
-          this.send(ws, {
-            type: 'ok',
-            requestType: 'list_sessions',
-            data: sessions,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: 'error',
-            requestType: 'list_sessions',
-            message:
-              err instanceof Error ? err.message : 'List sessions failed',
-          });
-        }
-        break;
-      }
-    }
-  }
-
-  private send(ws: WebSocket, msg: GatewayResponse): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msg));
-    }
+    await routeAgentRequest(
+      ws,
+      this.agentOps,
+      request,
+      (sessionId) => client.subscribedSessions.add(sessionId),
+      () => this.getStatus(),
+    );
   }
 }
