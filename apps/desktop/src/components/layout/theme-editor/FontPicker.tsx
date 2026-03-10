@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { loadGoogleFont, preloadAllGoogleFonts } from '@/lib/google-fonts';
 
 interface FontPickerProps {
   label: string;
@@ -12,7 +13,15 @@ interface FontPickerProps {
   onChange: (value: string) => void;
 }
 
+// Preload all Google Fonts once so previews render immediately.
+let _fontsPreloaded = false;
+
 export function FontPicker({ label, value, presets, onChange }: FontPickerProps) {
+  if (!_fontsPreloaded) {
+    _fontsPreloaded = true;
+    preloadAllGoogleFonts();
+  }
+
   const isCustom = !presets.some((p) => p.value === value);
   const [showCustom, setShowCustom] = useState(isCustom);
 
@@ -23,6 +32,7 @@ export function FontPicker({ label, value, presets, onChange }: FontPickerProps)
         setShowCustom(true);
       } else {
         setShowCustom(false);
+        loadGoogleFont(v);
         onChange(v);
       }
     },
@@ -81,54 +91,66 @@ export function FontPicker({ label, value, presets, onChange }: FontPickerProps)
 
 export const SANS_PRESETS = [
   {
-    label: 'System UI',
+    label: 'System Default',
     value: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
+  // ── Web fonts (loaded from Google Fonts CDN) ──
   {
     label: 'Inter',
-    value: "'Inter', system-ui, -apple-system, sans-serif",
-  },
-  {
-    label: 'SF Pro',
-    value: "'SF Pro Display', 'SF Pro', system-ui, -apple-system, sans-serif",
+    value: "'Inter', system-ui, sans-serif",
   },
   {
     label: 'Geist',
-    value: "'Geist', system-ui, -apple-system, sans-serif",
-  },
-  {
-    label: 'IBM Plex Sans',
-    value: "'IBM Plex Sans', system-ui, sans-serif",
+    value: "'Geist', system-ui, sans-serif",
   },
   {
     label: 'Source Sans 3',
     value: "'Source Sans 3', system-ui, sans-serif",
   },
+  {
+    label: 'IBM Plex Sans',
+    value: "'IBM Plex Sans', system-ui, sans-serif",
+  },
+  // ── macOS-native fonts (always available, no loading needed) ──
+  {
+    label: 'Helvetica Neue',
+    value: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+  },
+  {
+    label: 'Avenir Next',
+    value: "'Avenir Next', 'Avenir', system-ui, sans-serif",
+  },
 ];
 
 export const MONO_PRESETS = [
+  // ── Web fonts (loaded from Google Fonts CDN) ──
   {
     label: 'JetBrains Mono',
-    value: "'JetBrains Mono', 'SF Mono', 'Fira Code', Menlo, monospace",
-  },
-  {
-    label: 'SF Mono',
-    value: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
+    value: "'JetBrains Mono', Menlo, monospace",
   },
   {
     label: 'Fira Code',
-    value: "'Fira Code', 'JetBrains Mono', Menlo, monospace",
+    value: "'Fira Code', Menlo, monospace",
   },
   {
-    label: 'Cascadia Code',
-    value: "'Cascadia Code', 'Fira Code', Menlo, monospace",
+    label: 'Source Code Pro',
+    value: "'Source Code Pro', Menlo, monospace",
   },
   {
     label: 'IBM Plex Mono',
     value: "'IBM Plex Mono', Menlo, monospace",
   },
+  // ── macOS-native fonts (always available, no loading needed) ──
   {
-    label: 'Source Code Pro',
-    value: "'Source Code Pro', Menlo, monospace",
+    label: 'Menlo',
+    value: "Menlo, Monaco, 'Courier New', monospace",
+  },
+  {
+    label: 'Monaco',
+    value: "Monaco, Menlo, 'Courier New', monospace",
+  },
+  {
+    label: 'Courier New',
+    value: "'Courier New', Courier, monospace",
   },
 ];

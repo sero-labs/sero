@@ -6,6 +6,7 @@
  * Custom themes inject inline style overrides that take precedence.
  */
 
+import { loadGoogleFont } from './google-fonts';
 import type {
   ThemePreset,
   ColorTokens,
@@ -133,9 +134,11 @@ export function applyThemePreset(
 
   // Typography overrides
   if (preset.typography?.fontSans) {
+    loadGoogleFont(preset.typography.fontSans);
     root.style.setProperty('--font-sans', preset.typography.fontSans);
   }
   if (preset.typography?.fontMono) {
+    loadGoogleFont(preset.typography.fontMono);
     root.style.setProperty('--font-mono', preset.typography.fontMono);
   }
   if (preset.typography?.fontSizeBase) {
