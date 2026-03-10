@@ -5,7 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   FolderOpen,
-  Github,
+  GitBranch,
   Loader2,
   Minus,
   Monitor,
@@ -28,7 +28,7 @@ import { cn } from '@sero/ui/lib/utils';
 import { SessionNode } from './SessionNode';
 import { PickView, CreateView } from './AddWorkspaceViews';
 import { WorkspaceReferencesMenu } from './WorkspaceReferencesMenu';
-import { CreateGitHubRepoDialog } from './CreateGitHubRepoDialog';
+import { RemoteOriginManager } from './RemoteOriginManager';
 
 /**
  * WorkspaceTree — tree view of workspaces → sessions.
@@ -157,6 +157,7 @@ function AddWorkspaceMenu() {
   const [newName, setNewName] = useState('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Guards against Radix auto-closing the popover when a native dialog steals focus
   const pickingFolderRef = useRef(false);
@@ -196,9 +197,11 @@ function AddWorkspaceMenu() {
     if (!trimmed || isCreating) return;
     setIsCreating(true);
     try {
-      await createWorkspace(trimmed, parentPath ?? undefined);
+      const ws = await createWorkspace(trimmed, parentPath ?? undefined);
       await loadSessions();
       setOpen(false);
+      // Prompt user to set up remote origin for the new workspace
+      setNewWorkspace(ws);
     } catch (err) {
       console.error('Failed to create workspace:', err);
     } finally {
@@ -207,6 +210,7 @@ function AddWorkspaceMenu() {
   };
 
   return (
+    <>
     <Popover open={open} onOpenChange={(o) => {
       if (!o && pickingFolderRef.current) return; // Native dialog stole focus — don't close
       setOpen(o);
@@ -250,10 +254,18 @@ function AddWorkspaceMenu() {
         )}
       </PopoverContent>
     </Popover>
+
+    {/* Prompt to set up remote origin after workspace creation */}
+    {newWorkspace && (
+      <RemoteOriginManager
+        open={!!newWorkspace}
+        onOpenChange={(o) => { if (!o) setNewWorkspace(null); }}
+        workspace={newWorkspace}
+      />
+    )}
+    </>
   );
 }
-
-
 
 // ── Workspace node ─────────────────────────────────────────────
 
@@ -292,7 +304,7 @@ function WorkspaceNode({
   sessions: SeroSessionInfo[];
 }) {
   const [hovered, setHovered] = useState(false);
-  const [ghRepoOpen, setGhRepoOpen] = useState(false);
+  const [remoteManagerOpen, setRemoteManagerOpen] = useState(false);
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
@@ -403,12 +415,12 @@ function WorkspaceNode({
                 <span
                   role="button"
                   tabIndex={-1}
-                  onClick={(e) => { e.stopPropagation(); setGhRepoOpen(true); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setGhRepoOpen(true); } }}
+                  onClick={(e) => { e.stopPropagation(); setRemoteManagerOpen(true); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setRemoteManagerOpen(true); } }}
                   className="rounded p-0.5 hover:bg-[var(--bg-base)]"
-                  title="Create GitHub repository"
+                  title="Remote origin"
                 >
-                  <Github className="size-3 text-[var(--text-muted)]" />
+                  <GitBranch className="size-3 text-[var(--text-muted)]" />
                 </span>
                 {!isDefault && (
                   <span
@@ -461,10 +473,10 @@ function WorkspaceNode({
         </div>
       )}
 
-      {/* GitHub repo creation dialog */}
-      <CreateGitHubRepoDialog
-        open={ghRepoOpen}
-        onOpenChange={setGhRepoOpen}
+      {/* Remote origin manager */}
+      <RemoteOriginManager
+        open={remoteManagerOpen}
+        onOpenChange={setRemoteManagerOpen}
         workspace={workspace}
       />
     </div>
