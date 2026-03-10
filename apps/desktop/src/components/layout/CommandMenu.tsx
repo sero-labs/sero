@@ -59,12 +59,6 @@ export function CommandMenu() {
     setOpen(false);
   }, [toggleMode]);
 
-  const handleNewTheme = useCallback(() => {
-    setOpen(false);
-    setEditPresetId('__new__');
-    setEditorOpen(true);
-  }, []);
-
   const handleEditCurrent = useCallback(() => {
     setOpen(false);
     setEditPresetId(activePresetId);
@@ -102,10 +96,6 @@ export function CommandMenu() {
             <CommandItem value="Browse Themes" onSelect={handleOpenThemePanel}>
               <span className="size-4 shrink-0 flex items-center justify-center">🎨</span>
               <span>Browse Themes</span>
-            </CommandItem>
-            <CommandItem value="Create New Theme" onSelect={handleNewTheme}>
-              <span className="size-4 shrink-0 flex items-center justify-center">✨</span>
-              <span>Create New Theme</span>
             </CommandItem>
             <CommandItem value="Edit Current Theme" onSelect={handleEditCurrent}>
               <span className="size-4 shrink-0 flex items-center justify-center">✏️</span>

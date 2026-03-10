@@ -217,11 +217,23 @@ export function ThemeEditorSheet({
         showCloseButton={false}
       >
         {/* Header */}
-        <SheetHeader className="shrink-0 border-b border-[var(--border-subtle)] px-4 py-3">
-          <SheetTitle className="text-sm">Theme Editor</SheetTitle>
-          <SheetDescription className="sr-only">
-            Create or edit a theme preset with live preview
-          </SheetDescription>
+        <SheetHeader className="shrink-0 flex flex-row items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+          <div>
+            <SheetTitle className="text-sm">Theme Editor</SheetTitle>
+            <SheetDescription className="sr-only">
+              Create or edit a theme preset with live preview
+            </SheetDescription>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(buildDraftFromPreset(null, '__new__'));
+              setTab('colors');
+            }}
+            className="rounded px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+          >
+            + New
+          </button>
         </SheetHeader>
 
         {draft && (
