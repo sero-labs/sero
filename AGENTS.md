@@ -328,4 +328,5 @@ project owner. Do not introduce them under any circumstances.
 - When creating documentation or plans, save them in @docs/ or a subfolder by type
 - When asked to create a PR, use the Github CLI
 - When reviewing a PR, always make sure there's good type safety
+- Don't delete comments unless they are obvious or no longer relevant - they offer important context unfamiliar users
 - **Prefer `useDebouncedCallback` / `createDebouncedFn`** from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns. When you encounter an existing hand-rolled debounce, refactor it to use these helpers.
