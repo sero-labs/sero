@@ -25,11 +25,82 @@ export interface CollaborationResult {
   hasErrors: boolean;
 }
 
-/** Events pushed from main → renderer during collaboration. */
+// ── Strategy types ──────────────────────────────────────────────
+
+/** Available collaboration strategies. */
+export type CollaborationStrategy = 'standard' | 'debate';
+
+/** Configuration for the debate strategy. */
+export interface DebateConfig {
+  /** Maximum number of debate rounds (default: 3). */
+  maxRounds: number;
+  /** Maximum total time in seconds for the debate phase (default: 120). */
+  timeLimitSec: number;
+  /** Model IDs for each agent role (uses defaults if omitted). */
+  models?: Partial<Record<CollaborationRole, string>>;
+}
+
+/** Default debate configuration. */
+export const DEFAULT_DEBATE_CONFIG: DebateConfig = {
+  maxRounds: 3,
+  timeLimitSec: 120,
+};
+
+/** Combined configuration sent with a collaboration prompt. */
+export interface CollaborationConfig {
+  strategy: CollaborationStrategy;
+  debate?: DebateConfig;
+}
+
+// ── Debate-specific status tracking ─────────────────────────────
+
+/** Phases of the debate strategy. */
+export type DebatePhase =
+  | 'decomposition'
+  | 'independent_analysis'
+  | 'debate'
+  | 'synthesis';
+
+/** Labels for debate phases (for UI display). */
+export const DEBATE_PHASE_LABELS: Record<DebatePhase, string> = {
+  decomposition: 'Task Decomposition',
+  independent_analysis: 'Independent Analysis',
+  debate: 'Debate & Cross-Checking',
+  synthesis: 'Synthesis & Consensus',
+};
+
+/** Tracks a single debate round during the debate phase. */
+export interface DebateRound {
+  roundNumber: number;
+  challengerRole: CollaborationRole;
+  defenderRole: CollaborationRole;
+  summary: string;
+  durationMs: number;
+}
+
+/** Live state of a debate collaboration for the renderer. */
+export interface DebateState {
+  phase: DebatePhase;
+  currentRound: number;
+  totalRounds: number;
+  rounds: DebateRound[];
+  /** Per-agent status during independent analysis and debate. */
+  agentStatuses: Record<string, 'pending' | 'running' | 'completed' | 'failed'>;
+  startedAt: number;
+  timeLimitSec: number;
+}
+
+// ── Events pushed from main → renderer during collaboration ─────
+
 export type CollaborationEvent =
-  | { type: 'collab_start'; sessionId: string }
+  | { type: 'collab_start'; sessionId: string; strategy: CollaborationStrategy }
   | { type: 'collab_phase'; sessionId: string; phase: 'research' | 'specialists' | 'synthesis' }
   | { type: 'collab_specialist_start'; sessionId: string; role: CollaborationRole; agentName: string }
   | { type: 'collab_specialist_end'; sessionId: string; role: CollaborationRole; agentName: string; response: string; durationMs: number; error?: string }
   | { type: 'collab_end'; sessionId: string; result: CollaborationResult }
-  | { type: 'collab_error'; sessionId: string; error: string };
+  | { type: 'collab_error'; sessionId: string; error: string }
+  // Debate-specific events
+  | { type: 'collab_debate_phase'; sessionId: string; phase: DebatePhase }
+  | { type: 'collab_debate_agent_status'; sessionId: string; agentName: string; status: 'pending' | 'running' | 'completed' | 'failed' }
+  | { type: 'collab_debate_round_start'; sessionId: string; round: number; totalRounds: number; challengerRole: CollaborationRole; defenderRole: CollaborationRole }
+  | { type: 'collab_debate_round_end'; sessionId: string; round: number; summary: string; durationMs: number; challengerRole: CollaborationRole; defenderRole: CollaborationRole };

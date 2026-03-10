@@ -3,13 +3,24 @@ import type {
   CollaborationResult,
   CollaborationSpecialistOutput,
   CollaborationStatus,
+  CollaborationStrategy,
+  DebateState,
+  DebatePhase,
+  DebateRound,
+  DebateConfig,
 } from '@/types/collaboration';
+import { DEFAULT_DEBATE_CONFIG } from '@/types/collaboration';
 
 export interface CollaborationSessionState {
   mode: boolean;
+  strategy: CollaborationStrategy;
   status: CollaborationStatus;
   result: CollaborationResult | null;
   specialists: CollaborationSpecialistOutput[];
+  /** Debate-specific state (only populated when strategy === 'debate'). */
+  debate: DebateState | null;
+  /** User-configured debate parameters. */
+  debateConfig: DebateConfig;
 }
 
 export type CollaborationSessionMap = Record<string, CollaborationSessionState>;
@@ -17,9 +28,12 @@ export type CollaborationSessionMap = Record<string, CollaborationSessionState>;
 export function createCollaborationSessionState(): CollaborationSessionState {
   return {
     mode: false,
+    strategy: 'standard',
     status: 'idle',
     result: null,
     specialists: [],
+    debate: null,
+    debateConfig: { ...DEFAULT_DEBATE_CONFIG },
   };
 }
 
@@ -62,6 +76,36 @@ export function toggleCollaborationModeForSession(
   };
 }
 
+export function setCollaborationStrategyForSession(
+  collaborations: CollaborationSessionMap,
+  sessionId: string,
+  strategy: CollaborationStrategy,
+): CollaborationSessionMap {
+  const current = getSessionState(collaborations, sessionId);
+  return {
+    ...collaborations,
+    [sessionId]: {
+      ...current,
+      strategy,
+    },
+  };
+}
+
+export function setDebateConfigForSession(
+  collaborations: CollaborationSessionMap,
+  sessionId: string,
+  config: Partial<DebateConfig>,
+): CollaborationSessionMap {
+  const current = getSessionState(collaborations, sessionId);
+  return {
+    ...collaborations,
+    [sessionId]: {
+      ...current,
+      debateConfig: { ...current.debateConfig, ...config },
+    },
+  };
+}
+
 export function startCollaborationForSession(
   collaborations: CollaborationSessionMap,
   sessionId: string,
@@ -71,9 +115,20 @@ export function startCollaborationForSession(
     ...collaborations,
     [sessionId]: {
       ...current,
-      status: 'research',
+      status: current.strategy === 'debate' ? 'research' : 'research',
       result: null,
       specialists: [],
+      debate: current.strategy === 'debate'
+        ? {
+            phase: 'decomposition',
+            currentRound: 0,
+            totalRounds: current.debateConfig.maxRounds,
+            rounds: [],
+            agentStatuses: {},
+            startedAt: Date.now(),
+            timeLimitSec: current.debateConfig.timeLimitSec,
+          }
+        : null,
     },
   };
 }
@@ -92,6 +147,63 @@ export function setCollaborationErrorForSession(
   };
 }
 
+function applyDebateEvent(
+  state: CollaborationSessionState,
+  event: CollaborationEvent,
+): CollaborationSessionState {
+  if (!state.debate) return state;
+
+  switch (event.type) {
+    case 'collab_debate_phase':
+      return {
+        ...state,
+        debate: { ...state.debate, phase: event.phase as DebatePhase },
+      };
+
+    case 'collab_debate_agent_status':
+      return {
+        ...state,
+        debate: {
+          ...state.debate,
+          agentStatuses: {
+            ...state.debate.agentStatuses,
+            [event.agentName]: event.status,
+          },
+        },
+      };
+
+    case 'collab_debate_round_start':
+      return {
+        ...state,
+        debate: {
+          ...state.debate,
+          currentRound: event.round,
+          totalRounds: event.totalRounds,
+        },
+      };
+
+    case 'collab_debate_round_end': {
+      const round: DebateRound = {
+        roundNumber: event.round,
+        challengerRole: event.challengerRole,
+        defenderRole: event.defenderRole,
+        summary: event.summary,
+        durationMs: event.durationMs,
+      };
+      return {
+        ...state,
+        debate: {
+          ...state.debate,
+          rounds: [...state.debate.rounds, round],
+        },
+      };
+    }
+
+    default:
+      return state;
+  }
+}
+
 export function applyCollaborationEvent(
   collaborations: CollaborationSessionMap,
   event: CollaborationEvent,
@@ -104,9 +216,21 @@ export function applyCollaborationEvent(
         ...collaborations,
         [event.sessionId]: {
           ...current,
+          strategy: event.strategy,
           status: 'research',
           result: null,
           specialists: [],
+          debate: event.strategy === 'debate'
+            ? {
+                phase: 'decomposition',
+                currentRound: 0,
+                totalRounds: current.debateConfig.maxRounds,
+                rounds: [],
+                agentStatuses: {},
+                startedAt: Date.now(),
+                timeLimitSec: current.debateConfig.timeLimitSec,
+              }
+            : null,
         },
       };
 
@@ -157,11 +281,19 @@ export function applyCollaborationEvent(
       };
 
     case 'collab_specialist_start':
-      // No state change needed — specialist progress is tracked via collab_specialist_end.
       return collaborations;
 
+    // Debate-specific events
+    case 'collab_debate_phase':
+    case 'collab_debate_agent_status':
+    case 'collab_debate_round_start':
+    case 'collab_debate_round_end':
+      return {
+        ...collaborations,
+        [event.sessionId]: applyDebateEvent(current, event),
+      };
+
     default: {
-      // Exhaustive check — ensures all event types are handled at compile time.
       const _exhaustive: never = event;
       return collaborations;
     }

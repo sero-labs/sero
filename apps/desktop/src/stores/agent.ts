@@ -6,12 +6,14 @@ import type {
   SeroSlashCommandInfo,
   SessionModelState,
 } from '@/types/ipc';
-import type { CollaborationEvent } from '@/types/collaboration';
+import type { CollaborationEvent, CollaborationStrategy, DebateConfig } from '@/types/collaboration';
 import {
   applyCollaborationEvent,
   removeCollaborationSession,
   resetCollaborationSession,
   setCollaborationErrorForSession,
+  setCollaborationStrategyForSession,
+  setDebateConfigForSession,
   startCollaborationForSession,
   toggleCollaborationModeForSession,
 } from '@/stores/agent-collaboration';
@@ -282,11 +284,31 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       };
     }),
 
+  setCollaborationStrategy: (strategy: CollaborationStrategy) =>
+    set((s) => {
+      if (!s.focusedSessionId) return s;
+      return {
+        collaborations: setCollaborationStrategyForSession(s.collaborations, s.focusedSessionId, strategy),
+      };
+    }),
+
+  setDebateConfig: (config: Partial<DebateConfig>) =>
+    set((s) => {
+      if (!s.focusedSessionId) return s;
+      return {
+        collaborations: setDebateConfigForSession(s.collaborations, s.focusedSessionId, config),
+      };
+    }),
+
   sendCollaborationPrompt: async (sessionId, text) => {
     const agent = get().agents[sessionId];
     if (!agent) return;
 
-    // Reset collaboration state for this session before the new run starts.
+    // Read current strategy + config before resetting state
+    const collabState = get().collaborations[sessionId];
+    const strategy = collabState?.strategy ?? 'standard';
+    const debateConfig = collabState?.debateConfig;
+
     const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
     set((s) => ({
@@ -303,12 +325,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }));
 
     try {
-      // This runs the 4-agent collaboration AND then feeds the synthesis
-      // through the main agent session. The main session's response streams
-      // back via the normal agent event channel (message_start, text_delta,
-      // message_end), so the conversation is fully persisted and follow-ups
-      // have context. We do NOT manually add the assistant message here.
-      await window.sero.collaboration.prompt(sessionId, agent.workspaceId, text);
+      await window.sero.collaboration.prompt(sessionId, agent.workspaceId, text, {
+        strategy,
+        debate: strategy === 'debate' ? debateConfig : undefined,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Collaboration failed';
       set((s) => ({

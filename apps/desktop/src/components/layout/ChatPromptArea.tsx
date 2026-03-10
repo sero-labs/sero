@@ -25,6 +25,7 @@ import {
 import { useAgentStore } from '@/stores/agent';
 import {
   useFocusedCollaborationMode,
+  useFocusedCollaborationStrategy,
 } from '@/stores/agent-selectors';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { FileReferenceMenu } from './FileReferenceMenu';
@@ -54,6 +55,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
   const abort = useAgentStore((s) => s.abort);
   const fetchModelState = useAgentStore((s) => s.fetchModelState);
   const collaborationMode = useFocusedCollaborationMode();
+  const collaborationStrategy = useFocusedCollaborationStrategy();
   const hasSession = !!sessionId;
 
   // ── Login dialog state ─────────────────────────────────────
@@ -151,7 +153,9 @@ export const ChatPromptArea = memo(function ChatPromptArea({
               placeholder={
                 hasSession
                   ? collaborationMode
-                    ? '4-Agent Collaboration active — ask a complex question…'
+                    ? collaborationStrategy === 'debate'
+                      ? 'Debate Collaboration — agents will analyze, debate & synthesize…'
+                      : '4-Agent Collaboration active — ask a complex question…'
                     : 'Ask Sero anything… (/ for commands, @ for files)'
                   : 'Select a chat first…'
               }

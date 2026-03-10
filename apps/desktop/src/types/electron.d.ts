@@ -53,6 +53,7 @@ import type {
   PromptTemplateFileData,
   CollaborationResult,
   CollaborationEvent,
+  CollaborationConfig,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
@@ -393,8 +394,8 @@ interface SeroPromptsAPI {
 }
 
 interface SeroCollaborationAPI {
-  /** Send a prompt through the 4-agent collaboration framework. */
-  prompt(sessionId: string, workspaceId: string, query: string): Promise<CollaborationResult>;
+  /** Send a prompt through the collaboration framework (standard or debate). */
+  prompt(sessionId: string, workspaceId: string, query: string, config?: CollaborationConfig): Promise<CollaborationResult>;
   /** Subscribe to collaboration lifecycle events. Returns unsubscribe. */
   onEvent(callback: (event: CollaborationEvent) => void): () => void;
 }

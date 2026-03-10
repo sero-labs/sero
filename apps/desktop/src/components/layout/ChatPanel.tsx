@@ -9,6 +9,7 @@ import { useAgentStore } from '@/stores/agent';
 import {
   useFocusedAgent,
   useFocusedCollaborationMode,
+  useFocusedCollaborationStrategy,
 } from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
 import { SessionBadge } from './SessionBadge';
@@ -23,7 +24,8 @@ import { createFilePathClickHandler } from './ClickableFilePath';
 import { PendingQuestionCard } from './PendingQuestionCard';
 import { QuestionnaireNotice } from './QuestionnaireNotice';
 import { EmptyState } from './ChatPanelHelpers';
-import { CollaborationStatusBanner, CollaborationDetails } from './CollaborationResponse';
+import { CollaborationDetails } from './CollaborationResponse';
+import { CollaborationActivityPanel } from './CollaborationActivityPanel';
 import { ChatPromptArea } from './ChatPromptArea';
 
 /**
@@ -57,6 +59,7 @@ export function ChatPanel() {
   useUserFeedbackInit();
 
   const collaborationMode = useFocusedCollaborationMode();
+  const collaborationStrategy = useFocusedCollaborationStrategy();
 
   const messages = focused?.messages ?? [];
   const isStreaming = focused?.isStreaming ?? false;
@@ -134,7 +137,7 @@ export function ChatPanel() {
         )}
         {collaborationMode && (
           <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
-            4-Agent
+            {collaborationStrategy === 'debate' ? 'Debate' : '4-Agent'}
           </span>
         )}
         {sessionId && <SessionBadge sessionId={sessionId} />}
@@ -202,8 +205,8 @@ export function ChatPanel() {
         <ConversationScrollButton />
       </Conversation>
 
-      {/* ── Collaboration status + expandable details ──────── */}
-      <CollaborationStatusBanner />
+      {/* ── Collaboration activity + expandable details ──────── */}
+      <CollaborationActivityPanel />
       <CollaborationDetails />
 
       {/* ── Pending question card (single questions only) ──── */}

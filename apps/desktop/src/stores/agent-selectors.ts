@@ -57,3 +57,23 @@ export function useFocusedCollaborationSpecialists() {
     s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.specialists ?? EMPTY_SPECIALISTS) : EMPTY_SPECIALISTS,
   );
 }
+
+export function useFocusedCollaborationStrategy() {
+  return useAgentStore((s) =>
+    s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.strategy ?? 'standard') : 'standard',
+  );
+}
+
+export function useFocusedDebateState() {
+  return useAgentStore((s) =>
+    s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.debate ?? null) : null,
+  );
+}
+
+export function useFocusedDebateConfig() {
+  return useAgentStore((s) =>
+    s.focusedSessionId
+      ? (s.collaborations[s.focusedSessionId]?.debateConfig ?? null)
+      : null,
+  );
+}
