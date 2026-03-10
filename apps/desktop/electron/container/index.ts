@@ -47,6 +47,15 @@ function isValidEnvName(name: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
 }
 
+/**
+ * Check whether a shell command likely invokes git or gh, and therefore
+ * needs GitHub auth env vars. This prevents leaking the auth token into
+ * the environment of unrelated commands (ls, node, cat, etc.).
+ */
+function needsGitAuth(command: string): boolean {
+  return /\b(?:git|gh)\b/.test(command);
+}
+
 export class ContainerManager {
   /** workspaceId → containerId */
   private containers = new Map<string, string>();
@@ -219,7 +228,9 @@ export class ContainerManager {
       );
     }
     // Inject GitHub auth env vars (GH_TOKEN, URL rewrites, HTTP auth header)
-    if (this.getExtraEnvVars) {
+    // only when the command invokes git or gh — avoids leaking the auth token
+    // into the environment of unrelated commands (ls, node, etc.).
+    if (this.getExtraEnvVars && needsGitAuth(command)) {
       const extra = this.getExtraEnvVars();
       for (const [key, value] of Object.entries(extra)) {
         if (!isValidEnvName(key)) {

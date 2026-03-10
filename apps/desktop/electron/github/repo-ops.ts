@@ -107,6 +107,8 @@ export class GitHubRepoOps {
 }
 
 function extractRepoUrl(text: string): string | undefined {
-  const match = text.match(/https:\/\/github\.com\/[^\s]+/);
+  // Exclude trailing punctuation (periods, commas, parens) that may come from
+  // natural-language output wrapping the URL.
+  const match = text.match(/https:\/\/github\.com\/[^\s,.)]+/);
   return match?.[0];
 }

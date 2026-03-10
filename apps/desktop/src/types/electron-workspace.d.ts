@@ -125,6 +125,7 @@ export interface SeroVcsAPI {
   moveBookmark(wsId: string, name: string, toRev: string): Promise<void>;
   remotes(wsId: string): Promise<Remote[]>;
   addRemote(wsId: string, name: string, url: string): Promise<void>;
+  setRemoteUrl(wsId: string, name: string, url: string): Promise<void>;
   removeRemote(wsId: string, name: string): Promise<void>;
   fetch(wsId: string, remote?: string): Promise<SyncResult>;
   push(wsId: string, bookmark?: string, changeId?: string): Promise<SyncResult>;

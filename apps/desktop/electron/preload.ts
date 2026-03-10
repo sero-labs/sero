@@ -453,6 +453,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.vcs.remotes, wsId),
     addRemote: (wsId: string, name: string, url: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.vcs.addRemote, wsId, name, url),
+    setRemoteUrl: (wsId: string, name: string, url: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.setRemoteUrl, wsId, name, url),
     removeRemote: (wsId: string, name: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.vcs.removeRemote, wsId, name),
     fetch: (wsId: string, remote?: string): Promise<SyncResult> =>

@@ -121,7 +121,9 @@ export function CreateGitHubView({
   onBack: () => void;
   onCreated: (url: string) => void;
 }) {
-  const [name, setName] = useState(workspace.id);
+  // Sanitize workspace ID to a valid GitHub repo name (alphanumeric, hyphens, underscores, dots)
+  const sanitizedDefault = workspace.id.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
+  const [name, setName] = useState(sanitizedDefault);
   const [description, setDescription] = useState(workspace.description ?? '');
   const [visibility, setVisibility] = useState<Visibility>('private');
   const [isCreating, setIsCreating] = useState(false);
@@ -134,6 +136,13 @@ export function CreateGitHubView({
     setIsCreating(true);
     setError(null);
     try {
+      // Pre-check: verify GitHub auth before round-tripping to the container
+      const authStatus = await window.sero.github.status();
+      if (!authStatus.authenticated) {
+        setError('Not authenticated with GitHub. Connect your GitHub account in the sidebar first.');
+        setIsCreating(false);
+        return;
+      }
       const res: CreateGitHubRepoResult = await window.sero.github.createRepo(workspace.id, {
         name: trimmed,
         description: description.trim() || undefined,
@@ -253,11 +262,11 @@ export function ConnectExistingView({
       onConnected(trimmed);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to add remote';
-      // If origin already exists, update the URL instead
+      // If origin already exists, update the URL instead via proper VCS layer
+      // (routes through GitRunner with auth env injection, no shell injection risk)
       if (msg.includes('already exists')) {
         try {
-          const escaped = trimmed.replace(/'/g, "'\\''");
-          await window.sero.editor.exec(workspace.id, `git remote set-url origin '${escaped}'`);
+          await window.sero.vcs.setRemoteUrl(workspace.id, 'origin', trimmed);
           onConnected(trimmed);
           return;
         } catch (setUrlErr) {

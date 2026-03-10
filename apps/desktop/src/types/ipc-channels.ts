@@ -281,6 +281,7 @@ export const IpcChannels = {
     moveBookmark: 'sero:vcs:move-bookmark',
     remotes: 'sero:vcs:remotes',
     addRemote: 'sero:vcs:add-remote',
+    setRemoteUrl: 'sero:vcs:set-remote-url',
     removeRemote: 'sero:vcs:remove-remote',
     fetch: 'sero:vcs:fetch',
     push: 'sero:vcs:push',

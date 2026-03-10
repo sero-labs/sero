@@ -33,6 +33,9 @@ const BRANCH_LISTING_FLAGS = new Set([
 ]);
 const BRANCH_FILTER_FLAGS = new Set(['--contains', '--no-contains', '--merged', '--no-merged', '--points-at']);
 
+/** Flags that make `git config` mutating regardless of positional count. */
+const CONFIG_MUTATING_FLAGS = /--unset\b|--unset-all\b|--remove-section\b|--rename-section\b|--replace-all\b|--edit\b/;
+
 /**
  * Commands that are read-only in some forms and mutating in others.
  * Returns true if the git invocation is safe (read-only).
@@ -65,13 +68,16 @@ function isContextuallyReadOnly(rawSegment: string): boolean {
     return true;
   }
 
-  // git config — read if ≤1 non-flag positional (reading a key), write if 2+ (setting value)
+  // git config — read if ≤1 non-flag positional (reading a key), write if 2+ (setting value).
+  // Certain flags are inherently mutating regardless of positional count.
   const configMatch = segment.match(/git\s+config(?:\s+(.*))?$/s);
   if (configMatch) {
     const rest = (configMatch[1] ?? '').trim();
     if (!rest || rest === '--list' || rest === '-l' || rest === '--global --list' || rest === '--global -l') {
       return true;
     }
+    // These flags modify config even with a single positional arg
+    if (CONFIG_MUTATING_FLAGS.test(rest)) return false;
     const tokens = rest.split(/\s+/).filter((t) => !t.startsWith('-'));
     return tokens.length <= 1;
   }
@@ -79,8 +85,22 @@ function isContextuallyReadOnly(rawSegment: string): boolean {
   return false;
 }
 
+/**
+ * Patterns that could embed arbitrary git commands in ways the segment
+ * splitter can't parse: subshells, eval, and explicit bash/sh -c wrappers.
+ * If the raw command string mentions `git` AND uses one of these patterns,
+ * we treat the entire command as potentially mutating.
+ */
+const SUBSHELL_BYPASS_PATTERN = /\$\(|`|(?:^|\s)(?:eval|bash|sh)\s/;
+
 /** Check whether a bash command string contains mutating git operations. */
 export function hasMutatingGit(command: string): boolean {
+  // If the command uses subshells, eval, or bash -c AND mentions git,
+  // treat it as mutating — we can't reliably parse the nested command.
+  if (SUBSHELL_BYPASS_PATTERN.test(command) && /\bgit\b/.test(command)) {
+    return true;
+  }
+
   const segments = command
     .split(/&&|\|\||;|\|/)
     .map((s) => s.trim())

@@ -26,11 +26,18 @@ const execFileAsync = promisify(execFile);
 
 /* ── Host git identity ────────────────────────────────────── */
 
-/** Read the host's global git user.name / user.email. Cached for the process lifetime. */
+/**
+ * Read the host's global git user.name / user.email.
+ * Cached with a 5-minute TTL so mid-session config changes are eventually picked up.
+ */
+const GIT_IDENTITY_TTL_MS = 5 * 60 * 1000;
 let _hostGitIdentity: { name: string; email: string } | null = null;
+let _hostGitIdentityFetchedAt = 0;
 
 async function readHostGitIdentity(): Promise<{ name: string; email: string }> {
-  if (_hostGitIdentity) return _hostGitIdentity;
+  if (_hostGitIdentity && (Date.now() - _hostGitIdentityFetchedAt) < GIT_IDENTITY_TTL_MS) {
+    return _hostGitIdentity;
+  }
 
   let name = '';
   let email = '';
@@ -44,6 +51,7 @@ async function readHostGitIdentity(): Promise<{ name: string; email: string }> {
   } catch { /* not configured */ }
 
   _hostGitIdentity = { name, email };
+  _hostGitIdentityFetchedAt = Date.now();
   return _hostGitIdentity;
 }
 

@@ -36,7 +36,7 @@ ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''
   \`sero vcs remote\`           — list remotes
   \`sero vcs log\`              — recent commits
   \`sero vcs fetch\`            — fetch from remote
-- Read-only git commands in bash are fine: \`git status\`, \`git log\`, \`git diff\`, \`git show\`, \`git remote -v\`, \`git branch\`
+- Read-only git commands in bash are fine: \`git status\`, \`git log\`, \`git diff\`, \`git show\`, \`git fetch\`, \`git remote -v\`, \`git branch\`, \`git blame\`
 
 **Cross-workspace access:**
 - Other open workspaces (including the global workspace) are mounted into this container at their original host paths.

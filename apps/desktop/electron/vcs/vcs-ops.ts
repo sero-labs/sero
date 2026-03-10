@@ -189,6 +189,14 @@ export class VcsOps {
     }
   }
 
+  /** Update the URL of an existing remote. */
+  async setRemoteUrl(workspaceId: string, name: string, url: string): Promise<void> {
+    const result = await this.runner.run(workspaceId, ['remote', 'set-url', name, url]);
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr || `Failed to update remote URL for '${name}'`);
+    }
+  }
+
   private async getCommitDescription(
     workspaceId: string,
     changeId: string,
