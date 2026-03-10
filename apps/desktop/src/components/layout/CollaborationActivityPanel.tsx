@@ -369,7 +369,7 @@ export function CollaborationActivityPanel() {
   if (status === 'idle' || status === 'complete') return null;
 
   return (
-    <div className="mx-3 mb-2 overflow-hidden rounded-md border border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)]">
+    <div className="mx-3 mb-2 flex max-h-80 flex-col overflow-hidden rounded-md border border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)]">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-1.5">
         <div className="size-1.5 animate-pulse rounded-full bg-[var(--collab-primary)]" />
@@ -379,8 +379,10 @@ export function CollaborationActivityPanel() {
         <ElapsedTimer />
       </div>
 
-      {/* Strategy-specific content */}
-      {strategy === 'debate' ? <DebateActivityContent /> : <StandardActivityContent />}
+      {/* Strategy-specific content — scrollable when debate feed overflows */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {strategy === 'debate' ? <DebateActivityContent /> : <StandardActivityContent />}
+      </div>
 
       {/* Error indicator */}
       {status === 'error' && (
