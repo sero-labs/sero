@@ -8,6 +8,7 @@ import { useCallback, useRef } from 'react';
 interface ColorPickerProps {
   label: string;
   value: string;
+  defaultValue?: string;
   onChange: (value: string) => void;
 }
 

@@ -19,6 +19,11 @@ import type { ThemePreset, ThemePresetMeta } from '../../src/types/theme';
 
 const THEMES_DIR = path.join(SERO_HOME, 'themes');
 
+/** Resolve the path to built-in theme templates (packages/templates/themes/). */
+function getTemplatesDir(): string {
+  return path.resolve(__dirname, '../../../../packages/templates/themes');
+}
+
 /** Ensure theme directory exists. */
 function ensureDir(): void {
   mkdirSync(THEMES_DIR, { recursive: true });
@@ -154,6 +159,25 @@ export function registerThemeHandlers(): void {
         'utf8',
       );
       return true;
+    },
+  );
+
+  // ── Reset a built-in theme to its template ─────────────────
+  ipcMain.handle(
+    IpcChannels.themes.reset,
+    async (_e, id: string): Promise<ThemePreset | null> => {
+      const templatePath = path.join(getTemplatesDir(), `${id}.json`);
+      if (!existsSync(templatePath)) return null; // Not a built-in theme
+
+      const preset = await readThemeFile(templatePath);
+      if (!preset) return null;
+
+      // Overwrite the user's copy
+      ensureDir();
+      const destPath = path.join(THEMES_DIR, `${id}.json`);
+      await fs.copyFile(templatePath, destPath);
+
+      return preset;
     },
   );
 }

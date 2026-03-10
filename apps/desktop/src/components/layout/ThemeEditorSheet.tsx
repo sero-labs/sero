@@ -192,6 +192,17 @@ export function ThemeEditorSheet({
     onOpenChange(false);
   }, [draft, saveCustomPreset, setPreset, onOpenChange]);
 
+  // ── Reset to default template ───────────────────────────────
+
+  const handleReset = useCallback(async () => {
+    if (!editPresetId || editPresetId === '__new__') return;
+    const restored = await window.sero.themes.reset(editPresetId);
+    if (!restored) return;
+    const newDraft = buildDraftFromPreset(restored, editPresetId);
+    setDraft(newDraft);
+    applyPreview(newDraft);
+  }, [editPresetId, applyPreview]);
+
   // ── Cancel ─────────────────────────────────────────────────
 
   const handleCancel = useCallback(() => {
@@ -308,15 +319,27 @@ export function ThemeEditorSheet({
               )}
             </div>
 
-            {/* Footer — save / cancel */}
+            {/* Footer — save / reset / cancel */}
             <div className="shrink-0 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+                {editPresetId && editPresetId !== '__new__' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-[var(--text-muted)]"
+                    onClick={handleReset}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
               <Button
                 size="sm"
                 onClick={handleSave}

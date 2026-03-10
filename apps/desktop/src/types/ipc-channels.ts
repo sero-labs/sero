@@ -209,6 +209,8 @@ export const IpcChannels = {
     import: 'sero:themes:import',
     /** Export a theme to a file save dialog. */
     export: 'sero:themes:export',
+    /** Reset a built-in theme to its original template. */
+    reset: 'sero:themes:reset',
   },
   editor: {
     /** Read a file from the workspace (dual-mode: container or host). */

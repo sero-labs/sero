@@ -326,6 +326,8 @@ interface SeroThemesAPI {
   import(): Promise<ThemePreset | null>;
   /** Export a theme to a file save dialog. */
   export(id: string): Promise<boolean>;
+  /** Reset a built-in theme to its original template. Returns the restored preset, or null if not a built-in. */
+  reset(id: string): Promise<ThemePreset | null>;
 }
 
 interface SeroNetAPI {

@@ -556,6 +556,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.themes.import),
     export: (id: string): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannels.themes.export, id),
+    reset: (id: string): Promise<ThemePreset | null> =>
+      ipcRenderer.invoke(IpcChannels.themes.reset, id),
   },
   net: {
     fetch: (request: ProxyFetchRequest): Promise<ProxyFetchResponse> =>
