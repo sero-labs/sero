@@ -4,8 +4,9 @@
 
 import { BrowserWindow, ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
+import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '../../src/types/ipc';
 import type { DeviceFlowProgress, GitHubAuthStatus } from '../github/auth-manager';
-import { githubAuth } from './shared-infra';
+import { githubAuth, githubRepoOps } from './shared-infra';
 
 const Ch = IpcChannels.github;
 
@@ -61,4 +62,11 @@ export function registerGitHubHandlers(): void {
       loginAbort = null;
     }
   });
+
+  ipcMain.handle(
+    Ch.createRepo,
+    async (_event, workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult> => {
+      return githubRepoOps.createRepo(workspaceId, input);
+    },
+  );
 }

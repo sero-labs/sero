@@ -93,6 +93,10 @@ export function registerVcsHandlers(): void {
     vcsOps.addRemote(wsId, name, url),
   );
 
+  ipcMain.handle(Ch.setRemoteUrl, async (_e, wsId: string, name: string, url: string) =>
+    vcsOps.setRemoteUrl(wsId, name, url),
+  );
+
   ipcMain.handle(Ch.removeRemote, async (_e, wsId: string, name: string) =>
     vcsOps.removeRemote(wsId, name),
   );

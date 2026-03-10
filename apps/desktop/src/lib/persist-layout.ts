@@ -17,6 +17,7 @@
 import type { LayoutState } from '@/types/layout';
 import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
 import { useAppStore } from '@/stores/app';
+import { useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 
@@ -35,6 +36,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     mainSidebarSizePct: partial.mainSidebarSizePct ?? app.mainSidebarSizePct,
     chatPanelSizePct: partial.chatPanelSizePct ?? app.chatPanelSizePct,
     theme: partial.theme ?? app.theme,
+    activeThemeId: partial.activeThemeId ?? useThemeStore.getState().activePresetId,
     activeWorkspaceId: partial.activeWorkspaceId !== undefined
       ? partial.activeWorkspaceId
       : ws.activeWorkspaceId,

@@ -137,7 +137,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
         className={cn(
           'rounded-md p-1.5 transition-colors duration-150',
           isActive
-            ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400'
+            ? 'bg-[var(--collab-primary-subtle)] text-[var(--collab-primary)]'
             : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
           'disabled:pointer-events-none disabled:opacity-40',
         )}
@@ -150,7 +150,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
         <button
           onClick={() => setPopoverOpen(!popoverOpen)}
           disabled={disabled}
-          className="ml-[-2px] rounded-md p-0.5 text-violet-400 hover:bg-violet-500/10"
+          className="ml-[-2px] rounded-md p-0.5 text-[var(--collab-primary)] hover:bg-[var(--collab-primary-muted)]"
           title="Change collaboration strategy"
         >
           <ChevronDown className="size-2.5" />
@@ -177,7 +177,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                   className={cn(
                     'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors',
                     strategy === option.value
-                      ? 'bg-violet-500/15 text-violet-400'
+                      ? 'bg-[var(--collab-primary-subtle)] text-[var(--collab-primary)]'
                       : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
                   )}
                 >
@@ -187,7 +187,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
                     <div className="text-[10px] text-[var(--text-muted)]">{option.description}</div>
                   </div>
                   {strategy === option.value && (
-                    <div className="ml-auto size-1.5 rounded-full bg-violet-500" />
+                    <div className="ml-auto size-1.5 rounded-full bg-[var(--collab-primary)]" />
                   )}
                 </button>
               );

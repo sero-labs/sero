@@ -189,6 +189,14 @@ export class VcsOps {
     }
   }
 
+  /** Update the URL of an existing remote. */
+  async setRemoteUrl(workspaceId: string, name: string, url: string): Promise<void> {
+    const result = await this.runner.run(workspaceId, ['remote', 'set-url', name, url]);
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr || `Failed to update remote URL for '${name}'`);
+    }
+  }
+
   private async getCommitDescription(
     workspaceId: string,
     changeId: string,
@@ -304,6 +312,14 @@ export class VcsOps {
     };
   }
 
+  /** Resolve the current branch name (e.g. 'master', 'main'). */
+  private async resolveCurrentBranch(workspaceId: string): Promise<string | undefined> {
+    const result = await this.runner.run(workspaceId, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    const branch = result.exitCode === 0 ? result.stdout.trim() : undefined;
+    // HEAD means detached — not a named branch
+    return branch && branch !== 'HEAD' ? branch : undefined;
+  }
+
   async push(
     workspaceId: string,
     bookmark?: string,
@@ -331,6 +347,12 @@ export class VcsOps {
           message: err instanceof Error ? err.message : 'Failed to prepare push branch',
         };
       }
+    }
+
+    // When no branch was specified at all, resolve the current branch
+    // so `git push -u origin <branch>` works on first push.
+    if (!resolvedBranch) {
+      resolvedBranch = await this.resolveCurrentBranch(workspaceId);
     }
 
     const pushRemote = await this.resolvePushRemote(workspaceId);

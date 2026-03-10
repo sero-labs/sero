@@ -196,6 +196,22 @@ export const IpcChannels = {
     /** Load UI layout state. */
     load: 'sero:layout:load',
   },
+  themes: {
+    /** List all available theme presets (built-in + custom). */
+    list: 'sero:themes:list',
+    /** Load a specific theme preset by ID. */
+    load: 'sero:themes:load',
+    /** Save a custom theme preset (create or update). */
+    save: 'sero:themes:save',
+    /** Delete a custom theme preset. */
+    delete: 'sero:themes:delete',
+    /** Import a theme from a file picker dialog. */
+    import: 'sero:themes:import',
+    /** Export a theme to a file save dialog. */
+    export: 'sero:themes:export',
+    /** Reset a built-in theme to its original template. */
+    reset: 'sero:themes:reset',
+  },
   editor: {
     /** Read a file from the workspace (dual-mode: container or host). */
     readFile: 'sero:editor:read-file',
@@ -281,6 +297,7 @@ export const IpcChannels = {
     moveBookmark: 'sero:vcs:move-bookmark',
     remotes: 'sero:vcs:remotes',
     addRemote: 'sero:vcs:add-remote',
+    setRemoteUrl: 'sero:vcs:set-remote-url',
     removeRemote: 'sero:vcs:remove-remote',
     fetch: 'sero:vcs:fetch',
     push: 'sero:vcs:push',
@@ -300,6 +317,8 @@ export const IpcChannels = {
     logout: 'sero:github:logout',
     cancel: 'sero:github:cancel',
     event: 'sero:github:event',
+    /** Create a GitHub repository for a workspace. Args: workspaceId, input. */
+    createRepo: 'sero:github:create-repo',
   },
   net: {
     /** Proxy an HTTP fetch through the main process (bypasses CORS). */

@@ -290,10 +290,10 @@ export function VoiceTranscriptionControl({
             disabled={micDisabled}
             className={cn(
               'relative rounded-md p-1.5 transition-all duration-150',
-              phase === 'recording' && 'bg-rose-500/20 text-rose-300 shadow-[0_0_0_2px_rgba(244,63,94,0.16)]',
-              phase === 'starting' && 'bg-cyan-500/15 text-cyan-200',
-              phase === 'processing' && 'bg-cyan-500/15 text-cyan-200',
-              phase === 'error' && 'bg-amber-500/15 text-amber-200',
+              phase === 'recording' && 'bg-[var(--voice-recording-muted)] text-[var(--voice-recording)] shadow-[0_0_0_2px_var(--voice-recording-muted)]',
+              phase === 'starting' && 'bg-[var(--voice-processing-muted)] text-[var(--voice-processing)]',
+              phase === 'processing' && 'bg-[var(--voice-processing-muted)] text-[var(--voice-processing)]',
+              phase === 'error' && 'bg-[var(--status-warning-muted)] text-[var(--status-warning)]',
               phase === 'idle' && 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
               micDisabled && 'cursor-not-allowed opacity-50',
             )}
@@ -305,7 +305,7 @@ export function VoiceTranscriptionControl({
             {phase === 'error' && <AlertCircle className="size-3.5" />}
             {phase === 'idle' && <Mic className="size-3.5" />}
             {phase === 'recording' && (
-              <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-rose-400 animate-pulse" />
+              <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-[var(--voice-recording)] animate-pulse" />
             )}
           </button>
         </TooltipTrigger>
@@ -368,7 +368,7 @@ export function VoiceTranscriptionControl({
                     )}
                   >
                     <span className="min-w-0 flex-1 truncate">{input.label}</span>
-                    {selected && <Check className="size-3.5 shrink-0 text-emerald-500" />}
+                    {selected && <Check className="size-3.5 shrink-0 text-[var(--status-success)]" />}
                   </button>
                 );
               })}

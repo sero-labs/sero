@@ -68,7 +68,7 @@ function SortableEditorTab({ tab, isActive, onSelect, onClose, onCloseOthers, on
         >
           <FileIcon fileName={fileName} extension={fileName.split('.').pop()?.toLowerCase()} className="size-3.5 shrink-0 text-[var(--text-muted)]" />
           <span className={cn('font-normal', isActive && 'font-medium')}>{fileName}</span>
-          {tab.dirty && <span className="text-[9px] text-[var(--accent)] ml-0.5 shrink-0">●</span>}
+          {tab.dirty && <span className="text-[9px] text-[var(--accent-primary)] ml-0.5 shrink-0">●</span>}
           <button
             className={cn(
               'flex items-center justify-center size-4 border-none bg-transparent',
@@ -81,7 +81,7 @@ function SortableEditorTab({ tab, isActive, onSelect, onClose, onCloseOthers, on
             onMouseDown={(e) => e.stopPropagation()}
             title="Close"
           >×</button>
-          {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />}
+          {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-primary)]" />}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-44">

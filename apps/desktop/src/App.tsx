@@ -13,6 +13,7 @@ import { ChatPanel } from '@/components/layout/ChatPanel';
 import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
 import { useAppStore, discoverAndRegisterApps, listenForNewApps, loadLayout } from '@/stores/app';
+import { listenForSystemThemeChanges } from '@/stores/theme';
 import { useProfileStore, loadProfiles } from '@/stores/profiles';
 import { ProfileSetup } from '@/components/profiles/ProfileSetup';
 import { OnboardingWizard } from '@/components/profiles/OnboardingWizard';
@@ -95,7 +96,9 @@ export function App() {
     loadProfiles();
     loadLayout();
     discoverAndRegisterApps();
-    return listenForNewApps();
+    const unsub = listenForNewApps();
+    const unsubTheme = listenForSystemThemeChanges();
+    return () => { unsub(); unsubTheme(); };
   }, []);
 
   // Subscribe to dev server events from main process

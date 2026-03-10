@@ -57,11 +57,11 @@ export function QuestionnaireNotice({ tools }: Props) {
       transition={{ duration: 0.2 }}
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}
-      className="cursor-pointer overflow-hidden rounded-lg border border-blue-500/20 bg-blue-500/[0.03] transition-colors hover:bg-blue-500/[0.06]"
+      className="cursor-pointer overflow-hidden rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-faint)] transition-colors hover:bg-[var(--status-info-muted)]"
     >
       <div className="flex items-center gap-2.5 px-3 py-2">
         <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
-        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-blue-500 dark:bg-blue-400" />
+        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-info)]" />
         <span className="flex-1 text-xs font-medium text-[var(--text-secondary)]">
           {label}{count > 0 ? ` (${count} question${count !== 1 ? 's' : ''})` : ''}
           {' — switch to '}

@@ -16,10 +16,10 @@ import { cn } from '@sero/ui/lib/utils';
 import type { CollaborationRole, CollaborationSpecialistOutput } from '@/types/collaboration';
 
 const ROLE_META: Record<CollaborationRole, { label: string; icon: typeof Search; color: string }> = {
-  coordinator: { label: 'Coordinator', icon: Users, color: 'text-violet-500' },
-  researcher: { label: 'Researcher', icon: Search, color: 'text-blue-500' },
-  analyst: { label: 'Analyst', icon: BarChart3, color: 'text-emerald-500' },
-  visionary: { label: 'Visionary', icon: Lightbulb, color: 'text-amber-500' },
+  coordinator: { label: 'Coordinator', icon: Users, color: 'text-[var(--collab-primary)]' },
+  researcher: { label: 'Researcher', icon: Search, color: 'text-[var(--status-info)]' },
+  analyst: { label: 'Analyst', icon: BarChart3, color: 'text-[var(--status-success)]' },
+  visionary: { label: 'Visionary', icon: Lightbulb, color: 'text-[var(--status-warning)]' },
 };
 
 function SpecialistCard({ output }: { output: CollaborationSpecialistOutput }) {
@@ -76,7 +76,7 @@ export function CollaborationStatusBanner() {
   const phase2Completed = Math.max(0, specialists.length - 1);
 
   return (
-    <div className="mx-3 mb-2 flex items-center gap-2 rounded-md bg-violet-500/10 px-3 py-2 text-xs text-violet-600 dark:text-violet-400">
+    <div className="mx-3 mb-2 flex items-center gap-2 rounded-md bg-[var(--collab-primary-muted)] px-3 py-2 text-xs text-[var(--collab-primary)]">
       <Loader2 className="size-3.5 animate-spin" />
       {status === 'research' && (
         <span>4-Agent Collaboration: Researcher gathering facts...</span>
@@ -108,7 +108,7 @@ export function CollaborationDetails() {
     <div className="mx-1 mt-1">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] text-violet-600 hover:bg-violet-500/10 dark:text-violet-400"
+        className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] text-[var(--collab-primary)] hover:bg-[var(--collab-primary-muted)]"
       >
         <Users className="size-3" />
         {expanded ? 'Hide' : 'Show'} specialist outputs

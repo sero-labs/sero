@@ -123,7 +123,7 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
               className={cn(
                 'flex size-6 items-center justify-center rounded',
                 'text-[var(--text-muted)] transition-colors duration-150',
-                'hover:bg-[var(--bg-elevated)] hover:text-amber-400',
+                'hover:bg-[var(--bg-elevated)] hover:text-[var(--status-warning)]',
               )}
             >
               <Sparkles className="size-3" />

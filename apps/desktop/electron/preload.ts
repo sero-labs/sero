@@ -41,6 +41,8 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  CreateGitHubRepoInput,
+  CreateGitHubRepoResult,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -60,6 +62,7 @@ import type {
   CreatePullRequestInput,
   CreatePullRequestResult,
 } from '../src/types/vcs';
+import type { ThemePreset, ThemePresetMeta } from '../src/types/theme';
 
 contextBridge.exposeInMainWorld('sero', {
   platform: process.platform,
@@ -451,6 +454,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.vcs.remotes, wsId),
     addRemote: (wsId: string, name: string, url: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.vcs.addRemote, wsId, name, url),
+    setRemoteUrl: (wsId: string, name: string, url: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.setRemoteUrl, wsId, name, url),
     removeRemote: (wsId: string, name: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.vcs.removeRemote, wsId, name),
     fetch: (wsId: string, remote?: string): Promise<SyncResult> =>
@@ -491,6 +496,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.on(IpcChannels.github.event, handler);
       return () => ipcRenderer.removeListener(IpcChannels.github.event, handler);
     },
+    createRepo: (workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult> =>
+      ipcRenderer.invoke(IpcChannels.github.createRepo, workspaceId, input),
   },
 
   terminal: {
@@ -535,6 +542,22 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.layout.save, state),
     load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps?: string[] } | null> =>
       ipcRenderer.invoke(IpcChannels.layout.load),
+  },
+  themes: {
+    list: (): Promise<ThemePresetMeta[]> =>
+      ipcRenderer.invoke(IpcChannels.themes.list),
+    load: (id: string): Promise<ThemePreset | null> =>
+      ipcRenderer.invoke(IpcChannels.themes.load, id),
+    save: (preset: ThemePreset): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.themes.save, preset),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.themes.delete, id),
+    import: (): Promise<ThemePreset | null> =>
+      ipcRenderer.invoke(IpcChannels.themes.import),
+    export: (id: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.themes.export, id),
+    reset: (id: string): Promise<ThemePreset | null> =>
+      ipcRenderer.invoke(IpcChannels.themes.reset, id),
   },
   net: {
     fetch: (request: ProxyFetchRequest): Promise<ProxyFetchResponse> =>

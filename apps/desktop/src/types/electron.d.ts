@@ -13,6 +13,7 @@ import type {
   SeroVcsAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
+import type { ThemePreset, ThemePresetMeta } from './theme';
 
 import type {
   ProfileInfo,
@@ -59,6 +60,8 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  CreateGitHubRepoInput,
+  CreateGitHubRepoResult,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -311,6 +314,23 @@ interface SeroLayoutAPI {
   load(): Promise<LoadedLayoutState | null>;
 }
 
+interface SeroThemesAPI {
+  /** List all available theme presets (built-in + custom). */
+  list(): Promise<ThemePresetMeta[]>;
+  /** Load a specific theme preset by ID. */
+  load(id: string): Promise<ThemePreset | null>;
+  /** Save a custom theme preset (create or update). */
+  save(preset: ThemePreset): Promise<void>;
+  /** Delete a custom theme preset. */
+  delete(id: string): Promise<void>;
+  /** Import a theme from a file picker dialog. */
+  import(): Promise<ThemePreset | null>;
+  /** Export a theme to a file save dialog. */
+  export(id: string): Promise<boolean>;
+  /** Reset a built-in theme to its original template. Returns the restored preset, or null if not a built-in. */
+  reset(id: string): Promise<ThemePreset | null>;
+}
+
 interface SeroNetAPI {
   /**
    * Proxy an HTTP request through the main process (bypasses CORS).
@@ -468,6 +488,7 @@ interface SeroAPI {
   devServer: SeroDevServerAPI;
   terminal: SeroTerminalAPI;
   layout: SeroLayoutAPI;
+  themes: SeroThemesAPI;
   net: SeroNetAPI;
   safeStorage: SeroSafeStorageAPI;
   feedback: SeroFeedbackAPI;
@@ -505,6 +526,8 @@ interface SeroGitHubAPI {
   logout(): Promise<void>;
   cancel(): Promise<void>;
   onEvent(callback: (event: GitHubDeviceFlowEvent) => void): () => void;
+  /** Create a GitHub repository for a workspace. */
+  createRepo(workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult>;
 }
 
 declare global {
