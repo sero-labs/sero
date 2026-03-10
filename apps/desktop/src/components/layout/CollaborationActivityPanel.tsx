@@ -150,7 +150,7 @@ function AgentPill({ role, status }: { role: CollaborationRole; status: 'pending
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]',
+        'flex flex-1 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[10px]',
         status === 'running' && `${meta.bg} ${meta.color}`,
         status === 'completed' && 'bg-[var(--status-success-muted)] text-[var(--status-success)]',
         status === 'failed' && 'bg-destructive/10 text-destructive',
@@ -262,7 +262,7 @@ function StandardActivityContent() {
   return (
     <>
       <StepPipeline steps={STANDARD_STEPS} activeIndex={activeIndex} />
-      <div className="flex flex-wrap gap-1 px-3 pb-2">
+      <div className="flex flex-wrap gap-1.5 px-3 pb-2">
         {agentStatuses.map(({ role, status: s }) => (
           <AgentPill key={role} role={role} status={s} />
         ))}
@@ -319,7 +319,7 @@ function DebateActivityContent() {
       </div>
 
       {/* Agent pills */}
-      <div className="flex flex-wrap gap-1 px-3 pb-2">
+      <div className="flex flex-wrap gap-1.5 px-3 pb-2">
         {agentStatuses.map(({ role, status }) => (
           <AgentPill key={role} role={role} status={status} />
         ))}
