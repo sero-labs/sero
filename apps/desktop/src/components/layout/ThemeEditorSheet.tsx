@@ -19,7 +19,6 @@ import { Button } from '@sero/ui/components/ui/button';
 import { useThemeStore } from '@/stores/theme';
 import type {
   ThemePreset,
-  ColorTokens,
   TypographyTokens,
   SpacingTokens,
   RadiusTokens,
@@ -68,37 +67,31 @@ export function ThemeEditorSheet({
   const effectiveMode = useThemeStore((s) => s.effectiveMode);
   const mode = useThemeStore((s) => s.mode);
   const activePreset = useThemeStore((s) => s.activePreset);
-  const activePresetId = useThemeStore((s) => s.activePresetId);
   const setMode = useThemeStore((s) => s.setMode);
   const setPreset = useThemeStore((s) => s.setPreset);
   const saveCustomPreset = useThemeStore((s) => s.saveCustomPreset);
 
-  // ── Initialise draft when sheet opens ──────────────────────
+  // ── Initialise / tear down draft on open/close ─────────────
+  // React "adjust state during render" pattern — Radix Sheet's
+  // onOpenChange only fires on user-initiated close, not when
+  // the parent sets open={true}, so we detect the transition here.
 
-  const handleOpenChange = useCallback(
-    async (next: boolean) => {
-      if (next && !draft) {
-        let source: ThemePreset | null = activePreset;
-        // If editing a specific preset that isn't the active one, load it
-        if (editPresetId && editPresetId !== '__new__' && editPresetId !== activePresetId) {
-          try {
-            const loaded = await window.sero.themes.load(editPresetId);
-            if (loaded) source = loaded as ThemePreset;
-          } catch {
-            // Fall back to active preset
-          }
-        }
-        setDraft(buildDraftFromPreset(source, editPresetId));
-        setTab('colors');
-      }
+  if (open && !draft) {
+    setDraft(buildDraftFromPreset(activePreset, editPresetId));
+    setTab('colors');
+  }
+  if (!open && draft) {
+    setDraft(null);
+  }
+
+  const handleSheetClose = useCallback(
+    (next: boolean) => {
       if (!next) {
-        // Closing — revert any unsaved preview
         revertPreview(activePreset, effectiveMode);
-        setDraft(null);
       }
       onOpenChange(next);
     },
-    [draft, activePreset, activePresetId, editPresetId, effectiveMode, onOpenChange],
+    [activePreset, effectiveMode, onOpenChange],
   );
 
   /** Push the current draft to the DOM for live preview. */
@@ -214,7 +207,7 @@ export function ThemeEditorSheet({
   );
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
+    <Sheet open={open} onOpenChange={handleSheetClose}>
       <SheetContent
         side="right"
         className="flex w-[420px] max-w-[90vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[420px]"
