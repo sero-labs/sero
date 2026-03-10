@@ -36,11 +36,71 @@
   --accent-muted: #6366f11a;
   --accent-code: #7c3aed;
 
-  /* Status */
+  /* Status — solid */
   --status-success: #16a34a;
   --status-warning: #d97706;
   --status-error: #dc2626;
   --status-info: #2563eb;
+
+  /* Status — muted backgrounds (low-opacity tints) */
+  --status-success-muted: rgba(22, 163, 74, 0.10);
+  --status-warning-muted: rgba(217, 119, 6, 0.10);
+  --status-error-muted: rgba(220, 38, 38, 0.10);
+  --status-info-muted: rgba(37, 99, 235, 0.10);
+
+  /* Status — subtle (slightly stronger tint for borders, badges) */
+  --status-success-subtle: rgba(22, 163, 74, 0.15);
+  --status-warning-subtle: rgba(217, 119, 6, 0.15);
+  --status-error-subtle: rgba(220, 38, 38, 0.15);
+  --status-info-subtle: rgba(37, 99, 235, 0.15);
+
+  /* Status — faint (near-invisible tint for full-area backgrounds) */
+  --status-success-faint: rgba(22, 163, 74, 0.03);
+  --status-warning-faint: rgba(217, 119, 6, 0.03);
+  --status-error-faint: rgba(220, 38, 38, 0.03);
+  --status-info-faint: rgba(37, 99, 235, 0.03);
+
+  /* Status — border (20% opacity for bordered containers) */
+  --status-success-border: rgba(22, 163, 74, 0.20);
+  --status-warning-border: rgba(217, 119, 6, 0.20);
+  --status-error-border: rgba(220, 38, 38, 0.20);
+  --status-info-border: rgba(37, 99, 235, 0.20);
+
+  /* Semantic colours — collaboration / special modes */
+  --collab-primary: #7c3aed;
+  --collab-primary-muted: rgba(124, 58, 237, 0.10);
+  --collab-primary-subtle: rgba(124, 58, 237, 0.15);
+  --collab-primary-border: rgba(124, 58, 237, 0.20);
+
+  /* Semantic colours — voice / recording */
+  --voice-recording: #f43f5e;
+  --voice-recording-muted: rgba(244, 63, 94, 0.20);
+  --voice-processing: #06b6d4;
+  --voice-processing-muted: rgba(6, 182, 212, 0.15);
+
+  /* Semantic colours — indigo accent for notifications/banners */
+  --banner-primary: #6366f1;
+  --banner-primary-muted: rgba(99, 102, 241, 0.10);
+  --banner-primary-subtle: rgba(99, 102, 241, 0.15);
+  --banner-primary-border: rgba(99, 102, 241, 0.20);
+
+  /* Thinking / reasoning gradients */
+  --gradient-thinking-high: linear-gradient(135deg, rgba(245, 158, 11, 0.20), rgba(239, 68, 68, 0.20));
+  --gradient-thinking-low: linear-gradient(135deg, rgba(99, 102, 241, 0.20), rgba(139, 92, 246, 0.20));
+
+  /* File type icon colours */
+  --file-icon-ts: #3b82f6;
+  --file-icon-js: #eab308;
+  --file-icon-json: #22c55e;
+  --file-icon-css: #6366f1;
+  --file-icon-rust: #f97316;
+  --file-icon-markdown: #6366f1;
+  --file-icon-default: var(--text-muted);
+
+  /* Typography (themeable) */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace;
+  --font-size-base: 14px;
 
   /* Spacing */
   --space-xs: 4px;
@@ -194,11 +254,65 @@
   --accent-muted: #6366f133;
   --accent-code: #c4b5fd;
 
-  /* Status (dark) */
+  /* Status — solid (dark) */
   --status-success: #22c55e;
   --status-warning: #f59e0b;
   --status-error: #ef4444;
   --status-info: #3b82f6;
+
+  /* Status — muted backgrounds (dark) */
+  --status-success-muted: rgba(34, 197, 94, 0.10);
+  --status-warning-muted: rgba(245, 158, 11, 0.10);
+  --status-error-muted: rgba(239, 68, 68, 0.10);
+  --status-info-muted: rgba(59, 130, 246, 0.10);
+
+  /* Status — subtle (dark) */
+  --status-success-subtle: rgba(34, 197, 94, 0.15);
+  --status-warning-subtle: rgba(245, 158, 11, 0.15);
+  --status-error-subtle: rgba(239, 68, 68, 0.15);
+  --status-info-subtle: rgba(59, 130, 246, 0.15);
+
+  /* Status — faint (dark) */
+  --status-success-faint: rgba(34, 197, 94, 0.03);
+  --status-warning-faint: rgba(245, 158, 11, 0.03);
+  --status-error-faint: rgba(239, 68, 68, 0.03);
+  --status-info-faint: rgba(59, 130, 246, 0.03);
+
+  /* Status — border (dark) */
+  --status-success-border: rgba(34, 197, 94, 0.20);
+  --status-warning-border: rgba(245, 158, 11, 0.20);
+  --status-error-border: rgba(239, 68, 68, 0.20);
+  --status-info-border: rgba(59, 130, 246, 0.20);
+
+  /* Collaboration (dark) */
+  --collab-primary: #a78bfa;
+  --collab-primary-muted: rgba(167, 139, 250, 0.10);
+  --collab-primary-subtle: rgba(167, 139, 250, 0.15);
+  --collab-primary-border: rgba(167, 139, 250, 0.20);
+
+  /* Voice (dark) */
+  --voice-recording: #fb7185;
+  --voice-recording-muted: rgba(251, 113, 133, 0.20);
+  --voice-processing: #22d3ee;
+  --voice-processing-muted: rgba(34, 211, 238, 0.15);
+
+  /* Banner / notifications (dark) */
+  --banner-primary: #818cf8;
+  --banner-primary-muted: rgba(129, 140, 248, 0.10);
+  --banner-primary-subtle: rgba(129, 140, 248, 0.15);
+  --banner-primary-border: rgba(129, 140, 248, 0.20);
+
+  /* Thinking gradients (dark) */
+  --gradient-thinking-high: linear-gradient(135deg, rgba(245, 158, 11, 0.20), rgba(239, 68, 68, 0.20));
+  --gradient-thinking-low: linear-gradient(135deg, rgba(99, 102, 241, 0.20), rgba(139, 92, 246, 0.20));
+
+  /* File type icons (dark — brighter variants) */
+  --file-icon-ts: #60a5fa;
+  --file-icon-js: #facc15;
+  --file-icon-json: #4ade80;
+  --file-icon-css: #818cf8;
+  --file-icon-rust: #fb923c;
+  --file-icon-markdown: #818cf8;
 
   /* shadcn dark overrides */
   --background: oklch(0.145 0 0);
@@ -235,7 +349,8 @@
 }
 
 html {
-  font-size: 14px;
+  font-size: var(--font-size-base, 14px);
+  font-family: var(--font-sans);
 }
 
 @layer base {

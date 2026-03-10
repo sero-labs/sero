@@ -21,13 +21,13 @@ interface Props {
 /** JJ graph glyph for the change. */
 function ChangeGlyph({ entry }: { entry: ChangeEntry }) {
   if (entry.isWorkingCopy) {
-    return <span className="text-[11px] font-bold text-blue-400">@</span>;
+    return <span className="text-[11px] font-bold text-[var(--status-info)]">@</span>;
   }
   if (entry.immutable) {
-    return <span className="text-[11px] text-emerald-500/70">◆</span>;
+    return <span className="text-[11px] text-[var(--status-success)]">◆</span>;
   }
   if (entry.conflict) {
-    return <span className="text-[11px] text-red-400">✖</span>;
+    return <span className="text-[11px] text-[var(--status-error)]">✖</span>;
   }
   if (entry.empty) {
     return <span className="text-[11px] text-[var(--text-muted)]/30">○</span>;
@@ -61,7 +61,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
         className={cn(
           'shrink-0 font-mono text-[10px]',
           entry.isWorkingCopy
-            ? 'text-blue-400/80'
+            ? 'text-[var(--status-info)]/80'
             : 'text-[var(--text-muted)]/50',
         )}
       >
@@ -95,8 +95,8 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
               key={bm}
               className={cn(
                 'rounded-sm px-1 py-px text-[9px] font-medium leading-tight',
-                'bg-blue-500/10 text-blue-400/80',
-                'border border-blue-500/15',
+                'bg-[var(--status-info-muted)] text-[var(--status-info)]',
+                'border border-[var(--status-info-subtle)]',
               )}
             >
               {truncate(bm, 18)}
@@ -112,7 +112,7 @@ export const ChangeLogRow = memo(function ChangeLogRow({ entry, index, isExpande
 
       {/* Conflict indicator */}
       {entry.conflict && (
-        <span className="shrink-0 text-[9px] font-bold text-red-400">CONFLICT</span>
+        <span className="shrink-0 text-[9px] font-bold text-[var(--status-error)]">CONFLICT</span>
       )}
     </motion.button>
   );

@@ -39,7 +39,7 @@ export function SubagentOutput({ response, error, isFailed }: SubagentOutputProp
         title="Copy to clipboard"
       >
         {copied ? (
-          <Check className="size-3 text-emerald-500" />
+          <Check className="size-3 text-[var(--status-success)]" />
         ) : (
           <Copy className="size-3" />
         )}
@@ -50,7 +50,7 @@ export function SubagentOutput({ response, error, isFailed }: SubagentOutputProp
         className={cn(
           'max-h-48 overflow-auto rounded-md p-2 text-[10px] leading-relaxed whitespace-pre-wrap break-words',
           isFailed
-            ? 'bg-red-500/10 text-red-300'
+            ? 'bg-[var(--status-error-muted)] text-[var(--status-error)]'
             : 'bg-[var(--bg-base)] text-[var(--text-secondary)]',
         )}
       >

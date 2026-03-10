@@ -66,7 +66,7 @@ export function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
       className={cn(
         'rounded-md p-1.5 transition-colors duration-150',
         showThinking && isActive
-          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+          ? 'bg-[var(--status-warning-subtle)] text-[var(--status-warning)]'
           : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
         'disabled:pointer-events-none disabled:opacity-40',
       )}
@@ -90,7 +90,7 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
       className={cn(
         'rounded-md p-1.5 transition-colors duration-150',
         isActive
-          ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400'
+          ? 'bg-[var(--collab-primary-subtle)] text-[var(--collab-primary)]'
           : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
         'disabled:pointer-events-none disabled:opacity-40',
       )}

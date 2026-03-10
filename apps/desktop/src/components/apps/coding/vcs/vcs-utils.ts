@@ -48,11 +48,11 @@ export function statusCode(status: string): string {
 /** File status to color class. */
 export function statusColor(status: string): string {
   switch (status) {
-    case 'modified': return 'text-amber-500';
-    case 'added': return 'text-emerald-500';
-    case 'deleted': return 'text-red-400';
-    case 'renamed': return 'text-blue-400';
-    case 'conflict': return 'text-red-500';
+    case 'modified': return 'text-[var(--status-warning)]';
+    case 'added': return 'text-[var(--status-success)]';
+    case 'deleted': return 'text-[var(--status-error)]';
+    case 'renamed': return 'text-[var(--status-info)]';
+    case 'conflict': return 'text-[var(--status-error)]';
     default: return 'text-[var(--text-muted)]';
   }
 }

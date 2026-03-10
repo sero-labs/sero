@@ -432,7 +432,7 @@ export function EditorPanel({
                   className={cn(
                     'inline-flex size-7 items-center justify-center transition-colors duration-150',
                     markdownViewMode === 'code'
-                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                      ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
                       : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
                   )}
                 >
@@ -450,7 +450,7 @@ export function EditorPanel({
                   className={cn(
                     'inline-flex size-7 items-center justify-center transition-colors duration-150',
                     markdownViewMode === 'preview'
-                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                      ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
                       : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
                   )}
                 >

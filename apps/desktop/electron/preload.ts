@@ -542,6 +542,20 @@ contextBridge.exposeInMainWorld('sero', {
     load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps?: string[] } | null> =>
       ipcRenderer.invoke(IpcChannels.layout.load),
   },
+  themes: {
+    list: (): Promise<Array<{ id: string; name: string; description?: string; author?: string; builtin: boolean }>> =>
+      ipcRenderer.invoke(IpcChannels.themes.list),
+    load: (id: string): Promise<unknown> =>
+      ipcRenderer.invoke(IpcChannels.themes.load, id),
+    save: (preset: unknown): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.themes.save, preset),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.themes.delete, id),
+    import: (): Promise<unknown> =>
+      ipcRenderer.invoke(IpcChannels.themes.import),
+    export: (id: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.themes.export, id),
+  },
   net: {
     fetch: (request: ProxyFetchRequest): Promise<ProxyFetchResponse> =>
       ipcRenderer.invoke(IpcChannels.net.fetch, request),

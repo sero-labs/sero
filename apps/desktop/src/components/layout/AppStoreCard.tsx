@@ -79,7 +79,7 @@ export function AppStoreCard({
             onToggleFavourite();
           }}
         >
-          <Star className={cn('size-4', favourite ? 'fill-current text-amber-500' : 'text-[var(--text-muted)]')} />
+          <Star className={cn('size-4', favourite ? 'fill-current text-[var(--status-warning)]' : 'text-[var(--text-muted)]')} />
         </Button>
       </div>
 

@@ -88,13 +88,13 @@ export function GitHubAuthBanner({ className }: Props) {
   if (authStatus?.authenticated) {
     return (
       <div className={cn('flex items-center justify-between rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 px-2 py-1.5', className)}>
-        <span className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+        <span className="flex items-center gap-1.5 text-[10px] text-[var(--status-success)]">
           <Github className="size-3" />
           <span>Connected as <strong>{authStatus.username}</strong></span>
         </span>
         <button
           onClick={handleLogout}
-          className="text-[10px] text-[var(--text-muted)] hover:text-red-400 transition-colors"
+          className="text-[10px] text-[var(--text-muted)] hover:text-[var(--status-error)] transition-colors"
         >
           Disconnect
         </button>
@@ -133,26 +133,26 @@ export function GitHubAuthBanner({ className }: Props) {
               href={flow.verificationUri}
               target="_blank"
               rel="noreferrer"
-              className="text-blue-300 underline"
+              className="text-[var(--status-info)] underline"
             >
               github.com/login/device
             </a>
           </p>
           <div className="flex items-center gap-1.5">
-            <code className="rounded border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 font-mono text-sm font-bold tracking-widest text-blue-200">
+            <code className="rounded border border-[var(--status-info-subtle)] bg-[var(--status-info-muted)] px-2 py-0.5 font-mono text-sm font-bold tracking-widest text-[var(--status-info)]">
               {flow.userCode}
             </code>
             <button
               onClick={() => handleCopyCode(flow.userCode)}
               title="Copy code"
-              className="text-[var(--text-muted)] hover:text-blue-300 transition-colors"
+              className="text-[var(--text-muted)] hover:text-[var(--status-info)] transition-colors"
             >
-              {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+              {copied ? <Check className="size-3 text-[var(--status-success)]" /> : <Copy className="size-3" />}
             </button>
             <button
               onClick={handleCancel}
               title="Cancel"
-              className="ml-auto text-[var(--text-muted)] hover:text-red-400 transition-colors"
+              className="ml-auto text-[var(--text-muted)] hover:text-[var(--status-error)] transition-colors"
             >
               <X className="size-3" />
             </button>
@@ -170,7 +170,7 @@ export function GitHubAuthBanner({ className }: Props) {
           Waiting for authorization…
           <button
             onClick={handleCancel}
-            className="ml-auto text-[var(--text-muted)] hover:text-red-400 transition-colors"
+            className="ml-auto text-[var(--text-muted)] hover:text-[var(--status-error)] transition-colors"
           >
             <X className="size-3" />
           </button>
@@ -178,7 +178,7 @@ export function GitHubAuthBanner({ className }: Props) {
       )}
 
       {flow.step === 'success' && (
-        <div className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+        <div className="flex items-center gap-1.5 text-[10px] text-[var(--status-success)]">
           <Check className="size-3" />
           Connected as <strong>{flow.username}</strong>
         </div>
@@ -186,7 +186,7 @@ export function GitHubAuthBanner({ className }: Props) {
 
       {flow.step === 'error' && (
         <div className="space-y-1">
-          <p className="text-[10px] text-red-400">{flow.message}</p>
+          <p className="text-[10px] text-[var(--status-error)]">{flow.message}</p>
           <button
             onClick={handleLogin}
             className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"

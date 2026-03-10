@@ -62,13 +62,13 @@ export function deriveGroupStatus(tools: ChatToolCallMessage[]): GroupStatus {
 export function groupStatusIcon(status: GroupStatus) {
   switch (status) {
     case 'running':
-      return <Loader2 className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />;
+      return <Loader2 className="size-3.5 animate-spin text-[var(--status-info)]" />;
     case 'completed':
-      return <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-500" />;
+      return <CheckCircle2 className="size-3.5 text-[var(--status-success)]" />;
     case 'error':
-      return <XCircle className="size-3.5 text-red-600 dark:text-red-400" />;
+      return <XCircle className="size-3.5 text-[var(--status-error)]" />;
     case 'cancelled':
-      return <AlertCircle className="size-3.5 text-yellow-600 dark:text-yellow-500" />;
+      return <AlertCircle className="size-3.5 text-[var(--status-warning)]" />;
   }
 }
 
@@ -93,13 +93,13 @@ export function toolStatusDot(state: ChatToolCallMessage['state']) {
     case 'pending':
       return <span className="size-1.5 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-500" />;
     case 'running':
-      return <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-blue-500 dark:bg-blue-400" />;
+      return <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-info)]" />;
     case 'completed':
-      return <span className="size-1.5 shrink-0 rounded-full bg-emerald-600 dark:bg-emerald-500" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-[var(--status-success)]" />;
     case 'error':
-      return <span className="size-1.5 shrink-0 rounded-full bg-red-500 dark:bg-red-400" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-[var(--status-error)]" />;
     case 'cancelled':
-      return <span className="size-1.5 shrink-0 rounded-full bg-yellow-600 dark:bg-yellow-500" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-[var(--status-warning)]" />;
   }
 }
 
@@ -196,7 +196,7 @@ export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
           />
         )}
         {isCancelled && (
-          <div className="text-xs text-yellow-500/80 italic">
+          <div className="text-xs text-[var(--status-warning)] italic">
             Cancelled — agent was stopped before this tool completed.
           </div>
         )}
@@ -248,9 +248,9 @@ export function SingleToolCall({
       className={cn(
         'group/tg overflow-hidden rounded-lg border transition-colors duration-200',
         isRunning
-          ? 'border-blue-500/20 bg-blue-500/[0.03]'
+          ? 'border-[var(--status-info-border)] bg-[var(--status-info-faint)]'
           : status === 'error'
-            ? 'border-red-500/20 bg-red-500/[0.03]'
+            ? 'border-[var(--status-error-border)] bg-[var(--status-error-faint)]'
             : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
       )}
     >
@@ -305,7 +305,7 @@ export function SingleToolCall({
                 />
               )}
               {isCancelled && (
-                <div className="text-xs text-yellow-500/80 italic">
+                <div className="text-xs text-[var(--status-warning)] italic">
                   Cancelled — agent was stopped before this tool completed.
                 </div>
               )}

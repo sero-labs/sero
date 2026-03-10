@@ -126,12 +126,12 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                 {messageQueue.queue.map((msg) => (
                   <span
                     key={msg.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-600 dark:text-blue-400"
+                    className="inline-flex items-center gap-1 rounded-full bg-[var(--status-info-muted)] px-2 py-0.5 text-[11px] text-[var(--status-info)]"
                   >
                     <span className="max-w-[150px] truncate">{msg.text}</span>
                     <button
                       onClick={() => messageQueue.dequeue(msg.id)}
-                      className="shrink-0 rounded-full p-0.5 hover:bg-blue-500/20"
+                      className="shrink-0 rounded-full p-0.5 hover:bg-[var(--status-info-border)]"
                       title="Remove queued message"
                     >
                       <X className="size-2.5" />
@@ -186,7 +186,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                   disabled={!prompt.input.trim() || !hasSession}
                   onClick={(e) => { prompt.modifierRef.current = e.ctrlKey || e.metaKey; }}
                   title="Send to steer agent (⌘+click to queue as follow-up)"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                  className="bg-[var(--status-success)] text-white hover:bg-[var(--status-success)]/90"
                 />
                 <button
                   type="button"
@@ -200,7 +200,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
             ) : (
               <PromptInputSubmit
                 disabled={!prompt.input.trim() || !hasSession}
-                className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                className="bg-[var(--status-success)] text-white hover:bg-[var(--status-success)]/90"
               />
             )}
           </PromptInputFooter>

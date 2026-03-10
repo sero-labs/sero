@@ -3,6 +3,7 @@ import type { SeroAppManifest } from '@/types/ipc';
 import { persistLayout } from '@/lib/persist-layout';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
+import { useThemeStore, hydrateThemeStore } from '@/stores/theme';
 
 // ── Built-in apps (always present) ────────────────────────────
 
@@ -23,7 +24,7 @@ const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
 const DEFAULT_FAVOURITE_APP_IDS = ['todo', 'notes', 'planmode'] as const;
 
 
-// ── Theme ──────────────────────────────────────────────────────
+// ── Theme (delegated to theme store) ──────────────────────────
 export type Theme = 'dark' | 'light';
 
 // ── Store ──────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ interface AppState {
   toggleTheme: () => void;
 }
 
+/** @deprecated Use useThemeStore().setMode() instead. Kept for backward compat. */
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === 'dark') {
@@ -195,18 +197,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     persistLayout({ activeApp: app });
   },
 
-  // Theme (hydrated from layout file on startup)
+  // Theme — delegates to useThemeStore but keeps backward-compat surface
   theme: 'dark',
   setTheme: (theme) => {
-    applyTheme(theme);
+    useThemeStore.getState().setMode(theme);
     set({ theme });
-    persistLayout({ theme });
   },
   toggleTheme: () => {
-    const next = get().theme === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
-    set({ theme: next });
-    persistLayout({ theme: next });
+    useThemeStore.getState().toggleMode();
+    const effective = useThemeStore.getState().effectiveMode;
+    set({ theme: effective });
   },
 }));
 
@@ -229,11 +229,11 @@ export async function loadLayout(): Promise<void> {
       if (typeof state.chatPanelSizePct === 'number' && state.chatPanelSizePct > 0) {
         update.chatPanelSizePct = state.chatPanelSizePct;
       }
-      // Hydrate theme
-      if (state.theme === 'light' || state.theme === 'dark') {
-        update.theme = state.theme;
-        applyTheme(state.theme);
-      }
+      // Hydrate theme via theme store (handles presets + mode)
+      await hydrateThemeStore(state.theme, state.activeThemeId);
+      const effective = useThemeStore.getState().effectiveMode;
+      update.theme = effective;
+
       // Hydrate active app
       if (state.activeApp && typeof state.activeApp === 'string') {
         update.activeApp = state.activeApp;

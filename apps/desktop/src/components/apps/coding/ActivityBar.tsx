@@ -68,15 +68,15 @@ export function ActivityBar({
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
-                  isActive && 'text-emerald-600 dark:text-emerald-400',
+                  isActive && 'text-[var(--status-success)]',
                 )}
               >
                 {item.icon}
                 {isActive && (
-                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-emerald-600 dark:bg-emerald-400" />
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-[var(--status-success)]" />
                 )}
                 {showBadge && (
-                  <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold text-white">
+                  <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-[var(--status-info)] text-[8px] font-bold text-white">
                     {runningCount > 9 ? '9+' : runningCount}
                   </span>
                 )}
@@ -105,12 +105,12 @@ export function ActivityBar({
                 onClick={() => onPanelClick(item.id)}
                 className={cn(
                   'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
-                  isActive && 'text-emerald-600 dark:text-emerald-400',
+                  isActive && 'text-[var(--status-success)]',
                 )}
               >
                 {item.icon}
                 {isActive && (
-                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-emerald-600 dark:bg-emerald-400" />
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-[var(--status-success)]" />
                 )}
               </Button>
             </TooltipTrigger>

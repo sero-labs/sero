@@ -215,9 +215,9 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
 
         {/* ── Error banner ────────────────────────────────── */}
         {applyError && (
-          <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2">
-            <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-red-400" />
-            <span className="text-[11px] text-red-400">{applyError}</span>
+          <div className="flex items-start gap-2 rounded-md border border-[var(--status-error-border)] bg-[var(--status-error-muted)] px-3 py-2">
+            <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-[var(--status-error)]" />
+            <span className="text-[11px] text-[var(--status-error)]">{applyError}</span>
           </div>
         )}
 
@@ -294,7 +294,7 @@ function PresetBar({
         {activeUserPreset && (
           <button
             onClick={() => onDelete(activeUserPreset.id)}
-            className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[var(--text-muted)] hover:bg-red-500/10 hover:text-red-400 transition-colors"
+            className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[var(--text-muted)] hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)] transition-colors"
             title={`Delete "${activeUserPreset.name}"`}
           >
             <Trash2 className="size-3" />
