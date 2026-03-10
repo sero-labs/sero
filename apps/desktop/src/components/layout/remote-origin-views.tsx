@@ -350,7 +350,7 @@ export function ConnectedView({
   return (
     <div className="flex flex-col gap-3 pt-1">
       <div className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3">
-        <GitBranch className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+        <GitBranch className="mt-0.5 size-4 shrink-0 text-[var(--status-success)]" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-sm font-medium text-[var(--text-primary)]">
             {displayUrl(origin.url)}
@@ -399,7 +399,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 
 function ErrorBanner({ message }: { message: string }) {
   return (
-    <p className="rounded-md bg-red-500/10 p-2 text-xs text-red-400">
+    <p className="rounded-md bg-[var(--status-error-muted)] p-2 text-xs text-[var(--status-error)]">
       {message}
     </p>
   );
@@ -425,7 +425,7 @@ function VisibilityButton({
       disabled={disabled}
       className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
         active
-          ? 'border-blue-500/50 bg-blue-500/10 text-[var(--text-primary)]'
+          ? 'border-[var(--status-info-subtle)] bg-[var(--status-info-muted)] text-[var(--text-primary)]'
           : 'border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
       } ${disabled ? 'opacity-50' : ''}`}
     >

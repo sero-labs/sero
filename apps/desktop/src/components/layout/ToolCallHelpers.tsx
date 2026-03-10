@@ -91,7 +91,7 @@ export function groupStatusLabel(status: GroupStatus, count: number) {
 export function toolStatusDot(state: ChatToolCallMessage['state']) {
   switch (state) {
     case 'pending':
-      return <span className="size-1.5 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-500" />;
+      return <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-muted)]" />;
     case 'running':
       return <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[var(--status-info)]" />;
     case 'completed':

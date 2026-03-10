@@ -24,7 +24,7 @@ import {
   DEFAULT_LIGHT_COLORS,
   DEFAULT_DARK_COLORS,
 } from '@/types/theme';
-import { applyThemePreset } from '@/lib/theme-engine';
+import { applyThemePreset, resetTheme } from '@/lib/theme-engine';
 import { ModeToggle } from './theme-panel/ModeToggle';
 import { PresetCard } from './theme-panel/PresetCard';
 import { ColorSection } from './theme-panel/ColorSection';
@@ -69,27 +69,6 @@ export function ThemePanel({ open, onOpenChange }: ThemePanelProps) {
     setTab('customize');
   }, [activePreset]);
 
-  // Live-preview a colour change
-  const handleColorChange = useCallback(
-    (key: string, value: string) => {
-      if (!editColors) return;
-      const next = {
-        light: { ...editColors.light, [key]: value },
-        dark: { ...editColors.dark, [key]: value },
-      };
-      setEditColors(next);
-      // Live preview
-      const previewPreset: ThemePreset = {
-        id: '__preview__',
-        name: 'Preview',
-        version: 1,
-        colors: next,
-      };
-      applyThemePreset(previewPreset, effectiveMode);
-    },
-    [editColors, effectiveMode],
-  );
-
   // Edit a colour for the currently-visible mode
   const handleModeColorChange = useCallback(
     (key: string, value: string) => {
@@ -128,11 +107,12 @@ export function ThemePanel({ open, onOpenChange }: ThemePanelProps) {
   }, [editColors, saveName, saveCustomPreset, setPreset]);
 
   const handleCancelCustomise = useCallback(() => {
-    // Revert live preview
+    // Remove all inline overrides injected by live preview
+    resetTheme();
+    // Re-apply the active preset (or just the mode class for default)
     if (activePreset) {
       applyThemePreset(activePreset, effectiveMode);
     } else {
-      // Reset to default — just re-apply mode
       const root = document.documentElement;
       if (effectiveMode === 'dark') root.classList.add('dark');
       else root.classList.remove('dark');

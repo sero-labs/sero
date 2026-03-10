@@ -159,7 +159,7 @@ export function ProfileForm({
       )}
 
       {error && (
-        <p className="text-xs text-red-400">{error}</p>
+        <p className="text-xs text-[var(--status-error)]">{error}</p>
       )}
 
       <Button

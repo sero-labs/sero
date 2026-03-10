@@ -133,7 +133,7 @@ export function OnboardingWizard() {
         <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-              <KeyRound className="size-5 text-emerald-400" />
+              <KeyRound className="size-5 text-[var(--status-success)]" />
             </div>
             <DialogTitle>Welcome to Sero</DialogTitle>
             <DialogDescription>

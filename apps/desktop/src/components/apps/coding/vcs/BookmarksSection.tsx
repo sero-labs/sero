@@ -144,7 +144,7 @@ export function BookmarksSection({
                 />
                 <button
                   onClick={handleCreate}
-                  className="text-[var(--status-success)] hover:text-[var(--status-success)] transition-colors"
+                  className="text-[var(--status-success)] hover:brightness-125 transition-colors"
                 >
                   <Check className="size-3" />
                 </button>

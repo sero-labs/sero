@@ -123,7 +123,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
                 'outline-none focus:border-[var(--border-focus)]',
               )}
             />
-            <button onClick={handleSaveDesc} className="text-[var(--status-success)] hover:text-[var(--status-success)]">
+            <button onClick={handleSaveDesc} className="text-[var(--status-success)] hover:brightness-125">
               <Check className="size-3" />
             </button>
             <button onClick={() => setEditing(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
@@ -251,7 +251,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
           <button
             onClick={() => void handlePushAs()}
             disabled={pushing || !pushBranch.trim()}
-            className="text-[var(--status-success)] hover:text-[var(--status-success)] disabled:opacity-40"
+            className="text-[var(--status-success)] hover:brightness-125 disabled:opacity-40"
             title="Push to branch"
           >
             <Check className="size-3" />

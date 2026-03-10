@@ -105,11 +105,12 @@ export function registerThemeHandlers(): void {
   ipcMain.handle(
     IpcChannels.themes.load,
     async (_e, id: string): Promise<ThemePreset | null> => {
-      // Check builtin first, then custom
+      // Direct lookup by filename (IDs match filenames)
       for (const dir of [BUILTIN_DIR, CUSTOM_DIR]) {
-        for (const file of listJsonFiles(dir)) {
-          const preset = await readThemeFile(file);
-          if (preset && preset.id === id) return preset;
+        const filePath = path.join(dir, `${id}.json`);
+        if (existsSync(filePath)) {
+          const preset = await readThemeFile(filePath);
+          if (preset) return preset;
         }
       }
       return null;
@@ -179,17 +180,14 @@ export function registerThemeHandlers(): void {
       const win = BrowserWindow.getFocusedWindow();
       if (!win) return false;
 
-      // Find the preset
+      // Find the preset by direct file lookup
       let preset: ThemePreset | null = null;
       for (const dir of [BUILTIN_DIR, CUSTOM_DIR]) {
-        for (const file of listJsonFiles(dir)) {
-          const p = await readThemeFile(file);
-          if (p && p.id === id) {
-            preset = p;
-            break;
-          }
+        const filePath = path.join(dir, `${id}.json`);
+        if (existsSync(filePath)) {
+          preset = await readThemeFile(filePath);
+          if (preset) break;
         }
-        if (preset) break;
       }
       if (!preset) return false;
 

@@ -28,7 +28,7 @@ const COLOR_TOKEN_TO_CSS: Record<keyof ColorTokens, string> = {
   textSecondary: '--text-secondary',
   textMuted: '--text-muted',
   textInverse: '--text-inverse',
-  accentPrimary: '--accent-hover',
+  accentPrimary: '--accent-primary',
   accentHover: '--accent-hover',
   accentMuted: '--accent-muted',
   accentCode: '--accent-code',
@@ -229,6 +229,39 @@ function isColorTokens(obj: unknown): obj is ColorTokens {
   return REQUIRED_COLOR_KEYS.every((k) => isColorValue(o[k]));
 }
 
+/** Validate and extract only known typography keys. */
+function sanitiseTypography(raw: unknown): ThemePreset['typography'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const result: Record<string, string> = {};
+  for (const key of ['fontSans', 'fontMono', 'fontSizeBase'] as const) {
+    if (typeof o[key] === 'string') result[key] = o[key] as string;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** Validate and extract only known spacing keys. */
+function sanitiseSpacing(raw: unknown): ThemePreset['spacing'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const result: Record<string, string> = {};
+  for (const key of ['xs', 'sm', 'md', 'lg', 'xl'] as const) {
+    if (typeof o[key] === 'string') result[key] = o[key] as string;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** Validate and extract only known radius keys. */
+function sanitiseRadius(raw: unknown): ThemePreset['radius'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const result: Record<string, string> = {};
+  for (const key of ['sm', 'md', 'lg'] as const) {
+    if (typeof o[key] === 'string') result[key] = o[key] as string;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 /**
  * Validate and normalise an unknown value into a ThemePreset.
  * Returns null if the data is invalid.
@@ -256,9 +289,9 @@ export function validateThemePreset(data: unknown): ThemePreset | null {
       light: colors.light as ColorTokens,
       dark: colors.dark as ColorTokens,
     },
-    typography: d.typography as ThemePreset['typography'],
-    spacing: d.spacing as ThemePreset['spacing'],
-    radius: d.radius as ThemePreset['radius'],
+    typography: sanitiseTypography(d.typography),
+    spacing: sanitiseSpacing(d.spacing),
+    radius: sanitiseRadius(d.radius),
   };
 }
 

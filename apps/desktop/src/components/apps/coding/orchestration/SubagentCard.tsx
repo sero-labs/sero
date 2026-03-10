@@ -250,7 +250,7 @@ export function SubagentCard({ entry }: SubagentCardProps) {
         {hasLiveOutput && (
           <button
             onClick={() => setShowLiveOutput(!showLiveOutput)}
-            className="text-[10px] text-[var(--status-info)] hover:text-[var(--status-info)] transition-colors"
+            className="text-[10px] text-[var(--status-info)] hover:brightness-125 transition-colors"
           >
             {showLiveOutput ? '▲ Hide live' : '▼ Live output'}
           </button>
