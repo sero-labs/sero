@@ -157,13 +157,20 @@ export function CollaborationToggle({ disabled }: { disabled: boolean }) {
         </button>
       )}
 
-      {/* Strategy picker popover */}
+      {/* Strategy picker popover — fixed positioning to escape overflow:hidden on InputGroup */}
       {popoverOpen && (
         <>
           {/* Backdrop */}
           {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
           <div className="fixed inset-0 z-40" onClick={() => setPopoverOpen(false)} />
-          <div className="absolute bottom-full right-0 z-50 mb-1 w-56 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 shadow-lg">
+          <div
+            className="fixed z-50 w-56 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 shadow-lg"
+            style={(() => {
+              const rect = containerRef.current?.getBoundingClientRect();
+              if (!rect) return {};
+              return { bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right };
+            })()}
+          >
             <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
               Strategy
             </div>
