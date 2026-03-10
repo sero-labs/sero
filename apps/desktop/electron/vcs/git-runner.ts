@@ -83,7 +83,9 @@ export class GitRunner {
       // GitHub auth env vars (GH_TOKEN, URL rewrites, HTTP auth header) are injected
       // by ContainerManager.exec() via its getExtraEnvVars callback.
       const command = `${shQuote(program)} ${args.map(shQuote).join(' ')}`;
-      return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs);
+      return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs, {
+        injectGitAuth: program === 'git' || program === 'gh',
+      });
     }
 
     // Host execution — inject GitHub auth env vars into the process environment.
@@ -95,10 +97,19 @@ export class GitRunner {
       const authVars = this.githubAuth.getAuthEnvVars();
       const sshWorks = await isHostSshAvailable();
       if (sshWorks) {
-        // Keep GH_TOKEN (for gh CLI) but drop the SSH→HTTPS rewrite + HTTP
-        // auth header so git uses native SSH transport.
+        // Keep GH_TOKEN for gh CLI and retain the GitHub HTTPS auth header so
+        // existing HTTPS remotes still authenticate, but drop the SSH→HTTPS
+        // rewrite so SSH remotes continue using native SSH transport.
         if (authVars.GH_TOKEN) {
           env.GH_TOKEN = authVars.GH_TOKEN;
+        }
+        if (authVars.GIT_TERMINAL_PROMPT) {
+          env.GIT_TERMINAL_PROMPT = authVars.GIT_TERMINAL_PROMPT;
+        }
+        if (authVars.GIT_CONFIG_VALUE_2) {
+          env.GIT_CONFIG_COUNT = '1';
+          env.GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader';
+          env.GIT_CONFIG_VALUE_0 = authVars.GIT_CONFIG_VALUE_2;
         }
       } else {
         Object.assign(env, authVars);

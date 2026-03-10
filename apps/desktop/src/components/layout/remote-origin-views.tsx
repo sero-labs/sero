@@ -149,8 +149,15 @@ export function CreateGitHubView({
         visibility,
         addRemote: true,
       });
-      if (res.success && res.url) {
-        onCreated(res.url);
+      const fallbackUrl = authStatus.username
+        ? `https://github.com/${authStatus.username}/${trimmed}`
+        : undefined;
+      const resolvedUrl = res.url ?? fallbackUrl;
+
+      if (res.success && resolvedUrl) {
+        onCreated(resolvedUrl);
+      } else if (res.success) {
+        setError('Repository created, but Sero could not determine its URL. Refresh remotes and reconnect if needed.');
       } else {
         setError(res.message);
       }

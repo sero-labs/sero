@@ -47,13 +47,8 @@ function isValidEnvName(name: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
 }
 
-/**
- * Check whether a shell command likely invokes git or gh, and therefore
- * needs GitHub auth env vars. This prevents leaking the auth token into
- * the environment of unrelated commands (ls, node, cat, etc.).
- */
-function needsGitAuth(command: string): boolean {
-  return /\b(?:git|gh)\b/.test(command);
+interface ExecOptions {
+  injectGitAuth?: boolean;
 }
 
 export class ContainerManager {
@@ -76,7 +71,7 @@ export class ContainerManager {
   private proxyUrl: string | null = null;
 
   /**
-   * Optional callback that returns extra env vars to inject into every exec().
+   * Optional callback that returns extra env vars for git/gh exec() calls.
    * Used by GitHubAuthManager to inject GH_TOKEN + git credential config.
    */
   getExtraEnvVars: (() => Record<string, string>) | null = null;
@@ -208,6 +203,7 @@ export class ContainerManager {
     command: string,
     cwd?: string,
     timeoutMs?: number,
+    options?: ExecOptions,
   ): Promise<ExecResult> {
     const cid = this.getContainerId(workspaceId);
     const args = ['exec'];
@@ -227,10 +223,9 @@ export class ContainerManager {
         '--env', 'no_proxy=localhost,127.0.0.1,192.168.64.0/24',
       );
     }
-    // Inject GitHub auth env vars (GH_TOKEN, URL rewrites, HTTP auth header)
-    // only when the command invokes git or gh — avoids leaking the auth token
-    // into the environment of unrelated commands (ls, node, etc.).
-    if (this.getExtraEnvVars && needsGitAuth(command)) {
+    // Inject GitHub auth env vars only for explicit git/gh execs requested
+    // by trusted callers such as GitRunner.
+    if (this.getExtraEnvVars && options?.injectGitAuth) {
       const extra = this.getExtraEnvVars();
       for (const [key, value] of Object.entries(extra)) {
         if (!isValidEnvName(key)) {

@@ -65,11 +65,18 @@ export class GitHubRepoOps {
       };
     }
 
-    const url = extractRepoUrl(result.stdout) ?? extractRepoUrl(result.stderr);
+    const url = await this.resolveCreatedRepoUrl(workspaceId, name, result.stdout, result.stderr);
 
     // If origin already existed and user wants the remote updated, set-url now.
     if (addRemote && existingOrigin && url) {
-      await this.runner.run(workspaceId, ['remote', 'set-url', 'origin', url]);
+      const update = await this.runner.run(workspaceId, ['remote', 'set-url', 'origin', url]);
+      if (update.exitCode !== 0) {
+        return {
+          success: false,
+          message: `Repository created on GitHub, but failed to update local origin.\n${update.stderr || update.stdout || 'git remote set-url failed'}`,
+          url,
+        };
+      }
     }
 
     return {
@@ -87,6 +94,30 @@ export class GitHubRepoOps {
     if (result.exitCode !== 0) return null;
     const url = result.stdout.trim();
     return url || null;
+  }
+
+  private async resolveCreatedRepoUrl(
+    workspaceId: string,
+    name: string,
+    stdout: string,
+    stderr: string,
+  ): Promise<string | undefined> {
+    const direct = extractRepoUrl(stdout) ?? extractRepoUrl(stderr);
+    if (direct) return direct;
+
+    const ghView = await this.runner.runCommand(
+      workspaceId,
+      'gh',
+      ['repo', 'view', name, '--json', 'url', '--jq', '.url'],
+      30_000,
+    );
+    if (ghView.exitCode === 0) {
+      const resolved = ghView.stdout.trim();
+      if (resolved) return resolved;
+    }
+
+    const origin = await this.getOriginUrl(workspaceId);
+    return normalizeGitHubRemoteUrl(origin);
   }
 
   private formatError(stderr: string, stdout: string): string {
@@ -111,4 +142,20 @@ function extractRepoUrl(text: string): string | undefined {
   // natural-language output wrapping the URL.
   const match = text.match(/https:\/\/github\.com\/[^\s,.)]+/);
   return match?.[0];
+}
+
+function normalizeGitHubRemoteUrl(url: string | null): string | undefined {
+  if (!url) return undefined;
+
+  const sshMatch = url.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/);
+  if (sshMatch) {
+    return `https://github.com/${sshMatch[1]}/${sshMatch[2]}`;
+  }
+
+  const httpsMatch = url.match(/^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/);
+  if (httpsMatch) {
+    return `https://github.com/${httpsMatch[1]}/${httpsMatch[2]}`;
+  }
+
+  return undefined;
 }
