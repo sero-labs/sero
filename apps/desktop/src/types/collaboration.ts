@@ -42,7 +42,7 @@ export interface DebateConfig {
 
 /** Default debate configuration. */
 export const DEFAULT_DEBATE_CONFIG: DebateConfig = {
-  maxRounds: 3,
+  maxRounds: 1,
   timeLimitSec: 120,
 };
 
