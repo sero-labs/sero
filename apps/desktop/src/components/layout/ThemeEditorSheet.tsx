@@ -207,10 +207,13 @@ export function ThemeEditorSheet({
   );
 
   return (
-    <Sheet open={open} onOpenChange={handleSheetClose}>
+    /* modal={false} + overlay={false} so the app is fully visible
+       during live theme preview — no backdrop, no focus trap. */
+    <Sheet open={open} onOpenChange={handleSheetClose} modal={false}>
       <SheetContent
         side="right"
-        className="flex w-[420px] max-w-[90vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[420px]"
+        overlay={false}
+        className="flex w-[420px] max-w-[90vw] flex-col gap-0 overflow-hidden border-l border-[var(--border-default)] p-0 shadow-2xl sm:max-w-[420px]"
         showCloseButton={false}
       >
         {/* Header */}
