@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FolderOpen, Bug, Sun, Moon, GitBranch } from 'lucide-react';
+import { FolderOpen, Bug, Sun, Moon, Monitor, GitBranch, Palette } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
+import { useThemeStore } from '@/stores/theme';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { DevServerIndicator } from './DevServerPanel';
 import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
@@ -14,7 +15,8 @@ import type { Bookmark } from '@/types/vcs';
  */
 export function StatusBar() {
   const theme = useAppStore((s) => s.theme);
-  const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const themeMode = useThemeStore((s) => s.mode);
+  const toggleMode = useThemeStore((s) => s.toggleMode);
   const activeWorkspace = useActiveWorkspace();
   const vcsState = useWorkspaceVcs(activeWorkspace?.id ?? null);
 
@@ -50,12 +52,12 @@ export function StatusBar() {
         />
         <span>Sero v0.1.0</span>
         <button
-          onClick={toggleTheme}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          onClick={toggleMode}
+          title={`Theme mode: ${themeMode} (click to cycle)`}
           className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
         >
-          {theme === 'dark' ? <Moon className="size-3" /> : <Sun className="size-3" />}
-          <span className="capitalize">{theme}</span>
+          {themeMode === 'dark' ? <Moon className="size-3" /> : themeMode === 'light' ? <Sun className="size-3" /> : <Monitor className="size-3" />}
+          <span className="capitalize">{themeMode}</span>
         </button>
       </div>
     </footer>
@@ -97,7 +99,7 @@ function ActivePushBranchPicker({
         className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
       >
         <GitBranch className="size-3" />
-        <span className="rounded-sm border border-blue-500/30 bg-blue-500/10 px-1 py-px font-mono text-xs text-blue-300">
+        <span className="rounded-sm border border-[var(--status-info-border)] bg-[var(--status-info-muted)] px-1 py-px font-mono text-xs text-[var(--status-info)]">
           {activePushBookmark ?? 'auto'}
         </span>
       </button>
@@ -112,7 +114,7 @@ function ActivePushBranchPicker({
             className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[var(--bg-muted)]"
           >
             <span>Auto (main/first)</span>
-            {!activePushBookmark && <span className="text-blue-300">active</span>}
+            {!activePushBookmark && <span className="text-[var(--status-info)]">active</span>}
           </button>
           {bookmarks.map((bm) => (
             <button
@@ -124,7 +126,7 @@ function ActivePushBranchPicker({
               className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[var(--bg-muted)]"
             >
               <span className="truncate">{bm.name}</span>
-              {activePushBookmark === bm.name && <span className="text-blue-300">active</span>}
+              {activePushBookmark === bm.name && <span className="text-[var(--status-info)]">active</span>}
             </button>
           ))}
         </div>
@@ -165,7 +167,7 @@ function DebugLogToggle() {
       }
       className={`flex items-center gap-1 transition-colors ${
         enabled
-          ? 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
+          ? 'text-[var(--status-warning)] hover:text-[var(--status-warning)]/80'
           : 'hover:text-[var(--text-primary)]'
       }`}
     >

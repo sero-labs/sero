@@ -457,7 +457,7 @@ export function CodingWorkspace() {
             {terminalOpen && (
               <div className="flex h-full flex-col border-t border-[var(--border-default)]">
                 <TerminalTabs workspaceId={workspaceId} />
-                <div className="relative flex-1 min-h-0 bg-[#0a0a0b]">
+                <div className="relative flex-1 min-h-0 bg-[var(--bg-base)]">
                   {termTabs.map((tab) => (
                     <TerminalPanel
                       key={tab.id} terminalId={tab.id}

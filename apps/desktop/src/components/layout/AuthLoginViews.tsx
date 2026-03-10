@@ -156,7 +156,7 @@ export function ProviderListView({
 
 function AuthBadge() {
   return (
-    <span className="text-xs text-emerald-500 flex items-center gap-1">
+    <span className="text-xs text-[var(--status-success)] flex items-center gap-1">
       <CheckCircle className="size-3" />
       logged in
     </span>
@@ -165,7 +165,7 @@ function AuthBadge() {
 
 function ApiKeyBadge({ fromEnv }: { fromEnv: boolean }) {
   return (
-    <span className="text-xs text-emerald-500 flex items-center gap-1">
+    <span className="text-xs text-[var(--status-success)] flex items-center gap-1">
       <CheckCircle className="size-3" />
       {fromEnv ? 'env' : 'saved'}
     </span>
@@ -358,7 +358,7 @@ export function ResultView({
     <div className="space-y-3">
       <div className="flex items-start gap-2 text-sm">
         {isSuccess ? (
-          <CheckCircle className="size-4 text-emerald-500 mt-0.5 shrink-0" />
+          <CheckCircle className="size-4 text-[var(--status-success)] mt-0.5 shrink-0" />
         ) : (
           <XCircle className="size-4 text-destructive mt-0.5 shrink-0" />
         )}

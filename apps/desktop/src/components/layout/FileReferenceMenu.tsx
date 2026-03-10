@@ -59,22 +59,22 @@ function fileIconColor(path: string): string {
   switch (ext) {
     case 'ts':
     case 'tsx':
-      return 'text-blue-500';
+      return 'text-[var(--file-icon-ts)]';
     case 'js':
     case 'jsx':
-      return 'text-yellow-500';
+      return 'text-[var(--file-icon-js)]';
     case 'json':
-      return 'text-green-500';
+      return 'text-[var(--file-icon-json)]';
     case 'css':
     case 'scss':
-      return 'text-purple-500';
+      return 'text-[var(--file-icon-css)]';
     case 'md':
     case 'mdx':
-      return 'text-gray-400';
+      return 'text-[var(--file-icon-markdown)]';
     case 'py':
-      return 'text-emerald-500';
+      return 'text-[var(--status-success)]';
     case 'rs':
-      return 'text-orange-500';
+      return 'text-[var(--file-icon-rust)]';
     default:
       return 'text-[var(--text-muted)]';
   }

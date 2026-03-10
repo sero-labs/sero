@@ -266,10 +266,10 @@ function ContainerIndicator({ workspaceId, containerEnabled }: { workspaceId: st
 
   const config: Record<ContainerStatus, { color: string; title: string; animate?: boolean }> = {
     none: { color: '', title: '' },
-    starting: { color: 'bg-yellow-500', title: 'Container starting…', animate: true },
-    running: { color: 'bg-emerald-500', title: container.ipAddress ? `Container running (${container.ipAddress})` : 'Container running' },
+    starting: { color: 'bg-[var(--status-warning)]', title: 'Container starting…', animate: true },
+    running: { color: 'bg-[var(--status-success)]', title: container.ipAddress ? `Container running (${container.ipAddress})` : 'Container running' },
     stopped: { color: 'bg-zinc-500', title: 'Container stopped' },
-    error: { color: 'bg-red-500', title: container.error ? `Container error: ${container.error}` : 'Container error' },
+    error: { color: 'bg-[var(--status-error)]', title: container.error ? `Container error: ${container.error}` : 'Container error' },
   };
 
   const { color, title, animate } = config[container.status];
@@ -420,7 +420,7 @@ function WorkspaceNode({
                 className="flex items-center gap-1 pr-0.5"
               >
                 {hasStreaming && (
-                  <span className="size-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+                  <span className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--status-success)]" />
                 )}
                 {sessions.length > 0 && !expanded && (
                   <span className="text-xs text-[var(--text-muted)]">

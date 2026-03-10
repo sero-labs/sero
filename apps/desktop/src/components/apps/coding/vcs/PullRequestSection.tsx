@@ -224,7 +224,7 @@ export function PullRequestSection({
           className={cn(
             'rounded border px-2 py-1 text-[10px]',
             blockingReason
-              ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+              ? 'border-[var(--status-warning-subtle)] bg-[var(--status-warning-muted)] text-[var(--status-warning)]'
               : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 text-[var(--text-muted)]',
           )}
         >
@@ -244,7 +244,7 @@ export function PullRequestSection({
               href={preview.existingPr.url}
               target="_blank"
               rel="noreferrer"
-              className="ml-1 text-blue-300 underline"
+              className="ml-1 text-[var(--status-info)] underline"
             >
               Open existing PR #{preview.existingPr.number}
             </a>
@@ -291,8 +291,8 @@ export function PullRequestSection({
             disabled={!canCreate}
             className={cn(
               'flex h-7 items-center gap-1 rounded px-2.5 text-[11px] font-semibold',
-              'bg-blue-500/20 text-blue-200 ring-1 ring-blue-500/40',
-              'hover:bg-blue-500/30 hover:text-blue-100',
+              'bg-[var(--status-info-border)] text-[var(--status-info)] ring-1 ring-[var(--status-info-subtle)]',
+              'hover:bg-[var(--status-info-subtle)] hover:text-[var(--status-info)]',
               'transition-colors disabled:opacity-40',
             )}
           >
@@ -305,7 +305,7 @@ export function PullRequestSection({
           <div
             className={cn(
               'rounded px-2 py-1 text-[10px]',
-              createFeedback.error ? 'bg-red-500/10 text-red-300' : 'bg-emerald-500/10 text-emerald-300',
+              createFeedback.error ? 'bg-[var(--status-error-muted)] text-[var(--status-error)]' : 'bg-[var(--status-success-muted)] text-[var(--status-success)]',
             )}
           >
             {createFeedback.message}
