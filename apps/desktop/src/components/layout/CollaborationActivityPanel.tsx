@@ -62,10 +62,10 @@ const DEBATE_STEPS: DebateStepDef[] = [
 // ── Role metadata ───────────────────────────────────────────────
 
 const ROLE_META: Record<CollaborationRole, { label: string; icon: typeof Search; color: string; bg: string }> = {
-  coordinator: { label: 'Coordinator', icon: Users, color: 'text-violet-500', bg: 'bg-violet-500/15' },
-  researcher: { label: 'Researcher', icon: Search, color: 'text-blue-500', bg: 'bg-blue-500/15' },
-  analyst: { label: 'Analyst', icon: BarChart3, color: 'text-emerald-500', bg: 'bg-emerald-500/15' },
-  visionary: { label: 'Visionary', icon: Lightbulb, color: 'text-amber-500', bg: 'bg-amber-500/15' },
+  coordinator: { label: 'Coordinator', icon: Users, color: 'text-[var(--collab-primary)]', bg: 'bg-[var(--collab-primary-subtle)]' },
+  researcher: { label: 'Researcher', icon: Search, color: 'text-[var(--status-info)]', bg: 'bg-[var(--status-info-subtle)]' },
+  analyst: { label: 'Analyst', icon: BarChart3, color: 'text-[var(--status-success)]', bg: 'bg-[var(--status-success-subtle)]' },
+  visionary: { label: 'Visionary', icon: Lightbulb, color: 'text-[var(--status-warning)]', bg: 'bg-[var(--status-warning-subtle)]' },
 };
 
 // ── Step pipeline (shared between strategies) ───────────────────
@@ -80,8 +80,8 @@ function StepDot({ state, index }: { state: StepState; index: number }) {
       transition={{ delay: index * 0.08, duration: 0.2 }}
       className={cn(
         'flex size-5 items-center justify-center rounded-full text-[9px] font-bold',
-        state === 'done' && 'bg-emerald-500/20 text-emerald-500',
-        state === 'active' && 'bg-violet-500/20 text-violet-400',
+        state === 'done' && 'bg-[var(--status-success-border)] text-[var(--status-success)]',
+        state === 'active' && 'bg-[var(--collab-primary-border)] text-[var(--collab-primary)]',
         state === 'pending' && 'bg-[var(--bg-elevated)] text-[var(--text-muted)]',
       )}
     >
@@ -101,7 +101,7 @@ function StepLine({ state }: { state: 'done' | 'pending' }) {
     <div
       className={cn(
         'h-[2px] flex-1 rounded transition-colors duration-300',
-        state === 'done' ? 'bg-emerald-500/40' : 'bg-[var(--border-default)]',
+        state === 'done' ? 'bg-[var(--status-success-border)]' : 'bg-[var(--border-default)]',
       )}
     />
   );
@@ -125,7 +125,7 @@ function StepPipeline<T extends { label: string }>({
               <span
                 className={cn(
                   'text-[9px] whitespace-nowrap',
-                  state === 'active' ? 'font-medium text-violet-400' : 'text-[var(--text-muted)]',
+                  state === 'active' ? 'font-medium text-[var(--collab-primary)]' : 'text-[var(--text-muted)]',
                 )}
               >
                 {step.label}
@@ -152,7 +152,7 @@ function AgentPill({ role, status }: { role: CollaborationRole; status: 'pending
       className={cn(
         'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]',
         status === 'running' && `${meta.bg} ${meta.color}`,
-        status === 'completed' && 'bg-emerald-500/10 text-emerald-500',
+        status === 'completed' && 'bg-[var(--status-success-muted)] text-[var(--status-success)]',
         status === 'failed' && 'bg-destructive/10 text-destructive',
         status === 'pending' && 'bg-[var(--bg-elevated)] text-[var(--text-muted)]',
       )}
@@ -188,7 +188,7 @@ function DebateRoundsFeed() {
         className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]"
       >
         <Chevron className="size-2.5" />
-        <Swords className="size-2.5 text-orange-400" />
+        <Swords className="size-2.5 text-[var(--status-warning)]" />
         <span>{debate.rounds.length} debate round{debate.rounds.length !== 1 ? 's' : ''}</span>
       </button>
       <AnimatePresence>
@@ -207,7 +207,7 @@ function DebateRoundsFeed() {
                   className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1.5"
                 >
                   <div className="flex items-center gap-1.5 text-[10px]">
-                    <span className="font-medium text-orange-400">R{round.roundNumber}</span>
+                    <span className="font-medium text-[var(--status-warning)]">R{round.roundNumber}</span>
                     <span className="text-[var(--text-muted)]">
                       {ROLE_META[round.challengerRole].label} challenges {ROLE_META[round.defenderRole].label}
                     </span>
@@ -309,7 +309,7 @@ function DebateActivityContent() {
 
       {/* Phase label */}
       <div className="flex items-center gap-2 px-3 pb-1">
-        <span className="text-[10px] font-medium text-violet-400">{phaseLabel}</span>
+        <span className="text-[10px] font-medium text-[var(--collab-primary)]">{phaseLabel}</span>
         {debate && debate.phase === 'debate' && debate.totalRounds > 0 && (
           <DebateRoundIndicator
             currentRound={debate.currentRound}
@@ -346,9 +346,9 @@ function DebateRoundIndicator({
           className={cn(
             'h-[3px] w-4 rounded-sm transition-colors duration-300',
             i + 1 < currentRound
-              ? 'bg-emerald-500'
+              ? 'bg-[var(--status-success)]'
               : i + 1 === currentRound
-                ? 'bg-orange-400'
+                ? 'bg-[var(--status-warning)]'
                 : 'bg-[var(--bg-elevated)]',
           )}
         />
@@ -369,11 +369,11 @@ export function CollaborationActivityPanel() {
   if (status === 'idle' || status === 'complete') return null;
 
   return (
-    <div className="mx-3 mb-2 overflow-hidden rounded-md border border-violet-500/20 bg-violet-500/5">
+    <div className="mx-3 mb-2 overflow-hidden rounded-md border border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)]">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-1.5">
-        <div className="size-1.5 animate-pulse rounded-full bg-violet-500" />
-        <span className="text-[11px] font-medium text-violet-400">
+        <div className="size-1.5 animate-pulse rounded-full bg-[var(--collab-primary)]" />
+        <span className="text-[11px] font-medium text-[var(--collab-primary)]">
           {strategy === 'debate' ? 'Debate Collaboration' : '4-Agent Collaboration'}
         </span>
         <ElapsedTimer />

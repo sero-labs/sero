@@ -46,6 +46,7 @@ pnpm typecheck             # Typecheck all (turbo)
 - [docs/state-and-folders-analysis.md](docs/state-and-folders-analysis.md) — config/state locations and rationale
 - [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty native module rebuild guide (MUST READ if terminals fail)
 - [docs/libs/container.md](docs/libs/container.md) — Apple Container CLI reference + ghost container protocol
+- [docs/themes/README.md](docs/themes/README.md) - Theming and style guide
 
 ## Typecheck Before Commit (CRITICAL)
 

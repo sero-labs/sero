@@ -46,7 +46,7 @@ export function ContextEditorMenuItem({
       <Settings2 className="mr-2 size-4" />
       Session context
       {hasOverrides && (
-        <span className="ml-auto size-1.5 rounded-full bg-[var(--accent)]" />
+        <span className="ml-auto size-1.5 rounded-full bg-[var(--accent-primary)]" />
       )}
     </PromptInputActionMenuItem>
   );
@@ -71,7 +71,7 @@ export function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
       className={cn(
         'rounded-md p-1.5 transition-colors duration-150',
         showThinking && isActive
-          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+          ? 'bg-[var(--status-warning-subtle)] text-[var(--status-warning)]'
           : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
         'disabled:pointer-events-none disabled:opacity-40',
       )}
