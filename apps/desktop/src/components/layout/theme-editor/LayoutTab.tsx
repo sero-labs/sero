@@ -1,5 +1,12 @@
 /**
- * LayoutTab — spacing scale and border radius controls for the theme editor.
+ * LayoutTab — spacing base unit and border radius controls.
+ *
+ * Tailwind 4 uses:
+ *   --spacing   (base unit, default 0.25rem/4px) — p-4 = spacing * 4
+ *   --radius    (base, ~10px) — --radius-sm/md/lg derived from it
+ *
+ * We expose "md" from the preset as the control value and derive the
+ * Tailwind variable from it in the theme engine.
  */
 
 import type { SpacingTokens, RadiusTokens } from '@/types/theme';
@@ -12,26 +19,15 @@ interface LayoutTabProps {
   onRadiusChange: (key: keyof RadiusTokens, value: string) => void;
 }
 
-const SPACING_LABELS: Array<{ key: keyof SpacingTokens; label: string }> = [
-  { key: 'xs', label: 'XS' },
-  { key: 'sm', label: 'SM' },
-  { key: 'md', label: 'MD' },
-  { key: 'lg', label: 'LG' },
-  { key: 'xl', label: 'XL' },
-];
-
-const RADIUS_LABELS: Array<{ key: keyof RadiusTokens; label: string }> = [
-  { key: 'sm', label: 'SM' },
-  { key: 'md', label: 'MD' },
-  { key: 'lg', label: 'LG' },
-];
-
 export function LayoutTab({
   spacing,
   radius,
   onSpacingChange,
   onRadiusChange,
 }: LayoutTabProps) {
+  const spacingMd = parseFloat(spacing.md) || 12;
+  const radiusMd = parseFloat(radius.md) || 8;
+
   return (
     <div className="flex flex-col gap-6">
       {/* Spacing */}
@@ -41,21 +37,20 @@ export function LayoutTab({
             Spacing
           </h3>
           <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-            Controls padding, margins, and gaps throughout the UI.
+            Base spacing unit — controls padding, margins, and gaps.
+            Tailwind&apos;s <code className="font-mono text-[var(--accent-code)]">p-3</code> equals
+            this value.
           </p>
         </div>
-        {SPACING_LABELS.map(({ key, label }) => (
-          <SliderRow
-            key={key}
-            label={label}
-            value={spacing[key]}
-            min={0}
-            max={64}
-            step={1}
-            onChange={(v) => onSpacingChange(key, v)}
-          />
-        ))}
-        <SpacingPreview spacing={spacing} />
+        <SliderRow
+          label="Base"
+          value={spacing.md}
+          min={2}
+          max={24}
+          step={1}
+          onChange={(v) => onSpacingChange('md', v)}
+        />
+        <SpacingPreview base={spacingMd} />
       </section>
 
       {/* Radius */}
@@ -65,21 +60,19 @@ export function LayoutTab({
             Border radius
           </h3>
           <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-            Roundness of buttons, cards, inputs, and containers.
+            Base roundness — <code className="font-mono text-[var(--accent-code)]">rounded-lg</code> uses
+            this value. Smaller sizes are derived automatically.
           </p>
         </div>
-        {RADIUS_LABELS.map(({ key, label }) => (
-          <SliderRow
-            key={key}
-            label={label}
-            value={radius[key]}
-            min={0}
-            max={24}
-            step={1}
-            onChange={(v) => onRadiusChange(key, v)}
-          />
-        ))}
-        <RadiusPreview radius={radius} />
+        <SliderRow
+          label="Base"
+          value={radius.md}
+          min={0}
+          max={24}
+          step={1}
+          onChange={(v) => onRadiusChange('md', v)}
+        />
+        <RadiusPreview base={radiusMd} />
       </section>
     </div>
   );
@@ -87,17 +80,26 @@ export function LayoutTab({
 
 // ── Live previews ────────────────────────────────────────────
 
-function SpacingPreview({ spacing }: { spacing: Required<SpacingTokens> }) {
+function SpacingPreview({ base }: { base: number }) {
+  // Show how common Tailwind multipliers look with this base
+  const samples = [
+    { label: 'p-1', mult: base / 3 },
+    { label: 'p-2', mult: (base / 3) * 2 },
+    { label: 'p-3', mult: base },
+    { label: 'p-4', mult: (base / 3) * 4 },
+    { label: 'p-6', mult: (base / 3) * 6 },
+  ];
+
   return (
-    <div className="mt-1 flex items-end gap-1">
-      {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((key) => (
-        <div key={key} className="flex flex-col items-center gap-1">
+    <div className="mt-1 flex items-end gap-2">
+      {samples.map((s) => (
+        <div key={s.label} className="flex flex-col items-center gap-1">
           <div
-            className="bg-[var(--accent-primary)] rounded-sm opacity-60"
-            style={{ width: spacing[key], height: spacing[key] }}
+            className="bg-[var(--accent-primary)] rounded-sm opacity-50"
+            style={{ width: `${s.mult}px`, height: `${s.mult}px` }}
           />
-          <span className="text-[9px] text-[var(--text-muted)] tabular-nums">
-            {key}
+          <span className="text-[9px] text-[var(--text-muted)] font-mono">
+            {s.label}
           </span>
         </div>
       ))}
@@ -105,17 +107,23 @@ function SpacingPreview({ spacing }: { spacing: Required<SpacingTokens> }) {
   );
 }
 
-function RadiusPreview({ radius }: { radius: Required<RadiusTokens> }) {
+function RadiusPreview({ base }: { base: number }) {
+  const sizes = [
+    { label: 'sm', value: Math.max(0, base - 4) },
+    { label: 'md', value: Math.max(0, base - 2) },
+    { label: 'lg', value: base },
+  ];
+
   return (
     <div className="mt-1 flex items-center gap-3">
-      {(['sm', 'md', 'lg'] as const).map((key) => (
-        <div key={key} className="flex flex-col items-center gap-1">
+      {sizes.map((s) => (
+        <div key={s.label} className="flex flex-col items-center gap-1">
           <div
-            className="size-10 border-2 border-[var(--accent-primary)] opacity-60"
-            style={{ borderRadius: radius[key] }}
+            className="size-10 border-2 border-[var(--accent-primary)] opacity-50"
+            style={{ borderRadius: `${s.value}px` }}
           />
-          <span className="text-[9px] text-[var(--text-muted)] tabular-nums">
-            {key}
+          <span className="text-[9px] text-[var(--text-muted)] font-mono">
+            {s.label}
           </span>
         </div>
       ))}

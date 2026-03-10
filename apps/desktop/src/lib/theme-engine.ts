@@ -142,32 +142,23 @@ export function applyThemePreset(
     root.style.setProperty('--font-size-base', preset.typography.fontSizeBase);
   }
 
-  // Spacing overrides
-  if (preset.spacing) {
-    const spacingMap: Record<string, string> = {
-      xs: '--space-xs',
-      sm: '--space-sm',
-      md: '--space-md',
-      lg: '--space-lg',
-      xl: '--space-xl',
-    };
-    for (const [key, cssVar] of Object.entries(spacingMap)) {
-      const value = preset.spacing[key as keyof typeof preset.spacing];
-      if (value) root.style.setProperty(cssVar, value);
+  // Spacing override — Tailwind 4 uses a single --spacing base unit.
+  // The editor exposes a single "spacing" value (the base unit in px).
+  // p-4 = calc(var(--spacing) * 4), etc.
+  if (preset.spacing?.md) {
+    // Convert the "md" value (e.g. "12px") to a rem-based --spacing unit.
+    // Tailwind default is 0.25rem (4px). We derive from the md value:
+    // md represents the "1 unit" base, so --spacing = md / 3 (since p-3 ≈ md).
+    const mdPx = parseFloat(preset.spacing.md);
+    if (Number.isFinite(mdPx) && mdPx > 0) {
+      root.style.setProperty('--spacing', `${(mdPx / 3).toFixed(3)}px`);
     }
   }
 
-  // Radius overrides
-  if (preset.radius) {
-    const radiusMap: Record<string, string> = {
-      sm: '--sero-radius-sm',
-      md: '--sero-radius-md',
-      lg: '--sero-radius-lg',
-    };
-    for (const [key, cssVar] of Object.entries(radiusMap)) {
-      const value = preset.radius[key as keyof typeof preset.radius];
-      if (value) root.style.setProperty(cssVar, value);
-    }
+  // Radius override — Tailwind 4 derives --radius-sm/md/lg from --radius.
+  // The editor exposes a single "radius" value that maps to --radius (the base).
+  if (preset.radius?.md) {
+    root.style.setProperty('--radius', preset.radius.md);
   }
 
   // Apply dark/light class
@@ -185,14 +176,8 @@ const ALL_MANAGED_VARS = [
   '--font-sans',
   '--font-mono',
   '--font-size-base',
-  '--space-xs',
-  '--space-sm',
-  '--space-md',
-  '--space-lg',
-  '--space-xl',
-  '--sero-radius-sm',
-  '--sero-radius-md',
-  '--sero-radius-lg',
+  '--spacing',
+  '--radius',
 ];
 
 /**
