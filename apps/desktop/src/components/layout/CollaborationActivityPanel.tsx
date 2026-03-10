@@ -119,8 +119,8 @@ function StepPipeline<T extends { label: string }>({
       {steps.map((step, i) => {
         const state: StepState = i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
         return (
-          <div key={step.label} className="flex min-w-0 flex-1 items-center gap-1">
-            <div className="flex flex-col items-center gap-0.5">
+          <div key={step.label} className="contents">
+            <div className="flex shrink-0 flex-col items-center gap-0.5">
               <StepDot state={state} index={i} />
               <span
                 className={cn(
