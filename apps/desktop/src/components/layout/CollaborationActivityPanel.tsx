@@ -185,7 +185,7 @@ function DebateRoundsFeed() {
     <div className="border-t border-[var(--border-default)]">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]"
+        className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]"
       >
         <Chevron className="size-2.5" />
         <Swords className="size-2.5 text-[var(--status-warning)]" />
@@ -200,23 +200,23 @@ function DebateRoundsFeed() {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-1 px-3 pb-2">
+            <div className="flex flex-col gap-2 px-3 pb-3">
               {debate.rounds.map((round) => (
                 <div
                   key={round.roundNumber}
-                  className="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1.5"
+                  className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2"
                 >
-                  <div className="flex items-center gap-1.5 text-[10px]">
-                    <span className="font-medium text-[var(--status-warning)]">R{round.roundNumber}</span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="font-semibold text-[var(--status-warning)]">R{round.roundNumber}</span>
                     <span className="text-[var(--text-muted)]">
                       {ROLE_META[round.challengerRole].label} challenges {ROLE_META[round.defenderRole].label}
                     </span>
-                    <span className="ml-auto text-[var(--text-muted)]">
+                    <span className="ml-auto shrink-0 text-[var(--text-muted)]">
                       {Math.round(round.durationMs / 1000)}s
                     </span>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-[10px] text-[var(--text-secondary)]">
-                    {round.summary.slice(0, 200)}
+                  <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+                    {round.summary}
                   </p>
                 </div>
               ))}
