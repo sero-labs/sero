@@ -5,7 +5,7 @@ import { fail, ok, parseFlags } from './utils';
 
 async function handleVcs(args: string[], ctx: CliCommandContext) {
   const [action, ...rest] = args;
-  if (!action) return fail('Usage: sero vcs <status|log|diff|checkpoint|bookmarks>');
+  if (!action) return fail('Usage: sero vcs <status|log|diff|checkpoint|push|remote|fetch|bookmarks>');
 
   try {
     switch (action) {
@@ -45,13 +45,58 @@ async function handleVcs(args: string[], ctx: CliCommandContext) {
       }
 
       case 'checkpoint': {
-        const message = rest.join(' ').trim() || undefined;
+        // Support: sero vcs checkpoint "msg", sero vcs checkpoint --message "msg"
+        // Also handles bare `-m` by stripping it from positionals.
+        const { flags, positionals } = parseFlags(rest);
+        const flagMsg = flags.get('message');
+        let message: string | undefined;
+        if (typeof flagMsg === 'string') {
+          message = flagMsg;
+        } else {
+          // Strip accidental `-m` from positionals (parseFlags only handles `--` prefixed)
+          const cleaned = positionals.filter((p) => p !== '-m');
+          message = cleaned.join(' ').trim() || undefined;
+        }
         const cp = await vcsManager.createCheckpoint(ctx.workspaceId, {
           source: 'manual',
           description: message,
         });
         if (!cp) return fail('No file changes to checkpoint.');
         return ok(`Created checkpoint ${cp.changeId}${cp.description ? ` — ${cp.description}` : ''}`);
+      }
+
+      case 'push': {
+        const branch = rest[0] || undefined;
+        const result = await vcsOps.push(ctx.workspaceId, branch);
+        return result.success ? ok(result.message) : fail(result.message);
+      }
+
+      case 'fetch': {
+        const remote = rest[0] || undefined;
+        const result = await vcsOps.fetch(ctx.workspaceId, remote);
+        return result.success ? ok(result.message) : fail(result.message);
+      }
+
+      case 'remote': {
+        const [subAction, ...subRest] = rest;
+        if (!subAction || subAction === 'list') {
+          const remotes = await vcsOps.listRemotes(ctx.workspaceId);
+          if (remotes.length === 0) return ok('No remotes configured.');
+          return ok(remotes.map((r) => `${r.name}\t${r.url}`).join('\n'));
+        }
+        if (subAction === 'add') {
+          const [name, url] = subRest;
+          if (!name || !url) return fail('Usage: sero vcs remote add <name> <url>');
+          await vcsOps.addRemote(ctx.workspaceId, name, url);
+          return ok(`Added remote '${name}' → ${url}`);
+        }
+        if (subAction === 'remove') {
+          const name = subRest[0];
+          if (!name) return fail('Usage: sero vcs remote remove <name>');
+          await vcsOps.removeRemote(ctx.workspaceId, name);
+          return ok(`Removed remote '${name}'`);
+        }
+        return fail('Usage: sero vcs remote [list|add <name> <url>|remove <name>]');
       }
 
       case 'bookmarks': {
@@ -76,7 +121,7 @@ async function handleVcs(args: string[], ctx: CliCommandContext) {
 export function registerVcsCliCommands(registry: CliRegistry): void {
   registry.register({
     name: 'vcs',
-    summary: 'Version control commands (status, log, diff, checkpoint, bookmarks)',
+    summary: 'Version control commands (status, log, diff, checkpoint, push, remote, fetch, bookmarks)',
     help:
       'vcs — Version control\n\n' +
       'Usage: sero vcs <action> [args]\n\n' +
@@ -85,6 +130,11 @@ export function registerVcsCliCommands(registry: CliRegistry): void {
       '  log [--limit N]         Show recent changes\n' +
       '  diff <from> [to]        Show diff between revisions\n' +
       '  checkpoint [message]    Create checkpoint\n' +
+      '  push [branch]           Push commits to the remote\n' +
+      '  fetch [remote]          Fetch from remote(s)\n' +
+      '  remote [list]           List configured remotes\n' +
+      '  remote add <name> <url> Add a remote\n' +
+      '  remote remove <name>    Remove a remote\n' +
       '  bookmarks               List bookmarks\n',
     source: 'ipc',
     group: 'Version Control',

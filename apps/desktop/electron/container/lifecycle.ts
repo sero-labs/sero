@@ -24,6 +24,37 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+/* ── Host git identity ────────────────────────────────────── */
+
+/**
+ * Read the host's global git user.name / user.email.
+ * Cached with a 5-minute TTL so mid-session config changes are eventually picked up.
+ */
+const GIT_IDENTITY_TTL_MS = 5 * 60 * 1000;
+let _hostGitIdentity: { name: string; email: string } | null = null;
+let _hostGitIdentityFetchedAt = 0;
+
+async function readHostGitIdentity(): Promise<{ name: string; email: string }> {
+  if (_hostGitIdentity && (Date.now() - _hostGitIdentityFetchedAt) < GIT_IDENTITY_TTL_MS) {
+    return _hostGitIdentity;
+  }
+
+  let name = '';
+  let email = '';
+  try {
+    const n = await execFileAsync('git', ['config', '--global', 'user.name'], { timeout: 5_000 });
+    name = n.stdout.trim();
+  } catch { /* not configured */ }
+  try {
+    const e = await execFileAsync('git', ['config', '--global', 'user.email'], { timeout: 5_000 });
+    email = e.stdout.trim();
+  } catch { /* not configured */ }
+
+  _hostGitIdentity = { name, email };
+  _hostGitIdentityFetchedAt = Date.now();
+  return _hostGitIdentity;
+}
+
 /* ── System management ────────────────────────────────────── */
 
 /** Ensure the container API server is running. Safe to call multiple times. */
@@ -295,6 +326,24 @@ export async function createFreshContainer(
     );
   } catch {
     /* non-fatal */
+  }
+
+  // Propagate the host's git identity into the container so that
+  // `git commit` (used by vcs checkpoint) works without manual config.
+  // Also set push.autoSetupRemote so first pushes don't require --set-upstream.
+  try {
+    const hostIdentity = await readHostGitIdentity();
+    const gitCfgCmds: string[] = [];
+    if (hostIdentity.name) {
+      gitCfgCmds.push(`git config --global user.name '${hostIdentity.name.replace(/'/g, `'"'"'`)}'`);
+    }
+    if (hostIdentity.email) {
+      gitCfgCmds.push(`git config --global user.email '${hostIdentity.email.replace(/'/g, `'"'"'`)}'`);
+    }
+    gitCfgCmds.push('git config --global push.autoSetupRemote true');
+    await execFn(config.workspaceId, gitCfgCmds.join(' && '));
+  } catch {
+    /* non-fatal — commits will fail with "tell me who you are" but everything else works */
   }
 
   return inspectFn(config.workspaceId);

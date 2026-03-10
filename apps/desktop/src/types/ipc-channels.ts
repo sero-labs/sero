@@ -281,6 +281,7 @@ export const IpcChannels = {
     moveBookmark: 'sero:vcs:move-bookmark',
     remotes: 'sero:vcs:remotes',
     addRemote: 'sero:vcs:add-remote',
+    setRemoteUrl: 'sero:vcs:set-remote-url',
     removeRemote: 'sero:vcs:remove-remote',
     fetch: 'sero:vcs:fetch',
     push: 'sero:vcs:push',
@@ -300,6 +301,8 @@ export const IpcChannels = {
     logout: 'sero:github:logout',
     cancel: 'sero:github:cancel',
     event: 'sero:github:event',
+    /** Create a GitHub repository for a workspace. Args: workspaceId, input. */
+    createRepo: 'sero:github:create-repo',
   },
   net: {
     /** Proxy an HTTP fetch through the main process (bypasses CORS). */

@@ -2,7 +2,7 @@
  * GitHubAuthManager — OAuth Device Flow for unified GitHub authentication.
  *
  * Login once from the Electron host, get a token that authenticates both
- * `gh` CLI (via GH_TOKEN) and git push/fetch (via GIT_ASKPASS=gh).
+ * `gh` CLI (via GH_TOKEN) and git push/fetch (via http.extraheader).
  *
  * Uses GitHub's Device Flow:
  *   1. POST /login/device/code → get user_code + verification_uri
@@ -147,18 +147,26 @@ export class GitHubAuthManager {
     const token = this.getToken();
     if (!token) return {};
 
+    // Encode as HTTP Basic auth: "x-access-token:<token>" in Base64.
+    // GitHub accepts this on HTTPS git operations.
+    const basicAuth = Buffer.from(`x-access-token:${token}`).toString('base64');
+
     return {
       GH_TOKEN: token,
-      // gh acts as a git credential helper when GH_TOKEN is set
-      GIT_ASKPASS: 'gh',
       // Prevent git from prompting interactively (containers are non-interactive)
       GIT_TERMINAL_PROMPT: '0',
-      // Rewrite SSH-style remotes to HTTPS so token auth works
-      GIT_CONFIG_COUNT: '2',
+      // Rewrite SSH-style remotes to HTTPS so token auth works,
+      // then inject the Authorization header directly.
+      // NOTE: GIT_ASKPASS=gh does NOT work — gh isn't an askpass program.
+      // The http.extraheader approach passes credentials without needing
+      // any credential helper or askpass binary in the container.
+      GIT_CONFIG_COUNT: '3',
       'GIT_CONFIG_KEY_0': 'url.https://github.com/.insteadOf',
       'GIT_CONFIG_VALUE_0': 'git@github.com:',
       'GIT_CONFIG_KEY_1': 'url.https://github.com/.insteadOf',
       'GIT_CONFIG_VALUE_1': 'ssh://git@github.com/',
+      'GIT_CONFIG_KEY_2': 'http.https://github.com/.extraheader',
+      'GIT_CONFIG_VALUE_2': `Authorization: Basic ${basicAuth}`,
     };
   }
 

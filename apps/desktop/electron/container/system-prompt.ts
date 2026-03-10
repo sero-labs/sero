@@ -27,6 +27,17 @@ Your workspace directory is /workspace — all project files live here.
 - Available tools: git, curl, wget, node, npm, python3, ss, netstat, dig, ps, less, jq
 ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''}
 
+**CRITICAL — Version control (git):**
+- Mutating git commands (commit, push, checkout, branch, config, etc.) are BLOCKED in bash.
+- Use the \`sero-cli\` tool for all VCS operations:
+  \`sero vcs status\`           — working copy status
+  \`sero vcs checkpoint "msg"\` — stage + commit all changes
+  \`sero vcs push\`             — push to remote (auto-detects branch)
+  \`sero vcs remote\`           — list remotes
+  \`sero vcs log\`              — recent commits
+  \`sero vcs fetch\`            — fetch from remote
+- Read-only git commands in bash are fine: \`git status\`, \`git log\`, \`git diff\`, \`git show\`, \`git fetch\`, \`git remote -v\`, \`git branch\`, \`git blame\`
+
 **Cross-workspace access:**
 - Other open workspaces (including the global workspace) are mounted into this container at their original host paths.
 - You CAN read and write files using their absolute host paths (e.g. /Users/.../workspaces/global/MEMORY.md).

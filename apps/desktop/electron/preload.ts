@@ -41,6 +41,8 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  CreateGitHubRepoInput,
+  CreateGitHubRepoResult,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -451,6 +453,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.vcs.remotes, wsId),
     addRemote: (wsId: string, name: string, url: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.vcs.addRemote, wsId, name, url),
+    setRemoteUrl: (wsId: string, name: string, url: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.vcs.setRemoteUrl, wsId, name, url),
     removeRemote: (wsId: string, name: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.vcs.removeRemote, wsId, name),
     fetch: (wsId: string, remote?: string): Promise<SyncResult> =>
@@ -491,6 +495,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.on(IpcChannels.github.event, handler);
       return () => ipcRenderer.removeListener(IpcChannels.github.event, handler);
     },
+    createRepo: (workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult> =>
+      ipcRenderer.invoke(IpcChannels.github.createRepo, workspaceId, input),
   },
 
   terminal: {
