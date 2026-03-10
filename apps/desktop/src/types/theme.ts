@@ -183,6 +183,29 @@ export const DEFAULT_LIGHT_COLORS: ColorTokens = {
   bannerPrimary: '#6366f1',
 };
 
+/** Default typography matching globals.css values. */
+export const DEFAULT_TYPOGRAPHY: Required<TypographyTokens> = {
+  fontSans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  fontMono: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
+  fontSizeBase: '14px',
+};
+
+/** Default spacing matching globals.css values. */
+export const DEFAULT_SPACING: Required<SpacingTokens> = {
+  xs: '4px',
+  sm: '8px',
+  md: '12px',
+  lg: '16px',
+  xl: '32px',
+};
+
+/** Default radius matching globals.css values. */
+export const DEFAULT_RADIUS: Required<RadiusTokens> = {
+  sm: '4px',
+  md: '8px',
+  lg: '12px',
+};
+
 /** Default colour tokens matching globals.css .dark values. */
 export const DEFAULT_DARK_COLORS: ColorTokens = {
   bgBase: '#0a0a0b',

@@ -11,6 +11,7 @@ import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
 import { ThemePanel } from './ThemePanel';
+import { ThemeEditorSheet } from './ThemeEditorSheet';
 
 /**
  * CommandMenu — ⌘K command palette for quick app switching.
@@ -21,9 +22,12 @@ import { ThemePanel } from './ThemePanel';
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
   const [themePanelOpen, setThemePanelOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editPresetId, setEditPresetId] = useState<string | null>(null);
   const apps = useAppStore((s) => s.apps);
   const setActiveApp = useAppStore((s) => s.setActiveApp);
   const toggleMode = useThemeStore((s) => s.toggleMode);
+  const activePresetId = useThemeStore((s) => s.activePresetId);
 
   // Listen for ⌘K / Ctrl+K
   useEffect(() => {
@@ -55,6 +59,18 @@ export function CommandMenu() {
     setOpen(false);
   }, [toggleMode]);
 
+  const handleNewTheme = useCallback(() => {
+    setOpen(false);
+    setEditPresetId('__new__');
+    setEditorOpen(true);
+  }, []);
+
+  const handleEditCurrent = useCallback(() => {
+    setOpen(false);
+    setEditPresetId(activePresetId);
+    setEditorOpen(true);
+  }, [activePresetId]);
+
   return (
     <>
       <CommandDialog
@@ -83,9 +99,17 @@ export function CommandMenu() {
             })}
           </CommandGroup>
           <CommandGroup heading="Theme">
-            <CommandItem value="Open Theme Panel" onSelect={handleOpenThemePanel}>
+            <CommandItem value="Browse Themes" onSelect={handleOpenThemePanel}>
               <span className="size-4 shrink-0 flex items-center justify-center">🎨</span>
-              <span>Open Theme Panel</span>
+              <span>Browse Themes</span>
+            </CommandItem>
+            <CommandItem value="Create New Theme" onSelect={handleNewTheme}>
+              <span className="size-4 shrink-0 flex items-center justify-center">✨</span>
+              <span>Create New Theme</span>
+            </CommandItem>
+            <CommandItem value="Edit Current Theme" onSelect={handleEditCurrent}>
+              <span className="size-4 shrink-0 flex items-center justify-center">✏️</span>
+              <span>Edit Current Theme</span>
             </CommandItem>
             <CommandItem value="Toggle Theme Mode" onSelect={handleToggleMode}>
               <span className="size-4 shrink-0 flex items-center justify-center">◑</span>
@@ -95,6 +119,11 @@ export function CommandMenu() {
         </CommandList>
       </CommandDialog>
       <ThemePanel open={themePanelOpen} onOpenChange={setThemePanelOpen} />
+      <ThemeEditorSheet
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        editPresetId={editPresetId}
+      />
     </>
   );
 }
