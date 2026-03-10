@@ -2,7 +2,13 @@
 
 ## Overview
 
-Build a Sero app (`pi-symphony-extension`) that implements the Symphony service specification: a long-running orchestrator that polls Linear for issues, creates isolated workspaces, and runs Codex coding-agent sessions per issue.
+Build a Sero app (`pi-symphony-extension`) that implements the Symphony service specification: a long-running orchestrator that polls an issue tracker for issues, creates isolated workspaces, and runs Codex coding-agent sessions per issue.
+
+**Two tracker backends:**
+1. **Linear** — GraphQL API, polls by project slug + active states
+2. **File-based** — watches a local folder of structured issue files (YAML/Markdown), enabling tracker-free or self-hosted workflows
+
+Both implement the same `IssueTracker` interface and produce the same `Issue` model. The orchestrator is tracker-agnostic.
 
 **Key integration point:** Uses the Sero cron system's patterns (singleton scheduler, transient sessions, file-backed state, state watcher) adapted for Symphony's poll-dispatch-reconcile loop.
 
@@ -38,7 +44,9 @@ packages/pi-symphony-extension/
 │   ├── index.ts                    # Extension entry: tool registration, lifecycle hooks
 │   ├── workflow-loader.ts          # WORKFLOW.md parser (YAML front matter + prompt body)
 │   ├── config.ts                   # Typed config layer with defaults and $VAR resolution
-│   ├── linear-client.ts            # Linear GraphQL client (candidates, state refresh, terminal)
+│   ├── tracker.ts                  # IssueTracker interface + factory (Linear | file)
+│   ├── linear-client.ts            # Linear GraphQL tracker implementation
+│   ├── file-tracker.ts             # File-based tracker implementation (watches a folder)
 │   ├── orchestrator.ts             # Poll loop, dispatch decisions, state machine owner
 │   ├── reconciler.ts               # Stall detection + tracker state refresh
 │   ├── workspace-manager.ts        # Workspace creation, hooks, cleanup, safety invariants
@@ -161,8 +169,8 @@ interface SymphonyState {
   rateLimits: Record<string, unknown> | null;
   lastPollAt: string | null;
   lastError: string | null;
-  trackerKind: string | null;
-  projectSlug: string | null;
+  trackerKind: 'linear' | 'file' | null;
+  trackerLabel: string | null;  // project slug (Linear) or issues_dir basename (file)
 }
 
 // Config types (Section 5.3)
@@ -174,7 +182,12 @@ interface SymphonyConfig {
   agent: AgentConfig;
   codex: CodexConfig;
 }
-// ... sub-configs with defaults
+
+// Tracker config — discriminated union
+type TrackerConfig =
+  | { kind: 'linear'; api_key: string; project_slug: string; active_states: string[]; terminal_states: string[]; }
+  | { kind: 'file'; issues_dir: string; active_states: string[]; terminal_states: string[]; };
+// ... other sub-configs with defaults
 ```
 
 ### 1B. `shared/template.ts` — Strict Template Engine
@@ -211,14 +224,42 @@ Per spec Section 6:
 
 ---
 
-## Phase 2: Issue Tracker + Workspace
+## Phase 2: Issue Tracker Abstraction + Workspace
 
-### 2A. `extension/linear-client.ts` — Linear GraphQL Client
+### 2A. `extension/tracker.ts` — IssueTracker Interface + Factory
 
-Per spec Section 11:
-- `fetchCandidateIssues()` — paginated query by project slug + active states
+The orchestrator is **tracker-agnostic**. All issue sourcing goes through a common interface:
+
+```typescript
+interface IssueTracker {
+  kind: 'linear' | 'file';
+
+  /** Fetch issues eligible for dispatch (active states, not terminal). */
+  fetchCandidateIssues(): Promise<Issue[]>;
+
+  /** Bulk-refresh current state for a set of issue IDs (reconciliation). */
+  fetchIssueStatesByIds(ids: string[]): Promise<Map<string, string>>;
+
+  /** Transition an issue to a new state (e.g., mark done / failed). */
+  transitionIssue?(issueId: string, toState: string): Promise<void>;
+
+  /** Dispose watchers / connections. */
+  destroy(): void;
+}
+
+function createTracker(config: SymphonyConfig, logger: Logger): IssueTracker
+```
+
+- Factory reads `config.tracker.kind` (`"linear"` | `"file"`)
+- Returns the appropriate implementation
+- Orchestrator, reconciler, and retry manager all receive the tracker interface — never import a specific backend directly
+- ~60 LOC
+
+### 2B. `extension/linear-client.ts` — Linear Tracker Implementation
+
+Implements `IssueTracker` for Linear:
+- `fetchCandidateIssues()` — paginated GraphQL query by project slug + active states
 - `fetchIssueStatesByIds(ids)` — bulk state refresh for reconciliation
-- `fetchIssuesByStates(states)` — for startup terminal cleanup
 - GraphQL query construction with proper variable types (`[ID!]`)
 - Issue normalization (Section 11.3): lowercase labels, blocker extraction, priority coercion
 - Pagination with cursor (`after`, `first: 50`)
@@ -226,7 +267,73 @@ Per spec Section 11:
 - Error categories from Section 11.4
 - ~250 LOC
 
-### 2B. `extension/workspace-manager.ts` — Workspace Lifecycle
+### 2C. `extension/file-tracker.ts` — File-Based Tracker Implementation
+
+Implements `IssueTracker` for a local folder of structured issue files, enabling Linear-free workflows.
+
+**Folder structure:**
+
+```
+<issues_dir>/                      # Configured via tracker.issues_dir
+├── active/                        # Issues eligible for dispatch
+│   ├── PROJ-001.md
+│   └── PROJ-002.md
+├── done/                          # Terminal: completed successfully
+│   └── PROJ-000.md
+├── failed/                        # Terminal: agent gave up
+│   └── PROJ-003.md
+└── paused/                        # Not active, not terminal (user paused)
+    └── PROJ-004.md
+```
+
+**Issue file format** (YAML front matter + Markdown body):
+
+```markdown
+---
+id: PROJ-001
+title: Add retry logic to payment service
+priority: 2
+labels: [backend, payments]
+branch: feat/PROJ-001-retry-logic
+blocked_by: []
+---
+
+## Description
+
+The payment service currently fails silently when Stripe returns a 429.
+Add exponential backoff retry logic with a max of 3 attempts...
+```
+
+**Implementation details:**
+- `fetchCandidateIssues()` — reads all `.md` files from `active/` subfolder, parses YAML front matter into `Issue` objects
+- `fetchIssueStatesByIds(ids)` — scans all subfolders to find each issue's current state (folder = state)
+- `transitionIssue(id, toState)` — moves the `.md` file to the target subfolder (e.g., `active/` → `done/`)
+- State mapping: subfolder names map to states — `active/` = any active state names from config, `done/` = terminal success, `failed/` = terminal failure, `paused/` = inactive
+- `identifier` derived from filename (without `.md` extension)
+- `id` from front matter (or falls back to identifier)
+- Missing optional fields get sensible defaults (priority: null, labels: [], etc.)
+- Front matter parsing reuses `js-yaml` (already a dependency)
+- File watcher on the issues directory for real-time detection of new/moved files (optional — poll also works)
+- ~200 LOC
+
+**Config for file tracker** (in WORKFLOW.md front matter):
+
+```yaml
+tracker:
+  kind: file
+  issues_dir: ~/symphony-issues    # Folder path (~ expanded, $VAR resolved)
+  active_states: [active]           # Maps to subfolder names
+  terminal_states: [done, failed]
+```
+
+**Why this design:**
+- **Drop-in migration from Linear** — same `Issue` model, same orchestrator behavior, just different source
+- **Human-editable** — issues are plain Markdown files, easily created/edited in any editor or script
+- **State via filesystem** — moving a file between folders changes its state (intuitive, scriptable, git-friendly)
+- **No database** — consistent with Symphony's in-memory philosophy
+- **Composable** — CI/CD pipelines, scripts, or other tools can create issue files by dropping `.md` into `active/`
+
+### 2D. `extension/workspace-manager.ts` — Workspace Lifecycle
 
 Per spec Section 9:
 - `createForIssue(identifier)` → sanitize key, ensure directory, run hooks
@@ -516,19 +623,21 @@ The orchestrator's poll loop can optionally leverage the Sero cron system:
 | 5 | `extension/state-io.ts` | State file I/O |
 | 6 | `extension/workflow-loader.ts` | WORKFLOW.md parser |
 | 7 | `extension/config.ts` | Typed config with defaults |
-| 8 | `extension/linear-client.ts` | Linear GraphQL client |
-| 9 | `extension/workspace-manager.ts` | Workspace lifecycle |
-| 10 | `extension/prompt-builder.ts` | Prompt rendering |
-| 11 | `extension/agent-runner.ts` | Codex app-server client |
-| 12 | `extension/retry-manager.ts` | Retry queue |
-| 13 | `extension/reconciler.ts` | Stall detection + state refresh |
-| 14 | `extension/orchestrator.ts` | Poll loop + dispatch |
-| 15 | `extension/state-watcher.ts` | File watcher for UI sync |
-| 16 | `extension/index.ts` | Extension entry + tool registration |
-| 17 | `ui/lib/format.ts` | Formatting utilities |
-| 18 | `ui/SymphonyApp.tsx` + all components | Dashboard UI |
-| 19 | Host integration | `TOOLS_TO_BRIDGE` update |
-| 20 | `pnpm install` + typecheck | Final validation |
+| 8 | `extension/tracker.ts` | IssueTracker interface + factory |
+| 9 | `extension/linear-client.ts` | Linear tracker implementation |
+| 10 | `extension/file-tracker.ts` | File-based tracker implementation |
+| 11 | `extension/workspace-manager.ts` | Workspace lifecycle |
+| 12 | `extension/prompt-builder.ts` | Prompt rendering |
+| 13 | `extension/agent-runner.ts` | Codex app-server client |
+| 14 | `extension/retry-manager.ts` | Retry queue |
+| 15 | `extension/reconciler.ts` | Stall detection + state refresh |
+| 16 | `extension/orchestrator.ts` | Poll loop + dispatch |
+| 17 | `extension/state-watcher.ts` | File watcher for UI sync |
+| 18 | `extension/index.ts` | Extension entry + tool registration |
+| 19 | `ui/lib/format.ts` | Formatting utilities |
+| 20 | `ui/SymphonyApp.tsx` + all components | Dashboard UI |
+| 21 | Host integration | `TOOLS_TO_BRIDGE` update |
+| 22 | `pnpm install` + typecheck | Final validation |
 
 ---
 
@@ -536,12 +645,14 @@ The orchestrator's poll loop can optionally leverage the Sero cron system:
 
 | File | Est. LOC | Note |
 |------|----------|------|
-| `shared/types.ts` | ~200 | All interfaces + defaults |
+| `shared/types.ts` | ~220 | All interfaces + defaults (incl. TrackerConfig union) |
 | `shared/template.ts` | ~120 | Strict Liquid subset |
 | `extension/index.ts` | ~350 | Tool defs + lifecycle |
 | `extension/workflow-loader.ts` | ~100 | YAML + markdown split |
 | `extension/config.ts` | ~200 | Typed getters + validation |
-| `extension/linear-client.ts` | ~250 | GraphQL queries + normalization |
+| `extension/tracker.ts` | ~60 | IssueTracker interface + factory |
+| `extension/linear-client.ts` | ~250 | Linear GraphQL tracker |
+| `extension/file-tracker.ts` | ~200 | File-based tracker (folder watcher + YAML parsing) |
 | `extension/workspace-manager.ts` | ~180 | Filesystem + hooks |
 | `extension/agent-runner.ts` | ~400 | Subprocess + JSON-RPC |
 | `extension/prompt-builder.ts` | ~80 | Template rendering |
@@ -554,7 +665,7 @@ The orchestrator's poll loop can optionally leverage the Sero cron system:
 | `ui/SymphonyApp.tsx` | ~200 | Root component |
 | `ui/components/*.tsx` (7 files) | ~720 total | Dashboard components |
 | `ui/lib/format.ts` | ~60 | Formatters |
-| **Total** | **~3,390** | All under 500 LOC per file |
+| **Total** | **~3,670** | All under 500 LOC per file |
 
 ---
 
@@ -562,19 +673,23 @@ The orchestrator's poll loop can optionally leverage the Sero cron system:
 
 1. **Global scope** — Symphony manages its own workspaces per-issue; it's not tied to a single Sero workspace.
 
-2. **Singleton orchestrator** — One instance per Electron process, ref-counted across sessions (follows cron pattern).
+2. **Tracker abstraction** — The `IssueTracker` interface decouples the orchestrator from any specific issue source. Linear and file-based backends are first-class. Switching trackers requires only a config change in WORKFLOW.md (`tracker.kind: file` vs `tracker.kind: linear`).
 
-3. **State file as UI bridge** — The orchestrator writes periodic snapshots to `state.json`; the UI watches via `useAppState()`. This is the standard Sero app data flow.
+3. **File-based tracker uses folders-as-states** — Issue files live in subfolders (`active/`, `done/`, `failed/`, `paused/`). Moving a file between folders = state transition. This is intuitive, scriptable, git-friendly, and requires no external service.
 
-4. **Cron-inspired patterns, not cron-dependent** — We adopt the cron extension's proven patterns (atomic I/O, mutex, state watcher, singleton lifecycle) but run an independent timer loop for tighter orchestration control.
+4. **Singleton orchestrator** — One instance per Electron process, ref-counted across sessions (follows cron pattern).
 
-5. **No persistent database** — Per spec Section 14.3, orchestrator state is in-memory. Recovery is tracker-driven (re-poll on restart).
+5. **State file as UI bridge** — The orchestrator writes periodic snapshots to `state.json`; the UI watches via `useAppState()`. This is the standard Sero app data flow.
 
-6. **Agent sessions via child_process** — Codex app-server is launched as a subprocess with JSON-RPC over stdio. This is direct process management, not routed through Pi SDK's AgentSession (which is for the Sero agent itself).
+6. **Cron-inspired patterns, not cron-dependent** — We adopt the cron extension's proven patterns (atomic I/O, mutex, state watcher, singleton lifecycle) but run an independent timer loop for tighter orchestration control.
 
-7. **WORKFLOW.md hot-reload** — `fs.watch` detects changes and re-applies config without restart (spec Section 6.2).
+7. **No persistent database** — Per spec Section 14.3, orchestrator state is in-memory. Recovery is tracker-driven (re-poll on restart).
 
-8. **Tool bridging** — The `symphony` tool is added to `TOOLS_TO_BRIDGE` so it appears as `sero symphony start` in the CLI bridge, not as a standalone tool schema.
+8. **Agent sessions via child_process** — Codex app-server is launched as a subprocess with JSON-RPC over stdio. This is direct process management, not routed through Pi SDK's AgentSession (which is for the Sero agent itself).
+
+9. **WORKFLOW.md hot-reload** — `fs.watch` detects changes and re-applies config without restart (spec Section 6.2).
+
+10. **Tool bridging** — The `symphony` tool is added to `TOOLS_TO_BRIDGE` so it appears as `sero symphony start` in the CLI bridge, not as a standalone tool schema.
 
 ---
 
@@ -583,7 +698,9 @@ The orchestrator's poll loop can optionally leverage the Sero cron system:
 | Risk | Mitigation |
 |------|------------|
 | agent-runner.ts is complex (subprocess + JSON-RPC + timeouts) | Careful error handling, comprehensive timeout enforcement, clean shutdown |
-| Linear API schema drift | Isolated query construction, defensive field extraction |
+| Linear API schema drift | Isolated query construction, defensive field extraction; tracker abstraction limits blast radius |
+| File tracker: concurrent file moves | Atomic `fs.renameSync` for state transitions; re-scan on conflict |
+| File tracker: malformed issue files | Defensive YAML parsing, skip + log bad files, don't crash the poll loop |
 | File size limits (500 LOC) | Pre-split into focused modules; orchestrator.ts and agent-runner.ts are the largest at ~400 each |
 | State file write frequency | Debounce snapshots (write at most every 2s during active runs) |
 | Subprocess cleanup on crash | SIGTERM with timeout → SIGKILL; track PIDs for orphan cleanup |
