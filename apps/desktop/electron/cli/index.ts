@@ -80,6 +80,8 @@ const TOOLS_TO_BRIDGE = new Set([
   'slopzilla',
   // Text tools
   'humanize',
+  // Orchestration
+  'symphony',
   // NOT bridged — private, kept away from agent by design:
   // 'admin' — Sero Admin reads sensitive config (auth, .env); must not be agent-accessible
   // NOT bridged — complex schemas (arrays of objects) that need structured params:

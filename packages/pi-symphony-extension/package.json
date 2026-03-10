@@ -1,0 +1,54 @@
+{
+  "name": "@sero/symphony",
+  "version": "0.1.0",
+  "description": "Symphony orchestrator for Sero — polls issue trackers and runs Codex agent sessions",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
+  },
+  "sero": {
+    "app": {
+      "id": "symphony",
+      "name": "Symphony",
+      "icon": "activity",
+      "scope": "global",
+      "stateFile": ".sero/apps/symphony/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "SymphonyApp",
+      "devPort": 5194
+    }
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "@sinclair/typebox": "^0.34.48"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.55.3",
+    "@mariozechner/pi-coding-agent": ">=0.55.3",
+    "@mariozechner/pi-tui": ">=0.55.3"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "^1.11.0",
+    "@sero/app-runtime": "workspace:*",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.19.11",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  }
+}
