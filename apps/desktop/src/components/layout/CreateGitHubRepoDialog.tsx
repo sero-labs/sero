@@ -3,11 +3,12 @@
  * from a Sero workspace.
  *
  * Opened from the WorkspaceTree hover actions (GitHub icon).
+ * Detects existing git remotes on open and pre-fills accordingly.
  * Creates a repo via `gh repo create` and optionally sets it as
  * the workspace's 'origin' remote.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,7 @@ import { Button } from '@sero/ui/components/ui/button';
 import { Input } from '@sero/ui/components/ui/input';
 import { Label } from '@sero/ui/components/ui/label';
 import { Switch } from '@sero/ui/components/ui/switch';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { ExternalLink, GitBranch, Loader2 } from 'lucide-react';
 import type { WorkspaceInfo, CreateGitHubRepoResult } from '@/types/ipc';
 
 interface CreateGitHubRepoDialogProps {
@@ -29,6 +30,35 @@ interface CreateGitHubRepoDialogProps {
 }
 
 type Visibility = 'public' | 'private';
+
+/** Parsed info from an existing remote URL. */
+interface ExistingRemote {
+  /** Remote name (e.g. 'origin'). */
+  remoteName: string;
+  /** Full remote URL. */
+  url: string;
+  /** GitHub owner parsed from URL, if it's a GitHub remote. */
+  owner?: string;
+  /** Repo name parsed from URL, if it's a GitHub remote. */
+  repo?: string;
+}
+
+/**
+ * Parse a GitHub remote URL into owner/repo.
+ * Handles HTTPS (https://github.com/owner/repo.git) and
+ * SSH (git@github.com:owner/repo.git) formats.
+ */
+function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
+  // HTTPS: https://github.com/owner/repo(.git)
+  const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/\s]+?)(?:\.git)?$/);
+  if (httpsMatch) return { owner: httpsMatch[1], repo: httpsMatch[2] };
+
+  // SSH: git@github.com:owner/repo(.git)
+  const sshMatch = url.match(/github\.com:([^/]+)\/([^/\s]+?)(?:\.git)?$/);
+  if (sshMatch) return { owner: sshMatch[1], repo: sshMatch[2] };
+
+  return null;
+}
 
 export function CreateGitHubRepoDialog({
   open,
@@ -41,6 +71,44 @@ export function CreateGitHubRepoDialog({
   const [addRemote, setAddRemote] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [result, setResult] = useState<CreateGitHubRepoResult | null>(null);
+  const [existingRemote, setExistingRemote] = useState<ExistingRemote | null>(null);
+  const [isLoadingRemotes, setIsLoadingRemotes] = useState(false);
+  const prevOpenRef = useRef(false);
+
+  // Fetch existing remotes when the dialog opens.
+  // Acceptable useEffect: one-shot IPC fetch on external state change.
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      setIsLoadingRemotes(true);
+      setExistingRemote(null);
+      setResult(null);
+
+      window.sero.vcs.remotes(workspace.id).then((remotes) => {
+        const origin = remotes.find((r) => r.name === 'origin') ?? remotes[0];
+        if (origin) {
+          const parsed = parseGitHubUrl(origin.url);
+          const remote: ExistingRemote = {
+            remoteName: origin.name,
+            url: origin.url,
+            owner: parsed?.owner,
+            repo: parsed?.repo,
+          };
+          setExistingRemote(remote);
+          // Pre-fill name from existing remote's repo name
+          if (parsed?.repo) setName(parsed.repo);
+          // Remote already exists — default to not overwriting
+          setAddRemote(false);
+        } else {
+          setName(workspace.id);
+          setAddRemote(true);
+        }
+        setIsLoadingRemotes(false);
+      }).catch(() => {
+        setIsLoadingRemotes(false);
+      });
+    }
+    prevOpenRef.current = open;
+  }, [open, workspace.id]);
 
   const reset = () => {
     setName(workspace.id);
@@ -49,6 +117,7 @@ export function CreateGitHubRepoDialog({
     setAddRemote(true);
     setIsCreating(false);
     setResult(null);
+    setExistingRemote(null);
   };
 
   const handleClose = () => {
@@ -114,6 +183,8 @@ export function CreateGitHubRepoDialog({
             addRemote={addRemote}
             onAddRemoteChange={setAddRemote}
             isCreating={isCreating}
+            isLoadingRemotes={isLoadingRemotes}
+            existingRemote={existingRemote}
             error={result?.success === false ? result.message : undefined}
             onSubmit={handleCreate}
             onCancel={handleClose}
@@ -148,6 +219,28 @@ function SuccessView({ url, onClose }: { url?: string; onClose: () => void }) {
   );
 }
 
+// ── Existing remote banner ────────────────────────────────────
+
+function ExistingRemoteBanner({ remote }: { remote: ExistingRemote }) {
+  const label = remote.owner && remote.repo
+    ? `${remote.owner}/${remote.repo}`
+    : remote.url;
+
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5">
+      <GitBranch className="mt-0.5 size-3.5 shrink-0 text-[var(--text-muted)]" />
+      <div className="flex flex-col gap-0.5 overflow-hidden">
+        <span className="text-xs font-medium text-[var(--text-secondary)]">
+          Existing remote: {remote.remoteName}
+        </span>
+        <span className="truncate text-xs text-[var(--text-muted)]" title={remote.url}>
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── Form view ────────────────────────────────────────────────
 
 interface FormViewProps {
@@ -160,6 +253,8 @@ interface FormViewProps {
   addRemote: boolean;
   onAddRemoteChange: (v: boolean) => void;
   isCreating: boolean;
+  isLoadingRemotes: boolean;
+  existingRemote: ExistingRemote | null;
   error?: string;
   onSubmit: () => void;
   onCancel: () => void;
@@ -176,13 +271,27 @@ function FormView({
   addRemote,
   onAddRemoteChange,
   isCreating,
+  isLoadingRemotes,
+  existingRemote,
   error,
   onSubmit,
   onCancel,
   onKeyDown,
 }: FormViewProps) {
+  const hasExistingRemote = existingRemote !== null;
+
   return (
     <div className="flex flex-col gap-4 pt-1" onKeyDown={onKeyDown}>
+      {/* Existing remote banner */}
+      {isLoadingRemotes ? (
+        <div className="flex items-center gap-2 py-1 text-xs text-[var(--text-muted)]">
+          <Loader2 className="size-3 animate-spin" />
+          Checking existing remotes…
+        </div>
+      ) : existingRemote ? (
+        <ExistingRemoteBanner remote={existingRemote} />
+      ) : null}
+
       {/* Name */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="repo-name" className="text-sm font-medium text-[var(--text-secondary)]">
@@ -238,10 +347,12 @@ function FormView({
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col">
           <Label htmlFor="add-remote" className="text-sm font-medium text-[var(--text-secondary)]">
-            Add as remote
+            {hasExistingRemote ? 'Replace remote' : 'Add as remote'}
           </Label>
           <span className="text-xs text-[var(--text-muted)]">
-            Set the new repo as the &apos;origin&apos; remote
+            {hasExistingRemote
+              ? `Replace '${existingRemote.remoteName}' with the new repo`
+              : "Set the new repo as the 'origin' remote"}
           </span>
         </div>
         <Switch

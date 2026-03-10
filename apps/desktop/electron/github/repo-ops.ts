@@ -12,11 +12,13 @@ export class GitHubRepoOps {
   constructor(private readonly runner: GitRunner) {}
 
   /**
-   * Create a GitHub repository and optionally add it as the 'origin' remote.
+   * Create a GitHub repository and optionally set it as the 'origin' remote.
    *
    * Uses `gh repo create <name> --<visibility>` to create the repo on GitHub.
-   * If `addRemote` is true (default), sets the new repo as the workspace's
-   * 'origin' remote — skipped if 'origin' already exists.
+   * When `addRemote` is true (default):
+   * - If no 'origin' remote exists, uses `--source=.` to auto-add it.
+   * - If 'origin' already exists, creates the repo without `--source`, then
+   *   updates the existing remote URL via `git remote set-url`.
    */
   async createRepo(
     workspaceId: string,
@@ -35,6 +37,11 @@ export class GitHubRepoOps {
       };
     }
 
+    const addRemote = input.addRemote !== false;
+
+    // Check if 'origin' remote already exists
+    const existingOrigin = addRemote ? await this.getOriginUrl(workspaceId) : null;
+
     // Build gh repo create args
     const args = ['repo', 'create', name, `--${input.visibility}`];
 
@@ -43,9 +50,9 @@ export class GitHubRepoOps {
     }
 
     // --source=. tells gh to use the current directory as the local repo
-    // and automatically adds the remote
-    const addRemote = input.addRemote !== false;
-    if (addRemote) {
+    // and automatically adds the remote. Only use it when there's no
+    // existing origin — otherwise gh fails with "remote origin already exists".
+    if (addRemote && !existingOrigin) {
       args.push('--source=.');
     }
 
@@ -60,6 +67,11 @@ export class GitHubRepoOps {
 
     const url = extractRepoUrl(result.stdout) ?? extractRepoUrl(result.stderr);
 
+    // If origin already existed and user wants the remote updated, set-url now.
+    if (addRemote && existingOrigin && url) {
+      await this.runner.run(workspaceId, ['remote', 'set-url', 'origin', url]);
+    }
+
     return {
       success: true,
       message: url
@@ -67,6 +79,14 @@ export class GitHubRepoOps {
         : 'Repository created successfully.',
       url,
     };
+  }
+
+  /** Get the current 'origin' remote URL, or null if none exists. */
+  private async getOriginUrl(workspaceId: string): Promise<string | null> {
+    const result = await this.runner.run(workspaceId, ['remote', 'get-url', 'origin']);
+    if (result.exitCode !== 0) return null;
+    const url = result.stdout.trim();
+    return url || null;
   }
 
   private formatError(stderr: string, stdout: string): string {
