@@ -80,7 +80,7 @@ export class GitRunner {
 
     if (useContainer) {
       await this.ensureContainer(workspaceId, workspacePath);
-      // GitHub auth env vars (GH_TOKEN, GIT_ASKPASS, URL rewrites) are injected
+      // GitHub auth env vars (GH_TOKEN, URL rewrites, HTTP auth header) are injected
       // by ContainerManager.exec() via its getExtraEnvVars callback.
       const command = `${shQuote(program)} ${args.map(shQuote).join(' ')}`;
       return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs);
@@ -95,8 +95,8 @@ export class GitRunner {
       const authVars = this.githubAuth.getAuthEnvVars();
       const sshWorks = await isHostSshAvailable();
       if (sshWorks) {
-        // Keep GH_TOKEN (for gh CLI) but drop the SSH→HTTPS rewrite + ASKPASS
-        // so git uses native SSH transport.
+        // Keep GH_TOKEN (for gh CLI) but drop the SSH→HTTPS rewrite + HTTP
+        // auth header so git uses native SSH transport.
         if (authVars.GH_TOKEN) {
           env.GH_TOKEN = authVars.GH_TOKEN;
         }

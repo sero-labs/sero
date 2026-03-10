@@ -218,7 +218,7 @@ export class ContainerManager {
         '--env', 'no_proxy=localhost,127.0.0.1,192.168.64.0/24',
       );
     }
-    // Inject GitHub auth env vars (GH_TOKEN, GIT_ASKPASS, URL rewrites)
+    // Inject GitHub auth env vars (GH_TOKEN, URL rewrites, HTTP auth header)
     if (this.getExtraEnvVars) {
       const extra = this.getExtraEnvVars();
       for (const [key, value] of Object.entries(extra)) {

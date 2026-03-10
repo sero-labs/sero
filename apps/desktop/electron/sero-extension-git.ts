@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
 import { vcsManager } from './ipc/shared-infra';
+import { hasMutatingGit, isLikelyReadOnlyBash } from './git-command-filter';
 
 const WORKSPACE_LINK_ENTRY = 'git-workspace-link';
 const CHECKPOINT_ENTRY = 'git-checkpoint';
@@ -12,83 +13,6 @@ type MixedEditCheckpointPolicy = 'merge-working-copy' | 'require-manual-first';
 // create a single turn checkpoint that includes the full resulting workspace state.
 const MIXED_EDIT_CHECKPOINT_POLICY: MixedEditCheckpointPolicy = 'merge-working-copy';
 
-/** Mutating git commands that the agent should not run directly. */
-const MUTATING_GIT_SUBCOMMANDS = new Set([
-  'add',
-  'commit',
-  'push',
-  'pull',
-  'checkout',
-  'switch',
-  'branch',
-  'merge',
-  'rebase',
-  'reset',
-  'stash',
-  'clone',
-  'init',
-  'tag',
-  'rm',
-  'mv',
-  'restore',
-  'remote',
-  'config',
-  'clean',
-  'cherry-pick',
-  'revert',
-  'bisect',
-  'submodule',
-  'worktree',
-]);
-
-/** Read-only git commands the agent is allowed to use. */
-const READ_ONLY_GIT_SUBCOMMANDS = new Set([
-  'status',
-  'log',
-  'diff',
-  'show',
-  'blame',
-  'grep',
-  'shortlog',
-  'describe',
-  'rev-parse',
-  'ls-files',
-  'ls-tree',
-  'cat-file',
-  'reflog',
-  'branch', // read-only when used without flags
-  'remote', // read-only when used without add/remove
-  'fetch',  // fetch is safe to allow as read-only
-]);
-
-const READ_ONLY_SHELL_COMMANDS = new Set([
-  'ls',
-  'pwd',
-  'cat',
-  'head',
-  'tail',
-  'wc',
-  'stat',
-  'which',
-  'whereis',
-  'echo',
-  'printf',
-  'find',
-  'rg',
-  'grep',
-  'cut',
-  'tr',
-  'sort',
-  'uniq',
-  'jq',
-  'diff',
-  'tree',
-  'realpath',
-  'basename',
-  'dirname',
-  'awk',
-]);
-
 function extractTextContent(content: unknown): string {
   if (!Array.isArray(content)) return '';
   return content
@@ -96,63 +20,6 @@ function extractTextContent(content: unknown): string {
     .map((block: any) => block.text)
     .join('\n')
     .trim();
-}
-
-function extractGitSubcommands(command: string): string[] {
-  const segments = command
-    .split(/&&|\|\||;|\|/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const subs: string[] = [];
-  for (const segment of segments) {
-    const match = segment.match(/(?:^|\s)git\s+([a-zA-Z-]+)/);
-    if (match?.[1]) subs.push(match[1]);
-  }
-  return subs;
-}
-
-function hasMutatingGit(command: string): boolean {
-  const subcommands = extractGitSubcommands(command);
-  for (const sub of subcommands) {
-    if (MUTATING_GIT_SUBCOMMANDS.has(sub)) return true;
-    // If it's an unknown git subcommand, treat as mutating by default
-    if (!READ_ONLY_GIT_SUBCOMMANDS.has(sub)) return true;
-  }
-  return false;
-}
-
-function isLikelyReadOnlySegment(segment: string): boolean {
-  if (!segment) return true;
-  if (/[><]{1,2}/.test(segment)) return false;
-
-  const trimmed = segment.trim();
-  const withoutEnv = trimmed.replace(/^(\w+=(?:"[^"]*"|'[^']*'|[^\s]+)\s+)*/, '').trim();
-  if (!withoutEnv) return true;
-
-  const tokens = withoutEnv.split(/\s+/);
-  const cmd = tokens[0] ?? '';
-  if (!cmd) return true;
-
-  if (cmd === 'git') {
-    return !hasMutatingGit(withoutEnv);
-  }
-
-  if (cmd === 'sed') {
-    const args = tokens.slice(1);
-    return args.includes('-n') && !args.includes('-i');
-  }
-
-  return READ_ONLY_SHELL_COMMANDS.has(cmd);
-}
-
-function isLikelyReadOnlyBash(command: string): boolean {
-  const segments = command
-    .split(/&&|\|\||;|\|/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (segments.length === 0) return false;
-  return segments.every(isLikelyReadOnlySegment);
 }
 
 function summarizeAssistantMessage(message: unknown): string {
@@ -242,11 +109,20 @@ export function registerGitCheckpointFeatures(
     const command = String((event.input as { command?: string }).command ?? '');
     if (!command.trim()) return;
 
-    // Block mutating git commands — checkpoint management is handled by Sero
+    // Block mutating git commands — VCS operations are handled by the sero-cli tool
     if (hasMutatingGit(command)) {
       return {
         block: true,
-        reason: 'Mutating git commands (commit, push, checkout, reset, etc.) are managed by Sero. Use read-only git commands (status, log, diff, show) instead.',
+        reason:
+          'Mutating git commands are managed by Sero — use the sero-cli tool instead:\n' +
+          '  sero vcs status              Working copy status\n' +
+          '  sero vcs checkpoint [msg]    Commit all changes\n' +
+          '  sero vcs push [branch]       Push to remote\n' +
+          '  sero vcs remote              List remotes\n' +
+          '  sero vcs remote add <n> <u>  Add a remote\n' +
+          '  sero vcs log                 Recent commits\n' +
+          '  sero vcs fetch               Fetch from remote\n' +
+          'Read-only bash git commands (status, log, diff, show, blame, remote -v, branch) are still allowed.',
       };
     }
 
