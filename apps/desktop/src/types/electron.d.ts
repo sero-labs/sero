@@ -58,6 +58,8 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  CreateGitHubRepoInput,
+  CreateGitHubRepoResult,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -504,6 +506,8 @@ interface SeroGitHubAPI {
   logout(): Promise<void>;
   cancel(): Promise<void>;
   onEvent(callback: (event: GitHubDeviceFlowEvent) => void): () => void;
+  /** Create a GitHub repository for a workspace. */
+  createRepo(workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult>;
 }
 
 declare global {

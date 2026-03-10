@@ -41,6 +41,8 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  CreateGitHubRepoInput,
+  CreateGitHubRepoResult,
 } from '../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -491,6 +493,8 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.on(IpcChannels.github.event, handler);
       return () => ipcRenderer.removeListener(IpcChannels.github.event, handler);
     },
+    createRepo: (workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult> =>
+      ipcRenderer.invoke(IpcChannels.github.createRepo, workspaceId, input),
   },
 
   terminal: {

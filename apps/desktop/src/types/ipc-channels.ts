@@ -300,6 +300,8 @@ export const IpcChannels = {
     logout: 'sero:github:logout',
     cancel: 'sero:github:cancel',
     event: 'sero:github:event',
+    /** Create a GitHub repository for a workspace. Args: workspaceId, input. */
+    createRepo: 'sero:github:create-repo',
   },
   net: {
     /** Proxy an HTTP fetch through the main process (bypasses CORS). */

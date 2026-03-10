@@ -548,6 +548,28 @@ export type {
 export type { SkillSource, SkillSummary, SkillFileData } from './skills';
 export type { PromptTemplateSummary, PromptTemplateFileData } from './prompts';
 
+// ── GitHub Repo Creation ────────────────────────────────────────
+
+/** Input parameters for creating a GitHub repository. */
+export interface CreateGitHubRepoInput {
+  /** Repository name (required). */
+  name: string;
+  /** Optional description for the repository. */
+  description?: string;
+  /** Visibility: 'public' or 'private'. Defaults to 'private'. */
+  visibility: 'public' | 'private';
+  /** Whether to add the new repo as the 'origin' remote. Defaults to true. */
+  addRemote?: boolean;
+}
+
+/** Result from creating a GitHub repository. */
+export interface CreateGitHubRepoResult {
+  success: boolean;
+  message: string;
+  /** The HTTPS URL of the created repo (on success). */
+  url?: string;
+}
+
 // ── IPC Channels ───────────────────────────────────────────────
 
 // Extracted to keep ipc.ts under 500 LOC.

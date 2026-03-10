@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   FolderOpen,
+  Github,
   Loader2,
   Minus,
   Monitor,
@@ -27,6 +28,7 @@ import { cn } from '@sero/ui/lib/utils';
 import { SessionNode } from './SessionNode';
 import { PickView, CreateView } from './AddWorkspaceViews';
 import { WorkspaceReferencesMenu } from './WorkspaceReferencesMenu';
+import { CreateGitHubRepoDialog } from './CreateGitHubRepoDialog';
 
 /**
  * WorkspaceTree — tree view of workspaces → sessions.
@@ -290,6 +292,7 @@ function WorkspaceNode({
   sessions: SeroSessionInfo[];
 }) {
   const [hovered, setHovered] = useState(false);
+  const [ghRepoOpen, setGhRepoOpen] = useState(false);
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
@@ -397,6 +400,16 @@ function WorkspaceNode({
                 {workspace.container && (
                   <WorkspaceReferencesMenu workspace={workspace} />
                 )}
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={(e) => { e.stopPropagation(); setGhRepoOpen(true); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setGhRepoOpen(true); } }}
+                  className="rounded p-0.5 hover:bg-[var(--bg-base)]"
+                  title="Create GitHub repository"
+                >
+                  <Github className="size-3 text-[var(--text-muted)]" />
+                </span>
                 {!isDefault && (
                   <span
                     role="button"
@@ -447,6 +460,13 @@ function WorkspaceNode({
           )}
         </div>
       )}
+
+      {/* GitHub repo creation dialog */}
+      <CreateGitHubRepoDialog
+        open={ghRepoOpen}
+        onOpenChange={setGhRepoOpen}
+        workspace={workspace}
+      />
     </div>
   );
 }
