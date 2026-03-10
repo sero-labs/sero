@@ -6,24 +6,47 @@
  * to avoid duplicate requests.
  */
 
-/** Set of font family names that have already been injected. */
+/** Set of font family names whose stylesheet has been injected. */
 const loadedFonts = new Set<string>();
 
 /**
- * Map of font family names to their Google Fonts identifiers.
- * Only fonts in this map will be loaded via Google Fonts CDN.
- * Fonts not in this map (system fonts, macOS-native) are used as-is.
+ * Map of font family names → Google Fonts CSS2 API family strings.
+ * Only fonts in this map are loaded from the CDN; others (system fonts)
+ * are used as-is without any network request.
  */
 const GOOGLE_FONT_MAP: Record<string, string> = {
+  // ── Sans-serif ──
   'Inter': 'Inter:wght@300;400;500;600;700',
   'Geist': 'Geist:wght@300;400;500;600;700',
+  'Roboto': 'Roboto:wght@300;400;500;700',
+  'Open Sans': 'Open+Sans:wght@300;400;500;600;700',
+  'Lato': 'Lato:wght@300;400;700',
+  'Montserrat': 'Montserrat:wght@300;400;500;600;700',
+  'Poppins': 'Poppins:wght@300;400;500;600;700',
+  'Nunito': 'Nunito:wght@300;400;500;600;700',
+  'Raleway': 'Raleway:wght@300;400;500;600;700',
   'Source Sans 3': 'Source+Sans+3:wght@300;400;500;600;700',
   'IBM Plex Sans': 'IBM+Plex+Sans:wght@300;400;500;600;700',
-  'Fira Code': 'Fira+Code:wght@300;400;500;600;700',
+  'DM Sans': 'DM+Sans:wght@300;400;500;600;700',
+  'Work Sans': 'Work+Sans:wght@300;400;500;600;700',
+  'Plus Jakarta Sans': 'Plus+Jakarta+Sans:wght@300;400;500;600;700',
+  'Manrope': 'Manrope:wght@300;400;500;600;700',
+  'Space Grotesk': 'Space+Grotesk:wght@300;400;500;600;700',
+  'Outfit': 'Outfit:wght@300;400;500;600;700',
+  'Rubik': 'Rubik:wght@300;400;500;600;700',
+  'Karla': 'Karla:wght@300;400;500;600;700',
+
+  // ── Monospace ──
   'JetBrains Mono': 'JetBrains+Mono:wght@300;400;500;600;700',
+  'Fira Code': 'Fira+Code:wght@300;400;500;600;700',
   'Source Code Pro': 'Source+Code+Pro:wght@300;400;500;600;700',
   'IBM Plex Mono': 'IBM+Plex+Mono:wght@300;400;500;600;700',
   'Cascadia Code': 'Cascadia+Code:wght@300;400;500;600;700',
+  'Roboto Mono': 'Roboto+Mono:wght@300;400;500;600;700',
+  'Space Mono': 'Space+Mono:wght@400;700',
+  'Inconsolata': 'Inconsolata:wght@300;400;500;600;700',
+  'DM Mono': 'DM+Mono:wght@300;400;500',
+  'Ubuntu Mono': 'Ubuntu+Mono:wght@400;700',
 };
 
 /**
@@ -33,24 +56,21 @@ const GOOGLE_FONT_MAP: Record<string, string> = {
 function extractPrimaryFont(stack: string): string | null {
   const first = stack.split(',')[0]?.trim();
   if (!first) return null;
-  // Strip quotes
   return first.replace(/^['"]|['"]$/g, '');
 }
 
 /**
- * Load a Google Font by injecting a <link> tag into <head>.
- * No-op if the font is already loaded or not in the Google Fonts map.
+ * Load a Google Font by injecting a <link> into <head>.
+ * No-op if already loaded or not in the Google Fonts map.
  */
 export function loadGoogleFont(fontStack: string): void {
   const primary = extractPrimaryFont(fontStack);
-  if (!primary) return;
-  if (loadedFonts.has(primary)) return;
+  if (!primary || loadedFonts.has(primary)) return;
 
   const googleId = GOOGLE_FONT_MAP[primary];
-  if (!googleId) return; // System font — no loading needed
+  if (!googleId) return;
 
   loadedFonts.add(primary);
-
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = `https://fonts.googleapis.com/css2?family=${googleId}&display=swap`;
@@ -58,18 +78,16 @@ export function loadGoogleFont(fontStack: string): void {
 }
 
 /**
- * Preload all Google Fonts used in the preset lists so they're available
- * immediately when browsing the font picker.
+ * Preload every font in the Google Fonts map so they're available
+ * immediately in the font picker dropdown.
  */
 export function preloadAllGoogleFonts(): void {
-  for (const googleId of Object.values(GOOGLE_FONT_MAP)) {
-    const family = googleId.split(':')[0]?.replace(/\+/g, ' ');
-    if (family && !loadedFonts.has(family)) {
-      loadedFonts.add(family);
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = `https://fonts.googleapis.com/css2?family=${googleId}&display=swap`;
-      document.head.appendChild(link);
-    }
+  for (const [family, googleId] of Object.entries(GOOGLE_FONT_MAP)) {
+    if (loadedFonts.has(family)) continue;
+    loadedFonts.add(family);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${googleId}&display=swap`;
+    document.head.appendChild(link);
   }
 }
