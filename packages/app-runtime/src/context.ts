@@ -23,6 +23,10 @@ export interface AppContextValue {
    * Returns undefined if no session is active.
    */
   promptAgent?: (text: string) => void;
+  /** Current effective theme mode ('light' or 'dark'). */
+  themeMode?: 'light' | 'dark';
+  /** Active theme preset ID. */
+  themePresetId?: string;
 }
 
 const CONTEXT_KEY = '__sero_app_context__';

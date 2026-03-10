@@ -134,9 +134,9 @@ export const ToolCallGroup = memo(function ToolCallGroup({
       className={cn(
         'group/tg overflow-hidden rounded-lg border transition-colors duration-200',
         isRunning
-          ? 'border-blue-500/20 bg-blue-500/[0.03]'
+          ? 'border-[var(--status-info-border)] bg-[var(--status-info-faint)]'
           : status === 'error'
-            ? 'border-red-500/20 bg-red-500/[0.03]'
+            ? 'border-[var(--status-error-border)] bg-[var(--status-error-faint)]'
             : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50',
       )}
     >

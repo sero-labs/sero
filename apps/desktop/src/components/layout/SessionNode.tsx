@@ -78,7 +78,7 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
       {/* Streaming spinner — only visible when agent is working */}
       <span className="flex size-3 shrink-0 items-center justify-center">
         {isStreaming && (
-          <Loader2 className="size-3 animate-spin text-emerald-500" />
+          <Loader2 className="size-3 animate-spin text-[var(--status-success)]" />
         )}
       </span>
 
@@ -96,10 +96,10 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
             }}
             onBlur={commitRename}
             onClick={(e) => e.stopPropagation()}
-            className="w-full truncate rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 py-0 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-emerald-500"
+            className="w-full truncate rounded border border-[var(--border-subtle)] bg-[var(--bg-base)] px-1 py-0 text-sm font-medium text-[var(--text-primary)] outline-none focus:border-[var(--status-success)]"
           />
         ) : (
-          <span className={cn('truncate text-sm font-medium', isActive ? 'text-emerald-500' : 'text-[var(--text-primary)]')}>
+          <span className={cn('truncate text-sm font-medium', isActive ? 'text-[var(--status-success)]' : 'text-[var(--text-primary)]')}>
             {title}
           </span>
         )}

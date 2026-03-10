@@ -115,18 +115,18 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
   const healthColor = !hasContextData
     ? 'text-[var(--text-muted)]'
     : percent < 50
-      ? 'text-emerald-600 dark:text-emerald-400'
+      ? 'text-[var(--status-success)]'
       : percent < 80
-        ? 'text-amber-600 dark:text-amber-400'
-        : 'text-red-600 dark:text-red-400';
+        ? 'text-[var(--status-warning)]'
+        : 'text-[var(--status-error)]';
 
   const barColor = !hasContextData
     ? 'bg-[var(--text-muted)]'
     : percent < 50
-      ? 'bg-emerald-500'
+      ? 'bg-[var(--status-success)]'
       : percent < 80
-        ? 'bg-amber-500'
-        : 'bg-red-500';
+        ? 'bg-[var(--status-warning)]'
+        : 'bg-[var(--status-error)]';
 
   const busy = compacting || clearing || forking;
 
@@ -143,7 +143,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
           </span>
           <span className="text-[var(--text-muted)]">·</span>
           <Coins className="size-3.5" />
-          <span className="text-sm tabular-nums text-emerald-600 dark:text-emerald-400">
+          <span className="text-sm tabular-nums text-[var(--status-success)]">
             {fmtCost(cost)}
           </span>
         </button>
@@ -210,7 +210,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
           busy={busy}
         />
 
-        {actionError && <p className="text-xs text-red-500">{actionError}</p>}
+        {actionError && <p className="text-xs text-[var(--status-error)]">{actionError}</p>}
       </PopoverContent>
     </Popover>
   );
@@ -277,7 +277,7 @@ function CompactSection({
       <button
         onClick={onCompact}
         disabled={busy}
-        className="flex w-full items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] disabled:opacity-50"
       >
         {compacting ? (
           <><Loader2 className="size-3 animate-spin" /> Compacting…</>
@@ -306,8 +306,8 @@ function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confi
         onClick={onFork}
         disabled={busy || forkSuccess}
         className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${forkSuccess
-            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-            : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+            ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
+            : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
           }`}
         title="Fork: copy conversation to a new session"
       >
@@ -318,8 +318,8 @@ function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confi
         onClick={onClear}
         disabled={busy}
         className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${confirmClear
-            ? 'bg-red-500/20 text-red-600 dark:text-red-400'
-            : 'bg-[var(--bg-surface)] text-red-600 dark:text-red-400 hover:bg-red-500/10'
+            ? 'bg-[var(--status-error-border)] text-[var(--status-error)]'
+            : 'bg-[var(--bg-surface)] text-[var(--status-error)] hover:bg-[var(--status-error-muted)]'
           }`}
         title="Reset conversation (branch from root)"
       >

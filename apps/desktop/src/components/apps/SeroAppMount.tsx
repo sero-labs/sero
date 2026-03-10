@@ -12,6 +12,7 @@ import type { AppContextValue } from '@sero/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
+import { useThemeStore } from '@/stores/theme';
 import { getFederatedComponent } from '@/lib/federation-registry';
 import { Spinner } from '@sero/ui/components/ui/spinner';
 
@@ -26,6 +27,8 @@ interface SeroAppMountProps {
 export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const effectiveMode = useThemeStore((s) => s.effectiveMode);
+  const activePresetId = useThemeStore((s) => s.activePresetId);
 
   // Resolve workspace path
   const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
@@ -60,8 +63,10 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
       workspacePath,
       stateFilePath,
       promptAgent,
+      themeMode: effectiveMode,
+      themePresetId: activePresetId,
     }),
-    [manifest.id, activeWorkspaceId, stateFilePath, workspacePath, promptAgent],
+    [manifest.id, activeWorkspaceId, stateFilePath, workspacePath, promptAgent, effectiveMode, activePresetId],
   );
 
   const LazyComponent = getFederatedComponent(manifest.id, manifest.component, manifest.devPort);
@@ -77,9 +82,11 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
 
   return (
     <AppProvider value={contextValue}>
-      <Suspense fallback={<AppLoading name={manifest.name} />}>
-        <LazyComponent />
-      </Suspense>
+      <div data-app={manifest.id} className="contents">
+        <Suspense fallback={<AppLoading name={manifest.name} />}>
+          <LazyComponent />
+        </Suspense>
+      </div>
     </AppProvider>
   );
 }
@@ -100,7 +107,7 @@ function AppPlaceholder({ name, reason }: { name: string; reason: string }) {
 function AppLoading({ name }: { name: string }) {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]">
-      <Spinner className="size-5 text-emerald-500" />
+      <Spinner className="size-5 text-[var(--status-success)]" />
       <span className="text-sm text-[var(--text-muted)]">
         Loading {name}
       </span>

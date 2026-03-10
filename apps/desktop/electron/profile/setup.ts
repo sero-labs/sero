@@ -52,15 +52,16 @@ function substituteTemplate(
 }
 
 /**
- * Copy .md files from a source directory to a target directory.
+ * Copy files matching `ext` from a source directory to a target directory.
  * Only copies files that don't already exist in the target.
  * Optionally skip specific filenames.
  * If `placeholders` is provided, performs template substitution.
  * Returns the number of files copied.
  */
-async function copyMissingMdFiles(
+async function copyMissingFiles(
   srcDir: string,
   destDir: string,
+  ext: string,
   opts?: {
     skip?: Set<string>;
     placeholders?: Record<string, string>;
@@ -78,12 +79,12 @@ async function copyMissingMdFiles(
     return 0;
   }
 
-  const mdFiles = templateFiles.filter(
-    (f) => f.endsWith('.md') && !(opts?.skip?.has(f)),
+  const matchingFiles = templateFiles.filter(
+    (f) => f.endsWith(ext) && !(opts?.skip?.has(f)),
   );
   let copied = 0;
 
-  for (const file of mdFiles) {
+  for (const file of matchingFiles) {
     if (existing.has(file)) continue;
 
     const src = path.join(srcDir, file);
@@ -110,12 +111,36 @@ async function copyMissingMdFiles(
  */
 export async function ensureDefaultAgents(): Promise<void> {
   try {
-    const copied = await copyMissingMdFiles(getTemplatesDir('agents'), AGENTS_DIR);
+    const copied = await copyMissingFiles(getTemplatesDir('agents'), AGENTS_DIR, '.md');
     if (copied > 0) {
       console.log(`[setup] Copied ${copied} agent template(s) to ${AGENTS_DIR}`);
     }
   } catch (err) {
     console.warn('[setup] Failed to copy agent templates:', err);
+  }
+}
+
+const THEMES_DIR = path.join(SERO_HOME, 'themes');
+
+/**
+ * Copy default theme presets from packages/templates/themes/ into
+ * ~/.sero-ui/themes/. Only copies files that don't already exist,
+ * so user edits to their copies are never overwritten.
+ *
+ * Call once at startup.
+ */
+export async function ensureDefaultThemes(): Promise<void> {
+  try {
+    const copied = await copyMissingFiles(
+      getTemplatesDir('themes'),
+      THEMES_DIR,
+      '.json',
+    );
+    if (copied > 0) {
+      console.log(`[setup] Copied ${copied} theme template(s) to ${THEMES_DIR}`);
+    }
+  } catch (err) {
+    console.warn('[setup] Failed to copy theme templates:', err);
   }
 }
 
@@ -138,9 +163,10 @@ const SKIP_PROFILE_FILES = new Set(['MEMORY.md']);
  */
 export async function ensureProfileTemplates(): Promise<void> {
   try {
-    const copied = await copyMissingMdFiles(
+    const copied = await copyMissingFiles(
       getTemplatesDir('profile'),
       GLOBAL_WORKSPACE_DIR,
+      '.md',
       {
         skip: SKIP_PROFILE_FILES,
         placeholders: getTemplatePlaceholders(),

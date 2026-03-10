@@ -196,6 +196,22 @@ export const IpcChannels = {
     /** Load UI layout state. */
     load: 'sero:layout:load',
   },
+  themes: {
+    /** List all available theme presets (built-in + custom). */
+    list: 'sero:themes:list',
+    /** Load a specific theme preset by ID. */
+    load: 'sero:themes:load',
+    /** Save a custom theme preset (create or update). */
+    save: 'sero:themes:save',
+    /** Delete a custom theme preset. */
+    delete: 'sero:themes:delete',
+    /** Import a theme from a file picker dialog. */
+    import: 'sero:themes:import',
+    /** Export a theme to a file save dialog. */
+    export: 'sero:themes:export',
+    /** Reset a built-in theme to its original template. */
+    reset: 'sero:themes:reset',
+  },
   editor: {
     /** Read a file from the workspace (dual-mode: container or host). */
     readFile: 'sero:editor:read-file',

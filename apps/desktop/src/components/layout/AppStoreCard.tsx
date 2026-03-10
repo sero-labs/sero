@@ -40,9 +40,9 @@ export function AppStoreCard({
       onClick={onActivate}
       onKeyDown={handleCardKeyDown}
       className={cn(
-        'group rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--border-strong)]',
+        'group rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--border-default)]',
         active
-          ? 'border-[var(--border-strong)] bg-[var(--bg-elevated)]'
+          ? 'border-[var(--border-default)] bg-[var(--bg-elevated)]'
           : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)]',
       )}
       aria-label={`Open ${entry.label}`}
@@ -79,7 +79,7 @@ export function AppStoreCard({
             onToggleFavourite();
           }}
         >
-          <Star className={cn('size-4', favourite ? 'fill-current text-amber-500' : 'text-[var(--text-muted)]')} />
+          <Star className={cn('size-4', favourite ? 'fill-current text-[var(--status-warning)]' : 'text-[var(--text-muted)]')} />
         </Button>
       </div>
 

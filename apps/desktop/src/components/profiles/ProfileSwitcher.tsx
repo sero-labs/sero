@@ -79,7 +79,7 @@ export function ProfileSwitcher() {
                 key={profile.id}
                 onClick={() => handleSwitch(profile.id)}
                 disabled={switching !== null}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--bg-elevated)] disabled:opacity-50"
               >
                 <span className="flex size-4 items-center justify-center">
                   {switching === profile.id ? (
@@ -107,7 +107,7 @@ export function ProfileSwitcher() {
                 setOpen(false);
                 setShowCreate(true);
               }}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]"
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
             >
               <Plus className="size-3" />
               <span>New Profile</span>

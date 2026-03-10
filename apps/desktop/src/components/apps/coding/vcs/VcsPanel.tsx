@@ -79,7 +79,7 @@ export function VcsPanel({ workspaceId, onOpenDiff }: VcsPanelProps) {
             transition={{ duration: 0.15 }}
             className="overflow-hidden"
           >
-            <div className="mx-2 mb-1 rounded border border-red-500/20 bg-red-500/[0.06] px-2 py-1 text-[11px] text-red-400">
+            <div className="mx-2 mb-1 rounded border border-[var(--status-error-border)] bg-[var(--status-error-faint)] px-2 py-1 text-[11px] text-[var(--status-error)]">
               {ws.error}
             </div>
           </motion.div>

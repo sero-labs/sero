@@ -123,7 +123,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
                 'outline-none focus:border-[var(--border-focus)]',
               )}
             />
-            <button onClick={handleSaveDesc} className="text-emerald-500 hover:text-emerald-400">
+            <button onClick={handleSaveDesc} className="text-[var(--status-success)] hover:brightness-125">
               <Check className="size-3" />
             </button>
             <button onClick={() => setEditing(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
@@ -251,7 +251,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
           <button
             onClick={() => void handlePushAs()}
             disabled={pushing || !pushBranch.trim()}
-            className="text-emerald-500 hover:text-emerald-400 disabled:opacity-40"
+            className="text-[var(--status-success)] hover:brightness-125 disabled:opacity-40"
             title="Push to branch"
           >
             <Check className="size-3" />
@@ -272,8 +272,8 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
           className={cn(
             'mt-2 rounded px-2 py-1 text-[10px]',
             pushNotice.error
-              ? 'bg-red-500/10 text-red-300'
-              : 'bg-emerald-500/10 text-emerald-300',
+              ? 'bg-[var(--status-error-muted)] text-[var(--status-error)]'
+              : 'bg-[var(--status-success-muted)] text-[var(--status-success)]',
           )}
         >
           {pushNotice.message}
@@ -306,7 +306,7 @@ function DetailAction({
         'transition-colors duration-100',
         'disabled:opacity-40',
         danger
-          ? 'text-[var(--text-muted)]/50 hover:bg-red-500/10 hover:text-red-400'
+          ? 'text-[var(--text-muted)]/50 hover:bg-[var(--status-error-muted)] hover:text-[var(--status-error)]'
           : 'text-[var(--text-muted)]/50 hover:bg-[var(--bg-muted)] hover:text-[var(--text-secondary)]',
       )}
     >

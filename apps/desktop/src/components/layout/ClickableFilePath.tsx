@@ -40,7 +40,7 @@ export function ClickableFilePath({
   return (
     <span
       onClick={handleClick}
-      className={`cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/40 underline-offset-2 hover:decoration-[var(--accent)] ${className ?? ''}`}
+      className={`cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/40 underline-offset-2 hover:decoration-[var(--accent-primary)] ${className ?? ''}`}
       title="Ctrl+click to open in editor"
     >
       {path}

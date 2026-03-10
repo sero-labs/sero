@@ -15,31 +15,31 @@ type SectionTint = 'blue' | 'amber' | 'violet' | 'neutral';
 type BadgeVariant = 'default' | 'modified' | 'disabled' | 'partial';
 
 const iconTintClass: Record<SectionTint, string> = {
-  blue: 'text-blue-400 dark:text-blue-400',
-  amber: 'text-amber-500 dark:text-amber-400',
-  violet: 'text-violet-500 dark:text-violet-400',
+  blue: 'text-[var(--status-info)]',
+  amber: 'text-[var(--status-warning)]',
+  violet: 'text-[var(--collab-primary)]',
   neutral: 'text-[var(--text-muted)]',
 };
 
 const badgeClass: Record<BadgeVariant, string> = {
   default: 'bg-[var(--bg-base)] text-[var(--text-muted)]',
-  modified: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  disabled: 'bg-red-500/15 text-red-600 dark:text-red-400',
-  partial: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  modified: 'bg-[var(--status-warning-subtle)] text-[var(--status-warning)]',
+  disabled: 'bg-[var(--status-error-subtle)] text-[var(--status-error)]',
+  partial: 'bg-[var(--status-info-subtle)] text-[var(--status-info)]',
 };
 
 const sectionBorderClass: Record<BadgeVariant, string> = {
   default: 'border-border/50',
-  modified: 'border-amber-500/25 dark:border-amber-500/20',
-  disabled: 'border-red-500/25 dark:border-red-500/20',
-  partial: 'border-blue-500/25 dark:border-blue-500/20',
+  modified: 'border-[var(--status-warning-border)]',
+  disabled: 'border-[var(--status-error-border)]',
+  partial: 'border-[var(--status-info-border)]',
 };
 
 const sectionBgClass: Record<BadgeVariant, string> = {
   default: 'bg-[var(--bg-elevated)]/50',
-  modified: 'bg-amber-500/[0.03]',
-  disabled: 'bg-red-500/[0.03]',
-  partial: 'bg-blue-500/[0.03]',
+  modified: 'bg-[var(--status-warning-faint)]',
+  disabled: 'bg-[var(--status-error-faint)]',
+  partial: 'bg-[var(--status-info-faint)]',
 };
 
 // ── Collapsible Section (ToolCallGroup style) ───────────────────
@@ -193,7 +193,7 @@ export function SavePresetInput({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Preset name..."
-        className="flex-1 rounded-md border border-border/50 bg-[var(--bg-base)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+        className="flex-1 rounded-md border border-border/50 bg-[var(--bg-base)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"
         autoFocus
         onKeyDown={(e) => {
           if (e.key === 'Enter' && name.trim()) onSave(name.trim());
@@ -203,7 +203,7 @@ export function SavePresetInput({
       <button
         onClick={() => name.trim() && onSave(name.trim())}
         disabled={!name.trim()}
-        className="rounded-md bg-[var(--accent)] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
+        className="rounded-md bg-[var(--accent-primary)] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
       >
         Save
       </button>

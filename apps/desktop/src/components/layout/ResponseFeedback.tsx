@@ -55,7 +55,7 @@ export function ResponseFeedback({
         className={cn(
           'rounded-md p-1 transition-colors duration-100',
           rating === 'good'
-            ? 'text-emerald-600 dark:text-emerald-400'
+            ? 'text-[var(--status-success)]'
             : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
         )}
         title="Good response"
@@ -68,7 +68,7 @@ export function ResponseFeedback({
         className={cn(
           'rounded-md p-1 transition-colors duration-100',
           rating === 'bad'
-            ? 'text-red-500 dark:text-red-400'
+            ? 'text-[var(--status-error)]'
             : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
         )}
         title="Bad response"

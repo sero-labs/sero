@@ -144,7 +144,7 @@ export function BookmarksSection({
                 />
                 <button
                   onClick={handleCreate}
-                  className="text-emerald-500 hover:text-emerald-400 transition-colors"
+                  className="text-[var(--status-success)] hover:brightness-125 transition-colors"
                 >
                   <Check className="size-3" />
                 </button>
@@ -234,7 +234,7 @@ function BookmarkRow({
         {bookmark.name}
       </span>
       {isActive && (
-        <span className="rounded-sm border border-blue-500/30 bg-blue-500/10 px-1 py-px text-[9px] text-blue-300">
+        <span className="rounded-sm border border-[var(--status-info-subtle)] bg-[var(--status-info-muted)] px-1 py-px text-[9px] text-[var(--status-info)]">
           active
         </span>
       )}
@@ -244,10 +244,10 @@ function BookmarkRow({
 
       {/* Sync indicator */}
       {hasRemote && synced && (
-        <Check className="size-3 shrink-0 text-emerald-500/60" />
+        <Check className="size-3 shrink-0 text-[var(--status-success)]" />
       )}
       {hasRemote && !synced && (
-        <ArrowUpCircle className="size-3 shrink-0 text-amber-500/70" />
+        <ArrowUpCircle className="size-3 shrink-0 text-[var(--status-warning)]" />
       )}
       {!hasRemote && hasRemotes && (
         <span className="text-[9px] text-[var(--text-muted)]/40">local</span>
@@ -256,16 +256,16 @@ function BookmarkRow({
       {/* Hover actions */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!isActive && (
-          <button onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-amber-300 transition-colors">
+          <button onClick={onSetActive} title="Set active push branch" className="text-[var(--text-muted)] hover:text-[var(--status-warning)] transition-colors">
             <Star className="size-3" />
           </button>
         )}
         {hasRemotes && !synced && (
-          <button onClick={onPush} title="Push" className="text-[var(--text-muted)] hover:text-blue-400 transition-colors">
+          <button onClick={onPush} title="Push" className="text-[var(--text-muted)] hover:text-[var(--status-info)] transition-colors">
             <CloudUpload className="size-3" />
           </button>
         )}
-        <button onClick={onDelete} title="Delete" className="text-[var(--text-muted)] hover:text-red-400 transition-colors">
+        <button onClick={onDelete} title="Delete" className="text-[var(--text-muted)] hover:text-[var(--status-error)] transition-colors">
           <Trash2 className="size-2.5" />
         </button>
       </div>
