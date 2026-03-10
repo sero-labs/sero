@@ -53,7 +53,8 @@ function buildCSP(): string {
   // -- style-src --
   // 'unsafe-inline' is required for Tailwind's runtime styles and any
   // inline style= attributes used in components.
-  const styleSrc = ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', ...(isDev ? ['http://localhost:*'] : ['sero-ext:'])];
+  // fonts.googleapis.com serves the @font-face CSS for Google Fonts.
+  const styleSrc = ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://fonts.googleapis.com', ...(isDev ? ['http://localhost:*'] : ['sero-ext:'])];
 
   // -- img-src --
   const imgSrc = [
@@ -67,7 +68,8 @@ function buildCSP(): string {
   ];
 
   // -- font-src --
-  const fontSrc = ["'self'", 'data:', ...(isDev ? ['http://localhost:*'] : ['sero-ext:'])];
+  // fonts.gstatic.com serves the actual font files (.woff2) for Google Fonts.
+  const fontSrc = ["'self'", 'data:', 'https://fonts.gstatic.com', ...(isDev ? ['http://localhost:*'] : ['sero-ext:'])];
 
   // -- media-src (Spotify playback) --
   const mediaSrc = ["'self'", 'blob:', 'https://*.spotify.com', 'https://*.scdn.co'];
