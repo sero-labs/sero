@@ -383,6 +383,8 @@ interface SeroSubagentAPI {
   snapshot(workspaceId: string): Promise<SubagentEntry[]>;
   /** Abort a specific subagent run. */
   abort(subagentId: string): Promise<void>;
+  /** Remove all completed/failed/aborted entries for a workspace from the main process. */
+  clearCompleted(workspaceId: string): Promise<void>;
   /** Read full agent file data (including system prompt). */
   readAgent(name: string): Promise<SubagentAgentFile>;
   /** Create or update an agent .md file. */

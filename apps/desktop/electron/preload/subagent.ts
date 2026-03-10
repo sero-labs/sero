@@ -29,6 +29,8 @@ export const subagentBridge = {
     ipcRenderer.invoke(IpcChannels.subagent.snapshot, workspaceId),
   abort: (subagentId: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.subagent.abort, subagentId),
+  clearCompleted: (workspaceId: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.subagent.clearCompleted, workspaceId),
   readAgent: (name: string): Promise<SubagentAgentFile> =>
     ipcRenderer.invoke(IpcChannels.subagent.readAgent, name),
   writeAgent: (data: SubagentAgentFile): Promise<void> =>
