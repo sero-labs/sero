@@ -30,9 +30,9 @@
   --text-muted: #6b7280;
   --text-inverse: #fafafa;
 
-  /* Accent (indigo) */
-  --accent: oklch(0.97 0 0);
-  --accent-hover: #6366f1;
+  /* Accent (indigo) — brand accent colour used by Sero components */
+  --accent-primary: #6366f1;
+  --accent-hover: #818cf8;
   --accent-muted: #6366f11a;
   --accent-code: #7c3aed;
 
@@ -126,7 +126,12 @@
   --transition-normal: 200ms ease;
   --radius: 0.625rem;
 
-  /* ── shadcn bridge (derive from Sero tokens) ────────────── */
+  /* ── shadcn bridge ────────────────────────────────────────
+     Derive shadcn/ui tokens from Sero design tokens so every
+     shadcn component (Dialog, Command, Dropdown, Tooltip, …)
+     automatically follows theme changes.
+     NOTE: --accent here is the shadcn "hover/selection bg",
+     NOT the brand accent colour (that's --accent-primary). */
   --background: var(--bg-base);
   --foreground: var(--text-primary);
   --card: var(--bg-surface);
@@ -135,11 +140,11 @@
   --popover-foreground: var(--text-primary);
   --primary: var(--text-primary);
   --primary-foreground: var(--text-inverse);
-  --secondary: var(--bg-elevated);
+  --secondary: var(--bg-surface);
   --secondary-foreground: var(--text-primary);
   --muted: var(--bg-muted);
   --muted-foreground: var(--text-muted);
-  --accent: var(--bg-elevated);
+  --accent: var(--bg-overlay);
   --accent-foreground: var(--text-primary);
   --destructive: var(--status-error);
   --border: var(--border-default);
@@ -152,7 +157,7 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: var(--bg-surface);
   --sidebar-foreground: var(--text-primary);
-  --sidebar-primary: var(--accent-primary, var(--text-primary));
+  --sidebar-primary: var(--accent-primary);
   --sidebar-primary-foreground: var(--text-inverse);
   --sidebar-accent: var(--bg-elevated);
   --sidebar-accent-foreground: var(--text-primary);
@@ -253,7 +258,8 @@
   --text-inverse: #09090b;
 
   /* Accent (dark) */
-  --accent-hover: #818cf8;
+  --accent-primary: #818cf8;
+  --accent-hover: #a5b4fc;
   --accent-muted: #6366f133;
   --accent-code: #c4b5fd;
 
@@ -317,9 +323,8 @@
   --file-icon-rust: #fb923c;
   --file-icon-markdown: #818cf8;
 
-  /* shadcn dark overrides — derived from Sero tokens above
-     (the dark Sero tokens are already set earlier in this block,
-      so these var() references resolve to dark values) */
+  /* ── shadcn bridge (identical structure to :root — resolves
+       to dark Sero tokens defined above in this block) ────── */
   --background: var(--bg-base);
   --foreground: var(--text-primary);
   --card: var(--bg-surface);
@@ -328,11 +333,11 @@
   --popover-foreground: var(--text-primary);
   --primary: var(--text-primary);
   --primary-foreground: var(--text-inverse);
-  --secondary: var(--bg-elevated);
+  --secondary: var(--bg-surface);
   --secondary-foreground: var(--text-primary);
   --muted: var(--bg-muted);
   --muted-foreground: var(--text-muted);
-  --accent: var(--bg-elevated);
+  --accent: var(--bg-overlay);
   --accent-foreground: var(--text-primary);
   --destructive: var(--status-error);
   --border: var(--border-default);
@@ -345,7 +350,7 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: var(--bg-surface);
   --sidebar-foreground: var(--text-primary);
-  --sidebar-primary: var(--accent-primary, var(--text-primary));
+  --sidebar-primary: var(--accent-primary);
   --sidebar-primary-foreground: var(--text-inverse);
   --sidebar-accent: var(--bg-elevated);
   --sidebar-accent-foreground: var(--text-primary);

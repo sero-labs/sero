@@ -164,7 +164,7 @@ export function ToolLine({
           className={cn(
             'min-w-0 truncate text-[11px] text-[var(--text-secondary)]',
             isFilePath && workspaceId &&
-              'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/60 underline-offset-2 hover:decoration-[var(--accent)] hover:text-[var(--text-primary)]',
+              'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/60 underline-offset-2 hover:decoration-[var(--accent-primary)] hover:text-[var(--text-primary)]',
           )}
           title={isFilePath ? 'Ctrl+click to open in editor' : undefined}
         >
@@ -278,7 +278,7 @@ export function SingleToolCall({
             className={cn(
               'min-w-0 truncate text-[11px] text-[var(--text-secondary)]',
               isFilePath && workspaceId &&
-                'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/60 underline-offset-2 hover:decoration-[var(--accent)] hover:text-[var(--text-primary)]',
+                'cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/60 underline-offset-2 hover:decoration-[var(--accent-primary)] hover:text-[var(--text-primary)]',
             )}
             title={isFilePath ? 'Ctrl+click to open in editor' : undefined}
           >

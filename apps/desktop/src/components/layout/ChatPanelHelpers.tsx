@@ -41,7 +41,7 @@ export function ContextEditorMenuItem({
       <Settings2 className="mr-2 size-4" />
       Session context
       {hasOverrides && (
-        <span className="ml-auto size-1.5 rounded-full bg-[var(--accent)]" />
+        <span className="ml-auto size-1.5 rounded-full bg-[var(--accent-primary)]" />
       )}
     </PromptInputActionMenuItem>
   );

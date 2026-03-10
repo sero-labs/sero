@@ -44,7 +44,7 @@ function StatusDot({ status }: { status: DevServer['status'] }) {
 function FrameworkBadge({ framework }: { framework?: string }) {
   if (!framework) return null;
   return (
-    <span className="rounded-sm bg-[var(--bg-raised)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+    <span className="rounded-sm bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
       {framework}
     </span>
   );
@@ -84,7 +84,7 @@ function ServerRow({ server }: { server: DevServer }) {
   const isActionLoading = (action: string) => loading === action;
 
   return (
-    <div className="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--bg-raised)]">
+    <div className="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--bg-elevated)]">
       {/* Status + name */}
       <StatusDot status={server.status} />
       <div className="min-w-0 flex-1">

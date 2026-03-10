@@ -277,7 +277,7 @@ function CompactSection({
       <button
         onClick={onCompact}
         disabled={busy}
-        className="flex w-full items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-1.5 rounded bg-[var(--bg-surface)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] disabled:opacity-50"
       >
         {compacting ? (
           <><Loader2 className="size-3 animate-spin" /> Compacting…</>
@@ -307,7 +307,7 @@ function SessionActions({ onFork, onClear, forking, forkSuccess, clearing, confi
         disabled={busy || forkSuccess}
         className={`flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${forkSuccess
             ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
-            : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+            : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
           }`}
         title="Fork: copy conversation to a new session"
       >

@@ -184,7 +184,7 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
                   <textarea
                     value={displayedPrompt}
                     onChange={(e) => setSystemPrompt(e.target.value)}
-                    className="h-80 w-full resize-y rounded-md border border-border/30 bg-[var(--bg-base)] p-2 font-mono text-[11px] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                    className="h-80 w-full resize-y rounded-md border border-border/30 bg-[var(--bg-base)] p-2 font-mono text-[11px] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"
                     placeholder="Enter system prompt..."
                   />
                 </div>
@@ -232,7 +232,7 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
           <button
             onClick={handleApplyAndClose}
             disabled={!availableContext}
-            className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
+            className="rounded-md bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
           >
             Apply
           </button>

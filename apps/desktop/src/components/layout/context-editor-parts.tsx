@@ -193,7 +193,7 @@ export function SavePresetInput({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Preset name..."
-        className="flex-1 rounded-md border border-border/50 bg-[var(--bg-base)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+        className="flex-1 rounded-md border border-border/50 bg-[var(--bg-base)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"
         autoFocus
         onKeyDown={(e) => {
           if (e.key === 'Enter' && name.trim()) onSave(name.trim());
@@ -203,7 +203,7 @@ export function SavePresetInput({
       <button
         onClick={() => name.trim() && onSave(name.trim())}
         disabled={!name.trim()}
-        className="rounded-md bg-[var(--accent)] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
+        className="rounded-md bg-[var(--accent-primary)] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-50"
       >
         Save
       </button>
