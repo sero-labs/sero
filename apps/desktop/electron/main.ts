@@ -23,7 +23,7 @@ import { workspaceManager } from './workspace';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
 import { discoverApps, registerAppPath } from './app-discovery';
 import { watchForNewApps } from './ipc/apps';
-import { ensureDefaultAgents, ensureProfileTemplates } from './profile/setup';
+import { ensureDefaultAgents, ensureDefaultThemes, ensureProfileTemplates } from './profile/setup';
 import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './ipc/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './csp';
@@ -250,6 +250,7 @@ app.whenReady().then(async () => {
   // ── Copy default templates if first launch ─────────────────
   ensureDefaultAgents().catch((err) => console.warn('[sero] Agent template copy failed:', err));
   ensureProfileTemplates().catch((err) => console.warn('[sero] Profile template copy failed:', err));
+  ensureDefaultThemes().catch((err) => console.warn('[sero] Theme template copy failed:', err));
 
   // ── Widevine CDM (castlabs ECS) ─────────────────────────────
   // The castlabs Electron fork auto-downloads the Widevine CDM via the

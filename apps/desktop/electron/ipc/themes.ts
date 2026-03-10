@@ -1,51 +1,27 @@
 /**
  * Theme IPC handlers — CRUD for theme preset JSON files.
  *
- * Built-in themes ship in the app bundle and are copied to
- * ~/.sero-ui/themes/builtin/ on first launch. Custom themes
- * live in ~/.sero-ui/themes/custom/.
+ * All themes (defaults + custom) live in a single flat directory:
+ *   ~/.sero-ui/themes/
+ *
+ * Default themes are copied from packages/templates/themes/ on first
+ * launch by ensureDefaultThemes() in electron/profile/setup.ts.
+ * Since they're user-owned copies, they can be freely edited.
  */
 
-import { ipcMain, dialog, BrowserWindow, app } from 'electron';
+import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { promises as fs } from 'fs';
-import { existsSync, mkdirSync, readdirSync, copyFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
 import { SERO_HOME } from '../env';
 import type { ThemePreset, ThemePresetMeta } from '../../src/types/theme';
 
 const THEMES_DIR = path.join(SERO_HOME, 'themes');
-const BUILTIN_DIR = path.join(THEMES_DIR, 'builtin');
-const CUSTOM_DIR = path.join(THEMES_DIR, 'custom');
 
-/** Ensure theme directories exist. */
-function ensureDirs(): void {
-  mkdirSync(BUILTIN_DIR, { recursive: true });
-  mkdirSync(CUSTOM_DIR, { recursive: true });
-}
-
-/** Copy bundled themes from resources/ to the user's builtin dir. */
-function seedBuiltinThemes(): void {
-  // In packaged app: resources/themes/; in dev: resources/themes/
-  const candidates = [
-    path.join(app.getAppPath(), 'resources', 'themes'),
-    path.join(__dirname, '..', '..', 'resources', 'themes'),
-    path.join(process.cwd(), 'resources', 'themes'),
-  ];
-  for (const src of candidates) {
-    if (!existsSync(src)) continue;
-    const files = readdirSync(src).filter((f) => f.endsWith('.json'));
-    for (const file of files) {
-      const dest = path.join(BUILTIN_DIR, file);
-      // Always overwrite built-ins to get latest on update
-      try {
-        copyFileSync(path.join(src, file), dest);
-      } catch {
-        // Ignore — non-critical
-      }
-    }
-    break; // Found a valid source
-  }
+/** Ensure theme directory exists. */
+function ensureDir(): void {
+  mkdirSync(THEMES_DIR, { recursive: true });
 }
 
 /** Read and parse a theme JSON file. Returns null on failure. */
@@ -63,41 +39,34 @@ async function readThemeFile(filePath: string): Promise<ThemePreset | null> {
 }
 
 /** Extract metadata from a theme preset. */
-function toMeta(preset: ThemePreset, builtin: boolean): ThemePresetMeta {
+function toMeta(preset: ThemePreset): ThemePresetMeta {
   return {
     id: preset.id,
     name: preset.name,
     description: preset.description,
     author: preset.author,
-    builtin,
+    builtin: preset.builtin ?? false,
   };
 }
 
-/** List all .json files in a directory. */
-function listJsonFiles(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
+/** List all .json file paths in THEMES_DIR. */
+function listThemeFiles(): string[] {
+  if (!existsSync(THEMES_DIR)) return [];
+  return readdirSync(THEMES_DIR)
     .filter((f) => f.endsWith('.json'))
-    .map((f) => path.join(dir, f));
+    .map((f) => path.join(THEMES_DIR, f));
 }
 
 export function registerThemeHandlers(): void {
-  ensureDirs();
-  seedBuiltinThemes();
+  ensureDir();
 
   // ── List all presets ────────────────────────────────────────
   ipcMain.handle(IpcChannels.themes.list, async (): Promise<ThemePresetMeta[]> => {
     const metas: ThemePresetMeta[] = [];
-
-    for (const file of listJsonFiles(BUILTIN_DIR)) {
+    for (const file of listThemeFiles()) {
       const preset = await readThemeFile(file);
-      if (preset) metas.push(toMeta(preset, true));
+      if (preset) metas.push(toMeta(preset));
     }
-    for (const file of listJsonFiles(CUSTOM_DIR)) {
-      const preset = await readThemeFile(file);
-      if (preset) metas.push(toMeta(preset, false));
-    }
-
     return metas;
   });
 
@@ -105,40 +74,27 @@ export function registerThemeHandlers(): void {
   ipcMain.handle(
     IpcChannels.themes.load,
     async (_e, id: string): Promise<ThemePreset | null> => {
-      // Direct lookup by filename (IDs match filenames)
-      for (const dir of [BUILTIN_DIR, CUSTOM_DIR]) {
-        const filePath = path.join(dir, `${id}.json`);
-        if (existsSync(filePath)) {
-          const preset = await readThemeFile(filePath);
-          if (preset) return preset;
-        }
-      }
-      return null;
+      const filePath = path.join(THEMES_DIR, `${id}.json`);
+      if (!existsSync(filePath)) return null;
+      return readThemeFile(filePath);
     },
   );
 
-  // ── Save a custom preset ───────────────────────────────────
+  // ── Save a preset (create or update) ───────────────────────
   ipcMain.handle(
     IpcChannels.themes.save,
     async (_e, preset: ThemePreset): Promise<void> => {
-      ensureDirs();
-      const fileName = `${preset.id}.json`;
-      const filePath = path.join(CUSTOM_DIR, fileName);
-      // Never allow overwriting built-in presets
-      const builtinPath = path.join(BUILTIN_DIR, fileName);
-      if (existsSync(builtinPath)) {
-        throw new Error(`Cannot overwrite built-in theme: ${preset.id}`);
-      }
-      const data = { ...preset, builtin: false };
-      await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
+      ensureDir();
+      const filePath = path.join(THEMES_DIR, `${preset.id}.json`);
+      await fs.writeFile(filePath, JSON.stringify(preset, null, 2), 'utf8');
     },
   );
 
-  // ── Delete a custom preset ─────────────────────────────────
+  // ── Delete a preset ────────────────────────────────────────
   ipcMain.handle(
     IpcChannels.themes.delete,
     async (_e, id: string): Promise<void> => {
-      const filePath = path.join(CUSTOM_DIR, `${id}.json`);
+      const filePath = path.join(THEMES_DIR, `${id}.json`);
       if (existsSync(filePath)) {
         await fs.unlink(filePath);
       }
@@ -163,13 +119,11 @@ export function registerThemeHandlers(): void {
       const preset = await readThemeFile(result.filePaths[0]);
       if (!preset) return null;
 
-      // Save to custom directory
-      ensureDirs();
-      const filePath = path.join(CUSTOM_DIR, `${preset.id}.json`);
-      const data = { ...preset, builtin: false };
-      await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
-
-      return data;
+      // Save to themes directory
+      ensureDir();
+      const filePath = path.join(THEMES_DIR, `${preset.id}.json`);
+      await fs.writeFile(filePath, JSON.stringify(preset, null, 2), 'utf8');
+      return preset;
     },
   );
 
@@ -180,15 +134,10 @@ export function registerThemeHandlers(): void {
       const win = BrowserWindow.getFocusedWindow();
       if (!win) return false;
 
-      // Find the preset by direct file lookup
-      let preset: ThemePreset | null = null;
-      for (const dir of [BUILTIN_DIR, CUSTOM_DIR]) {
-        const filePath = path.join(dir, `${id}.json`);
-        if (existsSync(filePath)) {
-          preset = await readThemeFile(filePath);
-          if (preset) break;
-        }
-      }
+      const filePath = path.join(THEMES_DIR, `${id}.json`);
+      if (!existsSync(filePath)) return false;
+
+      const preset = await readThemeFile(filePath);
       if (!preset) return false;
 
       const result = await dialog.showSaveDialog(win, {
@@ -199,10 +148,9 @@ export function registerThemeHandlers(): void {
 
       if (result.canceled || !result.filePath) return false;
 
-      const exportData = { ...preset, builtin: undefined };
       await fs.writeFile(
         result.filePath,
-        JSON.stringify(exportData, null, 2),
+        JSON.stringify(preset, null, 2),
         'utf8',
       );
       return true;

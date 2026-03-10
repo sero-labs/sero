@@ -327,11 +327,9 @@ function buildDraftFromPreset(
   editPresetId?: string | null,
 ): ThemeEditorDraft {
   const isNew = !editPresetId || editPresetId === '__new__';
-  const isBuiltin = source?.builtin === true;
-  // Builtins are read-only — pre-fill name as "X (copy)" to force save-as
   const baseName = isNew ? '' : (source?.name ?? '');
   return {
-    name: isBuiltin ? `${baseName} (copy)` : baseName,
+    name: baseName,
     description: isNew ? '' : (source?.description ?? ''),
     colors: {
       light: { ...(source?.colors.light ?? DEFAULT_LIGHT_COLORS) },
