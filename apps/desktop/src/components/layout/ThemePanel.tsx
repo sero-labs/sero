@@ -39,14 +39,16 @@ export function ThemePanel({ open, onOpenChange }: ThemePanelProps) {
   const exportPreset = useThemeStore((s) => s.exportPreset);
 
   const handleEditPreset = useCallback((id: string) => {
+    onOpenChange(false);
     setEditPresetId(id);
     setEditorOpen(true);
-  }, []);
+  }, [onOpenChange]);
 
   const handleNewTheme = useCallback(() => {
+    onOpenChange(false);
     setEditPresetId('__new__');
     setEditorOpen(true);
-  }, []);
+  }, [onOpenChange]);
 
   // Always show default even if not in presets list
   const hasDefault = presets.some((p) => p.id === DEFAULT_THEME_ID);
