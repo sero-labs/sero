@@ -146,8 +146,13 @@ async function startScheduler(): Promise<string> {
     return 'Error: no state path resolved.';
   }
   const state = await readState(statePath);
+  // Carry over the last tick minute from the previous scheduler so that
+  // a stop+start within the same minute doesn't re-fire cron jobs.
+  const prevTickMinute = scheduler?.getLastTickMinute();
   scheduler = createScheduler();
-  scheduler.start(state.jobs, workspaceCwd, state.reminders);
+  scheduler.start(state.jobs, workspaceCwd, state.reminders, {
+    lastTickMinute: prevTickMinute,
+  });
   state.schedulerActive = true;
   // Write first to ensure the directory exists before arming the watcher
   await writeState(statePath, state);

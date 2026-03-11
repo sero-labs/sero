@@ -43,11 +43,22 @@ export class CronScheduler {
 
   // ── Lifecycle ───────────────────────────────────────────
 
-  start(jobs: CronJob[], cwd?: string, reminders?: Reminder[]): void {
+  start(
+    jobs: CronJob[],
+    cwd?: string,
+    reminders?: Reminder[],
+    opts?: { lastTickMinute?: string },
+  ): void {
     if (this.timer) return;
     this.jobs = jobs;
     this.reminders = reminders ?? [];
     this.cwd = cwd;
+    // When restarting (e.g. /cron on after /cron off) within the same
+    // minute, carry over the previous tick minute to prevent re-firing
+    // cron jobs that already ran this minute.
+    if (opts?.lastTickMinute) {
+      this.lastTickMinute = opts.lastTickMinute;
+    }
     const enabled = jobs.filter((j) => !j.disabled).length;
     const activeReminders = this.reminders.filter(
       (r) => r.status === 'active' || r.status === 'snoozed',
@@ -98,6 +109,11 @@ export class CronScheduler {
   /** Get names of currently executing jobs. */
   getRunningNames(): string[] {
     return [...this.running];
+  }
+
+  /** Get the last tick minute key (for carrying over on restart). */
+  getLastTickMinute(): string {
+    return this.lastTickMinute;
   }
 
   // ── Run now ─────────────────────────────────────────────
