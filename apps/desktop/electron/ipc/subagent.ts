@@ -146,6 +146,13 @@ export function registerSubagentHandlers(): void {
     },
   );
 
+  ipcMain.handle(
+    IpcChannels.subagent.clearCompleted,
+    async (_e, workspaceId: string) => {
+      subagentManager.clearCompleted(workspaceId);
+    },
+  );
+
   // ── Agent file CRUD ────────────────────────────────────────
 
   ipcMain.handle(

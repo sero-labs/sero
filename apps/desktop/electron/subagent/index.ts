@@ -455,6 +455,10 @@ export class SubagentManager {
     return this.tracker.snapshot(workspaceId);
   }
 
+  clearCompleted(workspaceId: string): void {
+    this.tracker.clearCompleted(workspaceId);
+  }
+
   // ── Private ────────────────────────────────────────────────
 
   private async resolveAgent(agentName?: string, systemPrompt?: string): Promise<AgentConfig> {

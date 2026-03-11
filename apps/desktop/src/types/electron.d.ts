@@ -54,6 +54,7 @@ import type {
   PromptTemplateFileData,
   CollaborationResult,
   CollaborationEvent,
+  CollaborationConfig,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
@@ -382,6 +383,8 @@ interface SeroSubagentAPI {
   snapshot(workspaceId: string): Promise<SubagentEntry[]>;
   /** Abort a specific subagent run. */
   abort(subagentId: string): Promise<void>;
+  /** Remove all completed/failed/aborted entries for a workspace from the main process. */
+  clearCompleted(workspaceId: string): Promise<void>;
   /** Read full agent file data (including system prompt). */
   readAgent(name: string): Promise<SubagentAgentFile>;
   /** Create or update an agent .md file. */
@@ -413,8 +416,8 @@ interface SeroPromptsAPI {
 }
 
 interface SeroCollaborationAPI {
-  /** Send a prompt through the 4-agent collaboration framework. */
-  prompt(sessionId: string, workspaceId: string, query: string): Promise<CollaborationResult>;
+  /** Send a prompt through the collaboration framework (standard or debate). */
+  prompt(sessionId: string, workspaceId: string, query: string, config?: CollaborationConfig): Promise<CollaborationResult>;
   /** Subscribe to collaboration lifecycle events. Returns unsubscribe. */
   onEvent(callback: (event: CollaborationEvent) => void): () => void;
 }

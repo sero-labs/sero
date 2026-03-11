@@ -152,6 +152,16 @@ export class SubagentTracker {
     return entry ? { ...entry } : undefined;
   }
 
+  /** Remove all terminal entries for a workspace. */
+  clearCompleted(workspaceId: string): void {
+    const terminal: Set<SubagentStatus> = new Set(['completed', 'failed', 'aborted', 'timed_out']);
+    for (const [id, entry] of this.entries) {
+      if (entry.workspaceId === workspaceId && terminal.has(entry.status)) {
+        this.entries.delete(id);
+      }
+    }
+  }
+
   /** Remove all entries for a parent session. */
   clear(parentSessionId: string): void {
     for (const [id, entry] of this.entries) {

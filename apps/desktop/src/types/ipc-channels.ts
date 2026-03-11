@@ -329,6 +329,7 @@ export const IpcChannels = {
     listAgents: 'sero:subagent:list-agents',
     snapshot: 'sero:subagent:snapshot',
     abort: 'sero:subagent:abort',
+    clearCompleted: 'sero:subagent:clear-completed',
     readAgent: 'sero:subagent:read-agent',
     writeAgent: 'sero:subagent:write-agent',
     deleteAgent: 'sero:subagent:delete-agent',

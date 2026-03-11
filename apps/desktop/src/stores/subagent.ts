@@ -61,6 +61,9 @@ export const useSubagentStore = create<SubagentState>((set, get) => ({
   },
 
   clearCompleted(workspaceId: string) {
+    // Remove from main process so re-hydration doesn't bring them back
+    window.sero.subagent.clearCompleted(workspaceId);
+    // Remove from local state
     set((state) => {
       const next: Record<string, SubagentEntry> = {};
       for (const [id, entry] of Object.entries(state.entries)) {

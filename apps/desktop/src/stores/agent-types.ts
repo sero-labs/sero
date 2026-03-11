@@ -4,6 +4,7 @@ import type {
   SessionModelState,
   SeroSlashCommandInfo,
 } from '@/types/ipc';
+import type { CollaborationStrategy, DebateConfig } from '@/types/collaboration';
 import type { CollaborationSessionMap } from '@/stores/agent-collaboration';
 
 /** State for a single agent session in the pool. */
@@ -53,8 +54,12 @@ export interface AgentState {
   fetchModelState: (sessionId: string) => Promise<void>;
   /** Toggle visibility of thinking/reasoning blocks. */
   toggleThinkingBlocks: () => void;
-  /** Toggle 4-agent collaboration mode on/off for the focused session. */
+  /** Toggle collaboration mode on/off for the focused session. */
   toggleCollaborationMode: () => void;
+  /** Set the collaboration strategy for the focused session. */
+  setCollaborationStrategy: (strategy: CollaborationStrategy) => void;
+  /** Update debate configuration for the focused session. */
+  setDebateConfig: (config: Partial<DebateConfig>) => void;
   /** Send a prompt through the collaboration framework. */
   sendCollaborationPrompt: (sessionId: string, text: string) => Promise<void>;
   /** Subscribe to main-process events. Returns cleanup function. */
