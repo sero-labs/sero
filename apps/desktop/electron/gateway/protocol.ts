@@ -48,6 +48,49 @@ export interface GatewayListSessionsRequest {
   workspaceId: string;
 }
 
+export interface GatewayCreateSessionRequest {
+  type: 'create_session';
+  workspaceId: string;
+  name?: string;
+}
+
+export interface GatewayListFilesRequest {
+  type: 'list_files';
+  workspaceId: string;
+  path: string;
+}
+
+export interface GatewayReadFileRequest {
+  type: 'read_file';
+  workspaceId: string;
+  path: string;
+}
+
+export interface GatewayListArtifactsRequest {
+  type: 'list_artifacts';
+  sessionId: string;
+}
+
+export interface GatewayGetArtifactRequest {
+  type: 'get_artifact';
+  artifactId: string;
+}
+
+export interface GatewayCreateWebTokenRequest {
+  type: 'create_web_token';
+  label?: string;
+  expiryDays?: number;
+}
+
+export interface GatewayListWebTokensRequest {
+  type: 'list_web_tokens';
+}
+
+export interface GatewayRevokeWebTokenRequest {
+  type: 'revoke_web_token';
+  tokenId: string;
+}
+
 export type GatewayRequest =
   | GatewayConnectRequest
   | GatewayPromptRequest
@@ -55,7 +98,15 @@ export type GatewayRequest =
   | GatewayAbortRequest
   | GatewayStatusRequest
   | GatewayListWorkspacesRequest
-  | GatewayListSessionsRequest;
+  | GatewayListSessionsRequest
+  | GatewayCreateSessionRequest
+  | GatewayListFilesRequest
+  | GatewayReadFileRequest
+  | GatewayListArtifactsRequest
+  | GatewayGetArtifactRequest
+  | GatewayCreateWebTokenRequest
+  | GatewayListWebTokensRequest
+  | GatewayRevokeWebTokenRequest;
 
 // ── Gateway → Client responses ──────────────────────────────
 
@@ -102,6 +153,8 @@ export interface GatewayToolStartEvent {
   sessionId: string;
   toolName: string;
   toolCallId: string;
+  /** Tool input parameters for display (optional). */
+  input?: Record<string, unknown>;
 }
 
 export interface GatewayToolEndEvent {
@@ -141,6 +194,14 @@ const VALID_REQUEST_TYPES = new Set([
   'status',
   'list_workspaces',
   'list_sessions',
+  'create_session',
+  'list_files',
+  'read_file',
+  'list_artifacts',
+  'get_artifact',
+  'create_web_token',
+  'list_web_tokens',
+  'revoke_web_token',
 ]);
 
 export function validateRequest(data: unknown): GatewayRequest | null {

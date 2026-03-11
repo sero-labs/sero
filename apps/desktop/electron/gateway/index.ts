@@ -25,6 +25,7 @@ import { GatewayAuth } from './auth';
 import { CostTracker } from './cost-tracker';
 import { RateLimiter } from './rate-limiter';
 import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './request-handler';
+import { tryServeStaticFile } from './static-files';
 import { redactSecrets } from '../lib/secret-redact';
 import {
   validateRequest,
@@ -32,6 +33,10 @@ import {
   type GatewayResponse,
   type GatewayPushEvent,
 } from './protocol';
+import type { GatewayConfig, GatewayAgentOps } from './types';
+
+// Re-export types so existing importers don't break
+export type { GatewayConfig, GatewayAgentOps, GatewayFileEntry, GatewayFileContent } from './types';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -51,26 +56,14 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:18800',
   'http://127.0.0.1:18801',
   'http://localhost:18801',
+  // web-remote dev server port
+  'http://127.0.0.1:5174',
+  'http://localhost:5174',
 ]);
 
 // ── Types ───────────────────────────────────────────────────
 
-export interface GatewayConfig {
-  /** Port for the WebSocket server. Default: 18800. */
-  port: number;
-  /** Bind host. Default: '127.0.0.1' (localhost only). */
-  host: string;
-  /** Path to the auth token file. */
-  tokenPath: string;
-  /** Directory for gateway config files (cost limits, etc.). */
-  configDir: string;
-}
-
-/**
- * Optional callback that returns the web chat HTML.
- * When set, the gateway's HTTP server also serves the chat UI at "/",
- * so only a single port needs to be exposed via Tailscale.
- */
+/** Callback that returns the web chat HTML (legacy fallback at /basic). */
 type WebChatHtmlProvider = () => string;
 
 interface ConnectedClient {
@@ -78,36 +71,14 @@ interface ConnectedClient {
   clientType: string;
   clientId: string;
   authenticated: boolean;
+  /** Whether this client authenticated with the master token (vs a web token). */
+  isMasterAuth: boolean;
   /** Session IDs this client is subscribed to for push events. */
   subscribedSessions: Set<string>;
   /** Source IP address of the client. */
   remoteIp: string;
   /** Timestamp of last activity (for idle timeout). */
   lastActivity: number;
-}
-
-/** Operations the gateway can delegate to the agent pool. */
-export interface GatewayAgentOps {
-  /** Open or get an existing agent session. Returns session path. */
-  openSession(
-    sessionId: string,
-    workspaceId: string,
-  ): Promise<void>;
-  /** Send a prompt to an agent session. */
-  prompt(
-    sessionId: string,
-    text: string,
-  ): Promise<void>;
-  /** Steer an active agent. */
-  steer(sessionId: string, text: string): Promise<void>;
-  /** Abort an active agent. */
-  abort(sessionId: string): Promise<void>;
-  /** List workspaces. */
-  listWorkspaces(): Promise<Array<{ id: string; name: string; path: string }>>;
-  /** List sessions for a workspace. */
-  listSessions(
-    workspaceId: string,
-  ): Promise<Array<{ id: string; name: string }>>;
 }
 
 // ── Server ──────────────────────────────────────────────────
@@ -158,12 +129,21 @@ export class GatewayServer {
     if (this.wss) return;
 
     this.httpServer = http.createServer((req, res) => {
-      // Security: add Referrer-Policy to all responses
+      // Security headers on all responses
       res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
+      );
 
       const pathname = (req.url ?? '/').split('?')[0];
-      if (this.webChatHtml && (pathname === '/' || pathname === '/index.html')) {
+
+      // Try to serve from web-dist/ (built SPA)
+      if (tryServeStaticFile(pathname, res, __dirname)) return;
+
+      // Fallback: serve legacy inline HTML at /basic
+      if (pathname === '/basic' && this.webChatHtml) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(this.webChatHtml());
       } else if (pathname === '/health') {
@@ -274,6 +254,11 @@ export class GatewayServer {
     }
   }
 
+  /** Get the auth manager (for web token operations from the request handler). */
+  getAuth(): GatewayAuth {
+    return this.auth;
+  }
+
   // ── Internal ──────────────────────────────────────────────
 
   /**
@@ -355,6 +340,7 @@ export class GatewayServer {
       clientType: 'unknown',
       clientId: `client-${Date.now()}`,
       authenticated: false,
+      isMasterAuth: false,
       subscribedSessions: new Set(),
       remoteIp,
       lastActivity: Date.now(),
@@ -445,6 +431,7 @@ export class GatewayServer {
       this.authLimiter.reset(client.remoteIp);
 
       client.authenticated = true;
+      client.isMasterAuth = this.auth.isMasterToken(request.token);
       client.clientType = request.clientType;
       if (request.clientId) client.clientId = request.clientId;
       console.log(
@@ -480,6 +467,8 @@ export class GatewayServer {
       (sessionId) => client.subscribedSessions.add(sessionId),
       () => this.getStatus(),
       this.costTracker,
+      this.auth,
+      client.isMasterAuth,
     );
   }
 }

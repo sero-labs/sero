@@ -105,6 +105,7 @@ function mapAgentEvent(
         sessionId,
         toolName: (tool?.toolName as string) ?? 'unknown',
         toolCallId: (tool?.toolCallId as string) ?? '',
+        input: tool?.input as Record<string, unknown> | undefined,
       };
     }
 
@@ -116,6 +117,15 @@ function mapAgentEvent(
         output: (event.output as string) ?? null,
         isError: (event.isError as boolean) ?? false,
         images: Array.isArray(event.images) ? event.images as GatewayToolEndEvent['images'] : undefined,
+      };
+
+    case 'artifact_added':
+      return {
+        type: 'artifact_added',
+        sessionId,
+        artifactId: event.artifactId as string,
+        artifactType: event.artifactType as string,
+        title: event.title as string,
       };
 
     default:
