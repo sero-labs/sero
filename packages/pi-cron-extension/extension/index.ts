@@ -18,7 +18,7 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
-import type { CronRunResult, Reminder } from '../shared/types';
+import type { CronRunResult, CronState, Reminder } from '../shared/types';
 import { MAX_RUN_RESULTS } from '../shared/types';
 import { resolveStatePath, withStateLock, readState, writeState } from './state-io';
 import { CronScheduler } from './scheduler';
@@ -51,6 +51,22 @@ let sessionRefCount = 0;
 function getStatePath(): string { return statePath; }
 function getScheduler(): CronScheduler | null { return scheduler; }
 function getCwd(): string { return workspaceCwd; }
+
+function getSchedulerStartOpts(state: CronState): { lastTickMinute?: string } | undefined {
+  return state.lastTickMinute
+    ? { lastTickMinute: state.lastTickMinute }
+    : undefined;
+}
+
+function createAndStartScheduler(state: CronState): void {
+  scheduler = createScheduler();
+  scheduler.start(
+    state.jobs,
+    workspaceCwd,
+    state.reminders,
+    getSchedulerStartOpts(state),
+  );
+}
 
 // ── Scheduler helpers (module-level, use singleton state) ──────
 
@@ -123,8 +139,7 @@ async function ensureInitialized(cwd: string): Promise<void> {
 
   if (state.autostart && hasWork) {
     info('scheduler:autostart', { jobs: state.jobs.length, reminders: state.reminders.length });
-    scheduler = createScheduler();
-    scheduler.start(state.jobs, workspaceCwd, state.reminders);
+    createAndStartScheduler(state);
     state.schedulerActive = true;
     // Write first to ensure the directory exists before arming the watcher
     await writeState(statePath, state);
@@ -146,8 +161,7 @@ async function startScheduler(): Promise<string> {
     return 'Error: no state path resolved.';
   }
   const state = await readState(statePath);
-  scheduler = createScheduler();
-  scheduler.start(state.jobs, workspaceCwd, state.reminders);
+  createAndStartScheduler(state);
   state.schedulerActive = true;
   // Write first to ensure the directory exists before arming the watcher
   await writeState(statePath, state);
@@ -166,13 +180,12 @@ async function stopScheduler(): Promise<string> {
   }
   stateWatcher?.stop();
   stateWatcher = null;
+  const state = await readState(statePath);
+  state.lastTickMinute = scheduler.getLastTickMinute();
+  state.schedulerActive = false;
   scheduler.stop();
   scheduler = null;
-  if (statePath) {
-    const state = await readState(statePath);
-    state.schedulerActive = false;
-    await writeState(statePath, state);
-  }
+  await writeState(statePath, state);
   return '✓ Scheduler stopped';
 }
 
@@ -262,7 +275,15 @@ export default function (pi: ExtensionAPI) {
     if (sessionRefCount === 0) {
       stateWatcher?.stop();
       stateWatcher = null;
-      if (scheduler?.isRunning()) { scheduler.stop(); scheduler = null; }
+      if (scheduler?.isRunning()) {
+        if (statePath) {
+          const state = await readState(statePath);
+          state.lastTickMinute = scheduler.getLastTickMinute();
+          await writeState(statePath, state);
+        }
+        scheduler.stop();
+        scheduler = null;
+      }
       // Allow re-initialization if a new session starts later
       initialized = false;
     }
