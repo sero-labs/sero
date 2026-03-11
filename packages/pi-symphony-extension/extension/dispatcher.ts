@@ -106,7 +106,7 @@ export async function dispatchWorker(
   const prompt = buildPrompt(promptTemplate, issue, attempt, 1);
 
   // Create agent runner
-  const runner = new AgentRunner(config.codex);
+  const runner = new AgentRunner(config.session);
 
   // Notify orchestrator about new run
   callbacks.onRunStarted(entry, runner);
@@ -118,25 +118,22 @@ export async function dispatchWorker(
     },
     onTokenUpdate: (usage) => {
       callbacks.onRunUpdate(issue.id, {
-        codexInputTokens: usage.inputTokens,
-        codexOutputTokens: usage.outputTokens,
-        codexTotalTokens: usage.totalTokens,
+        agentInputTokens: usage.inputTokens,
+        agentOutputTokens: usage.outputTokens,
+        agentTotalTokens: usage.totalTokens,
       });
     },
     onMessage: (message) => {
-      callbacks.onRunUpdate(issue.id, { lastCodexMessage: message });
+      callbacks.onRunUpdate(issue.id, { lastAgentMessage: message });
     },
     onEvent: (event, timestamp) => {
       callbacks.onRunUpdate(issue.id, {
-        lastCodexEvent: event,
-        lastCodexTimestamp: timestamp,
+        lastAgentEvent: event,
+        lastAgentTimestamp: timestamp,
       });
     },
     onSessionStarted: (sessionId) => {
-      callbacks.onRunUpdate(issue.id, {
-        sessionId,
-        codexAppServerPid: runner.pid,
-      });
+      callbacks.onRunUpdate(issue.id, { sessionId });
     },
     onTurnComplete: (turnNumber, _result) => {
       callbacks.onRunUpdate(issue.id, { turnCount: turnNumber });

@@ -1,5 +1,5 @@
 /**
- * Symphony Extension — Pi extension for orchestrating Codex agent sessions.
+ * Symphony Extension — Pi extension for orchestrating agent sessions via Pi SDK.
  *
  * Global-scoped: state at ~/.sero-ui/apps/symphony/state.json (Sero)
  * or .sero/apps/symphony/state.json relative to cwd (Pi CLI fallback).
@@ -115,7 +115,7 @@ function buildState(): SymphonyState {
     running: base?.running ?? [],
     retrying: base?.retrying ?? [],
     completed: base?.completed ?? [],
-    codexTotals: base?.codexTotals ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 },
+    agentTotals: base?.agentTotals ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 },
     rateLimits: base?.rateLimits ?? null,
     lastPollAt: base?.lastPollAt ?? null,
     lastError: base?.lastError ?? null,
@@ -247,7 +247,7 @@ export default function (pi: ExtensionAPI) {
     name: 'symphony',
     label: 'Symphony',
     description:
-      'Orchestrate Codex agent sessions for issues. Actions: start (begin polling), stop, status, refresh (immediate poll), config (show config), issues (list active).',
+      'Orchestrate Pi SDK agent sessions for issues. Actions: start (begin polling), stop, status, refresh (immediate poll), config (show config), issues (list active).',
     parameters: SymphonyParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -311,7 +311,7 @@ async function handleAction(action: string): Promise<string> {
         `Running: ${state.running.length}/${state.maxConcurrentAgents}`,
         `Retrying: ${state.retrying.length}`,
         `Completed: ${state.completed.length}`,
-        `Tokens: ${state.codexTotals.totalTokens} total`,
+        `Tokens: ${state.agentTotals.totalTokens} total`,
       ];
       return lines.join('\n');
     }

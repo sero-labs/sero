@@ -1,7 +1,7 @@
 {
   "name": "@sero/symphony",
   "version": "0.1.0",
-  "description": "Symphony orchestrator for Sero — polls issue trackers and runs Codex agent sessions",
+  "description": "Symphony orchestrator for Sero — polls issue trackers and runs Pi SDK agent sessions",
   "keywords": [
     "pi-package"
   ],

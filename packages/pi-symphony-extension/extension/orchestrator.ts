@@ -9,7 +9,7 @@ import type {
   SymphonyConfig,
   SymphonyState,
   RunningEntry,
-  CodexTotals,
+  AgentTotals,
 } from '../shared/types';
 import { DEFAULT_SYMPHONY_STATE } from '../shared/types';
 import type { IssueTracker } from './tracker';
@@ -39,7 +39,7 @@ export class Orchestrator {
   private runners = new Map<string, AgentRunner>();
   private claimed = new Set<string>();
   private completed = new Set<string>();
-  private codexTotals: CodexTotals = { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 };
+  private agentTotals: AgentTotals = { inputTokens: 0, outputTokens: 0, totalTokens: 0, secondsRunning: 0 };
 
   // Poll loop
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -170,7 +170,7 @@ export class Orchestrator {
       running: Array.from(this.running.values()),
       retrying: this.retryManager.getEntries(),
       completed: Array.from(this.completed),
-      codexTotals: { ...this.codexTotals },
+      agentTotals: { ...this.agentTotals },
       rateLimits: null,
       lastPollAt: null,
       lastError: null,
@@ -226,7 +226,7 @@ export class Orchestrator {
 
     // Update timing
     if (this.startedAt) {
-      this.codexTotals.secondsRunning = Math.floor((Date.now() - this.startedAt) / 1000);
+      this.agentTotals.secondsRunning = Math.floor((Date.now() - this.startedAt) / 1000);
     }
 
     this.emitState();
@@ -247,9 +247,9 @@ export class Orchestrator {
 
     // Accumulate tokens
     if (entry) {
-      this.codexTotals.inputTokens += entry.codexInputTokens - entry.lastReportedInputTokens;
-      this.codexTotals.outputTokens += entry.codexOutputTokens - entry.lastReportedOutputTokens;
-      this.codexTotals.totalTokens += entry.codexTotalTokens - entry.lastReportedTotalTokens;
+      this.agentTotals.inputTokens += entry.agentInputTokens - entry.lastReportedInputTokens;
+      this.agentTotals.outputTokens += entry.agentOutputTokens - entry.lastReportedOutputTokens;
+      this.agentTotals.totalTokens += entry.agentTotalTokens - entry.lastReportedTotalTokens;
     }
 
     if (result.success) {

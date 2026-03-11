@@ -13,14 +13,14 @@ import type {
   WorkspaceConfig,
   HooksConfig,
   AgentConfig,
-  CodexConfig,
+  SessionConfig,
 } from '../shared/types';
 import {
   DEFAULT_POLLING,
   DEFAULT_WORKSPACE,
   DEFAULT_HOOKS,
   DEFAULT_AGENT,
-  DEFAULT_CODEX,
+  DEFAULT_SESSION,
 } from '../shared/types';
 
 // ── Environment variable resolution ────────────────────────────
@@ -125,13 +125,13 @@ function parseAgent(raw: Record<string, unknown> | undefined): AgentConfig {
   };
 }
 
-function parseCodex(raw: Record<string, unknown> | undefined): CodexConfig {
-  if (!raw) return { ...DEFAULT_CODEX };
+function parseSession(raw: Record<string, unknown> | undefined): SessionConfig {
+  if (!raw) return { ...DEFAULT_SESSION };
   return {
-    command: resolveString(raw.command ?? DEFAULT_CODEX.command),
-    read_timeout_ms: toNumber(raw.read_timeout_ms, DEFAULT_CODEX.read_timeout_ms),
-    turn_timeout_ms: toNumber(raw.turn_timeout_ms, DEFAULT_CODEX.turn_timeout_ms),
-    max_turns: toNumber(raw.max_turns, DEFAULT_CODEX.max_turns),
+    turn_timeout_ms: toNumber(raw.turn_timeout_ms, DEFAULT_SESSION.turn_timeout_ms),
+    max_turns: toNumber(raw.max_turns, DEFAULT_SESSION.max_turns),
+    model: typeof raw.model === 'string' ? raw.model : DEFAULT_SESSION.model,
+    thinking_level: typeof raw.thinking_level === 'string' ? raw.thinking_level : DEFAULT_SESSION.thinking_level,
   };
 }
 
@@ -152,9 +152,9 @@ export function parseConfig(workflowConfig: Record<string, unknown>): SymphonyCo
   const workspace = parseWorkspace(workflowConfig.workspace as Record<string, unknown> | undefined);
   const hooks = parseHooks(workflowConfig.hooks as Record<string, unknown> | undefined);
   const agent = parseAgent(workflowConfig.agent as Record<string, unknown> | undefined);
-  const codex = parseCodex(workflowConfig.codex as Record<string, unknown> | undefined);
+  const session = parseSession(workflowConfig.session as Record<string, unknown> | undefined);
 
-  return { tracker, polling, workspace, hooks, agent, codex };
+  return { tracker, polling, workspace, hooks, agent, session };
 }
 
 export function validateConfig(config: SymphonyConfig): string[] {
@@ -175,8 +175,8 @@ export function validateConfig(config: SymphonyConfig): string[] {
     errors.push('agent.max_concurrent must be >= 1');
   }
 
-  if (config.codex.max_turns < 1) {
-    errors.push('codex.max_turns must be >= 1');
+  if (config.session.max_turns < 1) {
+    errors.push('session.max_turns must be >= 1');
   }
 
   return errors;

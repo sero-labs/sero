@@ -1,6 +1,6 @@
 # Symphony User Guide
 
-Symphony is a long-running orchestrator that polls an issue tracker for work, creates isolated workspaces per issue, and runs Codex coding-agent sessions to complete each issue automatically. It lives inside Sero as a global-scoped app.
+Symphony is a long-running orchestrator that polls an issue tracker for work, creates isolated workspaces per issue, and runs Pi SDK agent sessions to complete each issue automatically. It lives inside Sero as a global-scoped app.
 
 ## Quick Start
 
@@ -21,8 +21,9 @@ tracker:
 agent:
   max_concurrent: 2
 
-codex:
-  command: codex
+session:
+  model: claude-sonnet-4-6
+  thinking_level: high
 ---
 
 You are working on issue **{{ issue.title }}** ({{ issue.identifier }}).
@@ -46,8 +47,9 @@ tracker:
 agent:
   max_concurrent: 2
 
-codex:
-  command: codex
+session:
+  model: claude-sonnet-4-6
+  thinking_level: high
 ---
 
 You are working on Linear issue **{{ issue.title }}** ({{ issue.identifier }}).
@@ -218,14 +220,14 @@ agent:
   max_retry_backoff_ms: 320000  # Max backoff between retries (default: ~5 min)
 ```
 
-#### `codex`
+#### `session`
 
-Coding agent subprocess settings.
+Pi SDK agent session settings.
 
 ```yaml
-codex:
-  command: codex               # Command to launch (default: codex)
-  read_timeout_ms: 120000      # Max time waiting for agent output (default: 2 min)
+session:
+  model: claude-sonnet-4-6     # Model to use (default: claude-sonnet-4-6)
+  thinking_level: high         # Thinking level: off, minimal, low, medium, high, xhigh (default: high)
   turn_timeout_ms: 600000      # Max time per turn (default: 10 min)
   max_turns: 10                # Max conversation turns per issue (default: 10)
 ```
@@ -365,8 +367,8 @@ For each dispatched issue, Symphony:
 1. Creates an isolated workspace directory
 2. Runs the `after_clone` hook (if configured)
 3. Renders the prompt template with issue data
-4. Launches a Codex subprocess in the workspace
-5. Streams events via JSON-RPC over stdio
+4. Creates a Pi SDK `AgentSession` with coding tools scoped to the workspace
+5. Sends the prompt via `session.prompt()` and subscribes to events
 6. Tracks token usage and turn count
 7. Handles completion, failure, or timeout
 
@@ -426,7 +428,7 @@ Set the `LINEAR_API_KEY` environment variable before starting Sero, or add it to
 
 ### Agent sessions timing out
 
-Increase `codex.turn_timeout_ms` or `codex.read_timeout_ms` in WORKFLOW.md. The default turn timeout is 10 minutes.
+Increase `session.turn_timeout_ms` in WORKFLOW.md. The default turn timeout is 10 minutes.
 
 ### Sessions stalling
 
@@ -434,4 +436,4 @@ If sessions appear stuck, the reconciler will kill them after `polling.stall_tim
 
 ### Token usage seems high
 
-Check `agent.max_concurrent` — running many parallel sessions multiplies token usage. Consider reducing concurrency or using `codex.max_turns` to limit conversation depth.
+Check `agent.max_concurrent` — running many parallel sessions multiplies token usage. Consider reducing concurrency or using `session.max_turns` to limit conversation depth.

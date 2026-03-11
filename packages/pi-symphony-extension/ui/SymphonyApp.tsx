@@ -148,7 +148,7 @@ export function SymphonyApp() {
   }, [updateState]);
 
   const hasContent = state.running.length > 0 || state.retrying.length > 0;
-  const hasTotals = state.codexTotals.totalTokens > 0 || state.completed.length > 0;
+  const hasTotals = state.agentTotals.totalTokens > 0 || state.completed.length > 0;
 
   return (
     <>
@@ -168,7 +168,7 @@ export function SymphonyApp() {
               <RetryQueue retrying={state.retrying} />
               {hasTotals && (
                 <TokenTotals
-                  totals={state.codexTotals}
+                  totals={state.agentTotals}
                   completedCount={state.completed.length}
                 />
               )}

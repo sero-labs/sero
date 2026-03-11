@@ -57,13 +57,13 @@ export interface RunningEntry {
   identifier: string;
   issue: Issue;
   sessionId: string | null;
-  codexAppServerPid: string | null;
-  lastCodexMessage: string | null;
-  lastCodexEvent: string | null;
-  lastCodexTimestamp: string | null;
-  codexInputTokens: number;
-  codexOutputTokens: number;
-  codexTotalTokens: number;
+  agentPid: string | null;
+  lastAgentMessage: string | null;
+  lastAgentEvent: string | null;
+  lastAgentTimestamp: string | null;
+  agentInputTokens: number;
+  agentOutputTokens: number;
+  agentTotalTokens: number;
   lastReportedInputTokens: number;
   lastReportedOutputTokens: number;
   lastReportedTotalTokens: number;
@@ -85,7 +85,7 @@ export interface RetryEntry {
 
 // ── Token totals ────────────────────────────────────────────────
 
-export interface CodexTotals {
+export interface AgentTotals {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
@@ -104,7 +104,7 @@ export interface SymphonyState {
   running: RunningEntry[];
   retrying: RetryEntry[];
   completed: string[];
-  codexTotals: CodexTotals;
+  agentTotals: AgentTotals;
   rateLimits: Record<string, unknown> | null;
   lastPollAt: string | null;
   lastError: string | null;
@@ -122,7 +122,7 @@ export const DEFAULT_SYMPHONY_STATE: SymphonyState = {
   running: [],
   retrying: [],
   completed: [],
-  codexTotals: {
+  agentTotals: {
     inputTokens: 0,
     outputTokens: 0,
     totalTokens: 0,
@@ -173,11 +173,11 @@ export interface AgentConfig {
   max_retry_backoff_ms: number;
 }
 
-export interface CodexConfig {
-  command: string;
-  read_timeout_ms: number;
+export interface SessionConfig {
   turn_timeout_ms: number;
   max_turns: number;
+  model: string;
+  thinking_level: string;
 }
 
 export interface SymphonyConfig {
@@ -186,7 +186,7 @@ export interface SymphonyConfig {
   workspace: WorkspaceConfig;
   hooks: HooksConfig;
   agent: AgentConfig;
-  codex: CodexConfig;
+  session: SessionConfig;
 }
 
 // ── Config defaults (Section 6.4) ──────────────────────────────
@@ -212,11 +212,11 @@ export const DEFAULT_AGENT: AgentConfig = {
   max_retry_backoff_ms: 320_000,
 };
 
-export const DEFAULT_CODEX: CodexConfig = {
-  command: 'codex',
-  read_timeout_ms: 120_000,
+export const DEFAULT_SESSION: SessionConfig = {
   turn_timeout_ms: 600_000,
   max_turns: 10,
+  model: 'claude-sonnet-4-6',
+  thinking_level: 'high',
 };
 
 // ── Helper: create a new RunningEntry ──────────────────────────
@@ -227,13 +227,13 @@ export function createRunningEntry(issue: Issue, attempt: number | null): Runnin
     identifier: issue.identifier,
     issue,
     sessionId: null,
-    codexAppServerPid: null,
-    lastCodexMessage: null,
-    lastCodexEvent: null,
-    lastCodexTimestamp: null,
-    codexInputTokens: 0,
-    codexOutputTokens: 0,
-    codexTotalTokens: 0,
+    agentPid: null,
+    lastAgentMessage: null,
+    lastAgentEvent: null,
+    lastAgentTimestamp: null,
+    agentInputTokens: 0,
+    agentOutputTokens: 0,
+    agentTotalTokens: 0,
     lastReportedInputTokens: 0,
     lastReportedOutputTokens: 0,
     lastReportedTotalTokens: 0,

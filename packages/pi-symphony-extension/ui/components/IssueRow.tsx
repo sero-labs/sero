@@ -70,16 +70,15 @@ export function IssueRow({ entry }: IssueRowProps) {
           style={{ color: 'var(--sy-muted)' }}
         >
           <DetailItem label="Session" value={entry.sessionId ?? '—'} />
-          <DetailItem label="PID" value={entry.codexAppServerPid ?? '—'} />
-          <DetailItem label="Input tokens" value={formatTokens(entry.codexInputTokens)} />
-          <DetailItem label="Output tokens" value={formatTokens(entry.codexOutputTokens)} />
-          <DetailItem label="Total tokens" value={formatTokens(entry.codexTotalTokens)} />
-          <DetailItem label="Last event" value={entry.lastCodexEvent ?? '—'} />
-          <DetailItem label="Last activity" value={formatTimestamp(entry.lastCodexTimestamp)} />
-          {entry.lastCodexMessage && (
+          <DetailItem label="Input tokens" value={formatTokens(entry.agentInputTokens)} />
+          <DetailItem label="Output tokens" value={formatTokens(entry.agentOutputTokens)} />
+          <DetailItem label="Total tokens" value={formatTokens(entry.agentTotalTokens)} />
+          <DetailItem label="Last event" value={entry.lastAgentEvent ?? '—'} />
+          <DetailItem label="Last activity" value={formatTimestamp(entry.lastAgentTimestamp)} />
+          {entry.lastAgentMessage && (
             <div className="col-span-2 mt-1">
               <span style={{ color: 'var(--sy-dim)' }}>Last message: </span>
-              <span style={{ color: 'var(--sy-text)' }}>{entry.lastCodexMessage}</span>
+              <span style={{ color: 'var(--sy-text)' }}>{entry.lastAgentMessage}</span>
             </div>
           )}
         </div>

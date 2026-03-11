@@ -2,11 +2,11 @@
  * TokenTotals — aggregate token/runtime stats card.
  */
 
-import type { CodexTotals } from '../../shared/types';
+import type { AgentTotals } from '../../shared/types';
 import { formatTokens, formatDurationFromSeconds } from '../lib/format';
 
 interface TokenTotalsProps {
-  totals: CodexTotals;
+  totals: AgentTotals;
   completedCount: number;
 }
 

@@ -50,8 +50,8 @@ export class Reconciler {
     const stallTimeoutMs = this.config.polling.stall_timeout_ms;
 
     for (const entry of running) {
-      const lastActivity = entry.lastCodexTimestamp
-        ? new Date(entry.lastCodexTimestamp).getTime()
+      const lastActivity = entry.lastAgentTimestamp
+        ? new Date(entry.lastAgentTimestamp).getTime()
         : new Date(entry.startedAt).getTime();
 
       const elapsed = now - lastActivity;
