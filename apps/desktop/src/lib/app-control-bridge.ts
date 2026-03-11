@@ -184,6 +184,8 @@ export function initAppControlBridge(): () => void {
     getAppRect() {
       const el = document.querySelector(APP_PANEL_SELECTOR);
       if (!el) return null;
+      // Returns CSS pixel coordinates. The main process converts these to DIP
+      // coordinates before passing to capturePage() (see captureRect / captureAppScreenshot).
       const r = el.getBoundingClientRect();
       return { x: r.x, y: r.y, width: r.width, height: r.height };
     },

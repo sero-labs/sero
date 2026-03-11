@@ -41,6 +41,18 @@ fs.copyFileSync(
   path.join(projectRoot, 'dist/electron/browser-helper.py'),
 );
 
+// Symlink web-remote SPA so the gateway can serve it at runtime.
+// Using a symlink instead of a copy means rebuilding web-remote
+// is immediately picked up without re-running build-electron.
+const webDistSrc = path.join(projectRoot, 'electron/gateway/web-dist');
+const webDistDest = path.join(projectRoot, 'dist/electron/web-dist');
+if (fs.existsSync(webDistSrc)) {
+  // Remove existing copy or broken symlink
+  fs.rmSync(webDistDest, { recursive: true, force: true });
+  fs.symlinkSync(webDistSrc, webDistDest, 'dir');
+  console.log('  Symlinked dist/electron/web-dist/ → electron/gateway/web-dist/');
+}
+
 // Preload — must be CJS for Electron's preload context
 await build({
   platform: 'node',

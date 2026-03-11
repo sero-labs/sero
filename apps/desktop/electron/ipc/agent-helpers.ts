@@ -15,9 +15,11 @@ import type {
   ChatToolCallMessage,
   SeroSlashCommandInfo,
   SessionModelState,
+  ToolResultImage,
 } from '../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 import { resizeImageForApi } from '../utils/image-resize';
+import { tryParseImageJson } from './agent-subscription';
 import { extractOriginalCollaborationQuery } from './collaboration-message';
 
 // ── ID generation ────────────────────────────────────────────
@@ -181,6 +183,25 @@ export function convertSessionMessages(
               .join('\n');
       // Strip collaboration injection wrapper so the UI shows the original query
       const text = extractOriginalCollaborationQuery(rawText);
+
+      // Restore image attachments so they survive session reload.
+      // The Pi SDK stores user images as { type: 'image', data, mimeType } blocks.
+      let attachments: ChatAttachment[] | undefined;
+      if (typeof msg.content !== 'string') {
+        for (const block of msg.content) {
+          if (block.type !== 'image') continue;
+          const imgBlock = block as { type: 'image'; data: string; mimeType?: string };
+          if (!attachments) attachments = [];
+          const mime = imgBlock.mimeType ?? 'image/png';
+          attachments.push({
+            id: `att-${nextId()}`,
+            filename: 'Image',
+            mediaType: mime,
+            url: `data:${mime};base64,${imgBlock.data}`,
+          });
+        }
+      }
+
       // Shifted by one: user message N shows the checkpoint from the
       // *previous* turn (N-1). "Restore on message N" means "go back to
       // the state just before I sent message N", which is the end of turn N-1.
@@ -189,6 +210,7 @@ export function convertSessionMessages(
         type: 'user',
         id: nextId(),
         text,
+        attachments,
         checkpoint,
       } as ChatMessage);
     } else if (msg.role === 'assistant') {
@@ -217,12 +239,35 @@ export function convertSessionMessages(
         );
         let output: string | null = null;
         let isError = false;
+        let images: ToolResultImage[] | undefined;
+
         if (toolResult && toolResult.role === 'toolResult') {
-          output = toolResult.content
-            .filter((c: { type: string }): c is { type: 'text'; text: string } => c.type === 'text')
-            .map((c: { type: 'text'; text: string }) => c.text)
-            .join('\n') || null;
+          const textParts = toolResult.content
+            .filter((c: { type: string }): c is { type: 'text'; text: string } => c.type === 'text');
+          output = textParts.map((c) => c.text).join('\n') || null;
           isError = toolResult.isError;
+
+          // Extract image content blocks (screenshots, browser captures).
+          // toolResult.content items are a union; only image blocks have `data`.
+          for (const block of toolResult.content) {
+            if (block.type !== 'image') continue;
+            const imgBlock = block as { type: 'image'; data: string; mimeType?: string };
+            if (!images) images = [];
+            images.push({
+              data: imgBlock.data,
+              mimeType: imgBlock.mimeType ?? 'image/png',
+              description: output || undefined,
+            });
+          }
+
+          // Also check if text output is a JSON-encoded image (sero-cli screenshot)
+          if (!images && output) {
+            const parsed = tryParseImageJson(output);
+            if (parsed) {
+              images = [parsed];
+              output = parsed.description ?? null;
+            }
+          }
         }
 
         result.push({
@@ -233,7 +278,8 @@ export function convertSessionMessages(
           input: tc.arguments,
           output,
           isError,
-          state: output !== null ? (isError ? 'error' : 'completed') : 'completed',
+          state: output !== null || images ? (isError ? 'error' : 'completed') : 'completed',
+          images,
         });
       }
     } else if (msg.role === 'custom') {
@@ -264,7 +310,10 @@ export function attachmentsToImages(attachments?: ChatAttachment[]): ImageConten
     if (!mime.startsWith('image/')) continue;
 
     const match = att.url.match(/^data:[^;]+;base64,(.+)$/);
-    if (!match) continue;
+    if (!match) {
+      console.warn(`[agent] attachment skipped: url is not a data URI (${att.filename})`);
+      continue;
+    }
 
     const resized = resizeImageForApi(match[1], mime);
     images.push({ type: 'image', data: resized.data, mimeType: resized.mimeType });
@@ -275,49 +324,8 @@ export function attachmentsToImages(attachments?: ChatAttachment[]): ImageConten
 
 // ── Provider metadata ────────────────────────────────────────
 
-const PROVIDER_NAMES: Record<string, string> = {
-  anthropic: 'Anthropic',
-  openai: 'OpenAI',
-  'openai-codex': 'OpenAI (Codex)',
-  google: 'Google',
-  'google-gemini-cli': 'Google (Gemini CLI)',
-  'google-antigravity': 'Antigravity',
-  'google-vertex': 'Google Vertex',
-  xai: 'xAI',
-  openrouter: 'OpenRouter',
-  groq: 'Groq',
-  cerebras: 'Cerebras',
-  mistral: 'Mistral',
-  'github-copilot': 'GitHub Copilot',
-  'amazon-bedrock': 'Amazon Bedrock',
-  'azure-openai-responses': 'Azure OpenAI',
-  huggingface: 'Hugging Face',
-  'vercel-ai-gateway': 'Vercel AI Gateway',
-  zai: 'ZAI',
-  opencode: 'OpenCode',
-  'kimi-coding': 'Kimi',
-};
-
-const PROVIDER_LOGO_MAP: Record<string, string> = {
-  'openai-codex': 'openai',
-  'google-gemini-cli': 'google',
-  'google-antigravity': 'google',
-  'google-vertex': 'google-vertex',
-  'azure-openai-responses': 'azure',
-  'amazon-bedrock': 'amazon-bedrock',
-  'github-copilot': 'github-copilot',
-  'vercel-ai-gateway': 'vercel',
-  'kimi-coding': 'openai',
-};
-
-export function providerLogo(provider: string): string {
-  const slug = PROVIDER_LOGO_MAP[provider] ?? provider;
-  return `https://models.dev/logos/${slug}.svg`;
-}
-
-export function providerDisplayName(provider: string): string {
-  return PROVIDER_NAMES[provider] ?? provider.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
+import { providerLogo, providerDisplayName } from './provider-metadata';
+export { providerLogo, providerDisplayName };
 
 // ── Model state builder ──────────────────────────────────────
 

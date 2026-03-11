@@ -140,13 +140,13 @@ export async function handleReminderAdd(
   state.reminders.push(reminder);
   await writeState(statePath, state);
 
-  info('reminder:add', { id, title: params.title, type, channel });
+  info('reminder:add', { id, title: params.title, type, channel: chResult.channel });
 
   const when = type === 'once'
     ? `at ${params.fire_at}`
     : `on schedule ${params.schedule} (${cronToHuman(params.schedule!)})`;
 
-  return `✓ Reminder set: "${params.title}" ${when} [${channel}] (id: ${id})`;
+  return `✓ Reminder set: "${params.title}" ${when} [${chResult.channel}] (id: ${id})`;
 }
 
 // ── Update ──────────────────────────────────────────────────────

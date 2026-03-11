@@ -29,13 +29,16 @@ vi.mock('../../shared/cron', () => ({
   matchesCron: (...args: any[]) => mockMatchesCron(...args),
 }));
 
-// Mock reminder utils
+// Mock reminder utils — controllable per test
+const mockShouldFire = vi.fn(() => false);
+const mockStatusAfterFire = vi.fn((r: any) => ({ ...r, status: 'completed', lastFiredAt: new Date().toISOString() }));
 vi.mock('../../shared/reminder-utils', () => ({
-  shouldFire: vi.fn(() => false),
-  statusAfterFire: vi.fn((r: any) => r),
+  shouldFire: (...args: any[]) => mockShouldFire(...args),
+  statusAfterFire: (...args: any[]) => mockStatusAfterFire(...args),
 }));
 
 import { CronScheduler, type SchedulerCallbacks } from '../scheduler';
+import type { Reminder } from '../../shared/types';
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -59,11 +62,25 @@ function defaultSessionResult(overrides?: Partial<any>) {
   };
 }
 
+function makeReminder(overrides?: Partial<Reminder>): Reminder {
+  return {
+    id: 'rem-1',
+    title: 'Test Reminder',
+    channel: 'notification',
+    type: 'once',
+    status: 'active',
+    createdAt: '2025-06-15T08:00:00Z',
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   mockRunTransientSession.mockReset();
   mockRunTransientSession.mockResolvedValue(defaultSessionResult());
   mockMatchesCron.mockReturnValue(false);
+  mockShouldFire.mockReturnValue(false);
+  mockStatusAfterFire.mockImplementation((r: any) => ({ ...r, status: 'completed', lastFiredAt: new Date().toISOString() }));
 });
 
 afterEach(() => {
@@ -322,5 +339,61 @@ describe('CronScheduler lifecycle', () => {
     expect(msg).toContain('not found');
 
     scheduler.stop();
+  });
+
+  it('getLastTickMinute returns the tracked minute key', async () => {
+    vi.setSystemTime(new Date('2025-06-15T09:00:00'));
+    mockMatchesCron.mockReturnValue(false);
+
+    const scheduler = new CronScheduler();
+    scheduler.start([makeJob()], '/test');
+    await vi.advanceTimersByTimeAsync(0);
+
+    const lastMinute = scheduler.getLastTickMinute();
+    expect(lastMinute).toContain('2025');
+    expect(lastMinute).toContain('9');
+    expect(lastMinute).toContain('0');
+
+    scheduler.stop();
+  });
+
+  it('updateReminders() syncs the in-memory reminder list', () => {
+    const scheduler = new CronScheduler();
+    scheduler.start([], '/test');
+
+    expect(scheduler.getReminderCount()).toBe(0);
+
+    scheduler.updateReminders([makeReminder()]);
+    expect(scheduler.getReminderCount()).toBe(1);
+
+    scheduler.stop();
+  });
+
+  it('start() is a no-op if already running', () => {
+    mockMatchesCron.mockReturnValue(true);
+    const scheduler = new CronScheduler();
+    scheduler.start([makeJob()], '/test');
+
+    // Clear mock after first tick fires
+    mockRunTransientSession.mockClear();
+
+    // Second start should be a no-op (guard: if (this.timer) return)
+    scheduler.start([makeJob(), makeJob({ name: 'extra' })], '/test');
+
+    // Should NOT have fired another tick
+    expect(mockRunTransientSession).not.toHaveBeenCalled();
+
+    scheduler.stop();
+  });
+
+  it('isRunning() reflects lifecycle state', () => {
+    const scheduler = new CronScheduler();
+    expect(scheduler.isRunning()).toBe(false);
+
+    scheduler.start([], '/test');
+    expect(scheduler.isRunning()).toBe(true);
+
+    scheduler.stop();
+    expect(scheduler.isRunning()).toBe(false);
   });
 });

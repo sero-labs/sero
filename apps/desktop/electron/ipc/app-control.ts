@@ -19,6 +19,7 @@ import type {
   AppPanelRect,
   AppRecordingStatus,
 } from '../../src/types/ipc';
+import { captureRegion } from '../utils/capture';
 
 // ── Recording State ──────────────────────────────────────────
 
@@ -50,16 +51,7 @@ async function execRenderer<T>(code: string): Promise<T> {
 async function captureRect(rect: AppPanelRect): Promise<string | null> {
   const win = getMainWindow();
   if (!win) return null;
-  if (rect.width <= 0 || rect.height <= 0) return null;
-
-  const image = await win.webContents.capturePage({
-    x: Math.round(rect.x),
-    y: Math.round(rect.y),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height),
-  });
-
-  return image.toPNG().toString('base64');
+  return captureRegion(win, rect);
 }
 
 // ── Registration ─────────────────────────────────────────────

@@ -199,7 +199,8 @@ export function handleAgentStreamEvent(
           messages: s.agents[sid].messages.map((m) =>
             m.type === 'tool' && m.toolCallId === event.toolCallId
               ? { ...m, output: event.output, isError: event.isError,
-                  state: event.isError ? 'error' : 'completed' } as ChatToolCallMessage
+                  state: event.isError ? 'error' : 'completed',
+                  images: event.images } as ChatToolCallMessage
               : m),
         } },
       }));
