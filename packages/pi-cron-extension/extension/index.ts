@@ -47,6 +47,9 @@ let scheduler: CronScheduler | null = null;
 let stateWatcher: StateWatcher | null = null;
 let initialized = false;
 let sessionRefCount = 0;
+// Persisted across stop→start so a restart within the same minute
+// doesn't re-fire cron jobs (scheduler ref is nulled on stop).
+let lastKnownTickMinute = '';
 
 function getStatePath(): string { return statePath; }
 function getScheduler(): CronScheduler | null { return scheduler; }
@@ -146,12 +149,12 @@ async function startScheduler(): Promise<string> {
     return 'Error: no state path resolved.';
   }
   const state = await readState(statePath);
-  // Carry over the last tick minute from the previous scheduler so that
-  // a stop+start within the same minute doesn't re-fire cron jobs.
-  const prevTickMinute = scheduler?.getLastTickMinute();
   scheduler = createScheduler();
+  // Carry over the last tick minute so a stop+start within the same
+  // minute doesn't re-fire cron jobs. The value is saved to a
+  // module-level variable in stopScheduler() before the ref is nulled.
   scheduler.start(state.jobs, workspaceCwd, state.reminders, {
-    lastTickMinute: prevTickMinute,
+    lastTickMinute: lastKnownTickMinute,
   });
   state.schedulerActive = true;
   // Write first to ensure the directory exists before arming the watcher
@@ -171,6 +174,7 @@ async function stopScheduler(): Promise<string> {
   }
   stateWatcher?.stop();
   stateWatcher = null;
+  lastKnownTickMinute = scheduler.getLastTickMinute();
   scheduler.stop();
   scheduler = null;
   if (statePath) {
