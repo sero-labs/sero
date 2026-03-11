@@ -9,11 +9,16 @@
 import { watch, promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { FSWatcher } from 'node:fs';
-import type { SymphonyState } from '../shared/types';
+import type { SymphonyState, PendingIssueCreate } from '../shared/types';
 import type { Orchestrator } from './orchestrator';
 import { info, warn } from './logger';
 
 const DEBOUNCE_MS = 500;
+
+export interface StateWatcherCallbacks {
+  getOrchestrator: () => Orchestrator | null;
+  onPendingCreates?: (pending: PendingIssueCreate[]) => Promise<void>;
+}
 
 export class StateWatcher {
   private watcher: FSWatcher | null = null;
@@ -21,14 +26,14 @@ export class StateWatcher {
   private filePath: string;
   private dirPath: string;
   private fileName: string;
-  private getOrchestrator: () => Orchestrator | null;
+  private callbacks: StateWatcherCallbacks;
   private ignoreUntil = 0;
 
-  constructor(filePath: string, getOrchestrator: () => Orchestrator | null) {
+  constructor(filePath: string, callbacks: StateWatcherCallbacks) {
     this.filePath = filePath;
     this.dirPath = path.dirname(filePath);
     this.fileName = path.basename(filePath);
-    this.getOrchestrator = getOrchestrator;
+    this.callbacks = callbacks;
   }
 
   /** Suppress watcher from re-reading our own write. */
@@ -79,15 +84,19 @@ export class StateWatcher {
   private async sync(): Promise<void> {
     if (Date.now() < this.ignoreUntil) return;
 
-    const orchestrator = this.getOrchestrator();
-    if (!orchestrator?.isActive()) return;
-
     try {
       const raw = await fs.readFile(this.filePath, 'utf8');
       const state: SymphonyState = JSON.parse(raw);
 
+      // Process pending issue creates (works even when orchestrator is stopped)
+      if (state.pendingIssueCreates?.length > 0 && this.callbacks.onPendingCreates) {
+        await this.callbacks.onPendingCreates(state.pendingIssueCreates);
+      }
+
+      const orchestrator = this.callbacks.getOrchestrator();
+
       // If UI toggled service off, stop the orchestrator
-      if (!state.serviceActive && orchestrator.isActive()) {
+      if (orchestrator?.isActive() && !state.serviceActive) {
         info('state-watcher:ui-stop');
         orchestrator.stop();
       }

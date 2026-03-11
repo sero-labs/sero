@@ -26,6 +26,7 @@ import { loadWorkflow } from './workflow-loader';
 import { parseConfig, validateConfig } from './config';
 import { Orchestrator } from './orchestrator';
 import { StateWatcher } from './state-watcher';
+import { processPendingCreates, resolveActiveDir } from './issue-creator';
 import { initLogger, setLogPath, info, warn, error as logError } from './logger';
 
 // ── Module-level singleton state ───────────────────────────────
@@ -105,6 +106,9 @@ function startWorkflowWatcher(wfPath: string): void {
 
 function buildState(): SymphonyState {
   const base = orchestrator?.getState();
+  const issuesDir = currentConfig ? resolveActiveDir(currentConfig) : null;
+  // Strip the trailing active folder to get the root issues_dir
+  const issuesDirRoot = issuesDir ? path.dirname(issuesDir) : null;
   return {
     serviceActive: orchestrator?.isActive() ?? false,
     workflowPath,
@@ -121,6 +125,8 @@ function buildState(): SymphonyState {
     lastError: base?.lastError ?? null,
     trackerKind: base?.trackerKind ?? currentConfig?.tracker.kind ?? null,
     trackerLabel: base?.trackerLabel ?? null,
+    issuesDir: issuesDirRoot,
+    pendingIssueCreates: [],
   };
 }
 
@@ -129,6 +135,29 @@ async function persistState(): Promise<void> {
   await withStateLock(async () => {
     stateWatcher?.markOwnWrite();
     await writeState(statePath, buildState());
+  });
+}
+
+// ── Pending issue creates ──────────────────────────────────────
+
+import type { PendingIssueCreate } from '../shared/types';
+
+async function handlePendingCreates(pending: PendingIssueCreate[]): Promise<void> {
+  if (!currentConfig) return;
+
+  const created = await processPendingCreates(pending, currentConfig);
+  if (created.length === 0) return;
+
+  info('issue-creator:processed', { count: created.length });
+
+  // Clear processed items from state
+  await withStateLock(async () => {
+    stateWatcher?.markOwnWrite();
+    const currentState = await readState(statePath);
+    const remaining = (currentState.pendingIssueCreates ?? []).filter(
+      (p: PendingIssueCreate) => !created.includes(p.id),
+    );
+    await writeState(statePath, { ...buildState(), pendingIssueCreates: remaining });
   });
 }
 
@@ -148,7 +177,10 @@ async function startOrchestrator(): Promise<string> {
 
   if (statePath) {
     stateWatcher?.stop();
-    stateWatcher = new StateWatcher(statePath, getOrchestrator);
+    stateWatcher = new StateWatcher(statePath, {
+      getOrchestrator,
+      onPendingCreates: handlePendingCreates,
+    });
     stateWatcher.start();
   }
 
@@ -159,8 +191,7 @@ async function startOrchestrator(): Promise<string> {
 async function stopOrchestrator(): Promise<string> {
   if (!orchestrator?.isActive()) return 'Symphony is not running.';
 
-  stateWatcher?.stop();
-  stateWatcher = null;
+  // Keep state watcher alive so pending creates still work
   orchestrator.stop();
   orchestrator = null;
 
@@ -185,6 +216,17 @@ async function ensureInitialized(cwd: string): Promise<void> {
   workflowPath = wfPath;
   await loadAndApplyWorkflow(wfPath);
   startWorkflowWatcher(wfPath);
+
+  // Start state watcher for pending issue creates (works without orchestrator)
+  if (!stateWatcher) {
+    stateWatcher = new StateWatcher(statePath, {
+      getOrchestrator,
+      onPendingCreates: handlePendingCreates,
+    });
+    stateWatcher.start();
+  }
+
+  await persistState();
 }
 
 // ── Tool parameter schema ──────────────────────────────────────

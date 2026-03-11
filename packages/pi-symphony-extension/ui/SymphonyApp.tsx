@@ -6,9 +6,9 @@
  * direction are reflected instantly via file watching.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useState } from 'react';
 import { useAppState } from '@sero/app-runtime';
-import type { SymphonyState } from '../shared/types';
+import type { SymphonyState, PendingIssueCreate } from '../shared/types';
 import { DEFAULT_SYMPHONY_STATE } from '../shared/types';
 import { Header } from './components/Header';
 import { RunningTable } from './components/RunningTable';
@@ -16,6 +16,9 @@ import { RetryQueue } from './components/RetryQueue';
 import { TokenTotals } from './components/TokenTotals';
 import { WorkflowStatus } from './components/WorkflowStatus';
 import { EmptyState } from './components/EmptyState';
+import { CreateIssueView } from './components/CreateIssueView';
+
+type AppView = 'dashboard' | 'create-issue';
 
 // ── Styles ───────────────────────────────────────────────────
 
@@ -127,12 +130,46 @@ const CUSTOM_STYLES = `
   .sy-animate-in {
     animation: sy-fade-in 0.3s ease-out both;
   }
+
+  .sy-input {
+    background: var(--sy-bg-elevated);
+    border: 1px solid var(--sy-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--sy-text);
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .sy-input:focus {
+    border-color: var(--sy-accent);
+  }
+  .sy-input::placeholder {
+    color: var(--sy-dim);
+  }
+
+  .sy-textarea {
+    line-height: 1.6;
+    font-family: 'DM Sans', ui-monospace, monospace;
+  }
+
+  select.sy-input {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%235c5e6a' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
 `;
 
 // ── SymphonyApp ──────────────────────────────────────────────
 
 export function SymphonyApp() {
   const [state, updateState] = useAppState<SymphonyState>(DEFAULT_SYMPHONY_STATE);
+  const [view, setView] = useState<AppView>('dashboard');
 
   const handleStart = useCallback(() => {
     updateState((prev) => ({ ...prev, serviceActive: true }));
@@ -143,9 +180,24 @@ export function SymphonyApp() {
   }, [updateState]);
 
   const handleRefresh = useCallback(() => {
-    // Trigger refresh by bumping lastPollAt — the state watcher picks this up
     updateState((prev) => ({ ...prev, lastPollAt: new Date().toISOString() }));
   }, [updateState]);
+
+  const handleCreateIssue = useCallback(() => {
+    setView('create-issue');
+  }, []);
+
+  const handleIssueSubmit = useCallback((issue: PendingIssueCreate) => {
+    updateState((prev) => ({
+      ...prev,
+      pendingIssueCreates: [...(prev.pendingIssueCreates ?? []), issue],
+    }));
+    setView('dashboard');
+  }, [updateState]);
+
+  const handleBack = useCallback(() => {
+    setView('dashboard');
+  }, []);
 
   const hasContent = state.running.length > 0 || state.retrying.length > 0;
   const hasTotals = state.agentTotals.totalTokens > 0 || state.completed.length > 0;
@@ -155,32 +207,43 @@ export function SymphonyApp() {
       <style>{CUSTOM_STYLES}</style>
       <div className="sy-root flex h-full w-full flex-col overflow-hidden p-4">
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
-          <Header
-            state={state}
-            onStart={handleStart}
-            onStop={handleStop}
-            onRefresh={handleRefresh}
-          />
-
-          {hasContent ? (
-            <div className="flex flex-col gap-3 px-1 sy-animate-in">
-              <RunningTable running={state.running} />
-              <RetryQueue retrying={state.retrying} />
-              {hasTotals && (
-                <TokenTotals
-                  totals={state.agentTotals}
-                  completedCount={state.completed.length}
-                />
-              )}
-            </div>
+          {view === 'create-issue' ? (
+            <CreateIssueView
+              state={state}
+              onSubmit={handleIssueSubmit}
+              onBack={handleBack}
+            />
           ) : (
-            <EmptyState serviceActive={state.serviceActive} />
-          )}
+            <>
+              <Header
+                state={state}
+                onStart={handleStart}
+                onStop={handleStop}
+                onRefresh={handleRefresh}
+                onCreateIssue={handleCreateIssue}
+              />
 
-          {!state.workflowValid && state.workflowError && (
-            <div className="px-1">
-              <WorkflowStatus state={state} />
-            </div>
+              {hasContent ? (
+                <div className="flex flex-col gap-3 px-1 sy-animate-in">
+                  <RunningTable running={state.running} />
+                  <RetryQueue retrying={state.retrying} />
+                  {hasTotals && (
+                    <TokenTotals
+                      totals={state.agentTotals}
+                      completedCount={state.completed.length}
+                    />
+                  )}
+                </div>
+              ) : (
+                <EmptyState serviceActive={state.serviceActive} />
+              )}
+
+              {!state.workflowValid && state.workflowError && (
+                <div className="px-1">
+                  <WorkflowStatus state={state} />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

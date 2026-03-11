@@ -92,6 +92,16 @@ export interface AgentTotals {
   secondsRunning: number;
 }
 
+// ── Pending issue create (UI → extension) ──────────────────────
+
+export interface PendingIssueCreate {
+  id: string;
+  title: string;
+  description: string;
+  priority: number | null;
+  labels: string[];
+}
+
 // ── Orchestrator runtime state (Section 4.1.8) ─────────────────
 
 export interface SymphonyState {
@@ -110,6 +120,8 @@ export interface SymphonyState {
   lastError: string | null;
   trackerKind: 'linear' | 'file' | null;
   trackerLabel: string | null;
+  issuesDir: string | null;
+  pendingIssueCreates: PendingIssueCreate[];
 }
 
 export const DEFAULT_SYMPHONY_STATE: SymphonyState = {
@@ -133,6 +145,8 @@ export const DEFAULT_SYMPHONY_STATE: SymphonyState = {
   lastError: null,
   trackerKind: null,
   trackerLabel: null,
+  issuesDir: null,
+  pendingIssueCreates: [],
 };
 
 // ── Config types (Section 5.3) ──────────────────────────────────

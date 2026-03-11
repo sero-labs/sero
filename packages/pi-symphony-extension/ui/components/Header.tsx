@@ -9,9 +9,10 @@ interface HeaderProps {
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
+  onCreateIssue?: () => void;
 }
 
-export function Header({ state, onStart, onStop, onRefresh }: HeaderProps) {
+export function Header({ state, onStart, onStop, onRefresh, onCreateIssue }: HeaderProps) {
   const statusColor = state.serviceActive
     ? 'var(--sy-success)'
     : 'var(--sy-dim)';
@@ -45,6 +46,15 @@ export function Header({ state, onStart, onStop, onRefresh }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {onCreateIssue && state.trackerKind === 'file' && (
+            <button
+              onClick={onCreateIssue}
+              className="sy-button-ghost"
+              title="Create new issue"
+            >
+              <PlusIcon />
+            </button>
+          )}
           <button
             onClick={onRefresh}
             disabled={!state.serviceActive}
@@ -85,6 +95,14 @@ export function Header({ state, onStart, onStop, onRefresh }: HeaderProps) {
         )}
       </div>
     </div>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+    </svg>
   );
 }
 
