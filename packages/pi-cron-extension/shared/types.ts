@@ -112,6 +112,8 @@ export interface CronState {
   schedulerActive: boolean;
   /** Start the scheduler automatically when Sero launches */
   autostart: boolean;
+  /** Last scheduler tick minute key, used to avoid same-minute re-fires after restart. */
+  lastTickMinute?: string;
   /** Recent execution results (capped at 50) */
   lastRunResults: CronRunResult[];
   /** Notification preferences */
@@ -123,6 +125,7 @@ export const DEFAULT_CRON_STATE: CronState = {
   reminders: [],
   schedulerActive: false,
   autostart: false,
+  lastTickMinute: '',
   lastRunResults: [],
   notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
 };
