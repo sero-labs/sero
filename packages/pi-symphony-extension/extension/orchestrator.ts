@@ -48,6 +48,7 @@ export class Orchestrator {
 
   // State snapshot callback
   private onStateChange: ((state: SymphonyState) => void) | null = null;
+  private debouncedEmitTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: SymphonyConfig, promptTemplate: string) {
     this.config = config;
@@ -102,6 +103,11 @@ export class Orchestrator {
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
+    }
+
+    if (this.debouncedEmitTimer) {
+      clearTimeout(this.debouncedEmitTimer);
+      this.debouncedEmitTimer = null;
     }
 
     // Kill all running agents
@@ -200,9 +206,10 @@ export class Orchestrator {
       return;
     }
 
-    // 3. Select and dispatch
+    // 3. Filter out completed issues and select candidates
+    const uncompleted = candidates.filter((c) => !this.completed.has(c.id));
     const selected = selectCandidates(
-      candidates,
+      uncompleted,
       this.claimed,
       this.running.size,
       this.config,
@@ -263,17 +270,41 @@ export class Orchestrator {
       } else {
         this.completed.add(issueId);
         this.claimed.delete(issueId);
+
+        // Transition issue to terminal state so the tracker stops returning it
+        const terminalState = this.config.tracker.terminal_states[0] ?? 'done';
+        this.tracker.transitionIssue?.(issueId, terminalState).catch((err) => {
+          warn('orchestrator:transition-failed', {
+            issueId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+
         info('orchestrator:completed', { issueId });
       }
     } else {
       // Schedule failure retry
       const attempt = entry?.retryAttempt ?? 0;
-      this.retryManager.scheduleRetry(
-        issueId,
-        entry?.identifier ?? issueId,
-        attempt,
-        result.error,
-      );
+
+      if (attempt >= this.config.agent.max_retries) {
+        // Max retries exhausted — transition to failed
+        this.claimed.delete(issueId);
+        const failedState = this.config.tracker.terminal_states[1] ?? 'failed';
+        this.tracker.transitionIssue?.(issueId, failedState).catch((err) => {
+          warn('orchestrator:transition-failed', {
+            issueId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+        info('orchestrator:exhausted-retries', { issueId, attempt });
+      } else {
+        this.retryManager.scheduleRetry(
+          issueId,
+          entry?.identifier ?? issueId,
+          attempt,
+          result.error,
+        );
+      }
     }
 
     this.emitState();
@@ -283,7 +314,14 @@ export class Orchestrator {
     const entry = this.running.get(issueId);
     if (!entry) return;
     Object.assign(entry, updates);
-    // Debounced state emission (don't flood on every token update)
+
+    // Debounced state emission — collapse rapid updates into one write every 2s
+    if (!this.debouncedEmitTimer) {
+      this.debouncedEmitTimer = setTimeout(() => {
+        this.debouncedEmitTimer = null;
+        this.emitState();
+      }, 2_000);
+    }
   }
 
   // ── Other handlers ───────────────────────────────────────────

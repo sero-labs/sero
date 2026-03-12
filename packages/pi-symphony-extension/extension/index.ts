@@ -22,7 +22,7 @@ import { Type } from '@sinclair/typebox';
 
 import type { SymphonyState, SymphonyConfig } from '../shared/types';
 import { resolveStatePath, withStateLock, readState, writeState } from './state-io';
-import { loadWorkflow } from './workflow-loader';
+import { loadWorkflow, WorkflowError } from './workflow-loader';
 import { parseConfig, validateConfig } from './config';
 import { Orchestrator } from './orchestrator';
 import { StateWatcher } from './state-watcher';
@@ -60,6 +60,7 @@ async function loadAndApplyWorkflow(wfPath: string): Promise<void> {
       workflowValid = false;
       workflowError = errors.join('; ');
       warn('workflow:validation-errors', { errors });
+      await persistState();
       return;
     }
 
@@ -74,10 +75,24 @@ async function loadAndApplyWorkflow(wfPath: string): Promise<void> {
     }
 
     info('workflow:loaded', { path: wfPath });
+
+    // Persist so the UI sees updated trackerKind, pollInterval, etc.
+    await persistState();
   } catch (err) {
     workflowValid = false;
-    workflowError = err instanceof Error ? err.message : String(err);
-    logError('workflow:load-failed', { error: workflowError });
+
+    // Missing file is not an error — the EmptyState UI already tells
+    // the user to place a WORKFLOW.md.  Only surface parse / validation
+    // errors so the Header and WorkflowStatus card stay clean on first launch.
+    if (err instanceof WorkflowError && err.kind === 'missing_workflow_file') {
+      workflowError = null;
+      info('workflow:not-found', { path: wfPath });
+    } else {
+      workflowError = err instanceof Error ? err.message : String(err);
+      logError('workflow:load-failed', { error: workflowError });
+    }
+
+    await persistState();
   }
 }
 
@@ -180,6 +195,7 @@ async function startOrchestrator(): Promise<string> {
     stateWatcher = new StateWatcher(statePath, {
       getOrchestrator,
       onPendingCreates: handlePendingCreates,
+      onStartRequested: () => startOrchestrator().then(() => {}),
     });
     stateWatcher.start();
   }
@@ -217,11 +233,12 @@ async function ensureInitialized(cwd: string): Promise<void> {
   await loadAndApplyWorkflow(wfPath);
   startWorkflowWatcher(wfPath);
 
-  // Start state watcher for pending issue creates (works without orchestrator)
+  // Start state watcher for pending issue creates + UI start/stop (works without orchestrator)
   if (!stateWatcher) {
     stateWatcher = new StateWatcher(statePath, {
       getOrchestrator,
       onPendingCreates: handlePendingCreates,
+      onStartRequested: () => startOrchestrator().then(() => {}),
     });
     stateWatcher.start();
   }

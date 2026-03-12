@@ -17,6 +17,7 @@ import {
   type AgentSession,
 } from '@mariozechner/pi-coding-agent';
 import { getModel } from '@mariozechner/pi-ai';
+import type { AssistantMessage } from '@mariozechner/pi-ai';
 import type { SessionConfig } from '../shared/types';
 import type { RunPhase } from '../shared/types';
 import { info, warn, error as logError } from './logger';
@@ -72,6 +73,7 @@ export class AgentRunner {
   private session: AgentSession | null = null;
   private turnCount = 0;
   private aborted = false;
+  private cumulativeUsage: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
   constructor(config: SessionConfig) {
     this.config = config;
@@ -197,18 +199,34 @@ export class AgentRunner {
             break;
           }
 
+          case 'message_end': {
+            // Extract token usage from assistant messages
+            const msg = event.message;
+            if (msg && typeof msg === 'object' && 'role' in msg && msg.role === 'assistant') {
+              const assistantMsg = msg as AssistantMessage;
+              if (assistantMsg.usage) {
+                this.cumulativeUsage.inputTokens += assistantMsg.usage.input;
+                this.cumulativeUsage.outputTokens += assistantMsg.usage.output;
+                this.cumulativeUsage.totalTokens += assistantMsg.usage.totalTokens;
+                callbacks.onTokenUpdate({ ...this.cumulativeUsage });
+              }
+            }
+            break;
+          }
+
           case 'tool_execution_start':
             callbacks.onEvent(`tool/${event.toolName}`, now);
             break;
 
           case 'agent_end': {
+            // agent_end means the agent finished naturally — no continuation needed.
+            // Continuation is only for multi-turn protocols (not currently used).
             callbacks.onPhaseChange('finishing');
-            const moreNeeded = this.turnCount < this.config.max_turns;
             finish({
               success: true,
               turnCount: this.turnCount,
               error: null,
-              needsContinuation: moreNeeded && this.turnCount > 0,
+              needsContinuation: false,
             });
             break;
           }

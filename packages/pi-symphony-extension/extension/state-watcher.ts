@@ -18,6 +18,7 @@ const DEBOUNCE_MS = 500;
 export interface StateWatcherCallbacks {
   getOrchestrator: () => Orchestrator | null;
   onPendingCreates?: (pending: PendingIssueCreate[]) => Promise<void>;
+  onStartRequested?: () => Promise<void>;
 }
 
 export class StateWatcher {
@@ -94,6 +95,12 @@ export class StateWatcher {
       }
 
       const orchestrator = this.callbacks.getOrchestrator();
+
+      // If UI toggled service on, start the orchestrator
+      if (!orchestrator?.isActive() && state.serviceActive && this.callbacks.onStartRequested) {
+        info('state-watcher:ui-start');
+        await this.callbacks.onStartRequested();
+      }
 
       // If UI toggled service off, stop the orchestrator
       if (orchestrator?.isActive() && !state.serviceActive) {
