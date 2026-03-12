@@ -12,7 +12,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@sero/ui/lib/utils';
-import type { ChatToolCallMessage } from '@/types/ipc';
+import type { ChatToolCallMessage, ToolResultImage } from '@/types/ipc';
+import { useLightbox, type LightboxImage } from './ImageLightbox';
 import {
   Tool,
   ToolHeader,
@@ -175,6 +176,57 @@ export function ToolLine({
   );
 }
 
+// ── ToolImages (thumbnail strip for tool result images) ─────────
+
+function ToolImages({ images }: { images: ToolResultImage[] }) {
+  const showLightbox = useLightbox((s) => s.show);
+
+  const lightboxImages: LightboxImage[] = useMemo(
+    () =>
+      images.map((img) => ({
+        src: img.data,
+        mimeType: img.mimeType,
+        alt: img.description,
+      })),
+    [images],
+  );
+
+  const handleClick = useCallback(
+    (index: number) => showLightbox(lightboxImages, index),
+    [showLightbox, lightboxImages],
+  );
+
+  return (
+    <div className="flex flex-wrap gap-2 py-1">
+      {images.map((img, i) => {
+        const src = img.data.startsWith('data:')
+          ? img.data
+          : `data:${img.mimeType ?? 'image/png'};base64,${img.data}`;
+        return (
+          <button
+            key={i}
+            onClick={() => handleClick(i)}
+            className={cn(
+              'group/img relative overflow-hidden rounded-md border border-[var(--border-subtle)]',
+              'transition-all hover:border-[var(--accent-primary)] hover:shadow-md',
+              'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]',
+            )}
+            title={img.description ?? 'Click to preview'}
+          >
+            <img
+              src={src}
+              alt={img.description ?? 'Tool result image'}
+              className="h-24 w-auto max-w-[200px] object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-black/0 transition-colors group-hover/img:bg-black/10" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── ToolDetail (expanded single tool — full input/output) ───────
 
 export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
@@ -189,6 +241,7 @@ export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
       />
       <ToolContent>
         <ToolInput input={tool.input} />
+        {isComplete && tool.images?.length ? <ToolImages images={tool.images} /> : null}
         {isComplete && (
           <ToolOutput
             output={tool.output}
@@ -219,6 +272,7 @@ export function SingleToolCall({
   const isRunning = status === 'running';
   const isComplete = tool.state === 'completed' || tool.state === 'error';
   const isCancelled = tool.state === 'cancelled';
+  const hasImages = !!tool.images?.length;
   const [expanded, setExpanded] = useState(false);
 
   const summary = useMemo(() => extractToolSummary(tool.input), [tool.input]);
@@ -287,6 +341,13 @@ export function SingleToolCall({
         )}
       </button>
 
+      {/* Inline image thumbnails — always visible when tool has images */}
+      {hasImages && !expanded && (
+        <div className="border-t border-[var(--border-subtle)] px-3 py-2">
+          <ToolImages images={tool.images!} />
+        </div>
+      )}
+
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -298,6 +359,7 @@ export function SingleToolCall({
           >
             <div className="border-t border-[var(--border-subtle)] space-y-4 p-3">
               <ToolInput input={tool.input} />
+              {isComplete && hasImages ? <ToolImages images={tool.images!} /> : null}
               {isComplete && (
                 <ToolOutput
                   output={tool.output}

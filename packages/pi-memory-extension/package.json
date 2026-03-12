@@ -14,7 +14,8 @@
     ]
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.48"
+    "@sinclair/typebox": "^0.34.48",
+    "@tobilu/qmd": "^2.0.0"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": ">=0.55.3",

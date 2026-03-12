@@ -16,6 +16,7 @@ import type {
   AppPanelRect,
   AppRecordingStatus,
 } from '../../../src/types/ipc';
+import { captureRegion } from '../../utils/capture';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -34,11 +35,7 @@ async function captureAppScreenshot(): Promise<string | null> {
   if (!win) return null;
   const rect = await exec<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
   if (!rect || rect.width <= 0 || rect.height <= 0) return null;
-  const image = await win.webContents.capturePage({
-    x: Math.round(rect.x), y: Math.round(rect.y),
-    width: Math.round(rect.width), height: Math.round(rect.height),
-  });
-  return image.toPNG().toString('base64');
+  return captureRegion(win, rect);
 }
 
 // ── Main Router ──────────────────────────────────────────────
@@ -115,19 +112,28 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
   const base64 = await captureAppScreenshot();
   if (!base64) return fail('Screenshot failed — app panel not found or not visible.');
 
-  // If --save specified, write to disk and return the path
+  const description = `Screenshot of ${targetApp ?? 'active'} app`;
+
+  // If --save specified, also write to disk
   if (savePath) {
     const { writeFile, mkdir } = await import('fs/promises');
     const path = await import('path');
     const absPath = path.isAbsolute(savePath) ? savePath : path.join(ctx.cwd, savePath);
     await mkdir(path.dirname(absPath), { recursive: true });
     await writeFile(absPath, Buffer.from(base64, 'base64'));
-    return ok(`Screenshot saved: ${absPath} (${Math.round(base64.length * 0.75 / 1024)}KB)`);
+    // Still return the image inline so it displays in the chat
+    return {
+      output: JSON.stringify({
+        type: 'image', format: 'png', base64,
+        description: `${description}\nSaved: ${absPath} (${Math.round(base64.length * 0.75 / 1024)}KB)`,
+      }),
+      exitCode: 0,
+    };
   }
 
   // Return inline image for the agent to see
   return {
-    output: JSON.stringify({ type: 'image', format: 'png', base64, description: `Screenshot of ${targetApp ?? 'active'} app` }),
+    output: JSON.stringify({ type: 'image', format: 'png', base64, description }),
     exitCode: 0,
   };
 }

@@ -17,11 +17,8 @@ import { Type } from '@sinclair/typebox';
 
 import {
   isQmdAvailable,
-  detectQmd,
+  initQmd,
   runSearch,
-  checkCollection,
-  setupCollection,
-  installInstructions,
 } from './qmd';
 import { getResultPath, getResultText } from '../shared/types';
 
@@ -66,25 +63,22 @@ export function registerSearchTool(pi: ExtensionAPI): void {
     parameters: SearchParams,
 
     async execute(_toolCallId, params) {
-      // Re-check on demand in case QMD was installed mid-session
+      // Re-check on demand in case QMD wasn't ready at session start
       let available = isQmdAvailable();
       if (!available) {
-        available = await detectQmd();
+        available = await initQmd();
       }
 
       if (!available) {
-        return text(installInstructions(), true);
-      }
-
-      // Ensure collection exists
-      let hasCol = await checkCollection();
-      if (!hasCol) {
-        const created = await setupCollection();
-        if (created) hasCol = true;
-      }
-      if (!hasCol) {
         return text(
-          'Could not set up QMD sero-memory collection. Check that QMD is working and the memory directory exists.',
+          [
+            'memory_search requires QMD (@tobilu/qmd) which could not be initialised.',
+            '',
+            'Ensure the package is installed:',
+            '  npm install @tobilu/qmd',
+            '',
+            'Then restart Sero — QMD will be auto-configured.',
+          ].join('\n'),
           true,
         );
       }
@@ -94,8 +88,7 @@ export function registerSearchTool(pi: ExtensionAPI): void {
       const query = params.query as string;
 
       try {
-        const { results, stderr } = await runSearch(mode, query, limit);
-        const needsEmbed = /need embeddings/i.test(stderr);
+        const { results, needsEmbed } = await runSearch(mode, query, limit);
 
         if (results.length === 0) {
           if (needsEmbed && (mode === 'semantic' || mode === 'deep')) {
