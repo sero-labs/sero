@@ -5,7 +5,7 @@
  * sero-cli bridge (AD-020) — zero additional tool schema tokens.
  */
 
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow } from 'electron';
 import type { CliRegistry } from '../registry';
 import type { CliCommandContext } from '../types';
 import { fail, ok, parseFlags, requireFlagString, stringifyJson } from './utils';
@@ -16,6 +16,7 @@ import type {
   AppPanelRect,
   AppRecordingStatus,
 } from '../../../src/types/ipc';
+import { captureRegion } from '../../utils/capture';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -34,33 +35,7 @@ async function captureAppScreenshot(): Promise<string | null> {
   if (!win) return null;
   const rect = await exec<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
   if (!rect || rect.width <= 0 || rect.height <= 0) return null;
-
-  // getBoundingClientRect() returns CSS pixels, but capturePage() expects DIP
-  // coordinates (matching the window's content bounds). When there's display
-  // scaling or a zoom factor, CSS px ≠ DIP. The conversion ratio is:
-  //   DIP = CSS × (devicePixelRatio / nativeDisplayScale)
-  const dpr = await exec<number>('window.devicePixelRatio');
-  const display = screen.getDisplayMatching(win.getBounds());
-  const cssToDisplay = dpr / display.scaleFactor;
-
-  // Compute the DIP capture rect from the CSS rect, using edge coordinates
-  // to avoid accumulating rounding errors on x+width.
-  const x = Math.floor(rect.x * cssToDisplay);
-  const y = Math.floor(rect.y * cssToDisplay);
-  const right = Math.ceil((rect.x + rect.width) * cssToDisplay);
-  const bottom = Math.ceil((rect.y + rect.height) * cssToDisplay);
-
-  // Clamp to the content area to prevent out-of-bounds capture
-  const bounds = win.getContentBounds();
-  const captureRect = {
-    x,
-    y,
-    width: Math.min(right, bounds.width) - x,
-    height: Math.min(bottom, bounds.height) - y,
-  };
-
-  const image = await win.webContents.capturePage(captureRect);
-  return image.toPNG().toString('base64');
+  return captureRegion(win, rect);
 }
 
 // ── Main Router ──────────────────────────────────────────────

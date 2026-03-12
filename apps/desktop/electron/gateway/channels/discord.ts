@@ -11,6 +11,15 @@ import type { ResponseLike } from '@discordjs/rest';
 import type { GatewayServer, GatewayAgentOps } from '../index';
 import type { GatewayPushEvent } from '../protocol';
 
+/** Minimal interface for discord.js channels that support sending messages. */
+interface SendableChannel {
+  send(options: string | { content?: string; files?: { attachment: Buffer; name: string }[] }): Promise<unknown>;
+}
+
+function isSendable(channel: unknown): channel is SendableChannel {
+  return !!channel && typeof channel === 'object' && 'send' in channel;
+}
+
 // discord.js is dynamically imported to avoid hard dependency at startup
 let Discord: typeof import('discord.js') | null = null;
 
@@ -387,8 +396,8 @@ export class DiscordAdapter {
 
     try {
       const channel = await this.client.channels.fetch(channelId);
-      if (!channel || !('send' in channel)) return;
-      await (channel as any).send({
+      if (!isSendable(channel)) return;
+      await channel.send({
         content: caption ?? undefined,
         files: [{ attachment: buffer, name: `screenshot.${ext}` }],
       });
@@ -420,12 +429,12 @@ export class DiscordAdapter {
 
     try {
       const channel = await this.client.channels.fetch(session.channelId);
-      if (!channel || !('send' in channel)) return;
+      if (!isSendable(channel)) return;
 
       // Discord has a 2000 character limit per message
       const chunks = splitMessage(text, 2000);
       for (const chunk of chunks) {
-        await (channel as any).send(chunk);
+        await channel.send(chunk);
       }
     } catch (err) {
       console.error('[discord] Failed to send message:', err);

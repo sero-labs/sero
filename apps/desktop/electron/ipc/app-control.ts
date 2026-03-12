@@ -7,7 +7,7 @@
  * `webContents.capturePage()`.
  */
 
-import { ipcMain, BrowserWindow, screen } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { tmpdir } from 'os';
@@ -19,6 +19,7 @@ import type {
   AppPanelRect,
   AppRecordingStatus,
 } from '../../src/types/ipc';
+import { captureRegion } from '../utils/capture';
 
 // ── Recording State ──────────────────────────────────────────
 
@@ -47,38 +48,10 @@ async function execRenderer<T>(code: string): Promise<T> {
   return win.webContents.executeJavaScript(code) as Promise<T>;
 }
 
-/**
- * Capture a region of the page. `rect` is in CSS pixels (from
- * getBoundingClientRect). capturePage() expects DIP coordinates, which can
- * differ when there's display scaling or a zoom factor (DPR ≠ native scale).
- */
 async function captureRect(rect: AppPanelRect): Promise<string | null> {
   const win = getMainWindow();
   if (!win) return null;
-  if (rect.width <= 0 || rect.height <= 0) return null;
-
-  // Convert CSS px → DIP: ratio = devicePixelRatio / nativeDisplayScale
-  const dpr = await execRenderer<number>('window.devicePixelRatio');
-  const display = screen.getDisplayMatching(win.getBounds());
-  const cssToDisplay = dpr / display.scaleFactor;
-
-  // Compute DIP rect from CSS edges to avoid rounding drift
-  const x = Math.floor(rect.x * cssToDisplay);
-  const y = Math.floor(rect.y * cssToDisplay);
-  const right = Math.ceil((rect.x + rect.width) * cssToDisplay);
-  const bottom = Math.ceil((rect.y + rect.height) * cssToDisplay);
-
-  // Clamp to content area
-  const bounds = win.getContentBounds();
-  const captureArea = {
-    x,
-    y,
-    width: Math.min(right, bounds.width) - x,
-    height: Math.min(bottom, bounds.height) - y,
-  };
-
-  const image = await win.webContents.capturePage(captureArea);
-  return image.toPNG().toString('base64');
+  return captureRegion(win, rect);
 }
 
 // ── Registration ─────────────────────────────────────────────

@@ -13,7 +13,7 @@
  */
 
 import type { GatewayAgentOps } from './index';
-import type { GatewayPushEvent } from './protocol';
+import type { GatewayPushEvent, GatewayToolEndEvent } from './protocol';
 import type { CostTracker } from './cost-tracker';
 
 // ── Agent operations bridge ─────────────────────────────────
@@ -115,7 +115,7 @@ function mapAgentEvent(
         toolCallId: event.toolCallId as string,
         output: (event.output as string) ?? null,
         isError: (event.isError as boolean) ?? false,
-        images: (event as any).images,
+        images: Array.isArray(event.images) ? event.images as GatewayToolEndEvent['images'] : undefined,
       };
 
     default:

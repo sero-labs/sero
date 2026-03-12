@@ -18,7 +18,7 @@
  * Called from root package.json `postinstall`.
  */
 
-import { execSync, execFileSync, spawnSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';

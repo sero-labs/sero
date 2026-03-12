@@ -125,10 +125,16 @@ export function ImageLightbox() {
 
   const src = useMemo(() => (current ? toDataUrl(current) : ''), [current]);
 
+  // Focus the overlay on mount so keyboard shortcuts work immediately
+  const focusRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) requestAnimationFrame(() => node.focus());
+  }, []);
+
   return createPortal(
     <AnimatePresence>
       {open && current && (
         <motion.div
+          ref={focusRef}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
