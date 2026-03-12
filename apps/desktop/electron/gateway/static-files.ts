@@ -25,6 +25,24 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 /**
+ * Resolve the web-dist directory. After esbuild bundling, __dirname is
+ * dist/electron/ — check there first (copied by build-electron.mjs),
+ * then fall back to the source location (electron/gateway/web-dist/).
+ */
+function resolveWebDistDir(gatewayDir: string): string | null {
+  // Primary: web-dist/ next to the bundled output (dist/electron/web-dist/)
+  const bundled = path.join(gatewayDir, 'web-dist');
+  if (fs.existsSync(bundled)) return bundled;
+
+  // Fallback: source location (electron/gateway/web-dist/ relative to project root)
+  // From dist/electron/ → ../../electron/gateway/web-dist/
+  const source = path.join(gatewayDir, '..', '..', 'electron', 'gateway', 'web-dist');
+  if (fs.existsSync(source)) return source;
+
+  return null;
+}
+
+/**
  * Attempt to serve a static file from the web-dist/ directory.
  * Returns true if the file was served, false otherwise.
  * For SPA routing, serves index.html for unknown paths.
@@ -36,10 +54,10 @@ export function tryServeStaticFile(
   res: http.ServerResponse,
   gatewayDir: string,
 ): boolean {
-  const webDistDir = path.join(gatewayDir, 'web-dist');
+  const webDistDir = resolveWebDistDir(gatewayDir);
 
   // Check if web-dist exists
-  if (!fs.existsSync(webDistDir)) return false;
+  if (!webDistDir) return false;
 
   // Map pathname to file
   let filePath = path.join(webDistDir, pathname === '/' ? 'index.html' : pathname);

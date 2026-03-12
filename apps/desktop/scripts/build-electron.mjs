@@ -41,6 +41,16 @@ fs.copyFileSync(
   path.join(projectRoot, 'dist/electron/browser-helper.py'),
 );
 
+// Copy web-remote SPA (if built) so the gateway can serve it at runtime.
+// The gateway's static file server resolves web-dist/ relative to __dirname
+// which, after esbuild bundling, is dist/electron/.
+const webDistSrc = path.join(projectRoot, 'electron/gateway/web-dist');
+const webDistDest = path.join(projectRoot, 'dist/electron/web-dist');
+if (fs.existsSync(webDistSrc)) {
+  fs.cpSync(webDistSrc, webDistDest, { recursive: true });
+  console.log('  Copied web-dist/ to dist/electron/web-dist/');
+}
+
 // Preload — must be CJS for Electron's preload context
 await build({
   platform: 'node',
