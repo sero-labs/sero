@@ -187,6 +187,16 @@ export interface ChatAttachment {
   url: string;
 }
 
+/** An image returned by a tool (e.g. screenshot, browser capture). */
+export interface ToolResultImage {
+  /** Raw base64-encoded image data (no data-URI prefix). */
+  data: string;
+  /** MIME type, e.g. "image/png" or "image/jpeg". */
+  mimeType: string;
+  /** Optional description (e.g. "Screenshot of todo app"). */
+  description?: string;
+}
+
 export interface ChatUserMessage {
   type: 'user';
   id: string;
@@ -214,6 +224,8 @@ export interface ChatToolCallMessage {
   output: string | null;
   isError: boolean;
   state: 'pending' | 'running' | 'completed' | 'error' | 'cancelled';
+  /** Images returned by this tool call (e.g. screenshots). */
+  images?: ToolResultImage[];
 }
 
 /**
@@ -232,7 +244,7 @@ export type AgentStreamEvent =
   | { type: 'message_start'; sessionId: string; message: ChatMessage }
   | { type: 'message_end'; sessionId: string; messageId: string; text: string; thinking?: string }
   | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
-  | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; isError: boolean }
+  | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; isError: boolean; images?: ToolResultImage[] }
   | { type: 'user_checkpoint'; sessionId: string; userMessageId: string; checkpoint: ChatCheckpointRef }
   | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'model_change'; sessionId: string; state: SessionModelState }

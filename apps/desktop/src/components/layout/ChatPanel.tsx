@@ -27,6 +27,7 @@ import { EmptyState } from './ChatPanelHelpers';
 import { CollaborationDetails } from './CollaborationResponse';
 import { CollaborationActivityPanel } from './CollaborationActivityPanel';
 import { ChatPromptArea } from './ChatPromptArea';
+import { ImageLightbox } from './ImageLightbox';
 
 /**
  * ChatPanel — agent chat panel wired to Pi SDK AgentSession pool.
@@ -229,6 +230,9 @@ export function ChatPanel() {
         onOpenChange={checkpoint.setDialogOpen}
         onConfirm={checkpoint.confirmRestore}
       />
+
+      {/* Global image lightbox — mounted once, controlled via useLightbox store */}
+      <ImageLightbox />
     </div>
   );
 }

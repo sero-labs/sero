@@ -110,6 +110,8 @@ export interface GatewayToolEndEvent {
   toolCallId: string;
   output: string | null;
   isError: boolean;
+  /** Images returned by this tool call (e.g. screenshots). */
+  images?: Array<{ data: string; mimeType: string; description?: string }>;
 }
 
 export interface GatewayArtifactEvent {

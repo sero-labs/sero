@@ -9,8 +9,17 @@
  * return safe defaults (false, empty string, etc.).
  */
 
-import { createStore, getDefaultDbPath } from '@tobilu/qmd';
+import { homedir } from 'os';
+import { join } from 'path';
+
+import { createStore } from '@tobilu/qmd';
 import type { QMDStore, SearchResult, HybridQueryResult } from '@tobilu/qmd';
+
+/** Compute the QMD db path the same way the CLI does, without requiring enableProductionMode(). */
+function resolveQmdDbPath(): string {
+  const cacheDir = process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache');
+  return join(cacheDir, 'qmd', 'index.sqlite');
+}
 
 import { resolveMemoryRoot } from './memory-manager';
 import { getResultPath, getResultText } from '../shared/types';
@@ -96,7 +105,7 @@ async function ensureCollection(): Promise<boolean> {
 
 export async function initQmd(): Promise<boolean> {
   try {
-    const dbPath = getDefaultDbPath();
+    const dbPath = resolveQmdDbPath();
     store = await createStore({ dbPath });
     qmdAvailable = true;
   } catch {

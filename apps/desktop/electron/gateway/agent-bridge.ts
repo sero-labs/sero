@@ -115,6 +115,7 @@ function mapAgentEvent(
         toolCallId: event.toolCallId as string,
         output: (event.output as string) ?? null,
         isError: (event.isError as boolean) ?? false,
+        images: (event as any).images,
       };
 
     default:

@@ -5,11 +5,34 @@
  * routes messages to the gateway, and streams responses back.
  */
 
+import { nativeImage, net } from 'electron';
+import type { ResponseLike } from '@discordjs/rest';
+
 import type { GatewayServer, GatewayAgentOps } from '../index';
 import type { GatewayPushEvent } from '../protocol';
 
 // discord.js is dynamically imported to avoid hard dependency at startup
 let Discord: typeof import('discord.js') | null = null;
+
+/**
+ * Use Electron/Chromium's HTTP stack for Discord REST API calls.
+ *
+ * undici (used by @discordjs/rest) has its TLS connections to Discord
+ * (Cloudflare) rejected in the Electron environment — "other side closed"
+ * with bytesWritten: 0. Chromium's networking works reliably.
+ *
+ * net.fetch returns a standard Web API Response whose types (Headers,
+ * ReadableStream) are runtime-identical to their Node.js counterparts
+ * but carry incompatible TS declarations. The cast to ResponseLike is
+ * safe — both implement the same web-standard interfaces.
+ */
+async function chromiumFetch(
+  url: string,
+  init: Record<string, unknown>,
+): Promise<ResponseLike> {
+  const response = await net.fetch(url, init as RequestInit);
+  return response as unknown as ResponseLike;
+}
 
 export interface DiscordAdapterConfig {
   /** Discord bot token. */
@@ -27,6 +50,8 @@ interface ActiveSession {
   responseBuffer: string;
   /** Timer to flush response buffer. */
   flushTimer: ReturnType<typeof setTimeout> | null;
+  /** True while the agent is actively processing (between agent_start/agent_end). */
+  isProcessing: boolean;
 }
 
 export class DiscordAdapter {
@@ -73,6 +98,10 @@ export class DiscordAdapter {
         GatewayIntentBits.MessageContent,
       ],
       partials: [Partials.Channel],
+      rest: {
+        timeout: 60_000,
+        makeRequest: chromiumFetch,
+      },
     });
 
     this.client.on('ready', () => {
@@ -164,18 +193,22 @@ export class DiscordAdapter {
       // Non-critical
     }
 
-    // Route to agent
+    // Route to agent — steer if already processing, otherwise prompt
     try {
-      session.responseBuffer = '';
-      if (session.flushTimer) clearTimeout(session.flushTimer);
+      if (session.isProcessing) {
+        await this.agentOps.steer(session.sessionId, text);
+      } else {
+        session.responseBuffer = '';
+        if (session.flushTimer) clearTimeout(session.flushTimer);
 
-      // Open a session (creates one if needed) and send the prompt.
-      // Events flow back via the gateway event bridge → handleGatewayEvent.
-      await this.agentOps.openSession(
-        session.sessionId,
-        this.config.defaultWorkspaceId,
-      );
-      await this.agentOps.prompt(session.sessionId, text);
+        // Open a session (creates one if needed) and send the prompt.
+        // Events flow back via the gateway event bridge → handleGatewayEvent.
+        await this.agentOps.openSession(
+          session.sessionId,
+          this.config.defaultWorkspaceId,
+        );
+        await this.agentOps.prompt(session.sessionId, text);
+      }
     } catch (err) {
       await msg.reply(
         `Error: ${err instanceof Error ? err.message : 'Something went wrong'}`,
@@ -225,6 +258,7 @@ export class DiscordAdapter {
         channelId,
         responseBuffer: '',
         flushTimer: null,
+        isProcessing: false,
       };
       this.sessions.set(channelId, session);
     }
@@ -264,12 +298,103 @@ export class DiscordAdapter {
     for (const [, session] of this.sessions) {
       if ('sessionId' in event && event.sessionId !== session.sessionId) continue;
 
-      if (event.type === 'text_delta') {
+      if (event.type === 'agent_start') {
+        session.isProcessing = true;
+      } else if (event.type === 'text_delta') {
         session.responseBuffer += event.delta;
         this.scheduleFlush(session);
       } else if (event.type === 'agent_end') {
+        session.isProcessing = false;
         this.flushBuffer(session);
+      } else if (event.type === 'tool_end') {
+        // Send tool result images (e.g. screenshots) as Discord attachments
+        if (event.images?.length) {
+          for (const img of event.images) {
+            const format = img.mimeType.replace('image/', '') || 'png';
+            void this.sendImage(session.channelId, img.data, format, img.description);
+          }
+        }
       }
+    }
+  }
+
+  /** Max dimension (width or height) before downscaling for Discord. */
+  private static readonly MAX_IMAGE_DIM = 1920;
+  /** JPEG quality for compressed Discord uploads (0–100). */
+  private static readonly JPEG_QUALITY = 90;
+
+  /**
+   * Downscale and compress an image buffer for Discord.
+   *
+   * - Images larger than MAX_IMAGE_DIM on either axis are downscaled
+   *   proportionally.
+   * - Output is always JPEG at JPEG_QUALITY — screenshots go from
+   *   5–10 MB PNG to ~200–500 KB, making uploads near-instant.
+   * - Falls back to the original buffer if nativeImage can't decode it.
+   */
+  private compressImage(raw: Buffer): { buffer: Buffer; ext: string } {
+    const image = nativeImage.createFromBuffer(raw);
+    if (image.isEmpty()) {
+      // Can't decode — send the original unchanged
+      return { buffer: raw, ext: 'png' };
+    }
+
+    const { width, height } = image.getSize();
+    const maxDim = Math.max(width, height);
+
+    let output = image;
+    if (maxDim > DiscordAdapter.MAX_IMAGE_DIM) {
+      const scale = DiscordAdapter.MAX_IMAGE_DIM / maxDim;
+      output = image.resize({
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+      });
+    }
+
+    return { buffer: output.toJPEG(DiscordAdapter.JPEG_QUALITY), ext: 'jpg' };
+  }
+
+  /**
+   * Send a base64-encoded image to a Discord channel as a file attachment.
+   *
+   * The image is downscaled and JPEG-compressed before upload to keep
+   * file sizes small and uploads fast. Discord free-tier limit is 25 MB.
+   */
+  private async sendImage(
+    channelId: string,
+    base64: string,
+    format: string,
+    caption?: string,
+  ): Promise<void> {
+    if (!this.client) return;
+
+    const rawBuffer = Buffer.from(base64, 'base64');
+    const rawMB = rawBuffer.byteLength / (1024 * 1024);
+
+    const { buffer, ext } = this.compressImage(rawBuffer);
+    const finalMB = buffer.byteLength / (1024 * 1024);
+
+    console.log(
+      `[discord] Image: ${rawMB.toFixed(2)} MB (${format}) → ${finalMB.toFixed(2)} MB (${ext})`,
+    );
+
+    if (buffer.byteLength > 25 * 1024 * 1024) {
+      console.warn(
+        `[discord] Image still too large after compression (${finalMB.toFixed(1)} MB > 25 MB limit), skipping`,
+      );
+      return;
+    }
+
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (!channel || !('send' in channel)) return;
+      await (channel as any).send({
+        content: caption ?? undefined,
+        files: [{ attachment: buffer, name: `screenshot.${ext}` }],
+      });
+      console.log(`[discord] Image sent successfully (${finalMB.toFixed(2)} MB)`);
+    } catch (err) {
+      console.error('[discord] Failed to send image:', err);
     }
   }
 

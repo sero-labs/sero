@@ -40,8 +40,11 @@ function buildCSP(): string {
   ];
 
   // -- connect-src --
+  // blob: is required so the prompt-input can fetch() blob URLs to convert
+  // pasted/dropped images into data URIs before sending to the agent.
   const connectSrc = [
     "'self'",
+    'blob:',
     'https://*.spotify.com',   // Spotify Web API
     'https://*.scdn.co',       // Spotify CDN
     'https://api.spotify.com',

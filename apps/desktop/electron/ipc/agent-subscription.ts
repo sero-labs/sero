@@ -10,6 +10,7 @@ import type {
   ChatAssistantMessage,
   ChatToolCallMessage,
   AgentStreamEvent,
+  ToolResultImage,
 } from '../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../src/types/checkpoints';
 
@@ -157,23 +158,73 @@ export function subscribeToSession(
       case 'tool_execution_end': {
         const result = event.result;
         let text: string | null = null;
+        let images: ToolResultImage[] | undefined;
+
         if (result?.content && Array.isArray(result.content)) {
-          text = result.content
-            .filter((c: { type: string }) => c.type === 'text')
-            .map((c: { text: string }) => c.text)
-            .join('\n') || null;
+          const textParts = result.content.filter(
+            (c: { type: string }) => c.type === 'text',
+          );
+          const imageParts = result.content.filter(
+            (c: { type: string }) => c.type === 'image',
+          ) as { type: 'image'; data: string; mimeType?: string }[];
+
+          text = textParts.map((c: { text: string }) => c.text).join('\n') || null;
+
+          if (imageParts.length > 0) {
+            const description = text || undefined;
+            images = imageParts.map((img) => ({
+              data: img.data,
+              mimeType: img.mimeType ?? 'image/png',
+              description,
+            }));
+          }
         } else if (typeof result === 'string') {
-          text = result;
+          // Check if result is a JSON-encoded image (sero-cli screenshot output)
+          const parsed = tryParseImageJson(result);
+          if (parsed) {
+            images = [parsed];
+            text = parsed.description ?? null;
+          } else {
+            text = result;
+          }
         }
+
         sendEvent({
           type: 'tool_end',
           sessionId,
           toolCallId: event.toolCallId,
           output: text,
           isError: event.isError,
+          images,
         });
         break;
       }
     }
   });
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+
+/**
+ * Try to parse a JSON string as a CLI-encoded image
+ * (e.g. `{ type: 'image', format: 'png', base64: '...' }`).
+ * Also used by agent-helpers.ts for history replay.
+ */
+export function tryParseImageJson(text: string): ToolResultImage | null {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed?.type === 'image' && typeof parsed.base64 === 'string') {
+      const mimeType = parsed.format
+        ? `image/${parsed.format}`
+        : 'image/png';
+      return {
+        data: parsed.base64,
+        mimeType,
+        description: parsed.description ?? parsed.message,
+      };
+    }
+  } catch {
+    /* not JSON — ignore */
+  }
+  return null;
 }

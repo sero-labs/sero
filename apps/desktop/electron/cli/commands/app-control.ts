@@ -5,7 +5,7 @@
  * sero-cli bridge (AD-020) — zero additional tool schema tokens.
  */
 
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, screen } from 'electron';
 import type { CliRegistry } from '../registry';
 import type { CliCommandContext } from '../types';
 import { fail, ok, parseFlags, requireFlagString, stringifyJson } from './utils';
@@ -34,10 +34,32 @@ async function captureAppScreenshot(): Promise<string | null> {
   if (!win) return null;
   const rect = await exec<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
   if (!rect || rect.width <= 0 || rect.height <= 0) return null;
-  const image = await win.webContents.capturePage({
-    x: Math.round(rect.x), y: Math.round(rect.y),
-    width: Math.round(rect.width), height: Math.round(rect.height),
-  });
+
+  // getBoundingClientRect() returns CSS pixels, but capturePage() expects DIP
+  // coordinates (matching the window's content bounds). When there's display
+  // scaling or a zoom factor, CSS px ≠ DIP. The conversion ratio is:
+  //   DIP = CSS × (devicePixelRatio / nativeDisplayScale)
+  const dpr = await exec<number>('window.devicePixelRatio');
+  const display = screen.getDisplayMatching(win.getBounds());
+  const cssToDisplay = dpr / display.scaleFactor;
+
+  // Compute the DIP capture rect from the CSS rect, using edge coordinates
+  // to avoid accumulating rounding errors on x+width.
+  const x = Math.floor(rect.x * cssToDisplay);
+  const y = Math.floor(rect.y * cssToDisplay);
+  const right = Math.ceil((rect.x + rect.width) * cssToDisplay);
+  const bottom = Math.ceil((rect.y + rect.height) * cssToDisplay);
+
+  // Clamp to the content area to prevent out-of-bounds capture
+  const bounds = win.getContentBounds();
+  const captureRect = {
+    x,
+    y,
+    width: Math.min(right, bounds.width) - x,
+    height: Math.min(bottom, bounds.height) - y,
+  };
+
+  const image = await win.webContents.capturePage(captureRect);
   return image.toPNG().toString('base64');
 }
 
@@ -115,19 +137,28 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
   const base64 = await captureAppScreenshot();
   if (!base64) return fail('Screenshot failed — app panel not found or not visible.');
 
-  // If --save specified, write to disk and return the path
+  const description = `Screenshot of ${targetApp ?? 'active'} app`;
+
+  // If --save specified, also write to disk
   if (savePath) {
     const { writeFile, mkdir } = await import('fs/promises');
     const path = await import('path');
     const absPath = path.isAbsolute(savePath) ? savePath : path.join(ctx.cwd, savePath);
     await mkdir(path.dirname(absPath), { recursive: true });
     await writeFile(absPath, Buffer.from(base64, 'base64'));
-    return ok(`Screenshot saved: ${absPath} (${Math.round(base64.length * 0.75 / 1024)}KB)`);
+    // Still return the image inline so it displays in the chat
+    return {
+      output: JSON.stringify({
+        type: 'image', format: 'png', base64,
+        description: `${description}\nSaved: ${absPath} (${Math.round(base64.length * 0.75 / 1024)}KB)`,
+      }),
+      exitCode: 0,
+    };
   }
 
   // Return inline image for the agent to see
   return {
-    output: JSON.stringify({ type: 'image', format: 'png', base64, description: `Screenshot of ${targetApp ?? 'active'} app` }),
+    output: JSON.stringify({ type: 'image', format: 'png', base64, description }),
     exitCode: 0,
   };
 }
