@@ -50,15 +50,22 @@ const MAX_CONNECTIONS_PER_IP = 10;
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 /** Auth timeout for unauthenticated connections (10 seconds). */
 const AUTH_TIMEOUT_MS = 10_000;
-/** Allowed origins for WebSocket connections (non-Tailscale). */
-const ALLOWED_ORIGINS = new Set([
+/**
+ * Allowed origins for WebSocket connections (non-Tailscale).
+ * Populated at construction time from the gateway config port.
+ */
+const STATIC_ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:18800',
   'http://localhost:18800',
   'http://127.0.0.1:18801',
   'http://localhost:18801',
-  // web-remote dev server port
+  // web-remote dev server port range (Vite auto-increments if port is taken)
   'http://127.0.0.1:5174',
   'http://localhost:5174',
+  'http://127.0.0.1:5175',
+  'http://localhost:5175',
+  'http://127.0.0.1:5176',
+  'http://localhost:5176',
 ]);
 
 // ── Types ───────────────────────────────────────────────────
@@ -285,8 +292,16 @@ export class GatewayServer {
     const origin = req.headers.origin;
     // No origin header (non-browser clients like wscat, Discord bot) — allow
     if (!origin) return true;
-    // Localhost connections are always allowed
-    if (ALLOWED_ORIGINS.has(origin)) return true;
+    // Static allow-list (known dev/prod ports)
+    if (STATIC_ALLOWED_ORIGINS.has(origin)) return true;
+    // Allow connections from the gateway's own serving origin (SPA served by this server)
+    const selfPort = this.config.port;
+    if (
+      origin === `http://127.0.0.1:${selfPort}` ||
+      origin === `http://localhost:${selfPort}`
+    ) {
+      return true;
+    }
     // Tailscale origins (*.ts.net) are allowed
     try {
       const url = new URL(origin);

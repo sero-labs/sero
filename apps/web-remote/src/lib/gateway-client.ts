@@ -67,10 +67,27 @@ export class GatewayClient {
     this.url = url ?? this.detectGatewayUrl();
   }
 
-  /** Auto-detect the gateway WS URL from the page's origin. */
+  /**
+   * Auto-detect the gateway WS URL.
+   *
+   * In production the SPA is served by the gateway itself, so
+   * window.location is the correct host:port. In Vite dev mode
+   * the dev server runs on a different port — use VITE_GATEWAY_URL
+   * env var or fall back to the default gateway port.
+   */
   private detectGatewayUrl(): string {
+    // Allow explicit override via env var (e.g. VITE_GATEWAY_URL=ws://192.168.1.5:18800)
+    const envUrl = import.meta.env.VITE_GATEWAY_URL as string | undefined;
+    if (envUrl) return envUrl;
+
     const loc = window.location;
     const wsProto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    // In dev mode (Vite), the page origin is the dev server, not the gateway
+    if (import.meta.env.DEV) {
+      return `${wsProto}//${loc.hostname}:18800`;
+    }
+
     return `${wsProto}//${loc.host}`;
   }
 
@@ -229,7 +246,9 @@ export class GatewayClient {
 
     this.ws.onclose = () => {
       this.ws = null;
-      if (this._state === 'connected') {
+      // Always reset to disconnected when the socket closes, regardless of
+      // which state we were in (connecting, authenticating, or connected).
+      if (this._state !== 'disconnected') {
         this.setState('disconnected');
       }
       this.scheduleReconnect();

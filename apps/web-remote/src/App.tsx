@@ -29,8 +29,7 @@ export function App() {
     }
   }, [connectionState, fetchWorkspaces]);
 
-  const showAuth =
-    connectionState === 'disconnected' || connectionState === 'connecting';
+  const showAuth = connectionState !== 'connected';
 
   return (
     <>
