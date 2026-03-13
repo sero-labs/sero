@@ -1,6 +1,7 @@
 /**
  * Chat message renderer — handles user, assistant, and system messages
- * with markdown rendering, code highlighting, and thinking blocks.
+ * with markdown rendering, code highlighting, thinking blocks, and
+ * image lightbox support.
  */
 
 import { useState, memo } from 'react';
@@ -8,6 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import { cn } from '@/lib/cn';
 import { ChevronDown, ChevronRight, User, Bot, Brain } from 'lucide-react';
+import { ImageLightbox } from './ImageLightbox';
 import type { ChatMessage as ChatMessageType } from '@/stores/chat';
 
 interface ChatMessageProps {
@@ -43,6 +45,8 @@ const ThinkingBlock = memo(function ThinkingBlock({ text }: { text: string }) {
 export const ChatMessageComponent = memo(function ChatMessageComponent({
   message,
 }: ChatMessageProps) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
   if (message.type === 'system') {
     return (
       <div className="text-center text-xs text-muted-foreground py-1">
@@ -101,21 +105,41 @@ export const ChatMessageComponent = memo(function ChatMessageComponent({
           </div>
         )}
 
-        {/* Inline images */}
-        {message.images?.map((img, i) => (
-          <img
-            key={i}
-            src={`data:${img.mimeType};base64,${img.base64}`}
-            alt="Attachment"
-            className="mt-2 max-w-full rounded-lg border border-border"
-          />
-        ))}
+        {/* Inline images — click to open lightbox */}
+        {message.images && message.images.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {message.images.map((img, i) => {
+              const src = `data:${img.mimeType};base64,${img.base64}`;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setLightboxSrc(src)}
+                  className="cursor-zoom-in"
+                >
+                  <img
+                    src={src}
+                    alt={`Attachment ${i + 1}`}
+                    className="max-w-full max-h-[300px] rounded-lg border border-border object-contain hover:border-primary/50 transition-colors"
+                  />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Streaming cursor */}
         {message.isStreaming && (
           <span className="inline-block w-2 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom" />
         )}
       </div>
+
+      {lightboxSrc && (
+        <ImageLightbox
+          src={lightboxSrc}
+          alt="Message image"
+          onClose={() => setLightboxSrc(null)}
+        />
+      )}
     </div>
   );
 });

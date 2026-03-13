@@ -79,6 +79,7 @@ export interface GatewayAgentOps {
       toolName: string;
       state: 'done' | 'error';
       output?: string;
+      images?: Array<{ data: string; mimeType: string; description?: string }>;
     }>;
     timestamp: number;
   }>>;

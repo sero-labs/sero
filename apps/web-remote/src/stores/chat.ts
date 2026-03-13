@@ -151,6 +151,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           toolName: string;
           state: 'done' | 'error';
           output?: string;
+          images?: Array<{ data: string; mimeType: string; description?: string }>;
         }>;
         timestamp: number;
       }> | null;

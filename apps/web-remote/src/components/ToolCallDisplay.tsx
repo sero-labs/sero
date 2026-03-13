@@ -1,10 +1,12 @@
 /**
- * Tool call display — collapsible groups showing tool execution status.
+ * Tool call display — collapsible groups showing tool execution status,
+ * with inline image rendering and lightbox support.
  */
 
 import { useState, memo } from 'react';
 import { cn } from '@/lib/cn';
 import type { ToolCall } from '@/stores/chat';
+import { ImageLightbox } from './ImageLightbox';
 import { ChevronDown, ChevronRight, Loader2, Check, X, Wrench } from 'lucide-react';
 
 interface ToolCallDisplayProps {
@@ -15,6 +17,7 @@ const MAX_OUTPUT_PREVIEW = 300;
 
 const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
   const [expanded, setExpanded] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const statusIcon = {
     running: <Loader2 className="w-3.5 h-3.5 animate-spin text-yellow-500" />,
@@ -45,17 +48,25 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
         <span className="font-mono truncate">{tc.toolName}</span>
       </button>
 
-      {/* Tool result images (e.g. screenshots) — always show when present */}
+      {/* Tool result images — always visible, click to open lightbox */}
       {hasImages && (
         <div className="mt-1 ml-6 flex flex-wrap gap-2">
-          {tc.images!.map((img, i) => (
-            <img
-              key={i}
-              src={`data:${img.mimeType};base64,${img.data}`}
-              alt={img.description ?? `Tool result image ${i + 1}`}
-              className="max-w-[300px] max-h-[200px] rounded-md border border-border object-contain"
-            />
-          ))}
+          {tc.images!.map((img, i) => {
+            const src = `data:${img.mimeType};base64,${img.data}`;
+            return (
+              <button
+                key={i}
+                onClick={() => setLightboxSrc(src)}
+                className="cursor-zoom-in"
+              >
+                <img
+                  src={src}
+                  alt={img.description ?? `Tool result ${i + 1}`}
+                  className="max-w-[300px] max-h-[200px] rounded-md border border-border object-contain hover:border-primary/50 transition-colors"
+                />
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -65,6 +76,14 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
             ? tc.output.slice(0, MAX_OUTPUT_PREVIEW) + '...'
             : tc.output}
         </pre>
+      )}
+
+      {lightboxSrc && (
+        <ImageLightbox
+          src={lightboxSrc}
+          alt={tc.toolName}
+          onClose={() => setLightboxSrc(null)}
+        />
       )}
     </div>
   );
