@@ -1,6 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import { appendFileSync } from 'fs';
-import os from 'os';
+
 import {
   createAgentSession,
   SessionManager,
@@ -53,7 +52,7 @@ import { createSeroUIContext } from '../extension-ui-context';
 import { installCliAgentBridge, noteCliTurnEnd } from '../cli/agent-bridge';
 import { createWorkspaceCliTool, bridgeExtensionTools } from '../cli';
 import { installGatewayAgentOps, forwardEventToGateway } from '../gateway/agent-bridge';
-import { buildGatewayFileOps } from './gateway-ops';
+import { buildGatewayOps } from './gateway-ops';
 
 interface PoolEntry {
   session: AgentSession;
@@ -206,54 +205,7 @@ export function registerAgentHandlers(): void {
   });
 
   // ── Gateway agent bridge ─────────────────────────────────
-  installGatewayAgentOps({
-    openSession: async (sessionId, workspaceId) => {
-      if (pool.has(sessionId)) return;
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);
-      const sessionPath = sm.getSessionFile()!;
-      appendFileSync(sessionPath, JSON.stringify(sm.getHeader()) + '\n');
-      await openSessionInternal(sessionId, sessionPath, workspaceId);
-    },
-    prompt: async (sessionId, text, images) => {
-      const entry = pool.get(sessionId);
-      if (!entry) throw new Error(`No active session: ${sessionId}`);
-      if (images && images.length > 0) {
-        const imageContents = images.map((img) => ({
-          type: 'image' as const,
-          data: img.data,
-          mimeType: img.mimeType,
-        }));
-        await entry.session.prompt(text, { images: imageContents });
-      } else {
-        await entry.session.prompt(text);
-      }
-    },
-    steer: async (sessionId, text) => {
-      const entry = pool.get(sessionId);
-      if (!entry) throw new Error(`No active session: ${sessionId}`);
-      await entry.session.steer(text);
-    },
-    abort: async (sessionId) => {
-      const entry = pool.get(sessionId);
-      if (entry) await entry.session.abort();
-    },
-    listWorkspaces: async () => {
-      const ws = await workspaceManager.list();
-      return ws.map((w) => ({ id: w.id, name: w.name, path: w.path || '' }));
-    },
-    listSessions: async (workspaceId) => {
-      const wsPath = workspaceManager.getPath(workspaceId);
-      const all = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
-      return all.filter((s) => s.cwd === wsPath).map((s) => ({
-        id: s.id,
-        name: s.name || '',
-        firstMessage: s.firstMessage || '',
-      }));
-    },
-    ...buildGatewayFileOps(pool, openSessionInternal),
-  });
+  installGatewayAgentOps(buildGatewayOps(pool, openSessionInternal));
 
   ipcMain.handle(
     IpcChannels.agent.open,
