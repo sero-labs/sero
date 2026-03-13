@@ -82,22 +82,34 @@ export const useFileStore = create<FileStore>((set, get) => ({
   },
 
   toggleDir: (dirPath: string) => {
-    set((s) => {
-      const expanded = new Set(s.expandedDirs);
-      if (expanded.has(dirPath)) {
-        expanded.delete(dirPath);
-      } else {
-        expanded.add(dirPath);
-        // Fetch if not already loaded
-        if (!s.tree[dirPath]) {
-          get().fetchDirectory(dirPath);
-        }
-      }
-      return { expandedDirs: expanded };
-    });
+    const { expandedDirs, tree } = get();
+    const expanded = new Set(expandedDirs);
+    if (expanded.has(dirPath)) {
+      expanded.delete(dirPath);
+    } else {
+      expanded.add(dirPath);
+    }
+    set({ expandedDirs: expanded });
+    // Fetch after state update to avoid nested set() calls
+    if (expanded.has(dirPath) && !tree[dirPath]) {
+      get().fetchDirectory(dirPath);
+    }
   },
 
   handleMessage: (msg: GatewayMessage) => {
+    // Handle errors — clear loading state
+    if (msg.type === 'error' && 'requestType' in msg) {
+      const errMsg = msg as { type: 'error'; requestType: string; message: string };
+      if (errMsg.requestType === 'list_files') {
+        console.warn('[files] list_files error:', errMsg.message);
+        set({ isLoading: false, _pendingListPath: null });
+      }
+      if (errMsg.requestType === 'read_file') {
+        console.warn('[files] read_file error:', errMsg.message);
+        set({ _pendingReadPath: null });
+      }
+      return;
+    }
     if (msg.type !== 'ok' || !('requestType' in msg)) return;
 
     const response = msg as { type: 'ok'; requestType: string; data?: unknown };

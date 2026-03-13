@@ -18,6 +18,7 @@ export interface GatewayHistoryMessage {
     toolName: string;
     state: 'done' | 'error';
     output?: string;
+    images?: Array<{ data: string; mimeType: string; description?: string }>;
   }>;
   timestamp: number;
 }
@@ -25,15 +26,19 @@ export interface GatewayHistoryMessage {
 /** Convert internal ChatMessage[] to the gateway history format. */
 export function convertToGatewayHistory(chatMsgs: ChatMessage[]): GatewayHistoryMessage[] {
   const result: GatewayHistoryMessage[] = [];
-  let pendingToolCalls: GatewayHistoryMessage['toolCalls'] & Array<unknown> = [];
+  let pendingToolCalls: NonNullable<GatewayHistoryMessage['toolCalls']> = [];
 
   for (const msg of chatMsgs) {
     if (msg.type === 'tool') {
+      const toolMsg = msg as any;
       pendingToolCalls.push({
-        toolCallId: (msg as any).toolCallId ?? msg.id,
-        toolName: (msg as any).toolName ?? 'unknown',
-        state: (msg as any).isError ? 'error' : 'done',
-        output: (msg as any).output ?? undefined,
+        toolCallId: toolMsg.toolCallId ?? msg.id,
+        toolName: toolMsg.toolName ?? 'unknown',
+        state: toolMsg.isError ? 'error' : 'done',
+        output: toolMsg.output ?? undefined,
+        images: toolMsg.images?.map((img: any) => ({
+          data: img.data, mimeType: img.mimeType, description: img.description,
+        })),
       });
       continue;
     }

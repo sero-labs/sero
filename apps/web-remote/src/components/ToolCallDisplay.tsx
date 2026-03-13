@@ -22,7 +22,8 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
     error: <X className="w-3.5 h-3.5 text-destructive" />,
   }[tc.state];
 
-  const hasOutput = tc.output && tc.output.length > 0;
+  const hasOutput = (tc.output && tc.output.length > 0) || (tc.images && tc.images.length > 0);
+  const hasImages = tc.images && tc.images.length > 0;
 
   return (
     <div className="border-l-2 border-muted pl-3 py-1">
@@ -44,10 +45,24 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
         <span className="font-mono truncate">{tc.toolName}</span>
       </button>
 
-      {expanded && hasOutput && (
+      {/* Tool result images (e.g. screenshots) — always show when present */}
+      {hasImages && (
+        <div className="mt-1 ml-6 flex flex-wrap gap-2">
+          {tc.images!.map((img, i) => (
+            <img
+              key={i}
+              src={`data:${img.mimeType};base64,${img.data}`}
+              alt={img.description ?? `Tool result image ${i + 1}`}
+              className="max-w-[300px] max-h-[200px] rounded-md border border-border object-contain"
+            />
+          ))}
+        </div>
+      )}
+
+      {expanded && tc.output && tc.output.length > 0 && (
         <pre className="mt-1 ml-6 text-xs text-muted-foreground bg-background rounded p-2 overflow-x-auto whitespace-pre-wrap max-h-[200px] overflow-y-auto">
-          {tc.output!.length > MAX_OUTPUT_PREVIEW
-            ? tc.output!.slice(0, MAX_OUTPUT_PREVIEW) + '...'
+          {tc.output.length > MAX_OUTPUT_PREVIEW
+            ? tc.output.slice(0, MAX_OUTPUT_PREVIEW) + '...'
             : tc.output}
         </pre>
       )}

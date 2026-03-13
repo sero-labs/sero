@@ -25,6 +25,8 @@ export interface ToolCall {
   input?: Record<string, unknown>;
   state: 'running' | 'done' | 'error';
   output?: string;
+  /** Images returned by this tool call (e.g. screenshots). */
+  images?: Array<{ data: string; mimeType: string; description?: string }>;
 }
 
 /** A reference to tool calls between messages — used for interleaved display. */
@@ -261,11 +263,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const callId = pushMsg.toolCallId as string;
         const isError = pushMsg.isError as boolean;
         const output = pushMsg.output as string | null;
+        const images = pushMsg.images as Array<{ data: string; mimeType: string; description?: string }> | undefined;
 
         set((s) => ({
           toolCalls: s.toolCalls.map((tc) =>
             tc.toolCallId === callId
-              ? { ...tc, state: isError ? 'error' : 'done', output: output ?? undefined }
+              ? { ...tc, state: isError ? 'error' : 'done', output: output ?? undefined, images }
               : tc,
           ),
         }));
