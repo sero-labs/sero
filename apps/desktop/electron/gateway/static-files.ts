@@ -82,9 +82,16 @@ export function tryServeStaticFile(
 
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
-  const content = fs.readFileSync(filePath);
 
+  // Stream the file asynchronously to avoid blocking the event loop
   res.writeHead(200, { 'Content-Type': contentType });
-  res.end(content);
+  const stream = fs.createReadStream(filePath);
+  stream.pipe(res);
+  stream.on('error', () => {
+    if (!res.headersSent) {
+      res.writeHead(500);
+    }
+    res.end();
+  });
   return true;
 }

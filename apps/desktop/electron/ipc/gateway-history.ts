@@ -5,7 +5,12 @@
  * Extracted from agent.ts to keep file sizes under 500 LOC.
  */
 
-import type { ChatMessage } from '../../src/types/ipc';
+import type {
+  ChatMessage,
+  ChatToolCallMessage,
+  ChatAssistantMessage,
+  ToolResultImage,
+} from '../../src/types/ipc';
 
 export interface GatewayHistoryMessage {
   id: string;
@@ -23,22 +28,41 @@ export interface GatewayHistoryMessage {
   timestamp: number;
 }
 
+/** Type guard: check if a ChatMessage is a tool call message. */
+function isToolCallMessage(msg: ChatMessage): msg is ChatToolCallMessage {
+  return msg.type === 'tool';
+}
+
+/** Type guard: check if a ChatMessage is an assistant message. */
+function isAssistantMessage(msg: ChatMessage): msg is ChatAssistantMessage {
+  return msg.type === 'assistant';
+}
+
+/** Convert ToolResultImage[] to the gateway image format. */
+function convertToolImages(
+  images: ToolResultImage[] | undefined,
+): Array<{ data: string; mimeType: string; description?: string }> | undefined {
+  if (!images || images.length === 0) return undefined;
+  return images.map((img) => ({
+    data: img.data,
+    mimeType: img.mimeType,
+    description: img.description,
+  }));
+}
+
 /** Convert internal ChatMessage[] to the gateway history format. */
 export function convertToGatewayHistory(chatMsgs: ChatMessage[]): GatewayHistoryMessage[] {
   const result: GatewayHistoryMessage[] = [];
   let pendingToolCalls: NonNullable<GatewayHistoryMessage['toolCalls']> = [];
 
   for (const msg of chatMsgs) {
-    if (msg.type === 'tool') {
-      const toolMsg = msg as any;
+    if (isToolCallMessage(msg)) {
       pendingToolCalls.push({
-        toolCallId: toolMsg.toolCallId ?? msg.id,
-        toolName: toolMsg.toolName ?? 'unknown',
-        state: toolMsg.isError ? 'error' : 'done',
-        output: toolMsg.output ?? undefined,
-        images: toolMsg.images?.map((img: any) => ({
-          data: img.data, mimeType: img.mimeType, description: img.description,
-        })),
+        toolCallId: msg.toolCallId,
+        toolName: msg.toolName,
+        state: msg.isError ? 'error' : 'done',
+        output: msg.output ?? undefined,
+        images: convertToolImages(msg.images),
       });
       continue;
     }
@@ -50,12 +74,12 @@ export function convertToGatewayHistory(chatMsgs: ChatMessage[]): GatewayHistory
       }
       pendingToolCalls = [];
     }
-    if (msg.type === 'user' || msg.type === 'assistant') {
+    if (msg.type === 'user' || isAssistantMessage(msg)) {
       result.push({
         id: msg.id,
         type: msg.type,
         text: msg.text,
-        thinking: msg.type === 'assistant' ? (msg as any).thinking : undefined,
+        thinking: isAssistantMessage(msg) ? msg.thinking : undefined,
         timestamp: Date.now(),
       });
     }

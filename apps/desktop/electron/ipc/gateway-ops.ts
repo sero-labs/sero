@@ -27,6 +27,19 @@ import { convertSessionMessages } from './agent-helpers';
 import { convertToGatewayHistory } from './gateway-history';
 import type { GatewayAgentOps } from '../gateway/types';
 
+/**
+ * Validate that a resolved path stays within the workspace root.
+ * Prevents path traversal attacks (e.g. "../../etc/passwd").
+ */
+function assertPathWithinWorkspace(wsPath: string, requestedPath: string): string {
+  const resolved = path.resolve(wsPath, requestedPath.replace(/^\/+/, ''));
+  const normalizedWs = path.resolve(wsPath);
+  if (!resolved.startsWith(normalizedWs + path.sep) && resolved !== normalizedWs) {
+    throw new Error(`Path traversal denied: ${requestedPath}`);
+  }
+  return resolved;
+}
+
 /** MIME type map for common source file extensions. */
 const MIME_MAP: Record<string, string> = {
   '.ts': 'text/typescript', '.tsx': 'text/typescript',
@@ -118,7 +131,7 @@ export function buildGatewayOps(
         return entries.map((e) => ({ ...e, path: `${dirPath}/${e.name}` }));
       }
       // Host-only: read from workspace filesystem directly
-      const fullPath = path.join(wsPath, dirPath);
+      const fullPath = assertPathWithinWorkspace(wsPath, dirPath);
       const entries = await fs.readdir(fullPath, { withFileTypes: true });
       return entries
         .filter((e) => !e.name.startsWith('.'))
@@ -140,7 +153,7 @@ export function buildGatewayOps(
           (wId, cmd) => containerManager.exec(wId, cmd),
         );
       } else {
-        const fullPath = path.join(wsPath, filePath);
+        const fullPath = assertPathWithinWorkspace(wsPath, filePath);
         content = await fs.readFile(fullPath, 'utf8');
       }
       const ext = path.extname(filePath).toLowerCase();

@@ -10,6 +10,18 @@ import type { GatewayAuth } from './auth';
 import { sendResponse } from './request-handler';
 
 /**
+ * Validate a file path from a client request.
+ * Rejects null bytes and path traversal attempts (.. segments).
+ */
+function validateFilePath(filePath: string): string | null {
+  if (filePath.includes('\0')) return 'Path contains null bytes';
+  // Normalize and check for .. traversal (handles /foo/../../../etc)
+  const segments = filePath.split('/');
+  if (segments.some((s) => s === '..')) return 'Path traversal not allowed';
+  return null;
+}
+
+/**
  * Handle extended request types that were added for the web-remote SPA.
  * Returns true if the request was handled, false if it should fall through.
  */
@@ -43,6 +55,11 @@ export async function routeExtendedRequest(
     }
 
     case 'list_files': {
+      const listPathErr = validateFilePath(request.path);
+      if (listPathErr) {
+        sendResponse(ws, { type: 'error', requestType: 'list_files', message: listPathErr });
+        return true;
+      }
       try {
         const files = await agentOps.listFiles(request.workspaceId, request.path);
         sendResponse(ws, {
@@ -61,6 +78,11 @@ export async function routeExtendedRequest(
     }
 
     case 'read_file': {
+      const readPathErr = validateFilePath(request.path);
+      if (readPathErr) {
+        sendResponse(ws, { type: 'error', requestType: 'read_file', message: readPathErr });
+        return true;
+      }
       try {
         const content = await agentOps.readFile(request.workspaceId, request.path);
         sendResponse(ws, {

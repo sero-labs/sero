@@ -1,5 +1,8 @@
 /**
  * File browser store — file tree, open files, and preview state.
+ *
+ * Uses queues for pending requests to safely handle multiple concurrent
+ * list_files / read_file requests (previous single-slot tracking was fragile).
  */
 
 import { create } from 'zustand';
@@ -29,9 +32,9 @@ interface FileStore {
   toggleDir: (dirPath: string) => void;
   handleMessage: (msg: GatewayMessage) => void;
 
-  /** Track pending requests to know which path a response maps to. */
-  _pendingListPath: string | null;
-  _pendingReadPath: string | null;
+  /** Queues for pending requests — supports concurrent in-flight requests. */
+  _pendingListQueue: string[];
+  _pendingReadQueue: string[];
 }
 
 export const useFileStore = create<FileStore>((set, get) => ({
@@ -40,14 +43,17 @@ export const useFileStore = create<FileStore>((set, get) => ({
   activeFilePath: null,
   expandedDirs: new Set(),
   isLoading: false,
-  _pendingListPath: null,
-  _pendingReadPath: null,
+  _pendingListQueue: [],
+  _pendingReadQueue: [],
 
   fetchDirectory: (dirPath: string) => {
     const { activeWorkspaceId } = useWorkspaceStore.getState();
     if (!activeWorkspaceId) return;
 
-    set({ isLoading: true, _pendingListPath: dirPath });
+    set((s) => ({
+      isLoading: true,
+      _pendingListQueue: [...s._pendingListQueue, dirPath],
+    }));
     useConnectionStore.getState().client.listFiles(activeWorkspaceId, dirPath);
   },
 
@@ -62,7 +68,9 @@ export const useFileStore = create<FileStore>((set, get) => ({
       return;
     }
 
-    set({ _pendingReadPath: filePath });
+    set((s) => ({
+      _pendingReadQueue: [...s._pendingReadQueue, filePath],
+    }));
     useConnectionStore.getState().client.readFile(activeWorkspaceId, filePath);
   },
 
@@ -97,16 +105,21 @@ export const useFileStore = create<FileStore>((set, get) => ({
   },
 
   handleMessage: (msg: GatewayMessage) => {
-    // Handle errors — clear loading state
+    // Handle errors — clear loading state and dequeue
     if (msg.type === 'error' && 'requestType' in msg) {
       const errMsg = msg as { type: 'error'; requestType: string; message: string };
       if (errMsg.requestType === 'list_files') {
         console.warn('[files] list_files error:', errMsg.message);
-        set({ isLoading: false, _pendingListPath: null });
+        set((s) => ({
+          isLoading: s._pendingListQueue.length > 1,
+          _pendingListQueue: s._pendingListQueue.slice(1),
+        }));
       }
       if (errMsg.requestType === 'read_file') {
         console.warn('[files] read_file error:', errMsg.message);
-        set({ _pendingReadPath: null });
+        set((s) => ({
+          _pendingReadQueue: s._pendingReadQueue.slice(1),
+        }));
       }
       return;
     }
@@ -123,19 +136,20 @@ export const useFileStore = create<FileStore>((set, get) => ({
         dirPath = data.path;
         entries = data.entries;
       } else {
-        dirPath = get()._pendingListPath ?? '/';
+        // Fallback: dequeue the oldest pending path
+        dirPath = get()._pendingListQueue[0] ?? '/';
         entries = (data as FileEntry[]) ?? [];
       }
       set((s) => ({
         tree: { ...s.tree, [dirPath]: entries },
-        isLoading: false,
-        _pendingListPath: null,
+        _pendingListQueue: s._pendingListQueue.filter((p) => p !== dirPath),
+        isLoading: s._pendingListQueue.filter((p) => p !== dirPath).length > 0,
       }));
     }
 
     if (response.requestType === 'read_file') {
       const fileContent = response.data as FileContent;
-      const filePath = get()._pendingReadPath;
+      const filePath = get()._pendingReadQueue[0];
       if (!filePath || !fileContent) return;
 
       const openFile: OpenFile = {
@@ -148,7 +162,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       set((s) => ({
         openFiles: [...s.openFiles, openFile],
         activeFilePath: filePath,
-        _pendingReadPath: null,
+        _pendingReadQueue: s._pendingReadQueue.slice(1),
       }));
     }
   },
