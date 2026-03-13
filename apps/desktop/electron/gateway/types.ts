@@ -42,6 +42,7 @@ export interface GatewayAgentOps {
   prompt(
     sessionId: string,
     text: string,
+    images?: Array<{ data: string; mimeType: string }>,
   ): Promise<void>;
   /** Steer an active agent. */
   steer(sessionId: string, text: string): Promise<void>;
@@ -52,7 +53,7 @@ export interface GatewayAgentOps {
   /** List sessions for a workspace. */
   listSessions(
     workspaceId: string,
-  ): Promise<Array<{ id: string; name: string }>>;
+  ): Promise<Array<{ id: string; name: string; firstMessage?: string }>>;
   /** Create a new session for a workspace. */
   createSession(workspaceId: string, name?: string): Promise<{ id: string; name: string }>;
   /** List files in a workspace directory. */
@@ -63,4 +64,22 @@ export interface GatewayAgentOps {
   listArtifacts(sessionId: string): Promise<Array<{ id: string; type: string; title: string; timestamp: string; mimeType: string }>>;
   /** Get artifact data by ID. */
   getArtifact(artifactId: string): Promise<{ base64: string; mimeType: string; title: string } | null>;
+  /** Get message history for a session. */
+  getSessionHistory(
+    workspaceId: string,
+    sessionId: string,
+  ): Promise<Array<{
+    id: string;
+    type: 'user' | 'assistant' | 'system';
+    text: string;
+    thinking?: string;
+    images?: Array<{ base64: string; mimeType: string }>;
+    toolCalls?: Array<{
+      toolCallId: string;
+      toolName: string;
+      state: 'done' | 'error';
+      output?: string;
+    }>;
+    timestamp: number;
+  }>>;
 }

@@ -48,6 +48,18 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => {
     },
 
     autoConnect: async () => {
+      // Check URL params first (e.g. from QR code: ?token=...)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      if (urlToken) {
+        // Clean up the URL so the token isn't visible in the address bar
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+        set({ token: urlToken, authError: null });
+        client.connect(urlToken);
+        return;
+      }
+      // Fall back to stored token
       const stored = await loadToken();
       if (stored) {
         set({ token: stored, authError: null });

@@ -48,7 +48,7 @@ export async function routeExtendedRequest(
         sendResponse(ws, {
           type: 'ok',
           requestType: 'list_files',
-          data: files,
+          data: { path: request.path, entries: files },
         });
       } catch (err) {
         sendResponse(ws, {
@@ -109,6 +109,27 @@ export async function routeExtendedRequest(
           type: 'error',
           requestType: 'get_artifact',
           message: err instanceof Error ? err.message : 'Get artifact failed',
+        });
+      }
+      return true;
+    }
+
+    case 'get_session_history': {
+      try {
+        const messages = await agentOps.getSessionHistory(
+          request.workspaceId,
+          request.sessionId,
+        );
+        sendResponse(ws, {
+          type: 'ok',
+          requestType: 'get_session_history',
+          data: messages,
+        });
+      } catch (err) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'get_session_history',
+          message: err instanceof Error ? err.message : 'Get session history failed',
         });
       }
       return true;

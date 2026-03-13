@@ -53,6 +53,7 @@ import { createSeroUIContext } from '../extension-ui-context';
 import { installCliAgentBridge, noteCliTurnEnd } from '../cli/agent-bridge';
 import { createWorkspaceCliTool, bridgeExtensionTools } from '../cli';
 import { installGatewayAgentOps, forwardEventToGateway } from '../gateway/agent-bridge';
+import { buildGatewayFileOps } from './gateway-ops';
 
 interface PoolEntry {
   session: AgentSession;
@@ -69,20 +70,12 @@ interface PoolEntry {
 
 const pool = new Map<string, PoolEntry>();
 
-/**
- * Get a pool entry by session ID.
- * Used by the collaboration handler to feed synthesized results
- * back through the main agent session.
- */
+/** Get a pool entry by session ID (used by collaboration handler). */
 export function getAgentPoolEntry(sessionId: string): PoolEntry | undefined {
   return pool.get(sessionId);
 }
 
-/**
- * Reload the ResourceLoader for every active session in the pool.
- * Called after prompt template / skill edits so changes take
- * effect without restarting Sero.
- */
+/** Reload all active session ResourceLoaders after edits. */
 export async function reloadAllSessionResources(): Promise<void> {
   await Promise.all(
     [...pool.values()].map((entry) => entry.loader.reload()),
@@ -223,10 +216,19 @@ export function registerAgentHandlers(): void {
       appendFileSync(sessionPath, JSON.stringify(sm.getHeader()) + '\n');
       await openSessionInternal(sessionId, sessionPath, workspaceId);
     },
-    prompt: async (sessionId, text) => {
+    prompt: async (sessionId, text, images) => {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
-      await entry.session.prompt(text);
+      if (images && images.length > 0) {
+        const imageContents = images.map((img) => ({
+          type: 'image' as const,
+          data: img.data,
+          mimeType: img.mimeType,
+        }));
+        await entry.session.prompt(text, { images: imageContents });
+      } else {
+        await entry.session.prompt(text);
+      }
     },
     steer: async (sessionId, text) => {
       const entry = pool.get(sessionId);
@@ -244,8 +246,13 @@ export function registerAgentHandlers(): void {
     listSessions: async (workspaceId) => {
       const wsPath = workspaceManager.getPath(workspaceId);
       const all = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
-      return all.filter((s) => s.cwd === wsPath).map((s) => ({ id: s.id, name: s.name || '' }));
+      return all.filter((s) => s.cwd === wsPath).map((s) => ({
+        id: s.id,
+        name: s.name || '',
+        firstMessage: s.firstMessage || '',
+      }));
     },
+    ...buildGatewayFileOps(pool, openSessionInternal),
   });
 
   ipcMain.handle(
@@ -286,7 +293,6 @@ export function registerAgentHandlers(): void {
       await entry.session.prompt(text, images ? { images } : undefined);
     },
   );
-
   ipcMain.handle(
     IpcChannels.agent.steer,
     async (
@@ -306,7 +312,6 @@ export function registerAgentHandlers(): void {
       await entry.session.steer(text);
     },
   );
-
   ipcMain.handle(
     IpcChannels.agent.abort,
     async (_event, sessionId: string): Promise<void> => {
@@ -363,7 +368,6 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Context usage (SDK: uses actual API-reported usage.input as baseline) ──
   ipcMain.handle(
     IpcChannels.agent.getContextUsage,
     async (_event, sessionId: string): Promise<ContextUsageInfo | null> => {
@@ -389,7 +393,6 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Clear session (navigate to root via SDK) ───────────────
   ipcMain.handle(
     IpcChannels.agent.clearSession,
     async (_event, sessionId: string): Promise<ChatMessage[]> => {
@@ -430,9 +433,7 @@ export function registerAgentHandlers(): void {
     },
   );
 
-  // ── Fork session (extract branch to new file) ─────────────
-  // Uses sm.createBranchedSession() directly — session.fork() switches
-  // the active session to the fork, but Sero wants "fork & stay."
+  // Fork session — extract branch to new file ("fork & stay")
   ipcMain.handle(
     IpcChannels.agent.forkSession,
     async (_event, sessionId: string): Promise<SeroSessionInfo> => {
@@ -471,7 +472,6 @@ export function registerAgentHandlers(): void {
       };
     },
   );
-  // ── Rename session ────────────────────────────────────────
   ipcMain.handle(
     IpcChannels.sessions.rename,
     async (_event, sessionId: string, name: string): Promise<void> => {

@@ -14,6 +14,8 @@ export interface ChatMessage {
   isStreaming: boolean;
   thinking?: string;
   images?: Array<{ base64: string; mimeType: string }>;
+  /** Tool calls attached to this message (populated after agent_end or from history). */
+  toolCalls?: ToolCall[];
   timestamp: number;
 }
 
@@ -25,50 +27,149 @@ export interface ToolCall {
   output?: string;
 }
 
+/** A reference to tool calls between messages — used for interleaved display. */
+export interface ToolCallGroup {
+  id: string;
+  toolCalls: ToolCall[];
+}
+
+/** A render item: either a message or an inline tool call group. */
+export type ChatRenderItem =
+  | { type: 'message'; message: ChatMessage }
+  | { type: 'tools'; group: ToolCallGroup };
+
 interface ChatStore {
   messages: ChatMessage[];
   toolCalls: ToolCall[];
+  /** Ordered render items (messages + interleaved tool groups). */
+  renderItems: ChatRenderItem[];
   isStreaming: boolean;
+  isLoadingHistory: boolean;
 
-  sendMessage: (text: string) => void;
+  sendMessage: (text: string, images?: Array<{ data: string; mimeType: string }>) => void;
   handleMessage: (msg: GatewayMessage) => void;
   clearMessages: () => void;
+  loadHistory: (workspaceId: string, sessionId: string) => void;
+  /** Rebuild render items from messages and tool calls. */
+  _rebuildRenderItems: () => void;
 }
 
 let msgCounter = 0;
 
+/** Build interleaved render items from messages and active tool calls. */
+function buildRenderItems(
+  messages: ChatMessage[],
+  toolCalls: ToolCall[],
+): ChatRenderItem[] {
+  const items: ChatRenderItem[] = [];
+
+  for (const msg of messages) {
+    // Render tool calls attached to this message inline
+    if (msg.type === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+      items.push({ type: 'message', message: msg });
+      items.push({
+        type: 'tools',
+        group: { id: `tg-${msg.id}`, toolCalls: msg.toolCalls },
+      });
+    } else {
+      items.push({ type: 'message', message: msg });
+    }
+  }
+
+  // Any active (streaming) tool calls not yet attached to a message
+  const attachedIds = new Set(
+    messages.flatMap((m) => m.toolCalls?.map((tc) => tc.toolCallId) ?? []),
+  );
+  const unattached = toolCalls.filter((tc) => !attachedIds.has(tc.toolCallId));
+  if (unattached.length > 0) {
+    items.push({
+      type: 'tools',
+      group: { id: `tg-active`, toolCalls: unattached },
+    });
+  }
+
+  return items;
+}
+
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   toolCalls: [],
+  renderItems: [],
   isStreaming: false,
+  isLoadingHistory: false,
 
-  sendMessage: (text: string) => {
+  _rebuildRenderItems: () => {
+    const { messages, toolCalls } = get();
+    set({ renderItems: buildRenderItems(messages, toolCalls) });
+  },
+
+  sendMessage: (text: string, images?: Array<{ data: string; mimeType: string }>) => {
     const { activeWorkspaceId, activeSessionId } = useWorkspaceStore.getState();
     if (!activeWorkspaceId) return;
 
-    // Generate session ID if none selected
     const sessionId = activeSessionId ?? `web-${Date.now()}`;
     if (!activeSessionId) {
       useWorkspaceStore.setState({ activeSessionId: sessionId });
     }
 
-    // Optimistic user message
     const userMsg: ChatMessage = {
       id: `msg-${++msgCounter}`,
       type: 'user',
       text,
       isStreaming: false,
+      images: images?.map((img) => ({ base64: img.data, mimeType: img.mimeType })),
       timestamp: Date.now(),
     };
     set((s) => ({ messages: [...s.messages, userMsg] }));
+    get()._rebuildRenderItems();
 
-    // Send to gateway
     const client = useConnectionStore.getState().client;
-    client.sendPrompt(activeWorkspaceId, sessionId, text);
+    client.sendPrompt(activeWorkspaceId, sessionId, text, images);
+  },
+
+  loadHistory: (workspaceId: string, sessionId: string) => {
+    set({ isLoadingHistory: true });
+    const client = useConnectionStore.getState().client;
+    client.requestSessionHistory(workspaceId, sessionId);
   },
 
   handleMessage: (msg: GatewayMessage) => {
     const pushMsg = msg as Record<string, unknown>;
+
+    // Handle history response
+    if (pushMsg.type === 'ok' && pushMsg.requestType === 'get_session_history') {
+      const historyData = pushMsg.data as Array<{
+        id: string;
+        type: 'user' | 'assistant' | 'system';
+        text: string;
+        thinking?: string;
+        images?: Array<{ base64: string; mimeType: string }>;
+        toolCalls?: Array<{
+          toolCallId: string;
+          toolName: string;
+          state: 'done' | 'error';
+          output?: string;
+        }>;
+        timestamp: number;
+      }> | null;
+      if (historyData) {
+        const messages: ChatMessage[] = historyData.map((m) => ({
+          id: m.id || `msg-${++msgCounter}`,
+          type: m.type,
+          text: m.text,
+          isStreaming: false,
+          thinking: m.thinking,
+          images: m.images,
+          toolCalls: m.toolCalls,
+          timestamp: m.timestamp,
+        }));
+        set({ messages, toolCalls: [], isStreaming: false, isLoadingHistory: false });
+        get()._rebuildRenderItems();
+      } else {
+        set({ isLoadingHistory: false });
+      }
+      return;
+    }
 
     switch (pushMsg.type) {
       case 'agent_start': {
@@ -77,13 +178,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       case 'agent_end': {
-        // Finalize any streaming assistant message
-        set((s) => ({
-          isStreaming: false,
-          messages: s.messages.map((m) =>
-            m.isStreaming ? { ...m, isStreaming: false } : m,
-          ),
-        }));
+        // Finalize streaming: attach any unattached tool calls to the last assistant message
+        set((s) => {
+          const msgs = [...s.messages];
+          const last = msgs[msgs.length - 1];
+          if (last && last.type === 'assistant' && last.isStreaming) {
+            msgs[msgs.length - 1] = {
+              ...last,
+              isStreaming: false,
+              toolCalls: s.toolCalls.length > 0 ? [...s.toolCalls] : last.toolCalls,
+            };
+          }
+          return { isStreaming: false, messages: msgs, toolCalls: [] };
+        });
+        get()._rebuildRenderItems();
         break;
       }
 
@@ -94,10 +202,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           const last = msgs[msgs.length - 1];
 
           if (last && last.type === 'assistant' && last.isStreaming) {
-            // Append to existing streaming message
             msgs[msgs.length - 1] = { ...last, text: last.text + delta };
           } else {
-            // Start a new assistant message
             msgs.push({
               id: `msg-${++msgCounter}`,
               type: 'assistant',
@@ -106,9 +212,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               timestamp: Date.now(),
             });
           }
-
           return { messages: msgs };
         });
+        get()._rebuildRenderItems();
         break;
       }
 
@@ -133,9 +239,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               timestamp: Date.now(),
             });
           }
-
           return { messages: msgs };
         });
+        get()._rebuildRenderItems();
         break;
       }
 
@@ -147,6 +253,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           state: 'running',
         };
         set((s) => ({ toolCalls: [...s.toolCalls, toolCall] }));
+        get()._rebuildRenderItems();
         break;
       }
 
@@ -162,12 +269,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               : tc,
           ),
         }));
+        get()._rebuildRenderItems();
         break;
       }
     }
   },
 
   clearMessages: () => {
-    set({ messages: [], toolCalls: [], isStreaming: false });
+    set({ messages: [], toolCalls: [], renderItems: [], isStreaming: false });
   },
 }));

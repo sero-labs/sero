@@ -122,8 +122,8 @@ export async function routeAgentRequest(
         await agentOps.openSession(request.sessionId, request.workspaceId);
         // Track session as active for concurrency limiting
         costTracker.markActive(request.sessionId);
-        // Send prompt
-        await agentOps.prompt(request.sessionId, request.text);
+        // Send prompt (with optional images)
+        await agentOps.prompt(request.sessionId, request.text, request.images);
         costTracker.markInactive(request.sessionId);
         if (idemKey) {
           idempotencyStore.set(idemKey, { timestamp: Date.now(), status: 'done' });

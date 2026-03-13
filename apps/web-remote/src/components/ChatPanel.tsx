@@ -1,5 +1,5 @@
 /**
- * Chat panel — message list, streaming state, and prompt input.
+ * Chat panel — message list, streaming state, prompt input with image support.
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -9,18 +9,41 @@ import { useConnectionStore } from '@/stores/connection';
 import { ChatMessageComponent } from './ChatMessage';
 import { ToolCallDisplay } from './ToolCallDisplay';
 import { cn } from '@/lib/cn';
-import { Send, Square, ArrowDown } from 'lucide-react';
+import { Send, Square, ArrowDown, Paperclip, X } from 'lucide-react';
+
+interface PendingImage {
+  data: string;
+  mimeType: string;
+  preview: string;
+}
+
+/** Read a File as base64 data URL. */
+function readFileAsBase64(file: File): Promise<{ data: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1];
+      resolve({ data: base64, mimeType: file.type });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export function ChatPanel() {
   const [input, setInput] = useState('');
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
   const messages = useChatStore((s) => s.messages);
-  const toolCalls = useChatStore((s) => s.toolCalls);
+  const renderItems = useChatStore((s) => s.renderItems);
   const isStreaming = useChatStore((s) => s.isStreaming);
+  const isLoadingHistory = useChatStore((s) => s.isLoadingHistory);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const connectionState = useConnectionStore((s) => s.state);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
@@ -28,7 +51,8 @@ export function ChatPanel() {
   const client = useConnectionStore((s) => s.client);
 
   const isConnected = connectionState === 'connected';
-  const canSend = isConnected && !!activeWorkspaceId && !isStreaming;
+  const hasContent = input.trim().length > 0 || pendingImages.length > 0;
+  const canSend = isConnected && !!activeWorkspaceId && !isStreaming && hasContent;
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,17 +65,48 @@ export function ChatPanel() {
     setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100);
   }, []);
 
+  const addImages = useCallback(async (files: File[]) => {
+    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    const newImages: PendingImage[] = [];
+    for (const file of imageFiles) {
+      const { data, mimeType } = await readFileAsBase64(file);
+      newImages.push({
+        data,
+        mimeType,
+        preview: URL.createObjectURL(file),
+      });
+    }
+    setPendingImages((prev) => [...prev, ...newImages]);
+  }, []);
+
+  const removeImage = useCallback((index: number) => {
+    setPendingImages((prev) => {
+      const copy = [...prev];
+      URL.revokeObjectURL(copy[index].preview);
+      copy.splice(index, 1);
+      return copy;
+    });
+  }, []);
+
   const handleSend = useCallback(() => {
     const text = input.trim();
-    if (!text || !canSend) return;
-    sendMessage(text);
+    if (!canSend) return;
+    const images = pendingImages.length > 0
+      ? pendingImages.map((img) => ({ data: img.data, mimeType: img.mimeType }))
+      : undefined;
+    sendMessage(text || '(image)', images);
     setInput('');
+    setPendingImages((prev) => {
+      prev.forEach((img) => URL.revokeObjectURL(img.preview));
+      return [];
+    });
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    // Auto-scroll on send
     setTimeout(scrollToBottom, 50);
-  }, [input, canSend, sendMessage, scrollToBottom]);
+  }, [input, canSend, sendMessage, scrollToBottom, pendingImages]);
 
   const handleAbort = useCallback(() => {
     if (activeSessionId) {
@@ -69,33 +124,41 @@ export function ChatPanel() {
     [handleSend],
   );
 
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        addImages(imageFiles);
+      }
+    },
+    [addImages],
+  );
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) addImages(files);
+      // Reset the input so the same file can be selected again
+      e.target.value = '';
+    },
+    [addImages],
+  );
+
   const handleTextareaInput = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, []);
-
-  // Group consecutive tool calls between messages
-  const renderItems: Array<{ type: 'message'; index: number } | { type: 'tools'; ids: string[] }> = [];
-  let pendingToolIds: string[] = [];
-
-  for (let i = 0; i < messages.length; i++) {
-    // Flush any pending tool calls before user messages
-    if (messages[i].type === 'user' && pendingToolIds.length > 0) {
-      renderItems.push({ type: 'tools', ids: [...pendingToolIds] });
-      pendingToolIds = [];
-    }
-    renderItems.push({ type: 'message', index: i });
-  }
-
-  // Add any remaining tool calls
-  if (toolCalls.length > 0) {
-    renderItems.push({
-      type: 'tools',
-      ids: toolCalls.map((tc) => tc.toolCallId),
-    });
-  }
 
   return (
     <div className="flex flex-col h-full">
@@ -105,7 +168,7 @@ export function ChatPanel() {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-2"
       >
-        {messages.length === 0 && (
+        {messages.length === 0 && !isLoadingHistory && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-muted-foreground">
               <p className="text-lg font-medium">Sero Remote</p>
@@ -116,17 +179,29 @@ export function ChatPanel() {
           </div>
         )}
 
-        {renderItems.map((item, idx) => {
+        {isLoadingHistory && messages.length === 0 && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-muted-foreground">
+              <p className="text-sm">Loading conversation...</p>
+            </div>
+          </div>
+        )}
+
+        {renderItems.map((item) => {
           if (item.type === 'message') {
             return (
               <ChatMessageComponent
-                key={messages[item.index].id}
-                message={messages[item.index]}
+                key={item.message.id}
+                message={item.message}
               />
             );
           }
-          const tcs = toolCalls.filter((tc) => item.ids.includes(tc.toolCallId));
-          return <ToolCallDisplay key={`tools-${idx}`} toolCalls={tcs} />;
+          return (
+            <ToolCallDisplay
+              key={item.group.id}
+              toolCalls={item.group.toolCalls}
+            />
+          );
         })}
 
         <div ref={messagesEndRef} />
@@ -146,19 +221,70 @@ export function ChatPanel() {
 
       {/* Input area */}
       <div className="px-4 py-3 border-t border-border bg-card">
+        {/* Pending image thumbnails */}
+        {pendingImages.length > 0 && (
+          <div className="flex gap-2 mb-2 flex-wrap">
+            {pendingImages.map((img, i) => (
+              <div key={i} className="relative group">
+                <img
+                  src={img.preview}
+                  alt={`Attachment ${i + 1}`}
+                  className="w-16 h-16 object-cover rounded-md border border-border"
+                />
+                <button
+                  onClick={() => removeImage(i)}
+                  className={cn(
+                    'absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full',
+                    'bg-destructive text-destructive-foreground',
+                    'flex items-center justify-center',
+                    'opacity-0 group-hover:opacity-100 transition-opacity',
+                  )}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-end gap-2">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Attach button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isConnected}
+            className={cn(
+              'shrink-0 rounded-lg p-2.5',
+              'text-muted-foreground hover:text-foreground transition-colors',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+            )}
+            title="Attach image"
+          >
+            <Paperclip className="w-4 h-4" />
+          </button>
+
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             onInput={handleTextareaInput}
             placeholder={
               !isConnected
                 ? 'Not connected...'
                 : !activeWorkspaceId
                   ? 'Select a workspace first...'
-                  : 'Send a message...'
+                  : 'Send a message... (paste images with ⌘V)'
             }
             disabled={!isConnected}
             rows={1}
@@ -187,7 +313,7 @@ export function ChatPanel() {
           ) : (
             <button
               onClick={handleSend}
-              disabled={!canSend || !input.trim()}
+              disabled={!canSend}
               className={cn(
                 'shrink-0 rounded-lg p-2.5',
                 'bg-primary text-primary-foreground',

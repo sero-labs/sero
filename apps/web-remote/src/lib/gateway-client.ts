@@ -145,13 +145,19 @@ export class GatewayClient {
     this.ws.send(JSON.stringify(request));
   }
 
-  /** Send a prompt to the agent. */
-  sendPrompt(workspaceId: string, sessionId: string, text: string): void {
+  /** Send a prompt to the agent, optionally with images. */
+  sendPrompt(
+    workspaceId: string,
+    sessionId: string,
+    text: string,
+    images?: Array<{ data: string; mimeType: string }>,
+  ): void {
     this.send({
       type: 'prompt',
       workspaceId,
       sessionId,
       text,
+      images: images?.length ? images : undefined,
       idempotencyKey: `web-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     });
   }
@@ -174,6 +180,11 @@ export class GatewayClient {
   /** Abort the active agent. */
   abortSession(sessionId: string): void {
     this.send({ type: 'abort', sessionId });
+  }
+
+  /** Request session message history. */
+  requestSessionHistory(workspaceId: string, sessionId: string): void {
+    this.send({ type: 'get_session_history', workspaceId, sessionId });
   }
 
   /** List files in a workspace directory. */

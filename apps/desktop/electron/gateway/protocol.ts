@@ -19,6 +19,8 @@ export interface GatewayPromptRequest {
   workspaceId: string;
   sessionId: string;
   text: string;
+  /** Base64-encoded images to include with the prompt. */
+  images?: Array<{ data: string; mimeType: string }>;
   /** Idempotency key to safely retry. */
   idempotencyKey?: string;
 }
@@ -91,6 +93,12 @@ export interface GatewayRevokeWebTokenRequest {
   tokenId: string;
 }
 
+export interface GatewayGetSessionHistoryRequest {
+  type: 'get_session_history';
+  workspaceId: string;
+  sessionId: string;
+}
+
 export type GatewayRequest =
   | GatewayConnectRequest
   | GatewayPromptRequest
@@ -106,7 +114,8 @@ export type GatewayRequest =
   | GatewayGetArtifactRequest
   | GatewayCreateWebTokenRequest
   | GatewayListWebTokensRequest
-  | GatewayRevokeWebTokenRequest;
+  | GatewayRevokeWebTokenRequest
+  | GatewayGetSessionHistoryRequest;
 
 // ── Gateway → Client responses ──────────────────────────────
 
@@ -202,6 +211,7 @@ const VALID_REQUEST_TYPES = new Set([
   'create_web_token',
   'list_web_tokens',
   'revoke_web_token',
+  'get_session_history',
 ]);
 
 export function validateRequest(data: unknown): GatewayRequest | null {

@@ -103,8 +103,17 @@ export const useFileStore = create<FileStore>((set, get) => ({
     const response = msg as { type: 'ok'; requestType: string; data?: unknown };
 
     if (response.requestType === 'list_files') {
-      const entries = (response.data as FileEntry[]) ?? [];
-      const dirPath = get()._pendingListPath ?? '/';
+      const data = response.data as { path: string; entries: FileEntry[] } | FileEntry[] | null;
+      // Support both formats: { path, entries } or raw array (legacy)
+      let dirPath: string;
+      let entries: FileEntry[];
+      if (data && 'path' in data && 'entries' in data) {
+        dirPath = data.path;
+        entries = data.entries;
+      } else {
+        dirPath = get()._pendingListPath ?? '/';
+        entries = (data as FileEntry[]) ?? [];
+      }
       set((s) => ({
         tree: { ...s.tree, [dirPath]: entries },
         isLoading: false,

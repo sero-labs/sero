@@ -22,10 +22,16 @@ export function WorkspacePicker() {
     createSession();
   };
 
+  const loadHistory = useChatStore((s) => s.loadHistory);
+
   const handleSessionClick = (sessionId: string) => {
     if (sessionId !== activeSessionId) {
       clearMessages();
       setActiveSession(sessionId);
+      // Load existing conversation history
+      if (activeWorkspaceId) {
+        loadHistory(activeWorkspaceId, sessionId);
+      }
     }
   };
 
@@ -94,7 +100,9 @@ export function WorkspacePicker() {
               )}
             >
               <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{session.name || session.id}</span>
+              <span className="truncate">
+                {session.name || session.firstMessage || session.id}
+              </span>
             </button>
           ))}
         </div>

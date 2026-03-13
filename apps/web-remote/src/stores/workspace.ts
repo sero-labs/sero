@@ -15,6 +15,7 @@ interface Workspace {
 interface Session {
   id: string;
   name: string;
+  firstMessage?: string;
 }
 
 interface WorkspaceStore {

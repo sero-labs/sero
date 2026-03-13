@@ -1,21 +1,7 @@
 /**
  * Gateway Server — WebSocket control plane for remote Sero access.
- *
- * Inspired by OpenClaw's hub-and-spoke architecture. A single WebSocket
- * server routes messages between external clients (Discord bot, web UI,
- * CLI) and the agent session pool running in the Electron main process.
- *
- * Binds to localhost by default; Tailscale integration can optionally
- * expose it to a private tailnet.
- *
- * Security hardening (2026-03-09):
- *   - Rate limiting on auth attempts (5 failures / 60s → 5min block)
- *   - Max WebSocket payload size (1 MB)
- *   - Max connections per IP (10) and total (50)
- *   - Origin header validation for non-Tailscale connections
- *   - 30-minute idle timeout for authenticated connections
- *   - Referrer-Policy: no-referrer on all HTTP responses
- *   - Failed auth logging with client IP
+ * Routes messages between external clients and the agent session pool.
+ * Security: rate limiting, max connections, origin validation, idle timeout.
  */
 
 import { WebSocketServer, WebSocket } from 'ws';
@@ -34,6 +20,7 @@ import {
   type GatewayPushEvent,
 } from './protocol';
 import type { GatewayConfig, GatewayAgentOps } from './types';
+import { buildQrPage } from './qr-page';
 
 // Re-export types so existing importers don't break
 export type { GatewayConfig, GatewayAgentOps, GatewayFileEntry, GatewayFileContent } from './types';
@@ -148,6 +135,30 @@ export class GatewayServer {
 
       // Try to serve from web-dist/ (built SPA)
       if (tryServeStaticFile(pathname, res, __dirname)) return;
+
+      // QR code login page — creates a web token and shows a QR code.
+      // Protected by master token in query param: /qr?master=<token>
+      if (pathname === '/qr') {
+        const query = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
+        const masterToken = query.get('master');
+        if (!masterToken || !this.auth.isMasterToken(masterToken)) {
+          res.writeHead(403, { 'Content-Type': 'text/plain' });
+          res.end('Forbidden: valid master token required as ?master= query param');
+          return;
+        }
+        const expiryDays = parseInt(query.get('days') ?? '7', 10) || 7;
+        const webToken = this.auth.webTokens.create(`QR login ${new Date().toLocaleDateString()}`, expiryDays);
+        // Build the base URL from the request Host header
+        const host = req.headers.host ?? `localhost:${this.config.port}`;
+        const protocol = req.headers['x-forwarded-proto'] ?? 'http';
+        const loginUrl = `${protocol}://${host}/?token=${encodeURIComponent(webToken.token)}`;
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:",
+        });
+        res.end(buildQrPage(loginUrl, webToken.expiresAt, expiryDays));
+        return;
+      }
 
       // Fallback: serve legacy inline HTML at /basic
       if (pathname === '/basic' && this.webChatHtml) {
