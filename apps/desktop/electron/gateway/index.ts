@@ -133,8 +133,8 @@ export class GatewayServer {
 
       const pathname = (req.url ?? '/').split('?')[0];
 
-      // Try to serve from web-dist/ (built SPA)
-      if (tryServeStaticFile(pathname, res, __dirname)) return;
+      // ── Server-side routes (must come BEFORE the SPA static fallback,
+      //    which serves index.html for any extensionless path) ──────────
 
       // QR code login page — creates a web token and shows a QR code.
       // Protected by master token in query param: /qr?master=<token>
@@ -164,13 +164,22 @@ export class GatewayServer {
       if (pathname === '/basic' && this.webChatHtml) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(this.webChatHtml());
-      } else if (pathname === '/health') {
+        return;
+      }
+      if (pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
-      } else {
-        res.writeHead(404);
-        res.end('Not Found');
+        return;
       }
+
+      // ── Static files + SPA fallback (after all server-side routes) ──
+      // This MUST come after /qr, /basic, /health — the SPA fallback
+      // serves index.html for any extensionless path, which would
+      // swallow those routes if checked first.
+      if (tryServeStaticFile(pathname, res, __dirname)) return;
+
+      res.writeHead(404);
+      res.end('Not Found');
     });
 
     this.wss = new WebSocketServer({
