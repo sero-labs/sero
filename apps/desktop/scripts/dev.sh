@@ -45,6 +45,18 @@ done
 pkill -f "electron.*sero" 2>/dev/null
 sleep 1
 
+# Build web-remote SPA (served by the gateway at :18800)
+# Runs in watch mode so rebuilds are picked up without restarting.
+WEB_REMOTE_DIR="$(cd ../../apps/web-remote && pwd)"
+if [ -f "$WEB_REMOTE_DIR/package.json" ]; then
+  # Initial build (blocking) so the SPA is ready before Electron starts
+  (cd "$WEB_REMOTE_DIR" && npx vite build) > /tmp/sero-web-remote-build.log 2>&1
+  echo "  Built web-remote SPA"
+  # Watch mode (background) — rebuilds on source changes
+  (cd "$WEB_REMOTE_DIR" && npx vite build --watch) > /tmp/sero-web-remote-watch.log 2>&1 &
+  WEB_REMOTE_PID=$!
+fi
+
 # Build Electron main + preload (so we always run latest code)
 node scripts/build-electron.mjs
 
@@ -88,6 +100,7 @@ for i in "${!REMOTE_NAMES[@]}"; do
   printf "  Remote (%-16s = %s  → http://localhost:%s\n" "${REMOTE_NAMES[$i]})" "${REMOTE_PIDS[$i]}" "${REMOTE_PORTS[$i]}"
 done
 echo "  Host (vite)            = $VITE_PID   → http://localhost:5173"
+[ -n "$WEB_REMOTE_PID" ] && echo "  Web-remote (watch)     = $WEB_REMOTE_PID  → gateway :18800"
 echo "  Electron               = $ELECTRON_PID"
 echo ""
 echo "Logs:"
@@ -95,4 +108,5 @@ echo "  /tmp/sero-vite.log"
 for name in "${REMOTE_NAMES[@]}"; do
   echo "  /tmp/sero-remote-${name}.log"
 done
+[ -n "$WEB_REMOTE_PID" ] && echo "  /tmp/sero-web-remote-watch.log"
 echo "  /tmp/sero-electron.log"
