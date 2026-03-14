@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   ChevronsDownUp,
@@ -10,6 +10,7 @@ import {
   Minus,
   Monitor,
   Plus,
+  Trash2,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
@@ -19,14 +20,18 @@ import { useAppStore } from '@/stores/app';
 import { useWorkspaceContainer, type ContainerStatus } from '@/stores/container';
 import { Button } from '@sero/ui/components/ui/button';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@sero/ui/components/ui/popover';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@sero/ui/components/ui/dialog';
+
 import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
 import { cn } from '@sero/ui/lib/utils';
 import { SessionNode } from './SessionNode';
-import { PickView, CreateView } from './AddWorkspaceViews';
+import { AddWorkspaceMenu } from './AddWorkspaceMenu';
 import { WorkspaceReferencesMenu } from './WorkspaceReferencesMenu';
 import { RemoteOriginManager } from './RemoteOriginManager';
 
@@ -46,12 +51,25 @@ export function WorkspaceTree() {
   const openWorkspaces = useOpenWorkspaces();
   const sessionsByWorkspace = useSessionsByWorkspace();
   const isLoadingWorkspaces = useWorkspaceStore((s) => s.isLoading);
+  const clearSelection = useSessionStore((s) => s.clearSelection);
+  const hasSelection = useSessionStore((s) => s.selectedSessionIds.size > 0);
 
   // Load on mount
   useEffect(() => {
     loadWorkspaces();
     loadSessions();
   }, [loadWorkspaces, loadSessions]);
+
+  // Escape key clears multi-select
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && hasSelection && !e.defaultPrevented) {
+        clearSelection();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [clearSelection, hasSelection]);
 
   // Refresh when a federated app (e.g. SlopZilla) creates a workspace
   useEffect(() => {
@@ -147,126 +165,6 @@ function CollapseAllButton() {
   );
 }
 
-// ── Add Workspace menu ─────────────────────────────────────────
-
-type AddView = 'pick' | 'create';
-
-function AddWorkspaceMenu() {
-  const [open, setOpen] = useState(false);
-  const [view, setView] = useState<AddView>('pick');
-  const [newName, setNewName] = useState('');
-  const [parentPath, setParentPath] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newWorkspace, setNewWorkspace] = useState<WorkspaceInfo | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  // Guards against Radix auto-closing the popover when a native dialog steals focus
-  const pickingFolderRef = useRef(false);
-  const createWorkspace = useWorkspaceStore((s) => s.createWorkspace);
-  const addFolder = useWorkspaceStore((s) => s.addFolder);
-  const loadSessions = useSessionStore((s) => s.loadSessions);
-
-  const reset = () => { setView('pick'); setNewName(''); setParentPath(null); };
-
-  const handleImportExisting = async () => {
-    setOpen(false);
-    pickingFolderRef.current = true;
-    try {
-      const folderPath = await window.sero.workspace.pickFolder();
-      if (!folderPath) return;
-      await addFolder(folderPath);
-      await loadSessions();
-    } catch (err) {
-      console.error('Failed to import workspace:', err);
-    } finally {
-      pickingFolderRef.current = false;
-    }
-  };
-
-  const handlePickLocation = async () => {
-    pickingFolderRef.current = true;
-    try {
-      const picked = await window.sero.workspace.pickFolder();
-      if (picked) setParentPath(picked);
-    } finally {
-      pickingFolderRef.current = false;
-    }
-  };
-
-  const handleCreate = async () => {
-    const trimmed = newName.trim();
-    if (!trimmed || isCreating) return;
-    setIsCreating(true);
-    try {
-      const ws = await createWorkspace(trimmed, parentPath ?? undefined);
-      await loadSessions();
-      setOpen(false);
-      // Prompt user to set up remote origin for the new workspace
-      setNewWorkspace(ws);
-    } catch (err) {
-      console.error('Failed to create workspace:', err);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  return (
-    <>
-    <Popover open={open} onOpenChange={(o) => {
-      if (!o && pickingFolderRef.current) return; // Native dialog stole focus — don't close
-      setOpen(o);
-      if (!o) reset();
-    }}>
-      <PopoverTrigger asChild>
-        <button
-          className="rounded-md p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
-          title="Add workspace"
-        >
-          <Plus className="size-3.5" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        side="bottom"
-        className="w-64 p-0"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        {view === 'pick' ? (
-          <PickView
-            onCreateNew={() => {
-              setView('create');
-              // Focus the input after the view transition renders
-              requestAnimationFrame(() => inputRef.current?.focus());
-            }}
-            onImportExisting={handleImportExisting}
-          />
-        ) : (
-          <CreateView
-            inputRef={inputRef}
-            name={newName}
-            onNameChange={setNewName}
-            parentPath={parentPath}
-            onPickLocation={handlePickLocation}
-            onClearLocation={() => setParentPath(null)}
-            onBack={() => { setView('pick'); setNewName(''); setParentPath(null); }}
-            onCreate={handleCreate}
-            isCreating={isCreating}
-          />
-        )}
-      </PopoverContent>
-    </Popover>
-
-    {/* Prompt to set up remote origin after workspace creation */}
-    {newWorkspace && (
-      <RemoteOriginManager
-        open={!!newWorkspace}
-        onOpenChange={(o) => { if (!o) setNewWorkspace(null); }}
-        workspace={newWorkspace}
-      />
-    )}
-    </>
-  );
-}
-
 // ── Workspace node ─────────────────────────────────────────────
 
 /** Tiny container/host status indicator dot. */
@@ -305,13 +203,20 @@ function WorkspaceNode({
 }) {
   const [hovered, setHovered] = useState(false);
   const [remoteManagerOpen, setRemoteManagerOpen] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const toggleCollapsed = useWorkspaceStore((s) => s.toggleCollapsed);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((s) => s.closeWorkspace);
   const toggleContainer = useWorkspaceStore((s) => s.toggleContainer);
   const createSession = useSessionStore((s) => s.createSession);
+  const deleteSelectedSessions = useSessionStore((s) => s.deleteSelectedSessions);
+  const clearSelection = useSessionStore((s) => s.clearSelection);
+  const selectedSessionIds = useSessionStore((s) => s.selectedSessionIds);
   const streamingIds = useStreamingSessionIds();
+
+  // Count how many selected sessions belong to this workspace
+  const selectedInWorkspace = sessions.filter((s) => selectedSessionIds.has(s.id)).length;
 
   const expanded = workspace.open;
   const isActive = activeWorkspaceId === workspace.id;
@@ -337,6 +242,11 @@ function WorkspaceNode({
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
     closeWorkspace(workspace.id);
+  };
+
+  const handleBulkDelete = async () => {
+    setConfirmBulkDelete(false);
+    await deleteSelectedSessions(workspace.id);
   };
 
   return (
@@ -375,6 +285,34 @@ function WorkspaceNode({
 
         {/* Right side: crossfade between count and actions */}
         <span className="relative ml-auto flex h-5 shrink-0 items-center justify-end">
+          {/* Bulk delete badge — always visible when sessions are selected in this workspace */}
+          {selectedInWorkspace > 0 ? (
+            <span className="flex items-center gap-1">
+              <span className="text-xs font-medium text-[var(--accent-primary)]">
+                {selectedInWorkspace}
+              </span>
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={(e) => { e.stopPropagation(); setConfirmBulkDelete(true); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setConfirmBulkDelete(true); } }}
+                className="rounded p-0.5 hover:bg-[var(--status-error)]/15"
+                title={`Delete ${selectedInWorkspace} selected session${selectedInWorkspace > 1 ? 's' : ''}`}
+              >
+                <Trash2 className="size-3 text-[var(--status-error)]" />
+              </span>
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={(e) => { e.stopPropagation(); clearSelection(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); clearSelection(); } }}
+                className="rounded p-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
+                title="Clear selection (Esc)"
+              >
+                ✕
+              </span>
+            </span>
+          ) : (
           <AnimatePresence mode="wait" initial={false}>
             {hovered ? (
               <motion.span
@@ -455,6 +393,7 @@ function WorkspaceNode({
               </motion.span>
             )}
           </AnimatePresence>
+          )}
         </span>
       </button>
 
@@ -467,11 +406,33 @@ function WorkspaceNode({
             </span>
           ) : (
             sessions.map((session) => (
-              <SessionNode key={session.id} session={session} />
+              <SessionNode key={session.id} session={session} workspaceSessions={sessions} />
             ))
           )}
         </div>
       )}
+
+      {/* Bulk delete confirmation */}
+      <Dialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete {selectedInWorkspace} session{selectedInWorkspace > 1 ? 's' : ''}?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {selectedInWorkspace === 1 ? 'this session' : `these ${selectedInWorkspace} sessions`} from{' '}
+              <span className="font-medium text-[var(--text-primary)]">{workspace.name}</span>.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmBulkDelete(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+              Delete {selectedInWorkspace} session{selectedInWorkspace > 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Remote origin manager */}
       <RemoteOriginManager

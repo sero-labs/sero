@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Check, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useSessionStore } from '@/stores/sessions';
 import { useStreamingSessionIds } from '@/stores/agent-selectors';
 import { Button } from '@sero/ui/components/ui/button';
@@ -13,7 +13,14 @@ import { cn } from '@sero/ui/lib/utils';
 
 // ── Session node ───────────────────────────────────────────────
 
-export function SessionNode({ session }: { session: SeroSessionInfo }) {
+export function SessionNode({
+  session,
+  workspaceSessions,
+}: {
+  session: SeroSessionInfo;
+  /** All sessions in this workspace — needed for Shift+click range selection. */
+  workspaceSessions: SeroSessionInfo[];
+}) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -24,6 +31,13 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const renameSession = useSessionStore((s) => s.renameSession);
   const streamingIds = useStreamingSessionIds();
+
+  // Multi-select
+  const isSelected = useSessionStore((s) => s.selectedSessionIds.has(session.id));
+  const hasSelection = useSessionStore((s) => s.selectedSessionIds.size > 0);
+  const toggleSelectSession = useSessionStore((s) => s.toggleSelectSession);
+  const selectSessionRange = useSessionStore((s) => s.selectSessionRange);
+  const clearSelection = useSessionStore((s) => s.clearSelection);
 
   const isActive = activeSessionId === session.id;
   const isStreaming = streamingIds.includes(session.id);
@@ -64,22 +78,42 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
     await deleteSession(session.path);
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      // Shift+click — range select
+      e.preventDefault();
+      selectSessionRange(session.id, workspaceSessions);
+    } else if (e.metaKey || e.ctrlKey) {
+      // Ctrl/Cmd+click — toggle individual
+      e.preventDefault();
+      toggleSelectSession(session.id);
+    } else {
+      // Normal click — activate session and clear selection
+      if (hasSelection) clearSelection();
+      setActiveSession(session.id);
+    }
+  };
+
   return (
     <button
-      onClick={() => setActiveSession(session.id)}
+      onClick={handleClick}
       onDoubleClick={(e) => { e.stopPropagation(); startRename(); }}
       className={cn(
         'group flex w-full items-center gap-4 rounded-md px-2 py-1 text-left transition-colors',
-        isActive
-          ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
-          : 'hover:bg-[var(--bg-elevated)]',
+        isSelected
+          ? 'bg-[var(--accent-muted)]/15 ring-1 ring-[var(--accent-primary)]/30 text-[var(--text-primary)]'
+          : isActive
+            ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+            : 'hover:bg-[var(--bg-elevated)]',
       )}
     >
-      {/* Streaming spinner — only visible when agent is working */}
+      {/* Leading indicator: checkmark when selected, spinner when streaming */}
       <span className="flex size-3 shrink-0 items-center justify-center">
-        {isStreaming && (
+        {isSelected ? (
+          <Check className="size-3 text-[var(--accent-primary)]" />
+        ) : isStreaming ? (
           <Loader2 className="size-3 animate-spin text-[var(--status-success)]" />
-        )}
+        ) : null}
       </span>
 
       {/* Title + metadata */}
@@ -114,8 +148,11 @@ export function SessionNode({ session }: { session: SeroSessionInfo }) {
         </div>
       </div>
 
-      {/* Actions: rename + delete */}
-      <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+      {/* Actions: rename + delete (hidden during multi-select — bulk actions live on workspace header) */}
+      <span className={cn(
+        'flex shrink-0 items-center gap-0.5 transition-opacity',
+        hasSelection ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100',
+      )}>
         <span
           role="button"
           tabIndex={-1}
