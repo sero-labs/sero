@@ -37,11 +37,13 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
   const [data, setData] = useState<QrLoginData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const generate = useCallback(async () => {
     setPhase('loading');
     setError(null);
     setCopied(false);
+    setCopyFailed(false);
     try {
       const result = await window.sero.gateway.getQrLoginData(7);
       setData(result);
@@ -66,6 +68,7 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
       setData(null);
       setError(null);
       setCopied(false);
+      setCopyFailed(false);
     }
     wasOpen.current = open;
   }, [open, generate]);
@@ -77,7 +80,8 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard API may fail in some contexts
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 3000);
     }
   }, [data]);
 
@@ -142,7 +146,11 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
                   className="w-full gap-2"
                   onClick={handleCopy}
                 >
-                  {copied ? (
+                  {copyFailed ? (
+                    <span className="text-destructive">
+                      Copy failed — select the URL above manually
+                    </span>
+                  ) : copied ? (
                     <>
                       <Check className="size-3.5" />
                       Copied!

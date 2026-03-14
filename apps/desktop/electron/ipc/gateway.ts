@@ -104,7 +104,8 @@ export function registerGatewayHandlers(): void {
   ipcMain.handle(
     IpcChannels.gateway.getQrLoginData,
     async (_event, expiryDays?: number): Promise<QrLoginData> => {
-      const days = expiryDays ?? 7;
+      // Clamp expiry to 1–30 days to prevent bogus values from the renderer.
+      const days = Math.max(1, Math.min(expiryDays ?? 7, 30));
       const auth = gatewayServer.getAuth();
       const webToken = auth.webTokens.create(
         `QR login ${new Date().toLocaleDateString()}`,
@@ -118,12 +119,14 @@ export function registerGatewayHandlers(): void {
       const tsStatus = await tailscale.getStatus();
       const baseUrl = tsStatus.gatewayUrl ?? `http://127.0.0.1:${status.port}`;
 
-      const loginUrl = `${baseUrl}/?token=${encodeURIComponent(webToken.token)}`;
-      const qrDataUrl = await generateQrDataUrl(loginUrl);
+      const loginUrl = new URL('/', baseUrl);
+      loginUrl.searchParams.set('token', webToken.token);
+      const loginUrlStr = loginUrl.toString();
+      const qrDataUrl = await generateQrDataUrl(loginUrlStr);
 
       return {
         qrDataUrl,
-        loginUrl,
+        loginUrl: loginUrlStr,
         expiresAt: webToken.expiresAt,
         expiryDays: days,
       };
