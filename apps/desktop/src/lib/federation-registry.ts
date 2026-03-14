@@ -7,6 +7,16 @@
  *
  * Remote discovery happens at build time in vite.config.ts (auto-scans
  * packages/pi-* for sero.app manifests). No per-app edits needed here.
+ *
+ * ## Preload strategy
+ *
+ * `preloadFederatedModule()` eagerly resolves the remote module at startup
+ * (during the loading screen) and caches the resolved component. When
+ * `getFederatedComponent()` is later called during render, it wraps the
+ * already-resolved component in a `lazy(() => Promise.resolve(...))`.
+ * React.lazy recognises the synchronously-settled thenable and renders
+ * without triggering Suspense — eliminating the loading-spinner flash
+ * on first open.
  */
 
 import { lazy } from 'react';
@@ -14,8 +24,14 @@ import { loadRemote, registerRemotes } from '@module-federation/enhanced/runtime
 
 type LazyComponent = React.LazyExoticComponent<React.ComponentType>;
 
-/** Cache so we don't create a new lazy wrapper on every render. */
+/** Cache of lazy wrappers — prevents creating a new wrapper on every render. */
 const cache = new Map<string, LazyComponent>();
+
+/**
+ * Cache of eagerly-resolved components from preloading.
+ * Populated by `preloadFederatedModule` before the UI renders.
+ */
+const resolvedModules = new Map<string, React.ComponentType>();
 
 /** Track whether we've registered remotes for a given app. */
 const registered = new Set<string>();
@@ -64,11 +80,44 @@ function ensureRemoteRegistered(
 }
 
 /**
- * Get a lazy-loaded component for a discovered app.
+ * Eagerly load a federated module at startup.
  *
- * Derives the MF module path from the manifest's `id` and `component`:
- *   id: "weight-tracker", component: "WeightTracker"
- *   → loadRemote("sero_weight_tracker/WeightTracker")
+ * Resolves the remote component and caches it so that the first
+ * `getFederatedComponent()` call returns an already-settled lazy wrapper
+ * — no Suspense fallback flash.
+ *
+ * Called during `discoverAndRegisterApps()` and awaited before
+ * `appsReady` is set. Errors are swallowed (the app will show a
+ * lazy-load error when actually opened).
+ */
+export async function preloadFederatedModule(
+  appId: string,
+  component: string,
+  devPort: number | undefined,
+): Promise<void> {
+  const cacheKey = `${appId}/${component}`;
+  if (resolvedModules.has(cacheKey) || cache.has(cacheKey)) return;
+
+  ensureRemoteRegistered(appId, devPort);
+  const remoteName = toRemoteName(appId);
+  const modulePath = `${remoteName}/${component}`;
+
+  try {
+    const mod = await loadRemote<{ default: React.ComponentType }>(modulePath);
+    if (mod?.default) {
+      resolvedModules.set(cacheKey, mod.default);
+    }
+  } catch (err) {
+    // Preload failed — getFederatedComponent will fall back to lazy()
+    console.warn(`[federation] preload failed for ${modulePath}:`, err);
+  }
+}
+
+/**
+ * Get a component for a discovered app.
+ *
+ * If the module was preloaded, returns a lazy wrapper over an already-resolved
+ * Promise (no Suspense trigger). Otherwise falls back to a true lazy() load.
  *
  * @param appId      The app's unique id (from sero.app.id)
  * @param component  The exported component name (from sero.app.component)
@@ -83,9 +132,21 @@ export function getFederatedComponent(
   if (!component) return null;
 
   const cacheKey = `${appId}/${component}`;
+
+  // 1. Return cached lazy wrapper if we already have one
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
+  // 2. If preloaded, wrap the resolved component — Promise.resolve settles
+  //    synchronously so React.lazy won't trigger Suspense.
+  const resolved = resolvedModules.get(cacheKey);
+  if (resolved) {
+    const LazyComp = lazy(() => Promise.resolve({ default: resolved }));
+    cache.set(cacheKey, LazyComp);
+    return LazyComp;
+  }
+
+  // 3. Fallback: true lazy load (Suspense will show the spinner)
   const remoteName = toRemoteName(appId);
   const modulePath = `${remoteName}/${component}`;
 
