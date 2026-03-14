@@ -9,17 +9,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor as monacoEditor, IRange, IPosition } from 'monaco-editor';
-import { Code2, Eye } from 'lucide-react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { ImagePreview, isImageFile } from './ImagePreview';
+import { HtmlPreview, isHtmlFile } from './HtmlPreview';
+import { ViewModeToggle, type ViewMode } from './ViewModeToggle';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
 import { math } from '@streamdown/math';
 import { mermaid } from '@streamdown/mermaid';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
-import { cn } from '@sero/ui/lib/utils';
+
 
 interface Props {
   workspaceId: string;
@@ -67,12 +67,10 @@ function getLanguage(filePath: string): string {
 export function EditorPanel({
   workspaceId, tabs, activeTab, onOpenTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, onReorderTabs, onTabsChange,
 }: Props) {
-  type MarkdownViewMode = 'code' | 'preview';
-
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
   const [content, setContent] = useState('');
   const [language, setLanguage] = useState('typescript');
-  const [markdownViewMode, setMarkdownViewMode] = useState<MarkdownViewMode>('code');
+  const [viewMode, setViewMode] = useState<ViewMode>('code');
 
   type Monaco = typeof import('monaco-editor');
 
@@ -87,7 +85,9 @@ export function EditorPanel({
 
   const appTheme = useAppStore((s) => s.theme);
   const isMarkdownTab = !!activeTab && getLanguage(activeTab) === 'markdown';
-  const isMarkdownPreview = isMarkdownTab && markdownViewMode === 'preview';
+  const isHtmlTab = !!activeTab && isHtmlFile(activeTab);
+  const isPreviewableTab = isMarkdownTab || isHtmlTab;
+  const isPreview = isPreviewableTab && viewMode === 'preview';
   const isImageTab = !!activeTab && isImageFile(activeTab);
 
   // ── LSP integration ──
@@ -141,12 +141,12 @@ export function EditorPanel({
     return () => { cancelled = true; };
   }, [workspaceId, activeTab]);
 
-  // ── Default markdown files to preview mode when opened ──
+  // ── Default previewable files (markdown, HTML) to preview mode when opened ──
   useEffect(() => {
-    if (activeTab && getLanguage(activeTab) === 'markdown') {
-      setMarkdownViewMode('preview');
+    if (activeTab && (getLanguage(activeTab) === 'markdown' || isHtmlFile(activeTab))) {
+      setViewMode('preview');
     } else {
-      setMarkdownViewMode('code');
+      setViewMode('code');
     }
   }, [activeTab]);
 
@@ -178,15 +178,15 @@ export function EditorPanel({
     }
   }, [workspaceId, activeTab, content, dirtyPaths, sendDidSave]);
 
-  const handleMarkdownModeChange = useCallback((nextMode: MarkdownViewMode) => {
-    if (nextMode === markdownViewMode) return;
+  const handleViewModeChange = useCallback((nextMode: ViewMode) => {
+    if (nextMode === viewMode) return;
     if (nextMode === 'preview' && activeTab && editorRef.current) {
       viewStateMapRef.current.set(activeTab, editorRef.current.saveViewState());
       editorRef.current = null;
       setEditorInstance(null);
     }
-    setMarkdownViewMode(nextMode);
-  }, [markdownViewMode, activeTab]);
+    setViewMode(nextMode);
+  }, [viewMode, activeTab]);
 
   // ── Close tab handler (manages state cleanup) ──
   const handleCloseTab = useCallback((path: string) => {
@@ -258,11 +258,11 @@ export function EditorPanel({
     if (!(e.metaKey || e.ctrlKey)) return;
     if (e.key === 's') { e.preventDefault(); handleSave(); }
     else if (e.key === 'w') { e.preventDefault(); if (activeTab) handleCloseTab(activeTab); }
-    else if (e.shiftKey && e.key.toLowerCase() === 'v' && isMarkdownTab) {
+    else if (e.shiftKey && e.key.toLowerCase() === 'v' && isPreviewableTab) {
       e.preventDefault();
-      handleMarkdownModeChange(markdownViewMode === 'code' ? 'preview' : 'code');
+      handleViewModeChange(viewMode === 'code' ? 'preview' : 'code');
     }
-  }, [handleSave, activeTab, handleCloseTab, isMarkdownTab, markdownViewMode, handleMarkdownModeChange]);
+  }, [handleSave, activeTab, handleCloseTab, isPreviewableTab, viewMode, handleViewModeChange]);
 
   // ── Open tab handler (save view state of current before switch) ──
   const handleOpenTab = useCallback((path: string) => {
@@ -421,52 +421,17 @@ export function EditorPanel({
         onSelectTab={handleOpenTab} onCloseTab={handleCloseTab}
         onCloseOtherTabs={handleCloseOtherTabs} onCloseAllTabs={handleCloseAllTabs}
         onReorderTabs={onReorderTabs}
-        rightSlot={isMarkdownTab ? (
-          <div className="flex h-full items-center overflow-hidden">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Show markdown source"
-                  onClick={() => handleMarkdownModeChange('code')}
-                  className={cn(
-                    'inline-flex size-7 items-center justify-center transition-colors duration-150',
-                    markdownViewMode === 'code'
-                      ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
-                  )}
-                >
-                  <Code2 className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Code</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Show rendered markdown preview"
-                  onClick={() => handleMarkdownModeChange('preview')}
-                  className={cn(
-                    'inline-flex size-7 items-center justify-center transition-colors duration-150',
-                    markdownViewMode === 'preview'
-                      ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
-                  )}
-                >
-                  <Eye className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Preview</TooltipContent>
-            </Tooltip>
-          </div>
+        rightSlot={isPreviewableTab ? (
+          <ViewModeToggle viewMode={viewMode} onModeChange={handleViewModeChange} />
         ) : undefined}
       />
       <div className="flex-1 overflow-hidden min-h-0">
         {activeTab ? (
           isImageTab ? (
             <ImagePreview workspaceId={workspaceId} filePath={activeTab} />
-          ) : isMarkdownPreview ? (
+          ) : isHtmlTab && isPreview ? (
+            <HtmlPreview content={content} filePath={activeTab} />
+          ) : isMarkdownTab && isPreview ? (
             <div className="h-full overflow-auto">
               <div className="mx-auto w-full max-w-[920px] px-6 py-5">
                 <Streamdown

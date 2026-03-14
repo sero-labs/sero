@@ -90,7 +90,7 @@ function buildCSP(): string {
     `media-src ${mediaSrc.join(' ')}`,
     `worker-src ${workerSrc.join(' ')}`,
     `child-src 'self' blob:`,
-    `frame-src 'none'`,
+    `frame-src blob:`,               // Sandboxed HTML preview iframe (HtmlPreview.tsx)
     `object-src 'none'`,
     `base-uri 'self'`,
   ].join('; ');
