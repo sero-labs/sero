@@ -5,6 +5,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@sero/ui/components/ui/popover';
+import { useAgentStore } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import type { SessionUsageStats, ContextUsageInfo } from '@/types/ipc';
 
@@ -28,6 +29,12 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const loadSessions = useSessionStore((s) => s.loadSessions);
 
+  // True once the store has messages for this session — signals the main-process
+  // pool entry exists (open() resolved), so IPC calls will return real data.
+  const sessionLoaded = useAgentStore(
+    (s) => (s.agents[sessionId]?.messages?.length ?? 0) > 0,
+  );
+
   const fetchAll = useCallback(async () => {
     try {
       const [ctx, usg] = await Promise.all([
@@ -41,11 +48,16 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
     }
   }, [sessionId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  // Fetch on mount AND re-fetch when session messages are loaded. The initial
+  // mount fetch may race with pool creation (returns null/zeros); once
+  // sessionLoaded flips to true the pool entry is guaranteed to exist.
+  useEffect(() => { fetchAll(); }, [fetchAll, sessionLoaded]);
 
   useEffect(() => {
     const unsub = window.sero.agent.onEvent((event) => {
-      if (event.sessionId === sessionId && event.type === 'agent_end') {
+      if (event.sessionId !== sessionId) return;
+      // Update on message completion (per-message stats) and turn end
+      if (event.type === 'message_end' || event.type === 'agent_end') {
         setTimeout(fetchAll, 300);
       }
     });
