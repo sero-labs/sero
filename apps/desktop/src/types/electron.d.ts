@@ -55,6 +55,7 @@ import type {
   CollaborationResult,
   CollaborationEvent,
   CollaborationConfig,
+  QrLoginData,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
@@ -470,6 +471,15 @@ interface SeroProfilesAPI {
   listAuthSources(): Promise<ProfileInfo[]>;
 }
 
+interface SeroGatewayAPI {
+  /**
+   * Generate a QR code for device pairing.
+   * Creates a time-limited web token and returns the QR data URL + login URL.
+   * @param expiryDays  Number of days until the token expires (default 7).
+   */
+  getQrLoginData(expiryDays?: number): Promise<QrLoginData>;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -493,6 +503,7 @@ interface SeroAPI {
   themes: SeroThemesAPI;
   net: SeroNetAPI;
   safeStorage: SeroSafeStorageAPI;
+  gateway: SeroGatewayAPI;
   feedback: SeroFeedbackAPI;
   userFeedback: SeroUserFeedbackAPI;
   editor: SeroEditorAPI;

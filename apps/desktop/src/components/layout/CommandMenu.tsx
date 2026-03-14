@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Smartphone } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -12,6 +13,7 @@ import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
 import { ThemePanel } from './ThemePanel';
 import { ThemeEditorSheet } from './ThemeEditorSheet';
+import { ConnectDeviceDialog } from './ConnectDeviceDialog';
 
 /**
  * CommandMenu — ⌘K command palette for quick app switching.
@@ -24,6 +26,7 @@ export function CommandMenu() {
   const [themePanelOpen, setThemePanelOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editPresetId, setEditPresetId] = useState<string | null>(null);
+  const [connectDeviceOpen, setConnectDeviceOpen] = useState(false);
   const apps = useAppStore((s) => s.apps);
   const setActiveApp = useAppStore((s) => s.setActiveApp);
   const toggleMode = useThemeStore((s) => s.toggleMode);
@@ -65,6 +68,11 @@ export function CommandMenu() {
     setEditorOpen(true);
   }, [activePresetId]);
 
+  const handleConnectDevice = useCallback(() => {
+    setOpen(false);
+    setConnectDeviceOpen(true);
+  }, []);
+
   return (
     <>
       <CommandDialog
@@ -92,6 +100,12 @@ export function CommandMenu() {
               );
             })}
           </CommandGroup>
+          <CommandGroup heading="Remote">
+            <CommandItem value="Connect Device" onSelect={handleConnectDevice}>
+              <Smartphone className="size-4 shrink-0" />
+              <span>Connect Device</span>
+            </CommandItem>
+          </CommandGroup>
           <CommandGroup heading="Theme">
             <CommandItem value="Browse Themes" onSelect={handleOpenThemePanel}>
               <span className="size-4 shrink-0 flex items-center justify-center">🎨</span>
@@ -113,6 +127,10 @@ export function CommandMenu() {
         open={editorOpen}
         onOpenChange={setEditorOpen}
         editPresetId={editPresetId}
+      />
+      <ConnectDeviceDialog
+        open={connectDeviceOpen}
+        onOpenChange={setConnectDeviceOpen}
       />
     </>
   );

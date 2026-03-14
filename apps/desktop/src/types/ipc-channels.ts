@@ -421,6 +421,8 @@ export const IpcChannels = {
     listWebTokens: 'sero:gateway:list-web-tokens',
     /** Revoke a specific web token by ID. */
     revokeWebToken: 'sero:gateway:revoke-web-token',
+    /** Generate a QR login URL + data URL for device pairing. */
+    getQrLoginData: 'sero:gateway:get-qr-login-data',
   },
   appControl: {
     /** List all available apps with manifest info. */
