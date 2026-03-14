@@ -7,7 +7,7 @@
 import { useState, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
-import { cn } from '@/lib/cn';
+import { cn } from '@sero/ui/lib/utils';
 import { ChevronDown, ChevronRight, User, Bot, Brain } from 'lucide-react';
 import { ImageLightbox } from './ImageLightbox';
 import type { ChatMessage as ChatMessageType } from '@/stores/chat';

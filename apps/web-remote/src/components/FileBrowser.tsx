@@ -4,7 +4,7 @@
 
 import { useCallback, memo } from 'react';
 import { useFileStore } from '@/stores/files';
-import { cn } from '@/lib/cn';
+import { cn } from '@sero/ui/lib/utils';
 import type { FileEntry } from '@/lib/file-api';
 import {
   ChevronDown,

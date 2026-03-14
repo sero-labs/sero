@@ -1,10 +1,12 @@
 /**
  * Status bar — connection status, workspace info, version.
+ * Hidden on mobile (see Layout.tsx).
  */
 
 import { useConnectionStore } from '@/stores/connection';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { cn } from '@/lib/cn';
+import { cn } from '@sero/ui/lib/utils';
+import { Separator } from '@sero/ui/components/ui/separator';
 import { Circle } from 'lucide-react';
 
 export function StatusBar() {
@@ -30,16 +32,19 @@ export function StatusBar() {
   }[state];
 
   return (
-    <div className="h-7 px-3 bg-card border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+    <div className="h-7 px-3 bg-card border-t border-border flex items-center justify-between text-xs text-muted-foreground shrink-0">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5">
           <Circle className={cn('w-2 h-2 fill-current', statusColor)} />
           {statusText}
         </span>
         {activeWorkspace && (
-          <span className="text-foreground/60">
-            {activeWorkspace.name}
-          </span>
+          <>
+            <Separator orientation="vertical" className="h-3" />
+            <span className="text-foreground/60">
+              {activeWorkspace.name}
+            </span>
+          </>
         )}
       </div>
       <div className="flex items-center gap-3">

@@ -5,7 +5,7 @@
 import { memo } from 'react';
 import { useFileStore } from '@/stores/files';
 import { getLanguageFromPath, isImageFile } from '@/lib/file-api';
-import { cn } from '@/lib/cn';
+import { cn } from '@sero/ui/lib/utils';
 import { X, FileText } from 'lucide-react';
 
 function CodePreview({ content, language }: { content: string; language?: string }) {

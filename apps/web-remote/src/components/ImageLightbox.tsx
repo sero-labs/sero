@@ -4,8 +4,9 @@
  */
 
 import { memo, useCallback } from 'react';
+import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero/ui/components/ui/button';
 import { X } from 'lucide-react';
-import { cn } from '@/lib/cn';
 
 interface ImageLightboxProps {
   src: string;
@@ -44,18 +45,15 @@ export const ImageLightbox = memo(function ImageLightbox({
       role="dialog"
       aria-label="Image preview"
     >
-      <button
+      <Button
         onClick={onClose}
-        className={cn(
-          'absolute top-4 right-4 z-10',
-          'w-8 h-8 rounded-full bg-black/50 text-white',
-          'flex items-center justify-center',
-          'hover:bg-black/70 transition-colors',
-        )}
+        variant="ghost"
+        size="icon"
+        className="absolute top-4 right-4 z-10 text-white hover:bg-white/20"
         aria-label="Close"
       >
-        <X className="w-5 h-5" />
-      </button>
+        <X className="size-5" />
+      </Button>
 
       <img
         src={src}
