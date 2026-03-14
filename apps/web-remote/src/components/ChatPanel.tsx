@@ -1,5 +1,8 @@
 /**
  * Chat panel — message list, streaming state, prompt input with image support.
+ *
+ * Uses Conversation/ConversationContent/ConversationScrollButton from @sero/ui
+ * for automatic stick-to-bottom scrolling (same component the desktop app uses).
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -8,8 +11,15 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useConnectionStore } from '@/stores/connection';
 import { ChatMessageComponent } from './ChatMessage';
 import { ToolCallDisplay } from './ToolCallDisplay';
-import { cn } from '@/lib/cn';
-import { Send, Square, ArrowDown, Paperclip, X } from 'lucide-react';
+import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero/ui/components/ui/button';
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+  ConversationEmptyState,
+} from '@sero/ui/components/ai-elements/conversation';
+import { Send, Square, Paperclip, X, MessageSquare } from 'lucide-react';
 
 interface PendingImage {
   data: string;
@@ -34,11 +44,8 @@ function readFileAsBase64(file: File): Promise<{ data: string; mimeType: string 
 export function ChatPanel() {
   const [input, setInput] = useState('');
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
 
   const messages = useChatStore((s) => s.messages);
   const renderItems = useChatStore((s) => s.renderItems);
@@ -53,17 +60,6 @@ export function ChatPanel() {
   const isConnected = connectionState === 'connected';
   const hasContent = input.trim().length > 0 || pendingImages.length > 0;
   const canSend = isConnected && !!activeWorkspaceId && !isStreaming && hasContent;
-
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
-
-  const handleScroll = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100);
-  }, []);
 
   const addImages = useCallback(async (files: File[]) => {
     const imageFiles = files.filter((f) => f.type.startsWith('image/'));
@@ -105,8 +101,7 @@ export function ChatPanel() {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    setTimeout(scrollToBottom, 50);
-  }, [input, canSend, sendMessage, scrollToBottom, pendingImages]);
+  }, [input, canSend, sendMessage, pendingImages]);
 
   const handleAbort = useCallback(() => {
     if (activeSessionId) {
@@ -147,7 +142,6 @@ export function ChatPanel() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       if (files.length > 0) addImages(files);
-      // Reset the input so the same file can be selected again
       e.target.value = '';
     },
     [addImages],
@@ -160,67 +154,55 @@ export function ChatPanel() {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, []);
 
+  const isEmpty = messages.length === 0 && !isLoadingHistory;
+
   return (
     <div className="flex flex-col h-full">
-      {/* Messages */}
-      <div
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-2"
+      {/* Scrollable conversation — StickToBottom handles auto-scroll */}
+      <Conversation
+        key={activeSessionId ?? '__empty'}
+        className="min-h-0 flex-1"
+        initial="instant"
       >
-        {messages.length === 0 && !isLoadingHistory && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-muted-foreground">
-              <p className="text-lg font-medium">Sero Remote</p>
-              <p className="text-sm mt-1">
-                Send a message to start a conversation
-              </p>
-            </div>
-          </div>
-        )}
+        <ConversationContent className="gap-2 px-4 py-2">
+          {isEmpty && (
+            <ConversationEmptyState
+              icon={<MessageSquare className="size-8" />}
+              title="Sero Remote"
+              description="Send a message to start a conversation"
+            />
+          )}
 
-        {isLoadingHistory && messages.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-muted-foreground">
-              <p className="text-sm">Loading conversation...</p>
-            </div>
-          </div>
-        )}
+          {isLoadingHistory && messages.length === 0 && (
+            <ConversationEmptyState
+              title="Loading conversation..."
+              description=""
+            />
+          )}
 
-        {renderItems.map((item) => {
-          if (item.type === 'message') {
+          {renderItems.map((item) => {
+            if (item.type === 'message') {
+              return (
+                <ChatMessageComponent
+                  key={item.message.id}
+                  message={item.message}
+                />
+              );
+            }
             return (
-              <ChatMessageComponent
-                key={item.message.id}
-                message={item.message}
+              <ToolCallDisplay
+                key={item.group.id}
+                toolCalls={item.group.toolCalls}
               />
             );
-          }
-          return (
-            <ToolCallDisplay
-              key={item.group.id}
-              toolCalls={item.group.toolCalls}
-            />
-          );
-        })}
+          })}
+        </ConversationContent>
 
-        <div ref={messagesEndRef} />
-      </div>
+        <ConversationScrollButton />
+      </Conversation>
 
-      {/* Scroll-to-bottom button */}
-      {showScrollButton && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2">
-          <button
-            onClick={scrollToBottom}
-            className="bg-card border border-border rounded-full p-2 shadow-lg hover:bg-accent transition-colors"
-          >
-            <ArrowDown className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Input area */}
-      <div className="px-4 py-3 border-t border-border bg-card">
+      {/* Input area — pinned below the conversation */}
+      <div className="shrink-0 px-4 py-3 border-t border-border bg-card">
         {/* Pending image thumbnails */}
         {pendingImages.length > 0 && (
           <div className="flex gap-2 mb-2 flex-wrap">
@@ -235,7 +217,7 @@ export function ChatPanel() {
                   onClick={() => removeImage(i)}
                   className={cn(
                     'absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full',
-                    'bg-destructive text-destructive-foreground',
+                    'bg-destructive text-white',
                     'flex items-center justify-center',
                     'opacity-0 group-hover:opacity-100 transition-opacity',
                   )}
@@ -259,18 +241,15 @@ export function ChatPanel() {
           />
 
           {/* Attach button */}
-          <button
+          <Button
             onClick={() => fileInputRef.current?.click()}
             disabled={!isConnected}
-            className={cn(
-              'shrink-0 rounded-lg p-2.5',
-              'text-muted-foreground hover:text-foreground transition-colors',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-            )}
+            variant="ghost"
+            size="icon"
             title="Attach image"
           >
-            <Paperclip className="w-4 h-4" />
-          </button>
+            <Paperclip className="size-4" />
+          </Button>
 
           <textarea
             ref={textareaRef}
@@ -284,7 +263,7 @@ export function ChatPanel() {
                 ? 'Not connected...'
                 : !activeWorkspaceId
                   ? 'Select a workspace first...'
-                  : 'Send a message... (paste images with ⌘V)'
+                  : 'Send a message...'
             }
             disabled={!isConnected}
             rows={1}
@@ -299,31 +278,23 @@ export function ChatPanel() {
           />
 
           {isStreaming ? (
-            <button
+            <Button
               onClick={handleAbort}
-              className={cn(
-                'shrink-0 rounded-lg p-2.5',
-                'bg-destructive text-destructive-foreground',
-                'hover:bg-destructive/90 transition-colors',
-              )}
+              variant="destructive"
+              size="icon"
               title="Stop generation"
             >
-              <Square className="w-4 h-4" />
-            </button>
+              <Square className="size-4" />
+            </Button>
           ) : (
-            <button
+            <Button
               onClick={handleSend}
               disabled={!canSend}
-              className={cn(
-                'shrink-0 rounded-lg p-2.5',
-                'bg-primary text-primary-foreground',
-                'hover:bg-primary/90 transition-colors',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-              )}
+              size="icon"
               title="Send message"
             >
-              <Send className="w-4 h-4" />
-            </button>
+              <Send className="size-4" />
+            </Button>
           )}
         </div>
       </div>

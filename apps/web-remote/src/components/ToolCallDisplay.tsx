@@ -4,10 +4,16 @@
  */
 
 import { useState, memo } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '@sero/ui/lib/utils';
+import { Badge } from '@sero/ui/components/ui/badge';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@sero/ui/components/ui/collapsible';
 import type { ToolCall } from '@/stores/chat';
 import { ImageLightbox } from './ImageLightbox';
-import { ChevronDown, ChevronRight, Loader2, Check, X, Wrench } from 'lucide-react';
+import { ChevronDown, Loader2, Check, X, Wrench } from 'lucide-react';
 
 interface ToolCallDisplayProps {
   toolCalls: ToolCall[];
@@ -16,67 +22,63 @@ interface ToolCallDisplayProps {
 const MAX_OUTPUT_PREVIEW = 300;
 
 const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
-  const [expanded, setExpanded] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const statusIcon = {
-    running: <Loader2 className="w-3.5 h-3.5 animate-spin text-yellow-500" />,
-    done: <Check className="w-3.5 h-3.5 text-green-500" />,
-    error: <X className="w-3.5 h-3.5 text-destructive" />,
+    running: <Loader2 className="size-3.5 animate-spin text-yellow-500" />,
+    done: <Check className="size-3.5 text-green-500" />,
+    error: <X className="size-3.5 text-destructive" />,
   }[tc.state];
 
   const hasOutput = (tc.output && tc.output.length > 0) || (tc.images && tc.images.length > 0);
   const hasImages = tc.images && tc.images.length > 0;
 
   return (
-    <div className="border-l-2 border-muted pl-3 py-1">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-left"
-      >
-        {hasOutput ? (
-          expanded ? (
-            <ChevronDown className="w-3 h-3 shrink-0" />
+    <Collapsible>
+      <div className="border-l-2 border-muted pl-3 py-1">
+        <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-left">
+          {hasOutput ? (
+            <ChevronDown className="size-3 shrink-0 transition-transform group-data-[state=closed]:-rotate-90" />
           ) : (
-            <ChevronRight className="w-3 h-3 shrink-0" />
-          )
-        ) : (
-          <span className="w-3 h-3 shrink-0" />
+            <span className="size-3 shrink-0" />
+          )}
+          {statusIcon}
+          <Wrench className="size-3 shrink-0" />
+          <span className="font-mono truncate">{tc.toolName}</span>
+        </CollapsibleTrigger>
+
+        {/* Tool result images — always visible, click to open lightbox */}
+        {hasImages && (
+          <div className="mt-1 ml-6 flex flex-wrap gap-2">
+            {tc.images!.map((img, i) => {
+              const src = `data:${img.mimeType};base64,${img.data}`;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setLightboxSrc(src)}
+                  className="cursor-zoom-in"
+                >
+                  <img
+                    src={src}
+                    alt={img.description ?? `Tool result ${i + 1}`}
+                    className="max-w-[300px] max-h-[200px] rounded-md border border-border object-contain hover:border-ring transition-colors"
+                  />
+                </button>
+              );
+            })}
+          </div>
         )}
-        {statusIcon}
-        <Wrench className="w-3 h-3 shrink-0" />
-        <span className="font-mono truncate">{tc.toolName}</span>
-      </button>
 
-      {/* Tool result images — always visible, click to open lightbox */}
-      {hasImages && (
-        <div className="mt-1 ml-6 flex flex-wrap gap-2">
-          {tc.images!.map((img, i) => {
-            const src = `data:${img.mimeType};base64,${img.data}`;
-            return (
-              <button
-                key={i}
-                onClick={() => setLightboxSrc(src)}
-                className="cursor-zoom-in"
-              >
-                <img
-                  src={src}
-                  alt={img.description ?? `Tool result ${i + 1}`}
-                  className="max-w-[300px] max-h-[200px] rounded-md border border-border object-contain hover:border-primary/50 transition-colors"
-                />
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {expanded && tc.output && tc.output.length > 0 && (
-        <pre className="mt-1 ml-6 text-xs text-muted-foreground bg-background rounded p-2 overflow-x-auto whitespace-pre-wrap max-h-[200px] overflow-y-auto">
-          {tc.output.length > MAX_OUTPUT_PREVIEW
-            ? tc.output.slice(0, MAX_OUTPUT_PREVIEW) + '...'
-            : tc.output}
-        </pre>
-      )}
+        <CollapsibleContent>
+          {tc.output && tc.output.length > 0 && (
+            <pre className="mt-1 ml-6 text-xs text-muted-foreground bg-background rounded p-2 overflow-x-auto whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+              {tc.output.length > MAX_OUTPUT_PREVIEW
+                ? tc.output.slice(0, MAX_OUTPUT_PREVIEW) + '...'
+                : tc.output}
+            </pre>
+          )}
+        </CollapsibleContent>
+      </div>
 
       {lightboxSrc && (
         <ImageLightbox
@@ -85,7 +87,7 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
           onClose={() => setLightboxSrc(null)}
         />
       )}
-    </div>
+    </Collapsible>
   );
 });
 
@@ -98,16 +100,22 @@ export const ToolCallDisplay = memo(function ToolCallDisplay({
   const done = toolCalls.filter((tc) => tc.state === 'done').length;
   const errors = toolCalls.filter((tc) => tc.state === 'error').length;
 
+  const summary = running > 0
+    ? `${running} running`
+    : errors > 0
+      ? `${errors} failed`
+      : `${done} complete`;
+
   return (
-    <div className={cn('bg-card border border-border rounded-lg p-2 my-1')}>
+    <div className="bg-card border border-border rounded-lg p-2 my-1">
       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5 px-1">
-        <Wrench className="w-3.5 h-3.5" />
+        <Wrench className="size-3.5" />
         <span>
           {toolCalls.length} tool call{toolCalls.length > 1 ? 's' : ''}
-          {running > 0 && ` (${running} running)`}
-          {errors > 0 && ` (${errors} failed)`}
-          {running === 0 && errors === 0 && ` (${done} complete)`}
         </span>
+        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+          {summary}
+        </Badge>
       </div>
 
       <div className="space-y-0.5">
