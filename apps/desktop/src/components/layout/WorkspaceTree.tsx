@@ -63,7 +63,7 @@ export function WorkspaceTree() {
   // Escape key clears multi-select
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && hasSelection) {
+      if (e.key === 'Escape' && hasSelection && !e.defaultPrevented) {
         clearSelection();
       }
     };
@@ -246,7 +246,7 @@ function WorkspaceNode({
 
   const handleBulkDelete = async () => {
     setConfirmBulkDelete(false);
-    await deleteSelectedSessions();
+    await deleteSelectedSessions(workspace.id);
   };
 
   return (

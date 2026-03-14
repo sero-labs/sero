@@ -28,8 +28,8 @@ interface SessionsState {
   /** Create a session bound to a workspace. Defaults to global. */
   createSession: (workspaceId?: string) => Promise<SeroSessionInfo>;
   deleteSession: (sessionPath: string) => Promise<void>;
-  /** Bulk-delete all selected sessions. Returns count of deleted sessions. */
-  deleteSelectedSessions: () => Promise<number>;
+  /** Bulk-delete selected sessions in a workspace. Returns count of deleted sessions. */
+  deleteSelectedSessions: (workspaceId: string) => Promise<number>;
   setActiveSession: (id: string | null) => void;
   setSearchQuery: (q: string) => void;
   /** Update a session's display name in-memory (e.g., from agent title generation). */
@@ -180,26 +180,49 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
     set({ selectedSessionIds: new Set<string>(), lastClickedSessionId: null });
   },
 
-  deleteSelectedSessions: async () => {
+  deleteSelectedSessions: async (workspaceId) => {
     const { selectedSessionIds, sessions, activeSessionId } = get();
     if (selectedSessionIds.size === 0) return 0;
 
-    // Delete all selected sessions via IPC
-    const toDelete = sessions.filter((s) => selectedSessionIds.has(s.id));
-    await Promise.all(toDelete.map((s) => window.sero.sessions.delete(s.path)));
+    // Only delete selected sessions that belong to the target workspace
+    const toDelete = sessions.filter(
+      (s) => selectedSessionIds.has(s.id) && s.workspaceId === workspaceId,
+    );
+    if (toDelete.length === 0) return 0;
 
-    const remaining = sessions.filter((s) => !selectedSessionIds.has(s.id));
-    const clearActive = activeSessionId && selectedSessionIds.has(activeSessionId);
+    // Use allSettled so partial failures don't leave inconsistent state
+    const results = await Promise.allSettled(
+      toDelete.map((s) => window.sero.sessions.delete(s.path)),
+    );
+
+    const deletedIds = new Set<string>();
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].status === 'fulfilled') {
+        deletedIds.add(toDelete[i].id);
+      } else {
+        console.error('[sessions] failed to delete session:', toDelete[i].id, results[i]);
+      }
+    }
+
+    if (deletedIds.size === 0) return 0;
+
+    const remaining = sessions.filter((s) => !deletedIds.has(s.id));
+    const clearActive = activeSessionId != null && deletedIds.has(activeSessionId);
     if (clearActive) persistLayout({ activeSessionId: null });
+
+    // Remove deleted IDs from selection; keep selections in other workspaces
+    const nextSelected = new Set(selectedSessionIds);
+    for (const id of deletedIds) nextSelected.delete(id);
 
     set({
       sessions: remaining,
       activeSessionId: clearActive ? null : activeSessionId,
-      selectedSessionIds: new Set<string>(),
-      lastClickedSessionId: null,
+      selectedSessionIds: nextSelected,
+      lastClickedSessionId:
+        nextSelected.size === 0 ? null : get().lastClickedSessionId,
     });
 
-    return toDelete.length;
+    return deletedIds.size;
   },
 }));
 
