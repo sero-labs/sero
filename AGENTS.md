@@ -338,3 +338,9 @@ project owner. Do not introduce them under any circumstances.
 - When reviewing a PR, always make sure there's good type safety
 - Don't delete comments unless they are obvious or no longer relevant - they offer important context unfamiliar users
 - **Prefer `useDebouncedCallback` / `createDebouncedFn`** from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns. When you encounter an existing hand-rolled debounce, refactor it to use these helpers.
+- **HTML files can be previewed in-app.** The editor supports rendering
+  `.html` and `.htm` files in a sandboxed iframe preview (same code/preview
+  toggle as markdown). When you generate or reference an HTML file, open it
+  in the Sero editor rather than suggesting the user open it in an external
+  browser. The preview handles self-contained HTML (inline CSS/JS, data:
+  images) — relative asset paths won't resolve.
