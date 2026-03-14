@@ -50,7 +50,7 @@
     "@vitejs/plugin-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "streamdown": "catalog:",
+    "streamdown": "^2.4.0",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"

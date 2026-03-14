@@ -38,7 +38,7 @@ catalog:
   "@sinclair/typebox": "^0.34.48"
   lucide-react: "^0.563.0"
   motion: "^12.34.0"
-  streamdown: "^2.2.0"
+  streamdown: "^2.4.0"
   vitest: "^4.0.18"
 
 # ── Named catalogs ─────────────────────────────────────────────

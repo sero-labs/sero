@@ -96,10 +96,12 @@ function advance(ctx: ParseCtx): Token { return ctx.tokens[ctx.pos++]; }
 /** expr = term (('+' | '-') term)* */
 function parseExpr(ctx: ParseCtx): number {
   let left = parseTerm(ctx);
-  while (peek(ctx)?.type === 'op' && (peek(ctx)!.value === '+' || peek(ctx)!.value === '-')) {
-    const op = advance(ctx).value;
+  while (true) {
+    const t = peek(ctx);
+    if (t?.type !== 'op' || (t.value !== '+' && t.value !== '-')) break;
+    advance(ctx);
     const right = parseTerm(ctx);
-    left = op === '+' ? left + right : left - right;
+    left = t.value === '+' ? left + right : left - right;
   }
   return left;
 }
@@ -107,17 +109,20 @@ function parseExpr(ctx: ParseCtx): number {
 /** term = unary (('*' | '/') unary)* */
 function parseTerm(ctx: ParseCtx): number {
   let left = parseUnary(ctx);
-  while (peek(ctx)?.type === 'op' && (peek(ctx)!.value === '*' || peek(ctx)!.value === '/')) {
-    const op = advance(ctx).value;
+  while (true) {
+    const t = peek(ctx);
+    if (t?.type !== 'op' || (t.value !== '*' && t.value !== '/')) break;
+    advance(ctx);
     const right = parseUnary(ctx);
-    left = op === '*' ? left * right : left / right;
+    left = t.value === '*' ? left * right : left / right;
   }
   return left;
 }
 
 /** unary = '-' unary | factor */
 function parseUnary(ctx: ParseCtx): number {
-  if (peek(ctx)?.type === 'op' && peek(ctx)!.value === '-') {
+  const t = peek(ctx);
+  if (t?.type === 'op' && t.value === '-') {
     advance(ctx);
     return -parseUnary(ctx);
   }

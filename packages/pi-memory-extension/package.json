@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@sinclair/typebox": "catalog:",
-    "@tobilu/qmd": "^2.0.0"
+    "@tobilu/qmd": "^2.0.1"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "catalog:peer",
