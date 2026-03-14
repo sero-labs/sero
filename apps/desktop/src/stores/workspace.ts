@@ -21,6 +21,8 @@ interface WorkspaceState {
   workspaces: WorkspaceInfo[];
   /** Currently focused workspace (drives sidebar highlight, status bar). */
   activeWorkspaceId: string | null;
+  /** True once the initial workspace list has been loaded from disk. */
+  workspacesReady: boolean;
   /** Loading state. */
   isLoading: boolean;
   /** Last error message. */
@@ -57,6 +59,7 @@ interface WorkspaceState {
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],
   activeWorkspaceId: null,
+  workspacesReady: false,
   isLoading: false,
   error: null,
 
@@ -69,11 +72,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         workspaces,
         activeWorkspaceId: get().activeWorkspaceId ?? 'global',
         isLoading: false,
+        workspacesReady: true,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load workspaces';
       console.error('[workspace] loadWorkspaces failed:', err);
-      set({ error: message, isLoading: false });
+      set({ error: message, isLoading: false, workspacesReady: true });
     }
   },
 
@@ -214,6 +218,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }));
   },
 }));
+
+// ── Startup helper ─────────────────────────────────────────────
+
+/**
+ * Load the workspace list from the main process.
+ * Called once from App.tsx during startup — ensures workspaces are ready
+ * before the UI renders (prevents "No workspace selected" flash).
+ */
+export async function loadWorkspaces(): Promise<void> {
+  return useWorkspaceStore.getState().loadWorkspaces();
+}
 
 // ── Selectors ──────────────────────────────────────────────────
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { SeroAppManifest } from '@/types/ipc';
 import { persistLayout } from '@/lib/persist-layout';
+import { preloadFederatedModule } from '@/lib/federation-registry';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useThemeStore, hydrateThemeStore } from '@/stores/theme';
@@ -266,10 +267,28 @@ export async function discoverAndRegisterApps(): Promise<void> {
   try {
     const manifests = await window.sero.apps.discover();
     const discovered = manifests.map(manifestToEntry);
-    useAppStore.setState({
-      apps: [...BUILTIN_APPS, ...discovered],
-      appsReady: true,
-    });
+
+    // Register app entries immediately (needed for sidebar rendering)
+    useAppStore.setState({ apps: [...BUILTIN_APPS, ...discovered] });
+
+    // Eagerly preload all federated UI modules BEFORE setting appsReady.
+    // This keeps the loading screen up while modules resolve, so the first
+    // render of any app has its component already cached — no Suspense flash.
+    const appsWithUI = manifests.filter((m) => m.component);
+    if (appsWithUI.length > 0) {
+      const PRELOAD_TIMEOUT_MS = 8000;
+      const preloads = appsWithUI.map((m) =>
+        preloadFederatedModule(m.id, m.component!, m.devPort),
+      );
+
+      // Wait for all preloads, but don't block forever if a remote is down
+      await Promise.race([
+        Promise.allSettled(preloads),
+        new Promise<void>((resolve) => setTimeout(resolve, PRELOAD_TIMEOUT_MS)),
+      ]);
+    }
+
+    useAppStore.setState({ appsReady: true });
   } catch (err) {
     console.error('[app-store] Failed to discover apps:', err);
     useAppStore.setState({ appsReady: true });
