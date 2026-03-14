@@ -17,23 +17,136 @@ export function toMathExpr(expr: string): string {
   return expr.replace(/×/g, '*').replace(/÷/g, '/');
 }
 
-/** Safe math evaluation — returns result string or throws */
+/**
+ * Safe math evaluation — recursive descent parser.
+ *
+ * Avoids `new Function()` / `eval()` which are blocked by
+ * Electron's Content Security Policy in the renderer process.
+ *
+ * Grammar:
+ *   expr   = term (('+' | '-') term)*
+ *   term   = unary (('*' | '/') unary)*
+ *   unary  = '-' unary | factor
+ *   factor = '(' expr ')' '%'? | number '%'?
+ *   number = [0-9]+ ('.' [0-9]+)?
+ */
 export function evaluate(expression: string): string {
   const jsExpr = toMathExpr(expression);
-  const sanitised = jsExpr.replace(/\s/g, '');
+  const tokens = tokenise(jsExpr);
+  const ctx: ParseCtx = { tokens, pos: 0 };
+  const result = parseExpr(ctx);
 
-  if (!/^[\d+\-*/().%]+$/.test(sanitised)) {
+  if (ctx.pos < ctx.tokens.length) {
     throw new Error('Invalid expression');
   }
-
-  const fn = new Function(`"use strict"; return (${sanitised});`);
-  const result = fn() as number;
-
   if (!Number.isFinite(result)) {
     throw new Error('Error');
   }
 
   return formatResult(result);
+}
+
+// ── Tokeniser ────────────────────────────────────────────────
+
+type Token =
+  | { type: 'number'; value: number }
+  | { type: 'op'; value: string }
+  | { type: 'paren'; value: '(' | ')' }
+  | { type: 'percent' };
+
+function tokenise(expr: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+  const src = expr.replace(/\s/g, '');
+
+  while (i < src.length) {
+    const ch = src[i];
+
+    // Number (including decimals)
+    if (ch >= '0' && ch <= '9' || ch === '.') {
+      let num = '';
+      while (i < src.length && (src[i] >= '0' && src[i] <= '9' || src[i] === '.')) {
+        num += src[i++];
+      }
+      tokens.push({ type: 'number', value: parseFloat(num) });
+      continue;
+    }
+
+    if (ch === '(') { tokens.push({ type: 'paren', value: '(' }); i++; continue; }
+    if (ch === ')') { tokens.push({ type: 'paren', value: ')' }); i++; continue; }
+    if (ch === '%') { tokens.push({ type: 'percent' }); i++; continue; }
+
+    if (ch === '+' || ch === '-' || ch === '*' || ch === '/') {
+      tokens.push({ type: 'op', value: ch }); i++; continue;
+    }
+
+    throw new Error('Invalid expression');
+  }
+
+  return tokens;
+}
+
+// ── Recursive descent parser ─────────────────────────────────
+
+interface ParseCtx { tokens: Token[]; pos: number; }
+
+function peek(ctx: ParseCtx): Token | undefined { return ctx.tokens[ctx.pos]; }
+function advance(ctx: ParseCtx): Token { return ctx.tokens[ctx.pos++]; }
+
+/** expr = term (('+' | '-') term)* */
+function parseExpr(ctx: ParseCtx): number {
+  let left = parseTerm(ctx);
+  while (peek(ctx)?.type === 'op' && (peek(ctx)!.value === '+' || peek(ctx)!.value === '-')) {
+    const op = advance(ctx).value;
+    const right = parseTerm(ctx);
+    left = op === '+' ? left + right : left - right;
+  }
+  return left;
+}
+
+/** term = unary (('*' | '/') unary)* */
+function parseTerm(ctx: ParseCtx): number {
+  let left = parseUnary(ctx);
+  while (peek(ctx)?.type === 'op' && (peek(ctx)!.value === '*' || peek(ctx)!.value === '/')) {
+    const op = advance(ctx).value;
+    const right = parseUnary(ctx);
+    left = op === '*' ? left * right : left / right;
+  }
+  return left;
+}
+
+/** unary = '-' unary | factor */
+function parseUnary(ctx: ParseCtx): number {
+  if (peek(ctx)?.type === 'op' && peek(ctx)!.value === '-') {
+    advance(ctx);
+    return -parseUnary(ctx);
+  }
+  return parseFactor(ctx);
+}
+
+/** factor = '(' expr ')' '%'? | number '%'? */
+function parseFactor(ctx: ParseCtx): number {
+  const tok = peek(ctx);
+
+  if (tok?.type === 'paren' && tok.value === '(') {
+    advance(ctx); // consume '('
+    const val = parseExpr(ctx);
+    const closing = advance(ctx);
+    if (closing?.type !== 'paren' || closing.value !== ')') {
+      throw new Error('Invalid expression');
+    }
+    if (peek(ctx)?.type === 'percent') { advance(ctx); return val / 100; }
+    return val;
+  }
+
+  if (tok?.type === 'number') {
+    advance(ctx);
+    let val = (tok as { type: 'number'; value: number }).value;
+    if (peek(ctx)?.type === 'percent') { advance(ctx); val /= 100; }
+    return val;
+  }
+
+  throw new Error('Invalid expression');
 }
 
 /** Format a number for display */

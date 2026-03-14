@@ -27,26 +27,26 @@
     }
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.48"
+    "@sinclair/typebox": "catalog:"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": ">=0.55.3",
-    "@mariozechner/pi-coding-agent": ">=0.55.3",
-    "@mariozechner/pi-tui": ">=0.55.3"
+    "@mariozechner/pi-ai": "catalog:peer",
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "@mariozechner/pi-tui": "catalog:peer"
   },
   "devDependencies": {
-    "@module-federation/vite": "^1.11.0",
+    "@module-federation/vite": "catalog:",
     "@sero/app-runtime": "workspace:*",
-    "@tailwindcss/vite": "^4.1.18",
-    "@types/node": "^22.19.11",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.7.0",
-    "motion": "^12.34.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3",
-    "vite": "^6.4.1"
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
   }
 }

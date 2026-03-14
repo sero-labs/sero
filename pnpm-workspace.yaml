@@ -6,3 +6,48 @@ onlyBuiltDependencies:
   - electron
   - esbuild
   - node-pty
+
+# ── Default catalog ────────────────────────────────────────────
+# Single source of truth for shared dependency versions.
+# Use "catalog:" in any package.json to reference these.
+catalog:
+  # React
+  react: "^19.2.4"
+  react-dom: "^19.2.4"
+
+  # Build tooling
+  tailwindcss: "^4.1.18"
+  "@tailwindcss/vite": "^4.1.18"
+  typescript: "^5.9.3"
+  vite: "^6.4.1"
+  "@vitejs/plugin-react": "^4.7.0"
+  "@module-federation/vite": "^1.11.0"
+
+  # Types
+  "@types/react": "^19.2.13"
+  "@types/react-dom": "^19.2.3"
+  "@types/node": "^22.19.11"
+
+  # Pi SDK
+  "@mariozechner/pi-agent-core": "^0.55.3"
+  "@mariozechner/pi-ai": "^0.55.3"
+  "@mariozechner/pi-coding-agent": "^0.55.3"
+  "@mariozechner/pi-tui": "^0.55.3"
+
+  # Shared libraries
+  "@sinclair/typebox": "^0.34.48"
+  lucide-react: "^0.563.0"
+  motion: "^12.34.0"
+  streamdown: "^2.2.0"
+  vitest: "^4.0.18"
+
+# ── Named catalogs ─────────────────────────────────────────────
+# Use "catalog:peer" in peerDependencies.
+catalogs:
+  peer:
+    "@mariozechner/pi-agent-core": ">=0.55.3"
+    "@mariozechner/pi-ai": ">=0.55.3"
+    "@mariozechner/pi-coding-agent": ">=0.55.3"
+    "@mariozechner/pi-tui": ">=0.55.3"
+    react: ">=19.0.0"
+    react-dom: ">=19.0.0"

@@ -14,16 +14,16 @@
     ]
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.48",
+    "@sinclair/typebox": "catalog:",
     "@tobilu/qmd": "^2.0.0"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": ">=0.55.3",
-    "@mariozechner/pi-coding-agent": ">=0.55.3",
-    "@mariozechner/pi-tui": ">=0.55.3"
+    "@mariozechner/pi-ai": "catalog:peer",
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "@mariozechner/pi-tui": "catalog:peer"
   },
   "devDependencies": {
-    "@types/node": "^22.19.11",
-    "typescript": "^5.9.3"
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }
