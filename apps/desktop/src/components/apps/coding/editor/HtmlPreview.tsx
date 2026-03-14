@@ -12,7 +12,7 @@
  * is fine for self-contained HTML files (inline CSS/JS, data: images).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FileCode2, Loader2 } from 'lucide-react';
 
 const HTML_EXTENSIONS = new Set(['html', 'htm']);
@@ -30,16 +30,10 @@ interface Props {
 
 export function HtmlPreview({ content, filePath }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
 
   // Create / recreate blob URL whenever content changes, and revoke the
   // previous one to avoid memory leaks.
   useEffect(() => {
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
-
     if (!content) {
       setBlobUrl(null);
       return;
@@ -47,14 +41,10 @@ export function HtmlPreview({ content, filePath }: Props) {
 
     const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    blobUrlRef.current = url;
     setBlobUrl(url);
 
     return () => {
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = null;
-      }
+      URL.revokeObjectURL(url);
     };
   }, [content]);
 
@@ -83,6 +73,7 @@ export function HtmlPreview({ content, filePath }: Props) {
       <iframe
         src={blobUrl}
         sandbox="allow-scripts"
+        referrerPolicy="no-referrer"
         title={`Preview: ${fileName}`}
         className="flex-1 w-full border-0"
       />

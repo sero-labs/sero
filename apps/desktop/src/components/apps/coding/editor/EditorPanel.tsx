@@ -9,18 +9,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor as monacoEditor, IRange, IPosition } from 'monaco-editor';
-import { Code2, Eye } from 'lucide-react';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { ImagePreview, isImageFile } from './ImagePreview';
 import { HtmlPreview, isHtmlFile } from './HtmlPreview';
+import { ViewModeToggle, type ViewMode } from './ViewModeToggle';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
 import { math } from '@streamdown/math';
 import { mermaid } from '@streamdown/mermaid';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
-import { cn } from '@sero/ui/lib/utils';
+
 
 interface Props {
   workspaceId: string;
@@ -68,8 +67,6 @@ function getLanguage(filePath: string): string {
 export function EditorPanel({
   workspaceId, tabs, activeTab, onOpenTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, onReorderTabs, onTabsChange,
 }: Props) {
-  type ViewMode = 'code' | 'preview';
-
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
   const [content, setContent] = useState('');
   const [language, setLanguage] = useState('typescript');
@@ -425,44 +422,7 @@ export function EditorPanel({
         onCloseOtherTabs={handleCloseOtherTabs} onCloseAllTabs={handleCloseAllTabs}
         onReorderTabs={onReorderTabs}
         rightSlot={isPreviewableTab ? (
-          <div className="flex h-full items-center overflow-hidden">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Show source code"
-                  onClick={() => handleViewModeChange('code')}
-                  className={cn(
-                    'inline-flex size-7 items-center justify-center transition-colors duration-150',
-                    viewMode === 'code'
-                      ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
-                  )}
-                >
-                  <Code2 className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Code</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Show rendered preview"
-                  onClick={() => handleViewModeChange('preview')}
-                  className={cn(
-                    'inline-flex size-7 items-center justify-center transition-colors duration-150',
-                    viewMode === 'preview'
-                      ? 'bg-[var(--status-success-subtle)] text-[var(--status-success)]'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/80 hover:text-[var(--text-secondary)]',
-                  )}
-                >
-                  <Eye className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Preview</TooltipContent>
-            </Tooltip>
-          </div>
+          <ViewModeToggle viewMode={viewMode} onModeChange={handleViewModeChange} />
         ) : undefined}
       />
       <div className="flex-1 overflow-hidden min-h-0">
