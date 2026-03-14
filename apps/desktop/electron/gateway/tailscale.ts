@@ -42,7 +42,7 @@ export class TailscaleIntegration {
   }
 
   /** Check Tailscale status. */
-  async getStatus(gatewayPort?: number): Promise<TailscaleStatus> {
+  async getStatus(): Promise<TailscaleStatus> {
     const bin = await this.findBinary();
     if (!bin) {
       return { installed: false, running: false };
@@ -68,10 +68,9 @@ export class TailscaleIntegration {
         running: true,
         hostname,
         tailnetIp,
-        gatewayUrl:
-          dnsName && gatewayPort
-            ? `https://${dnsName}:${gatewayPort}`
-            : undefined,
+        // `tailscale serve` proxies the local port onto standard HTTPS (443),
+        // so the tailnet URL never includes a port number.
+        gatewayUrl: dnsName ? `https://${dnsName}` : undefined,
       };
     } catch {
       return { installed: true, running: false };
@@ -95,8 +94,8 @@ export class TailscaleIntegration {
 
     try {
       // `tailscale serve --bg <port>` exposes http://127.0.0.1:<port>
-      // on the tailnet at https://<hostname>:<port>. Traffic is
-      // automatically TLS-terminated by Tailscale.
+      // on the tailnet at https://<hostname> (standard HTTPS, port 443).
+      // Traffic is automatically TLS-terminated by Tailscale.
       await execFileAsync(
         bin,
         ['serve', '--bg', String(port)],
@@ -104,7 +103,7 @@ export class TailscaleIntegration {
       );
       this.servingPort = port;
 
-      const status = await this.getStatus(port);
+      const status = await this.getStatus();
       console.log(
         `[tailscale] Serving port ${port} on tailnet: ${status.gatewayUrl}`,
       );

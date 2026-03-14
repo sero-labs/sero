@@ -4,8 +4,10 @@
 
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
+import type { QrLoginData } from '../../src/types/ipc';
 import { gatewayServer, tailscale, webChatServer } from './shared-infra';
 import { getGatewayAgentOps, setGatewayEventSink, setGatewayCostTracker } from '../gateway/agent-bridge';
+import { generateQrDataUrl } from '../gateway/qr-encode';
 import { DiscordAdapter } from '../gateway/channels/discord';
 
 export interface GatewayConfig {
@@ -42,7 +44,7 @@ export function registerGatewayHandlers(): void {
   seedConfigFromEnv();
   ipcMain.handle(IpcChannels.gateway.getStatus, async () => {
     const status = gatewayServer.getStatus();
-    const tsStatus = await tailscale.getStatus(status.port);
+    const tsStatus = await tailscale.getStatus();
     return {
       ...status,
       tailscale: tsStatus,
@@ -96,6 +98,38 @@ export function registerGatewayHandlers(): void {
     async (_event, tokenId: string) => {
       const auth = gatewayServer.getAuth();
       return auth.webTokens.revoke(tokenId);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.gateway.getQrLoginData,
+    async (_event, expiryDays?: number): Promise<QrLoginData> => {
+      // Clamp expiry to 1–30 days to prevent bogus values from the renderer.
+      const days = Math.max(1, Math.min(expiryDays ?? 7, 30));
+      const auth = gatewayServer.getAuth();
+      const webToken = auth.webTokens.create(
+        `QR login ${new Date().toLocaleDateString()}`,
+        days,
+      );
+
+      // Determine the best base URL for the login link.
+      // Prefer the Tailscale URL (reachable from other devices on the tailnet),
+      // fall back to localhost (same-machine development).
+      const status = gatewayServer.getStatus();
+      const tsStatus = await tailscale.getStatus();
+      const baseUrl = tsStatus.gatewayUrl ?? `http://127.0.0.1:${status.port}`;
+
+      const loginUrl = new URL('/', baseUrl);
+      loginUrl.searchParams.set('token', webToken.token);
+      const loginUrlStr = loginUrl.toString();
+      const qrDataUrl = await generateQrDataUrl(loginUrlStr);
+
+      return {
+        qrDataUrl,
+        loginUrl: loginUrlStr,
+        expiresAt: webToken.expiresAt,
+        expiryDays: days,
+      };
     },
   );
 }

@@ -20,7 +20,6 @@ import {
   type GatewayPushEvent,
 } from './protocol';
 import type { GatewayConfig, GatewayAgentOps } from './types';
-import { buildQrPage } from './qr-page';
 
 // Re-export types so existing importers don't break
 export type { GatewayConfig, GatewayAgentOps, GatewayFileEntry, GatewayFileContent } from './types';
@@ -136,29 +135,9 @@ export class GatewayServer {
       // ── Server-side routes (must come BEFORE the SPA static fallback,
       //    which serves index.html for any extensionless path) ──────────
 
-      // QR code login page — creates a web token and shows a QR code.
-      // Protected by master token in query param: /qr?master=<token>
-      if (pathname === '/qr') {
-        const query = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
-        const masterToken = query.get('master');
-        if (!masterToken || !this.auth.isMasterToken(masterToken)) {
-          res.writeHead(403, { 'Content-Type': 'text/plain' });
-          res.end('Forbidden: valid master token required as ?master= query param');
-          return;
-        }
-        const expiryDays = parseInt(query.get('days') ?? '7', 10) || 7;
-        const webToken = this.auth.webTokens.create(`QR login ${new Date().toLocaleDateString()}`, expiryDays);
-        // Build the base URL from the request Host header
-        const host = req.headers.host ?? `localhost:${this.config.port}`;
-        const protocol = req.headers['x-forwarded-proto'] ?? 'http';
-        const loginUrl = `${protocol}://${host}/?token=${encodeURIComponent(webToken.token)}`;
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:",
-        });
-        res.end(buildQrPage(loginUrl, webToken.expiresAt, expiryDays));
-        return;
-      }
+      // QR code pairing is handled in-app via ⌘K → "Connect Device".
+      // The old /qr endpoint (which required the master token in the URL)
+      // has been removed — see ConnectDeviceDialog + gateway IPC handler.
 
       // Fallback: serve legacy inline HTML at /basic
       if (pathname === '/basic' && this.webChatHtml) {

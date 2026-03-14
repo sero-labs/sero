@@ -36,6 +36,7 @@ import type {
   ChatAttachment,
   ProxyFetchRequest,
   ProxyFetchResponse,
+  QrLoginData,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
@@ -571,6 +572,11 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.safeStorage.decrypt, encryptedBase64),
     available: (): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannels.safeStorage.available),
+  },
+
+  gateway: {
+    getQrLoginData: (expiryDays?: number): Promise<QrLoginData> =>
+      ipcRenderer.invoke(IpcChannels.gateway.getQrLoginData, expiryDays),
   },
 
   feedback: {
