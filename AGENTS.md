@@ -35,7 +35,13 @@ pnpm typecheck             # Typecheck all (turbo)
 ## Packages
 
 - **`@sero/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` context for federated app modules
-- **`pi-todo-extension`** — Pi CLI extension (tool + command) + federated React UI, both backed by the same `state.json` file
+
+Find all the Sero Apps in: `packages/pi-*`;
+The most comprehensive examples are:
+- `packages/pi-kanban-extension` - Deep integration with subagents
+- `packages/pi-cron-extension` - Background jobs and reminders
+- `packages/pi-imagegen-extension` - Image Generation
+- `packages/pi-humanizer-extension` - One-time-prompts
 
 ## Documentation
 
@@ -133,6 +139,7 @@ This is set via `PI_CODING_AGENT_DIR` in `electron/env.ts` before any SDK import
 - `src/components/apps/<name>/` — self-contained app components
 - `src/components/ui/` — shadcn/ui primitives
 - `src/components/ai-elements/` — Vercel ai-elements chat components (source, not node_modules)
+
 - **Always use top-level imports.** Never use inline `import('...')` type
   expressions (e.g. `param: import('./types').Foo`). Add a proper
   `import type { Foo } from './types'` at the top of the file instead. The only
