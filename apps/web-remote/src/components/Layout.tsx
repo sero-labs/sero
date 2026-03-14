@@ -14,7 +14,6 @@ import { FilePreview } from './FilePreview';
 import { ArtifactGallery } from './ArtifactGallery';
 import { StatusBar } from './StatusBar';
 import { useArtifactStore } from '@/stores/artifacts';
-import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
 import { useIsMobile } from '@sero/ui/hooks/use-mobile';
 import {
@@ -35,7 +34,11 @@ type RightPanel = 'files' | 'artifacts' | null;
 
 export function Layout() {
   const isMobile = useIsMobile();
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== 'undefined'
+      ? !window.matchMedia('(max-width: 767px)').matches
+      : true,
+  );
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
 
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);

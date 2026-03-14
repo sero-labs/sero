@@ -34,7 +34,7 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
   const hasImages = tc.images && tc.images.length > 0;
 
   return (
-    <Collapsible>
+    <Collapsible className="group">
       <div className="border-l-2 border-muted pl-3 py-1">
         <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-left">
           {hasOutput ? (

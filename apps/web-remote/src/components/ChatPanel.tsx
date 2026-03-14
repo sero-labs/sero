@@ -13,6 +13,7 @@ import { ChatMessageComponent } from './ChatMessage';
 import { ToolCallDisplay } from './ToolCallDisplay';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
+import { useIsMobile } from '@sero/ui/hooks/use-mobile';
 import {
   Conversation,
   ConversationContent,
@@ -42,6 +43,7 @@ function readFileAsBase64(file: File): Promise<{ data: string; mimeType: string 
 }
 
 export function ChatPanel() {
+  const isMobile = useIsMobile();
   const [input, setInput] = useState('');
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -263,7 +265,9 @@ export function ChatPanel() {
                 ? 'Not connected...'
                 : !activeWorkspaceId
                   ? 'Select a workspace first...'
-                  : 'Send a message...'
+                  : isMobile
+                    ? 'Send a message...'
+                    : 'Send a message... (paste images with ⌘V)'
             }
             disabled={!isConnected}
             rows={1}
