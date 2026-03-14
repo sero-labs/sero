@@ -63,8 +63,11 @@ function findGog(): string {
  * file permissions on the keyring file itself (user-only directory).
  * TODO: Consider using Electron safeStorage or macOS Keychain for the
  * keyring password if stronger isolation is needed.
+ *
+ * Exported because google-api.ts (IPC data commands) must use the same
+ * password that was used to import the token.
  */
-function deriveKeyringPassword(): string {
+export function deriveKeyringPassword(): string {
   const host = hostname();
   let uid: string;
   try {

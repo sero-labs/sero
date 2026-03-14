@@ -7,8 +7,9 @@
  */
 
 import { execFile } from 'node:child_process';
+import crypto from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, hostname, userInfo } from 'node:os';
 import path from 'node:path';
 
 export interface GogResult {
@@ -44,14 +45,19 @@ function enhancedPath(): string {
 }
 
 /**
- * Keyring password for Sero-managed Google tokens.
- *
- * When a user authenticates Google through Sero's UI, the refresh token
- * is imported into gogcli's file-based keyring under this password.
- * We set the same password here so gogcli can find those tokens — no
- * separate `gog auth` flow required.
+ * Derive the same machine-specific keyring password that auth-manager.ts
+ * uses when importing tokens. Must stay in sync with the derivation in
+ * apps/desktop/electron/google/auth-manager.ts.
  */
-const GOG_KEYRING_PASSWORD = 'sero-google-keyring';
+function deriveKeyringPassword(): string {
+  const host = hostname();
+  let uid: string;
+  try { uid = String(userInfo().uid); } catch { uid = 'unknown'; }
+  return crypto.createHash('sha256')
+    .update(`sero-google-keyring:${host}:${uid}`)
+    .digest('hex')
+    .slice(0, 32);
+}
 
 /**
  * Run a gogcli command and return raw output.
@@ -69,7 +75,7 @@ export function runGog(
     const child = execFile(findGog(), fullArgs, {
       timeout: opts?.timeoutMs ?? GOG_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env, PATH: enhancedPath(), GOG_KEYRING_PASSWORD },
+      env: { ...process.env, PATH: enhancedPath(), GOG_KEYRING_PASSWORD: deriveKeyringPassword() },
     }, (error, stdout, stderr) => {
       if (error && (error as any).code === 'ENOENT') {
         resolve({ stdout: '', stderr: 'gog binary not found', exitCode: 127 });

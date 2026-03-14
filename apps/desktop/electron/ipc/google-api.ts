@@ -15,7 +15,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { IpcChannels } from '../../src/types/ipc';
-import { GoogleAuthManager } from '../google/auth-manager';
+import { GoogleAuthManager, deriveKeyringPassword } from '../google/auth-manager';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ function runGog(args: string[], email?: string): Promise<GogExecResult> {
     const child = execFile(findGogBinary(), fullArgs, {
       timeout: GOG_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env, PATH: buildEnhancedPath(), GOG_KEYRING_PASSWORD: 'sero-google-keyring' },
+      env: { ...process.env, PATH: buildEnhancedPath(), GOG_KEYRING_PASSWORD: deriveKeyringPassword() },
     }, (error, stdout, stderr) => {
       if (error && (error as any).code === 'ENOENT') {
         resolve({ stdout: '', stderr: 'gog binary not found', exitCode: 127 });
