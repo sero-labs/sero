@@ -14,13 +14,18 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { WebTokenManager } from './web-tokens';
 
 const TOKEN_LENGTH = 32;
 
 export class GatewayAuth {
   private token: string | null = null;
+  readonly webTokens: WebTokenManager;
 
-  constructor(private readonly tokenPath: string) {}
+  constructor(private readonly tokenPath: string) {
+    const configDir = path.dirname(tokenPath);
+    this.webTokens = new WebTokenManager(configDir);
+  }
 
   /** Get the current auth token, generating one if needed. */
   getToken(): string {
@@ -50,15 +55,24 @@ export class GatewayAuth {
     return this.token;
   }
 
-  /** Validate a token from a client. */
+  /** Validate a token from a client — accepts master token OR valid web token. */
   validate(token: string): boolean {
+    // Check master token first (constant-time)
     const expected = this.getToken();
-    // Constant-time comparison to prevent timing attacks
+    if (token.length === expected.length) {
+      if (crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected))) {
+        return true;
+      }
+    }
+    // Fall through to check web tokens
+    return this.webTokens.validate(token);
+  }
+
+  /** Check if the given token is the master token (not a web token). */
+  isMasterToken(token: string): boolean {
+    const expected = this.getToken();
     if (token.length !== expected.length) return false;
-    return crypto.timingSafeEqual(
-      Buffer.from(token),
-      Buffer.from(expected),
-    );
+    return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
   }
 
   /** Regenerate the token (invalidates all existing connections). */

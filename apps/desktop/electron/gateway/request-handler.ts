@@ -9,6 +9,8 @@ import { WebSocket } from 'ws';
 import type { GatewayRequest, GatewayResponse } from './protocol';
 import type { GatewayAgentOps } from './index';
 import type { CostTracker } from './cost-tracker';
+import type { GatewayAuth } from './auth';
+import { routeExtendedRequest } from './extended-handlers';
 
 // ── Idempotency store ───────────────────────────────────────
 // Prevents duplicate prompt execution from network retries.
@@ -70,7 +72,14 @@ export async function routeAgentRequest(
   subscribeToSession: (sessionId: string) => void,
   getStatus: () => { running: boolean; port: number; host: string; clients: number },
   costTracker: CostTracker,
+  auth?: GatewayAuth,
+  isMasterAuth?: boolean,
 ): Promise<void> {
+  // Try extended handlers first (file ops, artifacts, web tokens, sessions)
+  if (auth) {
+    const handled = await routeExtendedRequest(ws, agentOps, request, auth, isMasterAuth ?? false);
+    if (handled) return;
+  }
   switch (request.type) {
     case 'prompt': {
       // Idempotency check — prevent duplicate execution from retries
@@ -113,8 +122,8 @@ export async function routeAgentRequest(
         await agentOps.openSession(request.sessionId, request.workspaceId);
         // Track session as active for concurrency limiting
         costTracker.markActive(request.sessionId);
-        // Send prompt
-        await agentOps.prompt(request.sessionId, request.text);
+        // Send prompt (with optional images)
+        await agentOps.prompt(request.sessionId, request.text, request.images);
         costTracker.markInactive(request.sessionId);
         if (idemKey) {
           idempotencyStore.set(idemKey, { timestamp: Date.now(), status: 'done' });

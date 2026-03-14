@@ -415,6 +415,12 @@ export const IpcChannels = {
     setConfig: 'sero:gateway:set-config',
     /** Main → renderer push channel for gateway events. */
     event: 'sero:gateway:event',
+    /** Create a web access token (with optional label and expiry). */
+    createWebToken: 'sero:gateway:create-web-token',
+    /** List active web tokens. */
+    listWebTokens: 'sero:gateway:list-web-tokens',
+    /** Revoke a specific web token by ID. */
+    revokeWebToken: 'sero:gateway:revoke-web-token',
   },
   appControl: {
     /** List all available apps with manifest info. */

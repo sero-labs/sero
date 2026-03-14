@@ -77,6 +77,27 @@ export function registerGatewayHandlers(): void {
       return { ...gatewayConfig };
     },
   );
+
+  ipcMain.handle(
+    IpcChannels.gateway.createWebToken,
+    async (_event, label?: string, expiryDays?: number) => {
+      const auth = gatewayServer.getAuth();
+      return auth.webTokens.create(label, expiryDays);
+    },
+  );
+
+  ipcMain.handle(IpcChannels.gateway.listWebTokens, async () => {
+    const auth = gatewayServer.getAuth();
+    return auth.webTokens.list();
+  });
+
+  ipcMain.handle(
+    IpcChannels.gateway.revokeWebToken,
+    async (_event, tokenId: string) => {
+      const auth = gatewayServer.getAuth();
+      return auth.webTokens.revoke(tokenId);
+    },
+  );
 }
 
 // ── Gateway lifecycle (called from main.ts) ─────────────────

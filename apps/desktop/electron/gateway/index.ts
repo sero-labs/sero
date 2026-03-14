@@ -1,21 +1,7 @@
 /**
  * Gateway Server — WebSocket control plane for remote Sero access.
- *
- * Inspired by OpenClaw's hub-and-spoke architecture. A single WebSocket
- * server routes messages between external clients (Discord bot, web UI,
- * CLI) and the agent session pool running in the Electron main process.
- *
- * Binds to localhost by default; Tailscale integration can optionally
- * expose it to a private tailnet.
- *
- * Security hardening (2026-03-09):
- *   - Rate limiting on auth attempts (5 failures / 60s → 5min block)
- *   - Max WebSocket payload size (1 MB)
- *   - Max connections per IP (10) and total (50)
- *   - Origin header validation for non-Tailscale connections
- *   - 30-minute idle timeout for authenticated connections
- *   - Referrer-Policy: no-referrer on all HTTP responses
- *   - Failed auth logging with client IP
+ * Routes messages between external clients and the agent session pool.
+ * Security: rate limiting, max connections, origin validation, idle timeout.
  */
 
 import { WebSocketServer, WebSocket } from 'ws';
@@ -25,6 +11,7 @@ import { GatewayAuth } from './auth';
 import { CostTracker } from './cost-tracker';
 import { RateLimiter } from './rate-limiter';
 import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './request-handler';
+import { tryServeStaticFile } from './static-files';
 import { redactSecrets } from '../lib/secret-redact';
 import {
   validateRequest,
@@ -32,6 +19,11 @@ import {
   type GatewayResponse,
   type GatewayPushEvent,
 } from './protocol';
+import type { GatewayConfig, GatewayAgentOps } from './types';
+import { buildQrPage } from './qr-page';
+
+// Re-export types so existing importers don't break
+export type { GatewayConfig, GatewayAgentOps, GatewayFileEntry, GatewayFileContent } from './types';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -45,32 +37,27 @@ const MAX_CONNECTIONS_PER_IP = 10;
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 /** Auth timeout for unauthenticated connections (10 seconds). */
 const AUTH_TIMEOUT_MS = 10_000;
-/** Allowed origins for WebSocket connections (non-Tailscale). */
-const ALLOWED_ORIGINS = new Set([
+/**
+ * Allowed origins for WebSocket connections (non-Tailscale).
+ * Populated at construction time from the gateway config port.
+ */
+const STATIC_ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:18800',
   'http://localhost:18800',
   'http://127.0.0.1:18801',
   'http://localhost:18801',
+  // web-remote dev server port range (Vite auto-increments if port is taken)
+  'http://127.0.0.1:5174',
+  'http://localhost:5174',
+  'http://127.0.0.1:5175',
+  'http://localhost:5175',
+  'http://127.0.0.1:5176',
+  'http://localhost:5176',
 ]);
 
 // ── Types ───────────────────────────────────────────────────
 
-export interface GatewayConfig {
-  /** Port for the WebSocket server. Default: 18800. */
-  port: number;
-  /** Bind host. Default: '127.0.0.1' (localhost only). */
-  host: string;
-  /** Path to the auth token file. */
-  tokenPath: string;
-  /** Directory for gateway config files (cost limits, etc.). */
-  configDir: string;
-}
-
-/**
- * Optional callback that returns the web chat HTML.
- * When set, the gateway's HTTP server also serves the chat UI at "/",
- * so only a single port needs to be exposed via Tailscale.
- */
+/** Callback that returns the web chat HTML (legacy fallback at /basic). */
 type WebChatHtmlProvider = () => string;
 
 interface ConnectedClient {
@@ -78,36 +65,14 @@ interface ConnectedClient {
   clientType: string;
   clientId: string;
   authenticated: boolean;
+  /** Whether this client authenticated with the master token (vs a web token). */
+  isMasterAuth: boolean;
   /** Session IDs this client is subscribed to for push events. */
   subscribedSessions: Set<string>;
   /** Source IP address of the client. */
   remoteIp: string;
   /** Timestamp of last activity (for idle timeout). */
   lastActivity: number;
-}
-
-/** Operations the gateway can delegate to the agent pool. */
-export interface GatewayAgentOps {
-  /** Open or get an existing agent session. Returns session path. */
-  openSession(
-    sessionId: string,
-    workspaceId: string,
-  ): Promise<void>;
-  /** Send a prompt to an agent session. */
-  prompt(
-    sessionId: string,
-    text: string,
-  ): Promise<void>;
-  /** Steer an active agent. */
-  steer(sessionId: string, text: string): Promise<void>;
-  /** Abort an active agent. */
-  abort(sessionId: string): Promise<void>;
-  /** List workspaces. */
-  listWorkspaces(): Promise<Array<{ id: string; name: string; path: string }>>;
-  /** List sessions for a workspace. */
-  listSessions(
-    workspaceId: string,
-  ): Promise<Array<{ id: string; name: string }>>;
 }
 
 // ── Server ──────────────────────────────────────────────────
@@ -158,21 +123,63 @@ export class GatewayServer {
     if (this.wss) return;
 
     this.httpServer = http.createServer((req, res) => {
-      // Security: add Referrer-Policy to all responses
+      // Security headers on all responses
       res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:",
+      );
 
       const pathname = (req.url ?? '/').split('?')[0];
-      if (this.webChatHtml && (pathname === '/' || pathname === '/index.html')) {
+
+      // ── Server-side routes (must come BEFORE the SPA static fallback,
+      //    which serves index.html for any extensionless path) ──────────
+
+      // QR code login page — creates a web token and shows a QR code.
+      // Protected by master token in query param: /qr?master=<token>
+      if (pathname === '/qr') {
+        const query = new URLSearchParams((req.url ?? '').split('?')[1] ?? '');
+        const masterToken = query.get('master');
+        if (!masterToken || !this.auth.isMasterToken(masterToken)) {
+          res.writeHead(403, { 'Content-Type': 'text/plain' });
+          res.end('Forbidden: valid master token required as ?master= query param');
+          return;
+        }
+        const expiryDays = parseInt(query.get('days') ?? '7', 10) || 7;
+        const webToken = this.auth.webTokens.create(`QR login ${new Date().toLocaleDateString()}`, expiryDays);
+        // Build the base URL from the request Host header
+        const host = req.headers.host ?? `localhost:${this.config.port}`;
+        const protocol = req.headers['x-forwarded-proto'] ?? 'http';
+        const loginUrl = `${protocol}://${host}/?token=${encodeURIComponent(webToken.token)}`;
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Security-Policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:",
+        });
+        res.end(buildQrPage(loginUrl, webToken.expiresAt, expiryDays));
+        return;
+      }
+
+      // Fallback: serve legacy inline HTML at /basic
+      if (pathname === '/basic' && this.webChatHtml) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(this.webChatHtml());
-      } else if (pathname === '/health') {
+        return;
+      }
+      if (pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
-      } else {
-        res.writeHead(404);
-        res.end('Not Found');
+        return;
       }
+
+      // ── Static files + SPA fallback (after all server-side routes) ──
+      // This MUST come after /qr, /basic, /health — the SPA fallback
+      // serves index.html for any extensionless path, which would
+      // swallow those routes if checked first.
+      if (tryServeStaticFile(pathname, res, __dirname)) return;
+
+      res.writeHead(404);
+      res.end('Not Found');
     });
 
     this.wss = new WebSocketServer({
@@ -274,6 +281,11 @@ export class GatewayServer {
     }
   }
 
+  /** Get the auth manager (for web token operations from the request handler). */
+  getAuth(): GatewayAuth {
+    return this.auth;
+  }
+
   // ── Internal ──────────────────────────────────────────────
 
   /**
@@ -300,8 +312,16 @@ export class GatewayServer {
     const origin = req.headers.origin;
     // No origin header (non-browser clients like wscat, Discord bot) — allow
     if (!origin) return true;
-    // Localhost connections are always allowed
-    if (ALLOWED_ORIGINS.has(origin)) return true;
+    // Static allow-list (known dev/prod ports)
+    if (STATIC_ALLOWED_ORIGINS.has(origin)) return true;
+    // Allow connections from the gateway's own serving origin (SPA served by this server)
+    const selfPort = this.config.port;
+    if (
+      origin === `http://127.0.0.1:${selfPort}` ||
+      origin === `http://localhost:${selfPort}`
+    ) {
+      return true;
+    }
     // Tailscale origins (*.ts.net) are allowed
     try {
       const url = new URL(origin);
@@ -355,6 +375,7 @@ export class GatewayServer {
       clientType: 'unknown',
       clientId: `client-${Date.now()}`,
       authenticated: false,
+      isMasterAuth: false,
       subscribedSessions: new Set(),
       remoteIp,
       lastActivity: Date.now(),
@@ -445,6 +466,7 @@ export class GatewayServer {
       this.authLimiter.reset(client.remoteIp);
 
       client.authenticated = true;
+      client.isMasterAuth = this.auth.isMasterToken(request.token);
       client.clientType = request.clientType;
       if (request.clientId) client.clientId = request.clientId;
       console.log(
@@ -480,6 +502,8 @@ export class GatewayServer {
       (sessionId) => client.subscribedSessions.add(sessionId),
       () => this.getStatus(),
       this.costTracker,
+      this.auth,
+      client.isMasterAuth,
     );
   }
 }
