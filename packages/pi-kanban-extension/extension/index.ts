@@ -16,6 +16,7 @@ import { Type } from '@sinclair/typebox';
 
 import type { Column, Priority } from '../shared/types';
 import { COLUMNS, COLUMN_LABELS, createCard } from '../shared/types';
+import { validateManualMove } from '../shared/validation';
 import { resolveStatePath, readState, writeState, formatCard, formatBoard } from './state-io';
 import {
   handleStart, handleApprove, handleComplete,
@@ -138,20 +139,27 @@ export default function (pi: ExtensionAPI) {
           }
           const fromCol = card.column;
           const toCol = params.column as Column;
-          // Enforce workflow — use 'start', 'approve', 'complete' for managed transitions
-          const managedTransitions = ['planning', 'in-progress', 'done'] as const;
-          if (managedTransitions.includes(toCol as typeof managedTransitions[number]) && fromCol !== toCol) {
+          const validation = validateManualMove(card, toCol);
+          if (!validation.valid) {
             return {
               content: [
                 {
                   type: 'text',
-                  text: `Cannot move to "${COLUMN_LABELS[toCol]}" directly. Use the proper workflow action:\n  • backlog→planning: use "start"\n  • planning→in-progress: use "approve"\n  • review→done: use "complete"\n  • To move backward: move to "backlog" first`,
+                  text: `Cannot move to "${COLUMN_LABELS[toCol]}" directly.\n${validation.errors.map((error) => `  • ${error}`).join('\n')}`,
                 },
               ],
               details: {},
             };
           }
           card.column = toCol;
+          card.status = 'idle';
+          card.error = undefined;
+          if (toCol === 'backlog') {
+            card.completedAt = undefined;
+            card.planningProgress = undefined;
+            card.implementationProgress = undefined;
+            card.reviewProgress = undefined;
+          }
           card.updatedAt = new Date().toISOString();
           await writeState(statePath, state);
           return {

@@ -29,6 +29,7 @@ import {
   pushWorktreeBranch,
   createPrFromWorktree,
 } from './worktree-git';
+import { getContract } from './contracts';
 import type { SubagentManager } from '../subagent/index';
 
 const execFileAsync = promisify(execFile);
@@ -146,9 +147,14 @@ export async function executeReview(
   const review = parseReviewResult(rawReview, card.title);
   tracker.completeAgent('reviewer');
 
-  // Save review to file so restarts can skip re-running the subagent
+  const reviewFailure = requiresReviewerApproval()
+    ? getBlockingReviewFailure(review)
+    : null;
   await saveCachedReview(reviewFile, review);
   console.log(`[review-executor] Saved review to ${reviewRelPath}`);
+  if (reviewFailure) {
+    return { success: false, error: reviewFailure };
+  }
 
   // ── Steps 3–4: Push + PR ──────────────────────────────
   return pushAndCreatePr(review, reviewRelPath, worktreePath, branchName, card, tracker);
@@ -234,7 +240,8 @@ async function loadCachedReview(filePath: string): Promise<ReviewResult | null> 
     const raw = await fs.readFile(filePath, 'utf8');
     const data = JSON.parse(raw) as Partial<ReviewResult>;
     if (typeof data.prTitle === 'string' && typeof data.prBody === 'string') {
-      return data as ReviewResult;
+      const review = data as ReviewResult;
+      return getBlockingReviewFailure(review) ? null : review;
     }
   } catch {
     // No cached review or invalid file — run from scratch
@@ -245,6 +252,37 @@ async function loadCachedReview(filePath: string): Promise<ReviewResult | null> 
 async function saveCachedReview(filePath: string, review: ReviewResult): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(review, null, 2), 'utf8');
+}
+
+function getBlockingReviewFailure(review: ReviewResult): string | null {
+  const criticalIssues = review.categorizedIssues?.filter((issue) => issue.severity === 'critical') ?? [];
+  const verdictBlocks = review.verdict === 'fix-first' || review.verdict === 'reject';
+  const reviewBlocks = review.approved === false || verdictBlocks || criticalIssues.length > 0;
+
+  if (!reviewBlocks) return null;
+
+  const issueLines = criticalIssues.length > 0
+    ? criticalIssues
+      .slice(0, 3)
+      .map((issue) => {
+        const location = issue.file
+          ? ` (${issue.file}${issue.line ? `:${issue.line}` : ''})`
+          : '';
+        return `- ${issue.description}${location}`;
+      })
+      .join('\n')
+    : review.issues.slice(0, 3).map((issue) => `- ${issue}`).join('\n');
+
+  const summary = review.summary.trim() || 'Reviewer did not approve this implementation.';
+  return issueLines ? `${summary}\n${issueLines}` : summary;
+}
+
+function requiresReviewerApproval(): boolean {
+  return getContract('in-progress', 'review')?.qualityGates.some((gate) => (
+    gate.type === 'agent-review'
+    && gate.agent === 'reviewer'
+    && gate.blocking
+  )) === true;
 }
 
 // ── Orphaned-file recovery ──────────────────────────────────

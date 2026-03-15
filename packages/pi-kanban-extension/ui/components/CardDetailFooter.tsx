@@ -5,15 +5,17 @@
  */
 
 import type { Card, Column, Priority } from '../../shared/types';
-import { COLUMNS, COLUMN_LABELS } from '../../shared/types';
+import { COLUMN_LABELS } from '../../shared/types';
 
 export function CardDetailFooter({
   card,
+  moveTargets,
   onMove,
   onPriorityChange,
   onDelete,
 }: {
   card: Card;
+  moveTargets: Column[];
   onMove: (column: Column) => void;
   onPriorityChange: (priority: Priority) => void;
   onDelete: () => void;
@@ -27,38 +29,40 @@ export function CardDetailFooter({
       }}
     >
       {/* Move to */}
-      <div style={{ marginBottom: '14px' }}>
-        <span
-          style={{
-            display: 'block',
-            fontSize: '10px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: '#5c5e6a',
-            marginBottom: '8px',
-          }}
-        >
-          Move to
-        </span>
-        <div className="flex flex-wrap" style={{ gap: '6px' }}>
-          {COLUMNS.filter((c) => c !== card.column).map((col) => (
-            <button
-              key={col}
-              onClick={() => onMove(col)}
-              className="rounded-md text-xs transition-all"
-              style={{
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                backgroundColor: '#22252f',
-                padding: '6px 12px',
-                color: '#8b8d97',
-              }}
-            >
-              {COLUMN_LABELS[col]}
-            </button>
-          ))}
+      {moveTargets.length > 0 && (
+        <div style={{ marginBottom: '14px' }}>
+          <span
+            style={{
+              display: 'block',
+              fontSize: '10px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: '#5c5e6a',
+              marginBottom: '8px',
+            }}
+          >
+            Move to
+          </span>
+          <div className="flex flex-wrap" style={{ gap: '6px' }}>
+            {moveTargets.map((col) => (
+              <button
+                key={col}
+                onClick={() => onMove(col)}
+                className="rounded-md text-xs transition-all"
+                style={{
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  backgroundColor: '#22252f',
+                  padding: '6px 12px',
+                  color: '#8b8d97',
+                }}
+              >
+                {COLUMN_LABELS[col]}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Priority (read-only) + Delete */}
       <div className="flex items-center justify-between">

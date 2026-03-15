@@ -19,6 +19,8 @@ import { ReviewStatusPanel } from './ReviewStatusPanel';
 import { PlanApprovalPanel } from './PlanApprovalPanel';
 import { DescriptionEditor } from './DescriptionEditor';
 import { CardDetailFooter } from './CardDetailFooter';
+import { applyManualMove, applyWorkflowTransition } from '../lib/card-workflow';
+import { getManualMoveTargets } from '../../shared/validation';
 
 export function CardDetail({
   card,
@@ -32,21 +34,7 @@ export function CardDetail({
   const handleMove = useCallback(
     (column: Column) => {
       if (!card) return;
-      onUpdate((prev) => ({
-        ...prev,
-        cards: prev.cards.map((c) =>
-          c.id === card.id
-            ? {
-                ...c,
-                column,
-                updatedAt: new Date().toISOString(),
-                ...(column === 'done' && !c.completedAt
-                  ? { completedAt: new Date().toISOString() }
-                  : {}),
-              }
-            : c,
-        ),
-      }));
+      onUpdate((prev) => applyManualMove(prev, card.id, column));
     },
     [card, onUpdate],
   );
@@ -68,54 +56,17 @@ export function CardDetail({
 
   const handleStartPlanning = useCallback(() => {
     if (!card) return;
-    onUpdate((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) =>
-        c.id === card.id
-          ? {
-              ...c,
-              column: 'planning' as Column,
-              status: 'agent-working' as const,
-              updatedAt: new Date().toISOString(),
-            }
-          : c,
-      ),
-    }));
+    onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'planning'));
   }, [card, onUpdate]);
 
   const handleApprovePlan = useCallback(() => {
     if (!card) return;
-    onUpdate((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) =>
-        c.id === card.id
-          ? {
-              ...c,
-              column: 'in-progress' as Column,
-              status: 'idle' as const,
-              updatedAt: new Date().toISOString(),
-            }
-          : c,
-      ),
-    }));
+    onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'in-progress'));
   }, [card, onUpdate]);
 
   const handleComplete = useCallback(() => {
     if (!card) return;
-    onUpdate((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) =>
-        c.id === card.id
-          ? {
-              ...c,
-              column: 'done' as Column,
-              status: 'idle' as const,
-              completedAt: c.completedAt ?? new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            }
-          : c,
-      ),
-    }));
+    onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'done'));
   }, [card, onUpdate]);
 
   const handleRetry = useCallback(() => {
@@ -456,6 +407,7 @@ export function CardDetail({
             {/* Footer actions */}
             <CardDetailFooter
               card={card}
+              moveTargets={getManualMoveTargets(card)}
               onMove={handleMove}
               onPriorityChange={handlePriorityChange}
               onDelete={handleDelete}

@@ -65,3 +65,30 @@ export function validateCardTransition(
 
   return { valid: errors.length === 0, errors };
 }
+
+/**
+ * Manual moves are intentionally limited to moving a card back to backlog.
+ * Forward workflow transitions must use the dedicated start/approve/complete
+ * actions so validation and orchestration stay consistent.
+ */
+export function getManualMoveTargets(card: Card): Column[] {
+  return card.column === 'backlog' ? [] : ['backlog'];
+}
+
+export function validateManualMove(card: Card, targetColumn: Column): ValidationResult {
+  if (targetColumn === card.column) {
+    return { valid: true, errors: [] };
+  }
+
+  if (targetColumn === 'backlog' && card.column !== 'backlog') {
+    return { valid: true, errors: [] };
+  }
+
+  return {
+    valid: false,
+    errors: [
+      'Manual moves only support sending a card back to Backlog. '
+      + 'Use the workflow actions for Start, Approve, and Complete.',
+    ],
+  };
+}

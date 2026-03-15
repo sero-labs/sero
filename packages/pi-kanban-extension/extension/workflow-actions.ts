@@ -6,8 +6,9 @@
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
+import { execFile } from 'node:child_process';
 import { promises as fsPromises } from 'node:fs';
-import path from 'node:path';
+import { promisify } from 'node:util';
 
 import type { KanbanState, Column } from '../shared/types';
 import { COLUMN_LABELS } from '../shared/types';
@@ -15,6 +16,8 @@ import { validateCardTransition } from '../shared/validation';
 import { readState, writeState } from './state-io';
 
 type ToolResult = { content: { type: 'text'; text: string }[]; details: Record<string, never> };
+
+const execFileAsync = promisify(execFile);
 
 function text(msg: string): ToolResult {
   return { content: [{ type: 'text', text: msg }], details: {} };
@@ -201,10 +204,24 @@ export async function handleCleanup(
   for (const card of doneCards) {
     if (!card.worktreePath) continue;
     try {
+      await execFileAsync('git', ['worktree', 'remove', card.worktreePath, '--force'], {
+        cwd,
+        timeout: 15_000,
+      });
+      await execFileAsync('git', ['worktree', 'prune'], {
+        cwd,
+        timeout: 10_000,
+      }).catch(() => {});
+    } catch {
       await fsPromises.rm(card.worktreePath, { recursive: true, force: true });
+      await execFileAsync('git', ['worktree', 'prune'], {
+        cwd,
+        timeout: 10_000,
+      }).catch(() => {});
+    } finally {
       card.worktreePath = undefined;
       cleaned.push(`#${card.id}`);
-    } catch { /* already gone */ }
+    }
   }
 
   await writeState(statePath, state);

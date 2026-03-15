@@ -20,6 +20,7 @@ import {
   PRIORITY_ORDER,
   createCard,
 } from '../shared/types';
+import { applyManualMove } from './lib/card-workflow';
 import { ColumnView } from './components/ColumnView';
 import { CardDetail } from './components/CardDetail';
 
@@ -154,21 +155,11 @@ export function KanbanApp() {
 
   const handleDropCard = useCallback(
     (cardId: string, toColumn: Column) => {
-      updateState((prev) => ({
-        ...prev,
-        cards: prev.cards.map((c) =>
-          c.id === cardId
-            ? {
-                ...c,
-                column: toColumn,
-                updatedAt: new Date().toISOString(),
-                ...(toColumn === 'done' && !c.completedAt
-                  ? { completedAt: new Date().toISOString() }
-                  : {}),
-              }
-            : c,
-        ),
-      }));
+      updateState((prev) => {
+        const card = prev.cards.find((entry) => entry.id === cardId);
+        if (!card || card.column === toColumn) return prev;
+        return applyManualMove(prev, cardId, toColumn);
+      });
     },
     [updateState],
   );
