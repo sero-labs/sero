@@ -33,13 +33,7 @@ export class VcsManager extends EventEmitter {
   }
 
   private async ensureRepoInitialized(workspaceId: string): Promise<void> {
-    const root = await this.runner.run(workspaceId, ['rev-parse', '--git-dir']);
-    if (root.exitCode === 0) return;
-
-    const init = await this.runner.run(workspaceId, ['init']);
-    if (init.exitCode !== 0) {
-      throw new Error(init.stderr || 'Failed to initialize Git repository');
-    }
+    await this.runner.ensureRepoInitialized(workspaceId);
   }
 
   async getCurrentChangeId(workspaceId: string): Promise<string | null> {

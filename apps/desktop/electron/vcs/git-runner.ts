@@ -137,4 +137,14 @@ export class GitRunner {
   async run(workspaceId: string, args: string[], timeoutMs = 30_000): Promise<GitResult> {
     return this.runCommand(workspaceId, 'git', args, timeoutMs);
   }
+
+  async ensureRepoInitialized(workspaceId: string): Promise<void> {
+    const root = await this.run(workspaceId, ['rev-parse', '--git-dir']);
+    if (root.exitCode === 0) return;
+
+    const init = await this.run(workspaceId, ['init']);
+    if (init.exitCode !== 0) {
+      throw new Error(init.stderr || 'Failed to initialize Git repository');
+    }
+  }
 }

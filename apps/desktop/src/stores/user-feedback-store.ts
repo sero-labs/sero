@@ -64,15 +64,18 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => ({
   },
 
   initListeners() {
-    // New question arrived from an extension tool — add to pending
-    // and auto-switch to User Feedback app so the user sees it immediately.
+    // New question arrived from an extension tool — add to pending.
+    // Only multi-step forms switch to the User Feedback app; single
+    // questions and permission prompts stay in the chat panel.
     const unsubQuestion = window.sero.userFeedback.onQuestion((data) => {
       set((state) => {
         const next = new Map(state.pending);
         next.set(data.id, data);
         return { pending: next };
       });
-      useAppStore.getState().setActiveApp('userfeedback');
+      if (data.type === 'questionnaire' || data.type === 'interview') {
+        useAppStore.getState().setActiveApp('userfeedback');
+      }
     });
 
     // Main process cancelled a question (e.g. tool aborted)

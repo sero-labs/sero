@@ -39,6 +39,10 @@ export class GitHubRepoOps {
 
     const addRemote = input.addRemote !== false;
 
+    if (addRemote) {
+      await this.runner.ensureRepoInitialized(workspaceId);
+    }
+
     // Check if 'origin' remote already exists
     const existingOrigin = addRemote ? await this.getOriginUrl(workspaceId) : null;
 
