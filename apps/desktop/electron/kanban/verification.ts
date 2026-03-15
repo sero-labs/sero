@@ -35,6 +35,43 @@ interface DetectOptions {
 }
 
 /**
+ * Detect the compile/build command that best fits a workspace for smoke review.
+ * Prefers typecheck scripts when present, otherwise falls back to build.
+ */
+export async function detectCompileCommands(workspacePath: string): Promise<string[]> {
+  const commands: string[] = [];
+  const pm = detectPackageManager(workspacePath);
+  const pkg = await readPackageJson(workspacePath);
+
+  if (await fileExists(path.join(workspacePath, 'tsconfig.json'))) {
+    if (pkg?.scripts?.typecheck) {
+      commands.push(`${pm} run typecheck`);
+    } else if (pkg?.scripts?.['type-check']) {
+      commands.push(`${pm} run type-check`);
+    }
+  }
+
+  if (commands.length === 0 && pkg?.scripts?.build) {
+    commands.push(`${pm} run build`);
+  }
+
+  if (commands.length === 0 && await fileExists(path.join(workspacePath, 'Cargo.toml'))) {
+    commands.push('cargo check');
+  }
+
+  return commands;
+}
+
+/**
+ * Detect the best dev-server startup command for smoke review.
+ */
+export async function detectDevServerCommand(workspacePath: string): Promise<string | null> {
+  const pm = detectPackageManager(workspacePath);
+  const pkg = await readPackageJson(workspacePath);
+  return pkg?.scripts?.dev ? `${pm} run dev` : null;
+}
+
+/**
  * Auto-detect verification commands from workspace project files.
  * Returns an ordered list of commands to run (typecheck first, then tests).
  */
@@ -161,6 +198,47 @@ export async function runVerificationCommands(
   return { success: true, results };
 }
 
+interface RunDevServerSmokeOptions {
+  runCommand?: VerificationCommandRunner;
+  startupTimeoutMs?: number;
+}
+
+/**
+ * Run a dev server command long enough to catch immediate startup failures.
+ * A timeout is treated as success because the server stayed alive.
+ */
+export async function runDevServerSmokeCheck(
+  cwd: string,
+  command: string,
+  options?: RunDevServerSmokeOptions,
+): Promise<CommandResult> {
+  const start = Date.now();
+  const runCommand = options?.runCommand ?? runHostCommand;
+  const startupTimeoutMs = options?.startupTimeoutMs ?? 20_000;
+
+  try {
+    const { stdout, stderr, exitCode } = await runCommand(command, cwd, startupTimeoutMs);
+    return {
+      command,
+      success: exitCode === 0 || looksLikeCommandTimeout(exitCode, stderr),
+      stdout: stdout.slice(-4000),
+      stderr: stderr.slice(-2000),
+      durationMs: Date.now() - start,
+    };
+  } catch (err: unknown) {
+    const execErr = err as { code?: number | string; stdout?: string; stderr?: string; message?: string };
+    const stderr = String(execErr.stderr ?? execErr.message ?? '');
+    const exitCode = typeof execErr.code === 'number' ? execErr.code : undefined;
+    return {
+      command,
+      success: looksLikeCommandTimeout(exitCode, stderr),
+      stdout: String(execErr.stdout ?? '').slice(-4000),
+      stderr: stderr.slice(-2000),
+      durationMs: Date.now() - start,
+    };
+  }
+}
+
 export function summarizeVerificationFailure(result: CommandResult): string {
   const output = sanitizeVerificationOutput(`${result.stderr}\n${result.stdout}`.trim());
   if (looksLikeNativeDependencyMismatch(output)) {
@@ -218,4 +296,8 @@ function looksLikeNativeDependencyMismatch(output: string): boolean {
     output.includes('optional dependencies') ||
     (output.includes('MODULE_NOT_FOUND') && output.includes('/node_modules/rolldown/'))
   );
+}
+
+function looksLikeCommandTimeout(exitCode: number | undefined, stderr: string): boolean {
+  return exitCode === 124 || /timed out/i.test(stderr) || /ETIMEDOUT/i.test(stderr);
 }

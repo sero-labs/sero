@@ -154,6 +154,7 @@ export async function handleSettings(
     return text(
       `## Board Settings\n- yoloMode: ${s.yoloMode} (auto-start, auto-approve, auto-complete)\n`
       + `- testingEnabled: ${s.testingEnabled} (TDD and test generation)\n`
+      + `- reviewMode: ${s.reviewMode ?? 'full'} (full or light; light is prototype-only)\n`
       + `- reviewLevel: ${s.reviewLevel} (per-wave or per-subtask)\n`
       + `- autoAdvance: ${s.autoAdvance}\n- maxConcurrentCards: ${s.maxConcurrentCards}`,
     );
@@ -166,8 +167,23 @@ export async function handleSettings(
   }
   if (setting === 'testingEnabled') {
     state.settings.testingEnabled = value === 'true';
+    if (state.settings.testingEnabled) {
+      state.settings.reviewMode = 'full';
+    }
     await writeState(statePath, state);
     return text(`Mode: ${state.settings.testingEnabled ? 'Production (TDD enabled)' : 'Prototype (testing disabled)'}`);
+  }
+  if (setting === 'reviewMode' && (value === 'full' || value === 'light')) {
+    if (value === 'light' && state.settings.testingEnabled) {
+      return text('Light review mode is only available in Prototype mode. Disable testing first.');
+    }
+    state.settings.reviewMode = value;
+    await writeState(statePath, state);
+    return text(
+      value === 'light'
+        ? 'Review mode: Light (compile checks + dev server smoke test only)'
+        : 'Review mode: Full (diff review + reviewer approval)',
+    );
   }
   if (setting === 'reviewLevel' && (value === 'per-wave' || value === 'per-subtask')) {
     state.settings.reviewLevel = value;
@@ -175,7 +191,7 @@ export async function handleSettings(
     return text(`Review level set to: ${value}`);
   }
 
-  return text(`Unknown setting "${setting}". Available: yoloMode, testingEnabled, reviewLevel`);
+  return text(`Unknown setting "${setting}". Available: yoloMode, testingEnabled, reviewMode, reviewLevel`);
 }
 
 // ── Cleanup ──────────────────────────────────────────────────

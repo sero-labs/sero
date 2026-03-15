@@ -28,6 +28,7 @@ import {
 } from './verification';
 import { runWorkspaceCommand } from './workspace-command-runner';
 import type { KanbanSettings } from './types';
+import { executeLightReview, shouldUseLightReview } from './light-review';
 import {
   createCheckpointInWorktree,
   ensureRemoteDefaultBranch,
@@ -103,9 +104,7 @@ export async function executeReview(
       tracker.setPhase('Recovering misplaced changes');
       await tracker.flush();
     }
-    const verifyCommands = await detectVerificationCommands(worktreePath, {
-      testingEnabled: deps.settings?.testingEnabled,
-    });
+    const lightReviewEnabled = shouldUseLightReview(deps.settings);
     const reviewOpts: ReviewPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
 
     for (let revisionPass = 0; revisionPass <= MAX_CRITICAL_REVISIONS; revisionPass++) {
@@ -141,6 +140,25 @@ export async function executeReview(
         return { success: false, error: 'No changes to review — diff is empty.' };
       }
 
+      if (lightReviewEnabled) {
+        const lightReview = await executeLightReview(
+          { workspaceId: deps.workspaceId, settings: deps.settings },
+          card,
+          worktreePath,
+          tracker,
+        );
+        if (!lightReview.success || !lightReview.review) {
+          return { success: false, error: lightReview.error ?? 'Light review failed.' };
+        }
+
+        await saveCachedReview(reviewFile, lightReview.review);
+        console.log(`[review-executor] Saved light review to ${reviewRelPath}`);
+        return pushAndCreatePr(lightReview.review, reviewRelPath, worktreePath, branchName, card, tracker);
+      }
+
+      const verifyCommands = await detectVerificationCommands(worktreePath, {
+        testingEnabled: deps.settings?.testingEnabled,
+      });
       if (verifyCommands.length > 0) {
         tracker.setPhase('Running verification');
         await tracker.flush();
