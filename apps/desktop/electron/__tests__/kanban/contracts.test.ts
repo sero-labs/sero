@@ -78,18 +78,18 @@ describe('validateTransition: backlog → planning', () => {
     expect(result.errors.some((e) => e.includes('description'))).toBe(true);
   });
 
-  it('fails when acceptance criteria are missing', () => {
+  it('allows planning to start without acceptance criteria', () => {
     const card = makeCard({ acceptance: [] });
     const result = validateTransition(card, 'planning');
-    expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes('acceptance'))).toBe(true);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 
   it('collects all errors at once', () => {
     const card = makeCard({ title: '', description: '', acceptance: [] });
     const result = validateTransition(card, 'planning');
     expect(result.valid).toBe(false);
-    expect(result.errors.length).toBe(3);
+    expect(result.errors.length).toBe(2);
   });
 
   it('blocks when card has unmet dependencies', () => {

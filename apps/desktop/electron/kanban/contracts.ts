@@ -96,15 +96,10 @@ const BACKLOG_TO_PLANNING: StageContract = {
       validation: 'non-empty',
       message: 'Card must have a description (at least a sentence explaining the intent)',
     },
-    {
-      field: 'acceptance',
-      validation: 'min-items',
-      minItems: 1,
-      message: 'Card must have at least 1 acceptance criterion',
-    },
   ],
   expectedOutputs: [
     { field: 'plan', description: 'Prose implementation approach' },
+    { field: 'acceptance', description: 'Acceptance criteria refined or generated during planning' },
     { field: 'subtasks', description: 'Decomposed work items with dependency graph' },
   ],
   qualityGates: [],

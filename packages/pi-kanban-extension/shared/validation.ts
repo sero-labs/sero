@@ -40,9 +40,6 @@ export function validateCardTransition(
     if (!card.description.trim()) {
       errors.push('Card must have a description (at least a sentence explaining the intent)');
     }
-    if (card.acceptance.length < 1) {
-      errors.push('Card must have at least 1 acceptance criterion');
-    }
     // Card-to-card dependencies
     const unmet = getUnmetDependencies(card, state);
     if (unmet.length > 0) {
