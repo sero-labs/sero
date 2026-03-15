@@ -148,34 +148,27 @@ export function buildCliPromptBlock(): string {
   const reg = getCliRegistry();
   const commands = reg.list().filter((c) => !c.hidden && c.name !== 'help');
 
-  // Group by source label
   const grouped = new Map<string, string[]>();
   for (const cmd of commands) {
     const group = cmd.group ?? 'Other';
     const list = grouped.get(group) ?? [];
-    list.push(`  sero ${cmd.name.padEnd(22)} ${cmd.summary}`);
+    list.push(cmd.name);
     grouped.set(group, list);
   }
 
-  const sections: string[] = [];
-  for (const [group, lines] of [...grouped.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-    sections.push(`  ${group}:`, ...lines);
-  }
+  const sections = [...grouped.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([group, names]) => `- ${group}: ${names.sort().join(', ')}`);
 
   return `
 
 ## Sero CLI
 
-You have access to the \`sero-cli\` tool for Sero platform operations.
-Use it instead of asking the user to do platform actions manually.
+Use \`sero-cli\` for Sero platform actions instead of asking the user to do them manually.
 
-Available commands:
+Commands by group:
 ${sections.join('\n')}
 
-Run \`sero help <command>\` for detailed usage of any command.
-
-Chain commands (one per line):
-  sero todo list
-  sero notes add "Summary" --body "..."
+Run \`sero help <command>\` for details. You can send multiple commands separated by newlines.
 `;
 }

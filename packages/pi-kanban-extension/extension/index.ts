@@ -16,17 +16,26 @@ import { Type } from '@sinclair/typebox';
 
 import type { Column, Priority } from '../shared/types';
 import { COLUMNS, COLUMN_LABELS, createCard } from '../shared/types';
+import { validateManualMove } from '../shared/validation';
 import { resolveStatePath, readState, writeState, formatCard, formatBoard } from './state-io';
+import {
+  handleStart, handleApprove, handleComplete,
+  handleRetry, handleBrainstorm, handleSettings, handleCleanup,
+} from './workflow-actions';
 
 // ── Tool parameters ────────────────────────────────────────────
 
 const KanbanParams = Type.Object({
-  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve', 'complete', 'retry'] as const),
+  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve', 'complete', 'retry', 'brainstorm', 'settings', 'cleanup'] as const),
   title: Type.Optional(Type.String({ description: 'Card title (for add)' })),
   id: Type.Optional(Type.String({ description: 'Card ID' })),
   column: Type.Optional(StringEnum(COLUMNS)),
   priority: Type.Optional(StringEnum(['critical', 'high', 'medium', 'low'] as const)),
   description: Type.Optional(Type.String({ description: 'Card description' })),
+  blockedBy: Type.Optional(Type.Array(Type.String(), { description: 'IDs of cards that must be done before this card can start' })),
+  acceptance: Type.Optional(Type.Array(Type.String(), { description: 'Acceptance criteria' })),
+  setting: Type.Optional(Type.String({ description: 'Setting name for settings action (testingEnabled, reviewLevel)' })),
+  value: Type.Optional(Type.String({ description: 'Setting value for settings action' })),
 });
 
 // ── Extension ──────────────────────────────────────────────────
@@ -47,7 +56,7 @@ export default function (pi: ExtensionAPI) {
     name: 'kanban',
     label: 'Kanban',
     description:
-      'Manage the workspace Kanban board. Actions: list (show board), add (requires title), move (requires id + column), update (requires id, optional title/description/priority), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning and trigger automated analysis), approve (requires id — approve plan and advance card to in-progress), complete (requires id — mark card as done, clean up worktree), retry (requires id — re-trigger the current phase for a stuck or failed card).',
+      'Manage the workspace Kanban board. IMPORTANT: Cards are implemented by automated orchestrator subagents — do NOT implement card work yourself. Your role is to manage the board, brainstorm, and approve. Actions: list (show board), add (requires title; optional description, priority, acceptance, blockedBy), move (requires id + column — for backward moves only), update (requires id; optional title/description/priority/acceptance/blockedBy), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning, triggers automated agents), approve (requires id — approve plan and advance to in-progress), complete (requires id — only from review, mark as done), retry (requires id — re-trigger current phase), brainstorm (start collaborative card creation session), settings (view/update board settings).',
     parameters: KanbanParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -78,15 +87,32 @@ export default function (pi: ExtensionAPI) {
             };
           }
           const id = String(state.nextId);
+          // Validate blockedBy references if provided
+          if (params.blockedBy?.length) {
+            const missing = params.blockedBy.filter(
+              (depId) => !state.cards.some((c) => c.id === depId),
+            );
+            if (missing.length > 0) {
+              return {
+                content: [{ type: 'text', text: `Error: blockedBy references non-existent card(s): ${missing.map((id) => `#${id}`).join(', ')}` }],
+                details: {},
+              };
+            }
+          }
           const card = createCard(id, params.title, {
             description: params.description,
             priority: params.priority as Priority | undefined,
+            acceptance: params.acceptance,
+            blockedBy: params.blockedBy,
           });
           state.cards.push(card);
           state.nextId++;
           await writeState(statePath, state);
+          const blockedInfo = card.blockedBy?.length
+            ? ` (blocked by ${card.blockedBy.map((d) => `#${d}`).join(', ')})`
+            : '';
           return {
-            content: [{ type: 'text', text: `Added card #${id}: ${card.title} → Backlog` }],
+            content: [{ type: 'text', text: `Added card #${id}: ${card.title} → Backlog${blockedInfo}` }],
             details: {},
           };
         }
@@ -112,11 +138,29 @@ export default function (pi: ExtensionAPI) {
             };
           }
           const fromCol = card.column;
-          card.column = params.column as Column;
-          card.updatedAt = new Date().toISOString();
-          if (params.column === 'done' && !card.completedAt) {
-            card.completedAt = new Date().toISOString();
+          const toCol = params.column as Column;
+          const validation = validateManualMove(card, toCol);
+          if (!validation.valid) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Cannot move to "${COLUMN_LABELS[toCol]}" directly.\n${validation.errors.map((error) => `  • ${error}`).join('\n')}`,
+                },
+              ],
+              details: {},
+            };
           }
+          card.column = toCol;
+          card.status = 'idle';
+          card.error = undefined;
+          if (toCol === 'backlog') {
+            card.completedAt = undefined;
+            card.planningProgress = undefined;
+            card.implementationProgress = undefined;
+            card.reviewProgress = undefined;
+          }
+          card.updatedAt = new Date().toISOString();
           await writeState(statePath, state);
           return {
             content: [
@@ -155,6 +199,14 @@ export default function (pi: ExtensionAPI) {
           if (params.priority) {
             card.priority = params.priority as Priority;
             changes.push(`priority=${params.priority}`);
+          }
+          if (params.acceptance) {
+            card.acceptance = params.acceptance;
+            changes.push(`acceptance (${params.acceptance.length} criteria)`);
+          }
+          if (params.blockedBy) {
+            card.blockedBy = params.blockedBy;
+            changes.push(`blockedBy=[${params.blockedBy.map((d) => `#${d}`).join(', ')}]`);
           }
           card.updatedAt = new Date().toISOString();
           await writeState(statePath, state);
@@ -211,179 +263,30 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        case 'start': {
-          if (!params.id) {
-            return {
-              content: [{ type: 'text', text: 'Error: id is required for start' }],
-              details: {},
-            };
-          }
-          const card = state.cards.find((c) => c.id === params.id);
-          if (!card) {
-            return {
-              content: [{ type: 'text', text: `Card #${params.id} not found` }],
-              details: {},
-            };
-          }
-          if (card.column !== 'backlog') {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `Card #${card.id} is in "${COLUMN_LABELS[card.column]}" — only backlog cards can be started`,
-                },
-              ],
-              details: {},
-            };
-          }
-          card.column = 'planning';
-          card.status = 'agent-working';
-          card.updatedAt = new Date().toISOString();
-          await writeState(statePath, state);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Started #${card.id} "${card.title}" → Planning. Automated analysis will begin shortly.`,
-              },
-            ],
-            details: {},
-          };
-        }
+        case 'start':
+          if (!params.id) return { content: [{ type: 'text', text: 'Error: id is required for start' }], details: {} };
+          return handleStart(statePath, state, params.id);
 
-        case 'approve': {
-          if (!params.id) {
-            return {
-              content: [{ type: 'text', text: 'Error: id is required for approve' }],
-              details: {},
-            };
-          }
-          const card = state.cards.find((c) => c.id === params.id);
-          if (!card) {
-            return {
-              content: [{ type: 'text', text: `Card #${params.id} not found` }],
-              details: {},
-            };
-          }
-          if (card.column !== 'planning' || card.status !== 'waiting-input') {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `Card #${card.id} is not awaiting approval (column: ${card.column}, status: ${card.status})`,
-                },
-              ],
-              details: {},
-            };
-          }
-          card.column = 'in-progress';
-          card.status = 'idle';
-          card.updatedAt = new Date().toISOString();
-          await writeState(statePath, state);
+        case 'approve':
+          if (!params.id) return { content: [{ type: 'text', text: 'Error: id is required for approve' }], details: {} };
+          return handleApprove(statePath, state, params.id);
 
-          const subtaskInfo = card.subtasks.length > 0
-            ? ` with ${card.subtasks.length} subtasks`
-            : '';
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Approved #${card.id} "${card.title}" → In Progress${subtaskInfo}`,
-              },
-            ],
-            details: {},
-          };
-        }
+        case 'complete':
+          if (!params.id) return { content: [{ type: 'text', text: 'Error: id is required for complete' }], details: {} };
+          return handleComplete(statePath, state, params.id);
 
-        case 'retry': {
-          if (!params.id) {
-            return {
-              content: [{ type: 'text', text: 'Error: id is required for retry' }],
-              details: {},
-            };
-          }
-          const card = state.cards.find((c) => c.id === params.id);
-          if (!card) {
-            return {
-              content: [{ type: 'text', text: `Card #${params.id} not found` }],
-              details: {},
-            };
-          }
-          const retryableColumns: Column[] = ['planning', 'in-progress', 'review'];
-          if (!retryableColumns.includes(card.column)) {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `Card #${card.id} is in "${COLUMN_LABELS[card.column]}" — retry only works for planning, in-progress, or review cards`,
-                },
-              ],
-              details: {},
-            };
-          }
-          if (card.status === 'agent-working') {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `Card #${card.id} is already being processed (status: agent-working)`,
-                },
-              ],
-              details: {},
-            };
-          }
-          card.status = 'agent-working';
-          card.error = undefined;
-          card.updatedAt = new Date().toISOString();
-          await writeState(statePath, state);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Retrying #${card.id} "${card.title}" in ${COLUMN_LABELS[card.column]}. Orchestrator will pick it up shortly.`,
-              },
-            ],
-            details: {},
-          };
-        }
+        case 'retry':
+          if (!params.id) return { content: [{ type: 'text', text: 'Error: id is required for retry' }], details: {} };
+          return handleRetry(statePath, state, params.id);
 
-        case 'complete': {
-          if (!params.id) {
-            return {
-              content: [{ type: 'text', text: 'Error: id is required for complete' }],
-              details: {},
-            };
-          }
-          const card = state.cards.find((c) => c.id === params.id);
-          if (!card) {
-            return {
-              content: [{ type: 'text', text: `Card #${params.id} not found` }],
-              details: {},
-            };
-          }
-          if (card.column === 'done') {
-            return {
-              content: [{ type: 'text', text: `Card #${card.id} is already done` }],
-              details: {},
-            };
-          }
-          card.column = 'done';
-          card.status = 'idle';
-          card.completedAt = card.completedAt ?? new Date().toISOString();
-          card.updatedAt = new Date().toISOString();
-          await writeState(statePath, state);
+        case 'brainstorm':
+          return handleBrainstorm(pi);
 
-          const prInfo = card.prUrl ? ` (PR: ${card.prUrl})` : '';
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Completed #${card.id} "${card.title}" → Done${prInfo}`,
-              },
-            ],
-            details: {},
-          };
-        }
+        case 'settings':
+          return handleSettings(statePath, state, params.setting, params.value);
+
+        case 'cleanup':
+          return handleCleanup(statePath, state, resolvedPath);
 
         default:
           return {

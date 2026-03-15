@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState, useAgentPrompt } from '@sero/app-runtime';
 import type { KanbanState, Card, Column, Priority } from '../shared/types';
 import {
   DEFAULT_KANBAN_STATE,
@@ -20,6 +20,7 @@ import {
   PRIORITY_ORDER,
   createCard,
 } from '../shared/types';
+import { applyManualMove } from './lib/card-workflow';
 import { ColumnView } from './components/ColumnView';
 import { CardDetail } from './components/CardDetail';
 
@@ -154,21 +155,11 @@ export function KanbanApp() {
 
   const handleDropCard = useCallback(
     (cardId: string, toColumn: Column) => {
-      updateState((prev) => ({
-        ...prev,
-        cards: prev.cards.map((c) =>
-          c.id === cardId
-            ? {
-                ...c,
-                column: toColumn,
-                updatedAt: new Date().toISOString(),
-                ...(toColumn === 'done' && !c.completedAt
-                  ? { completedAt: new Date().toISOString() }
-                  : {}),
-              }
-            : c,
-        ),
-      }));
+      updateState((prev) => {
+        const card = prev.cards.find((entry) => entry.id === cardId);
+        if (!card || card.column === toColumn) return prev;
+        return applyManualMove(prev, cardId, toColumn);
+      });
     },
     [updateState],
   );
@@ -180,6 +171,12 @@ export function KanbanApp() {
   const handleCloseDetail = useCallback(() => {
     setSelectedCard(null);
   }, []);
+
+  // Brainstorm — sends command to the agent via ChatPanel
+  const promptAgent = useAgentPrompt();
+  const handleBrainstorm = useCallback(() => {
+    promptAgent('Using the kanban tool: brainstorm');
+  }, [promptAgent]);
 
   // Summary stats
   const totalCards = state.cards.length;
@@ -207,6 +204,51 @@ export function KanbanApp() {
                 <Stat label="done" value={doneCards} color="text-emerald-400" />
               </div>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            {/* YOLO mode toggle */}
+            <button
+              onClick={() => updateState((prev) => ({
+                ...prev,
+                settings: { ...prev.settings, yoloMode: !prev.settings.yoloMode },
+              }))}
+              className={`px-2.5 py-1.5 text-[11px] font-medium rounded-md border cursor-pointer
+                transition-colors duration-150
+                ${state.settings.yoloMode
+                  ? 'bg-red-500/15 text-red-400 border-red-500/30 hover:bg-red-500/25'
+                  : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20 hover:bg-zinc-500/15'}`}
+              title={state.settings.yoloMode
+                ? 'YOLO mode ON — auto-starts, auto-approves, auto-completes. Click to disable.'
+                : 'YOLO mode OFF — human approval required at each stage. Click to enable.'}
+            >
+              {state.settings.yoloMode ? '🔥 YOLO' : '🔒 YOLO'}
+            </button>
+            {/* Mode toggle */}
+            <button
+              onClick={() => updateState((prev) => ({
+                ...prev,
+                settings: { ...prev.settings, testingEnabled: !prev.settings.testingEnabled },
+              }))}
+              className={`px-2.5 py-1.5 text-[11px] font-medium rounded-md border cursor-pointer
+                transition-colors duration-150
+                ${state.settings.testingEnabled
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                  : 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'}`}
+              title={state.settings.testingEnabled
+                ? 'Production mode — TDD and test generation enabled'
+                : 'Prototype mode — testing disabled for fast iteration'}
+            >
+              Mode: {state.settings.testingEnabled ? 'Production' : 'Prototype'}
+            </button>
+            <button
+              onClick={handleBrainstorm}
+              className="px-3 py-1.5 text-xs font-medium rounded-md
+                bg-[var(--kb-accent-glow)] text-[var(--kb-accent)] border border-[var(--kb-border)]
+                hover:bg-[var(--kb-accent)] hover:text-white
+                transition-colors duration-150 cursor-pointer"
+            >
+              ✨ Brainstorm
+            </button>
           </div>
         </div>
 

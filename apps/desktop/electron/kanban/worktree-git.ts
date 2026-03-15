@@ -1,15 +1,14 @@
-/**
- * Worktree git helpers — VCS operations scoped to a worktree directory.
- *
- * Unlike the main VcsManager which resolves cwd from workspaceId,
- * these functions take an explicit cwd (the worktree path) and
- * run git commands directly there.
- */
+/** Worktree git helpers — VCS operations scoped to a worktree directory. */
 
 import { execFile } from 'child_process';
+import { promises as fs } from 'fs';
+import path from 'path';
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
+
+/** Max buffer for git diff output (50MB — diffs can be large for greenfield projects). */
+const DIFF_MAX_BUFFER = 50 * 1024 * 1024;
 
 /** Extract stderr and message from an execFile error. */
 function execError(err: unknown): { stderr: string; message: string } {
@@ -32,6 +31,20 @@ export async function createCheckpointInWorktree(
   worktreePath: string,
   message: string,
 ): Promise<string | null> {
+  // Ensure common patterns are in .gitignore BEFORE checking status
+  await ensureGitignore(worktreePath);
+
+  // Remove .DS_Store from tracking if present (safe, targeted removal)
+  try {
+    await execFileAsync('git', ['rm', '-r', '--cached', '--ignore-unmatch', '.DS_Store'], {
+      cwd: worktreePath, timeout: 10_000,
+    });
+    // Also check subdirectories
+    await execFileAsync('git', ['rm', '-r', '--cached', '--ignore-unmatch', '**/.DS_Store'], {
+      cwd: worktreePath, timeout: 10_000,
+    });
+  } catch { /* not tracked — fine */ }
+
   // Check if there are changes to commit
   const status = await execFileAsync('git', ['status', '--porcelain'], {
     cwd: worktreePath,
@@ -176,12 +189,7 @@ async function resolveBaseBranch(worktreePath: string): Promise<string> {
   }
 }
 
-/**
- * Get the diff of all changes in a worktree from the branch base.
- *
- * Handles the empty-repo case (no commits yet) by diffing against
- * the git empty tree SHA.
- */
+/** Get the diff of all changes in a worktree from the branch base. */
 export async function getWorktreeDiff(worktreePath: string): Promise<string> {
   if (!await hasCommits(worktreePath)) {
     // No commits — diff all files against the empty tree
@@ -199,7 +207,7 @@ export async function getWorktreeDiff(worktreePath: string): Promise<string> {
       const diff = await execFileAsync('git', ['diff', '--cached', emptyTree.stdout.trim()], {
         cwd: worktreePath,
         timeout: 30_000,
-        maxBuffer: 10 * 1024 * 1024,
+        maxBuffer: DIFF_MAX_BUFFER,
       });
       // Unstage to avoid side effects
       await execFileAsync('git', ['reset'], { cwd: worktreePath, timeout: 10_000 }).catch(() => {});
@@ -219,16 +227,17 @@ export async function getWorktreeDiff(worktreePath: string): Promise<string> {
     const diff = await execFileAsync('git', ['diff', diffSpec], {
       cwd: worktreePath,
       timeout: 30_000,
-      maxBuffer: 10 * 1024 * 1024,
+      maxBuffer: DIFF_MAX_BUFFER,
     });
     return diff.stdout;
-  } catch {
+  } catch (err) {
+    console.warn(`[worktree-git] git diff ${diffSpec} failed:`, (err as Error)?.message?.slice(0, 200));
     // Fallback: diff working tree against HEAD
     try {
       const diff = await execFileAsync('git', ['diff', 'HEAD'], {
         cwd: worktreePath,
         timeout: 30_000,
-        maxBuffer: 10 * 1024 * 1024,
+        maxBuffer: DIFF_MAX_BUFFER,
       });
       return diff.stdout;
     } catch {
@@ -249,17 +258,7 @@ async function fetchRemoteRefs(worktreePath: string): Promise<void> {
   }
 }
 
-/**
- * Ensure the remote has a default branch to serve as PR base.
- *
- * Strategy:
- * 1. Remote has main/master with shared history → use it.
- * 2. Remote has main/master but no shared history → check if it
- *    contains real work (multiple commits). If so, abort rather
- *    than overwrite someone's branch.
- * 3. Remote has no default branch at all, or it's an empty/orphan
- *    branch → push main from the feature branch's root commit.
- */
+/** Ensure the remote has a default branch to serve as PR base. */
 export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<string> {
   await fetchRemoteRefs(worktreePath);
 
@@ -447,4 +446,51 @@ function extractGithubPrUrl(text: string): string | undefined {
 function extractPrNumber(url: string): number | undefined {
   const match = url.match(/\/pull\/(\d+)/);
   return match ? parseInt(match[1], 10) : undefined;
+}
+
+// ── Gitignore ────────────────────────────────────────────────
+
+/**
+ * Common .gitignore patterns that should always be present.
+ * Prevents massive diffs from committed node_modules, dist, etc.
+ */
+const COMMON_IGNORE_PATTERNS = [
+  'node_modules/',
+  'dist/',
+  'build/',
+  '.DS_Store',
+  '*.log',
+  '.env',
+  '.env.local',
+  'coverage/',
+  '.sero/',
+  '__pycache__/',
+  '*.pyc',
+  'target/',
+  '.next/',
+  '.nuxt/',
+  '.turbo/',
+];
+
+/**
+ * Ensure common patterns are in the worktree's .gitignore.
+ * Only ADDS patterns — never removes tracked files from the index.
+ * The dangerous `git rm --cached` approach was removed because if
+ * the re-add fails, it nukes all source files from the commit.
+ */
+async function ensureGitignore(worktreePath: string): Promise<void> {
+  const gitignorePath = path.join(worktreePath, '.gitignore');
+  let existing = '';
+  try {
+    existing = await fs.readFile(gitignorePath, 'utf8');
+  } catch { /* file doesn't exist yet */ }
+
+  const missing = COMMON_IGNORE_PATTERNS.filter(
+    (pattern) => !existing.includes(pattern),
+  );
+  if (missing.length === 0) return;
+
+  const separator = existing && !existing.endsWith('\n') ? '\n' : '';
+  const additions = `${separator}# Auto-added by kanban orchestrator\n${missing.join('\n')}\n`;
+  await fs.writeFile(gitignorePath, existing + additions, 'utf8');
 }

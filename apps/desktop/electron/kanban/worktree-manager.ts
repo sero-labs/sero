@@ -42,13 +42,20 @@ export async function ensureGitReady(workspacePath: string): Promise<boolean> {
     bootstrapped = true;
   }
 
-  // Ensure .sero/ is in .gitignore
+  // Ensure comprehensive .gitignore exists BEFORE the initial commit
+  // so node_modules, dist, .DS_Store, etc. are never tracked
   const gitignorePath = path.join(workspacePath, '.gitignore');
   try {
     const content = await fs.readFile(gitignorePath, 'utf8').catch(() => '');
-    if (!content.includes('.sero/')) {
-      const line = content.endsWith('\n') || content === '' ? '.sero/\n' : '\n.sero/\n';
-      await fs.writeFile(gitignorePath, content + line, 'utf8');
+    const required = [
+      'node_modules/', 'dist/', 'build/', '.DS_Store', '*.log',
+      '.env', '.env.local', 'coverage/', '.sero/', '__pycache__/',
+      '*.pyc', 'target/', '.next/', '.nuxt/', '.turbo/',
+    ];
+    const missing = required.filter((p) => !content.includes(p));
+    if (missing.length > 0) {
+      const sep = content && !content.endsWith('\n') ? '\n' : '';
+      await fs.writeFile(gitignorePath, content + sep + missing.join('\n') + '\n', 'utf8');
     }
   } catch { /* best-effort */ }
 
@@ -60,6 +67,10 @@ export async function ensureGitReady(workspacePath: string): Promise<boolean> {
     });
   } catch {
     console.log('[worktree] Creating initial commit (greenfield project)');
+    // Ensure default branch is 'main' (not 'master')
+    try {
+      await execFileAsync('git', ['branch', '-M', 'main'], { cwd: workspacePath, timeout: 5_000 });
+    } catch { /* branch may not exist yet — that's fine, init -b main handles it */ }
     await execFileAsync('git', ['add', '-A'], { cwd: workspacePath, timeout: 10_000 });
     await execFileAsync('git', [
       'commit', '--allow-empty', '-m', 'Initial commit',

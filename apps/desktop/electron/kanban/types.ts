@@ -2,8 +2,9 @@
  * Kanban types — host-side state definitions.
  *
  * These types mirror the extension's shared/types.ts but are owned by
- * the host. The extension package must NEVER be imported into the host
- * (dependency flows host → app, not app → host).
+ * the host. The extension package should NOT be imported into the host
+ * except for pure validation logic in shared/validation.ts (which has
+ * no side effects and is the single source of truth for transition rules).
  *
  * If you change the state shape here, update
  * packages/pi-kanban-extension/shared/types.ts to match.
@@ -19,6 +20,16 @@ export interface Subtask {
   description: string;
   status: 'pending' | 'in-progress' | 'completed' | 'failed';
   dependsOn: string[];
+  /** TDD scenario designation: 'tdd' = write tests first, 'test-after' = tests after, 'no-test' = skip */
+  tddDesignation?: 'tdd' | 'test-after' | 'no-test';
+  /** File paths this subtask creates or modifies */
+  filePaths?: string[];
+  /** Estimated complexity: low (~15min), medium (~30min), high (~45min+) */
+  complexity?: 'low' | 'medium' | 'high';
+  /** Spec review status (per-subtask review mode) */
+  specReviewStatus?: 'pending' | 'passed' | 'failed';
+  /** Quality review status (per-subtask review mode) */
+  qualityReviewStatus?: 'pending' | 'passed' | 'failed';
   agentRunId?: string;
   checkpointId?: string;
 }
@@ -63,6 +74,8 @@ export interface Card {
   priority: Priority;
   column: Column;
   status: CardStatus;
+  /** IDs of cards that must be in 'done' before this card can start */
+  blockedBy?: string[];
   branch?: string;
   worktreePath?: string;
   sessionId?: string;
@@ -88,6 +101,12 @@ export interface KanbanSettings {
     plan: boolean;
     pr: boolean;
   };
+  /** Review rigour: 'per-wave' (default) or 'per-subtask' (two-stage) */
+  reviewLevel: 'per-wave' | 'per-subtask';
+  /** Whether TDD and testing are enabled (default: true). false = POC mode */
+  testingEnabled: boolean;
+  /** YOLO mode: auto-start, auto-approve, auto-complete — no human gates */
+  yoloMode: boolean;
 }
 
 export interface KanbanState {

@@ -9,7 +9,10 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "outDir": "dist/electron",
-    "rootDir": ".",
+    /* Widened to monorepo root so contracts.ts can import shared validation
+       from packages/pi-kanban-extension/shared/. Safe: this tsconfig is only
+       used for `tsc --noEmit` type checking — the actual build uses esbuild. */
+    "rootDir": "../..",
     "lib": ["ES2022"],
     "baseUrl": ".",
     "paths": {
