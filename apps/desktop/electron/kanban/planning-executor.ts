@@ -18,6 +18,7 @@ import {
   parsePlanResult,
 } from './prompts';
 import type { PlanGenerationOptions } from './prompts';
+import { bridgeSubagentLiveOutput } from './live-output-bridge';
 import type { SubagentManager } from '../subagent/index';
 
 export interface PlanningExecutorDeps {
@@ -41,44 +42,54 @@ export async function executePlanning(
   const { subagentManager, workspaceId } = deps;
   const parentSessionId = `kanban-card-${card.id}`;
   const taskDescription = buildPlanningPrompt(card);
-
-  let reconResult: string;
-
-  if (greenfield) {
-    // Greenfield: no codebase to analyse — provide context directly
-    reconResult = buildGreenfieldContext(card);
-    tracker.setPhase('Planning new project');
-    tracker.addAgent('planner');
-    await tracker.flush();
-  } else {
-    // Existing project: parallel reconnaissance
-    reconResult = await runReconnaissance(
-      deps, parentSessionId, taskDescription, tracker,
-    );
-
-    tracker.setPhase('Generating plan');
-    tracker.addAgent('planner');
-    await tracker.flush();
-  }
-
-  // Plan generation — uses the planner agent template (packages/templates/agents/planner.md)
-  const planResult = await subagentManager.runSingle({
-    agent: 'planner',
-    task: buildSubtaskGenerationPrompt(card, reconResult, deps.planOptions),
-    parentSessionId,
+  const detachLiveOutput = bridgeSubagentLiveOutput(
+    subagentManager,
     workspaceId,
-    isolated: true,
-    onUpdate: (text) => tracker.addLogLine(text),
-  });
+    parentSessionId,
+    tracker,
+  );
 
-  tracker.completeAgent('planner');
-  await tracker.flush();
+  try {
+    let reconResult: string;
 
-  const parsed = parsePlanResult(planResult);
-  if (parsed.warnings.length > 0) {
-    console.warn(`[planning-executor] Plan warnings: ${parsed.warnings.join('; ')}`);
+    if (greenfield) {
+      // Greenfield: no codebase to analyse — provide context directly
+      reconResult = buildGreenfieldContext(card);
+      tracker.setPhase('Planning new project');
+      tracker.addAgent('planner');
+      await tracker.flush();
+    } else {
+      // Existing project: parallel reconnaissance
+      reconResult = await runReconnaissance(
+        deps, parentSessionId, taskDescription, tracker,
+      );
+
+      tracker.setPhase('Generating plan');
+      tracker.addAgent('planner');
+      await tracker.flush();
+    }
+
+    // Plan generation — uses the planner agent template (packages/templates/agents/planner.md)
+    const planResult = await subagentManager.runSingle({
+      agent: 'planner',
+      task: buildSubtaskGenerationPrompt(card, reconResult, deps.planOptions),
+      parentSessionId,
+      workspaceId,
+      isolated: true,
+      onUpdate: (text) => tracker.addLogLine(text),
+    });
+
+    tracker.completeAgent('planner');
+    await tracker.flush();
+
+    const parsed = parsePlanResult(planResult);
+    if (parsed.warnings.length > 0) {
+      console.warn(`[planning-executor] Plan warnings: ${parsed.warnings.join('; ')}`);
+    }
+    return { plan: parsed.plan, subtasks: parsed.subtasks };
+  } finally {
+    detachLiveOutput();
   }
-  return { plan: parsed.plan, subtasks: parsed.subtasks };
 }
 
 // ── Reconnaissance (existing projects only) ──────────────────

@@ -20,6 +20,7 @@ import { PlanApprovalPanel } from './PlanApprovalPanel';
 import { DescriptionEditor } from './DescriptionEditor';
 import { CardDetailFooter } from './CardDetailFooter';
 import { applyManualMove, applyWorkflowTransition } from '../lib/card-workflow';
+import { isReviewMergeStatusMessage } from '../lib/review-pr-status';
 import { getManualMoveTargets } from '../../shared/validation';
 
 export function CardDetail({
@@ -64,7 +65,7 @@ export function CardDetail({
     onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'in-progress'));
   }, [card, onUpdate]);
 
-  const handleComplete = useCallback(() => {
+  const handleCheckMergeStatus = useCallback(() => {
     if (!card) return;
     onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'done'));
   }, [card, onUpdate]);
@@ -344,11 +345,16 @@ export function CardDetail({
 
               {/* PR ready — awaiting user completion */}
               {card.column === 'review' && card.status === 'waiting-input' && card.prUrl && (
-                <ReviewStatusPanel card={card} onComplete={handleComplete} />
+                <ReviewStatusPanel card={card} onCheckMerge={handleCheckMergeStatus} />
               )}
 
               {/* Error */}
-              {card.error && (
+              {card.error && !(
+                card.column === 'review'
+                && card.status === 'waiting-input'
+                && card.prUrl
+                && isReviewMergeStatusMessage(card.error)
+              ) && (
                 <div
                   style={{
                     borderRadius: '8px',
@@ -370,7 +376,12 @@ export function CardDetail({
                   >
                     Error
                   </h3>
-                  <p className="text-xs leading-relaxed" style={{ color: '#fca5a5' }}>{card.error}</p>
+                  <p
+                    className="text-xs leading-relaxed"
+                    style={{ color: '#fca5a5', whiteSpace: 'pre-wrap' }}
+                  >
+                    {card.error}
+                  </p>
                 </div>
               )}
 

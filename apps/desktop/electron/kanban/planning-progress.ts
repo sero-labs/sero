@@ -15,6 +15,8 @@ export class PlanningProgressTracker extends BaseProgressTracker<PlanningProgres
       agents: [],
       recentTools: [],
       log: [],
+      liveOutput: '',
+      liveOutputSource: undefined,
     });
   }
 

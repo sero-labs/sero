@@ -4,6 +4,7 @@ import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+export { ensureRemoteDefaultBranch, createPrFromWorktree } from './worktree-pr';
 
 const execFileAsync = promisify(execFile);
 
@@ -246,208 +247,6 @@ export async function getWorktreeDiff(worktreePath: string): Promise<string> {
   }
 }
 
-/** Fetch remote refs so origin/* is up to date for merge-base checks. */
-async function fetchRemoteRefs(worktreePath: string): Promise<void> {
-  try {
-    await execFileAsync('git', ['fetch', 'origin'], {
-      cwd: worktreePath,
-      timeout: 30_000,
-    });
-  } catch {
-    // Best-effort — remote may not exist yet
-  }
-}
-
-/** Ensure the remote has a default branch to serve as PR base. */
-export async function ensureRemoteDefaultBranch(worktreePath: string): Promise<string> {
-  await fetchRemoteRefs(worktreePath);
-
-  // 1. Look for a remote default branch with shared history
-  for (const branch of ['main', 'master']) {
-    try {
-      const r = await execFileAsync('git', ['ls-remote', '--heads', 'origin', branch], {
-        cwd: worktreePath,
-        timeout: 15_000,
-      });
-      if (!r.stdout.trim()) continue;
-
-      // Verify shared history — merge-base exits non-zero if none
-      await execFileAsync('git', ['merge-base', `origin/${branch}`, 'HEAD'], {
-        cwd: worktreePath,
-        timeout: 10_000,
-      });
-      return branch;
-    } catch { /* no shared history or doesn't exist — try next */ }
-  }
-
-  // 2. Remote branch exists but has no shared history — check if it
-  //    contains real work before overwriting. A branch with >1 commit
-  //    likely has meaningful content we should not destroy.
-  for (const branch of ['main', 'master']) {
-    try {
-      const r = await execFileAsync('git', ['ls-remote', '--heads', 'origin', branch], {
-        cwd: worktreePath,
-        timeout: 15_000,
-      });
-      if (!r.stdout.trim()) continue;
-
-      // Count commits on the remote branch
-      const countResult = await execFileAsync('git', [
-        'rev-list', '--count', `origin/${branch}`,
-      ], { cwd: worktreePath, timeout: 10_000 });
-      const commitCount = parseInt(countResult.stdout.trim(), 10);
-
-      if (commitCount > 1) {
-        // Remote branch has real work — do NOT overwrite. Use it as-is
-        // even though history is disconnected; the PR may show a large
-        // diff but we avoid data loss.
-        console.warn(
-          `[worktree-git] Remote '${branch}' has ${commitCount} commits but no shared history with HEAD. ` +
-          `Using it as PR base to avoid overwriting existing work.`,
-        );
-        return branch;
-      }
-      // Single commit (likely orphan/placeholder) — safe to overwrite below
-    } catch { /* doesn't exist or fetch failed — try next */ }
-  }
-
-  // 3. No usable remote branch, or it's a single-commit orphan.
-  //    Push the feature branch's root commit as 'main'.
-  console.log('[worktree-git] Setting up remote main from feature branch root commit');
-  try {
-    const rootResult = await execFileAsync('git', ['rev-list', '--max-parents=0', 'HEAD'], {
-      cwd: worktreePath,
-      timeout: 10_000,
-    });
-    const rootCommit = rootResult.stdout.trim().split('\n')[0];
-
-    if (rootCommit) {
-      await execFileAsync('git', ['update-ref', 'refs/heads/main', rootCommit], {
-        cwd: worktreePath,
-        timeout: 5_000,
-      });
-      // Use --force-with-lease for safety (fails if remote was updated since fetch)
-      await execFileAsync('git', ['push', '--force-with-lease', '-u', 'origin', 'main'], {
-        cwd: worktreePath,
-        timeout: 30_000,
-      });
-      console.log(`[worktree-git] Created main at root commit ${rootCommit.slice(0, 12)} and pushed`);
-      return 'main';
-    }
-  } catch (err: unknown) {
-    console.error('[worktree-git] Failed to create default branch:', execError(err).message);
-  }
-
-  return 'main';
-}
-
-/**
- * Resolve the default branch name for PR base (must be a real branch, not a SHA).
- * Falls back to 'main' since GitHub defaults to that for new repos.
- */
-async function resolveDefaultBranch(worktreePath: string): Promise<string> {
-  // Try the remote's HEAD (most reliable)
-  try {
-    const r = await execFileAsync('git', ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
-      cwd: worktreePath,
-      timeout: 5_000,
-    });
-    const ref = r.stdout.trim(); // e.g. refs/remotes/origin/main
-    const branch = ref.split('/').pop();
-    if (branch) return branch;
-  } catch { /* no remote HEAD */ }
-
-  // Check if main or master exist locally or on remote
-  for (const branch of ['main', 'master']) {
-    try {
-      await execFileAsync('git', ['rev-parse', '--verify', `origin/${branch}`], {
-        cwd: worktreePath,
-        timeout: 5_000,
-      });
-      return branch;
-    } catch { /* try next */ }
-    try {
-      await execFileAsync('git', ['rev-parse', '--verify', branch], {
-        cwd: worktreePath,
-        timeout: 5_000,
-      });
-      return branch;
-    } catch { /* try next */ }
-  }
-
-  // Last resort — GitHub defaults to 'main'
-  return 'main';
-}
-
-/**
- * Create a PR using the `gh` CLI directly from a worktree.
- *
- * @returns Object with url + number if successful, or error message.
- */
-export async function createPrFromWorktree(
-  worktreePath: string,
-  opts: { title: string; body: string; baseBranch?: string; draft?: boolean },
-): Promise<{ success: true; url: string; number: number } | { success: false; error: string }> {
-  const base = opts.baseBranch ?? await resolveDefaultBranch(worktreePath);
-
-  const args = ['pr', 'create', '--base', base, '--title', opts.title, '--body', opts.body];
-  if (opts.draft) args.push('--draft');
-
-  try {
-    const result = await execFileAsync('gh', args, {
-      cwd: worktreePath,
-      timeout: 120_000,
-    });
-
-    const url = extractGithubPrUrl(result.stdout) ?? extractGithubPrUrl(result.stderr);
-    const prNumber = url ? extractPrNumber(url) : undefined;
-
-    if (url && prNumber) {
-      console.log(`[worktree-git] Created PR #${prNumber}: ${url}`);
-      return { success: true, url, number: prNumber };
-    }
-    return { success: true, url: result.stdout.trim(), number: 0 };
-  } catch (err: unknown) {
-    const { stderr, message } = execError(err);
-    const errorDetail = stderr || message || 'Unknown error';
-
-    // Check if a PR already exists
-    if (errorDetail.includes('already exists')) {
-      const existing = await findExistingPr(worktreePath);
-      if (existing) return { success: true, ...existing };
-    }
-
-    console.error('[worktree-git] PR creation failed:', errorDetail);
-    return { success: false, error: errorDetail };
-  }
-}
-
-/** Find an existing open PR for the current branch. */
-async function findExistingPr(
-  worktreePath: string,
-): Promise<{ url: string; number: number } | null> {
-  try {
-    const result = await execFileAsync('gh', [
-      'pr', 'view', '--json', 'url,number',
-    ], { cwd: worktreePath, timeout: 30_000 });
-
-    const parsed = JSON.parse(result.stdout) as { url?: string; number?: number };
-    if (parsed.url && typeof parsed.number === 'number') {
-      return { url: parsed.url, number: parsed.number };
-    }
-  } catch { /* no existing PR */ }
-  return null;
-}
-
-function extractGithubPrUrl(text: string): string | undefined {
-  return text.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/)?.[0];
-}
-
-function extractPrNumber(url: string): number | undefined {
-  const match = url.match(/\/pull\/(\d+)/);
-  return match ? parseInt(match[1], 10) : undefined;
-}
-
 // ── Gitignore ────────────────────────────────────────────────
 
 /**
@@ -464,6 +263,7 @@ const COMMON_IGNORE_PATTERNS = [
   '.env.local',
   'coverage/',
   '.sero/',
+  '.sero-workspace.json',
   '__pycache__/',
   '*.pyc',
   'target/',

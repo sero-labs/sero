@@ -5,8 +5,9 @@
  * giving it an isolated working directory and branch while sharing the
  * repo's `.git` object store. This enables true parallel card execution.
  *
- * Worktrees are created when a card enters the planning phase and removed
- * when the card reaches done or is cancelled.
+ * Worktrees are created when a card enters the planning phase and kept
+ * around through review so the branch can be revised or merged. They are
+ * removed later during explicit cleanup (or cancellation).
  */
 
 import { execFile } from 'child_process';
@@ -15,6 +16,7 @@ import path from 'path';
 import { promisify } from 'util';
 
 import { inferConventionalType, slugifyBranchLabel } from '../vcs/branch-naming';
+import { ensureBootstrapGitignore } from '../vcs/bootstrap-gitignore';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,21 +45,12 @@ export async function ensureGitReady(workspacePath: string): Promise<boolean> {
   }
 
   // Ensure comprehensive .gitignore exists BEFORE the initial commit
-  // so node_modules, dist, .DS_Store, etc. are never tracked
-  const gitignorePath = path.join(workspacePath, '.gitignore');
+  // so node_modules, dist, .DS_Store, etc. are never tracked.
   try {
-    const content = await fs.readFile(gitignorePath, 'utf8').catch(() => '');
-    const required = [
-      'node_modules/', 'dist/', 'build/', '.DS_Store', '*.log',
-      '.env', '.env.local', 'coverage/', '.sero/', '__pycache__/',
-      '*.pyc', 'target/', '.next/', '.nuxt/', '.turbo/',
-    ];
-    const missing = required.filter((p) => !content.includes(p));
-    if (missing.length > 0) {
-      const sep = content && !content.endsWith('\n') ? '\n' : '';
-      await fs.writeFile(gitignorePath, content + sep + missing.join('\n') + '\n', 'utf8');
-    }
-  } catch { /* best-effort */ }
+    await ensureBootstrapGitignore(workspacePath);
+  } catch {
+    // Best-effort.
+  }
 
   // Check if there are any commits
   try {
@@ -71,7 +64,7 @@ export async function ensureGitReady(workspacePath: string): Promise<boolean> {
     try {
       await execFileAsync('git', ['branch', '-M', 'main'], { cwd: workspacePath, timeout: 5_000 });
     } catch { /* branch may not exist yet — that's fine, init -b main handles it */ }
-    await execFileAsync('git', ['add', '-A'], { cwd: workspacePath, timeout: 10_000 });
+    await execFileAsync('git', ['add', '--', '.gitignore'], { cwd: workspacePath, timeout: 10_000 });
     await execFileAsync('git', [
       'commit', '--allow-empty', '-m', 'Initial commit',
     ], { cwd: workspacePath, timeout: 10_000 });

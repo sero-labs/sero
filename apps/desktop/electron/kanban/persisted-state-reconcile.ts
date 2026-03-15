@@ -1,0 +1,46 @@
+import type { Card, KanbanState } from './types';
+import { getPullRequestMergeError } from './pr-merge-status';
+
+export interface PersistedCardFix {
+  id: string;
+  update: Partial<Card>;
+}
+
+export async function collectPersistedCardFixes(
+  state: KanbanState | null,
+): Promise<PersistedCardFix[]> {
+  if (!state?.cards?.length) return [];
+
+  const fixes: PersistedCardFix[] = [];
+
+  for (const card of state.cards) {
+    if (
+      card.column === 'review'
+      && card.status === 'waiting-input'
+      && card.prUrl
+      && isMalformedReviewError(card.error)
+    ) {
+      fixes.push({ id: card.id, update: { error: undefined } });
+    }
+
+    if (card.column !== 'done' || !card.prNumber || !card.worktreePath) continue;
+    const mergeError = await getPullRequestMergeError(card.worktreePath, card.prNumber);
+    if (!mergeError) continue;
+    fixes.push({
+      id: card.id,
+      update: {
+        column: 'review',
+        status: 'waiting-input',
+        completedAt: undefined,
+        error: mergeError,
+      },
+    });
+  }
+
+  return fixes;
+}
+
+function isMalformedReviewError(error: string | undefined): boolean {
+  if (!error) return false;
+  return error.includes('[object Object]') || /verdict[:\s`*-]+(merge|fix-first|reject)/i.test(error);
+}

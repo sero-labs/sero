@@ -41,6 +41,8 @@ export interface PlanningProgress {
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];  // Last ~15 tool calls
   log: string[];               // Recent onUpdate lines (last ~20)
+  liveOutput?: string;         // Latest streamed subagent output preview
+  liveOutputSource?: string;   // Agent name that produced the latest preview
 }
 
 export interface ImplementationProgress {
@@ -51,6 +53,8 @@ export interface ImplementationProgress {
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];  // Last ~15 tool calls
   log: string[];               // Recent onUpdate lines (last ~20)
+  liveOutput?: string;         // Latest streamed subagent output preview
+  liveOutputSource?: string;   // Agent name that produced the latest preview
 }
 
 export interface ReviewProgress {
@@ -59,6 +63,8 @@ export interface ReviewProgress {
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];  // Last ~15 tool calls
   log: string[];               // Recent onUpdate lines (last ~20)
+  liveOutput?: string;         // Latest streamed subagent output preview
+  liveOutputSource?: string;   // Agent name that produced the latest preview
 }
 
 export interface Card {

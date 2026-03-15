@@ -46,6 +46,8 @@ export interface PlanningProgress {
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];
   log: string[];
+  liveOutput?: string;
+  liveOutputSource?: string;
 }
 
 export interface ImplementationProgress {
@@ -56,6 +58,8 @@ export interface ImplementationProgress {
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];
   log: string[];
+  liveOutput?: string;
+  liveOutputSource?: string;
 }
 
 export interface ReviewProgress {
@@ -64,6 +68,8 @@ export interface ReviewProgress {
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];
   log: string[];
+  liveOutput?: string;
+  liveOutputSource?: string;
 }
 
 export interface Card {

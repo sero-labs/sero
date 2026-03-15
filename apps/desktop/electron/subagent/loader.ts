@@ -30,6 +30,7 @@ export function createSubagentExtensionFactory(
   currentWorkspaceId: string,
   _sessionId: string,
   containerState?: ContainerState,
+  containerCwd?: string,
 ) {
   return (pi: ExtensionAPI) => {
     // ── System prompt injection (CLI + container) ─────────────
@@ -41,6 +42,7 @@ export function createSubagentExtensionFactory(
         systemPrompt += buildContainerPromptBlock(
           currentWorkspaceId,
           containerState.ipAddress,
+          { currentWorkingDir: containerCwd },
         );
       }
 

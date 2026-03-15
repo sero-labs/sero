@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import type { Card } from '../../shared/types';
 import { CardStatusDot, SubtaskStatusDot } from './StatusDot';
 import { PriorityBadge } from './PriorityBadge';
+import { getReviewPrStatus } from '../lib/review-pr-status';
 
 function cn(...classes: (string | false | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ');
@@ -23,6 +24,9 @@ export function CardView({
   onSelect: (card: Card) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const reviewPrStatus = card.column === 'review' && card.status === 'waiting-input' && card.prUrl
+    ? getReviewPrStatus(card)
+    : null;
 
   const progress =
     card.subtasks.length > 0
@@ -121,18 +125,18 @@ export function CardView({
             </span>
           </div>
         )}
-        {card.column === 'review' && card.status === 'waiting-input' && card.prUrl && (
+        {reviewPrStatus && (
           <div className="mt-1.5 ml-4">
             <span
               className="inline-flex items-center rounded-md text-[10px] font-medium leading-none"
               style={{
                 padding: '3px 7px',
-                backgroundColor: 'rgba(52, 211, 153, 0.1)',
-                color: '#34d399',
-                border: '1px solid rgba(52, 211, 153, 0.2)',
+                backgroundColor: reviewPrStatus.tone.background,
+                color: reviewPrStatus.tone.accent,
+                border: `1px solid ${reviewPrStatus.tone.border}`,
               }}
             >
-              PR ready — merge &amp; mark done
+              {reviewPrStatus.title}
             </span>
           </div>
         )}

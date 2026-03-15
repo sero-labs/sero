@@ -18,6 +18,8 @@ export class ImplementationProgressTracker extends BaseProgressTracker<Implement
       agents: [],
       recentTools: [],
       log: [],
+      liveOutput: '',
+      liveOutputSource: undefined,
     });
   }
 

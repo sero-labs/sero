@@ -5,7 +5,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { detectVerificationCommands, detectPackageManager } from '../../kanban/verification';
+import {
+  detectVerificationCommands,
+  detectPackageManager,
+  runVerificationCommands,
+  summarizeVerificationFailure,
+} from '../../kanban/verification';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -134,5 +139,35 @@ describe('detectVerificationCommands', () => {
     );
     const commands = await detectVerificationCommands(tmpDir);
     expect(commands.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('runVerificationCommands', () => {
+  it('uses the injected command runner', async () => {
+    const runCommand = vi.fn().mockResolvedValue({
+      stdout: 'ok',
+      stderr: '',
+      exitCode: 0,
+    });
+
+    const result = await runVerificationCommands(tmpDir, ['npm test'], 45_000, { runCommand });
+
+    expect(result.success).toBe(true);
+    expect(runCommand).toHaveBeenCalledWith('npm test', tmpDir, 45_000);
+  });
+});
+
+describe('summarizeVerificationFailure', () => {
+  it('collapses native dependency mismatch errors into a short summary', () => {
+    const summary = summarizeVerificationFailure({
+      command: 'npm test',
+      success: false,
+      stdout: '',
+      stderr: 'Error: Cannot find native binding. npm has a bug related to optional dependencies',
+      durationMs: 100,
+    });
+
+    expect(summary).toContain('native dependency mismatch');
+    expect(summary).toContain('npm test');
   });
 });

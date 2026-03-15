@@ -9,6 +9,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PlanningToolEntry } from '../../shared/types';
+import { formatActivityLogLine } from './activity-panel-log';
+import { PhaseLiveOutputPreview } from './PhaseLiveOutputPreview';
 
 // ── Tool icons ──────────────────────────────────────────────
 
@@ -16,6 +18,7 @@ const TOOL_ICONS: Record<string, string> = {
   read: '📖', bash: '📂', write: '✏️', edit: '✏️',
   ls: '📁', find: '🔍', grep: '🔎', glob: '🔍',
 };
+const TOOL_LOG_PATTERN = /\s*\S+\s+(\w+):\s*(.+)/;
 
 function toolIcon(name: string): string {
   return TOOL_ICONS[name] ?? '🔧';
@@ -47,6 +50,9 @@ export interface ActivityPanelData {
   startedAt?: number;
   agents?: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools?: PlanningToolEntry[];
+  log?: string[];
+  liveOutput?: string;
+  liveOutputSource?: string;
 }
 
 interface ActivityPanelProps {
@@ -62,6 +68,10 @@ interface ActivityPanelProps {
   headerExtra?: React.ReactNode;
   /** Max height for the tool feed. Default: 160. */
   feedMaxHeight?: number;
+  /** Render textual status updates from `data.log`. */
+  showLogFeed?: boolean;
+  /** Max height for the text update feed. Default: 120. */
+  logFeedMaxHeight?: number;
 }
 
 // ── Component ───────────────────────────────────────────────
@@ -74,6 +84,8 @@ export function ActivityPanel({
   headerSlot,
   headerExtra,
   feedMaxHeight = 160,
+  showLogFeed = false,
+  logFeedMaxHeight = 120,
 }: ActivityPanelProps) {
   const [elapsed, setElapsed] = useState('');
   useEffect(() => {
@@ -85,14 +97,29 @@ export function ActivityPanel({
   }, [data?.startedAt]);
 
   const feedRef = useRef<HTMLDivElement>(null);
+  const latestTool = data?.recentTools?.[data.recentTools.length - 1];
   useEffect(() => {
     if (feedRef.current) {
       feedRef.current.scrollTop = feedRef.current.scrollHeight;
     }
-  }, [data?.recentTools?.length]);
+  }, [data?.recentTools?.length, latestTool?.tool, latestTool?.args, latestTool?.running]);
+
+  const logFeedRef = useRef<HTMLDivElement>(null);
+  const narrativeEntries = showLogFeed
+    ? (data?.log ?? []).filter((entry) => entry.trim() && !TOOL_LOG_PATTERN.test(entry))
+    : [];
+  const latestNarrativeEntry = narrativeEntries[narrativeEntries.length - 1];
+
+  useEffect(() => {
+    if (logFeedRef.current) {
+      logFeedRef.current.scrollTop = logFeedRef.current.scrollHeight;
+    }
+  }, [narrativeEntries.length, latestNarrativeEntry]);
 
   const hasAgents = (data?.agents?.length ?? 0) > 0;
   const hasTools = (data?.recentTools?.length ?? 0) > 0;
+  const hasNarrativeEntries = narrativeEntries.length > 0;
+  const hasLiveOutput = !!data?.liveOutput?.trim();
 
   return (
     <div
@@ -150,6 +177,23 @@ export function ActivityPanel({
         </div>
       )}
 
+      {hasLiveOutput && (
+        <PhaseLiveOutputPreview
+          source={data?.liveOutputSource}
+          text={data?.liveOutput}
+          theme={theme}
+        />
+      )}
+
+      {hasNarrativeEntries && (
+        <NarrativeFeed
+          feedRef={logFeedRef}
+          entries={narrativeEntries}
+          theme={theme}
+          maxHeight={logFeedMaxHeight}
+        />
+      )}
+
       {/* Tool activity feed */}
       {hasTools && (
         <ToolFeed
@@ -161,7 +205,7 @@ export function ActivityPanel({
       )}
 
       {/* Fallback */}
-      {(!data || (!hasTools && !hasAgents)) && (
+      {(!data || (!hasTools && !hasNarrativeEntries && !hasLiveOutput)) && (
         <p style={{ fontSize: '11px', color: '#5c5e6a', lineHeight: 1.4, padding: '0 14px 12px' }}>
           {fallbackText}
         </p>
@@ -289,4 +333,109 @@ function ToolFeed({
       ))}
     </div>
   );
+}
+
+// ── Narrative status feed ───────────────────────────────────
+
+function NarrativeFeed({
+  feedRef,
+  entries,
+  theme,
+  maxHeight,
+}: {
+  feedRef: React.RefObject<HTMLDivElement | null>;
+  entries: string[];
+  theme: ActivityPanelTheme;
+  maxHeight: number;
+}) {
+  return (
+    <div
+      ref={feedRef}
+      style={{
+        maxHeight: `${maxHeight}px`,
+        overflowY: 'auto',
+        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        padding: '8px 14px 2px',
+      }}
+      className="kb-scrollbar"
+    >
+      {entries.map((entry, i) => (
+        <NarrativeEntry
+          key={`${entry}-${i}`}
+          entry={entry}
+          theme={theme}
+        />
+      ))}
+    </div>
+  );
+}
+
+function NarrativeEntry({
+  entry,
+  theme,
+}: {
+  entry: string;
+  theme: ActivityPanelTheme;
+}) {
+  const formattedEntry = formatActivityLogLine(entry);
+  const tone = resolveLogTone(formattedEntry);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '8px',
+        padding: '0 0 6px',
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-block',
+          width: '6px',
+          height: '6px',
+          borderRadius: '50%',
+          backgroundColor: tone === 'running'
+            ? theme.primary
+            : tone === 'success'
+              ? '#34d399'
+              : tone === 'error'
+                ? '#f87171'
+                : tone === 'warning'
+                  ? '#f59e0b'
+                  : 'rgba(255, 255, 255, 0.18)',
+          animation: tone === 'running' ? 'kb-pulse 1.8s ease-in-out infinite' : undefined,
+          flexShrink: 0,
+          marginTop: '4px',
+        }}
+      />
+      <p
+        className="whitespace-pre-wrap break-words"
+        style={{
+          fontSize: '10px',
+          lineHeight: 1.45,
+          color: tone === 'success'
+            ? '#86efac'
+            : tone === 'error'
+              ? '#fca5a5'
+              : tone === 'warning'
+                ? '#fcd34d'
+                : tone === 'running'
+                  ? theme.primaryText
+                  : '#8b8d97',
+          minWidth: 0,
+        }}
+      >
+        {formattedEntry}
+      </p>
+    </div>
+  );
+}
+
+function resolveLogTone(entry: string): 'running' | 'success' | 'error' | 'warning' | 'neutral' {
+  if (entry.startsWith('🔄')) return 'running';
+  if (entry.startsWith('✅')) return 'success';
+  if (entry.startsWith('❌')) return 'error';
+  if (entry.startsWith('⚠️')) return 'warning';
+  return 'neutral';
 }

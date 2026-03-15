@@ -22,6 +22,7 @@ export function PlanningActivityPanel({ progress }: { progress?: PlanningProgres
       data={progress}
       defaultPhase="Planning in progress…"
       fallbackText="Analysing codebase and generating implementation plan with subtasks."
+      showLogFeed
     />
   );
 }
