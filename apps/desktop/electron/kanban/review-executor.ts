@@ -16,9 +16,11 @@ import type { ReviewProgressTracker } from './review-progress';
 import type { ReviewResult } from './prompts';
 import {
   buildReviewPrompt,
-  REVIEWER_SYSTEM_PROMPT,
   parseReviewResult,
 } from './prompts';
+import type { ReviewPromptOptions } from './prompts';
+import { detectVerificationCommands, runVerificationCommands } from './verification';
+import type { KanbanSettings } from './types';
 import {
   createCheckpointInWorktree,
   ensureRemoteDefaultBranch,
@@ -34,6 +36,7 @@ const execFileAsync = promisify(execFile);
 export interface ReviewExecutorDeps {
   subagentManager: SubagentManager;
   workspaceId: string;
+  settings?: KanbanSettings;
 }
 
 export interface ReviewExecutorResult {
@@ -104,15 +107,35 @@ export async function executeReview(
     return { success: false, error: 'No changes to review — diff is empty.' };
   }
 
+  // ── Step 1b: Pre-review verification ────────────────────
+  const verifyCommands = await detectVerificationCommands(worktreePath, {
+    testingEnabled: deps.settings?.testingEnabled,
+  });
+  if (verifyCommands.length > 0) {
+    tracker.setPhase('Running verification');
+    await tracker.flush();
+
+    const verifyResult = await runVerificationCommands(worktreePath, verifyCommands);
+    if (!verifyResult.success) {
+      const failed = verifyResult.results.find((r) => !r.success);
+      const errOutput = failed
+        ? `${failed.command}: ${failed.stderr}\n${failed.stdout}`.trim().slice(-2000)
+        : 'Unknown verification failure';
+      return { success: false, error: `Pre-review verification failed:\n${errOutput}` };
+    }
+  }
+
   // ── Step 2: Reviewer subagent ─────────────────────────
   tracker.setPhase('Reviewing changes');
   tracker.addAgent('reviewer');
   await tracker.flush();
 
-  const reviewPrompt = buildReviewPrompt(card, diff, fileSummary);
+  const reviewOpts: ReviewPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
+  const reviewPrompt = buildReviewPrompt(card, diff, fileSummary, reviewOpts);
+  // Uses the reviewer agent template (packages/templates/agents/reviewer.md)
   const rawReview = await deps.subagentManager.runSingle({
+    agent: 'reviewer',
     task: reviewPrompt,
-    systemPrompt: REVIEWER_SYSTEM_PROMPT,
     parentSessionId: `kanban-review-${card.id}`,
     workspaceId: deps.workspaceId,
     cwd: worktreePath,
@@ -120,7 +143,7 @@ export async function executeReview(
     onUpdate: (text) => tracker.addLogLine(text),
   });
 
-  const review = parseReviewResult(rawReview);
+  const review = parseReviewResult(rawReview, card.title);
   tracker.completeAgent('reviewer');
 
   // Save review to file so restarts can skip re-running the subagent
@@ -170,6 +193,8 @@ async function pushAndCreatePr(
 
   if (prResult.success) {
     console.log(`[review-executor] PR created for card #${card.id}: ${prResult.url}`);
+    // Worktrees are kept alive until the user explicitly cleans up
+    // (via done cleanup) — never auto-delete work that hasn't been confirmed
     return {
       success: true,
       prUrl: prResult.url,

@@ -7,6 +7,20 @@ export { WorktreeManager, ensureGitReady } from './worktree-manager';
 export { resolveExecutionWaves } from './wave-resolver';
 export { updateCard, readCard } from './state-helpers';
 export {
+  validateTransition,
+  getContract,
+  getUnmetDependencies,
+  getNewlyUnblockedCards,
+  getAllReadyBacklogCards,
+} from './contracts';
+export type { StageContract, QualityGate, ValidationResult } from './contracts';
+export {
+  detectVerificationCommands,
+  detectPackageManager,
+  runVerificationCommands,
+} from './verification';
+export type { VerificationResult, CommandResult } from './verification';
+export {
   createCheckpointInWorktree,
   getWorktreeDiff,
   getWorktreeDiffSummary,

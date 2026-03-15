@@ -328,7 +328,16 @@ export function CardDetail({
                     )}
                     {card.prUrl && (
                       <p>
-                        PR: <span className="font-medium" style={{ color: '#34d399' }}>#{card.prNumber}</span>
+                        PR:{' '}
+                        <a
+                          href={card.prUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium"
+                          style={{ color: '#34d399', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                        >
+                          #{card.prNumber}
+                        </a>
                       </p>
                     )}
                   </div>

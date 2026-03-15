@@ -30,9 +30,21 @@ interface WatcherEntry {
 
 // ── AppStateManager ──────────────────────────────────────────
 
+type ChangeListener = (filePath: string, data: unknown) => void;
+
 class AppStateManager {
   private watchers = new Map<string, WatcherEntry>();
   private writeQueues = new Map<string, Promise<void>>();
+  private changeListeners: ChangeListener[] = [];
+
+  /**
+   * Register a listener for file change events (from fs.watch).
+   * Used by the kanban orchestrator to react to state changes
+   * from ANY source (extension direct writes, IPC writes, etc.).
+   */
+  onFileChange(listener: ChangeListener): void {
+    this.changeListeners.push(listener);
+  }
 
   // ── Read ─────────────────────────────────────────────────
 
@@ -230,6 +242,14 @@ class AppStateManager {
   private pushChange(filePath: string, data: unknown): void {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcChannels.appState.change, filePath, data);
+    }
+    // Notify registered listeners (e.g. kanban orchestrator)
+    for (const listener of this.changeListeners) {
+      try {
+        listener(filePath, data);
+      } catch (err) {
+        console.error('[AppStateManager] Listener error:', err);
+      }
     }
   }
 

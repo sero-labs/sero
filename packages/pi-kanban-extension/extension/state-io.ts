@@ -52,11 +52,17 @@ export function formatCard(card: Card, verbose = false): string {
     card.status === 'waiting-input' ? ' [waiting]' :
     card.status === 'paused' ? ' [paused]' :
     card.status === 'failed' ? ' [FAILED]' : '';
+  const blocked = card.blockedBy?.length
+    ? ` 🔒 blocked by ${card.blockedBy.map((d) => `#${d}`).join(', ')}`
+    : '';
 
-  let line = `#${card.id} ${priority ? `(${priority}) ` : ''}${card.title} — ${COLUMN_LABELS[card.column]}${status}`;
+  let line = `#${card.id} ${priority ? `(${priority}) ` : ''}${card.title} — ${COLUMN_LABELS[card.column]}${status}${blocked}`;
 
   if (verbose) {
     if (card.description) line += `\n   ${card.description}`;
+    if (card.acceptance.length > 0) {
+      line += `\n   Acceptance: ${card.acceptance.map((a) => `✓ ${a}`).join('; ')}`;
+    }
     if (card.subtasks.length > 0) {
       const done = card.subtasks.filter((s) => s.status === 'completed').length;
       line += `\n   Subtasks: ${done}/${card.subtasks.length}`;

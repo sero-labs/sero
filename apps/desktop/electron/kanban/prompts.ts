@@ -9,13 +9,6 @@
 
 import type { Card } from './types';
 
-// ── Workspace Isolation ──────────────────────────────────────
-
-const WORKSPACE_SCOPE_DIRECTIVE = `
-IMPORTANT: You are scoped to THIS workspace only. Do NOT access, read, write,
-or reference files outside the current working directory. Never use absolute
-paths to other workspaces or home directories.`.trim();
-
 // ── Planning Prompts ─────────────────────────────────────────
 
 export function buildPlanningPrompt(card: Card): string {
@@ -37,7 +30,24 @@ export function buildPlanningPrompt(card: Card): string {
   return prompt;
 }
 
-export function buildSubtaskGenerationPrompt(card: Card, analysisResults: string): string {
+export interface PlanGenerationOptions {
+  testingEnabled?: boolean;
+}
+
+export function buildSubtaskGenerationPrompt(
+  card: Card,
+  analysisResults: string,
+  options?: PlanGenerationOptions,
+): string {
+  const testingEnabled = options?.testingEnabled !== false;
+  const tddBlock = testingEnabled
+    ? `- Designate each subtask's testing approach:
+  - "tdd": Write tests first, then implement (for core logic, utilities, data transformations)
+  - "test-after": Implement first, then write tests (for integration, UI wiring)
+  - "no-test": No tests needed (for config, scaffolding, documentation)
+- Include a dedicated test-writing subtask when the feature has testable logic`
+    : `- Set tddDesignation to "no-test" for all subtasks (testing is disabled for this workspace)`;
+
   return `Based on the following codebase analysis, create a detailed implementation plan with subtasks for this card:
 
 # Card: ${card.title}
@@ -58,42 +68,59 @@ Generate a structured implementation plan. Output ONLY a JSON object with this e
       "id": "1",
       "title": "Short title for this subtask",
       "description": "What this subtask involves",
-      "dependsOn": []
+      "dependsOn": [],
+      "tddDesignation": "tdd | test-after | no-test",
+      "filePaths": ["src/path/to/file.ts"],
+      "complexity": "low | medium | high"
     }
   ]
 }
 \`\`\`
 
 Rules for subtasks:
-- 2-8 subtasks is ideal
+- 2-8 subtasks is ideal, each scoped to 15-30 minutes of agent work
 - Each subtask should be independently implementable where possible
 - Use dependsOn to specify ordering constraints (array of subtask IDs)
 - Parallelisable subtasks should have empty dependsOn arrays
-- Include a final "write tests" subtask if applicable
+- List exact file paths each subtask creates or modifies (for parallel conflict detection)
+- Estimate complexity: low (~15min), medium (~30min), high (~45min+)
+${tddBlock}
 - Keep descriptions concise but specific`;
 }
 
-export const PLANNER_SYSTEM_PROMPT = `You are a senior software architect specialising in breaking down development tasks into implementable subtasks.
-
-You analyse codebase context and produce structured implementation plans with:
-- Clear subtask breakdown with dependencies
-- Non-overlapping file scopes per subtask (for parallel execution)
-- Realistic scope estimates
-
-Always output valid JSON matching the requested schema. No markdown outside the JSON block.
-
-${WORKSPACE_SCOPE_DIRECTIVE}`;
-
 // ── Implementation Prompts ───────────────────────────────────
 
-export function buildSubtaskPrompt(card: Card, subtaskId: string): string {
+export interface SubtaskPromptOptions {
+  testingEnabled?: boolean;
+}
+
+export function buildSubtaskPrompt(
+  card: Card,
+  subtaskId: string,
+  options?: SubtaskPromptOptions,
+): string {
   const subtask = card.subtasks.find((s) => s.id === subtaskId);
   if (!subtask) throw new Error(`Subtask ${subtaskId} not found on card #${card.id}`);
 
+  const testingEnabled = options?.testingEnabled !== false;
+
   const completedSubtasks = card.subtasks
     .filter((s) => s.status === 'completed')
-    .map((s) => `- ✅ ${s.title}: ${s.description}`)
+    .map((s) => {
+      const files = s.filePaths?.length ? ` (files: ${s.filePaths.join(', ')})` : '';
+      return `- ✅ ${s.title}: ${s.description}${files}`;
+    })
     .join('\n');
+
+  const tddBlock = testingEnabled && subtask.tddDesignation && subtask.tddDesignation !== 'no-test'
+    ? `\n## Testing Approach: ${subtask.tddDesignation}\n${subtask.tddDesignation === 'tdd'
+      ? 'Write a failing test first, then implement to make it pass.'
+      : 'Implement first, then write tests covering the core logic.'}\n`
+    : testingEnabled ? '' : '\nNote: Testing is disabled for this workspace — do not write tests.\n';
+
+  const filePathsBlock = subtask.filePaths?.length
+    ? `\nExpected file paths: ${subtask.filePaths.join(', ')}\n`
+    : '';
 
   return `You are implementing a specific subtask as part of a larger feature.
 
@@ -105,7 +132,7 @@ ${card.plan ?? '(no plan provided)'}
 ## Your Subtask
 **${subtask.title}**
 ${subtask.description}
-
+${filePathsBlock}${tddBlock}
 ${completedSubtasks ? `## Already Completed\n${completedSubtasks}\n` : ''}
 ## Instructions
 - Focus ONLY on this subtask — do not implement other subtasks
@@ -117,37 +144,29 @@ ${completedSubtasks ? `## Already Completed\n${completedSubtasks}\n` : ''}
 
 // ── Review Prompts ───────────────────────────────────────────
 
-export const REVIEWER_SYSTEM_PROMPT = `You are a senior code reviewer. You review diffs thoroughly and produce a structured review with a PR title and description.
-
-${WORKSPACE_SCOPE_DIRECTIVE}
-
-Your review covers:
-1. Code quality and correctness
-2. Adherence to existing patterns and conventions
-3. Potential bugs or edge cases
-4. Test coverage gaps
-5. Performance concerns
-
-Output ONLY valid JSON with this exact shape:
-\`\`\`json
-{
-  "approved": true,
-  "summary": "Brief overall assessment",
-  "issues": ["Issue 1 description", "Issue 2 description"],
-  "prTitle": "conventional-commit style PR title (max 72 chars)",
-  "prBody": "Markdown PR description with Summary, Changes, and Testing sections"
-}
-\`\`\`
-
-If the code is acceptable, set approved to true with an empty issues array.
-If there are blocking issues, set approved to false.`;
-
 const DIFF_PATCH_LIMIT = 32_000;
 
-export function buildReviewPrompt(card: Card, diff: string, fileSummary: string): string {
+export interface ReviewPromptOptions {
+  testingEnabled?: boolean;
+}
+
+export function buildReviewPrompt(
+  card: Card,
+  diff: string,
+  fileSummary: string,
+  options?: ReviewPromptOptions,
+): string {
   const patch = diff.length > DIFF_PATCH_LIMIT
     ? `${diff.slice(0, DIFF_PATCH_LIMIT)}\n\n...[patch truncated at ${DIFF_PATCH_LIMIT} chars]`
     : diff;
+
+  const testNote = options?.testingEnabled === false
+    ? '\nNote: Testing is disabled for this workspace — do not flag missing test coverage.\n'
+    : '';
+
+  const subtaskSummary = card.subtasks.length > 0
+    ? `\n## Subtask Summary\n${card.subtasks.map((s) => `- ${s.title} (${s.status})`).join('\n')}\n`
+    : '';
 
   return `Review the following implementation for this card:
 
@@ -155,69 +174,120 @@ export function buildReviewPrompt(card: Card, diff: string, fileSummary: string)
 ${card.description ? `\nDescription: ${card.description}` : ''}
 ${card.acceptance.length > 0 ? `\nAcceptance Criteria:\n${card.acceptance.map((a) => `- ${a}`).join('\n')}` : ''}
 ${card.plan ? `\nImplementation Plan:\n${card.plan}` : ''}
-
+${subtaskSummary}
 # Changed Files
 ${fileSummary || '(no files changed)'}
 
 # Diff
 ${patch || '(no diff available)'}
+${testNote}
+Categorise each issue as Critical (blocks merge), Important (should fix but doesn't block), or Minor (nice-to-have).
+Provide an explicit verdict: "merge" (ready), "fix-first" (has critical issues), or "reject" (fundamentally wrong approach).
 
-Review the code and generate a PR title and description. Output valid JSON as specified.`;
+PR FORMAT — this is a FEATURE PR, not a review report:
+- prTitle: "feat: <what was built>" (e.g. "feat: core snake game with canvas rendering and input handling")
+- prBody sections: ## Summary (what this delivers to the user), ## Changes (per subtask, what was implemented), ## Review Notes (any issues found), ## Manual Testing (what the user should verify — especially interactive/real-time features that can't be tested via automation)
+
+Do NOT use browser automation to test interactive/real-time features (games, animations, etc.) — it is too slow. Note them for manual testing instead.
+
+Output valid JSON as specified in your instructions.`;
+}
+
+export interface ReviewIssue {
+  description: string;
+  severity: 'critical' | 'important' | 'minor';
+  file?: string;
+  line?: number;
+  suggestion?: string;
 }
 
 export interface ReviewResult {
   approved: boolean;
   summary: string;
+  /** Legacy flat issues list (backward compat) */
   issues: string[];
+  /** Structured issue categories */
+  categorizedIssues?: ReviewIssue[];
+  /** Explicit verdict: 'merge' | 'fix-first' | 'reject' */
+  verdict?: 'merge' | 'fix-first' | 'reject';
   prTitle: string;
   prBody: string;
 }
 
-export function parseReviewResult(raw: string): ReviewResult {
+export function parseReviewResult(raw: string, cardTitle?: string): ReviewResult {
   const jsonMatch = raw.match(/```json\s*([\s\S]*?)```/)
     || raw.match(/\{[\s\S]*"prTitle"[\s\S]*"prBody"[\s\S]*\}/);
 
-  const fallback: ReviewResult = {
+  const fallbackTitle = cardTitle
+    ? `feat: ${cardTitle.toLowerCase().slice(0, 65)}`
+    : 'feat: implementation';
+
+  const fb: ReviewResult = {
     approved: true,
     summary: raw.slice(0, 500),
     issues: [],
-    prTitle: 'chore: update from kanban card',
+    prTitle: fallbackTitle,
     prBody: raw.slice(0, 2000),
   };
 
-  if (!jsonMatch) return fallback;
+  if (!jsonMatch) return fb;
 
   try {
     const jsonStr = jsonMatch[1] || jsonMatch[0];
     const parsed = JSON.parse(jsonStr);
 
+    // Parse structured issues if present
+    let categorizedIssues: ReviewIssue[] | undefined;
+    if (Array.isArray(parsed.categorizedIssues)) {
+      categorizedIssues = parsed.categorizedIssues
+        .filter((i: unknown) => i && typeof i === 'object')
+        .map((i: Record<string, unknown>) => ({
+          description: String(i.description ?? ''),
+          severity: (['critical', 'important', 'minor'].includes(i.severity as string)
+            ? i.severity : 'minor') as ReviewIssue['severity'],
+          file: typeof i.file === 'string' ? i.file : undefined,
+          line: typeof i.line === 'number' ? i.line : undefined,
+          suggestion: typeof i.suggestion === 'string' ? i.suggestion : undefined,
+        }));
+    }
+
+    // Parse verdict
+    const validVerdicts = new Set(['merge', 'fix-first', 'reject']);
+    const verdict = validVerdicts.has(parsed.verdict) ? parsed.verdict : undefined;
+
     return {
       approved: parsed.approved !== false,
-      summary: typeof parsed.summary === 'string' ? parsed.summary : fallback.summary,
+      summary: typeof parsed.summary === 'string' ? parsed.summary : fb.summary,
       issues: Array.isArray(parsed.issues) ? parsed.issues.map(String) : [],
+      categorizedIssues,
+      verdict,
       prTitle: typeof parsed.prTitle === 'string'
         ? parsed.prTitle.slice(0, 72)
-        : fallback.prTitle,
-      prBody: typeof parsed.prBody === 'string' ? parsed.prBody : fallback.prBody,
+        : fb.prTitle,
+      prBody: typeof parsed.prBody === 'string' ? parsed.prBody : fb.prBody,
     };
   } catch {
-    return fallback;
+    return fb;
   }
 }
 
 // ── Plan Parser ──────────────────────────────────────────────
 
-export function parsePlanResult(raw: string): {
+const VALID_TDD = new Set(['tdd', 'test-after', 'no-test']);
+const VALID_COMPLEXITY = new Set(['low', 'medium', 'high']);
+
+export interface PlanResult {
   plan: string;
   subtasks: Card['subtasks'];
-} {
+  /** Validation warnings (non-blocking) about the plan structure */
+  warnings: string[];
+}
+
+export function parsePlanResult(raw: string): PlanResult {
   const jsonMatch = raw.match(/```json\s*([\s\S]*?)```/) || raw.match(/\{[\s\S]*"plan"[\s\S]*"subtasks"[\s\S]*\}/);
 
   if (!jsonMatch) {
-    return {
-      plan: raw.slice(0, 2000),
-      subtasks: [],
-    };
+    return { plan: raw.slice(0, 2000), subtasks: [], warnings: ['No JSON block found in planner output'] };
   }
 
   try {
@@ -226,24 +296,83 @@ export function parsePlanResult(raw: string): {
 
     const plan = typeof parsed.plan === 'string' ? parsed.plan : raw.slice(0, 2000);
     const subtasks: Card['subtasks'] = [];
+    const warnings: string[] = [];
 
     if (Array.isArray(parsed.subtasks)) {
       for (const st of parsed.subtasks) {
+        const tdd = VALID_TDD.has(st.tddDesignation) ? st.tddDesignation : undefined;
+        const complexity = VALID_COMPLEXITY.has(st.complexity) ? st.complexity : undefined;
+        const filePaths = Array.isArray(st.filePaths) ? st.filePaths.map(String) : undefined;
+
         subtasks.push({
           id: String(st.id || subtasks.length + 1),
           title: String(st.title || 'Untitled subtask'),
           description: String(st.description || ''),
           status: 'pending',
           dependsOn: Array.isArray(st.dependsOn) ? st.dependsOn.map(String) : [],
+          tddDesignation: tdd,
+          filePaths,
+          complexity,
         });
       }
     }
 
-    return { plan, subtasks };
+    // Validate plan structure
+    const validIds = new Set(subtasks.map((s) => s.id));
+    for (const st of subtasks) {
+      for (const dep of st.dependsOn) {
+        if (!validIds.has(dep)) {
+          warnings.push(`Subtask "${st.id}" depends on non-existent subtask "${dep}"`);
+        }
+      }
+    }
+
+    return { plan, subtasks, warnings };
   } catch {
-    return {
-      plan: raw.slice(0, 2000),
-      subtasks: [],
-    };
+    return { plan: raw.slice(0, 2000), subtasks: [], warnings: ['Failed to parse planner JSON output'] };
   }
+}
+
+// ── Spec & Quality Review Prompts ────────────────────────────
+
+export function buildSpecReviewPrompt(card: Card, subtaskId: string, diff: string): string {
+  const subtask = card.subtasks.find((s) => s.id === subtaskId);
+  if (!subtask) throw new Error(`Subtask ${subtaskId} not found on card #${card.id}`);
+
+  const patch = diff.length > DIFF_PATCH_LIMIT
+    ? `${diff.slice(0, DIFF_PATCH_LIMIT)}\n\n...[truncated]`
+    : diff;
+
+  return `Compare this implementation against the subtask specification:
+
+# Subtask: ${subtask.title}
+${subtask.description}
+${subtask.filePaths?.length ? `\nExpected files: ${subtask.filePaths.join(', ')}` : ''}
+
+# Parent Card: ${card.title}
+${card.acceptance.length > 0 ? `Acceptance Criteria:\n${card.acceptance.map((a) => `- ${a}`).join('\n')}` : ''}
+
+# Implementation Diff
+${patch || '(no diff)'}
+
+Review for spec compliance. Output valid JSON as specified in your instructions.`;
+}
+
+export function buildQualityReviewPrompt(card: Card, diff: string, fileSummary: string): string {
+  const patch = diff.length > DIFF_PATCH_LIMIT
+    ? `${diff.slice(0, DIFF_PATCH_LIMIT)}\n\n...[truncated]`
+    : diff;
+
+  return `Review this implementation for code quality:
+
+# Card: ${card.title}
+${card.description ? `\nDescription: ${card.description}` : ''}
+
+# Changed Files
+${fileSummary || '(no files changed)'}
+
+# Implementation Diff
+${patch || '(no diff)'}
+
+Review for code quality concerns. Output valid JSON as specified in your instructions.`;
 }

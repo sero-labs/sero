@@ -60,14 +60,13 @@ export function CardDetailFooter({
         </div>
       </div>
 
-      {/* Priority + Delete */}
+      {/* Priority (read-only) + Delete */}
       <div className="flex items-center justify-between">
         <div className="flex" style={{ gap: '4px' }}>
           {(['critical', 'high', 'medium', 'low'] as const).map((p) => (
-            <button
+            <span
               key={p}
-              onClick={() => onPriorityChange(p)}
-              className="rounded-md font-medium transition-colors"
+              className="rounded-md font-medium"
               style={{
                 fontSize: '10px',
                 padding: '4px 8px',
@@ -76,7 +75,7 @@ export function CardDetailFooter({
               }}
             >
               {p}
-            </button>
+            </span>
           ))}
         </div>
         <button

@@ -6,16 +6,19 @@
  * implementation phase.
  */
 
-import type { Card, KanbanState, Subtask } from './types';
+import type { Card, KanbanState, KanbanSettings, Subtask } from './types';
 import type { ImplementationProgressTracker } from './implementation-progress';
 import { buildSubtaskPrompt } from './prompts';
+import type { SubtaskPromptOptions } from './prompts';
 import { createCheckpointInWorktree } from './worktree-git';
+import { detectVerificationCommands, runVerificationCommands } from './verification';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
 
 export interface SubtaskExecutorDeps {
   subagentManager: SubagentManager;
   workspaceId: string;
+  settings?: KanbanSettings;
 }
 
 /**
@@ -70,6 +73,9 @@ export async function executeWaves(
         `Subtask(s) failed: ${failedInWave.map((s) => `"${s.title}"`).join(', ')}`,
       );
     }
+
+    // Wave-level verification (typecheck, tests) — catches integration issues early
+    await runWaveVerification(worktreePath, waveLabel, tracker, deps.settings);
   }
 }
 
@@ -85,7 +91,8 @@ async function executeSingleSubtask(
   tracker: ImplementationProgressTracker,
 ): Promise<void> {
   const subtask = card.subtasks.find((s) => s.id === subtaskId);
-  const taskPrompt = buildSubtaskPrompt(card, subtaskId);
+  const promptOpts: SubtaskPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
+  const taskPrompt = buildSubtaskPrompt(card, subtaskId, promptOpts);
 
   try {
     const result = await deps.subagentManager.runSingleStructured({
@@ -138,9 +145,10 @@ async function executeParallelSubtasks(
     return { stId, title: subtask?.title ?? stId };
   });
 
+  const promptOpts: SubtaskPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
   const results = await Promise.allSettled(
     tasks.map(async (t) => {
-      const taskPrompt = buildSubtaskPrompt(card, t.stId);
+      const taskPrompt = buildSubtaskPrompt(card, t.stId, promptOpts);
 
       const result = await deps.subagentManager.runSingleStructured({
         agent: 'implementer',
@@ -187,7 +195,7 @@ async function updateSubtaskStatuses(
   status: 'pending' | 'in-progress' | 'completed' | 'failed',
 ): Promise<void> {
   await appStateManager.update<KanbanState>(stateFilePath, (raw) => {
-    if (!raw) return { cards: [], nextId: 1, settings: { autoAdvance: true, maxConcurrentCards: 3, requireApproval: { plan: true, pr: true } } };
+    if (!raw) return fallback();
     return {
       ...raw,
       cards: raw.cards.map((c) => {
@@ -211,7 +219,7 @@ async function markSubtaskCompleted(
   checkpointId: string | null,
 ): Promise<void> {
   await appStateManager.update<KanbanState>(stateFilePath, (raw) => {
-    if (!raw) return { cards: [], nextId: 1, settings: { autoAdvance: true, maxConcurrentCards: 3, requireApproval: { plan: true, pr: true } } };
+    if (!raw) return fallback();
     return {
       ...raw,
       cards: raw.cards.map((c) => {
@@ -229,4 +237,43 @@ async function markSubtaskCompleted(
       }),
     };
   });
+}
+
+// ── Wave-level Verification ─────────────────────────────────
+
+async function runWaveVerification(
+  worktreePath: string,
+  waveLabel: string,
+  tracker: ImplementationProgressTracker,
+  settings?: KanbanSettings,
+): Promise<void> {
+  const commands = await detectVerificationCommands(worktreePath, {
+    testingEnabled: settings?.testingEnabled,
+  });
+  if (commands.length === 0) return;
+
+  tracker.setPhase(`${waveLabel} — verifying`);
+  await tracker.flush();
+
+  const result = await runVerificationCommands(worktreePath, commands);
+  if (!result.success) {
+    const failed = result.results.find((r) => !r.success);
+    const errOutput = failed ? `${failed.stderr}\n${failed.stdout}`.trim().slice(-1000) : 'unknown';
+    throw new Error(`Wave verification failed (${failed?.command}): ${errOutput}`);
+  }
+}
+
+function fallback(): KanbanState {
+  return {
+    cards: [],
+    nextId: 1,
+    settings: {
+      autoAdvance: true,
+      maxConcurrentCards: 3,
+      requireApproval: { plan: true, pr: true },
+      reviewLevel: 'per-wave',
+      testingEnabled: true,
+      yoloMode: false,
+    },
+  };
 }

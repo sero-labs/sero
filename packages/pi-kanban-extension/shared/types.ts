@@ -15,6 +15,16 @@ export interface Subtask {
   description: string;
   status: 'pending' | 'in-progress' | 'completed' | 'failed';
   dependsOn: string[]; // IDs of subtasks that must complete first
+  /** TDD scenario designation: 'tdd' = write tests first, 'test-after' = tests after, 'no-test' = skip */
+  tddDesignation?: 'tdd' | 'test-after' | 'no-test';
+  /** File paths this subtask creates or modifies */
+  filePaths?: string[];
+  /** Estimated complexity: low (~15min), medium (~30min), high (~45min+) */
+  complexity?: 'low' | 'medium' | 'high';
+  /** Spec review status (per-subtask review mode) */
+  specReviewStatus?: 'pending' | 'passed' | 'failed';
+  /** Quality review status (per-subtask review mode) */
+  qualityReviewStatus?: 'pending' | 'passed' | 'failed';
   agentRunId?: string; // Subagent entry ID (for progress tracking)
   checkpointId?: string; // VCS checkpoint after completion
 }
@@ -59,6 +69,8 @@ export interface Card {
   priority: Priority;
   column: Column;
   status: CardStatus;
+  /** IDs of cards that must be in 'done' before this card can start */
+  blockedBy?: string[];
   branch?: string; // Git branch name
   worktreePath?: string; // Absolute path to git worktree for this card
   sessionId?: string; // Sero session driving work
@@ -84,6 +96,12 @@ export interface KanbanSettings {
     plan: boolean; // Pause after planning for approval
     pr: boolean; // Pause before creating PR
   };
+  /** Review rigour: 'per-wave' (default) or 'per-subtask' (two-stage) */
+  reviewLevel: 'per-wave' | 'per-subtask';
+  /** Whether TDD and testing are enabled (default: true). false = POC mode */
+  testingEnabled: boolean;
+  /** YOLO mode: auto-start, auto-approve, auto-complete — no human gates */
+  yoloMode: boolean;
 }
 
 export interface KanbanState {
@@ -119,13 +137,16 @@ export const DEFAULT_KANBAN_STATE: KanbanState = {
       plan: true,
       pr: true,
     },
+    reviewLevel: 'per-wave',
+    testingEnabled: true,
+    yoloMode: false,
   },
 };
 
 export function createCard(
   id: string,
   title: string,
-  opts?: Partial<Pick<Card, 'description' | 'priority' | 'acceptance'>>,
+  opts?: Partial<Pick<Card, 'description' | 'priority' | 'acceptance' | 'blockedBy'>>,
 ): Card {
   const now = new Date().toISOString();
   return {
@@ -136,6 +157,7 @@ export function createCard(
     priority: opts?.priority ?? 'medium',
     column: 'backlog',
     status: 'idle',
+    blockedBy: opts?.blockedBy ?? [],
     subtasks: [],
     createdAt: now,
     updatedAt: now,

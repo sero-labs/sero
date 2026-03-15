@@ -13,6 +13,10 @@
   "pi": {
     "extensions": [
       "./extension/index.ts"
+    ],
+    "prompts": [
+      "./prompts/brainstorm.md",
+      "./prompts/card-enhance.md"
     ]
   },
   "sero": {

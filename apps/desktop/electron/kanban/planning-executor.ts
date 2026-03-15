@@ -15,14 +15,15 @@ import type { PlanningProgressTracker } from './planning-progress';
 import {
   buildPlanningPrompt,
   buildSubtaskGenerationPrompt,
-  PLANNER_SYSTEM_PROMPT,
   parsePlanResult,
 } from './prompts';
+import type { PlanGenerationOptions } from './prompts';
 import type { SubagentManager } from '../subagent/index';
 
 export interface PlanningExecutorDeps {
   subagentManager: SubagentManager;
   workspaceId: string;
+  planOptions?: PlanGenerationOptions;
 }
 
 /**
@@ -60,10 +61,10 @@ export async function executePlanning(
     await tracker.flush();
   }
 
-  // Plan generation (same for both modes — prompt includes greenfield context)
+  // Plan generation — uses the planner agent template (packages/templates/agents/planner.md)
   const planResult = await subagentManager.runSingle({
-    task: buildSubtaskGenerationPrompt(card, reconResult),
-    systemPrompt: PLANNER_SYSTEM_PROMPT,
+    agent: 'planner',
+    task: buildSubtaskGenerationPrompt(card, reconResult, deps.planOptions),
     parentSessionId,
     workspaceId,
     isolated: true,
@@ -73,7 +74,11 @@ export async function executePlanning(
   tracker.completeAgent('planner');
   await tracker.flush();
 
-  return parsePlanResult(planResult);
+  const parsed = parsePlanResult(planResult);
+  if (parsed.warnings.length > 0) {
+    console.warn(`[planning-executor] Plan warnings: ${parsed.warnings.join('; ')}`);
+  }
+  return { plan: parsed.plan, subtasks: parsed.subtasks };
 }
 
 // ── Reconnaissance (existing projects only) ──────────────────

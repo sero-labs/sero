@@ -17,6 +17,9 @@ function fallbackState(): KanbanState {
       autoAdvance: true,
       maxConcurrentCards: 3,
       requireApproval: { plan: true, pr: true },
+      reviewLevel: 'per-wave',
+      testingEnabled: true,
+      yoloMode: false,
     },
   };
 }
