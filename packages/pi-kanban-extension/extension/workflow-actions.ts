@@ -13,7 +13,7 @@ import { promisify } from 'node:util';
 import type { KanbanState, Column } from '../shared/types';
 import { COLUMN_LABELS } from '../shared/types';
 import { validateCardTransition } from '../shared/validation';
-import { readState, writeState } from './state-io';
+import { writeState } from './state-io';
 
 type ToolResult = { content: { type: 'text'; text: string }[]; details: Record<string, never> };
 
@@ -160,12 +160,12 @@ export async function handleSettings(
   }
 
   if (setting === 'yoloMode') {
-    state.settings.yoloMode = value !== 'false';
+    state.settings.yoloMode = value === 'true';
     await writeState(statePath, state);
     return text(`YOLO mode ${state.settings.yoloMode ? 'ON — full auto, no human gates' : 'OFF — human approval required'}`);
   }
   if (setting === 'testingEnabled') {
-    state.settings.testingEnabled = value !== 'false';
+    state.settings.testingEnabled = value === 'true';
     await writeState(statePath, state);
     return text(`Mode: ${state.settings.testingEnabled ? 'Production (TDD enabled)' : 'Prototype (testing disabled)'}`);
   }

@@ -2,8 +2,9 @@
  * Kanban types — host-side state definitions.
  *
  * These types mirror the extension's shared/types.ts but are owned by
- * the host. The extension package must NEVER be imported into the host
- * (dependency flows host → app, not app → host).
+ * the host. The extension package should NOT be imported into the host
+ * except for pure validation logic in shared/validation.ts (which has
+ * no side effects and is the single source of truth for transition rules).
  *
  * If you change the state shape here, update
  * packages/pi-kanban-extension/shared/types.ts to match.

@@ -2,12 +2,39 @@
  * Stage contracts — defines input requirements, expected outputs, and quality
  * gates for each kanban column transition.
  *
- * The orchestrator and extension call `validateTransition()` before allowing
- * a card to move between columns. Contracts are pure application logic —
- * they do NOT reference prompt templates or agent system prompts.
+ * Validation logic is NOT duplicated here — it lives in the shared module:
+ *   packages/pi-kanban-extension/shared/validation.ts
+ * This file re-exports `validateTransition` from there and adds
+ * orchestrator-specific helpers (unblocked card scanning, contract metadata).
  */
 
 import type { Card, Column, KanbanState } from './types';
+
+// ── Single source of truth for validation ────────────────────
+// Uses structural typing — host Card and shared Card have identical shapes.
+
+import {
+  validateCardTransition,
+  getUnmetDependencies as _getUnmetDeps,
+} from '../../../../packages/pi-kanban-extension/shared/validation';
+import type { ValidationResult } from '../../../../packages/pi-kanban-extension/shared/validation';
+
+export type { ValidationResult };
+
+/**
+ * Validate whether a card meets the requirements to transition to `targetColumn`.
+ * Delegates to the shared validation module (single source of truth).
+ */
+export const validateTransition: (
+  card: Card, targetColumn: Column, state?: KanbanState,
+) => ValidationResult = validateCardTransition;
+
+/**
+ * Returns IDs of cards in the blockedBy list that are NOT in the 'done' column.
+ */
+export const getUnmetDependencies: (
+  card: Card, state?: KanbanState,
+) => string[] = _getUnmetDeps;
 
 // ── Contract Types ───────────────────────────────────────────
 
@@ -52,13 +79,6 @@ export interface QualityGate {
   field?: string;
   /** Whether failure blocks advancement or is advisory */
   blocking: boolean;
-}
-
-// ── Validation Result ────────────────────────────────────────
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
 }
 
 // ── Contract Definitions ─────────────────────────────────────
@@ -176,91 +196,7 @@ export function getContract(from: Column, to: Column): StageContract | null {
   return CONTRACTS[`${from}->${to}`] ?? null;
 }
 
-// ── Custom Validators ────────────────────────────────────────
-
-const CUSTOM_VALIDATORS: Record<string, (card: Card) => boolean> = {
-  isWaitingInput: (card) => card.status === 'waiting-input',
-  allSubtasksCompleted: (card) =>
-    card.subtasks.length > 0 && card.subtasks.every((s) => s.status === 'completed'),
-};
-
-// ── Validation ───────────────────────────────────────────────
-
-/**
- * Validate whether a card meets the requirements to transition to `targetColumn`.
- *
- * Also checks card-to-card dependencies (blockedBy) when moving to planning.
- */
-export function validateTransition(
-  card: Card,
-  targetColumn: Column,
-  state?: KanbanState,
-): ValidationResult {
-  const errors: string[] = [];
-
-  // Determine the transition key
-  const contract = getContract(card.column, targetColumn);
-
-  // No contract means the transition is always allowed (e.g. manual moves)
-  if (!contract) return { valid: true, errors: [] };
-
-  // Check required inputs
-  for (const req of contract.requiredInputs) {
-    if (!validateInput(card, req)) {
-      errors.push(req.message);
-    }
-  }
-
-  // Check card-to-card dependencies when starting planning
-  if (targetColumn === 'planning' && card.blockedBy && card.blockedBy.length > 0 && state) {
-    const unmetDeps = getUnmetDependencies(card, state);
-    if (unmetDeps.length > 0) {
-      errors.push(
-        `Blocked by card(s) not yet done: ${unmetDeps.map((id) => `#${id}`).join(', ')}`,
-      );
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-function validateInput(card: Card, req: RequiredInput): boolean {
-  const value = card[req.field];
-
-  switch (req.validation) {
-    case 'non-empty':
-      if (typeof value === 'string') return value.trim().length > 0;
-      if (Array.isArray(value)) return value.length > 0;
-      return value != null;
-
-    case 'min-items':
-      return Array.isArray(value) && value.length >= (req.minItems ?? 1);
-
-    case 'custom':
-      if (req.customFn && CUSTOM_VALIDATORS[req.customFn]) {
-        return CUSTOM_VALIDATORS[req.customFn](card);
-      }
-      return true;
-
-    default:
-      return true;
-  }
-}
-
-// ── Dependency Helpers ───────────────────────────────────────
-
-/**
- * Returns IDs of cards in the blockedBy list that are NOT in the 'done' column.
- */
-export function getUnmetDependencies(card: Card, state: KanbanState): string[] {
-  if (!card.blockedBy || card.blockedBy.length === 0) return [];
-
-  return card.blockedBy.filter((depId) => {
-    const depCard = state.cards.find((c) => c.id === depId);
-    // If the blocking card doesn't exist, treat as unmet (safety)
-    return !depCard || depCard.column !== 'done';
-  });
-}
+// ── Orchestrator-only Helpers ────────────────────────────────
 
 /**
  * Find cards that were blocked by the given card and are now unblocked

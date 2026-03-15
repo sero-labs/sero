@@ -5,7 +5,7 @@
  * from workspace files. Zero-config — just point it at a workspace.
  */
 
-import { promises as fs } from 'fs';
+import { promises as fs, readdirSync } from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -20,7 +20,7 @@ const execFileAsync = promisify(execFile);
 export function detectPackageManager(workspacePath: string): 'pnpm' | 'npm' | 'yarn' {
   try {
     // Synchronous check is fine for detection — called once per card
-    const files = require('fs').readdirSync(workspacePath) as string[];
+    const files = readdirSync(workspacePath);
     if (files.includes('pnpm-lock.yaml') || files.includes('pnpm-workspace.yaml')) return 'pnpm';
     if (files.includes('yarn.lock')) return 'yarn';
   } catch {
