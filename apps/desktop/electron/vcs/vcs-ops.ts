@@ -176,6 +176,7 @@ export class VcsOps {
     name: string,
     url: string,
   ): Promise<void> {
+    await this.runner.ensureRepoInitialized(workspaceId);
     const result = await this.runner.run(workspaceId, ['remote', 'add', name, url]);
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || `Failed to add remote '${name}'`);
