@@ -104,7 +104,13 @@ export async function runSubagent(
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
     extensionFactories: [
-      createSubagentExtensionFactory(workspaceManager, workspaceId, subagentSessionId, containerState ?? undefined),
+      createSubagentExtensionFactory(
+        workspaceManager,
+        workspaceId,
+        subagentSessionId,
+        containerState ?? undefined,
+        containerCwd,
+      ),
     ],
   });
   await loader.reload();

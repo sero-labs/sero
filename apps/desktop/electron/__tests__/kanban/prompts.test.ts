@@ -9,6 +9,7 @@ import {
   buildSubtaskPrompt,
   buildSubtaskGenerationPrompt,
   buildReviewPrompt,
+  buildReviewRevisionPrompt,
   buildSpecReviewPrompt,
 } from '../../kanban/prompts';
 import type { Card } from '../../kanban/types';
@@ -120,6 +121,15 @@ describe('parseReviewResult', () => {
     expect(result.verdict).toBe('fix-first');
   });
 
+  it('normalizes object issues from the legacy issues array', () => {
+    const raw = '```json\n{"approved": false, "summary": "Issues found", "issues": [{"description": "Missing import", "severity": "critical", "file": "src/App.tsx", "line": 3}], "verdict": "fix-first", "prTitle": "fix: bugs", "prBody": "Fix"}\n```';
+    const result = parseReviewResult(raw);
+    expect(result.issues).toEqual(['Missing import']);
+    expect(result.categorizedIssues).toHaveLength(1);
+    expect(result.categorizedIssues![0].severity).toBe('critical');
+    expect(result.approved).toBe(false);
+  });
+
   it('handles missing categorizedIssues', () => {
     const raw = '```json\n{"approved": true, "summary": "OK", "issues": [], "prTitle": "T", "prBody": "B"}\n```';
     const result = parseReviewResult(raw);
@@ -143,6 +153,13 @@ describe('parseReviewResult', () => {
   it('uses card title in fallback prTitle', () => {
     const result = parseReviewResult('No JSON here', 'Add user dashboard');
     expect(result.prTitle).toBe('feat: add user dashboard');
+  });
+
+  it('detects raw markdown verdicts when JSON is missing', () => {
+    const result = parseReviewResult('Verdict: `fix-first`\n1. Missing import in src/App.tsx');
+    expect(result.verdict).toBe('fix-first');
+    expect(result.approved).toBe(false);
+    expect(result.issues).toContain('Missing import in src/App.tsx');
   });
 
   it('defaults approved to true when field is missing', () => {
@@ -176,6 +193,17 @@ describe('buildSubtaskPrompt', () => {
     const prompt = buildSubtaskPrompt(card, '2');
     expect(prompt).toContain('✅ Setup');
     expect(prompt).toContain('src/init.ts');
+  });
+
+  it('explains that non-empty worktrees are expected for scaffolders', () => {
+    const card = makeCard({
+      subtasks: [
+        { id: '1', title: 'Scaffold project', description: 'Init Vite app', status: 'pending', dependsOn: [] },
+      ],
+    });
+    const prompt = buildSubtaskPrompt(card, '1');
+    expect(prompt).toContain('worktree directory is not empty');
+    expect(prompt).toContain('normal workaround');
   });
 
   it('includes TDD instructions when enabled', () => {
@@ -235,12 +263,39 @@ describe('buildReviewPrompt', () => {
     expect(prompt).toContain('do not flag missing test coverage');
   });
 
+  it('includes the explicit review JSON schema', () => {
+    const card = makeCard();
+    const prompt = buildReviewPrompt(card, 'diff', 'files');
+    expect(prompt).toContain('"categorizedIssues"');
+    expect(prompt).toContain('Return ONLY valid JSON with this exact shape');
+  });
+
   it('truncates long diffs', () => {
     const card = makeCard();
     const longDiff = 'x'.repeat(50000);
     const prompt = buildReviewPrompt(card, longDiff, 'files');
     expect(prompt).toContain('truncated');
     expect(prompt.length).toBeLessThan(50000);
+  });
+});
+
+describe('buildReviewRevisionPrompt', () => {
+  it('focuses the implementer on critical issues only', () => {
+    const card = makeCard({ column: 'review' });
+    const prompt = buildReviewRevisionPrompt(card, [
+      {
+        description: 'Import is missing',
+        severity: 'critical',
+        file: 'src/App.tsx',
+        line: 3,
+        suggestion: 'Add the missing import at the top of the file.',
+      },
+    ], 'Reviewer found one blocking issue.');
+
+    expect(prompt).toContain('Critical Issues To Fix');
+    expect(prompt).toContain('Import is missing');
+    expect(prompt).toContain('src/App.tsx:3');
+    expect(prompt).toContain('Fix ONLY the critical issues listed above');
   });
 });
 

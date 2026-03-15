@@ -99,6 +99,18 @@ export interface CommandResult {
   durationMs: number;
 }
 
+export interface VerificationCommandRunner {
+  (command: string, cwd: string, timeoutMs: number): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+  }>;
+}
+
+interface RunVerificationOptions {
+  runCommand?: VerificationCommandRunner;
+}
+
 /**
  * Run verification commands sequentially. Stops on first failure.
  */
@@ -106,16 +118,25 @@ export async function runVerificationCommands(
   cwd: string,
   commands: string[],
   timeoutMs = 120_000,
+  options?: RunVerificationOptions,
 ): Promise<VerificationResult> {
   const results: CommandResult[] = [];
+  const runCommand = options?.runCommand ?? runHostCommand;
 
   for (const cmd of commands) {
     const start = Date.now();
     try {
-      const { stdout, stderr } = await execFileAsync(
-        'sh', ['-c', cmd],
-        { cwd, timeout: timeoutMs, maxBuffer: 5 * 1024 * 1024 },
-      );
+      const { stdout, stderr, exitCode } = await runCommand(cmd, cwd, timeoutMs);
+      if (exitCode !== 0) {
+        results.push({
+          command: cmd,
+          success: false,
+          stdout: stdout.slice(-4000),
+          stderr: stderr.slice(-2000),
+          durationMs: Date.now() - start,
+        });
+        return { success: false, results };
+      }
       results.push({
         command: cmd,
         success: true,
@@ -140,7 +161,27 @@ export async function runVerificationCommands(
   return { success: true, results };
 }
 
+export function summarizeVerificationFailure(result: CommandResult): string {
+  const output = sanitizeVerificationOutput(`${result.stderr}\n${result.stdout}`.trim());
+  if (looksLikeNativeDependencyMismatch(output)) {
+    return `${result.command}: native dependency mismatch between verification and installed dependencies. Run verification in the same workspace environment used for install/build.`;
+  }
+  return `${result.command}: ${output || 'command failed with no output'}`;
+}
+
 // ── Helpers ──────────────────────────────────────────────────
+
+async function runHostCommand(
+  command: string,
+  cwd: string,
+  timeoutMs: number,
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const { stdout, stderr } = await execFileAsync(
+    'sh', ['-c', command],
+    { cwd, timeout: timeoutMs, maxBuffer: 5 * 1024 * 1024 },
+  );
+  return { stdout, stderr, exitCode: 0 };
+}
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -160,4 +201,21 @@ async function readPackageJson(
   } catch {
     return null;
   }
+}
+
+function sanitizeVerificationOutput(output: string): string {
+  return output
+    .replace(/\u001b\[[0-9;]*m/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(-800);
+}
+
+function looksLikeNativeDependencyMismatch(output: string): boolean {
+  return (
+    output.includes('Cannot find native binding') ||
+    (output.includes('MODULE_NOT_FOUND') && output.includes('@rolldown/binding-')) ||
+    output.includes('optional dependencies') ||
+    (output.includes('MODULE_NOT_FOUND') && output.includes('/node_modules/rolldown/'))
+  );
 }

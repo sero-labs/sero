@@ -6,10 +6,15 @@
  */
 
 import type { GitRunner } from '../vcs/git-runner';
+import type { WorkspaceManager } from '../workspace';
 import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '../../src/types/ipc';
+import { ensureBootstrapGitignore } from '../vcs/bootstrap-gitignore';
 
 export class GitHubRepoOps {
-  constructor(private readonly runner: GitRunner) {}
+  constructor(
+    private readonly runner: GitRunner,
+    private readonly workspaceManager: WorkspaceManager,
+  ) {}
 
   /**
    * Create a GitHub repository and optionally set it as the 'origin' remote.
@@ -40,8 +45,19 @@ export class GitHubRepoOps {
     const addRemote = input.addRemote !== false;
 
     if (addRemote) {
-      await this.runner.ensureRepoInitialized(workspaceId);
+      try {
+        await this.runner.ensureRepoInitialized(workspaceId);
+        await this.ensureBootstrapCommit(workspaceId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: false,
+          message: `Failed to prepare the local repository.\n${message}`,
+        };
+      }
     }
+
+    const hasLocalCommits = addRemote ? await this.hasLocalCommits(workspaceId) : false;
 
     // Check if 'origin' remote already exists
     const existingOrigin = addRemote ? await this.getOriginUrl(workspaceId) : null;
@@ -71,6 +87,17 @@ export class GitHubRepoOps {
 
     const url = await this.resolveCreatedRepoUrl(workspaceId, name, result.stdout, result.stderr);
 
+    if (addRemote && !existingOrigin && hasLocalCommits) {
+      const bootstrap = await this.pushInitialBranch(workspaceId);
+      if (!bootstrap.success) {
+        return {
+          success: false,
+          message: `Repository created on GitHub, but failed to push the initial branch.\n${bootstrap.message}`,
+          url,
+        };
+      }
+    }
+
     // If origin already existed and user wants the remote updated, set-url now.
     if (addRemote && existingOrigin && url) {
       const update = await this.runner.run(workspaceId, ['remote', 'set-url', 'origin', url]);
@@ -92,12 +119,107 @@ export class GitHubRepoOps {
     };
   }
 
+  private async hasLocalCommits(workspaceId: string): Promise<boolean> {
+    const result = await this.runner.run(workspaceId, ['rev-parse', 'HEAD']);
+    return result.exitCode === 0;
+  }
+
   /** Get the current 'origin' remote URL, or null if none exists. */
   private async getOriginUrl(workspaceId: string): Promise<string | null> {
     const result = await this.runner.run(workspaceId, ['remote', 'get-url', 'origin']);
     if (result.exitCode !== 0) return null;
     const url = result.stdout.trim();
     return url || null;
+  }
+
+  private async ensureBootstrapCommit(workspaceId: string): Promise<void> {
+    if (await this.hasLocalCommits(workspaceId)) return;
+
+    const workspacePath = this.workspaceManager.getPath(workspaceId);
+    if (!workspacePath) {
+      throw new Error(`Workspace not found: ${workspaceId}`);
+    }
+
+    await ensureBootstrapGitignore(workspacePath);
+    await this.setBootstrapHead(workspaceId, 'main');
+
+    const add = await this.runner.run(workspaceId, ['add', '--', '.gitignore'], 10_000);
+    if (add.exitCode !== 0) {
+      throw new Error(add.stderr || add.stdout || 'Failed to stage bootstrap .gitignore');
+    }
+
+    const commit = await this.runner.run(
+      workspaceId,
+      ['commit', '--allow-empty', '-m', 'Initial commit'],
+      10_000,
+    );
+    if (commit.exitCode !== 0) {
+      throw new Error(commit.stderr || commit.stdout || 'Failed to create bootstrap commit');
+    }
+  }
+
+  private async setBootstrapHead(workspaceId: string, branch: string): Promise<void> {
+    const setHead = await this.runner.run(workspaceId, ['symbolic-ref', 'HEAD', `refs/heads/${branch}`]);
+    if (setHead.exitCode === 0) return;
+
+    const rename = await this.runner.run(workspaceId, ['branch', '-M', branch]);
+    if (rename.exitCode === 0) return;
+
+    throw new Error(
+      rename.stderr
+      || rename.stdout
+      || setHead.stderr
+      || setHead.stdout
+      || `Failed to set bootstrap branch '${branch}'.`,
+    );
+  }
+
+  private async pushInitialBranch(
+    workspaceId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const branch = await this.resolveBootstrapBranch(workspaceId);
+    if (!branch) return { success: true };
+
+    const push = await this.runner.run(workspaceId, ['push', '-u', 'origin', branch], 60_000);
+    if (push.exitCode !== 0) {
+      return {
+        success: false,
+        message: push.stderr || push.stdout || `Failed to push initial branch '${branch}'.`,
+      };
+    }
+
+    const edit = await this.runner.runCommand(
+      workspaceId,
+      'gh',
+      ['repo', 'edit', '--default-branch', branch],
+      30_000,
+    );
+    if (edit.exitCode !== 0) {
+      console.warn(
+        `[github-repo-ops] Failed to set default branch to ${branch}: ${edit.stderr || edit.stdout}`,
+      );
+    }
+
+    const setHead = await this.runner.run(workspaceId, ['remote', 'set-head', 'origin', branch]);
+    if (setHead.exitCode !== 0) {
+      console.warn(
+        `[github-repo-ops] Failed to set origin/HEAD to ${branch}: ${setHead.stderr || setHead.stdout}`,
+      );
+    }
+
+    return { success: true };
+  }
+
+  private async resolveBootstrapBranch(workspaceId: string): Promise<string | null> {
+    for (const branch of ['main', 'master']) {
+      const result = await this.runner.run(workspaceId, ['rev-parse', '--verify', branch]);
+      if (result.exitCode === 0) return branch;
+    }
+
+    const current = await this.runner.run(workspaceId, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    if (current.exitCode !== 0) return null;
+    const branch = current.stdout.trim();
+    return branch && branch !== 'HEAD' ? branch : null;
   }
 
   private async resolveCreatedRepoUrl(

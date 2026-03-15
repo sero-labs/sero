@@ -6,8 +6,8 @@ import { promisify } from 'util';
 
 import type { WorkspaceManager } from '../workspace';
 import type { ContainerManager } from '../container/index';
+import { buildWorkspaceContainerConfig } from '../container/workspace-container-config';
 import type { GitHubAuthManager } from '../github/auth-manager';
-import { buildContainerConfig } from '../ipc/shared-infra';
 import type { GitResult } from './types';
 
 const execFileAsync = promisify(execFile);
@@ -57,7 +57,11 @@ export class GitRunner {
   ) {}
 
   private async ensureContainer(workspaceId: string, workspacePath: string): Promise<void> {
-    const config = await buildContainerConfig(workspaceId, workspacePath);
+    const config = await buildWorkspaceContainerConfig(
+      this.workspaceManager,
+      workspaceId,
+      workspacePath,
+    );
     await this.containerManager.ensure(config);
   }
 
@@ -142,9 +146,21 @@ export class GitRunner {
     const root = await this.run(workspaceId, ['rev-parse', '--git-dir']);
     if (root.exitCode === 0) return;
 
-    const init = await this.run(workspaceId, ['init']);
-    if (init.exitCode !== 0) {
+    const init = await this.run(workspaceId, ['init', '-b', 'main']);
+    if (init.exitCode === 0) return;
+
+    const supportsInitialBranch = !/(unknown switch|unknown option|usage: git init)/i.test(
+      init.stderr || init.stdout,
+    );
+    if (supportsInitialBranch) {
       throw new Error(init.stderr || 'Failed to initialize Git repository');
     }
+
+    const fallback = await this.run(workspaceId, ['init']);
+    if (fallback.exitCode !== 0) {
+      throw new Error(fallback.stderr || fallback.stdout || 'Failed to initialize Git repository');
+    }
+
+    await this.run(workspaceId, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
   }
 }

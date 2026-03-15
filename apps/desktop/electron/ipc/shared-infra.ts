@@ -22,7 +22,8 @@ import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
 
 import { SERO_AGENT_DIR, SERO_HOME } from '../env';
 import type { ContainerConfig } from '../container/types';
-import { ContainerManager } from '../container/index';
+import { containerManager } from '../container/singleton';
+import { buildWorkspaceContainerConfig } from '../container/workspace-container-config';
 import { GatewayServer } from '../gateway/index';
 import { WebChatServer } from '../gateway/channels/web';
 import { TailscaleIntegration } from '../gateway/tailscale';
@@ -39,8 +40,7 @@ import { ArtifactRegistry } from '../container/artifact-registry';
 export const githubAuth = new GitHubAuthManager();
 
 // ── Container Manager (singleton) ────────────────────────────
-
-export const containerManager = new ContainerManager();
+export { containerManager };
 
 // Wire GitHub auth env vars into container exec so GH_TOKEN + git
 // credential config are available in every container command.
@@ -50,7 +50,7 @@ const gitRunner = new GitRunner(workspaceManager, containerManager, githubAuth);
 export const vcsManager = new VcsManager(workspaceManager, gitRunner);
 export const vcsOps = new VcsOps(gitRunner);
 export const vcsPrOps = new VcsPullRequestOps(gitRunner);
-export const githubRepoOps = new GitHubRepoOps(gitRunner);
+export const githubRepoOps = new GitHubRepoOps(gitRunner, workspaceManager);
 
 // ── Artifact Registry (singleton) ────────────────────────────
 
@@ -208,34 +208,5 @@ export async function buildContainerConfig(
   hostPath: string,
   opts?: { isolated?: boolean },
 ): Promise<ContainerConfig> {
-  let writableMounts: string[] = [];
-
-  if (!opts?.isolated) {
-    // Mount explicitly referenced workspaces
-    const refs = await workspaceManager.getReferences(workspaceId);
-    for (const refId of refs) {
-      const refPath = workspaceManager.getPath(refId);
-      if (refPath && path.resolve(refPath) !== path.resolve(hostPath)) {
-        writableMounts.push(refPath);
-      }
-    }
-
-    // Mount arbitrary host folders
-    const extraMounts = await workspaceManager.getMounts(workspaceId);
-    for (const mp of extraMounts) {
-      if (path.resolve(mp) !== path.resolve(hostPath) && !writableMounts.includes(mp)) {
-        writableMounts.push(mp);
-      }
-    }
-  }
-
-  return {
-    workspaceId,
-    hostPath,
-    readOnlyMounts: [
-      path.join(SERO_AGENT_DIR, 'skills'),
-      path.join(SERO_AGENT_DIR, 'prompts'),
-    ],
-    writableMounts,
-  };
+  return buildWorkspaceContainerConfig(workspaceManager, workspaceId, hostPath, opts);
 }

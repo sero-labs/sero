@@ -15,6 +15,8 @@ export class ReviewProgressTracker extends BaseProgressTracker<ReviewProgress> {
       agents: [],
       recentTools: [],
       log: [],
+      liveOutput: '',
+      liveOutputSource: undefined,
     });
   }
 

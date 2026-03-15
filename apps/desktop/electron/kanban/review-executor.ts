@@ -13,13 +13,20 @@ import { promisify } from 'util';
 
 import type { Card } from './types';
 import type { ReviewProgressTracker } from './review-progress';
-import type { ReviewResult } from './prompts';
+import type { ReviewResult, ReviewIssue } from './prompts';
 import {
   buildReviewPrompt,
+  buildReviewRevisionPrompt,
   parseReviewResult,
 } from './prompts';
 import type { ReviewPromptOptions } from './prompts';
-import { detectVerificationCommands, runVerificationCommands } from './verification';
+import { bridgeSubagentLiveOutput } from './live-output-bridge';
+import {
+  detectVerificationCommands,
+  runVerificationCommands,
+  summarizeVerificationFailure,
+} from './verification';
+import { runWorkspaceCommand } from './workspace-command-runner';
 import type { KanbanSettings } from './types';
 import {
   createCheckpointInWorktree,
@@ -33,6 +40,7 @@ import { getContract } from './contracts';
 import type { SubagentManager } from '../subagent/index';
 
 const execFileAsync = promisify(execFile);
+const MAX_CRITICAL_REVISIONS = 1;
 
 export interface ReviewExecutorDeps {
   subagentManager: SubagentManager;
@@ -63,101 +71,155 @@ export async function executeReview(
   branchName: string,
   tracker: ReviewProgressTracker,
 ): Promise<ReviewExecutorResult> {
+  const parentSessionId = `kanban-review-${card.id}`;
+  const detachLiveOutput = bridgeSubagentLiveOutput(
+    deps.subagentManager,
+    deps.workspaceId,
+    parentSessionId,
+    tracker,
+  );
+
+  try {
   // Derive workspace root (worktree is at <ws>/.sero/worktrees/card-<id>)
-  const workspaceRoot = path.resolve(worktreePath, '..', '..', '..');
-  const reviewDir = path.join(workspaceRoot, '.sero', 'apps', 'kanban', 'reviews');
-  const reviewFile = path.join(reviewDir, `card-${card.id}.json`);
-  const reviewRelPath = path.relative(workspaceRoot, reviewFile);
+    const workspaceRoot = path.resolve(worktreePath, '..', '..', '..');
+    const reviewDir = path.join(workspaceRoot, '.sero', 'apps', 'kanban', 'reviews');
+    const reviewFile = path.join(reviewDir, `card-${card.id}.json`);
+    const reviewRelPath = path.relative(workspaceRoot, reviewFile);
 
-  // ── Try to load cached review ──────────────────────────
-  console.log(`[review-executor] Checking for cached review at ${reviewFile}`);
-  const cached = await loadCachedReview(reviewFile);
-  if (cached) {
-    console.log(`[review-executor] Resuming from cached review for card #${card.id} — skipping to push`);
-    return resumeFromReview(cached, reviewRelPath, worktreePath, branchName, tracker);
-  }
-  console.log(`[review-executor] No cached review found — running full review pipeline`);
+    // ── Try to load cached review ──────────────────────────
+    console.log(`[review-executor] Checking for cached review at ${reviewFile}`);
+    const cached = await loadCachedReview(reviewFile);
+    if (cached) {
+      console.log(`[review-executor] Resuming from cached review for card #${card.id} — skipping to push`);
+      return resumeFromReview(cached, reviewRelPath, worktreePath, branchName, tracker);
+    }
+    console.log(`[review-executor] No cached review found — running full review pipeline`);
 
-  // ── Step 1: Check diff ─────────────────────────────────
-  tracker.setPhase('Checking changes');
-  await tracker.flush();
+    const expectedPaths = card.subtasks.flatMap((subtask) => subtask.filePaths ?? []);
+    const preflightRecovered = await recoverWorkspaceRootChanges(worktreePath, {
+      expectedPaths,
+    });
+    if (preflightRecovered) {
+      tracker.setPhase('Recovering misplaced changes');
+      await tracker.flush();
+    }
+    const verifyCommands = await detectVerificationCommands(worktreePath, {
+      testingEnabled: deps.settings?.testingEnabled,
+    });
+    const reviewOpts: ReviewPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
 
-  await createCheckpointInWorktree(worktreePath, `feat: ${card.title}`);
+    for (let revisionPass = 0; revisionPass <= MAX_CRITICAL_REVISIONS; revisionPass++) {
+      const passLabel = revisionPass === 0 ? 'changes' : 'revised changes';
+      tracker.setPhase(`Checking ${passLabel}`);
+      await tracker.flush();
 
-  let [diff, fileSummary] = await Promise.all([
-    getWorktreeDiff(worktreePath),
-    getWorktreeDiffSummary(worktreePath),
-  ]);
-
-  // Recovery: files may have landed in the workspace root (legacy CWD bug)
-  if (!diff.trim()) {
-    tracker.setPhase('Recovering files');
-    await tracker.flush();
-
-    const recovered = await recoverOrphanedFiles(worktreePath);
-    if (recovered) {
       await createCheckpointInWorktree(worktreePath, `feat: ${card.title}`);
-      [diff, fileSummary] = await Promise.all([
+
+      let [diff, fileSummary] = await Promise.all([
         getWorktreeDiff(worktreePath),
         getWorktreeDiffSummary(worktreePath),
       ]);
+
+      if (!diff.trim()) {
+        tracker.setPhase('Recovering files');
+        await tracker.flush();
+
+        const recovered = await recoverWorkspaceRootChanges(worktreePath, {
+          expectedPaths,
+          allowAllDirty: true,
+        });
+        if (recovered) {
+          await createCheckpointInWorktree(worktreePath, `feat: ${card.title}`);
+          [diff, fileSummary] = await Promise.all([
+            getWorktreeDiff(worktreePath),
+            getWorktreeDiffSummary(worktreePath),
+          ]);
+        }
+      }
+
+      if (!diff.trim()) {
+        return { success: false, error: 'No changes to review — diff is empty.' };
+      }
+
+      if (verifyCommands.length > 0) {
+        tracker.setPhase('Running verification');
+        await tracker.flush();
+
+        const verifyResult = await runVerificationCommands(worktreePath, verifyCommands, undefined, {
+          runCommand: (command, cwd, timeoutMs) =>
+            runWorkspaceCommand(deps.workspaceId, cwd, command, timeoutMs, { isolated: true }),
+        });
+        if (!verifyResult.success) {
+          const failed = verifyResult.results.find((r) => !r.success);
+          const errOutput = failed ? summarizeVerificationFailure(failed) : 'Unknown verification failure';
+          return { success: false, error: `Pre-review verification failed:\n${errOutput}` };
+        }
+      }
+
+      const reviewerLabel = revisionPass === 0 ? 'reviewer' : `reviewer (${revisionPass + 1})`;
+      tracker.setPhase(revisionPass === 0 ? 'Reviewing changes' : `Re-reviewing changes (${revisionPass + 1})`);
+      tracker.addAgent(reviewerLabel);
+      await tracker.flush();
+
+      const rawReview = await deps.subagentManager.runSingleStructured({
+        agent: 'reviewer',
+        task: buildReviewPrompt(card, diff, fileSummary, reviewOpts),
+        parentSessionId,
+        workspaceId: deps.workspaceId,
+        cwd: worktreePath,
+        isolated: true,
+        onUpdate: (text) => tracker.addLogLine(text),
+      });
+      if (rawReview.error) {
+        tracker.completeAgent(reviewerLabel, 'failed');
+        return { success: false, error: `Reviewer failed: ${rawReview.error}` };
+      }
+
+      const review = parseReviewResult(rawReview.response, card.title);
+      tracker.completeAgent(reviewerLabel);
+
+      const reviewFailure = requiresReviewerApproval()
+        ? getBlockingReviewFailure(review)
+        : null;
+      const criticalIssues = getCriticalIssues(review);
+
+      if (!reviewFailure) {
+        await saveCachedReview(reviewFile, review);
+        console.log(`[review-executor] Saved review to ${reviewRelPath}`);
+        return pushAndCreatePr(review, reviewRelPath, worktreePath, branchName, card, tracker);
+      }
+
+      if (revisionPass >= MAX_CRITICAL_REVISIONS || criticalIssues.length === 0) {
+        await saveCachedReview(reviewFile, review);
+        console.log(`[review-executor] Saved review to ${reviewRelPath}`);
+        return { success: false, error: reviewFailure };
+      }
+
+      const reviserLabel = `implementer (${revisionPass + 1})`;
+      tracker.setPhase(`Fixing critical review feedback (${revisionPass + 1}/${MAX_CRITICAL_REVISIONS})`);
+      tracker.addAgent(reviserLabel);
+      await tracker.flush();
+
+      const revisionResult = await deps.subagentManager.runSingleStructured({
+        agent: 'implementer',
+        task: buildReviewRevisionPrompt(card, criticalIssues, review.summary),
+        parentSessionId,
+        workspaceId: deps.workspaceId,
+        cwd: worktreePath,
+        isolated: true,
+        onUpdate: (text) => tracker.addLogLine(text),
+      });
+
+      tracker.completeAgent(reviserLabel, revisionResult.error ? 'failed' : 'completed');
+      if (revisionResult.error) {
+        return { success: false, error: `Critical review revision failed: ${revisionResult.error}` };
+      }
     }
+
+    return { success: false, error: 'Review failed to produce a final result.' };
+  } finally {
+    detachLiveOutput();
   }
-
-  if (!diff.trim()) {
-    return { success: false, error: 'No changes to review — diff is empty.' };
-  }
-
-  // ── Step 1b: Pre-review verification ────────────────────
-  const verifyCommands = await detectVerificationCommands(worktreePath, {
-    testingEnabled: deps.settings?.testingEnabled,
-  });
-  if (verifyCommands.length > 0) {
-    tracker.setPhase('Running verification');
-    await tracker.flush();
-
-    const verifyResult = await runVerificationCommands(worktreePath, verifyCommands);
-    if (!verifyResult.success) {
-      const failed = verifyResult.results.find((r) => !r.success);
-      const errOutput = failed
-        ? `${failed.command}: ${failed.stderr}\n${failed.stdout}`.trim().slice(-2000)
-        : 'Unknown verification failure';
-      return { success: false, error: `Pre-review verification failed:\n${errOutput}` };
-    }
-  }
-
-  // ── Step 2: Reviewer subagent ─────────────────────────
-  tracker.setPhase('Reviewing changes');
-  tracker.addAgent('reviewer');
-  await tracker.flush();
-
-  const reviewOpts: ReviewPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
-  const reviewPrompt = buildReviewPrompt(card, diff, fileSummary, reviewOpts);
-  // Uses the reviewer agent template (packages/templates/agents/reviewer.md)
-  const rawReview = await deps.subagentManager.runSingle({
-    agent: 'reviewer',
-    task: reviewPrompt,
-    parentSessionId: `kanban-review-${card.id}`,
-    workspaceId: deps.workspaceId,
-    cwd: worktreePath,
-    isolated: true,
-    onUpdate: (text) => tracker.addLogLine(text),
-  });
-
-  const review = parseReviewResult(rawReview, card.title);
-  tracker.completeAgent('reviewer');
-
-  const reviewFailure = requiresReviewerApproval()
-    ? getBlockingReviewFailure(review)
-    : null;
-  await saveCachedReview(reviewFile, review);
-  console.log(`[review-executor] Saved review to ${reviewRelPath}`);
-  if (reviewFailure) {
-    return { success: false, error: reviewFailure };
-  }
-
-  // ── Steps 3–4: Push + PR ──────────────────────────────
-  return pushAndCreatePr(review, reviewRelPath, worktreePath, branchName, card, tracker);
 }
 
 // ── Push + PR (shared by fresh run and resume) ──────────────
@@ -239,7 +301,7 @@ async function loadCachedReview(filePath: string): Promise<ReviewResult | null> 
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     const data = JSON.parse(raw) as Partial<ReviewResult>;
-    if (typeof data.prTitle === 'string' && typeof data.prBody === 'string') {
+    if (typeof data.prTitle === 'string' && typeof data.prBody === 'string' && !hasMalformedLegacyIssues(data)) {
       const review = data as ReviewResult;
       return getBlockingReviewFailure(review) ? null : review;
     }
@@ -252,6 +314,14 @@ async function loadCachedReview(filePath: string): Promise<ReviewResult | null> 
 async function saveCachedReview(filePath: string, review: ReviewResult): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(review, null, 2), 'utf8');
+}
+
+function hasMalformedLegacyIssues(review: Partial<ReviewResult>): boolean {
+  return Array.isArray(review.issues)
+    && review.issues.some((issue) => (
+      typeof issue !== 'string'
+      || issue.includes('[object Object]')
+    ));
 }
 
 function getBlockingReviewFailure(review: ReviewResult): string | null {
@@ -285,6 +355,10 @@ function requiresReviewerApproval(): boolean {
   )) === true;
 }
 
+function getCriticalIssues(review: ReviewResult): ReviewIssue[] {
+  return review.categorizedIssues?.filter((issue) => issue.severity === 'critical') ?? [];
+}
+
 // ── Orphaned-file recovery ──────────────────────────────────
 
 /**
@@ -296,7 +370,10 @@ function requiresReviewerApproval(): boolean {
  *
  * @returns true if any files were recovered.
  */
-async function recoverOrphanedFiles(worktreePath: string): Promise<boolean> {
+async function recoverWorkspaceRootChanges(
+  worktreePath: string,
+  opts?: { expectedPaths?: string[]; allowAllDirty?: boolean },
+): Promise<boolean> {
   const workspaceRoot = path.resolve(worktreePath, '..', '..', '..');
 
   try {
@@ -305,33 +382,47 @@ async function recoverOrphanedFiles(worktreePath: string): Promise<boolean> {
     return false;
   }
 
-  let untrackedRaw: string;
+  let statusRaw: string;
   try {
     const result = await execFileAsync(
-      'git', ['ls-files', '--others', '--exclude-standard'],
+      'git', ['status', '--porcelain', '--untracked-files=all'],
       { cwd: workspaceRoot, timeout: 15_000 },
     );
-    untrackedRaw = result.stdout.trim();
+    statusRaw = result.stdout.trim();
   } catch {
     return false;
   }
 
-  if (!untrackedRaw) return false;
+  if (!statusRaw) return false;
 
-  const orphaned = untrackedRaw
+  const expectedPathSet = new Set(opts?.expectedPaths ?? []);
+  const dirtyFiles = statusRaw
     .split('\n')
-    .filter((f) => f && !f.startsWith('.sero/'));
+    .map((line) => parseStatusPath(line))
+    .filter((filePath): filePath is string => !!filePath)
+    .filter((filePath) => !filePath.startsWith('.sero/'))
+    .filter((filePath) => (
+      opts?.allowAllDirty
+      || expectedPathSet.size === 0
+      || expectedPathSet.has(filePath)
+    ));
 
-  if (orphaned.length === 0) return false;
+  if (dirtyFiles.length === 0) return false;
 
   console.log(
-    `[review-executor] Recovering ${orphaned.length} orphaned file(s) from workspace root to worktree`,
+    `[review-executor] Recovering ${dirtyFiles.length} workspace file(s) into worktree`,
   );
 
-  for (const relFile of orphaned) {
+  for (const relFile of dirtyFiles) {
     const src = path.join(workspaceRoot, relFile);
     const dest = path.join(worktreePath, relFile);
     try {
+      const sourceStat = await fs.stat(src).catch(() => null);
+      if (!sourceStat) {
+        await fs.rm(dest, { force: true });
+        continue;
+      }
+      if (!sourceStat.isFile()) continue;
       await fs.mkdir(path.dirname(dest), { recursive: true });
       await fs.copyFile(src, dest);
     } catch (err: unknown) {
@@ -340,4 +431,16 @@ async function recoverOrphanedFiles(worktreePath: string): Promise<boolean> {
   }
 
   return true;
+}
+
+function parseStatusPath(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  const pathPart = line.slice(3).trim();
+  if (!pathPart) return null;
+  if (pathPart.includes(' -> ')) {
+    const [, dest] = pathPart.split(' -> ');
+    return dest?.trim() || null;
+  }
+  return pathPart;
 }

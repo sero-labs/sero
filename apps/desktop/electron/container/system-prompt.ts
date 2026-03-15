@@ -12,13 +12,22 @@
 export function buildContainerPromptBlock(
   workspaceId: string,
   containerIp?: string,
+  opts?: { currentWorkingDir?: string },
 ): string {
+  const currentWorkingDir = opts?.currentWorkingDir ?? '/workspace';
+  const cwdNote = currentWorkingDir === '/workspace'
+    ? 'Your current working directory is also /workspace.'
+    : `Your current working directory for this session is ${currentWorkingDir}.`;
+
   return `
 
 ## Container Environment
 
 You are operating inside a sandboxed Linux container for workspace "${workspaceId}".
-Your workspace directory is /workspace — all project files live here.
+Your workspace root is /workspace — all project files live under this mount.
+${cwdNote}
+Prefer relative paths and keep your work inside the current working directory unless the task explicitly requires another location.
+If this session is running inside a git worktree subdirectory, do NOT reset yourself with \`cd /workspace\` before making changes.
 
 **Container details:**
 - Base image: node:22-slim (Debian-based)
@@ -41,6 +50,8 @@ ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''
 **Cross-workspace access:**
 - Other open workspaces (including the global workspace) are mounted into this container at their original host paths.
 - You CAN read and write files using their absolute host paths (e.g. /Users/.../workspaces/global/MEMORY.md).
+- For the CURRENT workspace, stay in the current working directory (or under /workspace) instead of switching to its host absolute path.
+- Only use absolute host paths when you intentionally need to access a DIFFERENT workspace.
 - This means cross-workspace operations like saving memories to the global workspace work normally — use \`sero workspace list\` to find workspace paths.
 
 **CRITICAL — Dev servers and networking:**
@@ -57,7 +68,7 @@ ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''
 **CRITICAL — Starting background / long-running processes:**
 Each bash tool call runs in an isolated \`sh -c\` shell. To start a process that must outlive the command:
 1. ALWAYS use \`setsid\` to detach from the parent session:
-   \`setsid sh -c 'cd /workspace/myapp && npx vite --host 0.0.0.0 --port 3000 > /tmp/vite.log 2>&1 &'\`
+   \`setsid sh -c 'cd ${currentWorkingDir}/myapp && npx vite --host 0.0.0.0 --port 3000 > /tmp/vite.log 2>&1 &'\`
 2. Redirect stdout/stderr to a log file.
 3. After starting, verify the port is listening with \`ss -tlnp | grep <port>\`.
 4. If verification fails, check the log file for errors.

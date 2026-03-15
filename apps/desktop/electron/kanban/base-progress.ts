@@ -11,6 +11,7 @@ import type { Card, PlanningToolEntry } from './types';
 
 const MAX_RECENT_TOOLS = 15;
 const MAX_LOG_LINES = 20;
+const MAX_LIVE_OUTPUT_CHARS = 1200;
 const PROGRESS_FLUSH_MS = 800;
 
 export type WriteCardFn = (
@@ -26,6 +27,12 @@ export interface BaseProgress {
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];
   log: string[];
+  liveOutput?: string;
+  liveOutputSource?: string;
+}
+
+export interface LiveOutputSink {
+  setLiveOutput(source: string, text: string): void;
 }
 
 /**
@@ -57,6 +64,14 @@ export abstract class BaseProgressTracker<T extends BaseProgress> {
 
   addAgent(name: string): void {
     this.progress.agents.push({ name, status: 'running' });
+    this.scheduleDirtyFlush();
+  }
+
+  setLiveOutput(source: string, text: string): void {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    this.progress.liveOutputSource = source;
+    this.progress.liveOutput = trimmed.slice(-MAX_LIVE_OUTPUT_CHARS);
     this.scheduleDirtyFlush();
   }
 

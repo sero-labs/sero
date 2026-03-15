@@ -10,8 +10,10 @@ import type { Card, KanbanState, KanbanSettings, Subtask } from './types';
 import type { ImplementationProgressTracker } from './implementation-progress';
 import { buildSubtaskPrompt } from './prompts';
 import type { SubtaskPromptOptions } from './prompts';
+import { bridgeSubagentLiveOutput } from './live-output-bridge';
 import { createCheckpointInWorktree } from './worktree-git';
-import { detectVerificationCommands, runVerificationCommands } from './verification';
+import { detectVerificationCommands, runVerificationCommands, summarizeVerificationFailure } from './verification';
+import { runWorkspaceCommand } from './workspace-command-runner';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
 
@@ -35,47 +37,57 @@ export async function executeWaves(
 ): Promise<void> {
   const parentSessionId = `kanban-impl-${card.id}`;
   let liveCard = card;
+  const detachLiveOutput = bridgeSubagentLiveOutput(
+    deps.subagentManager,
+    deps.workspaceId,
+    parentSessionId,
+    tracker,
+  );
 
-  for (let waveIdx = 0; waveIdx < waves.length; waveIdx++) {
-    const wave = waves[waveIdx];
-    const waveLabel = `Wave ${waveIdx + 1}/${waves.length}`;
-    tracker.setPhase(waveLabel);
-    console.log(`[kanban-executor] Card #${card.id} ${waveLabel}: subtasks [${wave.join(', ')}]`);
+  try {
+    for (let waveIdx = 0; waveIdx < waves.length; waveIdx++) {
+      const wave = waves[waveIdx];
+      const waveLabel = `Wave ${waveIdx + 1}/${waves.length}`;
+      tracker.setPhase(waveLabel);
+      console.log(`[kanban-executor] Card #${card.id} ${waveLabel}: subtasks [${wave.join(', ')}]`);
 
-    // Mark wave subtasks as in-progress
-    await updateSubtaskStatuses(stateFilePath, card.id, wave, 'in-progress');
-    for (const stId of wave) {
-      const st = liveCard.subtasks.find((s) => s.id === stId);
-      tracker.addAgent(st?.title ?? stId);
+      // Mark wave subtasks as in-progress
+      await updateSubtaskStatuses(stateFilePath, card.id, wave, 'in-progress');
+      for (const stId of wave) {
+        const st = liveCard.subtasks.find((s) => s.id === stId);
+        tracker.addAgent(st?.title ?? stId);
+      }
+      await tracker.flush();
+
+      if (wave.length === 1) {
+        await executeSingleSubtask(
+          deps, stateFilePath, card, wave[0], worktreePath, parentSessionId, tracker,
+        );
+      } else {
+        await executeParallelSubtasks(
+          deps, stateFilePath, card, wave, worktreePath, parentSessionId, tracker,
+        );
+      }
+
+      // Re-read card to get updated subtask statuses
+      const fresh = await appStateManager.read(stateFilePath) as KanbanState | null;
+      liveCard = fresh?.cards.find((c) => c.id === card.id) ?? card;
+
+      // Check for failures in this wave
+      const failedInWave = liveCard.subtasks
+        .filter((s) => wave.includes(s.id) && s.status === 'failed');
+
+      if (failedInWave.length > 0) {
+        throw new Error(
+          `Subtask(s) failed: ${failedInWave.map((s) => `"${s.title}"`).join(', ')}`,
+        );
+      }
+
+      // Wave-level verification (typecheck, tests) — catches integration issues early
+      await runWaveVerification(deps.workspaceId, worktreePath, waveLabel, tracker, deps.settings);
     }
-    await tracker.flush();
-
-    if (wave.length === 1) {
-      await executeSingleSubtask(
-        deps, stateFilePath, card, wave[0], worktreePath, parentSessionId, tracker,
-      );
-    } else {
-      await executeParallelSubtasks(
-        deps, stateFilePath, card, wave, worktreePath, parentSessionId, tracker,
-      );
-    }
-
-    // Re-read card to get updated subtask statuses
-    const fresh = await appStateManager.read(stateFilePath) as KanbanState | null;
-    liveCard = fresh?.cards.find((c) => c.id === card.id) ?? card;
-
-    // Check for failures in this wave
-    const failedInWave = liveCard.subtasks
-      .filter((s) => wave.includes(s.id) && s.status === 'failed');
-
-    if (failedInWave.length > 0) {
-      throw new Error(
-        `Subtask(s) failed: ${failedInWave.map((s) => `"${s.title}"`).join(', ')}`,
-      );
-    }
-
-    // Wave-level verification (typecheck, tests) — catches integration issues early
-    await runWaveVerification(worktreePath, waveLabel, tracker, deps.settings);
+  } finally {
+    detachLiveOutput();
   }
 }
 
@@ -242,6 +254,7 @@ async function markSubtaskCompleted(
 // ── Wave-level Verification ─────────────────────────────────
 
 async function runWaveVerification(
+  workspaceId: string,
   worktreePath: string,
   waveLabel: string,
   tracker: ImplementationProgressTracker,
@@ -255,11 +268,13 @@ async function runWaveVerification(
   tracker.setPhase(`${waveLabel} — verifying`);
   await tracker.flush();
 
-  const result = await runVerificationCommands(worktreePath, commands);
+  const result = await runVerificationCommands(worktreePath, commands, undefined, {
+    runCommand: (command, cwd, timeoutMs) =>
+      runWorkspaceCommand(workspaceId, cwd, command, timeoutMs, { isolated: true }),
+  });
   if (!result.success) {
     const failed = result.results.find((r) => !r.success);
-    const errOutput = failed ? `${failed.stderr}\n${failed.stdout}`.trim().slice(-1000) : 'unknown';
-    throw new Error(`Wave verification failed (${failed?.command}): ${errOutput}`);
+    throw new Error(failed ? `Wave verification failed: ${summarizeVerificationFailure(failed)}` : 'Wave verification failed.');
   }
 }
 

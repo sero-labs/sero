@@ -4,32 +4,35 @@
  */
 
 import type { Card } from '../../shared/types';
+import { getReviewPrStatus } from '../lib/review-pr-status';
 
 export function ReviewStatusPanel({
   card,
-  onComplete,
+  onCheckMerge,
 }: {
   card: Card;
-  onComplete: () => void;
+  onCheckMerge: () => void;
 }) {
+  const status = getReviewPrStatus(card);
+
   return (
     <div style={{ marginBottom: '20px' }}>
       <div
         style={{
           padding: '14px',
           borderRadius: '8px',
-          border: '1px solid rgba(52, 211, 153, 0.2)',
-          backgroundColor: 'rgba(52, 211, 153, 0.04)',
+          border: `1px solid ${status.tone.border}`,
+          backgroundColor: status.tone.background,
           marginBottom: '12px',
         }}
       >
         <div className="flex items-center" style={{ gap: '10px', marginBottom: '8px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 500, color: '#34d399' }}>
-            PR #{card.prNumber} created
+          <span style={{ fontSize: '12px', fontWeight: 500, color: status.tone.accent }}>
+            {status.title}
           </span>
         </div>
-        <p style={{ fontSize: '11px', color: '#8b8d97', lineHeight: 1.4, marginBottom: '8px' }}>
-          Review and merge the PR, then mark this card as done.
+        <p style={{ fontSize: '11px', color: status.tone.text, lineHeight: 1.4, marginBottom: '8px' }}>
+          {status.description}
         </p>
         {card.prUrl && (
           <a
@@ -48,21 +51,21 @@ export function ReviewStatusPanel({
         )}
       </div>
       <button
-        onClick={onComplete}
+        onClick={onCheckMerge}
         style={{
           width: '100%',
           padding: '10px 16px',
           borderRadius: '8px',
           border: 'none',
-          backgroundColor: '#34d399',
-          color: '#0f1117',
+          backgroundColor: status.tone.buttonBackground,
+          color: status.tone.buttonText,
           fontSize: '13px',
           fontWeight: 600,
           cursor: 'pointer',
           transition: 'all 0.15s',
         }}
       >
-        Mark Done
+        {status.actionLabel}
       </button>
     </div>
   );

@@ -138,6 +138,7 @@ ${completedSubtasks ? `## Already Completed\n${completedSubtasks}\n` : ''}
 - Focus ONLY on this subtask — do not implement other subtasks
 - Write clean, well-typed code following existing project conventions
 - Create or modify files as needed for this subtask
+- If a scaffolder/init tool refuses to run because the worktree directory is not empty, treat that as expected for git worktrees: scaffold in a temporary directory and describe it as a normal workaround, not as a failure
 - Do not run the dev server or start any long-running processes
 - When done, provide a brief summary of what you implemented`;
 }
@@ -190,7 +191,64 @@ PR FORMAT — this is a FEATURE PR, not a review report:
 
 Do NOT use browser automation to test interactive/real-time features (games, animations, etc.) — it is too slow. Note them for manual testing instead.
 
-Output valid JSON as specified in your instructions.`;
+Return ONLY valid JSON with this exact shape:
+
+\`\`\`json
+{
+  "approved": false,
+  "summary": "Short overall assessment",
+  "verdict": "merge | fix-first | reject",
+  "categorizedIssues": [
+    {
+      "description": "What is wrong",
+      "severity": "critical | important | minor",
+      "file": "src/path.ts",
+      "line": 12,
+      "suggestion": "Concrete fix"
+    }
+  ],
+  "issues": ["Optional legacy string issue list"],
+  "prTitle": "feat: what was built",
+  "prBody": "## Summary\\n...\\n\\n## Changes\\n...\\n\\n## Review Notes\\n...\\n\\n## Manual Testing\\n..."
+}
+\`\`\`
+
+Rules:
+- Set "approved" to false for "fix-first" or "reject"
+- Use "critical" only for merge-blocking issues
+- If there are no issues, return an empty categorizedIssues array
+- Do not wrap the JSON in prose or markdown commentary`;
+}
+
+export function buildReviewRevisionPrompt(
+  card: Card,
+  criticalIssues: ReviewIssue[],
+  summary?: string,
+): string {
+  const issueBlock = criticalIssues.map((issue, index) => {
+    const location = issue.file
+      ? ` (${issue.file}${issue.line ? `:${issue.line}` : ''})`
+      : '';
+    const suggestion = issue.suggestion ? `\n  Suggested fix: ${issue.suggestion}` : '';
+    return `${index + 1}. ${issue.description}${location}${suggestion}`;
+  }).join('\n');
+
+  return `You are fixing merge-blocking review feedback for an existing feature branch.
+
+# Card: ${card.title}
+${card.description ? `\nDescription: ${card.description}` : ''}
+${card.plan ? `\nImplementation Plan:\n${card.plan}` : ''}
+${summary ? `\nReview Summary:\n${summary}` : ''}
+
+## Critical Issues To Fix
+${issueBlock}
+
+## Instructions
+- Fix ONLY the critical issues listed above in this pass
+- Keep the existing feature intent intact
+- Do not start dev servers or long-running processes
+- Run only the checks needed to validate your fixes
+- When done, briefly summarize what you changed to address the review`;
 }
 
 export interface ReviewIssue {
@@ -230,7 +288,9 @@ export function parseReviewResult(raw: string, cardTitle?: string): ReviewResult
     prBody: raw.slice(0, 2000),
   };
 
-  if (!jsonMatch) return fb;
+  if (!jsonMatch) {
+    return buildRawReviewFallback(raw, fb);
+  }
 
   try {
     const jsonStr = jsonMatch[1] || jsonMatch[0];
@@ -241,14 +301,16 @@ export function parseReviewResult(raw: string, cardTitle?: string): ReviewResult
     if (Array.isArray(parsed.categorizedIssues)) {
       categorizedIssues = parsed.categorizedIssues
         .filter((i: unknown) => i && typeof i === 'object')
-        .map((i: Record<string, unknown>) => ({
-          description: String(i.description ?? ''),
-          severity: (['critical', 'important', 'minor'].includes(i.severity as string)
-            ? i.severity : 'minor') as ReviewIssue['severity'],
-          file: typeof i.file === 'string' ? i.file : undefined,
-          line: typeof i.line === 'number' ? i.line : undefined,
-          suggestion: typeof i.suggestion === 'string' ? i.suggestion : undefined,
-        }));
+        .map((i: Record<string, unknown>) => normalizeReviewIssue(i));
+    }
+
+    if ((!categorizedIssues || categorizedIssues.length === 0) && Array.isArray(parsed.issues)) {
+      const objectIssues = parsed.issues
+        .filter((issue: unknown) => issue && typeof issue === 'object')
+        .map((issue: Record<string, unknown>) => normalizeReviewIssue(issue));
+      if (objectIssues.length > 0) {
+        categorizedIssues = objectIssues;
+      }
     }
 
     // Parse verdict
@@ -256,9 +318,9 @@ export function parseReviewResult(raw: string, cardTitle?: string): ReviewResult
     const verdict = validVerdicts.has(parsed.verdict) ? parsed.verdict : undefined;
 
     return {
-      approved: parsed.approved !== false,
+      approved: parsed.approved !== false && verdict !== 'fix-first' && verdict !== 'reject',
       summary: typeof parsed.summary === 'string' ? parsed.summary : fb.summary,
-      issues: Array.isArray(parsed.issues) ? parsed.issues.map(String) : [],
+      issues: Array.isArray(parsed.issues) ? parsed.issues.map(normalizeReviewIssueText) : [],
       categorizedIssues,
       verdict,
       prTitle: typeof parsed.prTitle === 'string'
@@ -267,8 +329,59 @@ export function parseReviewResult(raw: string, cardTitle?: string): ReviewResult
       prBody: typeof parsed.prBody === 'string' ? parsed.prBody : fb.prBody,
     };
   } catch {
-    return fb;
+    return buildRawReviewFallback(raw, fb);
   }
+}
+
+function buildRawReviewFallback(raw: string, fb: ReviewResult): ReviewResult {
+  const verdict = parseRawVerdict(raw);
+  const issues = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line))
+    .map((line) => line.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, ''))
+    .filter(Boolean)
+    .slice(0, 5);
+
+  return {
+    ...fb,
+    approved: verdict ? verdict === 'merge' : true,
+    verdict,
+    issues,
+  };
+}
+
+function parseRawVerdict(raw: string): ReviewResult['verdict'] | undefined {
+  const match = raw.match(/verdict[:\s`*-]+(merge|fix-first|reject)/i);
+  return match ? match[1].toLowerCase() as ReviewResult['verdict'] : undefined;
+}
+
+function normalizeReviewIssueText(issue: unknown): string {
+  if (typeof issue === 'string') return issue;
+  if (issue && typeof issue === 'object') {
+    const value = issue as Record<string, unknown>;
+    return typeof value.description === 'string'
+      ? value.description
+      : JSON.stringify(value);
+  }
+  return String(issue);
+}
+
+function normalizeReviewIssue(issue: Record<string, unknown>): ReviewIssue {
+  return {
+    description: typeof issue.description === 'string' ? issue.description : normalizeReviewIssueText(issue),
+    severity: normalizeReviewSeverity(issue.severity),
+    file: typeof issue.file === 'string' ? issue.file : undefined,
+    line: typeof issue.line === 'number' ? issue.line : undefined,
+    suggestion: typeof issue.suggestion === 'string' ? issue.suggestion : undefined,
+  };
+}
+
+function normalizeReviewSeverity(raw: unknown): ReviewIssue['severity'] {
+  const severity = typeof raw === 'string' ? raw.toLowerCase() : '';
+  if (severity === 'critical') return 'critical';
+  if (severity === 'important' || severity === 'warning') return 'important';
+  return 'minor';
 }
 
 // ── Plan Parser ──────────────────────────────────────────────
