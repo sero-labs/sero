@@ -199,6 +199,7 @@ export class KanbanOrchestrator {
       }
     }
     await runWorkspaceMaintenance(
+      workspace.workspaceId,
       workspace.stateFilePath,
       workspacePath,
       currentState,
@@ -456,6 +457,7 @@ export class KanbanOrchestrator {
     if (!freshState) return;
 
     await runWorkspaceMaintenance(
+      workspace.workspaceId,
       workspace.stateFilePath,
       workspacePath,
       freshState,

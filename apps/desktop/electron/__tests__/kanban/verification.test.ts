@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   detectCompileCommands,
+  detectDependencyInstallCommand,
   detectDevServerCommand,
   detectVerificationCommands,
   detectPackageManager,
@@ -167,6 +168,26 @@ describe('detectCompileCommands', () => {
     const commands = await detectCompileCommands(tmpDir);
 
     expect(commands).toEqual(['npm run build']);
+  });
+});
+
+describe('detectDependencyInstallCommand', () => {
+  it('uses frozen-lockfile for pnpm workspaces', async () => {
+    await fs.writeFile(path.join(tmpDir, 'package.json'), '{}');
+    await fs.writeFile(path.join(tmpDir, 'pnpm-lock.yaml'), '');
+
+    await expect(detectDependencyInstallCommand(tmpDir)).resolves.toBe('pnpm install --frozen-lockfile');
+  });
+
+  it('prefers npm ci when a lockfile exists', async () => {
+    await fs.writeFile(path.join(tmpDir, 'package.json'), '{}');
+    await fs.writeFile(path.join(tmpDir, 'package-lock.json'), '');
+
+    await expect(detectDependencyInstallCommand(tmpDir)).resolves.toBe('npm ci');
+  });
+
+  it('returns null outside package-managed node projects', async () => {
+    await expect(detectDependencyInstallCommand(tmpDir)).resolves.toBeNull();
   });
 });
 

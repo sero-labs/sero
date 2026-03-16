@@ -31,6 +31,7 @@ describe('isIgnoredWorkspaceStatusPath', () => {
 describe('syncWorkspaceRootToDefaultBranch', () => {
   it('fast-forwards with merge against the fetched remote ref', async () => {
     const commands: string[] = [];
+    let headReads = 0;
     const runner = {
       async run(_workspacePath: string, args: string[]) {
         const key = args.join(' ');
@@ -41,7 +42,13 @@ describe('syncWorkspaceRootToDefaultBranch', () => {
         if (key === 'rev-parse --verify refs/remotes/origin/main') return { stdout: 'remote-sha\n', stderr: '' };
         if (key === 'rev-parse --verify refs/heads/main') return { stdout: 'local-sha\n', stderr: '' };
         if (key === 'checkout main') return { stdout: '', stderr: '' };
-        if (key === 'rev-parse --verify HEAD') return { stdout: 'old-head\n', stderr: '' };
+        if (key === 'rev-parse --verify HEAD') {
+          headReads += 1;
+          return {
+            stdout: headReads < 3 ? 'old-head\n' : 'new-head\n',
+            stderr: '',
+          };
+        }
         if (key === 'rev-parse --verify origin/main') return { stdout: 'new-head\n', stderr: '' };
         if (key === 'merge --ff-only origin/main') return { stdout: '', stderr: '' };
         throw new Error(`Unexpected git command: ${key}`);
@@ -50,9 +57,30 @@ describe('syncWorkspaceRootToDefaultBranch', () => {
 
     const result = await syncWorkspaceRootToDefaultBranch('/tmp/workspace', runner);
 
-    expect(result).toMatchObject({ synced: true, branch: 'main' });
+    expect(result).toMatchObject({ synced: true, branch: 'main', headChanged: true });
     expect(commands).toContain('merge --ff-only origin/main');
     expect(commands).not.toContain('pull --ff-only origin main');
+  });
+
+  it('reports no head change when already at the remote default branch', async () => {
+    const runner = {
+      async run(_workspacePath: string, args: string[]) {
+        const key = args.join(' ');
+        if (key === 'fetch origin') return { stdout: '', stderr: '' };
+        if (key === 'symbolic-ref refs/remotes/origin/HEAD') return { stdout: 'refs/remotes/origin/main\n', stderr: '' };
+        if (key === 'status --porcelain --untracked-files=all') return { stdout: '', stderr: '' };
+        if (key === 'rev-parse --verify HEAD') return { stdout: 'same-head\n', stderr: '' };
+        if (key === 'rev-parse --verify refs/remotes/origin/main') return { stdout: 'remote-sha\n', stderr: '' };
+        if (key === 'rev-parse --verify refs/heads/main') return { stdout: 'local-sha\n', stderr: '' };
+        if (key === 'checkout main') return { stdout: '', stderr: '' };
+        if (key === 'rev-parse --verify origin/main') return { stdout: 'same-head\n', stderr: '' };
+        throw new Error(`Unexpected git command: ${key}`);
+      },
+    };
+
+    const result = await syncWorkspaceRootToDefaultBranch('/tmp/workspace', runner);
+
+    expect(result).toMatchObject({ synced: true, branch: 'main', headChanged: false });
   });
 
   it('skips sync when non-kanban workspace files are dirty', async () => {

@@ -30,6 +30,7 @@ interface WorktreeRemover {
 export interface WorkspaceSyncResult {
   synced: boolean;
   branch?: string;
+  headChanged?: boolean;
   reason?: string;
 }
 
@@ -85,6 +86,7 @@ export async function syncWorkspaceRootToDefaultBranch(
   }
 
   try {
+    const headBefore = await resolveRef(workspacePath, 'HEAD', runner);
     const remoteRef = await refExists(workspacePath, `refs/remotes/origin/${branch}`, runner)
       ? `origin/${branch}`
       : null;
@@ -99,7 +101,8 @@ export async function syncWorkspaceRootToDefaultBranch(
     }
 
     if (!remoteRef) {
-      return { synced: true, branch };
+      const headAfter = await resolveRef(workspacePath, 'HEAD', runner);
+      return { synced: true, branch, headChanged: headBefore !== headAfter };
     }
 
     const localHead = await resolveRef(workspacePath, 'HEAD', runner);
@@ -108,7 +111,8 @@ export async function syncWorkspaceRootToDefaultBranch(
       await runner.run(workspacePath, ['merge', '--ff-only', remoteRef], 30_000);
     }
 
-    return { synced: true, branch };
+    const headAfter = await resolveRef(workspacePath, 'HEAD', runner);
+    return { synced: true, branch, headChanged: headBefore !== headAfter };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { synced: false, branch, reason: message };

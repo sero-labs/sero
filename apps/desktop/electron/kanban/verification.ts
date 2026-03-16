@@ -63,6 +63,32 @@ export async function detectCompileCommands(workspacePath: string): Promise<stri
 }
 
 /**
+ * Detect the safest dependency install command for a Node workspace.
+ * Returns null when the workspace doesn't look like a package-managed Node project.
+ */
+export async function detectDependencyInstallCommand(workspacePath: string): Promise<string | null> {
+  const hasPackageJson = await fileExists(path.join(workspacePath, 'package.json'));
+  if (!hasPackageJson) return null;
+
+  const pm = detectPackageManager(workspacePath);
+  if (pm === 'pnpm') {
+    return await fileExists(path.join(workspacePath, 'pnpm-lock.yaml'))
+      ? 'pnpm install --frozen-lockfile'
+      : 'pnpm install';
+  }
+
+  if (pm === 'yarn') {
+    return await fileExists(path.join(workspacePath, 'yarn.lock'))
+      ? 'yarn install --frozen-lockfile'
+      : 'yarn install';
+  }
+
+  const hasNpmLock = await fileExists(path.join(workspacePath, 'package-lock.json'))
+    || await fileExists(path.join(workspacePath, 'npm-shrinkwrap.json'));
+  return hasNpmLock ? 'npm ci' : 'npm install';
+}
+
+/**
  * Detect the best dev-server startup command for smoke review.
  */
 export async function detectDevServerCommand(workspacePath: string): Promise<string | null> {

@@ -1,6 +1,7 @@
 import type { Column, KanbanState } from './types';
 import { updateCard } from './state-helpers';
 import { maintainWorkspaceForNewCard } from './worktree-maintenance';
+import { refreshWorkspaceRuntimeAfterSync } from './workspace-runtime-refresh';
 import { collectPersistedCardFixes } from './persisted-state-reconcile';
 import { appStateManager } from '../app-state';
 import type { WorktreeManager } from './worktree-manager';
@@ -10,6 +11,7 @@ export async function isYoloModeEnabled(stateFilePath: string): Promise<boolean>
 }
 
 export async function runWorkspaceMaintenance(
+  workspaceId: string,
   stateFilePath: string,
   workspacePath: string,
   state: KanbanState | null,
@@ -28,6 +30,25 @@ export async function runWorkspaceMaintenance(
   }
   if (!maintenance.sync.synced && maintenance.sync.reason) {
     console.log(`[kanban-orchestrator] Workspace sync skipped: ${maintenance.sync.reason}`);
+    return;
+  }
+
+  if (maintenance.sync.synced && maintenance.sync.headChanged) {
+    const refresh = await refreshWorkspaceRuntimeAfterSync(workspaceId, workspacePath);
+    if (refresh.installCommand && refresh.dependenciesInstalled) {
+      console.log(`[kanban-orchestrator] Workspace dependencies refreshed via "${refresh.installCommand}"`);
+    }
+    if (refresh.restartedServerIds.length > 0) {
+      console.log(
+        `[kanban-orchestrator] Restarted ${refresh.restartedServerIds.length} dev server(s) after workspace sync`,
+      );
+    }
+    if (refresh.autoStartedServerId) {
+      console.log(`[kanban-orchestrator] Auto-started dev server ${refresh.autoStartedServerId} after workspace sync`);
+    }
+    if (refresh.reason) {
+      console.log(`[kanban-orchestrator] Workspace runtime refresh note: ${refresh.reason}`);
+    }
   }
 }
 
