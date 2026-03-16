@@ -6,6 +6,23 @@ import { getPullRequestMergeState } from './pr-merge-status';
 
 const execFileAsync = promisify(execFile);
 
+interface GitRunner {
+  run: (workspacePath: string, args: string[], timeoutMs?: number) => Promise<{ stdout: string; stderr: string }>;
+}
+
+const defaultGitRunner: GitRunner = {
+  async run(workspacePath, args, timeoutMs = 30_000) {
+    const result = await execFileAsync('git', args, {
+      cwd: workspacePath,
+      timeout: timeoutMs,
+    });
+    return {
+      stdout: result.stdout,
+      stderr: result.stderr,
+    };
+  },
+};
+
 interface WorktreeRemover {
   remove: (workspacePath: string, cardId: string, opts?: { deleteBranch?: boolean; force?: boolean }) => Promise<void>;
 }
@@ -32,30 +49,33 @@ export async function maintainWorkspaceForNewCard(
 }
 
 export async function resolvePreferredBaseRef(workspacePath: string): Promise<string | null> {
-  await fetchOrigin(workspacePath);
+  await fetchOrigin(workspacePath, defaultGitRunner);
 
-  const branch = await detectDefaultBranch(workspacePath);
+  const branch = await detectDefaultBranch(workspacePath, defaultGitRunner);
   if (!branch) return null;
 
-  if (await refExists(workspacePath, `refs/remotes/origin/${branch}`)) {
+  if (await refExists(workspacePath, `refs/remotes/origin/${branch}`, defaultGitRunner)) {
     return `origin/${branch}`;
   }
-  if (await refExists(workspacePath, `refs/heads/${branch}`)) {
+  if (await refExists(workspacePath, `refs/heads/${branch}`, defaultGitRunner)) {
     return branch;
   }
 
   return null;
 }
 
-export async function syncWorkspaceRootToDefaultBranch(workspacePath: string): Promise<WorkspaceSyncResult> {
-  await fetchOrigin(workspacePath);
+export async function syncWorkspaceRootToDefaultBranch(
+  workspacePath: string,
+  runner: GitRunner = defaultGitRunner,
+): Promise<WorkspaceSyncResult> {
+  await fetchOrigin(workspacePath, runner);
 
-  const branch = await detectDefaultBranch(workspacePath);
+  const branch = await detectDefaultBranch(workspacePath, runner);
   if (!branch) {
     return { synced: false, reason: 'No default branch detected.' };
   }
 
-  const meaningfulPaths = await getMeaningfulWorkspaceStatusPaths(workspacePath);
+  const meaningfulPaths = await getMeaningfulWorkspaceStatusPaths(workspacePath, runner);
   if (meaningfulPaths.length > 0) {
     return {
       synced: false,
@@ -65,25 +85,27 @@ export async function syncWorkspaceRootToDefaultBranch(workspacePath: string): P
   }
 
   try {
-    if (await refExists(workspacePath, `refs/heads/${branch}`)) {
-      await execFileAsync('git', ['checkout', branch], {
-        cwd: workspacePath,
-        timeout: 15_000,
-      });
-    } else if (await refExists(workspacePath, `refs/remotes/origin/${branch}`)) {
-      await execFileAsync('git', ['checkout', '-B', branch, `origin/${branch}`], {
-        cwd: workspacePath,
-        timeout: 15_000,
-      });
+    const remoteRef = await refExists(workspacePath, `refs/remotes/origin/${branch}`, runner)
+      ? `origin/${branch}`
+      : null;
+    const localBranchExists = await refExists(workspacePath, `refs/heads/${branch}`, runner);
+
+    if (localBranchExists) {
+      await runner.run(workspacePath, ['checkout', branch], 15_000);
+    } else if (remoteRef) {
+      await runner.run(workspacePath, ['checkout', '-B', branch, remoteRef], 15_000);
     } else {
       return { synced: false, branch, reason: `Default branch "${branch}" is not available locally or on origin.` };
     }
 
-    if (await refExists(workspacePath, `refs/remotes/origin/${branch}`)) {
-      await execFileAsync('git', ['pull', '--ff-only', 'origin', branch], {
-        cwd: workspacePath,
-        timeout: 30_000,
-      });
+    if (!remoteRef) {
+      return { synced: true, branch };
+    }
+
+    const localHead = await resolveRef(workspacePath, 'HEAD', runner);
+    const remoteHead = await resolveRef(workspacePath, remoteRef, runner);
+    if (localHead && remoteHead && localHead !== remoteHead) {
+      await runner.run(workspacePath, ['merge', '--ff-only', remoteRef], 30_000);
     }
 
     return { synced: true, branch };
@@ -134,23 +156,17 @@ async function cleanupMergedDoneCardWorktrees(
   return cleanedCardIds;
 }
 
-async function fetchOrigin(workspacePath: string): Promise<void> {
+async function fetchOrigin(workspacePath: string, runner: GitRunner): Promise<void> {
   try {
-    await execFileAsync('git', ['fetch', 'origin'], {
-      cwd: workspacePath,
-      timeout: 30_000,
-    });
+    await runner.run(workspacePath, ['fetch', 'origin'], 30_000);
   } catch {
     // Best-effort — local-only repos are fine.
   }
 }
 
-async function detectDefaultBranch(workspacePath: string): Promise<string | null> {
+async function detectDefaultBranch(workspacePath: string, runner: GitRunner): Promise<string | null> {
   try {
-    const result = await execFileAsync('git', ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
-      cwd: workspacePath,
-      timeout: 10_000,
-    });
+    const result = await runner.run(workspacePath, ['symbolic-ref', 'refs/remotes/origin/HEAD'], 10_000);
     const branch = result.stdout.trim().split('/').pop();
     if (branch) return branch;
   } catch {
@@ -158,31 +174,34 @@ async function detectDefaultBranch(workspacePath: string): Promise<string | null
   }
 
   for (const branch of ['main', 'master']) {
-    if (await refExists(workspacePath, `refs/remotes/origin/${branch}`)) return branch;
-    if (await refExists(workspacePath, `refs/heads/${branch}`)) return branch;
+    if (await refExists(workspacePath, `refs/remotes/origin/${branch}`, runner)) return branch;
+    if (await refExists(workspacePath, `refs/heads/${branch}`, runner)) return branch;
   }
 
   return null;
 }
 
-async function refExists(workspacePath: string, ref: string): Promise<boolean> {
+async function refExists(workspacePath: string, ref: string, runner: GitRunner): Promise<boolean> {
   try {
-    await execFileAsync('git', ['rev-parse', '--verify', ref], {
-      cwd: workspacePath,
-      timeout: 10_000,
-    });
+    await runner.run(workspacePath, ['rev-parse', '--verify', ref], 10_000);
     return true;
   } catch {
     return false;
   }
 }
 
-async function getMeaningfulWorkspaceStatusPaths(workspacePath: string): Promise<string[]> {
+async function resolveRef(workspacePath: string, ref: string, runner: GitRunner): Promise<string | null> {
   try {
-    const result = await execFileAsync('git', ['status', '--porcelain', '--untracked-files=all'], {
-      cwd: workspacePath,
-      timeout: 15_000,
-    });
+    const result = await runner.run(workspacePath, ['rev-parse', '--verify', ref], 10_000);
+    return result.stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function getMeaningfulWorkspaceStatusPaths(workspacePath: string, runner: GitRunner): Promise<string[]> {
+  try {
+    const result = await runner.run(workspacePath, ['status', '--porcelain', '--untracked-files=all'], 15_000);
     return result.stdout
       .split('\n')
       .map(extractStatusPath)

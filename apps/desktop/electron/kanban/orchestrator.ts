@@ -430,7 +430,7 @@ export class KanbanOrchestrator {
   private async runDoneCleanup(workspace: WatchedWorkspace, card: Card): Promise<void> {
     const workspacePath = this.deps?.getWorkspacePath(workspace.workspaceId);
     if (!workspacePath) return;
-
+    workspace.lastColumnMap.set(card.id, 'done');
     const currentState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
     if (!currentState) return;
     const freshCard = currentState.cards.find((c) => c.id === card.id) ?? card;
