@@ -226,6 +226,18 @@ describe('buildSubtaskPrompt', () => {
     const prompt = buildSubtaskPrompt(card, '1', { testingEnabled: false });
     expect(prompt).toContain('disabled');
   });
+
+  it('uses lighter evaluation guidance in light review mode', () => {
+    const card = makeCard({
+      subtasks: [
+        { id: '1', title: 'Prototype UI', description: 'Ship the prototype quickly', status: 'pending', dependsOn: [] },
+      ],
+    });
+    const prompt = buildSubtaskPrompt(card, '1', { testingEnabled: false, reviewMode: 'light' });
+    expect(prompt).toContain('working prototype');
+    expect(prompt).toContain('Do NOT use browser automation');
+    expect(prompt).toContain('minimum evaluation');
+  });
 });
 
 // ── buildSubtaskGenerationPrompt ─────────────────────────────
@@ -263,6 +275,13 @@ describe('buildReviewPrompt', () => {
     expect(prompt).toContain('do not flag missing test coverage');
   });
 
+  it('narrows the review scope in light review mode', () => {
+    const card = makeCard();
+    const prompt = buildReviewPrompt(card, 'diff', 'files', { reviewMode: 'light' });
+    expect(prompt).toContain('Keep the review narrow');
+    expect(prompt).toContain('do not use browser automation');
+  });
+
   it('includes the explicit review JSON schema', () => {
     const card = makeCard();
     const prompt = buildReviewPrompt(card, 'diff', 'files');
@@ -296,6 +315,17 @@ describe('buildReviewRevisionPrompt', () => {
     expect(prompt).toContain('Import is missing');
     expect(prompt).toContain('src/App.tsx:3');
     expect(prompt).toContain('Fix ONLY the critical issues listed above');
+  });
+
+  it('keeps revision guidance minimal in light review mode', () => {
+    const card = makeCard({ column: 'review' });
+    const prompt = buildReviewRevisionPrompt(card, [
+      { description: 'Fix startup crash', severity: 'critical' },
+    ], 'Reviewer found one blocking issue.', { testingEnabled: false, reviewMode: 'light' });
+
+    expect(prompt).toContain('smallest change');
+    expect(prompt).toContain('do NOT use browser automation');
+    expect(prompt).toContain('Testing is disabled');
   });
 });
 

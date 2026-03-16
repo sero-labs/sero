@@ -7,7 +7,8 @@
  * Extracted from orchestrator.ts for file size compliance.
  */
 
-import type { Card } from './types';
+import type { Card, ReviewMode } from './types';
+export { buildSpecReviewPrompt, buildQualityReviewPrompt } from './prompt-review-specialized';
 
 // ── Planning Prompts ─────────────────────────────────────────
 
@@ -92,6 +93,7 @@ ${tddBlock}
 
 export interface SubtaskPromptOptions {
   testingEnabled?: boolean;
+  reviewMode?: ReviewMode;
 }
 
 export function buildSubtaskPrompt(
@@ -117,6 +119,9 @@ export function buildSubtaskPrompt(
       ? 'Write a failing test first, then implement to make it pass.'
       : 'Implement first, then write tests covering the core logic.'}\n`
     : testingEnabled ? '' : '\nNote: Testing is disabled for this workspace — do not write tests.\n';
+  const lightModeBlock = options?.reviewMode === 'light'
+    ? '\n## Prototype Delivery Mode\nLight prototype mode is active. Prioritise a working prototype the user can test quickly.\n- Do only the minimum evaluation needed to avoid obvious breakage\n- Do NOT use browser automation or exhaustive UI interaction testing unless the user explicitly asked for it\n- Leave deeper validation, polish, and broad edge-case hunting for later passes\n'
+    : '';
 
   const filePathsBlock = subtask.filePaths?.length
     ? `\nExpected file paths: ${subtask.filePaths.join(', ')}\n`
@@ -132,7 +137,7 @@ ${card.plan ?? '(no plan provided)'}
 ## Your Subtask
 **${subtask.title}**
 ${subtask.description}
-${filePathsBlock}${tddBlock}
+${filePathsBlock}${tddBlock}${lightModeBlock}
 ${completedSubtasks ? `## Already Completed\n${completedSubtasks}\n` : ''}
 ## Instructions
 - Focus ONLY on this subtask — do not implement other subtasks
@@ -149,6 +154,7 @@ const DIFF_PATCH_LIMIT = 32_000;
 
 export interface ReviewPromptOptions {
   testingEnabled?: boolean;
+  reviewMode?: ReviewMode;
 }
 
 export function buildReviewPrompt(
@@ -163,6 +169,9 @@ export function buildReviewPrompt(
 
   const testNote = options?.testingEnabled === false
     ? '\nNote: Testing is disabled for this workspace — do not flag missing test coverage.\n'
+    : '';
+  const lightModeNote = options?.reviewMode === 'light'
+    ? '\nLight prototype mode is active. Keep the review narrow: focus on obvious blockers to user testing, compile/startup failures, or fundamentally broken behavior. Do not comb through every file for polish, and do not use browser automation.\n'
     : '';
 
   const subtaskSummary = card.subtasks.length > 0
@@ -181,7 +190,7 @@ ${fileSummary || '(no files changed)'}
 
 # Diff
 ${patch || '(no diff available)'}
-${testNote}
+${testNote}${lightModeNote}
 Categorise each issue as Critical (blocks merge), Important (should fix but doesn't block), or Minor (nice-to-have).
 Provide an explicit verdict: "merge" (ready), "fix-first" (has critical issues), or "reject" (fundamentally wrong approach).
 
@@ -220,10 +229,16 @@ Rules:
 - Do not wrap the JSON in prose or markdown commentary`;
 }
 
+export interface ReviewRevisionPromptOptions {
+  testingEnabled?: boolean;
+  reviewMode?: ReviewMode;
+}
+
 export function buildReviewRevisionPrompt(
   card: Card,
   criticalIssues: ReviewIssue[],
   summary?: string,
+  options?: ReviewRevisionPromptOptions,
 ): string {
   const issueBlock = criticalIssues.map((issue, index) => {
     const location = issue.file
@@ -232,6 +247,12 @@ export function buildReviewRevisionPrompt(
     const suggestion = issue.suggestion ? `\n  Suggested fix: ${issue.suggestion}` : '';
     return `${index + 1}. ${issue.description}${location}${suggestion}`;
   }).join('\n');
+  const testingNote = options?.testingEnabled === false
+    ? '\nTesting is disabled for this workspace — do not add broad new test coverage in this pass unless a listed issue explicitly requires it.\n'
+    : '';
+  const lightModeNote = options?.reviewMode === 'light'
+    ? '\nLight prototype mode is active. Make the smallest change that restores a working prototype. Avoid broad retesting and do NOT use browser automation unless the issue explicitly requires a narrow smoke check.\n'
+    : '';
 
   return `You are fixing merge-blocking review feedback for an existing feature branch.
 
@@ -242,6 +263,7 @@ ${summary ? `\nReview Summary:\n${summary}` : ''}
 
 ## Critical Issues To Fix
 ${issueBlock}
+${testingNote}${lightModeNote}
 
 ## Instructions
 - Fix ONLY the critical issues listed above in this pass
@@ -444,48 +466,4 @@ export function parsePlanResult(raw: string): PlanResult {
   } catch {
     return { plan: raw.slice(0, 2000), subtasks: [], warnings: ['Failed to parse planner JSON output'] };
   }
-}
-
-// ── Spec & Quality Review Prompts ────────────────────────────
-
-export function buildSpecReviewPrompt(card: Card, subtaskId: string, diff: string): string {
-  const subtask = card.subtasks.find((s) => s.id === subtaskId);
-  if (!subtask) throw new Error(`Subtask ${subtaskId} not found on card #${card.id}`);
-
-  const patch = diff.length > DIFF_PATCH_LIMIT
-    ? `${diff.slice(0, DIFF_PATCH_LIMIT)}\n\n...[truncated]`
-    : diff;
-
-  return `Compare this implementation against the subtask specification:
-
-# Subtask: ${subtask.title}
-${subtask.description}
-${subtask.filePaths?.length ? `\nExpected files: ${subtask.filePaths.join(', ')}` : ''}
-
-# Parent Card: ${card.title}
-${card.acceptance.length > 0 ? `Acceptance Criteria:\n${card.acceptance.map((a) => `- ${a}`).join('\n')}` : ''}
-
-# Implementation Diff
-${patch || '(no diff)'}
-
-Review for spec compliance. Output valid JSON as specified in your instructions.`;
-}
-
-export function buildQualityReviewPrompt(card: Card, diff: string, fileSummary: string): string {
-  const patch = diff.length > DIFF_PATCH_LIMIT
-    ? `${diff.slice(0, DIFF_PATCH_LIMIT)}\n\n...[truncated]`
-    : diff;
-
-  return `Review this implementation for code quality:
-
-# Card: ${card.title}
-${card.description ? `\nDescription: ${card.description}` : ''}
-
-# Changed Files
-${fileSummary || '(no files changed)'}
-
-# Implementation Diff
-${patch || '(no diff)'}
-
-Review for code quality concerns. Output valid JSON as specified in your instructions.`;
 }

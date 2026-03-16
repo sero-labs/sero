@@ -105,7 +105,10 @@ export async function executeReview(
       await tracker.flush();
     }
     const lightReviewEnabled = shouldUseLightReview(deps.settings);
-    const reviewOpts: ReviewPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
+    const reviewOpts: ReviewPromptOptions = {
+      testingEnabled: deps.settings?.testingEnabled,
+      reviewMode: deps.settings?.reviewMode,
+    };
 
     for (let revisionPass = 0; revisionPass <= MAX_CRITICAL_REVISIONS; revisionPass++) {
       const passLabel = revisionPass === 0 ? 'changes' : 'revised changes';
@@ -220,7 +223,10 @@ export async function executeReview(
 
       const revisionResult = await deps.subagentManager.runSingleStructured({
         agent: 'implementer',
-        task: buildReviewRevisionPrompt(card, criticalIssues, review.summary),
+        task: buildReviewRevisionPrompt(card, criticalIssues, review.summary, {
+          testingEnabled: deps.settings?.testingEnabled,
+          reviewMode: deps.settings?.reviewMode,
+        }),
         parentSessionId,
         workspaceId: deps.workspaceId,
         cwd: worktreePath,

@@ -11,6 +11,7 @@ import type { ImplementationProgressTracker } from './implementation-progress';
 import { buildSubtaskPrompt } from './prompts';
 import type { SubtaskPromptOptions } from './prompts';
 import { bridgeSubagentLiveOutput } from './live-output-bridge';
+import { shouldUseLightReview } from './light-review';
 import { createCheckpointInWorktree } from './worktree-git';
 import { detectVerificationCommands, runVerificationCommands, summarizeVerificationFailure } from './verification';
 import { runWorkspaceCommand } from './workspace-command-runner';
@@ -83,8 +84,12 @@ export async function executeWaves(
         );
       }
 
-      // Wave-level verification (typecheck, tests) — catches integration issues early
-      await runWaveVerification(deps.workspaceId, worktreePath, waveLabel, tracker, deps.settings);
+      if (shouldUseLightReview(deps.settings)) {
+        tracker.addLogLine('Light prototype mode — skipping per-wave verification.');
+      } else {
+        // Wave-level verification (typecheck, tests) — catches integration issues early
+        await runWaveVerification(deps.workspaceId, worktreePath, waveLabel, tracker, deps.settings);
+      }
     }
   } finally {
     detachLiveOutput();
@@ -103,7 +108,10 @@ async function executeSingleSubtask(
   tracker: ImplementationProgressTracker,
 ): Promise<void> {
   const subtask = card.subtasks.find((s) => s.id === subtaskId);
-  const promptOpts: SubtaskPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
+  const promptOpts: SubtaskPromptOptions = {
+    testingEnabled: deps.settings?.testingEnabled,
+    reviewMode: deps.settings?.reviewMode,
+  };
   const taskPrompt = buildSubtaskPrompt(card, subtaskId, promptOpts);
 
   try {
@@ -157,7 +165,10 @@ async function executeParallelSubtasks(
     return { stId, title: subtask?.title ?? stId };
   });
 
-  const promptOpts: SubtaskPromptOptions = { testingEnabled: deps.settings?.testingEnabled };
+  const promptOpts: SubtaskPromptOptions = {
+    testingEnabled: deps.settings?.testingEnabled,
+    reviewMode: deps.settings?.reviewMode,
+  };
   const results = await Promise.allSettled(
     tasks.map(async (t) => {
       const taskPrompt = buildSubtaskPrompt(card, t.stId, promptOpts);
