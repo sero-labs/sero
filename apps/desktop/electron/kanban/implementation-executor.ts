@@ -1,4 +1,4 @@
-import type { Card, KanbanSettings, KanbanState } from './types';
+import type { Card, KanbanSettings, KanbanState, Subtask } from './types';
 import type { ImplementationProgressTracker } from './implementation-progress';
 import { buildImplementationPrompt } from './prompt-implementation';
 import { bridgeSubagentLiveOutput } from './live-output-bridge';
@@ -29,6 +29,11 @@ interface ExecutionHooks {
   ) => Promise<void>;
 }
 
+interface ProgressBridge {
+  stop(): void;
+  drain(): Promise<void>;
+}
+
 export async function executeImplementation(
   deps: ImplementationExecutorDeps,
   stateFilePath: string,
@@ -44,12 +49,18 @@ export async function executeImplementation(
     parentSessionId,
     tracker,
   );
+  const progressBridge = bridgeSubtaskProgress(
+    deps.subagentManager,
+    deps.workspaceId,
+    parentSessionId,
+    stateFilePath,
+    card,
+  );
 
   try {
-    const subtaskIds = card.subtasks.map((subtask) => subtask.id);
     tracker.setPhase('Implementing plan');
     tracker.addAgent('implementer');
-    await updateSubtaskStatuses(stateFilePath, card.id, subtaskIds, 'in-progress');
+    await initializeSubtaskExecution(stateFilePath, card.id);
     await tracker.flush();
 
     const result = await deps.subagentManager.runSingleStructured({
@@ -69,6 +80,9 @@ export async function executeImplementation(
       throw new Error(result.error);
     }
 
+    progressBridge.stop();
+    await progressBridge.drain();
+
     if (shouldUseLightReview(deps.settings)) {
       tracker.addLogLine('Light prototype mode — skipping implementation-phase verification.');
     } else {
@@ -82,32 +96,117 @@ export async function executeImplementation(
     tracker.completeAgent('implementer');
     await tracker.flush();
   } catch (err) {
+    progressBridge.stop();
+    await progressBridge.drain();
     await updateIncompleteSubtasks(stateFilePath, card.id, 'failed');
     tracker.completeAgent('implementer', 'failed');
     await tracker.flush();
     throw err;
   } finally {
+    progressBridge.stop();
     detachLiveOutput();
   }
 }
 
-async function updateSubtaskStatuses(
+function bridgeSubtaskProgress(
+  subagentManager: SubagentManager,
+  workspaceId: string,
+  parentSessionId: string,
+  stateFilePath: string,
+  card: Card,
+): ProgressBridge {
+  const knownSubtasks = new Set(card.subtasks.map((subtask) => subtask.id));
+  const reported = new Set<string>();
+  let queue = Promise.resolve();
+  let stopped = false;
+
+  const handleLiveOutput = (id: string, text: string) => {
+    if (stopped) return;
+    const entry = subagentManager.tracker.get(id);
+    if (!matchesTrackedRun(entry, workspaceId, parentSessionId)) return;
+
+    const nextIds = extractCompletedSubtaskIds(text)
+      .filter((subtaskId) => knownSubtasks.has(subtaskId) && !reported.has(subtaskId));
+    if (nextIds.length === 0) return;
+
+    for (const subtaskId of nextIds) {
+      reported.add(subtaskId);
+      queue = queue.then(async () => {
+        if (stopped) return;
+        await markSubtaskCompleted(stateFilePath, card.id, subtaskId);
+      }).catch((error) => {
+        console.warn(`[kanban-implementation] Failed to record subtask progress for #${card.id}:`, error);
+      });
+    }
+  };
+
+  subagentManager.tracker.on('subagent_live_output', handleLiveOutput);
+
+  return {
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      subagentManager.tracker.off('subagent_live_output', handleLiveOutput);
+    },
+    async drain() {
+      await queue;
+    },
+  };
+}
+
+async function initializeSubtaskExecution(
   stateFilePath: string,
   cardId: string,
-  subtaskIds: string[],
-  status: 'pending' | 'in-progress' | 'completed' | 'failed',
 ): Promise<void> {
-  if (subtaskIds.length === 0) return;
   await appStateManager.update<KanbanState>(stateFilePath, (raw) => {
     if (!raw) return fallbackState();
     return {
       ...raw,
       cards: raw.cards.map((card) => {
         if (card.id !== cardId) return card;
+        const nextSubtaskId = pickNextReadySubtask(card.subtasks);
         return {
           ...card,
           subtasks: card.subtasks.map((subtask) =>
-            subtaskIds.includes(subtask.id) ? { ...subtask, status } : subtask,
+            subtask.id === nextSubtaskId
+              ? { ...subtask, status: 'in-progress' as const }
+              : { ...subtask, status: 'pending' as const },
+          ),
+          updatedAt: new Date().toISOString(),
+        };
+      }),
+    };
+  });
+}
+
+async function markSubtaskCompleted(
+  stateFilePath: string,
+  cardId: string,
+  completedSubtaskId: string,
+): Promise<void> {
+  await appStateManager.update<KanbanState>(stateFilePath, (raw) => {
+    if (!raw) return fallbackState();
+    return {
+      ...raw,
+      cards: raw.cards.map((card) => {
+        if (card.id !== cardId) return card;
+
+        const normalized = card.subtasks.map((subtask) => {
+          if (subtask.id === completedSubtaskId) {
+            return { ...subtask, status: 'completed' as const };
+          }
+          return subtask.status === 'in-progress'
+            ? { ...subtask, status: 'pending' as const }
+            : subtask;
+        });
+
+        const nextSubtaskId = pickNextReadySubtask(normalized);
+        return {
+          ...card,
+          subtasks: normalized.map((subtask) =>
+            subtask.id === nextSubtaskId
+              ? { ...subtask, status: 'in-progress' as const }
+              : subtask,
           ),
           updatedAt: new Date().toISOString(),
         };
@@ -207,4 +306,32 @@ function fallbackState(): KanbanState {
       yoloMode: false,
     },
   };
+}
+
+function matchesTrackedRun(
+  entry: { workspaceId: string; parentSessionId: string } | undefined,
+  workspaceId: string,
+  parentSessionId: string,
+): boolean {
+  return entry?.workspaceId === workspaceId && entry.parentSessionId === parentSessionId;
+}
+
+function extractCompletedSubtaskIds(text: string): string[] {
+  const matches = text.matchAll(/^SUBTASK_COMPLETE:\s*([A-Za-z0-9_-]+)\s*$/gm);
+  return Array.from(matches, (match) => match[1]);
+}
+
+function pickNextReadySubtask(subtasks: Subtask[]): string | null {
+  const completed = new Set(
+    subtasks
+      .filter((subtask) => subtask.status === 'completed')
+      .map((subtask) => subtask.id),
+  );
+
+  const ready = subtasks.find(
+    (subtask) => subtask.status === 'pending' && subtask.dependsOn.every((dep) => completed.has(dep)),
+  );
+  if (ready) return ready.id;
+
+  return subtasks.find((subtask) => subtask.status === 'pending')?.id ?? null;
 }

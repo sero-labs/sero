@@ -63,14 +63,37 @@ function makeTracker(): ImplementationProgressTracker {
   } as unknown as ImplementationProgressTracker;
 }
 
-function makeSubagentManager(result: { response: string; error?: string }) {
-  const runSingleStructured = vi.fn().mockResolvedValue(result);
+function makeSubagentManager(
+  result: { response: string; error?: string },
+  options?: {
+    onRun?: (emitLiveOutput: (text: string) => void) => Promise<void>;
+  },
+) {
+  const listeners = new Set<(id: string, text: string) => void>();
+  const runId = 'run-1';
+  const entry = {
+    workspaceId: 'workspace-1',
+    parentSessionId: 'kanban-impl-1',
+  };
+  const emitLiveOutput = (text: string) => {
+    for (const listener of listeners) {
+      listener(runId, text);
+    }
+  };
+  const runSingleStructured = vi.fn().mockImplementation(async () => {
+    await options?.onRun?.(emitLiveOutput);
+    return result;
+  });
   return {
     runSingleStructured,
     tracker: {
-      on: vi.fn(),
-      off: vi.fn(),
-      get: vi.fn().mockReturnValue(null),
+      on: vi.fn((event: string, listener: (id: string, text: string) => void) => {
+        if (event === 'subagent_live_output') listeners.add(listener);
+      }),
+      off: vi.fn((event: string, listener: (id: string, text: string) => void) => {
+        if (event === 'subagent_live_output') listeners.delete(listener);
+      }),
+      get: vi.fn((id: string) => (id === runId ? entry : undefined)),
     },
   };
 }
@@ -87,6 +110,22 @@ async function writeState(stateFilePath: string, card: Card, settings: KanbanSet
 
 async function readState(stateFilePath: string): Promise<KanbanState> {
   return JSON.parse(await fs.readFile(stateFilePath, 'utf8')) as KanbanState;
+}
+
+async function waitForAssertion(
+  assertion: () => Promise<void>,
+  timeoutMs = 1_000,
+): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      await assertion();
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+  await assertion();
 }
 
 describe('executeImplementation', () => {
@@ -119,6 +158,50 @@ describe('executeImplementation', () => {
     expect(saved.cards[0].lastCheckpoint).toBe('checkpoint-1');
     expect(tracker.addAgent).toHaveBeenCalledWith('implementer');
     expect(tracker.completeAgent).toHaveBeenCalledWith('implementer');
+  });
+
+  it('updates subtask progress as live completion markers arrive', async () => {
+    const stateFilePath = path.join(tmpDir, 'state.json');
+    const card = makeCard();
+    const settings = makeSettings();
+    await writeState(stateFilePath, card, settings);
+
+    const tracker = makeTracker();
+    let releaseRun = () => {};
+    const subagentManager = makeSubagentManager(
+      { response: 'done' },
+      {
+        onRun: async (emitLiveOutput) => {
+          emitLiveOutput('Working...\nSUBTASK_COMPLETE: 1\n');
+          await new Promise<void>((resolve) => {
+            releaseRun = () => resolve();
+          });
+        },
+      },
+    );
+    const createCheckpoint = vi.fn().mockResolvedValue('checkpoint-1');
+    const execution = executeImplementation(
+      { subagentManager: subagentManager as never, workspaceId: 'workspace-1', settings },
+      stateFilePath,
+      card,
+      '/tmp/worktree',
+      tracker,
+      { runVerification: vi.fn().mockResolvedValue(undefined), createCheckpoint },
+    );
+
+    try {
+      await waitForAssertion(async () => {
+        const saved = await readState(stateFilePath);
+        expect(saved.cards[0].subtasks.map((subtask) => subtask.status)).toEqual([
+          'completed',
+          'in-progress',
+        ]);
+      });
+    } finally {
+      releaseRun();
+    }
+
+    await execution;
   });
 
   it('skips implementation verification in light review mode', async () => {

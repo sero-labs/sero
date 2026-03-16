@@ -251,6 +251,7 @@ describe('buildImplementationPrompt', () => {
     expect(prompt).toContain('one cohesive pass');
     expect(prompt).toContain('NOT separate agent assignments');
     expect(prompt).toContain('Use the subtasks to structure your work');
+    expect(prompt).toContain('SUBTASK_COMPLETE: <id>');
   });
 
   it('uses lighter guidance for prototype delivery mode', () => {

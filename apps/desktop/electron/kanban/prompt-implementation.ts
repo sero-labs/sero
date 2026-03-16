@@ -64,6 +64,11 @@ Use these as an execution checklist and sequencing guide. They are NOT separate 
 ${buildSubtaskChecklist(card)}
 ${testingGuidance}${lightModeBlock}
 
+## Progress Reporting
+Whenever you finish one of the planned subtasks, emit a standalone line exactly like:
+SUBTASK_COMPLETE: <id>
+Only emit that marker after the subtask is actually complete, and do it before moving on to the next planned subtask.
+
 ## Instructions
 - Implement the card yourself in one coordinated pass
 - Use the subtasks to structure your work, but make cohesive edits across the feature instead of treating each subtask as an isolated project
