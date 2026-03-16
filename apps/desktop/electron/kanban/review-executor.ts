@@ -7,13 +7,10 @@
  */
 
 import path from 'path';
-import { promises as fs } from 'fs';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 
 import type { Card } from './types';
 import type { ReviewProgressTracker } from './review-progress';
-import type { ReviewResult, ReviewIssue } from './prompts';
+import type { ReviewResult } from './prompts';
 import {
   buildReviewPrompt,
   buildReviewRevisionPrompt,
@@ -38,11 +35,21 @@ import {
   pushWorktreeBranch,
   createPrFromWorktree,
 } from './worktree-git';
-import { getContract } from './contracts';
+import {
+  deleteCachedReview,
+  loadCachedReview,
+  saveCachedReview,
+} from './review-cache';
+import { createReviewSubmissionTool } from './review-submission-tool';
+import {
+  getBlockingReviewFailure,
+  getCriticalIssues,
+  requiresReviewerApproval,
+} from './review-result-utils';
+import { recoverWorkspaceRootChanges } from './review-worktree-recovery';
 import { syncReviewBranchWithDefault } from './review-branch-sync';
 import type { SubagentManager } from '../subagent/index';
 
-const execFileAsync = promisify(execFile);
 const MAX_CRITICAL_REVISIONS = 1;
 
 export interface ReviewExecutorDeps {
@@ -200,6 +207,7 @@ export async function executeReview(
       tracker.addAgent(reviewerLabel);
       await tracker.flush();
 
+      let submittedReview: ReviewResult | null = null;
       const rawReview = await deps.subagentManager.runSingleStructured({
         agent: 'reviewer',
         task: buildReviewPrompt(card, diff, fileSummary, reviewOpts),
@@ -207,6 +215,15 @@ export async function executeReview(
         workspaceId: deps.workspaceId,
         cwd: worktreePath,
         isolated: true,
+        customTools: [
+          createReviewSubmissionTool(card.title, {
+            submitReview: async (review) => {
+              const outcome = submittedReview ? 'updated' : 'recorded';
+              submittedReview = review;
+              return outcome;
+            },
+          }),
+        ],
         onUpdate: (text) => tracker.addLogLine(text),
       });
       if (rawReview.error) {
@@ -214,7 +231,7 @@ export async function executeReview(
         return { success: false, error: `Reviewer failed: ${rawReview.error}` };
       }
 
-      const review = parseReviewResult(rawReview.response, card.title);
+      const review = submittedReview ?? parseReviewResult(rawReview.response, card.title);
       tracker.completeAgent(reviewerLabel);
 
       const reviewFailure = requiresReviewerApproval()
@@ -335,158 +352,4 @@ async function resumeFromReview(
   // Synthesise a minimal card for push logging
   const cardStub = { id: path.basename(worktreePath).replace('card-', ''), title: '' };
   return pushAndCreatePr(review, reviewRelPath, worktreePath, branchName, cardStub, tracker);
-}
-
-// ── Review file cache ───────────────────────────────────────
-
-async function loadCachedReview(filePath: string): Promise<ReviewResult | null> {
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    const data = JSON.parse(raw) as Partial<ReviewResult>;
-    if (typeof data.prTitle === 'string' && typeof data.prBody === 'string' && !hasMalformedLegacyIssues(data)) {
-      const review = data as ReviewResult;
-      return getBlockingReviewFailure(review) ? null : review;
-    }
-  } catch {
-    // No cached review or invalid file — run from scratch
-  }
-  return null;
-}
-
-async function saveCachedReview(filePath: string, review: ReviewResult): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(review, null, 2), 'utf8');
-}
-
-async function deleteCachedReview(filePath: string): Promise<void> {
-  await fs.rm(filePath, { force: true }).catch(() => {});
-}
-
-function hasMalformedLegacyIssues(review: Partial<ReviewResult>): boolean {
-  return Array.isArray(review.issues)
-    && review.issues.some((issue) => (
-      typeof issue !== 'string'
-      || issue.includes('[object Object]')
-    ));
-}
-
-function getBlockingReviewFailure(review: ReviewResult): string | null {
-  const criticalIssues = review.categorizedIssues?.filter((issue) => issue.severity === 'critical') ?? [];
-  const verdictBlocks = review.verdict === 'fix-first' || review.verdict === 'reject';
-  const reviewBlocks = review.approved === false || verdictBlocks || criticalIssues.length > 0;
-
-  if (!reviewBlocks) return null;
-
-  const issueLines = criticalIssues.length > 0
-    ? criticalIssues
-      .slice(0, 3)
-      .map((issue) => {
-        const location = issue.file
-          ? ` (${issue.file}${issue.line ? `:${issue.line}` : ''})`
-          : '';
-        return `- ${issue.description}${location}`;
-      })
-      .join('\n')
-    : review.issues.slice(0, 3).map((issue) => `- ${issue}`).join('\n');
-
-  const summary = review.summary.trim() || 'Reviewer did not approve this implementation.';
-  return issueLines ? `${summary}\n${issueLines}` : summary;
-}
-
-function requiresReviewerApproval(): boolean {
-  return getContract('in-progress', 'review')?.qualityGates.some((gate) => (
-    gate.type === 'agent-review'
-    && gate.agent === 'reviewer'
-    && gate.blocking
-  )) === true;
-}
-
-function getCriticalIssues(review: ReviewResult): ReviewIssue[] {
-  return review.categorizedIssues?.filter((issue) => issue.severity === 'critical') ?? [];
-}
-
-// ── Orphaned-file recovery ──────────────────────────────────
-
-/**
- * Detect files that were written to the workspace root instead of
- * the worktree (legacy CWD bug) and copy them into the worktree.
- *
- * Worktree pattern: `<workspace>/.sero/worktrees/card-<id>`
- * so `path.resolve(worktreePath, '../../..')` gives the workspace root.
- *
- * @returns true if any files were recovered.
- */
-async function recoverWorkspaceRootChanges(
-  worktreePath: string,
-  opts?: { expectedPaths?: string[]; allowAllDirty?: boolean },
-): Promise<boolean> {
-  const workspaceRoot = path.resolve(worktreePath, '..', '..', '..');
-
-  try {
-    await fs.access(path.join(workspaceRoot, '.git'));
-  } catch {
-    return false;
-  }
-
-  let statusRaw: string;
-  try {
-    const result = await execFileAsync(
-      'git', ['status', '--porcelain', '--untracked-files=all'],
-      { cwd: workspaceRoot, timeout: 15_000 },
-    );
-    statusRaw = result.stdout.trim();
-  } catch {
-    return false;
-  }
-
-  if (!statusRaw) return false;
-
-  const expectedPathSet = new Set(opts?.expectedPaths ?? []);
-  const dirtyFiles = statusRaw
-    .split('\n')
-    .map((line) => parseStatusPath(line))
-    .filter((filePath): filePath is string => !!filePath)
-    .filter((filePath) => !filePath.startsWith('.sero/'))
-    .filter((filePath) => (
-      opts?.allowAllDirty
-      || expectedPathSet.size === 0
-      || expectedPathSet.has(filePath)
-    ));
-
-  if (dirtyFiles.length === 0) return false;
-
-  console.log(
-    `[review-executor] Recovering ${dirtyFiles.length} workspace file(s) into worktree`,
-  );
-
-  for (const relFile of dirtyFiles) {
-    const src = path.join(workspaceRoot, relFile);
-    const dest = path.join(worktreePath, relFile);
-    try {
-      const sourceStat = await fs.stat(src).catch(() => null);
-      if (!sourceStat) {
-        await fs.rm(dest, { force: true });
-        continue;
-      }
-      if (!sourceStat.isFile()) continue;
-      await fs.mkdir(path.dirname(dest), { recursive: true });
-      await fs.copyFile(src, dest);
-    } catch (err: unknown) {
-      console.warn(`[review-executor] Failed to copy ${relFile}:`, (err as Error)?.message);
-    }
-  }
-
-  return true;
-}
-
-function parseStatusPath(line: string): string | null {
-  const trimmed = line.trim();
-  if (!trimmed) return null;
-  const pathPart = line.slice(3).trim();
-  if (!pathPart) return null;
-  if (pathPart.includes(' -> ')) {
-    const [, dest] = pathPart.split(' -> ');
-    return dest?.trim() || null;
-  }
-  return pathPart;
 }

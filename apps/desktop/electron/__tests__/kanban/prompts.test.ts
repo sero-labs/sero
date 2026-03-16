@@ -324,6 +324,7 @@ describe('buildSubtaskGenerationPrompt', () => {
     const prompt = buildSubtaskGenerationPrompt(card, 'analysis...', { testingEnabled: true });
     expect(prompt).toContain('tddDesignation');
     expect(prompt).toContain('tdd');
+    expect(prompt).toContain('kanban_submit_plan');
   });
 
   it('disables TDD when testing is off', () => {
@@ -331,6 +332,7 @@ describe('buildSubtaskGenerationPrompt', () => {
     const prompt = buildSubtaskGenerationPrompt(card, 'analysis...', { testingEnabled: false });
     expect(prompt).toContain('no-test');
     expect(prompt).toContain('disabled');
+    expect(prompt).toContain('Do not return the final plan as raw JSON');
   });
 });
 
@@ -358,11 +360,12 @@ describe('buildReviewPrompt', () => {
     expect(prompt).toContain('do not use browser automation');
   });
 
-  it('includes the explicit review JSON schema', () => {
+  it('includes the structured review tool schema', () => {
     const card = makeCard();
     const prompt = buildReviewPrompt(card, 'diff', 'files');
     expect(prompt).toContain('"categorizedIssues"');
-    expect(prompt).toContain('Return ONLY valid JSON with this exact shape');
+    expect(prompt).toContain('kanban_submit_review');
+    expect(prompt).toContain('authoritative result');
   });
 
   it('truncates long diffs', () => {
@@ -371,6 +374,12 @@ describe('buildReviewPrompt', () => {
     const prompt = buildReviewPrompt(card, longDiff, 'files');
     expect(prompt).toContain('truncated');
     expect(prompt.length).toBeLessThan(50000);
+  });
+
+  it('tells the reviewer not to emit raw JSON after tool submission', () => {
+    const card = makeCard();
+    const prompt = buildReviewPrompt(card, 'diff', 'files');
+    expect(prompt).toContain('Do not emit the final review as raw JSON');
   });
 });
 

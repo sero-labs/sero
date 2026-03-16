@@ -18,6 +18,10 @@ import {
   parsePlanResult,
 } from './prompts';
 import type { PlanGenerationOptions } from './prompts';
+import {
+  createPlanningSubmissionTool,
+  type PlanningSubmission,
+} from './planning-submission-tool';
 import { bridgeSubagentLiveOutput } from './live-output-bridge';
 import type { SubagentManager } from '../subagent/index';
 
@@ -70,19 +74,34 @@ export async function executePlanning(
     }
 
     // Plan generation — uses the planner agent template (packages/templates/agents/planner.md)
-    const planResult = await subagentManager.runSingle({
+    let submittedPlan: PlanningSubmission | null = null;
+    const planResult = await subagentManager.runSingleStructured({
       agent: 'planner',
       task: buildSubtaskGenerationPrompt(card, reconResult, deps.planOptions),
       parentSessionId,
       workspaceId,
       isolated: true,
+      customTools: [
+        createPlanningSubmissionTool({
+          submitPlan: async (submission) => {
+            const outcome = submittedPlan ? 'updated' : 'recorded';
+            submittedPlan = submission;
+            return outcome;
+          },
+        }),
+      ],
       onUpdate: (text) => tracker.addLogLine(text),
     });
+    if (planResult.error) {
+      tracker.completeAgent('planner', 'failed');
+      await tracker.flush();
+      throw new Error(`Planner failed: ${planResult.error}`);
+    }
 
     tracker.completeAgent('planner');
     await tracker.flush();
 
-    const parsed = parsePlanResult(planResult);
+    const parsed = submittedPlan ?? parsePlanResult(planResult.response);
     if (parsed.warnings.length > 0) {
       console.warn(`[planning-executor] Plan warnings: ${parsed.warnings.join('; ')}`);
     }

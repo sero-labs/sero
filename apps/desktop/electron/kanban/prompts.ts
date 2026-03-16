@@ -67,9 +67,9 @@ ${card.acceptance.length > 0 ? `\nAcceptance Criteria:\n${card.acceptance.map((a
 ${analysisResults}
 
 # Instructions
-Generate a structured implementation plan. Output ONLY a JSON object with this exact shape:
+Generate a structured implementation plan. When it is ready, call the \`kanban_submit_plan\` tool once with this exact shape:
 
-\`\`\`json
+\`\`\`
 {
   "plan": "A 2-4 paragraph description of the implementation approach",
   "subtasks": [
@@ -85,6 +85,9 @@ Generate a structured implementation plan. Output ONLY a JSON object with this e
   ]
 }
 \`\`\`
+
+The tool submission is the authoritative result.
+Do not return the final plan as raw JSON in normal text after calling the tool.
 
 Rules for subtasks:
 - 2-8 subtasks is ideal, each scoped to 15-30 minutes of agent work
@@ -149,9 +152,9 @@ PR FORMAT — this is a FEATURE PR, not a review report:
 
 Do NOT use browser automation to test interactive/real-time features (games, animations, etc.) — it is too slow. Note them for manual testing instead.
 
-Return ONLY valid JSON with this exact shape:
+When the review is complete, call the \`kanban_submit_review\` tool with this exact shape:
 
-\`\`\`json
+\`\`\`
 {
   "approved": false,
   "summary": "Short overall assessment",
@@ -175,7 +178,8 @@ Rules:
 - Set "approved" to false for "fix-first" or "reject"
 - Use "critical" only for merge-blocking issues
 - If there are no issues, return an empty categorizedIssues array
-- Do not wrap the JSON in prose or markdown commentary`;
+- The tool submission is the authoritative result
+- Do not emit the final review as raw JSON in normal text after calling the tool`;
 }
 
 export interface ReviewRevisionPromptOptions {
