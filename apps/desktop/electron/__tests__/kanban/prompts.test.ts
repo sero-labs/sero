@@ -13,6 +13,7 @@ import {
   buildSpecReviewPrompt,
 } from '../../kanban/prompts';
 import { buildConflictResolutionPrompt } from '../../kanban/prompt-conflict-resolution';
+import { buildLightReviewRepairPrompt } from '../../kanban/prompt-light-review-repair';
 import type { Card } from '../../kanban/types';
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -264,6 +265,29 @@ describe('buildConflictResolutionPrompt', () => {
     expect(prompt).toContain('Light prototype mode is active');
     expect(prompt).toContain('Do NOT do broad browser automation');
     expect(prompt).toContain('smallest safe edit');
+  });
+});
+
+describe('buildLightReviewRepairPrompt', () => {
+  it('focuses the implementer on the reported smoke failure', () => {
+    const prompt = buildLightReviewRepairPrompt(
+      makeCard(),
+      'Light review compile check failed:\ntsconfig error here',
+    );
+    expect(prompt).toContain('Light review compile check failed');
+    expect(prompt).toContain('Fix only the issue(s) needed');
+    expect(prompt).toContain('Do not run `git commit`');
+  });
+
+  it('keeps repair guidance narrow in light mode', () => {
+    const prompt = buildLightReviewRepairPrompt(
+      makeCard(),
+      'Dev server smoke check failed',
+      { reviewMode: 'light' },
+    );
+    expect(prompt).toContain('Prototype light mode is active');
+    expect(prompt).toContain('smallest safe change');
+    expect(prompt).toContain('Do NOT do browser automation');
   });
 });
 

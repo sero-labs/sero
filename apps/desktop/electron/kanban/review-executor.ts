@@ -28,7 +28,8 @@ import {
 } from './verification';
 import { runWorkspaceCommand } from './workspace-command-runner';
 import type { KanbanSettings } from './types';
-import { executeLightReview, shouldUseLightReview } from './light-review';
+import { shouldUseLightReview } from './light-review';
+import { runLightReviewWorkflow } from './light-review-workflow';
 import {
   createCheckpointInWorktree,
   ensureRemoteDefaultBranch,
@@ -160,11 +161,12 @@ export async function executeReview(
       }
 
       if (lightReviewEnabled) {
-        const lightReview = await executeLightReview(
-          { workspaceId: deps.workspaceId, settings: deps.settings },
+        const lightReview = await runLightReviewWorkflow(
+          deps,
           card,
           worktreePath,
           tracker,
+          parentSessionId,
         );
         if (!lightReview.success || !lightReview.review) {
           return { success: false, error: lightReview.error ?? 'Light review failed.' };

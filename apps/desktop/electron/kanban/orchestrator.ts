@@ -227,11 +227,11 @@ export class KanbanOrchestrator {
       const planUpdate = { plan: planResult.plan, subtasks: planResult.subtasks, planningProgress: undefined };
 
       if (yolo) {
+        workspace.lastColumnMap.set(card.id, 'in-progress');
         await updateCard(workspace.stateFilePath, card.id, { ...planUpdate, status: 'idle', column: 'in-progress' });
         console.log(`[kanban-orchestrator] Card #${card.id} planning complete — YOLO auto-approved`);
         const approved = await readCard(workspace.stateFilePath, card.id);
         if (approved) {
-          workspace.lastColumnMap.set(card.id, 'in-progress');
           await this.handleTransition(workspace, approved, 'planning', 'in-progress');
         }
       } else {
@@ -320,6 +320,7 @@ export class KanbanOrchestrator {
 
       // All done — advance to review
       await tracker.clear();
+      workspace.lastColumnMap.set(card.id, 'review');
       await updateCard(workspace.stateFilePath, card.id, {
         status: 'idle',
         column: 'review',
@@ -329,7 +330,6 @@ export class KanbanOrchestrator {
       // Chain to review — updateCard bypasses IPC so we must trigger explicitly
       const reviewCard = await readCard(workspace.stateFilePath, card.id);
       if (reviewCard) {
-        workspace.lastColumnMap.set(card.id, 'review');
         await this.handleTransition(workspace, reviewCard, 'in-progress', 'review');
       }
     } catch (err) {
@@ -392,9 +392,9 @@ export class KanbanOrchestrator {
         const prUpdate = { prUrl: result.prUrl, prNumber: result.prNumber, reviewFilePath: result.reviewFilePath, reviewProgress: undefined, error: undefined };
 
         if (yolo) {
+          workspace.lastColumnMap.set(card.id, 'done');
           await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'idle', column: 'done', completedAt: new Date().toISOString() });
           console.log(`[kanban-orchestrator] Card #${card.id} YOLO auto-completed: ${result.prUrl}`);
-          workspace.lastColumnMap.set(card.id, 'done');
           await this.runDoneCleanup(workspace, card);
         } else {
           await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'waiting-input' });
