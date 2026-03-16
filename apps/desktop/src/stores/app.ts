@@ -271,17 +271,21 @@ export async function discoverAndRegisterApps(): Promise<void> {
     // Register app entries immediately (needed for sidebar rendering)
     useAppStore.setState({ apps: [...BUILTIN_APPS, ...discovered] });
 
-    // Eagerly preload all federated UI modules BEFORE setting appsReady.
-    // This keeps the loading screen up while modules resolve, so the first
-    // render of any app has its component already cached — no Suspense flash.
-    const appsWithUI = manifests.filter((m) => m.component);
-    if (appsWithUI.length > 0) {
-      const PRELOAD_TIMEOUT_MS = 8000;
-      const preloads = appsWithUI.map((m) =>
+    // Only preload the active app + favourites — not all 20+ apps.
+    // Other apps load on-demand inside a React transition (no flicker).
+    const { activeApp, favouriteApps } = useAppStore.getState();
+    const priorityIds = new Set([activeApp, ...favouriteApps]);
+    const priorityApps = manifests.filter(
+      (m) => m.component && priorityIds.has(m.id),
+    );
+
+    if (priorityApps.length > 0) {
+      const PRELOAD_TIMEOUT_MS = 5000;
+      const preloads = priorityApps.map((m) =>
         preloadFederatedModule(m.id, m.component!, m.devPort),
       );
 
-      // Wait for all preloads, but don't block forever if a remote is down
+      // Wait for priority preloads, but don't block forever if a remote is down
       await Promise.race([
         Promise.allSettled(preloads),
         new Promise<void>((resolve) => setTimeout(resolve, PRELOAD_TIMEOUT_MS)),

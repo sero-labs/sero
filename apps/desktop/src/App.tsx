@@ -15,7 +15,7 @@ import { SeroAppMount } from '@/components/apps/SeroAppMount';
 import { useAppStore, discoverAndRegisterApps, listenForNewApps, loadLayout } from '@/stores/app';
 import { listenForSystemThemeChanges } from '@/stores/theme';
 import { useProfileStore, loadProfiles } from '@/stores/profiles';
-import { useWorkspaceStore, loadWorkspaces } from '@/stores/workspace';
+import { loadWorkspaces } from '@/stores/workspace';
 import { ProfileSetup } from '@/components/profiles/ProfileSetup';
 import { OnboardingWizard } from '@/components/profiles/OnboardingWizard';
 import { subscribeDevServerEvents } from '@/stores/dev-server';
@@ -44,7 +44,6 @@ import { initAppControlBridge } from '@/lib/app-control-bridge';
  * it persists across all apps.
  */
 export function App() {
-  const activeApp = useAppStore((s) => s.activeApp);
   const mainSidebarOpen = useAppStore((s) => s.mainSidebarOpen);
   const setMainSidebarOpen = useAppStore((s) => s.setMainSidebarOpen);
   const chatPanelOpen = useAppStore((s) => s.chatPanelOpen);
@@ -72,7 +71,6 @@ export function App() {
 
   const appsReady = useAppStore((s) => s.appsReady);
   const layoutReady = useAppStore((s) => s.layoutReady);
-  const workspacesReady = useWorkspaceStore((s) => s.workspacesReady);
   const profileReady = useProfileStore((s) => s.ready);
   const hasActiveProfile = useProfileStore((s) => s.hasActiveProfile);
 
@@ -84,7 +82,7 @@ export function App() {
 
   // Hydrate refs from store once layout has loaded. Runs during render (not
   // an effect) so refs are set BEFORE the JSX tree mounts the panels.
-  if (layoutReady && appsReady && workspacesReady && !layoutHydratedRef.current) {
+  if (layoutReady && appsReady && !layoutHydratedRef.current) {
     layoutHydratedRef.current = true;
     const s = useAppStore.getState();
     mainSidebarLastExpandedPctRef.current = s.mainSidebarSizePct;
@@ -216,8 +214,10 @@ export function App() {
     };
   }, [chatPanelOpen, layoutReady, appsReady]);
 
-  // Wait for profile + layout hydration + app discovery + workspaces before rendering.
-  if (!profileReady || !appsReady || !layoutReady || !workspacesReady) {
+  // Wait for profile + layout hydration + app discovery before rendering.
+  // Workspaces load in parallel but don't block — workspace-scoped apps
+  // already guard on activeWorkspaceId inside SeroAppMount.
+  if (!profileReady || !appsReady || !layoutReady) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[var(--bg-base)]">
         <span className="text-xs text-[var(--text-muted)]">Loading…</span>
@@ -259,7 +259,7 @@ export function App() {
             />
 
             <ResizablePanel id="active-app-panel" minSize={40} className="min-w-0 flex flex-col">
-              <ActiveApp app={activeApp} />
+              <ActiveApp />
             </ResizablePanel>
 
             <ResizableHandle
@@ -294,12 +294,15 @@ export function App() {
  * Renders the currently active app — built-in or federated.
  *
  * Uses `useDeferredValue` so React keeps showing the previous app
- * while a newly-selected app's lazy module loads. Without this,
- * the Suspense fallback (loading spinner) flashes on first open.
+ * while a newly-selected app's lazy module loads. For preloaded apps
+ * (active + favourites), the lazy wrapper resolves synchronously so
+ * there's no flash at all. For on-demand apps, the deferred value
+ * keeps the old app visible during the load.
  */
-function ActiveApp({ app }: { app: string }) {
-  const deferredApp = useDeferredValue(app);
-  const isPending = app !== deferredApp;
+function ActiveApp() {
+  const activeApp = useAppStore((s) => s.activeApp);
+  const deferredApp = useDeferredValue(activeApp);
+  const isPending = activeApp !== deferredApp;
   const apps = useAppStore((s) => s.apps);
   const entry = apps.find((a) => a.id === deferredApp);
 
