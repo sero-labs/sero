@@ -1,5 +1,6 @@
 import type { Card, KanbanSettings, KanbanState, Subtask } from './types';
 import type { ImplementationProgressTracker } from './implementation-progress';
+import { createImplementationProgressTool } from './implementation-progress-tool';
 import { buildImplementationPrompt } from './prompt-implementation';
 import { bridgeSubagentLiveOutput } from './live-output-bridge';
 import { shouldUseLightReview } from './light-review';
@@ -12,6 +13,7 @@ import {
 import { runWorkspaceCommand } from './workspace-command-runner';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
+import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
 export interface ImplementationExecutorDeps {
   subagentManager: SubagentManager;
@@ -30,6 +32,7 @@ interface ExecutionHooks {
 }
 
 interface ProgressBridge {
+  tools: ToolDefinition[];
   stop(): void;
   drain(): Promise<void>;
 }
@@ -73,6 +76,7 @@ export async function executeImplementation(
       workspaceId: deps.workspaceId,
       cwd: worktreePath,
       isolated: true,
+      customTools: progressBridge.tools,
       onUpdate: (text) => tracker.addLogLine(text),
     });
 
@@ -120,21 +124,41 @@ function bridgeSubtaskProgress(
   let queue = Promise.resolve();
   let stopped = false;
 
+  async function recordSubtaskCompletion(subtaskId: string): Promise<'recorded' | 'duplicate'> {
+    if (stopped) {
+      throw new Error('Implementation progress tracker is no longer active');
+    }
+    if (!knownSubtasks.has(subtaskId)) {
+      throw new Error(
+        `Unknown subtask ID '${subtaskId}'. Valid subtask IDs: ${Array.from(knownSubtasks).join(', ')}`,
+      );
+    }
+    if (reported.has(subtaskId)) {
+      return 'duplicate';
+    }
+
+    reported.add(subtaskId);
+    queue = queue.then(async () => {
+      if (stopped) return;
+      await markSubtaskCompleted(stateFilePath, card.id, subtaskId);
+    }).catch((error) => {
+      console.warn(`[kanban-implementation] Failed to record subtask progress for #${card.id}:`, error);
+    });
+    await queue;
+    return 'recorded';
+  }
+
   const handleLiveOutput = (id: string, text: string) => {
     if (stopped) return;
     const entry = subagentManager.tracker.get(id);
     if (!matchesTrackedRun(entry, workspaceId, parentSessionId)) return;
 
     const nextIds = extractCompletedSubtaskIds(text)
-      .filter((subtaskId) => knownSubtasks.has(subtaskId) && !reported.has(subtaskId));
+      .filter((subtaskId) => !reported.has(subtaskId));
     if (nextIds.length === 0) return;
 
     for (const subtaskId of nextIds) {
-      reported.add(subtaskId);
-      queue = queue.then(async () => {
-        if (stopped) return;
-        await markSubtaskCompleted(stateFilePath, card.id, subtaskId);
-      }).catch((error) => {
+      void recordSubtaskCompletion(subtaskId).catch((error) => {
         console.warn(`[kanban-implementation] Failed to record subtask progress for #${card.id}:`, error);
       });
     }
@@ -143,6 +167,11 @@ function bridgeSubtaskProgress(
   subagentManager.tracker.on('subagent_live_output', handleLiveOutput);
 
   return {
+    tools: [
+      createImplementationProgressTool({
+        markSubtaskComplete: recordSubtaskCompletion,
+      }),
+    ],
     stop() {
       if (stopped) return;
       stopped = true;
@@ -317,7 +346,7 @@ function matchesTrackedRun(
 }
 
 function extractCompletedSubtaskIds(text: string): string[] {
-  const matches = text.matchAll(/^SUBTASK_COMPLETE:\s*([A-Za-z0-9_-]+)\s*$/gm);
+  const matches = text.matchAll(/\bSUBTASK_COMPLETE(?:D)?\s*:\s*([A-Za-z0-9_-]+)/g);
   return Array.from(matches, (match) => match[1]);
 }
 

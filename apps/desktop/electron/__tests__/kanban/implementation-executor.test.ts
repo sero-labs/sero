@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
+import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
 import { executeImplementation } from '../../kanban/implementation-executor';
 import type { Card, KanbanSettings, KanbanState } from '../../kanban/types';
@@ -66,7 +67,10 @@ function makeTracker(): ImplementationProgressTracker {
 function makeSubagentManager(
   result: { response: string; error?: string },
   options?: {
-    onRun?: (emitLiveOutput: (text: string) => void) => Promise<void>;
+    onRun?: (helpers: {
+      emitLiveOutput: (text: string) => void;
+      customTools: ToolDefinition[];
+    }) => Promise<void>;
   },
 ) {
   const listeners = new Set<(id: string, text: string) => void>();
@@ -80,8 +84,11 @@ function makeSubagentManager(
       listener(runId, text);
     }
   };
-  const runSingleStructured = vi.fn().mockImplementation(async () => {
-    await options?.onRun?.(emitLiveOutput);
+  const runSingleStructured = vi.fn().mockImplementation(async (params: { customTools?: ToolDefinition[] }) => {
+    await options?.onRun?.({
+      emitLiveOutput,
+      customTools: params.customTools ?? [],
+    });
     return result;
   });
   return {
@@ -171,8 +178,10 @@ describe('executeImplementation', () => {
     const subagentManager = makeSubagentManager(
       { response: 'done' },
       {
-        onRun: async (emitLiveOutput) => {
-          emitLiveOutput('Working...\nSUBTASK_COMPLETE: 1\n');
+        onRun: async ({ customTools }) => {
+          const tool = customTools.find((entry) => entry.name === 'kanban_mark_subtask_complete');
+          expect(tool).toBeDefined();
+          await tool!.execute('tool-call-1', { subtaskId: '1' }, undefined, undefined, {} as never);
           await new Promise<void>((resolve) => {
             releaseRun = () => resolve();
           });
@@ -187,6 +196,49 @@ describe('executeImplementation', () => {
       '/tmp/worktree',
       tracker,
       { runVerification: vi.fn().mockResolvedValue(undefined), createCheckpoint },
+    );
+
+    try {
+      await waitForAssertion(async () => {
+        const saved = await readState(stateFilePath);
+        expect(saved.cards[0].subtasks.map((subtask) => subtask.status)).toEqual([
+          'completed',
+          'in-progress',
+        ]);
+      });
+    } finally {
+      releaseRun();
+    }
+
+    await execution;
+  });
+
+  it('falls back to legacy marker parsing when a tool call is not used', async () => {
+    const stateFilePath = path.join(tmpDir, 'state.json');
+    const card = makeCard();
+    const settings = makeSettings();
+    await writeState(stateFilePath, card, settings);
+
+    const tracker = makeTracker();
+    let releaseRun = () => {};
+    const subagentManager = makeSubagentManager(
+      { response: 'done' },
+      {
+        onRun: async ({ emitLiveOutput }) => {
+          emitLiveOutput('Working through setup... SUBTASK_COMPLETE: 1');
+          await new Promise<void>((resolve) => {
+            releaseRun = () => resolve();
+          });
+        },
+      },
+    );
+    const execution = executeImplementation(
+      { subagentManager: subagentManager as never, workspaceId: 'workspace-1', settings },
+      stateFilePath,
+      card,
+      '/tmp/worktree',
+      tracker,
+      { runVerification: vi.fn().mockResolvedValue(undefined), createCheckpoint: vi.fn().mockResolvedValue('checkpoint-1') },
     );
 
     try {

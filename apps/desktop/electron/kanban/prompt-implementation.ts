@@ -65,9 +65,10 @@ ${buildSubtaskChecklist(card)}
 ${testingGuidance}${lightModeBlock}
 
 ## Progress Reporting
-Whenever you finish one of the planned subtasks, emit a standalone line exactly like:
-SUBTASK_COMPLETE: <id>
-Only emit that marker after the subtask is actually complete, and do it before moving on to the next planned subtask.
+Whenever you finish one of the planned subtasks, call the \`kanban_mark_subtask_complete\` tool with that subtask's id.
+- Call it exactly once per completed subtask
+- Only call it after the subtask is actually complete
+- Do not simulate progress by printing marker text such as \`SUBTASK_COMPLETE\`
 
 ## Instructions
 - Implement the card yourself in one coordinated pass

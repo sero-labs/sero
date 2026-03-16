@@ -251,7 +251,8 @@ describe('buildImplementationPrompt', () => {
     expect(prompt).toContain('one cohesive pass');
     expect(prompt).toContain('NOT separate agent assignments');
     expect(prompt).toContain('Use the subtasks to structure your work');
-    expect(prompt).toContain('SUBTASK_COMPLETE: <id>');
+    expect(prompt).toContain('kanban_mark_subtask_complete');
+    expect(prompt).toContain('Do not simulate progress by printing marker text');
   });
 
   it('uses lighter guidance for prototype delivery mode', () => {

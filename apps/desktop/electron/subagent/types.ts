@@ -6,6 +6,8 @@
  * here. Main-process-only types (AgentConfig, RunnerConfig, etc.) are defined below.
  */
 
+import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+
 // Import IPC-shared types for local use
 import type {
   SubagentMode as _SubagentMode,
@@ -138,6 +140,8 @@ export interface RunnerConfig {
   onTextDelta?: (delta: string) => void;
   /** Chat-level update callback (status lines). */
   onUpdate?: (text: string) => void;
+  /** Extra run-scoped tools to expose to the subagent session. */
+  customTools?: ToolDefinition[];
 }
 
 // ── Task Overrides (from tool params) ────────────────────────

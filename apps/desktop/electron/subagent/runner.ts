@@ -149,6 +149,7 @@ export async function runSubagent(
   const containerTools = useContainer
     ? createContainerTools(containerManager, workspaceId, subagentSessionId, containerCwd)
     : [];
+  const customTools = [...containerTools, ...(config.customTools ?? [])];
   const builtinTools = useContainer ? [] : createCodingTools(sessionPath);
 
   // Build a reduced extension factory for the child session
@@ -189,7 +190,7 @@ export async function runSubagent(
       authStorage: infra.authStorage,
       modelRegistry: infra.modelRegistry,
       tools: builtinTools,
-      customTools: containerTools,
+      customTools,
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),
       settingsManager: infra.settingsManager,
