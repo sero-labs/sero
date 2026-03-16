@@ -154,6 +154,10 @@ export default function (pi: ExtensionAPI) {
           card.column = toCol;
           card.status = 'idle';
           card.error = undefined;
+          if (toCol !== 'review') {
+            card.previewServerId = undefined;
+            card.previewUrl = undefined;
+          }
           if (toCol === 'backlog') {
             card.completedAt = undefined;
             card.planningProgress = undefined;

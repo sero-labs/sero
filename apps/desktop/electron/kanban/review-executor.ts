@@ -48,6 +48,7 @@ import {
 } from './review-result-utils';
 import { recoverWorkspaceRootChanges } from './review-worktree-recovery';
 import { syncReviewBranchWithDefault } from './review-branch-sync';
+import { startCardReviewPreview } from './review-preview';
 import type { SubagentManager } from '../subagent/index';
 
 const MAX_CRITICAL_REVISIONS = 1;
@@ -62,6 +63,8 @@ export interface ReviewExecutorResult {
   success: boolean;
   prUrl?: string;
   prNumber?: number;
+  previewServerId?: string;
+  previewUrl?: string;
   /** Relative path to the cached review file (set when review is generated). */
   reviewFilePath?: string;
   error?: string;
@@ -116,7 +119,7 @@ export async function executeReview(
     const cached = branchSync.invalidatedReviewCache ? null : await loadCachedReview(reviewFile);
     if (cached) {
       console.log(`[review-executor] Resuming from cached review for card #${card.id} — skipping to push`);
-      return resumeFromReview(cached, reviewRelPath, worktreePath, branchName, tracker);
+      return resumeFromReview(deps.workspaceId, cached, reviewRelPath, worktreePath, branchName, tracker);
     }
     console.log(`[review-executor] No cached review found — running full review pipeline`);
 
@@ -181,7 +184,15 @@ export async function executeReview(
 
         await saveCachedReview(reviewFile, lightReview.review);
         console.log(`[review-executor] Saved light review to ${reviewRelPath}`);
-        return pushAndCreatePr(lightReview.review, reviewRelPath, worktreePath, branchName, card, tracker);
+        return pushAndCreatePr(
+          deps.workspaceId,
+          lightReview.review,
+          reviewRelPath,
+          worktreePath,
+          branchName,
+          card,
+          tracker,
+        );
       }
 
       const verifyCommands = await detectVerificationCommands(worktreePath, {
@@ -242,7 +253,15 @@ export async function executeReview(
       if (!reviewFailure) {
         await saveCachedReview(reviewFile, review);
         console.log(`[review-executor] Saved review to ${reviewRelPath}`);
-        return pushAndCreatePr(review, reviewRelPath, worktreePath, branchName, card, tracker);
+        return pushAndCreatePr(
+          deps.workspaceId,
+          review,
+          reviewRelPath,
+          worktreePath,
+          branchName,
+          card,
+          tracker,
+        );
       }
 
       if (revisionPass >= MAX_CRITICAL_REVISIONS || criticalIssues.length === 0) {
@@ -284,6 +303,7 @@ export async function executeReview(
 // ── Push + PR (shared by fresh run and resume) ──────────────
 
 async function pushAndCreatePr(
+  workspaceId: string,
   review: ReviewResult,
   reviewRelPath: string,
   worktreePath: string,
@@ -320,12 +340,25 @@ async function pushAndCreatePr(
 
   if (prResult.success) {
     console.log(`[review-executor] PR created for card #${card.id}: ${prResult.url}`);
+    const workspaceRoot = path.resolve(worktreePath, '..', '..', '..');
+    const preview = await startCardReviewPreview(
+      workspaceId,
+      workspaceRoot,
+      card,
+      worktreePath,
+      tracker,
+    );
+    if (preview.reason) {
+      console.log(`[review-executor] Preview unavailable for card #${card.id}: ${preview.reason}`);
+    }
     // Worktrees are kept alive until the user explicitly cleans up
     // (via done cleanup) — never auto-delete work that hasn't been confirmed
     return {
       success: true,
       prUrl: prResult.url,
       prNumber: prResult.number,
+      previewServerId: preview.previewServerId,
+      previewUrl: preview.previewUrl,
       reviewFilePath: reviewRelPath,
     };
   }
@@ -343,6 +376,7 @@ async function pushAndCreatePr(
  * Skip the expensive diff + subagent steps and go straight to push/PR.
  */
 async function resumeFromReview(
+  workspaceId: string,
   review: ReviewResult,
   reviewRelPath: string,
   worktreePath: string,
@@ -351,5 +385,13 @@ async function resumeFromReview(
 ): Promise<ReviewExecutorResult> {
   // Synthesise a minimal card for push logging
   const cardStub = { id: path.basename(worktreePath).replace('card-', ''), title: '' };
-  return pushAndCreatePr(review, reviewRelPath, worktreePath, branchName, cardStub, tracker);
+  return pushAndCreatePr(
+    workspaceId,
+    review,
+    reviewRelPath,
+    worktreePath,
+    branchName,
+    cardStub,
+    tracker,
+  );
 }

@@ -1,9 +1,8 @@
 import type { DevServer } from '../../src/types/ipc';
-import type { DetectedPort } from '../container/port-forward';
 import { containerManager } from '../container/singleton';
-import { buildWorkspaceContainerConfig } from '../container/workspace-container-config';
 import { workspaceManager } from '../workspace';
 import { runWorkspaceCommand } from './workspace-command-runner';
+import { startManagedDevServer } from './dev-server-launch';
 import {
   detectDependencyInstallCommand,
   detectDevServerCommand,
@@ -12,8 +11,6 @@ import {
 } from './verification';
 
 const RUNTIME_INSTALL_TIMEOUT_MS = 600_000;
-const AUTO_START_TIMEOUT_MS = 20_000;
-const AUTO_START_POLL_MS = 500;
 const AUTO_START_LOG_PATH = '/tmp/sero-post-sync-dev-server.log';
 
 export interface WorkspaceRuntimeRefreshResult {
@@ -78,7 +75,7 @@ export async function refreshWorkspaceRuntimeAfterSync(
     result.refreshed = true;
   }
 
-  const servers = listDevServers(workspaceId);
+  const servers = listDevServers(workspaceId).filter((server) => server.scope === 'workspace');
   if (servers.length > 0) {
     for (const server of servers) {
       if (await restartDevServer(server.id)) {
@@ -132,96 +129,17 @@ async function autoStartDetectedDevServer(
   workspacePath: string,
   command: string,
 ): Promise<AutoStartResult> {
-  const containerConfig = await buildWorkspaceContainerConfig(
-    workspaceManager,
+  const server = await startManagedDevServer({
     workspaceId,
     workspacePath,
-  );
-  await containerManager.ensure(containerConfig);
-
-  const beforePorts = new Set(
-    containerManager.portScanner.getPorts(workspaceId).map((port) => port.port),
-  );
-  const escapedCommand = command.replace(/'/g, "'\\''");
-  const startCommand = `setsid sh -c '${escapedCommand} > ${AUTO_START_LOG_PATH} 2>&1 &'`;
-  const startResult = await runWorkspaceCommand(
-    workspaceId,
-    workspacePath,
-    startCommand,
-    30_000,
-  );
-  if (startResult.exitCode !== 0) {
-    return {
-      reason: `Dev server start failed: ${summarizeCommandFailure(command, startResult.stderr, startResult.stdout)}`,
-    };
-  }
-
-  const port = await waitForAutoStartedPort(workspaceId, beforePorts);
-  if (!port) {
-    return {
-      reason: `No dev server port was detected after running ${command}.`,
-    };
-  }
-
-  const framework = detectFrameworkHint(command);
-  const server = containerManager.devServers.register({
-    workspaceId,
-    name: buildDevServerName(framework),
-    port: port.port,
+    cwdPath: workspacePath,
     command,
-    framework,
+    logPath: AUTO_START_LOG_PATH,
+    scope: 'workspace',
   });
-  return { serverId: server.id };
-}
-
-async function waitForAutoStartedPort(
-  workspaceId: string,
-  beforePorts: Set<number>,
-): Promise<DetectedPort | null> {
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < AUTO_START_TIMEOUT_MS) {
-    containerManager.portScanner.triggerScan(workspaceId);
-    await sleep(AUTO_START_POLL_MS);
-
-    const currentPorts = containerManager.portScanner.getPorts(workspaceId);
-    const addedPorts = currentPorts.filter((port) => !beforePorts.has(port.port));
-    if (addedPorts.length > 0) {
-      return addedPorts[0];
-    }
-  }
-
-  return null;
-}
-
-function detectFrameworkHint(command: string): string | undefined {
-  const normalized = command.toLowerCase();
-  if (normalized.includes('vite')) return 'vite';
-  if (normalized.includes('next')) return 'next';
-  if (normalized.includes('nuxt')) return 'nuxt';
-  if (normalized.includes('astro')) return 'astro';
-  if (normalized.includes('react-scripts')) return 'react';
-  if (normalized.includes('storybook')) return 'storybook';
-  return undefined;
-}
-
-function buildDevServerName(framework?: string): string {
-  switch (framework) {
-    case 'vite':
-      return 'Vite Dev Server';
-    case 'next':
-      return 'Next.js Dev Server';
-    case 'nuxt':
-      return 'Nuxt Dev Server';
-    case 'astro':
-      return 'Astro Dev Server';
-    case 'react':
-      return 'React Dev Server';
-    case 'storybook':
-      return 'Storybook Dev Server';
-    default:
-      return 'Dev Server';
-  }
+  return server.serverId
+    ? { serverId: server.serverId }
+    : { reason: server.reason };
 }
 
 function summarizeCommandFailure(command: string, stderr: string, stdout: string): string {
@@ -232,8 +150,4 @@ function summarizeCommandFailure(command: string, stderr: string, stdout: string
     stdout,
     durationMs: 0,
   } satisfies CommandResult);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

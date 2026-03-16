@@ -85,6 +85,8 @@ export interface Card {
   plan?: string; // Planning agent's proposed approach
   prUrl?: string; // Pull request URL
   prNumber?: number;
+  previewUrl?: string; // Review preview URL for the card worktree
+  previewServerId?: string; // Host-managed preview server ID
   reviewFilePath?: string; // Cached review JSON (avoids re-running expensive reviewer)
   lastCheckpoint?: string; // Latest VCS checkpoint ID
   planningProgress?: PlanningProgress; // Live progress during planning phase

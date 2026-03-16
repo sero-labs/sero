@@ -1,5 +1,4 @@
 /** KanbanOrchestrator — reacts to card column transitions, triggers automated phases. */
-
 import path from 'path';
 import type { KanbanState, Card, Column } from './types';
 import { WorktreeManager } from './worktree-manager';
@@ -10,6 +9,7 @@ import { executeReview } from './review-executor';
 import { getPullRequestMergeError } from './pr-merge-status';
 import { executePlanning } from './planning-executor';
 import { executeImplementation } from './implementation-executor';
+import { cleanupCardReviewPreview } from './review-preview';
 import { updateCard, readCard } from './state-helpers';
 import { isYoloModeEnabled, reconcilePersistedState, runWorkspaceMaintenance } from './orchestrator-helpers';
 import { validateTransition, getNewlyUnblockedCards, getAllReadyBacklogCards } from './contracts';
@@ -83,11 +83,7 @@ export class KanbanOrchestrator {
     this.watched.set(workspaceId, { workspaceId, stateFilePath, lastColumnMap });
     appStateManager.watch(stateFilePath);
     console.log(`[kanban-orchestrator] Watching workspace ${workspaceId}`);
-    await reconcilePersistedState(
-      stateFilePath,
-      this.watched.get(workspaceId)!.lastColumnMap,
-      initial,
-    );
+    await reconcilePersistedState(stateFilePath, this.watched.get(workspaceId)!.lastColumnMap, initial);
   }
 
   unwatchWorkspace(workspaceId: string): void {
@@ -206,10 +202,7 @@ export class KanbanOrchestrator {
       this.worktreeManager,
     );
 
-    const tracker = new PlanningProgressTracker(
-      workspace.stateFilePath, card.id,
-      updateCard,
-    );
+    const tracker = new PlanningProgressTracker(workspace.stateFilePath, card.id, updateCard);
 
     try {
       await updateCard(workspace.stateFilePath, card.id, { status: 'agent-working' });
@@ -219,7 +212,12 @@ export class KanbanOrchestrator {
       );
       await updateCard(workspace.stateFilePath, card.id, { branch: branchName, worktreePath });
 
-      const planResult = await this.runPlanningAgents(workspace, card, tracker, greenfield);
+      const settingsState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
+      const planResult = await executePlanning({
+        subagentManager: this.deps.subagentManager,
+        workspaceId: workspace.workspaceId,
+        planOptions: { testingEnabled: settingsState?.settings?.testingEnabled },
+      }, card, tracker, greenfield);
 
       await tracker.clear();
 
@@ -250,24 +248,6 @@ export class KanbanOrchestrator {
     }
   }
 
-  private async runPlanningAgents(
-    workspace: WatchedWorkspace,
-    card: Card,
-    tracker: PlanningProgressTracker,
-    greenfield = false,
-  ): Promise<{ plan: string; subtasks: Card['subtasks'] }> {
-    // Read settings for testingEnabled propagation
-    const stateForSettings = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
-    const planOptions = { testingEnabled: stateForSettings?.settings?.testingEnabled };
-
-    return executePlanning(
-      { subagentManager: this.deps!.subagentManager, workspaceId: workspace.workspaceId, planOptions },
-      card,
-      tracker,
-      greenfield,
-    );
-  }
-
   private async runImplementationPhase(workspace: WatchedWorkspace, card: Card): Promise<void> {
     if (!this.deps || this.implementationInProgress.has(card.id)) return;
     this.implementationInProgress.add(card.id);
@@ -289,10 +269,7 @@ export class KanbanOrchestrator {
       return;
     }
 
-    const tracker = new ImplementationProgressTracker(
-      workspace.stateFilePath, card.id,
-      updateCard,
-    );
+    const tracker = new ImplementationProgressTracker(workspace.stateFilePath, card.id, updateCard);
 
     try {
       console.log(`[kanban-orchestrator] Starting implementation for card #${card.id}`);
@@ -312,10 +289,7 @@ export class KanbanOrchestrator {
 
       await executeImplementation(
         { subagentManager: this.deps.subagentManager, workspaceId: workspace.workspaceId, settings },
-        workspace.stateFilePath,
-        freshCard,
-        worktreePath,
-        tracker,
+        workspace.stateFilePath, freshCard, worktreePath, tracker,
       );
 
       // All done — advance to review
@@ -367,29 +341,41 @@ export class KanbanOrchestrator {
       return;
     }
 
-    const tracker = new ReviewProgressTracker(
-      workspace.stateFilePath, card.id,
-      updateCard,
-    );
+    const tracker = new ReviewProgressTracker(workspace.stateFilePath, card.id, updateCard);
 
     try {
       console.log(`[kanban-orchestrator] Starting review for card #${card.id}`);
-      await updateCard(workspace.stateFilePath, card.id, { status: 'agent-working', error: undefined });
+      const previewCleanup = await cleanupCardReviewPreview(workspace.workspaceId, card.id);
+      if (previewCleanup.reason) {
+        console.log(`[kanban-orchestrator] Preview cleanup note for card #${card.id}: ${previewCleanup.reason}`);
+      }
+      await updateCard(workspace.stateFilePath, card.id, {
+        status: 'agent-working',
+        error: undefined,
+        previewServerId: undefined,
+        previewUrl: undefined,
+      });
 
       const reviewState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
-      const result = await executeReview(
-        { subagentManager: this.deps.subagentManager, workspaceId: workspace.workspaceId, settings: reviewState?.settings },
-        freshCard,
-        worktreePath,
-        branchName,
-        tracker,
-      );
+      const result = await executeReview({
+        subagentManager: this.deps.subagentManager,
+        workspaceId: workspace.workspaceId,
+        settings: reviewState?.settings,
+      }, freshCard, worktreePath, branchName, tracker);
 
       await tracker.clear();
 
       if (result.success) {
         const yolo = await isYoloModeEnabled(workspace.stateFilePath);
-        const prUpdate = { prUrl: result.prUrl, prNumber: result.prNumber, reviewFilePath: result.reviewFilePath, reviewProgress: undefined, error: undefined };
+        const prUpdate = {
+          prUrl: result.prUrl,
+          prNumber: result.prNumber,
+          previewServerId: result.previewServerId,
+          previewUrl: result.previewUrl,
+          reviewFilePath: result.reviewFilePath,
+          reviewProgress: undefined,
+          error: undefined,
+        };
 
         if (yolo) {
           workspace.lastColumnMap.set(card.id, 'done');
@@ -406,6 +392,8 @@ export class KanbanOrchestrator {
           error: result.error ?? 'Review failed',
           prUrl: undefined,
           prNumber: undefined,
+          previewServerId: undefined,
+          previewUrl: undefined,
           // Persist the review cache path even on failure so retry skips the subagent
           ...(result.reviewFilePath ? { reviewFilePath: result.reviewFilePath } : {}),
           reviewProgress: undefined,
@@ -420,6 +408,8 @@ export class KanbanOrchestrator {
         error: `Review failed: ${errMsg}`,
         prUrl: undefined,
         prNumber: undefined,
+        previewServerId: undefined,
+        previewUrl: undefined,
         reviewProgress: undefined,
       });
     } finally {
@@ -444,10 +434,17 @@ export class KanbanOrchestrator {
       }
     }
 
+    const previewCleanup = await cleanupCardReviewPreview(workspace.workspaceId, card.id);
+    if (previewCleanup.reason) {
+      console.log(`[kanban-orchestrator] Preview cleanup note for card #${card.id}: ${previewCleanup.reason}`);
+    }
+
     await updateCard(workspace.stateFilePath, card.id, {
       status: 'idle',
       completedAt: new Date().toISOString(),
       error: undefined,
+      previewServerId: undefined,
+      previewUrl: undefined,
       reviewProgress: undefined,
       implementationProgress: undefined,
       planningProgress: undefined,
@@ -457,11 +454,7 @@ export class KanbanOrchestrator {
     if (!freshState) return;
 
     await runWorkspaceMaintenance(
-      workspace.workspaceId,
-      workspace.stateFilePath,
-      workspacePath,
-      freshState,
-      this.worktreeManager,
+      workspace.workspaceId, workspace.stateFilePath, workspacePath, freshState, this.worktreeManager,
     );
 
     freshState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
@@ -486,11 +479,9 @@ export class KanbanOrchestrator {
   }
 
   private isCurrentlyProcessing(cardId: string): boolean {
-    return (
-      this.planningInProgress.has(cardId)
+    return this.planningInProgress.has(cardId)
       || this.implementationInProgress.has(cardId)
-      || this.reviewInProgress.has(cardId)
-    );
+      || this.reviewInProgress.has(cardId);
   }
 
   dispose(): void {

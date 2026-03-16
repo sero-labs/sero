@@ -38,6 +38,7 @@ async function handleDevServer(args: string[], ctx: CliCommandContext) {
           port,
           command,
           framework,
+          cwd: ctx.cwd,
         });
         return ok(`Registered ${server.name} (${server.id})\nURL: ${server.url}`);
       }

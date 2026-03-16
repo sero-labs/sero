@@ -42,6 +42,8 @@ export async function handleStart(
 
   card.column = 'planning';
   card.status = 'agent-working';
+  card.previewServerId = undefined;
+  card.previewUrl = undefined;
   card.updatedAt = new Date().toISOString();
   await writeState(statePath, state);
   return text(`Started #${card.id} "${card.title}" → Planning. Automated analysis will begin shortly.`);
@@ -62,6 +64,8 @@ export async function handleApprove(
 
   card.column = 'in-progress';
   card.status = 'idle';
+  card.previewServerId = undefined;
+  card.previewUrl = undefined;
   card.updatedAt = new Date().toISOString();
   await writeState(statePath, state);
 
@@ -95,6 +99,8 @@ export async function handleComplete(
   card.column = 'done';
   card.status = 'idle';
   card.completedAt = card.completedAt ?? new Date().toISOString();
+  card.previewServerId = undefined;
+  card.previewUrl = undefined;
   card.updatedAt = new Date().toISOString();
   await writeState(statePath, state);
 
@@ -120,6 +126,8 @@ export async function handleRetry(
 
   card.status = 'agent-working';
   card.error = undefined;
+  card.previewServerId = undefined;
+  card.previewUrl = undefined;
   card.updatedAt = new Date().toISOString();
   await writeState(statePath, state);
   return text(`Retrying #${card.id} "${card.title}" in ${COLUMN_LABELS[card.column]}. Orchestrator will pick it up shortly.`);

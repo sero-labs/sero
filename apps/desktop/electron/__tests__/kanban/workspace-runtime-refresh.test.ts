@@ -20,12 +20,27 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
         runCommand,
         listDevServers: vi.fn().mockReturnValue([
           {
-            id: 'workspace-1:3000',
+            id: 'workspace-1:workspace:root:3000',
             workspaceId: 'workspace-1',
             name: 'Vite Dev Server',
             port: 3000,
             url: 'http://127.0.0.1:3000',
             command: 'pnpm run dev -- --host 0.0.0.0 --port 3000',
+            cwd: '/workspace',
+            scope: 'workspace',
+            status: 'running',
+            registeredAt: new Date().toISOString(),
+          },
+          {
+            id: 'workspace-1:card-preview:9:4173',
+            workspaceId: 'workspace-1',
+            name: 'Card #9 Preview',
+            port: 4173,
+            url: 'http://127.0.0.1:4173',
+            command: 'pnpm run dev',
+            cwd: '/workspace/.sero/worktrees/card-9',
+            scope: 'card-preview',
+            cardId: '9',
             status: 'running',
             registeredAt: new Date().toISOString(),
           },
@@ -42,17 +57,17 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
       'pnpm install --frozen-lockfile',
       600_000,
     );
-    expect(restartDevServer).toHaveBeenCalledWith('workspace-1:3000');
+    expect(restartDevServer).toHaveBeenCalledWith('workspace-1:workspace:root:3000');
     expect(result).toMatchObject({
       refreshed: true,
       dependenciesInstalled: true,
-      restartedServerIds: ['workspace-1:3000'],
+      restartedServerIds: ['workspace-1:workspace:root:3000'],
     });
   });
 
   it('auto-starts a dev server when none are registered', async () => {
     const autoStartDevServer = vi.fn().mockResolvedValue({
-      serverId: 'workspace-1:5173',
+      serverId: 'workspace-1:workspace:root:5173',
     });
 
     const result = await refreshWorkspaceRuntimeAfterSync(
@@ -76,7 +91,7 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
     );
     expect(result).toMatchObject({
       refreshed: true,
-      autoStartedServerId: 'workspace-1:5173',
+      autoStartedServerId: 'workspace-1:workspace:root:5173',
     });
   });
 
@@ -97,12 +112,14 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
         runCommand,
         listDevServers: vi.fn().mockReturnValue([
           {
-            id: 'workspace-1:3000',
+            id: 'workspace-1:workspace:root:3000',
             workspaceId: 'workspace-1',
             name: 'Vite Dev Server',
             port: 3000,
             url: 'http://127.0.0.1:3000',
             command: 'pnpm run dev -- --host 0.0.0.0 --port 3000',
+            cwd: '/workspace',
+            scope: 'workspace',
             status: 'running',
             registeredAt: new Date().toISOString(),
           },

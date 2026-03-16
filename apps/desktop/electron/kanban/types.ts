@@ -90,6 +90,8 @@ export interface Card {
   plan?: string;
   prUrl?: string;
   prNumber?: number;
+  previewUrl?: string;
+  previewServerId?: string;
   reviewFilePath?: string;
   lastCheckpoint?: string;
   planningProgress?: PlanningProgress;

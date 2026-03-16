@@ -48,6 +48,13 @@ vi.mock('../../kanban/review-branch-sync', () => ({
   }),
 }));
 
+vi.mock('../../kanban/review-preview', () => ({
+  startCardReviewPreview: vi.fn().mockResolvedValue({
+    previewServerId: 'workspace-1:card-preview:1:4173',
+    previewUrl: 'http://127.0.0.1:4173',
+  }),
+}));
+
 import { executeReview } from '../../kanban/review-executor';
 import { createPrFromWorktree } from '../../kanban/worktree-git';
 import type { Card, KanbanSettings } from '../../kanban/types';
@@ -149,6 +156,8 @@ describe('executeReview', () => {
       success: true,
       prUrl: 'https://github.com/monobyte/example/pull/1',
       prNumber: 1,
+      previewServerId: 'workspace-1:card-preview:1:4173',
+      previewUrl: 'http://127.0.0.1:4173',
     });
     expect(runSingleStructured).toHaveBeenCalledTimes(1);
     expect(vi.mocked(createPrFromWorktree)).toHaveBeenCalledWith(worktreePath, {

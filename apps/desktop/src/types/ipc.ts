@@ -190,9 +190,11 @@ export type { ContainerState as ContainerInfo } from '../../electron/container/t
 
 // ── Dev Servers ────────────────────────────────────────────────
 
+export type DevServerScope = 'workspace' | 'card-preview';
+
 /** A dev server registered by the agent and managed by the host. */
 export interface DevServer {
-  /** Unique key: `${workspaceId}:${port}`. */
+  /** Unique key: `${workspaceId}:${scope}:${cardId ?? "root"}:${port}`. */
   id: string;
   /** Workspace this server belongs to. */
   workspaceId: string;
@@ -206,6 +208,12 @@ export interface DevServer {
   framework?: string;
   /** The command used to start the server (for restart). */
   command: string;
+  /** Working directory inside the container where the command should run. */
+  cwd: string;
+  /** Whether this is the main workspace server or a review preview. */
+  scope: DevServerScope;
+  /** Card owner for review previews. */
+  cardId?: string;
   /** Server status derived from port scanner liveness checks. */
   status: 'running' | 'stopped' | 'starting';
   /** ISO timestamp when the server was registered. */
