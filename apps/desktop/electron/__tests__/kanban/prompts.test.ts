@@ -253,6 +253,8 @@ describe('buildImplementationPrompt', () => {
     expect(prompt).toContain('Use the subtasks to structure your work');
     expect(prompt).toContain('kanban_mark_subtask_complete');
     expect(prompt).toContain('Do not simulate progress by printing marker text');
+    expect(prompt).toContain('before you start the next planned subtask');
+    expect(prompt).toContain('Delayed or end-of-run batching is incorrect');
   });
 
   it('uses lighter guidance for prototype delivery mode', () => {

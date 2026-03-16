@@ -68,7 +68,15 @@ ${testingGuidance}${lightModeBlock}
 Whenever you finish one of the planned subtasks, call the \`kanban_mark_subtask_complete\` tool with that subtask's id.
 - Call it exactly once per completed subtask
 - Only call it after the subtask is actually complete
+- Call it immediately, before you start the next planned subtask or move on to another major chunk of work
+- If one edit happens to complete multiple subtasks, call the tool separately for each subtask in completion order instead of batching them at the very end
+- Delayed or end-of-run batching is incorrect because the kanban UI depends on these updates for live progress
 - Do not simulate progress by printing marker text such as \`SUBTASK_COMPLETE\`
+
+Correct pattern:
+1. Finish subtask 1.
+2. Call \`kanban_mark_subtask_complete\` for subtask 1.
+3. Then start subtask 2.
 
 ## Instructions
 - Implement the card yourself in one coordinated pass

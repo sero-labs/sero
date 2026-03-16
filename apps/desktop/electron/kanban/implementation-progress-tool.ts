@@ -18,7 +18,7 @@ export function createImplementationProgressTool(
     name: 'kanban_mark_subtask_complete',
     label: 'Kanban Mark Subtask Complete',
     description:
-      'Record completion of a planned kanban subtask for the current implementation card.',
+      'Record completion of a planned kanban subtask for the current implementation card. Call this immediately when a subtask is done, before starting the next one, and never batch several completions at the end.',
     parameters: MarkSubtaskCompleteParams,
     async execute(_toolCallId, params) {
       const subtaskId = String((params as { subtaskId: string }).subtaskId ?? '').trim();
