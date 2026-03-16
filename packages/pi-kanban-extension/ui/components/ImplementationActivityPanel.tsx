@@ -1,7 +1,7 @@
 /**
  * ImplementationActivityPanel — live progress feed for the implementation phase.
  *
- * Wraps ActivityPanel with indigo theme, adds a progress bar and wave indicator.
+ * Wraps ActivityPanel with indigo theme, adds a progress bar and optional stage indicator.
  */
 
 import { motion } from 'motion/react';
@@ -32,7 +32,7 @@ export function ImplementationActivityPanel({
       theme={THEME}
       data={progress}
       defaultPhase="Implementing…"
-      fallbackText="Executing subtasks in dependency order with parallel agents."
+      fallbackText="Executing the implementation plan with a single agent."
       headerSlot={
         <>
           {/* Overall progress bar */}
@@ -44,7 +44,7 @@ export function ImplementationActivityPanel({
               transition={{ duration: 0.4, ease: 'easeOut' }}
             />
           </div>
-          {/* Wave indicator */}
+          {/* Optional stage indicator */}
           {progress && progress.totalWaves > 0 && (
             <WaveIndicator currentWave={progress.currentWave} totalWaves={progress.totalWaves} />
           )}

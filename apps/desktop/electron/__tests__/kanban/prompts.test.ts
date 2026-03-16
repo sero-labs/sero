@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  buildImplementationPrompt,
   parsePlanResult,
   parseReviewResult,
   buildSubtaskPrompt,
@@ -239,6 +240,28 @@ describe('buildSubtaskPrompt', () => {
     expect(prompt).toContain('working prototype');
     expect(prompt).toContain('Do NOT use browser automation');
     expect(prompt).toContain('minimum evaluation');
+  });
+});
+
+// ── buildImplementationPrompt ───────────────────────────────
+
+describe('buildImplementationPrompt', () => {
+  it('frames subtasks as one cohesive implementation pass', () => {
+    const prompt = buildImplementationPrompt(makeCard());
+    expect(prompt).toContain('one cohesive pass');
+    expect(prompt).toContain('NOT separate agent assignments');
+    expect(prompt).toContain('Use the subtasks to structure your work');
+  });
+
+  it('uses lighter guidance for prototype delivery mode', () => {
+    const prompt = buildImplementationPrompt(makeCard(), {
+      testingEnabled: false,
+      reviewMode: 'light',
+    });
+
+    expect(prompt).toContain('working prototype');
+    expect(prompt).toContain('Do NOT use browser automation');
+    expect(prompt).toContain('Testing is disabled');
   });
 });
 

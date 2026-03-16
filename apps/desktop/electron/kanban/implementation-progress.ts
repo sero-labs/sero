@@ -1,7 +1,7 @@
 /**
  * ImplementationProgressTracker — tracks live implementation activity.
  *
- * Extends BaseProgressTracker with wave-level tracking.
+ * Extends BaseProgressTracker with optional staged-execution tracking.
  * Flushes to `card.implementationProgress`.
  */
 
@@ -23,7 +23,7 @@ export class ImplementationProgressTracker extends BaseProgressTracker<Implement
     });
   }
 
-  /** Parse wave info from phase labels like "Wave 2/5". */
+  /** Preserve support for legacy phase labels like "Wave 2/5". */
   protected onPhaseChange(phase: string): void {
     const waveMatch = phase.match(/Wave (\d+)\/(\d+)/);
     if (waveMatch) {

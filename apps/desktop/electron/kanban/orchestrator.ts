@@ -9,8 +9,7 @@ import { ReviewProgressTracker } from './review-progress';
 import { executeReview } from './review-executor';
 import { getPullRequestMergeError } from './pr-merge-status';
 import { executePlanning } from './planning-executor';
-import { resolveExecutionWaves } from './wave-resolver';
-import { executeWaves } from './subtask-executor';
+import { executeImplementation } from './implementation-executor';
 import { updateCard, readCard } from './state-helpers';
 import { isYoloModeEnabled, reconcilePersistedState, runWorkspaceMaintenance } from './orchestrator-helpers';
 import { validateTransition, getNewlyUnblockedCards, getAllReadyBacklogCards } from './contracts';
@@ -302,19 +301,19 @@ export class KanbanOrchestrator {
       const subtasks = freshCard.subtasks.map((s) => ({ ...s, status: 'pending' as const }));
       await updateCard(workspace.stateFilePath, card.id, { subtasks });
 
-      const waves = resolveExecutionWaves(subtasks);
-      console.log(`[kanban-orchestrator] Card #${card.id}: ${waves.length} waves, ${subtasks.length} subtasks`);
+      console.log(
+        `[kanban-orchestrator] Card #${card.id}: single implementer executing ${subtasks.length} planned subtask(s)`,
+      );
 
       // Read settings for testing/review config
       const stateForSettings = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
       const settings = stateForSettings?.settings;
 
-      await executeWaves(
+      await executeImplementation(
         { subagentManager: this.deps.subagentManager, workspaceId: workspace.workspaceId, settings },
         workspace.stateFilePath,
         freshCard,
         worktreePath,
-        waves,
         tracker,
       );
 

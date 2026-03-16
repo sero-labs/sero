@@ -47,10 +47,10 @@ export interface PlanningProgress {
 }
 
 export interface ImplementationProgress {
-  phase: string;               // e.g. 'Wave 2/4'
+  phase: string;               // e.g. 'Implementing plan', 'Verifying implementation'
   startedAt: number;           // Epoch ms
-  currentWave: number;         // Current wave index (1-based)
-  totalWaves: number;          // Total number of execution waves
+  currentWave: number;         // Optional compatibility field for staged execution UIs
+  totalWaves: number;          // Optional compatibility field for staged execution UIs
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];  // Last ~15 tool calls
   log: string[];               // Recent onUpdate lines (last ~20)

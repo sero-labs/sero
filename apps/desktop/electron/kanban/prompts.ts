@@ -9,6 +9,14 @@
 
 import type { Card, ReviewMode } from './types';
 export { buildSpecReviewPrompt, buildQualityReviewPrompt } from './prompt-review-specialized';
+export {
+  buildImplementationPrompt,
+  buildSubtaskPrompt,
+} from './prompt-implementation';
+export type {
+  ImplementationPromptOptions,
+  SubtaskPromptOptions,
+} from './prompt-implementation';
 
 // ── Planning Prompts ─────────────────────────────────────────
 
@@ -87,66 +95,6 @@ Rules for subtasks:
 - Estimate complexity: low (~15min), medium (~30min), high (~45min+)
 ${tddBlock}
 - Keep descriptions concise but specific`;
-}
-
-// ── Implementation Prompts ───────────────────────────────────
-
-export interface SubtaskPromptOptions {
-  testingEnabled?: boolean;
-  reviewMode?: ReviewMode;
-}
-
-export function buildSubtaskPrompt(
-  card: Card,
-  subtaskId: string,
-  options?: SubtaskPromptOptions,
-): string {
-  const subtask = card.subtasks.find((s) => s.id === subtaskId);
-  if (!subtask) throw new Error(`Subtask ${subtaskId} not found on card #${card.id}`);
-
-  const testingEnabled = options?.testingEnabled !== false;
-
-  const completedSubtasks = card.subtasks
-    .filter((s) => s.status === 'completed')
-    .map((s) => {
-      const files = s.filePaths?.length ? ` (files: ${s.filePaths.join(', ')})` : '';
-      return `- ✅ ${s.title}: ${s.description}${files}`;
-    })
-    .join('\n');
-
-  const tddBlock = testingEnabled && subtask.tddDesignation && subtask.tddDesignation !== 'no-test'
-    ? `\n## Testing Approach: ${subtask.tddDesignation}\n${subtask.tddDesignation === 'tdd'
-      ? 'Write a failing test first, then implement to make it pass.'
-      : 'Implement first, then write tests covering the core logic.'}\n`
-    : testingEnabled ? '' : '\nNote: Testing is disabled for this workspace — do not write tests.\n';
-  const lightModeBlock = options?.reviewMode === 'light'
-    ? '\n## Prototype Delivery Mode\nLight prototype mode is active. Prioritise a working prototype the user can test quickly.\n- Do only the minimum evaluation needed to avoid obvious breakage\n- Do NOT use browser automation or exhaustive UI interaction testing unless the user explicitly asked for it\n- Leave deeper validation, polish, and broad edge-case hunting for later passes\n'
-    : '';
-
-  const filePathsBlock = subtask.filePaths?.length
-    ? `\nExpected file paths: ${subtask.filePaths.join(', ')}\n`
-    : '';
-
-  return `You are implementing a specific subtask as part of a larger feature.
-
-# Overall Feature: ${card.title}
-${card.description ? `\n${card.description}\n` : ''}
-## Implementation Plan
-${card.plan ?? '(no plan provided)'}
-
-## Your Subtask
-**${subtask.title}**
-${subtask.description}
-${filePathsBlock}${tddBlock}${lightModeBlock}
-${completedSubtasks ? `## Already Completed\n${completedSubtasks}\n` : ''}
-## Instructions
-- Focus ONLY on this subtask — do not implement other subtasks
-- Do not read from or rely on \`.sero/\` files or other kanban card worktrees; they are orchestration state, not product source files
-- Write clean, well-typed code following existing project conventions
-- Create or modify files as needed for this subtask
-- If a scaffolder/init tool refuses to run because the worktree directory is not empty, treat that as expected for git worktrees: scaffold in a temporary directory and describe it as a normal workaround, not as a failure
-- Do not run the dev server or start any long-running processes
-- When done, provide a brief summary of what you implemented`;
 }
 
 // ── Review Prompts ───────────────────────────────────────────

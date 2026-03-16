@@ -54,8 +54,8 @@ export interface PlanningProgress {
 export interface ImplementationProgress {
   phase: string;
   startedAt: number;
-  currentWave: number;
-  totalWaves: number;
+  currentWave: number; // Optional compatibility field for staged execution UIs
+  totalWaves: number; // Optional compatibility field for staged execution UIs
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];
   log: string[];
