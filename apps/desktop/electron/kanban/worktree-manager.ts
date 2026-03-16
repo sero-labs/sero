@@ -17,6 +17,7 @@ import { promisify } from 'util';
 
 import { inferConventionalType, slugifyBranchLabel } from '../vcs/branch-naming';
 import { ensureBootstrapGitignore } from '../vcs/bootstrap-gitignore';
+import { resolvePreferredBaseRef } from './worktree-maintenance';
 
 const execFileAsync = promisify(execFile);
 
@@ -118,17 +119,20 @@ export class WorktreeManager {
 
     const worktreePath = this.getPath(workspacePath, cardId);
     const branchName = this.buildBranchName(cardTitle, cardId);
+    const baseRef = await resolvePreferredBaseRef(workspacePath);
 
     // Ensure parent directory exists
     await fs.mkdir(path.dirname(worktreePath), { recursive: true });
 
     // Create worktree with a new branch from the current HEAD
+    const addArgs = [
+      'worktree', 'add',
+      worktreePath,
+      '-b', branchName,
+      ...(baseRef ? [baseRef] : []),
+    ];
     try {
-      await execFileAsync('git', [
-        'worktree', 'add',
-        worktreePath,
-        '-b', branchName,
-      ], {
+      await execFileAsync('git', addArgs, {
         cwd: workspacePath,
         timeout: 30_000,
       });
@@ -189,6 +193,10 @@ export class WorktreeManager {
         cwd: workspacePath,
         timeout: 15_000,
       });
+      await execFileAsync('git', ['worktree', 'prune'], {
+        cwd: workspacePath,
+        timeout: 10_000,
+      }).catch(() => {});
     } catch (err: unknown) {
       const stderr = err && typeof err === 'object' && 'stderr' in err
         ? String((err as { stderr: unknown }).stderr) : '';

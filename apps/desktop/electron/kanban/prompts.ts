@@ -141,6 +141,7 @@ ${filePathsBlock}${tddBlock}${lightModeBlock}
 ${completedSubtasks ? `## Already Completed\n${completedSubtasks}\n` : ''}
 ## Instructions
 - Focus ONLY on this subtask — do not implement other subtasks
+- Do not read from or rely on \`.sero/\` files or other kanban card worktrees; they are orchestration state, not product source files
 - Write clean, well-typed code following existing project conventions
 - Create or modify files as needed for this subtask
 - If a scaffolder/init tool refuses to run because the worktree directory is not empty, treat that as expected for git worktrees: scaffold in a temporary directory and describe it as a normal workaround, not as a failure
