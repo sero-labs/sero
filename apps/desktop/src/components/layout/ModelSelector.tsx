@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ChevronDown, Check, Brain, Zap, Sparkles, Search } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
+import { ChevronDown, Check, Brain, Sparkles, Search } from 'lucide-react';
+import { motion } from 'motion/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
 import { useAgentStore } from '@/stores/agent';
 import { useFocusedAgent } from '@/stores/agent-selectors';
@@ -112,46 +112,36 @@ function ThinkingPicker({
 
 // ── Model Item ─────────────────────────────────────────────────
 
-function ModelItem({ model, isSelected, onSelect }: {
+const ModelItem = memo(function ModelItem({ model, isSelected, onSelect }: {
   model: ModelInfo; isSelected: boolean; onSelect: () => void;
 }) {
   return (
-    <motion.button
+    <button
       onClick={onSelect}
-      className={`group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-100 ${
+      className={`group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-100 active:scale-[0.98] ${
         isSelected
           ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
           : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]/60 hover:text-[var(--text-primary)]'
       }`}
-      whileTap={{ scale: 0.98 }}
     >
       <div className="flex size-4 shrink-0 items-center justify-center">
-        <AnimatePresence mode="wait">
-          {isSelected ? (
-            <motion.div key="check"
-              initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
-              <Check className="size-3.5 text-[var(--status-success)]" />
-            </motion.div>
-          ) : (
-            <motion.div key="dot"
-              initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="size-1.5 rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[var(--text-muted)]" />
-          )}
-        </AnimatePresence>
+        {isSelected ? (
+          <Check className="size-3.5 text-[var(--status-success)] transition-transform duration-150 scale-100" />
+        ) : (
+          <div className="size-1.5 rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[var(--text-muted)]" />
+        )}
       </div>
       <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
         <span className="truncate text-xs font-medium">{model.name}</span>
         {model.reasoning && <Sparkles className="size-3 shrink-0 text-[var(--status-warning)]/60" />}
       </div>
-    </motion.button>
+    </button>
   );
-}
+});
 
 // ── Provider Group ─────────────────────────────────────────────
 
-function ProviderSection({ group, selectedModel, onSelect }: {
+const ProviderSection = memo(function ProviderSection({ group, selectedModel, onSelect }: {
   group: AvailableModelGroup;
   selectedModel: { provider: string; modelId: string } | null;
   onSelect: (model: ModelInfo) => void;
@@ -180,7 +170,7 @@ function ProviderSection({ group, selectedModel, onSelect }: {
       </div>
     </div>
   );
-}
+});
 
 // ── Main Component ─────────────────────────────────────────────
 
@@ -247,10 +237,7 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
       <ModelTrigger disabled={disabled} />
       <PopoverContent side="top" align="start" sideOffset={8}
         className="w-[300px] overflow-hidden rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] p-0 shadow-2xl shadow-black/40">
-        <motion.div
-          initial={{ opacity: 0, y: 6, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25, mass: 0.8 }}>
+        <div>
 
           {/* Search input */}
           <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3">
@@ -297,7 +284,7 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
             disabled={!ms?.model.reasoning}
             onSelect={handleThinkingSelect}
           />
-        </motion.div>
+        </div>
       </PopoverContent>
     </Popover>
   );
