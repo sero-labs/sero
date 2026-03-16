@@ -12,6 +12,7 @@ import {
   buildReviewRevisionPrompt,
   buildSpecReviewPrompt,
 } from '../../kanban/prompts';
+import { buildConflictResolutionPrompt } from '../../kanban/prompt-conflict-resolution';
 import type { Card } from '../../kanban/types';
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -237,6 +238,32 @@ describe('buildSubtaskPrompt', () => {
     expect(prompt).toContain('working prototype');
     expect(prompt).toContain('Do NOT use browser automation');
     expect(prompt).toContain('minimum evaluation');
+  });
+});
+
+describe('buildConflictResolutionPrompt', () => {
+  it('describes the rebase context and conflicted files', () => {
+    const prompt = buildConflictResolutionPrompt(
+      makeCard(),
+      'main',
+      ['src/App.tsx', 'src/index.css'],
+    );
+    expect(prompt).toContain('rebased onto the latest `main`');
+    expect(prompt).toContain('src/App.tsx');
+    expect(prompt).toContain('src/index.css');
+    expect(prompt).toContain('Do not run `git rebase`');
+  });
+
+  it('keeps prototype conflict resolution lightweight in light mode', () => {
+    const prompt = buildConflictResolutionPrompt(
+      makeCard(),
+      'main',
+      ['src/App.tsx'],
+      { reviewMode: 'light' },
+    );
+    expect(prompt).toContain('Light prototype mode is active');
+    expect(prompt).toContain('Do NOT do broad browser automation');
+    expect(prompt).toContain('smallest safe edit');
   });
 });
 

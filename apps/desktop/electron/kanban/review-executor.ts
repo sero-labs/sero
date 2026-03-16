@@ -38,6 +38,7 @@ import {
   createPrFromWorktree,
 } from './worktree-git';
 import { getContract } from './contracts';
+import { syncReviewBranchWithDefault } from './review-branch-sync';
 import type { SubagentManager } from '../subagent/index';
 
 const execFileAsync = promisify(execFile);
@@ -87,9 +88,24 @@ export async function executeReview(
     const reviewFile = path.join(reviewDir, `card-${card.id}.json`);
     const reviewRelPath = path.relative(workspaceRoot, reviewFile);
 
+    const branchSync = await syncReviewBranchWithDefault(
+      deps,
+      card,
+      worktreePath,
+      tracker,
+      parentSessionId,
+    );
+    if (!branchSync.success) {
+      return { success: false, error: branchSync.error ?? 'Failed to sync branch before review.' };
+    }
+    if (branchSync.invalidatedReviewCache) {
+      await deleteCachedReview(reviewFile);
+      console.log(`[review-executor] Discarded cached review after syncing branch for card #${card.id}`);
+    }
+
     // ── Try to load cached review ──────────────────────────
     console.log(`[review-executor] Checking for cached review at ${reviewFile}`);
-    const cached = await loadCachedReview(reviewFile);
+    const cached = branchSync.invalidatedReviewCache ? null : await loadCachedReview(reviewFile);
     if (cached) {
       console.log(`[review-executor] Resuming from cached review for card #${card.id} — skipping to push`);
       return resumeFromReview(cached, reviewRelPath, worktreePath, branchName, tracker);
@@ -338,6 +354,10 @@ async function loadCachedReview(filePath: string): Promise<ReviewResult | null> 
 async function saveCachedReview(filePath: string, review: ReviewResult): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(review, null, 2), 'utf8');
+}
+
+async function deleteCachedReview(filePath: string): Promise<void> {
+  await fs.rm(filePath, { force: true }).catch(() => {});
 }
 
 function hasMalformedLegacyIssues(review: Partial<ReviewResult>): boolean {
