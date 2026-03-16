@@ -45,7 +45,7 @@ export interface PlanGenerationOptions {
 
 export function buildSubtaskGenerationPrompt(
   card: Card,
-  analysisResults: string,
+  planningContext: string,
   options?: PlanGenerationOptions,
 ): string {
   const testingEnabled = options?.testingEnabled !== false;
@@ -57,14 +57,14 @@ export function buildSubtaskGenerationPrompt(
 - Include a dedicated test-writing subtask when the feature has testable logic`
     : `- Set tddDesignation to "no-test" for all subtasks (testing is disabled for this workspace)`;
 
-  return `Based on the following codebase analysis, create a detailed implementation plan with subtasks for this card:
+  return `Create a detailed implementation plan with subtasks for this card.
 
 # Card: ${card.title}
 ${card.description ? `\nDescription: ${card.description}` : ''}
 ${card.acceptance.length > 0 ? `\nAcceptance Criteria:\n${card.acceptance.map((a) => `- ${a}`).join('\n')}` : ''}
 
-# Codebase Analysis
-${analysisResults}
+# Planning Context
+${planningContext}
 
 # Instructions
 Generate a structured implementation plan. When it is ready, call the \`kanban_submit_plan\` tool once with this exact shape:
@@ -88,6 +88,7 @@ Generate a structured implementation plan. When it is ready, call the \`kanban_s
 
 The tool submission is the authoritative result.
 Do not return the final plan as raw JSON in normal text after calling the tool.
+If this is an existing project, do your own codebase inspection before finalising the plan instead of assuming the context block is exhaustive.
 
 Rules for subtasks:
 - 2-8 subtasks is ideal, each scoped to 15-30 minutes of agent work

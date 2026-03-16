@@ -42,7 +42,6 @@ function makeSubagentTracker() {
 
 describe('executePlanning', () => {
   it('uses the structured plan submission tool when the planner calls it', async () => {
-    const runParallel = vi.fn();
     const runSingleStructured = vi.fn().mockImplementation(async (params: { customTools?: ToolDefinition[] }) => {
       const tool = params.customTools?.find((entry) => entry.name === 'kanban_submit_plan');
       expect(tool).toBeDefined();
@@ -75,7 +74,6 @@ describe('executePlanning', () => {
     const result = await executePlanning(
       {
         subagentManager: {
-          runParallel,
           runSingleStructured,
           tracker: makeSubagentTracker(),
         } as never,
@@ -87,10 +85,35 @@ describe('executePlanning', () => {
       true,
     );
 
-    expect(runParallel).not.toHaveBeenCalled();
     expect(result.plan).toBe('Implement the feature in two steps.');
     expect(result.subtasks.map((subtask) => subtask.id)).toEqual(['1', '2']);
     expect(result.subtasks[0]?.status).toBe('pending');
+  });
+
+  it('uses a single planner run for existing projects too', async () => {
+    const tracker = makeTracker();
+    const runSingleStructured = vi.fn().mockResolvedValue({
+      response: '```json\n{"plan":"Existing project plan","subtasks":[{"id":"1","title":"Inspect and ship","description":"Do it","dependsOn":[]}]}\n```',
+    });
+
+    const result = await executePlanning(
+      {
+        subagentManager: {
+          runSingleStructured,
+          tracker: makeSubagentTracker(),
+        } as never,
+        workspaceId: 'workspace-1',
+      },
+      makeCard(),
+      tracker,
+      false,
+    );
+
+    expect(runSingleStructured).toHaveBeenCalledTimes(1);
+    expect(runSingleStructured.mock.calls[0][0].task).toContain('Inspect the current codebase yourself');
+    expect(tracker.addAgent).toHaveBeenCalledWith('planner');
+    expect(tracker.setPhase).toHaveBeenCalledWith('Inspecting codebase and drafting plan');
+    expect(result.plan).toBe('Existing project plan');
   });
 
   it('falls back to parsing planner JSON when no tool submission is provided', async () => {
@@ -101,7 +124,6 @@ describe('executePlanning', () => {
     const result = await executePlanning(
       {
         subagentManager: {
-          runParallel: vi.fn(),
           runSingleStructured,
           tracker: makeSubagentTracker(),
         } as never,

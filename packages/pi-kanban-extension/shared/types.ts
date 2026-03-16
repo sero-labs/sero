@@ -37,7 +37,7 @@ export interface PlanningToolEntry {
 }
 
 export interface PlanningProgress {
-  phase: string;               // e.g. 'Analysing codebase', 'Generating plan'
+  phase: string;               // e.g. 'Planning task', 'Inspecting codebase and drafting plan'
   startedAt: number;           // Epoch ms
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];  // Last ~15 tool calls

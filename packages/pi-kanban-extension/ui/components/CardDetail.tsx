@@ -317,7 +317,7 @@ export function CardDetail({
                     Start Planning
                   </button>
                   <p style={{ fontSize: '11px', color: '#5c5e6a', marginTop: '6px', lineHeight: 1.4 }}>
-                    Moves card to Planning and triggers automated codebase analysis and subtask generation.
+                    Moves card to Planning and triggers automated planning plus subtask generation.
                   </p>
                 </div>
               )}

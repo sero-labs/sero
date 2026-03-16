@@ -327,6 +327,7 @@ describe('buildSubtaskGenerationPrompt', () => {
     expect(prompt).toContain('tddDesignation');
     expect(prompt).toContain('tdd');
     expect(prompt).toContain('kanban_submit_plan');
+    expect(prompt).toContain('If this is an existing project');
   });
 
   it('disables TDD when testing is off', () => {
