@@ -1,3 +1,4 @@
+import { startTransition } from 'react';
 import { create } from 'zustand';
 import type { SeroAppManifest } from '@/types/ipc';
 import { persistLayout } from '@/lib/persist-layout';
@@ -65,6 +66,8 @@ interface AppState {
 
   // Active app
   activeApp: string;
+  /** Non-null while transitioning to a new app (lazy module loading). */
+  pendingApp: string | null;
   setActiveApp: (app: string) => void;
 
   // Theme
@@ -193,8 +196,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Active app (hydrated from layout file on startup)
   activeApp: 'coding',
+  /**
+   * ID of the app we're transitioning to. Non-null while a lazy module
+   * is still loading — used by ActiveApp to show a pending opacity hint.
+   * Set eagerly (outside the transition) so the UI can react immediately.
+   */
+  pendingApp: null as string | null,
   setActiveApp: (app) => {
-    set({ activeApp: app });
+    if (app === get().activeApp) return;
+    // Set pendingApp eagerly so the UI can show a loading hint
+    set({ pendingApp: app });
+    // Wrap the actual switch in startTransition so React keeps the
+    // previous app visible while a non-preloaded lazy module resolves.
+    startTransition(() => {
+      set({ activeApp: app, pendingApp: null });
+    });
     persistLayout({ activeApp: app });
   },
 

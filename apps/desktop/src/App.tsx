@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useDeferredValue, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from '@sero/ui/components/ui/tooltip';
 import {
@@ -293,22 +293,20 @@ export function App() {
 /**
  * Renders the currently active app — built-in or federated.
  *
- * Uses `useDeferredValue` so React keeps showing the previous app
- * while a newly-selected app's lazy module loads. For preloaded apps
- * (active + favourites), the lazy wrapper resolves synchronously so
- * there's no flash at all. For on-demand apps, the deferred value
- * keeps the old app visible during the load.
+ * `setActiveApp` wraps the state update in `startTransition`, so React
+ * keeps showing the previous app while a non-preloaded lazy module
+ * resolves. The store's `pendingApp` field is set eagerly (outside the
+ * transition) to drive the opacity hint while loading.
  */
 function ActiveApp() {
   const activeApp = useAppStore((s) => s.activeApp);
-  const deferredApp = useDeferredValue(activeApp);
-  const isPending = activeApp !== deferredApp;
+  const pendingApp = useAppStore((s) => s.pendingApp);
   const apps = useAppStore((s) => s.apps);
-  const entry = apps.find((a) => a.id === deferredApp);
+  const entry = apps.find((a) => a.id === activeApp);
 
   let content: React.ReactNode;
 
-  if (deferredApp === 'coding') {
+  if (activeApp === 'coding') {
     content = <CodingWorkspace />;
   } else if (entry?.manifest) {
     // Discovered sero app — mount via module federation
@@ -317,7 +315,7 @@ function ActiveApp() {
     content = (
       <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
         <span className="text-sm capitalize text-[var(--text-muted)]">
-          {deferredApp} app — coming soon
+          {activeApp} app — coming soon
         </span>
       </div>
     );
@@ -327,7 +325,7 @@ function ActiveApp() {
     <div
       data-app-panel
       className="flex min-h-0 min-w-[500px] flex-1 flex-col overflow-hidden transition-opacity duration-150"
-      style={{ opacity: isPending ? 0.7 : 1 }}
+      style={{ opacity: pendingApp ? 0.7 : 1 }}
     >
       {content}
     </div>
