@@ -1,19 +1,26 @@
-# OpenSandbox Security Discovery & Proposal for Sero
+# Agent Sandbox Security Discovery & Proposal for Sero
 
 **Date:** 2026-03-17
 **Status:** Discovery / Proposal
-**Subject:** Technical analysis of Alibaba's [OpenSandbox](https://github.com/alibaba/OpenSandbox) for hardening Sero against prompt injection data exfiltration
+**Subject:** Technical analysis of [OpenSandbox](https://github.com/alibaba/OpenSandbox) (Alibaba) and [OpenShell](https://github.com/NVIDIA/OpenShell) (NVIDIA) for hardening Sero against prompt injection data exfiltration
 **Related:** [outstanding-hardening.md](./outstanding-hardening.md), [hardening-plan.md](./hardening-plan.md)
 
 ---
 
 ## 1. Executive Summary
 
-Sero already has strong container isolation via Apple Containers, but has **critical gaps in network egress control and runtime tool enforcement** that leave it vulnerable to prompt injection attacks that exfiltrate private data. OpenSandbox's egress sidecar and network policy system directly address the most exploitable gap — **unrestricted outbound network access** — but adopting the full platform would be architecturally inappropriate for Sero. Instead, **selectively adopting OpenSandbox's egress control pattern** (or its actual egress sidecar component) is the highest-value, most feasible approach.
+Sero already has strong container isolation via Apple Containers, but has **critical gaps in network egress control, filesystem scoping, and runtime tool enforcement** that leave it vulnerable to prompt injection attacks that exfiltrate private data. Two major open-source sandbox platforms have been released in March 2026 that directly address these gaps:
 
-**Key finding:** OpenSandbox cannot prevent prompt injection itself — no sandbox can. It is a **blast radius reducer** that limits what a compromised agent can do. The critical takeaway for Sero is that **network-level controls are the only reliable defense against data exfiltration via prompt injection**, because they operate below the LLM layer and cannot be circumvented by manipulating the model.
+- **OpenSandbox** (Alibaba) — egress sidecar with DNS + nftables filtering, Docker/K8s runtimes
+- **OpenShell** (NVIDIA) — four-domain policy engine (filesystem, network, process, inference) with kernel-level enforcement via Landlock + seccomp, binary-integrity-verified network proxy, and credential isolation
 
-**Industry context:** The OWASP Top 10 for LLM Applications (2025) ranks prompt injection #1, with it appearing in over 73% of production AI deployments assessed during security audits. The OWASP AI Agent Security Top 10 (2026) lists untrusted code execution as the primary risk. OpenSandbox gained 3,845 GitHub stars in its first two days (March 2026), trending #5 globally — signaling strong industry demand for this category of tooling.
+Neither platform can prevent prompt injection itself — both are **blast radius reducers**. The critical takeaway is that **network-level and kernel-level controls are the only reliable defense against data exfiltration via prompt injection**, because they operate below the LLM layer and cannot be circumvented by manipulating the model.
+
+**OpenShell is the stronger candidate for Sero's long-term security architecture.** It covers all four domains Sero is weak in (filesystem, network, process, credentials), has a more mature policy model (OPA/Rego), and is backed by NVIDIA with enterprise security partnerships (Cisco, CrowdStrike, TrendAI). OpenSandbox's egress sidecar addresses only network egress — one layer of the problem.
+
+**However, both require Docker** — meaning the same Docker migration trade-off applies. The immediate recommendation remains: **harden the existing proxy now** (days of work), then evaluate Docker + OpenShell as the cross-platform migration path.
+
+**Industry context:** The OWASP Top 10 for LLM Applications (2025) ranks prompt injection #1, with it appearing in over 73% of production AI deployments assessed during security audits. The OWASP AI Agent Security Top 10 (2026) lists untrusted code execution as the primary risk.
 
 ---
 
@@ -128,9 +135,125 @@ OpenSandbox is a **blast radius reducer** — it limits what damage a compromise
 
 ---
 
-## 5. Feasibility Assessment for Sero Integration
+## 5. What OpenShell Is
 
-### 5.1 Option A: Adopt Full OpenSandbox Platform — NOT RECOMMENDED
+OpenShell (released March 16, 2026, Apache 2.0) is NVIDIA's open-source runtime for securely executing autonomous AI agents. Announced at GTC 2026 as part of the NemoClaw stack, it provides a comprehensive policy-driven sandbox with kernel-level enforcement. Currently alpha, single-player mode.
+
+- **Declarative YAML policies** with four enforcement domains
+- **Kernel-level isolation** via Landlock (filesystem) + seccomp (syscalls) + network namespaces
+- **Binary-integrity-verified proxy** — identifies requesting programs via `/proc` + SHA256 hashing
+- **OPA/Rego policy engine** — policies evaluated by embedded Open Policy Agent
+- **Credential isolation** — secrets injected as env vars at runtime, never on the sandbox filesystem
+- **Inference routing** — transparently intercepts AI API calls, strips/rewrites credentials
+- **K3s-in-Docker** — entire platform runs as an embedded Kubernetes cluster in a single Docker container
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  CLI (openshell sandbox create / connect / policy)       │
+├──────────────────────────────────────────────────────────┤
+│  Gateway (gRPC + HTTP, TLS, SQLite/Postgres)             │
+│  ├── Sandbox lifecycle (K8s pod management)              │
+│  ├── SSH tunnel gateway (authenticated access)           │
+│  ├── Provider/credential management                      │
+│  └── Inference bundle resolution                         │
+├──────────────────────────────────────────────────────────┤
+│  Sandbox Pod                                             │
+│  ├── Supervisor (privileged) — sets up isolation          │
+│  │   ├── Landlock filesystem rules                        │
+│  │   ├── seccomp syscall filter                           │
+│  │   ├── Network namespace isolation                      │
+│  │   └── Credential injection via gRPC                    │
+│  ├── Network Proxy                                        │
+│  │   ├── /proc inspection (binary identity)               │
+│  │   ├── SHA256 trust-on-first-use verification           │
+│  │   ├── OPA policy evaluation (hostname, port, binary)   │
+│  │   ├── SSRF protection (blocks internal IP ranges)      │
+│  │   ├── L7 inspection (audit + enforce modes)            │
+│  │   └── inference.local interception → backend routing   │
+│  └── Child Process (unprivileged agent)                   │
+├──────────────────────────────────────────────────────────┤
+│  K3s Cluster (embedded in single Docker container)       │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 5.1 OpenShell Security Mechanisms — Deep Dive
+
+#### Four Policy Domains
+
+OpenShell enforces across four distinct domains. Static policies (filesystem, process) are locked at sandbox creation. Dynamic policies (network, inference) are hot-reloadable at runtime via `openshell policy set`.
+
+| Domain | Enforcement | Lifecycle | What it controls |
+|--------|-------------|-----------|-----------------|
+| **Filesystem** | Landlock (kernel) | Static (locked at creation) | Read/write paths, directory access |
+| **Network** | Proxy + OPA | Dynamic (hot-reloadable) | Outbound connections by hostname, port, requesting binary |
+| **Process** | seccomp | Static (locked at creation) | Syscall filtering, privilege escalation prevention |
+| **Inference** | Proxy interception | Dynamic (hot-reloadable) | AI API routing, credential stripping/rewriting |
+
+#### Network Proxy (vs. OpenSandbox's Egress Sidecar)
+
+OpenShell's proxy is significantly more sophisticated than OpenSandbox's egress sidecar:
+
+- **Binary-level attribution:** Identifies *which program* is making each request via `/proc` inspection and SHA256 hash verification. This means policies can allow `curl` to reach `github.com` but deny the agent process itself.
+- **OPA/Rego evaluation:** Policies written in Rego, a full logic language, not just JSON allow/deny lists. Enables complex rules like "allow POST to api.anthropic.com only from the inference router binary."
+- **L7 inspection:** Can inspect HTTP request/response content for configured endpoints, with audit (log only) and enforce (block) modes.
+- **SSRF protection:** Blocks connections to internal IP ranges by default.
+- **Inference interception:** Requests to `inference.local` are transparently routed to configured AI backends with credential rewriting — the sandbox never sees real API keys.
+
+#### Credential Isolation ★ HIGH VALUE FOR SERO
+
+This directly addresses a Sero gap. Currently, Sero injects `GH_TOKEN` and git credentials into container exec calls. OpenShell's model:
+
+1. Credentials stored on the gateway, separate from pod specs
+2. Supervisor fetches credentials via gRPC at sandbox start
+3. Injected as environment variables into spawned processes only
+4. Never written to the sandbox filesystem
+5. Auto-discovery scans the host for existing credentials (API keys, config files)
+
+#### Filesystem Isolation via Landlock ★ HIGH VALUE FOR SERO
+
+Landlock is a Linux kernel security module (since 5.13) that enforces per-process filesystem access rules. Unlike container-level mounts, it restricts what the *agent process* can access even within the container:
+
+- Explicit read/write directory allowlists
+- Locked at sandbox creation (agent cannot modify its own rules)
+- Kernel-enforced (no bypass via shell tricks or `chroot` escapes)
+
+**This directly addresses Sero's filesystem gap** — the agent currently has access to everything in the container including cross-workspace mounts and sensitive paths.
+
+### 5.2 What OpenShell Does NOT Do
+
+Like OpenSandbox, OpenShell does not:
+- Detect or prevent prompt injection in LLM inputs
+- Validate the semantic intent of agent tool calls
+- Provide macOS-native enforcement (Landlock, seccomp are Linux-only)
+
+### 5.3 OpenShell vs. OpenSandbox — Head-to-Head
+
+| Capability | OpenSandbox (Alibaba) | OpenShell (NVIDIA) |
+|-----------|----------------------|-------------------|
+| **Network egress** | DNS proxy + nftables sidecar | Binary-verified proxy + OPA policies |
+| **Filesystem** | None (container-level only) | Landlock kernel enforcement |
+| **Process/syscall** | gVisor (optional) | seccomp (always) |
+| **Credential mgmt** | None | Full provider system with isolation |
+| **Inference routing** | None | Transparent proxy with credential stripping |
+| **Policy language** | JSON allow/deny rules | YAML + OPA/Rego (full logic language) |
+| **Policy hot-reload** | Yes (HTTP API) | Yes (network + inference domains) |
+| **Agent compatibility** | SDK-based (create sandbox via API) | Drop-in (run any agent unmodified) |
+| **Runtime** | Docker or K8s | K3s-in-Docker (single container) |
+| **Maturity** | Alpha (March 2026) | Alpha (March 2026) |
+| **Backing** | Alibaba | NVIDIA + Cisco, CrowdStrike, TrendAI |
+| **L7 inspection** | No | Yes (audit + enforce modes) |
+| **SSRF protection** | No | Yes (blocks internal IPs) |
+| **Binary identity** | No | Yes (/proc + SHA256 verification) |
+
+**Verdict:** OpenShell is the more comprehensive solution. OpenSandbox addresses only network egress; OpenShell covers filesystem, network, process, and inference — all four domains where Sero has gaps.
+
+---
+
+## 6. Feasibility Assessment for Sero Integration
+
+### 6.1 Option A: Adopt Full OpenSandbox Platform — NOT RECOMMENDED
 
 | Factor | Assessment |
 |--------|------------|
@@ -142,7 +265,7 @@ OpenSandbox is a **blast radius reducer** — it limits what damage a compromise
 
 **Verdict:** Architecturally incompatible. Sero's Apple Container model is fundamentally different from Docker/K8s. Migrating would be a ground-up rewrite of `electron/container/` with no clear benefit over the current isolation.
 
-### 5.2 Option B: Adopt the Egress Sidecar Pattern — RECOMMENDED ★
+### 6.2 Option B: Adopt the Egress Sidecar Pattern (Immediate Hardening) ★
 
 The egress sidecar's *design pattern* is directly applicable, even though the Linux-specific implementation (iptables, nftables) won't run on macOS.
 
@@ -214,7 +337,7 @@ Restrict the agent's file access to the workspace directory and explicitly mount
 - Block access to sensitive paths (`/etc/shadow`, `~/.ssh`, etc.) unless explicitly permitted
 - This is independent of OpenSandbox but addresses the same threat
 
-### 5.3 Option C: Migrate to Docker + Full OpenSandbox — VIABLE, MAJOR EFFORT
+### 6.3 Option C: Migrate to Docker + OpenSandbox — VIABLE, MAJOR EFFORT
 
 If Sero switched from Apple Containers to Docker Desktop for macOS, the full OpenSandbox platform becomes directly usable:
 
@@ -256,7 +379,46 @@ If Sero switched from Apple Containers to Docker Desktop for macOS, the full Ope
 
 **Verdict:** Viable and worth considering as a longer-term strategic move, especially if cross-platform support becomes a priority. However, the immediate security gap (network egress) can be closed much faster with Option B (proxy filtering), and a Docker migration could follow independently.
 
-### 5.4 Option D: Run OpenSandbox Egress Sidecar in a Linux VM — POSSIBLE BUT COMPLEX
+### 6.4 Option D: Migrate to Docker + OpenShell — RECOMMENDED FOR CROSS-PLATFORM ★★
+
+If Sero switches to Docker (required for both platforms), **OpenShell is the stronger choice** over OpenSandbox:
+
+**What OpenShell gives Sero that OpenSandbox doesn't:**
+- **Filesystem restriction** — Landlock enforcement means the agent literally cannot read `~/.ssh`, `/etc/shadow`, or cross-workspace paths unless the policy explicitly allows it. This is Sero's second-biggest gap after network egress.
+- **Binary-level network attribution** — Policies can distinguish between `npm install` fetching packages (allowed) and the agent process itself trying to exfiltrate (denied). OpenSandbox's allow/deny is domain-only.
+- **Credential isolation** — API keys and tokens managed by the gateway, injected at runtime, never on the sandbox filesystem. Eliminates the risk of agents reading credential files.
+- **Inference routing** — AI API calls intercepted and routed through controlled backends. Sero could use this to ensure agent inference never leaks workspace data to unauthorized model providers.
+- **seccomp syscall filtering** — Blocks dangerous syscalls (raw sockets, ptrace, etc.) at the kernel level. Prevents the agent from bypassing the proxy with raw network access.
+- **Drop-in agent compatibility** — Run any agent unmodified inside the sandbox. No SDK integration needed.
+
+**What changes vs. Option C (OpenSandbox):**
+
+| Factor | OpenSandbox (Option C) | OpenShell (Option D) |
+|--------|----------------------|---------------------|
+| Migration scope | Rewrite `electron/container/` for Docker | Same rewrite + OpenShell gateway integration |
+| Security coverage | Network egress only | Filesystem + network + process + inference |
+| Policy model | JSON rules (simple) | YAML + OPA/Rego (powerful, complex) |
+| Agent integration | SDK calls (create sandbox, exec) | CLI-driven (create sandbox, run agent) |
+| Credential handling | Manual (mount or env vars) | Managed provider system |
+| Enterprise support | Alibaba-backed | NVIDIA + Cisco, CrowdStrike, TrendAI |
+| Complexity | Moderate | Higher (OPA, gateway, provider system) |
+
+**Effort estimate:** Similar to Option C (~15-20 file rewrite of `electron/container/`), but with additional integration work for the OpenShell gateway and policy system. Offset by not needing to build custom filesystem restrictions, credential isolation, or audit logging — OpenShell provides these out of the box.
+
+**Trade-offs:**
+- **Pro:** Most comprehensive security coverage of any option. Four enforcement domains vs. one.
+- **Pro:** Enterprise credibility — NVIDIA + Cisco/CrowdStrike/TrendAI partnerships signal long-term investment
+- **Pro:** Drop-in agent compatibility — no SDK changes needed in Sero's agent layer
+- **Pro:** Credential isolation eliminates an entire class of exfiltration attacks
+- **Con:** Alpha maturity — "expect rough edges." Single-player mode only (fine for Sero's use case)
+- **Con:** Heavier runtime — K3s-in-Docker is more overhead than OpenSandbox's simpler Docker model
+- **Con:** OPA/Rego policies are powerful but have a learning curve
+- **Con:** Currently recommends NVIDIA GPU hardware (but is documented as "hardware agnostic")
+- **Con:** Same Docker Desktop licensing consideration as Option C
+
+**Verdict:** If Sero is going to do a Docker migration anyway (for cross-platform), OpenShell is the better sandbox to build on. It addresses all four security gaps, not just network egress.
+
+### 6.5 Option E: Run OpenSandbox Egress Sidecar in a Linux VM — POSSIBLE BUT COMPLEX
 
 If Sero wanted to use the actual OpenSandbox egress sidecar binary without a full Docker migration:
 
@@ -264,11 +426,11 @@ If Sero wanted to use the actual OpenSandbox egress sidecar binary without a ful
 2. Route container traffic through the sidecar
 3. Manage policies via the sidecar's HTTP API
 
-This is technically possible but adds operational complexity (VM management, port forwarding, binary distribution) for marginal benefit over Option B's proxy-level filtering.
+This is technically possible but adds operational complexity for marginal benefit over Option B's proxy-level filtering. **Superseded by Option D (OpenShell) which covers more domains.**
 
 ---
 
-## 6. Relationship to Outstanding Hardening Items
+## 7. Relationship to Outstanding Hardening Items
 
 Several items in [outstanding-hardening.md](./outstanding-hardening.md) overlap with or are addressed by this proposal:
 
@@ -282,7 +444,7 @@ Several items in [outstanding-hardening.md](./outstanding-hardening.md) overlap 
 
 ---
 
-## 7. Recommended Implementation Roadmap
+## 8. Recommended Implementation Roadmap
 
 ### Priority 1: Proxy Domain Filtering (Closes primary exfil channel)
 
@@ -316,23 +478,27 @@ Several items in [outstanding-hardening.md](./outstanding-hardening.md) overlap 
 
 ---
 
-## 8. What OpenSandbox Teaches Us (Design Principles)
+## 9. What These Platforms Teach Us (Design Principles)
 
-Even without adopting the platform, OpenSandbox's architecture validates several principles Sero should adopt:
+Even without adopting either platform wholesale, their architectures validate key principles Sero should adopt:
 
-1. **Default-deny networking:** The most effective defense against exfiltration. Sero's current default-allow proxy is the biggest gap.
+1. **Default-deny networking:** The most effective defense against exfiltration. Sero's current default-allow proxy is the biggest gap. (Both platforms)
 
-2. **Policy as data, not code:** Egress rules should be declarative JSON, not hardcoded. Makes them auditable, user-configurable, and dynamically updatable.
+2. **Policy as data, not code:** Egress rules should be declarative (JSON/YAML), not hardcoded. Makes them auditable, user-configurable, and dynamically updatable. (Both platforms)
 
-3. **Defense at the network layer, not the prompt layer:** System prompt instructions are trivially bypassed by prompt injection. Network-level controls cannot be circumvented by the LLM.
+3. **Defense at the kernel layer, not the prompt layer:** System prompt instructions are trivially bypassed by prompt injection. Kernel-enforced filesystem (Landlock) and syscall (seccomp) controls cannot be circumvented by the LLM. (OpenShell)
 
-4. **Layered filtering:** DNS + IP + application-level — each catches what the others miss.
+4. **Binary-level attribution:** Knowing *which program* is making a request (not just the domain) enables much finer-grained policies. (OpenShell)
 
-5. **Per-sandbox policies:** Different workspaces have different legitimate network needs. One-size-fits-all is either too permissive or too restrictive.
+5. **Credential isolation:** Secrets should never touch the sandbox filesystem. Inject at runtime, manage centrally. (OpenShell)
+
+6. **Layered filtering:** DNS + IP + application-level + filesystem + syscall — each catches what the others miss. (Both platforms, OpenShell more comprehensive)
+
+7. **Per-sandbox policies:** Different workspaces have different legitimate network needs. One-size-fits-all is either too permissive or too restrictive. (Both platforms)
 
 ---
 
-## 9. Strategic Decision: Docker Migration vs. Native Hardening
+## 10. Strategic Decision: Docker Migration vs. Native Hardening
 
 This proposal surfaces a **fork-in-the-road architectural decision**:
 
@@ -341,31 +507,52 @@ This proposal surfaces a **fork-in-the-road architectural decision**:
 - Proxy filtering closes the primary exfiltration channel immediately
 - Keeps native macOS performance and tight integration
 - Limits Sero to macOS indefinitely
-- Security maintenance is on us (custom proxy filtering code)
+- Security maintenance is on us (custom proxy filtering + filesystem restrictions)
 
-**Path B — Migrate to Docker + OpenSandbox (Option C):**
+**Path B — Migrate to Docker + OpenShell (Option D):**
 - Significant upfront effort (weeks of `electron/container/` rewrite)
-- Gets the full OpenSandbox security stack (gVisor, egress sidecar, resource limits)
+- Gets comprehensive four-domain security (filesystem, network, process, inference)
 - Enables cross-platform (Linux, Windows)
-- Community-maintained security updates
+- Community-maintained security updates from NVIDIA + enterprise partners
 - Docker Desktop licensing considerations for commercial use
+- Alpha maturity — but so is Sero
 
-**Recommended approach:** **Do both, sequentially.** Implement proxy-level egress filtering now (Option B, Phase 1) to close the immediate security gap. Evaluate Docker migration as a separate, longer-term initiative driven by both security and cross-platform needs. The proxy filtering code is ~100-200 lines and low-risk to implement; if a Docker migration happens later, the egress policy data model (JSON rules) carries over directly to OpenSandbox's policy format.
+**Path C — Migrate to Docker + OpenSandbox (Option C):**
+- Same migration effort as Path B
+- Weaker security coverage (network egress only, no filesystem/process/credential isolation)
+- Simpler architecture (no OPA, no gateway)
+- Less enterprise backing
+
+**Recommended approach:** **Do both, sequentially.** Implement proxy-level egress filtering now (Option B, Phase 1) to close the immediate security gap. If cross-platform becomes a priority (open-source adoption, Windows support), evaluate Docker + OpenShell as the migration path — it addresses all four security domains and has stronger enterprise momentum. The proxy filtering code is ~100-200 lines and low-risk; the egress policy data model carries forward to either platform.
+
+**If the cross-platform decision is made, prefer OpenShell over OpenSandbox.** OpenShell's four-domain policy model means Sero would not need to build custom filesystem restrictions, credential isolation, or audit logging — these come built-in. The total integration work is comparable, but the security outcome is significantly stronger.
 
 ---
 
-## 10. Conclusion
+## 11. Conclusion
 
-**OpenSandbox's full platform is not a fit for Sero** — it targets Linux Docker/K8s environments, duplicates Sero's existing container infrastructure, and lacks a TypeScript SDK. However, its **egress control architecture is directly applicable** and addresses Sero's most critical security gap.
+**Neither platform is a drop-in fit for Sero today** — both require Docker, which means a migration from Apple Containers. However, both validate that Sero's current security model has critical gaps, and both provide proven architectures for closing them.
 
-The highest-impact, lowest-effort change is adding **domain-based egress filtering to the existing `ContainerHttpProxy`** — roughly 100-200 lines of TypeScript that would block the primary data exfiltration channel exploitable via prompt injection. This can be followed by browser URL validation, filesystem path restrictions, and audit logging for comprehensive defense-in-depth.
+**Short-term (now):** Add domain-based egress filtering to the existing `ContainerHttpProxy` — ~100-200 lines of TypeScript to block the primary data exfiltration channel. This is independent of the Docker decision and closes Sero's most exploitable gap immediately.
 
-The key insight from OpenSandbox: **network-level controls are the only reliable defense against prompt injection exfiltration**, because they cannot be bypassed by manipulating the LLM. System prompt instructions, secret redaction, and tool-level guardrails are all valuable but fundamentally soft — the network layer is the hard boundary.
+**Long-term (if cross-platform):** Migrate to Docker + OpenShell. OpenShell's four-domain policy model (filesystem via Landlock, network via binary-attributed proxy, process via seccomp, inference via routing) provides comprehensive defense-in-depth that would take months to build natively. The NVIDIA/Cisco/CrowdStrike ecosystem gives confidence in long-term maintenance and enterprise adoption.
+
+**The key insight from both platforms:** Kernel-level and network-level controls are the only reliable defense against prompt injection exfiltration. System prompt instructions, secret redaction, and tool-level guardrails are valuable but fundamentally soft — the kernel is the hard boundary. An agent tricked by prompt injection cannot `Landlock_restrict_self()` its way out of a Landlock policy, and it cannot raw-socket its way around a seccomp filter that blocks `socket(AF_INET, SOCK_RAW, ...)`.
 
 ---
 
 ## Sources
 
+### OpenShell (NVIDIA)
+- [OpenShell GitHub Repository](https://github.com/NVIDIA/OpenShell)
+- [OpenShell Architecture (GitHub)](https://github.com/NVIDIA/OpenShell/tree/925160e84891c28ee9c5337461aa875bbba38e23/architecture)
+- [NVIDIA OpenShell Documentation](https://docs.nvidia.com/openshell/latest/)
+- [OpenShell Architecture Docs](https://docs.nvidia.com/openshell/latest/about/architecture.html)
+- [Run Autonomous Agents More Safely with OpenShell — NVIDIA Blog](https://developer.nvidia.com/blog/run-autonomous-self-evolving-agents-more-safely-with-nvidia-openshell/)
+- [Securing Agents with NVIDIA OpenShell and Cisco AI Defense — Cisco Blog](https://blogs.cisco.com/ai/securing-enterprise-agents-with-nvidia-and-cisco-ai-defense)
+- [Securing Autonomous AI Agents with TrendAI & OpenShell — Trend Micro](https://www.trendmicro.com/en_us/research/26/c/securing-autonomous-ai-agents-with-trendai-and-nvidia-openshell.html)
+
+### OpenSandbox (Alibaba)
 - [OpenSandbox GitHub Repository](https://github.com/alibaba/OpenSandbox)
 - [OpenSandbox Egress Sidecar Documentation](https://github.com/alibaba/OpenSandbox/blob/main/components/egress/README.md)
 - [OpenSandbox Architecture Documentation](https://github.com/alibaba/OpenSandbox/blob/eb98c8fd0284195a705a2035d18492abbc996c23/docs/architecture.md)
