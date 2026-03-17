@@ -1,13 +1,19 @@
-# OpenSandbox Security Analysis for Sero
+# OpenSandbox Security Discovery & Proposal for Sero
 
 **Date:** 2026-03-17
+**Status:** Discovery / Proposal
 **Subject:** Technical analysis of Alibaba's [OpenSandbox](https://github.com/alibaba/OpenSandbox) for hardening Sero against prompt injection data exfiltration
+**Related:** [outstanding-hardening.md](./outstanding-hardening.md), [hardening-plan.md](./hardening-plan.md)
 
 ---
 
 ## 1. Executive Summary
 
 Sero already has strong container isolation via Apple Containers, but has **critical gaps in network egress control and runtime tool enforcement** that leave it vulnerable to prompt injection attacks that exfiltrate private data. OpenSandbox's egress sidecar and network policy system directly address the most exploitable gap — **unrestricted outbound network access** — but adopting the full platform would be architecturally inappropriate for Sero. Instead, **selectively adopting OpenSandbox's egress control pattern** (or its actual egress sidecar component) is the highest-value, most feasible approach.
+
+**Key finding:** OpenSandbox cannot prevent prompt injection itself — no sandbox can. It is a **blast radius reducer** that limits what a compromised agent can do. The critical takeaway for Sero is that **network-level controls are the only reliable defense against data exfiltration via prompt injection**, because they operate below the LLM layer and cannot be circumvented by manipulating the model.
+
+**Industry context:** The OWASP Top 10 for LLM Applications (2025) ranks prompt injection #1, with it appearing in over 73% of production AI deployments assessed during security audits. The OWASP AI Agent Security Top 10 (2026) lists untrusted code execution as the primary risk. OpenSandbox gained 3,845 GitHub stars in its first two days (March 2026), trending #5 globally — signaling strong industry demand for this category of tooling.
 
 ---
 
@@ -208,9 +214,51 @@ Restrict the agent's file access to the workspace directory and explicitly mount
 - Block access to sensitive paths (`/etc/shadow`, `~/.ssh`, etc.) unless explicitly permitted
 - This is independent of OpenSandbox but addresses the same threat
 
-### 5.3 Option C: Run OpenSandbox Egress Sidecar in a Linux VM — POSSIBLE BUT COMPLEX
+### 5.3 Option C: Migrate to Docker + Full OpenSandbox — VIABLE, MAJOR EFFORT
 
-If Sero wanted to use the actual OpenSandbox egress sidecar binary:
+If Sero switched from Apple Containers to Docker Desktop for macOS, the full OpenSandbox platform becomes directly usable:
+
+**What this enables:**
+- **Full egress sidecar** with DNS + nftables filtering (runs natively in Linux Docker containers)
+- **gVisor runtime** via Docker's `--runtime=runsc` flag — stronger syscall-level isolation than standard containers
+- **execd daemon** — could replace Sero's custom tool execution layer
+- **OpenSandbox lifecycle API** — standardized create/destroy/exec, potentially simplifying `electron/container/`
+- **Cross-platform portability** — Docker runs on macOS, Linux, and Windows, removing the Apple Container lock-in
+
+**What changes:**
+| Component | Current (Apple Containers) | After (Docker + OpenSandbox) |
+|-----------|---------------------------|------------------------------|
+| Container runtime | `/usr/local/bin/container` (macOS-only) | Docker Desktop / `docker` CLI |
+| Isolation level | Process-level (Apple framework) | Container (Docker) + optional gVisor/Firecracker |
+| Network control | Custom HTTP proxy, no filtering | OpenSandbox egress sidecar (DNS + nftables) |
+| Tool execution | Custom `container exec` wrappers | OpenSandbox `execd` + Sero tool layer |
+| Terminal (PTY) | `container exec -it` via node-pty | `docker exec -it` via node-pty |
+| File mounts | `-v host:container` on `container run` | `-v host:container` on `docker run` |
+| SSH forwarding | `--ssh` flag on `container run` | Docker's `--mount type=ssh` or agent forwarding |
+| Startup time | Native (fast) | Docker Desktop VM overhead (~1-3s cold start) |
+
+**Effort estimate:** This is a significant migration — roughly a rewrite of `electron/container/` (~15-20 files). Key work:
+1. Replace all `container` CLI calls with `docker` CLI or Docker Engine API
+2. Integrate OpenSandbox server as a sidecar or host service
+3. Adapt lifecycle management (container creation, destruction, health checks)
+4. Migrate terminal PTY handling from `container exec -it` to `docker exec -it`
+5. Port file watcher, bind mounts, and env injection
+6. Handle Docker Desktop licensing (free for personal/small business, paid for enterprise)
+7. Validate node-pty rebuild works with Docker exec
+
+**Trade-offs:**
+- **Pro:** Full OpenSandbox ecosystem, gVisor, cross-platform, community-maintained security updates
+- **Pro:** Docker is the industry standard — more tooling, docs, hiring familiarity
+- **Con:** Docker Desktop requires a Linux VM on macOS (Hypervisor.framework) — adds memory/CPU overhead
+- **Con:** Docker Desktop licensing: free for <$10M revenue / <250 employees, otherwise $24/user/month
+- **Con:** Loses Apple Container's native macOS integration (tighter Virtualization.framework integration, no VM overhead)
+- **Con:** Migration risk — `electron/container/` is load-bearing infrastructure; bugs here break all agent functionality
+
+**Verdict:** Viable and worth considering as a longer-term strategic move, especially if cross-platform support becomes a priority. However, the immediate security gap (network egress) can be closed much faster with Option B (proxy filtering), and a Docker migration could follow independently.
+
+### 5.4 Option D: Run OpenSandbox Egress Sidecar in a Linux VM — POSSIBLE BUT COMPLEX
+
+If Sero wanted to use the actual OpenSandbox egress sidecar binary without a full Docker migration:
 
 1. Run it in a lightweight Linux VM (Apple Containers can run Linux)
 2. Route container traffic through the sidecar
@@ -220,7 +268,21 @@ This is technically possible but adds operational complexity (VM management, por
 
 ---
 
-## 6. Recommended Implementation Roadmap
+## 6. Relationship to Outstanding Hardening Items
+
+Several items in [outstanding-hardening.md](./outstanding-hardening.md) overlap with or are addressed by this proposal:
+
+| Outstanding Item | Overlap | Notes |
+|-----------------|---------|-------|
+| F-03: Per-workspace gateway access control | **Complementary** | Gateway scoping controls who can access a workspace; egress policies control what the agent can reach. Both needed. |
+| F-10: Shell command concatenation | **Independent** | Defense-in-depth inside the container. Still needed regardless of egress controls. |
+| Structured audit log (F-18) | **Directly relevant** | Audit logging of tool calls and network requests is Priority 3 in this proposal's roadmap. |
+| IPC input validation with Zod | **Independent** | Protects against renderer-side attacks, not agent-side exfiltration. |
+| Extension sandboxing | **Complementary** | Extensions in the renderer are a separate attack surface from agent tool execution. |
+
+---
+
+## 7. Recommended Implementation Roadmap
 
 ### Priority 1: Proxy Domain Filtering (Closes primary exfil channel)
 
@@ -254,7 +316,7 @@ This is technically possible but adds operational complexity (VM management, por
 
 ---
 
-## 7. What OpenSandbox Teaches Us (Design Principles)
+## 8. What OpenSandbox Teaches Us (Design Principles)
 
 Even without adopting the platform, OpenSandbox's architecture validates several principles Sero should adopt:
 
@@ -270,7 +332,29 @@ Even without adopting the platform, OpenSandbox's architecture validates several
 
 ---
 
-## 8. Conclusion
+## 9. Strategic Decision: Docker Migration vs. Native Hardening
+
+This proposal surfaces a **fork-in-the-road architectural decision**:
+
+**Path A — Harden current Apple Containers (Option B):**
+- Fast to implement (days, not weeks)
+- Proxy filtering closes the primary exfiltration channel immediately
+- Keeps native macOS performance and tight integration
+- Limits Sero to macOS indefinitely
+- Security maintenance is on us (custom proxy filtering code)
+
+**Path B — Migrate to Docker + OpenSandbox (Option C):**
+- Significant upfront effort (weeks of `electron/container/` rewrite)
+- Gets the full OpenSandbox security stack (gVisor, egress sidecar, resource limits)
+- Enables cross-platform (Linux, Windows)
+- Community-maintained security updates
+- Docker Desktop licensing considerations for commercial use
+
+**Recommended approach:** **Do both, sequentially.** Implement proxy-level egress filtering now (Option B, Phase 1) to close the immediate security gap. Evaluate Docker migration as a separate, longer-term initiative driven by both security and cross-platform needs. The proxy filtering code is ~100-200 lines and low-risk to implement; if a Docker migration happens later, the egress policy data model (JSON rules) carries over directly to OpenSandbox's policy format.
+
+---
+
+## 10. Conclusion
 
 **OpenSandbox's full platform is not a fit for Sero** — it targets Linux Docker/K8s environments, duplicates Sero's existing container infrastructure, and lacks a TypeScript SDK. However, its **egress control architecture is directly applicable** and addresses Sero's most critical security gap.
 
@@ -290,3 +374,7 @@ The key insight from OpenSandbox: **network-level controls are the only reliable
 - [NVIDIA: Practical Security for Sandboxing Agentic Workflows](https://developer.nvidia.com/blog/practical-security-guidance-for-sandboxing-agentic-workflows-and-managing-execution-risk/)
 - [Google Cloud: Securing AI Agents in Production](https://cloud.google.com/blog/topics/developers-practitioners/agent-factory-recap-securing-ai-agents-in-production)
 - [How to Sandbox AI Agents in 2026 — Northflank](https://northflank.com/blog/how-to-sandbox-ai-agents)
+- [OWASP LLM Prompt Injection Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html)
+- [OpenSandbox Overview — open-sandbox.ai](https://open-sandbox.ai/)
+- [5 Code Sandboxes for Your AI Agents — KDnuggets](https://www.kdnuggets.com/5-code-sandbox-for-your-ai-agents)
+- [Securing AI Agents: The Essential Guide — Nightfall AI](https://www.nightfall.ai/ai-security-101/securing-ai-agents)
