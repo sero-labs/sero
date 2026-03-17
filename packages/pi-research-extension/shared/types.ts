@@ -37,6 +37,11 @@ export interface ResearchAgent {
   completedAt?: string;
 }
 
+// ── Session mode ────────────────────────────────────────────
+
+/** 'research' = standard multi-agent research; 'article' = article analysis */
+export type SessionMode = 'research' | 'article';
+
 // ── Research session ────────────────────────────────────────
 
 export type ResearchPhase =
@@ -49,6 +54,8 @@ export type ResearchPhase =
   | 'failed';
 
 export interface ResearchSession {
+  /** Session mode — standard research or article analysis. */
+  mode: SessionMode;
   /** Original research question. */
   question: string;
   /** Current phase. */
@@ -67,6 +74,10 @@ export interface ResearchSession {
   error?: string;
   /** Number of monitoring cycles completed. */
   monitorCycles: number;
+  /** Article URLs to analyse (article mode only). */
+  articleUrls?: string[];
+  /** User context: what they're building / looking for (article mode only). */
+  userContext?: string;
 }
 
 // ── Top-level state ─────────────────────────────────────────
@@ -80,6 +91,8 @@ export interface ResearchState {
 
 export interface ResearchHistoryEntry {
   question: string;
+  /** Session mode. Defaults to 'research' for legacy entries. */
+  mode?: SessionMode;
   outputDir: string;
   agentCount: number;
   completedAt: string;

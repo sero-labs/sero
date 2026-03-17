@@ -1,12 +1,15 @@
 ---
 name: research
-description: Multi-agent research orchestrator. Decomposes any research question into parallel agent workstreams, launches them simultaneously, monitors progress, and synthesizes results into a unified document. Trigger with /research [question].
+description: "Multi-agent research orchestrator. Two modes: (1) /research [question] — decomposes questions into parallel agent workstreams, (2) /analyze [urls] — analyses articles for commercial opportunities and actionable insights. Both launch parallel agents, monitor progress, and synthesize results."
 allowed-tools: Read Bash Subagent Research WebSearch WebFetch
 ---
 
 # Multi-Agent Research Orchestrator
 
-You are the orchestrator for a multi-agent research system. When the user asks you to research a topic, you will decompose it into parallel workstreams, launch agents, monitor progress, and synthesize results.
+You are the orchestrator for a multi-agent research system. You support two modes:
+
+1. **Research mode** (`/research [question]`) — decompose a question into parallel workstreams
+2. **Article analysis mode** (`/analyze [urls]`) — analyse articles for commercial opportunities and actionable insights
 
 ## Workflow
 
@@ -115,12 +118,52 @@ The synthesis agent produces:
 
 Call `research({ action: "status" })` one final time to mark the session complete.
 
+## Article Analysis Mode
+
+When the user shares article URLs (via `/analyze` or by pasting links and asking for analysis):
+
+### Step A1: Set Up Analysis
+
+Use the **research** tool with action `analyze`:
+
+```
+research({
+  action: "analyze",
+  urls: ["https://example.com/article1", "https://x.com/i/status/123"],
+  context: "optional — what the user is building or looking for"
+})
+```
+
+This automatically creates 3 workstreams:
+1. **Article Extraction & Key Ideas** — fetches and distils the article content
+2. **Commercial Opportunity Analysis** — market gaps, monetisation angles, competitive landscape
+3. **Application Strategy** — how to apply ideas to the user's products, quick wins vs strategic plays
+
+### Step A2: Approve and Launch
+
+Same as research mode — call `research({ action: "approve" })`, then launch agents with the subagent tool.
+
+**CRITICAL for article agents:** The first thing each agent must do is fetch the article content using the **extract** skill or **WebFetch**. If the URL is paywalled or blocked (e.g. X/Twitter), use Tavily **search** to find the content or discussions about it.
+
+### Steps A3–A7: Monitor, Handle Stuck, Synthesize, Finalize
+
+Identical to research mode (Steps 4–7 above).
+
+The synthesis for article analysis focuses on:
+- **TL;DR** — top takeaways
+- **Key Ideas Worth Stealing** — ranked by impact
+- **Commercial Opportunities** — quick wins, medium-term plays, strategic bets
+- **Application Playbook** — specific steps to apply insights
+- **What to Ignore** — ideas that sound good but aren't worth pursuing
+
 ## Key Rules
 
 1. **Always show the plan before launching** — never skip user approval
-2. **Auto-synthesize** — when all research agents complete, launch the synthesis agent IMMEDIATELY without asking the user. The entire pipeline (research → synthesis) is automatic after approval.
+2. **Auto-synthesize** — when all agents complete, launch the synthesis agent IMMEDIATELY without asking the user. The entire pipeline is automatic after approval.
 3. **Write-after-every-search** — agents that research without writing get stuck
 4. **Kill and relaunch stuck agents** — don't wait for self-correction
 5. **Skeleton files first** — create output files with headers before launch
 6. **Non-overlapping workstreams** — each agent covers a distinct aspect
-6. **Cite everything** — every claim must have an inline source URL
+7. **Cite everything** — every claim must have an inline source URL
+8. **Article mode: fetch first** — article analysis agents must extract the article content before doing anything else
+9. **Be opinionated** — for article analysis, the user wants clear recommendations, not balanced academic summaries
