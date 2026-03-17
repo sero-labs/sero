@@ -101,3 +101,5 @@ export function HealthApp() {
     </div>
   );
 }
+
+export default HealthApp;
