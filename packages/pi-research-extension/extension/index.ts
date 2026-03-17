@@ -17,7 +17,7 @@ import { Type } from '@sinclair/typebox';
 
 import type { ResearchState, ResearchSession, ResearchAgent, ResearchPhase } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
-import { resolveStatePath, readState, writeState, countLines, readFile, writeSkeletonFile } from './state-io';
+import { resolveStatePath, readState, writeState, countLines, readFile, writeSkeletonFile, reconcileState } from './state-io';
 import {
   buildSkeletonFile, buildAgentSystemPrompt, buildAgentTaskPrompt, buildSynthesisPrompt,
   buildArticleAnalysisAgents, buildArticleAgentSystemPrompt, buildArticleSynthesisPrompt,
@@ -449,14 +449,30 @@ export default function researchExtension(pi: ExtensionAPI): void {
     }
   });
 
-  // ── Event: restore state on session start ──────────────────
+  // ── Event: reconcile persisted state on session start ──────
+  //
+  // When the app restarts, subagents from the previous run are gone but the
+  // state file may still say phase='researching' with agents 'running'.
+  // reconcileState checks the actual output files on disk and finalizes any
+  // sessions that are already done, or marks interrupted agents as failed.
+
+  async function reconcileOnStart(ctx?: { cwd?: string }): Promise<void> {
+    ensureStatePath(ctx);
+    if (!statePath || !workspaceCwd) return;
+
+    const state = await readState(statePath);
+    const changed = await reconcileState(state, workspaceCwd);
+    if (changed) {
+      await syncState(state);
+    }
+  }
 
   pi.on('session_start', async (_event, ctx) => {
-    ensureStatePath(ctx);
+    await reconcileOnStart(ctx);
   });
 
   pi.on('session_switch', async (_event, ctx) => {
-    ensureStatePath(ctx);
+    await reconcileOnStart(ctx);
   });
 
   // ── Commands ─────────────────────────────────────────────────
