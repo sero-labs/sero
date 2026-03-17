@@ -1,4 +1,3 @@
-import { startTransition } from 'react';
 import { create } from 'zustand';
 import type { SeroAppManifest } from '@/types/ipc';
 import { persistLayout } from '@/lib/persist-layout';
@@ -66,7 +65,7 @@ interface AppState {
 
   // Active app
   activeApp: string;
-  /** Non-null while transitioning to a new app (lazy module loading). */
+  /** The app currently being preloaded before activation. */
   pendingApp: string | null;
   setActiveApp: (app: string) => void;
 
@@ -136,6 +135,15 @@ export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEn
   return [...builtins, ...favourites];
 }
 
+export function getPriorityPreloadApps(
+  manifests: SeroAppManifest[],
+  activeApp: string,
+  favouriteApps: string[],
+): SeroAppManifest[] {
+  const priorityIds = new Set([activeApp, ...favouriteApps]);
+  return manifests.filter((manifest) => manifest.component && priorityIds.has(manifest.id));
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   // App registry — starts with built-ins
   apps: [...BUILTIN_APPS],
@@ -196,21 +204,35 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Active app (hydrated from layout file on startup)
   activeApp: 'coding',
-  /**
-   * ID of the app we're transitioning to. Non-null while a lazy module
-   * is still loading — used by ActiveApp to show a pending opacity hint.
-   * Set eagerly (outside the transition) so the UI can react immediately.
-   */
-  pendingApp: null as string | null,
+  pendingApp: null,
   setActiveApp: (app) => {
-    if (app === get().activeApp) return;
-    // Set pendingApp eagerly so the UI can show a loading hint
-    set({ pendingApp: app });
-    // Wrap the actual switch in startTransition so React keeps the
-    // previous app visible while a non-preloaded lazy module resolves.
-    startTransition(() => {
+    const { activeApp, pendingApp, apps } = get();
+    if (app === activeApp) {
+      if (pendingApp) set({ pendingApp: null });
+      return;
+    }
+    if (app === pendingApp) return;
+
+    const entry = apps.find((candidate) => candidate.id === app);
+    const manifest = entry?.manifest;
+
+    const activate = () => {
+      if (get().pendingApp !== app) return;
       set({ activeApp: app, pendingApp: null });
-    });
+      persistLayout({ activeApp: app });
+    };
+
+    if (manifest?.component) {
+      set({ pendingApp: app });
+      void preloadFederatedModule(manifest.id, manifest.component, manifest.devPort)
+        .catch((err) => {
+          console.warn(`[app-store] Failed to preload ${manifest.id}:`, err);
+        })
+        .finally(activate);
+      return;
+    }
+
+    set({ activeApp: app, pendingApp: null });
     persistLayout({ activeApp: app });
   },
 
@@ -290,10 +312,7 @@ export async function discoverAndRegisterApps(): Promise<void> {
     // Only preload the active app + favourites — not all 20+ apps.
     // Other apps load on-demand inside a React transition (no flicker).
     const { activeApp, favouriteApps } = useAppStore.getState();
-    const priorityIds = new Set([activeApp, ...favouriteApps]);
-    const priorityApps = manifests.filter(
-      (m) => m.component && priorityIds.has(m.id),
-    );
+    const priorityApps = getPriorityPreloadApps(manifests, activeApp, favouriteApps);
 
     if (priorityApps.length > 0) {
       const PRELOAD_TIMEOUT_MS = 5000;

@@ -10,12 +10,9 @@ import { TitleBar } from '@/components/layout/TitleBar';
 import { MainSidebar } from '@/components/layout/MainSidebar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { ChatPanel } from '@/components/layout/ChatPanel';
-import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
-import { SeroAppMount } from '@/components/apps/SeroAppMount';
-import { useAppStore, discoverAndRegisterApps, listenForNewApps, loadLayout } from '@/stores/app';
+import { useAppStore, listenForNewApps } from '@/stores/app';
 import { listenForSystemThemeChanges } from '@/stores/theme';
 import { useProfileStore, loadProfiles } from '@/stores/profiles';
-import { loadWorkspaces } from '@/stores/workspace';
 import { ProfileSetup } from '@/components/profiles/ProfileSetup';
 import { OnboardingWizard } from '@/components/profiles/OnboardingWizard';
 import { subscribeDevServerEvents } from '@/stores/dev-server';
@@ -24,6 +21,8 @@ import { useSessionAgent } from '@/hooks/useSessionAgent';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { CommandMenu } from '@/components/layout/CommandMenu';
 import { initAppControlBridge } from '@/lib/app-control-bridge';
+import { hydrateShellState } from '@/lib/app-startup';
+import { ActiveAppPanel } from '@/components/apps/ActiveAppPanel';
 
 /**
  * App shell.
@@ -44,6 +43,7 @@ import { initAppControlBridge } from '@/lib/app-control-bridge';
  * it persists across all apps.
  */
 export function App() {
+  const activeApp = useAppStore((s) => s.activeApp);
   const mainSidebarOpen = useAppStore((s) => s.mainSidebarOpen);
   const setMainSidebarOpen = useAppStore((s) => s.setMainSidebarOpen);
   const chatPanelOpen = useAppStore((s) => s.chatPanelOpen);
@@ -91,12 +91,10 @@ export function App() {
     chatPanelDefaultRef.current = s.chatPanelOpen ? `${s.chatPanelSizePct}%` : 0;
   }
 
-  // Load profiles + layout + discover apps + workspaces on startup
+  // Load profiles + hydrate app/workspace state on startup
   useEffect(() => {
-    loadProfiles();
-    loadLayout();
-    loadWorkspaces();
-    discoverAndRegisterApps();
+    void loadProfiles();
+    void hydrateShellState();
     const unsub = listenForNewApps();
     const unsubTheme = listenForSystemThemeChanges();
     return () => { unsub(); unsubTheme(); };
@@ -259,7 +257,7 @@ export function App() {
             />
 
             <ResizablePanel id="active-app-panel" minSize={40} className="min-w-0 flex flex-col">
-              <ActiveApp />
+              <ActiveAppPanel app={activeApp} />
             </ResizablePanel>
 
             <ResizableHandle
@@ -287,47 +285,5 @@ export function App() {
         <StatusBar />
       </div>
     </TooltipProvider>
-  );
-}
-
-/**
- * Renders the currently active app — built-in or federated.
- *
- * `setActiveApp` wraps the state update in `startTransition`, so React
- * keeps showing the previous app while a non-preloaded lazy module
- * resolves. The store's `pendingApp` field is set eagerly (outside the
- * transition) to drive the opacity hint while loading.
- */
-function ActiveApp() {
-  const activeApp = useAppStore((s) => s.activeApp);
-  const pendingApp = useAppStore((s) => s.pendingApp);
-  const apps = useAppStore((s) => s.apps);
-  const entry = apps.find((a) => a.id === activeApp);
-
-  let content: React.ReactNode;
-
-  if (activeApp === 'coding') {
-    content = <CodingWorkspace />;
-  } else if (entry?.manifest) {
-    // Discovered sero app — mount via module federation
-    content = <SeroAppMount manifest={entry.manifest} />;
-  } else {
-    content = (
-      <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
-        <span className="text-sm capitalize text-[var(--text-muted)]">
-          {activeApp} app — coming soon
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      data-app-panel
-      className="flex min-h-0 min-w-[500px] flex-1 flex-col overflow-hidden transition-opacity duration-150"
-      style={{ opacity: pendingApp ? 0.7 : 1 }}
-    >
-      {content}
-    </div>
   );
 }

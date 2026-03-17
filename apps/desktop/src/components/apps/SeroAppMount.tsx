@@ -26,6 +26,7 @@ interface SeroAppMountProps {
 
 export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const workspacesReady = useWorkspaceStore((s) => s.workspacesReady);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const effectiveMode = useThemeStore((s) => s.effectiveMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);
@@ -69,15 +70,18 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
     [manifest.id, activeWorkspaceId, stateFilePath, workspacePath, promptAgent, effectiveMode, activePresetId],
   );
 
+  // Workspace-scoped apps need an active workspace; global apps don't
+  if (!isGlobal && !workspacesReady) {
+    return <AppLoading name={manifest.name} />;
+  }
+  if (!isGlobal && !workspacePath) {
+    return <AppPlaceholder name={manifest.name} reason="No workspace selected" />;
+  }
+
   const LazyComponent = getFederatedComponent(manifest.id, manifest.component, manifest.devPort);
 
   if (!LazyComponent) {
     return <AppPlaceholder name={manifest.name} reason="No UI module registered" />;
-  }
-
-  // Workspace-scoped apps need an active workspace; global apps don't
-  if (!isGlobal && !workspacePath) {
-    return <AppPlaceholder name={manifest.name} reason="No workspace selected" />;
   }
 
   return (

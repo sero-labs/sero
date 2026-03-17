@@ -223,8 +223,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
 /**
  * Load the workspace list from the main process.
- * Called once from App.tsx during startup — ensures workspaces are ready
- * before the UI renders (prevents "No workspace selected" flash).
+ * Called once from App.tsx during startup. Workspace-scoped apps read
+ * `workspacesReady` so they can stay in a loading state until this finishes.
  */
 export async function loadWorkspaces(): Promise<void> {
   return useWorkspaceStore.getState().loadWorkspaces();
