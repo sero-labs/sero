@@ -572,6 +572,11 @@ export default MyApp;
 
 **Key patterns in the UI:**
 
+- **Both named and default exports are required.** The component must have
+  `export function MyApp()` AND `export default MyApp` at the bottom of the
+  file. The host uses `React.lazy()` with `loadRemote<{ default: ComponentType }>()`,
+  which requires a default export. Without it you'll get:
+  `lazy: Expected the result of a dynamic import() call`.
 - Import `Button`, `Card`, and other components from `@sero/ui/components/ui/*`
   instead of writing raw HTML elements with custom classes.
 - Import `cn` from `@sero/ui/lib/utils` for conditional class name merging.
@@ -1248,6 +1253,11 @@ const cellSize = Math.floor((height - overhead) / ROWS);
   with both MF sharing and the `globalThis` singleton pattern.
 - Each remote runs its own Vite dev server on a unique port declared via
   `devPort` in `package.json`.
+- **The root component MUST have a default export.** The federation registry
+  loads modules via `loadRemote<{ default: React.ComponentType }>()` and
+  wraps them in `React.lazy()`. A named export alone will cause a runtime
+  error (`lazy: Expected the result of a dynamic import() call`). Always
+  add `export default MyApp` at the bottom of the component file.
 - **No host-side edits needed.** The host auto-discovers remotes at build
   time and uses `loadRemote()` at runtime. Adding a new app never requires
   touching `apps/desktop/`.
@@ -1355,6 +1365,12 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
 - You're using fixed pixel sizes. Use a `ResizeObserver` to compute
   dimensions dynamically from the container. See
   [Responsive sizing](#responsive-sizing) in Conventions and Rules.
+
+**`lazy: Expected the result of a dynamic import() call`:**
+- Your root component file is missing `export default MyApp` at the bottom.
+  The host loads federated components via `React.lazy()` which requires a
+  default export. Add both `export function MyApp()` (named) and
+  `export default MyApp` (default) to the component file.
 
 **Module Federation errors in console:**
 - Make sure the remote dev server is running on the correct port.
