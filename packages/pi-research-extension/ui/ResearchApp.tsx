@@ -106,6 +106,12 @@ export function ResearchApp() {
     prompt(`/research ${question}`);
   }, [prompt]);
 
+  const analyzeArticle = useCallback((urls: string[], context: string) => {
+    const urlsPart = urls.join(' ');
+    const contextPart = context ? ` ${context}` : '';
+    prompt(`/analyze ${urlsPart}${contextPart}`);
+  }, [prompt]);
+
   const approveResearch = useCallback(() => {
     prompt(
       'Approve the research plan and begin. Call research(action: "approve") ' +
@@ -121,6 +127,7 @@ export function ResearchApp() {
         ...prev,
         history: [{
           question: prev.current.question,
+          mode: prev.current.mode,
           outputDir: prev.current.outputDir,
           agentCount: prev.current.agents.length,
           completedAt: new Date().toISOString(),
@@ -137,6 +144,7 @@ export function ResearchApp() {
         ...prev,
         history: [{
           question: prev.current.question,
+          mode: prev.current.mode,
           outputDir: prev.current.outputDir,
           agentCount: prev.current.agents.length,
           completedAt: prev.current.completedAt || new Date().toISOString(),
@@ -160,7 +168,7 @@ export function ResearchApp() {
               onDismiss={dismissResearch}
             />
           ) : (
-            <IdleView onStart={startResearch} history={state.history} />
+            <IdleView onStart={startResearch} onAnalyze={analyzeArticle} history={state.history} />
           )}
         </div>
       </div>
@@ -209,7 +217,7 @@ function Header({ session, completed, total, progress }: {
     <div style={{ flexShrink: 0, padding: '20px 20px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 500, letterSpacing: '-0.01em', color: 'var(--rs-text)', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-          Research
+          {session.mode === 'article' ? 'Article Analysis' : 'Research'}
         </h1>
         <PhaseBadge phase={session.phase} />
       </div>

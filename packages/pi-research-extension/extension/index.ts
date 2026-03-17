@@ -18,7 +18,11 @@ import { Type } from '@sinclair/typebox';
 import type { ResearchState, ResearchSession, ResearchAgent, ResearchPhase } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { resolveStatePath, readState, writeState, countLines, readFile, writeSkeletonFile } from './state-io';
-import { buildSkeletonFile, buildAgentSystemPrompt, buildAgentTaskPrompt, buildSynthesisPrompt } from './prompts';
+import {
+  buildSkeletonFile, buildAgentSystemPrompt, buildAgentTaskPrompt, buildSynthesisPrompt,
+  buildArticleAnalysisAgents, buildArticleAgentSystemPrompt, buildArticleSynthesisPrompt,
+} from './prompts';
+import { registerCommands } from './commands';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -32,8 +36,8 @@ const STUCK_THRESHOLD = 2; // unchanged line count for N check-ins → stuck
 // ── Tool parameters ─────────────────────────────────────────────
 
 const ResearchParams = Type.Object({
-  action: StringEnum(['plan', 'approve', 'status', 'cancel'] as const),
-  question: Type.Optional(Type.String({ description: 'Research question (for plan)' })),
+  action: StringEnum(['plan', 'approve', 'status', 'cancel', 'analyze'] as const),
+  question: Type.Optional(Type.String({ description: 'Research question (for plan/analyze)' })),
   agents: Type.Optional(Type.Array(
     Type.Object({
       name: Type.String({ description: 'Agent workstream name' }),
@@ -41,6 +45,8 @@ const ResearchParams = Type.Object({
     }),
     { description: 'Agent definitions (for plan)' },
   )),
+  urls: Type.Optional(Type.Array(Type.String(), { description: 'Article URLs to analyse (for analyze)' })),
+  context: Type.Optional(Type.String({ description: 'User context — what they are building or looking for (for analyze)' })),
 });
 
 // ── Extension ──────────────────────────────────────────────────
@@ -77,6 +83,7 @@ export default function researchExtension(pi: ExtensionAPI): void {
     description:
       'Multi-agent research orchestrator. Actions:\n' +
       '  plan — Decompose a question into research workstreams. Requires `question` and `agents` array.\n' +
+      '  analyze — Analyse article URLs for commercial opportunities. Requires `urls` array, optional `question` and `context`.\n' +
       '  approve — Launch the planned research workstreams.\n' +
       '  status — Check progress of active research.\n' +
       '  cancel — Cancel active research.',
@@ -92,6 +99,8 @@ export default function researchExtension(pi: ExtensionAPI): void {
       switch (params.action) {
         case 'plan':
           return handlePlan(state, params);
+        case 'analyze':
+          return handleAnalyze(state, params);
         case 'approve':
           return handleApprove(state);
         case 'status':
@@ -137,7 +146,73 @@ export default function researchExtension(pi: ExtensionAPI): void {
       return makeResult('Error: provide 2-4 agent workstreams', true);
     }
 
-    // Create sanitized directory name from question
+    const session = buildSession(question, agents, 'research');
+    state.current = session;
+    await syncState(state);
+
+    // Format plan for display
+    const planLines = session.agents.map((a) => {
+      const sectionList = a.sections.map((s) => `  - ${s.title}`).join('\n');
+      return `### Agent ${a.id}: ${a.name}\n${sectionList}`;
+    });
+
+    return makeResult(
+      `## Research Plan: ${question}\n\n` +
+      `${planLines.join('\n\n')}\n\n` +
+      `### Synthesis Agent\n` +
+      `Runs after all agents complete → unified document with cross-cutting insights\n\n` +
+      `Output: ${session.outputDir}/\n\n` +
+      `**Ready to launch ${session.agents.length} research agents.** ` +
+      `Call research(action: "approve") to begin.`,
+    );
+  }
+
+  async function handleAnalyze(
+    state: ResearchState,
+    params: Record<string, unknown>,
+  ) {
+    const urls = params.urls as string[] | undefined;
+    const question = params.question as string | undefined;
+    const userContext = params.context as string | undefined;
+
+    if (!urls?.length) return makeResult('Error: urls array is required for analyze', true);
+
+    // Build a question from the URLs if not provided
+    const resolvedQuestion = question || `Analyse articles for commercial opportunities and actionable insights`;
+    const agents = buildArticleAnalysisAgents(urls);
+    const session = buildSession(resolvedQuestion, agents, 'article');
+    session.articleUrls = urls;
+    if (userContext) session.userContext = userContext;
+
+    state.current = session;
+    await syncState(state);
+
+    const planLines = session.agents.map((a) => {
+      const sectionList = a.sections.map((s) => `  - ${s.title}`).join('\n');
+      return `### Agent ${a.id}: ${a.name}\n${sectionList}`;
+    });
+
+    const urlList = urls.map((u) => `- ${u}`).join('\n');
+
+    return makeResult(
+      `## Article Analysis Plan\n\n` +
+      `**Articles:**\n${urlList}\n\n` +
+      (userContext ? `**Context:** ${userContext}\n\n` : '') +
+      `${planLines.join('\n\n')}\n\n` +
+      `### Synthesis Agent\n` +
+      `Runs after all agents complete → unified strategic recommendations\n\n` +
+      `Output: ${session.outputDir}/\n\n` +
+      `**Ready to launch ${session.agents.length} analysis agents.** ` +
+      `Call research(action: "approve") to begin.`,
+    );
+  }
+
+  /** Shared session builder for both research and article modes. */
+  function buildSession(
+    question: string,
+    agents: Array<{ name: string; sections: string[] }>,
+    mode: 'research' | 'article',
+  ): ResearchSession {
     const dirName = question
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
@@ -145,8 +220,8 @@ export default function researchExtension(pi: ExtensionAPI): void {
       .slice(0, 50);
     const outputDir = path.join(RESEARCH_DIR_BASE, dirName);
 
-    // Build research session
-    const session: ResearchSession = {
+    return {
+      mode,
       question,
       phase: 'awaiting_approval',
       agents: agents.map((a, i) => ({
@@ -162,25 +237,6 @@ export default function researchExtension(pi: ExtensionAPI): void {
       startedAt: new Date().toISOString(),
       monitorCycles: 0,
     };
-
-    state.current = session;
-    await syncState(state);
-
-    // Format plan for display
-    const planLines = session.agents.map((a) => {
-      const sectionList = a.sections.map((s) => `  - ${s.title}`).join('\n');
-      return `### Agent ${a.id}: ${a.name}\n${sectionList}`;
-    });
-
-    return makeResult(
-      `## Research Plan: ${question}\n\n` +
-      `${planLines.join('\n\n')}\n\n` +
-      `### Synthesis Agent\n` +
-      `Runs after all agents complete → unified document with cross-cutting insights\n\n` +
-      `Output: ${outputDir}/\n\n` +
-      `**Ready to launch ${session.agents.length} research agents.** ` +
-      `Call research(action: "approve") to begin.`,
-    );
   }
 
   async function handleApprove(state: ResearchState) {
@@ -308,6 +364,7 @@ export default function researchExtension(pi: ExtensionAPI): void {
     // Move to history
     state.history.unshift({
       question: session.question,
+      mode: session.mode,
       outputDir: session.outputDir,
       agentCount: session.agents.length,
       completedAt: new Date().toISOString(),
@@ -321,9 +378,12 @@ export default function researchExtension(pi: ExtensionAPI): void {
   // ── Helper: build subagent launch instructions ─────────────
 
   function buildLaunchInstructions(session: ResearchSession): string {
+    const isArticle = session.mode === 'article';
     const tasks = session.agents.map((agent) => {
       const outputPath = agent.outputFile;
-      const systemPrompt = buildAgentSystemPrompt(agent, session);
+      const systemPrompt = isArticle
+        ? buildArticleAgentSystemPrompt(agent, session)
+        : buildAgentSystemPrompt(agent, session);
       const taskPrompt = buildAgentTaskPrompt(agent, outputPath);
       return `{
   "agent": "researcher",
@@ -379,6 +439,7 @@ export default function researchExtension(pi: ExtensionAPI): void {
 
       state.history.unshift({
         question: session.question,
+        mode: session.mode,
         outputDir: session.outputDir,
         agentCount: session.agents.length,
         completedAt: session.completedAt,
@@ -398,30 +459,9 @@ export default function researchExtension(pi: ExtensionAPI): void {
     ensureStatePath(ctx);
   });
 
-  // ── Command: /research ─────────────────────────────────────
+  // ── Commands ─────────────────────────────────────────────────
 
-  pi.registerCommand('research', {
-    description: 'Start a multi-agent research session on any topic',
-    handler: async (args, _ctx) => {
-      const question = args.trim();
-      if (question) {
-        pi.sendUserMessage(
-          `I want to research: "${question}"\n\n` +
-          `Please decompose this into 2-4 non-overlapping research workstreams. ` +
-          `For each workstream, identify the key sections to cover. ` +
-          `Then use the research tool with action "plan" to create the research plan, ` +
-          `providing the question and an agents array with name and sections for each workstream.`,
-        );
-      } else {
-        pi.sendUserMessage(
-          'I want to start a research session. Use the question tool to ask me what topic ' +
-          'I want to research (do NOT use the interview or questionnaire tool). ' +
-          'Once I provide a topic, decompose it into 2-4 non-overlapping workstreams ' +
-          'using the research tool.',
-        );
-      }
-    },
-  });
+  registerCommands(pi);
 }
 
 // ── Utils ──────────────────────────────────────────────────────
