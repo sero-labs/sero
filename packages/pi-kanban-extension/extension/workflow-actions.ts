@@ -42,6 +42,8 @@ export async function handleStart(
 
   card.column = 'planning';
   card.status = 'agent-working';
+  card.previewServerId = undefined;
+  card.previewUrl = undefined;
   card.updatedAt = new Date().toISOString();
   await writeState(statePath, state);
   return text(`Started #${card.id} "${card.title}" → Planning. Automated analysis will begin shortly.`);
@@ -62,6 +64,8 @@ export async function handleApprove(
 
   card.column = 'in-progress';
   card.status = 'idle';
+  card.previewServerId = undefined;
+  card.previewUrl = undefined;
   card.updatedAt = new Date().toISOString();
   await writeState(statePath, state);
 
@@ -95,6 +99,8 @@ export async function handleComplete(
   card.column = 'done';
   card.status = 'idle';
   card.completedAt = card.completedAt ?? new Date().toISOString();
+  card.previewServerId = undefined;
+  card.previewUrl = undefined;
   card.updatedAt = new Date().toISOString();
   await writeState(statePath, state);
 
@@ -120,6 +126,8 @@ export async function handleRetry(
 
   card.status = 'agent-working';
   card.error = undefined;
+  card.previewServerId = undefined;
+  card.previewUrl = undefined;
   card.updatedAt = new Date().toISOString();
   await writeState(statePath, state);
   return text(`Retrying #${card.id} "${card.title}" in ${COLUMN_LABELS[card.column]}. Orchestrator will pick it up shortly.`);
@@ -154,6 +162,7 @@ export async function handleSettings(
     return text(
       `## Board Settings\n- yoloMode: ${s.yoloMode} (auto-start, auto-approve, auto-complete)\n`
       + `- testingEnabled: ${s.testingEnabled} (TDD and test generation)\n`
+      + `- reviewMode: ${s.reviewMode ?? 'full'} (full or light; light is prototype-only)\n`
       + `- reviewLevel: ${s.reviewLevel} (per-wave or per-subtask)\n`
       + `- autoAdvance: ${s.autoAdvance}\n- maxConcurrentCards: ${s.maxConcurrentCards}`,
     );
@@ -166,8 +175,23 @@ export async function handleSettings(
   }
   if (setting === 'testingEnabled') {
     state.settings.testingEnabled = value === 'true';
+    if (state.settings.testingEnabled) {
+      state.settings.reviewMode = 'full';
+    }
     await writeState(statePath, state);
     return text(`Mode: ${state.settings.testingEnabled ? 'Production (TDD enabled)' : 'Prototype (testing disabled)'}`);
+  }
+  if (setting === 'reviewMode' && (value === 'full' || value === 'light')) {
+    if (value === 'light' && state.settings.testingEnabled) {
+      return text('Light review mode is only available in Prototype mode. Disable testing first.');
+    }
+    state.settings.reviewMode = value;
+    await writeState(statePath, state);
+    return text(
+      value === 'light'
+        ? 'Review mode: Light (compile checks + dev server smoke test only)'
+        : 'Review mode: Full (diff review + reviewer approval)',
+    );
   }
   if (setting === 'reviewLevel' && (value === 'per-wave' || value === 'per-subtask')) {
     state.settings.reviewLevel = value;
@@ -175,7 +199,7 @@ export async function handleSettings(
     return text(`Review level set to: ${value}`);
   }
 
-  return text(`Unknown setting "${setting}". Available: yoloMode, testingEnabled, reviewLevel`);
+  return text(`Unknown setting "${setting}". Available: yoloMode, testingEnabled, reviewMode, reviewLevel`);
 }
 
 // ── Cleanup ──────────────────────────────────────────────────

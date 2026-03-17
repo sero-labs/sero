@@ -19,6 +19,7 @@ const TOOL_ICONS: Record<string, string> = {
   ls: '📁', find: '🔍', grep: '🔎', glob: '🔍',
 };
 const TOOL_LOG_PATTERN = /\s*\S+\s+(\w+):\s*(.+)/;
+const HIDDEN_TOOL_NAMES = new Set(['kanban_mark_subtask_complete']);
 
 function toolIcon(name: string): string {
   return TOOL_ICONS[name] ?? '🔧';
@@ -116,8 +117,8 @@ export function ActivityPanel({
     }
   }, [narrativeEntries.length, latestNarrativeEntry]);
 
-  const hasAgents = (data?.agents?.length ?? 0) > 0;
-  const hasTools = (data?.recentTools?.length ?? 0) > 0;
+  const visibleTools = (data?.recentTools ?? []).filter((entry) => !HIDDEN_TOOL_NAMES.has(entry.tool));
+  const hasTools = visibleTools.length > 0;
   const hasNarrativeEntries = narrativeEntries.length > 0;
   const hasLiveOutput = !!data?.liveOutput?.trim();
 
@@ -159,24 +160,6 @@ export function ActivityPanel({
         )}
       </div>
 
-      {/* Agent status pills */}
-      {hasAgents && (
-        <div
-          className="flex flex-wrap"
-          style={{ padding: '0 14px 10px', gap: '6px' }}
-        >
-          {data!.agents!.map((agent, idx) => (
-            <AgentPill
-              key={`${agent.name}-${idx}`}
-              name={agent.name}
-              status={agent.status}
-              runningBg={theme.agentRunningBg}
-              runningColor={theme.primaryText}
-            />
-          ))}
-        </div>
-      )}
-
       {hasLiveOutput && (
         <PhaseLiveOutputPreview
           source={data?.liveOutputSource}
@@ -198,7 +181,7 @@ export function ActivityPanel({
       {hasTools && (
         <ToolFeed
           feedRef={feedRef}
-          tools={data!.recentTools!}
+          tools={visibleTools}
           activeColor={theme.primary}
           maxHeight={feedMaxHeight}
         />
@@ -211,62 +194,6 @@ export function ActivityPanel({
         </p>
       )}
     </div>
-  );
-}
-
-// ── Agent pill ──────────────────────────────────────────────
-
-function AgentPill({
-  name,
-  status,
-  runningBg,
-  runningColor,
-}: {
-  name: string;
-  status: 'running' | 'completed' | 'failed';
-  runningBg: string;
-  runningColor: string;
-}) {
-  const isRunning = status === 'running';
-  const isDone = status === 'completed';
-  return (
-    <span
-      className="inline-flex items-center"
-      style={{
-        gap: '5px',
-        fontSize: '10px',
-        fontWeight: 500,
-        padding: '3px 8px',
-        borderRadius: '4px',
-        maxWidth: '100%',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        backgroundColor: isRunning
-          ? runningBg
-          : isDone
-            ? 'rgba(52, 211, 153, 0.12)'
-            : 'rgba(248, 113, 113, 0.12)',
-        color: isRunning ? runningColor : isDone ? '#34d399' : '#f87171',
-      }}
-    >
-      {isRunning && (
-        <span
-          style={{
-            display: 'inline-block',
-            width: '5px',
-            height: '5px',
-            borderRadius: '50%',
-            backgroundColor: 'currentColor',
-            animation: 'kb-pulse 2s ease-in-out infinite',
-            flexShrink: 0,
-          }}
-        />
-      )}
-      {isDone && '✓'}
-      {status === 'failed' && '✗'}
-      {name}
-    </span>
   );
 }
 

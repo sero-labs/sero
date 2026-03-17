@@ -36,6 +36,62 @@ const EMPTY_USAGE: SubagentUsage = {
   cost: 0,
 };
 
+export interface ResolvedSubagentPaths {
+  sessionPath: string | null;
+  containerHostPath: string | null;
+  containerCwd?: string;
+}
+
+/**
+ * Resolve the host/session/container paths for a subagent run.
+ *
+ * `cwdOverride` may point at a git worktree inside the workspace. In that
+ * case the agent should still run tools from the worktree, but the container
+ * itself must mount the workspace root so Git can see `.git/worktrees/...`.
+ */
+export function resolveSubagentPaths(
+  workspaceRoot: string | undefined,
+  cwdOverride?: string,
+): ResolvedSubagentPaths {
+  const sessionPath = cwdOverride ?? workspaceRoot ?? null;
+  const containerHostPath = workspaceRoot ?? sessionPath;
+
+  if (!sessionPath) {
+    return {
+      sessionPath: null,
+      containerHostPath: null,
+    };
+  }
+
+  if (!cwdOverride || !workspaceRoot) {
+    return {
+      sessionPath,
+      containerHostPath,
+    };
+  }
+
+  const rel = path.relative(workspaceRoot, cwdOverride);
+  if (!rel || rel === '.') {
+    return {
+      sessionPath,
+      containerHostPath,
+      containerCwd: WORKSPACE_DIR,
+    };
+  }
+  if (rel.startsWith('..')) {
+    return {
+      sessionPath,
+      containerHostPath,
+    };
+  }
+
+  return {
+    sessionPath,
+    containerHostPath,
+    containerCwd: `${WORKSPACE_DIR}/${rel}`,
+  };
+}
+
 export interface RunnerDeps {
   infra: SharedInfra;
   workspaceManager: WorkspaceManager;
@@ -53,8 +109,14 @@ export async function runSubagent(
   const { agent, task, resolved, workspaceId, signal, onProgress, cwdOverride, isolated } = config;
   const { infra, workspaceManager, containerManager } = deps;
 
-  const wsPath = cwdOverride ?? workspaceManager.getPath(workspaceId);
-  if (!wsPath) {
+  const workspaceRoot = workspaceManager.getPath(workspaceId);
+  const {
+    sessionPath,
+    containerHostPath,
+    containerCwd,
+  } = resolveSubagentPaths(workspaceRoot, cwdOverride);
+
+  if (!sessionPath) {
     return { response: '', usage: { ...EMPTY_USAGE }, error: `Workspace '${workspaceId}' not found` };
   }
 
@@ -71,7 +133,11 @@ export async function runSubagent(
   const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
   if (containerEnabled) {
     try {
-      const containerConfig = await buildContainerConfig(workspaceId, wsPath, { isolated });
+      const containerConfig = await buildContainerConfig(
+        workspaceId,
+        containerHostPath ?? sessionPath,
+        { isolated },
+      );
       containerState = await containerManager.ensure(containerConfig);
     } catch (err: unknown) {
       console.warn('[subagent/runner] Container not available, using host tools:', (err as Error)?.message);
@@ -80,27 +146,15 @@ export async function runSubagent(
 
   const useContainer = !!containerState;
 
-  // Translate host cwdOverride to a container path so tools run in the
-  // correct directory (e.g. a git worktree subdirectory, not /workspace).
-  let containerCwd: string | undefined;
-  if (cwdOverride && useContainer) {
-    const workspaceRoot = workspaceManager.getPath(workspaceId);
-    if (workspaceRoot && cwdOverride.startsWith(workspaceRoot)) {
-      const rel = path.relative(workspaceRoot, cwdOverride);
-      if (rel && !rel.startsWith('..')) {
-        containerCwd = `${WORKSPACE_DIR}/${rel}`;
-      }
-    }
-  }
-
   const containerTools = useContainer
     ? createContainerTools(containerManager, workspaceId, subagentSessionId, containerCwd)
     : [];
-  const builtinTools = useContainer ? [] : createCodingTools(wsPath);
+  const customTools = [...containerTools, ...(config.customTools ?? [])];
+  const builtinTools = useContainer ? [] : createCodingTools(sessionPath);
 
   // Build a reduced extension factory for the child session
   const loader = new DefaultResourceLoader({
-    cwd: wsPath,
+    cwd: sessionPath,
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
     extensionFactories: [
@@ -131,14 +185,14 @@ export async function runSubagent(
 
   try {
     const result = await createAgentSession({
-      cwd: wsPath,
+      cwd: sessionPath,
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
       modelRegistry: infra.modelRegistry,
       tools: builtinTools,
-      customTools: containerTools,
+      customTools,
       resourceLoader: loader,
-      sessionManager: SessionManager.inMemory(wsPath),
+      sessionManager: SessionManager.inMemory(sessionPath),
       settingsManager: infra.settingsManager,
       systemPromptSuffix: agent.systemPrompt,
     } as Parameters<typeof createAgentSession>[0]); // systemPromptSuffix is a Sero extension not in the SDK's public type

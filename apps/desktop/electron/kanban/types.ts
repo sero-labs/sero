@@ -13,6 +13,7 @@
 export type Column = 'backlog' | 'planning' | 'in-progress' | 'review' | 'done';
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 export type CardStatus = 'idle' | 'agent-working' | 'waiting-input' | 'paused' | 'failed';
+export type ReviewMode = 'full' | 'light';
 
 export interface Subtask {
   id: string;
@@ -53,8 +54,8 @@ export interface PlanningProgress {
 export interface ImplementationProgress {
   phase: string;
   startedAt: number;
-  currentWave: number;
-  totalWaves: number;
+  currentWave: number; // Optional compatibility field for staged execution UIs
+  totalWaves: number; // Optional compatibility field for staged execution UIs
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];
   log: string[];
@@ -89,6 +90,8 @@ export interface Card {
   plan?: string;
   prUrl?: string;
   prNumber?: number;
+  previewUrl?: string;
+  previewServerId?: string;
   reviewFilePath?: string;
   lastCheckpoint?: string;
   planningProgress?: PlanningProgress;
@@ -109,6 +112,8 @@ export interface KanbanSettings {
   };
   /** Review rigour: 'per-wave' (default) or 'per-subtask' (two-stage) */
   reviewLevel: 'per-wave' | 'per-subtask';
+  /** Review style: full diff review, or light smoke review for prototype work */
+  reviewMode: ReviewMode;
   /** Whether TDD and testing are enabled (default: true). false = POC mode */
   testingEnabled: boolean;
   /** YOLO mode: auto-start, auto-approve, auto-complete — no human gates */

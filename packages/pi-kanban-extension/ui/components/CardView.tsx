@@ -192,6 +192,11 @@ export function CardView({
                 PR #{card.prNumber}
               </span>
             )}
+            {card.previewUrl && (
+              <span className="text-sky-400">
+                Preview live
+              </span>
+            )}
           </div>
         )}
 

@@ -93,6 +93,11 @@ function ServerRow({ server }: { server: DevServer }) {
             {server.name}
           </span>
           <FrameworkBadge framework={server.framework} />
+          {server.scope === 'card-preview' && (
+            <span className="rounded-sm bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300">
+              Preview{server.cardId ? ` #${server.cardId}` : ''}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
           <span>:{server.port}</span>

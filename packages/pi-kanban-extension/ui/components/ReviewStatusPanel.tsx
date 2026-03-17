@@ -14,6 +14,10 @@ export function ReviewStatusPanel({
   onCheckMerge: () => void;
 }) {
   const status = getReviewPrStatus(card);
+  const handleOpenPreview = () => {
+    if (!card.previewUrl) return;
+    window.open(card.previewUrl, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -48,6 +52,44 @@ export function ReviewStatusPanel({
           >
             {card.prUrl}
           </a>
+        )}
+        {card.previewUrl && (
+          <div style={{ marginTop: '10px' }}>
+            <p style={{ fontSize: '11px', color: status.tone.text, lineHeight: 1.4, marginBottom: '6px' }}>
+              Preview the latest branch changes before merging:
+            </p>
+            <button
+              onClick={handleOpenPreview}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: `1px solid ${status.tone.border}`,
+                backgroundColor: 'rgba(129, 140, 248, 0.12)',
+                color: '#818cf8',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginBottom: '6px',
+              }}
+            >
+              Open Preview
+            </button>
+            <div>
+              <a
+                href={card.previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: '11px',
+                  color: '#818cf8',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '2px',
+                }}
+              >
+                {card.previewUrl}
+              </a>
+            </div>
+          </div>
         )}
       </div>
       <button

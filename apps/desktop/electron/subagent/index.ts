@@ -5,6 +5,7 @@
  * Exposes runSingle(), runParallel(), runChain(), and management methods.
  */
 
+import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { randomUUID } from 'crypto';
 import { discoverAgents } from './discovery';
 import { ConcurrencyPool } from './pool';
@@ -45,6 +46,8 @@ interface RunSingleParams {
   cwd?: string;
   /** Restrict to own workspace only — no cross-workspace mounts in container. */
   isolated?: boolean;
+  /** Extra run-scoped tools to expose only for this subagent session. */
+  customTools?: ToolDefinition[];
   onUpdate?: (text: string) => void;
 }
 
@@ -164,6 +167,7 @@ export class SubagentManager {
           mode: 'single', signal: controller.signal,
           cwdOverride: params.cwd,
           isolated: params.isolated,
+          customTools: params.customTools,
           onProgress: (usage) => this.tracker.progress(runId, usage),
           onToolActivity: (name, summary, running) => this.tracker.updateToolActivity(runId, name, summary, running),
           onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),
@@ -256,6 +260,7 @@ export class SubagentManager {
           mode: 'single', signal: controller.signal,
           cwdOverride: params.cwd,
           isolated: params.isolated,
+          customTools: params.customTools,
           onProgress: (usage) => this.tracker.progress(runId, usage),
           onToolActivity: (name, summary, running) => this.tracker.updateToolActivity(runId, name, summary, running),
           onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),

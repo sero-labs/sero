@@ -10,7 +10,7 @@ import { BaseProgressTracker, type WriteCardFn } from './base-progress';
 export class PlanningProgressTracker extends BaseProgressTracker<PlanningProgress> {
   constructor(stateFilePath: string, cardId: string, writeCard: WriteCardFn) {
     super(stateFilePath, cardId, writeCard, {
-      phase: 'Analysing codebase',
+      phase: 'Planning task',
       startedAt: Date.now(),
       agents: [],
       recentTools: [],

@@ -36,6 +36,7 @@ function makeState(cards: Card[]): KanbanState {
       maxConcurrentCards: 3,
       requireApproval: { plan: true, pr: true },
       reviewLevel: 'per-wave',
+      reviewMode: 'full',
       testingEnabled: true,
       yoloMode: false,
     },

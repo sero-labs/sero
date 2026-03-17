@@ -51,7 +51,7 @@ Once you've created the cards using the kanban tool:
 1. Use `kanban start` on the first unblocked card to kick off automated planning
 2. Tell the user you're done — the orchestrator will handle implementation
 3. **STOP** — do NOT write any code, create any files, or implement anything yourself
-4. The kanban orchestrator has automated subagents (analyst, scout, planner, implementer, reviewer) that handle the entire development lifecycle
+4. The kanban orchestrator has automated agents (planner, implementer, reviewer) that handle the full development lifecycle
 5. Your role is board management only — brainstorm, create cards, start them, approve plans
 
 ## Guidelines

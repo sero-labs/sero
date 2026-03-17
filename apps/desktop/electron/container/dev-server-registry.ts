@@ -11,6 +11,7 @@
 import type { DevServer } from '../../src/types/ipc';
 import type { PortScanner } from './port-forward';
 import type { ContainerManager } from './index';
+import { WORKSPACE_DIR } from './tool-schemas';
 
 export type DevServerChangeEvent =
   | { type: 'registered'; server: DevServer }
@@ -25,10 +26,13 @@ export interface RegisterDevServerParams {
   port: number;
   command: string;
   framework?: string;
+  cwd?: string;
+  scope?: DevServer['scope'];
+  cardId?: string;
 }
 
 export class DevServerRegistry {
-  /** All registered servers: key = `${workspaceId}:${port}` */
+  /** All registered servers keyed by scope-aware server ID. */
   private servers = new Map<string, DevServer>();
   private listeners = new Set<ChangeListener>();
   private livenessTimer: ReturnType<typeof setInterval> | null = null;
@@ -59,8 +63,17 @@ export class DevServerRegistry {
    * Returns the created DevServer.
    */
   register(params: RegisterDevServerParams): DevServer {
-    const { workspaceId, name, port, command, framework } = params;
-    const id = `${workspaceId}:${port}`;
+    const {
+      workspaceId,
+      name,
+      port,
+      command,
+      framework,
+      cwd = WORKSPACE_DIR,
+      scope = 'workspace',
+      cardId,
+    } = params;
+    const id = buildServerId(workspaceId, port, scope, cardId);
 
     // Resolve URL from port scanner (uses container IP)
     const detectedPorts = this.portScanner.getPorts(workspaceId);
@@ -76,6 +89,9 @@ export class DevServerRegistry {
       url,
       framework,
       command,
+      cwd,
+      scope,
+      cardId,
       status: detected ? 'running' : 'starting',
       registeredAt: new Date().toISOString(),
     };
@@ -193,8 +209,8 @@ export class DevServerRegistry {
       this.emit({ type: 'status_changed', serverId, status: 'starting' });
 
       const escaped = server.command.replace(/'/g, "'\\''");
-      const bgCmd = `setsid sh -c 'cd /workspace && ${escaped} > /tmp/dev-server-${server.port}.log 2>&1 &'`;
-      await this.containerManager.exec(server.workspaceId, bgCmd);
+      const bgCmd = `setsid sh -c '${escaped} > /tmp/dev-server-${server.port}.log 2>&1 &'`;
+      await this.containerManager.exec(server.workspaceId, bgCmd, server.cwd);
       console.log(`[dev-server] Restarting: ${server.name} (port ${server.port})`);
 
       // Trigger port scan to pick up the new process
@@ -253,4 +269,13 @@ export class DevServerRegistry {
     this.listeners.clear();
     this.servers.clear();
   }
+}
+
+function buildServerId(
+  workspaceId: string,
+  port: number,
+  scope: DevServer['scope'],
+  cardId?: string,
+): string {
+  return `${workspaceId}:${scope}:${cardId ?? 'root'}:${port}`;
 }

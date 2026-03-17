@@ -99,6 +99,8 @@ const CUSTOM_STYLES = `
 export function KanbanApp() {
   const [state, updateState] = useAppState<KanbanState>(DEFAULT_KANBAN_STATE);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const testingEnabled = state.settings.testingEnabled !== false;
+  const reviewMode = state.settings.reviewMode ?? 'full';
 
   // Group cards by column, sorted by priority
   const cardsByColumn = useMemo(() => {
@@ -227,19 +229,44 @@ export function KanbanApp() {
             <button
               onClick={() => updateState((prev) => ({
                 ...prev,
-                settings: { ...prev.settings, testingEnabled: !prev.settings.testingEnabled },
+                settings: {
+                  ...prev.settings,
+                  testingEnabled: !prev.settings.testingEnabled,
+                  reviewMode: prev.settings.testingEnabled ? (prev.settings.reviewMode ?? 'full') : 'full',
+                },
               }))}
               className={`px-2.5 py-1.5 text-[11px] font-medium rounded-md border cursor-pointer
                 transition-colors duration-150
-                ${state.settings.testingEnabled
+                ${testingEnabled
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
                   : 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'}`}
-              title={state.settings.testingEnabled
+              title={testingEnabled
                 ? 'Production mode — TDD and test generation enabled'
                 : 'Prototype mode — testing disabled for fast iteration'}
             >
-              Mode: {state.settings.testingEnabled ? 'Production' : 'Prototype'}
+              Mode: {testingEnabled ? 'Production' : 'Prototype'}
             </button>
+            {!testingEnabled && (
+              <button
+                onClick={() => updateState((prev) => ({
+                  ...prev,
+                  settings: {
+                    ...prev.settings,
+                    reviewMode: (prev.settings.reviewMode ?? 'full') === 'light' ? 'full' : 'light',
+                  },
+                }))}
+                className={`px-2.5 py-1.5 text-[11px] font-medium rounded-md border cursor-pointer
+                  transition-colors duration-150
+                  ${reviewMode === 'light'
+                    ? 'bg-sky-500/10 text-sky-300 border-sky-500/30 hover:bg-sky-500/20'
+                    : 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20 hover:bg-zinc-500/15'}`}
+                title={reviewMode === 'light'
+                  ? 'Light review mode — compile/build checks plus dev server smoke start to get the app in front of users faster.'
+                  : 'Full review mode — keep the normal reviewer-driven diff pass even in Prototype mode.'}
+              >
+                Review: {reviewMode === 'light' ? 'Light' : 'Full'}
+              </button>
+            )}
             <button
               onClick={handleBrainstorm}
               className="px-3 py-1.5 text-xs font-medium rounded-md

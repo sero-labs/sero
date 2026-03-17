@@ -8,6 +8,7 @@
 export type Column = 'backlog' | 'planning' | 'in-progress' | 'review' | 'done';
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 export type CardStatus = 'idle' | 'agent-working' | 'waiting-input' | 'paused' | 'failed';
+export type ReviewMode = 'full' | 'light';
 
 export interface Subtask {
   id: string;
@@ -36,7 +37,7 @@ export interface PlanningToolEntry {
 }
 
 export interface PlanningProgress {
-  phase: string;               // e.g. 'Analysing codebase', 'Generating plan'
+  phase: string;               // e.g. 'Planning task', 'Inspecting codebase and drafting plan'
   startedAt: number;           // Epoch ms
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];  // Last ~15 tool calls
@@ -46,10 +47,10 @@ export interface PlanningProgress {
 }
 
 export interface ImplementationProgress {
-  phase: string;               // e.g. 'Wave 2/4'
+  phase: string;               // e.g. 'Implementing plan', 'Verifying implementation'
   startedAt: number;           // Epoch ms
-  currentWave: number;         // Current wave index (1-based)
-  totalWaves: number;          // Total number of execution waves
+  currentWave: number;         // Optional compatibility field for staged execution UIs
+  totalWaves: number;          // Optional compatibility field for staged execution UIs
   agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
   recentTools: PlanningToolEntry[];  // Last ~15 tool calls
   log: string[];               // Recent onUpdate lines (last ~20)
@@ -84,6 +85,8 @@ export interface Card {
   plan?: string; // Planning agent's proposed approach
   prUrl?: string; // Pull request URL
   prNumber?: number;
+  previewUrl?: string; // Review preview URL for the card worktree
+  previewServerId?: string; // Host-managed preview server ID
   reviewFilePath?: string; // Cached review JSON (avoids re-running expensive reviewer)
   lastCheckpoint?: string; // Latest VCS checkpoint ID
   planningProgress?: PlanningProgress; // Live progress during planning phase
@@ -104,6 +107,8 @@ export interface KanbanSettings {
   };
   /** Review rigour: 'per-wave' (default) or 'per-subtask' (two-stage) */
   reviewLevel: 'per-wave' | 'per-subtask';
+  /** Review style: full diff review, or light smoke review for prototype work */
+  reviewMode: ReviewMode;
   /** Whether TDD and testing are enabled (default: true). false = POC mode */
   testingEnabled: boolean;
   /** YOLO mode: auto-start, auto-approve, auto-complete — no human gates */
@@ -144,6 +149,7 @@ export const DEFAULT_KANBAN_STATE: KanbanState = {
       pr: true,
     },
     reviewLevel: 'per-wave',
+    reviewMode: 'full',
     testingEnabled: true,
     yoloMode: false,
   },

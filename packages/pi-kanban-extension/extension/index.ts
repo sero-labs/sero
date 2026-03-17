@@ -34,7 +34,7 @@ const KanbanParams = Type.Object({
   description: Type.Optional(Type.String({ description: 'Card description' })),
   blockedBy: Type.Optional(Type.Array(Type.String(), { description: 'IDs of cards that must be done before this card can start' })),
   acceptance: Type.Optional(Type.Array(Type.String(), { description: 'Acceptance criteria' })),
-  setting: Type.Optional(Type.String({ description: 'Setting name for settings action (testingEnabled, reviewLevel)' })),
+  setting: Type.Optional(Type.String({ description: 'Setting name for settings action (testingEnabled, reviewMode, reviewLevel)' })),
   value: Type.Optional(Type.String({ description: 'Setting value for settings action' })),
 });
 
@@ -154,6 +154,10 @@ export default function (pi: ExtensionAPI) {
           card.column = toCol;
           card.status = 'idle';
           card.error = undefined;
+          if (toCol !== 'review') {
+            card.previewServerId = undefined;
+            card.previewUrl = undefined;
+          }
           if (toCol === 'backlog') {
             card.completedAt = undefined;
             card.planningProgress = undefined;

@@ -7,7 +7,16 @@
  * Extracted from orchestrator.ts for file size compliance.
  */
 
-import type { Card } from './types';
+import type { Card, ReviewMode } from './types';
+export { buildSpecReviewPrompt, buildQualityReviewPrompt } from './prompt-review-specialized';
+export {
+  buildImplementationPrompt,
+  buildSubtaskPrompt,
+} from './prompt-implementation';
+export type {
+  ImplementationPromptOptions,
+  SubtaskPromptOptions,
+} from './prompt-implementation';
 
 // ── Planning Prompts ─────────────────────────────────────────
 
@@ -36,7 +45,7 @@ export interface PlanGenerationOptions {
 
 export function buildSubtaskGenerationPrompt(
   card: Card,
-  analysisResults: string,
+  planningContext: string,
   options?: PlanGenerationOptions,
 ): string {
   const testingEnabled = options?.testingEnabled !== false;
@@ -48,19 +57,19 @@ export function buildSubtaskGenerationPrompt(
 - Include a dedicated test-writing subtask when the feature has testable logic`
     : `- Set tddDesignation to "no-test" for all subtasks (testing is disabled for this workspace)`;
 
-  return `Based on the following codebase analysis, create a detailed implementation plan with subtasks for this card:
+  return `Create a detailed implementation plan with subtasks for this card.
 
 # Card: ${card.title}
 ${card.description ? `\nDescription: ${card.description}` : ''}
 ${card.acceptance.length > 0 ? `\nAcceptance Criteria:\n${card.acceptance.map((a) => `- ${a}`).join('\n')}` : ''}
 
-# Codebase Analysis
-${analysisResults}
+# Planning Context
+${planningContext}
 
 # Instructions
-Generate a structured implementation plan. Output ONLY a JSON object with this exact shape:
+Generate a structured implementation plan. When it is ready, call the \`kanban_submit_plan\` tool once with this exact shape:
 
-\`\`\`json
+\`\`\`
 {
   "plan": "A 2-4 paragraph description of the implementation approach",
   "subtasks": [
@@ -77,6 +86,10 @@ Generate a structured implementation plan. Output ONLY a JSON object with this e
 }
 \`\`\`
 
+The tool submission is the authoritative result.
+Do not return the final plan as raw JSON in normal text after calling the tool.
+If this is an existing project, do your own codebase inspection before finalising the plan instead of assuming the context block is exhaustive.
+
 Rules for subtasks:
 - 2-8 subtasks is ideal, each scoped to 15-30 minutes of agent work
 - Each subtask should be independently implementable where possible
@@ -88,67 +101,13 @@ ${tddBlock}
 - Keep descriptions concise but specific`;
 }
 
-// ── Implementation Prompts ───────────────────────────────────
-
-export interface SubtaskPromptOptions {
-  testingEnabled?: boolean;
-}
-
-export function buildSubtaskPrompt(
-  card: Card,
-  subtaskId: string,
-  options?: SubtaskPromptOptions,
-): string {
-  const subtask = card.subtasks.find((s) => s.id === subtaskId);
-  if (!subtask) throw new Error(`Subtask ${subtaskId} not found on card #${card.id}`);
-
-  const testingEnabled = options?.testingEnabled !== false;
-
-  const completedSubtasks = card.subtasks
-    .filter((s) => s.status === 'completed')
-    .map((s) => {
-      const files = s.filePaths?.length ? ` (files: ${s.filePaths.join(', ')})` : '';
-      return `- ✅ ${s.title}: ${s.description}${files}`;
-    })
-    .join('\n');
-
-  const tddBlock = testingEnabled && subtask.tddDesignation && subtask.tddDesignation !== 'no-test'
-    ? `\n## Testing Approach: ${subtask.tddDesignation}\n${subtask.tddDesignation === 'tdd'
-      ? 'Write a failing test first, then implement to make it pass.'
-      : 'Implement first, then write tests covering the core logic.'}\n`
-    : testingEnabled ? '' : '\nNote: Testing is disabled for this workspace — do not write tests.\n';
-
-  const filePathsBlock = subtask.filePaths?.length
-    ? `\nExpected file paths: ${subtask.filePaths.join(', ')}\n`
-    : '';
-
-  return `You are implementing a specific subtask as part of a larger feature.
-
-# Overall Feature: ${card.title}
-${card.description ? `\n${card.description}\n` : ''}
-## Implementation Plan
-${card.plan ?? '(no plan provided)'}
-
-## Your Subtask
-**${subtask.title}**
-${subtask.description}
-${filePathsBlock}${tddBlock}
-${completedSubtasks ? `## Already Completed\n${completedSubtasks}\n` : ''}
-## Instructions
-- Focus ONLY on this subtask — do not implement other subtasks
-- Write clean, well-typed code following existing project conventions
-- Create or modify files as needed for this subtask
-- If a scaffolder/init tool refuses to run because the worktree directory is not empty, treat that as expected for git worktrees: scaffold in a temporary directory and describe it as a normal workaround, not as a failure
-- Do not run the dev server or start any long-running processes
-- When done, provide a brief summary of what you implemented`;
-}
-
 // ── Review Prompts ───────────────────────────────────────────
 
 const DIFF_PATCH_LIMIT = 32_000;
 
 export interface ReviewPromptOptions {
   testingEnabled?: boolean;
+  reviewMode?: ReviewMode;
 }
 
 export function buildReviewPrompt(
@@ -163,6 +122,9 @@ export function buildReviewPrompt(
 
   const testNote = options?.testingEnabled === false
     ? '\nNote: Testing is disabled for this workspace — do not flag missing test coverage.\n'
+    : '';
+  const lightModeNote = options?.reviewMode === 'light'
+    ? '\nLight prototype mode is active. Keep the review narrow: focus on obvious blockers to user testing, compile/startup failures, or fundamentally broken behavior. Do not comb through every file for polish, and do not use browser automation.\n'
     : '';
 
   const subtaskSummary = card.subtasks.length > 0
@@ -181,7 +143,7 @@ ${fileSummary || '(no files changed)'}
 
 # Diff
 ${patch || '(no diff available)'}
-${testNote}
+${testNote}${lightModeNote}
 Categorise each issue as Critical (blocks merge), Important (should fix but doesn't block), or Minor (nice-to-have).
 Provide an explicit verdict: "merge" (ready), "fix-first" (has critical issues), or "reject" (fundamentally wrong approach).
 
@@ -191,9 +153,9 @@ PR FORMAT — this is a FEATURE PR, not a review report:
 
 Do NOT use browser automation to test interactive/real-time features (games, animations, etc.) — it is too slow. Note them for manual testing instead.
 
-Return ONLY valid JSON with this exact shape:
+When the review is complete, call the \`kanban_submit_review\` tool with this exact shape:
 
-\`\`\`json
+\`\`\`
 {
   "approved": false,
   "summary": "Short overall assessment",
@@ -217,13 +179,20 @@ Rules:
 - Set "approved" to false for "fix-first" or "reject"
 - Use "critical" only for merge-blocking issues
 - If there are no issues, return an empty categorizedIssues array
-- Do not wrap the JSON in prose or markdown commentary`;
+- The tool submission is the authoritative result
+- Do not emit the final review as raw JSON in normal text after calling the tool`;
+}
+
+export interface ReviewRevisionPromptOptions {
+  testingEnabled?: boolean;
+  reviewMode?: ReviewMode;
 }
 
 export function buildReviewRevisionPrompt(
   card: Card,
   criticalIssues: ReviewIssue[],
   summary?: string,
+  options?: ReviewRevisionPromptOptions,
 ): string {
   const issueBlock = criticalIssues.map((issue, index) => {
     const location = issue.file
@@ -232,6 +201,12 @@ export function buildReviewRevisionPrompt(
     const suggestion = issue.suggestion ? `\n  Suggested fix: ${issue.suggestion}` : '';
     return `${index + 1}. ${issue.description}${location}${suggestion}`;
   }).join('\n');
+  const testingNote = options?.testingEnabled === false
+    ? '\nTesting is disabled for this workspace — do not add broad new test coverage in this pass unless a listed issue explicitly requires it.\n'
+    : '';
+  const lightModeNote = options?.reviewMode === 'light'
+    ? '\nLight prototype mode is active. Make the smallest change that restores a working prototype. Avoid broad retesting and do NOT use browser automation unless the issue explicitly requires a narrow smoke check.\n'
+    : '';
 
   return `You are fixing merge-blocking review feedback for an existing feature branch.
 
@@ -242,6 +217,7 @@ ${summary ? `\nReview Summary:\n${summary}` : ''}
 
 ## Critical Issues To Fix
 ${issueBlock}
+${testingNote}${lightModeNote}
 
 ## Instructions
 - Fix ONLY the critical issues listed above in this pass
@@ -444,48 +420,4 @@ export function parsePlanResult(raw: string): PlanResult {
   } catch {
     return { plan: raw.slice(0, 2000), subtasks: [], warnings: ['Failed to parse planner JSON output'] };
   }
-}
-
-// ── Spec & Quality Review Prompts ────────────────────────────
-
-export function buildSpecReviewPrompt(card: Card, subtaskId: string, diff: string): string {
-  const subtask = card.subtasks.find((s) => s.id === subtaskId);
-  if (!subtask) throw new Error(`Subtask ${subtaskId} not found on card #${card.id}`);
-
-  const patch = diff.length > DIFF_PATCH_LIMIT
-    ? `${diff.slice(0, DIFF_PATCH_LIMIT)}\n\n...[truncated]`
-    : diff;
-
-  return `Compare this implementation against the subtask specification:
-
-# Subtask: ${subtask.title}
-${subtask.description}
-${subtask.filePaths?.length ? `\nExpected files: ${subtask.filePaths.join(', ')}` : ''}
-
-# Parent Card: ${card.title}
-${card.acceptance.length > 0 ? `Acceptance Criteria:\n${card.acceptance.map((a) => `- ${a}`).join('\n')}` : ''}
-
-# Implementation Diff
-${patch || '(no diff)'}
-
-Review for spec compliance. Output valid JSON as specified in your instructions.`;
-}
-
-export function buildQualityReviewPrompt(card: Card, diff: string, fileSummary: string): string {
-  const patch = diff.length > DIFF_PATCH_LIMIT
-    ? `${diff.slice(0, DIFF_PATCH_LIMIT)}\n\n...[truncated]`
-    : diff;
-
-  return `Review this implementation for code quality:
-
-# Card: ${card.title}
-${card.description ? `\nDescription: ${card.description}` : ''}
-
-# Changed Files
-${fileSummary || '(no files changed)'}
-
-# Implementation Diff
-${patch || '(no diff)'}
-
-Review for code quality concerns. Output valid JSON as specified in your instructions.`;
 }

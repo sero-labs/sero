@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  buildImplementationPrompt,
   parsePlanResult,
   parseReviewResult,
   buildSubtaskPrompt,
@@ -12,6 +13,8 @@ import {
   buildReviewRevisionPrompt,
   buildSpecReviewPrompt,
 } from '../../kanban/prompts';
+import { buildConflictResolutionPrompt } from '../../kanban/prompt-conflict-resolution';
+import { buildLightReviewRepairPrompt } from '../../kanban/prompt-light-review-repair';
 import type { Card } from '../../kanban/types';
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -226,6 +229,93 @@ describe('buildSubtaskPrompt', () => {
     const prompt = buildSubtaskPrompt(card, '1', { testingEnabled: false });
     expect(prompt).toContain('disabled');
   });
+
+  it('uses lighter evaluation guidance in light review mode', () => {
+    const card = makeCard({
+      subtasks: [
+        { id: '1', title: 'Prototype UI', description: 'Ship the prototype quickly', status: 'pending', dependsOn: [] },
+      ],
+    });
+    const prompt = buildSubtaskPrompt(card, '1', { testingEnabled: false, reviewMode: 'light' });
+    expect(prompt).toContain('working prototype');
+    expect(prompt).toContain('Do NOT use browser automation');
+    expect(prompt).toContain('minimum evaluation');
+  });
+});
+
+// ── buildImplementationPrompt ───────────────────────────────
+
+describe('buildImplementationPrompt', () => {
+  it('frames subtasks as one cohesive implementation pass', () => {
+    const prompt = buildImplementationPrompt(makeCard());
+    expect(prompt).toContain('one cohesive pass');
+    expect(prompt).toContain('NOT separate agent assignments');
+    expect(prompt).toContain('Use the subtasks to structure your work');
+    expect(prompt).toContain('kanban_mark_subtask_complete');
+    expect(prompt).toContain('Do not simulate progress by printing marker text');
+    expect(prompt).toContain('before you start the next planned subtask');
+    expect(prompt).toContain('Delayed or end-of-run batching is incorrect');
+  });
+
+  it('uses lighter guidance for prototype delivery mode', () => {
+    const prompt = buildImplementationPrompt(makeCard(), {
+      testingEnabled: false,
+      reviewMode: 'light',
+    });
+
+    expect(prompt).toContain('working prototype');
+    expect(prompt).toContain('Do NOT use browser automation');
+    expect(prompt).toContain('Testing is disabled');
+  });
+});
+
+describe('buildConflictResolutionPrompt', () => {
+  it('describes the rebase context and conflicted files', () => {
+    const prompt = buildConflictResolutionPrompt(
+      makeCard(),
+      'main',
+      ['src/App.tsx', 'src/index.css'],
+    );
+    expect(prompt).toContain('rebased onto the latest `main`');
+    expect(prompt).toContain('src/App.tsx');
+    expect(prompt).toContain('src/index.css');
+    expect(prompt).toContain('Do not run `git rebase`');
+  });
+
+  it('keeps prototype conflict resolution lightweight in light mode', () => {
+    const prompt = buildConflictResolutionPrompt(
+      makeCard(),
+      'main',
+      ['src/App.tsx'],
+      { reviewMode: 'light' },
+    );
+    expect(prompt).toContain('Light prototype mode is active');
+    expect(prompt).toContain('Do NOT do broad browser automation');
+    expect(prompt).toContain('smallest safe edit');
+  });
+});
+
+describe('buildLightReviewRepairPrompt', () => {
+  it('focuses the implementer on the reported smoke failure', () => {
+    const prompt = buildLightReviewRepairPrompt(
+      makeCard(),
+      'Light review compile check failed:\ntsconfig error here',
+    );
+    expect(prompt).toContain('Light review compile check failed');
+    expect(prompt).toContain('Fix only the issue(s) needed');
+    expect(prompt).toContain('Do not run `git commit`');
+  });
+
+  it('keeps repair guidance narrow in light mode', () => {
+    const prompt = buildLightReviewRepairPrompt(
+      makeCard(),
+      'Dev server smoke check failed',
+      { reviewMode: 'light' },
+    );
+    expect(prompt).toContain('Prototype light mode is active');
+    expect(prompt).toContain('smallest safe change');
+    expect(prompt).toContain('Do NOT do browser automation');
+  });
 });
 
 // ── buildSubtaskGenerationPrompt ─────────────────────────────
@@ -236,6 +326,8 @@ describe('buildSubtaskGenerationPrompt', () => {
     const prompt = buildSubtaskGenerationPrompt(card, 'analysis...', { testingEnabled: true });
     expect(prompt).toContain('tddDesignation');
     expect(prompt).toContain('tdd');
+    expect(prompt).toContain('kanban_submit_plan');
+    expect(prompt).toContain('If this is an existing project');
   });
 
   it('disables TDD when testing is off', () => {
@@ -243,6 +335,7 @@ describe('buildSubtaskGenerationPrompt', () => {
     const prompt = buildSubtaskGenerationPrompt(card, 'analysis...', { testingEnabled: false });
     expect(prompt).toContain('no-test');
     expect(prompt).toContain('disabled');
+    expect(prompt).toContain('Do not return the final plan as raw JSON');
   });
 });
 
@@ -263,11 +356,19 @@ describe('buildReviewPrompt', () => {
     expect(prompt).toContain('do not flag missing test coverage');
   });
 
-  it('includes the explicit review JSON schema', () => {
+  it('narrows the review scope in light review mode', () => {
+    const card = makeCard();
+    const prompt = buildReviewPrompt(card, 'diff', 'files', { reviewMode: 'light' });
+    expect(prompt).toContain('Keep the review narrow');
+    expect(prompt).toContain('do not use browser automation');
+  });
+
+  it('includes the structured review tool schema', () => {
     const card = makeCard();
     const prompt = buildReviewPrompt(card, 'diff', 'files');
     expect(prompt).toContain('"categorizedIssues"');
-    expect(prompt).toContain('Return ONLY valid JSON with this exact shape');
+    expect(prompt).toContain('kanban_submit_review');
+    expect(prompt).toContain('authoritative result');
   });
 
   it('truncates long diffs', () => {
@@ -276,6 +377,12 @@ describe('buildReviewPrompt', () => {
     const prompt = buildReviewPrompt(card, longDiff, 'files');
     expect(prompt).toContain('truncated');
     expect(prompt.length).toBeLessThan(50000);
+  });
+
+  it('tells the reviewer not to emit raw JSON after tool submission', () => {
+    const card = makeCard();
+    const prompt = buildReviewPrompt(card, 'diff', 'files');
+    expect(prompt).toContain('Do not emit the final review as raw JSON');
   });
 });
 
@@ -296,6 +403,17 @@ describe('buildReviewRevisionPrompt', () => {
     expect(prompt).toContain('Import is missing');
     expect(prompt).toContain('src/App.tsx:3');
     expect(prompt).toContain('Fix ONLY the critical issues listed above');
+  });
+
+  it('keeps revision guidance minimal in light review mode', () => {
+    const card = makeCard({ column: 'review' });
+    const prompt = buildReviewRevisionPrompt(card, [
+      { description: 'Fix startup crash', severity: 'critical' },
+    ], 'Reviewer found one blocking issue.', { testingEnabled: false, reviewMode: 'light' });
+
+    expect(prompt).toContain('smallest change');
+    expect(prompt).toContain('do NOT use browser automation');
+    expect(prompt).toContain('Testing is disabled');
   });
 });
 

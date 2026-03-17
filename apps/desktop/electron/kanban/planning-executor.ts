@@ -1,11 +1,9 @@
 /**
  * PlanningExecutor — runs the planning phase subagents for a kanban card.
  *
- * Two modes:
- * - **Existing project**: analyst + scout reconnaissance (parallel),
- *   then planner generates subtask breakdown.
- * - **Greenfield project**: skips reconnaissance (nothing to analyse),
- *   planner builds from card description alone.
+ * Uses a single planner session for both existing and greenfield projects.
+ * The planner inspects the codebase directly when needed and returns a
+ * structured subtask breakdown for the card.
  *
  * Extracted from orchestrator.ts for file size compliance.
  */
@@ -18,6 +16,10 @@ import {
   parsePlanResult,
 } from './prompts';
 import type { PlanGenerationOptions } from './prompts';
+import {
+  createPlanningSubmissionTool,
+  type PlanningSubmission,
+} from './planning-submission-tool';
 import { bridgeSubagentLiveOutput } from './live-output-bridge';
 import type { SubagentManager } from '../subagent/index';
 
@@ -31,7 +33,7 @@ export interface PlanningExecutorDeps {
  * Run the full planning pipeline.
  *
  * @param greenfield — true if the workspace had no git repo / no commits.
- *   Skips the analyst/scout phase and tells the planner to build from scratch.
+ *   Tells the planner to build from scratch instead of inspecting an existing repo.
  */
 export async function executePlanning(
   deps: PlanningExecutorDeps,
@@ -41,7 +43,6 @@ export async function executePlanning(
 ): Promise<{ plan: string; subtasks: Card['subtasks'] }> {
   const { subagentManager, workspaceId } = deps;
   const parentSessionId = `kanban-card-${card.id}`;
-  const taskDescription = buildPlanningPrompt(card);
   const detachLiveOutput = bridgeSubagentLiveOutput(
     subagentManager,
     workspaceId,
@@ -50,39 +51,42 @@ export async function executePlanning(
   );
 
   try {
-    let reconResult: string;
-
-    if (greenfield) {
-      // Greenfield: no codebase to analyse — provide context directly
-      reconResult = buildGreenfieldContext(card);
-      tracker.setPhase('Planning new project');
-      tracker.addAgent('planner');
-      await tracker.flush();
-    } else {
-      // Existing project: parallel reconnaissance
-      reconResult = await runReconnaissance(
-        deps, parentSessionId, taskDescription, tracker,
-      );
-
-      tracker.setPhase('Generating plan');
-      tracker.addAgent('planner');
-      await tracker.flush();
-    }
+    const planningContext = greenfield
+      ? buildGreenfieldContext(card)
+      : buildExistingProjectContext(card);
+    tracker.setPhase(greenfield ? 'Planning new project' : 'Inspecting codebase and drafting plan');
+    tracker.addAgent('planner');
+    await tracker.flush();
 
     // Plan generation — uses the planner agent template (packages/templates/agents/planner.md)
-    const planResult = await subagentManager.runSingle({
+    let submittedPlan: PlanningSubmission | null = null;
+    const planResult = await subagentManager.runSingleStructured({
       agent: 'planner',
-      task: buildSubtaskGenerationPrompt(card, reconResult, deps.planOptions),
+      task: buildSubtaskGenerationPrompt(card, planningContext, deps.planOptions),
       parentSessionId,
       workspaceId,
       isolated: true,
+      customTools: [
+        createPlanningSubmissionTool({
+          submitPlan: async (submission) => {
+            const outcome = submittedPlan ? 'updated' : 'recorded';
+            submittedPlan = submission;
+            return outcome;
+          },
+        }),
+      ],
       onUpdate: (text) => tracker.addLogLine(text),
     });
+    if (planResult.error) {
+      tracker.completeAgent('planner', 'failed');
+      await tracker.flush();
+      throw new Error(`Planner failed: ${planResult.error}`);
+    }
 
     tracker.completeAgent('planner');
     await tracker.flush();
 
-    const parsed = parsePlanResult(planResult);
+    const parsed = submittedPlan ?? parsePlanResult(planResult.response);
     if (parsed.warnings.length > 0) {
       console.warn(`[planning-executor] Plan warnings: ${parsed.warnings.join('; ')}`);
     }
@@ -92,45 +96,27 @@ export async function executePlanning(
   }
 }
 
-// ── Reconnaissance (existing projects only) ──────────────────
-
-async function runReconnaissance(
-  deps: PlanningExecutorDeps,
-  parentSessionId: string,
-  taskDescription: string,
-  tracker: PlanningProgressTracker,
-): Promise<string> {
-  const { subagentManager, workspaceId } = deps;
-
-  tracker.setPhase('Analysing codebase');
-  tracker.addAgent('analyst');
-  tracker.addAgent('scout');
-  await tracker.flush();
-
-  const result = await subagentManager.runParallel({
-    tasks: [
-      {
-        agent: 'analyst',
-        task: `Analyse the codebase for this development task:\n\n${taskDescription}\n\nFocus on:\n1. Relevant files and modules\n2. Existing patterns and conventions\n3. Dependencies and integration points\n4. Potential challenges`,
-      },
-      {
-        agent: 'scout',
-        task: `Quick reconnaissance for this task:\n\n${taskDescription}\n\nFind:\n- Related files and test files\n- Similar patterns already implemented\n- Config files that may need changes`,
-      },
-    ],
-    parentSessionId,
-    workspaceId,
-    isolated: true,
-    onUpdate: (text) => tracker.addLogLine(text),
-  });
-
-  tracker.completeAgent('analyst');
-  tracker.completeAgent('scout');
-
-  return result;
+function buildExistingProjectContext(card: Card): string {
+  return [
+    '## Existing Project',
+    '',
+    'This card is being planned in a single planner pass.',
+    'Inspect the current codebase yourself before finalising the plan.',
+    'Use the available tools to identify relevant files, existing patterns,',
+    'integration points, tests, and likely implementation risks.',
+    '',
+    'Focus your own reconnaissance on:',
+    '- Files and modules most likely to change',
+    '- Existing implementation patterns worth following',
+    '- Config, build, and test files that may need updates',
+    '- Dependencies and integration points that constrain the design',
+    '',
+    'Then produce one cohesive implementation plan and subtask breakdown.',
+    '',
+    '## Card Summary',
+    buildPlanningPrompt(card).trim(),
+  ].join('\n');
 }
-
-// ── Greenfield Context ───────────────────────────────────────
 
 function buildGreenfieldContext(card: Card): string {
   const lines = [

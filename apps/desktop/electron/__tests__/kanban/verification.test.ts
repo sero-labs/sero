@@ -6,8 +6,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  detectCompileCommands,
+  detectDependencyInstallCommand,
+  detectDevServerCommand,
   detectVerificationCommands,
   detectPackageManager,
+  runDevServerSmokeCheck,
   runVerificationCommands,
   summarizeVerificationFailure,
 } from '../../kanban/verification';
@@ -142,6 +146,71 @@ describe('detectVerificationCommands', () => {
   });
 });
 
+describe('detectCompileCommands', () => {
+  it('prefers typecheck when available', async () => {
+    await fs.writeFile(path.join(tmpDir, 'tsconfig.json'), '{}');
+    await fs.writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { typecheck: 'tsc --noEmit', build: 'vite build' } }),
+    );
+
+    const commands = await detectCompileCommands(tmpDir);
+
+    expect(commands).toEqual(['npm run typecheck']);
+  });
+
+  it('falls back to build when typecheck is unavailable', async () => {
+    await fs.writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { build: 'vite build' } }),
+    );
+
+    const commands = await detectCompileCommands(tmpDir);
+
+    expect(commands).toEqual(['npm run build']);
+  });
+});
+
+describe('detectDependencyInstallCommand', () => {
+  it('uses frozen-lockfile for pnpm workspaces', async () => {
+    await fs.writeFile(path.join(tmpDir, 'package.json'), '{}');
+    await fs.writeFile(path.join(tmpDir, 'pnpm-lock.yaml'), '');
+
+    await expect(detectDependencyInstallCommand(tmpDir)).resolves.toBe('pnpm install --frozen-lockfile');
+  });
+
+  it('prefers npm ci when a lockfile exists', async () => {
+    await fs.writeFile(path.join(tmpDir, 'package.json'), '{}');
+    await fs.writeFile(path.join(tmpDir, 'package-lock.json'), '');
+
+    await expect(detectDependencyInstallCommand(tmpDir)).resolves.toBe('npm ci');
+  });
+
+  it('returns null outside package-managed node projects', async () => {
+    await expect(detectDependencyInstallCommand(tmpDir)).resolves.toBeNull();
+  });
+});
+
+describe('detectDevServerCommand', () => {
+  it('detects a dev script in package.json', async () => {
+    await fs.writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { dev: 'vite' } }),
+    );
+
+    await expect(detectDevServerCommand(tmpDir)).resolves.toBe('npm run dev');
+  });
+
+  it('returns null when no dev script exists', async () => {
+    await fs.writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { build: 'vite build' } }),
+    );
+
+    await expect(detectDevServerCommand(tmpDir)).resolves.toBeNull();
+  });
+});
+
 describe('runVerificationCommands', () => {
   it('uses the injected command runner', async () => {
     const runCommand = vi.fn().mockResolvedValue({
@@ -154,6 +223,34 @@ describe('runVerificationCommands', () => {
 
     expect(result.success).toBe(true);
     expect(runCommand).toHaveBeenCalledWith('npm test', tmpDir, 45_000);
+  });
+});
+
+describe('runDevServerSmokeCheck', () => {
+  it('treats a timeout as success because the server stayed alive', async () => {
+    const runCommand = vi.fn().mockResolvedValue({
+      stdout: 'ready',
+      stderr: 'Command timed out after 20s.',
+      exitCode: 124,
+    });
+
+    const result = await runDevServerSmokeCheck(tmpDir, 'npm run dev', { runCommand });
+
+    expect(result.success).toBe(true);
+    expect(runCommand).toHaveBeenCalledWith('npm run dev', tmpDir, 20_000);
+  });
+
+  it('fails when the dev server exits immediately with an error', async () => {
+    const runCommand = vi.fn().mockResolvedValue({
+      stdout: '',
+      stderr: 'EADDRINUSE',
+      exitCode: 1,
+    });
+
+    const result = await runDevServerSmokeCheck(tmpDir, 'npm run dev', { runCommand });
+
+    expect(result.success).toBe(false);
+    expect(result.stderr).toContain('EADDRINUSE');
   });
 });
 

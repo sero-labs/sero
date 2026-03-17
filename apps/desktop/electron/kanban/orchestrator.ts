@@ -1,5 +1,4 @@
 /** KanbanOrchestrator — reacts to card column transitions, triggers automated phases. */
-
 import path from 'path';
 import type { KanbanState, Card, Column } from './types';
 import { WorktreeManager } from './worktree-manager';
@@ -8,11 +7,11 @@ import { ImplementationProgressTracker } from './implementation-progress';
 import { ReviewProgressTracker } from './review-progress';
 import { executeReview } from './review-executor';
 import { getPullRequestMergeError } from './pr-merge-status';
-import { collectPersistedCardFixes } from './persisted-state-reconcile';
 import { executePlanning } from './planning-executor';
-import { resolveExecutionWaves } from './wave-resolver';
-import { executeWaves } from './subtask-executor';
+import { executeImplementation } from './implementation-executor';
+import { cleanupCardReviewPreview } from './review-preview';
 import { updateCard, readCard } from './state-helpers';
+import { isYoloModeEnabled, reconcilePersistedState, runWorkspaceMaintenance } from './orchestrator-helpers';
 import { validateTransition, getNewlyUnblockedCards, getAllReadyBacklogCards } from './contracts';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
@@ -43,10 +42,8 @@ export class KanbanOrchestrator {
 
   async recoverStuckCards(workspaces: Array<{ id: string; path: string }>): Promise<void> {
     if (!this.deps) return;
-
     const KANBAN_SUFFIX = path.join('.sero', 'apps', 'kanban', 'state.json');
     let recovered = 0;
-
     for (const ws of workspaces) {
       const stateFilePath = path.join(ws.path, KANBAN_SUFFIX);
       let state: KanbanState | null;
@@ -56,23 +53,19 @@ export class KanbanOrchestrator {
         continue;
       }
       if (!state?.cards) continue;
-
       const stuckCards = state.cards.filter(
         (c) => c.status === 'agent-working' && isRetryableColumn(c.column),
       );
       if (stuckCards.length === 0) continue;
-
       if (!this.watched.has(ws.id)) {
         await this.watchWorkspace(ws.id, ws.path);
       }
-
       for (const card of stuckCards) {
         console.log(`[kanban-orchestrator] Recovery: card #${card.id} stuck in ${card.column} — retrying`);
         recovered++;
         await this.handleTransition(this.watched.get(ws.id)!, card, card.column, card.column);
       }
     }
-
     if (recovered > 0) {
       console.log(`[kanban-orchestrator] Recovery: retried ${recovered} stuck card(s)`);
     }
@@ -90,7 +83,7 @@ export class KanbanOrchestrator {
     this.watched.set(workspaceId, { workspaceId, stateFilePath, lastColumnMap });
     appStateManager.watch(stateFilePath);
     console.log(`[kanban-orchestrator] Watching workspace ${workspaceId}`);
-    await this.reconcilePersistedState(this.watched.get(workspaceId)!, initial);
+    await reconcilePersistedState(stateFilePath, this.watched.get(workspaceId)!.lastColumnMap, initial);
   }
 
   unwatchWorkspace(workspaceId: string): void {
@@ -188,7 +181,6 @@ export class KanbanOrchestrator {
     const workspacePath = this.deps.getWorkspacePath(workspace.workspaceId);
     if (!workspacePath) { this.planningInProgress.delete(card.id); return; }
 
-    // Validate stage contract (card-to-card deps, required fields)
     const currentState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
     if (currentState) {
       const validation = validateTransition(card, 'planning', currentState);
@@ -202,11 +194,15 @@ export class KanbanOrchestrator {
         return;
       }
     }
-
-    const tracker = new PlanningProgressTracker(
-      workspace.stateFilePath, card.id,
-      updateCard,
+    await runWorkspaceMaintenance(
+      workspace.workspaceId,
+      workspace.stateFilePath,
+      workspacePath,
+      currentState,
+      this.worktreeManager,
     );
+
+    const tracker = new PlanningProgressTracker(workspace.stateFilePath, card.id, updateCard);
 
     try {
       await updateCard(workspace.stateFilePath, card.id, { status: 'agent-working' });
@@ -216,19 +212,24 @@ export class KanbanOrchestrator {
       );
       await updateCard(workspace.stateFilePath, card.id, { branch: branchName, worktreePath });
 
-      const planResult = await this.runPlanningAgents(workspace, card, tracker, greenfield);
+      const settingsState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
+      const planResult = await executePlanning({
+        subagentManager: this.deps.subagentManager,
+        workspaceId: workspace.workspaceId,
+        planOptions: { testingEnabled: settingsState?.settings?.testingEnabled },
+      }, card, tracker, greenfield);
 
       await tracker.clear();
 
-      const yolo = await this.isYoloMode(workspace.stateFilePath);
+      const yolo = await isYoloModeEnabled(workspace.stateFilePath);
       const planUpdate = { plan: planResult.plan, subtasks: planResult.subtasks, planningProgress: undefined };
 
       if (yolo) {
+        workspace.lastColumnMap.set(card.id, 'in-progress');
         await updateCard(workspace.stateFilePath, card.id, { ...planUpdate, status: 'idle', column: 'in-progress' });
         console.log(`[kanban-orchestrator] Card #${card.id} planning complete — YOLO auto-approved`);
         const approved = await readCard(workspace.stateFilePath, card.id);
         if (approved) {
-          workspace.lastColumnMap.set(card.id, 'in-progress');
           await this.handleTransition(workspace, approved, 'planning', 'in-progress');
         }
       } else {
@@ -245,24 +246,6 @@ export class KanbanOrchestrator {
     } finally {
       this.planningInProgress.delete(card.id);
     }
-  }
-
-  private async runPlanningAgents(
-    workspace: WatchedWorkspace,
-    card: Card,
-    tracker: PlanningProgressTracker,
-    greenfield = false,
-  ): Promise<{ plan: string; subtasks: Card['subtasks'] }> {
-    // Read settings for testingEnabled propagation
-    const stateForSettings = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
-    const planOptions = { testingEnabled: stateForSettings?.settings?.testingEnabled };
-
-    return executePlanning(
-      { subagentManager: this.deps!.subagentManager, workspaceId: workspace.workspaceId, planOptions },
-      card,
-      tracker,
-      greenfield,
-    );
   }
 
   private async runImplementationPhase(workspace: WatchedWorkspace, card: Card): Promise<void> {
@@ -286,10 +269,7 @@ export class KanbanOrchestrator {
       return;
     }
 
-    const tracker = new ImplementationProgressTracker(
-      workspace.stateFilePath, card.id,
-      updateCard,
-    );
+    const tracker = new ImplementationProgressTracker(workspace.stateFilePath, card.id, updateCard);
 
     try {
       console.log(`[kanban-orchestrator] Starting implementation for card #${card.id}`);
@@ -299,24 +279,22 @@ export class KanbanOrchestrator {
       const subtasks = freshCard.subtasks.map((s) => ({ ...s, status: 'pending' as const }));
       await updateCard(workspace.stateFilePath, card.id, { subtasks });
 
-      const waves = resolveExecutionWaves(subtasks);
-      console.log(`[kanban-orchestrator] Card #${card.id}: ${waves.length} waves, ${subtasks.length} subtasks`);
+      console.log(
+        `[kanban-orchestrator] Card #${card.id}: single implementer executing ${subtasks.length} planned subtask(s)`,
+      );
 
       // Read settings for testing/review config
       const stateForSettings = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
       const settings = stateForSettings?.settings;
 
-      await executeWaves(
+      await executeImplementation(
         { subagentManager: this.deps.subagentManager, workspaceId: workspace.workspaceId, settings },
-        workspace.stateFilePath,
-        freshCard,
-        worktreePath,
-        waves,
-        tracker,
+        workspace.stateFilePath, freshCard, worktreePath, tracker,
       );
 
       // All done — advance to review
       await tracker.clear();
+      workspace.lastColumnMap.set(card.id, 'review');
       await updateCard(workspace.stateFilePath, card.id, {
         status: 'idle',
         column: 'review',
@@ -326,7 +304,6 @@ export class KanbanOrchestrator {
       // Chain to review — updateCard bypasses IPC so we must trigger explicitly
       const reviewCard = await readCard(workspace.stateFilePath, card.id);
       if (reviewCard) {
-        workspace.lastColumnMap.set(card.id, 'review');
         await this.handleTransition(workspace, reviewCard, 'in-progress', 'review');
       }
     } catch (err) {
@@ -364,34 +341,46 @@ export class KanbanOrchestrator {
       return;
     }
 
-    const tracker = new ReviewProgressTracker(
-      workspace.stateFilePath, card.id,
-      updateCard,
-    );
+    const tracker = new ReviewProgressTracker(workspace.stateFilePath, card.id, updateCard);
 
     try {
       console.log(`[kanban-orchestrator] Starting review for card #${card.id}`);
-      await updateCard(workspace.stateFilePath, card.id, { status: 'agent-working', error: undefined });
+      const previewCleanup = await cleanupCardReviewPreview(workspace.workspaceId, card.id);
+      if (previewCleanup.reason) {
+        console.log(`[kanban-orchestrator] Preview cleanup note for card #${card.id}: ${previewCleanup.reason}`);
+      }
+      await updateCard(workspace.stateFilePath, card.id, {
+        status: 'agent-working',
+        error: undefined,
+        previewServerId: undefined,
+        previewUrl: undefined,
+      });
 
       const reviewState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
-      const result = await executeReview(
-        { subagentManager: this.deps.subagentManager, workspaceId: workspace.workspaceId, settings: reviewState?.settings },
-        freshCard,
-        worktreePath,
-        branchName,
-        tracker,
-      );
+      const result = await executeReview({
+        subagentManager: this.deps.subagentManager,
+        workspaceId: workspace.workspaceId,
+        settings: reviewState?.settings,
+      }, freshCard, worktreePath, branchName, tracker);
 
       await tracker.clear();
 
       if (result.success) {
-        const yolo = await this.isYoloMode(workspace.stateFilePath);
-        const prUpdate = { prUrl: result.prUrl, prNumber: result.prNumber, reviewFilePath: result.reviewFilePath, reviewProgress: undefined, error: undefined };
+        const yolo = await isYoloModeEnabled(workspace.stateFilePath);
+        const prUpdate = {
+          prUrl: result.prUrl,
+          prNumber: result.prNumber,
+          previewServerId: result.previewServerId,
+          previewUrl: result.previewUrl,
+          reviewFilePath: result.reviewFilePath,
+          reviewProgress: undefined,
+          error: undefined,
+        };
 
         if (yolo) {
+          workspace.lastColumnMap.set(card.id, 'done');
           await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'idle', column: 'done', completedAt: new Date().toISOString() });
           console.log(`[kanban-orchestrator] Card #${card.id} YOLO auto-completed: ${result.prUrl}`);
-          workspace.lastColumnMap.set(card.id, 'done');
           await this.runDoneCleanup(workspace, card);
         } else {
           await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'waiting-input' });
@@ -403,6 +392,8 @@ export class KanbanOrchestrator {
           error: result.error ?? 'Review failed',
           prUrl: undefined,
           prNumber: undefined,
+          previewServerId: undefined,
+          previewUrl: undefined,
           // Persist the review cache path even on failure so retry skips the subagent
           ...(result.reviewFilePath ? { reviewFilePath: result.reviewFilePath } : {}),
           reviewProgress: undefined,
@@ -417,6 +408,8 @@ export class KanbanOrchestrator {
         error: `Review failed: ${errMsg}`,
         prUrl: undefined,
         prNumber: undefined,
+        previewServerId: undefined,
+        previewUrl: undefined,
         reviewProgress: undefined,
       });
     } finally {
@@ -427,7 +420,7 @@ export class KanbanOrchestrator {
   private async runDoneCleanup(workspace: WatchedWorkspace, card: Card): Promise<void> {
     const workspacePath = this.deps?.getWorkspacePath(workspace.workspaceId);
     if (!workspacePath) return;
-
+    workspace.lastColumnMap.set(card.id, 'done');
     const currentState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
     if (!currentState) return;
     const freshCard = currentState.cards.find((c) => c.id === card.id) ?? card;
@@ -441,25 +434,35 @@ export class KanbanOrchestrator {
       }
     }
 
-    // Mark card done — keep worktree alive until user confirms cleanup
+    const previewCleanup = await cleanupCardReviewPreview(workspace.workspaceId, card.id);
+    if (previewCleanup.reason) {
+      console.log(`[kanban-orchestrator] Preview cleanup note for card #${card.id}: ${previewCleanup.reason}`);
+    }
+
     await updateCard(workspace.stateFilePath, card.id, {
       status: 'idle',
       completedAt: new Date().toISOString(),
       error: undefined,
+      previewServerId: undefined,
+      previewUrl: undefined,
       reviewProgress: undefined,
       implementationProgress: undefined,
       planningProgress: undefined,
     });
 
-    // Check if ALL cards are now done — if so, notify user to clean up worktrees
-    const freshState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
+    let freshState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
+    if (!freshState) return;
+
+    await runWorkspaceMaintenance(
+      workspace.workspaceId, workspace.stateFilePath, workspacePath, freshState, this.worktreeManager,
+    );
+
+    freshState = await appStateManager.read(workspace.stateFilePath) as KanbanState | null;
     if (!freshState) return;
     const allDone = freshState.cards.length > 0 && freshState.cards.every((c) => c.column === 'done');
     if (allDone) {
-      console.log('[kanban-orchestrator] All cards done — worktrees preserved, awaiting user cleanup');
+      console.log('[kanban-orchestrator] All cards done — merged worktrees cleaned and workspace base synced when safe');
     }
-
-    // YOLO: sweep ALL ready backlog cards. Normal: only cards blocked by this specific card.
     const toStart = freshState.settings.yoloMode
       ? getAllReadyBacklogCards(freshState)
       : freshState.settings.autoAdvance
@@ -475,21 +478,10 @@ export class KanbanOrchestrator {
     }
   }
 
-  private async isYoloMode(p: string): Promise<boolean> {
-    return ((await appStateManager.read(p) as KanbanState | null)?.settings?.yoloMode) === true;
-  }
-  private async reconcilePersistedState(workspace: WatchedWorkspace, state: KanbanState | null): Promise<void> {
-    for (const fix of await collectPersistedCardFixes(state)) {
-      if (fix.update.column) workspace.lastColumnMap.set(fix.id, fix.update.column);
-      await updateCard(workspace.stateFilePath, fix.id, fix.update);
-    }
-  }
   private isCurrentlyProcessing(cardId: string): boolean {
-    return (
-      this.planningInProgress.has(cardId)
+    return this.planningInProgress.has(cardId)
       || this.implementationInProgress.has(cardId)
-      || this.reviewInProgress.has(cardId)
-    );
+      || this.reviewInProgress.has(cardId);
   }
 
   dispose(): void {

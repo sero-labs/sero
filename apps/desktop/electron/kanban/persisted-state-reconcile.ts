@@ -37,6 +37,15 @@ export async function collectPersistedCardFixes(
     });
   }
 
+  for (const card of state.cards) {
+    if (card.column === 'done' && (card.previewUrl || card.previewServerId)) {
+      fixes.push({
+        id: card.id,
+        update: { previewUrl: undefined, previewServerId: undefined },
+      });
+    }
+  }
+
   return fixes;
 }
 
