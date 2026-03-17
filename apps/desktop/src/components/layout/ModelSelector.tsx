@@ -1,9 +1,9 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ChevronDown, Check, Brain, Zap, Sparkles, Search } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
+import { ChevronDown, Check, Brain, Sparkles, Search } from 'lucide-react';
+import { motion } from 'motion/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
 import { useAgentStore } from '@/stores/agent';
-import { useFocusedAgent } from '@/stores/agent-selectors';
+import { useFocusedModelState, useFocusedSessionId } from '@/stores/agent-selectors';
 import {
   THINKING_LEVELS,
   THINKING_LABELS,
@@ -15,9 +15,14 @@ import type { ModelInfo, AvailableModelGroup } from '@/types/ipc';
 
 // ── Trigger Button ─────────────────────────────────────────────
 
-function ModelTrigger({ disabled }: { disabled: boolean }) {
-  const focused = useFocusedAgent();
-  const ms = focused?.modelState;
+const ModelTrigger = memo(function ModelTrigger({
+  disabled,
+  onPrime,
+}: {
+  disabled: boolean;
+  onPrime: () => void;
+}) {
+  const ms = useFocusedModelState();
   const groups = ms?.availableModels ?? [];
 
   const model = ms ? findModel(groups, ms.model.provider, ms.model.modelId) : null;
@@ -28,6 +33,8 @@ function ModelTrigger({ disabled }: { disabled: boolean }) {
   return (
     <PopoverTrigger asChild disabled={disabled}>
       <button
+        onFocus={onPrime}
+        onMouseEnter={onPrime}
         className="group flex items-center gap-1.5 rounded-md px-2 py-1 text-xs
           text-[var(--text-secondary)] transition-all duration-150
           hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]
@@ -47,7 +54,7 @@ function ModelTrigger({ disabled }: { disabled: boolean }) {
       </button>
     </PopoverTrigger>
   );
-}
+});
 
 // ── Thinking Level Picker ──────────────────────────────────────
 
@@ -112,48 +119,39 @@ function ThinkingPicker({
 
 // ── Model Item ─────────────────────────────────────────────────
 
-function ModelItem({ model, isSelected, onSelect }: {
-  model: ModelInfo; isSelected: boolean; onSelect: () => void;
+const ModelItem = memo(function ModelItem({ model, isSelected, onSelect }: {
+  model: ModelInfo; isSelected: boolean; onSelect: (model: ModelInfo) => void;
 }) {
   return (
-    <motion.button
-      onClick={onSelect}
-      className={`group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-100 ${
+    <button
+      onClick={() => onSelect(model)}
+      className={`group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-100 active:scale-[0.98] ${
         isSelected
           ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
           : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]/60 hover:text-[var(--text-primary)]'
       }`}
-      whileTap={{ scale: 0.98 }}
     >
       <div className="flex size-4 shrink-0 items-center justify-center">
-        <AnimatePresence mode="wait">
-          {isSelected ? (
-            <motion.div key="check"
-              initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 25 }}>
-              <Check className="size-3.5 text-[var(--status-success)]" />
-            </motion.div>
-          ) : (
-            <motion.div key="dot"
-              initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="size-1.5 rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[var(--text-muted)]" />
-          )}
-        </AnimatePresence>
+        {isSelected ? (
+          <Check className="size-3.5 text-[var(--status-success)] transition-transform duration-150 scale-100" />
+        ) : (
+          <div className="size-1.5 rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[var(--text-muted)]" />
+        )}
       </div>
       <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
         <span className="truncate text-xs font-medium">{model.name}</span>
         {model.reasoning && <Sparkles className="size-3 shrink-0 text-[var(--status-warning)]/60" />}
       </div>
-    </motion.button>
+    </button>
   );
-}
+});
 
 // ── Provider Group ─────────────────────────────────────────────
 
-function ProviderSection({ group, selectedModel, onSelect }: {
+const ProviderSection = memo(function ProviderSection({ group, selectedProvider, selectedModelId, onSelect }: {
   group: AvailableModelGroup;
-  selectedModel: { provider: string; modelId: string } | null;
+  selectedProvider: string | null;
+  selectedModelId: string | null;
   onSelect: (model: ModelInfo) => void;
 }) {
   return (
@@ -171,16 +169,16 @@ function ProviderSection({ group, selectedModel, onSelect }: {
             key={`${model.provider}/${model.modelId}`}
             model={model}
             isSelected={
-              selectedModel?.provider === model.provider &&
-              selectedModel?.modelId === model.modelId
+              selectedProvider === model.provider &&
+              selectedModelId === model.modelId
             }
-            onSelect={() => onSelect(model)}
+            onSelect={onSelect}
           />
         ))}
       </div>
     </div>
   );
-}
+});
 
 // ── Main Component ─────────────────────────────────────────────
 
@@ -201,21 +199,26 @@ function filterGroups(groups: AvailableModelGroup[], query: string): AvailableMo
 export function ModelSelector({ disabled }: { disabled: boolean }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState('');
+  const [isPrimed, setIsPrimed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const focused = useFocusedAgent();
+  const sessionId = useFocusedSessionId();
+  const ms = useFocusedModelState();
   const setModel = useAgentStore((s) => s.setModel);
   const setThinkingLevel = useAgentStore((s) => s.setThinkingLevel);
 
-  const sessionId = focused?.sessionId ?? null;
-  const ms = focused?.modelState;
   const groups = ms?.availableModels ?? [];
-  const selectedModel = ms ? { provider: ms.model.provider, modelId: ms.model.modelId } : null;
+  const selectedProvider = ms?.model.provider ?? null;
+  const selectedModelId = ms?.model.modelId ?? null;
 
   const filteredGroups = useMemo(() => filterGroups(groups, filter), [groups, filter]);
   const totalFiltered = useMemo(
     () => filteredGroups.reduce((n, g) => n + g.models.length, 0),
     [filteredGroups],
   );
+
+  const primePopover = useCallback(() => {
+    setIsPrimed(true);
+  }, []);
 
   // Reset filter & autofocus when popover opens
   useEffect(() => {
@@ -225,6 +228,22 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
+
+  useEffect(() => {
+    if (isPrimed) return;
+    let idleId: number | null = null;
+    let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
+    const requestIdle = window.requestIdleCallback?.bind(window);
+    if (requestIdle) {
+      idleId = requestIdle(() => setIsPrimed(true), { timeout: 250 });
+    } else {
+      timeoutId = globalThis.setTimeout(() => setIsPrimed(true), 120);
+    }
+    return () => {
+      if (idleId !== null) window.cancelIdleCallback(idleId);
+      if (timeoutId !== null) globalThis.clearTimeout(timeoutId);
+    };
+  }, [isPrimed]);
 
   const handleModelSelect = useCallback(
     (model: ModelInfo) => {
@@ -242,15 +261,22 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
     [sessionId, setThinkingLevel],
   );
 
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) setIsPrimed(true);
+    setOpen(nextOpen);
+  }, []);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <ModelTrigger disabled={disabled} />
-      <PopoverContent side="top" align="start" sideOffset={8}
-        className="w-[300px] overflow-hidden rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] p-0 shadow-2xl shadow-black/40">
-        <motion.div
-          initial={{ opacity: 0, y: 6, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25, mass: 0.8 }}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <ModelTrigger disabled={disabled} onPrime={primePopover} />
+      <PopoverContent
+        forceMount={isPrimed ? true : undefined}
+        side="top"
+        align="start"
+        sideOffset={8}
+        className="w-[300px] overflow-hidden rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] p-0 shadow-2xl shadow-black/40 duration-150 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 data-[side=top]:slide-in-from-bottom-0 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0"
+      >
+        <div>
 
           {/* Search input */}
           <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3">
@@ -281,7 +307,8 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
                   {i > 0 && <div className="mx-3 border-t border-[var(--border-subtle)]" />}
                   <ProviderSection
                     group={group}
-                    selectedModel={selectedModel}
+                    selectedProvider={selectedProvider}
+                    selectedModelId={selectedModelId}
                     onSelect={handleModelSelect}
                   />
                 </div>
@@ -297,7 +324,7 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
             disabled={!ms?.model.reasoning}
             onSelect={handleThinkingSelect}
           />
-        </motion.div>
+        </div>
       </PopoverContent>
     </Popover>
   );

@@ -1,14 +1,25 @@
-import type { SeroSlashCommandInfo } from '@/types/ipc';
+import type { SeroSlashCommandInfo, SessionModelState } from '@/types/ipc';
 import { useAgentStore } from '@/stores/agent';
 import type { AgentInstance } from '@/stores/agent-types';
 
 const EMPTY_SPECIALISTS: [] = [];
 
 export function useFocusedAgent(): AgentInstance | null {
-  const agents = useAgentStore((s) => s.agents);
-  const focusedId = useAgentStore((s) => s.focusedSessionId);
-  if (!focusedId) return null;
-  return agents[focusedId] ?? null;
+  return useAgentStore((s) => {
+    const focusedId = s.focusedSessionId;
+    return focusedId ? (s.agents[focusedId] ?? null) : null;
+  });
+}
+
+export function useFocusedSessionId(): string | null {
+  return useAgentStore((s) => s.focusedSessionId);
+}
+
+export function useFocusedModelState(): SessionModelState | null {
+  return useAgentStore((s) => {
+    const focusedId = s.focusedSessionId;
+    return focusedId ? (s.agents[focusedId]?.modelState ?? null) : null;
+  });
 }
 
 export function useStreamingSessionIds(): string[] {
