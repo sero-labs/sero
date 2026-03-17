@@ -45,5 +45,10 @@ export function formatLiveOutputText(entry: string): string {
       EXPECTED_SCAFFOLD_WORKAROUND_PATTERN,
       'This is expected for kanban worktrees; the generated files will be copied into place.',
     )
+    .replace(/\*\*\*\*(?=Subtask\s+\d+:)/g, '**\n\n**')
+    .replace(/([.!?])(?=[A-Z])/g, '$1 ')
+    .replace(/([^\n])(?=\*\*Subtask\s+\d+:)/g, '$1\n\n')
+    .replace(/(\*\*Subtask\s+\d+:[^*]+?\*\*)(?=\S)/g, '$1\n\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
