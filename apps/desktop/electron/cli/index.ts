@@ -65,6 +65,7 @@ const TOOLS_TO_BRIDGE = new Set([
   'calc',
   'daily_quote',
   'weight',
+  'health',
   'memory',
   'memory_search',
   'scratchpad',
