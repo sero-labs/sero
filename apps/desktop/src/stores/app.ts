@@ -65,6 +65,8 @@ interface AppState {
 
   // Active app
   activeApp: string;
+  /** The app currently being preloaded before activation. */
+  pendingApp: string | null;
   setActiveApp: (app: string) => void;
 
   // Theme
@@ -133,6 +135,15 @@ export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEn
   return [...builtins, ...favourites];
 }
 
+export function getPriorityPreloadApps(
+  manifests: SeroAppManifest[],
+  activeApp: string,
+  favouriteApps: string[],
+): SeroAppManifest[] {
+  const priorityIds = new Set([activeApp, ...favouriteApps]);
+  return manifests.filter((manifest) => manifest.component && priorityIds.has(manifest.id));
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   // App registry — starts with built-ins
   apps: [...BUILTIN_APPS],
@@ -193,8 +204,35 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Active app (hydrated from layout file on startup)
   activeApp: 'coding',
+  pendingApp: null,
   setActiveApp: (app) => {
-    set({ activeApp: app });
+    const { activeApp, pendingApp, apps } = get();
+    if (app === activeApp) {
+      if (pendingApp) set({ pendingApp: null });
+      return;
+    }
+    if (app === pendingApp) return;
+
+    const entry = apps.find((candidate) => candidate.id === app);
+    const manifest = entry?.manifest;
+
+    const activate = () => {
+      if (get().pendingApp !== app) return;
+      set({ activeApp: app, pendingApp: null });
+      persistLayout({ activeApp: app });
+    };
+
+    if (manifest?.component) {
+      set({ pendingApp: app });
+      void preloadFederatedModule(manifest.id, manifest.component, manifest.devPort)
+        .catch((err) => {
+          console.warn(`[app-store] Failed to preload ${manifest.id}:`, err);
+        })
+        .finally(activate);
+      return;
+    }
+
+    set({ activeApp: app, pendingApp: null });
     persistLayout({ activeApp: app });
   },
 
@@ -271,17 +309,18 @@ export async function discoverAndRegisterApps(): Promise<void> {
     // Register app entries immediately (needed for sidebar rendering)
     useAppStore.setState({ apps: [...BUILTIN_APPS, ...discovered] });
 
-    // Eagerly preload all federated UI modules BEFORE setting appsReady.
-    // This keeps the loading screen up while modules resolve, so the first
-    // render of any app has its component already cached — no Suspense flash.
-    const appsWithUI = manifests.filter((m) => m.component);
-    if (appsWithUI.length > 0) {
-      const PRELOAD_TIMEOUT_MS = 8000;
-      const preloads = appsWithUI.map((m) =>
+    // Only preload the active app + favourites — not all 20+ apps.
+    // Other apps load on-demand inside a React transition (no flicker).
+    const { activeApp, favouriteApps } = useAppStore.getState();
+    const priorityApps = getPriorityPreloadApps(manifests, activeApp, favouriteApps);
+
+    if (priorityApps.length > 0) {
+      const PRELOAD_TIMEOUT_MS = 5000;
+      const preloads = priorityApps.map((m) =>
         preloadFederatedModule(m.id, m.component!, m.devPort),
       );
 
-      // Wait for all preloads, but don't block forever if a remote is down
+      // Wait for priority preloads, but don't block forever if a remote is down
       await Promise.race([
         Promise.allSettled(preloads),
         new Promise<void>((resolve) => setTimeout(resolve, PRELOAD_TIMEOUT_MS)),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useDeferredValue, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from '@sero/ui/components/ui/tooltip';
 import {
@@ -10,12 +10,9 @@ import { TitleBar } from '@/components/layout/TitleBar';
 import { MainSidebar } from '@/components/layout/MainSidebar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { ChatPanel } from '@/components/layout/ChatPanel';
-import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
-import { SeroAppMount } from '@/components/apps/SeroAppMount';
-import { useAppStore, discoverAndRegisterApps, listenForNewApps, loadLayout } from '@/stores/app';
+import { useAppStore, listenForNewApps } from '@/stores/app';
 import { listenForSystemThemeChanges } from '@/stores/theme';
 import { useProfileStore, loadProfiles } from '@/stores/profiles';
-import { useWorkspaceStore, loadWorkspaces } from '@/stores/workspace';
 import { ProfileSetup } from '@/components/profiles/ProfileSetup';
 import { OnboardingWizard } from '@/components/profiles/OnboardingWizard';
 import { subscribeDevServerEvents } from '@/stores/dev-server';
@@ -24,6 +21,8 @@ import { useSessionAgent } from '@/hooks/useSessionAgent';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { CommandMenu } from '@/components/layout/CommandMenu';
 import { initAppControlBridge } from '@/lib/app-control-bridge';
+import { hydrateShellState } from '@/lib/app-startup';
+import { ActiveAppPanel } from '@/components/apps/ActiveAppPanel';
 
 /**
  * App shell.
@@ -72,7 +71,6 @@ export function App() {
 
   const appsReady = useAppStore((s) => s.appsReady);
   const layoutReady = useAppStore((s) => s.layoutReady);
-  const workspacesReady = useWorkspaceStore((s) => s.workspacesReady);
   const profileReady = useProfileStore((s) => s.ready);
   const hasActiveProfile = useProfileStore((s) => s.hasActiveProfile);
 
@@ -84,7 +82,7 @@ export function App() {
 
   // Hydrate refs from store once layout has loaded. Runs during render (not
   // an effect) so refs are set BEFORE the JSX tree mounts the panels.
-  if (layoutReady && appsReady && workspacesReady && !layoutHydratedRef.current) {
+  if (layoutReady && appsReady && !layoutHydratedRef.current) {
     layoutHydratedRef.current = true;
     const s = useAppStore.getState();
     mainSidebarLastExpandedPctRef.current = s.mainSidebarSizePct;
@@ -93,12 +91,10 @@ export function App() {
     chatPanelDefaultRef.current = s.chatPanelOpen ? `${s.chatPanelSizePct}%` : 0;
   }
 
-  // Load profiles + layout + discover apps + workspaces on startup
+  // Load profiles + hydrate app/workspace state on startup
   useEffect(() => {
-    loadProfiles();
-    loadLayout();
-    loadWorkspaces();
-    discoverAndRegisterApps();
+    void loadProfiles();
+    void hydrateShellState();
     const unsub = listenForNewApps();
     const unsubTheme = listenForSystemThemeChanges();
     return () => { unsub(); unsubTheme(); };
@@ -216,8 +212,10 @@ export function App() {
     };
   }, [chatPanelOpen, layoutReady, appsReady]);
 
-  // Wait for profile + layout hydration + app discovery + workspaces before rendering.
-  if (!profileReady || !appsReady || !layoutReady || !workspacesReady) {
+  // Wait for profile + layout hydration + app discovery before rendering.
+  // Workspaces load in parallel but don't block — workspace-scoped apps
+  // already guard on activeWorkspaceId inside SeroAppMount.
+  if (!profileReady || !appsReady || !layoutReady) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[var(--bg-base)]">
         <span className="text-xs text-[var(--text-muted)]">Loading…</span>
@@ -259,7 +257,7 @@ export function App() {
             />
 
             <ResizablePanel id="active-app-panel" minSize={40} className="min-w-0 flex flex-col">
-              <ActiveApp app={activeApp} />
+              <ActiveAppPanel app={activeApp} />
             </ResizablePanel>
 
             <ResizableHandle
@@ -287,46 +285,5 @@ export function App() {
         <StatusBar />
       </div>
     </TooltipProvider>
-  );
-}
-
-/**
- * Renders the currently active app — built-in or federated.
- *
- * Uses `useDeferredValue` so React keeps showing the previous app
- * while a newly-selected app's lazy module loads. Without this,
- * the Suspense fallback (loading spinner) flashes on first open.
- */
-function ActiveApp({ app }: { app: string }) {
-  const deferredApp = useDeferredValue(app);
-  const isPending = app !== deferredApp;
-  const apps = useAppStore((s) => s.apps);
-  const entry = apps.find((a) => a.id === deferredApp);
-
-  let content: React.ReactNode;
-
-  if (deferredApp === 'coding') {
-    content = <CodingWorkspace />;
-  } else if (entry?.manifest) {
-    // Discovered sero app — mount via module federation
-    content = <SeroAppMount manifest={entry.manifest} />;
-  } else {
-    content = (
-      <div className="flex h-full items-center justify-center bg-[var(--bg-base)]">
-        <span className="text-sm capitalize text-[var(--text-muted)]">
-          {deferredApp} app — coming soon
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      data-app-panel
-      className="flex min-h-0 min-w-[500px] flex-1 flex-col overflow-hidden transition-opacity duration-150"
-      style={{ opacity: isPending ? 0.7 : 1 }}
-    >
-      {content}
-    </div>
   );
 }
