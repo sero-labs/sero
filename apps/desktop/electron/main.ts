@@ -237,8 +237,24 @@ app.whenReady().then(async () => {
     }
   }
 
-  // Discover apps and register their assets for the custom protocol
+  // Discover apps and register their assets for the custom protocol.
+  // If SERO_DEV_APPS is set, clear devPort for apps NOT in the list so the
+  // renderer loads them from pre-built bundles (sero-ext://) instead of
+  // expecting a running Vite dev server.
   const apps = await discoverApps();
+  if (process.env.NODE_ENV === 'development' && process.env.SERO_DEV_APPS) {
+    const devFilter = process.env.SERO_DEV_APPS.trim();
+    if (devFilter !== 'all') {
+      const devSet = devFilter === 'none'
+        ? new Set<string>()
+        : new Set(devFilter.split(',').map((s) => s.trim()));
+      for (const app of apps) {
+        if (!devSet.has(app.id)) {
+          app.devPort = undefined;
+        }
+      }
+    }
+  }
   registerAllExtAssets(apps);
 
   // Watch for new app packages created while running (e.g. by the agent)
