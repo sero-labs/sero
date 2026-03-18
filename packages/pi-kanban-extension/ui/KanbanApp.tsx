@@ -174,11 +174,18 @@ export function KanbanApp() {
     setSelectedCard(null);
   }, []);
 
-  // Brainstorm — sends command to the agent via ChatPanel
+  // Agent actions — send commands via ChatPanel
   const promptAgent = useAgentPrompt();
   const handleBrainstorm = useCallback(() => {
     promptAgent('Using the kanban tool: brainstorm');
   }, [promptAgent]);
+
+  const handleRetrospective = useCallback(() => {
+    promptAgent('Using the kanban tool: retrospective');
+  }, [promptAgent]);
+
+  // Check if there are any cards with errors for the retrospective badge
+  const hasErrors = state.cards.some((c) => c.error || c.status === 'failed');
 
   // Summary stats
   const totalCards = state.cards.length;
@@ -268,13 +275,24 @@ export function KanbanApp() {
               </button>
             )}
             <button
+              onClick={handleRetrospective}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md border cursor-pointer
+                transition-colors duration-150
+                ${hasErrors
+                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                  : 'bg-[var(--kb-accent-glow)] text-[var(--kb-muted)] border-[var(--kb-border)] hover:text-[var(--kb-accent)] hover:border-[var(--kb-accent)]'}`}
+              title="Analyze errors and failures across the board, and suggest process improvements"
+            >
+              Retrospective{hasErrors ? ' !' : ''}
+            </button>
+            <button
               onClick={handleBrainstorm}
               className="px-3 py-1.5 text-xs font-medium rounded-md
                 bg-[var(--kb-accent-glow)] text-[var(--kb-accent)] border border-[var(--kb-border)]
                 hover:bg-[var(--kb-accent)] hover:text-white
                 transition-colors duration-150 cursor-pointer"
             >
-              ✨ Brainstorm
+              Brainstorm
             </button>
           </div>
         </div>
