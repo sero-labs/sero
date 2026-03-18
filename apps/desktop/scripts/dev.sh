@@ -27,14 +27,27 @@ CHILD_PIDS=()
 cleanup() {
   echo ""
   echo "Shutting down Sero dev processes..."
+
+  # 1. SIGTERM tracked PIDs and their entire child trees
   for pid in "${CHILD_PIDS[@]}"; do
+    # Kill the process and all its descendants
+    pkill -TERM -P "$pid" 2>/dev/null
     kill "$pid" 2>/dev/null
   done
-  # Kill any remaining processes on known ports
+
+  # 2. Kill any remaining processes on known ports (catches stragglers)
   for port in "${KILL_PORTS[@]}"; do
     lsof -ti :"$port" 2>/dev/null | xargs kill -9 2>/dev/null
   done
   pkill -f "electron.*sero" 2>/dev/null
+
+  # 3. Brief grace period, then SIGKILL anything still alive
+  sleep 1
+  for pid in "${CHILD_PIDS[@]}"; do
+    pkill -9 -P "$pid" 2>/dev/null
+    kill -9 "$pid" 2>/dev/null
+  done
+
   wait 2>/dev/null
   echo "All dev processes stopped."
 }
@@ -127,8 +140,10 @@ if [ -f "$WEB_REMOTE_DIR/package.json" ]; then
   # Initial build (blocking) so the SPA is ready before Electron starts
   (cd "$WEB_REMOTE_DIR" && npx vite build) > /tmp/sero-web-remote-build.log 2>&1
   echo "  Built web-remote SPA"
-  # Watch mode (background) — rebuilds on source changes
-  (cd "$WEB_REMOTE_DIR" && npx vite build --watch) > /tmp/sero-web-remote-watch.log 2>&1 &
+  # Watch mode (background) — rebuilds on source changes.
+  # exec replaces the subshell so the PID we capture is the actual node process
+  # (prevents orphaned processes when cleanup kills the PID).
+  (cd "$WEB_REMOTE_DIR" && exec npx vite build --watch) > /tmp/sero-web-remote-watch.log 2>&1 &
   WEB_REMOTE_PID=$!
   CHILD_PIDS+=($WEB_REMOTE_PID)
 fi
@@ -143,7 +158,7 @@ REMOTE_PIDS=()
 for i in "${!REMOTE_DIRS[@]}"; do
   dir="${REMOTE_DIRS[$i]}"
   name="${REMOTE_NAMES[$i]}"
-  (cd "$dir" && npx vite) > "/tmp/sero-remote-${name}.log" 2>&1 &
+  (cd "$dir" && exec npx vite) > "/tmp/sero-remote-${name}.log" 2>&1 &
   pid=$!
   REMOTE_PIDS+=($pid)
   CHILD_PIDS+=($pid)
