@@ -18,7 +18,11 @@
     "container:nat": "sudo ./scripts/setup-container-nat.sh",
     "container:nat:teardown": "sudo ./scripts/setup-container-nat.sh --teardown",
     "container:build-image": "cd images && container build -t sero-node:latest -f Dockerfile.sero-node .",
-    "sign-vmp": "bash scripts/sign-vmp.sh"
+    "sign-vmp": "bash scripts/sign-vmp.sh",
+    "release": "bash scripts/build-release.sh",
+    "release:signed": "bash scripts/build-release.sh --sign",
+    "pack": "CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac --dir",
+    "dist": "CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -80,14 +84,6 @@
     "vitest": "catalog:"
   },
   "build": {
-    "appId": "app.sero",
-    "productName": "Sero",
-    "mac": {
-      "target": "dmg",
-      "arch": [
-        "arm64"
-      ],
-      "category": "public.app-category.developer-tools"
-    }
+    "extends": null
   }
 }
