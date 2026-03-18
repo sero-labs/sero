@@ -19,7 +19,7 @@ import { ReviewStatusPanel } from './ReviewStatusPanel';
 import { PlanApprovalPanel } from './PlanApprovalPanel';
 import { DescriptionEditor } from './DescriptionEditor';
 import { CardDetailFooter } from './CardDetailFooter';
-import { applyManualMove, applyWorkflowTransition } from '../lib/card-workflow';
+import { applyManualMove, applyWorkflowTransition, applyRequestRevisions, applyCancelPR } from '../lib/card-workflow';
 import { isReviewMergeStatusMessage } from '../lib/review-pr-status';
 import { getManualMoveTargets } from '../../shared/validation';
 
@@ -27,10 +27,12 @@ export function CardDetail({
   card,
   onClose,
   onUpdate,
+  onPromptAgent,
 }: {
   card: Card | null;
   onClose: () => void;
   onUpdate: (updater: (state: KanbanState) => KanbanState) => void;
+  onPromptAgent?: (message: string) => void;
 }) {
   const handleMove = useCallback(
     (column: Column) => {
@@ -69,6 +71,31 @@ export function CardDetail({
     if (!card) return;
     onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'done'));
   }, [card, onUpdate]);
+
+  const handleRequestRevisions = useCallback((feedback: string) => {
+    if (!card) return;
+    onUpdate((prev) => applyRequestRevisions(prev, card.id, feedback));
+    // Log to error log via the extension
+    const escaped = feedback.replace(/"/g, '\\"');
+    onPromptAgent?.(
+      `Using the kanban tool: report-error for card #${card.id} `
+      + `with errorMessage "Revision requested: ${escaped}" `
+      + `and errorSeverity "warning" and phase "review" `
+      + `and agentName "user"`,
+    );
+  }, [card, onUpdate, onPromptAgent]);
+
+  const handleCancelPR = useCallback(() => {
+    if (!card) return;
+    onUpdate((prev) => applyCancelPR(prev, card.id));
+    // Log to error log via the extension
+    onPromptAgent?.(
+      `Using the kanban tool: report-error for card #${card.id} `
+      + `with errorMessage "PR cancelled by user — card returned to backlog" `
+      + `and errorSeverity "warning" and phase "review" `
+      + `and agentName "user"`,
+    );
+  }, [card, onUpdate, onPromptAgent]);
 
   const handleRetry = useCallback(() => {
     if (!card) return;
@@ -345,7 +372,12 @@ export function CardDetail({
 
               {/* PR ready — awaiting user completion */}
               {card.column === 'review' && card.status === 'waiting-input' && card.prUrl && (
-                <ReviewStatusPanel card={card} onCheckMerge={handleCheckMergeStatus} />
+                <ReviewStatusPanel
+                  card={card}
+                  onCheckMerge={handleCheckMergeStatus}
+                  onRequestRevisions={handleRequestRevisions}
+                  onCancelPR={handleCancelPR}
+                />
               )}
 
               {/* Error */}

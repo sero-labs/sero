@@ -321,6 +321,7 @@ export function KanbanApp() {
           card={activeSelectedCard}
           onClose={handleCloseDetail}
           onUpdate={updateState}
+          onPromptAgent={promptAgent}
         />
       </div>
     </>

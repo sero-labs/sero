@@ -21,13 +21,14 @@ import { resolveStatePath, readState, writeState, formatCard, formatBoard } from
 import {
   handleStart, handleApprove, handleComplete,
   handleRetry, handleBrainstorm, handleSettings, handleCleanup,
+  handleRequestRevisions, handleCancelPR,
   handleReportError, handleErrorLog, handleRetrospective,
 } from './workflow-actions';
 
 // ── Tool parameters ────────────────────────────────────────────
 
 const KanbanParams = Type.Object({
-  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve', 'complete', 'retry', 'brainstorm', 'settings', 'cleanup', 'report-error', 'error-log', 'retrospective'] as const),
+  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve', 'complete', 'retry', 'brainstorm', 'settings', 'cleanup', 'request-revisions', 'cancel-pr', 'report-error', 'error-log', 'retrospective'] as const),
   title: Type.Optional(Type.String({ description: 'Card title (for add)' })),
   id: Type.Optional(Type.String({ description: 'Card ID' })),
   column: Type.Optional(StringEnum(COLUMNS)),
@@ -37,6 +38,7 @@ const KanbanParams = Type.Object({
   acceptance: Type.Optional(Type.Array(Type.String(), { description: 'Acceptance criteria' })),
   setting: Type.Optional(Type.String({ description: 'Setting name for settings action (testingEnabled, reviewMode, reviewLevel)' })),
   value: Type.Optional(Type.String({ description: 'Setting value for settings action' })),
+  revisionFeedback: Type.Optional(Type.String({ description: 'Feedback text for request-revisions action' })),
   errorMessage: Type.Optional(Type.String({ description: 'Error message (for report-error)' })),
   errorDetails: Type.Optional(Type.String({ description: 'Full error details/stack trace (for report-error)' })),
   errorSeverity: Type.Optional(StringEnum(['error', 'warning', 'test-failure'] as const)),
@@ -63,7 +65,7 @@ export default function (pi: ExtensionAPI) {
     name: 'kanban',
     label: 'Kanban',
     description:
-      'Manage the workspace Kanban board. IMPORTANT: Cards are implemented by automated orchestrator subagents — do NOT implement card work yourself. Your role is to manage the board, brainstorm, and approve. Actions: list (show board), add (requires title; optional description, priority, acceptance, blockedBy), move (requires id + column — for backward moves only), update (requires id; optional title/description/priority/acceptance/blockedBy), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning, triggers automated agents), approve (requires id — approve plan and advance to in-progress), complete (requires id — only from review, mark as done), retry (requires id — re-trigger current phase), brainstorm (start collaborative card creation session), settings (view/update board settings), report-error (requires id + errorMessage; optional errorDetails, errorSeverity, agentName, phase, filePaths — subagents report errors/failures here), error-log (view error log; optional id to filter by card), retrospective (analyze all logged errors and suggest process improvements).',
+      'Manage the workspace Kanban board. IMPORTANT: Cards are implemented by automated orchestrator subagents — do NOT implement card work yourself. Your role is to manage the board, brainstorm, and approve. Actions: list (show board), add (requires title; optional description, priority, acceptance, blockedBy), move (requires id + column — for backward moves only), update (requires id; optional title/description/priority/acceptance/blockedBy), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning, triggers automated agents), approve (requires id — approve plan and advance to in-progress), complete (requires id — only from review, mark as done), retry (requires id — re-trigger current phase), brainstorm (start collaborative card creation session), settings (view/update board settings), request-revisions (requires id + revisionFeedback — send card back to implementation with feedback), cancel-pr (requires id — cancel the PR, remove worktree, return card to backlog), report-error (requires id + errorMessage; optional errorDetails, errorSeverity, agentName, phase, filePaths — subagents report errors/failures here), error-log (view error log; optional id to filter by card), retrospective (analyze all logged errors and suggest process improvements).',
     parameters: KanbanParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -298,6 +300,15 @@ export default function (pi: ExtensionAPI) {
 
         case 'cleanup':
           return handleCleanup(statePath, state, resolvedPath);
+
+        case 'request-revisions':
+          if (!params.id) return { content: [{ type: 'text', text: 'Error: id is required for request-revisions' }], details: {} };
+          if (!params.revisionFeedback) return { content: [{ type: 'text', text: 'Error: revisionFeedback is required for request-revisions' }], details: {} };
+          return handleRequestRevisions(statePath, state, params.id, params.revisionFeedback);
+
+        case 'cancel-pr':
+          if (!params.id) return { content: [{ type: 'text', text: 'Error: id is required for cancel-pr' }], details: {} };
+          return handleCancelPR(statePath, state, params.id, resolvedPath);
 
         case 'report-error':
           return handleReportError(statePath, state, {

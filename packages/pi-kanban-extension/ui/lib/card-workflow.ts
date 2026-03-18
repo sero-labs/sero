@@ -106,3 +106,64 @@ export function applyWorkflowTransition(
     };
   });
 }
+
+/**
+ * Request revisions on a PR — moves card back to in-progress with
+ * agent-working status so the orchestrator picks it up with the feedback.
+ */
+export function applyRequestRevisions(
+  state: KanbanState,
+  cardId: string,
+  feedback: string,
+): KanbanState {
+  const card = state.cards.find((entry) => entry.id === cardId);
+  if (!card) return state;
+  if (card.column !== 'review' || card.status !== 'waiting-input') {
+    return setCardError(state, cardId, 'Can only request revisions on cards in review awaiting input.');
+  }
+
+  return patchCard(state, cardId, (entry, now) => ({
+    ...entry,
+    column: 'in-progress',
+    status: 'agent-working',
+    error: `[REVISION REQUEST] ${feedback}`,
+    previewServerId: undefined,
+    previewUrl: undefined,
+    reviewProgress: undefined,
+    updatedAt: now,
+  }));
+}
+
+/**
+ * Cancel a PR — moves card back to backlog, clears all workflow state.
+ * Worktree cleanup is handled by the extension via promptAgent.
+ */
+export function applyCancelPR(
+  state: KanbanState,
+  cardId: string,
+): KanbanState {
+  const card = state.cards.find((entry) => entry.id === cardId);
+  if (!card) return state;
+  if (card.column !== 'review' || card.status !== 'waiting-input') {
+    return setCardError(state, cardId, 'Can only cancel PRs on cards in review awaiting input.');
+  }
+
+  return patchCard(state, cardId, (entry, now) => ({
+    ...entry,
+    column: 'backlog',
+    status: 'idle',
+    error: `[PR CANCELLED] PR was cancelled by user and card returned to backlog.`,
+    prUrl: undefined,
+    prNumber: undefined,
+    branch: undefined,
+    worktreePath: undefined,
+    previewServerId: undefined,
+    previewUrl: undefined,
+    planningProgress: undefined,
+    implementationProgress: undefined,
+    reviewProgress: undefined,
+    plan: undefined,
+    subtasks: [],
+    updatedAt: now,
+  }));
+}

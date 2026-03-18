@@ -1,22 +1,42 @@
 /**
  * ReviewStatusPanel — shown when a card has a PR created and is
  * awaiting user merge/completion.
+ *
+ * Also provides "Request Revisions" (text input + send) to push
+ * the card back to implementation, and "Cancel PR" to discard the
+ * PR and move the card to backlog. Both actions append to the
+ * error log.
  */
 
+import { useState } from 'react';
 import type { Card } from '../../shared/types';
 import { getReviewPrStatus } from '../lib/review-pr-status';
 
 export function ReviewStatusPanel({
   card,
   onCheckMerge,
+  onRequestRevisions,
+  onCancelPR,
 }: {
   card: Card;
   onCheckMerge: () => void;
+  onRequestRevisions: (feedback: string) => void;
+  onCancelPR: () => void;
 }) {
   const status = getReviewPrStatus(card);
+  const [revisionText, setRevisionText] = useState('');
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   const handleOpenPreview = () => {
     if (!card.previewUrl) return;
     window.open(card.previewUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleSubmitRevisions = () => {
+    const trimmed = revisionText.trim();
+    if (!trimmed) return;
+    onRequestRevisions(trimmed);
+    setRevisionText('');
   };
 
   return (
@@ -92,6 +112,8 @@ export function ReviewStatusPanel({
           </div>
         )}
       </div>
+
+      {/* Approve / check merge */}
       <button
         onClick={onCheckMerge}
         style={{
@@ -105,10 +127,138 @@ export function ReviewStatusPanel({
           fontWeight: 600,
           cursor: 'pointer',
           transition: 'all 0.15s',
+          marginBottom: '12px',
         }}
       >
         {status.actionLabel}
       </button>
+
+      {/* Request revisions */}
+      <div
+        style={{
+          padding: '12px',
+          borderRadius: '8px',
+          border: '1px solid rgba(245, 158, 11, 0.2)',
+          backgroundColor: 'rgba(245, 158, 11, 0.04)',
+          marginBottom: '8px',
+        }}
+      >
+        <label
+          style={{ fontSize: '11px', fontWeight: 500, color: '#f59e0b', display: 'block', marginBottom: '8px' }}
+        >
+          Request Revisions
+        </label>
+        <textarea
+          value={revisionText}
+          onChange={(e) => setRevisionText(e.target.value)}
+          placeholder="Describe what needs to change..."
+          rows={3}
+          style={{
+            width: '100%',
+            padding: '8px 10px',
+            borderRadius: '6px',
+            border: '1px solid rgba(245, 158, 11, 0.15)',
+            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            color: '#e8e4df',
+            fontSize: '12px',
+            lineHeight: 1.5,
+            resize: 'vertical',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        <button
+          onClick={handleSubmitRevisions}
+          disabled={!revisionText.trim()}
+          style={{
+            marginTop: '8px',
+            width: '100%',
+            padding: '8px 14px',
+            borderRadius: '8px',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            backgroundColor: revisionText.trim() ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
+            color: revisionText.trim() ? '#f59e0b' : '#5c5e6a',
+            fontSize: '12px',
+            fontWeight: 500,
+            cursor: revisionText.trim() ? 'pointer' : 'default',
+            transition: 'all 0.15s',
+          }}
+        >
+          Send Back for Revisions
+        </button>
+        <p style={{ fontSize: '10px', color: '#5c5e6a', marginTop: '4px', lineHeight: 1.4 }}>
+          Moves card back to implementation with your feedback.
+        </p>
+      </div>
+
+      {/* Cancel PR */}
+      {!showCancelConfirm ? (
+        <button
+          onClick={() => setShowCancelConfirm(true)}
+          style={{
+            width: '100%',
+            padding: '8px 14px',
+            borderRadius: '8px',
+            border: '1px solid rgba(248, 113, 113, 0.15)',
+            backgroundColor: 'transparent',
+            color: '#8b8d97',
+            fontSize: '12px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+        >
+          Cancel PR
+        </button>
+      ) : (
+        <div
+          style={{
+            padding: '12px',
+            borderRadius: '8px',
+            border: '1px solid rgba(248, 113, 113, 0.25)',
+            backgroundColor: 'rgba(248, 113, 113, 0.04)',
+          }}
+        >
+          <p style={{ fontSize: '11px', color: '#f87171', marginBottom: '8px', lineHeight: 1.4 }}>
+            This will move the card back to Backlog and remove the worktree. The PR will not be deleted from GitHub.
+          </p>
+          <div className="flex" style={{ gap: '8px' }}>
+            <button
+              onClick={onCancelPR}
+              style={{
+                flex: 1,
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: 'rgba(248, 113, 113, 0.15)',
+                color: '#f87171',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              Confirm Cancel
+            </button>
+            <button
+              onClick={() => setShowCancelConfirm(false)}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                backgroundColor: 'transparent',
+                color: '#8b8d97',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              Keep
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
