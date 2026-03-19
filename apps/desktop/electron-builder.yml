@@ -28,7 +28,9 @@ files:
   - node_modules/@discordjs/**/*
   # Exclude dev/build artifacts
   - "!**/{test,tests,__tests__,__mocks__}/**"
-  - "!**/*.{ts,tsx,map}"
+  # Keep .ts sources: Pi package extensions are loaded via jiti at runtime,
+  # including the built-in packages staged under dist/electron/builtin/.
+  - "!**/*.{tsx,map}"
   - "!**/node_modules/.cache/**"
 
 # ── Extra resources (outside asar, accessible via process.resourcesPath) ──

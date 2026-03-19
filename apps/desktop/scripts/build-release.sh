@@ -69,17 +69,12 @@ if [ -d "$WEB_REMOTE_DIR" ]; then
   pnpm build 2>/dev/null || npm run build
   cd "$PROJECT_DIR"
 
-  # Copy web-remote dist into electron output (not a symlink for release)
-  WEB_DIST_SRC="$PROJECT_DIR/electron/gateway/web-dist"
-  WEB_DIST_DEST="$PROJECT_DIR/dist/electron/web-dist"
-  if [ -d "$WEB_DIST_SRC" ]; then
-    rm -rf "$WEB_DIST_DEST"
-    cp -R "$WEB_DIST_SRC" "$WEB_DIST_DEST"
-    echo "  Copied web-dist/ into dist/electron/ (release copy, not symlink)"
-  fi
 else
   echo "▸ Step 4/7: Skipping web-remote (not found)"
 fi
+
+# Replace the dev symlink with a real copy so electron-builder packages the SPA.
+node scripts/prepare-packaging.mjs
 
 # ── Step 5: Rebuild native modules for Electron ─────────────
 # electron-builder's npmRebuild is disabled (pnpm workspace symlinks break it),

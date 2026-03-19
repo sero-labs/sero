@@ -197,10 +197,12 @@ export async function discoverApps(): Promise<SeroAppManifest[]> {
   for (const app of all) {
     if (byId.has(app.id)) {
       const existing = byId.get(app.id)!;
-      console.warn(
-        `[app-discovery] Duplicate app id "${app.id}": ` +
-        `"${existing.packagePath}" overridden by "${app.packagePath}"`,
-      );
+      if (existing.packagePath !== app.packagePath) {
+        console.warn(
+          `[app-discovery] Duplicate app id "${app.id}": ` +
+          `"${existing.packagePath}" overridden by "${app.packagePath}"`,
+        );
+      }
     }
     byId.set(app.id, app);
   }
