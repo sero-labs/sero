@@ -81,6 +81,10 @@ dmg:
 afterSign: null
 
 # ── Rebuild native modules for Electron's Node version ───────
-npmRebuild: true
+npmRebuild: false
 nodeGypRebuild: false
-buildDependenciesFromSource: true
+buildDependenciesFromSource: false
+
+# Use the locally installed castlabs Electron fork instead of trying
+# to download a stock Electron build for the +wvcus version.
+electronDist: node_modules/electron/dist

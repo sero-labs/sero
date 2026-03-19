@@ -83,7 +83,7 @@ fi
 
 # ── Step 5: VMP signing (Widevine) ───────────────────────────
 echo "▸ Step 5/6: VMP signing..."
-if command -v python3 -c "import castlabs_evs" &> /dev/null 2>&1; then
+if command -v evs-vmp > /dev/null 2>&1; then
   bash scripts/sign-vmp.sh
 else
   echo "  ⚠ castlabs-evs not installed — skipping VMP signing"

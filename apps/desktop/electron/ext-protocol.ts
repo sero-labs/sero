@@ -13,7 +13,7 @@
 
 import { protocol, net } from 'electron';
 import path from 'path';
-import { realpathSync } from 'fs';
+import { realpathSync, readFileSync } from 'fs';
 import type { SeroAppManifest } from '../src/types/ipc';
 
 // ── App registry (populated by discovery) ────────────────────
@@ -31,6 +31,21 @@ export function registerAllExtAssets(manifests: SeroAppManifest[]): void {
     if (m.uiEntry) {
       appRegistry.set(m.id, m);
     }
+  }
+}
+
+function rewriteFederationManifest(raw: string, appId: string): string {
+  try {
+    const manifest = JSON.parse(raw);
+    const publicPath = `sero-ext://${appId}/`;
+
+    if (manifest?.metaData && typeof manifest.metaData === 'object') {
+      manifest.metaData.publicPath = publicPath;
+    }
+
+    return JSON.stringify(manifest);
+  } catch {
+    return raw;
   }
 }
 
@@ -98,6 +113,13 @@ export function setupExtProtocol(): void {
     }
 
     try {
+      if (filePath === 'mf-manifest.json') {
+        const rawManifest = readFileSync(fullPath, 'utf8');
+        return new Response(rewriteFederationManifest(rawManifest, appId), {
+          headers: { 'content-type': 'application/json; charset=utf-8' },
+        });
+      }
+
       return await net.fetch(`file://${fullPath}`);
     } catch {
       return new Response(`Not found: ${filePath}`, { status: 404 });

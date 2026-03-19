@@ -1,0 +1,66 @@
+import { existsSync, readdirSync, readFileSync } from 'fs';
+import path from 'path';
+
+const MONOREPO_PACKAGES_CANDIDATES = [
+  path.resolve(__dirname, '../../../../packages'),
+  path.resolve(__dirname, '../../../packages'),
+];
+
+const BUNDLED_PACKAGES_DIR = path.resolve(__dirname, 'builtin/packages');
+const BUNDLED_TEMPLATES_DIR = path.resolve(__dirname, 'builtin/templates');
+
+function firstExistingPath(candidates: string[]): string | null {
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function isBuiltinPackageDir(pkgPath: string): boolean {
+  const pkgJsonPath = path.join(pkgPath, 'package.json');
+  if (!existsSync(pkgJsonPath)) return false;
+
+  try {
+    const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+    return (
+      pkg.pi?.extensions != null ||
+      pkg.piExtension != null ||
+      pkg.sero?.app != null ||
+      existsSync(path.join(pkgPath, 'extension'))
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function resolveBuiltinPackagesDir(): string | null {
+  const monorepoPackages = firstExistingPath(MONOREPO_PACKAGES_CANDIDATES);
+  if (monorepoPackages) return monorepoPackages;
+  return existsSync(BUNDLED_PACKAGES_DIR) ? BUNDLED_PACKAGES_DIR : null;
+}
+
+export function resolveBuiltinTemplatesDir(): string | null {
+  const monorepoPackages = firstExistingPath(MONOREPO_PACKAGES_CANDIDATES);
+  if (monorepoPackages) {
+    const templatesDir = path.join(monorepoPackages, 'templates');
+    if (existsSync(templatesDir)) return templatesDir;
+  }
+  return existsSync(BUNDLED_TEMPLATES_DIR) ? BUNDLED_TEMPLATES_DIR : null;
+}
+
+export function discoverBuiltinPackagePaths(): string[] {
+  const packagesDir = resolveBuiltinPackagesDir();
+  if (!packagesDir) return [];
+
+  try {
+    return readdirSync(packagesDir)
+      .filter((entry) => entry.startsWith('pi-'))
+      .map((entry) => path.join(packagesDir, entry))
+      .filter(isBuiltinPackageDir)
+      .sort((a, b) => a.localeCompare(b));
+  } catch {
+    return [];
+  }
+}

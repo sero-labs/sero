@@ -3,7 +3,7 @@ import { loadSeroEnv, SERO_AGENT_DIR, SERO_HOME, ACTIVE_PROFILE_ID } from './env
 loadSeroEnv();
 
 import { app, components, BrowserWindow, session, shell } from 'electron';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
 
 // ── Per-profile Chromium userData isolation ──────────────────
@@ -27,6 +27,7 @@ import { ensureDefaultAgents, ensureDefaultThemes, ensureProfileTemplates } from
 import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './ipc/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './csp';
+import { discoverBuiltinPackagePaths } from './builtin-resources';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -44,18 +45,19 @@ app.commandLine.appendSwitch('use-mock-keychain');
  * Bootstrap ~/.sero-ui/agent/ on first run.
  *
  * Creates the agent directory and a default settings.json with Sero's
- * built-in app packages. Skips if settings.json already exists.
+ * built-in packages. Skips if settings.json already exists.
  */
 function bootstrapAgentDir(): void {
   mkdirSync(SERO_AGENT_DIR, { recursive: true });
 
   const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
   if (!existsSync(settingsPath)) {
+    const builtinPackages = discoverBuiltinPackagePaths();
     const defaults = {
       defaultProvider: 'anthropic',
       defaultModel: 'claude-opus-4-6',
       defaultThinkingLevel: 'high',
-      packages: [] as string[],
+      packages: builtinPackages,
     };
     writeFileSync(settingsPath, JSON.stringify(defaults, null, 2) + '\n');
     console.log('[sero] Created default settings at', settingsPath);
@@ -63,42 +65,13 @@ function bootstrapAgentDir(): void {
 }
 
 /**
- * Discover all pi-* extension packages (with or without a sero.app UI).
- * Returns absolute paths. Works at runtime (from dist/electron/).
- *
- * A directory qualifies if it has a package.json with either:
- *   - a `piExtension` field (Pi SDK extension entry point), or
- *   - a `sero.app` manifest (Sero UI app), or
- *   - an `extension/` subdirectory (convention for Sero extensions)
- */
-function discoverSeroPackagePaths(): string[] {
-  // __dirname is apps/desktop/dist/electron/ at runtime → packages/ is 4 levels up
-  const pkgsDir = path.resolve(__dirname, '../../../../packages');
-  try {
-    return readdirSync(pkgsDir)
-      .filter((d) => d.startsWith('pi-'))
-      .map((d) => path.join(pkgsDir, d))
-      .filter((p) => {
-        try {
-          const pkg = JSON.parse(readFileSync(path.join(p, 'package.json'), 'utf8'));
-          return pkg.pi?.extensions != null || pkg.piExtension != null || pkg.sero?.app != null || existsSync(path.join(p, 'extension'));
-        } catch {
-          return false;
-        }
-      });
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Ensure Sero's built-in app packages are registered in settings.json.
  *
- * In development, auto-discovers packages/pi-* with sero.app manifests
- * and adds their paths. No hardcoded package list needed.
+ * Works in both development and packaged builds so the Pi runtime can always
+ * discover Sero's built-in packages via settings.json.
  */
 function ensureBuiltinPackages(): void {
-  if (process.env.NODE_ENV !== 'development') return;
+  type SettingsPackageSource = string | { source?: string };
 
   const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
   let settings: Record<string, unknown> = {};
@@ -108,12 +81,17 @@ function ensureBuiltinPackages(): void {
     // Will be created by bootstrapAgentDir
   }
 
-  const packages = (settings.packages as string[]) ?? [];
-  const builtinPaths = discoverSeroPackagePaths();
+  const packages = Array.isArray(settings.packages)
+    ? settings.packages as SettingsPackageSource[]
+    : [];
+  const builtinPaths = discoverBuiltinPackagePaths();
 
   let changed = false;
   for (const p of builtinPaths) {
-    if (!packages.includes(p)) {
+    const hasPackagePath = packages.some((entry) =>
+      (typeof entry === 'string' ? entry : entry.source) === p,
+    );
+    if (!hasPackagePath) {
       packages.push(p);
       changed = true;
     }
@@ -226,35 +204,19 @@ app.whenReady().then(async () => {
   // Set up custom protocol for serving extension UI assets
   setupExtProtocol();
 
-  // In development, ensure built-in app packages are in settings.json
-  // and register their paths for app discovery
-  if (process.env.NODE_ENV === 'development') {
-    ensureBuiltinPackages();
+  // Ensure built-in app packages are in settings.json and register their
+  // paths for app discovery in both development and packaged builds.
+  ensureBuiltinPackages();
 
-    // Auto-discover and register all sero app packages for app discovery
-    for (const pkgPath of discoverSeroPackagePaths()) {
-      registerAppPath(pkgPath);
-    }
+  // Auto-discover and register all built-in app packages for app discovery.
+  // We register them directly as well as via settings.json so discovery
+  // still works even if the user's settings file is missing or stale.
+  for (const pkgPath of discoverBuiltinPackagePaths()) {
+    registerAppPath(pkgPath);
   }
 
   // Discover apps and register their assets for the custom protocol.
-  // If SERO_DEV_APPS is set, clear devPort for apps NOT in the list so the
-  // renderer loads them from pre-built bundles (sero-ext://) instead of
-  // expecting a running Vite dev server.
   const apps = await discoverApps();
-  if (process.env.NODE_ENV === 'development' && process.env.SERO_DEV_APPS) {
-    const devFilter = process.env.SERO_DEV_APPS.trim();
-    if (devFilter !== 'all') {
-      const devSet = devFilter === 'none'
-        ? new Set<string>()
-        : new Set(devFilter.split(',').map((s) => s.trim()));
-      for (const app of apps) {
-        if (!devSet.has(app.id)) {
-          app.devPort = undefined;
-        }
-      }
-    }
-  }
   registerAllExtAssets(apps);
 
   // Watch for new app packages created while running (e.g. by the agent)

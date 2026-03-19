@@ -138,12 +138,6 @@ importers:
       '@remixicon/react':
         specifier: ^4.9.0
         version: 4.9.0(react@19.2.4)
-      '@sero/app-runtime':
-        specifier: workspace:*
-        version: link:../../packages/app-runtime
-      '@sero/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
@@ -220,6 +214,12 @@ importers:
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.58.2
+      '@sero/app-runtime':
+        specifier: workspace:*
+        version: link:../../packages/app-runtime
+      '@sero/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@types/diff':
         specifier: ^8.0.0
         version: 8.0.0

@@ -16,6 +16,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   root: 'ui',
+  base: process.env.NODE_ENV === 'production' ? './' : '/',
   plugins: [
     react(),
     tailwindcss(),
