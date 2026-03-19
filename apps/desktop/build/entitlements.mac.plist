@@ -20,7 +20,9 @@
   <key>com.apple.security.network.server</key>
   <true/>
 
-  <!-- File access (workspace files, ~/.sero-ui/) -->
+  <!-- File access — This entitlement only applies inside an App Sandbox.
+       Sero currently runs with hardened runtime but WITHOUT App Sandbox,
+       so this has no effect. Kept as a placeholder for future sandboxing. -->
   <key>com.apple.security.files.user-selected.read-write</key>
   <true/>
 </dict>

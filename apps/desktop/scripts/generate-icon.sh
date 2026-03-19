@@ -48,8 +48,8 @@ if command -v iconutil &> /dev/null && command -v sips &> /dev/null; then
   ICONSET="$BUILD_DIR/icon.iconset"
   mkdir -p "$ICONSET"
 
-  # Generate all required sizes
-  for SIZE in 16 32 64 128 256 512; do
+  # Generate all required sizes (standard macOS iconset: 16, 32, 128, 256, 512 + @2x)
+  for SIZE in 16 32 128 256 512; do
     sips -z $SIZE $SIZE "$SOURCE" --out "$ICONSET/icon_${SIZE}x${SIZE}.png" > /dev/null
     DOUBLE=$((SIZE * 2))
     sips -z $DOUBLE $DOUBLE "$SOURCE" --out "$ICONSET/icon_${SIZE}x${SIZE}@2x.png" > /dev/null

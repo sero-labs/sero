@@ -13,6 +13,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 // Unset / "all"  → every app runs in dev mode (original behavior)
 // "none"         → no apps run in dev mode (all use pre-built bundles)
 // "todo,kanban"  → only listed apps run in dev mode
+// Keep in sync with the equivalent filter in electron/app-discovery.ts (Electron main process).
 const devAppsEnv = process.env.SERO_DEV_APPS?.trim();
 const devAppsFilter: Set<string> | 'all' =
   !devAppsEnv || devAppsEnv === 'all'

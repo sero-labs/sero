@@ -11,7 +11,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { SeroAppManifest } from '../src/types/ipc';
+import type { SeroAppManifest, SettingsPackageSource } from '../src/types/ipc';
 
 import { SERO_AGENT_DIR, SERO_HOME } from './env';
 
@@ -37,7 +37,8 @@ interface PkgJson {
   sero?: { app?: PkgSeroApp };
 }
 
-type SettingsPackageSource = string | { source?: string };
+// ── Selective dev mode ────────────────────────────────────────
+// Keep in sync with the equivalent filter in vite.config.ts (Vite build process).
 
 const devAppsEnv = process.env.SERO_DEV_APPS?.trim();
 const selectiveDevFilter: Set<string> | 'all' =

@@ -29,6 +29,7 @@ const __dirname = __dirnameFn(__filename);
   },
 };
 
+// Keep in sync with the TS copy in electron/builtin-resources.ts.
 function isBuiltinPackageDir(pkgPath) {
   const pkgJsonPath = path.join(pkgPath, 'package.json');
   if (!fs.existsSync(pkgJsonPath)) return false;

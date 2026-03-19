@@ -5,6 +5,7 @@ loadSeroEnv();
 import { app, components, BrowserWindow, session, shell } from 'electron';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
+import type { SettingsPackageSource } from '../src/types/ipc';
 
 // ── Per-profile Chromium userData isolation ──────────────────
 // Set userData path BEFORE app.whenReady() so Chromium initialises with the
@@ -71,8 +72,6 @@ function bootstrapAgentDir(): void {
  * discover Sero's built-in packages via settings.json.
  */
 function ensureBuiltinPackages(): void {
-  type SettingsPackageSource = string | { source?: string };
-
   const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
   let settings: Record<string, unknown> = {};
   try {

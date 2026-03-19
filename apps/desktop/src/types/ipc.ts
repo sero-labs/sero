@@ -242,6 +242,14 @@ export type {
 
 // ── Sero Apps ──────────────────────────────────────────────────
 
+/**
+ * Shape of entries in the `packages` array in settings.json.
+ * Can be a plain path string or an object with a `source` field.
+ *
+ * Used by both app-discovery (reading) and main.ts (writing/updating).
+ */
+export type SettingsPackageSource = string | { source?: string };
+
 /** Manifest for a Sero app discovered from a Pi package. */
 export interface SeroAppManifest {
   /** Unique app identifier (e.g. "todo"). */

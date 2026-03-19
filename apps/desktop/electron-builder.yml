@@ -32,6 +32,10 @@ files:
   - "!**/node_modules/.cache/**"
 
 # ── Extra resources (outside asar, accessible via process.resourcesPath) ──
+# browser-helper.py is also copied into dist/electron/ by build-electron.mjs
+# for development. In packaged builds, the asar-internal copy is readable via
+# Node's fs module, but this extraResources entry ensures it's also available
+# at process.resourcesPath for container exec (which can't read inside asar).
 extraResources:
   - from: electron/container/browser-helper.py
     to: browser-helper.py
@@ -80,7 +84,10 @@ dmg:
 #   APPLE_TEAM_ID=your-team-id
 afterSign: null
 
-# ── Rebuild native modules for Electron's Node version ───────
+# ── Native module rebuild ─────────────────────────────────────
+# Disabled here because pnpm workspace symlinks break electron-builder's
+# built-in rebuild. Native modules (node-pty, better-sqlite3) are rebuilt
+# manually via `electron-rebuild` in build-release.sh (step 5) instead.
 npmRebuild: false
 nodeGypRebuild: false
 buildDependenciesFromSource: false

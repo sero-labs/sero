@@ -19,6 +19,7 @@
 cd "$(dirname "$0")/.."
 
 PKGS_DIR="$(cd ../../packages && pwd)"
+SERO_DEV_APPS="${SERO_DEV_APPS:-}"
 
 # ── Cleanup trap ────────────────────────────────────────────
 # Track all child PIDs so we can kill them on exit/ctrl-c/crash.

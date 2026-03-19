@@ -18,6 +18,10 @@ function firstExistingPath(candidates: string[]): string | null {
   return null;
 }
 
+/**
+ * Check if a directory is a Sero extension/app package.
+ * Keep in sync with the JS copy in scripts/build-electron.mjs.
+ */
 function isBuiltinPackageDir(pkgPath: string): boolean {
   const pkgJsonPath = path.join(pkgPath, 'package.json');
   if (!existsSync(pkgJsonPath)) return false;
