@@ -12,16 +12,19 @@
 import { readdir, copyFile, readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { SERO_AGENT_DIR, SERO_HOME } from '../env';
+import { resolveBuiltinTemplatesDir } from '../builtin-resources';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 const GLOBAL_WORKSPACE_DIR = path.join(SERO_HOME, 'workspaces', 'global');
 
 /**
  * Resolve the path to built-in templates.
- * In development: <monorepo>/packages/templates/<subdir>
+ * In development this points at the monorepo templates directory.
+ * In packaged builds it resolves to the copies staged into dist/electron/.
  */
-function getTemplatesDir(subdir: string): string {
-  return path.resolve(__dirname, `../../../../packages/templates/${subdir}`);
+function getTemplatesDir(subdir: string): string | null {
+  const templatesRoot = resolveBuiltinTemplatesDir();
+  return templatesRoot ? path.join(templatesRoot, subdir) : null;
 }
 
 /** Resolve the monorepo root (4 levels up from dist/electron/). */
@@ -111,7 +114,9 @@ async function copyMissingFiles(
  */
 export async function ensureDefaultAgents(): Promise<void> {
   try {
-    const copied = await copyMissingFiles(getTemplatesDir('agents'), AGENTS_DIR, '.md');
+    const templatesDir = getTemplatesDir('agents');
+    if (!templatesDir) return;
+    const copied = await copyMissingFiles(templatesDir, AGENTS_DIR, '.md');
     if (copied > 0) {
       console.log(`[setup] Copied ${copied} agent template(s) to ${AGENTS_DIR}`);
     }
@@ -131,8 +136,10 @@ const THEMES_DIR = path.join(SERO_HOME, 'themes');
  */
 export async function ensureDefaultThemes(): Promise<void> {
   try {
+    const templatesDir = getTemplatesDir('themes');
+    if (!templatesDir) return;
     const copied = await copyMissingFiles(
-      getTemplatesDir('themes'),
+      templatesDir,
       THEMES_DIR,
       '.json',
     );
@@ -163,8 +170,10 @@ const SKIP_PROFILE_FILES = new Set(['MEMORY.md']);
  */
 export async function ensureProfileTemplates(): Promise<void> {
   try {
+    const templatesDir = getTemplatesDir('profile');
+    if (!templatesDir) return;
     const copied = await copyMissingFiles(
-      getTemplatesDir('profile'),
+      templatesDir,
       GLOBAL_WORKSPACE_DIR,
       '.md',
       {

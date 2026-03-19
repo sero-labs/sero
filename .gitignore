@@ -13,3 +13,4 @@ test-results/
 playwright-report/
 .playwright-cli/
 .sero-test-data/
+apps/desktop/sero-desktop-*.tgz

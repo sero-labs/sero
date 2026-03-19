@@ -7,7 +7,8 @@
  * the renderer can load.
  *
  * Sources that must be allowed:
- * - Dev: localhost (Vite dev server + module federation remotes), ws: (HMR)
+ * - Dev: localhost (Vite dev server + module federation remotes), ws: (HMR),
+ *   and sero-ext: for selectively skipped apps loaded from built bundles
  * - Prod: sero-ext: (custom protocol for federated extension assets)
  * - Both: https://sdk.scdn.co (Spotify Web Playback SDK script),
  *   https://*.scdn.co + https://*.spotify.com (Spotify API/CDN),
@@ -21,6 +22,10 @@ const isDev = process.env.NODE_ENV === 'development';
 
 /** Build the CSP directive string for the current environment. */
 function buildCSP(): string {
+  const extensionSrc = ['sero-ext:'];
+  const devHttpSrc = isDev ? ['http://localhost:*'] : [];
+  const devConnectSrc = isDev ? ['http://localhost:*', 'ws://localhost:*'] : [];
+
   // -- script-src --
   // Dev needs 'unsafe-inline' for Vite's injected HMR client script and
   // the inline <script> in index.html (theme flash prevention).
@@ -34,9 +39,8 @@ function buildCSP(): string {
     'blob:',
     'https://sdk.scdn.co',          // Spotify Web Playback SDK
     'https://cdn.jsdelivr.net',     // Monaco Editor CDN
-    ...(isDev
-      ? ['http://localhost:*']      // Vite dev + MF remotes
-      : ['sero-ext:']),             // Federated extension assets
+    ...devHttpSrc,                  // Vite dev + MF remotes
+    ...extensionSrc,                // Federated extension assets
   ];
 
   // -- connect-src --
@@ -48,16 +52,22 @@ function buildCSP(): string {
     'https://*.spotify.com',   // Spotify Web API
     'https://*.scdn.co',       // Spotify CDN
     'https://api.spotify.com',
-    ...(isDev
-      ? ['http://localhost:*', 'ws://localhost:*']  // Vite HMR + dev servers
-      : ['sero-ext:']),
+    ...devConnectSrc,          // Vite HMR + dev servers
+    ...extensionSrc,           // Federated extension manifests/assets
   ];
 
   // -- style-src --
   // 'unsafe-inline' is required for Tailwind's runtime styles and any
   // inline style= attributes used in components.
   // fonts.googleapis.com serves the @font-face CSS for Google Fonts.
-  const styleSrc = ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://fonts.googleapis.com', ...(isDev ? ['http://localhost:*'] : ['sero-ext:'])];
+  const styleSrc = [
+    "'self'",
+    "'unsafe-inline'",
+    'https://cdn.jsdelivr.net',
+    'https://fonts.googleapis.com',
+    ...devHttpSrc,
+    ...extensionSrc,
+  ];
 
   // -- img-src --
   const imgSrc = [
@@ -67,12 +77,13 @@ function buildCSP(): string {
     'https://*.scdn.co',       // Spotify album art
     'https://*.spotifycdn.com',
     'https://models.dev',      // AI model provider logos
-    ...(isDev ? ['http://localhost:*'] : ['sero-ext:']),
+    ...devHttpSrc,
+    ...extensionSrc,
   ];
 
   // -- font-src --
   // fonts.gstatic.com serves the actual font files (.woff2) for Google Fonts.
-  const fontSrc = ["'self'", 'data:', 'https://fonts.gstatic.com', ...(isDev ? ['http://localhost:*'] : ['sero-ext:'])];
+  const fontSrc = ["'self'", 'data:', 'https://fonts.gstatic.com', ...devHttpSrc, ...extensionSrc];
 
   // -- media-src (Spotify playback) --
   const mediaSrc = ["'self'", 'blob:', 'https://*.spotify.com', 'https://*.scdn.co'];

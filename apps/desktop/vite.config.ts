@@ -8,6 +8,24 @@ import { readFileSync } from 'fs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+// ── Selective dev mode ───────────────────────────────────────
+// SERO_DEV_APPS controls which apps get dev servers (HMR, live reload).
+// Unset / "all"  → every app runs in dev mode (original behavior)
+// "none"         → no apps run in dev mode (all use pre-built bundles)
+// "todo,kanban"  → only listed apps run in dev mode
+// Keep in sync with the equivalent filter in electron/app-discovery.ts (Electron main process).
+const devAppsEnv = process.env.SERO_DEV_APPS?.trim();
+const devAppsFilter: Set<string> | 'all' =
+  !devAppsEnv || devAppsEnv === 'all'
+    ? 'all'
+    : new Set(devAppsEnv.split(',').map((s) => s.trim()).filter(Boolean));
+
+function isAppInDevMode(appId: string): boolean {
+  if (!isDev) return false;
+  if (devAppsFilter === 'all') return true;
+  return devAppsFilter.has(appId);
+}
+
 // ── Auto-discover Sero app manifests from packages/ ──────────
 
 interface SeroAppDef {
@@ -59,11 +77,14 @@ function discoverSeroApps(): SeroAppDef[] {
 
 /**
  * Build the MF remotes config object from discovered apps.
+ *
+ * Apps in dev mode point to their local Vite dev server.
+ * Apps NOT in dev mode use the sero-ext:// protocol (pre-built bundles).
  */
 function buildRemotesConfig(apps: SeroAppDef[]): Record<string, string> {
   const remotes: Record<string, string> = {};
   for (const app of apps) {
-    remotes[app.remoteName] = isDev
+    remotes[app.remoteName] = isAppInDevMode(app.id)
       ? `http://localhost:${app.devPort}/mf-manifest.json`
       : `sero-ext://${app.id}/mf-manifest.json`;
   }
@@ -74,7 +95,19 @@ function buildRemotesConfig(apps: SeroAppDef[]): Record<string, string> {
 
 function watchRemotes(): Plugin {
   const packagesDir = path.resolve(__dirname, '../../packages');
-  const remoteDirs = globSync('pi-*/ui', { cwd: packagesDir, absolute: true });
+  // Only watch UI dirs for apps that are actually in dev mode
+  const remoteDirs = globSync('pi-*/ui', { cwd: packagesDir, absolute: true })
+    .filter((dir) => {
+      if (devAppsFilter === 'all') return true;
+      // Extract app id from the package.json in the parent dir
+      try {
+        const pkgPath = path.join(path.dirname(dir), 'package.json');
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+        return pkg.sero?.app?.id && devAppsFilter.has(pkg.sero.app.id);
+      } catch {
+        return false;
+      }
+    });
 
   return {
     name: 'sero-watch-remotes',
@@ -105,7 +138,11 @@ function watchRemotes(): Plugin {
 const seroApps = discoverSeroApps();
 const remotesConfig = buildRemotesConfig(seroApps);
 
-console.log(`[sero] Discovered ${seroApps.length} app remotes: ${seroApps.map((a) => a.id).join(', ')}`);
+const devApps = seroApps.filter((a) => isAppInDevMode(a.id));
+const builtApps = seroApps.filter((a) => !isAppInDevMode(a.id));
+console.log(`[sero] Discovered ${seroApps.length} app remotes`);
+if (devApps.length > 0) console.log(`[sero]   Dev mode: ${devApps.map((a) => a.id).join(', ')}`);
+if (builtApps.length > 0) console.log(`[sero]   Pre-built: ${builtApps.map((a) => a.id).join(', ')}`);
 
 export default defineConfig({
   plugins: [

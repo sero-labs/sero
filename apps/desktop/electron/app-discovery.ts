@@ -11,7 +11,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { SeroAppManifest } from '../src/types/ipc';
+import type { SeroAppManifest, SettingsPackageSource } from '../src/types/ipc';
 
 import { SERO_AGENT_DIR, SERO_HOME } from './env';
 
@@ -35,6 +35,21 @@ interface PkgJson {
   description?: string;
   version?: string;
   sero?: { app?: PkgSeroApp };
+}
+
+// ── Selective dev mode ────────────────────────────────────────
+// Keep in sync with the equivalent filter in vite.config.ts (Vite build process).
+
+const devAppsEnv = process.env.SERO_DEV_APPS?.trim();
+const selectiveDevFilter: Set<string> | 'all' =
+  !devAppsEnv || devAppsEnv === 'all'
+    ? 'all'
+    : new Set(devAppsEnv.split(',').map((entry) => entry.trim()).filter(Boolean));
+
+function isAppInDevMode(appId: string): boolean {
+  if (process.env.NODE_ENV !== 'development') return false;
+  if (selectiveDevFilter === 'all') return true;
+  return selectiveDevFilter.has(appId);
 }
 
 function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest | null {
@@ -63,7 +78,7 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
     globalStatePath,
     uiEntry,
     component: app.component || null,
-    devPort: app.devPort,
+    devPort: isAppInDevMode(app.id) ? app.devPort : undefined,
     packagePath,
   };
 }
@@ -109,6 +124,20 @@ async function scanSettingsPaths(): Promise<SeroAppManifest[]> {
   try {
     const raw = await fs.readFile(path.join(SERO_AGENT_DIR, 'settings.json'), 'utf8');
     const settings = JSON.parse(raw);
+
+    // Check "packages" array for local package paths
+    const packages: SettingsPackageSource[] = settings.packages ?? [];
+    for (const pkgSource of packages) {
+      const source = typeof pkgSource === 'string' ? pkgSource : pkgSource.source;
+      if (typeof source !== 'string' || !source) continue;
+      if (source.startsWith('npm:') || source.startsWith('git:')) continue;
+      const resolved = path.resolve(source);
+      const pkg = await readPkgJson(resolved);
+      if (pkg) {
+        const manifest = parseManifest(pkg, resolved);
+        if (manifest) results.push(manifest);
+      }
+    }
 
     // Check "extensions" array for local paths
     const extensions: string[] = settings.extensions ?? [];
@@ -168,10 +197,12 @@ export async function discoverApps(): Promise<SeroAppManifest[]> {
   for (const app of all) {
     if (byId.has(app.id)) {
       const existing = byId.get(app.id)!;
-      console.warn(
-        `[app-discovery] Duplicate app id "${app.id}": ` +
-        `"${existing.packagePath}" overridden by "${app.packagePath}"`,
-      );
+      if (existing.packagePath !== app.packagePath) {
+        console.warn(
+          `[app-discovery] Duplicate app id "${app.id}": ` +
+          `"${existing.packagePath}" overridden by "${app.packagePath}"`,
+        );
+      }
     }
     byId.set(app.id, app);
   }

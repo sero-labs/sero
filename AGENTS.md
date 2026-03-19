@@ -90,6 +90,11 @@ pkill -f "vite"; pkill -f "electron"  # Kill
 
 Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<app-id>.log`, `/tmp/sero-electron.log`
 
+### Selective Dev Mode
+
+- `SERO_DEV_APPS=todo,kanban bash scripts/dev.sh` starts dev servers only for listed apps; skipped apps load from their built `dist/ui` bundles via `sero-ext://`.
+- When testing skipped apps, rebuild the remotes first with `pnpm build` so their `dist/ui` assets are current.
+
 ### Typecheck
 
 ```bash
@@ -160,6 +165,9 @@ all `packages/pi-*/` directories that have a `sero.app` manifest in their
 `package.json`. No manual edits to `vite.config.ts`, `federation-registry.ts`,
 `electron/main.ts`, or `dev.sh` are needed — just create the package, run
 `pnpm install`, and restart the dev server.
+
+**Built remote requirement:** Production remote bundles must use a relative Vite
+`base` (`'./'`) so `sero-ext://` can resolve chunk preloads and assets correctly.
 
 **Tool bridging (AD-020):** All extension tools are automatically bridged into
 the single `sero-cli` tool — they do NOT appear as standalone tool schemas.
@@ -290,6 +298,9 @@ support (required by the Spotify Web Playback SDK for audio decryption).
   `bash scripts/sign-vmp.sh`) from `apps/desktop/`. Re-run after `pnpm install`.
 - **User-Agent** — `session.defaultSession.setUserAgent()` strips "Electron"
   from the UA; some DRM services reject Electron UAs.
+- **Release packaging** uses the locally installed castlabs Electron dist and
+  stages built-in app packages/templates into `dist/electron/builtin/`, so
+  packaged builds do not depend on the monorepo `packages/` directory at runtime.
 
 ### node-pty Native Module (CRITICAL)
 

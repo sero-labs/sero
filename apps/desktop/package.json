@@ -18,7 +18,11 @@
     "container:nat": "sudo ./scripts/setup-container-nat.sh",
     "container:nat:teardown": "sudo ./scripts/setup-container-nat.sh --teardown",
     "container:build-image": "cd images && container build -t sero-node:latest -f Dockerfile.sero-node .",
-    "sign-vmp": "bash scripts/sign-vmp.sh"
+    "sign-vmp": "bash scripts/sign-vmp.sh",
+    "release": "bash scripts/build-release.sh",
+    "release:signed": "bash scripts/build-release.sh --sign",
+    "pack": "node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac --dir",
+    "dist": "node scripts/prepare-packaging.mjs && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --config electron-builder.yml --mac"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -35,8 +39,6 @@
     "@module-federation/vite": "catalog:",
     "@monaco-editor/react": "^4.7.0",
     "@remixicon/react": "^4.9.0",
-    "@sero/app-runtime": "workspace:*",
-    "@sero/ui": "workspace:*",
     "@sinclair/typebox": "catalog:",
     "@streamdown/code": "^1.1.0",
     "@streamdown/math": "^1.0.2",
@@ -63,7 +65,11 @@
   },
   "devDependencies": {
     "@discordjs/rest": "^2.6.0",
+    "@electron/rebuild": "^4.0.3",
+    "@emotion/is-prop-valid": "^1.4.0",
     "@playwright/test": "^1.58.2",
+    "@sero/app-runtime": "workspace:*",
+    "@sero/ui": "workspace:*",
     "@types/diff": "^8.0.0",
     "@types/node": "catalog:",
     "@types/qrcode": "^1.5.6",
@@ -80,14 +86,6 @@
     "vitest": "catalog:"
   },
   "build": {
-    "appId": "app.sero",
-    "productName": "Sero",
-    "mac": {
-      "target": "dmg",
-      "arch": [
-        "arm64"
-      ],
-      "category": "public.app-category.developer-tools"
-    }
+    "extends": null
   }
 }
