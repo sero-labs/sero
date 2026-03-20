@@ -150,6 +150,8 @@ export interface KanbanSettings {
   testingEnabled: boolean;
   /** YOLO mode: auto-start, auto-approve, auto-complete — no human gates */
   yoloMode: boolean;
+  /** When YOLO mode is enabled, automatically request GitHub PR auto-merge. */
+  yoloAutoMergePrs: boolean;
 }
 
 export interface KanbanState {
@@ -189,6 +191,7 @@ export const DEFAULT_KANBAN_STATE: KanbanState = {
     reviewMode: 'full',
     testingEnabled: true,
     yoloMode: false,
+    yoloAutoMergePrs: false,
   },
 };
 

@@ -115,6 +115,7 @@ function makeSettings(overrides: Partial<KanbanSettings> = {}): KanbanSettings {
     reviewMode: 'full',
     testingEnabled: true,
     yoloMode: false,
+    yoloAutoMergePrs: false,
     ...overrides,
   };
 }

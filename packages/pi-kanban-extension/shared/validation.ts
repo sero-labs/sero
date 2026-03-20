@@ -77,6 +77,22 @@ export function validateCardTransition(
   return { valid: errors.length === 0, errors };
 }
 
+export function validateReviewDecision(card: Pick<Card, 'column' | 'status' | 'prUrl'>): ValidationResult {
+  const errors: string[] = [];
+
+  if (card.column !== 'review') {
+    errors.push('Card must be in Review');
+  }
+  if (card.status !== 'waiting-input') {
+    errors.push('Card must be awaiting human input (status: waiting-input)');
+  }
+  if (!card.prUrl) {
+    errors.push('Card must have a pull request URL');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 // ── Dependency Helpers ───────────────────────────────────────
 
 /**

@@ -23,6 +23,7 @@ import { CommandMenu } from '@/components/layout/CommandMenu';
 import { initAppControlBridge } from '@/lib/app-control-bridge';
 import { hydrateShellState } from '@/lib/app-startup';
 import { ActiveAppPanel } from '@/components/apps/ActiveAppPanel';
+import { useAgentStore } from '@/stores/agent';
 
 /**
  * App shell.
@@ -73,6 +74,8 @@ export function App() {
   const layoutReady = useAppStore((s) => s.layoutReady);
   const profileReady = useProfileStore((s) => s.ready);
   const hasActiveProfile = useProfileStore((s) => s.hasActiveProfile);
+  const initAgentEventListener = useAgentStore((s) => s.initEventListener);
+  const initCollaborationListener = useAgentStore((s) => s.initCollaborationListener);
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
@@ -109,6 +112,17 @@ export function App() {
   useEffect(() => {
     return initAppControlBridge();
   }, []);
+
+  // Keep agent event subscriptions alive even when the ChatPanel is hidden.
+  useEffect(() => {
+    const unsub = initAgentEventListener();
+    return unsub;
+  }, [initAgentEventListener]);
+
+  useEffect(() => {
+    const unsub = initCollaborationListener();
+    return unsub;
+  }, [initCollaborationListener]);
 
   const handleMainSidebarResize = useCallback(
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {

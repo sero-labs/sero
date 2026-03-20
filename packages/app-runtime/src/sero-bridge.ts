@@ -28,6 +28,16 @@ export interface SeroAppAgentBridge {
   ): Promise<string>;
 }
 
+export interface SeroEditorExecResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+export interface SeroEditorBridge {
+  exec(workspaceId: string, command: string): Promise<SeroEditorExecResult>;
+}
+
 // ── Model types (subset of desktop's ipc types) ──────────────
 
 /** Serialisable model info for app modules. */
@@ -53,6 +63,7 @@ export interface SeroModelsBridge {
 export interface SeroBridge {
   appState: SeroAppStateBridge;
   appAgent: SeroAppAgentBridge;
+  editor?: SeroEditorBridge;
   models?: SeroModelsBridge;
 }
 

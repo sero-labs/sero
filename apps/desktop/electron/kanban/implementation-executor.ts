@@ -333,6 +333,7 @@ function fallbackState(): KanbanState {
       reviewMode: 'full',
       testingEnabled: true,
       yoloMode: false,
+      yoloAutoMergePrs: false,
     },
   };
 }

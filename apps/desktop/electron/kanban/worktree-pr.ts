@@ -1,7 +1,15 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
+import { getPullRequestMergeState } from './pr-merge-status';
+
 const execFileAsync = promisify(execFile);
+
+export type PullRequestMergeMethod = 'merge' | 'squash' | 'rebase';
+
+export type PullRequestMergeResult =
+  | { success: true; state: 'merged' | 'scheduled' }
+  | { success: false; error: string };
 
 function execError(err: unknown): { stderr: string; message: string } {
   if (err && typeof err === 'object') {
@@ -224,6 +232,45 @@ export async function createPrFromWorktree(
   }
 }
 
+export async function mergePrFromWorktree(
+  worktreePath: string,
+  prNumber: number,
+  opts: { method?: PullRequestMergeMethod } = {},
+): Promise<PullRequestMergeResult> {
+  const method = opts.method ?? 'squash';
+
+  try {
+    await execFileAsync('gh', buildMergeArgs(prNumber, method), {
+      cwd: worktreePath,
+      timeout: 120_000,
+    });
+  } catch (mergeErr: unknown) {
+    const immediateError = execError(mergeErr);
+    try {
+      await execFileAsync('gh', buildMergeArgs(prNumber, method, true), {
+        cwd: worktreePath,
+        timeout: 120_000,
+      });
+    } catch (autoMergeErr: unknown) {
+      const state = await getPullRequestMergeState(worktreePath, prNumber);
+      if (state === 'merged') {
+        return { success: true, state: 'merged' };
+      }
+
+      const autoMergeError = execError(autoMergeErr);
+      const detail = autoMergeError.stderr || autoMergeError.message || immediateError.stderr || immediateError.message;
+      console.error(`[worktree-git] PR merge failed for #${prNumber}:`, detail);
+      return { success: false, error: detail };
+    }
+  }
+
+  const state = await getPullRequestMergeState(worktreePath, prNumber);
+  return {
+    success: true,
+    state: state === 'merged' ? 'merged' : 'scheduled',
+  };
+}
+
 async function findExistingPr(
   worktreePath: string,
 ): Promise<{ url: string; number: number } | null> {
@@ -249,4 +296,17 @@ function extractGithubPrUrl(text: string): string | undefined {
 function extractPrNumber(url: string): number | undefined {
   const match = url.match(/\/pull\/(\d+)/);
   return match ? parseInt(match[1], 10) : undefined;
+}
+
+function buildMergeArgs(
+  prNumber: number,
+  method: PullRequestMergeMethod,
+  auto = false,
+): string[] {
+  const args = ['pr', 'merge', String(prNumber), '--delete-branch'];
+  if (auto) args.push('--auto');
+  if (method === 'merge') args.push('--merge');
+  if (method === 'rebase') args.push('--rebase');
+  if (method === 'squash') args.push('--squash');
+  return args;
 }

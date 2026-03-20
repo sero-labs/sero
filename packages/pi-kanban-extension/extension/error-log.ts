@@ -7,33 +7,33 @@
  */
 
 import { promises as fs } from 'node:fs';
-import path from 'node:path';
 
 import type { ErrorLog, ErrorReport, ErrorSeverity } from '../shared/types';
-import { DEFAULT_ERROR_LOG } from '../shared/types';
+import {
+  appendErrorReport,
+  normalizeErrorLog,
+  resolveErrorLogPath,
+  type ErrorReportInput,
+} from '../shared/error-log';
 
-const ERROR_LOG_FILENAME = 'errors.json';
-
-/** Resolve the error log path from the kanban state path */
-export function resolveErrorLogPath(statePath: string): string {
-  return path.join(path.dirname(statePath), ERROR_LOG_FILENAME);
-}
+const writeQueues = new Map<string, Promise<void>>();
 
 /** Read the error log (returns empty log if file doesn't exist) */
 export async function readErrorLog(statePath: string): Promise<ErrorLog> {
   const logPath = resolveErrorLogPath(statePath);
   try {
     const raw = await fs.readFile(logPath, 'utf8');
-    return JSON.parse(raw) as ErrorLog;
+    return normalizeErrorLog(JSON.parse(raw));
   } catch {
-    return { ...DEFAULT_ERROR_LOG, errors: [] };
+    return normalizeErrorLog(null);
   }
 }
 
 /** Write the error log atomically */
 export async function writeErrorLog(statePath: string, log: ErrorLog): Promise<void> {
   const logPath = resolveErrorLogPath(statePath);
-  const dir = path.dirname(logPath);
+  const dirIndex = Math.max(logPath.lastIndexOf('/'), logPath.lastIndexOf('\\'));
+  const dir = dirIndex === -1 ? '.' : logPath.slice(0, dirIndex);
   await fs.mkdir(dir, { recursive: true });
 
   const tmpPath = `${logPath}.tmp.${Date.now()}`;
@@ -41,46 +41,35 @@ export async function writeErrorLog(statePath: string, log: ErrorLog): Promise<v
   await fs.rename(tmpPath, logPath);
 }
 
-let errorIdCounter = 0;
-
-/** Generate a unique error ID */
-function generateErrorId(): string {
-  errorIdCounter++;
-  return `err-${Date.now()}-${errorIdCounter}`;
-}
-
 /** Append a single error report to the log */
 export async function appendError(
   statePath: string,
-  report: Omit<ErrorReport, 'id' | 'timestamp'>,
+  report: ErrorReportInput,
 ): Promise<ErrorReport> {
-  const log = await readErrorLog(statePath);
-  const fullReport: ErrorReport = {
-    ...report,
-    id: generateErrorId(),
-    timestamp: new Date().toISOString(),
-  };
-  log.errors.push(fullReport);
-  await writeErrorLog(statePath, log);
-  return fullReport;
+  return withWriteQueue(statePath, async () => {
+    const { log, report: fullReport } = appendErrorReport(await readErrorLog(statePath), report);
+    await writeErrorLog(statePath, log);
+    return fullReport;
+  });
 }
 
 /** Append multiple errors at once (batch) */
 export async function appendErrors(
   statePath: string,
-  reports: Omit<ErrorReport, 'id' | 'timestamp'>[],
+  reports: ErrorReportInput[],
 ): Promise<ErrorReport[]> {
   if (reports.length === 0) return [];
-  const log = await readErrorLog(statePath);
-  const now = new Date().toISOString();
-  const fullReports: ErrorReport[] = reports.map((r) => ({
-    ...r,
-    id: generateErrorId(),
-    timestamp: now,
-  }));
-  log.errors.push(...fullReports);
-  await writeErrorLog(statePath, log);
-  return fullReports;
+  return withWriteQueue(statePath, async () => {
+    let nextLog = await readErrorLog(statePath);
+    const fullReports: ErrorReport[] = [];
+    for (const report of reports) {
+      const appended = appendErrorReport(nextLog, report);
+      nextLog = appended.log;
+      fullReports.push(appended.report);
+    }
+    await writeErrorLog(statePath, nextLog);
+    return fullReports;
+  });
 }
 
 /** Get errors for a specific card */
@@ -130,6 +119,28 @@ export function formatErrorLog(log: ErrorLog): string {
   }
 
   return lines.join('\n');
+}
+
+async function withWriteQueue<T>(statePath: string, task: () => Promise<T>): Promise<T> {
+  const key = resolveErrorLogPath(statePath);
+  const previous = writeQueues.get(key) ?? Promise.resolve();
+  let releaseCurrent!: () => void;
+  const current = new Promise<void>((resolve) => {
+    releaseCurrent = resolve;
+  });
+  const tail = previous.catch(() => undefined).then(() => current);
+  writeQueues.set(key, tail);
+
+  await previous.catch(() => undefined);
+
+  try {
+    return await task();
+  } finally {
+    releaseCurrent();
+    if (writeQueues.get(key) === tail) {
+      writeQueues.delete(key);
+    }
+  }
 }
 
 /** Generate a retrospective summary for the agent to analyze */

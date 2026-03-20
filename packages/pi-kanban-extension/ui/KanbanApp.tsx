@@ -9,9 +9,9 @@
  * DM Sans typography, indigo accents matching Sero design system.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useContext, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { useAppState, useAgentPrompt } from '@sero/app-runtime';
+import { AppContext, useAppState, useAgentPrompt } from '@sero/app-runtime';
 import type { KanbanState, Card, Column, Priority } from '../shared/types';
 import {
   DEFAULT_KANBAN_STATE,
@@ -23,6 +23,8 @@ import {
 import { applyManualMove } from './lib/card-workflow';
 import { ColumnView } from './components/ColumnView';
 import { CardDetail } from './components/CardDetail';
+import { SettingsPanel } from './components/SettingsPanel';
+import { useErrorLogSummary } from './hooks/useErrorLogSummary';
 
 // ── Styles ───────────────────────────────────────────────────
 
@@ -97,10 +99,12 @@ const CUSTOM_STYLES = `
 // ── KanbanApp ──────────────────────────────────────────────────
 
 export function KanbanApp() {
+  const appContext = useContext(AppContext);
   const [state, updateState] = useAppState<KanbanState>(DEFAULT_KANBAN_STATE);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  const testingEnabled = state.settings.testingEnabled !== false;
-  const reviewMode = state.settings.reviewMode ?? 'full';
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const yoloEnabled = state.settings.yoloMode === true;
+  const errorSummary = useErrorLogSummary(appContext?.stateFilePath ?? '');
 
   // Group cards by column, sorted by priority
   const cardsByColumn = useMemo(() => {
@@ -177,15 +181,15 @@ export function KanbanApp() {
   // Agent actions — send commands via ChatPanel
   const promptAgent = useAgentPrompt();
   const handleBrainstorm = useCallback(() => {
-    promptAgent('Using the kanban tool: brainstorm');
+    promptAgent('/brainstorm');
   }, [promptAgent]);
 
   const handleRetrospective = useCallback(() => {
     promptAgent('Using the kanban tool: retrospective');
   }, [promptAgent]);
 
-  // Check if there are any cards with errors for the retrospective badge
-  const hasErrors = state.cards.some((c) => c.error || c.status === 'failed');
+  // Error badge follows the persisted error log, not transient card state.
+  const hasErrors = errorSummary.count > 0;
 
   // Summary stats
   const totalCards = state.cards.length;
@@ -215,64 +219,12 @@ export function KanbanApp() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* YOLO mode toggle */}
-            <button
-              onClick={() => updateState((prev) => ({
-                ...prev,
-                settings: { ...prev.settings, yoloMode: !prev.settings.yoloMode },
-              }))}
-              className={`px-2.5 py-1.5 text-[11px] font-medium rounded-md border cursor-pointer
-                transition-colors duration-150
-                ${state.settings.yoloMode
-                  ? 'bg-red-500/15 text-red-400 border-red-500/30 hover:bg-red-500/25'
-                  : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20 hover:bg-zinc-500/15'}`}
-              title={state.settings.yoloMode
-                ? 'YOLO mode ON — auto-starts, auto-approves, auto-completes. Click to disable.'
-                : 'YOLO mode OFF — human approval required at each stage. Click to enable.'}
-            >
-              {state.settings.yoloMode ? '🔥 YOLO' : '🔒 YOLO'}
-            </button>
-            {/* Mode toggle */}
-            <button
-              onClick={() => updateState((prev) => ({
-                ...prev,
-                settings: {
-                  ...prev.settings,
-                  testingEnabled: !prev.settings.testingEnabled,
-                  reviewMode: prev.settings.testingEnabled ? (prev.settings.reviewMode ?? 'full') : 'full',
-                },
-              }))}
-              className={`px-2.5 py-1.5 text-[11px] font-medium rounded-md border cursor-pointer
-                transition-colors duration-150
-                ${testingEnabled
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                  : 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'}`}
-              title={testingEnabled
-                ? 'Production mode — TDD and test generation enabled'
-                : 'Prototype mode — testing disabled for fast iteration'}
-            >
-              Mode: {testingEnabled ? 'Production' : 'Prototype'}
-            </button>
-            {!testingEnabled && (
-              <button
-                onClick={() => updateState((prev) => ({
-                  ...prev,
-                  settings: {
-                    ...prev.settings,
-                    reviewMode: (prev.settings.reviewMode ?? 'full') === 'light' ? 'full' : 'light',
-                  },
-                }))}
-                className={`px-2.5 py-1.5 text-[11px] font-medium rounded-md border cursor-pointer
-                  transition-colors duration-150
-                  ${reviewMode === 'light'
-                    ? 'bg-sky-500/10 text-sky-300 border-sky-500/30 hover:bg-sky-500/20'
-                    : 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20 hover:bg-zinc-500/15'}`}
-                title={reviewMode === 'light'
-                  ? 'Light review mode — compile/build checks plus dev server smoke start to get the app in front of users faster.'
-                  : 'Full review mode — keep the normal reviewer-driven diff pass even in Prototype mode.'}
-              >
-                Review: {reviewMode === 'light' ? 'Light' : 'Full'}
-              </button>
+            {/* YOLO indicator (read-only badge when enabled) */}
+            {yoloEnabled && (
+              <span className="px-2 py-1 text-[11px] font-medium rounded-md
+                bg-red-500/15 text-red-400 border border-red-500/30">
+                🔥 YOLO
+              </span>
             )}
             <button
               onClick={handleRetrospective}
@@ -293,6 +245,16 @@ export function KanbanApp() {
                 transition-colors duration-150 cursor-pointer"
             >
               Brainstorm
+            </button>
+            {/* Settings gear */}
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="w-8 h-8 flex items-center justify-center rounded-md
+                text-[var(--kb-muted)] hover:text-[var(--kb-text)] hover:bg-white/[0.05]
+                transition-colors cursor-pointer"
+              title="Board settings"
+            >
+              <SettingsGearIcon />
             </button>
           </div>
         </div>
@@ -321,7 +283,14 @@ export function KanbanApp() {
           card={activeSelectedCard}
           onClose={handleCloseDetail}
           onUpdate={updateState}
-          onPromptAgent={promptAgent}
+        />
+
+        {/* Settings panel */}
+        <SettingsPanel
+          open={settingsOpen}
+          settings={state.settings}
+          onClose={() => setSettingsOpen(false)}
+          onUpdate={updateState}
         />
       </div>
     </>
@@ -388,6 +357,17 @@ function EmptyState({ onAddCard }: { onAddCard: (title: string, priority: Priori
         </form>
       </motion.div>
     </div>
+  );
+}
+
+// ── Settings gear icon ──────────────────────────────────────
+
+function SettingsGearIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6.86 2.07a1.1 1.1 0 0 1 2.28 0 1.1 1.1 0 0 0 1.64.68 1.1 1.1 0 0 1 1.62 1.13 1.1 1.1 0 0 0 .96 1.42 1.1 1.1 0 0 1 .57 2.17 1.1 1.1 0 0 0-.2 1.7 1.1 1.1 0 0 1-.82 1.96 1.1 1.1 0 0 0-1.2 1.05 1.1 1.1 0 0 1-1.97.82 1.1 1.1 0 0 0-1.7.2 1.1 1.1 0 0 1-2.17-.57 1.1 1.1 0 0 0-1.42-.96 1.1 1.1 0 0 1-1.13-1.62 1.1 1.1 0 0 0-.68-1.64 1.1 1.1 0 0 1 0-2.28 1.1 1.1 0 0 0 .68-1.64A1.1 1.1 0 0 1 4.3 3.3a1.1 1.1 0 0 0 1.42-.96 1.1 1.1 0 0 1 .14-.27Z" />
+      <circle cx="8" cy="8" r="2.2" />
+    </svg>
   );
 }
 

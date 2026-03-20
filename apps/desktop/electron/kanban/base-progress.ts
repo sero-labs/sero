@@ -13,6 +13,7 @@ const MAX_RECENT_TOOLS = 15;
 const MAX_LOG_LINES = 20;
 const MAX_LIVE_OUTPUT_CHARS = 1200;
 const PROGRESS_FLUSH_MS = 800;
+const TOOL_LOG_PATTERN = /^\s*(\S+)\s+([a-z_][a-z0-9_]*):\s*(.+)$/;
 
 export type WriteCardFn = (
   stateFilePath: string,
@@ -85,19 +86,21 @@ export abstract class BaseProgressTracker<T extends BaseProgress> {
 
   /** Parse an onUpdate line and extract tool info if present. */
   addLogLine(text: string): void {
-    const toolMatch = text.match(/\s*\S+\s+(\w+):\s*(.+)/);
+    const toolMatch = text.match(TOOL_LOG_PATTERN);
     if (toolMatch) {
-      const [, tool, args] = toolMatch;
-      for (const t of this.progress.recentTools) {
-        if (t.running) t.running = false;
-      }
-      this.progress.recentTools.push({
-        tool,
-        args: args.slice(0, 120),
-        running: true,
-      });
-      if (this.progress.recentTools.length > MAX_RECENT_TOOLS) {
-        this.progress.recentTools = this.progress.recentTools.slice(-MAX_RECENT_TOOLS);
+      const [, prefix, tool, args] = toolMatch;
+      if (!prefix.startsWith('#')) {
+        for (const t of this.progress.recentTools) {
+          if (t.running) t.running = false;
+        }
+        this.progress.recentTools.push({
+          tool,
+          args: args.slice(0, 120),
+          running: true,
+        });
+        if (this.progress.recentTools.length > MAX_RECENT_TOOLS) {
+          this.progress.recentTools = this.progress.recentTools.slice(-MAX_RECENT_TOOLS);
+        }
       }
     }
 

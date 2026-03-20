@@ -18,7 +18,7 @@ export function PhaseLiveOutputPreview({
   return (
     <div
       style={{
-        padding: '8px 14px 0',
+        padding: '8px 14px 4px',
       }}
     >
       <div

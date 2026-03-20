@@ -5,6 +5,7 @@ import { WorktreeManager } from './worktree-manager';
 import { PlanningProgressTracker } from './planning-progress';
 import { ImplementationProgressTracker } from './implementation-progress';
 import { ReviewProgressTracker } from './review-progress';
+import { AutoMergeMonitor, buildAutoMergePendingMessage } from './auto-merge-monitor';
 import { executeReview } from './review-executor';
 import { getPullRequestMergeError } from './pr-merge-status';
 import { executePlanning } from './planning-executor';
@@ -13,6 +14,8 @@ import { cleanupCardReviewPreview } from './review-preview';
 import { updateCard, readCard } from './state-helpers';
 import { isYoloModeEnabled, reconcilePersistedState, runWorkspaceMaintenance } from './orchestrator-helpers';
 import { validateTransition, getNewlyUnblockedCards, getAllReadyBacklogCards } from './contracts';
+import { mergePrFromWorktree } from './worktree-pr';
+import { autoWatchWorkspace, findWatchedWorkspace, type WatchedWorkspaceEntry } from './workspace-watch';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
 const RETRYABLE_COLUMNS = new Set<Column>(['planning', 'in-progress', 'review']);
@@ -24,16 +27,11 @@ interface OrchestratorDeps {
   findWorkspaceByPath: (absPath: string) => { id: string; path: string } | null;
 }
 
-interface WatchedWorkspace {
-  workspaceId: string;
-  stateFilePath: string;
-  lastColumnMap: Map<string, Column>;
-}
-
 export class KanbanOrchestrator {
   private readonly worktreeManager = new WorktreeManager();
+  private readonly autoMergeMonitor = new AutoMergeMonitor();
   private deps: OrchestratorDeps | null = null;
-  private watched = new Map<string, WatchedWorkspace>();
+  private watched = new Map<string, WatchedWorkspaceEntry>();
   private planningInProgress = new Set<string>();
   private implementationInProgress = new Set<string>();
   private reviewInProgress = new Set<string>();
@@ -63,7 +61,7 @@ export class KanbanOrchestrator {
       for (const card of stuckCards) {
         console.log(`[kanban-orchestrator] Recovery: card #${card.id} stuck in ${card.column} — retrying`);
         recovered++;
-        await this.handleTransition(this.watched.get(ws.id)!, card, card.column, card.column);
+        await this.handleTransition(this.watched.get(ws.id)!, card, card.column);
       }
     }
     if (recovered > 0) {
@@ -84,11 +82,13 @@ export class KanbanOrchestrator {
     appStateManager.watch(stateFilePath);
     console.log(`[kanban-orchestrator] Watching workspace ${workspaceId}`);
     await reconcilePersistedState(stateFilePath, this.watched.get(workspaceId)!.lastColumnMap, initial);
+    this.autoMergeMonitor.syncWorkspace(this.watched.get(workspaceId)!, initial);
   }
 
   unwatchWorkspace(workspaceId: string): void {
     const entry = this.watched.get(workspaceId);
     if (entry) {
+      this.autoMergeMonitor.clearWorkspace(workspaceId);
       appStateManager.unwatch(entry.stateFilePath);
       this.watched.delete(workspaceId);
     }
@@ -97,21 +97,22 @@ export class KanbanOrchestrator {
   async onStateChange(stateFilePath: string, newState: KanbanState): Promise<void> {
     if (!this.deps) return;
 
-    let workspace = this.findWorkspace(stateFilePath);
-    if (!workspace) workspace = this.autoWatch(stateFilePath);
+    let workspace = findWatchedWorkspace(this.watched, stateFilePath);
+    if (!workspace) workspace = autoWatchWorkspace(this.deps, this.watched, stateFilePath);
     if (!workspace || !newState?.cards) return;
+    this.autoMergeMonitor.syncWorkspace(workspace, newState);
 
     for (const card of newState.cards) {
       const prevColumn = workspace.lastColumnMap.get(card.id);
 
       if (prevColumn && prevColumn !== card.column) {
         console.log(`[kanban-orchestrator] Transition: #${card.id} ${prevColumn} → ${card.column}`);
-        await this.handleTransition(workspace, card, prevColumn, card.column);
+        await this.handleTransition(workspace, card, card.column);
       } else if (!prevColumn) {
         if (card.column === 'planning' && card.status === 'agent-working') {
-          await this.handleTransition(workspace, card, 'backlog', 'planning');
+          await this.handleTransition(workspace, card, 'planning');
         } else if (card.column === 'in-progress' && card.status === 'idle') {
-          await this.handleTransition(workspace, card, 'planning', 'in-progress');
+          await this.handleTransition(workspace, card, 'in-progress');
         }
       } else if (
         card.status === 'agent-working'
@@ -119,7 +120,7 @@ export class KanbanOrchestrator {
         && !this.isCurrentlyProcessing(card.id)
       ) {
         console.log(`[kanban-orchestrator] Retry: #${card.id} in ${card.column}`);
-        await this.handleTransition(workspace, card, card.column, card.column);
+        await this.handleTransition(workspace, card, card.column);
       }
     }
 
@@ -129,33 +130,9 @@ export class KanbanOrchestrator {
     }
   }
 
-  private findWorkspace(stateFilePath: string): WatchedWorkspace | null {
-    for (const [, entry] of this.watched) {
-      if (entry.stateFilePath === stateFilePath) return entry;
-    }
-    return null;
-  }
-
-  private autoWatch(stateFilePath: string): WatchedWorkspace | null {
-    if (!this.deps) return null;
-    const suffix = '/.sero/apps/kanban/state.json';
-    const idx = stateFilePath.indexOf(suffix);
-    if (idx === -1) return null;
-
-    const workspacePath = stateFilePath.substring(0, idx);
-    const ws = this.deps.findWorkspaceByPath(workspacePath);
-    if (!ws) return null;
-
-    console.log(`[kanban-orchestrator] Auto-watching "${ws.id}"`);
-    this.watched.set(ws.id, { workspaceId: ws.id, stateFilePath, lastColumnMap: new Map() });
-    appStateManager.watch(stateFilePath);
-    return this.watched.get(ws.id) ?? null;
-  }
-
   private async handleTransition(
-    workspace: WatchedWorkspace,
+    workspace: WatchedWorkspaceEntry,
     card: Card,
-    fromColumn: Column,
     toColumn: Column,
   ): Promise<void> {
     switch (toColumn) {
@@ -174,7 +151,7 @@ export class KanbanOrchestrator {
     }
   }
 
-  private async runPlanningPhase(workspace: WatchedWorkspace, card: Card): Promise<void> {
+  private async runPlanningPhase(workspace: WatchedWorkspaceEntry, card: Card): Promise<void> {
     if (!this.deps || this.planningInProgress.has(card.id)) return;
     this.planningInProgress.add(card.id);
 
@@ -230,7 +207,7 @@ export class KanbanOrchestrator {
         console.log(`[kanban-orchestrator] Card #${card.id} planning complete — YOLO auto-approved`);
         const approved = await readCard(workspace.stateFilePath, card.id);
         if (approved) {
-          await this.handleTransition(workspace, approved, 'planning', 'in-progress');
+          await this.handleTransition(workspace, approved, 'in-progress');
         }
       } else {
         await updateCard(workspace.stateFilePath, card.id, { ...planUpdate, status: 'waiting-input' });
@@ -248,7 +225,7 @@ export class KanbanOrchestrator {
     }
   }
 
-  private async runImplementationPhase(workspace: WatchedWorkspace, card: Card): Promise<void> {
+  private async runImplementationPhase(workspace: WatchedWorkspaceEntry, card: Card): Promise<void> {
     if (!this.deps || this.implementationInProgress.has(card.id)) return;
     this.implementationInProgress.add(card.id);
 
@@ -304,7 +281,7 @@ export class KanbanOrchestrator {
       // Chain to review — updateCard bypasses IPC so we must trigger explicitly
       const reviewCard = await readCard(workspace.stateFilePath, card.id);
       if (reviewCard) {
-        await this.handleTransition(workspace, reviewCard, 'in-progress', 'review');
+        await this.handleTransition(workspace, reviewCard, 'review');
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -320,7 +297,7 @@ export class KanbanOrchestrator {
     }
   }
 
-  private async runReviewPhase(workspace: WatchedWorkspace, card: Card): Promise<void> {
+  private async runReviewPhase(workspace: WatchedWorkspaceEntry, card: Card): Promise<void> {
     if (!this.deps || this.reviewInProgress.has(card.id)) return;
     this.reviewInProgress.add(card.id);
 
@@ -367,9 +344,11 @@ export class KanbanOrchestrator {
 
       if (result.success) {
         const yolo = await isYoloModeEnabled(workspace.stateFilePath);
+        const autoMergePrs = reviewState?.settings?.yoloAutoMergePrs === true;
+        const prNumber = result.prNumber;
         const prUpdate = {
           prUrl: result.prUrl,
-          prNumber: result.prNumber,
+          prNumber,
           previewServerId: result.previewServerId,
           previewUrl: result.previewUrl,
           reviewFilePath: result.reviewFilePath,
@@ -377,7 +356,36 @@ export class KanbanOrchestrator {
           error: undefined,
         };
 
-        if (yolo) {
+        if (yolo && autoMergePrs && typeof prNumber === 'number' && prNumber > 0) {
+          const mergeResult = await mergePrFromWorktree(worktreePath, prNumber, { method: 'squash' });
+          if (!mergeResult.success) {
+            await updateCard(workspace.stateFilePath, card.id, {
+              ...prUpdate,
+              status: 'waiting-input',
+              error: `Auto-merge failed: ${mergeResult.error}`,
+            });
+            console.log(`[kanban-orchestrator] Card #${card.id} auto-merge failed: ${mergeResult.error}`);
+          } else if (mergeResult.state === 'merged') {
+            workspace.lastColumnMap.set(card.id, 'done');
+            await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'idle', column: 'done', completedAt: new Date().toISOString() });
+            console.log(`[kanban-orchestrator] Card #${card.id} YOLO auto-merged: ${result.prUrl}`);
+            await this.runDoneCleanup(workspace, card);
+          } else {
+            await updateCard(workspace.stateFilePath, card.id, {
+              ...prUpdate,
+              status: 'waiting-input',
+              error: buildAutoMergePendingMessage(prNumber),
+            });
+            console.log(`[kanban-orchestrator] Card #${card.id} queued for GitHub auto-merge: ${result.prUrl}`);
+          }
+        } else if (yolo && autoMergePrs) {
+          await updateCard(workspace.stateFilePath, card.id, {
+            ...prUpdate,
+            status: 'waiting-input',
+            error: 'Auto-merge failed: PR number was not returned by GitHub.',
+          });
+          console.log(`[kanban-orchestrator] Card #${card.id} auto-merge skipped: missing PR number`);
+        } else if (yolo) {
           workspace.lastColumnMap.set(card.id, 'done');
           await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'idle', column: 'done', completedAt: new Date().toISOString() });
           console.log(`[kanban-orchestrator] Card #${card.id} YOLO auto-completed: ${result.prUrl}`);
@@ -417,7 +425,7 @@ export class KanbanOrchestrator {
     }
   }
 
-  private async runDoneCleanup(workspace: WatchedWorkspace, card: Card): Promise<void> {
+  private async runDoneCleanup(workspace: WatchedWorkspaceEntry, card: Card): Promise<void> {
     const workspacePath = this.deps?.getWorkspacePath(workspace.workspaceId);
     if (!workspacePath) return;
     workspace.lastColumnMap.set(card.id, 'done');
@@ -474,7 +482,7 @@ export class KanbanOrchestrator {
       console.log(`[kanban-orchestrator] Auto-starting card #${ready.id} "${ready.title}"`);
       await updateCard(workspace.stateFilePath, ready.id, { column: 'planning', status: 'agent-working' });
       workspace.lastColumnMap.set(ready.id, 'planning');
-      await this.handleTransition(workspace, ready, 'backlog', 'planning');
+      await this.handleTransition(workspace, ready, 'planning');
     }
   }
 

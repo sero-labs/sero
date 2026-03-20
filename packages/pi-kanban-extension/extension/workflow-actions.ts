@@ -6,10 +6,6 @@
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
-import { execFile } from 'node:child_process';
-import { promises as fsPromises } from 'node:fs';
-import { promisify } from 'node:util';
-
 import type { KanbanState, Column, ErrorSeverity } from '../shared/types';
 import { COLUMN_LABELS } from '../shared/types';
 import { validateCardTransition } from '../shared/validation';
@@ -18,10 +14,9 @@ import {
   appendError, readErrorLog, formatErrorLog,
   generateRetrospectiveSummary, writeErrorLog,
 } from './error-log';
+import { removeWorktree } from './worktree-cleanup';
 
 type ToolResult = { content: { type: 'text'; text: string }[]; details: Record<string, never> };
-
-const execFileAsync = promisify(execFile);
 
 function text(msg: string): ToolResult {
   return { content: [{ type: 'text', text: msg }], details: {} };
@@ -140,17 +135,8 @@ export async function handleRetry(
 // ── Brainstorm ───────────────────────────────────────────────
 
 export function handleBrainstorm(pi: ExtensionAPI): ToolResult {
-  pi.sendUserMessage(
-    'I want to brainstorm new features for this project. '
-    + 'Follow the /brainstorm workflow: read the workspace context, '
-    + 'ask me questions one at a time to refine the idea, propose approaches, '
-    + 'and create well-scoped kanban cards when we\'re done. '
-    + 'IMPORTANT: After creating the cards, your job is DONE. '
-    + 'Do NOT implement any code yourself — the kanban orchestrator\'s '
-    + 'automated subagents handle all implementation. Just use "kanban start" '
-    + 'to kick off the first card and let the automation take over.',
-  );
-  return text('Brainstorming session started — check the chat panel.');
+  pi.sendUserMessage('/brainstorm', { deliverAs: 'followUp' });
+  return text('Queued the /brainstorm workflow in the chat session.');
 }
 
 // ── Settings ─────────────────────────────────────────────────
@@ -231,127 +217,13 @@ export async function handleCleanup(
   const cleaned: string[] = [];
   for (const card of doneCards) {
     if (!card.worktreePath) continue;
-    try {
-      await execFileAsync('git', ['worktree', 'remove', card.worktreePath, '--force'], {
-        cwd,
-        timeout: 15_000,
-      });
-      await execFileAsync('git', ['worktree', 'prune'], {
-        cwd,
-        timeout: 10_000,
-      }).catch(() => {});
-    } catch {
-      await fsPromises.rm(card.worktreePath, { recursive: true, force: true });
-      await execFileAsync('git', ['worktree', 'prune'], {
-        cwd,
-        timeout: 10_000,
-      }).catch(() => {});
-    } finally {
-      card.worktreePath = undefined;
-      cleaned.push(`#${card.id}`);
-    }
+    await removeWorktree(cwd, card.worktreePath);
+    card.worktreePath = undefined;
+    cleaned.push(`#${card.id}`);
   }
 
   await writeState(statePath, state);
   return text(`Cleaned up ${cleaned.length} worktree(s): ${cleaned.join(', ')}`);
-}
-
-// ── Request Revisions ───────────────────────────────────────
-
-export async function handleRequestRevisions(
-  statePath: string,
-  state: KanbanState,
-  id: string,
-  feedback: string,
-): Promise<ToolResult> {
-  const card = state.cards.find((c) => c.id === id);
-  if (!card) return text(`Card #${id} not found`);
-
-  if (card.column !== 'review') {
-    return text(`Card #${card.id} is in "${COLUMN_LABELS[card.column]}" — only cards in Review can receive revision requests.`);
-  }
-
-  // Move card back to implementation
-  card.column = 'in-progress';
-  card.status = 'agent-working';
-  card.error = `[REVISION REQUEST] ${feedback}`;
-  card.previewServerId = undefined;
-  card.previewUrl = undefined;
-  card.reviewProgress = undefined;
-  card.updatedAt = new Date().toISOString();
-  await writeState(statePath, state);
-
-  // Log to error log
-  await appendError(statePath, {
-    cardId: card.id,
-    cardTitle: card.title,
-    phase: 'review',
-    agentName: 'user',
-    severity: 'warning',
-    message: `Revision requested: ${feedback}`,
-  });
-
-  return text(`Revision requested for #${card.id} "${card.title}" — moved back to In Progress. The orchestrator will address the feedback.`);
-}
-
-// ── Cancel PR ───────────────────────────────────────────────
-
-export async function handleCancelPR(
-  statePath: string,
-  state: KanbanState,
-  id: string,
-  cwd: string,
-): Promise<ToolResult> {
-  const card = state.cards.find((c) => c.id === id);
-  if (!card) return text(`Card #${id} not found`);
-
-  if (card.column !== 'review') {
-    return text(`Card #${card.id} is in "${COLUMN_LABELS[card.column]}" — only cards in Review can have their PR cancelled.`);
-  }
-
-  // Clean up worktree if present
-  if (card.worktreePath) {
-    try {
-      await execFileAsync('git', ['worktree', 'remove', card.worktreePath, '--force'], {
-        cwd,
-        timeout: 15_000,
-      });
-      await execFileAsync('git', ['worktree', 'prune'], { cwd, timeout: 10_000 }).catch(() => {});
-    } catch {
-      await fsPromises.rm(card.worktreePath, { recursive: true, force: true });
-      await execFileAsync('git', ['worktree', 'prune'], { cwd, timeout: 10_000 }).catch(() => {});
-    }
-  }
-
-  // Move card back to backlog
-  card.column = 'backlog';
-  card.status = 'idle';
-  card.error = '[PR CANCELLED] PR was cancelled by user and card returned to backlog.';
-  card.prUrl = undefined;
-  card.prNumber = undefined;
-  card.branch = undefined;
-  card.worktreePath = undefined;
-  card.previewServerId = undefined;
-  card.previewUrl = undefined;
-  card.planningProgress = undefined;
-  card.implementationProgress = undefined;
-  card.reviewProgress = undefined;
-  card.plan = undefined;
-  card.subtasks = [];
-  card.updatedAt = new Date().toISOString();
-  await writeState(statePath, state);
-
-  // Log to error log
-  await appendError(statePath, {
-    cardId: card.id,
-    cardTitle: card.title,
-    phase: 'review',
-    agentName: 'user',
-    severity: 'warning',
-    message: 'PR cancelled by user — card returned to backlog',
-  });
-
-  return text(`Cancelled PR for #${card.id} "${card.title}" — moved back to Backlog. Worktree cleaned up.`);
 }
 
 // ── Report Error ────────────────────────────────────────────

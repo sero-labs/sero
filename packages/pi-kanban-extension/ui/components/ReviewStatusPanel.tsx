@@ -17,11 +17,15 @@ export function ReviewStatusPanel({
   onCheckMerge,
   onRequestRevisions,
   onCancelPR,
+  isBusy,
+  actionError,
 }: {
   card: Card;
   onCheckMerge: () => void;
-  onRequestRevisions: (feedback: string) => void;
-  onCancelPR: () => void;
+  onRequestRevisions: (feedback: string) => Promise<void> | void;
+  onCancelPR: () => Promise<void> | void;
+  isBusy?: boolean;
+  actionError?: string | null;
 }) {
   const status = getReviewPrStatus(card);
   const [revisionText, setRevisionText] = useState('');
@@ -116,6 +120,7 @@ export function ReviewStatusPanel({
       {/* Approve / check merge */}
       <button
         onClick={onCheckMerge}
+        disabled={isBusy || status.primaryActionDisabled}
         style={{
           width: '100%',
           padding: '10px 16px',
@@ -125,9 +130,10 @@ export function ReviewStatusPanel({
           color: status.tone.buttonText,
           fontSize: '13px',
           fontWeight: 600,
-          cursor: 'pointer',
+          cursor: isBusy || status.primaryActionDisabled ? 'default' : 'pointer',
           transition: 'all 0.15s',
           marginBottom: '12px',
+          opacity: isBusy || status.primaryActionDisabled ? 0.6 : 1,
         }}
       >
         {status.actionLabel}
@@ -151,6 +157,7 @@ export function ReviewStatusPanel({
         <textarea
           value={revisionText}
           onChange={(e) => setRevisionText(e.target.value)}
+          disabled={isBusy}
           placeholder="Describe what needs to change..."
           rows={3}
           style={{
@@ -169,7 +176,7 @@ export function ReviewStatusPanel({
         />
         <button
           onClick={handleSubmitRevisions}
-          disabled={!revisionText.trim()}
+          disabled={isBusy || !revisionText.trim()}
           style={{
             marginTop: '8px',
             width: '100%',
@@ -180,8 +187,9 @@ export function ReviewStatusPanel({
             color: revisionText.trim() ? '#f59e0b' : '#5c5e6a',
             fontSize: '12px',
             fontWeight: 500,
-            cursor: revisionText.trim() ? 'pointer' : 'default',
+            cursor: !isBusy && revisionText.trim() ? 'pointer' : 'default',
             transition: 'all 0.15s',
+            opacity: isBusy ? 0.6 : 1,
           }}
         >
           Send Back for Revisions
@@ -195,6 +203,7 @@ export function ReviewStatusPanel({
       {!showCancelConfirm ? (
         <button
           onClick={() => setShowCancelConfirm(true)}
+          disabled={isBusy}
           style={{
             width: '100%',
             padding: '8px 14px',
@@ -204,8 +213,9 @@ export function ReviewStatusPanel({
             color: '#8b8d97',
             fontSize: '12px',
             fontWeight: 500,
-            cursor: 'pointer',
+            cursor: isBusy ? 'default' : 'pointer',
             transition: 'all 0.15s',
+            opacity: isBusy ? 0.6 : 1,
           }}
         >
           Cancel PR
@@ -225,6 +235,7 @@ export function ReviewStatusPanel({
           <div className="flex" style={{ gap: '8px' }}>
             <button
               onClick={onCancelPR}
+              disabled={isBusy}
               style={{
                 flex: 1,
                 padding: '8px 14px',
@@ -234,14 +245,16 @@ export function ReviewStatusPanel({
                 color: '#f87171',
                 fontSize: '12px',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: isBusy ? 'default' : 'pointer',
                 transition: 'all 0.15s',
+                opacity: isBusy ? 0.6 : 1,
               }}
             >
               Confirm Cancel
             </button>
             <button
               onClick={() => setShowCancelConfirm(false)}
+              disabled={isBusy}
               style={{
                 padding: '8px 14px',
                 borderRadius: '8px',
@@ -250,14 +263,21 @@ export function ReviewStatusPanel({
                 color: '#8b8d97',
                 fontSize: '12px',
                 fontWeight: 500,
-                cursor: 'pointer',
+                cursor: isBusy ? 'default' : 'pointer',
                 transition: 'all 0.15s',
+                opacity: isBusy ? 0.6 : 1,
               }}
             >
               Keep
             </button>
           </div>
         </div>
+      )}
+
+      {actionError && (
+        <p style={{ fontSize: '11px', color: '#f87171', marginTop: '10px', lineHeight: 1.4 }}>
+          {actionError}
+        </p>
       )}
     </div>
   );

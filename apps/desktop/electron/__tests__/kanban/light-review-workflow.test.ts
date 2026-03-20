@@ -42,6 +42,7 @@ function makeSettings(overrides: Partial<KanbanSettings> = {}): KanbanSettings {
     reviewMode: 'light',
     testingEnabled: false,
     yoloMode: true,
+    yoloAutoMergePrs: false,
     ...overrides,
   };
 }

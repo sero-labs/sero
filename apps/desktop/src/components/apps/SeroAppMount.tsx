@@ -12,9 +12,57 @@ import type { AppContextValue } from '@sero/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
+import { useAgentStore } from '@/stores/agent';
+import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { getFederatedComponent } from '@/lib/federation-registry';
 import { Spinner } from '@sero/ui/components/ui/spinner';
+
+// ── Ensure-session-and-prompt helper ─────────────────────────
+
+/**
+ * Guarantees a session is created, opened in the agent pool, and the
+ * chat panel is visible before sending the prompt. Called fire-and-forget
+ * from the promptAgent callback so apps never need to worry about
+ * session lifecycle.
+ */
+async function ensureSessionAndPrompt(text: string) {
+  const sessionStore = useSessionStore.getState();
+
+  let sessionId = sessionStore.activeSessionId;
+  let session = sessionId
+    ? sessionStore.sessions.find((s) => s.id === sessionId)
+    : null;
+
+  // No active session — create one in the current workspace (or global)
+  if (!sessionId || !session) {
+    const wsId = useWorkspaceStore.getState().activeWorkspaceId || 'global';
+    try {
+      session = await sessionStore.createSession(wsId);
+      sessionId = session.id;
+    } catch (err) {
+      console.error('[SeroAppMount] Failed to create session:', err);
+      return;
+    }
+  }
+
+  // Always await the shared openSession action. It deduplicates concurrent
+  // opens and guarantees the main-process pool entry exists before prompting.
+  try {
+    await useAgentStore.getState().openSession(sessionId, session.path, session.workspaceId);
+  } catch (err) {
+    console.error('[SeroAppMount] Failed to open session:', err);
+    return;
+  }
+
+  // Show the chat panel so the user sees the response
+  if (!useAppStore.getState().chatPanelOpen) {
+    useAppStore.getState().setChatPanelOpen(true);
+  }
+
+  // Send via the agent store (handles optimistic UI + error state)
+  useAgentStore.getState().sendPrompt(sessionId, text);
+}
 
 // ── Props ────────────────────────────────────────────────────
 
@@ -35,16 +83,10 @@ export function SeroAppMount({ manifest }: SeroAppMountProps) {
   const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const workspacePath = workspace?.path ?? '';
 
-  // Prompt function injected into context — reads active session from Zustand
+  // Prompt function injected into context — ensures a session exists,
+  // opens it in the agent pool, reveals the chat panel, then sends.
   const promptAgent = useCallback((text: string) => {
-    const sessionId = useSessionStore.getState().activeSessionId;
-    if (!sessionId) {
-      console.warn('[SeroAppMount] No active session — prompt dropped');
-      return;
-    }
-    window.sero.agent.prompt(sessionId, text).catch((err: unknown) => {
-      console.error('[SeroAppMount] Failed to send prompt:', err);
-    });
+    void ensureSessionAndPrompt(text);
   }, []);
 
   // Resolve state file path based on scope

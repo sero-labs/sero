@@ -231,7 +231,7 @@ export function CardView({
         </AnimatePresence>
 
         {/* Error message */}
-        {card.error && (
+        {card.error && !reviewPrStatus && (
           <p className="mt-1.5 ml-4 text-[11px] text-red-400 truncate">
             {card.error}
           </p>

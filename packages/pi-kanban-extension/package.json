@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
     "extensions": [

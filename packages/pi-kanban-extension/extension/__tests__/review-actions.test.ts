@@ -1,0 +1,115 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { Card, KanbanState } from '../../shared/types';
+
+const writeState = vi.fn();
+const appendError = vi.fn();
+const removeWorktree = vi.fn();
+
+vi.mock('../state-io', () => ({
+  writeState,
+}));
+
+vi.mock('../error-log', () => ({
+  appendError,
+}));
+
+vi.mock('../worktree-cleanup', () => ({
+  removeWorktree,
+}));
+
+function makeCard(overrides: Partial<Card> = {}): Card {
+  return {
+    id: '1',
+    title: 'Review card',
+    description: 'Test description',
+    acceptance: ['It works'],
+    priority: 'medium',
+    column: 'review',
+    status: 'waiting-input',
+    prUrl: 'https://github.com/monobyte/sero/pull/87',
+    prNumber: 87,
+    worktreePath: '/tmp/card-1',
+    subtasks: [{ id: 'sub-1', title: 'Ship', description: '', status: 'completed', dependsOn: [] }],
+    createdAt: '2026-03-20T00:00:00.000Z',
+    updatedAt: '2026-03-20T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function makeState(card: Card): KanbanState {
+  return {
+    cards: [card],
+    nextId: 2,
+    settings: {
+      autoAdvance: true,
+      maxConcurrentCards: 3,
+      requireApproval: {
+        plan: true,
+        pr: true,
+      },
+      reviewLevel: 'per-wave',
+      reviewMode: 'full',
+      testingEnabled: true,
+      yoloMode: false,
+      yoloAutoMergePrs: false,
+    },
+  };
+}
+
+describe('review actions', () => {
+  beforeEach(() => {
+    writeState.mockReset();
+    appendError.mockReset();
+    removeWorktree.mockReset();
+  });
+
+  it('blocks request-revisions until the card is awaiting input with a PR', async () => {
+    const { handleRequestRevisions } = await import('../review-actions');
+    const state = makeState(makeCard({ status: 'agent-working' }));
+
+    const result = await handleRequestRevisions('/tmp/state.json', state, '1', 'Please fix the regression');
+
+    expect(result.content[0]?.text).toContain('Card must be awaiting human input');
+    expect(writeState).not.toHaveBeenCalled();
+    expect(appendError).not.toHaveBeenCalled();
+  });
+
+  it('blocks cancel-pr when the review card has no PR URL', async () => {
+    const { handleCancelPR } = await import('../review-actions');
+    const state = makeState(makeCard({ prUrl: undefined }));
+
+    const result = await handleCancelPR('/tmp/state.json', state, '/workspace', '1');
+
+    expect(result.content[0]?.text).toContain('Card must have a pull request URL');
+    expect(removeWorktree).not.toHaveBeenCalled();
+    expect(writeState).not.toHaveBeenCalled();
+    expect(appendError).not.toHaveBeenCalled();
+  });
+
+  it('cancels a review PR, removes the worktree, and logs the action', async () => {
+    const { handleCancelPR } = await import('../review-actions');
+    const state = makeState(makeCard());
+
+    const result = await handleCancelPR('/tmp/state.json', state, '/workspace', '1');
+
+    expect(result.content[0]?.text).toContain('Worktree cleaned up');
+    expect(removeWorktree).toHaveBeenCalledWith('/workspace', '/tmp/card-1');
+    expect(writeState).toHaveBeenCalledWith('/tmp/state.json', state);
+    expect(appendError).toHaveBeenCalledWith('/tmp/state.json', expect.objectContaining({
+      cardId: '1',
+      phase: 'review',
+      message: 'PR cancelled by user — card returned to backlog',
+    }));
+    expect(state.cards[0]).toMatchObject({
+      column: 'backlog',
+      status: 'idle',
+      prUrl: undefined,
+      prNumber: undefined,
+      branch: undefined,
+      worktreePath: undefined,
+      plan: undefined,
+    });
+    expect(state.cards[0]?.subtasks).toEqual([]);
+  });
+});

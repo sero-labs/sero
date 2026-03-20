@@ -24,6 +24,10 @@ import {
   handleAgentStreamEvent,
 } from '@/stores/agent-utils';
 
+// Deduplicate concurrent opens for the same session so every caller waits for
+// the same main-process AgentSession creation instead of racing prompt calls.
+const pendingSessionOpens = new Map<string, Promise<void>>();
+
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: {},
   focusedSessionId: null,
@@ -37,6 +41,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       collaborations: resetCollaborationSession(s.collaborations, sessionId),
     }));
 
+    const pending = pendingSessionOpens.get(sessionId);
+    if (pending) {
+      await pending;
+      return;
+    }
+
     // If already fully initialized in the pool, just focus it.
     // Check for `sessionId` field — partial entries created by events
     // (e.g. when a federated app calls agent.open via IPC directly)
@@ -45,69 +55,75 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       return;
     }
 
-    // Create or repair placeholder — preserve any messages/state
-    // accumulated from events before the store was properly initialized.
-    set((s) => {
-      const partial = s.agents[sessionId];
-      return {
-        agents: {
-          ...s.agents,
-          [sessionId]: {
-            sessionId,
-            sessionPath,
-            workspaceId,
-            messages: partial?.messages ?? [],
-            isStreaming: partial?.isStreaming ?? false,
-            error: partial?.error ?? null,
-            commands: partial?.commands ?? [],
-            modelState: partial?.modelState ?? null,
-          },
-        },
-      };
-    });
-
-    try {
-      const history = await window.sero.agent.open(sessionId, sessionPath, workspaceId);
-
-      // Fetch available slash commands for this session (non-blocking on failure).
-      let commands: SeroSlashCommandInfo[] = [];
-      try {
-        commands = await window.sero.agent.getCommands(sessionId);
-      } catch (cmdErr) {
-        console.warn('[agent] Failed to fetch commands:', cmdErr);
-      }
-
-      // Fetch initial model state (non-blocking).
-      let modelState: SessionModelState | null = null;
-      try {
-        modelState = await window.sero.agent.getModelState(sessionId);
-      } catch (err) {
-        console.warn('[agent] Failed to fetch model state:', err);
-      }
-      set((s) => ({
-        agents: {
-          ...s.agents,
-          [sessionId]: {
-            ...s.agents[sessionId],
-            messages: history,
-            commands,
-            modelState,
-          },
-        },
-      }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to open session';
-      console.error('[agent] openSession failed:', err);
+    const openPromise = (async () => {
+      // Create or repair placeholder — preserve any messages/state
+      // accumulated from events before the store was properly initialized.
       set((s) => {
-        const { [sessionId]: _, ...rest } = s.agents;
+        const partial = s.agents[sessionId];
         return {
-          agents: rest,
-          focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
-          // Note: error is stored per-agent, but since we're removing it, we just log.
-          collaborations: removeCollaborationSession(s.collaborations, sessionId),
+          agents: {
+            ...s.agents,
+            [sessionId]: {
+              sessionId,
+              sessionPath,
+              workspaceId,
+              messages: partial?.messages ?? [],
+              isStreaming: partial?.isStreaming ?? false,
+              error: partial?.error ?? null,
+              commands: partial?.commands ?? [],
+              modelState: partial?.modelState ?? null,
+            },
+          },
         };
       });
-    }
+
+      try {
+        const history = await window.sero.agent.open(sessionId, sessionPath, workspaceId);
+
+        // Fetch available slash commands for this session (non-blocking on failure).
+        let commands: SeroSlashCommandInfo[] = [];
+        try {
+          commands = await window.sero.agent.getCommands(sessionId);
+        } catch (cmdErr) {
+          console.warn('[agent] Failed to fetch commands:', cmdErr);
+        }
+
+        // Fetch initial model state (non-blocking).
+        let modelState: SessionModelState | null = null;
+        try {
+          modelState = await window.sero.agent.getModelState(sessionId);
+        } catch (err) {
+          console.warn('[agent] Failed to fetch model state:', err);
+        }
+        set((s) => ({
+          agents: {
+            ...s.agents,
+            [sessionId]: {
+              ...s.agents[sessionId],
+              messages: history,
+              commands,
+              modelState,
+            },
+          },
+        }));
+      } catch (err) {
+        console.error('[agent] openSession failed:', err);
+        set((s) => {
+          const { [sessionId]: _, ...rest } = s.agents;
+          return {
+            agents: rest,
+            focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
+            // Note: error is stored per-agent, but since we're removing it, we just log.
+            collaborations: removeCollaborationSession(s.collaborations, sessionId),
+          };
+        });
+      }
+    })().finally(() => {
+      pendingSessionOpens.delete(sessionId);
+    });
+
+    pendingSessionOpens.set(sessionId, openPromise);
+    await openPromise;
   },
 
   closeSession: async (sessionId) => {

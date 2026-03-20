@@ -6,7 +6,7 @@
  * without turning it into a full specification.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { forwardRef, useState, useCallback, useRef, useEffect, useImperativeHandle } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAI } from '@sero/app-runtime';
 import type { Card, KanbanState } from '../../shared/types';
@@ -19,13 +19,17 @@ const ENHANCE_PROMPT_SUFFIX =
   "Don't turn it into a full specification, don't add headers or bullet points. " +
   'Return only the improved description text, nothing else.';
 
-export function DescriptionEditor({
-  card,
-  onUpdate,
-}: {
+export interface DescriptionEditorHandle {
+  commitDraft: () => string;
+}
+
+export const DescriptionEditor = forwardRef<DescriptionEditorHandle, {
   card: Card;
   onUpdate: (updater: (state: KanbanState) => KanbanState) => void;
-}) {
+}>(function DescriptionEditor({
+  card,
+  onUpdate,
+}, ref) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(card.description);
   const [enhancing, setEnhancing] = useState(false);
@@ -77,10 +81,21 @@ export function DescriptionEditor({
     setEditing(false);
   }, [draft, saveDescription]);
 
+  const commitDraft = useCallback(() => {
+    const next = editing ? draft : card.description;
+    if (editing) {
+      saveDescription(next);
+      setEditing(false);
+    }
+    return next;
+  }, [card.description, draft, editing, saveDescription]);
+
   const handleCancel = useCallback(() => {
     setDraft(card.description);
     setEditing(false);
   }, [card.description]);
+
+  useImperativeHandle(ref, () => ({ commitDraft }), [commitDraft]);
 
   const handleEnhance = useCallback(async () => {
     const text = draft.trim();
@@ -159,7 +174,7 @@ export function DescriptionEditor({
       </AnimatePresence>
     </div>
   );
-}
+});
 
 // ── Edit mode ────────────────────────────────────────────────
 

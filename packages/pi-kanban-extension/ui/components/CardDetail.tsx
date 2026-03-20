@@ -6,8 +6,9 @@
  * clearly differentiate from the board.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useContext, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { AppContext } from '@sero/app-runtime';
 import type { Card, Column, Priority, KanbanState } from '../../shared/types';
 import { COLUMNS, COLUMN_LABELS } from '../../shared/types';
 import { CardStatusDot, SubtaskStatusDot } from './StatusDot';
@@ -17,9 +18,10 @@ import { ImplementationActivityPanel } from './ImplementationActivityPanel';
 import { ReviewActivityPanel } from './ReviewActivityPanel';
 import { ReviewStatusPanel } from './ReviewStatusPanel';
 import { PlanApprovalPanel } from './PlanApprovalPanel';
-import { DescriptionEditor } from './DescriptionEditor';
+import { DescriptionEditor, type DescriptionEditorHandle } from './DescriptionEditor';
 import { CardDetailFooter } from './CardDetailFooter';
 import { applyManualMove, applyWorkflowTransition, applyRequestRevisions, applyCancelPR } from '../lib/card-workflow';
+import { persistPrCancellation, persistRevisionRequest } from '../lib/review-actions';
 import { isReviewMergeStatusMessage } from '../lib/review-pr-status';
 import { getManualMoveTargets } from '../../shared/validation';
 
@@ -27,13 +29,16 @@ export function CardDetail({
   card,
   onClose,
   onUpdate,
-  onPromptAgent,
 }: {
   card: Card | null;
   onClose: () => void;
   onUpdate: (updater: (state: KanbanState) => KanbanState) => void;
-  onPromptAgent?: (message: string) => void;
 }) {
+  const appContext = useContext(AppContext);
+  const descriptionEditorRef = useRef<DescriptionEditorHandle>(null);
+  const [reviewActionError, setReviewActionError] = useState<string | null>(null);
+  const [reviewActionPending, setReviewActionPending] = useState<'request-revisions' | 'cancel-pr' | null>(null);
+
   const handleMove = useCallback(
     (column: Column) => {
       if (!card) return;
@@ -59,6 +64,7 @@ export function CardDetail({
 
   const handleStartPlanning = useCallback(() => {
     if (!card) return;
+    descriptionEditorRef.current?.commitDraft();
     onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'planning'));
   }, [card, onUpdate]);
 
@@ -72,30 +78,41 @@ export function CardDetail({
     onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'done'));
   }, [card, onUpdate]);
 
-  const handleRequestRevisions = useCallback((feedback: string) => {
-    if (!card) return;
-    onUpdate((prev) => applyRequestRevisions(prev, card.id, feedback));
-    // Log to error log via the extension
-    const escaped = feedback.replace(/"/g, '\\"');
-    onPromptAgent?.(
-      `Using the kanban tool: report-error for card #${card.id} `
-      + `with errorMessage "Revision requested: ${escaped}" `
-      + `and errorSeverity "warning" and phase "review" `
-      + `and agentName "user"`,
-    );
-  }, [card, onUpdate, onPromptAgent]);
+  const handleRequestRevisions = useCallback(async (feedback: string) => {
+    if (!card || !appContext) return;
+    setReviewActionError(null);
+    setReviewActionPending('request-revisions');
+    try {
+      await persistRevisionRequest({
+        stateFilePath: appContext.stateFilePath,
+        workspaceId: appContext.workspaceId,
+        workspacePath: appContext.workspacePath,
+      }, card, feedback);
+      onUpdate((prev) => applyRequestRevisions(prev, card.id, feedback));
+    } catch (err) {
+      setReviewActionError(err instanceof Error ? err.message : 'Failed to request revisions.');
+    } finally {
+      setReviewActionPending(null);
+    }
+  }, [appContext, card, onUpdate]);
 
-  const handleCancelPR = useCallback(() => {
-    if (!card) return;
-    onUpdate((prev) => applyCancelPR(prev, card.id));
-    // Log to error log via the extension
-    onPromptAgent?.(
-      `Using the kanban tool: report-error for card #${card.id} `
-      + `with errorMessage "PR cancelled by user — card returned to backlog" `
-      + `and errorSeverity "warning" and phase "review" `
-      + `and agentName "user"`,
-    );
-  }, [card, onUpdate, onPromptAgent]);
+  const handleCancelPR = useCallback(async () => {
+    if (!card || !appContext) return;
+    setReviewActionError(null);
+    setReviewActionPending('cancel-pr');
+    try {
+      await persistPrCancellation({
+        stateFilePath: appContext.stateFilePath,
+        workspaceId: appContext.workspaceId,
+        workspacePath: appContext.workspacePath,
+      }, card);
+      onUpdate((prev) => applyCancelPR(prev, card.id));
+    } catch (err) {
+      setReviewActionError(err instanceof Error ? err.message : 'Failed to cancel the pull request.');
+    } finally {
+      setReviewActionPending(null);
+    }
+  }, [appContext, card, onUpdate]);
 
   const handleRetry = useCallback(() => {
     if (!card) return;
@@ -202,7 +219,7 @@ export function CardDetail({
               </div>
 
               {/* Description — editable with AI enhance */}
-              <DescriptionEditor card={card} onUpdate={onUpdate} />
+              <DescriptionEditor ref={descriptionEditorRef} card={card} onUpdate={onUpdate} />
 
               {/* Acceptance criteria */}
               {card.acceptance.length > 0 && (
@@ -377,6 +394,8 @@ export function CardDetail({
                   onCheckMerge={handleCheckMergeStatus}
                   onRequestRevisions={handleRequestRevisions}
                   onCancelPR={handleCancelPR}
+                  isBusy={reviewActionPending !== null}
+                  actionError={reviewActionError}
                 />
               )}
 

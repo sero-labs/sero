@@ -1,5 +1,9 @@
 import type { Card, Column, KanbanState } from '../../shared/types';
-import { validateCardTransition, validateManualMove } from '../../shared/validation';
+import {
+  validateCardTransition,
+  validateManualMove,
+  validateReviewDecision,
+} from '../../shared/validation';
 
 function patchCard(
   state: KanbanState,
@@ -118,8 +122,13 @@ export function applyRequestRevisions(
 ): KanbanState {
   const card = state.cards.find((entry) => entry.id === cardId);
   if (!card) return state;
-  if (card.column !== 'review' || card.status !== 'waiting-input') {
-    return setCardError(state, cardId, 'Can only request revisions on cards in review awaiting input.');
+  const validation = validateReviewDecision(card);
+  if (!validation.valid) {
+    return setCardError(
+      state,
+      cardId,
+      formatErrors('Cannot request revisions for card', cardId, validation.errors),
+    );
   }
 
   return patchCard(state, cardId, (entry, now) => ({
@@ -144,8 +153,13 @@ export function applyCancelPR(
 ): KanbanState {
   const card = state.cards.find((entry) => entry.id === cardId);
   if (!card) return state;
-  if (card.column !== 'review' || card.status !== 'waiting-input') {
-    return setCardError(state, cardId, 'Can only cancel PRs on cards in review awaiting input.');
+  const validation = validateReviewDecision(card);
+  if (!validation.valid) {
+    return setCardError(
+      state,
+      cardId,
+      formatErrors('Cannot cancel PR for card', cardId, validation.errors),
+    );
   }
 
   return patchCard(state, cardId, (entry, now) => ({
