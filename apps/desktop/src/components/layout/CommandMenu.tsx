@@ -11,6 +11,7 @@ import {
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';
+import { openApp } from '@/lib/open-app';
 import { ThemePanel } from './ThemePanel';
 import { ThemeEditorSheet } from './ThemeEditorSheet';
 import { ConnectDeviceDialog } from './ConnectDeviceDialog';
@@ -28,7 +29,6 @@ export function CommandMenu() {
   const [editPresetId, setEditPresetId] = useState<string | null>(null);
   const [connectDeviceOpen, setConnectDeviceOpen] = useState(false);
   const apps = useAppStore((s) => s.apps);
-  const setActiveApp = useAppStore((s) => s.setActiveApp);
   const toggleMode = useThemeStore((s) => s.toggleMode);
   const activePresetId = useThemeStore((s) => s.activePresetId);
 
@@ -44,13 +44,10 @@ export function CommandMenu() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const handleSelect = useCallback(
-    (appId: string) => {
-      setActiveApp(appId);
-      setOpen(false);
-    },
-    [setActiveApp],
-  );
+  const handleSelect = useCallback((appId: string) => {
+    openApp(appId);
+    setOpen(false);
+  }, []);
 
   const handleOpenThemePanel = useCallback(() => {
     setOpen(false);

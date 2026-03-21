@@ -9,6 +9,7 @@
 import { useAppStore } from '@/stores/app';
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { openApp } from '@/lib/open-app';
 import type {
   AppControlEntry,
   AppInteractionParams,
@@ -178,7 +179,7 @@ export function initAppControlBridge(): () => void {
     openApp(appId) {
       const s = useAppStore.getState();
       if (!s.apps.some((a) => a.id === appId)) return false;
-      s.setActiveApp(appId);
+      openApp(appId);
       return true;
     },
     getInfo(appId) {

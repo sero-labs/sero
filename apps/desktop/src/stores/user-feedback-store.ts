@@ -103,8 +103,13 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => {
 
     openFeedbackApp() {
       const appStore = useAppStore.getState();
-      if (appStore.activeApp !== USER_FEEDBACK_APP_ID) {
-        set({ returnApp: appStore.activeApp });
+      const returnTarget =
+        appStore.pendingApp && appStore.pendingApp !== USER_FEEDBACK_APP_ID
+          ? appStore.pendingApp
+          : appStore.activeApp;
+
+      if (returnTarget !== USER_FEEDBACK_APP_ID) {
+        set({ returnApp: returnTarget });
       }
       appStore.setActiveApp(USER_FEEDBACK_APP_ID);
     },
