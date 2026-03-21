@@ -6,6 +6,8 @@
  */
 
 import { BrowserWindow } from 'electron';
+import { copyFile, mkdir as mkdirFs, writeFile } from 'fs/promises';
+import pathMod from 'path';
 import type { CliRegistry } from '../registry';
 import type { CliCommandContext } from '../types';
 import { fail, ok, parseFlags, requireFlagString, stringifyJson } from './utils';
@@ -15,6 +17,7 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  AppRecordingResult,
 } from '../../../src/types/ipc';
 import { captureRegion } from '../../utils/capture';
 
@@ -54,7 +57,7 @@ async function handleApp(args: string[], ctx: CliCommandContext) {
     case 'select': return handleSelect(rest);
     case 'hover': return handleHover(rest);
     case 'get-text': return handleGetText(rest);
-    case 'record': return handleRecord(rest);
+    case 'record': return handleRecord(rest, ctx);
     default:
       return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|get-text|record>');
   }
@@ -116,10 +119,8 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
 
   // If --save specified, also write to disk
   if (savePath) {
-    const { writeFile, mkdir } = await import('fs/promises');
-    const path = await import('path');
-    const absPath = path.isAbsolute(savePath) ? savePath : path.join(ctx.cwd, savePath);
-    await mkdir(path.dirname(absPath), { recursive: true });
+    const absPath = pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath);
+    await mkdirFs(pathMod.dirname(absPath), { recursive: true });
     await writeFile(absPath, Buffer.from(base64, 'base64'));
     // Still return the image inline so it displays in the chat
     return {
@@ -195,20 +196,37 @@ async function handleGetText(args: string[]) {
 
 // ── Recording ────────────────────────────────────────────────
 
-async function handleRecord(args: string[]) {
-  const [sub] = args;
+async function handleRecord(args: string[], ctx: CliCommandContext) {
+  const [sub, ...rest] = args;
   switch (sub) {
     case 'start': {
       const win = getMainWindow();
       if (!win) return fail('No main window.');
       const ok_ = await win.webContents.executeJavaScript('window.sero.appControl.recordStart()') as boolean;
-      return ok_ ? ok('Recording started (2 FPS frame capture).') : fail('Already recording or app panel not found.');
+      return ok_ ? ok('Recording started (2 FPS frame capture). Use `sero app record stop` to save as MP4.') : fail('Already recording or app panel not found.');
     }
     case 'stop': {
       const win = getMainWindow();
       if (!win) return fail('No main window.');
-      const path = await win.webContents.executeJavaScript('window.sero.appControl.recordStop()') as string | null;
-      return path ? ok(`Recording saved: ${path}`) : fail('No active recording.');
+      const result = await win.webContents.executeJavaScript('window.sero.appControl.recordStop()') as AppRecordingResult | null;
+      if (!result) return fail('No active recording.');
+
+      const { flags } = parseFlags(rest);
+      const savePath = requireFlagString(flags, 'save');
+
+      // If --save specified, copy to the requested location
+      if (savePath) {
+        const absPath = pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath);
+        await mkdirFs(pathMod.dirname(absPath), { recursive: true });
+        await copyFile(result.path, absPath);
+        const format = result.isVideo ? 'MP4' : 'frames';
+        const dur = Math.round(result.durationMs / 1000);
+        return ok(`Recording saved: ${absPath} (${format}, ${result.frameCount} frames, ${dur}s)`);
+      }
+
+      const format = result.isVideo ? 'MP4 video' : 'frames directory (ffmpeg not available)';
+      const dur = Math.round(result.durationMs / 1000);
+      return ok(`Recording saved: ${result.path}\nFormat: ${format}\nFrames: ${result.frameCount}, Duration: ${dur}s`);
     }
     case 'status': {
       const win = getMainWindow();
@@ -263,8 +281,11 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app select <selector>          Focus an element\n' +
       '  sero app hover <selector>           Hover over an element\n' +
       '  sero app get-text <selector>        Read text content\n\n' +
-      'Recording:\n' +
-      '  sero app record start/stop/status\n\n' +
+      'Recording (MP4 video capture):\n' +
+      '  sero app record start               Start recording (2 FPS)\n' +
+      '  sero app record stop                 Stop and save as MP4\n' +
+      '  sero app record stop --save <path>   Stop and copy MP4 to path\n' +
+      '  sero app record status               Check recording status\n\n' +
       'Click/type/scroll/select/hover auto-capture a screenshot after the action.',
     execute: handleApp,
   });

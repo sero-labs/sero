@@ -54,7 +54,7 @@ async function handleArtifacts(args: string[], ctx: CliCommandContext) {
         const mimeMap: Record<string, string> = {
           screenshot: 'image/png',
           log: 'text/plain',
-          video: 'video/webm',
+          video: 'video/mp4',
         };
 
         const artifact = artifactRegistry.add({

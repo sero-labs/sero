@@ -61,6 +61,7 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  AppRecordingResult,
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
 } from './ipc';
@@ -440,8 +441,8 @@ interface SeroAppControlAPI {
   getAppRect(): Promise<AppPanelRect | null>;
   /** Start recording the app panel. */
   recordStart(): Promise<boolean>;
-  /** Stop recording. Returns saved directory path or null. */
-  recordStop(): Promise<string | null>;
+  /** Stop recording. Returns result with MP4 path or null. */
+  recordStop(): Promise<AppRecordingResult | null>;
   /** Get current recording status. */
   recordStatus(): Promise<AppRecordingStatus>;
 }

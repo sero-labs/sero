@@ -42,6 +42,7 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  AppRecordingResult,
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
 } from '../src/types/ipc';
@@ -326,7 +327,7 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.appControl.getAppRect),
     recordStart: (): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannels.appControl.recordStart),
-    recordStop: (): Promise<string | null> =>
+    recordStop: (): Promise<AppRecordingResult | null> =>
       ipcRenderer.invoke(IpcChannels.appControl.recordStop),
     recordStatus: (): Promise<AppRecordingStatus> =>
       ipcRenderer.invoke(IpcChannels.appControl.recordStatus),
