@@ -31,7 +31,7 @@ export async function getPullRequestMergeError(
 ): Promise<string | null> {
   const mergeState = await getPullRequestMergeState(worktreePath, prNumber);
   if (mergeState === 'merged') return null;
-  if (mergeState === 'open') return `PR #${prNumber} is still open. Merge it before marking this card done.`;
+  if (mergeState === 'open') return `Awaiting review. Merge PR #${prNumber} before marking this card done.`;
   if (mergeState === 'closed') return `PR #${prNumber} was closed without merging. Re-open or create a new PR before marking this card done.`;
   return `Could not verify whether PR #${prNumber} was merged.`;
 }

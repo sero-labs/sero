@@ -18,7 +18,11 @@ const TOOL_ICONS: Record<string, string> = {
   read: '📖', bash: '📂', write: '✏️', edit: '✏️',
   ls: '📁', find: '🔍', grep: '🔎', glob: '🔍',
 };
-const TOOL_LOG_PATTERN = /\s*\S+\s+(\w+):\s*(.+)/;
+const TOOL_LOG_PATTERN = /^\s*(\S+)\s+([a-z_][a-z0-9_]*):\s*(.+)$/;
+const PROMPT_ECHO_PATTERN = /^\s*(?:\S+\s+){0,2}(?:#+\s*)?(Card|Parent Card|Subtask):/i;
+const MARKDOWN_HEADING_PATTERN = /^\s*(?:>\s*)?#{1,6}\s+\S/;
+const VALID_TOOL_NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
+const HIDDEN_PROMPT_TOOL_NAMES = new Set(['card']);
 const HIDDEN_TOOL_NAMES = new Set(['kanban_mark_subtask_complete']);
 
 function toolIcon(name: string): string {
@@ -107,7 +111,10 @@ export function ActivityPanel({
 
   const logFeedRef = useRef<HTMLDivElement>(null);
   const narrativeEntries = showLogFeed
-    ? (data?.log ?? []).filter((entry) => entry.trim() && !TOOL_LOG_PATTERN.test(entry))
+    ? (data?.log ?? []).filter((entry) => {
+      const trimmed = entry.trim();
+      return trimmed && !TOOL_LOG_PATTERN.test(trimmed) && !isPromptEchoText(trimmed);
+    })
     : [];
   const latestNarrativeEntry = narrativeEntries[narrativeEntries.length - 1];
 
@@ -117,7 +124,12 @@ export function ActivityPanel({
     }
   }, [narrativeEntries.length, latestNarrativeEntry]);
 
-  const visibleTools = (data?.recentTools ?? []).filter((entry) => !HIDDEN_TOOL_NAMES.has(entry.tool));
+  const visibleTools = (data?.recentTools ?? []).filter((entry) => (
+    !HIDDEN_TOOL_NAMES.has(entry.tool)
+    && !HIDDEN_PROMPT_TOOL_NAMES.has(entry.tool)
+    && VALID_TOOL_NAME_PATTERN.test(entry.tool)
+    && !isPromptEchoText(entry.args)
+  ));
   const hasTools = visibleTools.length > 0;
   const hasNarrativeEntries = narrativeEntries.length > 0;
   const hasLiveOutput = !!data?.liveOutput?.trim();
@@ -174,6 +186,7 @@ export function ActivityPanel({
           entries={narrativeEntries}
           theme={theme}
           maxHeight={logFeedMaxHeight}
+          separated={hasLiveOutput}
         />
       )}
 
@@ -184,6 +197,7 @@ export function ActivityPanel({
           tools={visibleTools}
           activeColor={theme.primary}
           maxHeight={feedMaxHeight}
+          separated={hasLiveOutput || hasNarrativeEntries}
         />
       )}
 
@@ -204,11 +218,13 @@ function ToolFeed({
   tools,
   activeColor,
   maxHeight,
+  separated,
 }: {
   feedRef: React.RefObject<HTMLDivElement | null>;
   tools: PlanningToolEntry[];
   activeColor: string;
   maxHeight: number;
+  separated: boolean;
 }) {
   return (
     <div
@@ -216,8 +232,9 @@ function ToolFeed({
       style={{
         maxHeight: `${maxHeight}px`,
         overflowY: 'auto',
+        marginTop: separated ? '8px' : 0,
         borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-        padding: '6px 14px',
+        padding: separated ? '10px 14px 6px' : '6px 14px',
       }}
       className="kb-scrollbar"
     >
@@ -269,11 +286,13 @@ function NarrativeFeed({
   entries,
   theme,
   maxHeight,
+  separated,
 }: {
   feedRef: React.RefObject<HTMLDivElement | null>;
   entries: string[];
   theme: ActivityPanelTheme;
   maxHeight: number;
+  separated: boolean;
 }) {
   return (
     <div
@@ -281,8 +300,9 @@ function NarrativeFeed({
       style={{
         maxHeight: `${maxHeight}px`,
         overflowY: 'auto',
+        marginTop: separated ? '8px' : 0,
         borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-        padding: '8px 14px 2px',
+        padding: separated ? '10px 14px 4px' : '8px 14px 2px',
       }}
       className="kb-scrollbar"
     >
@@ -365,4 +385,9 @@ function resolveLogTone(entry: string): 'running' | 'success' | 'error' | 'warni
   if (entry.startsWith('❌')) return 'error';
   if (entry.startsWith('⚠️')) return 'warning';
   return 'neutral';
+}
+
+function isPromptEchoText(text: string): boolean {
+  const trimmed = text.trim();
+  return PROMPT_ECHO_PATTERN.test(trimmed) || MARKDOWN_HEADING_PATTERN.test(trimmed);
 }

@@ -1,5 +1,9 @@
 import type { Card, Column, KanbanState } from '../../shared/types';
-import { validateCardTransition, validateManualMove } from '../../shared/validation';
+import {
+  validateCardTransition,
+  validateManualMove,
+  validateReviewDecision,
+} from '../../shared/validation';
 
 function patchCard(
   state: KanbanState,
@@ -105,4 +109,77 @@ export function applyWorkflowTransition(
       updatedAt: now,
     };
   });
+}
+
+/**
+ * Request revisions on a PR — moves card back to in-progress with
+ * agent-working status so the orchestrator picks it up with the feedback.
+ */
+export function applyRequestRevisions(
+  state: KanbanState,
+  cardId: string,
+  feedback: string,
+): KanbanState {
+  const card = state.cards.find((entry) => entry.id === cardId);
+  if (!card) return state;
+  const validation = validateReviewDecision(card);
+  if (!validation.valid) {
+    return setCardError(
+      state,
+      cardId,
+      formatErrors('Cannot request revisions for card', cardId, validation.errors),
+    );
+  }
+
+  return patchCard(state, cardId, (entry, now) => ({
+    ...entry,
+    column: 'in-progress',
+    status: 'agent-working',
+    error: `[REVISION REQUEST] ${feedback}`,
+    previewServerId: undefined,
+    previewUrl: undefined,
+    reviewFilePath: undefined,
+    reviewProgress: undefined,
+    updatedAt: now,
+  }));
+}
+
+/**
+ * Cancel a PR — moves card back to backlog, clears all workflow state.
+ * Host-side review action effects close the PR and remove cached artifacts.
+ */
+export function applyCancelPR(
+  state: KanbanState,
+  cardId: string,
+): KanbanState {
+  const card = state.cards.find((entry) => entry.id === cardId);
+  if (!card) return state;
+  const validation = validateReviewDecision(card);
+  if (!validation.valid) {
+    return setCardError(
+      state,
+      cardId,
+      formatErrors('Cannot cancel PR for card', cardId, validation.errors),
+    );
+  }
+
+  return patchCard(state, cardId, (entry, now) => ({
+    ...entry,
+    column: 'backlog',
+    status: 'idle',
+    error: `[PR CANCELLED] PR was cancelled by user and card returned to backlog.`,
+    prUrl: undefined,
+    prNumber: undefined,
+    branch: undefined,
+    worktreePath: undefined,
+    previewServerId: undefined,
+    previewUrl: undefined,
+    reviewFilePath: undefined,
+    planningProgress: undefined,
+    implementationProgress: undefined,
+    reviewProgress: undefined,
+    plan: undefined,
+    subtasks: [],
+    updatedAt: now,
+  }));
 }

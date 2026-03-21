@@ -12,4 +12,5 @@ export { useAgentPrompt } from './use-agent-prompt';
 export { useAI, type AppAI } from './use-ai';
 export { useAvailableModels, type UseAvailableModelsResult } from './use-available-models';
 export { useTheme, type UseThemeResult } from './use-theme';
+export { getSeroApi } from './sero-bridge';
 export type { AppModelInfo, AppModelGroup } from './sero-bridge';

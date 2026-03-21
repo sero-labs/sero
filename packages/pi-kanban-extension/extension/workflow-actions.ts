@@ -6,18 +6,17 @@
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
-import { execFile } from 'node:child_process';
-import { promises as fsPromises } from 'node:fs';
-import { promisify } from 'node:util';
-
-import type { KanbanState, Column } from '../shared/types';
+import type { KanbanState, Column, ErrorSeverity } from '../shared/types';
 import { COLUMN_LABELS } from '../shared/types';
 import { validateCardTransition } from '../shared/validation';
 import { writeState } from './state-io';
+import {
+  appendError, readErrorLog, formatErrorLog,
+  generateRetrospectiveSummary, writeErrorLog,
+} from './error-log';
+import { removeWorktree } from './worktree-cleanup';
 
 type ToolResult = { content: { type: 'text'; text: string }[]; details: Record<string, never> };
-
-const execFileAsync = promisify(execFile);
 
 function text(msg: string): ToolResult {
   return { content: [{ type: 'text', text: msg }], details: {} };
@@ -136,17 +135,8 @@ export async function handleRetry(
 // ── Brainstorm ───────────────────────────────────────────────
 
 export function handleBrainstorm(pi: ExtensionAPI): ToolResult {
-  pi.sendUserMessage(
-    'I want to brainstorm new features for this project. '
-    + 'Follow the /brainstorm workflow: read the workspace context, '
-    + 'ask me questions one at a time to refine the idea, propose approaches, '
-    + 'and create well-scoped kanban cards when we\'re done. '
-    + 'IMPORTANT: After creating the cards, your job is DONE. '
-    + 'Do NOT implement any code yourself — the kanban orchestrator\'s '
-    + 'automated subagents handle all implementation. Just use "kanban start" '
-    + 'to kick off the first card and let the automation take over.',
-  );
-  return text('Brainstorming session started — check the chat panel.');
+  pi.sendUserMessage('/brainstorm', { deliverAs: 'followUp' });
+  return text('Queued the /brainstorm workflow in the chat session.');
 }
 
 // ── Settings ─────────────────────────────────────────────────
@@ -227,27 +217,105 @@ export async function handleCleanup(
   const cleaned: string[] = [];
   for (const card of doneCards) {
     if (!card.worktreePath) continue;
-    try {
-      await execFileAsync('git', ['worktree', 'remove', card.worktreePath, '--force'], {
-        cwd,
-        timeout: 15_000,
-      });
-      await execFileAsync('git', ['worktree', 'prune'], {
-        cwd,
-        timeout: 10_000,
-      }).catch(() => {});
-    } catch {
-      await fsPromises.rm(card.worktreePath, { recursive: true, force: true });
-      await execFileAsync('git', ['worktree', 'prune'], {
-        cwd,
-        timeout: 10_000,
-      }).catch(() => {});
-    } finally {
-      card.worktreePath = undefined;
-      cleaned.push(`#${card.id}`);
-    }
+    await removeWorktree(cwd, card.worktreePath);
+    card.worktreePath = undefined;
+    cleaned.push(`#${card.id}`);
   }
 
   await writeState(statePath, state);
   return text(`Cleaned up ${cleaned.length} worktree(s): ${cleaned.join(', ')}`);
+}
+
+// ── Report Error ────────────────────────────────────────────
+
+export async function handleReportError(
+  statePath: string,
+  state: KanbanState,
+  params: {
+    id?: string;
+    errorMessage?: string;
+    errorDetails?: string;
+    errorSeverity?: string;
+    agentName?: string;
+    phase?: string;
+    filePaths?: string[];
+  },
+): Promise<ToolResult> {
+  if (!params.id) return text('Error: id is required for report-error');
+  if (!params.errorMessage) return text('Error: errorMessage is required for report-error');
+
+  const card = state.cards.find((c) => c.id === params.id);
+  if (!card) return text(`Card #${params.id} not found`);
+
+  const severity = (params.errorSeverity as ErrorSeverity) ?? 'error';
+  const phase = (params.phase as 'planning' | 'implementation' | 'review') ?? inferPhase(card.column);
+  const agentName = params.agentName ?? 'unknown';
+
+  const report = await appendError(statePath, {
+    cardId: card.id,
+    cardTitle: card.title,
+    phase,
+    agentName,
+    severity,
+    message: params.errorMessage,
+    details: params.errorDetails,
+    filePaths: params.filePaths,
+  });
+
+  return text(
+    `Error logged (${report.id}): [${severity}] ${agentName}/${phase} on card #${card.id} — ${params.errorMessage}`,
+  );
+}
+
+function inferPhase(column: Column): 'planning' | 'implementation' | 'review' {
+  if (column === 'planning') return 'planning';
+  if (column === 'review') return 'review';
+  return 'implementation';
+}
+
+// ── Error Log ───────────────────────────────────────────────
+
+export async function handleErrorLog(statePath: string, cardId?: string): Promise<ToolResult> {
+  const log = await readErrorLog(statePath);
+  if (cardId) {
+    const cardErrors = log.errors.filter((e) => e.cardId === cardId);
+    if (cardErrors.length === 0) return text(`No errors recorded for card #${cardId}.`);
+    return text(formatErrorLog({ ...log, errors: cardErrors }));
+  }
+  return text(formatErrorLog(log));
+}
+
+// ── Retrospective ───────────────────────────────────────────
+
+export async function handleRetrospective(
+  statePath: string,
+  pi: ExtensionAPI,
+): Promise<ToolResult> {
+  const log = await readErrorLog(statePath);
+  if (log.errors.length === 0) {
+    return text('No errors recorded — nothing to retrospect on. The board is running clean!');
+  }
+
+  const summary = generateRetrospectiveSummary(log);
+
+  // Mark the retrospective timestamp
+  log.lastRetrospectiveAt = new Date().toISOString();
+  await writeErrorLog(statePath, log);
+
+  // Send the retrospective data to the agent for analysis
+  pi.sendUserMessage(
+    'Perform a retrospective analysis on the Kanban board errors below. '
+    + 'Identify root causes, recurring patterns, and suggest concrete process '
+    + 'improvements to prevent these errors in future. Group your findings by:\n'
+    + '1. **Most impactful issues** — errors that blocked progress or recurred\n'
+    + '2. **Root cause analysis** — why these errors happened\n'
+    + '3. **Process improvements** — specific, actionable changes to prevent them\n'
+    + '4. **Agent/phase hotspots** — which agents or phases need attention\n\n'
+    + 'Here is the error data:\n\n'
+    + summary,
+  );
+
+  return text(
+    `Retrospective started — analyzing ${log.errors.length} error(s) across the board. Check the chat panel.`,
+  );
 }

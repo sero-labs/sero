@@ -39,6 +39,7 @@ function makeState(cards: Card[]): KanbanState {
       reviewMode: 'full',
       testingEnabled: true,
       yoloMode: false,
+      yoloAutoMergePrs: false,
     },
   };
 }

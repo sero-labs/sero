@@ -16,17 +16,20 @@ import { Type } from '@sinclair/typebox';
 
 import type { Column, Priority } from '../shared/types';
 import { COLUMNS, COLUMN_LABELS, createCard } from '../shared/types';
+import { resolveWorkspacePathFromStatePath } from '../shared/error-log';
 import { validateManualMove } from '../shared/validation';
 import { resolveStatePath, readState, writeState, formatCard, formatBoard } from './state-io';
 import {
   handleStart, handleApprove, handleComplete,
   handleRetry, handleBrainstorm, handleSettings, handleCleanup,
+  handleReportError, handleErrorLog, handleRetrospective,
 } from './workflow-actions';
+import { handleRequestRevisions, handleCancelPR } from './review-actions';
 
 // ── Tool parameters ────────────────────────────────────────────
 
 const KanbanParams = Type.Object({
-  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve', 'complete', 'retry', 'brainstorm', 'settings', 'cleanup'] as const),
+  action: StringEnum(['list', 'add', 'move', 'update', 'delete', 'show', 'start', 'approve', 'complete', 'retry', 'brainstorm', 'settings', 'cleanup', 'request-revisions', 'cancel-pr', 'report-error', 'error-log', 'retrospective'] as const),
   title: Type.Optional(Type.String({ description: 'Card title (for add)' })),
   id: Type.Optional(Type.String({ description: 'Card ID' })),
   column: Type.Optional(StringEnum(COLUMNS)),
@@ -36,6 +39,13 @@ const KanbanParams = Type.Object({
   acceptance: Type.Optional(Type.Array(Type.String(), { description: 'Acceptance criteria' })),
   setting: Type.Optional(Type.String({ description: 'Setting name for settings action (testingEnabled, reviewMode, reviewLevel)' })),
   value: Type.Optional(Type.String({ description: 'Setting value for settings action' })),
+  revisionFeedback: Type.Optional(Type.String({ description: 'Feedback text for request-revisions action' })),
+  errorMessage: Type.Optional(Type.String({ description: 'Error message (for report-error)' })),
+  errorDetails: Type.Optional(Type.String({ description: 'Full error details/stack trace (for report-error)' })),
+  errorSeverity: Type.Optional(StringEnum(['error', 'warning', 'test-failure'] as const)),
+  agentName: Type.Optional(Type.String({ description: 'Name of the subagent reporting the error (for report-error)' })),
+  phase: Type.Optional(StringEnum(['planning', 'implementation', 'review'] as const)),
+  filePaths: Type.Optional(Type.Array(Type.String(), { description: 'File paths involved in the error (for report-error)' })),
 });
 
 // ── Extension ──────────────────────────────────────────────────
@@ -56,7 +66,7 @@ export default function (pi: ExtensionAPI) {
     name: 'kanban',
     label: 'Kanban',
     description:
-      'Manage the workspace Kanban board. IMPORTANT: Cards are implemented by automated orchestrator subagents — do NOT implement card work yourself. Your role is to manage the board, brainstorm, and approve. Actions: list (show board), add (requires title; optional description, priority, acceptance, blockedBy), move (requires id + column — for backward moves only), update (requires id; optional title/description/priority/acceptance/blockedBy), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning, triggers automated agents), approve (requires id — approve plan and advance to in-progress), complete (requires id — only from review, mark as done), retry (requires id — re-trigger current phase), brainstorm (start collaborative card creation session), settings (view/update board settings).',
+      'Manage the workspace Kanban board. IMPORTANT: Cards are implemented by automated orchestrator subagents — do NOT implement card work yourself. Your role is to manage the board, brainstorm, and approve. Actions: list (show board), add (requires title; optional description, priority, acceptance, blockedBy), move (requires id + column — for backward moves only), update (requires id; optional title/description, priority, acceptance, blockedBy), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning, triggers automated agents), approve (requires id — approve plan and advance to in-progress), complete (requires id — only from review, mark as done), retry (requires id — re-trigger current phase), brainstorm (start collaborative card creation session), settings (view/update board settings), request-revisions (requires id + revisionFeedback — only for review cards awaiting human input with a PR; send card back to implementation with feedback and invalidate the cached review), cancel-pr (requires id — only for review cards awaiting human input with a PR; close the PR on GitHub, remove local review artifacts, and return the card to backlog), report-error (requires id + errorMessage; optional errorDetails, errorSeverity, agentName, phase, filePaths — subagents report errors/failures here), error-log (view error log; optional id to filter by card), retrospective (analyze all logged errors and suggest process improvements).',
     parameters: KanbanParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -68,6 +78,7 @@ export default function (pi: ExtensionAPI) {
         };
       }
       statePath = resolvedPath;
+      const workspacePath = ctx?.cwd ?? resolveWorkspacePathFromStatePath(statePath);
 
       const state = await readState(statePath);
 
@@ -290,7 +301,33 @@ export default function (pi: ExtensionAPI) {
           return handleSettings(statePath, state, params.setting, params.value);
 
         case 'cleanup':
-          return handleCleanup(statePath, state, resolvedPath);
+          return handleCleanup(statePath, state, workspacePath);
+
+        case 'request-revisions':
+          if (!params.id) return { content: [{ type: 'text', text: 'Error: id is required for request-revisions' }], details: {} };
+          if (!params.revisionFeedback) return { content: [{ type: 'text', text: 'Error: revisionFeedback is required for request-revisions' }], details: {} };
+          return handleRequestRevisions(statePath, state, params.id, params.revisionFeedback);
+
+        case 'cancel-pr':
+          if (!params.id) return { content: [{ type: 'text', text: 'Error: id is required for cancel-pr' }], details: {} };
+          return handleCancelPR(statePath, state, workspacePath, params.id);
+
+        case 'report-error':
+          return handleReportError(statePath, state, {
+            id: params.id,
+            errorMessage: params.errorMessage,
+            errorDetails: params.errorDetails,
+            errorSeverity: params.errorSeverity,
+            agentName: params.agentName,
+            phase: params.phase,
+            filePaths: params.filePaths,
+          });
+
+        case 'error-log':
+          return handleErrorLog(statePath, params.id);
+
+        case 'retrospective':
+          return handleRetrospective(statePath, pi);
 
         default:
           return {

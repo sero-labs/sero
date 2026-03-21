@@ -1,19 +1,35 @@
 /**
  * ReviewStatusPanel — shown when a card has a PR created and is
  * awaiting user merge/completion.
+ *
+ * Also provides "Request Revisions" (text input + send) to push
+ * the card back to implementation, and "Cancel PR" to discard the
+ * PR and move the card to backlog. Both actions append to the
+ * error log.
  */
 
 import type { Card } from '../../shared/types';
 import { getReviewPrStatus } from '../lib/review-pr-status';
+import { RevisionRequestForm } from './RevisionRequestForm';
+import { CancelPRConfirmation } from './CancelPRConfirmation';
 
 export function ReviewStatusPanel({
   card,
   onCheckMerge,
+  onRequestRevisions,
+  onCancelPR,
+  isBusy,
+  actionError,
 }: {
   card: Card;
   onCheckMerge: () => void;
+  onRequestRevisions: (feedback: string) => Promise<void> | void;
+  onCancelPR: () => Promise<void> | void;
+  isBusy?: boolean;
+  actionError?: string | null;
 }) {
   const status = getReviewPrStatus(card);
+
   const handleOpenPreview = () => {
     if (!card.previewUrl) return;
     window.open(card.previewUrl, '_blank', 'noopener,noreferrer');
@@ -92,8 +108,11 @@ export function ReviewStatusPanel({
           </div>
         )}
       </div>
+
+      {/* Approve / check merge */}
       <button
         onClick={onCheckMerge}
+        disabled={isBusy || status.primaryActionDisabled}
         style={{
           width: '100%',
           padding: '10px 16px',
@@ -103,12 +122,23 @@ export function ReviewStatusPanel({
           color: status.tone.buttonText,
           fontSize: '13px',
           fontWeight: 600,
-          cursor: 'pointer',
+          cursor: isBusy || status.primaryActionDisabled ? 'default' : 'pointer',
           transition: 'all 0.15s',
+          marginBottom: '12px',
+          opacity: isBusy || status.primaryActionDisabled ? 0.6 : 1,
         }}
       >
         {status.actionLabel}
       </button>
+
+      <RevisionRequestForm onSubmit={onRequestRevisions} isBusy={isBusy} />
+      <CancelPRConfirmation onConfirm={onCancelPR} isBusy={isBusy} />
+
+      {actionError && (
+        <p style={{ fontSize: '11px', color: '#f87171', marginTop: '10px', lineHeight: 1.4 }}>
+          {actionError}
+        </p>
+      )}
     </div>
   );
 }

@@ -37,20 +37,6 @@ import { ImageLightbox } from './ImageLightbox';
  */
 export function ChatPanel() {
   const focused = useFocusedAgent();
-  const initEventListener = useAgentStore((s) => s.initEventListener);
-  const initCollaborationListener = useAgentStore((s) => s.initCollaborationListener);
-
-  // Subscribe to main-process events on mount
-  useEffect(() => {
-    const unsub = initEventListener();
-    return unsub;
-  }, [initEventListener]);
-
-  // Subscribe to collaboration events on mount
-  useEffect(() => {
-    const unsub = initCollaborationListener();
-    return unsub;
-  }, [initCollaborationListener]);
 
   // Initialize feedback store (load ratings from disk)
   const initFeedback = useFeedbackStore((s) => s.init);

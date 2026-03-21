@@ -98,6 +98,43 @@ export interface Card {
   completedAt?: string; // ISO
 }
 
+// ── Error reporting ─────────────────────────────────────────
+
+export type ErrorSeverity = 'error' | 'warning' | 'test-failure';
+
+export interface ErrorReport {
+  /** Unique error ID */
+  id: string;
+  /** Card ID this error relates to */
+  cardId: string;
+  /** Card title at the time of the error */
+  cardTitle: string;
+  /** Which phase the error occurred in */
+  phase: 'planning' | 'implementation' | 'review';
+  /** Name of the subagent that reported the error */
+  agentName: string;
+  /** Error severity */
+  severity: ErrorSeverity;
+  /** Short summary of the error */
+  message: string;
+  /** Full error details (stack traces, test output, etc.) */
+  details?: string;
+  /** File paths involved, if any */
+  filePaths?: string[];
+  /** ISO timestamp */
+  timestamp: string;
+}
+
+export interface ErrorLog {
+  errors: ErrorReport[];
+  /** ISO timestamp of last retrospective run */
+  lastRetrospectiveAt?: string;
+}
+
+export const DEFAULT_ERROR_LOG: ErrorLog = {
+  errors: [],
+};
+
 export interface KanbanSettings {
   autoAdvance: boolean; // Auto-move cards through stages
   maxConcurrentCards: number; // How many cards can be In Progress at once
@@ -113,6 +150,8 @@ export interface KanbanSettings {
   testingEnabled: boolean;
   /** YOLO mode: auto-start, auto-approve, auto-complete — no human gates */
   yoloMode: boolean;
+  /** When YOLO mode is enabled, automatically request GitHub PR auto-merge. */
+  yoloAutoMergePrs: boolean;
 }
 
 export interface KanbanState {
@@ -152,6 +191,7 @@ export const DEFAULT_KANBAN_STATE: KanbanState = {
     reviewMode: 'full',
     testingEnabled: true,
     yoloMode: false,
+    yoloAutoMergePrs: false,
   },
 };
 

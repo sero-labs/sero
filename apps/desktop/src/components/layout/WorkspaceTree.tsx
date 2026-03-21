@@ -17,6 +17,7 @@ import { useWorkspaceStore, useOpenWorkspaces } from '@/stores/workspace';
 import { useSessionStore, useSessionsByWorkspace } from '@/stores/sessions';
 import { useStreamingSessionIds } from '@/stores/agent-selectors';
 import { useAppStore } from '@/stores/app';
+import { useAgentStore } from '@/stores/agent';
 import { useWorkspaceContainer, type ContainerStatus } from '@/stores/container';
 import { Button } from '@sero/ui/components/ui/button';
 import {
@@ -84,6 +85,7 @@ export function WorkspaceTree() {
   // Open a session in the ChatPanel when a federated app dispatches sero:open-session
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
   const setChatPanelOpen = useAppStore((s) => s.setChatPanelOpen);
+  const openSession = useAgentStore((s) => s.openSession);
   useEffect(() => {
     const handleOpenSession = async (e: Event) => {
       const { sessionId, sessionPath, workspaceId } =
@@ -93,8 +95,9 @@ export function WorkspaceTree() {
       await window.sero.workspace.open(workspaceId).catch(() => {});
 
       if (sessionId && sessionPath) {
-        // Ensure the agent session is loaded in the pool
-        await window.sero.agent.open(sessionId, sessionPath, workspaceId).catch(() => {});
+        // Route through the agent store so concurrent callers share the same
+        // open promise and the focused session state stays consistent.
+        await openSession(sessionId, sessionPath, workspaceId);
         setActiveSession(sessionId);
       }
 
@@ -103,7 +106,7 @@ export function WorkspaceTree() {
     };
     window.addEventListener('sero:open-session', handleOpenSession);
     return () => window.removeEventListener('sero:open-session', handleOpenSession);
-  }, [setActiveSession, setChatPanelOpen]);
+  }, [openSession, setActiveSession, setChatPanelOpen]);
 
   if (isLoadingWorkspaces) {
     return (
@@ -443,4 +446,3 @@ function WorkspaceNode({
     </div>
   );
 }
-

@@ -55,12 +55,25 @@ export function ReviewActivityPanel({ progress }: { progress?: ReviewProgress })
 // ── Step pipeline indicator ─────────────────────────────────
 
 function StepPipeline({ activeStep }: { activeStep: number }) {
+  const gridTemplateColumns = STEPS.flatMap((_, i) => (
+    i < STEPS.length - 1 ? ['max-content', 'minmax(24px, 1fr)'] : ['max-content']
+  )).join(' ');
+
   return (
-    <div className="flex items-center" style={{ padding: '14px 14px 0', gap: '0' }}>
-      {STEPS.map((step, i) => {
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns,
+        alignItems: 'center',
+        width: '100%',
+        padding: '14px 14px 0',
+        columnGap: '8px',
+      }}
+    >
+      {STEPS.flatMap((step, i) => {
         const state = i < activeStep ? 'done' : i === activeStep ? 'active' : 'pending';
-        return (
-          <div key={step.key} className="flex items-center" style={{ flex: 1, minWidth: 0 }}>
+        const items = [
+          <div key={step.key} className="flex items-center" style={{ minWidth: 0 }}>
             <StepDot state={state} index={i} />
             <span
               style={{
@@ -73,19 +86,24 @@ function StepPipeline({ activeStep }: { activeStep: number }) {
             >
               {step.label}
             </span>
-            {i < STEPS.length - 1 && (
-              <div
-                style={{
-                  flex: 1,
-                  height: '1px',
-                  marginLeft: '8px',
-                  backgroundColor: i < activeStep ? 'rgba(52, 211, 153, 0.3)' : 'rgba(255, 255, 255, 0.06)',
-                  transition: 'background-color 0.4s',
-                }}
-              />
-            )}
-          </div>
-        );
+          </div>,
+        ];
+
+        if (i < STEPS.length - 1) {
+          items.push(
+            <div
+              key={`${step.key}-connector`}
+              style={{
+                height: '1px',
+                minWidth: '24px',
+                backgroundColor: i < activeStep ? 'rgba(52, 211, 153, 0.3)' : 'rgba(255, 255, 255, 0.06)',
+                transition: 'background-color 0.4s',
+              }}
+            />,
+          );
+        }
+
+        return items;
       })}
     </div>
   );

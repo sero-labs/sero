@@ -13,11 +13,12 @@ import path from 'path';
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import { appStateManager } from '../app-state';
-import { kanbanOrchestrator, ensureInfra } from './shared-infra';
+import { kanbanOrchestrator, ensureInfra, workspaceManager } from './shared-infra';
 import type { KanbanState } from '../kanban/types';
 import { SERO_HOME } from '../env';
 
 const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
+const KANBAN_WORKSPACE_SUFFIX = '/.sero/apps/kanban/state.json';
 
 /** Notify the orchestrator immediately if this is a kanban state file. */
 function notifyKanbanOrchestrator(filePath: string, data: unknown): void {
@@ -25,6 +26,17 @@ function notifyKanbanOrchestrator(filePath: string, data: unknown): void {
     ensureInfra()
       .then(() => kanbanOrchestrator.onStateChange(filePath, data as KanbanState))
       .catch((err) => console.error('[app-state] Kanban orchestrator error:', err));
+  }
+}
+
+async function primeKanbanWorkspaceWatch(filePath: string, data: unknown): Promise<void> {
+  if (!filePath.endsWith(KANBAN_STATE_SUFFIX) || !data) return;
+  await ensureInfra();
+  if (!filePath.endsWith(KANBAN_WORKSPACE_SUFFIX)) return;
+  const workspacePath = filePath.slice(0, -KANBAN_WORKSPACE_SUFFIX.length);
+  const workspace = workspaceManager.findByPath(workspacePath);
+  if (workspace) {
+    await kanbanOrchestrator.watchWorkspace(workspace.id, workspace.path);
   }
 }
 
@@ -87,7 +99,9 @@ export function registerAppStateHandlers(): void {
     IpcChannels.appState.watch,
     async (_event, filePath: string): Promise<unknown> => {
       appStateManager.watch(filePath);
-      return appStateManager.read(filePath);
+      const data = await appStateManager.read(filePath);
+      await primeKanbanWorkspaceWatch(filePath, data);
+      return data;
     },
   );
 

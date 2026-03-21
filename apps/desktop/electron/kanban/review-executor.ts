@@ -116,7 +116,10 @@ export async function executeReview(
 
     // ── Try to load cached review ──────────────────────────
     console.log(`[review-executor] Checking for cached review at ${reviewFile}`);
-    const cached = branchSync.invalidatedReviewCache ? null : await loadCachedReview(reviewFile);
+    const canReuseCachedReview = card.reviewFilePath === reviewRelPath;
+    const cached = branchSync.invalidatedReviewCache || !canReuseCachedReview
+      ? null
+      : await loadCachedReview(reviewFile);
     if (cached) {
       console.log(`[review-executor] Resuming from cached review for card #${card.id} — skipping to push`);
       return resumeFromReview(deps.workspaceId, cached, reviewRelPath, worktreePath, branchName, tracker);

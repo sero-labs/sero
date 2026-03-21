@@ -6,7 +6,7 @@
  * clearly differentiate from the board.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Card, Column, Priority, KanbanState } from '../../shared/types';
 import { COLUMNS, COLUMN_LABELS } from '../../shared/types';
@@ -17,9 +17,9 @@ import { ImplementationActivityPanel } from './ImplementationActivityPanel';
 import { ReviewActivityPanel } from './ReviewActivityPanel';
 import { ReviewStatusPanel } from './ReviewStatusPanel';
 import { PlanApprovalPanel } from './PlanApprovalPanel';
-import { DescriptionEditor } from './DescriptionEditor';
+import { DescriptionEditor, type DescriptionEditorHandle } from './DescriptionEditor';
 import { CardDetailFooter } from './CardDetailFooter';
-import { applyManualMove, applyWorkflowTransition } from '../lib/card-workflow';
+import { applyManualMove, applyWorkflowTransition, applyRequestRevisions, applyCancelPR } from '../lib/card-workflow';
 import { isReviewMergeStatusMessage } from '../lib/review-pr-status';
 import { getManualMoveTargets } from '../../shared/validation';
 
@@ -32,6 +32,8 @@ export function CardDetail({
   onClose: () => void;
   onUpdate: (updater: (state: KanbanState) => KanbanState) => void;
 }) {
+  const descriptionEditorRef = useRef<DescriptionEditorHandle>(null);
+
   const handleMove = useCallback(
     (column: Column) => {
       if (!card) return;
@@ -57,6 +59,7 @@ export function CardDetail({
 
   const handleStartPlanning = useCallback(() => {
     if (!card) return;
+    descriptionEditorRef.current?.commitDraft();
     onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'planning'));
   }, [card, onUpdate]);
 
@@ -68,6 +71,16 @@ export function CardDetail({
   const handleCheckMergeStatus = useCallback(() => {
     if (!card) return;
     onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'done'));
+  }, [card, onUpdate]);
+
+  const handleRequestRevisions = useCallback((feedback: string) => {
+    if (!card) return;
+    onUpdate((prev) => applyRequestRevisions(prev, card.id, feedback));
+  }, [card, onUpdate]);
+
+  const handleCancelPR = useCallback(() => {
+    if (!card) return;
+    onUpdate((prev) => applyCancelPR(prev, card.id));
   }, [card, onUpdate]);
 
   const handleRetry = useCallback(() => {
@@ -175,7 +188,7 @@ export function CardDetail({
               </div>
 
               {/* Description — editable with AI enhance */}
-              <DescriptionEditor card={card} onUpdate={onUpdate} />
+              <DescriptionEditor ref={descriptionEditorRef} card={card} onUpdate={onUpdate} />
 
               {/* Acceptance criteria */}
               {card.acceptance.length > 0 && (
@@ -345,7 +358,12 @@ export function CardDetail({
 
               {/* PR ready — awaiting user completion */}
               {card.column === 'review' && card.status === 'waiting-input' && card.prUrl && (
-                <ReviewStatusPanel card={card} onCheckMerge={handleCheckMergeStatus} />
+                <ReviewStatusPanel
+                  card={card}
+                  onCheckMerge={handleCheckMergeStatus}
+                  onRequestRevisions={handleRequestRevisions}
+                  onCancelPR={handleCancelPR}
+                />
               )}
 
               {/* Error */}
