@@ -215,19 +215,19 @@ async function handleRecord(args: string[], ctx: CliCommandContext) {
       const { flags } = parseFlags(rest);
       const savePath = requireFlagString(flags, 'save');
 
-      // If --save specified, copy to the requested location
-      if (savePath) {
-        const absPath = pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath);
-        await mkdirFs(pathMod.dirname(absPath), { recursive: true });
-        await copyFile(result.path, absPath);
-        const format = result.isVideo ? 'MP4' : 'frames';
-        const dur = Math.round(result.durationMs / 1000);
-        return ok(`Recording saved: ${absPath} (${format}, ${result.frameCount} frames, ${dur}s)`);
-      }
+      // Determine destination: --save flag, or default to <workspace>/screen-capture/
+      const ext = result.isVideo ? '.mp4' : '.png';
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const defaultDir = pathMod.join(ctx.cwd, 'screen-capture');
+      const destPath = savePath
+        ? (pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath))
+        : pathMod.join(defaultDir, `recording-${ts}${ext}`);
 
-      const format = result.isVideo ? 'MP4 video' : 'frames directory (ffmpeg not available)';
+      await mkdirFs(pathMod.dirname(destPath), { recursive: true });
+      await copyFile(result.path, destPath);
+      const format = result.isVideo ? 'MP4' : 'frames';
       const dur = Math.round(result.durationMs / 1000);
-      return ok(`Recording saved: ${result.path}\nFormat: ${format}\nFrames: ${result.frameCount}, Duration: ${dur}s`);
+      return ok(`Recording saved: ${destPath} (${format}, ${result.frameCount} frames, ${dur}s)`);
     }
     case 'status': {
       const win = getMainWindow();

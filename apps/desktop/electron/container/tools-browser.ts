@@ -18,6 +18,7 @@ import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-
 import type { ContainerManager } from './index';
 import { BrowserParams, shellEscape } from './tool-schemas';
 import { encodeFramesToMp4 } from '../utils/video-encoder';
+import { workspaceManager } from '../workspace';
 
 const HELPER_CONTAINER_PATH = '/tmp/sero-browser-helper.py';
 const HELPER_SOURCE_PATH = path.join(__dirname, 'browser-helper.py');
@@ -358,6 +359,7 @@ async function handleStartRecording(
 
 /**
  * Stop recording and encode captured frames to MP4.
+ * Defaults to saving in <workspace>/screen-capture/ if no save_path is specified.
  */
 async function handleStopRecording(
   workspaceId: string,
@@ -385,11 +387,21 @@ async function handleStopRecording(
     };
   }
 
+  // Default to <workspace>/screen-capture/ on the host
+  let outputPath = savePath;
+  if (!outputPath) {
+    const wsPath = workspaceManager.getPath(workspaceId);
+    if (wsPath) {
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      outputPath = path.join(wsPath, 'screen-capture', `browser-recording-${ts}.mp4`);
+    }
+  }
+
   try {
     const result = await encodeFramesToMp4({
       frames: state.frames,
       fps: state.fps,
-      outputPath: savePath,
+      outputPath,
     });
 
     const durSec = Math.round(result.durationMs / 1000);
