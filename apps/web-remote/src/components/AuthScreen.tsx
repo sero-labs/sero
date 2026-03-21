@@ -1,5 +1,5 @@
 /**
- * Auth screen — token entry with auto-connect from stored token.
+ * Connection screen — token entry plus reconnect state for saved pairings.
  */
 
 import { useState, useCallback } from 'react';
@@ -8,13 +8,21 @@ import { Button } from '@sero/ui/components/ui/button';
 import { Input } from '@sero/ui/components/ui/input';
 import { Loader2, Lock } from 'lucide-react';
 
-export function AuthScreen() {
+interface AuthScreenProps {
+  mode: 'auth' | 'reconnecting';
+  statusMessage?: string | null;
+}
+
+export function AuthScreen({ mode, statusMessage }: AuthScreenProps) {
   const [tokenInput, setTokenInput] = useState('');
   const connect = useConnectionStore((s) => s.connect);
+  const retry = useConnectionStore((s) => s.retry);
+  const disconnect = useConnectionStore((s) => s.disconnect);
   const state = useConnectionStore((s) => s.state);
   const authError = useConnectionStore((s) => s.authError);
 
   const isConnecting = state === 'connecting' || state === 'authenticating';
+  const isReconnecting = state === 'reconnecting';
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -26,6 +34,42 @@ export function AuthScreen() {
     },
     [tokenInput, connect],
   );
+
+  if (mode === 'reconnecting') {
+    const title = authError ? 'Connect to Sero' : 'Reconnecting to Sero';
+    const description = authError
+      ? 'Your saved token needs to be replaced.'
+      : 'Using your saved device token.';
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="w-[360px] max-w-[90vw] rounded-xl border border-border bg-card p-6 shadow-xl">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+              <p className="text-sm text-muted-foreground">{description}</p>
+            </div>
+          </div>
+
+          <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+            {statusMessage ?? 'Trying to restore your previous connection now.'}
+          </p>
+
+          <div className="mt-4 flex flex-col gap-3">
+            <Button onClick={retry} disabled={isConnecting} className="w-full">
+              {isConnecting ? 'Retrying...' : isReconnecting ? 'Reconnect Now' : 'Retry Now'}
+            </Button>
+            <Button onClick={disconnect} variant="outline" className="w-full">
+              Use Different Token
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
@@ -52,6 +96,9 @@ export function AuthScreen() {
 
           {authError && (
             <p className="text-sm text-destructive">{authError}</p>
+          )}
+          {!authError && statusMessage && (
+            <p className="text-sm text-muted-foreground">{statusMessage}</p>
           )}
 
           <Button

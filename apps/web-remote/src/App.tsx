@@ -11,16 +11,42 @@ import { Layout } from '@/components/Layout';
 
 export function App() {
   const connectionState = useConnectionState();
-  const autoConnect = useConnectionStore((s) => s.autoConnect);
+  const initialize = useConnectionStore((s) => s.initialize);
+  const retryConnection = useConnectionStore((s) => s.retry);
+  const token = useConnectionStore((s) => s.token);
+  const isBootstrapping = useConnectionStore((s) => s.isBootstrapping);
+  const isInitialized = useConnectionStore((s) => s.isInitialized);
+  const authError = useConnectionStore((s) => s.authError);
+  const disconnectReason = useConnectionStore((s) => s.disconnectReason);
   const fetchWorkspaces = useWorkspaceStore((s) => s.fetchWorkspaces);
 
   // Set up the central message dispatcher (external WS source — valid useEffect)
   useGatewayDispatcher();
 
-  // Try auto-connect from stored token on mount (one-shot init — valid useEffect)
+  // Try auto-connect from stored token on mount and wake reconnects on resume.
   useEffect(() => {
-    autoConnect();
-  }, [autoConnect]);
+    void initialize();
+
+    const retry = () => {
+      retryConnection();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        retry();
+      }
+    };
+
+    window.addEventListener('online', retry);
+    window.addEventListener('pageshow', retry);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('online', retry);
+      window.removeEventListener('pageshow', retry);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [initialize, retryConnection]);
 
   // Fetch workspaces when connected (external event — valid useEffect)
   useEffect(() => {
@@ -29,11 +55,18 @@ export function App() {
     }
   }, [connectionState, fetchWorkspaces]);
 
+  const hasToken = token !== null;
   const showAuth = connectionState !== 'connected';
+  const showReconnectState = !isInitialized || isBootstrapping || hasToken;
 
   return (
     <>
-      {showAuth && <AuthScreen />}
+      {showAuth && (
+        <AuthScreen
+          mode={showReconnectState ? 'reconnecting' : 'auth'}
+          statusMessage={authError ?? disconnectReason}
+        />
+      )}
       <Layout />
     </>
   );

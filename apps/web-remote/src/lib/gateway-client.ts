@@ -1,3 +1,8 @@
+import {
+  isInvalidAuthTokenMessage,
+  shouldReconnectAfterConnectError,
+} from '@/lib/connect-errors';
+
 /**
  * WebSocket client wrapper for the Sero gateway.
  *
@@ -36,7 +41,18 @@ export interface GatewayPushEvent {
 
 export type GatewayMessage = GatewayResponse | GatewayPushEvent;
 
-export type ConnectionState = 'disconnected' | 'connecting' | 'authenticating' | 'connected';
+export type ConnectionState =
+  | 'disconnected'
+  | 'connecting'
+  | 'authenticating'
+  | 'reconnecting'
+  | 'connected';
+
+export interface DisconnectEvent {
+  code: number;
+  reason: string;
+  willReconnect: boolean;
+}
 
 export type MessageHandler = (msg: GatewayMessage) => void;
 
@@ -61,6 +77,7 @@ export class GatewayClient {
   private shouldReconnect = false;
   private messageHandlers = new Set<MessageHandler>();
   private stateHandlers = new Set<(state: ConnectionState) => void>();
+  private disconnectHandlers = new Set<(event: DisconnectEvent) => void>();
   private _state: ConnectionState = 'disconnected';
 
   constructor(url?: string) {
@@ -114,6 +131,12 @@ export class GatewayClient {
     return () => this.messageHandlers.delete(handler);
   }
 
+  /** Subscribe to socket close events. Returns unsubscribe function. */
+  onDisconnect(handler: (event: DisconnectEvent) => void): () => void {
+    this.disconnectHandlers.add(handler);
+    return () => this.disconnectHandlers.delete(handler);
+  }
+
   /** Connect to the gateway with the given token. */
   connect(token: string): void {
     this.token = token;
@@ -134,6 +157,20 @@ export class GatewayClient {
       this.ws = null;
     }
     this.setState('disconnected');
+  }
+
+  /** Trigger an immediate reconnect if the client has a saved token. */
+  retryNow(): void {
+    if (!this.shouldReconnect) return;
+    if (this._state === 'connected' || this._state === 'connecting' || this._state === 'authenticating') {
+      return;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectDelay = RECONNECT_DELAY_MS;
+    this.doConnect();
   }
 
   /** Send a request to the gateway. */
@@ -255,13 +292,19 @@ export class GatewayClient {
       }
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
       this.ws = null;
-      // Always reset to disconnected when the socket closes, regardless of
-      // which state we were in (connecting, authenticating, or connected).
-      if (this._state !== 'disconnected') {
+      const willReconnect = this.shouldReconnect;
+      if (willReconnect) {
+        this.setState('reconnecting');
+      } else if (this._state !== 'disconnected') {
         this.setState('disconnected');
       }
+      this.emitDisconnect({
+        code: event.code,
+        reason: event.reason,
+        willReconnect,
+      });
       this.scheduleReconnect();
     };
 
@@ -276,9 +319,17 @@ export class GatewayClient {
       this.setState('connected');
       this.reconnectDelay = RECONNECT_DELAY_MS;
     } else if (msg.type === 'error' && 'requestType' in msg && msg.requestType === 'connect') {
-      // Auth failed — don't reconnect with the same bad token
-      this.shouldReconnect = false;
-      this.setState('disconnected');
+      const { message } = msg;
+      const shouldReconnect = shouldReconnectAfterConnectError(message);
+
+      this.shouldReconnect = shouldReconnect;
+
+      if (!shouldReconnect) {
+        if (isInvalidAuthTokenMessage(message)) {
+          this.token = '';
+        }
+        this.setState('disconnected');
+      }
     }
 
     // Dispatch to all handlers
@@ -302,5 +353,15 @@ export class GatewayClient {
 
     // Exponential backoff with cap
     this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, MAX_RECONNECT_DELAY_MS);
+  }
+
+  private emitDisconnect(event: DisconnectEvent): void {
+    for (const handler of this.disconnectHandlers) {
+      try {
+        handler(event);
+      } catch (err) {
+        console.error('[gateway-client] Disconnect handler error:', err);
+      }
+    }
   }
 }
