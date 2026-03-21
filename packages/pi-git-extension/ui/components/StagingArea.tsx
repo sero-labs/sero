@@ -5,12 +5,12 @@
  * with a commit message input at the bottom.
  */
 
-import { useState, useCallback } from 'react';
-import type { FileChange } from '../../shared/types';
+import { useCallback, useState } from 'react';
+import type { FileChange, GitManagerRequest } from '../../shared/types';
 
 interface StagingAreaProps {
   fileChanges: FileChange[];
-  onAction: (prompt: string) => void;
+  onAction: (action: GitManagerRequest) => void;
   onSelectFile: (path: string, staged: boolean) => void;
 }
 
@@ -22,16 +22,16 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
   const handleCommit = useCallback(() => {
     const msg = commitMsg.trim();
     if (!msg) return;
-    onAction(`Using the git_manager tool: commit message="${msg}"`);
+    onAction({ action: 'commit', message: msg });
     setCommitMsg('');
   }, [commitMsg, onAction]);
 
   const handleStageAll = useCallback(() => {
-    onAction('Using the git_manager tool: stage all=true');
+    onAction({ action: 'stage', all: true });
   }, [onAction]);
 
   const handleUnstageAll = useCallback(() => {
-    onAction('Using the git_manager tool: unstage all=true');
+    onAction({ action: 'unstage', all: true });
   }, [onAction]);
 
   if (fileChanges.length === 0) {
@@ -65,9 +65,9 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
           </div>
           {unstaged.map((f) => (
             <ChangeRow
-              key={f.path}
+              key={`${f.path}:unstaged:${f.status}`}
               file={f}
-              onToggle={() => onAction(`Using the git_manager tool: stage file="${f.path}"`)}
+              onToggle={() => onAction({ action: 'stage', file: f.path })}
               onSelect={() => onSelectFile(f.path, false)}
               actionLabel="+"
             />
@@ -91,9 +91,9 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
           </div>
           {staged.map((f) => (
             <ChangeRow
-              key={f.path}
+              key={`${f.path}:staged:${f.status}`}
               file={f}
-              onToggle={() => onAction(`Using the git_manager tool: unstage file="${f.path}"`)}
+              onToggle={() => onAction({ action: 'unstage', file: f.path })}
               onSelect={() => onSelectFile(f.path, true)}
               actionLabel="-"
             />

@@ -1,36 +1,55 @@
 /**
  * Git command execution and output parsing.
  *
- * All git operations are run via child_process.execSync
+ * All git operations are run safely via execFileSync
  * in the workspace cwd. Output is parsed into typed structures.
  */
 
-import { execSync } from 'node:child_process';
 import path from 'node:path';
 
 import type {
-  CommitNode, RefLabel, BranchInfo, RemoteInfo,
-  FileChange, FileChangeStatus, StashEntry,
-  FileDiff, DiffHunk, DiffLine,
+  BranchInfo,
+  CommitNode,
+  DiffHunk,
+  DiffLine,
+  FileChange,
+  FileChangeStatus,
+  FileDiff,
+  RefLabel,
+  RemoteInfo,
+  StashEntry,
 } from '../shared/types';
+import { runGit } from './git-exec';
 
 // ── Helpers ─────────────────────────────────────────────────
 
-function git(args: string, cwd: string): string {
-  try {
-    return execSync(`git ${args}`, {
-      cwd,
-      encoding: 'utf8',
-      timeout: 15_000,
-      maxBuffer: 10 * 1024 * 1024,
-    }).trim();
-  } catch {
-    return '';
-  }
+function git(args: string[], cwd: string): string {
+  return runGit(args, cwd, { allowFailure: true });
 }
 
 function nonEmpty(line: string): boolean {
   return line.trim().length > 0;
+}
+
+function parseStatusChar(code: string): FileChangeStatus | null {
+  switch (code) {
+    case 'A':
+      return 'added';
+    case 'D':
+      return 'deleted';
+    case 'R':
+      return 'renamed';
+    case 'C':
+      return 'copied';
+    case '?':
+      return 'untracked';
+    case 'M':
+    case 'T':
+    case 'U':
+      return 'modified';
+    default:
+      return null;
+  }
 }
 
 // ── Commit log ──────────────────────────────────────────────
@@ -40,10 +59,13 @@ const LOG_SEP = '\x00';
 const RECORD_SEP = '\x01';
 
 export function getCommits(cwd: string, max = 150): CommitNode[] {
-  const raw = git(
-    `log --all --topo-order --max-count=${max} --format="${RECORD_SEP}${LOG_FORMAT}"`,
-    cwd,
-  );
+  const raw = git([
+    'log',
+    '--all',
+    '--topo-order',
+    `--max-count=${max}`,
+    `--format=${RECORD_SEP}${LOG_FORMAT}`,
+  ], cwd);
   if (!raw) return [];
 
   return raw
@@ -67,27 +89,32 @@ export function getCommits(cwd: string, max = 150): CommitNode[] {
 
 function parseRefs(raw: string): RefLabel[] {
   if (!raw.trim()) return [];
-  return raw.split(',').map((r) => r.trim()).filter(nonEmpty).map((ref) => {
-    if (ref.startsWith('HEAD -> ')) {
-      return { name: ref.replace('HEAD -> ', ''), type: 'head' as const };
-    }
-    if (ref.startsWith('tag: ')) {
-      return { name: ref.replace('tag: ', ''), type: 'tag' as const };
-    }
-    if (ref.includes('/')) {
-      return { name: ref, type: 'remote' as const };
-    }
-    return { name: ref, type: 'local' as const };
-  });
+  return raw
+    .split(',')
+    .map((r) => r.trim())
+    .filter(nonEmpty)
+    .map((ref) => {
+      if (ref.startsWith('HEAD -> ')) {
+        return { name: ref.replace('HEAD -> ', ''), type: 'head' as const };
+      }
+      if (ref.startsWith('tag: ')) {
+        return { name: ref.replace('tag: ', ''), type: 'tag' as const };
+      }
+      if (ref.includes('/')) {
+        return { name: ref, type: 'remote' as const };
+      }
+      return { name: ref, type: 'local' as const };
+    });
 }
 
 // ── Branches ────────────────────────────────────────────────
 
 export function getBranches(cwd: string): BranchInfo[] {
-  const raw = git(
-    'for-each-ref --format="%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(objectname:short)%00%(creatordate:iso-strict)" refs/heads/',
-    cwd,
-  );
+  const raw = git([
+    'for-each-ref',
+    '--format=%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(objectname:short)%00%(creatordate:iso-strict)',
+    'refs/heads/',
+  ], cwd);
   if (!raw) return [];
 
   return raw.split('\n').filter(nonEmpty).map((line) => {
@@ -109,7 +136,7 @@ export function getBranches(cwd: string): BranchInfo[] {
 // ── Remotes ─────────────────────────────────────────────────
 
 export function getRemotes(cwd: string): RemoteInfo[] {
-  const raw = git('remote -v', cwd);
+  const raw = git(['remote', '-v'], cwd);
   if (!raw) return [];
 
   const map = new Map<string, RemoteInfo>();
@@ -128,41 +155,50 @@ export function getRemotes(cwd: string): RemoteInfo[] {
 
 // ── File changes (status) ───────────────────────────────────
 
-function parseStatusCode(x: string, y: string): { status: FileChangeStatus; staged: boolean } {
-  if (x === '?' && y === '?') return { status: 'untracked', staged: false };
-  if (x === 'A') return { status: 'added', staged: true };
-  if (x === 'D') return { status: 'deleted', staged: true };
-  if (x === 'R') return { status: 'renamed', staged: true };
-  if (x === 'M') return { status: 'modified', staged: true };
-  if (y === 'M') return { status: 'modified', staged: false };
-  if (y === 'D') return { status: 'deleted', staged: false };
-  if (y === 'A') return { status: 'added', staged: false };
-  return { status: 'modified', staged: x !== ' ' };
-}
-
 export function getFileChanges(cwd: string): FileChange[] {
-  const raw = git('status --porcelain=v1', cwd);
+  const raw = git(['status', '--porcelain=v1', '-z'], cwd);
   if (!raw) return [];
 
-  return raw.split('\n').filter(nonEmpty).map((line) => {
-    const x = line[0] ?? ' ';
-    const y = line[1] ?? ' ';
-    const rest = line.substring(3);
-    const { status, staged } = parseStatusCode(x, y);
+  const entries = raw.split('\0');
+  const changes: FileChange[] = [];
 
-    // Handle renames: "R  old -> new"
-    const renameMatch = rest.match(/^(.+) -> (.+)$/);
-    if (renameMatch) {
-      return { path: renameMatch[2] ?? '', oldPath: renameMatch[1], status, staged };
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (!entry) continue;
+
+    const x = entry[0] ?? ' ';
+    const y = entry[1] ?? ' ';
+    const path = entry.substring(3);
+    let oldPath: string | undefined;
+
+    if (x === 'R' || x === 'C') {
+      oldPath = entries[i + 1] || undefined;
+      i += 1;
     }
-    return { path: rest, status, staged };
-  });
+
+    if (x === '?' && y === '?') {
+      changes.push({ path, status: 'untracked', staged: false });
+      continue;
+    }
+
+    const stagedStatus = parseStatusChar(x);
+    if (stagedStatus) {
+      changes.push({ path, oldPath, status: stagedStatus, staged: true });
+    }
+
+    const unstagedStatus = parseStatusChar(y);
+    if (unstagedStatus) {
+      changes.push({ path, oldPath, status: unstagedStatus, staged: false });
+    }
+  }
+
+  return changes;
 }
 
 // ── Stashes ─────────────────────────────────────────────────
 
 export function getStashes(cwd: string): StashEntry[] {
-  const raw = git('stash list --format="%H%x00%gd%x00%gs%x00%aI"', cwd);
+  const raw = git(['stash', 'list', '--format=%H%x00%gd%x00%gs%x00%aI'], cwd);
   if (!raw) return [];
 
   return raw.split('\n').filter(nonEmpty).map((line, i) => {
@@ -179,23 +215,27 @@ export function getStashes(cwd: string): StashEntry[] {
 // ── Diff ────────────────────────────────────────────────────
 
 export function getFileDiff(cwd: string, filePath: string, staged: boolean): FileDiff | null {
-  const flag = staged ? '--cached' : '';
-  const raw = git(`diff ${flag} -- "${filePath}"`, cwd);
-  return parseDiffOutput(raw, filePath);
+  const args = staged ? ['diff', '--cached', '--', filePath] : ['diff', '--', filePath];
+  const raw = git(args, cwd);
+  return parseDiffOutput(raw, filePath, staged);
 }
 
 export function getCommitDiff(cwd: string, hash: string): FileDiff[] {
-  const raw = git(`diff-tree -p --no-commit-id ${hash}`, cwd);
+  const raw = git(['diff-tree', '-p', '--no-commit-id', hash], cwd);
   if (!raw) return [];
   return splitDiffByFile(raw);
 }
 
-function parseDiffOutput(raw: string, filePath: string): FileDiff | null {
+function parseDiffOutput(raw: string, filePath: string, staged: boolean): FileDiff | null {
   if (!raw) return null;
 
   const hunks = parseHunks(raw);
-  const additions = hunks.reduce((s, h) => s + h.lines.filter((l) => l.type === 'add').length, 0);
-  const deletions = hunks.reduce((s, h) => s + h.lines.filter((l) => l.type === 'delete').length, 0);
+  const additions = hunks.reduce((sum, hunk) => {
+    return sum + hunk.lines.filter((line) => line.type === 'add').length;
+  }, 0);
+  const deletions = hunks.reduce((sum, hunk) => {
+    return sum + hunk.lines.filter((line) => line.type === 'delete').length;
+  }, 0);
 
   return {
     path: filePath,
@@ -204,6 +244,7 @@ function parseDiffOutput(raw: string, filePath: string): FileDiff | null {
     binary: raw.includes('Binary files'),
     additions,
     deletions,
+    staged,
   };
 }
 
@@ -215,15 +256,26 @@ function splitDiffByFile(raw: string): FileDiff[] {
     const nameMatch = chunk.match(/^a\/(.+?) b\/(.+)/);
     const filePath = nameMatch?.[2] ?? nameMatch?.[1] ?? 'unknown';
     const hunks = parseHunks(chunk);
-    const additions = hunks.reduce((s, h) => s + h.lines.filter((l) => l.type === 'add').length, 0);
-    const deletions = hunks.reduce((s, h) => s + h.lines.filter((l) => l.type === 'delete').length, 0);
+    const additions = hunks.reduce((sum, hunk) => {
+      return sum + hunk.lines.filter((line) => line.type === 'add').length;
+    }, 0);
+    const deletions = hunks.reduce((sum, hunk) => {
+      return sum + hunk.lines.filter((line) => line.type === 'delete').length;
+    }, 0);
 
     let status: FileChangeStatus = 'modified';
     if (chunk.includes('new file')) status = 'added';
     else if (chunk.includes('deleted file')) status = 'deleted';
     else if (chunk.includes('rename from')) status = 'renamed';
 
-    fileDiffs.push({ path: filePath, status, hunks, binary: chunk.includes('Binary'), additions, deletions });
+    fileDiffs.push({
+      path: filePath,
+      status,
+      hunks,
+      binary: chunk.includes('Binary'),
+      additions,
+      deletions,
+    });
   }
   return fileDiffs;
 }
@@ -231,32 +283,37 @@ function splitDiffByFile(raw: string): FileDiff[] {
 function parseHunks(raw: string): DiffHunk[] {
   const hunks: DiffHunk[] = [];
   const hunkMatches = raw.matchAll(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@[^\n]*/g);
+  const headers: Array<{
+    start: number;
+    oldStart: number;
+    oldCount: number;
+    newStart: number;
+    newCount: number;
+  }> = [];
 
-  let lastIndex = 0;
-  const hunkHeaders: { start: number; oldStart: number; oldCount: number; newStart: number; newCount: number }[] = [];
-
-  for (const m of hunkMatches) {
-    hunkHeaders.push({
-      start: m.index + m[0].length,
-      oldStart: parseInt(m[1], 10),
-      oldCount: parseInt(m[2] || '1', 10),
-      newStart: parseInt(m[3], 10),
-      newCount: parseInt(m[4] || '1', 10),
+  for (const match of hunkMatches) {
+    headers.push({
+      start: match.index + match[0].length,
+      oldStart: parseInt(match[1], 10),
+      oldCount: parseInt(match[2] || '1', 10),
+      newStart: parseInt(match[3], 10),
+      newCount: parseInt(match[4] || '1', 10),
     });
-    lastIndex = m.index + m[0].length;
   }
 
-  for (let i = 0; i < hunkHeaders.length; i++) {
-    const h = hunkHeaders[i];
-    const end = i + 1 < hunkHeaders.length ? raw.lastIndexOf('\n@@', hunkHeaders[i + 1].start) : raw.length;
-    const body = raw.substring(h.start, end);
-    const lines = parseDiffLines(body, h.oldStart, h.newStart);
+  for (let i = 0; i < headers.length; i++) {
+    const header = headers[i];
+    const end = i + 1 < headers.length
+      ? raw.lastIndexOf('\n@@', headers[i + 1].start)
+      : raw.length;
+    const body = raw.substring(header.start, end);
+    const lines = parseDiffLines(body, header.oldStart, header.newStart);
 
     hunks.push({
-      oldStart: h.oldStart,
-      oldCount: h.oldCount,
-      newStart: h.newStart,
-      newCount: h.newCount,
+      oldStart: header.oldStart,
+      oldCount: header.oldCount,
+      newStart: header.newStart,
+      newCount: header.newCount,
       lines,
     });
   }
@@ -274,7 +331,12 @@ function parseDiffLines(body: string, oldStart: number, newStart: number): DiffL
     } else if (rawLine.startsWith('-')) {
       result.push({ type: 'delete', content: rawLine.substring(1), oldLineNo: oldLine++ });
     } else if (rawLine.startsWith(' ') || rawLine === '') {
-      result.push({ type: 'context', content: rawLine.substring(1), oldLineNo: oldLine++, newLineNo: newLine++ });
+      result.push({
+        type: 'context',
+        content: rawLine.substring(1),
+        oldLineNo: oldLine++,
+        newLineNo: newLine++,
+      });
     }
   }
   return result;
@@ -283,23 +345,23 @@ function parseDiffLines(body: string, oldStart: number, newStart: number): DiffL
 // ── Repo info ───────────────────────────────────────────────
 
 export function getCurrentBranch(cwd: string): string {
-  return git('rev-parse --abbrev-ref HEAD', cwd) || 'HEAD';
+  return git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) || 'HEAD';
 }
 
 export function getHeadHash(cwd: string): string {
-  return git('rev-parse --short HEAD', cwd) || '';
+  return git(['rev-parse', '--short', 'HEAD'], cwd) || '';
 }
 
 export function getRepoName(cwd: string): string {
-  const topLevel = git('rev-parse --show-toplevel', cwd);
+  const topLevel = git(['rev-parse', '--show-toplevel'], cwd);
   return topLevel ? path.basename(topLevel) : path.basename(cwd);
 }
 
 export function isGitRepo(cwd: string): boolean {
-  return git('rev-parse --is-inside-work-tree', cwd) === 'true';
+  return git(['rev-parse', '--is-inside-work-tree'], cwd) === 'true';
 }
 
 export function getCommitCount(cwd: string): number {
-  const raw = git('rev-list --count --all', cwd);
+  const raw = git(['rev-list', '--count', '--all'], cwd);
   return parseInt(raw, 10) || 0;
 }

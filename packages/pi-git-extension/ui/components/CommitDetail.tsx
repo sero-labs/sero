@@ -4,14 +4,14 @@
  * Displays commit metadata, stats, and changed files.
  */
 
-import type { CommitNode, FileDiff } from '../../shared/types';
+import type { CommitNode, FileDiff, GitManagerRequest } from '../../shared/types';
 
 interface CommitDetailProps {
   commit: CommitNode | null;
   diffs: FileDiff[];
   onSelectFile: (diff: FileDiff) => void;
   onClose: () => void;
-  onAction: (prompt: string) => void;
+  onAction: (action: GitManagerRequest) => void;
 }
 
 export function CommitDetail({ commit, diffs, onSelectFile, onClose, onAction }: CommitDetailProps) {
@@ -52,7 +52,7 @@ export function CommitDetail({ commit, diffs, onSelectFile, onClose, onAction }:
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-4">
           <button
-            onClick={() => onAction(`Using the git_manager tool: cherry_pick hash="${commit.hash}"`)}
+            onClick={() => onAction({ action: 'cherry_pick', hash: commit.hash })}
             className="px-2 py-1 text-[10px] text-[var(--g-muted)] border border-[var(--g-border)]
               rounded hover:bg-[var(--g-elevated)] hover:text-[var(--g-text)] transition-colors cursor-pointer"
           >

@@ -28,6 +28,26 @@ export interface SeroAppAgentBridge {
   ): Promise<string>;
 }
 
+export interface SeroGitAppActionParams {
+  action: string;
+  file?: string;
+  message?: string;
+  branch?: string;
+  hash?: string;
+  staged?: boolean;
+  all?: boolean;
+  stashIndex?: number;
+}
+
+export interface SeroGitAppActionResult {
+  ok: boolean;
+  message: string;
+}
+
+export interface SeroGitAppBridge {
+  run(workspaceId: string, params: SeroGitAppActionParams): Promise<SeroGitAppActionResult>;
+}
+
 export interface SeroEditorExecResult {
   exitCode: number;
   stdout: string;
@@ -63,6 +83,7 @@ export interface SeroModelsBridge {
 export interface SeroBridge {
   appState: SeroAppStateBridge;
   appAgent: SeroAppAgentBridge;
+  gitApp?: SeroGitAppBridge;
   editor?: SeroEditorBridge;
   models?: SeroModelsBridge;
 }

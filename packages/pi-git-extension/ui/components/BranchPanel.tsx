@@ -3,14 +3,14 @@
  */
 
 import { useState } from 'react';
-import type { BranchInfo, RemoteInfo, StashEntry } from '../../shared/types';
+import type { BranchInfo, GitManagerRequest, RemoteInfo, StashEntry } from '../../shared/types';
 
 interface BranchPanelProps {
   branches: BranchInfo[];
   remotes: RemoteInfo[];
   stashes: StashEntry[];
   currentBranch: string;
-  onAction: (prompt: string) => void;
+  onAction: (action: GitManagerRequest) => void;
 }
 
 export function BranchPanel({ branches, remotes, stashes, currentBranch, onAction }: BranchPanelProps) {
@@ -29,13 +29,13 @@ export function BranchPanel({ branches, remotes, stashes, currentBranch, onActio
             key={b.name}
             branch={b}
             isCurrent={b.name === currentBranch}
-            onCheckout={() => onAction(`Using the git_manager tool: checkout branch "${b.name}"`)}
+            onCheckout={() => onAction({ action: 'checkout', branch: b.name })}
           />
         ))}
         <button
           onClick={() => {
             const name = prompt('New branch name:');
-            if (name?.trim()) onAction(`Using the git_manager tool: create_branch "${name.trim()}"`);
+            if (name?.trim()) onAction({ action: 'create_branch', branch: name.trim() });
           }}
           className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--g-dim)]
             hover:text-[var(--g-accent)] hover:bg-[var(--g-hover)] transition-colors cursor-pointer"
@@ -60,10 +60,10 @@ export function BranchPanel({ branches, remotes, stashes, currentBranch, onActio
       <Section title="STASHES" count={stashes.length} open={stashOpen} onToggle={() => setStashOpen(!stashOpen)}>
         {stashes.map((s) => (
           <div
-            key={s.index}
+            key={s.hash || s.index}
             className="flex items-center gap-2 px-3 py-1.5 group hover:bg-[var(--g-hover)] cursor-pointer"
-            onClick={() => onAction(`Using the git_manager tool: stash_pop`)}
-            title="Click to pop stash"
+            onClick={() => onAction({ action: 'stash_pop', stashIndex: s.index })}
+            title={`Click to pop stash@{${s.index}}`}
           >
             <StashIcon />
             <span className="text-xs text-[var(--g-muted)] truncate flex-1">{s.message}</span>
@@ -71,7 +71,7 @@ export function BranchPanel({ branches, remotes, stashes, currentBranch, onActio
           </div>
         ))}
         <button
-          onClick={() => onAction('Using the git_manager tool: stash')}
+          onClick={() => onAction({ action: 'stash' })}
           className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--g-dim)]
             hover:text-[var(--g-accent)] hover:bg-[var(--g-hover)] transition-colors cursor-pointer"
         >

@@ -168,6 +168,8 @@ all `packages/pi-*/` directories that have a `sero.app` manifest in their
 
 **Built remote requirement:** Production remote bundles must use a relative Vite
 `base` (`'./'`) so `sero-ext://` can resolve chunk preloads and assets correctly.
+If the remote Vite config uses `root: 'ui'`, the package must include
+`ui/index.html` or `vite build` will fail.
 
 **Tool bridging (AD-020):** All extension tools are automatically bridged into
 the single `sero-cli` tool — they do NOT appear as standalone tool schemas.

@@ -13,9 +13,10 @@ import path from 'path';
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import { appStateManager } from '../app-state';
-import { kanbanOrchestrator, ensureInfra, workspaceManager } from './shared-infra';
-import type { KanbanState } from '../kanban/types';
 import { SERO_HOME } from '../env';
+import { gitWorkspaceStateManager } from '../git-app/manager';
+import type { KanbanState } from '../kanban/types';
+import { kanbanOrchestrator, ensureInfra, workspaceManager } from './shared-infra';
 
 const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
 const KANBAN_WORKSPACE_SUFFIX = '/.sero/apps/kanban/state.json';
@@ -99,6 +100,9 @@ export function registerAppStateHandlers(): void {
     IpcChannels.appState.watch,
     async (_event, filePath: string): Promise<unknown> => {
       appStateManager.watch(filePath);
+      if (gitWorkspaceStateManager.isGitStateFile(filePath)) {
+        gitWorkspaceStateManager.watchStateFile(filePath);
+      }
       const data = await appStateManager.read(filePath);
       await primeKanbanWorkspaceWatch(filePath, data);
       return data;
@@ -110,6 +114,9 @@ export function registerAppStateHandlers(): void {
     IpcChannels.appState.unwatch,
     async (_event, filePath: string): Promise<void> => {
       appStateManager.unwatch(filePath);
+      if (gitWorkspaceStateManager.isGitStateFile(filePath)) {
+        gitWorkspaceStateManager.unwatchStateFile(filePath);
+      }
     },
   );
 }

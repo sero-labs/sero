@@ -4,6 +4,7 @@ import { PanelLeft, PanelRight } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { ProfileSwitcher } from '@/components/profiles/ProfileSwitcher';
+import { GitTitleBarControls } from '@/components/layout/titlebar/GitTitleBarControls';
 
 /**
  * TitleBar — macOS-style custom title bar.
@@ -53,7 +54,9 @@ export function TitleBar() {
       <div className="flex-1" />
 
       {/* ── Right-side actions ────────────────────────────────── */}
-      <div className="no-drag flex shrink-0 items-center gap-1 pr-3">
+      <div className="no-drag flex shrink-0 items-center gap-2 pr-3">
+        <GitTitleBarControls />
+
         <ProfileSwitcher />
 
         <div className="mx-1 h-4 w-px bg-[var(--border-default)]" />

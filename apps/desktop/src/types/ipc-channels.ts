@@ -114,6 +114,10 @@ export const IpcChannels = {
     /** Push channel for text deltas during streaming. */
     streamEvent: 'sero:app-agent:stream-event',
   },
+  gitApp: {
+    /** Run a direct Git app action for a workspace. */
+    run: 'sero:git-app:run',
+  },
   models: {
     /** List all available models (session-independent). Returns AvailableModelGroup[]. */
     list: 'sero:models:list',

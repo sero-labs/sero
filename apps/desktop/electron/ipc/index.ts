@@ -11,6 +11,7 @@ import { registerWorkspaceHandlers } from './workspace';
 import { registerSessionHandlers } from './sessions';
 import { registerAgentHandlers } from './agent';
 import { registerAppAgentHandlers } from './app-agent';
+import { registerGitAppHandlers } from './git-app';
 import { registerVoiceHandlers } from './voice';
 import { registerShellHandlers } from './shell';
 import { registerAppStateHandlers } from './app-state';
@@ -48,6 +49,7 @@ export function registerAllIpcHandlers(): void {
   registerSessionHandlers();
   registerAgentHandlers();
   registerAppAgentHandlers();
+  registerGitAppHandlers();
   registerVoiceHandlers();
   registerShellHandlers();
   registerAppStateHandlers();

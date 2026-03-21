@@ -86,9 +86,46 @@ export interface FileDiff {
   binary: boolean;
   additions: number;
   deletions: number;
+  staged?: boolean;
+}
+
+// ── Actions ─────────────────────────────────────────────────
+
+export type GitManagerAction =
+  | 'refresh'
+  | 'status'
+  | 'log'
+  | 'branches'
+  | 'diff'
+  | 'stage'
+  | 'unstage'
+  | 'commit'
+  | 'checkout'
+  | 'stash'
+  | 'stash_pop'
+  | 'fetch'
+  | 'pull'
+  | 'push'
+  | 'create_branch'
+  | 'delete_branch'
+  | 'merge'
+  | 'cherry_pick'
+  | 'show_commit';
+
+export interface GitManagerRequest {
+  action: GitManagerAction;
+  file?: string;
+  message?: string;
+  branch?: string;
+  hash?: string;
+  staged?: boolean;
+  all?: boolean;
+  stashIndex?: number;
 }
 
 // ── App state ───────────────────────────────────────────────
+
+export type GitSyncMode = 'manual' | 'watch' | 'poll';
 
 export interface GitAppState {
   repoPath: string;
@@ -112,6 +149,7 @@ export interface GitAppState {
 
   lastRefresh: string; // ISO
   loading: boolean;
+  syncMode: GitSyncMode;
   error?: string;
 }
 
@@ -128,6 +166,7 @@ export const DEFAULT_GIT_STATE: GitAppState = {
   commitCount: 0,
   lastRefresh: new Date().toISOString(),
   loading: false,
+  syncMode: 'manual',
 };
 
 /** Vibrant branch colors for the commit graph — GitKraken-inspired */

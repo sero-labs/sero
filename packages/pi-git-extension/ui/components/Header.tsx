@@ -2,11 +2,11 @@
  * Header bar — repo name, current branch, action buttons.
  */
 
-import type { GitAppState } from '../../shared/types';
+import type { GitAppState, GitManagerRequest } from '../../shared/types';
 
 interface HeaderProps {
   state: GitAppState;
-  onAction: (prompt: string) => void;
+  onAction: (action: GitManagerRequest) => void;
 }
 
 export function Header({ state, onAction }: HeaderProps) {
@@ -14,6 +14,9 @@ export function Header({ state, onAction }: HeaderProps) {
   const staged = fileChanges.filter((f) => f.staged).length;
   const unstaged = fileChanges.filter((f) => !f.staged).length;
   const branch = branches.find((b) => b.current);
+  const syncLabel = getSyncLabel(state);
+  const syncTone = getSyncTone(state);
+  const refreshedAt = formatRefreshTime(state.lastRefresh);
 
   return (
     <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-[var(--g-border)]">
@@ -57,17 +60,26 @@ export function Header({ state, onAction }: HeaderProps) {
         </div>
       </div>
 
-      {/* Right: action buttons */}
-      <div className="flex items-center gap-1.5">
-        <ActionBtn label="Fetch" icon="fetch" onClick={() => onAction('Using the git_manager tool: fetch from all remotes')} />
-        <ActionBtn label="Pull" icon="pull" onClick={() => onAction('Using the git_manager tool: pull from remote')} />
-        <ActionBtn label="Push" icon="push" onClick={() => onAction('Using the git_manager tool: push to remote')} />
-        <div className="w-px h-4 bg-[var(--g-border)] mx-1" />
-        <ActionBtn
-          label="Refresh"
-          icon="refresh"
-          onClick={() => onAction('Using the git_manager tool: refresh')}
-        />
+      {/* Right: sync status + action buttons */}
+      <div className="flex items-center gap-2">
+        <div
+          className="flex items-center gap-1.5 rounded-full border border-[var(--g-border)] bg-[var(--g-surface)] px-2.5 py-1"
+          title={state.error ? state.error : `Last update: ${state.lastRefresh}`}
+        >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${syncTone.dot} ${state.syncMode === 'watch' && !state.error ? 'animate-pulse' : ''}`}
+          />
+          <span className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${syncTone.text}`}>
+            {syncLabel}
+          </span>
+          <span className="text-[10px] text-[var(--g-dim)]">{refreshedAt}</span>
+        </div>
+
+        <div className="w-px h-4 bg-[var(--g-border)]" />
+
+        <ActionBtn label="Fetch" icon="fetch" onClick={() => onAction({ action: 'fetch' })} />
+        <ActionBtn label="Pull" icon="pull" onClick={() => onAction({ action: 'pull' })} />
+        <ActionBtn label="Push" icon="push" onClick={() => onAction({ action: 'push' })} />
       </div>
     </div>
   );
@@ -105,6 +117,42 @@ function ActionIcon({ type }: { type: string }) {
     default:
       return null;
   }
+}
+
+function getSyncLabel(state: GitAppState): string {
+  if (state.loading) return 'Syncing';
+  if (state.error) return 'Issue';
+  if (state.syncMode === 'poll') return 'Polling';
+  if (state.syncMode === 'watch') return 'Live';
+  return 'Updated';
+}
+
+function getSyncTone(state: GitAppState): { dot: string; text: string } {
+  if (state.error) {
+    return {
+      dot: 'bg-[var(--g-red)]',
+      text: 'text-[var(--g-red)]',
+    };
+  }
+  if (state.syncMode === 'poll') {
+    return {
+      dot: 'bg-[var(--g-yellow)]',
+      text: 'text-[var(--g-yellow)]',
+    };
+  }
+  return {
+    dot: 'bg-[var(--g-green)]',
+    text: 'text-[var(--g-green)]',
+  };
+}
+
+function formatRefreshTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function BranchIcon() {
