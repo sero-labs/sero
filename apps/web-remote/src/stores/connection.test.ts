@@ -92,6 +92,18 @@ function createStorage(loadValue: string | null = null) {
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+}
+
 describe('connection store', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -168,6 +180,33 @@ describe('connection store', () => {
     expect(store.getState().disconnectReason).toBe(
       'Too many authentication attempts. Try again later.',
     );
+  });
+
+  it('does not restore a stored token after the user switches tokens mid-bootstrap', async () => {
+    const client = new FakeGatewayClient();
+    const deferred = createDeferred<string | null>();
+    const storage = {
+      save: vi.fn(async () => {}),
+      load: vi.fn(() => deferred.promise),
+      clear: vi.fn(async () => {}),
+    };
+    const store = createConnectionStore(client, storage);
+
+    const initializePromise = store.getState().initialize();
+
+    expect(store.getState().isBootstrapping).toBe(true);
+
+    store.getState().disconnect();
+    store.getState().connect('manual-token');
+
+    deferred.resolve('stored-token');
+    await initializePromise;
+
+    expect(storage.clear).toHaveBeenCalledTimes(1);
+    expect(client.connectCalls).toEqual(['manual-token']);
+    expect(store.getState().token).toBe('manual-token');
+    expect(store.getState().isInitialized).toBe(true);
+    expect(store.getState().isBootstrapping).toBe(false);
   });
 
   it('stays in reconnect mode after transport loss and supports immediate retry', () => {

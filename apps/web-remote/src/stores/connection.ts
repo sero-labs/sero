@@ -10,6 +10,7 @@ import {
   type DisconnectEvent,
   type GatewayMessage,
 } from '@/lib/gateway-client';
+import { isInvalidAuthTokenMessage } from '@/lib/connect-errors';
 import { saveToken, loadToken, clearToken } from '@/lib/token-storage';
 
 interface TokenStorageAdapter {
@@ -100,10 +101,6 @@ export function getDisconnectMessage(event: DisconnectEvent): string {
   return 'Connection lost. Reconnecting automatically...';
 }
 
-function shouldForgetToken(message: string): boolean {
-  return /invalid authentication token/i.test(message);
-}
-
 export function createConnectionStore(
   client: GatewayClientLike,
   tokenStorage: TokenStorageAdapter = defaultTokenStorage,
@@ -159,6 +156,9 @@ export function createConnectionStore(
         });
 
         const finalize = (token: string | null) => {
+          const state = get();
+          if (!state.isBootstrapping || state.isInitialized) return;
+
           set({
             token,
             authError: null,
@@ -214,7 +214,7 @@ export function createConnectionStore(
 
         if (msg.type === 'error' && 'requestType' in msg && msg.requestType === 'connect') {
           const message = (msg as { message: string }).message;
-          const forgetToken = shouldForgetToken(message);
+          const forgetToken = isInvalidAuthTokenMessage(message);
           if (forgetToken) {
             void tokenStorage.clear();
           }

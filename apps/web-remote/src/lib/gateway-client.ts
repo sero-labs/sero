@@ -1,3 +1,8 @@
+import {
+  isInvalidAuthTokenMessage,
+  shouldReconnectAfterConnectError,
+} from '@/lib/connect-errors';
+
 /**
  * WebSocket client wrapper for the Sero gateway.
  *
@@ -314,9 +319,17 @@ export class GatewayClient {
       this.setState('connected');
       this.reconnectDelay = RECONNECT_DELAY_MS;
     } else if (msg.type === 'error' && 'requestType' in msg && msg.requestType === 'connect') {
-      // Auth failed — don't reconnect with the same bad token
-      this.shouldReconnect = false;
-      this.setState('disconnected');
+      const { message } = msg;
+      const shouldReconnect = shouldReconnectAfterConnectError(message);
+
+      this.shouldReconnect = shouldReconnect;
+
+      if (!shouldReconnect) {
+        if (isInvalidAuthTokenMessage(message)) {
+          this.token = '';
+        }
+        this.setState('disconnected');
+      }
     }
 
     // Dispatch to all handlers
