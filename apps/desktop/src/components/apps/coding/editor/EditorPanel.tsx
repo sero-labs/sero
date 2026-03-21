@@ -12,6 +12,7 @@ import type { editor as monacoEditor, IRange, IPosition } from 'monaco-editor';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { ImagePreview, isImageFile } from './ImagePreview';
 import { HtmlPreview, isHtmlFile } from './HtmlPreview';
+import { DevServerPreview, isDevServerTab } from './DevServerPreview';
 import { ViewModeToggle, type ViewMode } from './ViewModeToggle';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
@@ -86,6 +87,7 @@ export function EditorPanel({
   const appTheme = useAppStore((s) => s.theme);
   const isMarkdownTab = !!activeTab && getLanguage(activeTab) === 'markdown';
   const isHtmlTab = !!activeTab && isHtmlFile(activeTab);
+  const isDevServer = !!activeTab && isDevServerTab(activeTab);
   const isPreviewableTab = isMarkdownTab || isHtmlTab;
   const isPreview = isPreviewableTab && viewMode === 'preview';
   const isImageTab = !!activeTab && isImageFile(activeTab);
@@ -99,8 +101,8 @@ export function EditorPanel({
   // ── Load file when activeTab changes ──
   useEffect(() => {
     if (!activeTab) { setContent(''); return; }
-    // Image files are handled by ImagePreview — skip text loading
-    if (isImageFile(activeTab)) { setContent(''); setLanguage('plaintext'); return; }
+    // Image files and dev server previews don't need text loading
+    if (isImageFile(activeTab) || isDevServerTab(activeTab)) { setContent(''); setLanguage('plaintext'); return; }
 
     // Apply a stored go-to-definition position after content is ready.
     const schedulePendingGoto = () => {
@@ -427,7 +429,9 @@ export function EditorPanel({
       />
       <div className="flex-1 overflow-hidden min-h-0">
         {activeTab ? (
-          isImageTab ? (
+          isDevServer ? (
+            <DevServerPreview tabPath={activeTab} />
+          ) : isImageTab ? (
             <ImagePreview workspaceId={workspaceId} filePath={activeTab} />
           ) : isHtmlTab && isPreview ? (
             <HtmlPreview content={content} filePath={activeTab} />

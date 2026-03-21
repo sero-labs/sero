@@ -58,8 +58,9 @@ async function handleApp(args: string[], ctx: CliCommandContext) {
     case 'hover': return handleHover(rest);
     case 'get-text': return handleGetText(rest);
     case 'record': return handleRecord(rest, ctx);
+    case 'preview': return handlePreview(rest);
     default:
-      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|get-text|record>');
+      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|get-text|record|preview>');
   }
 }
 
@@ -240,6 +241,22 @@ async function handleRecord(args: string[], ctx: CliCommandContext) {
   }
 }
 
+// ── Preview (in-app dev server) ──────────────────────────────
+
+async function handlePreview(args: string[]) {
+  const { positionals, flags } = parseFlags(args);
+  const url = positionals[0] ?? requireFlagString(flags, 'url');
+  if (!url) return fail('Usage: sero app preview <url>\n  e.g. sero app preview http://192.168.64.5:3000');
+  const win = getMainWindow();
+  if (!win) return fail('No main window.');
+  const success = await win.webContents.executeJavaScript(
+    `window.__appControl?.openDevPreview(${JSON.stringify(url)}) ?? false`,
+  ) as boolean;
+  return success
+    ? ok(`Dev server preview opened in editor: ${url}\nThe preview is now capturable via \`sero app record\` and \`sero app screenshot\`.`)
+    : fail('Failed to open dev server preview.');
+}
+
 // ── Shared ───────────────────────────────────────────────────
 
 async function interactAndReturn(params: AppInteractionParams) {
@@ -286,6 +303,10 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app record stop                 Stop and save as MP4\n' +
       '  sero app record stop --save <path>   Stop and copy MP4 to path\n' +
       '  sero app record status               Check recording status\n\n' +
+      'Dev Server Preview (in-app):\n' +
+      '  sero app preview <url>               Open URL in editor panel\n' +
+      '  Renders the dev server inside Sero so it can be captured by\n' +
+      '  sero app record and sero app screenshot.\n\n' +
       'Click/type/scroll/select/hover auto-capture a screenshot after the action.',
     execute: handleApp,
   });
