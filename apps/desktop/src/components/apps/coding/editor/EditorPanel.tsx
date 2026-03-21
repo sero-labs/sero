@@ -11,6 +11,7 @@ import Editor from '@monaco-editor/react';
 import type { editor as monacoEditor, IRange, IPosition } from 'monaco-editor';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
 import { ImagePreview, isImageFile } from './ImagePreview';
+import { VideoPreview, isVideoFile } from './VideoPreview';
 import { HtmlPreview, isHtmlFile } from './HtmlPreview';
 import { DevServerPreview, isDevServerTab } from './DevServerPreview';
 import { ViewModeToggle, type ViewMode } from './ViewModeToggle';
@@ -91,6 +92,7 @@ export function EditorPanel({
   const isPreviewableTab = isMarkdownTab || isHtmlTab;
   const isPreview = isPreviewableTab && viewMode === 'preview';
   const isImageTab = !!activeTab && isImageFile(activeTab);
+  const isVideoTab = !!activeTab && isVideoFile(activeTab);
 
   // ── LSP integration ──
   const { sendDidSave } = useLsp({
@@ -101,8 +103,8 @@ export function EditorPanel({
   // ── Load file when activeTab changes ──
   useEffect(() => {
     if (!activeTab) { setContent(''); return; }
-    // Image files and dev server previews don't need text loading
-    if (isImageFile(activeTab) || isDevServerTab(activeTab)) { setContent(''); setLanguage('plaintext'); return; }
+    // Image/video files and dev server previews don't need text loading
+    if (isImageFile(activeTab) || isVideoFile(activeTab) || isDevServerTab(activeTab)) { setContent(''); setLanguage('plaintext'); return; }
 
     // Apply a stored go-to-definition position after content is ready.
     const schedulePendingGoto = () => {
@@ -433,6 +435,8 @@ export function EditorPanel({
             <DevServerPreview key={activeTab} tabPath={activeTab} />
           ) : isImageTab ? (
             <ImagePreview workspaceId={workspaceId} filePath={activeTab} />
+          ) : isVideoTab ? (
+            <VideoPreview workspaceId={workspaceId} filePath={activeTab} />
           ) : isHtmlTab && isPreview ? (
             <HtmlPreview content={content} filePath={activeTab} />
           ) : isMarkdownTab && isPreview ? (
