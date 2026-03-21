@@ -60,3 +60,15 @@ export interface AppRecordingStatus {
   startedAt?: string;
   durationMs?: number;
 }
+
+/** Result returned when recording stops. */
+export interface AppRecordingResult {
+  /** Absolute path to the MP4 file (or frames directory if ffmpeg unavailable). */
+  path: string;
+  /** True if an actual MP4 was produced, false if fallback frames directory. */
+  isVideo: boolean;
+  /** Duration of the recording in milliseconds. */
+  durationMs: number;
+  /** Total number of captured frames. */
+  frameCount: number;
+}

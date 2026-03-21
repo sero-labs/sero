@@ -500,6 +500,7 @@ export type {
   AppInteractionParams,
   AppPanelRect,
   AppRecordingStatus,
+  AppRecordingResult,
 } from './app-control';
 
 export { IpcChannels } from './ipc-channels';

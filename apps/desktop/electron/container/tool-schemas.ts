@@ -118,6 +118,8 @@ export const BrowserParams = Type.Object({
       Type.Literal('get_text'),
       Type.Literal('wait'),
       Type.Literal('close'),
+      Type.Literal('start_recording'),
+      Type.Literal('stop_recording'),
     ],
     {
       description:
@@ -132,7 +134,9 @@ export const BrowserParams = Type.Object({
         'evaluate: run JavaScript in the page. ' +
         'get_text: extract text content from the page or an element. ' +
         'wait: wait for a selector or timeout. ' +
-        'close: close the browser.',
+        'close: close the browser. ' +
+        'start_recording: begin MP4 video recording of the browser (periodic screenshots encoded to video). ' +
+        'stop_recording: stop recording and save MP4 video to the specified path.',
     },
   ),
   url: Type.Optional(Type.String({ description: 'URL for launch/navigate actions' })),
@@ -178,6 +182,12 @@ export const BrowserParams = Type.Object({
       },
       { description: 'Viewport size for launch action' },
     ),
+  ),
+  save_path: Type.Optional(
+    Type.String({ description: 'File path to save the recording to (for stop_recording action, default: /tmp/sero-browser-recording.mp4)' }),
+  ),
+  fps: Type.Optional(
+    Type.Number({ description: 'Frames per second for recording (default: 2)' }),
   ),
 });
 

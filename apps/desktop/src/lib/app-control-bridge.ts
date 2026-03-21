@@ -7,6 +7,8 @@
  */
 
 import { useAppStore } from '@/stores/app';
+import { useEditorBridge } from '@/stores/editor-bridge';
+import { useWorkspaceStore } from '@/stores/workspace';
 import type {
   AppControlEntry,
   AppInteractionParams,
@@ -146,6 +148,8 @@ interface AppControlBridge {
   recordStart(): boolean;
   recordStop(): boolean;
   getRecordingStatus(): AppRecordingStatus;
+  /** Open a dev server URL as an in-app preview tab. */
+  openDevPreview(url: string): boolean;
 }
 
 declare global {
@@ -210,6 +214,15 @@ export function initAppControlBridge(): () => void {
         startedAt: recordingStartedAt ?? undefined,
         durationMs: recordingStartedAt ? Date.now() - new Date(recordingStartedAt).getTime() : undefined,
       };
+    },
+    openDevPreview(url: string) {
+      const s = useAppStore.getState();
+      // Ensure we're on the coding workspace so the editor is visible
+      if (s.activeApp !== 'coding') s.setActiveApp('coding');
+      // Use the editor bridge to open a devserver:// tab
+      const workspaceId = useWorkspaceStore.getState().activeWorkspaceId ?? 'global';
+      useEditorBridge.getState().requestOpenFile(workspaceId, `devserver://${url}`);
+      return true;
     },
   };
   return () => { delete window.__appControl; };

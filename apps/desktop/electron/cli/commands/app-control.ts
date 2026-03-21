@@ -6,6 +6,8 @@
  */
 
 import { BrowserWindow } from 'electron';
+import { copyFile, cp as copyTree, lstat, mkdir as mkdirFs, writeFile } from 'fs/promises';
+import pathMod from 'path';
 import type { CliRegistry } from '../registry';
 import type { CliCommandContext } from '../types';
 import { fail, ok, parseFlags, requireFlagString, stringifyJson } from './utils';
@@ -15,6 +17,7 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  AppRecordingResult,
 } from '../../../src/types/ipc';
 import { captureRegion } from '../../utils/capture';
 
@@ -38,6 +41,22 @@ async function captureAppScreenshot(): Promise<string | null> {
   return captureRegion(win, rect);
 }
 
+function getFramesDirPath(targetPath: string): string {
+  const parsed = pathMod.parse(targetPath);
+  return pathMod.extname(targetPath)
+    ? pathMod.join(parsed.dir, `${parsed.name}-frames`)
+    : targetPath;
+}
+
+async function copyRecordingOutput(srcPath: string, destPath: string): Promise<void> {
+  const srcStat = await lstat(srcPath);
+  if (srcStat.isDirectory()) {
+    await copyTree(srcPath, destPath, { force: true, recursive: true });
+    return;
+  }
+  await copyFile(srcPath, destPath);
+}
+
 // ── Main Router ──────────────────────────────────────────────
 
 async function handleApp(args: string[], ctx: CliCommandContext) {
@@ -54,9 +73,10 @@ async function handleApp(args: string[], ctx: CliCommandContext) {
     case 'select': return handleSelect(rest);
     case 'hover': return handleHover(rest);
     case 'get-text': return handleGetText(rest);
-    case 'record': return handleRecord(rest);
+    case 'record': return handleRecord(rest, ctx);
+    case 'preview': return handlePreview(rest);
     default:
-      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|get-text|record>');
+      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|get-text|record|preview>');
   }
 }
 
@@ -116,10 +136,8 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
 
   // If --save specified, also write to disk
   if (savePath) {
-    const { writeFile, mkdir } = await import('fs/promises');
-    const path = await import('path');
-    const absPath = path.isAbsolute(savePath) ? savePath : path.join(ctx.cwd, savePath);
-    await mkdir(path.dirname(absPath), { recursive: true });
+    const absPath = pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath);
+    await mkdirFs(pathMod.dirname(absPath), { recursive: true });
     await writeFile(absPath, Buffer.from(base64, 'base64'));
     // Still return the image inline so it displays in the chat
     return {
@@ -195,20 +213,40 @@ async function handleGetText(args: string[]) {
 
 // ── Recording ────────────────────────────────────────────────
 
-async function handleRecord(args: string[]) {
-  const [sub] = args;
+async function handleRecord(args: string[], ctx: CliCommandContext) {
+  const [sub, ...rest] = args;
   switch (sub) {
     case 'start': {
       const win = getMainWindow();
       if (!win) return fail('No main window.');
       const ok_ = await win.webContents.executeJavaScript('window.sero.appControl.recordStart()') as boolean;
-      return ok_ ? ok('Recording started (2 FPS frame capture).') : fail('Already recording or app panel not found.');
+      return ok_ ? ok('Recording started (2 FPS frame capture). Use `sero app record stop` to save as MP4.') : fail('Already recording or app panel not found.');
     }
     case 'stop': {
       const win = getMainWindow();
       if (!win) return fail('No main window.');
-      const path = await win.webContents.executeJavaScript('window.sero.appControl.recordStop()') as string | null;
-      return path ? ok(`Recording saved: ${path}`) : fail('No active recording.');
+      const result = await win.webContents.executeJavaScript('window.sero.appControl.recordStop()') as AppRecordingResult | null;
+      if (!result) return fail('No active recording.');
+
+      const { flags } = parseFlags(rest);
+      const savePath = requireFlagString(flags, 'save');
+
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const defaultDir = pathMod.join(ctx.cwd, 'sero-recordings');
+      const requestedPath = savePath
+        ? (pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath))
+        : null;
+      const destPath = result.isVideo
+        ? (requestedPath ?? pathMod.join(defaultDir, `recording-${ts}.mp4`))
+        : (requestedPath
+          ? getFramesDirPath(requestedPath)
+          : pathMod.join(defaultDir, `recording-${ts}-frames`));
+
+      await mkdirFs(pathMod.dirname(destPath), { recursive: true });
+      await copyRecordingOutput(result.path, destPath);
+      const format = result.isVideo ? 'MP4' : 'PNG frames';
+      const dur = Math.round(result.durationMs / 1000);
+      return ok(`Recording saved: ${destPath} (${format}, ${result.frameCount} frames, ${dur}s)`);
     }
     case 'status': {
       const win = getMainWindow();
@@ -220,6 +258,22 @@ async function handleRecord(args: string[]) {
     }
     default: return fail('Usage: sero app record <start|stop|status>');
   }
+}
+
+// ── Preview (in-app dev server) ──────────────────────────────
+
+async function handlePreview(args: string[]) {
+  const { positionals, flags } = parseFlags(args);
+  const url = positionals[0] ?? requireFlagString(flags, 'url');
+  if (!url) return fail('Usage: sero app preview <url>\n  e.g. sero app preview http://192.168.64.5:3000');
+  const win = getMainWindow();
+  if (!win) return fail('No main window.');
+  const success = await win.webContents.executeJavaScript(
+    `window.__appControl?.openDevPreview(${JSON.stringify(url)}) ?? false`,
+  ) as boolean;
+  return success
+    ? ok(`Dev server preview opened in editor: ${url}\nThe preview is now capturable via \`sero app record\` and \`sero app screenshot\`.`)
+    : fail('Failed to open dev server preview.');
 }
 
 // ── Shared ───────────────────────────────────────────────────
@@ -263,8 +317,15 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app select <selector>          Focus an element\n' +
       '  sero app hover <selector>           Hover over an element\n' +
       '  sero app get-text <selector>        Read text content\n\n' +
-      'Recording:\n' +
-      '  sero app record start/stop/status\n\n' +
+      'Recording (MP4 video capture):\n' +
+      '  sero app record start               Start recording (2 FPS)\n' +
+      '  sero app record stop                 Stop and save as MP4\n' +
+      '  sero app record stop --save <path>   Stop and copy MP4 to path\n' +
+      '  sero app record status               Check recording status\n\n' +
+      'Dev Server Preview (in-app):\n' +
+      '  sero app preview <url>               Open URL in editor panel\n' +
+      '  Renders the dev server inside Sero so it can be captured by\n' +
+      '  sero app record and sero app screenshot.\n\n' +
       'Click/type/scroll/select/hover auto-capture a screenshot after the action.',
     execute: handleApp,
   });

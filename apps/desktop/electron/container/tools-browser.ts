@@ -17,6 +17,8 @@ import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-a
 import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
 import type { ContainerManager } from './index';
 import { BrowserParams, shellEscape } from './tool-schemas';
+import { encodeFramesToMp4 } from '../utils/video-encoder';
+import { workspaceManager } from '../workspace';
 
 const HELPER_CONTAINER_PATH = '/tmp/sero-browser-helper.py';
 const HELPER_SOURCE_PATH = path.join(__dirname, 'browser-helper.py');
@@ -26,6 +28,15 @@ const BROWSER_SERVER_PORT = 19222;
 const injectedWorkspaces = new Set<string>();
 /** Track which workspaces have a running TCP server. */
 const serverWorkspaces = new Set<string>();
+
+/** Per-workspace browser recording state. */
+interface BrowserRecordingState {
+  active: boolean;
+  frames: Array<{ timestamp: number; base64: string }>;
+  interval: ReturnType<typeof setInterval> | null;
+  fps: number;
+}
+const browserRecordings = new Map<string, BrowserRecordingState>();
 
 /**
  * Inject the browser helper Python script into the container if not
@@ -123,9 +134,11 @@ export function createBrowser(
       'Actions: launch (start browser), navigate (go to URL), click (CSS selector or x,y), ' +
       'type (text into element), press_key (keyboard key), screenshot (capture page as image), ' +
       'scroll (up/down), evaluate (run JS), get_text (extract text), wait (for element/timeout), ' +
-      'close (shut down browser). ' +
+      'close (shut down browser), start_recording (begin MP4 video capture), ' +
+      'stop_recording (stop and save MP4 video). ' +
       'Screenshots are returned as images so you can see the page. ' +
-      'Always launch first, then interact, screenshot to verify, and close when done.',
+      'Always launch first, then interact, screenshot to verify, and close when done. ' +
+      'For verification videos: start_recording, perform actions, stop_recording --save_path /workspace/verify.mp4.',
     parameters: BrowserParams,
     execute: async (
       _toolCallId: string,
@@ -135,6 +148,14 @@ export function createBrowser(
       _ctx: ExtensionContext,
     ): Promise<AgentToolResult<unknown>> => {
       if (signal?.aborted) throw new Error('Operation aborted');
+
+      // ── Recording actions (handled on host, not sent to container) ──
+      if (params.action === 'start_recording') {
+        return handleStartRecording(cm, workspaceId, params.fps ?? 2);
+      }
+      if (params.action === 'stop_recording') {
+        return handleStopRecording(workspaceId, params.save_path);
+      }
 
       // Ensure the persistent browser server is running.
       await ensureServerRunning(cm, workspaceId);
@@ -273,4 +294,129 @@ print(base64.b64encode(out.getvalue()).decode(), end='')
       return { content, details: undefined };
     },
   };
+}
+
+// ── Browser video recording ──────────────────────────────────
+
+type ContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string };
+
+/**
+ * Start periodic screenshot capture from the container browser.
+ * Frames are stored in memory until stop_recording is called.
+ */
+async function handleStartRecording(
+  cm: ContainerManager,
+  workspaceId: string,
+  fps: number,
+): Promise<AgentToolResult<unknown>> {
+  const existing = browserRecordings.get(workspaceId);
+  if (existing?.active) {
+    return {
+      content: [{ type: 'text', text: 'Recording already in progress. Use stop_recording to finish.' }],
+      details: undefined,
+    };
+  }
+
+  await ensureServerRunning(cm, workspaceId);
+
+  const state: BrowserRecordingState = {
+    active: true,
+    frames: [],
+    interval: null,
+    fps,
+  };
+
+  const intervalMs = Math.round(1000 / fps);
+  state.interval = setInterval(async () => {
+    if (!state.active) return;
+    try {
+      const cmd = JSON.stringify({ action: 'screenshot', full_page: false });
+      const escaped = shellEscape(cmd);
+      const result = await cm.exec(
+        workspaceId,
+        `echo '${escaped}' | python3 '${HELPER_CONTAINER_PATH}' --send ${BROWSER_SERVER_PORT}`,
+        undefined,
+        10_000,
+      );
+      const response = JSON.parse(result.stdout.trim());
+      if (response.ok && response.screenshot) {
+        state.frames.push({ timestamp: Date.now(), base64: response.screenshot });
+      }
+    } catch {
+      // Skip frame on error
+    }
+  }, intervalMs);
+
+  browserRecordings.set(workspaceId, state);
+
+  return {
+    content: [{ type: 'text', text: `Browser recording started at ${fps} FPS. Perform actions, then use stop_recording to save.` }],
+    details: undefined,
+  };
+}
+
+/**
+ * Stop recording and encode captured frames to MP4.
+ * Defaults to saving in <workspace>/sero-recordings/ if no save_path is specified.
+ */
+async function handleStopRecording(
+  workspaceId: string,
+  savePath?: string,
+): Promise<AgentToolResult<unknown>> {
+  const state = browserRecordings.get(workspaceId);
+  if (!state?.active) {
+    return {
+      content: [{ type: 'text', text: 'No active recording. Use start_recording first.' }],
+      details: undefined,
+    };
+  }
+
+  state.active = false;
+  if (state.interval) {
+    clearInterval(state.interval);
+    state.interval = null;
+  }
+  browserRecordings.delete(workspaceId);
+
+  if (state.frames.length === 0) {
+    return {
+      content: [{ type: 'text', text: 'Recording stopped but no frames were captured.' }],
+      details: undefined,
+    };
+  }
+
+  // Default to <workspace>/sero-recordings/ on the host
+  let outputPath = savePath;
+  if (!outputPath) {
+    const wsPath = workspaceManager.getPath(workspaceId);
+    if (wsPath) {
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      outputPath = path.join(wsPath, 'sero-recordings', `browser-recording-${ts}.mp4`);
+    }
+  }
+
+  try {
+    const result = await encodeFramesToMp4({
+      frames: state.frames,
+      fps: state.fps,
+      outputPath,
+    });
+
+    const durSec = Math.round(result.durationMs / 1000);
+    const format = result.isVideo ? 'MP4' : 'PNG frames (ffmpeg not available)';
+    const content: ContentBlock[] = [{
+      type: 'text',
+      text: `Recording saved: ${result.path}\nFormat: ${format}\nFrames: ${result.frameCount}, Duration: ${durSec}s`,
+    }];
+
+    return { content, details: undefined };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Encoding failed';
+    return {
+      content: [{ type: 'text', text: `Recording stopped but encoding failed: ${msg}` }],
+      details: undefined,
+    };
+  }
 }

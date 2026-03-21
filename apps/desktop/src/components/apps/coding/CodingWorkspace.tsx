@@ -79,22 +79,38 @@ export function CodingWorkspace() {
   useEffect(() => {
     editorReadyRef.current = false;
     let cancelled = false;
+
+    const mergePendingOpen = (tabs: string[], active: string | null) => {
+      const pending = useEditorBridge.getState().pendingOpen;
+      if (pending?.workspaceId !== workspaceId) {
+        return { tabs, active };
+      }
+
+      useEditorBridge.getState().consumeOpenRequest();
+      return {
+        tabs: tabs.includes(pending.filePath) ? tabs : [...tabs, pending.filePath],
+        active: pending.filePath,
+      };
+    };
+
     (async () => {
+      let nextTabs: string[] = [];
+      let nextActive: string | null = null;
+
       try {
         const state = await window.sero.editor.loadState(workspaceId);
         if (cancelled) return;
         if (state && Array.isArray(state.openTabs) && state.openTabs.length > 0) {
-          setEditorTabs(state.openTabs);
-          setActiveTab(state.activeTab ?? state.openTabs[0]);
-        } else {
-          setEditorTabs([]);
-          setActiveTab(null);
+          nextTabs = state.openTabs;
+          nextActive = state.activeTab ?? state.openTabs[0];
         }
       } catch {
         if (cancelled) return;
-        setEditorTabs([]);
-        setActiveTab(null);
       }
+
+      ({ tabs: nextTabs, active: nextActive } = mergePendingOpen(nextTabs, nextActive));
+      setEditorTabs(nextTabs);
+      setActiveTab(nextActive);
       if (!cancelled) editorReadyRef.current = true;
     })();
     return () => { cancelled = true; };
@@ -171,6 +187,7 @@ export function CodingWorkspace() {
   // ── Editor bridge: open files from ChatPanel ctrl+click ──
   useEffect(() => {
     const unsub = useEditorBridge.subscribe((state) => {
+      if (!editorReadyRef.current) return;
       if (state.pendingOpen?.workspaceId === workspaceId) {
         const { filePath } = state.pendingOpen;
         useEditorBridge.getState().consumeOpenRequest();

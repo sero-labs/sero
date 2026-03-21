@@ -8,9 +8,6 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
-import { tmpdir } from 'os';
 import { IpcChannels } from '../../src/types/ipc';
 import type {
   AppControlEntry,
@@ -18,8 +15,10 @@ import type {
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
+  AppRecordingResult,
 } from '../../src/types/ipc';
 import { captureRegion } from '../utils/capture';
+import { encodeFramesToMp4 } from '../utils/video-encoder';
 
 // ── Recording State ──────────────────────────────────────────
 
@@ -132,8 +131,8 @@ export function registerAppControlHandlers(): void {
     return true;
   });
 
-  // Recording — stop (save frames as PNGs)
-  ipcMain.handle(IpcChannels.appControl.recordStop, async (): Promise<string | null> => {
+  // Recording — stop (encode frames to MP4 video)
+  ipcMain.handle(IpcChannels.appControl.recordStop, async (): Promise<AppRecordingResult | null> => {
     if (!recordingState.active) return null;
     if (recordingState.interval) { clearInterval(recordingState.interval); recordingState.interval = null; }
     await execRenderer<boolean>('window.__appControl?.recordStop() ?? false');
@@ -145,21 +144,15 @@ export function registerAppControlHandlers(): void {
     if (frames.length === 0) return null;
 
     try {
-      const dir = path.join(tmpdir(), 'sero-recordings', `rec-${Date.now()}`);
-      await mkdir(dir, { recursive: true });
-      for (let i = 0; i < frames.length; i++) {
-        await writeFile(path.join(dir, `frame-${String(i).padStart(4, '0')}.png`), Buffer.from(frames[i]!.base64, 'base64'));
-      }
-      await writeFile(path.join(dir, 'metadata.json'), JSON.stringify({
-        frameCount: frames.length,
-        startedAt: frames[0]!.timestamp,
-        endedAt: frames[frames.length - 1]!.timestamp,
-        durationMs: frames[frames.length - 1]!.timestamp - frames[0]!.timestamp,
-        fps: 2,
-      }, null, 2));
-      return dir;
+      const result = await encodeFramesToMp4({ frames, fps: 2 });
+      return {
+        path: result.path,
+        isVideo: result.isVideo,
+        durationMs: result.durationMs,
+        frameCount: result.frameCount,
+      };
     } catch (err) {
-      console.error('[app-control] Record save failed:', err);
+      console.error('[app-control] Record encode failed:', err);
       return null;
     }
   });
