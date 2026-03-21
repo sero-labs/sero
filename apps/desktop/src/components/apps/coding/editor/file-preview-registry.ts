@@ -85,7 +85,10 @@ const PREVIEW_SPEC_BY_EXTENSION: Record<string, FilePreviewSpec> = {
 
   mp3: binaryPreview('audio', 'Audio Preview', 'audio/mpeg'),
   wav: binaryPreview('audio', 'Audio Preview', 'audio/wav'),
-  ogg: binaryPreview('audio', 'Audio Preview', 'audio/ogg'),
+  // `.ogg` is ambiguous, but we keep routing it through the video preview
+  // path for backwards compatibility: the previous bespoke renderer treated
+  // `.ogg` as video, and `<video>` can still play audio-only Ogg files.
+  ogg: binaryPreview('video', 'Video Preview', 'video/ogg'),
   oga: binaryPreview('audio', 'Audio Preview', 'audio/ogg'),
   m4a: binaryPreview('audio', 'Audio Preview', 'audio/mp4'),
   aac: binaryPreview('audio', 'Audio Preview', 'audio/aac'),

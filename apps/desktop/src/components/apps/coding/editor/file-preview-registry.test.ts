@@ -30,6 +30,13 @@ describe('file preview registry', () => {
       supportsCodeView: false,
     });
 
+    expect(getFilePreviewSpec('/workspace/clip.ogg')).toMatchObject({
+      kind: 'video',
+      source: 'binary',
+      mimeType: 'video/ogg',
+      supportsCodeView: false,
+    });
+
     expect(getFilePreviewSpec('/workspace/song.m4a')).toMatchObject({
       kind: 'audio',
       source: 'binary',
