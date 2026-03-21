@@ -11,6 +11,7 @@ import {
 } from '@/stores/app';
 import { useSessionStore } from '@/stores/sessions';
 import { getAppIcon } from '@/lib/app-icons';
+import { openApp } from '@/lib/open-app';
 import { WorkspaceTree } from './WorkspaceTree';
 import { cn } from '@sero/ui/lib/utils';
 import { AppStoreDialog } from './AppStoreDialog';
@@ -29,7 +30,6 @@ export function MainSidebar() {
   const toggleFavourite = useAppStore((s) => s.toggleFavourite);
   const isFavourite = useAppStore((s) => s.isFavourite);
   const activeApp = useAppStore((s) => s.activeApp);
-  const setActiveApp = useAppStore((s) => s.setActiveApp);
 
   const sidebarApps = getSidebarApps(apps, favouriteApps);
   const discoveredApps = getDiscoveredApps(apps);
@@ -60,7 +60,7 @@ export function MainSidebar() {
               key={app.id}
               entry={app}
               active={activeApp === app.id}
-              onClick={() => setActiveApp(app.id)}
+              onClick={() => openApp(app.id)}
             />
           ))}
         </div>
@@ -83,7 +83,7 @@ export function MainSidebar() {
         activeApp={activeApp}
         isFavourite={isFavourite}
         onToggleFavourite={toggleFavourite}
-        onActivateApp={setActiveApp}
+        onActivateApp={openApp}
       />
     </>
   );

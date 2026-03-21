@@ -14,6 +14,11 @@ import { useAppState } from '@sero/app-runtime';
 import { ClipboardList, MessageCircleQuestion, Mic, Loader2, Sparkles } from 'lucide-react';
 import { QuestionnaireForm } from './QuestionnaireForm';
 import { InterviewForm } from './InterviewForm';
+import {
+  getMultiStepPendingQuestions,
+  removePendingQuestion,
+  upsertPendingQuestion,
+} from './pending-questions';
 import type {
   UserFeedbackPendingQuestion,
   UserFeedbackAnswer,
@@ -27,37 +32,45 @@ export function UserFeedbackApp() {
   // Minimal file state (just for app discovery / lastActivity tracking)
   const [_state, updateState] = useAppState<UserFeedbackState>(DEFAULT_STATE);
 
-  // Pending questionnaire — received via IPC from main process
-  const [pending, setPending] = useState<UserFeedbackPendingQuestion | null>(null);
+  // Pending questionnaire/interview queue — received via IPC from main process.
+  // Keep insertion order so older prompts remain visible until resolved.
+  const [pendingQuestions, setPendingQuestions] = useState<UserFeedbackPendingQuestion[]>([]);
 
   // Hydrate on mount: fetch any pending questionnaire/interview that arrived
   // before this component was mounted (e.g. user was on a different app tab).
   useEffect(() => {
-    window.sero.userFeedback.getPending().then((items) => {
-      const match = items.find(
-        (q) => q.type === 'questionnaire' || q.type === 'interview',
-      );
-      if (match) setPending(match);
-    });
+    let cancelled = false;
+
+    window.sero.userFeedback.getPending()
+      .then((items) => {
+        if (cancelled) return;
+        setPendingQuestions(getMultiStepPendingQuestions(items));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPendingQuestions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Listen for live questionnaire/interview events from main process
+  // Listen for live questionnaire/interview events from main process.
+  // New prompts are queued behind the current one instead of replacing it.
   useEffect(() => {
     const unsubQuestion = window.sero.userFeedback.onQuestion((data) => {
-      // Handle questionnaires + interviews — single questions go to ChatPanel
-      if (data.type === 'questionnaire' || data.type === 'interview') {
-        setPending(data);
-      }
+      setPendingQuestions((prev) => upsertPendingQuestion(prev, data));
     });
 
     const unsubCancel = window.sero.userFeedback.onCancel((data) => {
-      setPending((prev) => (prev?.id === data.id ? null : prev));
+      setPendingQuestions((prev) => removePendingQuestion(prev, data.id));
     });
 
     // DOM event from preload's answer() — clears regardless of who answered
     const onAnswered = (e: Event) => {
       const { id } = (e as CustomEvent<{ id: string }>).detail;
-      setPending((prev) => (prev?.id === id ? null : prev));
+      setPendingQuestions((prev) => removePendingQuestion(prev, id));
     };
     window.addEventListener('sero:user-feedback:answered', onAnswered);
 
@@ -72,7 +85,7 @@ export function UserFeedbackApp() {
     async (id: string, answers: UserFeedbackAnswer[]) => {
       const response: UserFeedbackResponse = { id, answers, cancelled: false };
       await window.sero.userFeedback.answer(response);
-      setPending(null);
+      setPendingQuestions((prev) => removePendingQuestion(prev, id));
       // Mark onboarding done (idempotent — OnboardingWizard may also call this)
       window.sero.profiles.markOnboardingDone().catch(() => {});
       updateState((prev) => ({ ...prev, lastActivity: new Date().toISOString() }));
@@ -80,14 +93,13 @@ export function UserFeedbackApp() {
     [updateState],
   );
 
-  const handleCancel = useCallback(
-    async (id: string) => {
-      const response: UserFeedbackResponse = { id, answers: [], cancelled: true };
-      await window.sero.userFeedback.answer(response);
-      setPending(null);
-    },
-    [],
-  );
+  const handleCancel = useCallback(async (id: string) => {
+    const response: UserFeedbackResponse = { id, answers: [], cancelled: true };
+    await window.sero.userFeedback.answer(response);
+    setPendingQuestions((prev) => removePendingQuestion(prev, id));
+  }, []);
+
+  const pending = pendingQuestions[0] ?? null;
 
   if (pending) {
     const FormComponent =
