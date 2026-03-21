@@ -8,6 +8,18 @@ import { promptsBridge } from './preload/prompts';
 import { collaborationBridge } from './preload/collaboration';
 import { modelsBridge } from './preload/models';
 import { googleBridge, imagegenBridge } from './preload/google-imagegen';
+import {
+  appStateBridge,
+  appsBridge,
+  appAgentBridge,
+  gitAppBridge,
+  appControlBridge,
+  voiceBridge,
+  authBridge,
+  containerBridge,
+  devServerBridge,
+  githubBridge,
+} from './preload/app-domain';
 import type {
   ProfileInfo,
   WorkspaceInfo,
@@ -239,170 +251,28 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.contextPresets.save, presets),
   },
 
-  appState: {
-    read: (filePath: string): Promise<unknown> =>
-      ipcRenderer.invoke(IpcChannels.appState.read, filePath),
+  appState: appStateBridge,
 
-    readText: (filePath: string): Promise<string | null> =>
-      ipcRenderer.invoke(IpcChannels.appState.readText, filePath),
+  apps: appsBridge,
 
-    write: (filePath: string, data: unknown): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.appState.write, filePath, data),
+  appAgent: appAgentBridge,
 
-    remove: (filePath: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.appState.remove, filePath),
+  gitApp: gitAppBridge,
 
-    watch: (filePath: string): Promise<unknown> =>
-      ipcRenderer.invoke(IpcChannels.appState.watch, filePath),
-
-    unwatch: (filePath: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.appState.unwatch, filePath),
-
-    onChange: (callback: (filePath: string, data: unknown) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, fp: string, data: unknown) => {
-        callback(fp, data);
-      };
-      ipcRenderer.on(IpcChannels.appState.change, handler);
-      return () => {
-        ipcRenderer.removeListener(IpcChannels.appState.change, handler);
-      };
-    },
-  },
-
-  apps: {
-    discover: (): Promise<SeroAppManifest[]> =>
-      ipcRenderer.invoke(IpcChannels.apps.discover),
-    onNewAppDetected: (callback: (appName: string) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, name: string) => {
-        callback(name);
-      };
-      ipcRenderer.on(IpcChannels.apps.newAppDetected, handler);
-      return () => {
-        ipcRenderer.removeListener(IpcChannels.apps.newAppDetected, handler);
-      };
-    },
-  },
-
-  appAgent: {
-    prompt: (appId: string, workspaceId: string, text: string): Promise<string> =>
-      ipcRenderer.invoke(IpcChannels.appAgent.prompt, appId, workspaceId, text),
-
-    promptStream: (
-      appId: string,
-      workspaceId: string,
-      text: string,
-      onDelta: (delta: string) => void,
-    ): Promise<string> => {
-      const handler = (
-        _event: Electron.IpcRendererEvent,
-        data: { appId: string; workspaceId: string; delta: string },
-      ) => {
-        if (data.appId === appId && data.workspaceId === workspaceId) {
-          onDelta(data.delta);
-        }
-      };
-      ipcRenderer.on(IpcChannels.appAgent.streamEvent, handler);
-      return ipcRenderer
-        .invoke(IpcChannels.appAgent.promptStream, appId, workspaceId, text)
-        .finally(() => {
-          ipcRenderer.removeListener(IpcChannels.appAgent.streamEvent, handler);
-        });
-    },
-  },
-
-  appControl: {
-    list: (): Promise<AppControlEntry[]> =>
-      ipcRenderer.invoke(IpcChannels.appControl.list),
-    active: (): Promise<string> =>
-      ipcRenderer.invoke(IpcChannels.appControl.active),
-    open: (appId: string): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.appControl.open, appId),
-    info: (appId: string): Promise<AppControlEntry | null> =>
-      ipcRenderer.invoke(IpcChannels.appControl.info, appId),
-    screenshot: (): Promise<string | null> =>
-      ipcRenderer.invoke(IpcChannels.appControl.screenshot),
-    interact: (params: AppInteractionParams): Promise<AppInteractionResult> =>
-      ipcRenderer.invoke(IpcChannels.appControl.interact, params),
-    getAppRect: (): Promise<AppPanelRect | null> =>
-      ipcRenderer.invoke(IpcChannels.appControl.getAppRect),
-    recordStart: (): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.appControl.recordStart),
-    recordStop: (): Promise<AppRecordingResult | null> =>
-      ipcRenderer.invoke(IpcChannels.appControl.recordStop),
-    recordStatus: (): Promise<AppRecordingStatus> =>
-      ipcRenderer.invoke(IpcChannels.appControl.recordStatus),
-  },
+  appControl: appControlBridge,
 
   models: modelsBridge,
 
   google: googleBridge,
   imagegen: imagegenBridge,
 
-  voice: {
-    status: (): Promise<VoiceTranscriptionStatus> =>
-      ipcRenderer.invoke(IpcChannels.voice.status),
-    transcribe: (audioDataUrl: string, mimeType?: string): Promise<VoiceTranscriptionResult> =>
-      ipcRenderer.invoke(IpcChannels.voice.transcribe, audioDataUrl, mimeType),
-  },
+  voice: voiceBridge,
 
-  auth: {
-    getProviders: (): Promise<AuthProvidersResponse> =>
-      ipcRenderer.invoke(IpcChannels.auth.getProviders),
-    login: (providerId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.auth.login, providerId),
-    logout: (providerId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.auth.logout, providerId),
-    setApiKey: (providerId: string, key: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.auth.setApiKey, providerId, key),
-    removeApiKey: (providerId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.auth.removeApiKey, providerId),
-    respondPrompt: (value: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.auth.respondPrompt, value),
-    respondManualCode: (value: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.auth.respondManualCode, value),
-    cancel: (): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.auth.cancel),
-    onEvent: (callback: (event: OAuthEvent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: OAuthEvent) => {
-        callback(data);
-      };
-      ipcRenderer.on(IpcChannels.auth.event, handler);
-      return () => {
-        ipcRenderer.removeListener(IpcChannels.auth.event, handler);
-      };
-    },
-  },
+  auth: authBridge,
 
-  container: {
-    status: (workspaceId: string): Promise<ContainerInfo | null> =>
-      ipcRenderer.invoke(IpcChannels.container.status, workspaceId),
-    inspect: (workspaceId: string): Promise<ContainerInfo> =>
-      ipcRenderer.invoke(IpcChannels.container.inspect, workspaceId),
-    ensure: (workspaceId: string): Promise<ContainerInfo | null> =>
-      ipcRenderer.invoke(IpcChannels.container.ensure, workspaceId),
-  },
+  container: containerBridge,
 
-  devServer: {
-    list: (workspaceId?: string): Promise<DevServer[]> =>
-      ipcRenderer.invoke(IpcChannels.devServer.list, workspaceId),
-    stop: (serverId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.devServer.stop, serverId),
-    restart: (serverId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.devServer.restart, serverId),
-    unregister: (serverId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.devServer.unregister, serverId),
-    openInBrowser: (serverId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.devServer.openInBrowser, serverId),
-    onEvent: (callback: (event: DevServerEvent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: DevServerEvent) => {
-        callback(data);
-      };
-      ipcRenderer.on(IpcChannels.devServer.event, handler);
-      return () => {
-        ipcRenderer.removeListener(IpcChannels.devServer.event, handler);
-      };
-    },
-  },
+  devServer: devServerBridge,
 
   vcs: {
     listCheckpoints: (workspaceId: string, limit?: number): Promise<VcsCheckpoint[]> =>
@@ -484,23 +354,7 @@ contextBridge.exposeInMainWorld('sero', {
       ipcRenderer.invoke(IpcChannels.vcs.opLog, wsId, limit),
   },
 
-  github: {
-    status: (): Promise<{ authenticated: boolean; username?: string; scopes?: string }> =>
-      ipcRenderer.invoke(IpcChannels.github.status),
-    login: (): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.github.login),
-    logout: (): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.github.logout),
-    cancel: (): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.github.cancel),
-    onEvent: (callback: (event: unknown) => void): (() => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, data: unknown) => callback(data);
-      ipcRenderer.on(IpcChannels.github.event, handler);
-      return () => ipcRenderer.removeListener(IpcChannels.github.event, handler);
-    },
-    createRepo: (workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult> =>
-      ipcRenderer.invoke(IpcChannels.github.createRepo, workspaceId, input),
-  },
+  github: githubBridge,
 
   terminal: {
     create: (workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<void> =>

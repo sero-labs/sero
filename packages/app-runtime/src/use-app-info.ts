@@ -7,6 +7,7 @@ import { AppContext } from './context';
 
 export interface AppInfo {
   appId: string;
+  workspaceId: string;
   workspacePath: string;
 }
 
@@ -18,6 +19,7 @@ export function useAppInfo(): AppInfo {
 
   return {
     appId: ctx.appId,
+    workspaceId: ctx.workspaceId,
     workspacePath: ctx.workspacePath,
   };
 }

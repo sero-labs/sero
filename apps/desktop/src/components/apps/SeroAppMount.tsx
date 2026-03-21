@@ -28,22 +28,30 @@ import { Spinner } from '@sero/ui/components/ui/spinner';
  */
 async function ensureSessionAndPrompt(text: string) {
   const sessionStore = useSessionStore.getState();
+  const targetWorkspaceId = useWorkspaceStore.getState().activeWorkspaceId || 'global';
 
   let sessionId = sessionStore.activeSessionId;
   let session = sessionId
-    ? sessionStore.sessions.find((s) => s.id === sessionId)
+    ? sessionStore.sessions.find((entry) => entry.id === sessionId)
     : null;
 
-  // No active session — create one in the current workspace (or global)
+  if (!session || session.workspaceId !== targetWorkspaceId) {
+    session = sessionStore.sessions.find((entry) => entry.workspaceId === targetWorkspaceId) ?? null;
+    sessionId = session?.id ?? null;
+  }
+
   if (!sessionId || !session) {
-    const wsId = useWorkspaceStore.getState().activeWorkspaceId || 'global';
     try {
-      session = await sessionStore.createSession(wsId);
+      session = await sessionStore.createSession(targetWorkspaceId);
       sessionId = session.id;
     } catch (err) {
       console.error('[SeroAppMount] Failed to create session:', err);
       return;
     }
+  }
+
+  if (sessionStore.activeSessionId !== sessionId) {
+    sessionStore.setActiveSession(sessionId);
   }
 
   // Always await the shared openSession action. It deduplicates concurrent

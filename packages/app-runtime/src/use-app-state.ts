@@ -34,6 +34,9 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
     const api = getSeroApi();
     let unsubChange: (() => void) | null = null;
 
+    stateRef.current = defaultState;
+    setState(defaultState);
+
     // Subscribe to file changes from main process
     unsubChange = api.appState.onChange((fp: string, data: unknown) => {
       if (fp === stateFilePath && data != null) {

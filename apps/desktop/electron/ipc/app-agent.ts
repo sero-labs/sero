@@ -10,7 +10,7 @@
  *   - In-memory only (no session persistence — apps store state in their own files)
  *   - Have a Read tool so skills can be loaded on-demand (Pi's progressive disclosure)
  *   - Share the same auth, model, and settings as chat sessions
- *   - Load skills from the app's package via a dedicated ResourceLoader
+ *   - Load the app package's own extensions + skills via a dedicated ResourceLoader
  *
  * The renderer calls `window.sero.appAgent.prompt(appId, workspaceId, text)`
  * and receives a plain string response (the LLM's text output).
@@ -29,15 +29,20 @@ import os from 'os';
 import path from 'path';
 
 import { IpcChannels } from '../../src/types/ipc';
-import { workspaceManager } from '../workspace';
-import { SERO_AGENT_DIR } from '../env';
 import { discoverApps } from '../app-discovery';
+import { SERO_AGENT_DIR } from '../env';
+import { workspaceManager } from '../workspace';
 import { ensureInfra } from './shared-infra';
 
 // ── App Session Pool ─────────────────────────────────────────
 
 interface AppSessionEntry {
   session: AgentSession;
+}
+
+interface AppPackageResources {
+  extensionPaths: string[];
+  skillPaths: string[];
 }
 
 /**
@@ -52,20 +57,27 @@ function poolKey(appId: string, workspaceId: string): string {
   return `${appId}:${workspaceId}`;
 }
 
-// ── Skill path resolution ────────────────────────────────────
+// ── App package resource resolution ─────────────────────────
 
-/**
- * Read the `pi.skills` array from a package's package.json and
- * resolve each entry to an absolute path.
- */
-async function resolveAppSkillPaths(packagePath: string): Promise<string[]> {
+async function resolveAppPackageResources(packagePath: string): Promise<AppPackageResources> {
   try {
     const raw = await fs.readFile(path.join(packagePath, 'package.json'), 'utf8');
-    const pkg = JSON.parse(raw);
-    const skillEntries: string[] = pkg.pi?.skills ?? [];
-    return skillEntries.map((s) => path.resolve(packagePath, s));
+    const pkg = JSON.parse(raw) as {
+      pi?: {
+        extensions?: string[];
+        skills?: string[];
+      };
+    };
+
+    const extensionEntries = pkg.pi?.extensions ?? [];
+    const skillEntries = pkg.pi?.skills ?? [];
+
+    return {
+      extensionPaths: extensionEntries.map((entry) => path.resolve(packagePath, entry)),
+      skillPaths: skillEntries.map((entry) => path.resolve(packagePath, entry)),
+    };
   } catch {
-    return [];
+    return { extensionPaths: [], skillPaths: [] };
   }
 }
 
@@ -82,10 +94,9 @@ async function getAppPackagePath(appId: string): Promise<string | null> {
   if (!appManifestCache) {
     try {
       const apps = await discoverApps();
-      appManifestCache = new Map(apps.map((a) => [a.id, a.packagePath]));
+      appManifestCache = new Map(apps.map((entry) => [entry.id, entry.packagePath]));
     } catch (err) {
-      console.error('[app-agent] Failed to discover apps for skill resolution:', err);
-      // Return null so the session still starts (just without skills)
+      console.error('[app-agent] Failed to discover apps for resource resolution:', err);
       return null;
     }
   }
@@ -110,16 +121,16 @@ async function getOrCreateAppSession(
 
   const infra = await ensureInfra();
 
-  // Resolve workspace path (fall back to home dir)
   const wsPath = workspaceManager.getPath(workspaceId)
     ?? path.join(os.homedir(), '.sero-ui');
 
-  // Resolve skill paths from the app's package
   const packagePath = await getAppPackagePath(appId);
-  const skillPaths = packagePath ? await resolveAppSkillPaths(packagePath) : [];
+  const resources = packagePath
+    ? await resolveAppPackageResources(packagePath)
+    : { extensionPaths: [], skillPaths: [] };
 
-  // Create a resource loader scoped to this app's skills only.
-  // No extensions, prompt templates, or themes — just skills.
+  // Scoped to this app's own extensions + skills only.
+  // Global extensions stay disabled so app sessions remain isolated.
   const loader = new DefaultResourceLoader({
     cwd: wsPath,
     agentDir: SERO_AGENT_DIR,
@@ -128,13 +139,11 @@ async function getOrCreateAppSession(
     noSkills: true,
     noPromptTemplates: true,
     noThemes: true,
-    additionalSkillPaths: skillPaths,
+    additionalExtensionPaths: resources.extensionPaths,
+    additionalSkillPaths: resources.skillPaths,
   });
   await loader.reload();
 
-  // Read tool is required so the agent can load skill files on-demand
-  // (Pi skills use progressive disclosure — only name/description are
-  // in the system prompt, the agent reads the full SKILL.md when needed).
   const readTool = createReadTool(wsPath);
 
   const { session } = await createAgentSession({
@@ -185,13 +194,12 @@ export function registerAppAgentHandlers(): void {
     ): Promise<string> => {
       const session = await getOrCreateAppSession(appId, workspaceId);
 
-      // Collect the full response text
       let responseText = '';
       const unsubscribe = session.subscribe((event) => {
         if (event.type === 'message_update') {
-          const ame = event.assistantMessageEvent;
-          if (ame.type === 'text_delta') {
-            responseText += ame.delta;
+          const assistantEvent = event.assistantMessageEvent;
+          if (assistantEvent.type === 'text_delta') {
+            responseText += assistantEvent.delta;
           }
         }
       });
@@ -228,15 +236,14 @@ export function registerAppAgentHandlers(): void {
       let responseText = '';
       const unsubscribe = session.subscribe((sessionEvent) => {
         if (sessionEvent.type === 'message_update') {
-          const ame = sessionEvent.assistantMessageEvent;
-          if (ame.type === 'text_delta') {
-            responseText += ame.delta;
-            // Push each delta to the renderer immediately
+          const assistantEvent = sessionEvent.assistantMessageEvent;
+          if (assistantEvent.type === 'text_delta') {
+            responseText += assistantEvent.delta;
             if (!sender.isDestroyed()) {
               sender.send(IpcChannels.appAgent.streamEvent, {
                 appId,
                 workspaceId,
-                delta: ame.delta,
+                delta: assistantEvent.delta,
               });
             }
           }
@@ -253,7 +260,6 @@ export function registerAppAgentHandlers(): void {
     },
   );
 
-  // ── Cleanup on app quit ────────────────────────────────────
   app.on('before-quit', () => {
     disposeAllAppSessions();
   });
