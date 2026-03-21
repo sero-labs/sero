@@ -11,7 +11,11 @@ import { useSyncExternalStore } from 'react';
 import { getSeroApi } from '@sero/app-runtime';
 
 import { normalizeErrorLog, resolveErrorLogPath, summarizeErrorLog } from '../../shared/error-log';
-import type { ErrorLogSummary } from '../lib/error-log-client';
+
+interface ErrorLogSummary {
+  count: number;
+  lastRetrospectiveAt?: string;
+}
 
 const EMPTY_SUMMARY: ErrorLogSummary = { count: 0 };
 

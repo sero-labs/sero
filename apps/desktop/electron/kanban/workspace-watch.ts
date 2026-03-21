@@ -1,14 +1,19 @@
 import { appStateManager } from '../app-state';
-import type { Column } from './types';
+import type { Card, Column, KanbanState } from './types';
 
 export interface WatchedWorkspaceEntry {
   workspaceId: string;
   stateFilePath: string;
   lastColumnMap: Map<string, Column>;
+  lastCardMap: Map<string, Card>;
 }
 
 interface WorkspaceLocatorDeps {
   findWorkspaceByPath: (absPath: string) => { id: string; path: string } | null;
+}
+
+export function buildCardMap(state: KanbanState | null): Map<string, Card> {
+  return new Map((state?.cards ?? []).map((card) => [card.id, card]));
 }
 
 export function findWatchedWorkspace(
@@ -25,6 +30,7 @@ export function autoWatchWorkspace(
   deps: WorkspaceLocatorDeps | null,
   watched: Map<string, WatchedWorkspaceEntry>,
   stateFilePath: string,
+  state: KanbanState | null,
 ): WatchedWorkspaceEntry | null {
   if (!deps) return null;
   const suffix = '/.sero/apps/kanban/state.json';
@@ -39,7 +45,8 @@ export function autoWatchWorkspace(
   const entry: WatchedWorkspaceEntry = {
     workspaceId: ws.id,
     stateFilePath,
-    lastColumnMap: new Map(),
+    lastColumnMap: new Map((state?.cards ?? []).map((card) => [card.id, card.column])),
+    lastCardMap: buildCardMap(state),
   };
   watched.set(ws.id, entry);
   appStateManager.watch(stateFilePath);

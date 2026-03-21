@@ -6,9 +6,8 @@
  * clearly differentiate from the board.
  */
 
-import { useCallback, useContext, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AppContext } from '@sero/app-runtime';
 import type { Card, Column, Priority, KanbanState } from '../../shared/types';
 import { COLUMNS, COLUMN_LABELS } from '../../shared/types';
 import { CardStatusDot, SubtaskStatusDot } from './StatusDot';
@@ -21,7 +20,6 @@ import { PlanApprovalPanel } from './PlanApprovalPanel';
 import { DescriptionEditor, type DescriptionEditorHandle } from './DescriptionEditor';
 import { CardDetailFooter } from './CardDetailFooter';
 import { applyManualMove, applyWorkflowTransition, applyRequestRevisions, applyCancelPR } from '../lib/card-workflow';
-import { persistPrCancellation, persistRevisionRequest } from '../lib/review-actions';
 import { isReviewMergeStatusMessage } from '../lib/review-pr-status';
 import { getManualMoveTargets } from '../../shared/validation';
 
@@ -34,10 +32,7 @@ export function CardDetail({
   onClose: () => void;
   onUpdate: (updater: (state: KanbanState) => KanbanState) => void;
 }) {
-  const appContext = useContext(AppContext);
   const descriptionEditorRef = useRef<DescriptionEditorHandle>(null);
-  const [reviewActionError, setReviewActionError] = useState<string | null>(null);
-  const [reviewActionPending, setReviewActionPending] = useState<'request-revisions' | 'cancel-pr' | null>(null);
 
   const handleMove = useCallback(
     (column: Column) => {
@@ -78,37 +73,15 @@ export function CardDetail({
     onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'done'));
   }, [card, onUpdate]);
 
-  const handleRequestRevisions = useCallback(async (feedback: string) => {
-    if (!card || !appContext) return;
-    setReviewActionError(null);
-    setReviewActionPending('request-revisions');
-    try {
-      await persistRevisionRequest({
-        stateFilePath: appContext.stateFilePath,
-      }, card, feedback);
-      onUpdate((prev) => applyRequestRevisions(prev, card.id, feedback));
-    } catch (err) {
-      setReviewActionError(err instanceof Error ? err.message : 'Failed to request revisions.');
-    } finally {
-      setReviewActionPending(null);
-    }
-  }, [appContext, card, onUpdate]);
+  const handleRequestRevisions = useCallback((feedback: string) => {
+    if (!card) return;
+    onUpdate((prev) => applyRequestRevisions(prev, card.id, feedback));
+  }, [card, onUpdate]);
 
-  const handleCancelPR = useCallback(async () => {
-    if (!card || !appContext) return;
-    setReviewActionError(null);
-    setReviewActionPending('cancel-pr');
-    try {
-      await persistPrCancellation({
-        stateFilePath: appContext.stateFilePath,
-      }, card);
-      onUpdate((prev) => applyCancelPR(prev, card.id));
-    } catch (err) {
-      setReviewActionError(err instanceof Error ? err.message : 'Failed to cancel the pull request.');
-    } finally {
-      setReviewActionPending(null);
-    }
-  }, [appContext, card, onUpdate]);
+  const handleCancelPR = useCallback(() => {
+    if (!card) return;
+    onUpdate((prev) => applyCancelPR(prev, card.id));
+  }, [card, onUpdate]);
 
   const handleRetry = useCallback(() => {
     if (!card) return;
@@ -390,8 +363,6 @@ export function CardDetail({
                   onCheckMerge={handleCheckMergeStatus}
                   onRequestRevisions={handleRequestRevisions}
                   onCancelPR={handleCancelPR}
-                  isBusy={reviewActionPending !== null}
-                  actionError={reviewActionError}
                 />
               )}
 

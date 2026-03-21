@@ -15,7 +15,13 @@ import { completeReviewWithPr } from './review-completion';
 import { updateCard, readCard } from './state-helpers';
 import { isYoloModeEnabled, reconcilePersistedState, runWorkspaceMaintenance } from './orchestrator-helpers';
 import { validateTransition, getNewlyUnblockedCards, getAllReadyBacklogCards } from './contracts';
-import { autoWatchWorkspace, findWatchedWorkspace, type WatchedWorkspaceEntry } from './workspace-watch';
+import { applyReviewActionEffects } from './review-action-effects';
+import {
+  autoWatchWorkspace,
+  buildCardMap,
+  findWatchedWorkspace,
+  type WatchedWorkspaceEntry,
+} from './workspace-watch';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
 const RETRYABLE_COLUMNS = new Set<Column>(['planning', 'in-progress', 'review']);
@@ -78,7 +84,12 @@ export class KanbanOrchestrator {
         lastColumnMap.set(card.id, card.column);
       }
     }
-    this.watched.set(workspaceId, { workspaceId, stateFilePath, lastColumnMap });
+    this.watched.set(workspaceId, {
+      workspaceId,
+      stateFilePath,
+      lastColumnMap,
+      lastCardMap: buildCardMap(initial),
+    });
     appStateManager.watch(stateFilePath);
     console.log(`[kanban-orchestrator] Watching workspace ${workspaceId}`);
     await reconcilePersistedState(stateFilePath, this.watched.get(workspaceId)!.lastColumnMap, initial);
@@ -98,12 +109,23 @@ export class KanbanOrchestrator {
     if (!this.deps) return;
 
     let workspace = findWatchedWorkspace(this.watched, stateFilePath);
-    if (!workspace) workspace = autoWatchWorkspace(this.deps, this.watched, stateFilePath);
+    if (!workspace) workspace = autoWatchWorkspace(this.deps, this.watched, stateFilePath, newState);
     if (!workspace || !newState?.cards) return;
     this.autoMergeMonitor.syncWorkspace(workspace, newState);
 
+    const workspacePath = this.deps.getWorkspacePath(workspace.workspaceId);
+
     for (const card of newState.cards) {
       const prevColumn = workspace.lastColumnMap.get(card.id);
+      const prevCard = workspace.lastCardMap.get(card.id);
+
+      if (workspacePath) {
+        await applyReviewActionEffects({
+          stateFilePath: workspace.stateFilePath,
+          workspacePath,
+          worktreeManager: this.worktreeManager,
+        }, prevCard, card);
+      }
 
       if (prevColumn && prevColumn !== card.column) {
         console.log(`[kanban-orchestrator] Transition: #${card.id} ${prevColumn} → ${card.column}`);
@@ -128,6 +150,7 @@ export class KanbanOrchestrator {
     for (const card of newState.cards) {
       workspace.lastColumnMap.set(card.id, card.column);
     }
+    workspace.lastCardMap = buildCardMap(newState);
   }
 
   private async handleTransition(
