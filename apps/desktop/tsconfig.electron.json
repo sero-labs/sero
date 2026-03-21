@@ -16,7 +16,9 @@
     "lib": ["ES2022"],
     "baseUrl": ".",
     "paths": {
-      "@electron/*": ["electron/*"]
+      "@electron/*": ["electron/*"],
+      // Subpath export — not resolvable under moduleResolution:node without this mapping
+      "@mariozechner/pi-ai/oauth": ["./node_modules/@mariozechner/pi-ai/dist/oauth"]
     }
   },
   "include": ["electron/**/*", "src/types/ipc.ts", "src/types/ipc-channels.ts"],

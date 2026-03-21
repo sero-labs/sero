@@ -7,17 +7,17 @@ settings:
 catalogs:
   default:
     '@mariozechner/pi-agent-core':
-      specifier: ^0.55.3
-      version: 0.55.3
+      specifier: ^0.61.1
+      version: 0.61.1
     '@mariozechner/pi-ai':
-      specifier: ^0.55.3
-      version: 0.55.3
+      specifier: ^0.61.1
+      version: 0.61.1
     '@mariozechner/pi-coding-agent':
-      specifier: ^0.55.3
-      version: 0.55.3
+      specifier: ^0.61.1
+      version: 0.61.1
     '@mariozechner/pi-tui':
-      specifier: ^0.55.3
-      version: 0.55.3
+      specifier: ^0.61.1
+      version: 0.61.1
     '@module-federation/vite':
       specifier: ^1.11.0
       version: 1.11.0
@@ -63,25 +63,31 @@ catalogs:
     vitest:
       specifier: ^4.0.18
       version: 4.0.18
+    zod:
+      specifier: ^4.3.6
+      version: 4.3.6
   peer:
     '@mariozechner/pi-agent-core':
-      specifier: '>=0.55.3'
-      version: 0.55.3
+      specifier: '>=0.61.1'
+      version: 0.61.1
     '@mariozechner/pi-ai':
-      specifier: '>=0.55.3'
-      version: 0.55.3
+      specifier: '>=0.61.1'
+      version: 0.61.1
     '@mariozechner/pi-coding-agent':
-      specifier: '>=0.55.3'
-      version: 0.55.3
+      specifier: '>=0.61.1'
+      version: 0.61.1
     '@mariozechner/pi-tui':
-      specifier: '>=0.55.3'
-      version: 0.55.3
+      specifier: '>=0.61.1'
+      version: 0.61.1
     react:
       specifier: '>=19.0.0'
       version: 19.2.4
     react-dom:
       specifier: '>=19.0.0'
       version: 19.2.4
+    zod:
+      specifier: '>=4.0.0'
+      version: 4.3.6
 
 importers:
 
@@ -116,16 +122,16 @@ importers:
         version: 1.6.3(@headless-tree/core@1.6.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@mariozechner/pi-agent-core':
         specifier: 'catalog:'
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-ai':
         specifier: 'catalog:'
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: 'catalog:'
-        version: 0.55.3
+        version: 0.61.1
       '@module-federation/enhanced':
         specifier: ^2.2.0
         version: 2.2.2(@rspack/core@1.7.6)(node-fetch@3.3.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
@@ -204,6 +210,9 @@ importers:
       ws:
         specifier: ^8.19.0
         version: 8.19.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.6
       zustand:
         specifier: ^5.0.11
         version: 5.0.12(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
@@ -353,16 +362,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -408,16 +420,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -463,16 +478,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -518,16 +536,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -576,16 +597,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -628,16 +652,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -686,16 +713,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -744,16 +774,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -799,16 +832,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -854,19 +890,22 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
       '@tobilu/qmd':
         specifier: ^2.0.1
         version: 2.0.1(typescript@5.9.3)
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -879,16 +918,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -931,19 +973,22 @@ importers:
     dependencies:
       '@mariozechner/pi-agent-core':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -986,19 +1031,22 @@ importers:
     dependencies:
       '@mariozechner/pi-agent-core':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -1041,16 +1089,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -1093,16 +1144,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -1148,16 +1202,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -1200,16 +1257,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -1252,7 +1312,7 @@ importers:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -1298,16 +1358,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -1350,13 +1413,16 @@ importers:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -1405,16 +1471,19 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
         specifier: catalog:peer
-        version: 0.55.3
+        version: 0.61.1
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
+      zod:
+        specifier: catalog:peer
+        version: 4.3.6
     devDependencies:
       '@module-federation/vite':
         specifier: 'catalog:'
@@ -2613,29 +2682,29 @@ packages:
     resolution: {integrity: sha512-faGUlTcXka5l7rv0lP3K3vGW/ejRuOS24RR2aSFWREUQqzjgdsuWNo/IiPqL3kWRGt6Ahl2+qcDAwtdeWeuGUw==}
     hasBin: true
 
-  '@mariozechner/pi-agent-core@0.55.3':
-    resolution: {integrity: sha512-rqbfpQ9BrP6BDiW+Ps3A8Z/p9+Md/pAfc/ECq8JP6cwnZL/jQgU355KWZKtF8zM9az1p0Q9hIWi9cQygVo6Auw==}
+  '@mariozechner/pi-agent-core@0.61.1':
+    resolution: {integrity: sha512-ELZsyx6INGBYXPAbYTAiRWtkmnwAlcXOOVPY434BE605TBdpzMrXF5gNckKdEyCCWYJiLzSKpHaAzWwB7Vx2nA==}
     engines: {node: '>=20.0.0'}
 
-  '@mariozechner/pi-ai@0.55.3':
-    resolution: {integrity: sha512-f9jWoDzJR9Wy/H8JPMbjoM4WvVUeFZ65QdYA9UHIfoOopDfwWE8F8JHQOj5mmmILMacXuzsqA3J7MYqNWZRvvQ==}
-    engines: {node: '>=20.0.0'}
-    hasBin: true
-
-  '@mariozechner/pi-coding-agent@0.55.3':
-    resolution: {integrity: sha512-5SFbB7/BIp/Crjre7UNjUeNfpoU1KSW/i6LXa+ikJTBqI5LukWq2avE5l0v0M8Pg/dt1go2XCLrNFlQJiQDSPQ==}
+  '@mariozechner/pi-ai@0.61.1':
+    resolution: {integrity: sha512-BOk8xwluIgauX93qgC9qyrWteKKnk6pNDM8szE1m/EJKMhcJ/jIJpgAUQgj4yXiwSMtcZm30h2Po97gqqXTIIg==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
-  '@mariozechner/pi-tui@0.55.3':
-    resolution: {integrity: sha512-Gh4wkYgiSPCJJaB/4wEWSL7Ga8bxSq1Crp1RPRT4vKybE/DG0W/MQr5VJDvktarxtJrD16ixScwE4dzdox/PIA==}
+  '@mariozechner/pi-coding-agent@0.61.1':
+    resolution: {integrity: sha512-w0QTn+LFFdyFhpaaYDOacGwBjW4MKYrl40b6LPfKDuVJ+9fDfHl3kWkbx6xJb9brk6M5lEFMheC82UIQdkeK3Q==}
+    engines: {node: '>=20.6.0'}
+    hasBin: true
+
+  '@mariozechner/pi-tui@0.61.1':
+    resolution: {integrity: sha512-J3EI1gU5knUf1dXiHJsimDP4IRXLG7QJ1NVykU/yWOJoBPAgG6/qjjPPRcaUA7MYMUfKi+Z/zzGOyQSCVAajPA==}
     engines: {node: '>=20.0.0'}
 
   '@mermaid-js/parser@1.0.1':
     resolution: {integrity: sha512-opmV19kN1JsK0T6HhhokHpcVkqKpF+x2pPDKKM2ThHtZAB5F4PROopk0amuVYK5qMrIA4erzpNm8gmPNJgMDxQ==}
 
-  '@mistralai/mistralai@1.10.0':
-    resolution: {integrity: sha512-tdIgWs4Le8vpvPiUEWne6tK0qbVc+jMenujnvTqOjogrJUsCSQhus0tHTU1avDDh5//Rq2dFgP9mWRAdIEoBqg==}
+  '@mistralai/mistralai@1.14.1':
+    resolution: {integrity: sha512-IiLmmZFCCTReQgPAT33r7KQ1nYo5JPdvGkrkZqA8qQ2qB1GHgs5LoP5K2ICyrjnpw2n8oSxMM/VP+liiKcGNlQ==}
 
   '@modelcontextprotocol/sdk@1.27.1':
     resolution: {integrity: sha512-sr6GbP+4edBwFndLbM60gf07z0FQ79gaExpnsjMGePXqFcSSb7t6iscpjk9DhFhwd+mTEQrzNafGP8/iGGFYaA==}
@@ -7617,8 +7686,8 @@ packages:
     resolution: {integrity: sha512-smsWv2LzFjP03xmvFoJ331ss6h+jixfA4UUV/Bsiyuu4YJPfN+FIQGOIiv4w9/+MoHkfkJ22UIaQWRVFRfH6Vw==}
     engines: {node: '>=20'}
 
-  openai@6.10.0:
-    resolution: {integrity: sha512-ITxOGo7rO3XRMiKA5l7tQ43iNNu+iXGFAcf2t+aWVzzqRaS0i7m1K2BhxNdaveB+5eENhO0VY1FkiZzhBk4v3A==}
+  openai@6.26.0:
+    resolution: {integrity: sha512-zd23dbWTjiJ6sSAX6s0HrCZi41JwTA1bQVs0wLQPZ2/5o2gxOJA5wh7yOAUgwYybfhDXyhwlpeQf7Mlgx8EOCA==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -10582,9 +10651,9 @@ snapshots:
       std-env: 3.10.0
       yoctocolors: 2.1.2
 
-  '@mariozechner/pi-agent-core@0.55.3':
+  '@mariozechner/pi-agent-core@0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
     dependencies:
-      '@mariozechner/pi-ai': 0.55.3
+      '@mariozechner/pi-ai': 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -10594,65 +10663,17 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-agent-core@0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-agent-core@0.55.3(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.55.3(zod@4.3.6)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-ai@0.55.3':
+  '@mariozechner/pi-ai@0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
     dependencies:
       '@anthropic-ai/sdk': 0.73.0(zod@4.3.6)
       '@aws-sdk/client-bedrock-runtime': 3.1009.0
       '@google/genai': 1.45.0(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))
-      '@mistralai/mistralai': 1.10.0
+      '@mistralai/mistralai': 1.14.1
       '@sinclair/typebox': 0.34.48
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       chalk: 5.6.2
-      openai: 6.10.0(ws@8.19.0)(zod@4.3.6)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0
-      undici: 7.24.2
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-ai@0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
-    dependencies:
-      '@anthropic-ai/sdk': 0.73.0(zod@4.3.6)
-      '@aws-sdk/client-bedrock-runtime': 3.1009.0
-      '@google/genai': 1.45.0(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))
-      '@mistralai/mistralai': 1.10.0
-      '@sinclair/typebox': 0.34.48
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
-      chalk: 5.6.2
-      openai: 6.10.0(ws@8.19.0)(zod@4.3.6)
+      openai: 6.26.0(ws@8.19.0)(zod@4.3.6)
       partial-json: 0.1.7
       proxy-agent: 6.5.0
       undici: 7.24.2
@@ -10666,48 +10687,26 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-ai@0.55.3(zod@4.3.6)':
+  '@mariozechner/pi-coding-agent@0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
     dependencies:
-      '@anthropic-ai/sdk': 0.73.0(zod@4.3.6)
-      '@aws-sdk/client-bedrock-runtime': 3.1009.0
-      '@google/genai': 1.45.0(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))
-      '@mistralai/mistralai': 1.10.0
-      '@sinclair/typebox': 0.34.48
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
+      '@mariozechner/jiti': 2.6.5
+      '@mariozechner/pi-agent-core': 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+      '@mariozechner/pi-ai': 0.61.1(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+      '@mariozechner/pi-tui': 0.61.1
+      '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
-      openai: 6.10.0(ws@8.19.0)(zod@4.3.6)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0
+      cli-highlight: 2.1.11
+      diff: 8.0.3
+      extract-zip: 2.0.1
+      file-type: 21.3.2
+      glob: 13.0.6
+      hosted-git-info: 9.0.2
+      ignore: 7.0.5
+      marked: 15.0.12
+      minimatch: 10.2.4
+      proper-lockfile: 4.1.2
+      strip-ansi: 7.2.0
       undici: 7.24.2
-      zod-to-json-schema: 3.25.1(zod@4.3.6)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.55.3':
-    dependencies:
-      '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.55.3
-      '@mariozechner/pi-ai': 0.55.3
-      '@mariozechner/pi-tui': 0.55.3
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.3
-      extract-zip: 2.0.1
-      file-type: 21.3.2
-      glob: 13.0.6
-      hosted-git-info: 9.0.2
-      ignore: 7.0.5
-      marked: 15.0.12
-      minimatch: 10.2.4
-      proper-lockfile: 4.1.2
       yaml: 2.8.2
     optionalDependencies:
       '@mariozechner/clipboard': 0.3.2
@@ -10720,83 +10719,28 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-coding-agent@0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-ai': 0.55.3(@modelcontextprotocol/sdk@1.27.1(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-tui': 0.55.3
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.3
-      extract-zip: 2.0.1
-      file-type: 21.3.2
-      glob: 13.0.6
-      hosted-git-info: 9.0.2
-      ignore: 7.0.5
-      marked: 15.0.12
-      minimatch: 10.2.4
-      proper-lockfile: 4.1.2
-      yaml: 2.8.2
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.2
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.55.3(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.55.3(zod@4.3.6)
-      '@mariozechner/pi-ai': 0.55.3(zod@4.3.6)
-      '@mariozechner/pi-tui': 0.55.3
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.3
-      extract-zip: 2.0.1
-      file-type: 21.3.2
-      glob: 13.0.6
-      hosted-git-info: 9.0.2
-      ignore: 7.0.5
-      marked: 15.0.12
-      minimatch: 10.2.4
-      proper-lockfile: 4.1.2
-      yaml: 2.8.2
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.2
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-tui@0.55.3':
+  '@mariozechner/pi-tui@0.61.1':
     dependencies:
       '@types/mime-types': 2.1.4
       chalk: 5.6.2
       get-east-asian-width: 1.5.0
-      koffi: 2.15.2
       marked: 15.0.12
       mime-types: 3.0.2
+    optionalDependencies:
+      koffi: 2.15.2
 
   '@mermaid-js/parser@1.0.1':
     dependencies:
       langium: 4.2.1
 
-  '@mistralai/mistralai@1.10.0':
+  '@mistralai/mistralai@1.14.1':
     dependencies:
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
+      ws: 8.19.0
+      zod: 4.3.6
+      zod-to-json-schema: 3.25.1(zod@4.3.6)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   '@modelcontextprotocol/sdk@1.27.1(zod@3.25.76)':
     dependencies:
@@ -15548,7 +15492,8 @@ snapshots:
       type-is: 2.0.1
       vary: 1.1.2
 
-  koffi@2.15.2: {}
+  koffi@2.15.2:
+    optional: true
 
   langium@4.2.1:
     dependencies:
@@ -16668,7 +16613,7 @@ snapshots:
       powershell-utils: 0.1.0
       wsl-utils: 0.3.1
 
-  openai@6.10.0(ws@8.19.0)(zod@4.3.6):
+  openai@6.26.0(ws@8.19.0)(zod@4.3.6):
     optionalDependencies:
       ws: 8.19.0
       zod: 4.3.6

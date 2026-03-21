@@ -19,7 +19,8 @@
 
 import fs from 'fs';
 import { ipcMain, BrowserWindow, shell, type WebContents } from 'electron';
-import { getOAuthProviders, getEnvApiKey } from '@mariozechner/pi-ai';
+import { getEnvApiKey } from '@mariozechner/pi-ai';
+import { getOAuthProviders } from '@mariozechner/pi-ai/oauth';
 import type { OAuthProviderId } from '@mariozechner/pi-ai';
 
 import { IpcChannels } from '../../src/types/ipc';

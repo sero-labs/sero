@@ -29,10 +29,13 @@ catalog:
   "@types/node": "^22.19.11"
 
   # Pi SDK
-  "@mariozechner/pi-agent-core": "^0.55.3"
-  "@mariozechner/pi-ai": "^0.55.3"
-  "@mariozechner/pi-coding-agent": "^0.55.3"
-  "@mariozechner/pi-tui": "^0.55.3"
+  "@mariozechner/pi-agent-core": "^0.61.1"
+  "@mariozechner/pi-ai": "^0.61.1"
+  "@mariozechner/pi-coding-agent": "^0.61.1"
+  "@mariozechner/pi-tui": "^0.61.1"
+
+  # Zod (peer of @mariozechner/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
+  zod: "^4.3.6"
 
   # Shared libraries
   "@sinclair/typebox": "^0.34.48"
@@ -45,9 +48,10 @@ catalog:
 # Use "catalog:peer" in peerDependencies.
 catalogs:
   peer:
-    "@mariozechner/pi-agent-core": ">=0.55.3"
-    "@mariozechner/pi-ai": ">=0.55.3"
-    "@mariozechner/pi-coding-agent": ">=0.55.3"
-    "@mariozechner/pi-tui": ">=0.55.3"
+    "@mariozechner/pi-agent-core": ">=0.61.1"
+    "@mariozechner/pi-ai": ">=0.61.1"
+    "@mariozechner/pi-coding-agent": ">=0.61.1"
+    "@mariozechner/pi-tui": ">=0.61.1"
     react: ">=19.0.0"
     react-dom: ">=19.0.0"
+    zod: ">=4.0.0"

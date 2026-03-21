@@ -61,6 +61,7 @@
     "streamdown": "^2.4.0",
     "tailwindcss": "catalog:",
     "ws": "^8.19.0",
+    "zod": "catalog:",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

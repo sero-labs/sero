@@ -33,7 +33,8 @@
   "peerDependencies": {
     "@mariozechner/pi-ai": "catalog:peer",
     "@mariozechner/pi-coding-agent": "catalog:peer",
-    "@mariozechner/pi-tui": "catalog:peer"
+    "@mariozechner/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
   },
   "devDependencies": {
     "@sero/app-runtime": "workspace:*",

@@ -27,7 +27,8 @@
     }
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "catalog:peer"
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "zod": "catalog:peer"
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
