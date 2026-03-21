@@ -21,6 +21,7 @@ export function StatusBar() {
     disconnected: 'text-destructive',
     connecting: 'text-yellow-500',
     authenticating: 'text-yellow-500',
+    reconnecting: 'text-yellow-500',
     connected: 'text-green-500',
   }[state];
 
@@ -28,6 +29,7 @@ export function StatusBar() {
     disconnected: 'Disconnected',
     connecting: 'Connecting...',
     authenticating: 'Authenticating...',
+    reconnecting: 'Reconnecting...',
     connected: 'Connected',
   }[state];
 

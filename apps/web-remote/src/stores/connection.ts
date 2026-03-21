@@ -1,88 +1,236 @@
 /**
- * Connection store — WebSocket state, authentication, and token management.
+ * Connection store — WebSocket state, authentication, token management,
+ * and reconnect UX state for the remote gateway.
  */
 
 import { create } from 'zustand';
-import { GatewayClient, type ConnectionState, type GatewayMessage } from '@/lib/gateway-client';
+import {
+  GatewayClient,
+  type ConnectionState,
+  type DisconnectEvent,
+  type GatewayMessage,
+} from '@/lib/gateway-client';
 import { saveToken, loadToken, clearToken } from '@/lib/token-storage';
+
+interface TokenStorageAdapter {
+  save: (token: string) => Promise<void>;
+  load: () => Promise<string | null>;
+  clear: () => Promise<void>;
+}
+
+export interface GatewayClientLike {
+  onStateChange: (handler: (state: ConnectionState) => void) => () => void;
+  onMessage: (handler: (msg: GatewayMessage) => void) => () => void;
+  onDisconnect: (handler: (event: DisconnectEvent) => void) => () => void;
+  connect: (token: string) => void;
+  disconnect: () => void;
+  retryNow: () => void;
+  sendPrompt: (
+    workspaceId: string,
+    sessionId: string,
+    text: string,
+    images?: Array<{ data: string; mimeType: string }>,
+  ) => void;
+  requestWorkspaces: () => void;
+  requestSessions: (workspaceId: string) => void;
+  createSession: (workspaceId: string, name?: string) => void;
+  abortSession: (sessionId: string) => void;
+  requestSessionHistory: (workspaceId: string, sessionId: string) => void;
+  listFiles: (workspaceId: string, filePath: string) => void;
+  readFile: (workspaceId: string, filePath: string) => void;
+  listArtifacts: (sessionId: string) => void;
+  getArtifact: (artifactId: string) => void;
+}
 
 interface ConnectionStore {
   state: ConnectionState;
-  client: GatewayClient;
+  client: GatewayClientLike;
   token: string | null;
   authError: string | null;
+  disconnectReason: string | null;
+  isBootstrapping: boolean;
+  isInitialized: boolean;
 
-  /** Connect with a token (manual entry). */
+  /** Connect with a token (manual entry or QR pairing). */
   connect: (token: string) => void;
-  /** Try auto-connect from stored token. */
-  autoConnect: () => Promise<void>;
-  /** Disconnect and clear stored token. */
+  /** Load an existing token from URL or IndexedDB and connect once. */
+  initialize: () => Promise<void>;
+  /** Retry immediately without asking for the token again. */
+  retry: () => void;
+  /** Disconnect and forget the saved pairing token. */
   disconnect: () => void;
   /** Called internally when a message arrives. */
   handleMessage: (msg: GatewayMessage) => void;
 }
 
-const client = new GatewayClient();
+const defaultTokenStorage: TokenStorageAdapter = {
+  save: saveToken,
+  load: loadToken,
+  clear: clearToken,
+};
 
-export const useConnectionStore = create<ConnectionStore>((set, get) => {
-  // Wire up state change listener
-  client.onStateChange((state) => {
-    set({ state });
-  });
+function consumeTokenFromUrl(): string | null {
+  const url = new URL(window.location.href);
+  const token = url.searchParams.get('token')?.trim();
+  if (!token) return null;
 
-  // Wire up message handler
-  client.onMessage((msg) => {
-    get().handleMessage(msg);
-  });
+  url.searchParams.delete('token');
+  const nextPath = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, '', nextPath || '/');
 
-  return {
-    state: 'disconnected',
-    client,
-    token: null,
-    authError: null,
+  return token;
+}
 
-    connect: (token: string) => {
-      set({ authError: null, token });
-      client.connect(token);
-      // Save token on successful auth (handled in handleMessage)
-    },
+export function getDisconnectMessage(event: DisconnectEvent): string {
+  switch (event.code) {
+    case 4008:
+      return 'Connection went idle. Reconnecting automatically...';
+    case 1012:
+      return 'Sero is restarting. Reconnecting automatically...';
+    case 1013:
+      return 'Sero is temporarily unavailable. Retrying shortly...';
+    default:
+      break;
+  }
 
-    autoConnect: async () => {
-      // Check URL params first (e.g. from QR code: ?token=...)
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlToken = urlParams.get('token');
-      if (urlToken) {
-        // Clean up the URL so the token isn't visible in the address bar
-        const cleanUrl = window.location.pathname + window.location.hash;
-        window.history.replaceState({}, '', cleanUrl);
-        set({ token: urlToken, authError: null });
-        client.connect(urlToken);
+  if (event.reason) {
+    return `${event.reason}. Reconnecting automatically...`;
+  }
+
+  return 'Connection lost. Reconnecting automatically...';
+}
+
+function shouldForgetToken(message: string): boolean {
+  return /invalid authentication token/i.test(message);
+}
+
+export function createConnectionStore(
+  client: GatewayClientLike,
+  tokenStorage: TokenStorageAdapter = defaultTokenStorage,
+) {
+  return create<ConnectionStore>((set, get) => {
+    client.onStateChange((state) => {
+      if (state === 'connecting' || state === 'authenticating' || state === 'connected') {
+        set({ state, disconnectReason: null });
         return;
       }
-      // Fall back to stored token
-      const stored = await loadToken();
-      if (stored) {
-        set({ token: stored, authError: null });
-        client.connect(stored);
-      }
-    },
+      set({ state });
+    });
 
-    disconnect: () => {
-      client.disconnect();
-      clearToken();
-      set({ token: null, authError: null });
-    },
+    client.onDisconnect((event) => {
+      if (!event.willReconnect) return;
+      if (get().authError) return;
+      set({ disconnectReason: getDisconnectMessage(event) });
+    });
 
-    handleMessage: (msg: GatewayMessage) => {
-      if (msg.type === 'ok' && 'requestType' in msg && msg.requestType === 'connect') {
-        // Auth succeeded — persist token
-        const { token } = get();
-        if (token) {
-          saveToken(token);
+    client.onMessage((msg) => {
+      get().handleMessage(msg);
+    });
+
+    return {
+      state: 'disconnected',
+      client,
+      token: null,
+      authError: null,
+      disconnectReason: null,
+      isBootstrapping: false,
+      isInitialized: false,
+
+      connect: (token: string) => {
+        const trimmed = token.trim();
+        if (!trimmed) return;
+        set({
+          token: trimmed,
+          authError: null,
+          disconnectReason: null,
+          isBootstrapping: false,
+          isInitialized: true,
+        });
+        client.connect(trimmed);
+      },
+
+      initialize: async () => {
+        if (get().isBootstrapping || get().isInitialized) return;
+
+        set({
+          isBootstrapping: true,
+          authError: null,
+          disconnectReason: null,
+        });
+
+        const finalize = (token: string | null) => {
+          set({
+            token,
+            authError: null,
+            disconnectReason: null,
+            isBootstrapping: false,
+            isInitialized: true,
+          });
+          if (token) {
+            client.connect(token);
+          }
+        };
+
+        try {
+          const urlToken = consumeTokenFromUrl();
+          if (urlToken) {
+            finalize(urlToken);
+            return;
+          }
+
+          const storedToken = await tokenStorage.load();
+          finalize(storedToken);
+        } catch {
+          finalize(null);
         }
-      } else if (msg.type === 'error' && 'requestType' in msg && msg.requestType === 'connect') {
-        set({ authError: (msg as { message: string }).message });
-      }
-    },
-  };
-});
+      },
+
+      retry: () => {
+        set({ authError: null, disconnectReason: null });
+        client.retryNow();
+      },
+
+      disconnect: () => {
+        client.disconnect();
+        void tokenStorage.clear();
+        set({
+          token: null,
+          authError: null,
+          disconnectReason: null,
+          isBootstrapping: false,
+          isInitialized: true,
+        });
+      },
+
+      handleMessage: (msg: GatewayMessage) => {
+        if (msg.type === 'ok' && 'requestType' in msg && msg.requestType === 'connect') {
+          const { token } = get();
+          set({ authError: null, disconnectReason: null });
+          if (token) {
+            void tokenStorage.save(token);
+          }
+          return;
+        }
+
+        if (msg.type === 'error' && 'requestType' in msg && msg.requestType === 'connect') {
+          const message = (msg as { message: string }).message;
+          const forgetToken = shouldForgetToken(message);
+          if (forgetToken) {
+            void tokenStorage.clear();
+          }
+          set({
+            token: forgetToken ? null : get().token,
+            authError: forgetToken ? message : null,
+            disconnectReason: forgetToken ? null : message,
+            isBootstrapping: false,
+            isInitialized: true,
+          });
+        }
+      },
+    };
+  });
+}
+
+const client = new GatewayClient();
+
+export const useConnectionStore = createConnectionStore(client);
