@@ -6,7 +6,7 @@
  */
 
 import { spawn, execFile } from 'child_process';
-import { writeFile, mkdir, unlink, readdir, rmdir } from 'fs/promises';
+import { writeFile, mkdir, rm } from 'fs/promises';
 import path from 'path';
 import { tmpdir } from 'os';
 
@@ -37,6 +37,24 @@ export async function hasFfmpeg(): Promise<boolean> {
   });
 }
 
+function getFramesDir(outputPath: string): string {
+  const parsed = path.parse(outputPath);
+  return path.join(parsed.dir, `${parsed.name}-frames`);
+}
+
+async function writeFrames(
+  targetDir: string,
+  frames: EncodeOptions['frames'],
+): Promise<void> {
+  await rm(targetDir, { recursive: true, force: true });
+  await mkdir(targetDir, { recursive: true });
+
+  for (let i = 0; i < frames.length; i++) {
+    const framePath = path.join(targetDir, `frame-${String(i).padStart(5, '0')}.png`);
+    await writeFile(framePath, Buffer.from(frames[i]!.base64, 'base64'));
+  }
+}
+
 /**
  * Encode PNG frames into an MP4 video.
  *
@@ -51,24 +69,15 @@ export async function encodeFramesToMp4(opts: EncodeOptions): Promise<EncodeResu
 
   const durationMs = frames[frames.length - 1]!.timestamp - frames[0]!.timestamp;
   const ts = Date.now();
-  const workDir = path.join(tmpdir(), 'sero-recordings', `work-${ts}`);
-  await mkdir(workDir, { recursive: true });
-
-  // Write frames to disk as numbered PNGs
-  for (let i = 0; i < frames.length; i++) {
-    const framePath = path.join(workDir, `frame-${String(i).padStart(5, '0')}.png`);
-    await writeFile(framePath, Buffer.from(frames[i]!.base64, 'base64'));
-  }
-
-  const outputDir = path.join(tmpdir(), 'sero-recordings');
-  await mkdir(outputDir, { recursive: true });
-  const outputPath = opts.outputPath ?? path.join(outputDir, `video-${ts}.mp4`);
-  await mkdir(path.dirname(outputPath), { recursive: true });
-
   const ffmpegAvailable = await hasFfmpeg();
   if (!ffmpegAvailable) {
+    const framesDir = opts.outputPath
+      ? getFramesDir(opts.outputPath)
+      : path.join(tmpdir(), 'sero-recordings', `frames-${ts}`);
+
     // Fallback: keep frames as-is, write metadata
-    await writeFile(path.join(workDir, 'metadata.json'), JSON.stringify({
+    await writeFrames(framesDir, frames);
+    await writeFile(path.join(framesDir, 'metadata.json'), JSON.stringify({
       frameCount: frames.length,
       startedAt: frames[0]!.timestamp,
       endedAt: frames[frames.length - 1]!.timestamp,
@@ -76,8 +85,16 @@ export async function encodeFramesToMp4(opts: EncodeOptions): Promise<EncodeResu
       fps,
       note: 'ffmpeg not available — frames saved as PNGs. Install ffmpeg to get MP4 output.',
     }, null, 2));
-    return { path: workDir, isVideo: false, durationMs, frameCount: frames.length };
+    return { path: framesDir, isVideo: false, durationMs, frameCount: frames.length };
   }
+
+  const workDir = path.join(tmpdir(), 'sero-recordings', `work-${ts}`);
+  await writeFrames(workDir, frames);
+
+  const outputDir = path.join(tmpdir(), 'sero-recordings');
+  await mkdir(outputDir, { recursive: true });
+  const outputPath = opts.outputPath ?? path.join(outputDir, `video-${ts}.mp4`);
+  await mkdir(path.dirname(outputPath), { recursive: true });
 
   // Encode with ffmpeg: PNG sequence → H.264 MP4
   await new Promise<void>((resolve, reject) => {
@@ -106,9 +123,7 @@ export async function encodeFramesToMp4(opts: EncodeOptions): Promise<EncodeResu
 
   // Clean up temp frames
   try {
-    const files = await readdir(workDir);
-    await Promise.all(files.map((f) => unlink(path.join(workDir, f))));
-    await rmdir(workDir);
+    await rm(workDir, { recursive: true, force: true });
   } catch {
     // Non-critical cleanup failure
   }

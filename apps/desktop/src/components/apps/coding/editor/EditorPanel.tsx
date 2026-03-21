@@ -430,7 +430,7 @@ export function EditorPanel({
       <div className="flex-1 overflow-hidden min-h-0">
         {activeTab ? (
           isDevServer ? (
-            <DevServerPreview tabPath={activeTab} />
+            <DevServerPreview key={activeTab} tabPath={activeTab} />
           ) : isImageTab ? (
             <ImagePreview workspaceId={workspaceId} filePath={activeTab} />
           ) : isHtmlTab && isPreview ? (

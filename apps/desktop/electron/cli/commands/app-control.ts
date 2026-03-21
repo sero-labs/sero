@@ -6,7 +6,7 @@
  */
 
 import { BrowserWindow } from 'electron';
-import { copyFile, mkdir as mkdirFs, writeFile } from 'fs/promises';
+import { copyFile, cp as copyTree, lstat, mkdir as mkdirFs, writeFile } from 'fs/promises';
 import pathMod from 'path';
 import type { CliRegistry } from '../registry';
 import type { CliCommandContext } from '../types';
@@ -39,6 +39,22 @@ async function captureAppScreenshot(): Promise<string | null> {
   const rect = await exec<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
   if (!rect || rect.width <= 0 || rect.height <= 0) return null;
   return captureRegion(win, rect);
+}
+
+function getFramesDirPath(targetPath: string): string {
+  const parsed = pathMod.parse(targetPath);
+  return pathMod.extname(targetPath)
+    ? pathMod.join(parsed.dir, `${parsed.name}-frames`)
+    : targetPath;
+}
+
+async function copyRecordingOutput(srcPath: string, destPath: string): Promise<void> {
+  const srcStat = await lstat(srcPath);
+  if (srcStat.isDirectory()) {
+    await copyTree(srcPath, destPath, { force: true, recursive: true });
+    return;
+  }
+  await copyFile(srcPath, destPath);
 }
 
 // ── Main Router ──────────────────────────────────────────────
@@ -215,17 +231,20 @@ async function handleRecord(args: string[], ctx: CliCommandContext) {
       const { flags } = parseFlags(rest);
       const savePath = requireFlagString(flags, 'save');
 
-      // Determine destination: --save flag, or default to <workspace>/sero-recordings/
-      const ext = result.isVideo ? '.mp4' : '.png';
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const defaultDir = pathMod.join(ctx.cwd, 'sero-recordings');
-      const destPath = savePath
+      const requestedPath = savePath
         ? (pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath))
-        : pathMod.join(defaultDir, `recording-${ts}${ext}`);
+        : null;
+      const destPath = result.isVideo
+        ? (requestedPath ?? pathMod.join(defaultDir, `recording-${ts}.mp4`))
+        : (requestedPath
+          ? getFramesDirPath(requestedPath)
+          : pathMod.join(defaultDir, `recording-${ts}-frames`));
 
       await mkdirFs(pathMod.dirname(destPath), { recursive: true });
-      await copyFile(result.path, destPath);
-      const format = result.isVideo ? 'MP4' : 'frames';
+      await copyRecordingOutput(result.path, destPath);
+      const format = result.isVideo ? 'MP4' : 'PNG frames';
       const dur = Math.round(result.durationMs / 1000);
       return ok(`Recording saved: ${destPath} (${format}, ${result.frameCount} frames, ${dur}s)`);
     }

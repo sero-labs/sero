@@ -91,6 +91,12 @@ function buildCSP(): string {
   // -- worker-src --
   const workerSrc = ["'self'", 'blob:'];
 
+  // -- frame-src --
+  // Dev server previews load arbitrary http(s) URLs inside a sandboxed iframe
+  // in the editor, so the renderer must explicitly allow framed http(s)
+  // content in addition to blob:-backed HTML previews.
+  const frameSrc = ["'self'", 'blob:', 'http:', 'https:'];
+
   return [
     `default-src 'self'`,
     `script-src ${scriptSrc.join(' ')}`,
@@ -100,8 +106,8 @@ function buildCSP(): string {
     `font-src ${fontSrc.join(' ')}`,
     `media-src ${mediaSrc.join(' ')}`,
     `worker-src ${workerSrc.join(' ')}`,
-    `child-src 'self' blob:`,
-    `frame-src blob:`,               // Sandboxed HTML preview iframe (HtmlPreview.tsx)
+    `child-src ${frameSrc.join(' ')}`,
+    `frame-src ${frameSrc.join(' ')}`,
     `object-src 'none'`,
     `base-uri 'self'`,
   ].join('; ');
