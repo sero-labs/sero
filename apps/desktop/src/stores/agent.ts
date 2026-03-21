@@ -26,6 +26,8 @@ import {
 
 // Deduplicate concurrent opens for the same session so every caller waits for
 // the same main-process AgentSession creation instead of racing prompt calls.
+// Lives outside the Zustand store because Promise values aren't serializable
+// and would break devtools inspection / store rehydration.
 const pendingSessionOpens = new Map<string, Promise<void>>();
 
 export const useAgentStore = create<AgentState>((set, get) => ({

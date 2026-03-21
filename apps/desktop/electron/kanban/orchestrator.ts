@@ -5,16 +5,16 @@ import { WorktreeManager } from './worktree-manager';
 import { PlanningProgressTracker } from './planning-progress';
 import { ImplementationProgressTracker } from './implementation-progress';
 import { ReviewProgressTracker } from './review-progress';
-import { AutoMergeMonitor, buildAutoMergePendingMessage } from './auto-merge-monitor';
+import { AutoMergeMonitor } from './auto-merge-monitor';
 import { executeReview } from './review-executor';
 import { getPullRequestMergeError } from './pr-merge-status';
 import { executePlanning } from './planning-executor';
 import { executeImplementation } from './implementation-executor';
 import { cleanupCardReviewPreview } from './review-preview';
+import { completeReviewWithPr } from './review-completion';
 import { updateCard, readCard } from './state-helpers';
 import { isYoloModeEnabled, reconcilePersistedState, runWorkspaceMaintenance } from './orchestrator-helpers';
 import { validateTransition, getNewlyUnblockedCards, getAllReadyBacklogCards } from './contracts';
-import { mergePrFromWorktree } from './worktree-pr';
 import { autoWatchWorkspace, findWatchedWorkspace, type WatchedWorkspaceEntry } from './workspace-watch';
 import { appStateManager } from '../app-state';
 import type { SubagentManager } from '../subagent/index';
@@ -344,55 +344,17 @@ export class KanbanOrchestrator {
 
       if (result.success) {
         const yolo = await isYoloModeEnabled(workspace.stateFilePath);
-        const autoMergePrs = reviewState?.settings?.yoloAutoMergePrs === true;
-        const prNumber = result.prNumber;
-        const prUpdate = {
-          prUrl: result.prUrl,
-          prNumber,
-          previewServerId: result.previewServerId,
-          previewUrl: result.previewUrl,
-          reviewFilePath: result.reviewFilePath,
-          reviewProgress: undefined,
-          error: undefined,
-        };
+        const outcome = await completeReviewWithPr({
+          stateFilePath: workspace.stateFilePath,
+          cardId: card.id,
+          worktreePath,
+          yolo,
+          settings: reviewState?.settings,
+        }, result);
 
-        if (yolo && autoMergePrs && typeof prNumber === 'number' && prNumber > 0) {
-          const mergeResult = await mergePrFromWorktree(worktreePath, prNumber, { method: 'squash' });
-          if (!mergeResult.success) {
-            await updateCard(workspace.stateFilePath, card.id, {
-              ...prUpdate,
-              status: 'waiting-input',
-              error: `Auto-merge failed: ${mergeResult.error}`,
-            });
-            console.log(`[kanban-orchestrator] Card #${card.id} auto-merge failed: ${mergeResult.error}`);
-          } else if (mergeResult.state === 'merged') {
-            workspace.lastColumnMap.set(card.id, 'done');
-            await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'idle', column: 'done', completedAt: new Date().toISOString() });
-            console.log(`[kanban-orchestrator] Card #${card.id} YOLO auto-merged: ${result.prUrl}`);
-            await this.runDoneCleanup(workspace, card);
-          } else {
-            await updateCard(workspace.stateFilePath, card.id, {
-              ...prUpdate,
-              status: 'waiting-input',
-              error: buildAutoMergePendingMessage(prNumber),
-            });
-            console.log(`[kanban-orchestrator] Card #${card.id} queued for GitHub auto-merge: ${result.prUrl}`);
-          }
-        } else if (yolo && autoMergePrs) {
-          await updateCard(workspace.stateFilePath, card.id, {
-            ...prUpdate,
-            status: 'waiting-input',
-            error: 'Auto-merge failed: PR number was not returned by GitHub.',
-          });
-          console.log(`[kanban-orchestrator] Card #${card.id} auto-merge skipped: missing PR number`);
-        } else if (yolo) {
+        if (outcome.movedToDone) {
           workspace.lastColumnMap.set(card.id, 'done');
-          await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'idle', column: 'done', completedAt: new Date().toISOString() });
-          console.log(`[kanban-orchestrator] Card #${card.id} YOLO auto-completed: ${result.prUrl}`);
           await this.runDoneCleanup(workspace, card);
-        } else {
-          await updateCard(workspace.stateFilePath, card.id, { ...prUpdate, status: 'waiting-input' });
-          console.log(`[kanban-orchestrator] Card #${card.id} PR created: ${result.prUrl}`);
         }
       } else {
         await updateCard(workspace.stateFilePath, card.id, {

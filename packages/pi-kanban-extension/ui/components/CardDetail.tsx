@@ -85,8 +85,6 @@ export function CardDetail({
     try {
       await persistRevisionRequest({
         stateFilePath: appContext.stateFilePath,
-        workspaceId: appContext.workspaceId,
-        workspacePath: appContext.workspacePath,
       }, card, feedback);
       onUpdate((prev) => applyRequestRevisions(prev, card.id, feedback));
     } catch (err) {
@@ -103,8 +101,6 @@ export function CardDetail({
     try {
       await persistPrCancellation({
         stateFilePath: appContext.stateFilePath,
-        workspaceId: appContext.workspaceId,
-        workspacePath: appContext.workspacePath,
       }, card);
       onUpdate((prev) => applyCancelPR(prev, card.id));
     } catch (err) {

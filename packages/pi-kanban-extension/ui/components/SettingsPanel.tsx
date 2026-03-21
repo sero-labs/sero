@@ -193,17 +193,7 @@ export function SettingsPanel({
                 label="🔥 YOLO Mode"
                 description="Auto-start, auto-approve, and auto-complete cards with no human gates."
                 enabled={settings.yoloMode}
-                onToggle={() => {
-                  onUpdate((prev) => ({
-                    ...prev,
-                    settings: {
-                      ...prev.settings,
-                      yoloMode: !prev.settings.yoloMode,
-                      // Disable auto-merge when YOLO is turned off
-                      yoloAutoMergePrs: prev.settings.yoloMode ? false : prev.settings.yoloAutoMergePrs,
-                    },
-                  }));
-                }}
+                onToggle={() => updateSetting('yoloMode', !settings.yoloMode)}
                 activeColor="red"
               />
               {settings.yoloMode && (

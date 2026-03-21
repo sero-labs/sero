@@ -1,5 +1,3 @@
-import { getSeroApi } from '@sero/app-runtime';
-
 import type { Card } from '../../shared/types';
 import {
   buildCancelPrError,
@@ -9,8 +7,6 @@ import {
 
 interface ReviewActionContext {
   stateFilePath: string;
-  workspaceId: string;
-  workspacePath: string;
 }
 
 export async function persistRevisionRequest(
@@ -21,44 +17,18 @@ export async function persistRevisionRequest(
   await appendReviewActionError(ctx.stateFilePath, buildRevisionRequestError(card, feedback));
 }
 
+/**
+ * Persist a PR cancellation to the error log.
+ *
+ * Worktree cleanup is NOT performed here — it is handled server-side by
+ * the extension's `cancel-pr` action (which uses `execFile` with array
+ * args, avoiding shell injection). The state update from `applyCancelPR`
+ * clears `worktreePath`, and the orchestrator's cleanup cycle handles
+ * any remaining worktree artifacts.
+ */
 export async function persistPrCancellation(
   ctx: ReviewActionContext,
-  card: Pick<Card, 'id' | 'title' | 'worktreePath'>,
+  card: Pick<Card, 'id' | 'title'>,
 ): Promise<void> {
-  const { editor } = getSeroApi();
-  if (!editor) {
-    throw new Error('Kanban review actions are unavailable in this runtime.');
-  }
-
-  const worktreePath = resolveWorktreePath(ctx.workspacePath, card);
-  const command = [
-    'set -e',
-    `if git worktree remove ${shellQuote(worktreePath)} --force; then`,
-    '  true',
-    'else',
-    `  rm -rf ${shellQuote(worktreePath)}`,
-    'fi',
-    'git worktree prune || true',
-  ].join('\n');
-  const result = await editor.exec(ctx.workspaceId, command);
-  if (result.exitCode !== 0) {
-    throw new Error(result.stderr.trim() || 'Failed to remove the review worktree.');
-  }
-
   await appendReviewActionError(ctx.stateFilePath, buildCancelPrError(card));
-}
-
-function resolveWorktreePath(
-  workspacePath: string,
-  card: Pick<Card, 'id' | 'worktreePath'>,
-): string {
-  const prefix = workspacePath.endsWith('/') ? workspacePath : `${workspacePath}/`;
-  if (card.worktreePath?.startsWith(prefix)) {
-    return card.worktreePath.slice(prefix.length);
-  }
-  return `.sero/worktrees/card-${card.id}`;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
 }
