@@ -170,7 +170,7 @@ export function registerEditorHandlers(): void {
     },
   );
 
-  // Read a binary file as base64 (for image previews in the editor)
+  // Read a binary file as base64 (for media/document previews in the editor)
   ipcMain.handle(
     IpcChannels.editor.readBinaryFile,
     async (_e, workspaceId: string, filePath: string): Promise<string> => {
