@@ -1,6 +1,6 @@
 /**
  * ViewModeToggle — code/preview toggle buttons shown in the editor tab bar
- * for previewable file types (markdown, HTML).
+ * for file types that support both source and rendered preview modes.
  */
 
 import { Code2, Eye } from 'lucide-react';

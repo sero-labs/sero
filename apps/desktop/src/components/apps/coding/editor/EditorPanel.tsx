@@ -8,19 +8,19 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
+import * as monacoApi from 'monaco-editor';
 import type { editor as monacoEditor, IRange, IPosition } from 'monaco-editor';
 import { EditorTabBar, type EditorTab } from './EditorTabBar';
-import { ImagePreview, isImageFile } from './ImagePreview';
-import { VideoPreview, isVideoFile } from './VideoPreview';
-import { HtmlPreview, isHtmlFile } from './HtmlPreview';
 import { DevServerPreview, isDevServerTab } from './DevServerPreview';
+import { FilePreviewPane } from './FilePreviewPane';
+import {
+  getFilePreviewSpec,
+  isBinaryPreviewFile,
+  shouldDefaultToPreview,
+} from './file-preview-registry';
 import { ViewModeToggle, type ViewMode } from './ViewModeToggle';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
-import { Streamdown } from 'streamdown';
-import { code } from '@streamdown/code';
-import { math } from '@streamdown/math';
-import { mermaid } from '@streamdown/mermaid';
 
 
 interface Props {
@@ -32,7 +32,6 @@ interface Props {
   onCloseOtherTabs: (path: string) => void;
   onCloseAllTabs: () => void;
   onReorderTabs: (paths: string[]) => void;
-  onTabsChange: (tabs: string[], activeTab: string | null) => void;
 }
 
 /* ── Language map ────────────────────────────────────────────── */
@@ -67,32 +66,28 @@ function getLanguage(filePath: string): string {
 }
 
 export function EditorPanel({
-  workspaceId, tabs, activeTab, onOpenTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, onReorderTabs, onTabsChange,
+  workspaceId, tabs, activeTab, onOpenTab, onCloseTab, onCloseOtherTabs, onCloseAllTabs, onReorderTabs,
 }: Props) {
   const [dirtyPaths, setDirtyPaths] = useState<Set<string>>(new Set());
   const [content, setContent] = useState('');
   const [language, setLanguage] = useState('typescript');
   const [viewMode, setViewMode] = useState<ViewMode>('code');
 
-  type Monaco = typeof import('monaco-editor');
-
   const contentMapRef = useRef(new Map<string, string>());
   const savedContentRef = useRef(new Map<string, string>());
   const viewStateMapRef = useRef(new Map<string, monacoEditor.ICodeEditorViewState | null>());
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null);
-  const monacoRef = useRef<Monaco | null>(null);
-  const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
+  const monacoRef = useRef<typeof monacoApi | null>(null);
+  const [monacoInstance, setMonacoInstance] = useState<typeof monacoApi | null>(null);
   const [editorInstance, setEditorInstance] = useState<monacoEditor.IStandaloneCodeEditor | null>(null);
   const pendingGotoRef = useRef<{ path: string; selection: IRange | IPosition } | null>(null);
 
   const appTheme = useAppStore((s) => s.theme);
-  const isMarkdownTab = !!activeTab && getLanguage(activeTab) === 'markdown';
-  const isHtmlTab = !!activeTab && isHtmlFile(activeTab);
+  const previewSpec = activeTab ? getFilePreviewSpec(activeTab) : null;
   const isDevServer = !!activeTab && isDevServerTab(activeTab);
-  const isPreviewableTab = isMarkdownTab || isHtmlTab;
-  const isPreview = isPreviewableTab && viewMode === 'preview';
-  const isImageTab = !!activeTab && isImageFile(activeTab);
-  const isVideoTab = !!activeTab && isVideoFile(activeTab);
+  const supportsCodeView = !!previewSpec?.supportsCodeView;
+  const isBinaryPreviewTab = previewSpec?.source === 'binary';
+  const shouldRenderPreview = !!previewSpec && (isBinaryPreviewTab || viewMode === 'preview');
 
   // ── LSP integration ──
   const { sendDidSave } = useLsp({
@@ -103,8 +98,8 @@ export function EditorPanel({
   // ── Load file when activeTab changes ──
   useEffect(() => {
     if (!activeTab) { setContent(''); return; }
-    // Image/video files and dev server previews don't need text loading
-    if (isImageFile(activeTab) || isVideoFile(activeTab) || isDevServerTab(activeTab)) { setContent(''); setLanguage('plaintext'); return; }
+    // Binary/media files and dev server previews don't need text loading.
+    if (isBinaryPreviewFile(activeTab) || isDevServerTab(activeTab)) { setContent(''); setLanguage('plaintext'); return; }
 
     // Apply a stored go-to-definition position after content is ready.
     const schedulePendingGoto = () => {
@@ -145,9 +140,9 @@ export function EditorPanel({
     return () => { cancelled = true; };
   }, [workspaceId, activeTab]);
 
-  // ── Default previewable files (markdown, HTML) to preview mode when opened ──
+  // ── Default previewable files to preview mode when opened ──
   useEffect(() => {
-    if (activeTab && (getLanguage(activeTab) === 'markdown' || isHtmlFile(activeTab))) {
+    if (activeTab && shouldDefaultToPreview(activeTab)) {
       setViewMode('preview');
     } else {
       setViewMode('code');
@@ -262,11 +257,11 @@ export function EditorPanel({
     if (!(e.metaKey || e.ctrlKey)) return;
     if (e.key === 's') { e.preventDefault(); handleSave(); }
     else if (e.key === 'w') { e.preventDefault(); if (activeTab) handleCloseTab(activeTab); }
-    else if (e.shiftKey && e.key.toLowerCase() === 'v' && isPreviewableTab) {
+    else if (e.shiftKey && e.key.toLowerCase() === 'v' && supportsCodeView) {
       e.preventDefault();
       handleViewModeChange(viewMode === 'code' ? 'preview' : 'code');
     }
-  }, [handleSave, activeTab, handleCloseTab, isPreviewableTab, viewMode, handleViewModeChange]);
+  }, [handleSave, activeTab, handleCloseTab, supportsCodeView, viewMode, handleViewModeChange]);
 
   // ── Open tab handler (save view state of current before switch) ──
   const handleOpenTab = useCallback((path: string) => {
@@ -304,7 +299,7 @@ export function EditorPanel({
   }, [monacoInstance]);
 
   // ── Monaco lifecycle ──
-  const handleBeforeMount = useCallback((monaco: Monaco) => {
+  const handleBeforeMount = useCallback((monaco: typeof monacoApi) => {
     monaco.languages.typescript?.typescriptDefaults?.setDiagnosticsOptions({
       noSemanticValidation: true, noSyntaxValidation: true,
     });
@@ -313,7 +308,7 @@ export function EditorPanel({
     });
   }, []);
 
-  const handleEditorMount = useCallback((ed: monacoEditor.IStandaloneCodeEditor, mon: Monaco) => {
+  const handleEditorMount = useCallback((ed: monacoEditor.IStandaloneCodeEditor, mon: typeof monacoApi) => {
     editorRef.current = ed;
     monacoRef.current = mon;
     setMonacoInstance(mon);
@@ -425,7 +420,7 @@ export function EditorPanel({
         onSelectTab={handleOpenTab} onCloseTab={handleCloseTab}
         onCloseOtherTabs={handleCloseOtherTabs} onCloseAllTabs={handleCloseAllTabs}
         onReorderTabs={onReorderTabs}
-        rightSlot={isPreviewableTab ? (
+        rightSlot={supportsCodeView ? (
           <ViewModeToggle viewMode={viewMode} onModeChange={handleViewModeChange} />
         ) : undefined}
       />
@@ -433,23 +428,13 @@ export function EditorPanel({
         {activeTab ? (
           isDevServer ? (
             <DevServerPreview key={activeTab} tabPath={activeTab} />
-          ) : isImageTab ? (
-            <ImagePreview workspaceId={workspaceId} filePath={activeTab} />
-          ) : isVideoTab ? (
-            <VideoPreview workspaceId={workspaceId} filePath={activeTab} />
-          ) : isHtmlTab && isPreview ? (
-            <HtmlPreview content={content} filePath={activeTab} />
-          ) : isMarkdownTab && isPreview ? (
-            <div className="h-full overflow-auto">
-              <div className="mx-auto w-full max-w-[920px] px-6 py-5">
-                <Streamdown
-                  mode="static"
-                  plugins={{ code, math, mermaid }}
-                >
-                  {content}
-                </Streamdown>
-              </div>
-            </div>
+          ) : previewSpec && shouldRenderPreview ? (
+            <FilePreviewPane
+              workspaceId={workspaceId}
+              filePath={activeTab}
+              content={content}
+              spec={previewSpec}
+            />
           ) : (
             <Editor
               height="100%" language={language} path={activeTab}

@@ -215,7 +215,7 @@ export const IpcChannels = {
   editor: {
     /** Read a file from the workspace (dual-mode: container or host). */
     readFile: 'sero:editor:read-file',
-    /** Read a binary file as base64 (for image preview). */
+    /** Read a binary file as base64 (for media/document previews). */
     readBinaryFile: 'sero:editor:read-binary-file',
     /** Write a file to the workspace (dual-mode: container or host). */
     writeFile: 'sero:editor:write-file',

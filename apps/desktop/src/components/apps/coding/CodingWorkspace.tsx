@@ -232,11 +232,6 @@ export function CodingWorkspace() {
     setEditorTabs(newOrder);
   }, []);
 
-  const handleTabsChange = useCallback((tabs: string[], active: string | null) => {
-    setEditorTabs(tabs);
-    setActiveTab(active);
-  }, []);
-
   // VcsPanel → open diff in editor area
   const handleOpenDiff = useCallback((from: string, to: string, path?: string) => {
     setDiffState({
@@ -448,7 +443,7 @@ export function CodingWorkspace() {
                   tabs={editorTabs} activeTab={activeTab}
                   onOpenTab={handleOpenTab} onCloseTab={handleCloseTab}
                   onCloseOtherTabs={handleCloseOtherTabs} onCloseAllTabs={handleCloseAllTabs}
-                  onReorderTabs={handleReorderTabs} onTabsChange={handleTabsChange}
+                  onReorderTabs={handleReorderTabs}
                 />
               )}
             </div>
