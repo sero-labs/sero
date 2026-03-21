@@ -5,6 +5,7 @@
  * in the workspace cwd. Output is parsed into typed structures.
  */
 
+import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import type {
@@ -217,11 +218,18 @@ export function getStashes(cwd: string): StashEntry[] {
 export function getFileDiff(cwd: string, filePath: string, staged: boolean): FileDiff | null {
   const args = staged ? ['diff', '--cached', '--', filePath] : ['diff', '--', filePath];
   const raw = git(args, cwd);
-  return parseDiffOutput(raw, filePath, staged);
+  const diff = parseDiffOutput(raw, filePath, staged);
+  if (diff) return diff;
+
+  if (!staged && isUntrackedWorktreePath(cwd, filePath)) {
+    return createUntrackedFileDiff(cwd, filePath, staged);
+  }
+
+  return null;
 }
 
 export function getCommitDiff(cwd: string, hash: string): FileDiff[] {
-  const raw = git(['diff-tree', '-p', '--no-commit-id', hash], cwd);
+  const raw = git(['diff-tree', '--root', '-p', '--no-commit-id', hash], cwd);
   if (!raw) return [];
   return splitDiffByFile(raw);
 }
@@ -239,9 +247,9 @@ function parseDiffOutput(raw: string, filePath: string, staged: boolean): FileDi
 
   return {
     path: filePath,
-    status: 'modified',
+    status: inferDiffStatus(raw),
     hunks,
-    binary: raw.includes('Binary files'),
+    binary: raw.includes('Binary files') || raw.includes('GIT binary patch'),
     additions,
     deletions,
     staged,
@@ -263,21 +271,82 @@ function splitDiffByFile(raw: string): FileDiff[] {
       return sum + hunk.lines.filter((line) => line.type === 'delete').length;
     }, 0);
 
-    let status: FileChangeStatus = 'modified';
-    if (chunk.includes('new file')) status = 'added';
-    else if (chunk.includes('deleted file')) status = 'deleted';
-    else if (chunk.includes('rename from')) status = 'renamed';
-
     fileDiffs.push({
       path: filePath,
-      status,
+      status: inferDiffStatus(chunk),
       hunks,
-      binary: chunk.includes('Binary'),
+      binary: chunk.includes('Binary files') || chunk.includes('GIT binary patch'),
       additions,
       deletions,
     });
   }
   return fileDiffs;
+}
+
+function inferDiffStatus(raw: string): FileChangeStatus {
+  if (raw.includes('new file')) return 'added';
+  if (raw.includes('deleted file')) return 'deleted';
+  if (raw.includes('rename from')) return 'renamed';
+  if (raw.includes('copy from')) return 'copied';
+  return 'modified';
+}
+
+function isUntrackedWorktreePath(cwd: string, filePath: string): boolean {
+  const raw = git(['status', '--porcelain=v1', '--', filePath], cwd);
+  return raw.split('\n').some((line) => line.startsWith('?? '));
+}
+
+function createUntrackedFileDiff(cwd: string, filePath: string, staged: boolean): FileDiff | null {
+  try {
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(cwd, filePath);
+    const stats = statSync(absolutePath);
+    if (!stats.isFile()) return null;
+
+    const buffer = readFileSync(absolutePath);
+    const binary = buffer.includes(0);
+    if (binary) {
+      return {
+        path: filePath,
+        status: 'untracked',
+        hunks: [],
+        binary: true,
+        additions: 0,
+        deletions: 0,
+        staged,
+      };
+    }
+
+    const lines = splitFileLines(buffer.toString('utf8'));
+    return {
+      path: filePath,
+      status: 'untracked',
+      hunks: lines.length > 0
+        ? [{
+          oldStart: 0,
+          oldCount: 0,
+          newStart: 1,
+          newCount: lines.length,
+          lines: lines.map((content, index) => ({
+            type: 'add' as const,
+            content,
+            newLineNo: index + 1,
+          })),
+        }]
+        : [],
+      binary: false,
+      additions: lines.length,
+      deletions: 0,
+      staged,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function splitFileLines(content: string): string[] {
+  const lines = content.split('\n');
+  if (lines.at(-1) === '') lines.pop();
+  return lines;
 }
 
 function parseHunks(raw: string): DiffHunk[] {
@@ -330,7 +399,7 @@ function parseDiffLines(body: string, oldStart: number, newStart: number): DiffL
       result.push({ type: 'add', content: rawLine.substring(1), newLineNo: newLine++ });
     } else if (rawLine.startsWith('-')) {
       result.push({ type: 'delete', content: rawLine.substring(1), oldLineNo: oldLine++ });
-    } else if (rawLine.startsWith(' ') || rawLine === '') {
+    } else if (rawLine.startsWith(' ')) {
       result.push({
         type: 'context',
         content: rawLine.substring(1),

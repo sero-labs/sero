@@ -24,7 +24,9 @@ import {
 import { runGit } from './git-exec';
 import { readState, writeState } from './state-io';
 
-const GIT_STATE_IGNORE_RULE = '.sero/apps/git/';
+// Match the Git app state directory anywhere in the repo so nested workspaces
+// (e.g. repo/subdir/.sero/apps/git/state.json) do not show up as untracked.
+const GIT_STATE_IGNORE_RULE = '**/.sero/apps/git/';
 
 export type GitActionResult = {
   ok: boolean;
