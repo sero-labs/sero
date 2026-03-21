@@ -10,7 +10,6 @@ import { useCallback } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, X } from 'lucide-react';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
-import { useAppStore } from '@/stores/app';
 import type { ChatToolCallMessage } from '@/types/ipc';
 
 interface Props {
@@ -23,10 +22,10 @@ export function QuestionnaireNotice({ tools }: Props) {
   const label = isInterview ? 'interview' : 'questionnaire';
 
   const cancel = useUserFeedbackStore((s) => s.cancel);
+  const openFeedbackApp = useUserFeedbackStore((s) => s.openFeedbackApp);
   const pending = useUserFeedbackStore(
     (s) => s.getPending(isInterview ? 'interview' : 'questionnaire'),
   );
-  const setActiveApp = useAppStore((s) => s.setActiveApp);
 
   // Derive question count from tool input with validation
   const rawInput = tools[0]?.input;
@@ -36,8 +35,8 @@ export function QuestionnaireNotice({ tools }: Props) {
   const count = Array.isArray(questionsArr) ? questionsArr.length : 0;
 
   const handleClick = useCallback(() => {
-    setActiveApp('userfeedback');
-  }, [setActiveApp]);
+    openFeedbackApp();
+  }, [openFeedbackApp]);
 
   const handleCancel = useCallback(
     (e: React.MouseEvent) => {
