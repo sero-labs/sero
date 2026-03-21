@@ -215,10 +215,10 @@ async function handleRecord(args: string[], ctx: CliCommandContext) {
       const { flags } = parseFlags(rest);
       const savePath = requireFlagString(flags, 'save');
 
-      // Determine destination: --save flag, or default to <workspace>/screen-capture/
+      // Determine destination: --save flag, or default to <workspace>/sero-recordings/
       const ext = result.isVideo ? '.mp4' : '.png';
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const defaultDir = pathMod.join(ctx.cwd, 'screen-capture');
+      const defaultDir = pathMod.join(ctx.cwd, 'sero-recordings');
       const destPath = savePath
         ? (pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath))
         : pathMod.join(defaultDir, `recording-${ts}${ext}`);

@@ -359,7 +359,7 @@ async function handleStartRecording(
 
 /**
  * Stop recording and encode captured frames to MP4.
- * Defaults to saving in <workspace>/screen-capture/ if no save_path is specified.
+ * Defaults to saving in <workspace>/sero-recordings/ if no save_path is specified.
  */
 async function handleStopRecording(
   workspaceId: string,
@@ -387,13 +387,13 @@ async function handleStopRecording(
     };
   }
 
-  // Default to <workspace>/screen-capture/ on the host
+  // Default to <workspace>/sero-recordings/ on the host
   let outputPath = savePath;
   if (!outputPath) {
     const wsPath = workspaceManager.getPath(workspaceId);
     if (wsPath) {
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      outputPath = path.join(wsPath, 'screen-capture', `browser-recording-${ts}.mp4`);
+      outputPath = path.join(wsPath, 'sero-recordings', `browser-recording-${ts}.mp4`);
     }
   }
 
