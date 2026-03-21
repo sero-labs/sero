@@ -172,4 +172,54 @@ describe('executeReview', () => {
     expect(saved.prTitle).toBe('feat: reviewer tool output');
     expect(saved.summary).toBe('Looks good.');
   });
+
+  it('ignores stale cached review files when the card no longer points at them', async () => {
+    const workspaceRoot = path.join(tmpDir, 'workspace');
+    const worktreePath = path.join(workspaceRoot, '.sero', 'worktrees', 'card-1');
+    const reviewFile = path.join(workspaceRoot, '.sero', 'apps', 'kanban', 'reviews', 'card-1.json');
+    await fs.mkdir(path.dirname(reviewFile), { recursive: true });
+    await fs.mkdir(worktreePath, { recursive: true });
+    await fs.writeFile(reviewFile, JSON.stringify({
+      prTitle: 'feat: stale cache',
+      prBody: 'stale body',
+      summary: 'stale summary',
+      approved: true,
+      verdict: 'merge',
+      categorizedIssues: [],
+      issues: [],
+    }), 'utf8');
+
+    const runSingleStructured = vi.fn().mockImplementation(async (params: { customTools?: ToolDefinition[] }) => {
+      const tool = params.customTools?.find((entry) => entry.name === 'kanban_submit_review');
+      await tool!.execute('tool-call-1', {
+        approved: true,
+        summary: 'fresh summary',
+        verdict: 'merge',
+        categorizedIssues: [],
+        issues: [],
+        prTitle: 'feat: fresh review',
+        prBody: 'fresh body',
+      }, undefined, undefined, {} as never);
+      return { response: 'fresh review submitted via tool' };
+    });
+
+    await executeReview(
+      {
+        subagentManager: { runSingleStructured } as never,
+        workspaceId: 'workspace-1',
+        settings: makeSettings(),
+      },
+      makeCard({ reviewFilePath: undefined }),
+      worktreePath,
+      'feat/review-feature-1',
+      makeTracker(),
+    );
+
+    expect(runSingleStructured).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createPrFromWorktree)).toHaveBeenLastCalledWith(worktreePath, {
+      title: 'feat: fresh review',
+      body: 'fresh body',
+      baseBranch: 'main',
+    });
+  });
 });

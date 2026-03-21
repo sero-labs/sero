@@ -77,6 +77,10 @@ export class KanbanOrchestrator {
 
   async watchWorkspace(workspaceId: string, workspacePath: string): Promise<void> {
     const stateFilePath = path.join(workspacePath, '.sero', 'apps', 'kanban', 'state.json');
+    const existing = this.watched.get(workspaceId);
+    if (existing?.stateFilePath === stateFilePath) return;
+    if (existing) this.unwatchWorkspace(workspaceId);
+
     const initial = await appStateManager.read(stateFilePath) as KanbanState | null;
     const lastColumnMap = new Map<string, Column>();
     if (initial?.cards) {

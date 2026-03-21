@@ -1,7 +1,9 @@
 import type { KanbanState } from '../shared/types';
 import { COLUMN_LABELS } from '../shared/types';
+import { resolveWorkspacePathFromStatePath } from '../shared/error-log';
 import { validateReviewDecision } from '../shared/validation';
 import { appendError } from './error-log';
+import { closePullRequest, deleteReviewCache } from './review-artifacts';
 import { writeState } from './state-io';
 import { removeWorktree } from './worktree-cleanup';
 
@@ -49,13 +51,16 @@ export async function handleRequestRevisions(
     return formatReviewDecisionError(id, 'Request Revisions', state);
   }
 
+  const reviewFilePath = card.reviewFilePath;
   card.column = 'in-progress';
   card.status = 'agent-working';
   card.error = `[REVISION REQUEST] ${feedback}`;
   card.previewServerId = undefined;
   card.previewUrl = undefined;
+  card.reviewFilePath = undefined;
   card.reviewProgress = undefined;
   card.updatedAt = new Date().toISOString();
+  await deleteReviewCache(resolveWorkspacePathFromStatePath(statePath), card.id, reviewFilePath);
   await writeState(statePath, state);
 
   await appendError(statePath, {
@@ -84,9 +89,19 @@ export async function handleCancelPR(
     return formatReviewDecisionError(id, 'Cancel PR', state);
   }
 
+  if (card.prNumber) {
+    try {
+      await closePullRequest(workspacePath, card.prNumber);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return text(`Failed to cancel PR for #${card.id}: ${message}`);
+    }
+  }
+
   if (card.worktreePath) {
     await removeWorktree(workspacePath, card.worktreePath);
   }
+  await deleteReviewCache(workspacePath, card.id, card.reviewFilePath);
 
   card.column = 'backlog';
   card.status = 'idle';
@@ -97,6 +112,7 @@ export async function handleCancelPR(
   card.worktreePath = undefined;
   card.previewServerId = undefined;
   card.previewUrl = undefined;
+  card.reviewFilePath = undefined;
   card.planningProgress = undefined;
   card.implementationProgress = undefined;
   card.reviewProgress = undefined;
@@ -114,5 +130,5 @@ export async function handleCancelPR(
     message: 'PR cancelled by user — card returned to backlog',
   });
 
-  return text(`Cancelled PR for #${card.id} "${card.title}" — moved back to Backlog. Worktree cleaned up.`);
+  return text(`Cancelled PR for #${card.id} "${card.title}" — closed on GitHub, moved back to Backlog, and cleaned up locally.`);
 }

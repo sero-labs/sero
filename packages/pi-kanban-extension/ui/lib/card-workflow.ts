@@ -138,6 +138,7 @@ export function applyRequestRevisions(
     error: `[REVISION REQUEST] ${feedback}`,
     previewServerId: undefined,
     previewUrl: undefined,
+    reviewFilePath: undefined,
     reviewProgress: undefined,
     updatedAt: now,
   }));
@@ -145,7 +146,7 @@ export function applyRequestRevisions(
 
 /**
  * Cancel a PR — moves card back to backlog, clears all workflow state.
- * Worktree cleanup is handled by the extension via promptAgent.
+ * Host-side review action effects close the PR and remove cached artifacts.
  */
 export function applyCancelPR(
   state: KanbanState,
@@ -173,6 +174,7 @@ export function applyCancelPR(
     worktreePath: undefined,
     previewServerId: undefined,
     previewUrl: undefined,
+    reviewFilePath: undefined,
     planningProgress: undefined,
     implementationProgress: undefined,
     reviewProgress: undefined,

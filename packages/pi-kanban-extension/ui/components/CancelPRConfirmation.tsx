@@ -48,7 +48,7 @@ export function CancelPRConfirmation({
       }}
     >
       <p style={{ fontSize: '11px', color: '#f87171', marginBottom: '8px', lineHeight: 1.4 }}>
-        This will move the card back to Backlog and remove the worktree. The PR will not be deleted from GitHub.
+        This will close the PR on GitHub, move the card back to Backlog, and remove the local worktree.
       </p>
       <div className="flex" style={{ gap: '8px' }}>
         <button

@@ -1,10 +1,13 @@
 import { appStateManager } from '../app-state';
+import { updateCard } from './state-helpers';
+import { closePullRequest, deleteReviewCache } from './review-artifacts';
 import type { WorktreeManager } from './worktree-manager';
 import type { Card } from './types';
 
 const ERROR_LOG_FILENAME = 'errors.json';
 const REVISION_REQUEST_PREFIX = '[REVISION REQUEST] ';
 const PR_CANCELLED_PREFIX = '[PR CANCELLED]';
+const RECENT_ACTION_DEDUPE_WINDOW_MS = 10_000;
 
 interface ErrorReport {
   id: string;
@@ -37,6 +40,7 @@ export async function applyReviewActionEffects(
     const feedback = currentCard.error?.slice(REVISION_REQUEST_PREFIX.length).trim();
     if (!feedback) return;
 
+    await deleteReviewCache(ctx.workspacePath, currentCard.id, previousCard?.reviewFilePath);
     await appendReviewActionError(
       ctx.stateFilePath,
       currentCard.id,
@@ -49,6 +53,18 @@ export async function applyReviewActionEffects(
   if (!isCancelPrTransition(previousCard, currentCard)) {
     return;
   }
+
+  if (previousCard?.prNumber) {
+    try {
+      await closePullRequest(ctx.workspacePath, previousCard.prNumber);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await restoreCancelledCard(ctx.stateFilePath, previousCard, message);
+      return;
+    }
+  }
+
+  await deleteReviewCache(ctx.workspacePath, currentCard.id, previousCard?.reviewFilePath);
 
   try {
     await ctx.worktreeManager.remove(ctx.workspacePath, currentCard.id, {
@@ -88,6 +104,27 @@ function isReviewDecisionSource(card: Card | undefined): boolean {
   return card?.column === 'review' && card.status === 'waiting-input' && !!card.prUrl;
 }
 
+async function restoreCancelledCard(
+  stateFilePath: string,
+  previousCard: Card,
+  failure: string,
+): Promise<void> {
+  await updateCard(stateFilePath, previousCard.id, {
+    column: 'review',
+    status: 'waiting-input',
+    branch: previousCard.branch,
+    worktreePath: previousCard.worktreePath,
+    subtasks: previousCard.subtasks,
+    plan: previousCard.plan,
+    prUrl: previousCard.prUrl,
+    prNumber: previousCard.prNumber,
+    previewServerId: previousCard.previewServerId,
+    previewUrl: previousCard.previewUrl,
+    reviewFilePath: previousCard.reviewFilePath,
+    error: `Cancel PR failed: ${failure}`,
+  });
+}
+
 async function appendReviewActionError(
   stateFilePath: string,
   cardId: string,
@@ -96,6 +133,9 @@ async function appendReviewActionError(
 ): Promise<void> {
   await appStateManager.update<ErrorLog>(resolveErrorLogPath(stateFilePath), (current) => {
     const log = normalizeErrorLog(current);
+    if (hasRecentMatchingError(log.errors, cardId, message)) {
+      return log;
+    }
     return {
       ...log,
       errors: [
@@ -120,6 +160,15 @@ function createErrorReport(cardId: string, cardTitle: string, message: string): 
     message,
     timestamp,
   };
+}
+
+function hasRecentMatchingError(errors: ErrorReport[], cardId: string, message: string): boolean {
+  const cutoff = Date.now() - RECENT_ACTION_DEDUPE_WINDOW_MS;
+  return errors.some((error) =>
+    error.cardId === cardId
+    && error.message === message
+    && Date.parse(error.timestamp) >= cutoff,
+  );
 }
 
 function normalizeErrorLog(raw: unknown): ErrorLog {

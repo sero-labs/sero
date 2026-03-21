@@ -5,6 +5,8 @@ import type { Card, KanbanState } from '../../shared/types';
 const writeState = vi.fn();
 const appendError = vi.fn();
 const removeWorktree = vi.fn();
+const closePullRequest = vi.fn();
+const deleteReviewCache = vi.fn();
 
 vi.mock('../state-io', () => ({
   writeState,
@@ -16,6 +18,11 @@ vi.mock('../error-log', () => ({
 
 vi.mock('../worktree-cleanup', () => ({
   removeWorktree,
+}));
+
+vi.mock('../review-artifacts', () => ({
+  closePullRequest,
+  deleteReviewCache,
 }));
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -62,6 +69,8 @@ describe('review actions', () => {
     writeState.mockReset();
     appendError.mockReset();
     removeWorktree.mockReset();
+    closePullRequest.mockReset();
+    deleteReviewCache.mockReset();
   });
 
   it('blocks request-revisions until the card is awaiting input with a PR', async () => {
@@ -93,8 +102,10 @@ describe('review actions', () => {
 
     const result = await handleCancelPR('/tmp/state.json', state, '/workspace', '1');
 
-    expect(result.content[0]?.text).toContain('Worktree cleaned up');
+    expect(result.content[0]?.text).toContain('closed on GitHub');
+    expect(closePullRequest).toHaveBeenCalledWith('/workspace', 87);
     expect(removeWorktree).toHaveBeenCalledWith('/workspace', '/tmp/card-1');
+    expect(deleteReviewCache).toHaveBeenCalledWith('/workspace', '1', undefined);
     expect(writeState).toHaveBeenCalledWith('/tmp/state.json', state);
     expect(appendError).toHaveBeenCalledWith('/tmp/state.json', expect.objectContaining({
       cardId: '1',
@@ -111,5 +122,24 @@ describe('review actions', () => {
       plan: undefined,
     });
     expect(state.cards[0]?.subtasks).toEqual([]);
+  });
+
+  it('keeps the card in review when GitHub PR close fails', async () => {
+    const { handleCancelPR } = await import('../review-actions');
+    const state = makeState(makeCard());
+    closePullRequest.mockRejectedValue(new Error('GitHub auth failed'));
+
+    const result = await handleCancelPR('/tmp/state.json', state, '/workspace', '1');
+
+    expect(result.content[0]?.text).toContain('Failed to cancel PR for #1');
+    expect(removeWorktree).not.toHaveBeenCalled();
+    expect(deleteReviewCache).not.toHaveBeenCalled();
+    expect(writeState).not.toHaveBeenCalled();
+    expect(state.cards[0]).toMatchObject({
+      column: 'review',
+      status: 'waiting-input',
+      prUrl: 'https://github.com/monobyte/sero/pull/87',
+      prNumber: 87,
+    });
   });
 });
