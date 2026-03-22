@@ -35,6 +35,7 @@ export interface SeroApi {
   };
   skills: {
     listAvailableSkills(): Promise<AvailableSkillInfo[]>;
+    setDisabledModelSkills(skillNames: string[]): Promise<void>;
   };
 }
 

@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  getDisabledModelSkills,
-  withDisabledModelSkills,
-} from '../../shared/skill-visibility';
+import { getDisabledModelSkills } from '../../shared/skill-visibility';
 import { getSero, type AvailableSkillInfo } from './useSeroFiles';
 
 interface SkillVisibilityRow extends AvailableSkillInfo {
@@ -86,10 +83,7 @@ export function useSkillVisibility(profilePath: string | null): UseSkillVisibili
       .catch(() => undefined)
       .then(async () => {
         const sero = getSero();
-        const settingsResult = await sero.appState.read(settingsPath);
-        const settings = isRecord(settingsResult) ? settingsResult : {};
-        const nextSettings = withDisabledModelSkills(settings, disabledSkillSnapshot);
-        await sero.appState.write(settingsPath, nextSettings);
+        await sero.skills.setDisabledModelSkills(disabledSkillSnapshot);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Failed to save skill visibility');

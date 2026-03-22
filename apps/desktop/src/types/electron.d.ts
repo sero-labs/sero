@@ -327,6 +327,8 @@ interface SeroSkillsAPI {
   listSkills(): Promise<SkillSummary[]>;
   /** List all globally available skills loaded by Sero. */
   listAvailableSkills(): Promise<AvailableSkillSummary[]>;
+  /** Persist the set of skills hidden from automatic model invocation. */
+  setDisabledModelSkills(skillNames: string[]): Promise<void>;
   /** Read full skill data by absolute filePath (from listSkills). */
   readSkill(filePath: string): Promise<SkillFileData>;
   /** Create or update a skill's SKILL.md. Returns the written filePath. */

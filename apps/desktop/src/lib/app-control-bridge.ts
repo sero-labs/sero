@@ -48,6 +48,16 @@ function clickTarget(target: HTMLElement): void {
   target.click();
 }
 
+function clickTargetAt(target: HTMLElement, clientX: number, clientY: number): void {
+  target.focus({ preventScroll: true });
+  target.dispatchEvent(new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    clientX,
+    clientY,
+  }));
+}
+
 // ── Interaction Engine ───────────────────────────────────────
 
 async function executeInteraction(params: AppInteractionParams): Promise<AppInteractionResult> {
@@ -80,14 +90,16 @@ function handleClick(panel: HTMLElement, p: AppInteractionParams): AppInteractio
         message: `Coordinates (${p.x}, ${p.y}) are outside the app panel (${Math.round(r.width)}×${Math.round(r.height)} CSS px).`,
       };
     }
-    const target = resolveClickTarget(panel, document.elementFromPoint(r.left + p.x, r.top + p.y));
+    const clientX = r.left + p.x;
+    const clientY = r.top + p.y;
+    const target = resolveClickTarget(panel, document.elementFromPoint(clientX, clientY));
     if (!target) {
       return {
         success: false,
         message: `No clickable element in app panel at (${p.x}, ${p.y})`,
       };
     }
-    clickTarget(target);
+    clickTargetAt(target, clientX, clientY);
     return { success: true, message: `Clicked at (${p.x}, ${p.y})` };
   }
   return { success: false, message: 'Click requires selector or x,y coordinates' };

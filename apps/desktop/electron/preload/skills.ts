@@ -14,6 +14,8 @@ export const skillsBridge = {
     ipcRenderer.invoke(IpcChannels.skills.listSkills),
   listAvailableSkills: (): Promise<AvailableSkillSummary[]> =>
     ipcRenderer.invoke(IpcChannels.skills.listAvailableSkills),
+  setDisabledModelSkills: (skillNames: string[]): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.skills.setDisabledModelSkills, skillNames),
   readSkill: (filePath: string): Promise<SkillFileData> =>
     ipcRenderer.invoke(IpcChannels.skills.readSkill, filePath),
   writeSkill: (data: SkillFileData): Promise<string> =>

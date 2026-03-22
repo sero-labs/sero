@@ -19,11 +19,20 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { IpcChannels } from '../../src/types/ipc';
 import { SERO_AGENT_DIR, SERO_HOME } from '../env';
+import { appStateManager } from '../app-state';
 import { reloadAllSessionResources } from './agent';
-import { ensureInfra } from './shared-infra';
+import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from './shared-infra';
+import { withDisabledModelSkills } from '../../../../packages/pi-admin-extension/shared/skill-visibility';
 import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '../../src/types/skills';
 
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
+
+async function refreshRuntimeSettings(): Promise<void> {
+  const infra = await ensureInfra();
+  infra.settingsManager.reload();
+  applyRuntimeSettings(infra.settingsManager);
+  await reloadAllSessionResources();
+}
 
 /**
  * Validate that a filePath is under SKILLS_DIR to prevent path traversal.
@@ -104,6 +113,21 @@ export function registerSkillHandlers(): void {
           disableModelInvocation: skill.disableModelInvocation,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.skills.setDisabledModelSkills,
+    async (_e, skillNames: string[]): Promise<void> => {
+      const normalizedSkillNames = Array.isArray(skillNames)
+        ? skillNames.filter((name): name is string => typeof name === 'string')
+        : [];
+
+      await appStateManager.update<Record<string, unknown>>(
+        SERO_CONFIG_PATH,
+        (current) => withDisabledModelSkills(current ?? {}, normalizedSkillNames),
+      );
+      await refreshRuntimeSettings();
     },
   );
 
