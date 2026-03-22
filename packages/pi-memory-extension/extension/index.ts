@@ -21,6 +21,7 @@ import { registerMemoryTool } from './memory-tool';
 import { registerSearchTool } from './search-tool';
 import { registerScratchpadTool } from './scratchpad';
 import { registerSessionLifecycle } from './session-lifecycle';
+import { registerActivityObserver } from './activity-observer';
 import { initQmd, isQmdAvailable } from './qmd';
 
 export default function memoryExtension(pi: ExtensionAPI): void {
@@ -69,6 +70,10 @@ export default function memoryExtension(pi: ExtensionAPI): void {
   // ── Session lifecycle (handoff + exit summary) ─────────────
 
   registerSessionLifecycle(pi);
+
+  // ── Activity observer (auto-log significant work) ──────────
+
+  registerActivityObserver(pi);
 
   // ── Slash commands ─────────────────────────────────────────
 
