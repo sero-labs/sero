@@ -30,11 +30,18 @@ interface PkgSeroApp {
   devPort?: number;
 }
 
+interface PkgSeroPlugin {
+  category?: string;
+  tags?: string[];
+  minSeroVersion?: string;
+  preBuilt?: boolean;
+}
+
 interface PkgJson {
   name?: string;
   description?: string;
   version?: string;
-  sero?: { app?: PkgSeroApp };
+  sero?: { app?: PkgSeroApp; plugin?: PkgSeroPlugin };
 }
 
 // ── Selective dev mode ────────────────────────────────────────
@@ -80,6 +87,7 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
     component: app.component || null,
     devPort: isAppInDevMode(app.id) ? app.devPort : undefined,
     packagePath,
+    isPlugin: Boolean(pkgJson.sero?.plugin),
   };
 }
 

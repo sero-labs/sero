@@ -285,7 +285,13 @@ export interface SeroAppManifest {
   devPort: number | undefined;
   /** Absolute path to the package root on disk. */
   packagePath: string;
+  /** Whether this app comes from an installed plugin (vs core monorepo package). */
+  isPlugin: boolean;
 }
+
+// ── Plugins ─────────────────────────────────────────────────
+
+export type { InstalledPlugin, PluginCategory, PluginMeta } from '../../electron/plugins/types';
 
 // ── Voice Transcription ──────────────────────────────────────
 

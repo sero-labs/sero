@@ -45,12 +45,7 @@ export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
 // ── Extension tool → CLI bridge ─────────────────────────────
 
 /**
- * Tools to migrate from agent context into CLI commands.
- * Add a tool name here to move it from the agent's tool list into
- * the `sero-cli` help — zero per-tool code needed.
- */
-/**
- * Extension tools to collapse into the single `sero-cli` tool.
+ * Core tools to always bridge into the single `sero-cli` tool.
  * Every app/extension tool should be listed here — only core coding
  * tools (bash, read, write, edit, browser) and tools that depend on
  * SDK internals (ctx.sessionManager) remain as standalone tools.
@@ -58,7 +53,7 @@ export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
  * DO NOT bridge tools that use ctx.sessionManager, ctx.getContextUsage,
  * or other SDK context — the CLI bridge only passes { cwd }.
  */
-const TOOLS_TO_BRIDGE = new Set([
+const CORE_TOOLS_TO_BRIDGE = new Set([
   // Data & productivity
   'todo',
   'notes',
@@ -97,6 +92,30 @@ const TOOLS_TO_BRIDGE = new Set([
 ]);
 
 /**
+ * Additional tool names to bridge, populated dynamically from plugin manifests.
+ * Plugins declare `sero.plugin.bridgeTools` (true = all, string[] = specific names).
+ * When true (default), all tools from that extension get bridged.
+ */
+const dynamicToolsToBridge = new Set<string>();
+
+/**
+ * Register tool names from a plugin manifest for CLI bridging.
+ *
+ * Called during plugin discovery / install. When `bridgeTools` is true,
+ * the actual tool names are resolved later during bridgeExtensionTools().
+ */
+export function registerPluginToolsForBridge(toolNames: string[]): void {
+  for (const name of toolNames) {
+    dynamicToolsToBridge.add(name);
+  }
+}
+
+/** Check if a tool name should be bridged to CLI. */
+function shouldBridgeTool(name: string): boolean {
+  return CORE_TOOLS_TO_BRIDGE.has(name) || dynamicToolsToBridge.has(name);
+}
+
+/**
  * Sero built-in commands (registered by the sero extension factory).
  * These are NOT bridged to CLI — they either already have CLI equivalents
  * or are pure UI/session management that the agent shouldn't invoke.
@@ -124,7 +143,7 @@ export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensions
   for (const ext of base.extensions) {
     // Bridge tools → CLI (removes from agent tool list)
     for (const [name, registered] of [...ext.tools]) {
-      if (!TOOLS_TO_BRIDGE.has(name)) continue;
+      if (!shouldBridgeTool(name)) continue;
       if (reg.get(name)) {
         ext.tools.delete(name);
         continue;

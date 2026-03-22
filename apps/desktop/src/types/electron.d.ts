@@ -48,6 +48,7 @@ import type {
   SubagentEvent,
   SubagentAgentSummary,
   SubagentEntry,
+  InstalledPlugin,
   SkillSummary,
   AvailableSkillSummary,
   SkillFileData,
@@ -380,6 +381,17 @@ interface SeroProfilesAPI {
   listAuthSources(): Promise<ProfileInfo[]>;
 }
 
+interface SeroPluginsAPI {
+  /** Install a plugin from a source (npm:pkg, git:url, or local path). */
+  install(source: string): Promise<SeroAppManifest>;
+  /** Uninstall a plugin by ID. */
+  uninstall(pluginId: string): Promise<void>;
+  /** List all installed plugins (from ~/.sero-ui/agent/packages/). */
+  list(): Promise<InstalledPlugin[]>;
+  /** Check whether an app ID is an installed plugin (vs core). */
+  isPlugin(pluginId: string): Promise<boolean>;
+}
+
 interface SeroGatewayAPI {
   /**
    * Generate a QR code for device pairing.
@@ -425,6 +437,7 @@ interface SeroAPI {
   skills: SeroSkillsAPI;
   prompts: SeroPromptsAPI;
   github: SeroGitHubAPI;
+  plugins: SeroPluginsAPI;
 }
 
 // ── GitHub Auth ──────────────────────────────────────────────

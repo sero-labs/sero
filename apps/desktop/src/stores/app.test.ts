@@ -32,6 +32,7 @@ function createManifest(
     component,
     devPort,
     packagePath: `/tmp/${id}`,
+    isPlugin: false,
   };
 }
 

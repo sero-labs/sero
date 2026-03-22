@@ -187,9 +187,20 @@ When `bridgeTools` is `true` (default), all tools from that extension are bridge
 
 **Goal:** Let users browse, install, and manage plugins from within Sero.
 
-#### 3.1 — Plugin registry
+#### 3.1 — Plugin registry (GitHub label discovery)
 
-A simple JSON registry (hosted as a GitHub repo or static file) listing available plugins:
+**Primary discovery mechanism:** GitHub topic/label `sero-agent-plugin`.
+
+Any GitHub repo tagged with `sero-agent-plugin` is discoverable as a Sero plugin. The plugin manager searches GitHub via the API:
+
+```typescript
+// Search for public Sero plugins on GitHub
+const results = await fetch(
+  'https://api.github.com/search/repositories?q=topic:sero-agent-plugin&sort=stars'
+);
+```
+
+This is supplemented by a curated **registry JSON** (hosted in a GitHub repo or static file) for verified/featured plugins:
 
 ```json
 {
@@ -199,15 +210,22 @@ A simple JSON registry (hosted as a GitHub repo or static file) listing availabl
       "name": "Spotify",
       "description": "Control Spotify playback from Sero",
       "source": "npm:@sero/plugin-spotify@latest",
+      "github": "monobyte/sero-plugin-spotify",
       "category": "entertainment",
       "icon": "music",
-      "author": "sero-team"
+      "author": "sero-team",
+      "verified": true
     }
   ]
 }
 ```
 
-Sero fetches this at startup (with cache). Third-party plugins can be added via `settings.json` or by entering an npm/git source directly.
+**Discovery hierarchy:**
+1. **Curated registry** — verified first-party and community plugins (shown first)
+2. **GitHub `sero-agent-plugin` topic** — broader community discovery
+3. **Direct install** — user pastes an npm/git/local source
+
+Sero fetches both sources at startup (with cache). Third-party plugins can be added via `settings.json` or by entering a source directly.
 
 #### 3.2 — Plugin management UI (new Sero app)
 

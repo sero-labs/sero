@@ -24,6 +24,12 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "TodoApp",
       "devPort": 5174
+    },
+    "plugin": {
+      "category": "productivity",
+      "tags": ["todo", "tasks", "productivity"],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": true
     }
   },
   "dependencies": {

@@ -114,6 +114,45 @@ function evictLRU(): void {
 }
 
 /**
+ * Register a dynamically-installed plugin remote.
+ *
+ * Called after a plugin is installed at runtime to make its MF remote
+ * available without restarting. Uses `force: true` to overwrite any
+ * stale registration from a previous install.
+ */
+export function registerDynamicRemote(appId: string, devPort?: number): void {
+  const remoteName = toRemoteName(appId);
+  const entry = getRemoteEntry(appId, devPort);
+
+  try {
+    registerRemotes([{ name: remoteName, entry }], { force: true });
+    registered.add(appId);
+  } catch (err) {
+    console.warn(`[federation] registerDynamicRemote for ${remoteName}:`, err);
+  }
+}
+
+/**
+ * Invalidate a dynamically-installed plugin's cache entries.
+ *
+ * Called after a plugin is uninstalled to ensure the next load
+ * doesn't serve stale cached components.
+ */
+export function invalidateRemote(appId: string): void {
+  registered.delete(appId);
+
+  // Clear all cache entries for this app
+  for (const [key] of cache) {
+    if (key.startsWith(`${appId}/`)) {
+      cache.delete(key);
+      resolvedModules.delete(key);
+      const idx = accessOrder.indexOf(key);
+      if (idx !== -1) accessOrder.splice(idx, 1);
+    }
+  }
+}
+
+/**
  * Pin an app so it's never evicted from the cache.
  * Use for apps that declare `background: true` in their manifest.
  */

@@ -41,6 +41,7 @@ import { registerSkillHandlers } from './skills';
 import { registerPromptHandlers } from './prompts';
 import { registerCollaborationHandlers } from './collaboration';
 import { registerAppControlHandlers } from './app-control';
+import { registerPluginHandlers } from './plugins';
 import { registerThemeHandlers } from './themes';
 
 export function registerAllIpcHandlers(): void {
@@ -79,5 +80,6 @@ export function registerAllIpcHandlers(): void {
   registerPromptHandlers();
   registerCollaborationHandlers();
   registerAppControlHandlers();
+  registerPluginHandlers();
   registerThemeHandlers();
 }
