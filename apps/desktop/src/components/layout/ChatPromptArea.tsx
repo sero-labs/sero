@@ -34,7 +34,7 @@ import { ModelSelector } from './ModelSelector';
 import { AuthLoginDialog } from './AuthLoginDialog';
 import { ContextEditor } from './ContextEditor';
 import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
-import { ContextEditorMenuItem, ThinkingBlocksToggle, CollaborationToggle } from './ChatPanelHelpers';
+import { ContextEditorMenuItem, ThinkingBlocksToggle, MemoryBlocksToggle, CollaborationToggle } from './ChatPanelHelpers';
 import { useMessageQueue } from '@/hooks/useMessageQueue';
 import { useChatPromptInput } from '@/hooks/useChatPromptInput';
 
@@ -180,6 +180,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                 onTranscript={handleTranscript}
               />
               <CollaborationToggle disabled={!hasSession} />
+              <MemoryBlocksToggle disabled={!hasSession} />
               <ThinkingBlocksToggle disabled={!hasSession} />
               <ModelSelector disabled={!hasSession} />
             </PromptInputTools>

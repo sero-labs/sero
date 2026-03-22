@@ -85,6 +85,17 @@ export function subscribeToSession(
           entry.currentAssistantId = chatMsg.id;
           sendEvent({ type: 'message_start', sessionId, message: chatMsg });
         } else if (event.message.role === 'custom') {
+          // Intercept memory-context custom messages and emit as a
+          // dedicated event so the renderer can display them separately.
+          const customMsg = event.message as { customType?: string; content?: unknown; display?: boolean };
+          if (customMsg.customType === 'memory-context') {
+            const context = typeof customMsg.content === 'string' ? customMsg.content : '';
+            if (context) {
+              sendEvent({ type: 'memory_context', sessionId, context });
+            }
+            break;
+          }
+
           const prefixed = formatCustomMessage(event.message as any);
           if (!prefixed) break;
 

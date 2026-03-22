@@ -34,6 +34,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   agents: {},
   focusedSessionId: null,
   showThinkingBlocks: false,
+  showMemoryBlocks: false,
   collaborations: {},
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
@@ -293,6 +294,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   toggleThinkingBlocks: () => set((s) => ({ showThinkingBlocks: !s.showThinkingBlocks })),
+
+  toggleMemoryBlocks: () => set((s) => ({ showMemoryBlocks: !s.showMemoryBlocks })),
 
   toggleCollaborationMode: () =>
     set((s) => {

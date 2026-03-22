@@ -244,12 +244,26 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     const status = await getCachedBootstrapStatus();
 
     let addition: string;
+    let contextBlock = '';
     if (status.needsBootstrap) {
       addition = buildBootstrapInstructions(status.existingUserContent);
     } else {
       const root = resolveMemoryRoot();
-      const contextBlock = await buildPriorityContext(root, event.prompt ?? '');
+      contextBlock = await buildPriorityContext(root, event.prompt ?? '');
       addition = contextBlock + getMemoryInstructions();
+    }
+
+    // Send the memory context as a custom message so the host can
+    // intercept it and display it in the ChatPanel.
+    if (contextBlock.trim()) {
+      try {
+        pi.sendMessage(
+          { customType: 'memory-context', content: contextBlock.trim(), display: false },
+          { triggerTurn: false },
+        );
+      } catch {
+        // Non-fatal — context is already in the system prompt
+      }
     }
 
     if (!addition.trim()) return;
