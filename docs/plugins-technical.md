@@ -26,8 +26,14 @@ For user-facing plugin authoring instructions, see
 
 Sero supports **optional plugins** — apps that can be installed, updated, and
 removed without modifying the core codebase. Plugins are standard Sero apps
-(Pi extension + optional React UI) that are distributed as pre-built packages
-and installed into `~/.sero-ui/agent/packages/`.
+(Pi extension + optional React UI) that are installed into
+`~/.sero-ui/agent/packages/`.
+
+Distribution format depends on the source:
+
+- **npm** → pre-built package bundle (`dist/ui/` already present)
+- **git / local source** → standalone source package that Sero builds locally
+  during installation
 
 The architecture leverages existing infrastructure:
 
@@ -52,7 +58,8 @@ dynamic MF registration, and manifest-driven tool bridging.
 ┌─ Plugin Manager (electron/plugins/manager.ts) ─┐
 │  1. Download / clone / copy to temp dir         │
 │  2. Validate sero.app manifest                  │
-│  3. Validate dist/ui/remoteEntry.js exists      │
+│  3. npm: verify pre-built dist/ui exists        │
+│     git/local: npm install + npm run build      │
 │  4. Move to ~/.sero-ui/agent/packages/<id>/     │
 │  5. Register in settings.json                   │
 │  6. Register with app-discovery + ext-protocol  │
@@ -69,8 +76,11 @@ dynamic MF registration, and manifest-driven tool bridging.
 
 ## Plugin Package Format
 
-A published plugin is a normal npm package / git repo containing **pre-built
-artifacts**:
+Plugins are published in one of two formats:
+
+### npm bundle format
+
+A published npm plugin is a pre-built package:
 
 ```
 @sero/plugin-todo/
@@ -88,9 +98,27 @@ artifacts**:
 └── skills/                 # Optional skill definitions
 ```
 
-**Key difference from development packages:** The `dist/ui/` directory must
-exist and contain the pre-built MF remote bundle. The plugin manager validates
-this during installation.
+### Git / local source format
+
+A published Git source plugin is a standalone source package:
+
+```
+sero-plugin-todo/
+├── package.json            # sero.app + sero.plugin manifests
+├── extension/
+│   └── index.ts            # Source extension entry
+├── shared/
+│   └── types.ts            # Source shared modules
+├── ui/
+│   ├── TodoApp.tsx
+│   └── tsconfig.json
+├── vite.config.ts
+└── vendor/                 # Optional vendored unpublished workspace packages
+```
+
+During git/local installation, Sero runs `npm install` and `npm run build`
+inside that source repo, then validates that `dist/ui/remoteEntry.js` was
+produced.
 
 ## Plugin Manifest
 
@@ -126,7 +154,7 @@ standard `sero.app` manifest:
 | `category` | `PluginCategory` | Browsing category. One of: `productivity`, `developer-tools`, `entertainment`, `integrations`, `finance`, `health`, `creative`, `utilities`. |
 | `tags` | `string[]` | Search/filter tags. |
 | `minSeroVersion` | `string?` | Minimum Sero version required. Used for compatibility checks. |
-| `preBuilt` | `boolean?` | Whether the package includes pre-built UI artifacts. Should be `true` for published plugins. |
+| `preBuilt` | `boolean?` | Whether the package already includes pre-built UI artifacts. `true` for npm bundles; `false`/omitted for Git source repos that Sero builds locally. |
 
 ### Types
 
@@ -145,11 +173,13 @@ installPlugin("npm:@sero/plugin-todo@latest")
   ├─ Detect source type (npm: / git: / local path)
   │
   ├─ npm:  → npm pack + tar extract to temp dir
-  │  git:  → shallow clone to temp dir
+  │  git:  → shallow clone source repo to temp dir
   │  local → fs.cp to temp dir
   │
   ├─ Validate: sero.app.id exists in package.json
-  ├─ Validate: dist/ui/remoteEntry.js exists (if UI declared)
+  ├─ npm: verify dist/ui/remoteEntry.js exists (if UI declared)
+  ├─ git/local source: npm install + npm run build
+  ├─ Strip install-only fields (e.g. devPort) from staged package.json
   │
   ├─ Move to ~/.sero-ui/agent/packages/<plugin-id>/
   ├─ Add path to settings.json packages array
@@ -308,7 +338,8 @@ apps/desktop/
 │   └── lib/
 │       └── federation-registry.ts  # registerDynamicRemote, invalidateRemote
 scripts/
-└── build-plugin.sh             # Build a package for plugin distribution
+├── build-plugin.sh             # Build a pre-built npm package bundle
+└── export-plugin-source.sh     # Export a standalone Git source repo
 ```
 
 ## Core vs Plugin Classification
@@ -353,23 +384,28 @@ These are standalone and can be distributed independently:
 
 ## Build Pipeline
 
-Use `scripts/build-plugin.sh` to build any package into a distributable
-plugin:
+There are two authoring outputs:
+
+### Pre-built npm bundle
 
 ```bash
 bash scripts/build-plugin.sh packages/pi-todo-extension
 ```
 
-This:
-1. Validates the `sero.app` manifest exists
-2. Runs `vite build` (produces `dist/ui/`)
-3. Outputs the build directory path
+This produces `packages/pi-todo-extension/dist/plugin/` with compiled UI,
+bundled extension entrypoints, and a cleaned manifest suitable for `npm pack`
+or `npm publish`.
 
-To test locally:
+### Standalone Git source repo
 
 ```bash
-cp -r packages/pi-todo-extension ~/.sero-ui/agent/packages/todo
+bash scripts/export-plugin-source.sh packages/pi-todo-extension
 ```
+
+This produces `packages/pi-todo-extension/dist/plugin-source/` with source
+files, resolved dependency versions, and vendored unpublished workspace
+packages so Sero can clone it, run `npm install`, and build it locally during
+Git-based installation.
 
 ## Security Considerations
 
@@ -385,11 +421,16 @@ The plugin manager validates:
 - `dist/ui/remoteEntry.js` exists if UI is declared
 - Installation path is within `~/.sero-ui/agent/packages/`
 
-### npm install isolation
+### Build execution model
 
-Plugins are installed via `npm pack` + `tar extract` (not `npm install`). This
-avoids polluting the global `node_modules` and prevents lifecycle script
-execution.
+- **npm bundles** are installed via `npm pack` + `tar extract` (not `npm install`).
+  This avoids polluting global package state and skips lifecycle scripts.
+- **git/local source plugins** run `npm install` + `npm run build` inside a
+  temporary staging directory before the prepared package is moved into
+  `~/.sero-ui/agent/packages/`.
+
+Git source installs therefore execute repository code during installation and
+must be treated as a trusted-code workflow.
 
 ### Uninstall safety
 

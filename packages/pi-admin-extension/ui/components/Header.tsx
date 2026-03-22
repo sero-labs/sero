@@ -16,6 +16,7 @@ export const Header = memo(function Header({ profileName, activeTab }: HeaderPro
   const tabLabel =
     activeTab === 'config' ? 'Configuration' :
     activeTab === 'skills' ? 'Skills' :
+    activeTab === 'plugins' ? 'Plugins' :
     activeTab === 'logs' ? 'Logs' :
     activeTab === 'sessions' ? 'Sessions' : activeTab;
 

@@ -16,6 +16,7 @@ import type { SeroAppManifest, SettingsPackageSource } from '../src/types/ipc';
 import { SERO_AGENT_DIR, SERO_HOME } from './env';
 
 const SERO_EXTENSIONS_DIR = path.join(SERO_AGENT_DIR, 'extensions');
+const SERO_PACKAGES_DIR = path.join(SERO_AGENT_DIR, 'packages');
 
 // ── Manifest parsing ─────────────────────────────────────────
 
@@ -59,6 +60,21 @@ function isAppInDevMode(appId: string): boolean {
   return selectiveDevFilter.has(appId);
 }
 
+export function isInstalledPluginPackagePath(packagePath: string): boolean {
+  const resolvedPackagePath = path.resolve(packagePath);
+  const resolvedPluginsDir = path.resolve(SERO_PACKAGES_DIR);
+  return (
+    resolvedPackagePath === resolvedPluginsDir ||
+    resolvedPackagePath.startsWith(`${resolvedPluginsDir}${path.sep}`)
+  );
+}
+
+export function getManifestDevPort(appId: string, packagePath: string, devPort: number | undefined): number | undefined {
+  if (!devPort) return undefined;
+  if (isInstalledPluginPackagePath(packagePath)) return undefined;
+  return isAppInDevMode(appId) ? devPort : undefined;
+}
+
 function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest | null {
   const app = pkgJson.sero?.app;
   if (!app || !app.id || !app.name) return null;
@@ -85,7 +101,7 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
     globalStatePath,
     uiEntry,
     component: app.component || null,
-    devPort: isAppInDevMode(app.id) ? app.devPort : undefined,
+    devPort: getManifestDevPort(app.id, packagePath, app.devPort),
     packagePath,
     isPlugin: Boolean(pkgJson.sero?.plugin),
   };

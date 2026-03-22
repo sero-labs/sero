@@ -254,6 +254,13 @@ async function copyPackageResources(pkg, outputDir) {
 }
 
 function buildPublishedManifest(pkg, compiledExtensions, catalogs) {
+  const publishedAppManifest = pkg.sero?.app
+    ? {
+        ...pkg.sero.app,
+        devPort: undefined,
+      }
+    : undefined;
+
   const manifest = {
     ...pkg,
     scripts: undefined,
@@ -265,6 +272,20 @@ function buildPublishedManifest(pkg, compiledExtensions, catalogs) {
       ? {
           ...pkg.pi,
           ...(compiledExtensions.length > 0 ? { extensions: compiledExtensions } : {}),
+        }
+      : undefined,
+    sero: pkg.sero
+      ? {
+          ...pkg.sero,
+          ...(publishedAppManifest ? { app: publishedAppManifest } : {}),
+          ...(pkg.sero.plugin
+            ? {
+                plugin: {
+                  ...pkg.sero.plugin,
+                  preBuilt: true,
+                },
+              }
+            : {}),
         }
       : undefined,
     files: [

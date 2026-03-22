@@ -14,6 +14,23 @@ import { formatDate } from '../lib/format';
 
 // ── Types ──────────────────────────────────────────────────
 
+interface PluginChangeEvent {
+  type: 'installed' | 'uninstalled';
+}
+
+interface InstalledPluginInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  version: string | null;
+  icon: string;
+  category: string;
+  tags: string[];
+  source: string;
+  packagePath: string;
+  hasUI: boolean;
+}
+
 export interface SeroApi {
   appState: {
     read(filePath: string): Promise<unknown>;
@@ -32,6 +49,12 @@ export interface SeroApi {
   };
   shell: {
     showItemInFolder(path: string): Promise<void>;
+  };
+  plugins: {
+    list(): Promise<InstalledPluginInfo[]>;
+    install(source: string): Promise<{ id: string; name: string }>;
+    uninstall(pluginId: string): Promise<void>;
+    onChanged(callback: (event: PluginChangeEvent) => void): () => void;
   };
   skills: {
     listAvailableSkills(): Promise<AvailableSkillInfo[]>;

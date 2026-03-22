@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# Build a Sero plugin package for distribution.
+# Build a pre-built Sero plugin bundle for npm-style distribution.
 #
 # Usage:
-#   bash scripts/build-plugin.sh packages/pi-todo-extension
+#   bash scripts/build-plugin.sh packages/pi-kanban-extension
 #   bash scripts/build-plugin.sh packages/pi-spotify-extension
 #
 # Produces a ready-to-install package in <package>/dist/plugin/ with:

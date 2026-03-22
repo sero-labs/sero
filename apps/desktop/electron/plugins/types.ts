@@ -21,6 +21,7 @@ export interface PluginMeta {
   category: PluginCategory;
   tags: string[];
   minSeroVersion?: string;
+  /** true for pre-built npm bundles; false/undefined for source repos built on install */
   preBuilt?: boolean;
   /** true/undefined = bridge all tools, false = none, string[] = listed tools only */
   bridgeTools?: boolean | string[];

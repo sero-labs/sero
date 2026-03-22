@@ -19,6 +19,7 @@ import { clearAppManifestCache } from '../ipc/app-agent';
 import { clearPluginBridgePolicyCache } from '../cli';
 import type { SeroAppManifest, SettingsPackageSource } from '../../src/types/ipc';
 import type { InstalledPlugin } from './types';
+import { ensurePluginPackageReadyForInstall } from './package-build';
 import { assertValidPluginId, resolvePluginInstallDir } from './security';
 
 const execFile = promisify(execFileCb);
@@ -104,15 +105,12 @@ function validatePluginPackage(pkg: PkgJson | null): ValidatedPluginPackage {
   };
 }
 
-function assertPrebuiltUiExists(packageDir: string, app: ValidatedPluginApp): void {
+function assertPreparedUiExists(packageDir: string, app: ValidatedPluginApp): void {
   if (!app.ui) return;
 
   const distUi = path.join(packageDir, 'dist', 'ui', 'remoteEntry.js');
   if (!existsSync(distUi)) {
-    throw new Error(
-      'Invalid plugin: declares UI but dist/ui/remoteEntry.js is missing. ' +
-      'Plugin must be pre-built before installation.',
-    );
+    throw new Error('Invalid plugin: declares UI but dist/ui/remoteEntry.js is missing.');
   }
 }
 
@@ -209,16 +207,22 @@ export async function installPlugin(source: string): Promise<SeroAppManifest> {
   let settingsAdded = false;
 
   try {
+    let sourceKind: 'npm' | 'git' | 'local' = 'local';
+
     if (source.startsWith('npm:')) {
+      sourceKind = 'npm';
       staged = await installFromNpm(source.slice(4));
     } else if (source.startsWith('git:')) {
+      sourceKind = 'git';
       staged = await installFromGit(source.slice(4));
     } else {
       staged = await installFromLocal(source);
     }
 
+    await ensurePluginPackageReadyForInstall(staged.stageDir, sourceKind);
+
     const validated = validatePluginPackage(readPkgJsonSync(staged.stageDir));
-    assertPrebuiltUiExists(staged.stageDir, validated.app);
+    assertPreparedUiExists(staged.stageDir, validated.app);
 
     reserved = await reserveInstallPath(validated.app.id);
     const installPath = reserved.installPath;

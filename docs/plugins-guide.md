@@ -52,11 +52,23 @@ await window.sero.plugins.install('npm:@sero/plugin-todo@latest');
 await window.sero.plugins.install('git:https://github.com/user/sero-plugin-todo.git');
 ```
 
+Git installs clone the **source repository**, run `npm install`, run the
+plugin's build script locally, and then install the built result into
+`~/.sero-ui/agent/packages/<id>/`.
+
+> Git installs execute plugin code during the local build step. Only install
+> source plugins from repositories you trust.
+
 ### From a local path
 
 ```typescript
-await window.sero.plugins.install('/path/to/my/built/plugin');
+await window.sero.plugins.install('/path/to/my/plugin');
 ```
+
+Local installs accept either:
+
+- a **pre-built bundle** (for example `dist/plugin/`), or
+- a **standalone source package** that Sero can `npm install` + build locally.
 
 After installation the plugin appears in the sidebar immediately — no restart
 required.
@@ -137,22 +149,39 @@ Add a `sero.plugin` key to your `package.json` alongside `sero.app`:
 
 ### 3. Build and test locally
 
+For **npm distribution**, build a ready-to-install plugin bundle:
+
 ```bash
-# Build a ready-to-install plugin bundle
 bash scripts/build-plugin.sh packages/pi-my-app-extension
 ```
 
-This produces a publishable package at:
+This produces a publishable bundle at:
 
 ```
 packages/pi-my-app-extension/dist/plugin/
 ```
 
-Install that built bundle from the Sero renderer console:
+For **GitHub source distribution**, export a standalone source repo:
+
+```bash
+bash scripts/export-plugin-source.sh packages/pi-my-app-extension
+```
+
+This produces a source repo at:
+
+```
+packages/pi-my-app-extension/dist/plugin-source/
+```
+
+Install either locally from the Sero renderer console:
 
 ```typescript
 await window.sero.plugins.install(
   '/absolute/path/to/packages/pi-my-app-extension/dist/plugin'
+);
+
+await window.sero.plugins.install(
+  '/absolute/path/to/packages/pi-my-app-extension/dist/plugin-source'
 );
 ```
 
@@ -172,7 +201,7 @@ The standard Sero app manifest. See the
 | `category` | string | Yes | Plugin category for browsing. See [categories](#categories) below. |
 | `tags` | string[] | Yes | Search and filter tags. |
 | `minSeroVersion` | string | No | Minimum compatible Sero version (semver). |
-| `preBuilt` | boolean | No | Set to `true` if the package includes pre-built UI artifacts in `dist/ui/`. Should always be `true` for published plugins. |
+| `preBuilt` | boolean | No | `true` for pre-built npm bundles that already contain `dist/ui/`; `false` or omitted for source repos that Sero builds locally on install. |
 | `bridgeTools` | boolean \| string[] | No | Controls whether plugin tools are bridged into `sero-cli`. Omit or set `true` to bridge all tools; `false` to bridge none; or provide a list of tool names to bridge selectively. |
 
 ### Categories
@@ -190,7 +219,7 @@ The standard Sero app manifest. See the
 
 ## Building for Distribution
 
-### Using the build script
+### Pre-built npm bundle
 
 From the monorepo root:
 
@@ -206,9 +235,7 @@ This builds a ready-to-install plugin bundle at `dist/plugin/` containing:
 - `prompts/` / `skills/` — copied runtime resources
 - `package.json` — cleaned manifest with compiled `pi.extensions` paths
 
-### Verify the output
-
-After building, confirm these files exist:
+Verify the output contains:
 
 ```
 dist/plugin/
@@ -223,6 +250,27 @@ dist/plugin/
         ├── mf-manifest.json
         ├── *.js
         └── *.css
+```
+
+### Standalone Git source repo
+
+```bash
+bash scripts/export-plugin-source.sh packages/pi-todo-extension
+```
+
+This exports a standalone source repository at `dist/plugin-source/` containing:
+
+- plugin source files (`extension/`, `shared/`, `ui/`, `vite.config.ts`)
+- resolved catalog versions in `package.json`
+- vendored unpublished workspace packages under `vendor/`
+- `preBuilt: false` in `sero.plugin` so Sero knows it must build locally
+
+Smoke test the exported source repo before publishing:
+
+```bash
+cd packages/pi-todo-extension/dist/plugin-source
+npm install
+npm run build
 ```
 
 ### Important: relative base path
@@ -242,7 +290,7 @@ export default defineConfig({
 
 ### To npm
 
-Publish from the built bundle directory, not the source package root:
+Publish from the **built bundle** directory, not the source package root:
 
 ```bash
 cd my-plugin/dist/plugin
@@ -257,14 +305,21 @@ window.sero.plugins.install('npm:@sero/plugin-my-app@latest');
 
 ### To GitHub
 
-Push to a public repository. Tag it with the **`sero-agent-plugin`** topic
-for discoverability.
+Push the contents of `dist/plugin-source/` to a public repository. Tag it with
+the **`sero-agent-plugin`** topic for discoverability.
+
+```bash
+bash scripts/export-plugin-source.sh packages/pi-my-app-extension
+```
 
 Users install with:
 
 ```typescript
 window.sero.plugins.install('git:https://github.com/user/sero-plugin-my-app.git');
 ```
+
+Sero clones that source repo, runs `npm install`, runs `npm run build`, and
+then installs the prepared plugin locally.
 
 ### GitHub topic for discovery
 

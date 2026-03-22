@@ -1,0 +1,177 @@
+import os from 'os';
+import path from 'path';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  ensurePluginPackageReadyForInstall,
+  findUnsupportedDependencySpec,
+  pluginNeedsBuild,
+  stripInstalledOnlyManifestFields,
+} from '../plugins/package-build';
+
+async function createTempPluginDir(tempDirs: string[]): Promise<string> {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'sero-plugin-build-'));
+  tempDirs.push(dir);
+  return dir;
+}
+
+async function writePackageJson(dir: string, pkg: unknown): Promise<void> {
+  await writeFile(path.join(dir, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
+}
+
+describe('plugin package build helpers', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it('detects workspace and catalog dependency specs', () => {
+    expect(findUnsupportedDependencySpec({
+      dependencies: { react: '^19.1.1' },
+      devDependencies: { '@sero/app-runtime': 'workspace:*' },
+    })).toBe('devDependencies.@sero/app-runtime=workspace:*');
+
+    expect(findUnsupportedDependencySpec({
+      dependencies: { '@sinclair/typebox': 'catalog:' },
+    })).toBe('dependencies.@sinclair/typebox=catalog:');
+
+    expect(findUnsupportedDependencySpec({
+      dependencies: { react: '^19.1.1' },
+      devDependencies: { vite: '^6.4.1' },
+    })).toBeNull();
+  });
+
+  it('detects when a plugin UI needs a local build', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await writePackageJson(dir, {
+      sero: {
+        app: {
+          id: 'todo',
+          name: 'Todo',
+          ui: './dist/ui/remoteEntry.js',
+        },
+      },
+    });
+
+    expect(pluginNeedsBuild({
+      sero: {
+        app: {
+          ui: './dist/ui/remoteEntry.js',
+        },
+      },
+    }, dir)).toBe(true);
+
+    await mkdir(path.join(dir, 'dist', 'ui'), { recursive: true });
+    await writeFile(path.join(dir, 'dist', 'ui', 'remoteEntry.js'), 'export {}\n', 'utf8');
+
+    expect(pluginNeedsBuild({
+      sero: {
+        app: {
+          ui: './dist/ui/remoteEntry.js',
+        },
+      },
+    }, dir)).toBe(false);
+  });
+
+  it('removes devPort from installed plugin manifests', () => {
+    expect(stripInstalledOnlyManifestFields({
+      sero: {
+        app: {
+          ui: './dist/ui/remoteEntry.js',
+          devPort: 5174,
+        },
+      },
+    })).toEqual({
+      sero: {
+        app: {
+          ui: './dist/ui/remoteEntry.js',
+          devPort: undefined,
+        },
+      },
+    });
+  });
+
+  it('builds git source plugins locally before install', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await writePackageJson(dir, {
+      scripts: {
+        build: 'fake-build',
+      },
+      devDependencies: {
+        react: '^19.1.1',
+      },
+      sero: {
+        app: {
+          id: 'todo',
+          name: 'Todo',
+          ui: './dist/ui/remoteEntry.js',
+          devPort: 5174,
+        },
+      },
+    });
+
+    const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
+    await ensurePluginPackageReadyForInstall(dir, 'git', {
+      runCommand: async (command, args, cwd) => {
+        calls.push({ command, args, cwd });
+        if (command === 'npm' && args.join(' ') === 'run build') {
+          await mkdir(path.join(cwd, 'dist', 'ui'), { recursive: true });
+          await writeFile(path.join(cwd, 'dist', 'ui', 'remoteEntry.js'), 'export {}\n', 'utf8');
+        }
+      },
+    });
+
+    expect(calls).toEqual([
+      { command: 'npm', args: ['install'], cwd: dir },
+      { command: 'npm', args: ['run', 'build'], cwd: dir },
+    ]);
+
+    const installedPkg = JSON.parse(await readFile(path.join(dir, 'package.json'), 'utf8')) as {
+      sero?: { app?: { devPort?: number } };
+    };
+    expect(installedPkg.sero?.app?.devPort).toBeUndefined();
+  });
+
+  it('requires pre-built npm packages', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await writePackageJson(dir, {
+      sero: {
+        app: {
+          id: 'todo',
+          name: 'Todo',
+          ui: './dist/ui/remoteEntry.js',
+        },
+      },
+    });
+
+    await expect(ensurePluginPackageReadyForInstall(dir, 'npm')).rejects.toThrow(
+      /npm packages must ship pre-built UI artifacts/,
+    );
+  });
+
+  it('rejects git source packages with workspace specs', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await writePackageJson(dir, {
+      scripts: {
+        build: 'vite build',
+      },
+      devDependencies: {
+        '@sero/app-runtime': 'workspace:*',
+      },
+      sero: {
+        app: {
+          id: 'todo',
+          name: 'Todo',
+          ui: './dist/ui/remoteEntry.js',
+        },
+      },
+    });
+
+    await expect(ensurePluginPackageReadyForInstall(dir, 'git')).rejects.toThrow(
+      /standalone npm-installable repo/,
+    );
+  });
+});

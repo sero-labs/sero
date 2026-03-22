@@ -2,6 +2,17 @@
 
 Todo app for Sero — a standard Pi extension with an optional web UI.
 
+## Sero Plugin Install
+
+Install in **Sero → Admin → Plugins** with:
+
+```text
+git:https://github.com/monobyte/sero-todo-plugin.git
+```
+
+Sero clones the source repo, installs its dependencies locally, builds the UI,
+and then hot-loads the plugin into the sidebar.
+
 ## Pi CLI Usage
 
 Install as a Pi package:
