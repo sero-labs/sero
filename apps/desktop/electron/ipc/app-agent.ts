@@ -163,6 +163,15 @@ async function getOrCreateAppSession(
   return session;
 }
 
+/** Dispose all in-memory app sessions for a specific app id. */
+export function disposeAppSessionsForApp(appId: string): void {
+  for (const [key, entry] of [...appPool.entries()]) {
+    if (!key.startsWith(`${appId}:`)) continue;
+    entry.session.dispose();
+    appPool.delete(key);
+  }
+}
+
 /** Close all app sessions (app shutdown). */
 function disposeAllAppSessions(): void {
   for (const [, entry] of appPool) {

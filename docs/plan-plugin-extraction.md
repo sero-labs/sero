@@ -86,10 +86,10 @@ This directory is **already scanned** by `app-discovery.ts` (`scanSettingsPaths`
 
 Add a `build:plugin` script to each extractable package that:
 
-1. Compiles the Pi extension (`tsc` → `dist/extension/`)
+1. Bundles the Pi extension entrypoints to runtime-ready JS
 2. Builds the MF UI remote (`vite build` → `dist/ui/`)
-3. Copies `shared/`, `prompts/`, `skills/` into the output
-4. Generates a publish-ready `package.json` (strips devDependencies, adds `sero.plugin`)
+3. Copies/transpiles `shared/`, `prompts/`, and `skills` into the output
+4. Generates a publish-ready `package.json` in `dist/plugin/`
 
 Create a shared build script at `scripts/build-plugin.sh` that any package can use.
 
@@ -177,8 +177,8 @@ When a plugin is installed at runtime:
 Currently `TOOLS_TO_BRIDGE` is a hardcoded `Set` in `electron/cli/index.ts`. Make it manifest-driven:
 
 ```typescript
-// Read from sero.app manifest or sero.plugin manifest
-const toolBridge = pkgJson.sero?.app?.bridgeTools ?? true;  // default: bridge all tools
+// Read from the plugin package's manifest
+const toolBridge = pkgJson.sero?.plugin?.bridgeTools ?? true;  // default: bridge all tools
 ```
 
 When `bridgeTools` is `true` (default), all tools from that extension are bridged into `sero-cli`. When `false`, they remain as standalone agent tools. This can also be an array of specific tool names to bridge.

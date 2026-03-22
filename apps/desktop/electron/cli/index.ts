@@ -13,6 +13,7 @@ import { registerHelpCliCommand } from './help';
 import { CliRegistry } from './registry';
 import { bridgeCommand, bridgeTool } from './schema-bridge';
 import { createSeroCliTool } from './tool';
+import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../plugins/bridge-policy';
 
 let registry: CliRegistry | null = null;
 
@@ -92,28 +93,26 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
 ]);
 
 /**
- * Additional tool names to bridge, populated dynamically from plugin manifests.
- * Plugins declare `sero.plugin.bridgeTools` (true = all, string[] = specific names).
- * When true (default), all tools from that extension get bridged.
- */
-const dynamicToolsToBridge = new Set<string>();
-
-/**
- * Register tool names from a plugin manifest for CLI bridging.
+ * Check whether a tool should be bridged to CLI.
  *
- * Called during plugin discovery / install. When `bridgeTools` is true,
- * the actual tool names are resolved later during bridgeExtensionTools().
+ * Core built-in tools still use the static allowlist above. Plugins are
+ * manifest-driven: any extension loaded from a package with `sero.plugin`
+ * opts into bridging via `sero.plugin.bridgeTools`.
+ *
+ * - `undefined` / `true` → bridge all tools from that plugin extension
+ * - `false`              → bridge none
+ * - `string[]`           → bridge only the listed tool names
  */
-export function registerPluginToolsForBridge(toolNames: string[]): void {
-  for (const name of toolNames) {
-    dynamicToolsToBridge.add(name);
-  }
+function shouldBridgeTool(name: string, extensionPath: string): boolean {
+  if (CORE_TOOLS_TO_BRIDGE.has(name)) return true;
+
+  const pluginPolicy = getPluginBridgePolicy(extensionPath);
+  if (!pluginPolicy) return false;
+
+  return pluginPolicy.bridgeAll || pluginPolicy.toolNames.has(name);
 }
 
-/** Check if a tool name should be bridged to CLI. */
-function shouldBridgeTool(name: string): boolean {
-  return CORE_TOOLS_TO_BRIDGE.has(name) || dynamicToolsToBridge.has(name);
-}
+export { clearPluginBridgePolicyCache };
 
 /**
  * Sero built-in commands (registered by the sero extension factory).
@@ -131,8 +130,8 @@ const BUILTIN_COMMANDS = new Set([
  * `extensionsOverride` callback for DefaultResourceLoader.
  *
  * After all extensions load:
- * 1. Finds tools listed in TOOLS_TO_BRIDGE, wraps each into a CLI
- *    command, and removes it from the extension tool list.
+ * 1. Finds tools allowed by the core allowlist or plugin manifest policy,
+ *    wraps each into a CLI command, and removes it from the extension tool list.
  * 2. Finds extension commands (slash commands) NOT in BUILTIN_COMMANDS,
  *    wraps each into a CLI command so the agent can invoke them.
  *    Commands stay registered in extensions (user can still type /plan).
@@ -143,7 +142,7 @@ export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensions
   for (const ext of base.extensions) {
     // Bridge tools → CLI (removes from agent tool list)
     for (const [name, registered] of [...ext.tools]) {
-      if (!shouldBridgeTool(name)) continue;
+      if (!shouldBridgeTool(name, ext.resolvedPath)) continue;
       if (reg.get(name)) {
         ext.tools.delete(name);
         continue;

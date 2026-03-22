@@ -138,14 +138,25 @@ Add a `sero.plugin` key to your `package.json` alongside `sero.app`:
 ### 3. Build and test locally
 
 ```bash
-# Build the UI remote
+# Build a ready-to-install plugin bundle
 bash scripts/build-plugin.sh packages/pi-my-app-extension
-
-# Copy to the plugins directory to simulate installation
-cp -r packages/pi-my-app-extension ~/.sero-ui/agent/packages/my-app
-
-# Restart Sero — the plugin should appear in the sidebar
 ```
+
+This produces a publishable package at:
+
+```
+packages/pi-my-app-extension/dist/plugin/
+```
+
+Install that built bundle from the Sero renderer console:
+
+```typescript
+await window.sero.plugins.install(
+  '/absolute/path/to/packages/pi-my-app-extension/dist/plugin'
+);
+```
+
+The plugin should appear in the sidebar immediately — no restart required.
 
 ## Plugin Manifest Reference
 
@@ -162,6 +173,7 @@ The standard Sero app manifest. See the
 | `tags` | string[] | Yes | Search and filter tags. |
 | `minSeroVersion` | string | No | Minimum compatible Sero version (semver). |
 | `preBuilt` | boolean | No | Set to `true` if the package includes pre-built UI artifacts in `dist/ui/`. Should always be `true` for published plugins. |
+| `bridgeTools` | boolean \| string[] | No | Controls whether plugin tools are bridged into `sero-cli`. Omit or set `true` to bridge all tools; `false` to bridge none; or provide a list of tool names to bridge selectively. |
 
 ### Categories
 
@@ -186,28 +198,31 @@ From the monorepo root:
 bash scripts/build-plugin.sh packages/pi-todo-extension
 ```
 
-This runs `vite build` in the package, producing the `dist/ui/` directory
-with the Module Federation remote bundle.
+This builds a ready-to-install plugin bundle at `dist/plugin/` containing:
 
-### Manual build
-
-If you're building outside the monorepo:
-
-```bash
-cd my-plugin
-NODE_ENV=production npx vite build
-```
+- `dist/ui/` — pre-built Module Federation remote
+- `extension/` — bundled JS extension entrypoints
+- `shared/` — transpiled JS shared modules
+- `prompts/` / `skills/` — copied runtime resources
+- `package.json` — cleaned manifest with compiled `pi.extensions` paths
 
 ### Verify the output
 
 After building, confirm these files exist:
 
 ```
-dist/ui/
-├── remoteEntry.js         # Required — MF entry point
-├── mf-manifest.json       # Required — MF metadata
-├── MyApp.*.js             # Component chunk(s)
-└── *.css                  # Styles (if any)
+dist/plugin/
+├── package.json           # Cleaned plugin manifest
+├── extension/
+│   └── index.js           # Bundled Pi extension
+├── shared/
+│   └── *.js               # Transpiled shared modules (if any)
+└── dist/
+    └── ui/
+        ├── remoteEntry.js # Required — MF entry point
+        ├── mf-manifest.json
+        ├── *.js
+        └── *.css
 ```
 
 ### Important: relative base path
@@ -227,8 +242,10 @@ export default defineConfig({
 
 ### To npm
 
+Publish from the built bundle directory, not the source package root:
+
 ```bash
-cd my-plugin
+cd my-plugin/dist/plugin
 npm publish
 ```
 

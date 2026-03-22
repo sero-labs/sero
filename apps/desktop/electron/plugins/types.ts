@@ -22,6 +22,8 @@ export interface PluginMeta {
   tags: string[];
   minSeroVersion?: string;
   preBuilt?: boolean;
+  /** true/undefined = bridge all tools, false = none, string[] = listed tools only */
+  bridgeTools?: boolean | string[];
 }
 
 /** An installed plugin's info, surfaced to the renderer. */

@@ -76,9 +76,9 @@ artifacts**:
 @sero/plugin-todo/
 ├── package.json            # sero.app + sero.plugin manifests
 ├── extension/
-│   └── index.ts            # Pi extension (tools, commands, hooks)
+│   └── index.js            # Bundled Pi extension (runtime-ready JS)
 ├── shared/
-│   └── types.ts            # Shared state types
+│   └── types.js            # Transpiled shared modules
 ├── dist/
 │   └── ui/
 │       ├── remoteEntry.js  # Module Federation entry
@@ -158,7 +158,7 @@ installPlugin("npm:@sero/plugin-todo@latest")
   ├─ discoverApps() → parse manifest → SeroAppManifest
   ├─ registerExtAssets() → makes sero-ext:// protocol aware
   │
-  └─ Return SeroAppManifest (app appears in sidebar)
+  └─ Return SeroAppManifest (app appears in the sidebar immediately)
 ```
 
 ### Uninstall Flow
@@ -170,8 +170,7 @@ uninstallPlugin("todo")
   ├─ fs.rm() the directory
   ├─ Remove path from settings.json packages array
   │
-  └─ App disappears after restart
-      (runtime cache invalidation via invalidateRemote())
+  └─ Broadcast uninstall event → invalidate runtime remote → app disappears immediately
 ```
 
 **Note:** Uninstall does NOT delete app state files. Workspace-scoped state
@@ -244,20 +243,18 @@ registry. The protocol:
 always bridged from extension tools into `sero-cli` commands. This saves
 tokens by collapsing individual tool schemas into one CLI tool.
 
-### Dynamic tools (plugin-driven)
+### Plugin tools (manifest-driven)
 
-Plugins can register additional tool names for bridging:
+Plugin tool bridging is resolved from the plugin package itself. The CLI bridge
+walks up from each loaded extension path, reads the nearest `package.json`, and
+checks `sero.plugin.bridgeTools`:
 
-```typescript
-import { registerPluginToolsForBridge } from '../cli/index';
+- `undefined` / `true` → bridge all tools from that plugin extension
+- `false` → bridge none of that plugin's tools
+- `string[]` → bridge only the listed tool names
 
-// Register plugin tool names before extensions load
-registerPluginToolsForBridge(['my_plugin_tool', 'another_tool']);
-```
-
-The `shouldBridgeTool()` function checks both `CORE_TOOLS_TO_BRIDGE` and
-the dynamic set. This means plugin tools get bridged into `sero-cli`
-automatically without editing the hardcoded list.
+This means plugin tools get bridged into `sero-cli` automatically without
+editing the core allowlist.
 
 ## IPC Surface
 
@@ -269,6 +266,7 @@ plugins: {
   uninstall: 'sero:plugins:uninstall', // pluginId → void
   list:     'sero:plugins:list',       // → InstalledPlugin[]
   isPlugin: 'sero:plugins:is-plugin',  // pluginId → boolean
+  event:    'sero:plugins:event',      // main → renderer PluginChangeEvent
 }
 ```
 
@@ -282,6 +280,7 @@ interface SeroPluginsAPI {
   uninstall(pluginId: string): Promise<void>;
   list(): Promise<InstalledPlugin[]>;
   isPlugin(pluginId: string): Promise<boolean>;
+  onChanged(callback: (event: PluginChangeEvent) => void): () => void;
 }
 ```
 

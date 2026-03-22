@@ -16,6 +16,7 @@ import { SERO_AGENT_DIR } from '../env';
 import { registerAppPath, discoverApps } from '../app-discovery';
 import { registerExtAssets } from '../ext-protocol';
 import { clearAppManifestCache } from '../ipc/app-agent';
+import { clearPluginBridgePolicyCache } from '../cli';
 import type { SeroAppManifest, SettingsPackageSource } from '../../src/types/ipc';
 import type { InstalledPlugin } from './types';
 import { assertValidPluginId, resolvePluginInstallDir } from './security';
@@ -226,6 +227,7 @@ export async function installPlugin(source: string): Promise<SeroAppManifest> {
     settingsAdded = addToSettings(installPath);
     registerAppPath(installPath);
     clearAppManifestCache();
+    clearPluginBridgePolicyCache();
 
     const apps = await discoverApps();
     const manifest = apps.find(
@@ -253,6 +255,7 @@ export async function installPlugin(source: string): Promise<SeroAppManifest> {
     throw err;
   } finally {
     clearAppManifestCache();
+    clearPluginBridgePolicyCache();
     await cleanupDir(staged?.tempRoot ?? null);
     await cleanupDir(reserved?.backupRoot ?? null);
   }
@@ -278,6 +281,7 @@ export async function uninstallPlugin(pluginId: string): Promise<void> {
   // Remove from settings.json
   removeFromSettings(pluginPath);
   clearAppManifestCache();
+  clearPluginBridgePolicyCache();
 }
 
 /**
