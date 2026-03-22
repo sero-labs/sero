@@ -136,23 +136,24 @@ The agent receives detailed instructions on WHEN and WHAT to save:
 ### 2. Activity observer (`activity-observer.ts`)
 
 Hooks into `tool_call` and `agent_end` events to automatically log significant
-work to the daily log. Uses a compact map-based `TurnSummary`:
+work to the daily log. Tracks only what matters — files modified and notable
+commands:
 
 ```typescript
 interface TurnSummary {
-  toolCounts: Map<string, number>;   // tool name → call count
   editedPaths: Set<string>;          // shortened file paths
   notableCommands: string[];         // git, build, test commands
+  hasBash: boolean;                  // whether bash was used
 }
 ```
 
 **Output format** (one line per turn, under `## Activity (auto)` heading):
 ```
-- tools: {edit(3), bash(2), read(5)} | modified: .../src/foo.ts, .../bar.ts | cmds: `git commit -m "..."`
+- modified: .../src/foo.ts, .../bar.ts | ran: `git commit -m "..."`
 ```
 
 **Filtering rules:**
-- Only logs turns with file edits, or 3+ tool calls including bash
+- Only logs turns with file edits or notable bash commands
 - 1-minute cooldown between auto-logs
 - Notable commands: git, npm, pnpm, cargo, make, test runners, build, deploy, docker
 - File paths shortened to last 3 segments, capped at 5 paths

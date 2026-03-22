@@ -3,12 +3,12 @@
  * events to the daily log without requiring explicit user instruction.
  *
  * Hooks into:
- *   - agent_end: Builds a compact one-line summary of the turn
- *   - tool_call: Tracks tool usage within a turn for aggregation
+ *   - agent_end: Builds a compact summary of files modified and commands run
+ *   - tool_call: Tracks file edits and bash commands within a turn
  *
- * Logging is compact: one line per turn with a map of tool→count and
- * a short list of notable paths/commands. Only logs turns with real
- * work (file edits or 3+ tool calls including bash).
+ * Logging is compact: one line per turn listing only files modified and
+ * notable commands. Only logs turns with real work (file edits or notable
+ * bash commands).
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
@@ -25,11 +25,10 @@ import path from 'node:path';
 
 // ── State (reset per agent turn) ─────────────────────────────────
 
-/** Compact accumulator: tool name → count, plus notable paths/commands. */
 interface TurnSummary {
-  toolCounts: Map<string, number>;
   editedPaths: Set<string>;
   notableCommands: string[];
+  hasBash: boolean;
 }
 
 let turn: TurnSummary = freshTurn();
@@ -38,7 +37,7 @@ let lastAutoLogTime = 0;
 const AUTO_LOG_COOLDOWN_MS = 60_000; // 1 minute
 
 function freshTurn(): TurnSummary {
-  return { toolCounts: new Map(), editedPaths: new Set(), notableCommands: [] };
+  return { editedPaths: new Set(), notableCommands: [], hasBash: false };
 }
 
 // ── Classification ───────────────────────────────────────────────
@@ -55,35 +54,27 @@ function shortenPath(p: string): string {
 // ── Compact log builder ──────────────────────────────────────────
 
 function buildCompactEntry(t: TurnSummary): string | null {
-  const totalCalls = [...t.toolCounts.values()].reduce((a, b) => a + b, 0);
   const hasEdits = t.editedPaths.size > 0;
+  const hasCmds = t.notableCommands.length > 0;
 
-  // Only log significant turns: file edits, or 3+ calls with bash
-  if (!hasEdits && totalCalls < 3) return null;
-  if (!hasEdits && !t.toolCounts.has('bash')) return null;
+  // Only log if there's something meaningful: file edits or notable commands
+  if (!hasEdits && !hasCmds) return null;
 
   // Cooldown
   const now = Date.now();
   if (now - lastAutoLogTime < AUTO_LOG_COOLDOWN_MS) return null;
 
-  // Build compact map: edit(3), bash(2), read(5)
-  const mapStr = [...t.toolCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, count]) => `${name}(${count})`)
-    .join(', ');
-
-  const parts: string[] = [`tools: {${mapStr}}`];
+  const parts: string[] = [];
 
   if (hasEdits) {
-    // Cap at 5 paths to keep it concise
     const paths = [...t.editedPaths].slice(0, 5);
     const suffix = t.editedPaths.size > 5 ? ` +${t.editedPaths.size - 5} more` : '';
     parts.push(`modified: ${paths.join(', ')}${suffix}`);
   }
 
-  if (t.notableCommands.length > 0) {
+  if (hasCmds) {
     const cmds = t.notableCommands.slice(0, 3).map((c) => `\`${c}\``);
-    parts.push(`cmds: ${cmds.join(', ')}`);
+    parts.push(`ran: ${cmds.join(', ')}`);
   }
 
   return `- ${parts.join(' | ')}`;
@@ -137,8 +128,6 @@ export function registerActivityObserver(pi: ExtensionAPI): void {
     const name = event.toolName;
     if (!name) return;
 
-    turn.toolCounts.set(name, (turn.toolCounts.get(name) ?? 0) + 1);
-
     // Cast input to a loose record for property access
     const input = event.input as Record<string, unknown> | undefined;
 
@@ -149,12 +138,15 @@ export function registerActivityObserver(pi: ExtensionAPI): void {
     }
 
     // Track notable bash commands (git, build, test, etc.)
-    if (name === 'bash' && input) {
-      const cmd = input.command as string | undefined;
-      if (cmd && NOTABLE_CMD_RE.test(cmd)) {
-        const short = cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd;
-        if (turn.notableCommands.length < 5) {
-          turn.notableCommands.push(short);
+    if (name === 'bash') {
+      turn.hasBash = true;
+      if (input) {
+        const cmd = input.command as string | undefined;
+        if (cmd && NOTABLE_CMD_RE.test(cmd)) {
+          const short = cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd;
+          if (turn.notableCommands.length < 5) {
+            turn.notableCommands.push(short);
+          }
         }
       }
     }
@@ -164,8 +156,6 @@ export function registerActivityObserver(pi: ExtensionAPI): void {
   pi.on('agent_end', async () => {
     const snapshot = turn;
     turn = freshTurn();
-
-    if (snapshot.toolCounts.size === 0) return;
 
     try {
       const entry = buildCompactEntry(snapshot);
