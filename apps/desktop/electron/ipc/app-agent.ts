@@ -85,8 +85,8 @@ async function resolveAppPackageResources(packagePath: string): Promise<AppPacka
  * Find an app's package path by its id using app discovery.
  * Result is cached after first call.
  *
- * TODO: Wire up clearAppManifestCache() to hot-install events so
- * newly added apps are picked up without an Electron restart.
+ * The plugin manager calls clearAppManifestCache() after plugin install /
+ * uninstall so hot-loaded plugins are picked up without an Electron restart.
  */
 let appManifestCache: Map<string, string> | null = null;
 
