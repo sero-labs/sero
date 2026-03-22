@@ -16,7 +16,8 @@ import { appStateManager } from '../app-state';
 import { SERO_HOME } from '../env';
 import { gitWorkspaceStateManager } from '../git-app/manager';
 import type { KanbanState } from '../kanban/types';
-import { kanbanOrchestrator, ensureInfra, workspaceManager } from './shared-infra';
+import { kanbanOrchestrator, ensureInfra, workspaceManager, SERO_CONFIG_PATH, applyRuntimeSettings } from './shared-infra';
+import { reloadAllSessionResources } from './agent';
 
 const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
 const KANBAN_WORKSPACE_SUFFIX = '/.sero/apps/kanban/state.json';
@@ -38,6 +39,19 @@ async function primeKanbanWorkspaceWatch(filePath: string, data: unknown): Promi
   const workspace = workspaceManager.findByPath(workspacePath);
   if (workspace) {
     await kanbanOrchestrator.watchWorkspace(workspace.id, workspace.path);
+  }
+}
+
+async function refreshRuntimeSettingsIfNeeded(filePath: string): Promise<void> {
+  if (path.resolve(filePath) !== path.resolve(SERO_CONFIG_PATH)) return;
+
+  try {
+    const infra = await ensureInfra();
+    infra.settingsManager.reload();
+    applyRuntimeSettings(infra.settingsManager);
+    await reloadAllSessionResources();
+  } catch (err) {
+    console.error('[app-state] Failed to reload runtime settings:', err);
   }
 }
 
@@ -92,6 +106,7 @@ export function registerAppStateHandlers(): void {
       await appStateManager.write(filePath, data);
       // Immediate notification for IPC-originated writes (no file watcher delay)
       notifyKanbanOrchestrator(filePath, data);
+      await refreshRuntimeSettingsIfNeeded(filePath);
     },
   );
 

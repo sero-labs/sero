@@ -451,7 +451,7 @@ export type {
   CollaborationEvent,
 } from './collaboration';
 
-export type { SkillSource, SkillSummary, SkillFileData } from './skills';
+export type { SkillSource, SkillSummary, AvailableSkillSummary, SkillFileData } from './skills';
 export type { PromptTemplateSummary, PromptTemplateFileData } from './prompts';
 
 // ── GitHub Repo Creation ────────────────────────────────────────

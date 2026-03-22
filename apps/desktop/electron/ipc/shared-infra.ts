@@ -122,6 +122,21 @@ export interface SharedInfra {
   model: Model<Api>;
 }
 
+/** Apply runtime-only settings that need to update live singletons. */
+export function applyRuntimeSettings(
+  settingsManager: ReturnType<typeof SettingsManager.create>,
+): void {
+  const raw = (settingsManager.getGlobalSettings() as Record<string, unknown>)?.subagent as Record<string, unknown> | undefined;
+
+  subagentManager.updateSettings({
+    maxConcurrent: typeof raw?.maxConcurrent === 'number' ? raw.maxConcurrent : undefined,
+    maxTotal: typeof raw?.maxTotal === 'number' ? raw.maxTotal : undefined,
+    timeoutMs: typeof raw?.timeoutMs === 'number' ? raw.timeoutMs : undefined,
+    model: typeof raw?.model === 'string' ? raw.model : undefined,
+    thinking: typeof raw?.thinking === 'string' ? raw.thinking : undefined,
+  });
+}
+
 /** Lazy-init shared infrastructure. Called once, then cached. */
 export async function ensureInfra(): Promise<SharedInfra> {
   if (!_authStorage) {
@@ -153,19 +168,8 @@ export async function ensureInfra(): Promise<SharedInfra> {
       workspaceManager,
       containerManager,
     });
-
-    // Load subagent settings from settings.json
-    const raw = (_settingsManager!.getGlobalSettings() as Record<string, unknown>)?.['subagent'] as Record<string, unknown> | undefined;
-    if (raw) {
-      subagentManager.updateSettings({
-        maxConcurrent: typeof raw.maxConcurrent === 'number' ? raw.maxConcurrent : undefined,
-        maxTotal: typeof raw.maxTotal === 'number' ? raw.maxTotal : undefined,
-        timeoutMs: typeof raw.timeoutMs === 'number' ? raw.timeoutMs : undefined,
-        model: typeof raw.model === 'string' ? raw.model : undefined,
-        thinking: typeof raw.thinking === 'string' ? raw.thinking : undefined,
-      });
-    }
   }
+  applyRuntimeSettings(infra.settingsManager);
 
   // Wire kanban orchestrator deps lazily
   kanbanOrchestrator.setDeps({

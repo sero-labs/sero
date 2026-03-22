@@ -12,14 +12,16 @@ import { ipcMain } from 'electron';
 import { readFile, writeFile, mkdir, rm, rename } from 'fs/promises';
 import path from 'path';
 import {
+  DefaultResourceLoader,
   loadSkillsFromDir,
   parseFrontmatter,
   type SkillFrontmatter,
 } from '@mariozechner/pi-coding-agent';
 import { IpcChannels } from '../../src/types/ipc';
-import { SERO_AGENT_DIR } from '../env';
+import { SERO_AGENT_DIR, SERO_HOME } from '../env';
 import { reloadAllSessionResources } from './agent';
-import type { SkillSummary, SkillFileData } from '../../src/types/skills';
+import { ensureInfra } from './shared-infra';
+import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '../../src/types/skills';
 
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
 
@@ -72,6 +74,34 @@ export function registerSkillHandlers(): void {
           description: s.description,
           filePath: s.filePath,
           source: s.source as SkillSummary['source'],
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.skills.listAvailableSkills,
+    async (): Promise<AvailableSkillSummary[]> => {
+      const infra = await ensureInfra();
+      infra.settingsManager.reload();
+
+      const loader = new DefaultResourceLoader({
+        cwd: SERO_HOME,
+        agentDir: SERO_AGENT_DIR,
+        settingsManager: infra.settingsManager,
+        noExtensions: true,
+        noPromptTemplates: true,
+        noThemes: true,
+      });
+      await loader.reload();
+
+      const { skills } = loader.getSkills();
+      return skills
+        .map((skill) => ({
+          name: skill.name,
+          description: skill.description,
+          source: skill.source,
+          disableModelInvocation: skill.disableModelInvocation,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     },

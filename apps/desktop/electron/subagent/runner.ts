@@ -25,7 +25,7 @@ import { WORKSPACE_DIR } from '../container/tool-schemas';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '../env';
 import { logRawEvent, logTurnContext } from '../ipc/debug';
-import { applyDefaultSkillVisibility } from '../context-optimizations';
+import { createSkillVisibilityOverride } from '../skill-visibility';
 import path from 'path';
 
 const EMPTY_USAGE: SubagentUsage = {
@@ -167,7 +167,7 @@ export async function runSubagent(
         containerCwd,
       ),
     ],
-    skillsOverride: applyDefaultSkillVisibility,
+    skillsOverride: createSkillVisibilityOverride(infra.settingsManager),
   });
   await loader.reload();
 

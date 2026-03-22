@@ -49,6 +49,7 @@ import type {
   SubagentAgentSummary,
   SubagentEntry,
   SkillSummary,
+  AvailableSkillSummary,
   SkillFileData,
   PromptTemplateSummary,
   PromptTemplateFileData,
@@ -322,8 +323,10 @@ interface SeroSubagentAPI {
 }
 
 interface SeroSkillsAPI {
-  /** List all discovered skills (uses SDK loadSkillsFromDir). */
+  /** List editable user skills from ~/.sero-ui/agent/skills. */
   listSkills(): Promise<SkillSummary[]>;
+  /** List all globally available skills loaded by Sero. */
+  listAvailableSkills(): Promise<AvailableSkillSummary[]>;
   /** Read full skill data by absolute filePath (from listSkills). */
   readSkill(filePath: string): Promise<SkillFileData>;
   /** Create or update a skill's SKILL.md. Returns the written filePath. */

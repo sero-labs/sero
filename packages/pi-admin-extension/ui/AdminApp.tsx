@@ -1,8 +1,9 @@
 /**
  * AdminApp — main Sero Admin app component.
  *
- * Three-tab interface:
+ * Four-tab interface:
  *  - Config: browse and edit Sero configuration files
+ *  - Skills: control which skills stay visible to the model by default
  *  - Logs: view Sero log files with auto-refresh
  *  - Sessions: browse session data (CSS content-visibility skip)
  *
@@ -10,26 +11,25 @@
  * Profile-aware — shows active profile and reads from the correct path.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useAppState } from '@sero/app-runtime';
 import { cn } from '@sero/ui/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero/ui/components/ui/tabs';
-import type { AdminState } from '../shared/types';
+import type { AdminState, AdminTab } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { useProfiles } from './hooks/useSeroFiles';
 import { Header } from './components/Header';
 import { ConfigPanel } from './components/ConfigPanel';
+import { SkillsPanel } from './components/SkillsPanel';
 import { LogViewer } from './components/LogViewer';
 import { SessionBrowser } from './components/SessionBrowser';
 import './styles.css';
-
-type TabValue = 'config' | 'logs' | 'sessions';
 
 export function AdminApp() {
   const [state, updateState] = useAppState<AdminState>(DEFAULT_STATE);
   const { activeProfile, loading: profilesLoading } = useProfiles();
 
-  const [activeTab, setActiveTab] = useState<TabValue>(state.lastTab ?? 'config');
+  const [activeTab, setActiveTab] = useState<AdminTab>(state.lastTab ?? 'config');
   const [selectedConfigKey, setSelectedConfigKey] = useState<string | null>(
     state.lastConfigKey,
   );
@@ -39,7 +39,7 @@ export function AdminApp() {
 
   // Persist tab preference
   const handleTabChange = useCallback((value: string) => {
-    const tab = value as TabValue;
+    const tab = value as AdminTab;
     setActiveTab(tab);
     updateState((prev) => ({ ...prev, lastTab: tab }));
   }, [updateState]);
@@ -92,6 +92,18 @@ export function AdminApp() {
               </span>
             </TabsTrigger>
             <TabsTrigger
+              value="skills"
+              className={cn(
+                'h-8 rounded-none px-3 text-xs',
+                activeTab === 'skills' && 'text-indigo-400',
+              )}
+            >
+              <span className="flex items-center gap-1.5">
+                <SkillsIcon />
+                Skills
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
               value="logs"
               className={cn(
                 'h-8 rounded-none px-3 text-xs',
@@ -128,6 +140,10 @@ export function AdminApp() {
           />
         </TabsContent>
 
+        <TabsContent value="skills" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <SkillsPanel profilePath={profilePath} />
+        </TabsContent>
+
         <TabsContent value="logs" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <LogViewer />
         </TabsContent>
@@ -152,6 +168,16 @@ function ConfigIcon() {
       <path d="M14 2v4a2 2 0 0 0 2 2h4" />
       <path d="M10 12h4" />
       <path d="M10 16h4" />
+    </svg>
+  );
+}
+
+function SkillsIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2v20" />
+      <path d="M7 8.5h6a3.5 3.5 0 1 0 0-7H9" />
+      <path d="M7 15.5h8a3.5 3.5 0 1 1 0 7H9" />
     </svg>
   );
 }

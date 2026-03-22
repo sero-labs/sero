@@ -18,7 +18,6 @@ import path from 'path';
 
 import { buildContainerPromptBlock } from '../container/system-prompt';
 import { buildCliPromptBlock } from '../cli';
-import { MODEL_VISIBLE_SKILL_NAMES } from '../context-optimizations';
 import {
   BashParams,
   ReadParams,
@@ -92,24 +91,35 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 - Always read pi .md files completely and follow links to related docs`;
 }
 
-/** Build a realistic skills listing using the default model-visible skill allowlist. */
+/**
+ * Build a realistic skills listing for a functional default Sero install.
+ *
+ * This reflects the full progressive-disclosure surface being available by
+ * default. Users can still hide specific skills globally from the Admin app
+ * when they want to trim prompt size.
+ */
 function buildSkillsListing(): string {
-  const skillDescriptions: Record<string, string> = {
-    'ai-elements': 'Create new AI chat interface components.',
-    'context-management': 'Strategies for efficient context management.',
-    context7: 'Retrieve up-to-date documentation for software libraries.',
-    humanizer: 'Remove signs of AI-generated writing from text.',
-    'plan-exit-review': 'Review a plan thoroughly before implementation.',
-    research: 'Get AI-synthesized research on any topic with citations.',
-    'visual-explainer': 'Generate visual HTML explanations for technical concepts.',
-  };
-
-  const skills = [...MODEL_VISIBLE_SKILL_NAMES]
-    .sort()
-    .map((name) => ({
-      name,
-      desc: skillDescriptions[name] ?? `Specialized instructions for ${name}.`,
-    }));
+  const skills = [
+    { name: 'ai-elements', desc: 'Create new AI chat interface components.' },
+    { name: 'browser-tools', desc: 'Interactive browser automation for testing and visible web workflows.' },
+    { name: 'context-management', desc: 'Strategies for efficient context management using context tools.' },
+    { name: 'context7', desc: 'Retrieve up-to-date documentation for software libraries.' },
+    { name: 'crawl', desc: 'Crawl websites and save pages as local markdown files.' },
+    { name: 'extract', desc: 'Extract clean markdown or text from specific URLs.' },
+    { name: 'frontend-design', desc: 'Create distinctive, production-grade frontend interfaces.' },
+    { name: 'humanizer', desc: 'Remove signs of AI-generated writing from text.' },
+    { name: 'plan-exit-review', desc: 'Review a plan thoroughly before implementation.' },
+    { name: 'plan-interview', desc: 'Adaptive interview for generating comprehensive specifications.' },
+    { name: 'playwright-cli', desc: 'Automates browser interactions for testing, screenshots, and extraction.' },
+    { name: 'research', desc: 'Get AI-synthesised research on a topic with citations.' },
+    { name: 'search', desc: 'Search the web using an LLM-optimised search API.' },
+    { name: 'skill-creator', desc: 'Guide for creating effective skills.' },
+    { name: 'tavily-best-practices', desc: 'Build production-ready Tavily integrations.' },
+    { name: 'transcribe', desc: 'Speech-to-text transcription for common audio formats.' },
+    { name: 'visual-explainer', desc: 'Generate visual HTML explanations for technical concepts.' },
+    { name: 'vscode', desc: 'VS Code integration for viewing diffs and comparing files.' },
+    { name: 'webapp-testing', desc: 'Toolkit for interacting with and testing local web applications.' },
+  ];
 
   let text = '\nThe following skills provide specialized instructions for specific tasks.\n';
   text += 'Use the read tool to load a skill\'s file when the task matches its description.\n\n';

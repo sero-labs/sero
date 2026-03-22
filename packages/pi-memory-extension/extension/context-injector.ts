@@ -37,8 +37,8 @@ import { searchRelevantMemories, isQmdAvailable } from './qmd';
 const BUDGET_IDENTITY_USER = 2_000; // ~500 tokens
 const BUDGET_SCRATCHPAD    = 1_500; // ~375 tokens
 const BUDGET_SEARCH        = 2_500; // ~625 tokens
-const BUDGET_MEMORY        = 1_200; // ~300 tokens — rely on selective search for deeper recall
-const BUDGET_TOTAL         = 7_200; // ~1.8K tokens — safety cap
+const BUDGET_MEMORY        = 1_600; // ~400 tokens — keep more durable project context available
+const BUDGET_TOTAL         = 7_600; // ~1.9K tokens — safety cap
 
 // ── Bootstrap status cache ─────────────────────────────────────
 
@@ -140,12 +140,12 @@ function getMemoryInstructions(): string {
   return [
     `\n\n## Memory System`,
     '',
-    `All memory files live in \`${root}\`. Only read or write memory files inside that directory.`,
+    `All memory files live in \`${root}\`. Use the memory commands below instead of editing those files directly so timestamps, append behaviour, and search indexing stay correct.`,
     '',
     'Use these commands when needed:',
     '- `sero memory read --target memory|identity|user|daily`',
-    '- `sero memory write --target memory|daily|user --content "..."`',
-    '- `sero memory search --query "..."`',
+    '- `sero memory write --target memory|daily|user --content "..." [--mode append|overwrite]`',
+    '- `sero memory search --query "..."` — quick text search across memory files',
     searchLine,
     '- `sero scratchpad add|done "..."`',
     '',
@@ -153,7 +153,7 @@ function getMemoryInstructions(): string {
     '- Save durable preferences, decisions, project facts, and corrections to `memory`',
     '- Save session-specific progress, blockers, and follow-ups to `daily`',
     '- Search before writing so you update existing memory instead of duplicating it',
-    '- Keep entries concise; use the `write` tool directly for multi-line content',
+    '- For multi-line content, keep using `sero memory write` and pass escaped newlines rather than switching to the raw `write` tool',
   ].filter(Boolean).join('\n');
 }
 
