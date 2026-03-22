@@ -28,6 +28,8 @@ export interface AgentState {
   focusedSessionId: string | null;
   /** Whether to display thinking/reasoning blocks in the chat. */
   showThinkingBlocks: boolean;
+  /** Whether to display memory context blocks in the chat. */
+  showMemoryBlocks: boolean;
   /** Collaboration UI state, keyed by session ID. */
   collaborations: CollaborationSessionMap;
   /** Open a session — creates an AgentSession in the main-process pool. */
@@ -54,6 +56,8 @@ export interface AgentState {
   fetchModelState: (sessionId: string) => Promise<void>;
   /** Toggle visibility of thinking/reasoning blocks. */
   toggleThinkingBlocks: () => void;
+  /** Toggle visibility of memory context blocks. */
+  toggleMemoryBlocks: () => void;
   /** Toggle collaboration mode on/off for the focused session. */
   toggleCollaborationMode: () => void;
   /** Set the collaboration strategy for the focused session. */

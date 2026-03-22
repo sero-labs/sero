@@ -101,6 +101,12 @@ export function drainDeltaBuffer() {
   return { text, thinking };
 }
 
+// ── Pending memory context (per-session) ────────────────────────
+// Holds the memory context emitted before the assistant message starts,
+// so we can attach it to the next assistant message in that session.
+
+const pendingMemoryContext = new Map<string, string>();
+
 // ── Agent stream event handler ─────────────────────────────────
 // Extracted from agent.ts to keep it under 500 LOC.
 
@@ -147,14 +153,28 @@ export function handleAgentStreamEvent(
       }));
       break;
 
+    case 'memory_context':
+      // Stash for the next assistant message in this session
+      pendingMemoryContext.set(sid, event.context);
+      break;
+
     case 'message_start':
       if (event.message.type === 'user') break;
-      set((s) => ({
-        agents: {
-          ...s.agents,
-          [sid]: { ...s.agents[sid], messages: [...(s.agents[sid]?.messages ?? []), event.message] },
-        },
-      }));
+      {
+        // Attach any pending memory context to the new assistant message
+        let msg = event.message;
+        const pending = pendingMemoryContext.get(sid);
+        if (pending && msg.type === 'assistant') {
+          msg = { ...msg, memoryContext: pending };
+          pendingMemoryContext.delete(sid);
+        }
+        set((s) => ({
+          agents: {
+            ...s.agents,
+            [sid]: { ...s.agents[sid], messages: [...(s.agents[sid]?.messages ?? []), msg] },
+          },
+        }));
+      }
       break;
 
     case 'text_delta':

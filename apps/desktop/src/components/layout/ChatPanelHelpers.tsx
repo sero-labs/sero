@@ -8,7 +8,7 @@
  */
 
 import { useRef, useState, useCallback } from 'react';
-import { Settings2, Brain, MessageSquare, Users, Swords, ChevronDown } from 'lucide-react';
+import { Settings2, Brain, Database, MessageSquare, Users, Swords, ChevronDown } from 'lucide-react';
 import {
   PromptInputActionMenuItem,
 } from '@sero/ui/components/ai-elements/prompt-input';
@@ -77,6 +77,30 @@ export function ThinkingBlocksToggle({ disabled }: { disabled: boolean }) {
       )}
     >
       <Brain className="size-3.5" />
+    </button>
+  );
+}
+
+// ── Memory blocks toggle ────────────────────────────────────────
+
+export function MemoryBlocksToggle({ disabled }: { disabled: boolean }) {
+  const showMemory = useAgentStore((s) => s.showMemoryBlocks);
+  const toggle = useAgentStore((s) => s.toggleMemoryBlocks);
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={disabled}
+      title={showMemory ? 'Hide memory context' : 'Show memory context'}
+      className={cn(
+        'rounded-md p-1.5 transition-colors duration-150',
+        showMemory
+          ? 'bg-[var(--accent-primary-subtle,var(--bg-elevated))] text-[var(--accent-primary)]'
+          : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+        'disabled:pointer-events-none disabled:opacity-40',
+      )}
+    >
+      <Database className="size-3.5" />
     </button>
   );
 }

@@ -77,6 +77,7 @@ export function ChatPanel() {
   const sessionLabel = activeSession?.name || activeSession?.firstMessage;
 
   const showThinkingBlocks = useAgentStore((s) => s.showThinkingBlocks);
+  const showMemoryBlocks = useAgentStore((s) => s.showMemoryBlocks);
 
   // Group consecutive tool calls into collapsible blocks
   const groupedItems = useMemo(() => groupMessages(messages), [messages]);
@@ -171,6 +172,7 @@ export function ChatPanel() {
                     key={item.message.id}
                     message={item.message}
                     showThinking={showThinkingBlocks}
+                    showMemory={showMemoryBlocks}
                     onRestoreCheckpoint={stableRestoreHandler}
                     sessionId={sessionId ?? undefined}
                     previousUserText={previousUserTextMap.get(index)}

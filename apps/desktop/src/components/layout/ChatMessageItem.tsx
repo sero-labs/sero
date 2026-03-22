@@ -10,6 +10,7 @@ import {
 } from '@sero/ui/components/ai-elements/message';
 import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';
+import { MemoryContextBlock } from './MemoryContextBlock';
 import { ResponseFeedback } from './ResponseFeedback';
 import type { ChatMessage } from '@/types/ipc';
 import type { ChatCheckpointRef } from '@/types/checkpoints';
@@ -18,6 +19,8 @@ interface ChatMessageItemProps {
   message: ChatMessage;
   /** Whether to display thinking/reasoning blocks. */
   showThinking?: boolean;
+  /** Whether to display memory context blocks. */
+  showMemory?: boolean;
   onRestoreCheckpoint?: (checkpoint: ChatCheckpointRef) => void;
   /** Session ID for feedback attribution. */
   sessionId?: string;
@@ -28,6 +31,7 @@ interface ChatMessageItemProps {
 export const ChatMessageItem = memo(function ChatMessageItem({
   message,
   showThinking,
+  showMemory,
   onRestoreCheckpoint,
   sessionId,
   previousUserText,
@@ -81,6 +85,9 @@ export const ChatMessageItem = memo(function ChatMessageItem({
 
       return (
         <Message from="assistant" className="group/msg">
+          {showMemory && message.memoryContext && (
+            <MemoryContextBlock context={message.memoryContext} />
+          )}
           {showThinking && message.thinking && (
             <ThinkingBlock
               thinking={message.thinking}

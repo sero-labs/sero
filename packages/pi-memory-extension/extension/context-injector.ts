@@ -138,18 +138,51 @@ function getMemoryInstructions(): string {
     : '';
 
   return [
-    `\n\n**Memory commands** (all files in \`${root}\` — do NOT access memory files outside this path):`,
+    `\n\n## Memory System (IMPORTANT — read carefully)`,
+    '',
+    `All memory files live in \`${root}\`. Do NOT access memory files outside this path.`,
+    '',
+    '### Commands',
     '- `sero memory write --target memory --content "..."` — save a long-term fact or decision',
     '- `sero memory write --target daily --content "..."` — log something to today\'s daily note',
+    '- `sero memory write --target user --content "..."` — update user profile info',
     '- `sero memory read --target memory|identity|user|daily` — read a memory file',
     '- `sero memory search --query "..."` — grep search across memory files',
     searchLine,
     '- `sero scratchpad add "..."` — add item to scratchpad checklist',
+    '- `sero scratchpad done "..."` — mark item complete',
     '- `sero memory list` — list all memory files',
     '',
-    'Use #tags (e.g. #decision, #preference) and [[links]] (e.g. [[auth-strategy]]) in memory content to improve search recall.',
-    'Proactively save important facts, user preferences, and decisions to memory.',
-    'When the user shares something worth remembering, write it to the appropriate target.',
+    '### When to save to MEMORY (long-term)',
+    'Save to `--target memory` whenever the user reveals or you discover:',
+    '- **Preferences:** coding style, formatting, naming conventions, tool choices',
+    '- **Decisions:** architecture choices, library selections, design patterns adopted',
+    '- **Project context:** repo structure, key files, deployment setup, environments',
+    '- **Technical knowledge:** frameworks used, APIs integrated, custom patterns',
+    '- **Corrections:** when the user corrects you, save the correct approach',
+    '- **Workflows:** how the user prefers to work (PR flow, testing approach, etc.)',
+    '',
+    '### When to save to DAILY (session log)',
+    'Save to `--target daily` for time-specific information:',
+    '- What was worked on this session (features, bugs, refactors)',
+    '- Problems encountered and how they were solved',
+    '- TODOs or follow-ups that came up during work',
+    '- Key commits, PRs, or deployments made',
+    '',
+    '### Proactive memory rules (CRITICAL)',
+    '1. **Save WITHOUT being asked.** Do not wait for the user to say "remember this". If information is worth remembering, save it immediately.',
+    '2. **Save EARLY in the conversation.** When the user describes what they\'re working on, save context to daily immediately.',
+    '3. **Save AFTER completing work.** After finishing a task, log what was done and any lessons learned to daily.',
+    '4. **Save corrections.** If the user corrects your approach, save the correct way to memory so you don\'t repeat the mistake.',
+    '5. **Save project discoveries.** When you learn about a project\'s structure, patterns, or conventions, save to memory.',
+    '6. **Update, don\'t duplicate.** Before writing to memory, search first to see if the info already exists. Update existing entries rather than creating duplicates.',
+    '7. **Use the scratchpad** for multi-step tasks the user asks you to track.',
+    '',
+    '### Formatting best practices',
+    '- Use #tags (e.g. #decision, #preference, #bugfix) to improve search recall',
+    '- Use [[links]] (e.g. [[auth-strategy]], [[project-x]]) for cross-referencing',
+    '- Keep entries concise — one fact per bullet point',
+    '- Group related facts under markdown headings',
   ].filter(Boolean).join('\n');
 }
 
@@ -211,12 +244,26 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     const status = await getCachedBootstrapStatus();
 
     let addition: string;
+    let contextBlock = '';
     if (status.needsBootstrap) {
       addition = buildBootstrapInstructions(status.existingUserContent);
     } else {
       const root = resolveMemoryRoot();
-      const contextBlock = await buildPriorityContext(root, event.prompt ?? '');
+      contextBlock = await buildPriorityContext(root, event.prompt ?? '');
       addition = contextBlock + getMemoryInstructions();
+    }
+
+    // Send the memory context as a custom message so the host can
+    // intercept it and display it in the ChatPanel.
+    if (contextBlock.trim()) {
+      try {
+        pi.sendMessage(
+          { customType: 'memory-context', content: contextBlock.trim(), display: false },
+          { triggerTurn: false },
+        );
+      } catch {
+        // Non-fatal — context is already in the system prompt
+      }
     }
 
     if (!addition.trim()) return;
