@@ -92,6 +92,7 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
           >
             {models.map((model) => {
               const key = modelKey(model.provider, model.modelId);
+              const isModelHidden = isHidden(key);
               return (
                 <ModelManagerItem
                   key={key}
@@ -99,7 +100,8 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
                   providerLogo={group.logo}
                   providerName={group.displayName}
                   isFavourite={isFavourite(key)}
-                  isHidden={isProviderHidden || isHidden(key)}
+                  isHidden={isProviderHidden || isModelHidden}
+                  isHiddenByProvider={isProviderHidden}
                   onToggleFavourite={onToggleFavourite}
                   onToggleHidden={onToggleHidden}
                 />

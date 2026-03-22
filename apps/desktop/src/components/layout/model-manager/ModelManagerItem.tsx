@@ -15,6 +15,7 @@ interface ModelManagerItemProps {
   providerName: string;
   isFavourite: boolean;
   isHidden: boolean;
+  isHiddenByProvider: boolean;
   onToggleFavourite: (key: string) => void;
   onToggleHidden: (key: string) => void;
 }
@@ -25,13 +26,23 @@ const ModelManagerItem = memo(function ModelManagerItem({
   providerName,
   isFavourite,
   isHidden,
+  isHiddenByProvider,
   onToggleFavourite,
   onToggleHidden,
 }: ModelManagerItemProps) {
   const key = modelKey(model.provider, model.modelId);
+  const hideActionDisabled = isHiddenByProvider;
+  const hideActionTitle = hideActionDisabled
+    ? 'Hidden by provider — use the provider toggle to show these models'
+    : isHidden
+      ? 'Show in selector'
+      : 'Hide from selector';
 
   const handleFavourite = useCallback(() => onToggleFavourite(key), [key, onToggleFavourite]);
-  const handleHidden = useCallback(() => onToggleHidden(key), [key, onToggleHidden]);
+  const handleHidden = useCallback(() => {
+    if (hideActionDisabled) return;
+    onToggleHidden(key);
+  }, [hideActionDisabled, key, onToggleHidden]);
 
   return (
     <motion.div
@@ -84,11 +95,14 @@ const ModelManagerItem = memo(function ModelManagerItem({
 
         <button
           onClick={handleHidden}
-          title={isHidden ? 'Show in selector' : 'Hide from selector'}
+          disabled={hideActionDisabled}
+          title={hideActionTitle}
           className={`rounded-md p-1 transition-all duration-150 ${
-            isHidden
-              ? 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-              : 'text-[var(--text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--text-secondary)]'
+            hideActionDisabled
+              ? 'cursor-not-allowed text-[var(--text-muted)] opacity-60'
+              : isHidden
+                ? 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                : 'text-[var(--text-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--text-secondary)]'
           }`}
         >
           {isHidden ? (

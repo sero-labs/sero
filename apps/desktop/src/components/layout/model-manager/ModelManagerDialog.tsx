@@ -344,7 +344,8 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
                       providerLogo={group.logo}
                       providerName={group.displayName}
                       isFavourite={isFavourite(key)}
-                      isHidden={isHidden(key)}
+                      isHidden={isProviderHidden(group.provider) || isHidden(key)}
+                      isHiddenByProvider={isProviderHidden(group.provider)}
                       onToggleFavourite={toggleFavourite}
                       onToggleHidden={toggleHidden}
                     />

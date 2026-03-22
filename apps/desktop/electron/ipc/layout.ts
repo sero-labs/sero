@@ -10,23 +10,36 @@ import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '../../src/types/ipc';
-import type { LayoutState } from '../../src/types/layout';
+import type { LayoutState, LoadedLayoutState } from '../../src/types/layout';
 import { SERO_AGENT_DIR } from '../env';
 
-export type { LayoutState };
+export type { LayoutState, LoadedLayoutState };
 
 const LAYOUT_FILE = path.join(SERO_AGENT_DIR, 'layout.json');
 
 let writeQueue: Promise<void> = Promise.resolve();
 
-function isLayoutState(value: unknown): value is LayoutState {
+function isOptionalArray(value: unknown): boolean {
+  return value === undefined || Array.isArray(value);
+}
+
+function sanitizeStringArray(values: string[] | undefined): string[] | undefined {
+  return Array.isArray(values)
+    ? values.filter((value): value is string => typeof value === 'string')
+    : undefined;
+}
+
+function isLayoutState(value: unknown): value is LoadedLayoutState {
   if (!value || typeof value !== 'object') return false;
   const c = value as Record<string, unknown>;
   // Required booleans
   if (typeof c.mainSidebarOpen !== 'boolean') return false;
   if (typeof c.chatPanelOpen !== 'boolean') return false;
-  // Optional array
-  if (c.favouriteApps !== undefined && !Array.isArray(c.favouriteApps)) return false;
+  // Optional arrays
+  if (!isOptionalArray(c.favouriteApps)) return false;
+  if (!isOptionalArray(c.favouriteModels)) return false;
+  if (!isOptionalArray(c.hiddenModels)) return false;
+  if (!isOptionalArray(c.hiddenProviders)) return false;
   // Optional strings — reject wrong types to prevent garbage propagation
   if (c.theme !== undefined && typeof c.theme !== 'string') return false;
   if (c.activeApp !== undefined && typeof c.activeApp !== 'string') return false;
@@ -38,14 +51,16 @@ function isLayoutState(value: unknown): value is LayoutState {
 }
 
 /** Parse layout JSON. Returns the state if valid, null otherwise. */
-function parseLayoutState(raw: string): LayoutState | null {
+function parseLayoutState(raw: string): LoadedLayoutState | null {
   try {
     const parsed = JSON.parse(raw.trim());
     if (!isLayoutState(parsed)) return null;
-    if (!Array.isArray(parsed.favouriteApps)) return parsed;
     return {
       ...parsed,
-      favouriteApps: parsed.favouriteApps.filter((id): id is string => typeof id === 'string'),
+      favouriteApps: sanitizeStringArray(parsed.favouriteApps),
+      favouriteModels: sanitizeStringArray(parsed.favouriteModels),
+      hiddenModels: sanitizeStringArray(parsed.hiddenModels),
+      hiddenProviders: sanitizeStringArray(parsed.hiddenProviders),
     };
   } catch {
     return null;
