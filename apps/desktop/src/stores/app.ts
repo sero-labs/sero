@@ -5,6 +5,7 @@ import { preloadFederatedModule } from '@/lib/federation-registry';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useThemeStore, hydrateThemeStore } from '@/stores/theme';
+import { useModelPreferences } from '@/stores/model-preferences';
 
 // ── Built-in apps (always present) ────────────────────────────
 
@@ -287,6 +288,12 @@ export async function loadLayout(): Promise<void> {
       if (state.activeSessionId !== undefined) {
         useSessionStore.setState({ activeSessionId: state.activeSessionId ?? null });
       }
+      // Hydrate model preferences
+      useModelPreferences.getState().hydrate({
+        favouriteModels: state.favouriteModels,
+        hiddenModels: state.hiddenModels,
+        hiddenProviders: state.hiddenProviders,
+      });
       return;
     }
   } catch (err) {
