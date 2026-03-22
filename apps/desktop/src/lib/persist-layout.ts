@@ -20,6 +20,7 @@ import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
+import { useModelPreferences } from '@/stores/model-preferences';
 
 // Re-export the canonical type so callers don't need a second import.
 export type { LayoutState };
@@ -44,6 +45,9 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     activeSessionId: partial.activeSessionId !== undefined
       ? partial.activeSessionId
       : sess.activeSessionId,
+    favouriteModels: partial.favouriteModels ?? useModelPreferences.getState().favouriteModels,
+    hiddenModels: partial.hiddenModels ?? useModelPreferences.getState().hiddenModels,
+    hiddenProviders: partial.hiddenProviders ?? useModelPreferences.getState().hiddenProviders,
   };
 }
 

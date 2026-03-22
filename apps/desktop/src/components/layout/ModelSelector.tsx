@@ -1,9 +1,11 @@
 import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
-import { ChevronDown, Check, Brain, Sparkles, Search } from 'lucide-react';
+// Note: useEffect is retained only for the idle-callback popover priming below.
+import { ChevronDown, Check, Brain, Sparkles, Search, Settings2, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
 import { useAgentStore } from '@/stores/agent';
 import { useFocusedModelState, useFocusedSessionId } from '@/stores/agent-selectors';
+import { useModelPreferences, modelKey } from '@/stores/model-preferences';
 import {
   THINKING_LEVELS,
   THINKING_LABELS,
@@ -11,6 +13,7 @@ import {
   findGroup,
   type ThinkingLevel,
 } from './model-config';
+import { ModelManagerDialog } from './model-manager';
 import type { ModelInfo, AvailableModelGroup } from '@/types/ipc';
 
 // ── Trigger Button ─────────────────────────────────────────────
@@ -119,8 +122,8 @@ function ThinkingPicker({
 
 // ── Model Item ─────────────────────────────────────────────────
 
-const ModelItem = memo(function ModelItem({ model, isSelected, onSelect }: {
-  model: ModelInfo; isSelected: boolean; onSelect: (model: ModelInfo) => void;
+const ModelItem = memo(function ModelItem({ model, isSelected, isFavourite, onSelect }: {
+  model: ModelInfo; isSelected: boolean; isFavourite: boolean; onSelect: (model: ModelInfo) => void;
 }) {
   return (
     <button
@@ -134,6 +137,8 @@ const ModelItem = memo(function ModelItem({ model, isSelected, onSelect }: {
       <div className="flex size-4 shrink-0 items-center justify-center">
         {isSelected ? (
           <Check className="size-3.5 text-[var(--status-success)] transition-transform duration-150 scale-100" />
+        ) : isFavourite ? (
+          <Star className="size-3 text-amber-400" fill="currentColor" />
         ) : (
           <div className="size-1.5 rounded-full bg-[var(--border-default)] transition-colors group-hover:bg-[var(--text-muted)]" />
         )}
@@ -148,10 +153,11 @@ const ModelItem = memo(function ModelItem({ model, isSelected, onSelect }: {
 
 // ── Provider Group ─────────────────────────────────────────────
 
-const ProviderSection = memo(function ProviderSection({ group, selectedProvider, selectedModelId, onSelect }: {
+const ProviderSection = memo(function ProviderSection({ group, selectedProvider, selectedModelId, favouriteKeys, onSelect }: {
   group: AvailableModelGroup;
   selectedProvider: string | null;
   selectedModelId: string | null;
+  favouriteKeys: Set<string>;
   onSelect: (model: ModelInfo) => void;
 }) {
   return (
@@ -172,6 +178,7 @@ const ProviderSection = memo(function ProviderSection({ group, selectedProvider,
               selectedProvider === model.provider &&
               selectedModelId === model.modelId
             }
+            isFavourite={favouriteKeys.has(modelKey(model.provider, model.modelId))}
             onSelect={onSelect}
           />
         ))}
@@ -180,7 +187,7 @@ const ProviderSection = memo(function ProviderSection({ group, selectedProvider,
   );
 });
 
-// ── Main Component ─────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────
 
 /** Filter groups by search query, matching on model name or model ID. */
 function filterGroups(groups: AvailableModelGroup[], query: string): AvailableModelGroup[] {
@@ -196,8 +203,46 @@ function filterGroups(groups: AvailableModelGroup[], query: string): AvailableMo
   return filtered;
 }
 
+/** Remove hidden models/providers and extract favourite models into a separate section. */
+function applyPreferences(
+  groups: AvailableModelGroup[],
+  hiddenModels: Set<string>,
+  hiddenProviders: Set<string>,
+): AvailableModelGroup[] {
+  const result: AvailableModelGroup[] = [];
+  for (const group of groups) {
+    if (hiddenProviders.has(group.provider)) continue;
+    const visible = group.models.filter(
+      (m) => !hiddenModels.has(modelKey(m.provider, m.modelId)),
+    );
+    if (visible.length) result.push({ ...group, models: visible });
+  }
+  return result;
+}
+
+/** Build a favourites section from groups + favourite keys. */
+function buildFavourites(
+  groups: AvailableModelGroup[],
+  favouriteKeys: string[],
+): { model: ModelInfo; group: AvailableModelGroup }[] {
+  if (!favouriteKeys.length) return [];
+  const favSet = new Set(favouriteKeys);
+  const result: { model: ModelInfo; group: AvailableModelGroup }[] = [];
+  for (const group of groups) {
+    for (const model of group.models) {
+      if (favSet.has(modelKey(model.provider, model.modelId))) {
+        result.push({ model, group });
+      }
+    }
+  }
+  return result;
+}
+
+// ── Main Component ─────────────────────────────────────────────
+
 export function ModelSelector({ disabled }: { disabled: boolean }) {
   const [open, setOpen] = useState(false);
+  const [managerOpen, setManagerOpen] = useState(false);
   const [filter, setFilter] = useState('');
   const [isPrimed, setIsPrimed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -206,29 +251,37 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
   const setModel = useAgentStore((s) => s.setModel);
   const setThinkingLevel = useAgentStore((s) => s.setThinkingLevel);
 
-  const groups = ms?.availableModels ?? [];
+  const prefs = useModelPreferences();
+  const favouriteKeys = useMemo(() => new Set(prefs.favouriteModels), [prefs.favouriteModels]);
+  const hiddenModelKeys = useMemo(() => new Set(prefs.hiddenModels), [prefs.hiddenModels]);
+  const hiddenProviderKeys = useMemo(() => new Set(prefs.hiddenProviders), [prefs.hiddenProviders]);
+
+  const allGroups = ms?.availableModels ?? [];
   const selectedProvider = ms?.model.provider ?? null;
   const selectedModelId = ms?.model.modelId ?? null;
 
-  const filteredGroups = useMemo(() => filterGroups(groups, filter), [groups, filter]);
+  // Apply visibility preferences then search filter
+  const visibleGroups = useMemo(
+    () => applyPreferences(allGroups, hiddenModelKeys, hiddenProviderKeys),
+    [allGroups, hiddenModelKeys, hiddenProviderKeys],
+  );
+  const filteredGroups = useMemo(() => filterGroups(visibleGroups, filter), [visibleGroups, filter]);
   const totalFiltered = useMemo(
     () => filteredGroups.reduce((n, g) => n + g.models.length, 0),
     [filteredGroups],
+  );
+
+  // Build favourites section (only when not searching)
+  const favourites = useMemo(
+    () => filter ? [] : buildFavourites(visibleGroups, prefs.favouriteModels),
+    [visibleGroups, prefs.favouriteModels, filter],
   );
 
   const primePopover = useCallback(() => {
     setIsPrimed(true);
   }, []);
 
-  // Reset filter & autofocus when popover opens
-  useEffect(() => {
-    if (open) {
-      setFilter('');
-      // Small delay so popover is rendered before focusing
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }, [open]);
-
+  // Idle-callback popover priming — external browser API, useEffect is appropriate
   useEffect(() => {
     if (isPrimed) return;
     let idleId: number | null = null;
@@ -262,70 +315,124 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
   );
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
-    if (nextOpen) setIsPrimed(true);
+    if (nextOpen) {
+      setIsPrimed(true);
+      setFilter('');
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
     setOpen(nextOpen);
   }, []);
 
-  return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <ModelTrigger disabled={disabled} onPrime={primePopover} />
-      <PopoverContent
-        forceMount={isPrimed ? true : undefined}
-        side="top"
-        align="start"
-        sideOffset={8}
-        className="w-[300px] overflow-hidden rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] p-0 shadow-2xl shadow-black/40 duration-150 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 data-[side=top]:slide-in-from-bottom-0 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0"
-      >
-        <div>
+  const handleOpenManager = useCallback(() => {
+    setOpen(false);
+    setManagerOpen(true);
+  }, []);
 
-          {/* Search input */}
-          <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3">
-            <Search className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-            <input
-              ref={inputRef}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Search models…"
-              data-slot="model-filter"
-              className="h-9 w-full bg-transparent text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus-visible:outline-none"
+  return (
+    <>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <ModelTrigger disabled={disabled} onPrime={primePopover} />
+        <PopoverContent
+          forceMount={isPrimed ? true : undefined}
+          side="top"
+          align="start"
+          sideOffset={8}
+          className="w-[300px] overflow-hidden rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] p-0 shadow-2xl shadow-black/40 duration-150 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 data-[side=top]:slide-in-from-bottom-0 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0"
+        >
+          <div>
+
+            {/* Search input + settings gear */}
+            <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3">
+              <Search className="size-3.5 shrink-0 text-[var(--text-muted)]" />
+              <input
+                ref={inputRef}
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Search models…"
+                data-slot="model-filter"
+                className="h-9 w-full bg-transparent text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus-visible:outline-none"
+              />
+              <button
+                onClick={handleOpenManager}
+                title="Manage models"
+                className="shrink-0 rounded-md p-1 text-[var(--text-muted)] transition-colors
+                  hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+              >
+                <Settings2 className="size-3.5" />
+              </button>
+            </div>
+
+            {/* Model List */}
+            <div className="max-h-[320px] overflow-y-auto py-1">
+              {allGroups.length === 0 ? (
+                <div className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">
+                  No models available. Run <code className="rounded bg-[var(--bg-muted)] px-1 font-mono">pi auth</code> to add a provider.
+                </div>
+              ) : totalFiltered === 0 && favourites.length === 0 ? (
+                <div className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">
+                  No models matching "<span className="text-[var(--text-secondary)]">{filter}</span>"
+                </div>
+              ) : (
+                <>
+                  {/* Favourites section */}
+                  {favourites.length > 0 && (
+                    <div className="py-1">
+                      <div className="flex items-center gap-2 px-3 pb-1 pt-2">
+                        <Star className="size-3 text-amber-400" fill="currentColor" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                          Favourites
+                        </span>
+                      </div>
+                      <div className="px-1">
+                        {favourites.map(({ model }) => (
+                          <ModelItem
+                            key={`fav-${model.provider}/${model.modelId}`}
+                            model={model}
+                            isSelected={
+                              selectedProvider === model.provider &&
+                              selectedModelId === model.modelId
+                            }
+                            isFavourite
+                            onSelect={handleModelSelect}
+                          />
+                        ))}
+                      </div>
+                      <div className="mx-3 mt-1 border-t border-[var(--border-subtle)]" />
+                    </div>
+                  )}
+
+                  {/* Provider groups */}
+                  {filteredGroups.map((group, i) => (
+                    <div key={group.provider}>
+                      {i > 0 && (
+                        <div className="mx-3 border-t border-[var(--border-subtle)]" />
+                      )}
+                      <ProviderSection
+                        group={group}
+                        selectedProvider={selectedProvider}
+                        selectedModelId={selectedModelId}
+                        favouriteKeys={favouriteKeys}
+                        onSelect={handleModelSelect}
+                      />
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* Thinking Level Picker — always shown, disabled when model has no reasoning */}
+            <ThinkingPicker
+              current={ms?.thinkingLevel ?? 'off'}
+              available={ms?.availableThinkingLevels ?? []}
+              supportsXhigh={ms?.supportsXhigh ?? false}
+              disabled={!ms?.model.reasoning}
+              onSelect={handleThinkingSelect}
             />
           </div>
+        </PopoverContent>
+      </Popover>
 
-          {/* Model List */}
-          <div className="max-h-[320px] overflow-y-auto py-1">
-            {groups.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">
-                No models available. Run <code className="rounded bg-[var(--bg-muted)] px-1 font-mono">pi auth</code> to add a provider.
-              </div>
-            ) : totalFiltered === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">
-                No models matching "<span className="text-[var(--text-secondary)]">{filter}</span>"
-              </div>
-            ) : (
-              filteredGroups.map((group, i) => (
-                <div key={group.provider}>
-                  {i > 0 && <div className="mx-3 border-t border-[var(--border-subtle)]" />}
-                  <ProviderSection
-                    group={group}
-                    selectedProvider={selectedProvider}
-                    selectedModelId={selectedModelId}
-                    onSelect={handleModelSelect}
-                  />
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Thinking Level Picker — always shown, disabled when model has no reasoning */}
-          <ThinkingPicker
-            current={ms?.thinkingLevel ?? 'off'}
-            available={ms?.availableThinkingLevels ?? []}
-            supportsXhigh={ms?.supportsXhigh ?? false}
-            disabled={!ms?.model.reasoning}
-            onSelect={handleThinkingSelect}
-          />
-        </div>
-      </PopoverContent>
-    </Popover>
+      <ModelManagerDialog open={managerOpen} onOpenChange={setManagerOpen} />
+    </>
   );
 }

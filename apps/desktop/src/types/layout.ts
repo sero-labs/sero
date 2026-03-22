@@ -24,6 +24,12 @@ export interface LayoutState {
   activeApp?: string;
   /** Last active session ID. */
   activeSessionId?: string | null;
+  /** Favourite model keys ("provider/modelId"). */
+  favouriteModels?: string[];
+  /** Hidden model keys ("provider/modelId"). */
+  hiddenModels?: string[];
+  /** Provider IDs entirely hidden from the model selector. */
+  hiddenProviders?: string[];
 }
 
 /**
