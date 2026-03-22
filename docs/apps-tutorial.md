@@ -1043,6 +1043,29 @@ The `sero.app` object in `package.json`:
 | `component` | ❌ | Exported component name from the MF remote (e.g. `"MyApp"`). Required if `ui` is set. |
 | `devPort` | ❌ | Vite dev server port for this remote. Required if `ui` is set. Must be unique across all apps. Must match `server.port` in the package's `vite.config.ts`. |
 
+### Plugin Metadata (`sero.plugin`)
+
+If your app will be distributed as an installable plugin, add a `sero.plugin`
+key alongside `sero.app`. This marks the package as extractable from the
+monorepo and provides metadata for the plugin browser.
+
+```json
+{
+  "sero": {
+    "app": { /* ... */ },
+    "plugin": {
+      "category": "productivity",
+      "tags": ["todo", "tasks"],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": true
+    }
+  }
+}
+```
+
+See [Plugin Guide](../docs/plugins-guide.md) for full details on creating,
+building, and publishing plugins.
+
 ### State Scope
 
 Apps can be **workspace-scoped** (default) or **global-scoped**.
@@ -1428,3 +1451,8 @@ for interactive/game-style apps:
   component hierarchy, state management
 - [Sero Desktop AGENTS.md](../apps/desktop/AGENTS.md) — file size rules, state
   management rules, dev conventions
+- [Plugin Guide](../docs/plugins-guide.md) — how to turn a Sero app into a
+  distributable plugin (npm/git/local install, `sero.plugin` manifest,
+  `sero-agent-plugin` GitHub topic for discovery)
+- [Plugin Technical Reference](../docs/plugins-technical.md) — plugin system
+  internals: manager, IPC, federation, tool bridging, security

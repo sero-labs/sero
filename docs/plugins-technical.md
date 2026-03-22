@@ -1,0 +1,404 @@
+# Plugin System — Technical Guide
+
+Internal documentation for Sero developers working on the plugin system.
+For user-facing plugin authoring instructions, see
+[plugins-guide.md](plugins-guide.md).
+
+## Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Plugin Package Format](#plugin-package-format)
+- [Plugin Manifest](#plugin-manifest)
+- [Installation Flow](#installation-flow)
+- [Discovery & Loading](#discovery--loading)
+- [Module Federation Integration](#module-federation-integration)
+- [Tool Bridging](#tool-bridging)
+- [IPC Surface](#ipc-surface)
+- [File Layout](#file-layout)
+- [Core vs Plugin Classification](#core-vs-plugin-classification)
+- [Build Pipeline](#build-pipeline)
+- [Security Considerations](#security-considerations)
+
+---
+
+## Overview
+
+Sero supports **optional plugins** — apps that can be installed, updated, and
+removed without modifying the core codebase. Plugins are standard Sero apps
+(Pi extension + optional React UI) that are distributed as pre-built packages
+and installed into `~/.sero-ui/agent/packages/`.
+
+The architecture leverages existing infrastructure:
+
+- **`app-discovery.ts`** already scans `~/.sero-ui/agent/packages/`
+- **`sero-ext://`** protocol already resolves from arbitrary package paths
+- **Module Federation** already supports runtime remote registration
+- **All extensions are independent** — zero cross-package dependencies
+
+The plugin system adds: a manager for lifecycle operations, IPC bridging,
+dynamic MF registration, and manifest-driven tool bridging.
+
+## Architecture
+
+```
+┌─ Plugin Sources ────────────────────────────┐
+│  npm:@sero/plugin-todo@latest               │
+│  git:https://github.com/user/plugin.git     │
+│  /local/path/to/built/plugin                │
+└──────────────┬──────────────────────────────┘
+               │ installPlugin(source)
+               ▼
+┌─ Plugin Manager (electron/plugins/manager.ts) ─┐
+│  1. Download / clone / copy to temp dir         │
+│  2. Validate sero.app manifest                  │
+│  3. Validate dist/ui/remoteEntry.js exists      │
+│  4. Move to ~/.sero-ui/agent/packages/<id>/     │
+│  5. Register in settings.json                   │
+│  6. Register with app-discovery + ext-protocol  │
+└──────────────┬──────────────────────────────────┘
+               │
+               ▼
+┌─ Existing Infrastructure ───────────────────┐
+│  app-discovery.ts  → SeroAppManifest        │
+│  ext-protocol.ts   → sero-ext://<id>/...    │
+│  federation-registry.ts → MF remote load    │
+│  cli/index.ts      → tool bridging          │
+└─────────────────────────────────────────────┘
+```
+
+## Plugin Package Format
+
+A published plugin is a normal npm package / git repo containing **pre-built
+artifacts**:
+
+```
+@sero/plugin-todo/
+├── package.json            # sero.app + sero.plugin manifests
+├── extension/
+│   └── index.ts            # Pi extension (tools, commands, hooks)
+├── shared/
+│   └── types.ts            # Shared state types
+├── dist/
+│   └── ui/
+│       ├── remoteEntry.js  # Module Federation entry
+│       ├── mf-manifest.json
+│       └── *.js / *.css    # MF chunks
+├── prompts/                # Optional prompt .md files
+└── skills/                 # Optional skill definitions
+```
+
+**Key difference from development packages:** The `dist/ui/` directory must
+exist and contain the pre-built MF remote bundle. The plugin manager validates
+this during installation.
+
+## Plugin Manifest
+
+Plugins declare metadata via `sero.plugin` in `package.json`, alongside the
+standard `sero.app` manifest:
+
+```json
+{
+  "sero": {
+    "app": {
+      "id": "todo",
+      "name": "Todo",
+      "icon": "check-square",
+      "stateFile": ".sero/apps/todo/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "TodoApp",
+      "devPort": 5174
+    },
+    "plugin": {
+      "category": "productivity",
+      "tags": ["todo", "tasks", "productivity"],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": true
+    }
+  }
+}
+```
+
+### `sero.plugin` Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `category` | `PluginCategory` | Browsing category. One of: `productivity`, `developer-tools`, `entertainment`, `integrations`, `finance`, `health`, `creative`, `utilities`. |
+| `tags` | `string[]` | Search/filter tags. |
+| `minSeroVersion` | `string?` | Minimum Sero version required. Used for compatibility checks. |
+| `preBuilt` | `boolean?` | Whether the package includes pre-built UI artifacts. Should be `true` for published plugins. |
+
+### Types
+
+Defined in `electron/plugins/types.ts`:
+
+- **`PluginCategory`** — Union of category string literals
+- **`PluginMeta`** — Shape of `sero.plugin` from package.json
+- **`InstalledPlugin`** — Renderer-safe info about an installed plugin
+- **`PluginRegistryEntry`** — Entry from the remote plugin registry
+
+## Installation Flow
+
+```
+installPlugin("npm:@sero/plugin-todo@latest")
+  │
+  ├─ Detect source type (npm: / git: / local path)
+  │
+  ├─ npm:  → npm pack + tar extract to temp dir
+  │  git:  → shallow clone to temp dir
+  │  local → fs.cp to temp dir
+  │
+  ├─ Validate: sero.app.id exists in package.json
+  ├─ Validate: dist/ui/remoteEntry.js exists (if UI declared)
+  │
+  ├─ Move to ~/.sero-ui/agent/packages/<plugin-id>/
+  ├─ Add path to settings.json packages array
+  │
+  ├─ registerAppPath() → makes app-discovery aware
+  ├─ discoverApps() → parse manifest → SeroAppManifest
+  ├─ registerExtAssets() → makes sero-ext:// protocol aware
+  │
+  └─ Return SeroAppManifest (app appears in sidebar)
+```
+
+### Uninstall Flow
+
+```
+uninstallPlugin("todo")
+  │
+  ├─ Verify plugin exists at ~/.sero-ui/agent/packages/todo/
+  ├─ fs.rm() the directory
+  ├─ Remove path from settings.json packages array
+  │
+  └─ App disappears after restart
+      (runtime cache invalidation via invalidateRemote())
+```
+
+**Note:** Uninstall does NOT delete app state files. Workspace-scoped state
+lives at `<workspace>/.sero/apps/<id>/state.json`; global state lives at
+`~/.sero-ui/apps/<id>/state.json`. Users manage these independently.
+
+## Discovery & Loading
+
+The existing `app-discovery.ts` scans three locations in order:
+
+1. `~/.sero-ui/agent/extensions/` — Sero extensions
+2. `settings.json` packages array — registered paths
+3. `~/.sero-ui/agent/packages/` — **installed plugins live here**
+
+Plugins are just regular app packages in location 3. No special discovery
+logic was needed — the existing infrastructure handles it.
+
+### `isPlugin` Flag
+
+`SeroAppManifest` includes an `isPlugin: boolean` field, set by
+`app-discovery.ts` based on whether the package has a `sero.plugin` key in
+its `package.json`. This lets the renderer distinguish core apps from plugins
+(e.g. for showing an "Uninstall" button in the UI).
+
+## Module Federation Integration
+
+### Build-time (Vite config)
+
+`vite.config.ts` scans `packages/pi-*` for sero.app manifests and builds
+the MF remotes config. Plugins installed at `~/.sero-ui/agent/packages/`
+are NOT known at build time — they use pre-built bundles.
+
+### Runtime (federation-registry.ts)
+
+The federation registry lazily registers MF remotes via `ensureRemoteRegistered()`.
+When a user opens a plugin app:
+
+1. `getFederatedComponent()` calls `ensureRemoteRegistered(appId, devPort)`
+2. This registers the remote pointing to `sero-ext://<id>/mf-manifest.json`
+3. MF loads `remoteEntry.js` and component chunks via the `sero-ext://` protocol
+
+For hot-loading after install (no restart needed):
+
+```typescript
+import { registerDynamicRemote, invalidateRemote } from '@/lib/federation-registry';
+
+// After install — force-register the new remote
+registerDynamicRemote(appId);
+
+// After uninstall — clear cached modules
+invalidateRemote(appId);
+```
+
+### `sero-ext://` Protocol
+
+`ext-protocol.ts` serves files from `<packagePath>/dist/ui/`. When a plugin
+is installed, `registerExtAssets(manifest)` adds it to the protocol's app
+registry. The protocol:
+
+1. Looks up the app ID in the registry
+2. Resolves the file path within `dist/ui/`
+3. Prevents path traversal (security check)
+4. Rewrites `mf-manifest.json` publicPath to `sero-ext://<id>/`
+
+## Tool Bridging
+
+### Core tools (hardcoded)
+
+`CORE_TOOLS_TO_BRIDGE` in `electron/cli/index.ts` lists tool names that are
+always bridged from extension tools into `sero-cli` commands. This saves
+tokens by collapsing individual tool schemas into one CLI tool.
+
+### Dynamic tools (plugin-driven)
+
+Plugins can register additional tool names for bridging:
+
+```typescript
+import { registerPluginToolsForBridge } from '../cli/index';
+
+// Register plugin tool names before extensions load
+registerPluginToolsForBridge(['my_plugin_tool', 'another_tool']);
+```
+
+The `shouldBridgeTool()` function checks both `CORE_TOOLS_TO_BRIDGE` and
+the dynamic set. This means plugin tools get bridged into `sero-cli`
+automatically without editing the hardcoded list.
+
+## IPC Surface
+
+### Channels (`src/types/ipc-channels.ts`)
+
+```typescript
+plugins: {
+  install:  'sero:plugins:install',   // source → SeroAppManifest
+  uninstall: 'sero:plugins:uninstall', // pluginId → void
+  list:     'sero:plugins:list',       // → InstalledPlugin[]
+  isPlugin: 'sero:plugins:is-plugin',  // pluginId → boolean
+}
+```
+
+### Preload Bridge (`electron/preload/plugins.ts`)
+
+Exposes `window.sero.plugins`:
+
+```typescript
+interface SeroPluginsAPI {
+  install(source: string): Promise<SeroAppManifest>;
+  uninstall(pluginId: string): Promise<void>;
+  list(): Promise<InstalledPlugin[]>;
+  isPlugin(pluginId: string): Promise<boolean>;
+}
+```
+
+### IPC Handler (`electron/ipc/plugins.ts`)
+
+Delegates to `electron/plugins/manager.ts` functions.
+
+## File Layout
+
+```
+apps/desktop/
+├── electron/
+│   ├── plugins/
+│   │   ├── types.ts            # Plugin types (shared with renderer)
+│   │   └── manager.ts          # Install / uninstall / list logic
+│   ├── ipc/
+│   │   └── plugins.ts          # IPC handlers
+│   └── preload/
+│       └── plugins.ts          # Preload bridge
+├── src/
+│   ├── types/
+│   │   ├── ipc.ts              # Re-exports plugin types
+│   │   ├── ipc-channels.ts     # Plugin IPC channel constants
+│   │   └── electron.d.ts       # SeroPluginsAPI interface
+│   └── lib/
+│       └── federation-registry.ts  # registerDynamicRemote, invalidateRemote
+scripts/
+└── build-plugin.sh             # Build a package for plugin distribution
+```
+
+## Core vs Plugin Classification
+
+### Core (stays in monorepo)
+
+These packages are essential to Sero's functionality:
+
+| Package | Reason |
+|---------|--------|
+| `app-runtime` | Infrastructure — required by all UI apps |
+| `templates` | Workspace scaffolding |
+| `pi-memory-extension` | Foundational to agent learning |
+| `pi-cron-extension` | Scheduler, used by other extensions |
+| `pi-context-extension` | Agent context debugging |
+| `pi-kanban-extension` | Reference implementation + deep workflow |
+| `pi-research-extension` | Subagent orchestration pattern |
+| `pi-plan-mode-extension` | Structured planning safeguard |
+| `pi-admin-extension` | Workspace administration |
+| `pi-user-feedback` | Agent-user communication primitive |
+
+### Extractable (can become plugins)
+
+These are standalone and can be distributed independently:
+
+| Package | Category |
+|---------|----------|
+| `pi-todo-extension` | productivity |
+| `pi-notes-extension` | productivity |
+| `pi-calc-extension` | utilities |
+| `pi-daily-quote` | utilities |
+| `pi-tetris-extension` | entertainment |
+| `pi-spotify-extension` | entertainment |
+| `pi-starling-extension` | finance |
+| `pi-google-extension` | integrations |
+| `pi-git-extension` | developer-tools |
+| `pi-imagegen-extension` | creative |
+| `pi-humanizer-extension` | creative |
+| `pi-slopzilla-extension` | creative |
+| `pi-weight-tracker` | health |
+| `pi-resources-extension` | developer-tools |
+
+## Build Pipeline
+
+Use `scripts/build-plugin.sh` to build any package into a distributable
+plugin:
+
+```bash
+bash scripts/build-plugin.sh packages/pi-todo-extension
+```
+
+This:
+1. Validates the `sero.app` manifest exists
+2. Runs `vite build` (produces `dist/ui/`)
+3. Outputs the build directory path
+
+To test locally:
+
+```bash
+cp -r packages/pi-todo-extension ~/.sero-ui/agent/packages/todo
+```
+
+## Security Considerations
+
+### Path traversal
+
+The `sero-ext://` protocol resolves symlinks and verifies the final path is
+within `dist/ui/`. Null bytes are rejected.
+
+### Plugin validation
+
+The plugin manager validates:
+- `sero.app.id` exists and is well-formed
+- `dist/ui/remoteEntry.js` exists if UI is declared
+- Installation path is within `~/.sero-ui/agent/packages/`
+
+### npm install isolation
+
+Plugins are installed via `npm pack` + `tar extract` (not `npm install`). This
+avoids polluting the global `node_modules` and prevents lifecycle script
+execution.
+
+### Uninstall safety
+
+`uninstallPlugin()` verifies the target is within the plugins directory
+before deletion, preventing accidental removal of monorepo packages.
+
+### Future: permissions
+
+The `sero.plugin` manifest supports a `permissions` field (not yet enforced).
+This will declare plugin capabilities (`network`, `notifications`,
+`filesystem:read`) shown during installation.
