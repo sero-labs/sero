@@ -1,0 +1,831 @@
+{
+    "_type": "turn_context",
+    "timestamp": "2026-03-22T14:18:26.545Z",
+    "sessionId": "055aa31a-744a-4223-a337-dcf92dd8cc5d",
+    "model": {
+        "provider": "anthropic",
+        "id": "claude-opus-4-6",
+        "name": "Claude Opus 4.6"
+    },
+    "thinkingLevel": "high",
+    "systemPrompt": "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.\n\nAvailable tools:\n- read: Read file contents\n- bash: Execute bash commands (ls, grep, find, etc.)\n- edit: Make surgical edits to files (find exact text and replace)\n- write: Create or overwrite files\n\nIn addition to the tools above, you may have access to other custom tools depending on the project.\n\nGuidelines:\n- Use bash for file operations like ls, rg, find\n- Use read to examine files before editing. You must use this tool instead of cat or sed.\n- Use edit for precise changes (old text must match exactly)\n- Use write only for new files or complete rewrites\n- When summarizing your actions, output plain text directly - do NOT use cat or bash to display what you did\n- Be concise in your responses\n- Show file paths clearly when working with files\n\nPi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /Users/danielcarter/Documents/Dev/projects/sero/sero/node_modules/.pnpm/@mariozechner+pi-coding-agent@0.61.1_@modelcontextprotocol+sdk@1.27.1_zod@4.3.6__ws@8.19.0_zod@4.3.6/node_modules/@mariozechner/pi-coding-agent/README.md\n- Additional docs: /Users/danielcarter/Documents/Dev/projects/sero/sero/node_modules/.pnpm/@mariozechner+pi-coding-agent@0.61.1_@modelcontextprotocol+sdk@1.27.1_zod@4.3.6__ws@8.19.0_zod@4.3.6/node_modules/@mariozechner/pi-coding-agent/docs\n- Examples: /Users/danielcarter/Documents/Dev/projects/sero/sero/node_modules/.pnpm/@mariozechner+pi-coding-agent@0.61.1_@modelcontextprotocol+sdk@1.27.1_zod@4.3.6__ws@8.19.0_zod@4.3.6/node_modules/@mariozechner/pi-coding-agent/examples (extensions, custom tools, SDK)\n- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md)\n- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing\n- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)\n\n# Project Context\n\nProject-specific instructions and guidelines:\n\n## /Users/danielcarter/.sero-ui/workspaces/global/AGENTS.md\n\n# AGENTS.md - Your Workspace\n\nThis folder is home. Treat it that way.\n\n## Sero Monorepo\n\n**Location:** `/Users/danielcarter/Documents/Dev/projects/sero/sero`\nThis is installation folder for Sero if we are working on the Sero app itself\n\n## Sero Workspace\n**Location:** ``~/.sero-ui/workspaces`\nWorkspaces are the projects we are currenly working on using Sero.\n\n## General Instructions\nSilently save any errors you encounter to `~/.sero-ui/workspaces/global/.sero/error_log.txt`\n\n## Sero Apps & Tools\n**Default approach:** Always open Sero apps (e.g. `calc`, `notes`, `todo`) using the sero CLI and interact with them using `sero app` commands (click, type, scroll, screenshot, record). This ensures native integration and proper recording/interaction with Sero's native apps.\n\n**Exception:** Only use system tools (AppleScript, ffmpeg on system, shell commands) if Dan explicitly asks for it or if the task requires system-level access that Sero doesn't provide.\n\n**Key commands:**\n- `sero app open <appId>` — switch to an app\n- `sero app record start/stop` — record videos of app interactions\n- `sero app click --x <n> --y <n>` — click by coordinates\n- `sero app screenshot` — capture the active app\n\n## Memory Habits\n\nSave memories proactively -- don't wait to be asked. Use the right target for the right kind of information.\n\n### Save to `memory` (long-term) when:\n- Dan shares a personal preference, opinion, or pet peeve\n- A technical decision is made (architecture, tooling, patterns)\n- You learn something about the codebase or project structure\n- Dan corrects you or you make a mistake worth not repeating\n- A new project, workflow, or convention is established\n\n### Save to `daily` when:\n- A meaningful task or feature is completed\n- Something is started but left unfinished (capture the state)\n- There's context that would be useful to pick up tomorrow but isn't permanent\n\n### Don't save:\n- Trivial back-and-forth or small talk\n- Information already captured in memory files\n- Temporary debugging steps or throwaway experiments\n\n### How to save:\n- Use `sero memory write --target memory --content \"...\"` for long-term facts\n- Use `sero memory write --target daily --content \"...\"` for daily logs\n- Use the `write` tool directly for multi-line or formatted content (avoids escaped newline issues)\n- Keep entries concise -- one or two sentences is usually enough\n\n## Sero Development — Building Native Dependencies\n\nSero runs in Electron. Native addons (e.g. `better-sqlite3`) must be compiled against\nthe Electron ABI, not system Node.js or Bun. This is handled automatically by the\n`postinstall` script — a plain `pnpm install` is sufficient.\n\nIf you see `ERR_DLOPEN_FAILED` in `/tmp/sero-electron.log` (QMD/memory search broken):\n\n```bash\ncd ~/Documents/Dev/projects/sero/sero\nnode scripts/rebuild-better-sqlite3.mjs\n```\n\nFull details: `~/Documents/Dev/projects/sero/sero/docs/guides/native-modules.md`\n\n\n\nThe following skills provide specialized instructions for specific tasks.\nUse the read tool to load a skill's file when the task matches its description.\nWhen a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.\n\n<available_skills>\n  <skill>\n    <name>context-management</name>\n    <description>Strategies for efficient context management using context_log, context_tag, and context_checkout. Learn when to tag, how to visualize the graph, and safe ways to squash history. Use for complex refactoring, debugging, and long conversations.</description>\n    <location>/Users/danielcarter/Documents/Dev/projects/sero/sero/packages/pi-context-extension/skills/context-management/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>plan-exit-review</name>\n    <description>Review a plan thoroughly before implementation. Challenges scope, reviews, architecture/code quality/tests/performance, and walks through issues interactively with opinionated recommendations.</description>\n    <location>/Users/danielcarter/Documents/Dev/projects/sero/sero/packages/pi-plan-mode-extension/skills/plan-exit-review/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>research</name>\n    <description>Multi-agent research orchestrator. Two modes: (1) /research [question] — decomposes questions into parallel agent workstreams, (2) /analyze [urls] — analyses articles for commercial opportunities and actionable insights. Both launch parallel agents, monitor progress, and synthesize results.</description>\n    <location>/Users/danielcarter/Documents/Dev/projects/sero/sero/packages/pi-research-extension/skills/research/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>humanizer</name>\n    <description>Remove signs of AI-generated writing from text. Use when editing or reviewing\ntext to make it sound more natural and human-written. Based on Wikipedia&apos;s\ncomprehensive &quot;Signs of AI writing&quot; guide. Detects and fixes patterns including:\ninflated symbolism, promotional language, superficial -ing analyses, vague\nattributions, em dash overuse, rule of three, AI vocabulary words, negative\nparallelisms, and excessive conjunctive phrases.\n</description>\n    <location>/Users/danielcarter/Documents/Dev/projects/sero/sero/packages/pi-humanizer-extension/skills/humanizer/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>ai-elements</name>\n    <description>Create new AI chat interface components for the ai-elements library following established composable patterns, shadcn/ui integration, and Vercel AI SDK conventions. Use when creating new components in packages/elements/src or when the user asks to add a new component to ai-elements.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/ai-elements/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>chrome-cdp</name>\n    <description>Interact with local Chrome browser session (only on explicit user approval after being asked to inspect, debug, or interact with a page open in Chrome)</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/chrome-cdp/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>browser-tools</name>\n    <description>Interactive browser automation via Chrome DevTools Protocol. Use when you need to interact with web pages, test frontends, or when user interaction with a visible browser is required.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/pi-skills/browser-tools/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>transcribe</name>\n    <description>Speech-to-text transcription using Groq Whisper API. Supports m4a, mp3, wav, ogg, flac, webm.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/pi-skills/transcribe/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>vscode</name>\n    <description>VS Code integration for viewing diffs and comparing files. Use when showing file differences to the user.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/pi-skills/vscode/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>playwright-cli</name>\n    <description>Automates browser interactions for web testing, form filling, screenshots, and data extraction. Use when the user needs to navigate websites, interact with web pages, fill forms, take screenshots, test web applications, or extract information from web pages.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/playwright-cli/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>context7</name>\n    <description>Retrieve up-to-date documentation for software libraries, frameworks, and components via the Context7 API. This skill should be used when looking up documentation for any programming library or framework, finding code examples for specific APIs or features, verifying correct usage of library functions, or obtaining current information about library APIs that may have changed since training.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/skills/skills/context7/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>frontend-design</name>\n    <description>Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or when styling/beautifying any web UI). Generates creative, polished code and UI design that avoids generic AI aesthetics.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/skills/skills/frontend-design/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>skill-creator</name>\n    <description>Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude&apos;s capabilities with specialized knowledge, workflows, or tool integrations.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/skills/skills/skill-creator/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>webapp-testing</name>\n    <description>Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/skills/skills/webapp-testing/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>crawl</name>\n    <description>Crawl any website and save pages as local markdown files. Use when you need to download documentation, knowledge bases, or web content for offline access or analysis. No code required - just provide a URL.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/tavily-ai-skills/skills/tavily/crawl/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>extract</name>\n    <description>Extract content from specific URLs using Tavily&apos;s extraction API. Returns clean markdown/text from web pages. Use when you have specific URLs and need their content without writing code.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/tavily-ai-skills/skills/tavily/extract/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>search</name>\n    <description>Search the web using Tavily&apos;s LLM-optimized search API. Returns relevant results with content snippets, scores, and metadata. Use when you need to find web content on any topic without writing code.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/tavily-ai-skills/skills/tavily/search/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>tavily-best-practices</name>\n    <description>Build production-ready Tavily integrations with best practices baked in. Reference documentation for developers using coding assistants (Claude Code, Cursor, etc.) to implement web search, content extraction, crawling, and research in agentic workflows, RAG systems, or autonomous agents.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/tavily-ai-skills/skills/tavily/tavily-best-practices/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>visual-explainer</name>\n    <description>Generate beautiful, self-contained HTML pages that visually explain systems, code changes, plans, and data. Use when the user asks for a diagram, architecture overview, diff review, plan review, project recap, comparison table, or any visual explanation of technical concepts. Also use proactively when you are about to render a complex ASCII table (4+ rows or 3+ columns) — present it as a styled HTML page instead.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/visual-explainer/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>twitter-openclaw</name>\n    <description>Interact with Twitter/X — read tweets, search, post, like, retweet, and manage your timeline.</description>\n    <location>/Users/danielcarter/.sero-ui/agent/skills/x-twitter/SKILL.md</location>\n  </skill>\n</available_skills>\nCurrent date: 2026-03-22\nCurrent working directory: /Users/danielcarter/.sero-ui/workspaces/global\n\n## Memory\n\n### IDENTITY.md\n\n<!-- last updated: 2026-03-08 00:04:53 -->\n# Identity\n\n- **Name:** Sero\n- **Style:** Friendly & conversational - warm, natural, collaborative tone\n- **Rules:** Use British English spellings and avoid emojis\n\n---\n\n### USER.md\n\n# USER.md - About Dan\n\n- **Name:** Dan Carter\n- **What to call them:** Dan\n- **Pronouns:** —\n- **Timezone:** GMT (Europe/London)\n- **Location:** Lincoln, England\n\n## Context\n- Software engineer, macOS, Apple Silicon\n- Wants help organising life and work\n- Working on the Sero project (~/Documents/Dev/projects/sero/)\n- Sense of humour: dry, British — Blackadder, The Office (UK), Alan Partridge, Peep Show\n- Communication preference: direct, no waffle, British English spellings\n- Don't do British stereotype jokes — they grate on him\n\n## Coding Preferences\n- TypeScript over JavaScript\n- Functional patterns over classes where practical\n\n---\n\n## MEMORY.md (long-term)\n\n<!-- last updated: 2026-03-22 -->\n# Memory\n\n## Sero Platform\n\nSero is Dan's AI-powered workspace — an Electron app with a coding agent harness, native apps, memory system, kanban, subagent orchestration, and CLI. Monorepo at `~/Documents/Dev/projects/sero/sero`.\n\n### Sero Packages (Extensions)\nThe monorepo has these packages under `packages/`:\n- **app-runtime** — core runtime\n- **ui** — shared UI components\n- **templates** — project templates\n- **Extensions:** pi-admin, pi-calc, pi-canvas, pi-context, pi-cron, pi-daily-quote, pi-git, pi-google, pi-humanizer, pi-imagegen, pi-kanban, pi-memory, pi-notes, pi-plan-mode, pi-research, pi-resources, pi-slopzilla, pi-spotify, pi-starling, pi-tetris, pi-todo, pi-user-feedback, pi-weight-tracker\n\n### Memory Backend\nQMD v2 powers memory search. Detailed notes in `memory/QMD.md`. Hybrid search pipeline: BM25 + vector + LLM expansion + reranking, all local. Collections config at `~/.config/qmd/index.yml`, index \n\n... (truncated) ...\n\n. React 19 + Vite + Tailwind v4. 11 keyframe animations.\n- **Cube Mood** — mood-based cube visualisation. Had a v2.0 refactoring plan.\n- **Is It Soup** — (food classification joke app)\n- **Commit Aquarium** — (git commit visualisation as fish)\n\n### Other Workspaces\n- **HelloWorld** — test/starter workspace\n- **TestGitRepo** — git testing workspace\n\n## Coding Preferences\n\n- TypeScript over JavaScript\n- Functional patterns over classes where practical\n- Prefers Typebox over Zod for validation\n\n## Technical Knowledge\n\n- When writing to memory files, use the `write` tool directly — `sero memory write` with escaped newlines renders `\\n` as literal text. #preference\n\n## Active Todos\n- Buy milk\n- Review pull request for auth module\n- Book dentist appointment\n- Update project README\n\n## Fitness Goal\nActive goal: 87kg → 80.2kg by 12 May 2026 (15lbs in 8 weeks). Detailed plan in `memory/fitness-goal.md`. Birthday 20 June is hard deadline. Weekly check-ins on Mondays. #health #fitness\n\n## Memory System (IMPORTANT — read carefully)\nAll memory files live in `/Users/danielcarter/.sero-ui/workspaces/global`. Do NOT access memory files outside this path.\n### Commands\n- `sero memory write --target memory --content \"...\"` — save a long-term fact or decision\n- `sero memory write --target daily --content \"...\"` — log something to today's daily note\n- `sero memory write --target user --content \"...\"` — update user profile info\n- `sero memory read --target memory|identity|user|daily` — read a memory file\n- `sero memory search --query \"...\"` — grep search across memory files\n- `sero scratchpad add \"...\"` — add item to scratchpad checklist\n- `sero scratchpad done \"...\"` — mark item complete\n- `sero memory list` — list all memory files\n### When to save to MEMORY (long-term)\nSave to `--target memory` whenever the user reveals or you discover:\n- **Preferences:** coding style, formatting, naming conventions, tool choices\n- **Decisions:** architecture choices, library selections, design patterns adopted\n- **Project context:** repo structure, key files, deployment setup, environments\n- **Technical knowledge:** frameworks used, APIs integrated, custom patterns\n- **Corrections:** when the user corrects you, save the correct approach\n- **Workflows:** how the user prefers to work (PR flow, testing approach, etc.)\n### When to save to DAILY (session log)\nSave to `--target daily` for time-specific information:\n- What was worked on this session (features, bugs, refactors)\n- Problems encountered and how they were solved\n- TODOs or follow-ups that came up during work\n- Key commits, PRs, or deployments made\n### Proactive memory rules (CRITICAL)\n1. **Save WITHOUT being asked.** Do not wait for the user to say \"remember this\". If information is worth remembering, save it immediately.\n2. **Save EARLY in the conversation.** When the user describes what they're working on, save context to daily immediately.\n3. **Save AFTER completing work.** After finishing a task, log what was done and any lessons learned to daily.\n4. **Save corrections.** If the user corrects your approach, save the correct way to memory so you don't repeat the mistake.\n5. **Save project discoveries.** When you learn about a project's structure, patterns, or conventions, save to memory.\n6. **Update, don't duplicate.** Before writing to memory, search first to see if the info already exists. Update existing entries rather than creating duplicates.\n7. **Use the scratchpad** for multi-step tasks the user asks you to track.\n### Formatting best practices\n- Use #tags (e.g. #decision, #preference, #bugfix) to improve search recall\n- Use [[links]] (e.g. [[auth-strategy]], [[project-x]]) for cross-referencing\n- Keep entries concise — one fact per bullet point\n- Group related facts under markdown headings\n\n## Sero CLI\n\nUse `sero-cli` for Sero platform actions instead of asking the user to do them manually.\n\nCommands by group:\n- App Commands: admin, analyze, context, cron, generate-image, git, interview, kanban, plan, plan-execute, plan-todos, quote, research, todos\n- App Control: app\n- App State: appstate\n- Apps: calc, daily_quote, gcal, generate_image, git_manager, gmail, humanize, memory, memory_search, notes, plan_todos, scratchpad, slopzilla, spotify, starling, todo, weight\n- Artifacts: artifacts\n- Builtin: session, set-title, workspace\n- Dev Servers: devserver\n- Editor: editor\n- Google: google\n- Terminal: terminal\n- Version Control: vcs\n\nRun `sero help <command>` for details. You can send multiple commands separated by newlines.\n\n\n## Subagents\n\nYou can delegate tasks to specialist subagents using the `subagent` tool.\nEach subagent runs in an isolated session with a fresh context window and full\naccess to the workspace (files, terminal, container).\n\nBuilt-in agents: analyst, reviewer, test-writer, scout.\nCustom global agents may also be available from ~/.sero-ui/agent/agents/.\n\nModes:\n- Single: { agent: \"scout\", task: \"...\" }\n- Parallel: { tasks: [{ agent, task }, ...] }\n- Chain: { chain: [{ agent, task }, { agent, task with {previous} }] }\n- Ad-hoc: { task: \"...\", systemPrompt: \"You are a...\" }\n\nConfig precedence:\n- Per-task override > top-level call override > agent frontmatter\n- Agent frontmatter > global subagent settings > session defaults\n\nWhen to use subagents:\n- A task can be split into independent parallel pieces\n- You need a specialist perspective (review, testing, analysis)\n- A subtask benefits from a clean context window\n- You want to delegate routine work while focusing on the main task\n\nDo NOT use subagents for:\n- Simple file reads or quick lookups (do those directly)\n- Tasks that require back-and-forth with the user\n- Anything that takes fewer than ~5 tool calls\n\nUse named agents for recurring specialist roles. For one-off tasks, use an\ninline systemPrompt instead of creating a new agent file.\n\nSubagents cannot spawn further subagents.\nSubagents cannot call create_agent.\nWhen delegating parallel work, assign independent file scope to avoid races.\n",
+    "tools": [
+        {
+            "name": "read",
+            "label": "read",
+            "description": "Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "path"
+                ],
+                "properties": {
+                    "path": {
+                        "description": "Path to the file to read (relative or absolute)",
+                        "type": "string"
+                    },
+                    "offset": {
+                        "description": "Line number to start reading from (1-indexed)",
+                        "type": "number"
+                    },
+                    "limit": {
+                        "description": "Maximum number of lines to read",
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        {
+            "name": "bash",
+            "label": "bash",
+            "description": "Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last 2000 lines or 50KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "command"
+                ],
+                "properties": {
+                    "command": {
+                        "description": "Bash command to execute",
+                        "type": "string"
+                    },
+                    "timeout": {
+                        "description": "Timeout in seconds (optional, no default timeout)",
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        {
+            "name": "edit",
+            "label": "edit",
+            "description": "Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "path",
+                    "oldText",
+                    "newText"
+                ],
+                "properties": {
+                    "path": {
+                        "description": "Path to the file to edit (relative or absolute)",
+                        "type": "string"
+                    },
+                    "oldText": {
+                        "description": "Exact text to find and replace (must match exactly)",
+                        "type": "string"
+                    },
+                    "newText": {
+                        "description": "New text to replace the old text with",
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        {
+            "name": "write",
+            "label": "write",
+            "description": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "path",
+                    "content"
+                ],
+                "properties": {
+                    "path": {
+                        "description": "Path to the file to write (relative or absolute)",
+                        "type": "string"
+                    },
+                    "content": {
+                        "description": "Content to write to the file",
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        {
+            "name": "context_tag",
+            "label": "Context Tag",
+            "description": "Creates a 'Save Point' (Bookmark) in the history. Use before risky changes or when a feature is stable.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "name"
+                ],
+                "properties": {
+                    "name": {
+                        "description": "The tag/milestone name. Use meaningful names.",
+                        "type": "string"
+                    },
+                    "target": {
+                        "description": "The commit ID to tag. Defaults to HEAD (current state).",
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        {
+            "name": "context_log",
+            "label": "Context Log",
+            "description": "Show the history structure (status, message, tags, milestones). Analogous to 'git log --graph --oneline --decorate'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "description": "History limit for visible entries (default: 50).",
+                        "type": "number"
+                    },
+                    "verbose": {
+                        "description": "If true, show ALL messages. If false (default), collapses intermediate AI steps and only shows 'milestones': User messages, Tags, Branch Points, and Summaries.",
+                        "type": "boolean"
+                    }
+                }
+            }
+        },
+        {
+            "name": "context_checkout",
+            "label": "Context Checkout",
+            "description": "Navigate to ANY point in the conversation history. Only resets conversation history, NOT disk files. ALWAYS provide a detailed message.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "target",
+                    "message"
+                ],
+                "properties": {
+                    "target": {
+                        "description": "Where to jump/squash to. Can be a tag name (e.g., 'task-start'), a commit ID, or 'root'. This is the base for your new branch.",
+                        "type": "string"
+                    },
+                    "message": {
+                        "description": "The 'Carryover Message' for the new branch. Good format: '[Status] + [Reason] + [Important Changes] + [Carryover Data]'",
+                        "type": "string"
+                    },
+                    "backupTag": {
+                        "description": "Optional tag name to apply to the CURRENT state before checking out. Creates an automatic backup.",
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        {
+            "name": "current_time",
+            "label": "Current Time",
+            "description": "Get the current date and time. Call this BEFORE creating reminders with relative times.",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        },
+        {
+            "name": "cron",
+            "label": "Cron",
+            "description": "Manage scheduled cron jobs. Actions: list, add, update, remove, enable, disable, run.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "action"
+                ],
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "list",
+                            "add",
+                            "update",
+                            "remove",
+                            "enable",
+                            "disable",
+                            "run"
+                        ]
+                    },
+                    "name": {
+                        "description": "Job name (required for all except list)",
+                        "type": "string"
+                    },
+                    "schedule": {
+                        "description": "Cron expression: \"min hour dom month dow\". Example: \"0 9 * * 1-5\" = weekdays at 9am",
+                        "type": "string"
+                    },
+                    "prompt": {
+                        "description": "Prompt to send to the agent when the job fires",
+                        "type": "string"
+                    },
+                    "channel": {
+                        "description": "Channel tag for grouping (default: \"cron\")",
+                        "type": "string"
+                    },
+                    "model": {
+                        "description": "Model pattern or ID. Omit for default.",
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        {
+            "name": "reminder",
+            "label": "Reminder",
+            "description": "Manage reminders with desktop notifications. Actions: list, add, update, remove, snooze, complete, enable, disable. IMPORTANT: For relative times, call current_time first to get accurate time, then compute fire_at.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "action"
+                ],
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "list",
+                            "add",
+                            "update",
+                            "remove",
+                            "snooze",
+                            "complete",
+                            "enable",
+                            "disable"
+                        ]
+                    },
+                    "id": {
+                        "description": "Reminder ID (required for all except list/add)",
+                        "type": "string"
+                    },
+                    "title": {
+                        "description": "Reminder title (required for add)",
+                        "type": "string"
+                    },
+                    "notes": {
+                        "description": "Optional notes or details",
+                        "type": "string"
+                    },
+                    "channel": {
+                        "description": "Delivery channel: \"notification\" (default) or \"email\"",
+                        "type": "string"
+                    },
+                    "type": {
+                        "description": "\"once\" (default) or \"recurring\"",
+                        "type": "string"
+                    },
+                    "fire_at": {
+                        "description": "ISO datetime for one-time reminders. IMPORTANT: call current_time first to get the accurate current time.",
+                        "type": "string"
+                    },
+                    "schedule": {
+                        "description": "Cron expression for recurring reminders",
+                        "type": "string"
+                    },
+                    "snooze_minutes": {
+                        "description": "Snooze duration in minutes (default: 15). -1 for tomorrow 9am.",
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        {
+            "name": "question",
+            "label": "Question",
+            "description": "Ask the user a question and let them pick from options or type a custom answer. Use when you need user input to proceed.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "question",
+                    "options"
+                ],
+                "properties": {
+                    "question": {
+                        "description": "The question to ask the user",
+                        "type": "string"
+                    },
+                    "options": {
+                        "description": "Options for the user to choose from",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "label"
+                            ],
+                            "properties": {
+                                "label": {
+                                    "description": "Display label for the option",
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "description": "Value returned when selected (defaults to label)",
+                                    "type": "string"
+                                },
+                                "description": {
+                                    "description": "Optional description shown below label",
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "questionnaire",
+            "label": "Questionnaire",
+            "description": "Ask the user one or more questions. Use for clarifying requirements, getting preferences, or confirming decisions. Single questions show a simple list; multiple questions show a step-based form.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "questions"
+                ],
+                "properties": {
+                    "questions": {
+                        "description": "Questions to ask",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "id",
+                                "prompt",
+                                "options"
+                            ],
+                            "properties": {
+                                "id": {
+                                    "description": "Unique identifier for this question",
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "description": "Short label for tab/step (defaults to Q1, Q2)",
+                                    "type": "string"
+                                },
+                                "prompt": {
+                                    "description": "The full question text to display",
+                                    "type": "string"
+                                },
+                                "options": {
+                                    "description": "Available options",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "required": [
+                                            "label"
+                                        ],
+                                        "properties": {
+                                            "label": {
+                                                "description": "Display label for the option",
+                                                "type": "string"
+                                            },
+                                            "value": {
+                                                "description": "Value returned when selected (defaults to label)",
+                                                "type": "string"
+                                            },
+                                            "description": {
+                                                "description": "Optional description shown below label",
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
+                                "allowOther": {
+                                    "description": "Allow custom text input (default: true)",
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "interview",
+            "label": "Interview",
+            "description": "Ask the user open-ended interview questions to deeply understand a problem, requirement, or design decision. Each question gets a free-text response — there are no predefined options.\n\nUse iteratively: call with a batch of 3–5 questions, process the answers, then call again with deeper follow-ups. Continue until you have thorough understanding. Questions should be thoughtful and non-obvious — probe for edge cases, tradeoffs, constraints, and unstated assumptions.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "questions"
+                ],
+                "properties": {
+                    "questions": {
+                        "description": "Open-ended interview questions. Each gets a free-text response.",
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "id",
+                                "prompt"
+                            ],
+                            "properties": {
+                                "id": {
+                                    "description": "Unique identifier for this question",
+                                    "type": "string"
+                                },
+                                "prompt": {
+                                    "description": "The interview question to ask the user",
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "kanban",
+            "label": "Kanban",
+            "description": "Manage the workspace Kanban board. IMPORTANT: Cards are implemented by automated orchestrator subagents — do NOT implement card work yourself. Your role is to manage the board, brainstorm, and approve. Actions: list (show board), add (requires title; optional description, priority, acceptance, blockedBy), move (requires id + column — for backward moves only), update (requires id; optional title/description, priority, acceptance, blockedBy), delete (requires id), show (requires id, detailed view), start (requires id — move card to planning, triggers automated agents), approve (requires id — approve plan and advance to in-progress), complete (requires id — only from review, mark as done), retry (requires id — re-trigger current phase), brainstorm (start collaborative card creation session), settings (view/update board settings), request-revisions (requires id + revisionFeedback — only for review cards awaiting human input with a PR; send card back to implementation with feedback and invalidate the cached review), cancel-pr (requires id — only for review cards awaiting human input with a PR; close the PR on GitHub, remove local review artifacts, and return the card to backlog), report-error (requires id + errorMessage; optional errorDetails, errorSeverity, agentName, phase, filePaths — subagents report errors/failures here), error-log (view error log; optional id to filter by card), retrospective (analyze all logged errors and suggest process improvements).",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "action"
+                ],
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "list",
+                            "add",
+                            "move",
+                            "update",
+                            "delete",
+                            "show",
+                            "start",
+                            "approve",
+                            "complete",
+                            "retry",
+                            "brainstorm",
+                            "settings",
+                            "cleanup",
+                            "request-revisions",
+                            "cancel-pr",
+                            "report-error",
+                            "error-log",
+                            "retrospective"
+                        ]
+                    },
+                    "title": {
+                        "description": "Card title (for add)",
+                        "type": "string"
+                    },
+                    "id": {
+                        "description": "Card ID",
+                        "type": "string"
+                    },
+                    "column": {
+                        "type": "string",
+                        "enum": [
+                            "backlog",
+                            "planning",
+                            "in-progress",
+                            "review",
+                            "done"
+                        ]
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": [
+                            "critical",
+                            "high",
+                            "medium",
+                            "low"
+                        ]
+                    },
+                    "description": {
+                        "description": "Card description",
+                        "type": "string"
+                    },
+                    "blockedBy": {
+                        "description": "IDs of cards that must be done before this card can start",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "acceptance": {
+                        "description": "Acceptance criteria",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "setting": {
+                        "description": "Setting name for settings action (testingEnabled, reviewMode, reviewLevel)",
+                        "type": "string"
+                    },
+                    "value": {
+                        "description": "Setting value for settings action",
+                        "type": "string"
+                    },
+                    "revisionFeedback": {
+                        "description": "Feedback text for request-revisions action",
+                        "type": "string"
+                    },
+                    "errorMessage": {
+                        "description": "Error message (for report-error)",
+                        "type": "string"
+                    },
+                    "errorDetails": {
+                        "description": "Full error details/stack trace (for report-error)",
+                        "type": "string"
+                    },
+                    "errorSeverity": {
+                        "type": "string",
+                        "enum": [
+                            "error",
+                            "warning",
+                            "test-failure"
+                        ]
+                    },
+                    "agentName": {
+                        "description": "Name of the subagent reporting the error (for report-error)",
+                        "type": "string"
+                    },
+                    "phase": {
+                        "type": "string",
+                        "enum": [
+                            "planning",
+                            "implementation",
+                            "review"
+                        ]
+                    },
+                    "filePaths": {
+                        "description": "File paths involved in the error (for report-error)",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "research",
+            "label": "Research",
+            "description": "Multi-agent research orchestrator. Actions:\n  plan — Decompose a question into research workstreams. Requires `question` and `agents` array.\n  analyze — Analyse article URLs for commercial opportunities. Requires `urls` array, optional `question` and `context`.\n  approve — Launch the planned research workstreams.\n  status — Check progress of active research.\n  cancel — Cancel active research.",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "action"
+                ],
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "plan",
+                            "approve",
+                            "status",
+                            "cancel",
+                            "analyze"
+                        ]
+                    },
+                    "question": {
+                        "description": "Research question (for plan/analyze)",
+                        "type": "string"
+                    },
+                    "agents": {
+                        "description": "Agent definitions (for plan)",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "name",
+                                "sections"
+                            ],
+                            "properties": {
+                                "name": {
+                                    "description": "Agent workstream name",
+                                    "type": "string"
+                                },
+                                "sections": {
+                                    "description": "Section titles to research",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "urls": {
+                        "description": "Article URLs to analyse (for analyze)",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "context": {
+                        "description": "User context — what they are building or looking for (for analyze)",
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        {
+            "name": "admin",
+            "label": "Sero Admin",
+            "description": "Inspect Sero configuration and session data.\nActions:\n  list-configs — show available config files\n  read-config (key) — read a config file by key\n  list-sessions — list recent session files\n  list-logs — list available log files\n  read-log (key) — read tail of a log file",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "action"
+                ],
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "list-configs",
+                            "read-config",
+                            "list-sessions",
+                            "list-logs",
+                            "read-log"
+                        ]
+                    },
+                    "key": {
+                        "description": "Config key or log filename (for read-config, read-log)",
+                        "type": "string"
+                    },
+                    "lines": {
+                        "description": "Number of lines to show (for read-log, default 50)",
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        {
+            "name": "subagent",
+            "label": "Subagent",
+            "description": "Delegate tasks to specialist subagents. Modes: single (agent + task), parallel (tasks array), chain (sequential with {previous} placeholder).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "description": "Agent name (from ~/.sero-ui/agent/agents/*.md) for single mode",
+                        "type": "string"
+                    },
+                    "task": {
+                        "description": "Task prompt for single mode",
+                        "type": "string"
+                    },
+                    "tasks": {
+                        "description": "Array of independent tasks for parallel execution",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "agent",
+                                "task"
+                            ],
+                            "properties": {
+                                "agent": {
+                                    "description": "Agent name",
+                                    "type": "string"
+                                },
+                                "task": {
+                                    "description": "Task prompt",
+                                    "type": "string"
+                                },
+                                "model": {
+                                    "description": "Model override",
+                                    "type": "string"
+                                },
+                                "thinking": {
+                                    "description": "Thinking level override",
+                                    "type": "string"
+                                },
+                                "timeoutMs": {
+                                    "description": "Timeout in ms",
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    },
+                    "chain": {
+                        "description": "Sequential pipeline. Use {previous} for prior step output.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "agent",
+                                "task"
+                            ],
+                            "properties": {
+                                "agent": {
+                                    "description": "Agent name",
+                                    "type": "string"
+                                },
+                                "task": {
+                                    "description": "Task prompt",
+                                    "type": "string"
+                                },
+                                "model": {
+                                    "description": "Model override",
+                                    "type": "string"
+                                },
+                                "thinking": {
+                                    "description": "Thinking level override",
+                                    "type": "string"
+                                },
+                                "timeoutMs": {
+                                    "description": "Timeout in ms",
+                                    "type": "number"
+                                }
+                            }
+                        }
+                    },
+                    "model": {
+                        "description": "Model override for all subagents",
+                        "type": "string"
+                    },
+                    "thinking": {
+                        "description": "Thinking level override",
+                        "type": "string"
+                    },
+                    "timeoutMs": {
+                        "description": "Timeout override in ms",
+                        "type": "number"
+                    },
+                    "systemPrompt": {
+                        "description": "Inline system prompt for ad-hoc tasks (no .md lookup needed)",
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        {
+            "name": "create_agent",
+            "label": "Create Agent",
+            "description": "Create a new named agent definition (.md file with JSON frontmatter).",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "description",
+                    "systemPrompt"
+                ],
+                "properties": {
+                    "name": {
+                        "description": "Agent name (lowercase alphanumeric + hyphens)",
+                        "type": "string"
+                    },
+                    "description": {
+                        "description": "What this agent does",
+                        "type": "string"
+                    },
+                    "systemPrompt": {
+                        "description": "System prompt body",
+                        "type": "string"
+                    },
+                    "model": {
+                        "description": "Default model",
+                        "type": "string"
+                    },
+                    "thinking": {
+                        "description": "Thinking level",
+                        "type": "string"
+                    },
+                    "timeoutMs": {
+                        "description": "Default timeout in ms",
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        {
+            "name": "sero-cli",
+            "label": "Sero CLI",
+            "description": "Execute Sero platform commands. Run `sero help` for commands. Supports multi-line input to chain commands (one per line).",
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "command"
+                ],
+                "properties": {
+                    "command": {
+                        "description": "Sero CLI command string (e.g. \"todo list\"). Supports multi-line input for chaining (one command per line).",
+                        "type": "string"
+                    },
+                    "timeout": {
+                        "description": "Batch timeout in seconds (default: 120)",
+                        "type": "number"
+                    }
+                }
+            }
+        }
+    ],
+    "messageCount": 2,
+    "messages": [
+        {
+            "role": "custom",
+            "customType": "memory-context",
+            "content": "## Memory\n\n### IDENTITY.md\n\n<!-- last updated: 2026-03-08 00:04:53 -->\n# Identity\n\n- **Name:** Sero\n- **Style:** Friendly & conversational - warm, natural, collaborative tone\n- **Rules:** Use British English spellings and avoid emojis\n\n---\n\n### USER.md\n\n# USER.md - About Dan\n\n- **Name:** Dan Carter\n- **What to call them:** Dan\n- **Pronouns:** —\n- **Timezone:** GMT (Europe/London)\n- **Location:** Lincoln, England\n\n## Context\n- Software engineer, macOS, Apple Silicon\n- Wants help organising life and work\n- Working on the Sero project (~/Documents/Dev/projects/sero/)\n- Sense of humour: dry, British — Blackadder, The Office (UK), Alan Partridge, Peep Show\n- Communication preference: direct, no waffle, British English spellings\n- Don't do British stereotype jokes — they grate on him\n\n## Coding Preferences\n- TypeScript over JavaScript\n- Functional patterns over classes where practical\n\n---\n\n## MEMORY.md (long-term)\n\n<!-- last updated: 2026-03-22 -->\n# Memory\n\n## Sero Platform\n\nSero is Dan's AI-powered workspace — an Electron app with a coding agent harness, native apps, memory system, kanban, subagent orchestration, and CLI. Monorepo at `~/Documents/Dev/projects/sero/sero`.\n\n### Sero Packages (Extensions)\nThe monorepo has these packages under `packages/`:\n- **app-runtime** — core runtime\n- **ui** — shared UI components\n- **templates** — project templates\n- **Extensions:** pi-admin, pi-calc, pi-canvas, pi-context, pi-cron, pi-daily-quote, pi-git, pi-google, pi-humanizer, pi-imagegen, pi-kanban, pi-memory, pi-notes, pi-plan-mode, pi-research, pi-resources, pi-slopzilla, pi-spotify, pi-starling, pi-tetris, pi-todo, pi-user-feedback, pi-weight-tracker\n\n### Memory Backend\nQMD v2 powers memory search. Detailed notes in `memory/QMD.md`. Hybrid search pipeline: BM25 + vector + LLM expansion + reranking, all local. Collections config at `~/.config/qmd/index.yml`, index \n\n... (truncated) ...\n\n. React 19 + Vite + Tailwind v4. 11 keyframe animations.\n- **Cube Mood** — mood-based cube visualisation. Had a v2.0 refactoring plan.\n- **Is It Soup** — (food classification joke app)\n- **Commit Aquarium** — (git commit visualisation as fish)\n\n### Other Workspaces\n- **HelloWorld** — test/starter workspace\n- **TestGitRepo** — git testing workspace\n\n## Coding Preferences\n\n- TypeScript over JavaScript\n- Functional patterns over classes where practical\n- Prefers Typebox over Zod for validation\n\n## Technical Knowledge\n\n- When writing to memory files, use the `write` tool directly — `sero memory write` with escaped newlines renders `\\n` as literal text. #preference\n\n## Active Todos\n- Buy milk\n- Review pull request for auth module\n- Book dentist appointment\n- Update project README\n\n## Fitness Goal\nActive goal: 87kg → 80.2kg by 12 May 2026 (15lbs in 8 weeks). Detailed plan in `memory/fitness-goal.md`. Birthday 20 June is hard deadline. Weekly check-ins on Mondays. #health #fitness",
+            "display": false,
+            "timestamp": 1774189106544
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "tell me a joke"
+                }
+            ],
+            "timestamp": 1774189106539
+        }
+    ]
+}
