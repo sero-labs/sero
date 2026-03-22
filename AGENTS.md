@@ -54,6 +54,8 @@ The most comprehensive examples are:
 - [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty native module rebuild guide (MUST READ if terminals fail)
 - [docs/libs/container.md](docs/libs/container.md) — Apple Container CLI reference + ghost container protocol
 - [docs/themes/README.md](docs/themes/README.md) - Theming and style guide
+- [docs/plugins-guide.md](docs/plugins-guide.md) — creating, distributing, and installing Sero plugins
+- [docs/plugins-technical.md](docs/plugins-technical.md) — plugin system internals (architecture, IPC, file layout)
 
 ## Typecheck Before Commit (CRITICAL)
 
