@@ -5,11 +5,13 @@
  * $SERO_DEBUG_DIR/model-messages.jsonl (defaults to ~/.sero-ui/debug/).
  * Toggled on/off from the UI via a debug icon in the StatusBar.
  *
- * Two log entry types:
+ * Three log entry types:
  *   1. **event** — every raw AgentSessionEvent (message_start/end, tool_*, etc.)
- *   2. **turn_context** — full LLM request snapshot on `turn_start`:
+ *   2. **turn_context** — pre-filter request snapshot on `turn_start`:
  *      systemPrompt, tools (name + description + parameters), all messages,
  *      model, and thinkingLevel.
+ *   3. **provider_request** — final provider payload on `before_provider_request`
+ *      after extensions have filtered messages or otherwise mutated the request.
  */
 
 import { ipcMain, BrowserWindow, shell } from 'electron';
@@ -115,6 +117,20 @@ export function logTurnContext(sessionId: string, session: AgentSession): void {
     tools,
     messageCount: state.messages.length,
     messages: state.messages,
+  });
+}
+
+/**
+ * Log the final provider payload after extensions have applied `context`
+ * filtering and `before_provider_request` mutations.
+ */
+export function logProviderRequest(sessionId: string, payload: unknown): void {
+  if (!enabled) return;
+  writeEntry({
+    _type: 'provider_request',
+    timestamp: new Date().toISOString(),
+    sessionId,
+    payload,
   });
 }
 

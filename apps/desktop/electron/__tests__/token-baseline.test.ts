@@ -91,27 +91,34 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 - Always read pi .md files completely and follow links to related docs`;
 }
 
-/** Build a realistic skills listing (17 skills, matching real config). */
+/**
+ * Build a realistic skills listing for a functional default Sero install.
+ *
+ * This reflects the full progressive-disclosure surface being available by
+ * default. Users can still hide specific skills globally from the Admin app
+ * when they want to trim prompt size.
+ */
 function buildSkillsListing(): string {
-  // Each skill entry is ~80-120 tokens. This mirrors the real listing format.
   const skills = [
-    { name: 'pi-planning-with-files', desc: 'Implements file-based planning for complex tasks.' },
-    { name: 'context-management', desc: 'Strategies for efficient context management.' },
     { name: 'ai-elements', desc: 'Create new AI chat interface components.' },
-    { name: 'browser-tools', desc: 'Interactive browser automation via Chrome DevTools Protocol.' },
-    { name: 'transcribe', desc: 'Speech-to-text transcription using Groq Whisper API.' },
-    { name: 'vscode', desc: 'VS Code integration for viewing diffs and comparing files.' },
-    { name: 'plan-interview', desc: 'Adaptive interview for generating comprehensive specifications.' },
-    { name: 'playwright-cli', desc: 'Automates browser interactions for web testing.' },
+    { name: 'browser-tools', desc: 'Interactive browser automation for testing and visible web workflows.' },
+    { name: 'context-management', desc: 'Strategies for efficient context management using context tools.' },
     { name: 'context7', desc: 'Retrieve up-to-date documentation for software libraries.' },
+    { name: 'crawl', desc: 'Crawl websites and save pages as local markdown files.' },
+    { name: 'extract', desc: 'Extract clean markdown or text from specific URLs.' },
     { name: 'frontend-design', desc: 'Create distinctive, production-grade frontend interfaces.' },
+    { name: 'humanizer', desc: 'Remove signs of AI-generated writing from text.' },
+    { name: 'plan-exit-review', desc: 'Review a plan thoroughly before implementation.' },
+    { name: 'plan-interview', desc: 'Adaptive interview for generating comprehensive specifications.' },
+    { name: 'playwright-cli', desc: 'Automates browser interactions for testing, screenshots, and extraction.' },
+    { name: 'research', desc: 'Get AI-synthesised research on a topic with citations.' },
+    { name: 'search', desc: 'Search the web using an LLM-optimised search API.' },
     { name: 'skill-creator', desc: 'Guide for creating effective skills.' },
-    { name: 'webapp-testing', desc: 'Toolkit for interacting with and testing local web applications.' },
-    { name: 'crawl', desc: 'Crawl any website and save pages as local markdown files.' },
-    { name: 'extract', desc: 'Extract content from specific URLs using extraction API.' },
-    { name: 'research', desc: 'Get AI-synthesized research on any topic with citations.' },
-    { name: 'search', desc: 'Search the web using LLM-optimized search API.' },
     { name: 'tavily-best-practices', desc: 'Build production-ready Tavily integrations.' },
+    { name: 'transcribe', desc: 'Speech-to-text transcription for common audio formats.' },
+    { name: 'visual-explainer', desc: 'Generate visual HTML explanations for technical concepts.' },
+    { name: 'vscode', desc: 'VS Code integration for viewing diffs and comparing files.' },
+    { name: 'webapp-testing', desc: 'Toolkit for interacting with and testing local web applications.' },
   ];
 
   let text = '\nThe following skills provide specialized instructions for specific tasks.\n';

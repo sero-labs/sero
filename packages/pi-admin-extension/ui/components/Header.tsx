@@ -15,6 +15,7 @@ interface HeaderProps {
 export const Header = memo(function Header({ profileName, activeTab }: HeaderProps) {
   const tabLabel =
     activeTab === 'config' ? 'Configuration' :
+    activeTab === 'skills' ? 'Skills' :
     activeTab === 'logs' ? 'Logs' :
     activeTab === 'sessions' ? 'Sessions' : activeTab;
 

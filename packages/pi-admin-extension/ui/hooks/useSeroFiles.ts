@@ -33,6 +33,10 @@ export interface SeroApi {
   shell: {
     showItemInFolder(path: string): Promise<void>;
   };
+  skills: {
+    listAvailableSkills(): Promise<AvailableSkillInfo[]>;
+    setDisabledModelSkills(skillNames: string[]): Promise<void>;
+  };
 }
 
 interface ProfileInfo {
@@ -52,6 +56,13 @@ interface SeroSessionInfo {
   workspaceId: string;
   messageCount: number;
   firstMessage: string;
+}
+
+export interface AvailableSkillInfo {
+  name: string;
+  description: string;
+  source: string;
+  disableModelInvocation: boolean;
 }
 
 /** Single cast site for the window.sero API. Import this instead of casting inline. */

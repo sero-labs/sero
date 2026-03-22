@@ -52,6 +52,7 @@ import { createSeroUIContext } from '../extension-ui-context';
 import { installCliAgentBridge, noteCliTurnEnd } from '../cli/agent-bridge';
 import { createWorkspaceCliTool, bridgeExtensionTools } from '../cli';
 import { installGatewayAgentOps, forwardEventToGateway } from '../gateway/agent-bridge';
+import { createSkillVisibilityOverride } from '../skill-visibility';
 import { buildGatewayOps } from './gateway-ops';
 
 interface PoolEntry {
@@ -153,6 +154,7 @@ async function openSessionInternal(
         enableAgentManagementTools: true,
       }),
     ],
+    skillsOverride: createSkillVisibilityOverride(infra.settingsManager),
     extensionsOverride: bridgeExtensionTools,
     ...(globalAgentsFile && {
       agentsFilesOverride: (discovered: { agentsFiles: Array<{ path: string; content: string }> }) => ({

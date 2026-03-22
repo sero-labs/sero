@@ -8,7 +8,7 @@
 /** Skill source — matches the SDK's source identifiers. */
 export type SkillSource = 'user' | 'project' | 'path';
 
-/** Summary of a discovered skill (renderer-safe subset of SDK Skill). */
+/** Summary of a discovered user skill (renderer-safe subset of SDK Skill). */
 export interface SkillSummary {
   name: string;
   description: string;
@@ -16,6 +16,16 @@ export interface SkillSummary {
   filePath: string;
   /** Where the skill was discovered from. */
   source: SkillSource;
+}
+
+/** Summary of every globally available skill loaded by Sero. */
+export interface AvailableSkillSummary {
+  name: string;
+  description: string;
+  /** Source identifier from the SDK (user, project, package path, etc.). */
+  source: string;
+  /** True when the skill itself disables automatic model invocation. */
+  disableModelInvocation: boolean;
 }
 
 /**

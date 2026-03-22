@@ -53,6 +53,17 @@ async function captureRect(rect: AppPanelRect): Promise<string | null> {
   return captureRegion(win, rect);
 }
 
+async function captureRecordingFrame(): Promise<void> {
+  try {
+    const rect = await execRenderer<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    const screenshot = await captureRect(rect);
+    if (screenshot) recordingState.frames.push({ timestamp: Date.now(), base64: screenshot });
+  } catch {
+    // Skip frame capture failures during recording
+  }
+}
+
 // ── Registration ─────────────────────────────────────────────
 
 export function registerAppControlHandlers(): void {
@@ -120,13 +131,9 @@ export function registerAppControlHandlers(): void {
     recordingState.active = true;
     recordingState.startedAt = new Date().toISOString();
     recordingState.frames = [];
-    recordingState.interval = setInterval(async () => {
-      try {
-        const rect = await execRenderer<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
-        if (!rect || rect.width <= 0 || rect.height <= 0) return;
-        const screenshot = await captureRect(rect);
-        if (screenshot) recordingState.frames.push({ timestamp: Date.now(), base64: screenshot });
-      } catch { /* skip frame */ }
+    await captureRecordingFrame();
+    recordingState.interval = setInterval(() => {
+      void captureRecordingFrame();
     }, 500);
     return true;
   });
@@ -135,9 +142,10 @@ export function registerAppControlHandlers(): void {
   ipcMain.handle(IpcChannels.appControl.recordStop, async (): Promise<AppRecordingResult | null> => {
     if (!recordingState.active) return null;
     if (recordingState.interval) { clearInterval(recordingState.interval); recordingState.interval = null; }
+    await captureRecordingFrame();
     await execRenderer<boolean>('window.__appControl?.recordStop() ?? false');
 
-    const frames = recordingState.frames;
+    const frames = [...recordingState.frames];
     recordingState.active = false;
     recordingState.startedAt = null;
     recordingState.frames = [];

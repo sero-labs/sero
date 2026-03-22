@@ -7,9 +7,11 @@
 
 // ── App state (persisted) ──────────────────────────────────
 
+export type AdminTab = 'config' | 'skills' | 'logs' | 'sessions';
+
 export interface AdminState {
   /** Last active tab. */
-  lastTab: 'config' | 'logs' | 'sessions';
+  lastTab: AdminTab;
   /** Last opened config file key. */
   lastConfigKey: string | null;
   /** Last opened session filename. */
@@ -45,7 +47,7 @@ export const CONFIG_FILES: ConfigFile[] = [
     key: 'settings',
     label: 'Settings',
     relativePath: 'agent/settings.json',
-    description: 'Default model, provider, thinking level, and registered packages',
+    description: 'Default model, provider, thinking level, packages, and Sero skill visibility',
   },
   {
     key: 'auth',

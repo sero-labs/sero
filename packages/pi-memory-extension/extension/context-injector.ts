@@ -37,8 +37,8 @@ import { searchRelevantMemories, isQmdAvailable } from './qmd';
 const BUDGET_IDENTITY_USER = 2_000; // ~500 tokens
 const BUDGET_SCRATCHPAD    = 1_500; // ~375 tokens
 const BUDGET_SEARCH        = 2_500; // ~625 tokens
-const BUDGET_MEMORY        = 2_000; // ~500 tokens
-const BUDGET_TOTAL         = 8_000; // ~2K tokens — safety cap (sub-budgets sum to this)
+const BUDGET_MEMORY        = 1_600; // ~400 tokens — keep more durable project context available
+const BUDGET_TOTAL         = 7_600; // ~1.9K tokens — safety cap
 
 // ── Bootstrap status cache ─────────────────────────────────────
 
@@ -134,55 +134,26 @@ async function buildPriorityContext(
 function getMemoryInstructions(): string {
   const root = resolveMemoryRoot();
   const searchLine = isQmdAvailable()
-    ? '- `sero memory_search --query "..." [--mode keyword|semantic|deep]` — semantic search across all memory files'
+    ? '- `sero memory_search --query "..." [--mode keyword|semantic|deep]` — search past memory when you need more context'
     : '';
 
   return [
-    `\n\n## Memory System (IMPORTANT — read carefully)`,
+    `\n\n## Memory System`,
     '',
-    `All memory files live in \`${root}\`. Do NOT access memory files outside this path.`,
+    `All memory files live in \`${root}\`. Use the memory commands below instead of editing those files directly so timestamps, append behaviour, and search indexing stay correct.`,
     '',
-    '### Commands',
-    '- `sero memory write --target memory --content "..."` — save a long-term fact or decision',
-    '- `sero memory write --target daily --content "..."` — log something to today\'s daily note',
-    '- `sero memory write --target user --content "..."` — update user profile info',
-    '- `sero memory read --target memory|identity|user|daily` — read a memory file',
-    '- `sero memory search --query "..."` — grep search across memory files',
+    'Use these commands when needed:',
+    '- `sero memory read --target memory|identity|user|daily`',
+    '- `sero memory write --target memory|daily|user --content "..." [--mode append|overwrite]`',
+    '- `sero memory search --query "..."` — quick text search across memory files',
     searchLine,
-    '- `sero scratchpad add "..."` — add item to scratchpad checklist',
-    '- `sero scratchpad done "..."` — mark item complete',
-    '- `sero memory list` — list all memory files',
+    '- `sero scratchpad add|done "..."`',
     '',
-    '### When to save to MEMORY (long-term)',
-    'Save to `--target memory` whenever the user reveals or you discover:',
-    '- **Preferences:** coding style, formatting, naming conventions, tool choices',
-    '- **Decisions:** architecture choices, library selections, design patterns adopted',
-    '- **Project context:** repo structure, key files, deployment setup, environments',
-    '- **Technical knowledge:** frameworks used, APIs integrated, custom patterns',
-    '- **Corrections:** when the user corrects you, save the correct approach',
-    '- **Workflows:** how the user prefers to work (PR flow, testing approach, etc.)',
-    '',
-    '### When to save to DAILY (session log)',
-    'Save to `--target daily` for time-specific information:',
-    '- What was worked on this session (features, bugs, refactors)',
-    '- Problems encountered and how they were solved',
-    '- TODOs or follow-ups that came up during work',
-    '- Key commits, PRs, or deployments made',
-    '',
-    '### Proactive memory rules (CRITICAL)',
-    '1. **Save WITHOUT being asked.** Do not wait for the user to say "remember this". If information is worth remembering, save it immediately.',
-    '2. **Save EARLY in the conversation.** When the user describes what they\'re working on, save context to daily immediately.',
-    '3. **Save AFTER completing work.** After finishing a task, log what was done and any lessons learned to daily.',
-    '4. **Save corrections.** If the user corrects your approach, save the correct way to memory so you don\'t repeat the mistake.',
-    '5. **Save project discoveries.** When you learn about a project\'s structure, patterns, or conventions, save to memory.',
-    '6. **Update, don\'t duplicate.** Before writing to memory, search first to see if the info already exists. Update existing entries rather than creating duplicates.',
-    '7. **Use the scratchpad** for multi-step tasks the user asks you to track.',
-    '',
-    '### Formatting best practices',
-    '- Use #tags (e.g. #decision, #preference, #bugfix) to improve search recall',
-    '- Use [[links]] (e.g. [[auth-strategy]], [[project-x]]) for cross-referencing',
-    '- Keep entries concise — one fact per bullet point',
-    '- Group related facts under markdown headings',
+    'Save proactively but keep it lean:',
+    '- Save durable preferences, decisions, project facts, and corrections to `memory`',
+    '- Save session-specific progress, blockers, and follow-ups to `daily`',
+    '- Search before writing so you update existing memory instead of duplicating it',
+    '- For multi-line content, keep using `sero memory write` and pass escaped newlines rather than switching to the raw `write` tool',
   ].filter(Boolean).join('\n');
 }
 
@@ -238,6 +209,18 @@ After receiving answers, write MEMORY.md:
 export function registerContextInjection(pi: ExtensionAPI): void {
   pi.on('session_start', () => {
     resetBootstrapCache();
+  });
+
+  // Keep the hidden memory-context message for UI/debug visibility, but
+  // strip it from outgoing model context because the same content is already
+  // injected into the system prompt.
+  pi.on('context', async (event) => {
+    return {
+      messages: event.messages.filter((message) => {
+        const msg = message as unknown as Record<string, unknown>;
+        return msg.customType !== 'memory-context';
+      }),
+    };
   });
 
   pi.on('before_agent_start', async (event) => {

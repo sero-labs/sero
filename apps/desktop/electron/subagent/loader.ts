@@ -17,6 +17,7 @@ import type { WorkspaceManager } from '../workspace';
 import type { ContainerState } from '../container/types';
 import { buildContainerPromptBlock } from '../container/system-prompt';
 import { buildCliPromptBlock } from '../cli';
+import { logProviderRequest } from '../ipc/debug';
 import { showNotification, type NotificationType } from '../notifications';
 
 /**
@@ -49,6 +50,10 @@ export function createSubagentExtensionFactory(
       if (systemPrompt !== event.systemPrompt) {
         return { systemPrompt };
       }
+    });
+
+    pi.on('before_provider_request', async (event) => {
+      logProviderRequest(_sessionId, event.payload);
     });
 
     // ── sero:notify — shared notification bus ─────────────────
