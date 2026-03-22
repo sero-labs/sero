@@ -27,6 +27,11 @@ interface ModelPreferencesState {
   toggleHidden: (key: ModelKey) => void;
   toggleProviderHidden: (provider: string) => void;
 
+  /** Hide multiple models at once. Also removes them from favourites. */
+  hideAll: (keys: ModelKey[]) => void;
+  /** Unhide everything — clears both hiddenModels and hiddenProviders. */
+  showAll: () => void;
+
   /** Bulk-set from loaded layout state. */
   hydrate: (data: {
     favouriteModels?: ModelKey[];
@@ -76,6 +81,21 @@ export const useModelPreferences = create<ModelPreferencesState>((set, get) => (
       ? current.filter((p) => p !== provider)
       : [...current, provider];
     set({ hiddenProviders: next });
+    persistModelPrefs(get());
+  },
+
+  hideAll: (keys) => {
+    const hidSet = new Set(get().hiddenModels);
+    for (const k of keys) hidSet.add(k);
+    const hiddenModels = [...hidSet];
+    // Remove newly hidden models from favourites
+    const favs = get().favouriteModels.filter((k) => !hidSet.has(k));
+    set({ hiddenModels, favouriteModels: favs });
+    persistModelPrefs(get());
+  },
+
+  showAll: () => {
+    set({ hiddenModels: [], hiddenProviders: [] });
     persistModelPrefs(get());
   },
 

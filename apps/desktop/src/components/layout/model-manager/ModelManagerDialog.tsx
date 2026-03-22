@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, memo } from 'react';
-import { Search, Star, EyeOff, Layers, X } from 'lucide-react';
+import { Search, Star, Eye, EyeOff, Layers, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Dialog,
@@ -105,7 +105,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
   const groups = ms?.availableModels ?? [];
 
   const prefs = useModelPreferences();
-  const { toggleFavourite, toggleHidden, toggleProviderHidden } = prefs;
+  const { toggleFavourite, toggleHidden, toggleProviderHidden, hideAll, showAll } = prefs;
 
   // Stable lookup callbacks for memoized children
   const isFavourite = useCallback(
@@ -168,6 +168,19 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
       hidden: hiddenSet.size,
     };
   }, [groups, prefs.favouriteModels, prefs.hiddenModels, prefs.hiddenProviders]);
+
+  // Bulk actions — "Hide all" hides every model currently visible in the
+  // list (respects search filter), "Show all" clears all hidden state.
+  const handleHideAll = useCallback(() => {
+    const keys = filteredGroups.flatMap((g) =>
+      g.models.map((m) => modelKey(m.provider, m.modelId)),
+    );
+    if (keys.length) hideAll(keys);
+  }, [filteredGroups, hideAll]);
+
+  const handleShowAll = useCallback(() => {
+    showAll();
+  }, [showAll]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -248,6 +261,34 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
             )}
           </div>
         </div>
+
+        {/* Bulk actions bar — context-sensitive per tab */}
+        {activeTab === 'all' && displayGroups.length > 0 && (
+          <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-1.5">
+            <button
+              onClick={handleHideAll}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
+                text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
+                hover:text-[var(--text-secondary)]"
+            >
+              <EyeOff className="size-3" />
+              {filter ? 'Hide matches' : 'Hide all'}
+            </button>
+          </div>
+        )}
+        {activeTab === 'hidden' && displayGroups.length > 0 && (
+          <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-1.5">
+            <button
+              onClick={handleShowAll}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
+                text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
+                hover:text-[var(--text-secondary)]"
+            >
+              <Eye className="size-3" />
+              Show all
+            </button>
+          </div>
+        )}
 
         {/* Model list */}
         <div className="max-h-[400px] min-h-[200px] overflow-y-auto px-2 py-1">
