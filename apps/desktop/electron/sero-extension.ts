@@ -22,6 +22,7 @@ import { registerSeroBuiltinCommands } from './sero-extension-commands';
 import { buildCliPromptBlock } from './cli';
 import { registerGitCheckpointFeatures } from './sero-extension-git';
 import { showNotification, type NotificationType } from './notifications';
+import { logProviderRequest } from './ipc/debug';
 import { registerSubagentTool, registerCreateAgentTool } from './subagent/tool';
 import { buildSubagentPromptBlock } from './subagent/prompt';
 import type { SubagentManager } from './subagent/index';
@@ -68,6 +69,10 @@ export function createSeroExtensionFactory(
       if (systemPrompt !== event.systemPrompt) {
         return { systemPrompt };
       }
+    });
+
+    pi.on('before_provider_request', async (event) => {
+      logProviderRequest(_sessionId, event.payload);
     });
 
     // ── sero:notify — shared notification bus ───────────────────

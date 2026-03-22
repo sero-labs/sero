@@ -2,7 +2,7 @@
  * Video encoder — stitches PNG frames into an MP4 using ffmpeg.
  *
  * Requires ffmpeg on the system PATH. Falls back to returning the
- * frames directory if ffmpeg is unavailable.
+ * frames directory if ffmpeg is unavailable or encoding fails.
  */
 
 import { spawn, execFile } from 'child_process';
@@ -30,6 +30,8 @@ interface EncodeResult {
   frameCount: number;
 }
 
+const MAX_FALLBACK_NOTE_CHARS = 1_000;
+
 /** Check whether ffmpeg is available on the system. */
 export async function hasFfmpeg(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -55,6 +57,38 @@ async function writeFrames(
   }
 }
 
+function trimFallbackNote(note: string): string {
+  return note.length <= MAX_FALLBACK_NOTE_CHARS
+    ? note
+    : `${note.slice(0, MAX_FALLBACK_NOTE_CHARS)}…`;
+}
+
+async function writeFramesFallback(opts: {
+  frames: EncodeOptions['frames'];
+  durationMs: number;
+  fps: number;
+  outputPath?: string;
+  note: string;
+}): Promise<EncodeResult> {
+  const { frames, durationMs, fps, outputPath, note } = opts;
+  const ts = Date.now();
+  const framesDir = outputPath
+    ? getFramesDir(outputPath)
+    : path.join(tmpdir(), 'sero-recordings', `frames-${ts}`);
+
+  await writeFrames(framesDir, frames);
+  await writeFile(path.join(framesDir, 'metadata.json'), JSON.stringify({
+    frameCount: frames.length,
+    startedAt: frames[0]!.timestamp,
+    endedAt: frames[frames.length - 1]!.timestamp,
+    durationMs,
+    fps,
+    note: trimFallbackNote(note),
+  }, null, 2));
+
+  return { path: framesDir, isVideo: false, durationMs, frameCount: frames.length };
+}
+
 /**
  * Encode PNG frames into an MP4 video.
  *
@@ -71,21 +105,13 @@ export async function encodeFramesToMp4(opts: EncodeOptions): Promise<EncodeResu
   const ts = Date.now();
   const ffmpegAvailable = await hasFfmpeg();
   if (!ffmpegAvailable) {
-    const framesDir = opts.outputPath
-      ? getFramesDir(opts.outputPath)
-      : path.join(tmpdir(), 'sero-recordings', `frames-${ts}`);
-
-    // Fallback: keep frames as-is, write metadata
-    await writeFrames(framesDir, frames);
-    await writeFile(path.join(framesDir, 'metadata.json'), JSON.stringify({
-      frameCount: frames.length,
-      startedAt: frames[0]!.timestamp,
-      endedAt: frames[frames.length - 1]!.timestamp,
+    return writeFramesFallback({
+      frames,
       durationMs,
       fps,
+      outputPath: opts.outputPath,
       note: 'ffmpeg not available — frames saved as PNGs. Install ffmpeg to get MP4 output.',
-    }, null, 2));
-    return { path: framesDir, isVideo: false, durationMs, frameCount: frames.length };
+    });
   }
 
   const workDir = path.join(tmpdir(), 'sero-recordings', `work-${ts}`);
@@ -96,32 +122,51 @@ export async function encodeFramesToMp4(opts: EncodeOptions): Promise<EncodeResu
   const outputPath = opts.outputPath ?? path.join(outputDir, `video-${ts}.mp4`);
   await mkdir(path.dirname(outputPath), { recursive: true });
 
-  // Encode with ffmpeg: PNG sequence → H.264 MP4
-  await new Promise<void>((resolve, reject) => {
-    const proc = spawn('ffmpeg', [
-      '-y',                                     // overwrite output
-      '-framerate', String(fps),                // input framerate
-      '-i', path.join(workDir, 'frame-%05d.png'), // input pattern
-      '-c:v', 'libx264',                        // H.264 codec
-      '-preset', 'fast',                        // encoding speed
-      '-crf', '23',                             // quality (lower = better)
-      '-pix_fmt', 'yuv420p',                    // broad compatibility
-      '-movflags', '+faststart',                // web-friendly seeking
-      outputPath,
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    // Encode with ffmpeg: PNG sequence → H.264 MP4.
+    // Pad odd-sized captures to even dimensions because libx264 + yuv420p
+    // rejects widths/heights that are not divisible by 2.
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn('ffmpeg', [
+        '-y',
+        '-framerate', String(fps),
+        '-i', path.join(workDir, 'frame-%05d.png'),
+        '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2',
+        '-c:v', 'libx264',
+        '-preset', 'fast',
+        '-crf', '23',
+        '-pix_fmt', 'yuv420p',
+        '-movflags', '+faststart',
+        outputPath,
+      ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-    let stderr = '';
-    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+      let stderr = '';
+      proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
 
-    proc.on('close', (code: number | null) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-500)}`));
+      proc.on('close', (code: number | null) => {
+        if (code === 0) resolve();
+        else reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-500)}`));
+      });
+
+      proc.on('error', (err: Error) => reject(err));
     });
+  } catch (error) {
+    console.warn('[video-encoder] MP4 encode failed, falling back to PNG frames:', error);
+    try {
+      await rm(workDir, { recursive: true, force: true });
+    } catch {
+      // Non-critical cleanup failure
+    }
+    const reason = error instanceof Error ? error.message : 'Unknown ffmpeg error';
+    return writeFramesFallback({
+      frames,
+      durationMs,
+      fps,
+      outputPath: opts.outputPath,
+      note: `ffmpeg encode failed — frames saved as PNGs instead. ${reason}`,
+    });
+  }
 
-    proc.on('error', (err: Error) => reject(err));
-  });
-
-  // Clean up temp frames
   try {
     await rm(workDir, { recursive: true, force: true });
   } catch {

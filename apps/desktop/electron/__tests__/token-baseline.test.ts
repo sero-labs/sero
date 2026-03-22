@@ -18,6 +18,7 @@ import path from 'path';
 
 import { buildContainerPromptBlock } from '../container/system-prompt';
 import { buildCliPromptBlock } from '../cli';
+import { MODEL_VISIBLE_SKILL_NAMES } from '../context-optimizations';
 import {
   BashParams,
   ReadParams,
@@ -91,28 +92,24 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 - Always read pi .md files completely and follow links to related docs`;
 }
 
-/** Build a realistic skills listing (17 skills, matching real config). */
+/** Build a realistic skills listing using the default model-visible skill allowlist. */
 function buildSkillsListing(): string {
-  // Each skill entry is ~80-120 tokens. This mirrors the real listing format.
-  const skills = [
-    { name: 'pi-planning-with-files', desc: 'Implements file-based planning for complex tasks.' },
-    { name: 'context-management', desc: 'Strategies for efficient context management.' },
-    { name: 'ai-elements', desc: 'Create new AI chat interface components.' },
-    { name: 'browser-tools', desc: 'Interactive browser automation via Chrome DevTools Protocol.' },
-    { name: 'transcribe', desc: 'Speech-to-text transcription using Groq Whisper API.' },
-    { name: 'vscode', desc: 'VS Code integration for viewing diffs and comparing files.' },
-    { name: 'plan-interview', desc: 'Adaptive interview for generating comprehensive specifications.' },
-    { name: 'playwright-cli', desc: 'Automates browser interactions for web testing.' },
-    { name: 'context7', desc: 'Retrieve up-to-date documentation for software libraries.' },
-    { name: 'frontend-design', desc: 'Create distinctive, production-grade frontend interfaces.' },
-    { name: 'skill-creator', desc: 'Guide for creating effective skills.' },
-    { name: 'webapp-testing', desc: 'Toolkit for interacting with and testing local web applications.' },
-    { name: 'crawl', desc: 'Crawl any website and save pages as local markdown files.' },
-    { name: 'extract', desc: 'Extract content from specific URLs using extraction API.' },
-    { name: 'research', desc: 'Get AI-synthesized research on any topic with citations.' },
-    { name: 'search', desc: 'Search the web using LLM-optimized search API.' },
-    { name: 'tavily-best-practices', desc: 'Build production-ready Tavily integrations.' },
-  ];
+  const skillDescriptions: Record<string, string> = {
+    'ai-elements': 'Create new AI chat interface components.',
+    'context-management': 'Strategies for efficient context management.',
+    context7: 'Retrieve up-to-date documentation for software libraries.',
+    humanizer: 'Remove signs of AI-generated writing from text.',
+    'plan-exit-review': 'Review a plan thoroughly before implementation.',
+    research: 'Get AI-synthesized research on any topic with citations.',
+    'visual-explainer': 'Generate visual HTML explanations for technical concepts.',
+  };
+
+  const skills = [...MODEL_VISIBLE_SKILL_NAMES]
+    .sort()
+    .map((name) => ({
+      name,
+      desc: skillDescriptions[name] ?? `Specialized instructions for ${name}.`,
+    }));
 
   let text = '\nThe following skills provide specialized instructions for specific tasks.\n';
   text += 'Use the read tool to load a skill\'s file when the task matches its description.\n\n';

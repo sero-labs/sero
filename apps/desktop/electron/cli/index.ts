@@ -78,16 +78,22 @@ const TOOLS_TO_BRIDGE = new Set([
   // Planning & context
   'plan_todos',
   'slopzilla',
+  // Scheduling
+  'current_time',
+  'cron',
+  'reminder',
   // Text tools
   'humanize',
   // Git
   'git_manager',
   // NOT bridged — private, kept away from agent by design:
   // 'admin' — Sero Admin reads sensitive config (auth, .env); must not be agent-accessible
-  // NOT bridged — complex schemas (arrays of objects) that need structured params:
-  // 'question', 'questionnaire', 'interview'
+  // NOT bridged — complex schemas or long freeform payloads that need structured params:
+  // 'question', 'questionnaire', 'interview', 'create_agent', 'kanban', 'research'
   // NOT bridged — these depend on ctx.sessionManager (SDK internals):
   // 'context_tag', 'context_log', 'context_checkout'
+  // NOT bridged — deliberate standalone exception for nested structured params:
+  // 'subagent'
 ]);
 
 /**
@@ -99,6 +105,7 @@ const BUILTIN_COMMANDS = new Set([
   'workspace', 'pwd',
   'reload', 'compact', 'name', 'session', 'model', 'thinking',
   'checkpoint', 'checkpoints', 'restore', 'diffcp',
+  'admin',
 ]);
 
 /**
@@ -172,5 +179,13 @@ Commands by group:
 ${sections.join('\n')}
 
 Run \`sero help <command>\` for details. You can send multiple commands separated by newlines.
+
+For \`sero app\` interactions:
+- If unsure, run \`sero help app\` before acting.
+- Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; click coordinates are relative to the active app screenshot, not the full Sero window.
+- Do NOT pass bare labels like \`app click 42\` or comma pairs like \`app click 214,692\`.
+- \`app type\` only works for real text inputs or contenteditable fields.
+- \`app record stop\` already saves into \`<workspace>/sero-recordings/\` by default; only use \`--save\` if the user explicitly asks for a custom location.
+- There is no \`app press\` command. For button grids like Calculator, take a screenshot and use coordinate clicks.
 `;
 }

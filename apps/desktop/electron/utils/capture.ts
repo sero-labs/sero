@@ -4,6 +4,11 @@
  * Converts CSS pixel coordinates (from getBoundingClientRect) to DIP
  * coordinates for Electron's capturePage(), handling display scaling
  * and zoom factors. Used by both IPC handlers and CLI commands.
+ *
+ * Important: interaction coordinates (`sero app click --x/--y`) are expressed
+ * in CSS pixels relative to the app panel. After capturePage() returns a
+ * high-DPI image, we resize it back to CSS-pixel dimensions so the screenshot
+ * the model sees matches the coordinate space it must click in.
  */
 
 import { BrowserWindow, screen } from 'electron';
@@ -44,5 +49,12 @@ export async function captureRegion(
   };
 
   const image = await win.webContents.capturePage(captureArea);
-  return image.toPNG().toString('base64');
+  const targetWidth = Math.max(1, Math.round(cssRect.width));
+  const targetHeight = Math.max(1, Math.round(cssRect.height));
+  const size = image.getSize();
+  const normalized = size.width === targetWidth && size.height === targetHeight
+    ? image
+    : image.resize({ width: targetWidth, height: targetHeight, quality: 'best' });
+
+  return normalized.toPNG().toString('base64');
 }

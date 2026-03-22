@@ -33,12 +33,14 @@ async function exec<T>(code: string): Promise<T> {
   return win.webContents.executeJavaScript(code) as Promise<T>;
 }
 
-async function captureAppScreenshot(): Promise<string | null> {
+async function captureAppScreenshot(): Promise<{ base64: string; rect: AppPanelRect } | null> {
   const win = getMainWindow();
   if (!win) return null;
   const rect = await exec<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
   if (!rect || rect.width <= 0 || rect.height <= 0) return null;
-  return captureRegion(win, rect);
+  const base64 = await captureRegion(win, rect);
+  if (!base64) return null;
+  return { base64, rect };
 }
 
 function getFramesDirPath(targetPath: string): string {
@@ -129,10 +131,11 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
     if (!success) return fail(`App "${targetApp}" not found.`);
     await new Promise((r) => setTimeout(r, 500));
   }
-  const base64 = await captureAppScreenshot();
-  if (!base64) return fail('Screenshot failed — app panel not found or not visible.');
+  const capture = await captureAppScreenshot();
+  if (!capture) return fail('Screenshot failed — app panel not found or not visible.');
 
-  const description = `Screenshot of ${targetApp ?? 'active'} app`;
+  const { base64, rect } = capture;
+  const description = `Screenshot of ${targetApp ?? 'active'} app (${Math.round(rect.width)}×${Math.round(rect.height)} CSS px). For app click --x/--y, use coordinates relative to this image from the top-left corner.`;
 
   // If --save specified, also write to disk
   if (savePath) {
@@ -226,13 +229,16 @@ async function handleRecord(args: string[], ctx: CliCommandContext) {
       const win = getMainWindow();
       if (!win) return fail('No main window.');
       const result = await win.webContents.executeJavaScript('window.sero.appControl.recordStop()') as AppRecordingResult | null;
-      if (!result) return fail('No active recording.');
+      if (!result) {
+        return fail('Recording stop failed — no active recording or no frames were captured.');
+      }
 
       const { flags } = parseFlags(rest);
       const savePath = requireFlagString(flags, 'save');
 
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const defaultDir = pathMod.join(ctx.cwd, 'sero-recordings');
+      const workspacePath = ctx.workspaceManager.getPath(ctx.workspaceId) ?? ctx.cwd;
+      const defaultDir = pathMod.join(workspacePath, 'sero-recordings');
       const requestedPath = savePath
         ? (pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath))
         : null;
@@ -279,7 +285,7 @@ async function handlePreview(args: string[]) {
 // ── Shared ───────────────────────────────────────────────────
 
 async function interactAndReturn(params: AppInteractionParams) {
-  const result = await exec<AppInteractionResult>(`window.__appControl?.interact(${JSON.stringify(params)})`);
+  const result = await exec<AppInteractionResult>(`window.sero.appControl.interact(${JSON.stringify(params)})`);
   if (!result.success) return fail(result.message);
   if (result.screenshot) {
     return {
@@ -311,7 +317,7 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app screenshot --app todo --save ./shot.png\n\n' +
       'Interaction:\n' +
       '  sero app click <selector>           Click by CSS selector\n' +
-      '  sero app click --x <n> --y <n>      Click at coordinates\n' +
+      '  sero app click --x <n> --y <n>      Click at coordinates relative to the app screenshot\n' +
       '  sero app type "<text>" [--selector <sel>]\n' +
       '  sero app scroll --direction <dir> [--amount <px>]\n' +
       '  sero app select <selector>          Focus an element\n' +
@@ -319,8 +325,8 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app get-text <selector>        Read text content\n\n' +
       'Recording (MP4 video capture):\n' +
       '  sero app record start               Start recording (2 FPS)\n' +
-      '  sero app record stop                 Stop and save as MP4\n' +
-      '  sero app record stop --save <path>   Stop and copy MP4 to path\n' +
+      '  sero app record stop                 Stop and save as MP4 in <workspace>/sero-recordings/\n' +
+      '  sero app record stop --save <path>   Stop and copy MP4 to a custom path\n' +
       '  sero app record status               Check recording status\n\n' +
       'Dev Server Preview (in-app):\n' +
       '  sero app preview <url>               Open URL in editor panel\n' +
