@@ -6,6 +6,7 @@
 import { memo, useCallback } from 'react';
 import { Star, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
+import { modelKey } from '@/stores/model-preferences';
 import type { ModelInfo } from './types';
 
 interface ModelManagerItemProps {
@@ -27,7 +28,7 @@ const ModelManagerItem = memo(function ModelManagerItem({
   onToggleFavourite,
   onToggleHidden,
 }: ModelManagerItemProps) {
-  const key = `${model.provider}/${model.modelId}`;
+  const key = modelKey(model.provider, model.modelId);
 
   const handleFavourite = useCallback(() => onToggleFavourite(key), [key, onToggleFavourite]);
   const handleHidden = useCallback(() => onToggleHidden(key), [key, onToggleHidden]);

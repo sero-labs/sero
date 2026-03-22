@@ -24,11 +24,8 @@ interface ModelPreferencesState {
   hiddenProviders: string[];
 
   toggleFavourite: (key: ModelKey) => void;
-  isFavourite: (key: ModelKey) => boolean;
   toggleHidden: (key: ModelKey) => void;
-  isHidden: (key: ModelKey) => boolean;
   toggleProviderHidden: (provider: string) => void;
-  isProviderHidden: (provider: string) => boolean;
 
   /** Bulk-set from loaded layout state. */
   hydrate: (data: {
@@ -57,10 +54,8 @@ export const useModelPreferences = create<ModelPreferencesState>((set, get) => (
       ? current.filter((k) => k !== key)
       : [...current, key];
     set({ favouriteModels: next });
-    persistModelPrefs({ ...get(), favouriteModels: next });
+    persistModelPrefs(get());
   },
-
-  isFavourite: (key) => get().favouriteModels.includes(key),
 
   toggleHidden: (key) => {
     const current = get().hiddenModels;
@@ -72,10 +67,8 @@ export const useModelPreferences = create<ModelPreferencesState>((set, get) => (
       ? get().favouriteModels.filter((k) => k !== key)
       : get().favouriteModels;
     set({ hiddenModels: next, favouriteModels: favs });
-    persistModelPrefs({ ...get(), hiddenModels: next, favouriteModels: favs });
+    persistModelPrefs(get());
   },
-
-  isHidden: (key) => get().hiddenModels.includes(key),
 
   toggleProviderHidden: (provider) => {
     const current = get().hiddenProviders;
@@ -83,10 +76,8 @@ export const useModelPreferences = create<ModelPreferencesState>((set, get) => (
       ? current.filter((p) => p !== provider)
       : [...current, provider];
     set({ hiddenProviders: next });
-    persistModelPrefs({ ...get(), hiddenProviders: next });
+    persistModelPrefs(get());
   },
-
-  isProviderHidden: (provider) => get().hiddenProviders.includes(provider),
 
   hydrate: (data) => {
     set({

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
+// Note: useEffect is retained only for the idle-callback popover priming below.
 import { ChevronDown, Check, Brain, Sparkles, Search, Settings2, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
@@ -280,14 +281,7 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
     setIsPrimed(true);
   }, []);
 
-  // Reset filter & autofocus when popover opens
-  useEffect(() => {
-    if (open) {
-      setFilter('');
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }, [open]);
-
+  // Idle-callback popover priming — external browser API, useEffect is appropriate
   useEffect(() => {
     if (isPrimed) return;
     let idleId: number | null = null;
@@ -321,7 +315,11 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
   );
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
-    if (nextOpen) setIsPrimed(true);
+    if (nextOpen) {
+      setIsPrimed(true);
+      setFilter('');
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
     setOpen(nextOpen);
   }, []);
 
@@ -406,7 +404,7 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
                   {/* Provider groups */}
                   {filteredGroups.map((group, i) => (
                     <div key={group.provider}>
-                      {(i > 0 || favourites.length > 0) && i > 0 && (
+                      {i > 0 && (
                         <div className="mx-3 border-t border-[var(--border-subtle)]" />
                       )}
                       <ProviderSection

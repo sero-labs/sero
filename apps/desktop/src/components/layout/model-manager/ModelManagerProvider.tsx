@@ -6,7 +6,8 @@
 import { memo, useState, useCallback } from 'react';
 import { ChevronRight, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { ModelInfo, AvailableModelGroup } from './types';
+import { modelKey } from '@/stores/model-preferences';
+import type { AvailableModelGroup } from './types';
 import { ModelManagerItem } from './ModelManagerItem';
 
 interface ModelManagerProviderProps {
@@ -17,8 +18,6 @@ interface ModelManagerProviderProps {
   onToggleFavourite: (key: string) => void;
   onToggleHidden: (key: string) => void;
   onToggleProvider: (provider: string) => void;
-  /** If set, only show these models (for search filtering). */
-  visibleModels?: ModelInfo[];
 }
 
 const ModelManagerProvider = memo(function ModelManagerProvider({
@@ -29,10 +28,9 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
   onToggleFavourite,
   onToggleHidden,
   onToggleProvider,
-  visibleModels,
 }: ModelManagerProviderProps) {
   const [expanded, setExpanded] = useState(true);
-  const models = visibleModels ?? group.models;
+  const models = group.models;
 
   const handleToggleProvider = useCallback(
     () => onToggleProvider(group.provider),
@@ -40,7 +38,7 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
   );
 
   return (
-    <div className="py-0.5">
+    <div className="group/provider py-0.5">
       {/* Provider header */}
       <div className="flex items-center gap-2 px-3 py-1.5">
         <button
@@ -75,9 +73,8 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
           className={`rounded-md p-1 transition-colors duration-150 ${
             isProviderHidden
               ? 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-              : 'text-[var(--text-muted)] opacity-0 hover:text-[var(--text-secondary)] group-hover:opacity-100'
+              : 'text-[var(--text-muted)] opacity-0 hover:text-[var(--text-secondary)] group-hover/provider:opacity-100'
           }`}
-          style={{ opacity: isProviderHidden ? 1 : undefined }}
         >
           <EyeOff className="size-3" />
         </button>
@@ -94,7 +91,7 @@ const ModelManagerProvider = memo(function ModelManagerProvider({
             className="overflow-hidden pl-2"
           >
             {models.map((model) => {
-              const key = `${model.provider}/${model.modelId}`;
+              const key = modelKey(model.provider, model.modelId);
               return (
                 <ModelManagerItem
                   key={key}

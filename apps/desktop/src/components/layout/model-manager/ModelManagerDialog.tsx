@@ -3,7 +3,7 @@
  * and favourites. Opened from the ModelSelector gear icon.
  */
 
-import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
+import { useState, useMemo, useCallback, useRef, memo } from 'react';
 import { Search, Star, EyeOff, Layers, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -151,22 +151,35 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
     return { favouriteGroups: favGroups, hiddenGroups: hidGroups };
   }, [filteredGroups, prefs.favouriteModels, prefs.hiddenModels, prefs.hiddenProviders]);
 
-  const counts: Record<ManagerTab, number> = useMemo(() => ({
-    all: groups.reduce((n, g) => n + g.models.length, 0),
-    favourites: prefs.favouriteModels.length,
-    hidden: prefs.hiddenModels.length + groups.filter(
-      (g) => prefs.hiddenProviders.includes(g.provider),
-    ).reduce((n, g) => n + g.models.length, 0),
-  }), [groups, prefs.favouriteModels, prefs.hiddenModels, prefs.hiddenProviders]);
-
-  // Focus search on open
-  useEffect(() => {
-    if (open) {
-      setFilter('');
-      setActiveTab('all');
-      requestAnimationFrame(() => inputRef.current?.focus());
+  const counts: Record<ManagerTab, number> = useMemo(() => {
+    // Deduplicate: a model individually hidden whose provider is also hidden
+    // should only be counted once.
+    const hiddenSet = new Set(prefs.hiddenModels);
+    for (const group of groups) {
+      if (prefs.hiddenProviders.includes(group.provider)) {
+        for (const m of group.models) {
+          hiddenSet.add(modelKey(m.provider, m.modelId));
+        }
+      }
     }
-  }, [open]);
+    return {
+      all: groups.reduce((n, g) => n + g.models.length, 0),
+      favourites: prefs.favouriteModels.length,
+      hidden: hiddenSet.size,
+    };
+  }, [groups, prefs.favouriteModels, prefs.hiddenModels, prefs.hiddenProviders]);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        setFilter('');
+        setActiveTab('all');
+        requestAnimationFrame(() => inputRef.current?.focus());
+      }
+      onOpenChange(nextOpen);
+    },
+    [onOpenChange],
+  );
 
   const displayGroups =
     activeTab === 'favourites'
@@ -185,7 +198,7 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
           : 'No models available.';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
         className="!max-w-[520px] !rounded-2xl border-[var(--border-subtle)] !bg-[var(--bg-surface)]
