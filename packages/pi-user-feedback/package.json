@@ -1,7 +1,7 @@
 {
   "name": "@sero/user-feedback",
   "version": "0.1.0",
-  "description": "User feedback tools for Sero — question and questionnaire",
+  "description": "User feedback tools for Sero \u2014 question and questionnaire",
   "keywords": [
     "pi-package"
   ],
@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

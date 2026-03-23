@@ -146,7 +146,7 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
     "@mariozechner/pi-tui": ">=0.52.0"
   },
   "devDependencies": {
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@module-federation/vite": "^1.11.0",
     "@vitejs/plugin-react": "^4.7.0",

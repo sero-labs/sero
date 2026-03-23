@@ -1,7 +1,7 @@
 {
   "name": "@sero/admin",
   "version": "0.1.0",
-  "description": "Sero Admin — config editor, log viewer, and session browser",
+  "description": "Sero Admin \u2014 config editor, log viewer, and session browser",
   "keywords": [
     "pi-package"
   ],
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

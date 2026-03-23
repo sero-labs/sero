@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

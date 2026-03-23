@@ -1,7 +1,7 @@
 {
   "name": "@sero/plan-mode",
   "version": "0.1.0",
-  "description": "Plan mode for Sero — read-only exploration with progress-tracked execution",
+  "description": "Plan mode for Sero \u2014 read-only exploration with progress-tracked execution",
   "keywords": [
     "pi-package"
   ],
@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

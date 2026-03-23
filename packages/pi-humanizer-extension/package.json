@@ -1,7 +1,7 @@
 {
   "name": "@sero/humanizer",
   "version": "0.1.0",
-  "description": "Humanizer — remove AI writing patterns from text",
+  "description": "Humanizer \u2014 remove AI writing patterns from text",
   "keywords": [
     "pi-package",
     "pi-skill"
@@ -42,7 +42,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

@@ -1,7 +1,7 @@
 {
   "name": "@sero/weight-tracker",
   "version": "0.1.0",
-  "description": "Weight tracker app for Sero — track progress, visualise trends, stay motivated",
+  "description": "Weight tracker app for Sero \u2014 track progress, visualise trends, stay motivated",
   "keywords": [
     "pi-package"
   ],
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

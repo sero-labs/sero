@@ -1,7 +1,7 @@
 {
   "name": "@sero/slopzilla",
   "version": "0.1.0",
-  "description": "SlopZilla — the kaiju-sized AI slop idea generator for Sero",
+  "description": "SlopZilla \u2014 the kaiju-sized AI slop idea generator for Sero",
   "keywords": [
     "pi-package"
   ],
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

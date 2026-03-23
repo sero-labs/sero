@@ -20,7 +20,9 @@ if (!packageArg) {
 
 const packageDir = path.resolve(process.cwd(), packageArg);
 const packageJsonPath = path.join(packageDir, 'package.json');
-const PREFER_PUBLISHED_WORKSPACE_PACKAGES = new Set(['@sero/app-runtime']);
+const PREFERRED_PUBLISHED_WORKSPACE_PACKAGES = new Map([
+  ['@sero/app-runtime', '@sero-ai/app-runtime'],
+]);
 
 function toPosix(value) {
   return value.split(path.sep).join('/');
@@ -148,16 +150,51 @@ async function copyDirFiltered(sourceDir, destDir) {
   }
 }
 
-function getWorkspaceDependencyNames(pkg) {
-  const names = new Set();
+function parseWorkspaceDependency(dependencyName, version) {
+  if (typeof version !== 'string' || !version.startsWith('workspace:')) {
+    return null;
+  }
+
+  const workspaceRef = version.slice('workspace:'.length);
+  if (!workspaceRef || ['*', '^', '~'].includes(workspaceRef)) {
+    return {
+      dependencyName,
+      workspacePackageName: dependencyName,
+    };
+  }
+
+  const versionSeparatorIndex = workspaceRef.lastIndexOf('@');
+  if (workspaceRef.startsWith('@') && versionSeparatorIndex > 0) {
+    return {
+      dependencyName,
+      workspacePackageName: workspaceRef.slice(0, versionSeparatorIndex),
+    };
+  }
+
+  if (!workspaceRef.startsWith('@') && versionSeparatorIndex > 0) {
+    return {
+      dependencyName,
+      workspacePackageName: workspaceRef.slice(0, versionSeparatorIndex),
+    };
+  }
+
+  return {
+    dependencyName,
+    workspacePackageName: workspaceRef,
+  };
+}
+
+function getWorkspaceDependencies(pkg) {
+  const dependencies = [];
   for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
     for (const [name, version] of Object.entries(pkg[section] ?? {})) {
-      if (typeof version === 'string' && version.startsWith('workspace:')) {
-        names.add(name);
+      const workspaceDependency = parseWorkspaceDependency(name, version);
+      if (workspaceDependency) {
+        dependencies.push(workspaceDependency);
       }
     }
   }
-  return [...names];
+  return dependencies;
 }
 
 function getPackageEntryPath(pkg) {
@@ -168,8 +205,8 @@ function getPackageEntryPath(pkg) {
   return './src/index.ts';
 }
 
-function isPreferredPublishedWorkspacePackage(packageName) {
-  return PREFER_PUBLISHED_WORKSPACE_PACKAGES.has(packageName);
+function getPreferredPublishedPackageName(dependencyName) {
+  return PREFERRED_PUBLISHED_WORKSPACE_PACKAGES.get(dependencyName) ?? null;
 }
 
 function hasPublishedPackageVersion(packageName, version) {
@@ -190,23 +227,41 @@ const outputDir = path.join(packageDir, 'dist', 'plugin-source');
 const publishedWorkspacePackages = new Map();
 const vendoredPackages = new Map();
 
-async function ensureWorkspaceDependencyPrepared(packageName) {
-  if (publishedWorkspacePackages.has(packageName) || vendoredPackages.has(packageName)) {
+async function ensureWorkspaceDependencyPrepared(workspaceDependency) {
+  if (
+    publishedWorkspacePackages.has(workspaceDependency.dependencyName) ||
+    vendoredPackages.has(workspaceDependency.dependencyName)
+  ) {
     return;
   }
 
-  const sourceDir = workspacePackages.get(packageName);
+  const sourceDir = workspacePackages.get(workspaceDependency.workspacePackageName);
   if (!sourceDir) {
-    throw new Error(`Workspace package ${packageName} not found for source export`);
+    throw new Error(
+      `Workspace package ${workspaceDependency.workspacePackageName} not found for source export`,
+    );
   }
 
   const pkg = await readPackageJson(sourceDir);
-  if (isPreferredPublishedWorkspacePackage(packageName) && hasPublishedPackageVersion(pkg.name, pkg.version)) {
-    publishedWorkspacePackages.set(packageName, pkg.version);
+  const publishedPackageName = getPreferredPublishedPackageName(
+    workspaceDependency.dependencyName,
+  );
+
+  if (publishedPackageName && hasPublishedPackageVersion(publishedPackageName, pkg.version)) {
+    publishedWorkspacePackages.set(workspaceDependency.dependencyName, {
+      packageName: publishedPackageName,
+      version: pkg.version,
+    });
     return;
   }
 
-  await ensureVendoredWorkspacePackage(packageName);
+  await ensureVendoredWorkspacePackage(workspaceDependency);
+}
+
+function toPublishedDependencySpec(dependencyName, publishedPackage) {
+  return dependencyName === publishedPackage.packageName
+    ? publishedPackage.version
+    : `npm:${publishedPackage.packageName}@${publishedPackage.version}`;
 }
 
 function rewriteDependencyMap(dependencies, currentRelativeDir) {
@@ -214,17 +269,23 @@ function rewriteDependencyMap(dependencies, currentRelativeDir) {
 
   const rewritten = Object.fromEntries(
     Object.entries(dependencies).map(([name, version]) => {
-      if (typeof version === 'string' && version.startsWith('workspace:')) {
-        const publishedVersion = publishedWorkspacePackages.get(name);
-        if (publishedVersion) {
-          return [name, publishedVersion];
+      const workspaceDependency = parseWorkspaceDependency(name, version);
+      if (workspaceDependency) {
+        const publishedPackage = publishedWorkspacePackages.get(workspaceDependency.dependencyName);
+        if (publishedPackage) {
+          return [
+            workspaceDependency.dependencyName,
+            toPublishedDependencySpec(workspaceDependency.dependencyName, publishedPackage),
+          ];
         }
 
-        const vendored = vendoredPackages.get(name);
+        const vendored = vendoredPackages.get(workspaceDependency.dependencyName);
         if (!vendored) {
-          throw new Error(`Workspace dependency ${name} was not prepared before manifest rewrite`);
+          throw new Error(
+            `Workspace dependency ${workspaceDependency.dependencyName} was not prepared before manifest rewrite`,
+          );
         }
-        return [name, toFileSpec(currentRelativeDir, vendored.relativeDir)];
+        return [workspaceDependency.dependencyName, toFileSpec(currentRelativeDir, vendored.relativeDir)];
       }
 
       return [name, resolveCatalogReference(name, version, catalogs)];
@@ -263,33 +324,47 @@ function buildExportedManifest(pkg, currentRelativeDir) {
   );
 }
 
-async function ensureVendoredWorkspacePackage(packageName) {
-  if (vendoredPackages.has(packageName)) {
-    return vendoredPackages.get(packageName);
+async function ensureVendoredWorkspacePackage(workspaceDependency) {
+  if (vendoredPackages.has(workspaceDependency.dependencyName)) {
+    return vendoredPackages.get(workspaceDependency.dependencyName);
   }
 
-  const sourceDir = workspacePackages.get(packageName);
+  const sourceDir = workspacePackages.get(workspaceDependency.workspacePackageName);
   if (!sourceDir) {
-    throw new Error(`Workspace package ${packageName} not found for source export`);
+    throw new Error(
+      `Workspace package ${workspaceDependency.workspacePackageName} not found for source export`,
+    );
   }
 
   const pkg = await readPackageJson(sourceDir);
-  const relativeDir = path.posix.join('vendor', normalizeVendorDirName(packageName));
+  const relativeDir = path.posix.join(
+    'vendor',
+    normalizeVendorDirName(workspaceDependency.dependencyName),
+  );
   const vendored = {
     sourceDir,
     relativeDir,
     entryPath: getPackageEntryPath(pkg).replace(/^\.\//, ''),
+    dependencyName: workspaceDependency.dependencyName,
   };
 
-  vendoredPackages.set(packageName, vendored);
+  vendoredPackages.set(workspaceDependency.dependencyName, vendored);
   await exportPackageSource(sourceDir, relativeDir);
+
+  if (workspaceDependency.dependencyName !== pkg.name) {
+    const vendoredPackageJsonPath = path.join(outputDir, relativeDir, 'package.json');
+    const vendoredPkg = await readJson(vendoredPackageJsonPath);
+    vendoredPkg.name = workspaceDependency.dependencyName;
+    await fs.writeFile(vendoredPackageJsonPath, `${JSON.stringify(vendoredPkg, null, 2)}\n`, 'utf8');
+  }
+
   return vendored;
 }
 
 async function exportPackageSource(sourceDir, relativeDir = '.') {
   const pkg = await readPackageJson(sourceDir);
-  for (const workspaceDepName of getWorkspaceDependencyNames(pkg)) {
-    await ensureWorkspaceDependencyPrepared(workspaceDepName);
+  for (const workspaceDependency of getWorkspaceDependencies(pkg)) {
+    await ensureWorkspaceDependencyPrepared(workspaceDependency);
   }
 
   const destDir = relativeDir === '.' ? outputDir : path.join(outputDir, relativeDir);

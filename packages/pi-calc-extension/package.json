@@ -1,7 +1,7 @@
 {
   "name": "@sero/calc",
   "version": "0.1.0",
-  "description": "Modern calculator app for Sero — Pi extension with web UI",
+  "description": "Modern calculator app for Sero \u2014 Pi extension with web UI",
   "keywords": [
     "pi-package"
   ],
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

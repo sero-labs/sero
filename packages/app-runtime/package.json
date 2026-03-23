@@ -1,5 +1,5 @@
 {
-  "name": "@sero/app-runtime",
+  "name": "@sero-ai/app-runtime",
   "version": "0.1.0",
   "description": "Hooks for Sero federated app modules — useAppState, useAppInfo, useAgentPrompt",
   "type": "module",

@@ -1,7 +1,7 @@
 {
   "name": "@sero/starling",
   "version": "0.1.0",
-  "description": "Starling Bank dashboard for Sero — view balances, transactions, and spending insights",
+  "description": "Starling Bank dashboard for Sero \u2014 view balances, transactions, and spending insights",
   "keywords": [
     "pi-package"
   ],
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@sero/app-runtime": "workspace:*",
+    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
