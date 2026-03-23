@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Game app with a `ui/game/` subdirectory (~1800 LOC total). No `@sero/ui` or extra deps. Has `zod` as a direct dependency (not just peer). Simple extraction.
+**Assessment:** Game app with a `ui/game/` subdirectory (~1800 LOC total). No `@sero-ai/ui` or extra deps. Has `zod` as a direct dependency (not just peer). Simple extraction.
 **Score:** 2/8 — Blast radius: 1, Pattern novelty: 0, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder

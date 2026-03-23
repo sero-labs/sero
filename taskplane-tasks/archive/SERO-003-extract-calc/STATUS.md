@@ -1,7 +1,7 @@
 # SERO-003: Extract pi-calc-extension to Plugin — Status
 
 **Current Step:** Complete
-**Status:** ✅ All Steps Complete
+**Status:** ✅ Complete
 **Last Updated:** 2026-03-23
 **Review Level:** 1
 **Review Counter:** 3
@@ -14,7 +14,7 @@
 **Status:** ✅ Complete
 
 - [x] Source package exists at `packages/pi-calc-extension`
-- [x] Catalogued all `@sero/ui` imports — 4 locations: `ui/CalcApp.tsx` (runtime `cn` import), `ui/tsconfig.json` (path aliases), `package.json` (workspace dep), `ui/styles.css` (Tailwind `@source` directive)
+- [x] Catalogued all `@sero-ai/ui` imports — 4 locations: `ui/CalcApp.tsx` (runtime `cn` import), `ui/tsconfig.json` (path aliases), `package.json` (workspace dep), `ui/styles.css` (Tailwind `@source` directive)
 - [x] Reference plugin exists at `plugins/sero-todo-plugin-main`
 
 ---
@@ -24,10 +24,10 @@
 
 - [x] Create plugin directory and copy source files
 - [x] Inline `cn` utility into `ui/lib/utils.ts` (clsx + tailwind-merge)
-- [x] Replace all `@sero/ui` imports with local `./lib/utils` path
-- [x] Remove `@source` directive for `@sero/ui` from `ui/styles.css`
+- [x] Replace all `@sero-ai/ui` imports with local `./lib/utils` path
+- [x] Remove `@source` directive for `@sero-ai/ui` from `ui/styles.css`
 - [x] Create package.json as `@sero-ai/plugin-calc` with pinned versions, `sero.plugin` metadata, `clsx` + `tailwind-merge` devDeps
-- [x] Create tsconfig.extension.json, extension/tsconfig.json, ui/tsconfig.json (no `@sero/ui` path aliases)
+- [x] Create tsconfig.extension.json, extension/tsconfig.json, ui/tsconfig.json (no `@sero-ai/ui` path aliases)
 - [x] Copy vite.config.ts unchanged (already standalone-compatible)
 
 ---
@@ -55,7 +55,7 @@
 **Status:** ✅ Complete
 
 - [x] Discoveries logged
-- [x] Updated `docs/plan-plugin-extraction.md` §4.2 with `@sero/ui` inlining step
+- [x] Updated `docs/plan-plugin-extraction.md` §4.2 with `@sero-ai/ui` inlining step
 - [x] `.DONE` created
 
 ---
@@ -74,8 +74,8 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
-| `ui/styles.css` has `@source "../../ui/src/components"` — Tailwind directive to scan monorepo `@sero/ui` sources. Must be removed in plugin since those components aren't used. | Remove in Step 1 | `ui/styles.css:4` |
-| `docs/plan-plugin-extraction.md` §4.2 did not mention inlining `@sero/ui` or other monorepo-only deps during extraction. Added step 1 documenting the pattern (check `.ts`, `.tsx`, `.css`, `tsconfig.json`; inline utilities; add underlying npm deps). | Updated doc | `docs/plan-plugin-extraction.md:295` |
+| `ui/styles.css` has `@source "../../ui/src/components"` — Tailwind directive to scan monorepo `@sero-ai/ui` sources. Must be removed in plugin since those components aren't used. | Remove in Step 1 | `ui/styles.css:4` |
+| `docs/plan-plugin-extraction.md` §4.2 did not mention inlining `@sero-ai/ui` or other monorepo-only deps during extraction. Added step 1 documenting the pattern (check `.ts`, `.tsx`, `.css`, `tsconfig.json`; inline utilities; add underlying npm deps). | Updated doc | `docs/plan-plugin-extraction.md:295` |
 
 ---
 
@@ -87,14 +87,14 @@
 | 2026-03-23 23:07 | Task started | Extension-driven execution |
 | 2026-03-23 23:07 | Step 0 started | Preflight |
 | 2026-03-23 23:07 | Skip plan review | Step 0 (Preflight) — low-risk |
-| 2026-03-23 | Step 0 complete | Preflight passed — source exists, 4 `@sero/ui` refs catalogued (1 runtime, 1 tsconfig paths, 1 package.json dep, 1 CSS @source), reference plugin confirmed |
+| 2026-03-23 | Step 0 complete | Preflight passed — source exists, 4 `@sero-ai/ui` refs catalogued (1 runtime, 1 tsconfig paths, 1 package.json dep, 1 CSS @source), reference plugin confirmed |
 | 2026-03-23 23:08 | Worker iter 1 | done in 58s, ctx: 9%, tools: 13 |
 | 2026-03-23 23:08 | Step 0 complete | Preflight |
 | 2026-03-23 23:08 | Step 1 started | Scaffold Plugin Repo |
 | 2026-03-23 23:08 | Reviewer R001 | plan review — reviewer did not produce output |
 | 2026-03-23 23:08 | Review R001 | plan Step 1: UNAVAILABLE |
 | 2026-03-23 | Step 1 scaffold | Created 12 files in sero-calc-plugin: package.json, vite.config.ts, tsconfig.extension.json, extension/{index.ts,tsconfig.json}, shared/types.ts, ui/{CalcApp.tsx,calc-engine.ts,styles.css,index.html,tsconfig.json,lib/utils.ts} |
-| 2026-03-23 | Step 1 verified | No @sero/ui, workspace:, or catalog: refs remain; cn inlined; all files <500 LOC |
+| 2026-03-23 | Step 1 verified | No @sero-ai/ui, workspace:, or catalog: refs remain; cn inlined; all files <500 LOC |
 | 2026-03-23 | Step 1 complete | Plugin repo scaffolded at plugins/sero-calc-plugin |
 | 2026-03-23 23:13 | Worker iter 2 | done in 272s, ctx: 32%, tools: 47 |
 | 2026-03-23 23:13 | Step 1 complete | Scaffold Plugin Repo |
@@ -118,10 +118,14 @@
 | 2026-03-23 23:15 | Step 3 complete | Create README & Git Init |
 | 2026-03-23 23:15 | Step 4 started | Documentation & Delivery |
 | 2026-03-23 23:15 | Skip plan review | Step 4 (final step) — low-risk |
-| 2026-03-23 | Step 4 docs | Updated `docs/plan-plugin-extraction.md` §4.2 with @sero/ui inlining pattern |
+| 2026-03-23 | Step 4 docs | Updated `docs/plan-plugin-extraction.md` §4.2 with @sero-ai/ui inlining pattern |
 | 2026-03-23 | Step 4 verified | All 9 completion criteria verified passing |
 | 2026-03-23 | Step 4 complete | Discoveries logged, .DONE created |
 | 2026-03-23 | Task complete | All 5 steps done (0–4) |
+| 2026-03-23 23:17 | Worker iter 5 | done in 114s, ctx: 12%, tools: 19 |
+| 2026-03-23 23:17 | Step 4 complete | Documentation & Delivery |
+| 2026-03-23 23:17 | Task complete | .DONE created |
+| 2026-03-23 23:17 | Archived | Moved to /Users/danielcarter/Documents/Dev/projects/sero/sero/taskplane-tasks/archive/SERO-003-extract-calc |
 
 ---
 

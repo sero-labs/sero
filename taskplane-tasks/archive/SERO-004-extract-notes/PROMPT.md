@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Multi-file UI (3 components) but no extra deps beyond typebox. No `@sero/ui` usage. Clean extraction.
+**Assessment:** Multi-file UI (3 components) but no extra deps beyond typebox. No `@sero-ai/ui` usage. Clean extraction.
 **Score:** 2/8 — Blast radius: 1, Pattern novelty: 0, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder
@@ -53,7 +53,7 @@ Extract `packages/pi-notes-extension` from the Sero monorepo into a standalone G
 ### Step 0: Preflight
 
 - [ ] Source package exists at `packages/pi-notes-extension`
-- [ ] Verify no `@sero/ui` imports in the source
+- [ ] Verify no `@sero-ai/ui` imports in the source
 - [ ] Reference todo plugin exists
 
 ### Step 1: Scaffold Plugin Repo

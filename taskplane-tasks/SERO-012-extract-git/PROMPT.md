@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Largest extension backend (4 files: index.ts, git-commands.ts, git-exec.ts, git-service.ts, state-io.ts). Rich UI with components/, lib/, styles.ts. Has `motion` as a devDep for animations. Dual typecheck. No `@sero/ui`. ~2800 LOC.
+**Assessment:** Largest extension backend (4 files: index.ts, git-commands.ts, git-exec.ts, git-service.ts, state-io.ts). Rich UI with components/, lib/, styles.ts. Has `motion` as a devDep for animations. Dual typecheck. No `@sero-ai/ui`. ~2800 LOC.
 **Score:** 3/8 — Blast radius: 1, Pattern novelty: 1, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder
@@ -55,7 +55,7 @@ Extract `packages/pi-git-extension` into a standalone GitHub-hosted plugin at `/
 - [ ] Inventory extension files: `index.ts`, `git-commands.ts`, `git-exec.ts`, `git-service.ts`, `state-io.ts`, `tsconfig.json`
 - [ ] Inventory UI files: `GitApp.tsx`, `components/`, `lib/`, `styles.ts`
 - [ ] Note `motion` devDep, dual typecheck script pattern
-- [ ] Confirm no `@sero/ui` imports
+- [ ] Confirm no `@sero-ai/ui` imports
 - [ ] Reference todo plugin exists
 
 ### Step 1: Scaffold Plugin Repo

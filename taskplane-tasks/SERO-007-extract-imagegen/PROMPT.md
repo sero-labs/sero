@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Multi-component UI with heavy `@sero/ui` usage (ScrollArea, Button, Popover, cn). All components need import replacement with inlined copies or lightweight alternatives. Medium complexity due to UI component inlining.
+**Assessment:** Multi-component UI with heavy `@sero-ai/ui` usage (ScrollArea, Button, Popover, cn). All components need import replacement with inlined copies or lightweight alternatives. Medium complexity due to UI component inlining.
 **Score:** 3/8 — Blast radius: 1, Pattern novelty: 1, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder
@@ -20,7 +20,7 @@ taskplane-tasks/SERO-007-extract-imagegen/
 
 ## Mission
 
-Extract `packages/pi-imagegen-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-imagegen-plugin`, renamed to `@sero-ai/plugin-imagegen`. This package has significant `@sero/ui` imports: `ScrollArea`, `Button`, `Popover`, and `cn`. These shadcn/ui components must be inlined into the plugin (they are self-contained React components that only depend on Radix UI primitives + tailwind-merge + clsx).
+Extract `packages/pi-imagegen-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-imagegen-plugin`, renamed to `@sero-ai/plugin-imagegen`. This package has significant `@sero-ai/ui` imports: `ScrollArea`, `Button`, `Popover`, and `cn`. These shadcn/ui components must be inlined into the plugin (they are self-contained React components that only depend on Radix UI primitives + tailwind-merge + clsx).
 
 ## Dependencies
 
@@ -38,7 +38,7 @@ Extract `packages/pi-imagegen-extension` into a standalone GitHub-hosted plugin 
 - `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-todo-plugin-main/package.json`
 - `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-todo-plugin-main/vite.config.ts`
 
-**Source files for @sero/ui components (inline these):**
+**Source files for @sero-ai/ui components (inline these):**
 - `packages/ui/src/lib/utils.ts` — `cn` utility
 - `packages/ui/src/components/ui/scroll-area.tsx` — ScrollArea component
 - `packages/ui/src/components/ui/button.tsx` — Button component
@@ -58,8 +58,8 @@ Extract `packages/pi-imagegen-extension` into a standalone GitHub-hosted plugin 
 ### Step 0: Preflight
 
 - [ ] Source package exists at `packages/pi-imagegen-extension`
-- [ ] Catalogue all `@sero/ui` imports across all source files
-- [ ] Read the source of each referenced `@sero/ui` component to understand their Radix/dep requirements
+- [ ] Catalogue all `@sero-ai/ui` imports across all source files
+- [ ] Read the source of each referenced `@sero-ai/ui` component to understand their Radix/dep requirements
 - [ ] Reference todo plugin exists
 
 ### Step 1: Scaffold Plugin Repo
@@ -67,8 +67,8 @@ Extract `packages/pi-imagegen-extension` into a standalone GitHub-hosted plugin 
 - [ ] Create directory and copy source files: `extension/`, `shared/`, `ui/` (including `ui/components/`, `ui/hooks/`), `vite.config.ts`
 - [ ] Create `ui/components/ui/` directory with inlined shadcn components: `button.tsx`, `scroll-area.tsx`, `popover.tsx`
 - [ ] Create `ui/lib/utils.ts` with inlined `cn` utility
-- [ ] Replace all `@sero/ui/components/ui/*` imports with `../components/ui/*` (relative)
-- [ ] Replace all `@sero/ui/lib/utils` imports with `../lib/utils` (relative)
+- [ ] Replace all `@sero-ai/ui/components/ui/*` imports with `../components/ui/*` (relative)
+- [ ] Replace all `@sero-ai/ui/lib/utils` imports with `../lib/utils` (relative)
 - [ ] Add required Radix UI dependencies: `@radix-ui/react-scroll-area`, `@radix-ui/react-popover`, plus `clsx`, `tailwind-merge`, `class-variance-authority`
 - [ ] Create `package.json` as `@sero-ai/plugin-imagegen`:
   - Pin all versions, add Radix deps
@@ -81,7 +81,7 @@ Extract `packages/pi-imagegen-extension` into a standalone GitHub-hosted plugin 
 - [ ] Run `npm install`
 - [ ] Run `npm run build` — `dist/ui/remoteEntry.js` exists
 - [ ] Run `npm run typecheck` — zero errors
-- [ ] Verify no `@sero/ui` references remain in built output
+- [ ] Verify no `@sero-ai/ui` references remain in built output
 - [ ] Verify `dist/ui/mf-manifest.json` exists
 
 ### Step 3: Create README & Git Init
@@ -100,13 +100,13 @@ Extract `packages/pi-imagegen-extension` into a standalone GitHub-hosted plugin 
 **Must Update:** (none)
 
 **Check If Affected:**
-- `docs/plan-plugin-extraction.md` — document the @sero/ui component inlining pattern if not already covered
+- `docs/plan-plugin-extraction.md` — document the @sero-ai/ui component inlining pattern if not already covered
 
 ## Completion Criteria
 
 - [ ] Plugin builds and typechecks standalone
 - [ ] Package name is `@sero-ai/plugin-imagegen`
-- [ ] No `@sero/ui` imports remain — all components inlined
+- [ ] No `@sero-ai/ui` imports remain — all components inlined
 - [ ] `@sero-ai/app-runtime` is `^0.1.0` in devDependencies
 - [ ] `sero.plugin` metadata present
 - [ ] Git repo initialized
@@ -120,9 +120,9 @@ Extract `packages/pi-imagegen-extension` into a standalone GitHub-hosted plugin 
 ## Do NOT
 
 - Remove the source package from the monorepo
-- Keep `@sero/ui` as a dependency — inline all components
+- Keep `@sero-ai/ui` as a dependency — inline all components
 - Use `catalog:` or `workspace:` references
-- Add the entire `@sero/ui` package as a dep — only inline the specific components used
+- Add the entire `@sero-ai/ui` package as a dep — only inline the specific components used
 
 ---
 

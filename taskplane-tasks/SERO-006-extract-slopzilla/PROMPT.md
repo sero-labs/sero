@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Larger UI surface (~2800 LOC, 8+ UI files) with `@sero/ui` as a devDep but **no actual imports** from it. Has a `sero-launcher.ts` utility for deep integration. Standard extraction once `@sero/ui` dep is dropped.
+**Assessment:** Larger UI surface (~2800 LOC, 8+ UI files) with `@sero-ai/ui` as a devDep but **no actual imports** from it. Has a `sero-launcher.ts` utility for deep integration. Standard extraction once `@sero-ai/ui` dep is dropped.
 **Score:** 2/8 — Blast radius: 1, Pattern novelty: 0, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder
@@ -20,7 +20,7 @@ taskplane-tasks/SERO-006-extract-slopzilla/
 
 ## Mission
 
-Extract `packages/pi-slopzilla-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-slopzilla-plugin`, renamed to `@sero-ai/plugin-slopzilla`. Despite having `@sero/ui` as a devDep, grep shows zero actual imports — simply drop the dependency. The larger UI surface (8+ components including phases, history, config) needs careful file copying.
+Extract `packages/pi-slopzilla-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-slopzilla-plugin`, renamed to `@sero-ai/plugin-slopzilla`. Despite having `@sero-ai/ui` as a devDep, grep shows zero actual imports — simply drop the dependency. The larger UI surface (8+ components including phases, history, config) needs careful file copying.
 
 ## Dependencies
 
@@ -53,7 +53,7 @@ Extract `packages/pi-slopzilla-extension` into a standalone GitHub-hosted plugin
 ### Step 0: Preflight
 
 - [ ] Source package exists at `packages/pi-slopzilla-extension`
-- [ ] Confirm zero actual `@sero/ui` imports (only listed as devDep)
+- [ ] Confirm zero actual `@sero-ai/ui` imports (only listed as devDep)
 - [ ] Inventory all UI files: `SlopZilla.tsx`, `ConfigPhase.tsx`, `GeneratingPhase.tsx`, `HistoryDashboard.tsx`, `LaunchPhase.tsx`, `PickingPhase.tsx`, `RemixPhase.tsx`, `idea-utils.ts`, `main.tsx`, `sero-launcher.ts`, `slop-styles.ts`, `styles.css`
 - [ ] Reference todo plugin exists
 
@@ -61,7 +61,7 @@ Extract `packages/pi-slopzilla-extension` into a standalone GitHub-hosted plugin
 
 - [ ] Create directory and copy all source files including the full `ui/` tree
 - [ ] Create `package.json` as `@sero-ai/plugin-slopzilla`:
-  - Drop `@sero/ui` entirely (no actual usage)
+  - Drop `@sero-ai/ui` entirely (no actual usage)
   - Pin all `catalog:` refs, replace `workspace:` refs
   - Add `sero.plugin` metadata (category: `creative`, tags: `["slopzilla", "ai-slop", "idea-generator"]`)
 - [ ] Create `tsconfig.extension.json` and update sub-tsconfigs
@@ -94,7 +94,7 @@ Extract `packages/pi-slopzilla-extension` into a standalone GitHub-hosted plugin
 
 - [ ] Plugin builds and typechecks standalone
 - [ ] Package name is `@sero-ai/plugin-slopzilla`
-- [ ] No `@sero/ui` dependency
+- [ ] No `@sero-ai/ui` dependency
 - [ ] `@sero-ai/app-runtime` is `^0.1.0` in devDependencies
 - [ ] `sero.plugin` metadata present
 - [ ] Git repo initialized
@@ -110,7 +110,7 @@ Extract `packages/pi-slopzilla-extension` into a standalone GitHub-hosted plugin
 - Remove the source package from the monorepo
 - Modify monorepo files
 - Use `catalog:` or `workspace:` references
-- Add `@sero/ui` as a dependency (there are no actual imports)
+- Add `@sero-ai/ui` as a dependency (there are no actual imports)
 
 ---
 

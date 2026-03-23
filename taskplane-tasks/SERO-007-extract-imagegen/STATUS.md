@@ -14,8 +14,8 @@
 **Status:** ⬜ Not Started
 
 - [ ] Source package exists
-- [ ] Catalogued all `@sero/ui` imports (ScrollArea, Button, Popover, cn)
-- [ ] Read source of each @sero/ui component for dep requirements
+- [ ] Catalogued all `@sero-ai/ui` imports (ScrollArea, Button, Popover, cn)
+- [ ] Read source of each @sero-ai/ui component for dep requirements
 - [ ] Reference plugin exists
 
 ---
@@ -26,7 +26,7 @@
 - [ ] Create plugin directory and copy source files
 - [ ] Inline shadcn components (button, scroll-area, popover) into ui/components/ui/
 - [ ] Inline cn utility into ui/lib/utils.ts
-- [ ] Replace all @sero/ui imports with relative paths
+- [ ] Replace all @sero-ai/ui imports with relative paths
 - [ ] Add Radix UI + utility dependencies
 - [ ] Create package.json with plugin metadata
 - [ ] Create tsconfig files and update vite.config.ts
@@ -39,7 +39,7 @@
 - [ ] npm install succeeds
 - [ ] npm run build produces dist/ui/remoteEntry.js
 - [ ] npm run typecheck passes
-- [ ] No @sero/ui references in output
+- [ ] No @sero-ai/ui references in output
 - [ ] mf-manifest.json exists
 
 ---

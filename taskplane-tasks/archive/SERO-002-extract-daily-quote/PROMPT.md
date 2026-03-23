@@ -137,7 +137,7 @@ Extract `packages/pi-daily-quote` from the Sero monorepo into a standalone GitHu
 
 - Remove the source package from the monorepo (that's a separate task)
 - Modify any files in the monorepo `packages/` directory
-- Add any `@sero/ui` imports (this package doesn't use them)
+- Add any `@sero-ai/ui` imports (this package doesn't use them)
 - Use `catalog:` references — all versions must be pinned
 - Use `workspace:` references — all deps must be npm-resolvable
 

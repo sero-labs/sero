@@ -15,7 +15,7 @@
 
 - [ ] Source package exists
 - [ ] Full file tree inventoried
-- [ ] No @sero/ui imports confirmed
+- [ ] No @sero-ai/ui imports confirmed
 - [ ] Existing README.md and .gitignore noted
 - [ ] Reference plugin exists
 

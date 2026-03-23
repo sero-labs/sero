@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Rich UI with `ui/components/`, `ui/screens/`, `ui/lib/`, `ui/styles.ts`, `ui/styles.css`, and a custom `ui/sero.d.ts` type declaration. No `@sero/ui` imports. Scope: global. ~2100 LOC.
+**Assessment:** Rich UI with `ui/components/`, `ui/screens/`, `ui/lib/`, `ui/styles.ts`, `ui/styles.css`, and a custom `ui/sero.d.ts` type declaration. No `@sero-ai/ui` imports. Scope: global. ~2100 LOC.
 **Score:** 2/8 — Blast radius: 1, Pattern novelty: 0, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder
@@ -20,7 +20,7 @@ taskplane-tasks/SERO-010-extract-starling/
 
 ## Mission
 
-Extract `packages/pi-starling-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-starling-plugin`, renamed to `@sero-ai/plugin-starling`. This is a finance app (Starling Bank dashboard) with screens, components, and a custom `sero.d.ts` type declaration. No `@sero/ui` usage despite the rich UI.
+Extract `packages/pi-starling-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-starling-plugin`, renamed to `@sero-ai/plugin-starling`. This is a finance app (Starling Bank dashboard) with screens, components, and a custom `sero.d.ts` type declaration. No `@sero-ai/ui` usage despite the rich UI.
 
 ## Dependencies
 
@@ -53,7 +53,7 @@ Extract `packages/pi-starling-extension` into a standalone GitHub-hosted plugin 
 
 - [ ] Source package exists at `packages/pi-starling-extension`
 - [ ] Inventory full file tree: `ui/components/`, `ui/screens/`, `ui/lib/`, `ui/sero.d.ts`, `ui/styles.ts`, `ui/styles.css`
-- [ ] Confirm no `@sero/ui` imports
+- [ ] Confirm no `@sero-ai/ui` imports
 - [ ] Reference todo plugin exists
 
 ### Step 1: Scaffold Plugin Repo

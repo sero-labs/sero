@@ -14,7 +14,7 @@
 **Status:** ⬜ Not Started
 
 - [ ] Source package exists
-- [ ] Catalogued all @sero/ui imports (6 components + cn)
+- [ ] Catalogued all @sero-ai/ui imports (6 components + cn)
 - [ ] Read component sources for Radix dep requirements
 - [ ] Verified skills/ directory
 - [ ] Noted streamdown + pi.skills field
@@ -28,7 +28,7 @@
 - [ ] Create plugin directory and copy all source files including skills/
 - [ ] Inline 6 shadcn components into ui/components/ui/
 - [ ] Inline cn utility
-- [ ] Replace all @sero/ui imports with relative paths
+- [ ] Replace all @sero-ai/ui imports with relative paths
 - [ ] Add Radix UI + utility deps
 - [ ] Create package.json with plugin metadata (preserve pi.skills)
 - [ ] Create tsconfig files and update vite.config.ts
@@ -41,7 +41,7 @@
 - [ ] npm install succeeds
 - [ ] npm run build produces dist/ui/remoteEntry.js
 - [ ] npm run typecheck passes
-- [ ] No @sero/ui references remain
+- [ ] No @sero-ai/ui references remain
 - [ ] skills/ directory present
 - [ ] mf-manifest.json exists
 

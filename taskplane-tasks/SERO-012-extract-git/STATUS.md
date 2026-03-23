@@ -17,7 +17,7 @@
 - [ ] Inventoried extension files (5 TS files)
 - [ ] Inventoried UI files
 - [ ] Noted motion devDep
-- [ ] No @sero/ui confirmed
+- [ ] No @sero-ai/ui confirmed
 - [ ] Reference plugin exists
 
 ---

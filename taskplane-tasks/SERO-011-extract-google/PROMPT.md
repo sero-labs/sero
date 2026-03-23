@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Complex extension with multi-file backend (`extension/gogcli.ts`), dual typecheck scripts, `lucide-react` direct dep, UI with `components/` and `hooks/` subdirs. `@sero/ui` listed as devDep but zero actual imports. Scope: global. ~2400 LOC.
+**Assessment:** Complex extension with multi-file backend (`extension/gogcli.ts`), dual typecheck scripts, `lucide-react` direct dep, UI with `components/` and `hooks/` subdirs. `@sero-ai/ui` listed as devDep but zero actual imports. Scope: global. ~2400 LOC.
 **Score:** 3/8 — Blast radius: 1, Pattern novelty: 1, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder
@@ -20,7 +20,7 @@ taskplane-tasks/SERO-011-extract-google/
 
 ## Mission
 
-Extract `packages/pi-google-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-google-plugin`, renamed to `@sero-ai/plugin-google`. This is a Google Workspace app (Gmail + Calendar) with a multi-file extension backend (includes `gogcli.ts` CLI wrapper), `lucide-react` as a direct devDep, and a dual typecheck script that checks both UI and extension tsconfigs. Has `@sero/ui` as devDep but zero actual imports — drop it.
+Extract `packages/pi-google-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-google-plugin`, renamed to `@sero-ai/plugin-google`. This is a Google Workspace app (Gmail + Calendar) with a multi-file extension backend (includes `gogcli.ts` CLI wrapper), `lucide-react` as a direct devDep, and a dual typecheck script that checks both UI and extension tsconfigs. Has `@sero-ai/ui` as devDep but zero actual imports — drop it.
 
 ## Dependencies
 
@@ -52,7 +52,7 @@ Extract `packages/pi-google-extension` into a standalone GitHub-hosted plugin at
 ### Step 0: Preflight
 
 - [ ] Source package exists at `packages/pi-google-extension`
-- [ ] Confirm `@sero/ui` has zero actual imports (only listed as devDep)
+- [ ] Confirm `@sero-ai/ui` has zero actual imports (only listed as devDep)
 - [ ] Inventory extension files: `extension/index.ts`, `extension/gogcli.ts`, `extension/tsconfig.json`
 - [ ] Note dual typecheck: `tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json`
 - [ ] Note `lucide-react` as devDep for UI icons
@@ -63,7 +63,7 @@ Extract `packages/pi-google-extension` into a standalone GitHub-hosted plugin at
 - [ ] Create directory and copy all source files: `extension/` (with `gogcli.ts`), `shared/`, `ui/` (with `components/`, `hooks/`), `vite.config.ts`
 - [ ] Create `package.json` as `@sero-ai/plugin-google`:
   - Pin all `catalog:` refs (including `lucide-react`), replace `workspace:` refs
-  - Drop `@sero/ui` (zero usage)
+  - Drop `@sero-ai/ui` (zero usage)
   - Keep `lucide-react` as devDep
   - Preserve dual typecheck script
   - Preserve `scope: "global"`
@@ -98,7 +98,7 @@ Extract `packages/pi-google-extension` into a standalone GitHub-hosted plugin at
 
 - [ ] Plugin builds and typechecks standalone (both UI and extension tsconfigs)
 - [ ] Package name is `@sero-ai/plugin-google`
-- [ ] No `@sero/ui` dependency
+- [ ] No `@sero-ai/ui` dependency
 - [ ] `lucide-react` present as devDep
 - [ ] `extension/gogcli.ts` included
 - [ ] `@sero-ai/app-runtime` is `^0.1.0` in devDependencies
@@ -115,7 +115,7 @@ Extract `packages/pi-google-extension` into a standalone GitHub-hosted plugin at
 
 - Remove the source package from the monorepo
 - Drop `extension/gogcli.ts` — it's a key part of the backend
-- Keep `@sero/ui` as a dependency (zero usage)
+- Keep `@sero-ai/ui` as a dependency (zero usage)
 - Use `catalog:` or `workspace:` references
 
 ---

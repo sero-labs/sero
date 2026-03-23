@@ -14,7 +14,7 @@
 **Status:** ⬜ Not Started
 
 - [ ] Source package exists
-- [ ] Confirmed zero `@sero/ui` imports
+- [ ] Confirmed zero `@sero-ai/ui` imports
 - [ ] Inventoried all UI files
 - [ ] Reference plugin exists
 
@@ -24,7 +24,7 @@
 **Status:** ⬜ Not Started
 
 - [ ] Create plugin directory and copy all source files
-- [ ] Create package.json (drop @sero/ui, pin versions, add plugin metadata)
+- [ ] Create package.json (drop @sero-ai/ui, pin versions, add plugin metadata)
 - [ ] Create tsconfig files and update vite.config.ts
 
 ---

@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Largest pure extraction (~3200 LOC). Multi-file extension (`extension/lib/`), complex UI (`ui/components/`, `ui/lib/`, `ui/styles/`), auth callback HTML, and Spotify Web Playback SDK integration. No `@sero/ui` imports. Scope: global.
+**Assessment:** Largest pure extraction (~3200 LOC). Multi-file extension (`extension/lib/`), complex UI (`ui/components/`, `ui/lib/`, `ui/styles/`), auth callback HTML, and Spotify Web Playback SDK integration. No `@sero-ai/ui` imports. Scope: global.
 **Score:** 3/8 — Blast radius: 1, Pattern novelty: 1, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder
@@ -20,7 +20,7 @@ taskplane-tasks/SERO-009-extract-spotify/
 
 ## Mission
 
-Extract `packages/pi-spotify-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-spotify-plugin`, renamed to `@sero-ai/plugin-spotify`. This is the largest extraction by LOC. It has a multi-file extension (with `extension/lib/`), complex UI with components/lib/styles subdirectories, and a `spotify-auth-callback.html`. No `@sero/ui` usage despite being complex. Has a `.gitignore` and `README.md` in source.
+Extract `packages/pi-spotify-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-spotify-plugin`, renamed to `@sero-ai/plugin-spotify`. This is the largest extraction by LOC. It has a multi-file extension (with `extension/lib/`), complex UI with components/lib/styles subdirectories, and a `spotify-auth-callback.html`. No `@sero-ai/ui` usage despite being complex. Has a `.gitignore` and `README.md` in source.
 
 ## Dependencies
 
@@ -53,7 +53,7 @@ Extract `packages/pi-spotify-extension` into a standalone GitHub-hosted plugin a
 
 - [ ] Source package exists at `packages/pi-spotify-extension`
 - [ ] Inventory full file tree including `extension/lib/`, `ui/components/`, `ui/lib/`, `ui/styles/`, `spotify-auth-callback.html`
-- [ ] Confirm no `@sero/ui` imports
+- [ ] Confirm no `@sero-ai/ui` imports
 - [ ] Note existing `.gitignore` and `README.md` in source (adapt, don't create from scratch)
 - [ ] Reference todo plugin exists
 

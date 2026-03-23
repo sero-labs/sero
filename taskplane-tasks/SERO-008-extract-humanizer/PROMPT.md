@@ -5,7 +5,7 @@
 
 ## Review Level: 1 (Plan Only)
 
-**Assessment:** Most complex `@sero/ui` usage of all extractions (Button, Input, Textarea, Dialog, Tooltip, ScrollArea, cn). Also has a `skills/` directory and `streamdown` runtime dep. Requires careful inlining of 6+ shadcn components.
+**Assessment:** Most complex `@sero-ai/ui` usage of all extractions (Button, Input, Textarea, Dialog, Tooltip, ScrollArea, cn). Also has a `skills/` directory and `streamdown` runtime dep. Requires careful inlining of 6+ shadcn components.
 **Score:** 3/8 — Blast radius: 1, Pattern novelty: 1, Security: 0, Reversibility: 1
 
 ## Canonical Task Folder
@@ -20,7 +20,7 @@ taskplane-tasks/SERO-008-extract-humanizer/
 
 ## Mission
 
-Extract `packages/pi-humanizer-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-humanizer-plugin`, renamed to `@sero-ai/plugin-humanizer`. This is the most component-heavy extraction: it uses Button, Input, Textarea, Dialog, Tooltip, ScrollArea, and cn from `@sero/ui`. It also has a `skills/` directory (Pi skill definitions) and `streamdown` as a runtime devDep. All shadcn components must be inlined.
+Extract `packages/pi-humanizer-extension` into a standalone GitHub-hosted plugin at `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-humanizer-plugin`, renamed to `@sero-ai/plugin-humanizer`. This is the most component-heavy extraction: it uses Button, Input, Textarea, Dialog, Tooltip, ScrollArea, and cn from `@sero-ai/ui`. It also has a `skills/` directory (Pi skill definitions) and `streamdown` as a runtime devDep. All shadcn components must be inlined.
 
 ## Dependencies
 
@@ -38,7 +38,7 @@ Extract `packages/pi-humanizer-extension` into a standalone GitHub-hosted plugin
 - `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-todo-plugin-main/package.json`
 - `/Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-todo-plugin-main/vite.config.ts`
 
-**Source files for @sero/ui components (inline these):**
+**Source files for @sero-ai/ui components (inline these):**
 - `packages/ui/src/lib/utils.ts` — `cn` utility
 - `packages/ui/src/components/ui/button.tsx`
 - `packages/ui/src/components/ui/input.tsx`
@@ -61,8 +61,8 @@ Extract `packages/pi-humanizer-extension` into a standalone GitHub-hosted plugin
 ### Step 0: Preflight
 
 - [ ] Source package exists at `packages/pi-humanizer-extension`
-- [ ] Catalogue all `@sero/ui` imports across all source files — expected: Button, Input, Textarea, Dialog, Tooltip, ScrollArea, cn
-- [ ] Read source of each @sero/ui component to catalogue Radix UI deps needed
+- [ ] Catalogue all `@sero-ai/ui` imports across all source files — expected: Button, Input, Textarea, Dialog, Tooltip, ScrollArea, cn
+- [ ] Read source of each @sero-ai/ui component to catalogue Radix UI deps needed
 - [ ] Verify `skills/humanizer/SKILL.md` exists and needs to be included
 - [ ] Note `streamdown` devDep and `pi.skills` field in package.json
 - [ ] Reference todo plugin exists
@@ -72,7 +72,7 @@ Extract `packages/pi-humanizer-extension` into a standalone GitHub-hosted plugin
 - [ ] Create directory and copy source files: `extension/`, `shared/`, `ui/` (including `ui/components/`, `ui/lib/`), `skills/`, `vite.config.ts`
 - [ ] Create `ui/components/ui/` with inlined shadcn components: `button.tsx`, `input.tsx`, `textarea.tsx`, `dialog.tsx`, `tooltip.tsx`, `scroll-area.tsx`
 - [ ] Create `ui/lib/utils.ts` with inlined `cn` utility
-- [ ] Replace all `@sero/ui/*` imports with relative paths throughout the codebase
+- [ ] Replace all `@sero-ai/ui/*` imports with relative paths throughout the codebase
 - [ ] Add required deps: Radix UI packages (`@radix-ui/react-dialog`, `@radix-ui/react-tooltip`, `@radix-ui/react-scroll-area`), `clsx`, `tailwind-merge`, `class-variance-authority`
 - [ ] Create `package.json` as `@sero-ai/plugin-humanizer`:
   - Keep `streamdown` as a devDependency
@@ -86,7 +86,7 @@ Extract `packages/pi-humanizer-extension` into a standalone GitHub-hosted plugin
 - [ ] Run `npm install`
 - [ ] Run `npm run build` — `dist/ui/remoteEntry.js` exists
 - [ ] Run `npm run typecheck` — zero errors
-- [ ] Verify no `@sero/ui` references remain
+- [ ] Verify no `@sero-ai/ui` references remain
 - [ ] Verify `skills/humanizer/SKILL.md` is present in the plugin
 - [ ] Verify `dist/ui/mf-manifest.json` exists
 
@@ -112,7 +112,7 @@ Extract `packages/pi-humanizer-extension` into a standalone GitHub-hosted plugin
 
 - [ ] Plugin builds and typechecks standalone
 - [ ] Package name is `@sero-ai/plugin-humanizer`
-- [ ] No `@sero/ui` imports remain — all 6 components inlined
+- [ ] No `@sero-ai/ui` imports remain — all 6 components inlined
 - [ ] `skills/` directory included with SKILL.md
 - [ ] `pi.skills` field preserved in package.json
 - [ ] `streamdown` present as devDep
@@ -129,7 +129,7 @@ Extract `packages/pi-humanizer-extension` into a standalone GitHub-hosted plugin
 ## Do NOT
 
 - Remove the source package from the monorepo
-- Keep `@sero/ui` as a dependency
+- Keep `@sero-ai/ui` as a dependency
 - Drop the `skills/` directory — it's part of the plugin
 - Use `catalog:` or `workspace:` references
 

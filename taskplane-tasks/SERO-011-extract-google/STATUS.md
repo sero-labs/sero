@@ -14,7 +14,7 @@
 **Status:** ⬜ Not Started
 
 - [ ] Source package exists
-- [ ] Confirmed @sero/ui has zero actual imports
+- [ ] Confirmed @sero-ai/ui has zero actual imports
 - [ ] Inventoried extension files (gogcli.ts)
 - [ ] Noted dual typecheck + lucide-react
 - [ ] Reference plugin exists
@@ -25,7 +25,7 @@
 **Status:** ⬜ Not Started
 
 - [ ] Create plugin directory and copy full file tree
-- [ ] Create package.json (drop @sero/ui, keep lucide-react, dual typecheck)
+- [ ] Create package.json (drop @sero-ai/ui, keep lucide-react, dual typecheck)
 - [ ] Create tsconfig files and update vite.config.ts
 
 ---
