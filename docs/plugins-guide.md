@@ -56,6 +56,12 @@ Git installs clone the **source repository**, run `npm install`, run the
 plugin's build script locally, and then install the built result into
 `~/.sero-ui/agent/packages/<id>/`.
 
+For git installs, Sero treats `sero.plugin.preBuilt` as the switch that decides
+whether a local build is required:
+
+- `preBuilt: true` -> use the checked-in `dist/ui/` bundle as-is
+- `preBuilt: false` or omitted -> run `npm install` + `npm run build` locally
+
 > Git installs execute plugin code during the local build step. Only install
 > source plugins from repositories you trust.
 
@@ -69,6 +75,10 @@ Local installs accept either:
 
 - a **pre-built bundle** (for example `dist/plugin/`), or
 - a **standalone source package** that Sero can `npm install` + build locally.
+
+Re-installing a plugin with the same `sero.app.id` replaces the existing plugin
+at that install path. A plugin may **not** shadow a different installed plugin
+or a built-in Sero app with the same app ID.
 
 After installation the plugin appears in the sidebar immediately — no restart
 required.
@@ -201,7 +211,7 @@ The standard Sero app manifest. See the
 | `category` | string | Yes | Plugin category for browsing. See [categories](#categories) below. |
 | `tags` | string[] | Yes | Search and filter tags. |
 | `minSeroVersion` | string | No | Minimum compatible Sero version (semver). |
-| `preBuilt` | boolean | No | `true` for pre-built npm bundles that already contain `dist/ui/`; `false` or omitted for source repos that Sero builds locally on install. |
+| `preBuilt` | boolean | No | Controls install behavior for git/local plugins. Set `true` only when the package already ships a valid `dist/ui/` bundle and should be installed without rebuilding. Set `false` or omit it for source repos that Sero should build locally on install. npm bundles are always expected to ship pre-built artifacts. |
 | `bridgeTools` | boolean \| string[] | No | Controls whether plugin tools are bridged into `sero-cli`. Omit or set `true` to bridge all tools; `false` to bridge none; or provide a list of tool names to bridge selectively. |
 
 ### Categories
@@ -224,7 +234,7 @@ The standard Sero app manifest. See the
 From the monorepo root:
 
 ```bash
-bash scripts/build-plugin.sh packages/pi-todo-extension
+bash scripts/build-plugin.sh packages/pi-kanban-extension
 ```
 
 This builds a ready-to-install plugin bundle at `dist/plugin/` containing:
@@ -255,7 +265,7 @@ dist/plugin/
 ### Standalone Git source repo
 
 ```bash
-bash scripts/export-plugin-source.sh packages/pi-todo-extension
+bash scripts/export-plugin-source.sh packages/pi-kanban-extension
 ```
 
 This exports a standalone source repository at `dist/plugin-source/` containing:
@@ -263,12 +273,12 @@ This exports a standalone source repository at `dist/plugin-source/` containing:
 - plugin source files (`extension/`, `shared/`, `ui/`, `vite.config.ts`)
 - resolved catalog versions in `package.json`
 - vendored unpublished workspace packages under `vendor/`
-- `preBuilt: false` in `sero.plugin` so Sero knows it must build locally
+- `preBuilt: false` in `sero.plugin` so Sero rebuilds it during git/local install
 
 Smoke test the exported source repo before publishing:
 
 ```bash
-cd packages/pi-todo-extension/dist/plugin-source
+cd packages/pi-kanban-extension/dist/plugin-source
 npm install
 npm run build
 ```
@@ -364,6 +374,8 @@ publish. The `sero.plugin` key in `package.json` marks it as extractable.
 ### Do plugins auto-update?
 
 Not yet. Users manually update by re-installing from the same source.
+If the app ID matches an existing installed plugin, Sero replaces that plugin
+in place and hot-loads the updated UI/tools without a restart.
 Auto-update support is planned for a future release.
 
 ### What happens to my data if I uninstall a plugin?
@@ -390,6 +402,12 @@ Every Sero plugin is also a valid Pi package — it works in both environments.
 Yes. Any npm package or git repository with a valid `sero.app` manifest can
 be installed as a plugin. The `sero-agent-plugin` GitHub topic helps with
 discovery, but it's not required for installation.
+
+### Can a plugin replace a built-in Sero app?
+
+No. Plugin app IDs must be unique across the runtime. Re-installing the same
+plugin ID updates that installed plugin, but third-party plugins cannot shadow
+core apps or a different installed plugin.
 
 ### What's the `devPort` for in a published plugin?
 

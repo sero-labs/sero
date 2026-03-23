@@ -58,11 +58,13 @@ dynamic MF registration, and manifest-driven tool bridging.
 ┌─ Plugin Manager (electron/plugins/manager.ts) ─┐
 │  1. Download / clone / copy to temp dir         │
 │  2. Validate sero.app manifest                  │
-│  3. npm: verify pre-built dist/ui exists        │
-│     git/local: npm install + npm run build      │
-│  4. Move to ~/.sero-ui/agent/packages/<id>/     │
-│  5. Register in settings.json                   │
-│  6. Register with app-discovery + ext-protocol  │
+│  3. Enforce app-id collision policy             │
+│  4. npm: verify pre-built dist/ui exists        │
+│     git/local: respect sero.plugin.preBuilt     │
+│     and build locally when required             │
+│  5. Move to ~/.sero-ui/agent/packages/<id>/     │
+│  6. Register in settings.json                   │
+│  7. Register with app-discovery + ext-protocol  │
 └──────────────┬──────────────────────────────────┘
                │
                ▼
@@ -116,9 +118,14 @@ sero-plugin-todo/
 └── vendor/                 # Optional vendored unpublished workspace packages
 ```
 
-During git/local installation, Sero runs `npm install` and `npm run build`
-inside that source repo, then validates that `dist/ui/remoteEntry.js` was
-produced.
+During git/local installation, Sero uses `sero.plugin.preBuilt` to decide
+whether the staged package should be built locally:
+
+- `preBuilt: true` -> trust the checked-in `dist/ui/` bundle
+- `preBuilt: false` or omitted -> run `npm install` + `npm run build`
+
+After preparation, Sero validates that `dist/ui/remoteEntry.js` exists if the
+plugin declares a UI.
 
 ## Plugin Manifest
 
@@ -154,11 +161,13 @@ standard `sero.app` manifest:
 | `category` | `PluginCategory` | Browsing category. One of: `productivity`, `developer-tools`, `entertainment`, `integrations`, `finance`, `health`, `creative`, `utilities`. |
 | `tags` | `string[]` | Search/filter tags. |
 | `minSeroVersion` | `string?` | Minimum Sero version required. Used for compatibility checks. |
-| `preBuilt` | `boolean?` | Whether the package already includes pre-built UI artifacts. `true` for npm bundles; `false`/omitted for Git source repos that Sero builds locally. |
+| `preBuilt` | `boolean?` | Controls git/local install behavior. `true` means the package already includes a valid pre-built UI bundle; `false`/omitted means Sero rebuilds it locally during install. npm bundles are always expected to ship pre-built artifacts. |
+| `bridgeTools` | `boolean \| string[]` | Controls manifest-driven CLI bridging for plugin tools. `true`/omitted bridges all plugin tools, `false` bridges none, and `string[]` bridges only the named tools. |
 
 ### Types
 
-Defined in `electron/plugins/types.ts`:
+Defined in `packages/common/src/plugins.ts` and re-exported to the renderer via
+`src/types/plugins.ts` / `src/types/ipc.ts`:
 
 - **`PluginCategory`** — Union of category string literals
 - **`PluginMeta`** — Shape of `sero.plugin` from package.json
@@ -177,8 +186,10 @@ installPlugin("npm:@sero/plugin-todo@latest")
   │  local → fs.cp to temp dir
   │
   ├─ Validate: sero.app.id exists in package.json
+  ├─ Resolve final install path ~/.sero-ui/agent/packages/<plugin-id>/
+  ├─ Reject conflicts with built-in apps or a different installed plugin
   ├─ npm: verify dist/ui/remoteEntry.js exists (if UI declared)
-  ├─ git/local source: npm install + npm run build
+  ├─ git/local: if sero.plugin.preBuilt !== true, run npm install + npm run build
   ├─ Strip install-only fields (e.g. devPort) from staged package.json
   │
   ├─ Move to ~/.sero-ui/agent/packages/<plugin-id>/
@@ -187,6 +198,9 @@ installPlugin("npm:@sero/plugin-todo@latest")
   ├─ registerAppPath() → makes app-discovery aware
   ├─ discoverApps() → parse manifest → SeroAppManifest
   ├─ registerExtAssets() → makes sero-ext:// protocol aware
+  ├─ Dispose app-agent sessions for this app id
+  ├─ Broadcast install event → invalidate stale MF cache → register runtime remote
+  ├─ Reload active chat-session ResourceLoaders
   │
   └─ Return SeroAppManifest (app appears in the sidebar immediately)
 ```
@@ -199,8 +213,11 @@ uninstallPlugin("todo")
   ├─ Verify plugin exists at ~/.sero-ui/agent/packages/todo/
   ├─ fs.rm() the directory
   ├─ Remove path from settings.json packages array
+  ├─ Dispose app-agent sessions for this app id
+  ├─ Broadcast uninstall event → invalidate runtime remote cache
+  ├─ Reload active chat-session ResourceLoaders
   │
-  └─ Broadcast uninstall event → invalidate runtime remote → app disappears immediately
+  └─ App disappears from the sidebar immediately
 ```
 
 **Note:** Uninstall does NOT delete app state files. Workspace-scoped state
@@ -209,11 +226,12 @@ lives at `<workspace>/.sero/apps/<id>/state.json`; global state lives at
 
 ## Discovery & Loading
 
-The existing `app-discovery.ts` scans three locations in order:
+`app-discovery.ts` gathers apps from:
 
 1. `~/.sero-ui/agent/extensions/` — Sero extensions
-2. `settings.json` packages array — registered paths
+2. `settings.json` package + extension paths
 3. `~/.sero-ui/agent/packages/` — **installed plugins live here**
+4. manually registered package paths (used by built-in monorepo packages / dev)
 
 Plugins are just regular app packages in location 3. No special discovery
 logic was needed — the existing infrastructure handles it.
@@ -247,12 +265,16 @@ For hot-loading after install (no restart needed):
 ```typescript
 import { registerDynamicRemote, invalidateRemote } from '@/lib/federation-registry';
 
-// After install — force-register the new remote
+// After install/update — clear stale cache, then force-register the remote
+invalidateRemote(appId);
 registerDynamicRemote(appId);
 
 // After uninstall — clear cached modules
 invalidateRemote(appId);
 ```
+
+The install IPC path also disposes any app-agent sessions for that app ID so
+plugin-local extensions, prompts, and skills refresh immediately after update.
 
 ### `sero-ext://` Protocol
 
@@ -324,8 +346,11 @@ Delegates to `electron/plugins/manager.ts` functions.
 apps/desktop/
 ├── electron/
 │   ├── plugins/
-│   │   ├── types.ts            # Plugin types (shared with renderer)
-│   │   └── manager.ts          # Install / uninstall / list logic
+│   │   ├── bridge-policy.ts    # Manifest-driven tool bridge policy
+│   │   ├── install-policy.ts   # App-id collision rules
+│   │   ├── manager.ts          # Install / uninstall / list logic
+│   │   ├── package-build.ts    # Build/prepare staged plugin packages
+│   │   └── security.ts         # Safe plugin ids and install paths
 │   ├── ipc/
 │   │   └── plugins.ts          # IPC handlers
 │   └── preload/
@@ -334,9 +359,13 @@ apps/desktop/
 │   ├── types/
 │   │   ├── ipc.ts              # Re-exports plugin types
 │   │   ├── ipc-channels.ts     # Plugin IPC channel constants
+│   │   ├── plugins.ts          # Renderer plugin types
 │   │   └── electron.d.ts       # SeroPluginsAPI interface
 │   └── lib/
 │       └── federation-registry.ts  # registerDynamicRemote, invalidateRemote
+packages/
+└── common/
+    └── src/plugins.ts          # Shared plugin metadata / InstalledPlugin types
 scripts/
 ├── build-plugin.sh             # Build a pre-built npm package bundle
 └── export-plugin-source.sh     # Export a standalone Git source repo
@@ -367,7 +396,6 @@ These are standalone and can be distributed independently:
 
 | Package | Category |
 |---------|----------|
-| `pi-todo-extension` | productivity |
 | `pi-notes-extension` | productivity |
 | `pi-calc-extension` | utilities |
 | `pi-daily-quote` | utilities |
@@ -389,20 +417,20 @@ There are two authoring outputs:
 ### Pre-built npm bundle
 
 ```bash
-bash scripts/build-plugin.sh packages/pi-todo-extension
+bash scripts/build-plugin.sh packages/pi-kanban-extension
 ```
 
-This produces `packages/pi-todo-extension/dist/plugin/` with compiled UI,
+This produces `packages/pi-kanban-extension/dist/plugin/` with compiled UI,
 bundled extension entrypoints, and a cleaned manifest suitable for `npm pack`
 or `npm publish`.
 
 ### Standalone Git source repo
 
 ```bash
-bash scripts/export-plugin-source.sh packages/pi-todo-extension
+bash scripts/export-plugin-source.sh packages/pi-kanban-extension
 ```
 
-This produces `packages/pi-todo-extension/dist/plugin-source/` with source
+This produces `packages/pi-kanban-extension/dist/plugin-source/` with source
 files, resolved dependency versions, and vendored unpublished workspace
 packages so Sero can clone it, run `npm install`, and build it locally during
 Git-based installation.
@@ -418,6 +446,7 @@ within `dist/ui/`. Null bytes are rejected.
 
 The plugin manager validates:
 - `sero.app.id` exists and is well-formed
+- the app ID does not shadow a built-in app or a different installed plugin
 - `dist/ui/remoteEntry.js` exists if UI is declared
 - Installation path is within `~/.sero-ui/agent/packages/`
 
@@ -426,8 +455,8 @@ The plugin manager validates:
 - **npm bundles** are installed via `npm pack` + `tar extract` (not `npm install`).
   This avoids polluting global package state and skips lifecycle scripts.
 - **git/local source plugins** run `npm install` + `npm run build` inside a
-  temporary staging directory before the prepared package is moved into
-  `~/.sero-ui/agent/packages/`.
+  temporary staging directory when `sero.plugin.preBuilt !== true`. Pre-built
+  local bundles can skip the rebuild path.
 
 Git source installs therefore execute repository code during installation and
 must be treated as a trusted-code workflow.
