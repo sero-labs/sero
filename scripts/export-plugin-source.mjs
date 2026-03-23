@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -19,6 +20,7 @@ if (!packageArg) {
 
 const packageDir = path.resolve(process.cwd(), packageArg);
 const packageJsonPath = path.join(packageDir, 'package.json');
+const PREFER_PUBLISHED_WORKSPACE_PACKAGES = new Set(['@sero/app-runtime']);
 
 function toPosix(value) {
   return value.split(path.sep).join('/');
@@ -166,10 +168,46 @@ function getPackageEntryPath(pkg) {
   return './src/index.ts';
 }
 
+function isPreferredPublishedWorkspacePackage(packageName) {
+  return PREFER_PUBLISHED_WORKSPACE_PACKAGES.has(packageName);
+}
+
+function hasPublishedPackageVersion(packageName, version) {
+  try {
+    execFileSync('npm', ['view', `${packageName}@${version}`, 'version', '--json'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const catalogs = await loadWorkspaceCatalogs();
 const workspacePackages = await loadWorkspacePackageMap();
 const outputDir = path.join(packageDir, 'dist', 'plugin-source');
+const publishedWorkspacePackages = new Map();
 const vendoredPackages = new Map();
+
+async function ensureWorkspaceDependencyPrepared(packageName) {
+  if (publishedWorkspacePackages.has(packageName) || vendoredPackages.has(packageName)) {
+    return;
+  }
+
+  const sourceDir = workspacePackages.get(packageName);
+  if (!sourceDir) {
+    throw new Error(`Workspace package ${packageName} not found for source export`);
+  }
+
+  const pkg = await readPackageJson(sourceDir);
+  if (isPreferredPublishedWorkspacePackage(packageName) && hasPublishedPackageVersion(pkg.name, pkg.version)) {
+    publishedWorkspacePackages.set(packageName, pkg.version);
+    return;
+  }
+
+  await ensureVendoredWorkspacePackage(packageName);
+}
 
 function rewriteDependencyMap(dependencies, currentRelativeDir) {
   if (!dependencies) return undefined;
@@ -177,9 +215,14 @@ function rewriteDependencyMap(dependencies, currentRelativeDir) {
   const rewritten = Object.fromEntries(
     Object.entries(dependencies).map(([name, version]) => {
       if (typeof version === 'string' && version.startsWith('workspace:')) {
+        const publishedVersion = publishedWorkspacePackages.get(name);
+        if (publishedVersion) {
+          return [name, publishedVersion];
+        }
+
         const vendored = vendoredPackages.get(name);
         if (!vendored) {
-          throw new Error(`Workspace dependency ${name} was not vendored before manifest rewrite`);
+          throw new Error(`Workspace dependency ${name} was not prepared before manifest rewrite`);
         }
         return [name, toFileSpec(currentRelativeDir, vendored.relativeDir)];
       }
@@ -246,7 +289,7 @@ async function ensureVendoredWorkspacePackage(packageName) {
 async function exportPackageSource(sourceDir, relativeDir = '.') {
   const pkg = await readPackageJson(sourceDir);
   for (const workspaceDepName of getWorkspaceDependencyNames(pkg)) {
-    await ensureVendoredWorkspacePackage(workspaceDepName);
+    await ensureWorkspaceDependencyPrepared(workspaceDepName);
   }
 
   const destDir = relativeDir === '.' ? outputDir : path.join(outputDir, relativeDir);
@@ -280,7 +323,11 @@ async function rewriteRootTypeScriptConfigs() {
 
   const uiTsconfig = await readJson(uiTsconfigPath);
   const compilerOptions = uiTsconfig.compilerOptions ?? {};
-  const paths = compilerOptions.paths ?? {};
+  const paths = { ...(compilerOptions.paths ?? {}) };
+
+  for (const packageName of publishedWorkspacePackages.keys()) {
+    delete paths[packageName];
+  }
 
   for (const [packageName, vendored] of vendoredPackages.entries()) {
     const targetPath = toPosix(path.relative(
@@ -292,7 +339,8 @@ async function rewriteRootTypeScriptConfigs() {
 
   uiTsconfig.compilerOptions = {
     ...compilerOptions,
-    paths,
+    paths: undefined,
+    ...(Object.keys(paths).length > 0 ? { paths } : {}),
   };
 
   await fs.writeFile(uiTsconfigPath, `${JSON.stringify(uiTsconfig, null, 2)}\n`, 'utf8');

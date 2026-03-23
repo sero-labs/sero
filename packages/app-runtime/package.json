@@ -10,7 +10,11 @@
     "./package.json": "./package.json"
   },
   "scripts": {
+    "build:npm": "rm -rf dist/npm && tsc -p tsconfig.build.json && node scripts/prepare-npm.mjs",
     "typecheck": "tsc --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "peerDependencies": {
     "react": "catalog:peer"
