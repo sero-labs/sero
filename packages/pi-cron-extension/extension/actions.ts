@@ -29,6 +29,7 @@ interface ActionParams {
   prompt?: string;
   channel?: string;
   model?: string;
+  run_if_missed?: boolean;
 }
 
 // ── List ────────────────────────────────────────────────────────
@@ -49,7 +50,8 @@ export function handleList(deps: ActionDeps): string {
         : '✅ active';
     const ch = j.channel !== 'cron' ? ` [${j.channel}]` : '';
     const mdl = j.model ? ` (${j.model})` : '';
-    return `- **${j.name}** \`${j.schedule}\` ${status}${ch}${mdl}\n  ${j.prompt.slice(0, 80)}`;
+    const recover = j.runIfMissed ? ' 🔄recover' : '';
+    return `- **${j.name}** \`${j.schedule}\` ${status}${ch}${mdl}${recover}\n  ${j.prompt.slice(0, 80)}`;
   });
 
   const note = scheduler?.isRunning()
@@ -85,6 +87,7 @@ export async function handleAdd(
     disabled: false,
   };
   if (params.model) newJob.model = params.model;
+  if (params.run_if_missed) newJob.runIfMissed = true;
 
   state.jobs.push(newJob);
   await writeState(statePath, state);
@@ -114,6 +117,7 @@ export async function handleUpdate(
   if (params.prompt) job.prompt = params.prompt;
   if (params.channel) job.channel = params.channel;
   if (params.model !== undefined) job.model = params.model || undefined;
+  if (params.run_if_missed !== undefined) job.runIfMissed = params.run_if_missed;
 
   await writeState(statePath, state);
   scheduler?.updateJobs(state.jobs);

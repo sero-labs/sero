@@ -62,6 +62,15 @@ export function ReminderCard({
             </span>
             <StatusBadge status={reminder.status} />
             <TypeBadge type={reminder.type} />
+            {reminder.recoverIfMissed && (
+              <Badge
+                variant="outline"
+                className="border-blue-500/30 text-[10px] text-blue-500"
+                title="Notification will be shown on startup if missed"
+              >
+                Recover
+              </Badge>
+            )}
             {reminder.channel === 'email' && (
               <Badge variant="outline" className="border-blue-500/30 text-[10px] text-blue-500">
                 📧 email

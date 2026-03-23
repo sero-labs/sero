@@ -47,6 +47,7 @@ export function ReminderForm({
   const [type, setType] = useState<ReminderType>('once');
   const [fireAt, setFireAt] = useState('');
   const [schedule, setSchedule] = useState('');
+  const [recoverIfMissed, setRecoverIfMissed] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   // Reset form when opening
@@ -59,6 +60,7 @@ export function ReminderForm({
       setType(editingReminder.type);
       setFireAt(editingReminder.fireAt ? toLocalDatetime(editingReminder.fireAt) : '');
       setSchedule(editingReminder.schedule ?? '');
+      setRecoverIfMissed(editingReminder.recoverIfMissed ?? false);
     } else {
       setTitle('');
       setNotes('');
@@ -66,6 +68,7 @@ export function ReminderForm({
       setType('once');
       setFireAt(defaultFireAt());
       setSchedule('');
+      setRecoverIfMissed(false);
     }
     setScheduleError(null);
   }, [open, editingReminder]);
@@ -105,6 +108,7 @@ export function ReminderForm({
     if (type === 'recurring') {
       reminder.schedule = schedule.trim();
     }
+    if (recoverIfMissed) reminder.recoverIfMissed = true;
 
     // Preserve history fields when editing
     if (editingReminder) {
@@ -243,6 +247,24 @@ export function ReminderForm({
               </div>
             </div>
           )}
+
+          {/* Recover if missed */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={recoverIfMissed}
+              onChange={(e) => setRecoverIfMissed(e.target.checked)}
+              className="h-4 w-4 rounded border-input accent-primary"
+            />
+            <div>
+              <span className="text-xs font-medium text-foreground">
+                Recover if missed
+              </span>
+              <p className="text-[11px] text-muted-foreground">
+                Show notification on startup if this reminder was missed while Sero was closed
+              </p>
+            </div>
+          </label>
 
           {/* Channel */}
           <div>

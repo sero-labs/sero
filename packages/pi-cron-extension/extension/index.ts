@@ -18,7 +18,7 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
-import type { CronRunResult, CronState, Reminder } from '../shared/types';
+import type { CronRunResult, CronState, NotificationSettings, Reminder } from '../shared/types';
 import { MAX_RUN_RESULTS } from '../shared/types';
 import { resolveStatePath, withStateLock, readState, writeState } from './state-io';
 import { CronScheduler } from './scheduler';
@@ -34,6 +34,7 @@ import {
   handleReminderRemove, handleReminderSnooze, handleReminderComplete,
   handleReminderToggle, type ReminderActionDeps,
 } from './reminder-actions';
+import { detectMissedItems } from './recovery';
 
 // ── Module-level singleton state ───────────────────────────────
 // Shared across all invocations of the default export (multiple sessions).
@@ -66,6 +67,45 @@ function createAndStartScheduler(state: CronState): void {
     state.reminders,
     getSchedulerStartOpts(state),
   );
+  // Run missed-job/reminder recovery after scheduler starts
+  runRecovery(state).catch((err) => {
+    console.error('[cron] recovery failed:', err);
+  });
+}
+
+// ── Recovery (missed jobs/reminders on start) ───────────────────
+
+async function runRecovery(state: CronState): Promise<void> {
+  const { missedJobs, missedReminders } = detectMissedItems(state);
+
+  // Fire missed reminders as notifications
+  if (missedReminders.length > 0) {
+    const notifSettings = state.notificationSettings ?? undefined;
+    for (const { reminder, missedAt } of missedReminders) {
+      notifyMissedReminder(reminder, missedAt, notifSettings);
+    }
+  }
+
+  // Run missed cron jobs (fire-and-forget, same as runNow)
+  if (missedJobs.length > 0 && scheduler) {
+    for (const job of missedJobs) {
+      info('recovery:run-job', { job: job.name });
+      scheduler.runNow(job.name);
+    }
+  }
+}
+
+function notifyMissedReminder(
+  reminder: Reminder,
+  missedAt: Date,
+  settings?: NotificationSettings,
+): void {
+  const time = missedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const body = reminder.notes
+    ? `(Missed at ${time}) ${reminder.title}\n${reminder.notes}`
+    : `(Missed at ${time}) ${reminder.title}`;
+  notifyReminder({ ...reminder, notes: body }, settings);
+  info('recovery:notify-reminder', { id: reminder.id, title: reminder.title, missedAt: missedAt.toISOString() });
 }
 
 // ── Scheduler helpers (module-level, use singleton state) ──────
@@ -182,6 +222,7 @@ async function stopScheduler(): Promise<string> {
   stateWatcher = null;
   const state = await readState(statePath);
   state.lastTickMinute = scheduler.getLastTickMinute();
+  state.lastSchedulerShutdown = new Date().toISOString();
   state.schedulerActive = false;
   scheduler.stop();
   scheduler = null;
@@ -200,6 +241,9 @@ const CronParams = Type.Object({
   prompt: Type.Optional(Type.String({ description: 'Prompt to send to the agent when the job fires' })),
   channel: Type.Optional(Type.String({ description: 'Channel tag for grouping (default: "cron")' })),
   model: Type.Optional(Type.String({ description: 'Model pattern or ID. Omit for default.' })),
+  run_if_missed: Type.Optional(Type.Boolean({
+    description: 'If true, run this job once on startup if it was missed since midnight today. Default: false.',
+  })),
 });
 
 const ReminderParams = Type.Object({
@@ -214,6 +258,9 @@ const ReminderParams = Type.Object({
   })),
   schedule: Type.Optional(Type.String({ description: 'Cron expression for recurring reminders' })),
   snooze_minutes: Type.Optional(Type.Number({ description: 'Snooze duration in minutes (default: 15). -1 for tomorrow 9am.' })),
+  recover_if_missed: Type.Optional(Type.Boolean({
+    description: 'If true, show a notification on startup for reminders missed while Sero was closed. Default: false.',
+  })),
 });
 
 // ── Extension factory (called per session) ─────────────────────
@@ -279,6 +326,7 @@ export default function (pi: ExtensionAPI) {
         if (statePath) {
           const state = await readState(statePath);
           state.lastTickMinute = scheduler.getLastTickMinute();
+          state.lastSchedulerShutdown = new Date().toISOString();
           await writeState(statePath, state);
         }
         scheduler.stop();

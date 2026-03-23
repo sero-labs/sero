@@ -26,6 +26,11 @@ export interface CronJob {
    * When unset, the job uses whatever default is in your Pi settings.
    */
   model?: string;
+  /**
+   * If true, the job will run once on scheduler start if it was missed
+   * since midnight (00:00) of the current day. Opt-in, defaults to false.
+   */
+  runIfMissed?: boolean;
 }
 
 export interface CronRunResult {
@@ -70,6 +75,11 @@ export interface Reminder {
   lastFiredAt?: string;
   /** ISO datetime — when the reminder was completed/dismissed */
   completedAt?: string;
+  /**
+   * If true, a notification will be shown on scheduler start for reminders
+   * that were missed while Sero was not running. Opt-in, defaults to false.
+   */
+  recoverIfMissed?: boolean;
 }
 
 /** Predefined snooze durations in minutes */
@@ -114,6 +124,8 @@ export interface CronState {
   autostart: boolean;
   /** Last scheduler tick minute key, used to avoid same-minute re-fires after restart. */
   lastTickMinute?: string;
+  /** ISO timestamp of when the scheduler was last shut down (used for missed-job recovery). */
+  lastSchedulerShutdown?: string;
   /** Recent execution results (capped at 50) */
   lastRunResults: CronRunResult[];
   /** Notification preferences */
