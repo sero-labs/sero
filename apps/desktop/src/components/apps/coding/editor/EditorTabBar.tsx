@@ -11,11 +11,11 @@ import {
   SortableContext, horizontalListSortingStrategy, useSortable, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent,
   ContextMenuItem, ContextMenuSeparator,
-} from '@sero/ui/components/ui/context-menu';
+} from '@sero-ai/ui/components/ui/context-menu';
 import { FileIcon } from '../file-tree/file-icons';
 
 export interface EditorTab {

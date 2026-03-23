@@ -16,8 +16,8 @@
 
 import { useState, useCallback, useMemo, useRef, memo } from 'react';
 import { useAppState, useAI } from '@sero-ai/app-runtime';
-import { cn } from '@sero/ui/lib/utils';
-import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Streamdown } from 'streamdown';
 import type { HumanizerState, HumanizeEntry, Style, Modifier } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';

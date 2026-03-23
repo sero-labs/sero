@@ -21,7 +21,7 @@ import {
   PromptInputActionMenuTrigger,
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
-} from '@sero/ui/components/ai-elements/prompt-input';
+} from '@sero-ai/ui/components/ai-elements/prompt-input';
 import { useAgentStore } from '@/stores/agent';
 import {
   useFocusedCollaborationMode,

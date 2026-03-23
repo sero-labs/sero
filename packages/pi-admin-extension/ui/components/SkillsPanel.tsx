@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react';
-import { Input } from '@sero/ui/components/ui/input';
-import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
-import { Switch } from '@sero/ui/components/ui/switch';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
+import { Switch } from '@sero-ai/ui/components/ui/switch';
 import { useSkillVisibility } from '../hooks/useSkillVisibility';
 
 interface SkillsPanelProps {

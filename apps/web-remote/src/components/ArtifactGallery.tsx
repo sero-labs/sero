@@ -4,7 +4,7 @@
 
 import { useState, useCallback, memo } from 'react';
 import { useConnectionStore } from '@/stores/connection';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import {
   Image as ImageIcon,
   X,

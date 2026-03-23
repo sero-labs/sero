@@ -10,7 +10,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { Generation } from '../../shared/types';
 import { MontageCard } from './MontageCard';
 import { ImageViewer } from './ImageViewer';

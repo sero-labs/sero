@@ -292,10 +292,10 @@ Show these during install. For now this is informational; enforcement can come l
 
 #### 4.2 — Extraction process (per package)
 
-1. **Inline monorepo-only dependencies.** Some packages import from `@sero/ui`
-   (e.g. `cn` from `@sero/ui/lib/utils`). Since `@sero/ui` is monorepo-only,
+1. **Inline monorepo-only dependencies.** Some packages import from `@sero-ai/ui`
+   (e.g. `cn` from `@sero-ai/ui/lib/utils`). Since `@sero-ai/ui` is monorepo-only,
    these utilities must be inlined into the plugin (e.g. `ui/lib/utils.ts` with
-   `clsx` + `tailwind-merge`). Check for `@sero/ui` imports in `.ts`, `.tsx`,
+   `clsx` + `tailwind-merge`). Check for `@sero-ai/ui` imports in `.ts`, `.tsx`,
    `.css` (Tailwind `@source` directives), and `tsconfig.json` (path aliases).
    Add the underlying npm packages (`clsx`, `tailwind-merge`) as devDependencies.
 2. Add `build:plugin` script using the shared build pipeline

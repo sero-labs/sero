@@ -4,8 +4,8 @@
  */
 
 import { memo, useCallback } from 'react';
-import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { X } from 'lucide-react';
 
 interface ImageLightboxProps {

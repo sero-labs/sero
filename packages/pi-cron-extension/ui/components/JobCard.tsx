@@ -12,11 +12,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@sero/ui/components/ui/alert-dialog';
-import { Badge } from '@sero/ui/components/ui/badge';
-import { Button } from '@sero/ui/components/ui/button';
-import { Card } from '@sero/ui/components/ui/card';
-import { cn } from '@sero/ui/lib/utils';
+} from '@sero-ai/ui/components/ui/alert-dialog';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { cronToHuman } from '../../shared/cron';
 import type { CronJob } from '../../shared/types';
 

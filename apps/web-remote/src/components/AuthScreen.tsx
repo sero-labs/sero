@@ -4,8 +4,8 @@
 
 import { useState, useCallback } from 'react';
 import { useConnectionStore } from '@/stores/connection';
-import { Button } from '@sero/ui/components/ui/button';
-import { Input } from '@sero/ui/components/ui/input';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import { Loader2, Lock } from 'lucide-react';
 
 interface AuthScreenProps {

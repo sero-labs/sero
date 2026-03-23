@@ -7,7 +7,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@sero/ui/components/ui/command';
+} from '@sero-ai/ui/components/ui/command';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { getAppIcon } from '@/lib/app-icons';

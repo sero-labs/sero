@@ -11,8 +11,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@sero/ui/components/ui/dialog';
-import { Button } from '@sero/ui/components/ui/button';
+} from '@sero-ai/ui/components/ui/dialog';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { useThemeStore } from '@/stores/theme';
 import type { ThemeMode } from '@/types/theme';
 import { DEFAULT_THEME_ID } from '@/types/theme';

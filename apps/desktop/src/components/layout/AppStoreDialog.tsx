@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Search, Store } from 'lucide-react';
-import { Input } from '@sero/ui/components/ui/input';
-import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@sero/ui/components/ui/dialog';
+} from '@sero-ai/ui/components/ui/dialog';
 import type { AppEntry } from '@/stores/app';
 import { AppStoreCard } from './AppStoreCard';
 

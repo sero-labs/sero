@@ -7,8 +7,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Input } from '@sero/ui/components/ui/input';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import { Folder, Loader2 } from 'lucide-react';
 
 interface ProfileFormProps {

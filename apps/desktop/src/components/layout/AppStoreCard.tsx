@@ -1,8 +1,8 @@
 import type { KeyboardEvent } from 'react';
 import { Star } from 'lucide-react';
-import { Badge } from '@sero/ui/components/ui/badge';
-import { Button } from '@sero/ui/components/ui/button';
-import { cn } from '@sero/ui/lib/utils';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { getAppIcon } from '@/lib/app-icons';
 import type { AppEntry } from '@/stores/app';
 

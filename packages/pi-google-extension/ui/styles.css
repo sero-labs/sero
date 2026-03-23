@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Scan @sero/ui component sources so Tailwind generates their utility classes */
+/* Scan @sero-ai/ui component sources so Tailwind generates their utility classes */
 @source "../../ui/src/components";
 
 @custom-variant dark (&:is(.dark *));

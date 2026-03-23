@@ -4,13 +4,13 @@
  */
 
 import { useState, memo } from 'react';
-import { cn } from '@sero/ui/lib/utils';
-import { Badge } from '@sero/ui/components/ui/badge';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@sero/ui/components/ui/collapsible';
+} from '@sero-ai/ui/components/ui/collapsible';
 import type { ToolCall } from '@/stores/chat';
 import { ImageLightbox } from './ImageLightbox';
 import { ChevronDown, Loader2, Check, X, Wrench } from 'lucide-react';

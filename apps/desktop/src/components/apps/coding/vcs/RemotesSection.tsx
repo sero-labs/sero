@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Globe, Plus, Trash2, Check, X } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
 import type { Remote } from '@/types/vcs';
 import { VcsSection } from './VcsSection';

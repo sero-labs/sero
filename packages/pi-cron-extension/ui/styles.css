@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
-/* Scan @sero/ui component sources so Tailwind generates CSS
+/* Scan @sero-ai/ui component sources so Tailwind generates CSS
    for utility classes used inside shared components (e.g. Button,
-   Badge, Dialog). Without this, classes used only in @sero/ui
+   Badge, Dialog). Without this, classes used only in @sero-ai/ui
    won't be included in the bundle since Tailwind doesn't scan
    node_modules by default. Path is relative to this file and
    resolves to packages/ui/src/components within the monorepo. */

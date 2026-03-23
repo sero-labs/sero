@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Outfit:wght@300;400;500;600;700&display=swap');
 
-/* Scan @sero/ui component sources so Tailwind generates CSS for shared components */
+/* Scan @sero-ai/ui component sources so Tailwind generates CSS for shared components */
 @source "../../ui/src/components";
 
 @custom-variant dark (&:is(.dark *));

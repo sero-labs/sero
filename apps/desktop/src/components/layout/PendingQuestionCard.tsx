@@ -11,8 +11,8 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, X, Send, ShieldAlert } from 'lucide-react';
-import { Button } from '@sero/ui/components/ui/button';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import type { UserFeedbackPendingQuestion, UserFeedbackAnswer } from '@/types/ipc';
 

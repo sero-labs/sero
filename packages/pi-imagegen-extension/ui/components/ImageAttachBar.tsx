@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback } from 'react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { ImageAttachment } from '../../shared/types';
 
 const MAX_ATTACHMENTS = 4;

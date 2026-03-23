@@ -1,20 +1,20 @@
 /**
  * Workspace & session picker — sidebar panel for workspace and session selection.
- * Uses @sero/ui Select and Button components.
+ * Uses @sero-ai/ui Select and Button components.
  */
 
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useChatStore } from '@/stores/chat';
-import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
-import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@sero/ui/components/ui/select';
+} from '@sero-ai/ui/components/ui/select';
 import { FolderOpen, MessageSquarePlus, MessageSquare } from 'lucide-react';
 
 interface WorkspacePickerProps {

@@ -7,10 +7,10 @@
  */
 
 import { useState, useMemo } from 'react';
-import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
-import { Input } from '@sero/ui/components/ui/input';
-import { Textarea } from '@sero/ui/components/ui/textarea';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@sero/ui/components/ui/dialog';
+} from '@sero-ai/ui/components/ui/dialog';
 import type { Style, StyleCategory } from '../../shared/types';
 import { STYLE_CATEGORIES } from '../lib/styles';
 

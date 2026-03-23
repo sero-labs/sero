@@ -7,8 +7,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { AgentList } from './components/AgentList';
 import { AgentEditor } from './components/AgentEditor';
 import { SkillList } from './components/SkillList';

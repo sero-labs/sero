@@ -8,9 +8,9 @@
 
 import { useCallback, useRef, useEffect } from 'react';
 import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
-import { Button } from '@sero/ui/components/ui/button';
-import { Separator } from '@sero/ui/components/ui/separator';
-import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Separator } from '@sero-ai/ui/components/ui/separator';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import type { ContextState } from '../shared/types';
 import { DEFAULT_CONTEXT_STATE } from '../shared/types';
 import { UsageDashboard } from './components/UsageDashboard';

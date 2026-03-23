@@ -10,7 +10,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@sero/ui/components/ui/dialog';
+} from '@sero-ai/ui/components/ui/dialog';
 import { useFocusedModelState } from '@/stores/agent-selectors';
 import { useModelPreferences, modelKey } from '@/stores/model-preferences';
 import type { AvailableModelGroup, ManagerTab } from './types';

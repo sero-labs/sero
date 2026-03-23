@@ -16,7 +16,7 @@ import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
 import { getFederatedComponent } from '@/lib/federation-registry';
-import { Spinner } from '@sero/ui/components/ui/spinner';
+import { Spinner } from '@sero-ai/ui/components/ui/spinner';
 
 // ── Ensure-session-and-prompt helper ─────────────────────────
 

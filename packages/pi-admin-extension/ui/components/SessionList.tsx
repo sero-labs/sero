@@ -6,9 +6,9 @@
  */
 
 import { memo } from 'react';
-import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
-import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import type { SessionFileInfo } from '../hooks/useSeroFiles';
 
 interface SessionListProps {

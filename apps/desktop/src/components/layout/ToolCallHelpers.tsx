@@ -11,7 +11,7 @@ import {
   XCircle,
   AlertCircle,
 } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { ChatToolCallMessage, ToolResultImage } from '@/types/ipc';
 import { useLightbox, type LightboxImage } from './ImageLightbox';
 import {
@@ -20,7 +20,7 @@ import {
   ToolContent,
   ToolInput,
   ToolOutput,
-} from '@sero/ui/components/ai-elements/tool';
+} from '@sero-ai/ui/components/ai-elements/tool';
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { looksLikeFilePath } from './ClickableFilePath';
 

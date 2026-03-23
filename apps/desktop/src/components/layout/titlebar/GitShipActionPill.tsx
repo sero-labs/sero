@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 
 export function GitShipActionPill({
   label,

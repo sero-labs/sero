@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useRef, useEffect, useContext } from 'react';
 import { useAppState, AppContext } from '@sero-ai/app-runtime';
-import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import type { ImageGenState, GenerateParams } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { GenerateForm } from './components/GenerateForm';

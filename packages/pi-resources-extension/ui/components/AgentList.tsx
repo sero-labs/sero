@@ -2,8 +2,8 @@
  * AgentList — scrollable list of agent cards in the left panel.
  */
 
-import { cn } from '@sero/ui/lib/utils';
-import { Badge } from '@sero/ui/components/ui/badge';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
 import type { AgentSummary } from './types';
 
 interface AgentListProps {

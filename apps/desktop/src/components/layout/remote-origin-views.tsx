@@ -5,9 +5,9 @@
  */
 
 import { useState } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Input } from '@sero/ui/components/ui/input';
-import { Label } from '@sero/ui/components/ui/label';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Label } from '@sero-ai/ui/components/ui/label';
 import {
   ArrowLeft,
   ExternalLink,

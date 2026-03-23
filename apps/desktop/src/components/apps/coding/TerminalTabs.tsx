@@ -13,7 +13,7 @@ import {
 } from '@/stores/terminal';
 import { useWorkspaceContainer } from '@/stores/container';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 
 interface TerminalTabsProps {
   workspaceId: string;

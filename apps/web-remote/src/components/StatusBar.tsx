@@ -5,8 +5,8 @@
 
 import { useConnectionStore } from '@/stores/connection';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { cn } from '@sero/ui/lib/utils';
-import { Separator } from '@sero/ui/components/ui/separator';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Separator } from '@sero-ai/ui/components/ui/separator';
 import { Circle } from 'lucide-react';
 
 export function StatusBar() {

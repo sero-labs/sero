@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useSessionStore } from '@/stores/sessions';
 import { useStreamingSessionIds } from '@/stores/agent-selectors';
-import { Button } from '@sero/ui/components/ui/button';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sero/ui/components/ui/popover';
+} from '@sero-ai/ui/components/ui/popover';
 import type { SeroSessionInfo } from '@/types/ipc';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 
 // ── Session node ───────────────────────────────────────────────
 

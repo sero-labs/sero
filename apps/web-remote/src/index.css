@@ -1,4 +1,4 @@
-@import "@sero/ui/styles/globals.css";
+@import "@sero-ai/ui/styles/globals.css";
 
 /* Scan this app's own component sources for Tailwind utility classes */
 @source "./components";

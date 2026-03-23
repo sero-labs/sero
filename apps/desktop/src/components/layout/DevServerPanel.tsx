@@ -19,12 +19,12 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sero/ui/components/ui/popover';
+} from '@sero-ai/ui/components/ui/popover';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@sero/ui/components/ui/tooltip';
+} from '@sero-ai/ui/components/ui/tooltip';
 import { useDevServers, useRunningDevServerCount } from '@/stores/dev-server';
 import type { DevServer } from '@/types/ipc';
 

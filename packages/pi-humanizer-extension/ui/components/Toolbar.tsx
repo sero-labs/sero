@@ -7,8 +7,8 @@
  */
 
 import { memo } from 'react';
-import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import type { Style, Modifier } from '../../shared/types';
 import { StyleSelector } from './StyleSelector';
 import { ModifierChips } from './InstructionPresets';

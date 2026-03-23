@@ -7,8 +7,8 @@ import { useCallback, useRef, useState } from 'react';
 import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent,
   ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut,
-} from '@sero/ui/components/ui/context-menu';
-import { Input } from '@sero/ui/components/ui/input';
+} from '@sero-ai/ui/components/ui/context-menu';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import {
   RiPencilLine, RiDeleteBinLine, RiFileLine,
   RiFolderLine, RiClipboardLine,

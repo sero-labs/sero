@@ -6,13 +6,13 @@
  */
 
 import { useEffect, useCallback, useState } from 'react';
-import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@sero/ui/components/ui/popover';
+} from '@sero-ai/ui/components/ui/popover';
 import type { Generation } from '../../shared/types';
 import { useImageLoader } from '../hooks/use-image-loader';
 

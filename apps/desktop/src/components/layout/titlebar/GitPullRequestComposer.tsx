@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { ChevronRight, Github, Loader2, Sparkles } from 'lucide-react';
 
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';

@@ -4,8 +4,8 @@
  */
 
 import { Code2, Eye } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
-import { cn } from '@sero/ui/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
+import { cn } from '@sero-ai/ui/lib/utils';
 
 export type ViewMode = 'code' | 'preview';
 

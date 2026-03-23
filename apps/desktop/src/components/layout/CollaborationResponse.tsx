@@ -12,7 +12,7 @@ import {
   useFocusedCollaborationSpecialists,
   useFocusedCollaborationStatus,
 } from '@/stores/agent-selectors';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { CollaborationRole, CollaborationSpecialistOutput } from '@/types/collaboration';
 
 const ROLE_META: Record<CollaborationRole, { label: string; icon: typeof Search; color: string }> = {

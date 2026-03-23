@@ -5,12 +5,12 @@ import {
   createOnDropHandler,
 } from '@headless-tree/core';
 import { useTree, AssistiveTreeDescription } from '@headless-tree/react';
-import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@sero/ui/components/ui/tree';
-import { Input } from '@sero/ui/components/ui/input';
+import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@sero-ai/ui/components/ui/tree';
+import { Input } from '@sero-ai/ui/components/ui/input';
 import { FileIcon } from './file-icons';
 import { FileTreeContextMenu } from './file-tree-context-menu';
 import { moveItem, renameItem } from './file-tree-ops';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 
 
 /* ── Types ───────────────────────────────────────────────────── */

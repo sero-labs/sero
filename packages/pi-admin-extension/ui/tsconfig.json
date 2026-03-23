@@ -12,8 +12,8 @@
     "paths": {
       "@sero-ai/app-runtime": ["../../app-runtime/src/index.ts"],
       "@sero/common": ["../../common/src/index.ts"],
-      "@sero/ui": ["../../ui/src/index.ts"],
-      "@sero/ui/*": ["../../ui/src/*"]
+      "@sero-ai/ui": ["../../ui/src/index.ts"],
+      "@sero-ai/ui/*": ["../../ui/src/*"]
     }
   },
   "include": ["./**/*", "../shared/**/*"]

@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import {
   QUICK_START_LOOP,
   TOOL_REFERENCE,

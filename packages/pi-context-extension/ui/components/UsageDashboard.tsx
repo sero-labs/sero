@@ -6,8 +6,8 @@
  */
 
 import { useMemo } from 'react';
-import { Badge } from '@sero/ui/components/ui/badge';
-import { cn } from '@sero/ui/lib/utils';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { ContextUsage } from '../../shared/types';
 
 interface Props {
