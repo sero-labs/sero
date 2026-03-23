@@ -19,6 +19,7 @@ import { clearAppManifestCache } from '../ipc/app-agent';
 import { clearPluginBridgePolicyCache } from '../cli';
 import type { SeroAppManifest, SettingsPackageSource } from '../../src/types/ipc';
 import type { InstalledPlugin } from './types';
+import { assertPluginInstallAllowed } from './install-policy';
 import { ensurePluginPackageReadyForInstall } from './package-build';
 import { assertValidPluginId, resolvePluginInstallDir } from './security';
 
@@ -281,6 +282,8 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
 
     const validated = validatePluginPackage(readPkgJsonSync(staged.stageDir));
     assertPreparedUiExists(staged.stageDir, validated.app);
+    const installPath = resolvePluginInstallDir(PLUGINS_DIR, validated.app.id);
+    assertPluginInstallAllowed(await discoverApps(), validated.app.id, installPath);
 
     // Persist install provenance metadata before moving to final location.
     writePluginMeta(staged.stageDir, {
@@ -289,7 +292,6 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
     });
 
     reserved = await reserveInstallPath(validated.app.id);
-    const installPath = reserved.installPath;
     await fs.rename(staged.stageDir, installPath);
 
     settingsAdded = addToSettings(installPath);

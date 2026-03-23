@@ -116,7 +116,11 @@ describe('discoverAndRegisterApps', () => {
 
     await handlePluginChange(installEvent);
 
+    expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
     expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith('todo', 4101);
+    expect(
+      federationMocks.invalidateRemote.mock.invocationCallOrder[0],
+    ).toBeLessThan(federationMocks.registerDynamicRemote.mock.invocationCallOrder[0]);
     expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(true);
 
     await handlePluginChange({ type: 'uninstalled', pluginId: 'todo' });

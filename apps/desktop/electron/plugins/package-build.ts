@@ -84,6 +84,11 @@ export function pluginNeedsBuild(pkg: PluginPackageJson, packageDir: string): bo
   return usesUi(pkg) && !hasBuiltUi(packageDir);
 }
 
+function shouldBuildFromSource(pkg: PluginPackageJson, sourceKind: PluginSourceKind): boolean {
+  if (sourceKind === 'npm' || !usesUi(pkg)) return false;
+  return pkg.sero?.plugin?.preBuilt !== true;
+}
+
 export function stripInstalledOnlyManifestFields(pkg: PluginPackageJson): PluginPackageJson {
   if (!pkg.sero?.app?.devPort) return pkg;
 
@@ -171,15 +176,16 @@ export async function ensurePluginPackageReadyForInstall(
 ): Promise<void> {
   const runCommand = options.runCommand ?? defaultRunCommand;
   const pkg = readPluginPackageJson(packageDir);
+  const missingBuiltUi = pluginNeedsBuild(pkg, packageDir);
 
-  if (sourceKind === 'npm' && pluginNeedsBuild(pkg, packageDir)) {
+  if (sourceKind === 'npm' && missingBuiltUi) {
     throw new Error(
       'Invalid plugin: npm packages must ship pre-built UI artifacts in dist/ui/. ' +
       'Use a git source repo for build-on-install workflows.',
     );
   }
 
-  if (sourceKind !== 'npm' && pluginNeedsBuild(pkg, packageDir)) {
+  if (shouldBuildFromSource(pkg, sourceKind)) {
     await buildPluginFromSource(packageDir, pkg, runCommand);
   }
 

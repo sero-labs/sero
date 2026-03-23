@@ -25,6 +25,7 @@ export function registerPluginHandlers(): void {
     IpcChannels.plugins.install,
     async (_event, source: string): Promise<SeroAppManifest> => {
       const manifest = await installPlugin(source);
+      disposeAppSessionsForApp(manifest.id);
       broadcastPluginEvent({ type: 'installed', manifest });
       reloadAllSessionResources().catch((err) => {
         console.warn('[plugins] Failed to reload active chat session resources after install:', err);

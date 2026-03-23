@@ -131,6 +131,65 @@ describe('plugin package build helpers', () => {
     expect(installedPkg.sero?.app?.devPort).toBeUndefined();
   });
 
+  it('rebuilds source plugins when preBuilt is false even if dist/ui already exists', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await mkdir(path.join(dir, 'dist', 'ui'), { recursive: true });
+    await writeFile(path.join(dir, 'dist', 'ui', 'remoteEntry.js'), 'stale build\n', 'utf8');
+    await writePackageJson(dir, {
+      scripts: {
+        build: 'fake-build',
+      },
+      sero: {
+        app: {
+          id: 'todo',
+          name: 'Todo',
+          ui: './dist/ui/remoteEntry.js',
+        },
+        plugin: {
+          preBuilt: false,
+        },
+      },
+    });
+
+    const calls: Array<{ command: string; args: string[] }> = [];
+    await ensurePluginPackageReadyForInstall(dir, 'git', {
+      runCommand: async (command, args) => {
+        calls.push({ command, args });
+      },
+    });
+
+    expect(calls).toEqual([
+      { command: 'npm', args: ['install'] },
+      { command: 'npm', args: ['run', 'build'] },
+    ]);
+  });
+
+  it('skips rebuilding local pre-built plugin bundles', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await mkdir(path.join(dir, 'dist', 'ui'), { recursive: true });
+    await writeFile(path.join(dir, 'dist', 'ui', 'remoteEntry.js'), 'export {}\n', 'utf8');
+    await writePackageJson(dir, {
+      scripts: {
+        build: 'fake-build',
+      },
+      sero: {
+        app: {
+          id: 'todo',
+          name: 'Todo',
+          ui: './dist/ui/remoteEntry.js',
+        },
+        plugin: {
+          preBuilt: true,
+        },
+      },
+    });
+
+    const runCommand = vi.fn();
+    await ensurePluginPackageReadyForInstall(dir, 'local', { runCommand });
+
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
   it('requires pre-built npm packages', async () => {
     const dir = await createTempPluginDir(tempDirs);
     await writePackageJson(dir, {
