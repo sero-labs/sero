@@ -1,0 +1,16 @@
+{
+  "name": "@sero/common",
+  "version": "0.1.0",
+  "description": "Shared types and utilities for Sero packages",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

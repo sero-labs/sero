@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import { Mail, CalendarDays, RefreshCw } from 'lucide-react';
 import type { GoogleAppState } from '../shared/types';
 import { DEFAULT_GOOGLE_STATE } from '../shared/types';

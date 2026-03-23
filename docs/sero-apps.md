@@ -134,7 +134,7 @@ The UI is a React component loaded via module federation. It uses `useAppState`
 from Sero's app runtime — a hook that reads/watches/writes the same JSON file.
 
 ```tsx
-import { useAppState } from "@sero/app-runtime";
+import { useAppState } from "@sero-ai/app-runtime";
 import type { TodoState } from "../shared/types";
 
 export function TodoApp() {
@@ -153,7 +153,7 @@ export function TodoApp() {
 
 ## Module Federation
 
-Sero (host) shares React, ReactDOM, Tailwind, and `@sero/app-runtime`.
+Sero (host) shares React, ReactDOM, Tailwind, and `@sero-ai/app-runtime`.
 App UIs (remotes) consume these — no bundled React per app.
 
 ```typescript
@@ -169,7 +169,7 @@ federation({
 })
 ```
 
-## Sero App Runtime (`@sero/app-runtime`)
+## Sero App Runtime (`@sero-ai/app-runtime`)
 
 Hooks provided by Sero to federated app modules:
 
@@ -198,7 +198,7 @@ useAgentPrompt(): (text: string) => void
 | **AppStateManager** | Generic file watcher + read/write + IPC for state files |
 | **App discovery** | Scan Pi packages for `sero.app` manifest, register in app store |
 | **App mount point** | Dynamic import of federation remote, mount in main area |
-| **`@sero/app-runtime`** | `useAppState`, `useAppInfo`, `useAgentPrompt` hooks |
+| **`@sero-ai/app-runtime`** | `useAppState`, `useAppInfo`, `useAgentPrompt` hooks |
 | **App registry store** | Zustand store for discovered apps + active app |
 
 ## Architecture Flow

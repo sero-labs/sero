@@ -457,7 +457,7 @@ interface AppContextValue {
 Apps that need to react to theme changes can use this. Most apps won't need
 it — they just use CSS variables which update automatically.
 
-#### 4b. Add `useTheme` hook to `@sero/app-runtime`
+#### 4b. Add `useTheme` hook to `@sero-ai/app-runtime`
 
 ```typescript
 export function useTheme(): {

@@ -15,7 +15,7 @@
  */
 
 import { useState, useCallback, useMemo, useRef, memo } from 'react';
-import { useAppState, useAI } from '@sero/app-runtime';
+import { useAppState, useAI } from '@sero-ai/app-runtime';
 import { cn } from '@sero/ui/lib/utils';
 import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
 import { Streamdown } from 'streamdown';

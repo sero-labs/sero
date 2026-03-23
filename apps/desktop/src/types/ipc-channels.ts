@@ -430,6 +430,18 @@ export const IpcChannels = {
     /** Generate a QR login URL + data URL for device pairing. */
     getQrLoginData: 'sero:gateway:get-qr-login-data',
   },
+  plugins: {
+    /** Install a plugin from a source (npm:, git:, or local path). */
+    install: 'sero:plugins:install',
+    /** Uninstall a plugin by ID. */
+    uninstall: 'sero:plugins:uninstall',
+    /** List all installed plugins. */
+    list: 'sero:plugins:list',
+    /** Check if a specific app is an installed plugin. */
+    isPlugin: 'sero:plugins:is-plugin',
+    /** Main → renderer push: plugin installed or uninstalled. */
+    event: 'sero:plugins:event',
+  },
   appControl: {
     /** List all available apps with manifest info. */
     list: 'sero:app-control:list',

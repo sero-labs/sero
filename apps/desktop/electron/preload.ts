@@ -20,6 +20,7 @@ import {
   devServerBridge,
   githubBridge,
 } from './preload/app-domain';
+import { pluginsBridge } from './preload/plugins';
 import type {
   ProfileInfo,
   WorkspaceInfo,
@@ -355,6 +356,8 @@ contextBridge.exposeInMainWorld('sero', {
   },
 
   github: githubBridge,
+
+  plugins: pluginsBridge,
 
   terminal: {
     create: (workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<void> =>

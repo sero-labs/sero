@@ -1,17 +1,21 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SeroAppManifest } from '@/types/ipc';
+import type { PluginChangeEvent, SeroAppManifest } from '@/types/ipc';
 
 const federationMocks = vi.hoisted(() => ({
   preloadFederatedModule: vi.fn<(appId: string, component: string, devPort: number | undefined) => Promise<void>>(),
+  registerDynamicRemote: vi.fn<(appId: string, devPort: number | undefined) => void>(),
+  invalidateRemote: vi.fn<(appId: string) => void>(),
 }));
 
 vi.mock('@/lib/federation-registry', () => ({
   preloadFederatedModule: federationMocks.preloadFederatedModule,
+  registerDynamicRemote: federationMocks.registerDynamicRemote,
+  invalidateRemote: federationMocks.invalidateRemote,
 }));
 
-import { discoverAndRegisterApps, useAppStore } from './app';
+import { discoverAndRegisterApps, handlePluginChange, useAppStore } from './app';
 
 function createManifest(
   id: string,
@@ -32,6 +36,7 @@ function createManifest(
     component,
     devPort,
     packagePath: `/tmp/${id}`,
+    isPlugin: false,
   };
 }
 
@@ -41,9 +46,20 @@ describe('discoverAndRegisterApps', () => {
 
   beforeEach(() => {
     federationMocks.preloadFederatedModule.mockResolvedValue();
+    federationMocks.registerDynamicRemote.mockReset();
+    federationMocks.invalidateRemote.mockReset();
     discover.mockReset();
     (window as Window & { sero: any }).sero = {
-      apps: { discover },
+      apps: {
+        discover,
+        onNewAppDetected: vi.fn(() => () => {}),
+      },
+      plugins: {
+        onChanged: vi.fn(() => () => {}),
+      },
+      layout: {
+        save: vi.fn().mockResolvedValue(undefined),
+      },
     };
 
     useAppStore.setState({
@@ -51,6 +67,7 @@ describe('discoverAndRegisterApps', () => {
       activeApp: 'research',
       favouriteApps: ['todo', 'notes'],
       appsReady: false,
+      pendingApp: null,
     }, true);
   });
 
@@ -74,5 +91,41 @@ describe('discoverAndRegisterApps', () => {
       federationMocks.preloadFederatedModule.mock.calls.map(([appId]) => appId).sort(),
     ).toEqual(['notes', 'research', 'todo']);
     expect(useAppStore.getState().appsReady).toBe(true);
+  });
+
+  it('falls back to coding and drops missing favourites when discovered apps change', async () => {
+    discover.mockResolvedValue([
+      createManifest('notes', 'NotesApp', 4102),
+    ]);
+
+    await discoverAndRegisterApps();
+
+    expect(useAppStore.getState().activeApp).toBe('coding');
+    expect(useAppStore.getState().favouriteApps).toEqual(['notes']);
+  });
+
+  it('hot-refreshes runtime remotes after plugin install and uninstall events', async () => {
+    const installEvent: PluginChangeEvent = {
+      type: 'installed',
+      manifest: createManifest('todo', 'TodoApp', 4101),
+    };
+
+    discover
+      .mockResolvedValueOnce([installEvent.manifest])
+      .mockResolvedValueOnce([]);
+
+    await handlePluginChange(installEvent);
+
+    expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
+    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith('todo', 4101);
+    expect(
+      federationMocks.invalidateRemote.mock.invocationCallOrder[0],
+    ).toBeLessThan(federationMocks.registerDynamicRemote.mock.invocationCallOrder[0]);
+    expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(true);
+
+    await handlePluginChange({ type: 'uninstalled', pluginId: 'todo' });
+
+    expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
+    expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(false);
   });
 });

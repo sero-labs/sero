@@ -14,6 +14,8 @@ import { formatDate } from '../lib/format';
 
 // ── Types ──────────────────────────────────────────────────
 
+import type { InstalledPlugin } from '@sero/common';
+
 export interface SeroApi {
   appState: {
     read(filePath: string): Promise<unknown>;
@@ -32,6 +34,13 @@ export interface SeroApi {
   };
   shell: {
     showItemInFolder(path: string): Promise<void>;
+  };
+  plugins: {
+    list(): Promise<InstalledPlugin[]>;
+    install(source: string): Promise<{ id: string; name: string }>;
+    uninstall(pluginId: string): Promise<void>;
+    /** Callback receives the raw IPC event; hook only uses it as a reload signal. */
+    onChanged(callback: (event: unknown) => void): () => void;
   };
   skills: {
     listAvailableSkills(): Promise<AvailableSkillInfo[]>;

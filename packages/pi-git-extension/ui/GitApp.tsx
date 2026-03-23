@@ -3,11 +3,11 @@
  *
  * A GitKraken-inspired interface with a visual commit graph,
  * branch panel, staging area, and diff viewer. Uses useAppState
- * from @sero/app-runtime for file-backed reactive state.
+ * from @sero-ai/app-runtime for file-backed reactive state.
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { getSeroApi, useAppInfo, useAppState } from '@sero/app-runtime';
+import { getSeroApi, useAppInfo, useAppState } from '@sero-ai/app-runtime';
 
 import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
 import { DEFAULT_GIT_STATE } from '../shared/types';

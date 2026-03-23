@@ -1,7 +1,7 @@
 {
   "name": "@sero/desktop",
   "version": "0.1.0",
-  "description": "Zero context switch, zero sprawl — an agent-first workspace for macOS",
+  "description": "Zero context switch, zero sprawl - an agent-first workspace for macOS",
   "main": "dist/electron/main.mjs",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
@@ -69,7 +69,8 @@
     "@electron/rebuild": "^4.0.3",
     "@emotion/is-prop-valid": "^1.4.0",
     "@playwright/test": "^1.58.2",
-    "@sero/app-runtime": "workspace:*",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero/common": "workspace:*",
     "@sero/ui": "workspace:*",
     "@types/diff": "^8.0.0",
     "@types/node": "catalog:",

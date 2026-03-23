@@ -1,7 +1,7 @@
 // ui/TetrisApp.tsx — Main Tetris component with HD particle effects
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import type { TetrisState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { useGame, type ParticleEvent } from './game/useGame';

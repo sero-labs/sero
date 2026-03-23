@@ -3,7 +3,7 @@
  * sessions, and launching the agent.
  *
  * These APIs live on `window.sero` (exposed by the Electron preload)
- * but aren't part of @sero/app-runtime — they're shell-level APIs.
+ * but aren't part of @sero-ai/app-runtime — they're shell-level APIs.
  *
  * NOTE: The types below are duplicated from the host app because
  * federated remotes can't import host-only modules directly.

@@ -29,6 +29,7 @@ function createManifest(id: string, name: string): SeroAppManifest {
     component: `${name}App`,
     devPort: 4100,
     packagePath: `/tmp/${id}`,
+    isPlugin: false,
   };
 }
 

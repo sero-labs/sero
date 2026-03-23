@@ -37,7 +37,7 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
-    "@sero/app-runtime": "workspace:*",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@vitejs/plugin-react": "catalog:",

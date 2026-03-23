@@ -1,5 +1,5 @@
 /**
- * @sero/app-runtime — hooks for Sero federated app modules.
+ * @sero-ai/app-runtime — hooks for Sero federated app modules.
  *
  * Shared via module federation so every app gets the host's singleton.
  * Hooks communicate with the Electron main process via window.sero IPC.

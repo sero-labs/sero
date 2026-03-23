@@ -1,7 +1,7 @@
 {
   "name": "@sero/google",
   "version": "0.1.0",
-  "description": "Google Workspace app for Sero — Gmail & Calendar with gogcli",
+  "description": "Google Workspace app for Sero - Gmail & Calendar with gogcli",
   "keywords": [
     "pi-package"
   ],
@@ -37,7 +37,7 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
-    "@sero/app-runtime": "workspace:*",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@types/node": "catalog:",

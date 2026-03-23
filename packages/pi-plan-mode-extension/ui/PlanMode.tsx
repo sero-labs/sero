@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { useAppState, useAgentPrompt } from '@sero/app-runtime';
+import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
 import type { PlanModeState, PlanStep, PlanMode as Mode } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { PlanHistory } from './PlanHistory';

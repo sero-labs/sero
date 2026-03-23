@@ -31,7 +31,7 @@ export default defineConfig({
     origin: 'http://localhost:5190',
   },
   optimizeDeps: {
-    exclude: ['@sero/app-runtime'],
+    exclude: ['@sero-ai/app-runtime'],
     include: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client'],
   },
   build: {

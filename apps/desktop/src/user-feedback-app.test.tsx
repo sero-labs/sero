@@ -12,7 +12,7 @@ const appRuntimeMocks = vi.hoisted(() => ({
   updateState: vi.fn(),
 }));
 
-vi.mock('@sero/app-runtime', () => ({
+vi.mock('@sero-ai/app-runtime', () => ({
   useAppState: () => [{}, appRuntimeMocks.updateState],
 }));
 

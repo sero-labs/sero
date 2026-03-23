@@ -1,4 +1,4 @@
-import { useAppState, useAgentPrompt } from '@sero/app-runtime';
+import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SpotifyAppState } from '../../shared/types';

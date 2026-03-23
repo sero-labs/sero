@@ -13,6 +13,7 @@ import { registerHelpCliCommand } from './help';
 import { CliRegistry } from './registry';
 import { bridgeCommand, bridgeTool } from './schema-bridge';
 import { createSeroCliTool } from './tool';
+import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../plugins/bridge-policy';
 
 let registry: CliRegistry | null = null;
 
@@ -45,12 +46,7 @@ export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
 // ── Extension tool → CLI bridge ─────────────────────────────
 
 /**
- * Tools to migrate from agent context into CLI commands.
- * Add a tool name here to move it from the agent's tool list into
- * the `sero-cli` help — zero per-tool code needed.
- */
-/**
- * Extension tools to collapse into the single `sero-cli` tool.
+ * Core tools to always bridge into the single `sero-cli` tool.
  * Every app/extension tool should be listed here — only core coding
  * tools (bash, read, write, edit, browser) and tools that depend on
  * SDK internals (ctx.sessionManager) remain as standalone tools.
@@ -58,7 +54,7 @@ export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
  * DO NOT bridge tools that use ctx.sessionManager, ctx.getContextUsage,
  * or other SDK context — the CLI bridge only passes { cwd }.
  */
-const TOOLS_TO_BRIDGE = new Set([
+const CORE_TOOLS_TO_BRIDGE = new Set([
   // Data & productivity
   'todo',
   'notes',
@@ -97,6 +93,28 @@ const TOOLS_TO_BRIDGE = new Set([
 ]);
 
 /**
+ * Check whether a tool should be bridged to CLI.
+ *
+ * Core built-in tools still use the static allowlist above. Plugins are
+ * manifest-driven: any extension loaded from a package with `sero.plugin`
+ * opts into bridging via `sero.plugin.bridgeTools`.
+ *
+ * - `undefined` / `true` → bridge all tools from that plugin extension
+ * - `false`              → bridge none
+ * - `string[]`           → bridge only the listed tool names
+ */
+function shouldBridgeTool(name: string, extensionPath: string): boolean {
+  if (CORE_TOOLS_TO_BRIDGE.has(name)) return true;
+
+  const pluginPolicy = getPluginBridgePolicy(extensionPath);
+  if (!pluginPolicy) return false;
+
+  return pluginPolicy.bridgeAll || pluginPolicy.toolNames.has(name);
+}
+
+export { clearPluginBridgePolicyCache };
+
+/**
  * Sero built-in commands (registered by the sero extension factory).
  * These are NOT bridged to CLI — they either already have CLI equivalents
  * or are pure UI/session management that the agent shouldn't invoke.
@@ -112,8 +130,8 @@ const BUILTIN_COMMANDS = new Set([
  * `extensionsOverride` callback for DefaultResourceLoader.
  *
  * After all extensions load:
- * 1. Finds tools listed in TOOLS_TO_BRIDGE, wraps each into a CLI
- *    command, and removes it from the extension tool list.
+ * 1. Finds tools allowed by the core allowlist or plugin manifest policy,
+ *    wraps each into a CLI command, and removes it from the extension tool list.
  * 2. Finds extension commands (slash commands) NOT in BUILTIN_COMMANDS,
  *    wraps each into a CLI command so the agent can invoke them.
  *    Commands stay registered in extensions (user can still type /plan).
@@ -124,7 +142,7 @@ export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensions
   for (const ext of base.extensions) {
     // Bridge tools → CLI (removes from agent tool list)
     for (const [name, registered] of [...ext.tools]) {
-      if (!TOOLS_TO_BRIDGE.has(name)) continue;
+      if (!shouldBridgeTool(name, ext.resolvedPath)) continue;
       if (reg.get(name)) {
         ext.tools.delete(name);
         continue;

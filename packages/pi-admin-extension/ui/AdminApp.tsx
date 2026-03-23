@@ -1,9 +1,10 @@
 /**
  * AdminApp — main Sero Admin app component.
  *
- * Four-tab interface:
+ * Five-tab interface:
  *  - Config: browse and edit Sero configuration files
  *  - Skills: control which skills stay visible to the model by default
+ *  - Plugins: install and remove optional Sero plugins
  *  - Logs: view Sero log files with auto-refresh
  *  - Sessions: browse session data (CSS content-visibility skip)
  *
@@ -12,7 +13,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import { cn } from '@sero/ui/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero/ui/components/ui/tabs';
 import type { AdminState, AdminTab } from '../shared/types';
@@ -21,6 +22,7 @@ import { useProfiles } from './hooks/useSeroFiles';
 import { Header } from './components/Header';
 import { ConfigPanel } from './components/ConfigPanel';
 import { SkillsPanel } from './components/SkillsPanel';
+import { PluginsPanel } from './components/PluginsPanel';
 import { LogViewer } from './components/LogViewer';
 import { SessionBrowser } from './components/SessionBrowser';
 import './styles.css';
@@ -104,6 +106,18 @@ export function AdminApp() {
               </span>
             </TabsTrigger>
             <TabsTrigger
+              value="plugins"
+              className={cn(
+                'h-8 rounded-none px-3 text-xs',
+                activeTab === 'plugins' && 'text-violet-400',
+              )}
+            >
+              <span className="flex items-center gap-1.5">
+                <PluginIcon />
+                Plugins
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
               value="logs"
               className={cn(
                 'h-8 rounded-none px-3 text-xs',
@@ -144,6 +158,10 @@ export function AdminApp() {
           <SkillsPanel profilePath={profilePath} />
         </TabsContent>
 
+        <TabsContent value="plugins" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <PluginsPanel />
+        </TabsContent>
+
         <TabsContent value="logs" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <LogViewer />
         </TabsContent>
@@ -178,6 +196,16 @@ function SkillsIcon() {
       <path d="M12 2v20" />
       <path d="M7 8.5h6a3.5 3.5 0 1 0 0-7H9" />
       <path d="M7 15.5h8a3.5 3.5 0 1 1 0 7H9" />
+    </svg>
+  );
+}
+
+function PluginIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <path d="M12 22V12" />
+      <path d="m3.27 6.96 8.73 5.05 8.73-5.05" />
     </svg>
   );
 }

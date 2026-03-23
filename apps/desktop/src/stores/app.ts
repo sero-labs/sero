@@ -1,7 +1,11 @@
 import { create } from 'zustand';
-import type { SeroAppManifest } from '@/types/ipc';
+import type { PluginChangeEvent, SeroAppManifest } from '@/types/ipc';
 import { persistLayout } from '@/lib/persist-layout';
-import { preloadFederatedModule } from '@/lib/federation-registry';
+import {
+  invalidateRemote,
+  preloadFederatedModule,
+  registerDynamicRemote,
+} from '@/lib/federation-registry';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useThemeStore, hydrateThemeStore } from '@/stores/theme';
@@ -143,6 +147,39 @@ export function getPriorityPreloadApps(
 ): SeroAppManifest[] {
   const priorityIds = new Set([activeApp, ...favouriteApps]);
   return manifests.filter((manifest) => manifest.component && priorityIds.has(manifest.id));
+}
+
+function areStringArraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function reconcileDiscoveredApps(discovered: AppEntry[]): void {
+  const nextApps = [...BUILTIN_APPS, ...discovered];
+  const { activeApp, pendingApp, favouriteApps } = useAppStore.getState();
+  const validIds = new Set(nextApps.map((app) => app.id));
+
+  const nextActiveApp = validIds.has(activeApp) ? activeApp : 'coding';
+  const nextPendingApp = pendingApp && validIds.has(pendingApp) ? pendingApp : null;
+  const nextFavouriteApps = favouriteApps.filter((id) => validIds.has(id) && !BUILTIN_APP_IDS.has(id));
+
+  useAppStore.setState({
+    apps: nextApps,
+    activeApp: nextActiveApp,
+    pendingApp: nextPendingApp,
+    favouriteApps: nextFavouriteApps,
+  });
+
+  if (nextActiveApp !== activeApp) {
+    persistLayout({ activeApp: nextActiveApp });
+  }
+
+  if (!areStringArraysEqual(nextFavouriteApps, favouriteApps)) {
+    persistLayout({ favouriteApps: nextFavouriteApps });
+  }
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -313,8 +350,9 @@ export async function discoverAndRegisterApps(): Promise<void> {
     const manifests = await window.sero.apps.discover();
     const discovered = manifests.map(manifestToEntry);
 
-    // Register app entries immediately (needed for sidebar rendering)
-    useAppStore.setState({ apps: [...BUILTIN_APPS, ...discovered] });
+    // Register app entries immediately (needed for sidebar rendering) and
+    // reconcile favourites / active app if a plugin was removed.
+    reconcileDiscoveredApps(discovered);
 
     // Only preload the active app + favourites — not all 20+ apps.
     // Other apps load on-demand inside a React transition (no flicker).
@@ -341,13 +379,38 @@ export async function discoverAndRegisterApps(): Promise<void> {
   }
 }
 
+/** Apply a plugin install/uninstall event to the runtime app registry. */
+export async function handlePluginChange(event: PluginChangeEvent): Promise<void> {
+  if (event.type === 'installed') {
+    console.log(`[app-store] Plugin installed: ${event.manifest.name} (${event.manifest.id})`);
+    invalidateRemote(event.manifest.id);
+    registerDynamicRemote(event.manifest.id, event.manifest.devPort);
+  } else {
+    console.log(`[app-store] Plugin uninstalled: ${event.pluginId}`);
+    invalidateRemote(event.pluginId);
+  }
+
+  await discoverAndRegisterApps();
+}
+
 /**
  * Listen for new app packages detected by the main process.
  * Call once on startup. Returns an unsubscribe function.
  */
 export function listenForNewApps(): () => void {
-  return window.sero.apps.onNewAppDetected((appName: string) => {
+  const unsubscribeApps = window.sero.apps.onNewAppDetected((appName: string) => {
     console.log(`[app-store] New app detected: ${appName}`);
     useAppStore.setState({ pendingNewApp: appName });
   });
+
+  const unsubscribePlugins = window.sero.plugins.onChanged((event) => {
+    void handlePluginChange(event).catch((err) => {
+      console.warn('[app-store] Failed to apply plugin change:', err);
+    });
+  });
+
+  return () => {
+    unsubscribeApps();
+    unsubscribePlugins();
+  };
 }

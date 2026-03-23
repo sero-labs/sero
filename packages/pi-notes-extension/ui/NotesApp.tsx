@@ -2,12 +2,12 @@
  * NotesApp — Sero web UI for the notes extension.
  *
  * Two-panel layout: note list (left) + note editor (right).
- * Uses useAppState from @sero/app-runtime to read/write the same
+ * Uses useAppState from @sero-ai/app-runtime to read/write the same
  * state.json file the Pi extension writes.
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import type { NotesState, Note } from '../shared/types';
 import { DEFAULT_NOTES_STATE } from '../shared/types';
 import { NOTES_STYLES } from './styles';
