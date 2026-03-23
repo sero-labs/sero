@@ -354,14 +354,14 @@ importers:
   packages/app-runtime:
     dependencies:
       react:
-        specifier: catalog:peer
+        specifier: '>=19.0.0'
         version: 19.2.4
     devDependencies:
       '@types/react':
-        specifier: 'catalog:'
+        specifier: ^19.2.13
         version: 19.2.14
       typescript:
-        specifier: 'catalog:'
+        specifier: ^5.9.3
         version: 5.9.3
 
   packages/pi-admin-extension:

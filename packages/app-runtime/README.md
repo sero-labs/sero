@@ -18,11 +18,9 @@ Inside the Sero monorepo, workspace packages consume the source entrypoint.
 
 ## Publishing
 
-Build the npm artifact from the monorepo package directory:
+This package intentionally publishes its TypeScript source directly.
 
 ```bash
 cd packages/app-runtime
-pnpm run build:npm
-cd dist/npm
 npm publish --access public
 ```
