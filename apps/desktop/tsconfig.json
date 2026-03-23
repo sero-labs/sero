@@ -17,6 +17,7 @@
       "@/*": ["src/*"],
       "@electron/*": ["electron/*"],
       "@sero-ai/app-runtime": ["../../packages/app-runtime/src/index.ts"],
+      "@sero/common": ["../../packages/common/src/index.ts"],
       "@sero/ui": ["../../packages/ui/src/index.ts"],
       "@sero/ui/*": ["../../packages/ui/src/*"]
     }

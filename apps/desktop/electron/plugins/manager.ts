@@ -33,7 +33,17 @@ const PLUGIN_STAGING_DIR = path.join(SERO_AGENT_DIR, '.plugin-staging');
 /** Path to the settings.json file. */
 const SETTINGS_PATH = path.join(SERO_AGENT_DIR, 'settings.json');
 
-// ── Helpers ─────────────────────────────────────────────────
+/** Sidecar filename persisted alongside installed plugins. */
+const PLUGIN_META_FILENAME = '.sero-plugin-meta.json';
+
+// ── Install serialisation ───────────────────────────────────
+// Serialise all installs to prevent races when two installs target
+// the same plugin ID (concurrent reserveInstallPath would corrupt
+// each other's backup). Each call chains onto the previous one.
+
+let installLock: Promise<void> = Promise.resolve();
+
+// ── Types ───────────────────────────────────────────────────
 
 interface PkgJson {
   name?: string;
@@ -79,6 +89,16 @@ interface ReservedInstallPath {
   backupDir: string | null;
 }
 
+/** Persisted alongside each installed plugin to preserve install provenance. */
+interface PluginInstallMeta {
+  /** Original source string passed to installPlugin(). */
+  installedFrom: string;
+  /** ISO 8601 timestamp. */
+  installedAt: string;
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+
 function readPkgJsonSync(dir: string): PkgJson | null {
   try {
     return JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')) as PkgJson;
@@ -87,10 +107,28 @@ function readPkgJsonSync(dir: string): PkgJson | null {
   }
 }
 
+function readPluginMeta(pluginDir: string): PluginInstallMeta | null {
+  try {
+    const raw = readFileSync(path.join(pluginDir, PLUGIN_META_FILENAME), 'utf8');
+    return JSON.parse(raw) as PluginInstallMeta;
+  } catch {
+    return null;
+  }
+}
+
+function writePluginMeta(pluginDir: string, meta: PluginInstallMeta): void {
+  writeFileSync(
+    path.join(pluginDir, PLUGIN_META_FILENAME),
+    JSON.stringify(meta, null, 2) + '\n',
+  );
+}
+
 function validatePluginPackage(pkg: PkgJson | null): ValidatedPluginPackage {
   const app = pkg?.sero?.app;
   if (!app?.id || !app.name) {
-    throw new Error('Invalid plugin: missing required sero.app.id or sero.app.name in package.json');
+    throw new Error(
+      'Invalid plugin: missing required sero.app.id or sero.app.name in package.json',
+    );
   }
 
   return {
@@ -127,13 +165,15 @@ function writeSettings(settings: Record<string, unknown>): void {
 }
 
 function getPackagesArray(settings: Record<string, unknown>): SettingsPackageSource[] {
-  return Array.isArray(settings.packages) ? settings.packages as SettingsPackageSource[] : [];
+  return Array.isArray(settings.packages)
+    ? (settings.packages as SettingsPackageSource[])
+    : [];
 }
 
 function manifestToInstalledPlugin(
   pkg: PkgJson,
   packagePath: string,
-  source: string,
+  meta: PluginInstallMeta | null,
 ): InstalledPlugin {
   const app = pkg.sero?.app;
   const plugin = pkg.sero?.plugin;
@@ -145,7 +185,8 @@ function manifestToInstalledPlugin(
     icon: app?.icon ?? 'box',
     category: plugin?.category ?? 'utilities',
     tags: plugin?.tags ?? [],
-    source,
+    source: meta?.installedFrom ?? packagePath,
+    installedAt: meta?.installedAt ?? null,
     packagePath,
     hasUI: Boolean(app?.ui && app?.component),
   };
@@ -166,7 +207,7 @@ async function cleanupDir(dirPath: string | null): Promise<void> {
 }
 
 async function runCommand(command: string, args: string[], cwd: string): Promise<string> {
-  const result = await execFile(command, args, { cwd, encoding: 'utf8' }) as {
+  const result = (await execFile(command, args, { cwd, encoding: 'utf8' })) as {
     stdout: string;
     stderr: string;
   };
@@ -190,7 +231,8 @@ async function reserveInstallPath(pluginId: string): Promise<ReservedInstallPath
 // ── Public API ──────────────────────────────────────────────
 
 /**
- * Install a plugin from a source.
+ * Install a plugin from a source. Serialised — only one install runs
+ * at a time to prevent races on backup/restore for the same plugin ID.
  *
  * Supported source formats:
  * - Local path: `/absolute/path/to/package`
@@ -199,7 +241,23 @@ async function reserveInstallPath(pluginId: string): Promise<ReservedInstallPath
  *
  * Returns the installed app manifest for immediate registration.
  */
-export async function installPlugin(source: string): Promise<SeroAppManifest> {
+export function installPlugin(source: string): Promise<SeroAppManifest> {
+  const previousLock = installLock;
+  let releaseLock!: () => void;
+  installLock = new Promise((resolve) => {
+    releaseLock = resolve;
+  });
+
+  return previousLock.then(async () => {
+    try {
+      return await doInstallPlugin(source);
+    } finally {
+      releaseLock();
+    }
+  });
+}
+
+async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
   mkdirSync(PLUGINS_DIR, { recursive: true });
 
   let staged: StagedPluginInstall | null = null;
@@ -223,6 +281,12 @@ export async function installPlugin(source: string): Promise<SeroAppManifest> {
 
     const validated = validatePluginPackage(readPkgJsonSync(staged.stageDir));
     assertPreparedUiExists(staged.stageDir, validated.app);
+
+    // Persist install provenance metadata before moving to final location.
+    writePluginMeta(staged.stageDir, {
+      installedFrom: source,
+      installedAt: new Date().toISOString(),
+    });
 
     reserved = await reserveInstallPath(validated.app.id);
     const installPath = reserved.installPath;
@@ -274,15 +338,11 @@ export async function installPlugin(source: string): Promise<SeroAppManifest> {
 export async function uninstallPlugin(pluginId: string): Promise<void> {
   const pluginPath = resolvePluginInstallDir(PLUGINS_DIR, pluginId);
 
-  // Verify it's actually in the plugins dir (not a monorepo package)
   if (!existsSync(pluginPath)) {
     throw new Error(`Plugin not found: ${pluginId}`);
   }
 
-  // Remove from disk
   await fs.rm(pluginPath, { recursive: true, force: true });
-
-  // Remove from settings.json
   removeFromSettings(pluginPath);
   clearAppManifestCache();
   clearPluginBridgePolicyCache();
@@ -301,7 +361,8 @@ export async function listInstalledPlugins(): Promise<InstalledPlugin[]> {
       const pkgPath = path.join(PLUGINS_DIR, entry.name);
       const pkg = readPkgJsonSync(pkgPath);
       if (pkg?.sero?.app) {
-        results.push(manifestToInstalledPlugin(pkg, pkgPath, pkgPath));
+        const meta = readPluginMeta(pkgPath);
+        results.push(manifestToInstalledPlugin(pkg, pkgPath, meta));
       }
     }
   } catch {
@@ -353,11 +414,7 @@ async function installFromNpm(spec: string): Promise<StagedPluginInstall> {
     const stageDir = path.join(extractDir, 'package');
     const validated = validatePluginPackage(readPkgJsonSync(stageDir));
 
-    return {
-      pluginId: validated.app.id,
-      stageDir,
-      tempRoot,
-    };
+    return { pluginId: validated.app.id, stageDir, tempRoot };
   } catch (err) {
     await cleanupDir(tempRoot);
     throw err;
@@ -374,17 +431,10 @@ async function installFromGit(url: string): Promise<StagedPluginInstall> {
 
   try {
     await runCommand('git', ['clone', '--depth', '1', '--', url, stageDir], tempRoot);
-
     const validated = validatePluginPackage(readPkgJsonSync(stageDir));
-
-    // Remove .git to save space
     await fs.rm(path.join(stageDir, '.git'), { recursive: true, force: true });
 
-    return {
-      pluginId: validated.app.id,
-      stageDir,
-      tempRoot,
-    };
+    return { pluginId: validated.app.id, stageDir, tempRoot };
   } catch (err) {
     await cleanupDir(tempRoot);
     throw err;
@@ -403,11 +453,7 @@ async function installFromLocal(source: string): Promise<StagedPluginInstall> {
 
   try {
     await fs.cp(resolved, stageDir, { recursive: true });
-    return {
-      pluginId: validated.app.id,
-      stageDir,
-      tempRoot,
-    };
+    return { pluginId: validated.app.id, stageDir, tempRoot };
   } catch (err) {
     await cleanupDir(tempRoot);
     throw err;
@@ -420,7 +466,6 @@ function addToSettings(packagePath: string): boolean {
   const settings = readSettings();
   const packages = getPackagesArray(settings);
 
-  // Check if already registered
   const exists = packages.some((entry) => {
     const src = typeof entry === 'string' ? entry : entry.source;
     return src === packagePath;

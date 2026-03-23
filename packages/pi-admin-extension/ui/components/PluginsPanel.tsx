@@ -4,7 +4,8 @@ import { Button } from '@sero/ui/components/ui/button';
 import { Input } from '@sero/ui/components/ui/input';
 import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
 import { cn } from '@sero/ui/lib/utils';
-import { usePlugins, type InstalledPluginInfo } from '../hooks/usePlugins';
+import type { InstalledPlugin } from '@sero/common';
+import { usePlugins } from '../hooks/usePlugins';
 
 const INSTALL_EXAMPLES = [
   {
@@ -148,7 +149,7 @@ function PluginCard({
   onReveal,
   onUninstall,
 }: {
-  plugin: InstalledPluginInfo;
+  plugin: InstalledPlugin;
   uninstalling: boolean;
   onReveal: () => void;
   onUninstall: () => void;

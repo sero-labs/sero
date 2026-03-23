@@ -70,6 +70,7 @@
     "@emotion/is-prop-valid": "^1.4.0",
     "@playwright/test": "^1.58.2",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero/common": "workspace:*",
     "@sero/ui": "workspace:*",
     "@types/diff": "^8.0.0",
     "@types/node": "catalog:",

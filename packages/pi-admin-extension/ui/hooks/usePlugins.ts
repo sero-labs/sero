@@ -1,29 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { InstalledPlugin } from '@sero/common';
 import { getSero } from './useSeroFiles';
 
-export interface InstalledPluginInfo {
-  id: string;
-  name: string;
-  description: string | null;
-  version: string | null;
-  icon: string;
-  category: string;
-  tags: string[];
-  source: string;
-  packagePath: string;
-  hasUI: boolean;
-}
-
-interface PluginChangeEvent {
-  type: 'installed' | 'uninstalled';
-}
-
-function sortPlugins(plugins: InstalledPluginInfo[]): InstalledPluginInfo[] {
+function sortPlugins(plugins: InstalledPlugin[]): InstalledPlugin[] {
   return [...plugins].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function usePlugins() {
-  const [plugins, setPlugins] = useState<InstalledPluginInfo[]>([]);
+  const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
@@ -42,10 +26,13 @@ export function usePlugins() {
     }
   }, []);
 
+  // Initial fetch + IPC subscription for live updates.
+  // useEffect is acceptable here: subscribing to an external IPC source
+  // that requires setup/teardown — no Zustand equivalent in a federated remote.
   useEffect(() => {
     void reload();
 
-    return getSero().plugins.onChanged((_event: PluginChangeEvent) => {
+    return getSero().plugins.onChanged(() => {
       void reload();
     });
   }, [reload]);

@@ -87,14 +87,12 @@ export function pluginNeedsBuild(pkg: PluginPackageJson, packageDir: string): bo
 export function stripInstalledOnlyManifestFields(pkg: PluginPackageJson): PluginPackageJson {
   if (!pkg.sero?.app?.devPort) return pkg;
 
+  const { devPort: _, ...appWithoutDevPort } = pkg.sero.app;
   return {
     ...pkg,
     sero: {
       ...pkg.sero,
-      app: {
-        ...pkg.sero.app,
-        devPort: undefined,
-      },
+      app: appWithoutDevPort,
     },
   };
 }

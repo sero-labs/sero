@@ -77,21 +77,17 @@ describe('plugin package build helpers', () => {
   });
 
   it('removes devPort from installed plugin manifests', () => {
-    expect(stripInstalledOnlyManifestFields({
+    const result = stripInstalledOnlyManifestFields({
       sero: {
         app: {
           ui: './dist/ui/remoteEntry.js',
           devPort: 5174,
         },
       },
-    })).toEqual({
-      sero: {
-        app: {
-          ui: './dist/ui/remoteEntry.js',
-          devPort: undefined,
-        },
-      },
     });
+
+    expect(result.sero?.app?.ui).toBe('./dist/ui/remoteEntry.js');
+    expect(result.sero?.app).not.toHaveProperty('devPort');
   });
 
   it('builds git source plugins locally before install', async () => {

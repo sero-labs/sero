@@ -27,4 +27,10 @@ describe('plugin security helpers', () => {
       /escapes the plugins directory/,
     );
   });
+
+  it('rejects the plugins directory itself as a target', () => {
+    expect(() => ensurePathInsideDir('/tmp/sero/packages', '/tmp/sero/packages')).toThrow(
+      /plugins directory itself/,
+    );
+  });
 });

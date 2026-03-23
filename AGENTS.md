@@ -354,6 +354,7 @@ project owner. Do not introduce them under any circumstances.
 - When asked to create a PR, use the Github CLI
 - Use Conventional Commit-style messages for all git commits and PR titles
 - When reviewing a PR, always make sure there's good type safety
+- Don't use the 'visual explainer' skill when reviewing a PR unless asked
 - Don't delete comments unless they are obvious or no longer relevant - they offer important context unfamiliar users
 - **Prefer `useDebouncedCallback` / `createDebouncedFn`** from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns. When you encounter an existing hand-rolled debounce, refactor it to use these helpers.
 - **HTML files can be previewed in-app.** The editor supports rendering

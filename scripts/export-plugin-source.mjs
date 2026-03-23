@@ -44,15 +44,7 @@ function resolveCatalogReference(name, version, catalogs) {
   return version;
 }
 
-function toFileSpec(fromRelativeDir, toRelativeDir) {
-  const fromDir = path.join(outputDir, fromRelativeDir);
-  const targetDir = path.join(outputDir, toRelativeDir);
-  let relativePath = toPosix(path.relative(fromDir, targetDir));
-  if (!relativePath.startsWith('.')) {
-    relativePath = `./${relativePath}`;
-  }
-  return `file:${relativePath}`;
-}
+// toFileSpec is defined after outputDir below — it depends on the module-scoped outputDir.
 
 async function loadWorkspaceCatalogs() {
   const raw = await fs.readFile(workspaceYamlPath, 'utf8');
@@ -226,6 +218,17 @@ const workspacePackages = await loadWorkspacePackageMap();
 const outputDir = path.join(packageDir, 'dist', 'plugin-source');
 const publishedWorkspacePackages = new Map();
 const vendoredPackages = new Map();
+
+/** Build a file: dependency specifier relative between two dirs inside outputDir. */
+function toFileSpec(fromRelativeDir, toRelativeDir) {
+  const fromDir = path.join(outputDir, fromRelativeDir);
+  const targetDir = path.join(outputDir, toRelativeDir);
+  let relativePath = toPosix(path.relative(fromDir, targetDir));
+  if (!relativePath.startsWith('.')) {
+    relativePath = `./${relativePath}`;
+  }
+  return `file:${relativePath}`;
+}
 
 async function ensureWorkspaceDependencyPrepared(workspaceDependency) {
   if (

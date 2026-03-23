@@ -232,6 +232,9 @@ importers:
       '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../../packages/app-runtime
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@sero/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -364,6 +367,12 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/common:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/pi-admin-extension:
     dependencies:
       '@mariozechner/pi-ai':
@@ -388,6 +397,9 @@ importers:
       '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../common
       '@sero/ui':
         specifier: workspace:*
         version: link:../ui

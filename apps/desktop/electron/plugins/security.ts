@@ -18,11 +18,12 @@ export function ensurePathInsideDir(parentDir: string, targetPath: string): stri
   const resolvedParent = path.resolve(parentDir);
   const resolvedTarget = path.resolve(targetPath);
 
-  if (
-    resolvedTarget === resolvedParent ||
-    !resolvedTarget.startsWith(`${resolvedParent}${path.sep}`)
-  ) {
-    throw new Error(`Resolved plugin path escapes the plugins directory: ${resolvedTarget}`);
+  if (!resolvedTarget.startsWith(`${resolvedParent}${path.sep}`)) {
+    throw new Error(
+      resolvedTarget === resolvedParent
+        ? `Resolved plugin path is the plugins directory itself (missing id?): ${resolvedTarget}`
+        : `Resolved plugin path escapes the plugins directory: ${resolvedTarget}`,
+    );
   }
 
   return resolvedTarget;
