@@ -1,0 +1,45 @@
+SERO-003: Extract pi-calc-extension to Plugin — COMPLETE
+
+## Summary
+
+Extracted `packages/pi-calc-extension` from the Sero monorepo into a standalone
+plugin at `plugins/sero-calc-plugin` (`@sero-ai/plugin-calc`).
+
+## What Was Done
+
+1. **Scaffolded plugin repo** — Copied extension/, shared/, ui/ from monorepo source.
+   Inlined `cn` utility (clsx + tailwind-merge) to replace `@sero/ui` dependency.
+   Created standalone package.json, tsconfig files, and vite.config.ts.
+
+2. **Verified standalone build** — `npm install` (414 packages), `npm run build`
+   produces `dist/ui/remoteEntry.js` (75.84 kB) + `mf-manifest.json`,
+   `npm run typecheck` passes with zero errors.
+
+3. **Created README & Git repo** — README with install/usage/dev docs, .gitignore,
+   git init with clean initial commit (c5c2eae).
+
+4. **Updated extraction docs** — Added `@sero/ui` inlining step to
+   `docs/plan-plugin-extraction.md` §4.2 for future extractions.
+
+## Key Decisions
+
+- Inlined `cn` utility rather than publishing `@sero/ui` as a separate package
+- Used `clsx` + `tailwind-merge` as devDependencies (same as monorepo implementation)
+- Followed `sero-todo-plugin-main` reference structure exactly
+
+## Artifacts
+
+- `plugins/sero-calc-plugin/` — Complete standalone plugin (15 files)
+- `docs/plan-plugin-extraction.md` — Updated §4.2 extraction process
+
+## Completion Criteria Verification
+
+- [x] Plugin builds standalone (`npm run build` succeeds)
+- [x] Plugin typechecks standalone (`npm run typecheck` passes)
+- [x] `dist/ui/remoteEntry.js` and `dist/ui/mf-manifest.json` exist
+- [x] Package name is `@sero-ai/plugin-calc`
+- [x] No `@sero/ui` imports remain — `cn` utility is inlined
+- [x] `@sero-ai/app-runtime` is `^0.1.0` in devDependencies
+- [x] `sero.plugin` metadata present
+- [x] Git repo initialized with clean initial commit
+- [x] `.DONE` created

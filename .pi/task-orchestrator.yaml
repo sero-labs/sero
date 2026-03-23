@@ -1,0 +1,46 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Parallel Task Orchestrator Configuration — sero
+# ═══════════════════════════════════════════════════════════════════════
+#
+# This file configures the /orch commands (task-orchestrator extension).
+# Edit freely — this file is owned by you, not the package.
+
+orchestrator:
+  max_lanes: 3
+  worktree_location: "subdirectory"
+  worktree_prefix: "sero-wt"
+  batch_id_format: "timestamp"
+  spawn_mode: "tmux"
+  tmux_prefix: "sero-orch"
+
+dependencies:
+  source: "prompt"
+  cache: true
+
+assignment:
+  strategy: "affinity-first"
+  size_weights:
+    S: 1
+    M: 2
+    L: 4
+
+pre_warm:
+  auto_detect: false
+  commands: {}
+  always: []
+
+merge:
+  model: ""
+  tools: "read,write,edit,bash,grep,find,ls"
+  verify: []
+  order: "fewest-files-first"
+
+failure:
+  on_task_failure: "skip-dependents"
+  on_merge_failure: "pause"
+  stall_timeout: 30
+  max_worker_minutes: 30
+  abort_grace_period: 60
+
+monitoring:
+  poll_interval: 5
