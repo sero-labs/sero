@@ -1,7 +1,7 @@
 {
   "name": "@sero/plan-mode",
   "version": "0.1.0",
-  "description": "Plan mode for Sero \u2014 read-only exploration with progress-tracked execution",
+  "description": "Plan mode for Sero - read-only exploration with progress-tracked execution",
   "keywords": [
     "pi-package"
   ],

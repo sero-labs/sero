@@ -1,7 +1,7 @@
 {
   "name": "@sero/git",
   "version": "0.1.0",
-  "description": "Git workspace manager for Sero \u2014 visual commit graph, branching, staging, and diffs",
+  "description": "Git workspace manager for Sero - visual commit graph, branching, staging, and diffs",
   "keywords": [
     "pi-package"
   ],

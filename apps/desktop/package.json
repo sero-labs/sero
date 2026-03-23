@@ -1,7 +1,7 @@
 {
   "name": "@sero/desktop",
   "version": "0.1.0",
-  "description": "Zero context switch, zero sprawl \u2014 an agent-first workspace for macOS",
+  "description": "Zero context switch, zero sprawl - an agent-first workspace for macOS",
   "main": "dist/electron/main.mjs",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",

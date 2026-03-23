@@ -1,7 +1,7 @@
 {
   "name": "@sero/user-feedback",
   "version": "0.1.0",
-  "description": "User feedback tools for Sero \u2014 question and questionnaire",
+  "description": "User feedback tools for Sero - question and questionnaire",
   "keywords": [
     "pi-package"
   ],

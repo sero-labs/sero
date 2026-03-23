@@ -1,7 +1,7 @@
 {
   "name": "@sero/context",
   "version": "0.1.0",
-  "description": "Context management app for Sero \u2014 visualise and manage agent context with git-like tools",
+  "description": "Context management app for Sero - visualise and manage agent context with git-like tools",
   "keywords": [
     "pi-package",
     "context-management",

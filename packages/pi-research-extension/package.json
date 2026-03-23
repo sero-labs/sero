@@ -1,7 +1,7 @@
 {
   "name": "@sero/research",
   "version": "0.1.0",
-  "description": "Multi-agent research orchestrator \u2014 decompose questions into parallel workstreams, monitor progress, and synthesize results",
+  "description": "Multi-agent research orchestrator - decompose questions into parallel workstreams, monitor progress, and synthesize results",
   "keywords": [
     "pi-package"
   ],

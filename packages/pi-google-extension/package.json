@@ -1,7 +1,7 @@
 {
   "name": "@sero/google",
   "version": "0.1.0",
-  "description": "Google Workspace app for Sero \u2014 Gmail & Calendar with gogcli",
+  "description": "Google Workspace app for Sero - Gmail & Calendar with gogcli",
   "keywords": [
     "pi-package"
   ],

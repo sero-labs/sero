@@ -1,7 +1,7 @@
 {
   "name": "@sero/cron",
   "version": "0.1.0",
-  "description": "Cron scheduler for Sero \u2014 schedule recurring agent prompts",
+  "description": "Cron scheduler for Sero - schedule recurring agent prompts",
   "keywords": [
     "pi-package"
   ],

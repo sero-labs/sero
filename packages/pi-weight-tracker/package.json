@@ -1,7 +1,7 @@
 {
   "name": "@sero/weight-tracker",
   "version": "0.1.0",
-  "description": "Weight tracker app for Sero \u2014 track progress, visualise trends, stay motivated",
+  "description": "Weight tracker app for Sero - track progress, visualise trends, stay motivated",
   "keywords": [
     "pi-package"
   ],

@@ -1,7 +1,7 @@
 {
   "name": "@sero/notes",
   "version": "0.1.0",
-  "description": "Note-taking app for Sero \u2014 Pi extension with web UI",
+  "description": "Note-taking app for Sero - Pi extension with web UI",
   "keywords": [
     "pi-package"
   ],

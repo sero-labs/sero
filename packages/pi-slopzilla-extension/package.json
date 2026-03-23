@@ -1,7 +1,7 @@
 {
   "name": "@sero/slopzilla",
   "version": "0.1.0",
-  "description": "SlopZilla \u2014 the kaiju-sized AI slop idea generator for Sero",
+  "description": "SlopZilla - the kaiju-sized AI slop idea generator for Sero",
   "keywords": [
     "pi-package"
   ],

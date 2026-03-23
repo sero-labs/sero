@@ -1,7 +1,7 @@
 {
   "name": "@sero/kanban",
   "version": "0.1.0",
-  "description": "Kanban dev board for Sero \u2014 AI-driven development workflow",
+  "description": "Kanban dev board for Sero - AI-driven development workflow",
   "keywords": [
     "pi-package"
   ],
