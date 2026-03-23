@@ -8,7 +8,7 @@
  */
 
 import { useSyncExternalStore } from 'react';
-import { getSeroApi } from '@sero/app-runtime';
+import { getSeroApi } from '@sero-ai/app-runtime';
 
 import { normalizeErrorLog, resolveErrorLogPath, summarizeErrorLog } from '../../shared/error-log';
 

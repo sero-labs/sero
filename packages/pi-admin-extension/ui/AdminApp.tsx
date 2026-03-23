@@ -13,7 +13,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import { cn } from '@sero/ui/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero/ui/components/ui/tabs';
 import type { AdminState, AdminTab } from '../shared/types';

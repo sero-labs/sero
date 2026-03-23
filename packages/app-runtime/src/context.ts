@@ -2,7 +2,7 @@
  * App context — provided by Sero's shell when mounting a federated app.
  *
  * Uses a globalThis singleton so the SAME context object is shared
- * between host and remote even if @sero/app-runtime is instantiated
+ * between host and remote even if @sero-ai/app-runtime is instantiated
  * multiple times (which happens in Vite dev mode with MF).
  */
 

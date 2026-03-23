@@ -8,7 +8,7 @@
 
 import { forwardRef, useState, useCallback, useRef, useEffect, useImperativeHandle } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useAI } from '@sero/app-runtime';
+import { useAI } from '@sero-ai/app-runtime';
 import type { Card, KanbanState } from '../../shared/types';
 
 const ENHANCE_PROMPT_PREFIX =

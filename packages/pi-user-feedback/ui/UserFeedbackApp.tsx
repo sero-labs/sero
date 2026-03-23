@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import { ClipboardList, MessageCircleQuestion, Mic, Loader2, Sparkles } from 'lucide-react';
 import { QuestionnaireForm } from './QuestionnaireForm';
 import { InterviewForm } from './InterviewForm';

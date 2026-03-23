@@ -16,7 +16,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import type { StarlingState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { encryptToken, decryptToken, hashPin, generatePinSalt } from './lib/crypto';

@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { useAppState, useAgentPrompt } from '@sero/app-runtime';
+import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
 import { Button } from '@sero/ui/components/ui/button';
 import { Card } from '@sero/ui/components/ui/card';
 import type { CronState, CronJob, Reminder, NotificationSettings } from '../shared/types';

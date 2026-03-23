@@ -31,8 +31,8 @@ describe('plugin package build helpers', () => {
   it('detects workspace and catalog dependency specs', () => {
     expect(findUnsupportedDependencySpec({
       dependencies: { react: '^19.1.1' },
-      devDependencies: { '@sero/app-runtime': 'workspace:*' },
-    })).toBe('devDependencies.@sero/app-runtime=workspace:*');
+      devDependencies: { '@sero-ai/app-runtime': 'workspace:*' },
+    })).toBe('devDependencies.@sero-ai/app-runtime=workspace:*');
 
     expect(findUnsupportedDependencySpec({
       dependencies: { '@sinclair/typebox': 'catalog:' },
@@ -159,7 +159,7 @@ describe('plugin package build helpers', () => {
         build: 'vite build',
       },
       devDependencies: {
-        '@sero/app-runtime': 'workspace:*',
+        '@sero-ai/app-runtime': 'workspace:*',
       },
       sero: {
         app: {

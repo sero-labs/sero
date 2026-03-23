@@ -338,7 +338,7 @@ Phase 1 (Foundation)        Phase 2 (Management)       Phase 3 (UI)          Pha
 | Plugin breaks Sero | Wrap plugin loading in error boundary; failed plugins show error card in sidebar instead of crashing |
 | npm registry dependency | Support local paths and git URLs as alternatives; offline-first with cached registry |
 | Plugin API surface changes | Version the `sero.app` manifest schema; plugins declare `minSeroVersion` |
-| `@sero/app-runtime` API changes | Treat as semver — breaking changes require major version bump; plugins declare compatible range |
+| `@sero-ai/app-runtime` API changes | Treat as semver — breaking changes require major version bump; plugins declare compatible range |
 
 ## Open Questions
 

@@ -172,7 +172,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      // NOTE: @sero/app-runtime is NOT aliased here — it resolves via pnpm
+      // NOTE: @sero-ai/app-runtime is NOT aliased here — it resolves via pnpm
       // workspace linking. An alias would conflict with Module Federation's
       // shared singleton mechanism (MF can't intercept aliased imports).
     },

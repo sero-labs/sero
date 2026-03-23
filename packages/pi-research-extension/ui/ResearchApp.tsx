@@ -5,8 +5,8 @@
  */
 
 import { useState, useCallback, useContext } from 'react';
-import { useAppState, useAgentPrompt } from '@sero/app-runtime';
-import { AppContext } from '@sero/app-runtime';
+import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
+import { AppContext } from '@sero-ai/app-runtime';
 import type { ResearchState, ResearchSession, ResearchAgent, AgentStatus } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { useResearchActivity, type AgentActivity } from './useResearchActivity';

@@ -1,7 +1,7 @@
 /**
  * KanbanApp — Sero web UI for the Kanban dev board.
  *
- * Uses useAppState from @sero/app-runtime to read/write the same
+ * Uses useAppState from @sero-ai/app-runtime to read/write the same
  * state.json file the Pi extension writes. Changes from either
  * direction are reflected instantly via file watching.
  *
@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useContext, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { AppContext, useAppState, useAgentPrompt } from '@sero/app-runtime';
+import { AppContext, useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
 import type { KanbanState, Card, Column, Priority } from '../shared/types';
 import {
   DEFAULT_KANBAN_STATE,

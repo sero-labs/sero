@@ -2,11 +2,11 @@
  * CalcApp — Premium dark calculator UI for Sero.
  *
  * Tailwind CSS + @sero/ui utilities for styling.
- * useAppState from @sero/app-runtime syncs with Pi extension via state.json.
+ * useAppState from @sero-ai/app-runtime syncs with Pi extension via state.json.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import { cn } from '@sero/ui/lib/utils';
 import type { CalcState, HistoryEntry } from '../shared/types';
 import { DEFAULT_CALC_STATE } from '../shared/types';

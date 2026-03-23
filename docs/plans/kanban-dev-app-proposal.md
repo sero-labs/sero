@@ -452,7 +452,7 @@ export interface KanbanState {
 | **KanbanOrchestrator** | State machine reacting to column transitions. ~300 LOC. |
 | **WorktreeManager** | `git worktree add/remove/list` per card. Provides cwd for card sessions. ~100 LOC. |
 | **`pi-kanban-extension`** | Standard Pi extension with `kanban` tool + `/kanban` command. ~200 LOC. |
-| **Board UI** | React components: `KanbanApp`, `BoardView`, `ColumnView`, `CardView`, `CardDetail`, `SubtaskList`. Uses existing shadcn + `@sero/app-runtime` + `motion/react`. Rich animations following ToolCallGroup patterns. ~500 LOC total across components. |
+| **Board UI** | React components: `KanbanApp`, `BoardView`, `ColumnView`, `CardView`, `CardDetail`, `SubtaskList`. Uses existing shadcn + `@sero-ai/app-runtime` + `motion/react`. Rich animations following ToolCallGroup patterns. ~500 LOC total across components. |
 | **Agent definitions** | 2-3 new `.md` agent files: `planner.md`, `implementer.md`. Reviewer and analyst already exist. |
 | **Card session prompt builder** | Constructs system prompts for card sessions from card data + plan. ~100 LOC. |
 | **GitRunner cwd override** | Add optional `cwd` param so worktree sessions can override workspace path. ~5 LOC. |

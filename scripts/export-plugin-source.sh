@@ -3,7 +3,7 @@
 # Export a Sero plugin source package for Git-based distribution.
 #
 # Usage:
-#   bash scripts/export-plugin-source.sh packages/pi-todo-extension
+#   bash scripts/export-plugin-source.sh packages/pi-kanban-extension
 #
 # Produces a standalone source repo in <package>/dist/plugin-source/ with:
 #   - source files (extension/, shared/, ui/, vite.config.ts, README.md, etc.)

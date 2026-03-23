@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useRef, useEffect } from 'react';
-import { useAppState, useAgentPrompt } from '@sero/app-runtime';
+import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
 import { Button } from '@sero/ui/components/ui/button';
 import { Separator } from '@sero/ui/components/ui/separator';
 import { ScrollArea } from '@sero/ui/components/ui/scroll-area';

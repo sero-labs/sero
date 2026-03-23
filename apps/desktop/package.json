@@ -69,7 +69,7 @@
     "@electron/rebuild": "^4.0.3",
     "@emotion/is-prop-valid": "^1.4.0",
     "@playwright/test": "^1.58.2",
-    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@types/diff": "^8.0.0",
     "@types/node": "catalog:",

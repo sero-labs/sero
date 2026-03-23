@@ -146,7 +146,7 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
     "@mariozechner/pi-tui": ">=0.52.0"
   },
   "devDependencies": {
-    "@sero/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/ui": "workspace:*",
     "@module-federation/vite": "^1.11.0",
     "@vitejs/plugin-react": "^4.7.0",
@@ -170,7 +170,7 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
 - Pi SDK packages (`@mariozechner/*`, `@sinclair/typebox`) go in
   `peerDependencies` — they're provided by the Pi runtime. See
   [Extension Dependencies](../docs/libs/pi-coding-agent/packages.md#dependencies).
-- `@sero/app-runtime` is a `devDependency` because it's shared via module
+- `@sero-ai/app-runtime` is a `devDependency` because it's shared via module
   federation at runtime — the host provides the singleton.
 - `@sero/ui` is a `devDependency` that provides shared shadcn/ui components
   (`Button`, `Card`, etc.) and utilities (`cn`). Components are bundled into
@@ -455,7 +455,7 @@ export default function (pi: ExtensionAPI) {
 
 The UI is a React component loaded into Sero via
 [Vite Module Federation](https://module-federation.io/guide/framework/vite.html).
-It uses hooks from `@sero/app-runtime` to read/write the same state file.
+It uses hooks from `@sero-ai/app-runtime` to read/write the same state file.
 
 ### `ui/MyApp.tsx`
 
@@ -463,7 +463,7 @@ It uses hooks from `@sero/app-runtime` to read/write the same state file.
 // ui/MyApp.tsx
 
 import { useState, useCallback } from 'react';
-import { useAppState, useAppInfo, useAgentPrompt } from '@sero/app-runtime';
+import { useAppState, useAppInfo, useAgentPrompt } from '@sero-ai/app-runtime';
 import { cn } from '@sero/ui/lib/utils';
 import { Button } from '@sero/ui/components/ui/button';
 import { Card } from '@sero/ui/components/ui/card';
@@ -618,7 +618,7 @@ export default defineConfig({
         'react/': { singleton: true },
         'react-dom': { singleton: true },
         'react-dom/': { singleton: true },
-        // NOTE: @sero/app-runtime is NOT shared here — MF's loadShare
+        // NOTE: @sero-ai/app-runtime is NOT shared here — MF's loadShare
         // virtual module breaks named exports. It resolves via node_modules
         // and uses a globalThis singleton for the React context.
       },
@@ -630,7 +630,7 @@ export default defineConfig({
     origin: 'http://localhost:5175',   // Ensures absolute chunk URLs
   },
   optimizeDeps: {
-    exclude: ['@sero/app-runtime'],
+    exclude: ['@sero-ai/app-runtime'],
     // Pre-include shared deps to avoid the "new dependencies optimized →
     // reloading" cycle that causes 504 "Outdated Optimize Dep" errors.
     include: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client'],
@@ -652,10 +652,10 @@ export default defineConfig({
   `<package>/dist/ui/`.
 - The `server.port` **must match** the `devPort` in `package.json` — the host
   reads `devPort` to auto-configure Module Federation remotes.
-- Do NOT alias `@sero/app-runtime` — the MF plugin must intercept that import
+- Do NOT alias `@sero-ai/app-runtime` — the MF plugin must intercept that import
   so the host's singleton is used at runtime.
 - `@sero/ui` does NOT need to be in `optimizeDeps.exclude` — unlike
-  `@sero/app-runtime`, it's bundled into your remote at build time (no
+  `@sero-ai/app-runtime`, it's bundled into your remote at build time (no
   runtime singleton). Vite handles it automatically.
 
 ### `ui/styles.css`
@@ -736,7 +736,7 @@ You can add app-specific `@keyframes` and `@utility` rules to this file too.
     "noEmit": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": {
-      "@sero/app-runtime": ["../../app-runtime/src/index.ts"],
+      "@sero-ai/app-runtime": ["../../app-runtime/src/index.ts"],
       "@sero/ui": ["../../ui/src/index.ts"],
       "@sero/ui/*": ["../../ui/src/*"]
     }
@@ -780,7 +780,7 @@ bash scripts/dev.sh
 
 > **You MUST run `pnpm install` and `pnpm --filter <package-name> build`
 > after creating a new app package.** `pnpm install` links the workspace
-> dependencies (including `@sero/app-runtime`). The build step produces
+> dependencies (including `@sero-ai/app-runtime`). The build step produces
 > `dist/ui/remoteEntry.js` which the host needs for production mode and
 > which validates that the MF config is correct. In dev mode the remote
 > Vite server serves the UI live, but the initial build catches errors
@@ -844,7 +844,7 @@ bash scripts/dev.sh
 
 ## App Runtime API Reference
 
-`@sero/app-runtime` provides three hooks. All must be used inside a component
+`@sero-ai/app-runtime` provides three hooks. All must be used inside a component
 mounted by `SeroAppMount` (which wraps your component in `<AppProvider>`).
 
 ### `useAppState<T>(defaultState: T)`
@@ -1268,11 +1268,11 @@ const cellSize = Math.floor((height - overhead) / ROWS);
 
 - `react` and `react-dom` are shared singletons via MF — the host provides
   them. Do NOT bundle your own copy.
-- `@sero/app-runtime` is NOT shared via MF (its `loadShare` wrapper breaks
+- `@sero-ai/app-runtime` is NOT shared via MF (its `loadShare` wrapper breaks
   named exports). Instead it resolves via `node_modules` and uses a
   `globalThis` singleton for the React context. Add it to
   `optimizeDeps.exclude` so Vite doesn't pre-bundle it.
-- Do NOT alias `@sero/app-runtime` in any vite config — aliases conflict
+- Do NOT alias `@sero-ai/app-runtime` in any vite config — aliases conflict
   with both MF sharing and the `globalThis` singleton pattern.
 - Each remote runs its own Vite dev server on a unique port declared via
   `devPort` in `package.json`.
@@ -1401,7 +1401,7 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
   `vite.config.ts`.
 - If you see `RUNTIME-004: Failed to locate remote`, the remote isn't
   registered. Verify the `devPort` is set and the remote is running.
-- The `@sero/app-runtime` shared module warning ("alias conflicts") is
+- The `@sero-ai/app-runtime` shared module warning ("alias conflicts") is
   expected in dev mode and can be safely ignored.
 
 ---

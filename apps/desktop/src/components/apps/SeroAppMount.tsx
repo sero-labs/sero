@@ -7,8 +7,8 @@
  */
 
 import { Suspense, useMemo, useCallback } from 'react';
-import { AppProvider } from '@sero/app-runtime';
-import type { AppContextValue } from '@sero/app-runtime';
+import { AppProvider } from '@sero-ai/app-runtime';
+import type { AppContextValue } from '@sero-ai/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';

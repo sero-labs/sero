@@ -10,7 +10,7 @@
  */
 
 import { useMemo, useCallback, useState } from 'react';
-import { useAppState, useAI } from '@sero/app-runtime';
+import { useAppState, useAI } from '@sero-ai/app-runtime';
 import type { DailyQuoteState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 

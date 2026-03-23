@@ -29,5 +29,5 @@ npm publish --access public
 ## Consumption
 
 Inside the Sero monorepo and exported plugin source repos, consumers keep
-importing `@sero/app-runtime`. Package manifests map that import name to the
+importing `@sero-ai/app-runtime`. Package manifests map that import name to the
 published package via npm aliasing (`npm:@sero-ai/app-runtime@<version>`).

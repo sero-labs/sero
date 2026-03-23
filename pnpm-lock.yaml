@@ -229,7 +229,7 @@ importers:
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.58.2
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../../packages/app-runtime
       '@sero/ui':
@@ -385,7 +385,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -443,7 +443,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -501,7 +501,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -559,7 +559,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -620,7 +620,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -672,7 +672,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -730,7 +730,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -791,7 +791,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -852,7 +852,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -910,7 +910,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -999,7 +999,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -1057,7 +1057,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -1115,7 +1115,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -1170,7 +1170,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.15)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -1225,7 +1225,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -1283,7 +1283,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -1338,7 +1338,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -1384,7 +1384,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':
@@ -1436,7 +1436,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@sero/ui':
@@ -1497,7 +1497,7 @@ importers:
       '@module-federation/vite':
         specifier: 'catalog:'
         version: 1.11.0(rollup@4.59.0)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))
-      '@sero/app-runtime':
+      '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../app-runtime
       '@tailwindcss/vite':

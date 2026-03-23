@@ -7,7 +7,7 @@
  * `server.origin` ensures all chunk URLs are absolute so the host
  * can load them cross-origin.
  *
- * IMPORTANT: @sero/app-runtime must NOT be aliased here — the MF
+ * IMPORTANT: @sero-ai/app-runtime must NOT be aliased here — the MF
  * plugin must intercept that import so the host's singleton is used
  * at runtime. Resolution happens via node_modules symlink chain.
  */
@@ -45,7 +45,7 @@ export default defineConfig({
     origin: 'http://localhost:5189',
   },
   optimizeDeps: {
-    exclude: ['@sero/app-runtime'],
+    exclude: ['@sero-ai/app-runtime'],
     include: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client'],
   },
   build: {

@@ -7,8 +7,8 @@ sero/
 ├── apps/
 │   └── desktop/          # Electron + React app
 ├── packages/
-│   ├── app-runtime/      # @sero/app-runtime — hooks for federated app modules
-│   ├── pi-todo-extension/# Pi extension + federated UI (todo app)
+│   ├── app-runtime/      # @sero-ai/app-runtime — hooks for federated app modules
+│   ├── pi-kanban-extension/# Pi extension + federated UI (kanban app)
 │   └── other Sero apps....
 ├── turbo.json
 ├── pnpm-workspace.yaml
@@ -34,7 +34,7 @@ pnpm typecheck             # Typecheck all (turbo)
 
 ## Packages
 
-- **`@sero/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` context for federated app modules
+- **`@sero-ai/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` context for federated app modules
 
 Find all the Sero Apps in: `packages/pi-*`;
 The most comprehensive examples are:
@@ -220,7 +220,7 @@ the feature appears to work in the UI but silently fails at the agent.
     within a session should be tracked in a Zustand store, in a file inside
     `SERO_HOME` via IPC, or in the profile registry (`profiles.json`).
   - All shared state lives in Zustand stores (`src/stores/`). Cross-boundary
-    state (e.g. for federated modules in `@sero/app-runtime`) is passed via
+    state (e.g. for federated modules in `@sero-ai/app-runtime`) is passed via
     context providers or the `window.sero` IPC bridge.
   - If you think you need browser storage, **ask first** — there is almost
     always a better alternative (Zustand, IPC-backed file state, or the

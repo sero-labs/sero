@@ -1,7 +1,7 @@
 /**
  * ModelPicker — dropdown for selecting a model from available providers.
  *
- * Uses @sero/app-runtime's useAvailableModels() to fetch session-independent
+ * Uses @sero-ai/app-runtime's useAvailableModels() to fetch session-independent
  * model listings from the host's ModelRegistry. The selected value is stored
  * as a "provider/modelId" string matching the `pi --model` flag format.
  */
@@ -11,7 +11,7 @@ import {
   useAvailableModels,
   type AppModelInfo,
   type AppModelGroup,
-} from '@sero/app-runtime';
+} from '@sero-ai/app-runtime';
 import { cn } from '@sero/ui/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────

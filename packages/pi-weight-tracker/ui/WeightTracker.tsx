@@ -1,7 +1,7 @@
 /**
  * WeightTracker — main Sero web UI for the weight tracker extension.
  *
- * Uses useAppState from @sero/app-runtime to read/write the same
+ * Uses useAppState from @sero-ai/app-runtime to read/write the same
  * state.json file the Pi extension writes. Changes from either
  * direction are reflected instantly via file watching.
  *
@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { useAppState } from '@sero/app-runtime';
+import { useAppState } from '@sero-ai/app-runtime';
 import type { WeightTrackerState, WeightEntry } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { getEncouragement, sortedEntries, formatWeight, unitLabel, todayISO } from './utils';

@@ -16,7 +16,7 @@
     "paths": {
       "@/*": ["src/*"],
       "@electron/*": ["electron/*"],
-      "@sero/app-runtime": ["../../packages/app-runtime/src/index.ts"],
+      "@sero-ai/app-runtime": ["../../packages/app-runtime/src/index.ts"],
       "@sero/ui": ["../../packages/ui/src/index.ts"],
       "@sero/ui/*": ["../../packages/ui/src/*"]
     }

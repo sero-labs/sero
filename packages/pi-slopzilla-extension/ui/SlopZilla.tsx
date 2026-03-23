@@ -10,7 +10,7 @@
 
 import { useCallback, useMemo, useState, Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
-import { useAppState, useAI } from '@sero/app-runtime';
+import { useAppState, useAI } from '@sero-ai/app-runtime';
 import type {
   SlopZillaState,
   Complexity,

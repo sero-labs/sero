@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useContext } from 'react';
-import { AppContext } from '@sero/app-runtime';
+import { AppContext } from '@sero-ai/app-runtime';
 import type { PlanIndex, PlanIndexEntry, ArchivedPlan, PlanStep } from '../shared/types';
 import { DEFAULT_INDEX } from '../shared/types';
 
