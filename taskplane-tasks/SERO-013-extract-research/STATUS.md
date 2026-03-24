@@ -1,7 +1,7 @@
 # SERO-013: Extract pi-research-extension to Plugin — Status
 
-**Current Step:** Step 4: Documentation & Delivery
-**Status:** 🟡 In Progress
+**Current Step:** Done
+**Status:** ✅ Complete
 **Last Updated:** 2026-03-24
 **Review Level:** 1
 **Review Counter:** 0
@@ -57,10 +57,10 @@
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] Discoveries logged
-- [ ] `.DONE` created
+- [x] Discoveries logged
+- [x] `.DONE` created
 
 ---
 
@@ -75,6 +75,9 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| Research extension has no `@sero-ai/ui` component imports — only the CSS `@source` reference needed cleanup | Expected — documented in PROMPT | `ui/styles.css` |
+| `ui/tsconfig.json` had path aliases for `@sero-ai/ui` and `@sero-ai/app-runtime` pointing to monorepo paths — removed both for standalone | Fixed | `ui/tsconfig.json` |
+| Research is the largest extraction (~2279 LOC across 11 source files + SKILL.md) but cleanly separated — no monorepo coupling beyond CSS `@source` and tsconfig paths | Noted | All source files |
 
 ---
 
@@ -89,6 +92,11 @@
 | 2026-03-24 23:16 | Step 2 started | Install, Build & Verify |
 | 2026-03-24 23:16 | Step 3 started | Create README & Git Init |
 | 2026-03-24 23:16 | Step 4 started | Documentation & Delivery |
+| 2026-03-24 23:18 | Step 0 complete | All preflight checks passed |
+| 2026-03-24 23:18 | Step 1 complete | Plugin scaffolded at plugins/sero-research-plugin |
+| 2026-03-24 23:19 | Step 2 complete | npm install, build, typecheck all pass |
+| 2026-03-24 23:20 | Step 3 complete | README, .gitignore, git init with initial commit |
+| 2026-03-24 23:21 | Step 4 complete | Discoveries logged, .DONE created |
 
 ---
 
