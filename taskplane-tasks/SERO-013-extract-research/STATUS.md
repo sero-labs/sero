@@ -1,41 +1,41 @@
 # SERO-013: Extract pi-research-extension to Plugin — Status
 
-**Current Step:** Not Started
-**Status:** 🔵 Ready for Execution
+**Current Step:** Step 1: Scaffold Plugin Repo
+**Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
 **Review Counter:** 0
-**Iteration:** 0
+**Iteration:** 1
 **Size:** M
 
 ---
 
 ### Step 0: Preflight
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Source package exists at `packages/pi-research-extension`
-- [ ] Confirm no @sero-ai/ui component imports
-- [ ] Confirm styles.css @source monorepo reference
-- [ ] Verify skills/research/SKILL.md exists
-- [ ] Note pi.skills and pi.extensions fields
-- [ ] Note pi-agent-core peer dep
-- [ ] Reference todo plugin exists
+- [x] Source package exists at `packages/pi-research-extension`
+- [x] Confirm no @sero-ai/ui component imports (grep: zero matches)
+- [x] Confirm styles.css @source monorepo reference (`@source "../../ui/src/components"`)
+- [x] Verify skills/research/SKILL.md exists
+- [x] Note pi.skills and pi.extensions fields (`pi.skills: ["./skills"]`, `pi.extensions: ["./extension/index.ts"]`)
+- [x] Note pi-agent-core peer dep (`@mariozechner/pi-agent-core: "catalog:peer"`)
+- [x] Reference todo plugin exists at `plugins/sero-todo-plugin-main/`
 
 ---
 
 ### Step 1: Scaffold Plugin Repo
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Create plugin directory and copy all source files including skills/
-- [ ] Fix styles.css — remove monorepo @source path
-- [ ] Create package.json with plugin metadata (pinned versions, no catalog:/workspace:)
-- [ ] Create tsconfig.extension.json
-- [ ] Update vite.config.ts for standalone build
+- [x] Create plugin directory and copy all source files including skills/
+- [x] Fix styles.css — remove monorepo @source path
+- [x] Create package.json with plugin metadata (pinned versions, no catalog:/workspace:)
+- [x] Create tsconfig.extension.json
+- [x] Update vite.config.ts for standalone build
 
 ---
 
 ### Step 2: Install, Build & Verify
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] npm install succeeds
 - [ ] npm run build produces dist/ui/remoteEntry.js
@@ -48,7 +48,7 @@
 ---
 
 ### Step 3: Create README & Git Init
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] README.md created
 - [ ] .gitignore created
@@ -57,7 +57,7 @@
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] Discoveries logged
 - [ ] `.DONE` created
@@ -83,6 +83,12 @@
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
 | 2026-03-24 | Task staged | PROMPT.md and STATUS.md created |
+| 2026-03-24 23:16 | Task started | Extension-driven execution |
+| 2026-03-24 23:16 | Step 0 started | Preflight |
+| 2026-03-24 23:16 | Step 1 started | Scaffold Plugin Repo |
+| 2026-03-24 23:16 | Step 2 started | Install, Build & Verify |
+| 2026-03-24 23:16 | Step 3 started | Create README & Git Init |
+| 2026-03-24 23:16 | Step 4 started | Documentation & Delivery |
 
 ---
 
