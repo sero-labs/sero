@@ -1,6 +1,6 @@
 # SERO-009: Extract pi-spotify-extension to Plugin — Status
 
-**Current Step:** Step 2: Install, Build & Verify
+**Current Step:** Step 3: Finalize README & Git Init
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
@@ -33,12 +33,12 @@
 ---
 
 ### Step 2: Install, Build & Verify
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] npm install succeeds
-- [ ] npm run build produces dist/ui/remoteEntry.js
-- [ ] npm run typecheck passes
-- [ ] mf-manifest.json exists
+- [x] npm install succeeds
+- [x] npm run build produces dist/ui/remoteEntry.js
+- [x] npm run typecheck passes
+- [x] mf-manifest.json exists
 
 ---
 
@@ -86,6 +86,7 @@
 | 2026-03-24 21:03 | Step 4 started | Documentation & Delivery |
 | 2026-03-24 | Step 0 completed | Preflight — source exists, no @sero-ai/ui imports, file tree inventoried |
 | 2026-03-24 | Step 1 completed | Scaffold — all 28 files copied, package.json pinned, tsconfigs + vite created |
+| 2026-03-24 | Step 2 completed | npm install, build, typecheck all pass; remoteEntry.js + mf-manifest.json present |
 
 ---
 
