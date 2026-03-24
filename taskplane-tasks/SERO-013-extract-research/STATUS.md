@@ -1,6 +1,6 @@
 # SERO-013: Extract pi-research-extension to Plugin — Status
 
-**Current Step:** Step 1: Scaffold Plugin Repo
+**Current Step:** Step 3: Create README & Git Init
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
@@ -35,15 +35,15 @@
 ---
 
 ### Step 2: Install, Build & Verify
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] npm install succeeds
-- [ ] npm run build produces dist/ui/remoteEntry.js
-- [ ] npm run typecheck passes (zero errors)
-- [ ] No @sero-ai/ui references remain
-- [ ] No catalog:/workspace: references remain
-- [ ] skills/ directory present
-- [ ] mf-manifest.json exists
+- [x] npm install succeeds (414 packages, 0 vulnerabilities)
+- [x] npm run build produces dist/ui/remoteEntry.js (75.96 kB)
+- [x] npm run typecheck passes (zero errors)
+- [x] No @sero-ai/ui references remain
+- [x] No catalog:/workspace: references remain
+- [x] skills/ directory present (skills/research/SKILL.md)
+- [x] mf-manifest.json exists
 
 ---
 
