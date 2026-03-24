@@ -1,6 +1,6 @@
 # SERO-009: Extract pi-spotify-extension to Plugin — Status
 
-**Current Step:** Step 3: Finalize README & Git Init
+**Current Step:** Step 4: Documentation & Delivery
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
@@ -43,11 +43,11 @@
 ---
 
 ### Step 3: Finalize README & Git Init
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] README.md finalized
-- [ ] .gitignore set up
-- [ ] Git repo initialized
+- [x] README.md finalized
+- [x] .gitignore set up
+- [x] Git repo initialized
 
 ---
 
@@ -87,6 +87,7 @@
 | 2026-03-24 | Step 0 completed | Preflight — source exists, no @sero-ai/ui imports, file tree inventoried |
 | 2026-03-24 | Step 1 completed | Scaffold — all 28 files copied, package.json pinned, tsconfigs + vite created |
 | 2026-03-24 | Step 2 completed | npm install, build, typecheck all pass; remoteEntry.js + mf-manifest.json present |
+| 2026-03-24 | Step 3 completed | README adapted, .gitignore in place, git repo initialized with initial commit |
 
 ---
 
