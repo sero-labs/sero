@@ -298,6 +298,18 @@ Show these during install. For now this is informational; enforcement can come l
    `clsx` + `tailwind-merge`). Check for `@sero-ai/ui` imports in `.ts`, `.tsx`,
    `.css` (Tailwind `@source` directives), and `tsconfig.json` (path aliases).
    Add the underlying npm packages (`clsx`, `tailwind-merge`) as devDependencies.
+
+   **Inlining shadcn/ui components (Button, ScrollArea, Popover, etc.):** Copy
+   the component source from `packages/ui/src/components/ui/` into the plugin's
+   `ui/components/ui/` directory and update imports to relative paths. These
+   components only depend on Radix UI primitives + `class-variance-authority`.
+
+   **Radix UI — use the unified package:** The monorepo uses `radix-ui` (the
+   unified package, v^1.4.3) — NOT the separate `@radix-ui/*` scoped packages.
+   Imports in shadcn components use `from "radix-ui"` with named exports like
+   `{ ScrollArea as ScrollAreaPrimitive }` or `{ Popover as PopoverPrimitive }`.
+   When inlining components, keep these imports as-is and add `radix-ui: ^1.4.3`
+   to the plugin's devDependencies (not the separate `@radix-ui/react-*` packages).
 2. Add `build:plugin` script using the shared build pipeline
 3. Add `sero.plugin` metadata to `package.json`
 4. Verify the package works when loaded from `~/.sero-ui/agent/packages/` (not `packages/`)
