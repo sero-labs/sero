@@ -1,17 +1,17 @@
 # SERO-014: Extract pi-weight-tracker to Plugin — Status
 
-**Current Step:** Not Started
-**Status:** 🔵 Ready for Execution
+**Current Step:** Step 0: Preflight
+**Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
 **Review Counter:** 0
-**Iteration:** 0
+**Iteration:** 1
 **Size:** S
 
 ---
 
 ### Step 0: Preflight
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] Source package exists
 - [ ] Confirm no @sero-ai/ui imports
@@ -23,7 +23,7 @@
 ---
 
 ### Step 1: Scaffold Plugin Repo
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] Create plugin directory and copy all source files
 - [ ] Create package.json with plugin metadata (pinned versions, preserve scope: "global")
@@ -33,7 +33,7 @@
 ---
 
 ### Step 2: Install, Build & Verify
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] npm install succeeds
 - [ ] npm run build produces dist/ui/remoteEntry.js
@@ -44,7 +44,7 @@
 ---
 
 ### Step 3: Create README & Git Init
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] README.md created
 - [ ] .gitignore created
@@ -53,7 +53,7 @@
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] Discoveries logged
 - [ ] `.DONE` created
@@ -79,6 +79,12 @@
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
 | 2026-03-24 | Task staged | PROMPT.md and STATUS.md created |
+| 2026-03-24 23:38 | Task started | Extension-driven execution |
+| 2026-03-24 23:38 | Step 0 started | Preflight |
+| 2026-03-24 23:38 | Step 1 started | Scaffold Plugin Repo |
+| 2026-03-24 23:38 | Step 2 started | Install, Build & Verify |
+| 2026-03-24 23:38 | Step 3 started | Create README & Git Init |
+| 2026-03-24 23:38 | Step 4 started | Documentation & Delivery |
 
 ---
 
