@@ -1,0 +1,8 @@
+SERO-012 complete.
+
+Plugin extracted to: /Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-git-plugin
+Package name: @sero-ai/plugin-git
+All 5 extension backend files preserved.
+Dual typecheck (UI + extension) passes with zero errors.
+Build produces dist/ui/remoteEntry.js and mf-manifest.json.
+Git repo initialized with initial commit.
