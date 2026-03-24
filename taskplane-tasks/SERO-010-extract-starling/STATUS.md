@@ -1,6 +1,6 @@
 # SERO-010: Extract pi-starling-extension to Plugin — Status
 
-**Current Step:** Step 1: Scaffold Plugin Repo
+**Current Step:** Step 2: Install, Build & Verify
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
@@ -31,12 +31,12 @@
 ---
 
 ### Step 2: Install, Build & Verify
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] npm install succeeds
-- [ ] npm run build produces dist/ui/remoteEntry.js
-- [ ] npm run typecheck passes
-- [ ] mf-manifest.json exists
+- [x] npm install succeeds
+- [x] npm run build produces dist/ui/remoteEntry.js
+- [x] npm run typecheck passes
+- [x] mf-manifest.json exists
 
 ---
 
