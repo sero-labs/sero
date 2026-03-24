@@ -1,7 +1,7 @@
 # SERO-009: Extract pi-spotify-extension to Plugin — Status
 
-**Current Step:** Step 4: Documentation & Delivery
-**Status:** 🟡 In Progress
+**Current Step:** Complete
+**Status:** ✅ Complete
 **Last Updated:** 2026-03-24
 **Review Level:** 1
 **Review Counter:** 0
@@ -52,10 +52,10 @@
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] Discoveries logged
-- [ ] `.DONE` created
+- [x] Discoveries logged
+- [x] `.DONE` created
 
 ---
 
@@ -70,6 +70,9 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| Spotify extension has no `@sero-ai/ui` imports despite ~3200 LOC — cleanest large extraction | Noted | Preflight |
+| `ui/tsconfig.json` had monorepo path alias to `../../app-runtime/src/index.ts` — removed for standalone build (npm resolves via node_modules) | Fixed | Step 1 |
+| Package included `shared/types.ts` not visible in initial `find` output — inventory completed | Noted | Preflight |
 
 ---
 
@@ -88,6 +91,7 @@
 | 2026-03-24 | Step 1 completed | Scaffold — all 28 files copied, package.json pinned, tsconfigs + vite created |
 | 2026-03-24 | Step 2 completed | npm install, build, typecheck all pass; remoteEntry.js + mf-manifest.json present |
 | 2026-03-24 | Step 3 completed | README adapted, .gitignore in place, git repo initialized with initial commit |
+| 2026-03-24 | Step 4 completed | Discoveries logged, .DONE created |
 
 ---
 
