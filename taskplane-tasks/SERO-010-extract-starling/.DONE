@@ -1,0 +1,12 @@
+Task SERO-010 complete.
+
+Plugin: /Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-starling-plugin
+Package: @sero-ai/plugin-starling@0.1.0
+
+All completion criteria met:
+- Plugin builds and typechecks standalone (zero errors)
+- Package name is @sero-ai/plugin-starling
+- Full file tree preserved (screens/, components/, lib/, sero.d.ts)
+- @sero-ai/app-runtime is ^0.1.0 in devDependencies
+- sero.plugin metadata present (category: finance, tags: starling/banking/finance/transactions)
+- Git repo initialized with initial commit
