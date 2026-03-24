@@ -1,6 +1,6 @@
 # SERO-010: Extract pi-starling-extension to Plugin — Status
 
-**Current Step:** Step 2: Install, Build & Verify
+**Current Step:** Step 3: Create README & Git Init
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
@@ -41,11 +41,11 @@
 ---
 
 ### Step 3: Create README & Git Init
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] README.md created
-- [ ] .gitignore created
-- [ ] Git repo initialized
+- [x] README.md created
+- [x] .gitignore created
+- [x] Git repo initialized
 
 ---
 
