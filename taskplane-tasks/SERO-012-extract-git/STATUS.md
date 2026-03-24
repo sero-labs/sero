@@ -1,6 +1,6 @@
 # SERO-012: Extract pi-git-extension to Plugin — Status
 
-**Current Step:** Step 3: Create README & Git Init
+**Current Step:** Step 4: Documentation & Delivery
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
@@ -42,11 +42,11 @@
 ---
 
 ### Step 3: Create README & Git Init
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] README.md created
-- [ ] .gitignore created
-- [ ] Git repo initialized
+- [x] README.md created (documents tool, UI, state file, extension modules, dev commands)
+- [x] .gitignore created (dist/, .__mf__temp/, node_modules/)
+- [x] Git repo initialized with initial commit (24 files)
 
 ---
 
@@ -82,6 +82,7 @@
 | 2026-03-24 | Step 0 completed | Preflight — all files inventoried, confirmed no @sero-ai/ui |
 | 2026-03-24 | Step 1 completed | Scaffold — all files copied, package.json/tsconfig/vite created |
 | 2026-03-24 | Step 2 completed | Install, build, typecheck all pass — remoteEntry.js + mf-manifest.json confirmed |
+| 2026-03-24 | Step 3 completed | README, .gitignore, git init + initial commit |
 
 ---
 
