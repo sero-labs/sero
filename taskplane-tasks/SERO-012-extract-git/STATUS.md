@@ -1,6 +1,6 @@
 # SERO-012: Extract pi-git-extension to Plugin — Status
 
-**Current Step:** Step 1: Scaffold Plugin Repo
+**Current Step:** Step 3: Create README & Git Init
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-03-24
 **Review Level:** 1
@@ -23,7 +23,7 @@
 ---
 
 ### Step 1: Scaffold Plugin Repo
-**Status:** 🟡 In Progress
+**Status:** ✅ Complete
 
 - [x] Create plugin directory and copy full file tree
 - [x] Create package.json (pin versions, keep motion, add plugin metadata)
@@ -32,12 +32,12 @@
 ---
 
 ### Step 2: Install, Build & Verify
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] npm install succeeds
-- [ ] npm run build produces dist/ui/remoteEntry.js
-- [ ] npm run typecheck passes
-- [ ] mf-manifest.json exists
+- [x] npm install succeeds (418 packages, 0 vulnerabilities)
+- [x] npm run build produces dist/ui/remoteEntry.js (75.95 kB)
+- [x] npm run typecheck passes (zero errors, dual typecheck)
+- [x] mf-manifest.json exists
 
 ---
 
@@ -81,6 +81,7 @@
 | 2026-03-24 22:10 | Task started | Extension-driven execution |
 | 2026-03-24 | Step 0 completed | Preflight — all files inventoried, confirmed no @sero-ai/ui |
 | 2026-03-24 | Step 1 completed | Scaffold — all files copied, package.json/tsconfig/vite created |
+| 2026-03-24 | Step 2 completed | Install, build, typecheck all pass — remoteEntry.js + mf-manifest.json confirmed |
 
 ---
 
