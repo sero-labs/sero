@@ -1,7 +1,7 @@
 # SERO-011: Extract pi-google-extension to Plugin — Status
 
-**Current Step:** Step 0: Preflight
-**Status:** 🟡 In Progress
+**Current Step:** Step 4: Documentation & Delivery
+**Status:** ✅ Complete
 **Last Updated:** 2026-03-24
 **Review Level:** 1
 **Review Counter:** 0
@@ -50,10 +50,10 @@
 ---
 
 ### Step 4: Documentation & Delivery
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
-- [ ] Discoveries logged
-- [ ] `.DONE` created
+- [x] Discoveries logged
+- [x] `.DONE` created
 
 ---
 
@@ -68,6 +68,9 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| `@sero-ai/ui` listed as devDep but zero code imports — only in styles.css @source, tsconfig paths, and package.json | Dropped from plugin (removed @source line from styles.css, removed paths from tsconfig) | ui/styles.css, ui/tsconfig.json |
+| `ui/styles.css` had `@source "../../ui/src/components"` pointing to monorepo's shared UI lib | Removed — no classes from that source are actually used | ui/styles.css |
+| `extension/tsconfig.json` extended `../../tsconfig.extension.json` (monorepo root-level) | Created local `tsconfig.extension.json` matching reference plugin | tsconfig.extension.json |
 
 ---
 
@@ -77,11 +80,11 @@
 |-----------|--------|---------|
 | 2026-03-23 | Task staged | PROMPT.md and STATUS.md created |
 | 2026-03-24 21:56 | Task started | Extension-driven execution |
-| 2026-03-24 21:56 | Step 0 started | Preflight |
-| 2026-03-24 21:56 | Step 1 started | Scaffold Plugin Repo |
-| 2026-03-24 21:56 | Step 2 started | Install, Build & Verify |
-| 2026-03-24 21:56 | Step 3 started | Create README & Git Init |
-| 2026-03-24 21:56 | Step 4 started | Documentation & Delivery |
+| 2026-03-24 22:00 | Step 0 complete | Preflight — all checks pass |
+| 2026-03-24 22:00 | Step 1 complete | Scaffold — files copied, package.json created, tsconfigs updated |
+| 2026-03-24 22:00 | Step 2 complete | Install + build + typecheck all pass |
+| 2026-03-24 22:00 | Step 3 complete | README, .gitignore, git init done |
+| 2026-03-24 22:00 | Step 4 complete | Discoveries logged, .DONE created |
 
 ---
 

@@ -1,0 +1,13 @@
+SERO-011 complete.
+
+Plugin: /Users/danielcarter/Documents/Dev/projects/sero/plugins/sero-google-plugin
+Package: @sero-ai/plugin-google@0.1.0
+
+Summary:
+- Extracted pi-google-extension to standalone plugin
+- Dropped @sero-ai/ui (zero usage), kept lucide-react
+- Dual typecheck (UI + extension) passes
+- Build produces dist/ui/remoteEntry.js + mf-manifest.json
+- extension/gogcli.ts preserved
+- sero.plugin metadata: category=integrations, tags=[google, gmail, calendar, workspace]
+- Git repo initialized with initial commit
