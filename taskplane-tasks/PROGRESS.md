@@ -15,6 +15,9 @@
 | SERO-010 | Extract pi-starling-extension to plugin | M | 🔵 Ready | `SERO-010-extract-starling/` |
 | SERO-011 | Extract pi-google-extension to plugin | M | 🔵 Ready | `SERO-011-extract-google/` |
 | SERO-012 | Extract pi-git-extension to plugin | M | 🔵 Ready | `SERO-012-extract-git/` |
+| SERO-013 | Extract pi-research-extension to plugin | M | 🔵 Ready | `SERO-013-extract-research/` |
+| SERO-014 | Extract pi-weight-tracker to plugin | S | 🔵 Ready | `SERO-014-extract-weight-tracker/` |
+| SERO-015 | Extract pi-plan-mode-extension to plugin | M | 🔵 Ready | `SERO-015-extract-plan-mode/` |
 
 ## Completed Tasks
 
