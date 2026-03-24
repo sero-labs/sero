@@ -24,7 +24,27 @@
       "stateFile": ".sero/apps/google/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "GoogleApp",
-      "devPort": 5186
+      "devPort": 5186,
+      "widgets": [
+        {
+          "id": "mail-indicator",
+          "name": "Mail",
+          "component": "MailWidget",
+          "description": "Unread count and recent inbox threads",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 2, "h": 2 },
+          "maxSize": { "w": 3, "h": 3 }
+        },
+        {
+          "id": "mini-calendar",
+          "name": "Calendar",
+          "component": "CalendarWidget",
+          "description": "Month grid with event dots and upcoming events",
+          "defaultSize": { "w": 2, "h": 3 },
+          "minSize": { "w": 2, "h": 2 },
+          "maxSize": { "w": 3, "h": 4 }
+        }
+      ]
     }
   },
   "dependencies": {

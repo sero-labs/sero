@@ -287,6 +287,26 @@ export interface SeroAppManifest {
   packagePath: string;
   /** Whether this app comes from an installed plugin (vs core monorepo package). */
   isPlugin: boolean;
+  /** Widget definitions declared in the app manifest. */
+  widgets: SeroWidgetManifest[];
+}
+
+/** Widget definition from sero.app.widgets in package.json. */
+export interface SeroWidgetManifest {
+  /** Unique widget identifier within the app (e.g. "board-summary"). */
+  id: string;
+  /** Display name. */
+  name: string;
+  /** Exported component name from the module federation remote. */
+  component: string;
+  /** Default grid size (react-grid-layout units). */
+  defaultSize: { w: number; h: number };
+  /** Minimum grid size. */
+  minSize?: { w: number; h: number };
+  /** Maximum grid size. */
+  maxSize?: { w: number; h: number };
+  /** Optional description for the widget picker. */
+  description?: string;
 }
 
 // ── Plugins ─────────────────────────────────────────────────

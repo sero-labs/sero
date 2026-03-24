@@ -24,7 +24,18 @@
       "stateFile": ".sero/apps/notes/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "NotesApp",
-      "devPort": 5178
+      "devPort": 5178,
+      "widgets": [
+        {
+          "id": "pinboard",
+          "name": "Pinboard",
+          "component": "NotesWidget",
+          "description": "Pinned and recent notes at a glance",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 2, "h": 2 },
+          "maxSize": { "w": 3, "h": 3 }
+        }
+      ]
     }
   },
   "dependencies": {

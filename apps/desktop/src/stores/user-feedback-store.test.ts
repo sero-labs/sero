@@ -53,6 +53,7 @@ function createManifest(id: string): SeroAppManifest {
     devPort: 4100,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
+    widgets: [],
   };
 }
 

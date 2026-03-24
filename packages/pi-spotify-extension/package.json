@@ -24,7 +24,18 @@
       "stateFile": ".sero/apps/spotify/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "SpotifyApp",
-      "devPort": 5185
+      "devPort": 5185,
+      "widgets": [
+        {
+          "id": "mini-player",
+          "name": "Mini Player",
+          "component": "SpotifyWidget",
+          "description": "Now playing with album art, progress bar, and playback controls",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 2, "h": 2 },
+          "maxSize": { "w": 3, "h": 3 }
+        }
+      ]
     }
   },
   "dependencies": {

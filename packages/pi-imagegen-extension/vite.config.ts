@@ -16,6 +16,7 @@ export default defineConfig({
       manifest: true,
       exposes: {
         './ImageGenApp': './ui/ImageGenApp.tsx',
+        './ImageGenWidget': './ui/widgets/ImageGenWidget.tsx',
       },
       shared: {
         react: { singleton: true },

@@ -23,6 +23,7 @@ export default defineConfig({
       manifest: true,
       exposes: {
         './NotesApp': './ui/NotesApp.tsx',
+        './NotesWidget': './ui/widgets/NotesWidget.tsx',
       },
       shared: {
         react: { singleton: true },

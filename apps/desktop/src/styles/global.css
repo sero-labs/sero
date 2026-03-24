@@ -17,3 +17,11 @@
 .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* ── react-grid-layout overrides ────────────────────────────── */
+
+/* Replace the library's hard-coded red placeholder with the theme accent. */
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent-primary);
+  border-radius: var(--radius-lg, 0.5rem);
+}

@@ -23,7 +23,18 @@
       "stateFile": ".sero/apps/imagegen/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "ImageGenApp",
-      "devPort": 5181
+      "devPort": 5181,
+      "widgets": [
+        {
+          "id": "gallery",
+          "name": "Gallery",
+          "component": "ImageGenWidget",
+          "description": "Recent generated images with prompt previews",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 2, "h": 2 },
+          "maxSize": { "w": 4, "h": 3 }
+        }
+      ]
     }
   },
   "dependencies": {

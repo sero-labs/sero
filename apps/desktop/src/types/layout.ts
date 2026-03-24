@@ -6,6 +6,8 @@
  * window.sero.layout API types. Add new persisted keys here.
  */
 
+import type { DashboardLayoutState } from './dashboard';
+
 /** Full layout state persisted to ~/.sero-ui/layout.json. */
 export interface LayoutState {
   mainSidebarOpen: boolean;
@@ -30,6 +32,8 @@ export interface LayoutState {
   hiddenModels?: string[];
   /** Provider IDs entirely hidden from the model selector. */
   hiddenProviders?: string[];
+  /** Dashboard widget grid layout. */
+  dashboardLayout?: DashboardLayoutState;
 }
 
 /**

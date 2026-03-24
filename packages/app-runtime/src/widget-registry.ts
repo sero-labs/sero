@@ -1,0 +1,90 @@
+/**
+ * Widget registry — runtime registration of widgets from app modules.
+ *
+ * Apps can register widget components dynamically (in addition to static
+ * manifest declarations). The host dashboard subscribes to changes and
+ * renders registered widgets.
+ *
+ * Uses a globalThis singleton to ensure a single registry across all
+ * module federation copies, matching the AppContext pattern.
+ */
+
+import type { ComponentType } from 'react';
+
+/** A runtime-registered widget definition. */
+export interface RuntimeWidget {
+  /** App ID that owns this widget. */
+  appId: string;
+  /** Unique widget identifier within the app. */
+  widgetId: string;
+  /** Display name. */
+  name: string;
+  /** The React component to render. */
+  component: ComponentType;
+  /** Default grid size (react-grid-layout units). */
+  defaultSize: { w: number; h: number };
+  /** Minimum grid size. */
+  minSize?: { w: number; h: number };
+  /** Maximum grid size. */
+  maxSize?: { w: number; h: number };
+  /** Optional description. */
+  description?: string;
+}
+
+type WidgetChangeListener = () => void;
+
+interface WidgetRegistryState {
+  widgets: Map<string, RuntimeWidget>;
+  listeners: Set<WidgetChangeListener>;
+}
+
+const REGISTRY_KEY = '__sero_widget_registry__';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const g = globalThis as any;
+if (!g[REGISTRY_KEY]) {
+  g[REGISTRY_KEY] = {
+    widgets: new Map<string, RuntimeWidget>(),
+    listeners: new Set<WidgetChangeListener>(),
+  } satisfies WidgetRegistryState;
+}
+
+function getRegistry(): WidgetRegistryState {
+  return g[REGISTRY_KEY];
+}
+
+function makeKey(appId: string, widgetId: string): string {
+  return `${appId}:${widgetId}`;
+}
+
+/**
+ * Register a widget component at runtime. Call from your app's root
+ * component or module initialisation.
+ *
+ * @returns An unregister function.
+ */
+export function registerWidget(widget: RuntimeWidget): () => void {
+  const registry = getRegistry();
+  const key = makeKey(widget.appId, widget.widgetId);
+  registry.widgets.set(key, widget);
+  registry.listeners.forEach((fn) => fn());
+
+  return () => {
+    registry.widgets.delete(key);
+    registry.listeners.forEach((fn) => fn());
+  };
+}
+
+/** Get all runtime-registered widgets. */
+export function getRuntimeWidgets(): RuntimeWidget[] {
+  return Array.from(getRegistry().widgets.values());
+}
+
+/** Subscribe to widget registration changes. Returns an unsubscribe function. */
+export function onWidgetRegistryChange(listener: WidgetChangeListener): () => void {
+  const registry = getRegistry();
+  registry.listeners.add(listener);
+  return () => {
+    registry.listeners.delete(listener);
+  };
+}

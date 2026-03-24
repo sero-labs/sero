@@ -37,6 +37,7 @@ function createManifest(
     devPort,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
+    widgets: [],
   };
 }
 
@@ -93,15 +94,28 @@ describe('discoverAndRegisterApps', () => {
     expect(useAppStore.getState().appsReady).toBe(true);
   });
 
-  it('falls back to coding and drops missing favourites when discovered apps change', async () => {
+  it('falls back to dashboard and drops missing favourites when discovered apps change', async () => {
     discover.mockResolvedValue([
       createManifest('notes', 'NotesApp', 4102),
     ]);
 
     await discoverAndRegisterApps();
 
-    expect(useAppStore.getState().activeApp).toBe('coding');
+    expect(useAppStore.getState().activeApp).toBe('dashboard');
     expect(useAppStore.getState().favouriteApps).toEqual(['notes']);
+  });
+
+  it('ignores attempts to activate an unknown app id', () => {
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'dashboard',
+      pendingApp: null,
+    });
+
+    useAppStore.getState().setActiveApp('missing-app');
+
+    expect(useAppStore.getState().activeApp).toBe('dashboard');
+    expect(useAppStore.getState().pendingApp).toBeNull();
   });
 
   it('hot-refreshes runtime remotes after plugin install and uninstall events', async () => {

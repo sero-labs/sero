@@ -29,7 +29,18 @@
       "stateFile": ".sero/apps/kanban/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "KanbanApp",
-      "devPort": 5189
+      "devPort": 5189,
+      "widgets": [
+        {
+          "id": "board-overview",
+          "name": "Board Overview",
+          "component": "KanbanWidget",
+          "description": "Card counts by column with priority distribution",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 2, "h": 2 },
+          "maxSize": { "w": 4, "h": 3 }
+        }
+      ]
     }
   },
   "dependencies": {

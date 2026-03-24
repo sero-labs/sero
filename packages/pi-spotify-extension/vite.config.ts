@@ -16,6 +16,7 @@ export default defineConfig({
       manifest: true,
       exposes: {
         './SpotifyApp': './ui/SpotifyApp.tsx',
+        './SpotifyWidget': './ui/widgets/SpotifyWidget.tsx',
       },
       shared: {
         react: { singleton: true },

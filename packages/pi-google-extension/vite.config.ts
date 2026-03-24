@@ -16,6 +16,8 @@ export default defineConfig({
       manifest: true,
       exposes: {
         './GoogleApp': './ui/GoogleApp.tsx',
+        './MailWidget': './ui/widgets/MailWidget.tsx',
+        './CalendarWidget': './ui/widgets/CalendarWidget.tsx',
       },
       shared: {
         react: { singleton: true },
