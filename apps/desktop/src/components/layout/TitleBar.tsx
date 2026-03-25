@@ -1,5 +1,5 @@
-import { Button } from '@sero/ui/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { PanelLeft, PanelRight } from 'lucide-react';
 import { useAppStore } from '@/stores/app';
 import { useActiveWorkspace } from '@/stores/workspace';

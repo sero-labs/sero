@@ -32,8 +32,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@sero/ui/components/ui/dialog';
-import { Button } from '@sero/ui/components/ui/button';
+} from '@sero-ai/ui/components/ui/dialog';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { KeyRound } from 'lucide-react';
 import { AuthLoginDialog } from '@/components/layout/AuthLoginDialog';
 import { useSessionStore } from '@/stores/sessions';

@@ -14,8 +14,8 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from '@sero/ui/components/ui/sheet';
-import { Button } from '@sero/ui/components/ui/button';
+} from '@sero-ai/ui/components/ui/sheet';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { useThemeStore } from '@/stores/theme';
 import type {
   ThemePreset,

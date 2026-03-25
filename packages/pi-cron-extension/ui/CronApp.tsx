@@ -9,8 +9,8 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
-import { Button } from '@sero/ui/components/ui/button';
-import { Card } from '@sero/ui/components/ui/card';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import type { CronState, CronJob, Reminder, NotificationSettings } from '../shared/types';
 import { DEFAULT_CRON_STATE, DEFAULT_NOTIFICATION_SETTINGS } from '../shared/types';
 import { snoozeReminder } from '../shared/reminder-utils';

@@ -5,7 +5,7 @@
  * across nested skill directories).
  */
 
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { SkillSummary } from './types';
 
 interface SkillListProps {

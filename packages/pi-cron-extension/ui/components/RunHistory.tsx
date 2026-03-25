@@ -3,9 +3,9 @@
  */
 
 import { useState } from 'react';
-import { Badge } from '@sero/ui/components/ui/badge';
-import { Button } from '@sero/ui/components/ui/button';
-import { cn } from '@sero/ui/lib/utils';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { CronRunResult } from '../../shared/types';
 import { formatDuration, timeAgo } from '../lib/cron-utils';
 

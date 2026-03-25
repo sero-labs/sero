@@ -4,7 +4,7 @@
  * Selection is keyed by filePath (unique across the prompts tree).
  */
 
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { PromptTemplateSummary } from './types';
 
 interface PromptListProps {

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Grid2x2Plus, Search } from 'lucide-react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Input } from '@sero/ui/components/ui/input';
-import { Separator } from '@sero/ui/components/ui/separator';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { Separator } from '@sero-ai/ui/components/ui/separator';
 import {
   getDiscoveredApps,
   getSidebarApps,
@@ -13,7 +13,7 @@ import { useSessionStore } from '@/stores/sessions';
 import { getAppIcon } from '@/lib/app-icons';
 import { openApp } from '@/lib/open-app';
 import { WorkspaceTree } from './WorkspaceTree';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { AppStoreDialog } from './AppStoreDialog';
 
 /**

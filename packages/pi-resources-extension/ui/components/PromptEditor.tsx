@@ -7,8 +7,8 @@
  */
 
 import { useCallback } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { PromptTemplateFileData } from './types';
 
 interface PromptEditorProps {

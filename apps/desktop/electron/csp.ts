@@ -50,6 +50,7 @@ function buildCSP(): string {
     "'self'",
     'blob:',
     'https://*.spotify.com',   // Spotify Web API
+    'wss://*.spotify.com',     // Spotify Web Playback SDK (dealer WebSocket)
     'https://*.scdn.co',       // Spotify CDN
     'https://api.spotify.com',
     ...devConnectSrc,          // Vite HMR + dev servers

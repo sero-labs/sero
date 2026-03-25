@@ -1,7 +1,7 @@
 import { FolderInput, FolderOpen, FolderPlus, Loader2, X } from 'lucide-react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Input } from '@sero/ui/components/ui/input';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { cn } from '@sero-ai/ui/lib/utils';
 
 /** Initial view — two action rows. */
 export function PickView({

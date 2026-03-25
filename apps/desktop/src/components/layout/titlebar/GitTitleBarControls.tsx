@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
-import { cn } from '@sero/ui/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { ChevronDown, Sparkles } from 'lucide-react';
 
 import { useAppStore } from '@/stores/app';

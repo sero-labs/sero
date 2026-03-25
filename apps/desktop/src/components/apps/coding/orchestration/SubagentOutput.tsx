@@ -7,7 +7,7 @@
 
 import { useCallback } from 'react';
 import { Copy, Check } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useState } from 'react';
 
 interface SubagentOutputProps {

@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
 // Note: useEffect is retained only for the idle-callback popover priming below.
 import { ChevronDown, Check, Brain, Sparkles, Search, Settings2, Star } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { useAgentStore } from '@/stores/agent';
 import { useFocusedModelState, useFocusedSessionId } from '@/stores/agent-selectors';
 import { useModelPreferences, modelKey } from '@/stores/model-preferences';

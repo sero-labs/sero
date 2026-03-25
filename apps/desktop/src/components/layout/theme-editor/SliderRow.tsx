@@ -4,7 +4,7 @@
  */
 
 import { useCallback } from 'react';
-import { Slider } from '@sero/ui/components/ui/slider';
+import { Slider } from '@sero-ai/ui/components/ui/slider';
 
 interface SliderRowProps {
   label: string;

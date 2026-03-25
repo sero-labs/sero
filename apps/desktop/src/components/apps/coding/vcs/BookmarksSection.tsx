@@ -16,7 +16,7 @@ import {
   Star,
   X,
 } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
 import type { Bookmark, Remote } from '@/types/vcs';
 import { VcsSection } from './VcsSection';

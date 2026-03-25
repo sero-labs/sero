@@ -3,10 +3,10 @@
  * and start/stop button.
  */
 
-import { Badge } from '@sero/ui/components/ui/badge';
-import { Button } from '@sero/ui/components/ui/button';
-import { Switch } from '@sero/ui/components/ui/switch';
-import { cn } from '@sero/ui/lib/utils';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Switch } from '@sero-ai/ui/components/ui/switch';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { NotificationSettings as NotifSettings } from '../../shared/types';
 import { NotificationSettings } from './NotificationSettings';
 

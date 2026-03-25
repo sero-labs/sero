@@ -4,7 +4,7 @@ import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
-} from '@sero/ui/components/ui/resizable';
+} from '@sero-ai/ui/components/ui/resizable';
 import { ActivityBar, type CodingPanel } from './ActivityBar';
 import { CodingSidebar } from './CodingSidebar';
 import { EditorPanel } from './editor/EditorPanel';

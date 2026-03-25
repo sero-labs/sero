@@ -6,13 +6,13 @@
  */
 
 import { useState } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Switch } from '@sero/ui/components/ui/switch';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Switch } from '@sero-ai/ui/components/ui/switch';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sero/ui/components/ui/popover';
+} from '@sero-ai/ui/components/ui/popover';
 import type { NotificationSettings as Settings } from '../../shared/types';
 import {
   DEFAULT_NOTIFICATION_SETTINGS,

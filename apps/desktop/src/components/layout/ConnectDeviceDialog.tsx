@@ -21,8 +21,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@sero/ui/components/ui/dialog';
-import { Button } from '@sero/ui/components/ui/button';
+} from '@sero-ai/ui/components/ui/dialog';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import type { QrLoginData } from '@/types/ipc';
 
 interface Props {

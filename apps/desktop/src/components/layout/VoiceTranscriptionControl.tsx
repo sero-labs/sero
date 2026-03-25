@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, Loader2, Mic, SlidersHorizontal, Square } from 'lucide-react';
 
-import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
-import { cn } from '@sero/ui/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
+import { cn } from '@sero-ai/ui/lib/utils';
 import {
   blobToDataUrl,
   clearTimer,

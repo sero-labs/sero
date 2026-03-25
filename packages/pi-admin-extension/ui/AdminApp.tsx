@@ -14,8 +14,8 @@
 
 import { useState, useCallback } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
-import { cn } from '@sero/ui/lib/utils';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero/ui/components/ui/tabs';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero-ai/ui/components/ui/tabs';
 import type { AdminState, AdminTab } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { useProfiles } from './hooks/useSeroFiles';

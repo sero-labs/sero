@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, memo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight, WrenchIcon } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
 import {
   deriveGroupStatus,

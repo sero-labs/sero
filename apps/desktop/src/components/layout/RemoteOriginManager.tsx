@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@sero/ui/components/ui/dialog';
+} from '@sero-ai/ui/components/ui/dialog';
 import type { WorkspaceInfo } from '@/types/ipc';
 import {
   fetchOrigin,

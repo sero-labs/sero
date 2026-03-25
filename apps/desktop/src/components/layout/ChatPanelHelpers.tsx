@@ -11,7 +11,7 @@ import { useRef, useState, useCallback } from 'react';
 import { Settings2, Brain, Database, MessageSquare, Users, Swords, ChevronDown } from 'lucide-react';
 import {
   PromptInputActionMenuItem,
-} from '@sero/ui/components/ai-elements/prompt-input';
+} from '@sero-ai/ui/components/ai-elements/prompt-input';
 import { useAgentStore } from '@/stores/agent';
 import {
   useFocusedAgent,
@@ -20,7 +20,7 @@ import {
   useFocusedDebateConfig,
 } from '@/stores/agent-selectors';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { CollaborationStrategy } from '@/types/collaboration';
 
 // ── Context editor menu item ───────────────────────────────────

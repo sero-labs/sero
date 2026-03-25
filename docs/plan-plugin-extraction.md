@@ -30,7 +30,7 @@ The architecture is surprisingly close to supporting this:
 A published Sero plugin is a normal npm package containing pre-built artifacts:
 
 ```
-@sero/plugin-spotify/
+@sero-ai/plugin-spotify/
 ├── package.json          # Has sero.app manifest + pi.extensions
 ├── extension/
 │   └── index.js          # Compiled Pi extension (JS, not TS)
@@ -209,7 +209,7 @@ This is supplemented by a curated **registry JSON** (hosted in a GitHub repo or 
       "id": "spotify",
       "name": "Spotify",
       "description": "Control Spotify playback from Sero",
-      "source": "npm:@sero/plugin-spotify@latest",
+      "source": "npm:@sero-ai/plugin-spotify@latest",
       "github": "monobyte/sero-plugin-spotify",
       "category": "entertainment",
       "icon": "music",
@@ -271,6 +271,7 @@ Show these during install. For now this is informational; enforcement can come l
 | `pi-plan-mode-extension` | Structured planning safeguard |
 | `pi-admin-extension` | Workspace administration |
 | `pi-user-feedback` | Agent ↔ user communication primitive |
+| `pi-resources-extension` | developer-tools | medium |
 
 **Extract to plugins:**
 | Package | Category | Priority |
@@ -288,17 +289,34 @@ Show these during install. For now this is informational; enforcement can come l
 | `pi-humanizer-extension` | creative | medium |
 | `pi-slopzilla-extension` | creative | low |
 | `pi-weight-tracker` | health | low |
-| `pi-resources-extension` | developer-tools | medium |
 
 #### 4.2 — Extraction process (per package)
 
-1. Add `build:plugin` script using the shared build pipeline
-2. Add `sero.plugin` metadata to `package.json`
-3. Verify the package works when loaded from `~/.sero-ui/agent/packages/` (not `packages/`)
-4. Publish to npm as `@sero/plugin-<id>`
-5. Remove from monorepo `packages/`
-6. Add to the plugin registry JSON
-7. Update `TOOLS_TO_BRIDGE` if tool bridging was hardcoded for this package
+1. **Inline monorepo-only dependencies.** Some packages import from `@sero-ai/ui`
+   (e.g. `cn` from `@sero-ai/ui/lib/utils`). Since `@sero-ai/ui` is monorepo-only,
+   these utilities must be inlined into the plugin (e.g. `ui/lib/utils.ts` with
+   `clsx` + `tailwind-merge`). Check for `@sero-ai/ui` imports in `.ts`, `.tsx`,
+   `.css` (Tailwind `@source` directives), and `tsconfig.json` (path aliases).
+   Add the underlying npm packages (`clsx`, `tailwind-merge`) as devDependencies.
+
+   **Inlining shadcn/ui components (Button, ScrollArea, Popover, etc.):** Copy
+   the component source from `packages/ui/src/components/ui/` into the plugin's
+   `ui/components/ui/` directory and update imports to relative paths. These
+   components only depend on Radix UI primitives + `class-variance-authority`.
+
+   **Radix UI — use the unified package:** The monorepo uses `radix-ui` (the
+   unified package, v^1.4.3) — NOT the separate `@radix-ui/*` scoped packages.
+   Imports in shadcn components use `from "radix-ui"` with named exports like
+   `{ ScrollArea as ScrollAreaPrimitive }` or `{ Popover as PopoverPrimitive }`.
+   When inlining components, keep these imports as-is and add `radix-ui: ^1.4.3`
+   to the plugin's devDependencies (not the separate `@radix-ui/react-*` packages).
+2. Add `build:plugin` script using the shared build pipeline
+3. Add `sero.plugin` metadata to `package.json`
+4. Verify the package works when loaded from `~/.sero-ui/agent/packages/` (not `packages/`)
+5. Publish to npm as `@sero-ai/plugin-<id>`
+6. Remove from monorepo `packages/`
+7. Add to the plugin registry JSON
+8. Update `TOOLS_TO_BRIDGE` if tool bridging was hardcoded for this package
 
 #### 4.3 — Bundled defaults
 
@@ -306,9 +324,9 @@ For a good OOTB experience, Sero can **pre-install** a curated set of plugins du
 
 ```typescript
 const DEFAULT_PLUGINS = [
-  'npm:@sero/plugin-todo@latest',
-  'npm:@sero/plugin-notes@latest',
-  'npm:@sero/plugin-google@latest',
+  'npm:@sero-ai/plugin-todo@latest',
+  'npm:@sero-ai/plugin-notes@latest',
+  'npm:@sero-ai/plugin-google@latest',
 ];
 ```
 
@@ -342,7 +360,7 @@ Phase 1 (Foundation)        Phase 2 (Management)       Phase 3 (UI)          Pha
 
 ## Open Questions
 
-1. **Naming:** `@sero/plugin-<id>` vs `sero-plugin-<id>` vs keep `@sero/<id>`?
+1. **Naming:** `@sero-ai/plugin-<id>` vs `sero-plugin-<id>` vs keep `@sero-ai/<id>`?
 2. **Pre-install defaults:** Which plugins should ship pre-installed for OOTB experience?
 3. **Auto-updates:** Should plugins auto-update, prompt, or stay manual?
 4. **Third-party plugins:** Allow community plugins from day one, or start with first-party only?

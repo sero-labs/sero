@@ -1,9 +1,9 @@
 import { memo, useMemo, useState } from 'react';
-import { Badge } from '@sero/ui/components/ui/badge';
-import { Button } from '@sero/ui/components/ui/button';
-import { Input } from '@sero/ui/components/ui/input';
-import { ScrollArea } from '@sero/ui/components/ui/scroll-area';
-import { cn } from '@sero/ui/lib/utils';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { InstalledPlugin } from '@sero/common';
 import { usePlugins } from '../hooks/usePlugins';
 

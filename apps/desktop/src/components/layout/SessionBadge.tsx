@@ -4,7 +4,7 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@sero/ui/components/ui/popover';
+} from '@sero-ai/ui/components/ui/popover';
 import { useAgentStore } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import type { SessionUsageStats, ContextUsageInfo } from '@/types/ipc';

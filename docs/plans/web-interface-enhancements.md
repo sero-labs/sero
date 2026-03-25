@@ -16,7 +16,7 @@ The web interface (`electron/gateway/channels/web.ts`) is a minimal single-file 
 
 **Build the enhanced web UI as a separate Vite-built SPA** served by the gateway, rather than continuing to grow the inline HTML string. This gives us:
 
-- TypeScript, JSX, Tailwind, component reuse from the desktop app's `@sero/ui`
+- TypeScript, JSX, Tailwind, component reuse from the desktop app's `@sero-ai/ui`
 - Shared shadcn/ui primitives and ai-elements conversation components
 - Code splitting, HMR during development
 - Proper testing with Vitest
@@ -208,7 +208,7 @@ The current web UI renders all messages as plain text `<div>` elements. No markd
 
 #### 3a. Reuse ai-elements Components
 
-The desktop app uses `@sero/ui/components/ai-elements/` for its conversation UI. These are React components already in the monorepo. The web-remote app can import them directly since it's a Vite SPA in the same monorepo.
+The desktop app uses `@sero-ai/ui/components/ai-elements/` for its conversation UI. These are React components already in the monorepo. The web-remote app can import them directly since it's a Vite SPA in the same monorepo.
 
 **Shared components to reuse:**
 - `Conversation`, `ConversationContent`, `ConversationScrollButton` — scroll container + auto-scroll

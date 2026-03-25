@@ -16,8 +16,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@sero/ui": ["../../packages/ui/src/index.ts"],
-      "@sero/ui/*": ["../../packages/ui/src/*"]
+      "@sero-ai/ui": ["../../packages/ui/src/index.ts"],
+      "@sero-ai/ui/*": ["../../packages/ui/src/*"]
     }
   },
   "include": ["src/**/*"],

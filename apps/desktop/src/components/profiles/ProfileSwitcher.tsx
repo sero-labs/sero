@@ -10,8 +10,8 @@
  */
 
 import { useState } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@sero/ui/components/ui/popover';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { User, Check, Plus, Loader2 } from 'lucide-react';
 import { useProfileStore, switchProfile } from '@/stores/profiles';
 import { CreateProfileDialog } from './CreateProfileDialog';

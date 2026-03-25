@@ -7,7 +7,7 @@ import {
   MessageActions,
   MessageContent,
   MessageResponse,
-} from '@sero/ui/components/ai-elements/message';
+} from '@sero-ai/ui/components/ai-elements/message';
 import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';
 import { MemoryContextBlock } from './MemoryContextBlock';

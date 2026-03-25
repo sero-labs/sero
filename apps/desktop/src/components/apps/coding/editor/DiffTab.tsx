@@ -22,7 +22,7 @@ import {
   ChevronDown,
   Loader2,
 } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useAppStore } from '@/stores/app';
 import type { FileDiffEntry } from '@/types/vcs';
 import { statusCode, statusColor, basename, langFromPath } from '../vcs/vcs-utils';

@@ -17,7 +17,7 @@ import {
   CloudUpload,
   GitBranch,
 } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore, useWorkspaceVcs } from '@/stores/vcs';
 import type { ChangeEntry, FileDiffEntry } from '@/types/vcs';
 import { statusCode, statusColor, basename } from './vcs-utils';

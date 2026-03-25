@@ -7,7 +7,7 @@
 
 import { useCallback } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useFeedbackStore } from '@/stores/feedback';
 
 interface ResponseFeedbackProps {

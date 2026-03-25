@@ -19,7 +19,7 @@ import { useStreamingSessionIds } from '@/stores/agent-selectors';
 import { useAppStore } from '@/stores/app';
 import { useAgentStore } from '@/stores/agent';
 import { useWorkspaceContainer, type ContainerStatus } from '@/stores/container';
-import { Button } from '@sero/ui/components/ui/button';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -27,10 +27,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@sero/ui/components/ui/dialog';
+} from '@sero-ai/ui/components/ui/dialog';
 
 import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { SessionNode } from './SessionNode';
 import { AddWorkspaceMenu } from './AddWorkspaceMenu';
 import { WorkspaceReferencesMenu } from './WorkspaceReferencesMenu';

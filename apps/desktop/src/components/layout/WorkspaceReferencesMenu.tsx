@@ -5,7 +5,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sero/ui/components/ui/popover';
+} from '@sero-ai/ui/components/ui/popover';
 import type { WorkspaceInfo } from '@/types/ipc';
 
 /** Extract the last segment of a path (no dependency needed in renderer). */

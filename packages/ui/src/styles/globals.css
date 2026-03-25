@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* Ensure monorepo consumers that @import this file also scan @sero/ui
+/* Ensure monorepo consumers that @import this file also scan @sero-ai/ui
    component sources for Tailwind utility classes. Without this, complex
    classes like has-[>[data-align=block-end]]:flex-col won't be generated. */
 @source "../components";

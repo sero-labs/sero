@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { Files, GitBranch, Terminal, Network } from 'lucide-react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@sero/ui/components/ui/tooltip';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { useSubagentStore } from '@/stores/subagent';
 
 // ── Types ──────────────────────────────────────────────────────

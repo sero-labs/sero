@@ -3,15 +3,15 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@sero/ui/components/ui/dialog';
-import { cn } from '@sero/ui/lib/utils';
+} from '@sero-ai/ui/components/ui/dialog';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { validateCron, cronToHuman } from '../../shared/cron';
 import { CRON_PRESETS } from '../lib/cron-utils';
 import { ModelPicker } from './ModelPicker';

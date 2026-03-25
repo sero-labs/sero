@@ -27,7 +27,7 @@ import {
   useFocusedCollaborationStrategy,
   useFocusedDebateState,
 } from '@/stores/agent-selectors';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { CollaborationRole, CollaborationStatus, DebatePhase } from '@/types/collaboration';
 import { DEBATE_PHASE_LABELS } from '@/types/collaboration';
 import { useElapsedTimer } from './useCollaborationTimer';

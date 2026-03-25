@@ -6,7 +6,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@sero/ui/components/ui/popover';
+} from '@sero-ai/ui/components/ui/popover';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { PickView, CreateView } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';

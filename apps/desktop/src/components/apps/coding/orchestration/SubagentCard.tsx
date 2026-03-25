@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ChevronRight, Loader2, CheckCircle2, XCircle, AlertCircle, Clock, Square } from 'lucide-react';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { SubagentEntry, SubagentToolActivity } from '@/types/ipc';
 import { useSubagentStore } from '@/stores/subagent';
 import { SubagentOutput } from './SubagentOutput';

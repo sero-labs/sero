@@ -71,7 +71,7 @@
     "@playwright/test": "^1.58.2",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero/common": "workspace:*",
-    "@sero/ui": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
     "@types/diff": "^8.0.0",
     "@types/node": "catalog:",
     "@types/qrcode": "^1.5.6",

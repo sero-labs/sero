@@ -1,7 +1,7 @@
 /**
  * Chat panel — message list, streaming state, prompt input with image support.
  *
- * Uses Conversation/ConversationContent/ConversationScrollButton from @sero/ui
+ * Uses Conversation/ConversationContent/ConversationScrollButton from @sero-ai/ui
  * for automatic stick-to-bottom scrolling (same component the desktop app uses).
  */
 
@@ -11,15 +11,15 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useConnectionStore } from '@/stores/connection';
 import { ChatMessageComponent } from './ChatMessage';
 import { ToolCallDisplay } from './ToolCallDisplay';
-import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
-import { useIsMobile } from '@sero/ui/hooks/use-mobile';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
   ConversationEmptyState,
-} from '@sero/ui/components/ai-elements/conversation';
+} from '@sero-ai/ui/components/ai-elements/conversation';
 import { Send, Square, Paperclip, X, MessageSquare } from 'lucide-react';
 
 interface PendingImage {

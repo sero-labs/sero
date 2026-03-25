@@ -442,7 +442,7 @@ export interface KanbanState {
 | **AppStateManager** | File watching, atomic writes, IPC |
 | **GitHub auth** | `gh` CLI integration for PR creation |
 | **Container isolation** | All agent work sandboxed per workspace |
-| **`@sero/ui`** | shadcn components for the board UI |
+| **`@sero-ai/ui`** | shadcn components for the board UI |
 | **Notifications** | `sero:notify` EventBus for card status updates |
 
 ### Build (new)
@@ -713,7 +713,7 @@ Every card shows live status without requiring interaction:
 
 ### Design System Integration
 
-Uses existing `@sero/ui` components (shadcn) + CSS variables:
+Uses existing `@sero-ai/ui` components (shadcn) + CSS variables:
 
 - **Colors**: `var(--text-primary)`, `var(--text-secondary)`, `var(--text-muted)`,
   `var(--border-subtle)`, `var(--bg-elevated)`, `var(--accent)`

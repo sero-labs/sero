@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Input } from '@sero/ui/components/ui/input';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Input } from '@sero-ai/ui/components/ui/input';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { Globe, Github, Link2, Loader2, Lock, Rocket } from 'lucide-react';
 
 interface GitHubStatus {

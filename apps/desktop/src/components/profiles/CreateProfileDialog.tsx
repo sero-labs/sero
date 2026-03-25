@@ -12,8 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@sero/ui/components/ui/dialog';
-import { Button } from '@sero/ui/components/ui/button';
+} from '@sero-ai/ui/components/ui/dialog';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import { ProfileForm } from './ProfileForm';
 import { createProfile, switchProfile } from '@/stores/profiles';
 

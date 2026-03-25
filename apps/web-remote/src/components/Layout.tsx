@@ -14,14 +14,14 @@ import { FilePreview } from './FilePreview';
 import { ArtifactGallery } from './ArtifactGallery';
 import { StatusBar } from './StatusBar';
 import { useArtifactStore } from '@/stores/artifacts';
-import { Button } from '@sero/ui/components/ui/button';
-import { useIsMobile } from '@sero/ui/hooks/use-mobile';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from '@sero/ui/components/ui/sheet';
+} from '@sero-ai/ui/components/ui/sheet';
 import {
   PanelLeftClose,
   PanelLeftOpen,

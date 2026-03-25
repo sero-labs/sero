@@ -3,9 +3,9 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
-import { Badge } from '@sero/ui/components/ui/badge';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { cn } from '@sero-ai/ui/lib/utils';
 import type { Reminder, ReminderStatus } from '../../shared/types';
 import { ReminderCard } from './ReminderCard';
 

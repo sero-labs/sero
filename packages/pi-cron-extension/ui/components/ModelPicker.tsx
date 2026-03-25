@@ -12,7 +12,7 @@ import {
   type AppModelInfo,
   type AppModelGroup,
 } from '@sero-ai/app-runtime';
-import { cn } from '@sero/ui/lib/utils';
+import { cn } from '@sero-ai/ui/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────
 

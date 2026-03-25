@@ -3,15 +3,15 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@sero/ui/components/ui/button';
+import { Button } from '@sero-ai/ui/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@sero/ui/components/ui/dialog';
-import { cn } from '@sero/ui/lib/utils';
+} from '@sero-ai/ui/components/ui/dialog';
+import { cn } from '@sero-ai/ui/lib/utils';
 import { validateCron, cronToHuman } from '../../shared/cron';
 import { generateId } from '../../shared/reminder-utils';
 import type { Reminder, ReminderChannel, ReminderType } from '../../shared/types';

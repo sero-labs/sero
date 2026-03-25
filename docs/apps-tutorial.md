@@ -147,7 +147,7 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
   },
   "devDependencies": {
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
-    "@sero/ui": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
     "@module-federation/vite": "^1.11.0",
     "@vitejs/plugin-react": "^4.7.0",
     "@tailwindcss/vite": "^4.1.18",
@@ -172,7 +172,7 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
   [Extension Dependencies](../docs/libs/pi-coding-agent/packages.md#dependencies).
 - `@sero-ai/app-runtime` is a `devDependency` because it's shared via module
   federation at runtime — the host provides the singleton.
-- `@sero/ui` is a `devDependency` that provides shared shadcn/ui components
+- `@sero-ai/ui` is a `devDependency` that provides shared shadcn/ui components
   (`Button`, `Card`, etc.) and utilities (`cn`). Components are bundled into
   your app at build time — no MF sharing needed.
 - `"devPort"` must be a unique port (see [Port conventions](#port-conventions)).
@@ -464,9 +464,9 @@ It uses hooks from `@sero-ai/app-runtime` to read/write the same state file.
 
 import { useState, useCallback } from 'react';
 import { useAppState, useAppInfo, useAgentPrompt } from '@sero-ai/app-runtime';
-import { cn } from '@sero/ui/lib/utils';
-import { Button } from '@sero/ui/components/ui/button';
-import { Card } from '@sero/ui/components/ui/card';
+import { cn } from '@sero-ai/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
 import type { MyAppState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import './styles.css';
@@ -577,9 +577,9 @@ export default MyApp;
   file. The host uses `React.lazy()` with `loadRemote<{ default: ComponentType }>()`,
   which requires a default export. Without it you'll get:
   `lazy: Expected the result of a dynamic import() call`.
-- Import `Button`, `Card`, and other components from `@sero/ui/components/ui/*`
+- Import `Button`, `Card`, and other components from `@sero-ai/ui/components/ui/*`
   instead of writing raw HTML elements with custom classes.
-- Import `cn` from `@sero/ui/lib/utils` for conditional class name merging.
+- Import `cn` from `@sero-ai/ui/lib/utils` for conditional class name merging.
 - Import `./styles.css` for Tailwind + theme token mapping (see below).
 - Use Tailwind semantic color classes (`bg-background`, `text-foreground`,
   `text-muted-foreground`, `bg-secondary`) instead of raw CSS variable
@@ -654,7 +654,7 @@ export default defineConfig({
   reads `devPort` to auto-configure Module Federation remotes.
 - Do NOT alias `@sero-ai/app-runtime` — the MF plugin must intercept that import
   so the host's singleton is used at runtime.
-- `@sero/ui` does NOT need to be in `optimizeDeps.exclude` — unlike
+- `@sero-ai/ui` does NOT need to be in `optimizeDeps.exclude` — unlike
   `@sero-ai/app-runtime`, it's bundled into your remote at build time (no
   runtime singleton). Vite handles it automatically.
 
@@ -667,7 +667,7 @@ because each remote has its own independent Tailwind build.
 ```css
 @import "tailwindcss";
 
-/* REQUIRED: Scan @sero/ui component sources so Tailwind generates CSS
+/* REQUIRED: Scan @sero-ai/ui component sources so Tailwind generates CSS
    for utility classes used inside shared components (Button, Card, etc.).
    Without this, complex classes like has-[...]:flex-col won't be generated
    and layouts will break. Path is relative to this CSS file. */
@@ -710,7 +710,7 @@ because each remote has its own independent Tailwind build.
 
 - **`@source`**: Tailwind CSS 4 doesn't automatically scan monorepo
   packages. Without this directive, Tailwind won't see the utility classes
-  inside `@sero/ui` components (e.g. `has-[>[data-align=block-end]]:flex-col`
+  inside `@sero-ai/ui` components (e.g. `has-[>[data-align=block-end]]:flex-col`
   in InputGroup), and layouts will silently break. The path is relative to
   the CSS file — adjust based on your package's location.
 - **`@theme inline`**: Tells Tailwind to generate utility classes like
@@ -737,8 +737,8 @@ You can add app-specific `@keyframes` and `@utility` rules to this file too.
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": {
       "@sero-ai/app-runtime": ["../../app-runtime/src/index.ts"],
-      "@sero/ui": ["../../ui/src/index.ts"],
-      "@sero/ui/*": ["../../ui/src/*"]
+      "@sero-ai/ui": ["../../ui/src/index.ts"],
+      "@sero-ai/ui/*": ["../../ui/src/*"]
     }
   },
   "include": ["./**/*", "../shared/**/*"]
@@ -940,32 +940,32 @@ const handleClick = async () => {
 
 ## Styling Guide
 
-Sero apps render inside the main app area. Use **`@sero/ui`** for pre-built
+Sero apps render inside the main app area. Use **`@sero-ai/ui`** for pre-built
 shadcn/ui components and **Tailwind CSS** for layout and custom styling.
 
-### Using `@sero/ui` Components
+### Using `@sero-ai/ui` Components
 
-The `@sero/ui` package provides 60+ shadcn/ui components shared across the
+The `@sero-ai/ui` package provides 60+ shadcn/ui components shared across the
 Sero platform. Import them via subpaths for tree-shaking:
 
 ```tsx
-import { Button } from '@sero/ui/components/ui/button';
-import { Card } from '@sero/ui/components/ui/card';
-import { Badge } from '@sero/ui/components/ui/badge';
-import { cn } from '@sero/ui/lib/utils';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { cn } from '@sero-ai/ui/lib/utils';
 ```
 
 Common components for apps:
 
 | Component | Import path | Use for |
 |-----------|-------------|---------|
-| `Button` | `@sero/ui/components/ui/button` | Actions, toggles, form submissions |
-| `Card` | `@sero/ui/components/ui/card` | Content containers, panels, sections |
-| `Badge` | `@sero/ui/components/ui/badge` | Status indicators, counts |
-| `Separator` | `@sero/ui/components/ui/separator` | Visual dividers |
-| `ScrollArea` | `@sero/ui/components/ui/scroll-area` | Custom scrollable regions |
-| `Checkbox` | `@sero/ui/components/ui/checkbox` | Toggle items, multi-select |
-| `cn()` | `@sero/ui/lib/utils` | Class name merging (clsx + tailwind-merge) |
+| `Button` | `@sero-ai/ui/components/ui/button` | Actions, toggles, form submissions |
+| `Card` | `@sero-ai/ui/components/ui/card` | Content containers, panels, sections |
+| `Badge` | `@sero-ai/ui/components/ui/badge` | Status indicators, counts |
+| `Separator` | `@sero-ai/ui/components/ui/separator` | Visual dividers |
+| `ScrollArea` | `@sero-ai/ui/components/ui/scroll-area` | Custom scrollable regions |
+| `Checkbox` | `@sero-ai/ui/components/ui/checkbox` | Toggle items, multi-select |
+| `cn()` | `@sero-ai/ui/lib/utils` | Class name merging (clsx + tailwind-merge) |
 
 **Customising components:** Override defaults via `className` — shadcn
 components are designed for this. `cn()` with `tailwind-merge` handles
@@ -987,7 +987,7 @@ deduplication, so your overrides replace (not append to) conflicting defaults:
 </Button>
 ```
 
-**Prefer `@sero/ui` components** over raw HTML elements with custom Tailwind
+**Prefer `@sero-ai/ui` components** over raw HTML elements with custom Tailwind
 classes. Use `<Button>` instead of `<button>`, `<Card>` instead of a styled
 `<div>`. This ensures visual consistency across Sero apps and gets you
 built-in accessibility, focus management, and theme support for free.
@@ -1409,14 +1409,14 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
 ## Reference Implementations
 
 The **Calculator app** (`packages/pi-calc-extension/`) is the best reference
-for using `@sero/ui` components with Tailwind:
+for using `@sero-ai/ui` components with Tailwind:
 
 | File | What to learn |
 |------|---------------|
-| `ui/CalcApp.tsx` | `Button` and `Card` from `@sero/ui`, `cn()` usage, container-scoped keyboard events |
+| `ui/CalcApp.tsx` | `Button` and `Card` from `@sero-ai/ui`, `cn()` usage, container-scoped keyboard events |
 | `ui/styles.css` | Minimal Tailwind + `@theme inline` setup for remote apps |
 | `ui/calc-engine.ts` | Pure logic separated from React (testable, no side effects) |
-| `package.json` | `@sero/ui` as workspace devDependency |
+| `package.json` | `@sero-ai/ui` as workspace devDependency |
 
 The **Todo app** (`packages/pi-todo-extension/`) is the canonical reference
 for app structure:
