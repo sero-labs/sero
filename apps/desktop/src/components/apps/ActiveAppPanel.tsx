@@ -1,4 +1,5 @@
 import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
+import { Dashboard } from '@/components/apps/dashboard/Dashboard';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
 import { useAppStore } from '@/stores/app';
 
@@ -17,7 +18,9 @@ export function ActiveAppPanel({ app }: ActiveAppPanelProps) {
 
   let content: React.ReactNode;
 
-  if (app === 'coding') {
+  if (app === 'dashboard') {
+    content = <Dashboard />;
+  } else if (app === 'coding') {
     content = <CodingWorkspace />;
   } else if (entry?.manifest) {
     content = <SeroAppMount manifest={entry.manifest} />;

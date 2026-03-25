@@ -10,6 +10,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useThemeStore, hydrateThemeStore } from '@/stores/theme';
 import { useModelPreferences } from '@/stores/model-preferences';
+import { useDashboardStore } from '@/stores/dashboard';
 
 // ── Built-in apps (always present) ────────────────────────────
 
@@ -24,6 +25,7 @@ export interface AppEntry {
 }
 
 const BUILTIN_APPS: AppEntry[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', builtin: true, manifest: null },
   { id: 'coding', label: 'Coding', icon: 'code', builtin: true, manifest: null },
 ];
 const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
@@ -162,7 +164,7 @@ function reconcileDiscoveredApps(discovered: AppEntry[]): void {
   const { activeApp, pendingApp, favouriteApps } = useAppStore.getState();
   const validIds = new Set(nextApps.map((app) => app.id));
 
-  const nextActiveApp = validIds.has(activeApp) ? activeApp : 'coding';
+  const nextActiveApp = validIds.has(activeApp) ? activeApp : 'dashboard';
   const nextPendingApp = pendingApp && validIds.has(pendingApp) ? pendingApp : null;
   const nextFavouriteApps = favouriteApps.filter((id) => validIds.has(id) && !BUILTIN_APP_IDS.has(id));
 
@@ -241,7 +243,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isFavourite: (appId) => get().favouriteApps.includes(appId),
 
   // Active app (hydrated from layout file on startup)
-  activeApp: 'coding',
+  activeApp: 'dashboard',
   pendingApp: null,
   setActiveApp: (app) => {
     const { activeApp, pendingApp, apps } = get();
@@ -252,6 +254,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (app === pendingApp) return;
 
     const entry = apps.find((candidate) => candidate.id === app);
+    if (!entry) {
+      console.warn(`[app-store] Ignoring unknown app: ${app}`);
+      return;
+    }
     const manifest = entry?.manifest;
 
     const activate = () => {
@@ -325,6 +331,9 @@ export async function loadLayout(): Promise<void> {
       if (state.activeSessionId !== undefined) {
         useSessionStore.setState({ activeSessionId: state.activeSessionId ?? null });
       }
+      // Hydrate dashboard layout
+      useDashboardStore.getState().hydrate(state.dashboardLayout);
+
       // Hydrate model preferences
       useModelPreferences.getState().hydrate({
         favouriteModels: state.favouriteModels,

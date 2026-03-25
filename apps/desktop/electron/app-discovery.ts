@@ -11,7 +11,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { SeroAppManifest, SettingsPackageSource } from '../src/types/ipc';
+import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '../src/types/ipc';
 
 import { SERO_AGENT_DIR, SERO_HOME } from './env';
 
@@ -19,6 +19,16 @@ const SERO_EXTENSIONS_DIR = path.join(SERO_AGENT_DIR, 'extensions');
 const SERO_PACKAGES_DIR = path.join(SERO_AGENT_DIR, 'packages');
 
 // ── Manifest parsing ─────────────────────────────────────────
+
+interface PkgWidgetDef {
+  id?: string;
+  name?: string;
+  component?: string;
+  defaultSize?: { w?: number; h?: number };
+  minSize?: { w?: number; h?: number };
+  maxSize?: { w?: number; h?: number };
+  description?: string;
+}
 
 interface PkgSeroApp {
   id: string;
@@ -29,6 +39,7 @@ interface PkgSeroApp {
   ui?: string;
   component?: string;
   devPort?: number;
+  widgets?: PkgWidgetDef[];
 }
 
 interface PkgSeroPlugin {
@@ -89,6 +100,32 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
     ? path.join(SERO_HOME, 'apps', app.id, 'state.json')
     : null;
 
+  // Parse widget definitions
+  const widgets: SeroWidgetManifest[] = [];
+  if (Array.isArray(app.widgets)) {
+    for (const w of app.widgets) {
+      if (!w.id || !w.name || !w.component) continue;
+      widgets.push({
+        id: w.id,
+        name: w.name,
+        component: w.component,
+        defaultSize: {
+          w: typeof w.defaultSize?.w === 'number' ? w.defaultSize.w : 2,
+          h: typeof w.defaultSize?.h === 'number' ? w.defaultSize.h : 2,
+        },
+        minSize: w.minSize ? {
+          w: typeof w.minSize.w === 'number' ? w.minSize.w : 1,
+          h: typeof w.minSize.h === 'number' ? w.minSize.h : 1,
+        } : undefined,
+        maxSize: w.maxSize ? {
+          w: typeof w.maxSize.w === 'number' ? w.maxSize.w : 4,
+          h: typeof w.maxSize.h === 'number' ? w.maxSize.h : 4,
+        } : undefined,
+        description: typeof w.description === 'string' ? w.description : undefined,
+      });
+    }
+  }
+
   return {
     id: app.id,
     name: app.name,
@@ -104,6 +141,7 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
     devPort: getManifestDevPort(app.id, packagePath, app.devPort),
     packagePath,
     isPlugin: Boolean(pkgJson.sero?.plugin),
+    widgets,
   };
 }
 

@@ -23,6 +23,7 @@ export default defineConfig({
       manifest: true,
       exposes: {
         './CronApp': './ui/CronApp.tsx',
+        './CronWidget': './ui/widgets/CronWidget.tsx',
       },
       shared: {
         react: { singleton: true },

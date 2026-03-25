@@ -19,6 +19,7 @@ working agent tool + live web UI.
 - [Step 6: Run and Test](#step-6-run-and-test)
 - [App Runtime API Reference](#app-runtime-api-reference)
 - [Styling Guide](#styling-guide)
+- [Dashboard Widgets](#dashboard-widgets)
 - [Manifest Reference](#manifest-reference)
 - [Conventions and Rules](#conventions-and-rules)
 - [Troubleshooting](#troubleshooting)
@@ -936,6 +937,30 @@ const handleClick = async () => {
 - App sessions run independently — they don't interfere with or appear in
   the user's chat panel.
 
+### `useWidgetRegistration(options)`
+
+Register a dashboard widget component at runtime. The widget appears in
+the Add Widget picker and can be placed on the dashboard grid.
+
+```typescript
+import { useWidgetRegistration } from '@sero-ai/app-runtime';
+import { MyWidget } from './widgets/MyWidget';
+
+export function MyApp() {
+  useWidgetRegistration({
+    widgetId: 'summary',
+    name: 'Summary',
+    component: MyWidget,
+    defaultSize: { w: 2, h: 2 },
+  });
+  // ...
+}
+```
+
+Registers on mount, unregisters on unmount. See
+[Dashboard Widgets](#dashboard-widgets) for full details and the imperative
+`registerWidget()` API.
+
 ---
 
 ## Styling Guide
@@ -1028,6 +1053,217 @@ and `overflow-y-auto` for scrollable content.
 
 ---
 
+## Dashboard Widgets
+
+Apps can provide **dashboard widgets** — compact, interactive views that appear
+on the Dashboard landing page. Widgets live on a draggable/resizable grid
+(powered by `react-grid-layout`) and have full access to `useAppState`,
+`useAgentPrompt`, and all other `@sero-ai/app-runtime` hooks.
+
+There are two ways to register widgets: **static** (declared in `package.json`)
+and **dynamic** (registered at runtime via a hook).
+
+### Static widgets (manifest)
+
+Declare widgets in the `sero.app.widgets` array in `package.json`. Each entry
+tells the host what component to load and how to size it on the grid.
+
+```json
+{
+  "sero": {
+    "app": {
+      "id": "myapp",
+      "name": "My App",
+      "icon": "box",
+      "stateFile": ".sero/apps/myapp/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "MyApp",
+      "devPort": 5175,
+      "widgets": [
+        {
+          "id": "summary",
+          "name": "Summary",
+          "component": "MyAppWidget",
+          "description": "Quick overview of items",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 1, "h": 1 },
+          "maxSize": { "w": 4, "h": 3 }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Widget manifest fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | ✅ | Unique identifier within the app (e.g. `"summary"`). |
+| `name` | ✅ | Display name shown in the widget header and Add Widget picker. |
+| `component` | ✅ | Exported component name from the MF remote (e.g. `"MyAppWidget"`). Must match the `exposes` key in `vite.config.ts`. |
+| `description` | ❌ | Short description shown in the Add Widget picker. |
+| `defaultSize` | ✅ | Default grid size in columns × rows (e.g. `{ "w": 2, "h": 2 }`). The dashboard uses a 6-column grid with 120px row height. |
+| `minSize` | ❌ | Minimum resize constraint. |
+| `maxSize` | ❌ | Maximum resize constraint. |
+
+### Expose the widget via Module Federation
+
+Add the widget component to `exposes` in `vite.config.ts` alongside the main
+app component:
+
+```typescript
+// vite.config.ts
+federation({
+  name: 'sero_myapp',
+  exposes: {
+    './MyApp': './ui/MyApp.tsx',
+    './MyAppWidget': './ui/widgets/MyAppWidget.tsx',  // ← widget
+  },
+  // ...
+}),
+```
+
+### Build the widget component
+
+Create the widget in `ui/widgets/`. It's a regular React component — it
+receives the same `AppProvider` context as the full app, so all hooks work.
+
+```tsx
+// ui/widgets/MyAppWidget.tsx
+
+import { useMemo } from 'react';
+import { useAppState } from '@sero-ai/app-runtime';
+import type { MyAppState } from '../../shared/types';
+import { DEFAULT_STATE } from '../../shared/types';
+
+export function MyAppWidget() {
+  const [state] = useAppState<MyAppState>(DEFAULT_STATE);
+
+  const count = state.items.length;
+
+  return (
+    <div className="flex h-full flex-col gap-2 p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg font-bold tabular-nums text-[var(--text-primary)]">
+          {count}
+        </span>
+        <span className="text-xs text-[var(--text-muted)]">items</span>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto">
+        {state.items.slice(0, 5).map((item) => (
+          <div
+            key={item.id}
+            className="truncate rounded-md bg-[var(--bg-elevated)] px-2 py-1 text-xs text-[var(--text-primary)]"
+          >
+            {item.title}
+          </div>
+        ))}
+        {count > 5 && (
+          <span className="text-[10px] text-[var(--text-muted)]">
+            +{count - 5} more
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default MyAppWidget;
+```
+
+**Widget component conventions:**
+
+- **Both named and default exports are required** (same as main app components).
+- **Fill `h-full`** — the widget wrapper provides the container with header
+  and resize handle. Your component fills the remaining content area.
+- **Use `p-3` padding** — the content area has no built-in padding.
+- **Keep it compact** — widgets are small. Use `text-xs` / `text-[10px]` for
+  details, `text-lg` for headline numbers.
+- **Respect overflow** — add `overflow-auto` on scrollable areas and
+  `min-h-0` on flex children to prevent layout blowout.
+- **Limit data shown** — show top 3–5 items with a "+N more" overflow
+  indicator rather than rendering all data.
+
+### Dynamic widgets (runtime registration)
+
+Apps can also register widgets at runtime using the `useWidgetRegistration`
+hook. This is useful for widgets that depend on runtime state or configuration.
+
+```tsx
+// In your main app component (e.g. MyApp.tsx)
+
+import { useWidgetRegistration } from '@sero-ai/app-runtime';
+import { MyAppWidget } from './widgets/MyAppWidget';
+
+export function MyApp() {
+  // Registers on mount, unregisters on unmount
+  useWidgetRegistration({
+    widgetId: 'summary',
+    name: 'Summary',
+    component: MyAppWidget,
+    defaultSize: { w: 2, h: 2 },
+    description: 'Quick overview of items',
+  });
+
+  // ... rest of app
+}
+```
+
+For lower-level control, use `registerWidget` directly:
+
+```typescript
+import { registerWidget } from '@sero-ai/app-runtime';
+
+const unregister = registerWidget({
+  appId: 'myapp',
+  widgetId: 'summary',
+  name: 'Summary',
+  component: MyAppWidget,
+  defaultSize: { w: 2, h: 2 },
+});
+
+// Later: unregister();
+```
+
+### Widget runtime API
+
+| Export | Description |
+|--------|-------------|
+| `useWidgetRegistration(opts)` | Hook — registers a widget on mount, unregisters on unmount. |
+| `registerWidget(widget)` | Imperative — returns an `unregister()` function. |
+| `getRuntimeWidgets()` | Returns all runtime-registered widgets. |
+| `onWidgetRegistryChange(fn)` | Subscribe to registration changes. Returns unsubscribe function. |
+
+### Dashboard grid sizing
+
+The dashboard uses a **6-column grid** with **120px row height** and **16px
+margins**. When choosing `defaultSize`:
+
+| Size | Columns × Rows | Approx pixel size |
+|------|----------------|-------------------|
+| Small | 1×1 | ~160×120 |
+| Standard | 2×2 | ~340×256 |
+| Wide | 3×2 | ~520×256 |
+| Large | 4×3 | ~700×392 |
+
+Widget positions and sizes are persisted to `~/.sero-ui/layout.json` and
+restored on restart.
+
+### Example widgets
+
+The following apps ship with built-in widgets you can use as reference:
+
+| App | Widget | File | What it shows |
+|-----|--------|------|---------------|
+| Kanban | Board Overview | `pi-kanban-extension/ui/widgets/KanbanWidget.tsx` | Animated column bars, priority dots, status glow, distribution bar |
+| Cron | Scheduler | `pi-cron-extension/ui/widgets/CronWidget.tsx` | Status light, job list, active reminders, run history sparkline |
+| Notes | Pinboard | `pi-notes-extension/ui/widgets/NotesWidget.tsx` | Pastel sticky-note cards, pin indicators, body previews |
+| ImageGen | Gallery | `pi-imagegen-extension/ui/widgets/ImageGenWidget.tsx` | Gradient image counter, recent generation grid, prompt hover overlays |
+
+---
+
 ## Manifest Reference
 
 The `sero.app` object in `package.json`:
@@ -1042,6 +1278,7 @@ The `sero.app` object in `package.json`:
 | `ui` | ❌ | Path to the built `remoteEntry.js`, relative to package root. Null if no UI. |
 | `component` | ❌ | Exported component name from the MF remote (e.g. `"MyApp"`). Required if `ui` is set. |
 | `devPort` | ❌ | Vite dev server port for this remote. Required if `ui` is set. Must be unique across all apps. Must match `server.port` in the package's `vite.config.ts`. |
+| `widgets` | ❌ | Array of widget definitions for the dashboard. Each entry declares a component, display name, and grid size constraints. See [Dashboard Widgets](#dashboard-widgets). |
 
 ### Plugin Metadata (`sero.plugin`)
 

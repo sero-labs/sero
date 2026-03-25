@@ -23,6 +23,7 @@ function createManifest(
     devPort: undefined,
     packagePath,
     isPlugin,
+    widgets: [],
   };
 }
 

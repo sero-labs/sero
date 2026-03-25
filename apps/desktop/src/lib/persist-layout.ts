@@ -21,6 +21,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
 import { useModelPreferences } from '@/stores/model-preferences';
+import { useDashboardStore } from '@/stores/dashboard';
 
 // Re-export the canonical type so callers don't need a second import.
 export type { LayoutState };
@@ -48,6 +49,10 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     favouriteModels: partial.favouriteModels ?? useModelPreferences.getState().favouriteModels,
     hiddenModels: partial.hiddenModels ?? useModelPreferences.getState().hiddenModels,
     hiddenProviders: partial.hiddenProviders ?? useModelPreferences.getState().hiddenProviders,
+    dashboardLayout: partial.dashboardLayout ?? {
+      widgets: useDashboardStore.getState().widgets,
+      layouts: useDashboardStore.getState().layouts,
+    },
   };
 }
 

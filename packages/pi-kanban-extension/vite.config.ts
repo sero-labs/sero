@@ -30,6 +30,7 @@ export default defineConfig({
       manifest: true,
       exposes: {
         './KanbanApp': './ui/KanbanApp.tsx',
+        './KanbanWidget': './ui/widgets/KanbanWidget.tsx',
       },
       shared: {
         react: { singleton: true },
