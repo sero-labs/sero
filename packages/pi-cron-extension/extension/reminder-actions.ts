@@ -32,6 +32,7 @@ export interface ReminderParams {
   fire_at?: string;
   schedule?: string;
   snooze_minutes?: number;
+  recover_if_missed?: boolean;
 }
 
 // ── List ────────────────────────────────────────────────────────
@@ -135,6 +136,7 @@ export async function handleReminderAdd(
 
   if (type === 'once') reminder.fireAt = params.fire_at;
   if (type === 'recurring') reminder.schedule = params.schedule;
+  if (params.recover_if_missed) reminder.recoverIfMissed = true;
 
   if (!state.reminders) state.reminders = [];
   state.reminders.push(reminder);
@@ -168,6 +170,10 @@ export async function handleReminderUpdate(
     const chResult = validateChannel(params.channel);
     if (!chResult.ok) return chResult.error;
     reminder.channel = chResult.channel;
+  }
+
+  if (params.recover_if_missed !== undefined) {
+    reminder.recoverIfMissed = params.recover_if_missed;
   }
 
   if (params.fire_at) {

@@ -85,6 +85,16 @@ export function JobCard({
               {job.model}
             </Badge>
           )}
+
+          {job.runIfMissed && (
+            <Badge
+              variant="outline"
+              className="border-blue-500/30 text-[10px] text-blue-500"
+              title="This job will run on startup if missed since midnight"
+            >
+              Recover
+            </Badge>
+          )}
         </div>
 
         {/* Schedule */}

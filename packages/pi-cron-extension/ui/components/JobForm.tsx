@@ -33,6 +33,7 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
   const [prompt, setPrompt] = useState('');
   const [channel, setChannel] = useState('cron');
   const [model, setModel] = useState('');
+  const [runIfMissed, setRunIfMissed] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
@@ -45,12 +46,14 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
         setPrompt(editingJob.prompt);
         setChannel(editingJob.channel);
         setModel(editingJob.model ?? '');
+        setRunIfMissed(editingJob.runIfMissed ?? false);
       } else {
         setName('');
         setSchedule('');
         setPrompt('');
         setChannel('cron');
         setModel('');
+        setRunIfMissed(false);
       }
       setNameError(null);
       setScheduleError(null);
@@ -101,6 +104,7 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
       disabled: editingJob?.disabled ?? false,
     };
     if (model.trim()) job.model = model.trim();
+    if (runIfMissed) job.runIfMissed = true;
     onSave(job);
     onClose();
   }, [canSave, name, schedule, prompt, channel, model, editingJob, onSave, onClose]);
@@ -235,6 +239,24 @@ export function JobForm({ open, onClose, onSave, editingJob }: JobFormProps) {
               Choose a model or leave as default.
             </p>
           </div>
+
+          {/* Run if missed */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={runIfMissed}
+              onChange={(e) => setRunIfMissed(e.target.checked)}
+              className="h-4 w-4 rounded border-input accent-primary"
+            />
+            <div>
+              <span className="text-xs font-medium text-foreground">
+                Run if missed
+              </span>
+              <p className="text-[11px] text-muted-foreground">
+                Run once on startup if this job was missed since midnight today
+              </p>
+            </div>
+          </label>
         </form>
 
         <DialogFooter>
