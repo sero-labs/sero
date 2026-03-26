@@ -1,4 +1,4 @@
-import { appStateManager } from '../app-state';
+import { appStateManager } from '../workspace/app-state';
 import { getPullRequestMergeError, getPullRequestMergeState } from './pr-merge-status';
 import { updateCard } from './state-helpers';
 import type { Card, KanbanState } from './types';

@@ -1,4 +1,4 @@
-import { appStateManager } from '../app-state';
+import { appStateManager } from '../workspace/app-state';
 import { updateCard } from './state-helpers';
 import { closePullRequest, deleteReviewCache } from './review-artifacts';
 import type { WorktreeManager } from './worktree-manager';

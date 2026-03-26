@@ -4,7 +4,7 @@ import type { DevServer } from '../../src/types/ipc';
 import type { DetectedPort } from '../container/port-forward';
 import { containerManager } from '../container/singleton';
 import { buildWorkspaceContainerConfig } from '../container/workspace-container-config';
-import { workspaceManager } from '../workspace';
+import { workspaceManager } from '../workspace/manager';
 
 const AUTO_START_TIMEOUT_MS = 20_000;
 const AUTO_START_POLL_MS = 500;

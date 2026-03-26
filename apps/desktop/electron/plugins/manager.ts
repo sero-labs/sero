@@ -13,9 +13,9 @@ import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
 
 import { SERO_AGENT_DIR } from '../env';
-import { registerAppPath, discoverApps } from '../app-discovery';
-import { registerExtAssets } from '../ext-protocol';
-import { clearAppManifestCache } from '../ipc/app-agent';
+import { registerAppPath, discoverApps } from '../extensions/app-discovery';
+import { registerExtAssets } from '../shell/ext-protocol';
+import { clearAppManifestCache } from '../ipc/workspace/app-agent';
 import { clearPluginBridgePolicyCache } from '../cli';
 import type { SeroAppManifest, SettingsPackageSource } from '../../src/types/ipc';
 import type { InstalledPlugin } from './types';

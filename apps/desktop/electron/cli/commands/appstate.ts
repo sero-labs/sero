@@ -1,4 +1,4 @@
-import { appStateManager } from '../../app-state';
+import { appStateManager } from '../../workspace/app-state';
 import type { CliRegistry } from '../registry';
 import type { CliCommandContext } from '../types';
 import { fail, ok, parseFlags, requireFlagString, stringifyJson } from './utils';

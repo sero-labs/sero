@@ -20,15 +20,15 @@ if (ACTIVE_PROFILE_ID) {
   app.setPath('userData', profileUserData);
 }
 import { registerAllIpcHandlers } from './ipc/index';
-import { workspaceManager } from './workspace';
-import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
-import { discoverApps, registerAppPath } from './app-discovery';
-import { watchForNewApps } from './ipc/apps';
+import { workspaceManager } from './workspace/manager';
+import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './shell/ext-protocol';
+import { discoverApps, registerAppPath } from './extensions/app-discovery';
+import { watchForNewApps } from './ipc/workspace/apps';
 import { ensureDefaultAgents, ensureDefaultThemes, ensureProfileTemplates } from './profile/setup';
 import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './ipc/shared-infra';
-import { startGateway, stopGateway } from './ipc/gateway';
-import { setupContentSecurityPolicy } from './csp';
-import { discoverBuiltinPackagePaths } from './builtin-resources';
+import { startGateway, stopGateway } from './ipc/gateway/gateway';
+import { setupContentSecurityPolicy } from './shell/csp';
+import { discoverBuiltinPackagePaths } from './extensions/builtin-resources';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();

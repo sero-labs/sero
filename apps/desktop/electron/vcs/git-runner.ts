@@ -4,10 +4,10 @@ import { homedir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
-import type { WorkspaceManager } from '../workspace';
+import type { WorkspaceManager } from '../workspace/manager';
 import type { ContainerManager } from '../container/index';
 import { buildWorkspaceContainerConfig } from '../container/workspace-container-config';
-import type { GitHubAuthManager } from '../github/auth-manager';
+import type { GitHubAuthManager } from '../auth/github-auth';
 import type { GitResult } from './types';
 
 const execFileAsync = promisify(execFile);

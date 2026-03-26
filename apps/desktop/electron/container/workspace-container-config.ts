@@ -1,7 +1,7 @@
 import path from 'path';
 
 import { SERO_AGENT_DIR } from '../env';
-import type { WorkspaceManager } from '../workspace';
+import type { WorkspaceManager } from '../workspace/manager';
 import type { ContainerConfig } from './types';
 
 export async function buildWorkspaceContainerConfig(

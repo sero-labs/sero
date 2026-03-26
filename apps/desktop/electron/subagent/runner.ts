@@ -17,15 +17,15 @@ import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from './types';
 import type { SharedInfra } from '../ipc/shared-infra';
 import { buildContainerConfig } from '../ipc/shared-infra';
-import type { WorkspaceManager } from '../workspace';
+import type { WorkspaceManager } from '../workspace/manager';
 import type { ContainerManager } from '../container/index';
 import type { ContainerState } from '../container/types';
 import { createContainerTools } from '../container/tools';
 import { WORKSPACE_DIR } from '../container/tool-schemas';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '../env';
-import { logRawEvent, logTurnContext } from '../ipc/debug';
-import { createSkillVisibilityOverride } from '../skill-visibility';
+import { logRawEvent, logTurnContext } from '../ipc/infra/debug';
+import { createSkillVisibilityOverride } from '../extensions/skill-visibility';
 import path from 'path';
 
 const EMPTY_USAGE: SubagentUsage = {

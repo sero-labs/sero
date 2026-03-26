@@ -6,7 +6,7 @@
  */
 
 import type { Card, KanbanState } from './types';
-import { appStateManager } from '../app-state';
+import { appStateManager } from '../workspace/app-state';
 
 /** Fallback state used when the file is empty/missing. */
 function fallbackState(): KanbanState {

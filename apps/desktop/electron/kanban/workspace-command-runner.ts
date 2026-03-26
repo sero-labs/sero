@@ -5,7 +5,7 @@ import { promisify } from 'util';
 import { WORKSPACE_MOUNT, type ExecResult } from '../container/types';
 import { containerManager } from '../container/singleton';
 import { buildWorkspaceContainerConfig } from '../container/workspace-container-config';
-import { workspaceManager } from '../workspace';
+import { workspaceManager } from '../workspace/manager';
 
 const execFileAsync = promisify(execFile);
 

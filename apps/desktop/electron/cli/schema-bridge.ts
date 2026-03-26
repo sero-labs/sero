@@ -15,7 +15,7 @@
 import type { ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
 import type { CliCommand, CliCommandContext, CliResult } from './types';
 import { parseFlags } from './commands/utils';
-import { createSeroUIContext } from '../extension-ui-context';
+import { createSeroUIContext } from '../extensions/ui-context';
 
 // ── Schema introspection ────────────────────────────────────
 

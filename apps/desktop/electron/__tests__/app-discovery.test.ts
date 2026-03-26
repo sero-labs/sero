@@ -5,7 +5,7 @@ const originalNodeEnv = process.env.NODE_ENV;
 const originalDevApps = process.env.SERO_DEV_APPS;
 
 async function importAppDiscovery() {
-  return import('../app-discovery');
+  return import('../extensions/app-discovery');
 }
 
 describe('app discovery devPort handling', () => {

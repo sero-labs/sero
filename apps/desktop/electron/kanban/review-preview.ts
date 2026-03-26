@@ -4,7 +4,7 @@ import { startManagedDevServer } from './dev-server-launch';
 import { detectDevServerCommand } from './verification';
 import type { DevServer } from '../../src/types/ipc';
 import { containerManager } from '../container/singleton';
-import { workspaceManager } from '../workspace';
+import { workspaceManager } from '../workspace/manager';
 
 export interface ReviewPreviewResult {
   previewServerId?: string;

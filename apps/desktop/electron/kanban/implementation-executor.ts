@@ -11,7 +11,7 @@ import {
   summarizeVerificationFailure,
 } from './verification';
 import { runWorkspaceCommand } from './workspace-command-runner';
-import { appStateManager } from '../app-state';
+import { appStateManager } from '../workspace/app-state';
 import type { SubagentManager } from '../subagent/index';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 

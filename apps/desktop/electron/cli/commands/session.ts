@@ -1,4 +1,4 @@
-import { buildModelState } from '../../ipc/agent-helpers';
+import { buildModelState } from '../../ipc/agent/agent-helpers';
 import { getCliSessionBridge } from '../session-bridge';
 import type { CliRegistry } from '../registry';
 import type { CliCommandContext } from '../types';

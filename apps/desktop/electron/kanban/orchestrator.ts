@@ -22,7 +22,7 @@ import {
   findWatchedWorkspace,
   type WatchedWorkspaceEntry,
 } from './workspace-watch';
-import { appStateManager } from '../app-state';
+import { appStateManager } from '../workspace/app-state';
 import type { SubagentManager } from '../subagent/index';
 const RETRYABLE_COLUMNS = new Set<Column>(['planning', 'in-progress', 'review']);
 function isRetryableColumn(column: Column): boolean { return RETRYABLE_COLUMNS.has(column); }

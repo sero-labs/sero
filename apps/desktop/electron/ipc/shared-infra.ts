@@ -27,12 +27,12 @@ import { buildWorkspaceContainerConfig } from '../container/workspace-container-
 import { GatewayServer } from '../gateway/index';
 import { WebChatServer } from '../gateway/channels/web';
 import { TailscaleIntegration } from '../gateway/tailscale';
-import { GitHubAuthManager } from '../github/auth-manager';
-import { workspaceManager } from '../workspace';
-import { FileWatcherManager } from '../file-watcher';
+import { GitHubAuthManager } from '../auth/github-auth';
+import { workspaceManager } from '../workspace/manager';
+import { FileWatcherManager } from '../workspace/file-watcher';
 import { LspManager } from '../lsp/lsp-manager';
 import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../vcs';
-import { GitHubRepoOps } from '../github/repo-ops';
+import { GitHubRepoOps } from '../auth/github-repo-ops';
 import { ArtifactRegistry } from '../container/artifact-registry';
 
 // ── GitHub Auth Manager (singleton) ──────────────────────────

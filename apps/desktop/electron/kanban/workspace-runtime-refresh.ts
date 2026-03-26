@@ -1,6 +1,6 @@
 import type { DevServer } from '../../src/types/ipc';
 import { containerManager } from '../container/singleton';
-import { workspaceManager } from '../workspace';
+import { workspaceManager } from '../workspace/manager';
 import { runWorkspaceCommand } from './workspace-command-runner';
 import { startManagedDevServer } from './dev-server-launch';
 import {

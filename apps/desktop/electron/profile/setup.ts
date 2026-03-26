@@ -12,7 +12,7 @@
 import { readdir, copyFile, readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { SERO_AGENT_DIR, SERO_HOME } from '../env';
-import { resolveBuiltinTemplatesDir } from '../builtin-resources';
+import { resolveBuiltinTemplatesDir } from '../extensions/builtin-resources';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 const GLOBAL_WORKSPACE_DIR = path.join(SERO_HOME, 'workspaces', 'global');

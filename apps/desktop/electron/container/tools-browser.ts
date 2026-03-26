@@ -18,7 +18,7 @@ import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-
 import type { ContainerManager } from './index';
 import { BrowserParams, shellEscape } from './tool-schemas';
 import { encodeFramesToMp4 } from '../utils/video-encoder';
-import { workspaceManager } from '../workspace';
+import { workspaceManager } from '../workspace/manager';
 
 const HELPER_CONTAINER_PATH = '/tmp/sero-browser-helper.py';
 const HELPER_SOURCE_PATH = path.join(__dirname, 'browser-helper.py');

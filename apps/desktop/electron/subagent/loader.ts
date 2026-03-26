@@ -13,12 +13,12 @@
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-import type { WorkspaceManager } from '../workspace';
+import type { WorkspaceManager } from '../workspace/manager';
 import type { ContainerState } from '../container/types';
 import { buildContainerPromptBlock } from '../container/system-prompt';
 import { buildCliPromptBlock } from '../cli';
-import { logProviderRequest } from '../ipc/debug';
-import { showNotification, type NotificationType } from '../notifications';
+import { logProviderRequest } from '../ipc/infra/debug';
+import { showNotification, type NotificationType } from '../shell/notifications';
 
 /**
  * Creates a reduced extension factory for subagent child sessions.

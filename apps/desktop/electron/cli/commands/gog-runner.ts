@@ -16,7 +16,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 
 import { containerManager } from '../../ipc/shared-infra';
-import { getGoogleAuthManager } from '../../ipc/google-api';
+import { getGoogleAuthManager } from '../../ipc/auth/google-api';
 import type { CliCommandContext, CliResult } from '../types';
 
 // ── Shell helpers ────────────────────────────────────────────

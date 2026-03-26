@@ -1,5 +1,5 @@
 import type { ContainerManager } from '../container';
-import type { WorkspaceManager } from '../workspace';
+import type { WorkspaceManager } from '../workspace/manager';
 
 export type CliSource = 'tool' | 'bash' | 'terminal';
 

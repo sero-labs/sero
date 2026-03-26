@@ -3,7 +3,7 @@ import { updateCard } from './state-helpers';
 import { maintainWorkspaceForNewCard } from './worktree-maintenance';
 import { refreshWorkspaceRuntimeAfterSync } from './workspace-runtime-refresh';
 import { collectPersistedCardFixes } from './persisted-state-reconcile';
-import { appStateManager } from '../app-state';
+import { appStateManager } from '../workspace/app-state';
 import type { WorktreeManager } from './worktree-manager';
 
 export async function isYoloModeEnabled(stateFilePath: string): Promise<boolean> {
