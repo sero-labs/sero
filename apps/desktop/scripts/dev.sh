@@ -7,20 +7,19 @@
 #
 # ── Selective dev mode ────────────────────────────────────────
 #
-# By default, ALL discovered apps start dev servers. To run only specific
-# apps in dev mode (and load the rest from pre-built bundles via sero-ext://),
-# set SERO_DEV_APPS to a comma-separated list of app IDs:
+# By default, NO plugins start in dev mode. To run only specific plugins in
+# dev mode (and load the rest from pre-built bundles via sero-ext://), set
+# SERO_DEV_PLUGINS to a comma-separated list of plugin IDs:
 #
-#   SERO_DEV_APPS=todo,kanban bash scripts/dev.sh
+#   SERO_DEV_PLUGINS=admin,kanban bash scripts/dev.sh
 #
-# Apps not in the list must have been built first (pnpm build in their dir).
-# Use SERO_DEV_APPS=none to skip all remote dev servers entirely.
+# Use SERO_DEV_PLUGINS=all to run every remote dev server.
 #
 cd "$(dirname "$0")/.."
 
 PACKAGES_DIR="$(cd ../../packages && pwd)"
 PLUGINS_DIR="$(cd ../../plugins && pwd)"
-SERO_DEV_APPS="${SERO_DEV_APPS:-}"
+SERO_DEV_PLUGINS="${SERO_DEV_PLUGINS:-}"
 
 # ── Cleanup trap ────────────────────────────────────────────
 CHILD_PIDS=()
@@ -82,28 +81,32 @@ for pkg_json in "${PACKAGE_JSONS[@]}"; do
   ALL_PORTS+=("$PORT")
 done
 
-# ── Filter by SERO_DEV_APPS ─────────────────────────────────
+# ── Filter by SERO_DEV_PLUGINS ───────────────────────────────
 REMOTE_NAMES=()
 REMOTE_DIRS=()
 REMOTE_PORTS=()
 SKIPPED_NAMES=()
 
-if [ -n "$SERO_DEV_APPS" ] && [ "$SERO_DEV_APPS" != "all" ]; then
-  IFS=',' read -ra DEV_LIST <<< "$SERO_DEV_APPS"
+if [ -z "$SERO_DEV_PLUGINS" ]; then
+  SKIPPED_NAMES=("${ALL_NAMES[@]}")
+elif [ "$SERO_DEV_PLUGINS" = "all" ]; then
+  REMOTE_NAMES=("${ALL_NAMES[@]}")
+  REMOTE_DIRS=("${ALL_DIRS[@]}")
+  REMOTE_PORTS=("${ALL_PORTS[@]}")
+else
+  IFS=',' read -ra DEV_LIST <<< "$SERO_DEV_PLUGINS"
 
   for i in "${!ALL_NAMES[@]}"; do
     name="${ALL_NAMES[$i]}"
     matched=false
 
-    if [ "$SERO_DEV_APPS" != "none" ]; then
-      for dev_app in "${DEV_LIST[@]}"; do
-        dev_app="$(echo "$dev_app" | xargs)"
-        if [ "$dev_app" = "$name" ]; then
-          matched=true
-          break
-        fi
-      done
-    fi
+    for dev_plugin in "${DEV_LIST[@]}"; do
+      dev_plugin="$(echo "$dev_plugin" | xargs)"
+      if [ "$dev_plugin" = "$name" ]; then
+        matched=true
+        break
+      fi
+    done
 
     if $matched; then
       REMOTE_NAMES+=("$name")
@@ -113,10 +116,6 @@ if [ -n "$SERO_DEV_APPS" ] && [ "$SERO_DEV_APPS" != "all" ]; then
       SKIPPED_NAMES+=("$name")
     fi
   done
-else
-  REMOTE_NAMES=("${ALL_NAMES[@]}")
-  REMOTE_DIRS=("${ALL_DIRS[@]}")
-  REMOTE_PORTS=("${ALL_PORTS[@]}")
 fi
 
 # ── Kill existing instances ───────────────────────────────────
@@ -160,7 +159,7 @@ if [ ${#REMOTE_PORTS[@]} -gt 0 ]; then
   done
 fi
 
-SERO_DEV_APPS="$SERO_DEV_APPS" npx vite > /tmp/sero-vite.log 2>&1 &
+SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" npx vite > /tmp/sero-vite.log 2>&1 &
 VITE_PID=$!
 CHILD_PIDS+=($VITE_PID)
 
@@ -169,7 +168,7 @@ for attempt in {1..10}; do
   sleep 1
 done
 
-SERO_DEV_APPS="$SERO_DEV_APPS" NODE_ENV=development npx electron . > /tmp/sero-electron.log 2>&1 &
+SERO_DEV_PLUGINS="$SERO_DEV_PLUGINS" NODE_ENV=development npx electron . > /tmp/sero-electron.log 2>&1 &
 ELECTRON_PID=$!
 CHILD_PIDS+=($ELECTRON_PID)
 

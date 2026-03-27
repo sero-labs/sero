@@ -4,8 +4,9 @@ import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 const originalNodeEnv = process.env.NODE_ENV;
-const originalDevApps = process.env.SERO_DEV_APPS;
+const originalDevPlugins = process.env.SERO_DEV_PLUGINS;
 const originalHomeOverride = process.env.SERO_HOME_OVERRIDE;
+const builtinPluginPath = '/Users/test/dev/sero/plugins/sero-admin-plugin';
 
 async function importAppDiscovery() {
   return import('../app-discovery');
@@ -15,12 +16,20 @@ describe('app discovery devPort handling', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env.NODE_ENV = 'development';
-    process.env.SERO_DEV_APPS = 'all';
+    delete process.env.SERO_DEV_PLUGINS;
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
-    process.env.SERO_DEV_APPS = originalDevApps;
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalDevPlugins === undefined) {
+      delete process.env.SERO_DEV_PLUGINS;
+    } else {
+      process.env.SERO_DEV_PLUGINS = originalDevPlugins;
+    }
     if (originalHomeOverride === undefined) {
       delete process.env.SERO_HOME_OVERRIDE;
     } else {
@@ -28,30 +37,39 @@ describe('app discovery devPort handling', () => {
     }
   });
 
-  it('suppresses devPort for installed plugins under ~/.sero-ui/agent/packages', async () => {
-    const { getManifestDevPort, isInstalledPluginPackagePath } = await importAppDiscovery();
-    const pluginPath = path.join('/tmp/fake-sero-home', 'agent', 'packages', 'todo');
+  it('omits devPort by default for built-in plugins during development', async () => {
+    const { getManifestDevPort } = await importAppDiscovery();
 
-    expect(isInstalledPluginPackagePath(pluginPath)).toBe(false);
-
-    const actualPluginPath = path.join(process.env.HOME ?? '/Users/test', '.sero-ui', 'agent', 'packages', 'todo');
-    expect(isInstalledPluginPackagePath(actualPluginPath)).toBe(true);
-    expect(getManifestDevPort('todo', actualPluginPath, 5174)).toBeUndefined();
+    expect(getManifestDevPort('admin', builtinPluginPath, 5193)).toBeUndefined();
   });
 
-  it('keeps devPort for built-in monorepo packages during development', async () => {
-    const { getManifestDevPort } = await importAppDiscovery();
-    const builtinPath = '/Users/test/dev/sero/packages/pi-todo-extension';
+  it('keeps devPort for plugins listed in SERO_DEV_PLUGINS', async () => {
+    process.env.SERO_DEV_PLUGINS = 'admin';
 
-    expect(getManifestDevPort('todo', builtinPath, 5174)).toBe(5174);
+    const { getManifestDevPort } = await importAppDiscovery();
+
+    expect(getManifestDevPort('admin', builtinPluginPath, 5193)).toBe(5193);
+  });
+
+  it('suppresses devPort for installed plugins under ~/.sero-ui/agent/packages', async () => {
+    process.env.SERO_DEV_PLUGINS = 'admin';
+
+    const { getManifestDevPort, isInstalledPluginPackagePath } = await importAppDiscovery();
+    const pluginPath = path.join('/tmp/fake-sero-home', 'agent', 'packages', 'admin');
+    const actualPluginPath = path.join(process.env.HOME ?? '/Users/test', '.sero-ui', 'agent', 'packages', 'admin');
+
+    expect(isInstalledPluginPackagePath(pluginPath)).toBe(false);
+    expect(isInstalledPluginPackagePath(actualPluginPath)).toBe(true);
+    expect(getManifestDevPort('admin', actualPluginPath, 5193)).toBeUndefined();
   });
 
   it('discovers devPort from agent packages without requiring a listening dev server', async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-'));
     process.env.SERO_HOME_OVERRIDE = tempRoot;
+    process.env.SERO_DEV_PLUGINS = 'admin';
 
     try {
-      const packageDir = path.join(tempRoot, 'apps', 'todo');
+      const packageDir = path.join(tempRoot, 'apps', 'admin');
       await mkdir(packageDir, { recursive: true });
       await mkdir(path.join(tempRoot, 'agent'), { recursive: true });
       await writeFile(
@@ -61,16 +79,16 @@ describe('app discovery devPort handling', () => {
       await writeFile(
         path.join(packageDir, 'package.json'),
         JSON.stringify({
-          name: 'todo',
+          name: 'admin',
           version: '1.0.0',
           sero: {
             app: {
-              id: 'todo',
-              name: 'Todo',
-              icon: 'check-square',
-              stateFile: '.sero/apps/todo/state.json',
-              component: 'TodoApp',
-              devPort: 5174,
+              id: 'admin',
+              name: 'Admin',
+              icon: 'shield',
+              stateFile: '.sero/apps/admin/state.json',
+              component: 'AdminApp',
+              devPort: 5193,
             },
           },
         }, null, 2),
@@ -78,9 +96,9 @@ describe('app discovery devPort handling', () => {
 
       const { discoverApps } = await importAppDiscovery();
       const apps = await discoverApps();
-      const todo = apps.find((app) => app.id === 'todo');
+      const admin = apps.find((app) => app.id === 'admin');
 
-      expect(todo?.devPort).toBe(5174);
+      expect(admin?.devPort).toBe(5193);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

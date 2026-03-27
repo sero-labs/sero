@@ -23,7 +23,7 @@ sero/
 
 ```bash
 cd apps/desktop
-bash scripts/dev.sh                # Start everything (remote + host + Electron)
+bash scripts/dev.sh                # Start host + Electron (set SERO_DEV_PLUGINS for remote dev servers)
 pkill -f "vite"; pkill -f "electron"  # Kill
 ```
 
@@ -91,7 +91,7 @@ tools live in one window. React 19 + Tailwind 4 + shadcn/ui + Zustand.
 ```bash
 cd apps/desktop                    # All commands run from here
 node scripts/build-electron.mjs   # Build Electron main + preload
-bash scripts/dev.sh                # Start remote + host + Electron
+bash scripts/dev.sh                # Start host + Electron (set SERO_DEV_PLUGINS for remote dev servers)
 pkill -f "vite"; pkill -f "electron"  # Kill
 ```
 
@@ -99,7 +99,7 @@ Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<app-id>.log`, `/tmp/sero-electron
 
 ### Selective Dev Mode
 
-- `SERO_DEV_APPS=todo,kanban bash scripts/dev.sh` starts dev servers only for listed plugins; skipped plugins load from their built `dist/ui` bundles via `sero-ext://`.
+- `SERO_DEV_PLUGINS=admin,kanban bash scripts/dev.sh` starts dev servers only for listed plugins; by default no plugins run in dev mode and everything else loads from their built `dist/ui` bundles via `sero-ext://`.
 - When testing skipped plugins, rebuild the remotes first with `pnpm build` so their `dist/ui` assets are current.
 
 ### Typecheck
