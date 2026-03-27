@@ -774,7 +774,7 @@ before restarting Sero:**
 pnpm install
 pnpm --filter @sero/myapp build
 
-# Then restart the dev server:
+# Then restart the dev server (set SERO_DEV_PLUGINS=myapp for HMR):
 cd apps/desktop
 bash scripts/dev.sh
 ```
@@ -783,9 +783,9 @@ bash scripts/dev.sh
 > after creating a new app package.** `pnpm install` links the workspace
 > dependencies (including `@sero-ai/app-runtime`). The build step produces
 > `dist/ui/remoteEntry.js` which the host needs for production mode and
-> which validates that the MF config is correct. In dev mode the remote
-> Vite server serves the UI live, but the initial build catches errors
-> early.
+> which validates that the MF config is correct. To run the UI in dev mode,
+> start `dev.sh` with `SERO_DEV_PLUGINS=<plugin-id>`; otherwise the host
+> loads the built bundle. The initial build catches errors early.
 
 On startup:
 
@@ -793,7 +793,8 @@ On startup:
    manifests and builds the Module Federation remotes map from `id` +
    `devPort`.
 2. **`dev.sh`** discovers the same packages and starts a Vite dev server
-   for each one on its `devPort`.
+   only for the plugin IDs listed in `SERO_DEV_PLUGINS`; everything else
+   loads from pre-built bundles.
 3. **`electron/main.ts`** scans packages and registers their paths for
    app discovery + adds them to `~/.sero-ui/agent/settings.json` so the
    agent loads the extension tools.
@@ -830,7 +831,7 @@ full install/publish documentation.
 
 ```bash
 cd apps/desktop
-bash scripts/dev.sh
+SERO_DEV_PLUGINS=myapp bash scripts/dev.sh
 ```
 
 1. Click your app in the sidebar → the federated UI loads.
@@ -1533,23 +1534,27 @@ cd apps/desktop
 bash scripts/dev.sh
 ```
 
+To get HMR for a plugin's UI, start `dev.sh` with `SERO_DEV_PLUGINS`
+set to that plugin's ID(s).
+
 This starts:
-1. Each remote's Vite dev server (one per app with a UI)
+1. The Vite dev servers for the plugins listed in `SERO_DEV_PLUGINS`
 2. The host Vite dev server (port 5173)
 3. Electron
 
 ### Live reload for remote apps
 
-The host includes a `watchRemotes` Vite plugin that monitors all
-`packages/pi-*/ui/` directories. When you edit a remote app's UI code:
+The host includes a `watchRemotes` Vite plugin that monitors the `ui/`
+directories for plugins running in dev mode. When you edit a remote app's UI
+code:
 
 1. The remote's Vite dev server detects the change and rebuilds (~50ms)
 2. The host's watcher detects the same file change (300ms debounce)
 3. The host sends `full-reload` via Vite's WebSocket
 4. The Electron renderer reloads with the updated code
 
-This gives **near-instant feedback** (~300–500ms) when editing app UI code.
-No manual restart needed.
+This gives **near-instant feedback** (~300–500ms) when editing app UI code
+for plugins that are running in dev mode. No manual restart needed.
 
 > **Note:** Changes to the Pi extension (`extension/index.ts`) or
 > `shared/types.ts` require restarting the Electron main process

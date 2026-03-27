@@ -56,9 +56,9 @@ The UI watches this file and renders the graph in real time.
 pnpm install
 pnpm --filter @sero-ai/plugin-context build
 
-# Start everything
+# Start the context plugin in dev mode
 cd apps/desktop
-bash scripts/dev.sh
+SERO_DEV_PLUGINS=context bash scripts/dev.sh
 ```
 
 The Context app appears in the sidebar. Click it to see the dashboard.

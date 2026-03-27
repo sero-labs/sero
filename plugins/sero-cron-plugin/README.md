@@ -589,12 +589,12 @@ pnpm --filter @sero-ai/plugin-cron build
 
 ```bash
 cd apps/desktop
-bash scripts/dev.sh          # Starts all remotes + host + Electron
+SERO_DEV_PLUGINS=cron bash scripts/dev.sh          # Starts cron in dev mode + host + Electron
 ```
 
-The cron remote runs on port **5188**. Edits to files in `ui/` trigger
-live reload (~300ms). Extension changes (`extension/`) require a full
-restart.
+When started with `SERO_DEV_PLUGINS=cron`, the cron remote runs on port
+**5188**. Edits to files in `ui/` trigger live reload (~300ms). Extension
+changes (`extension/`) require a full restart.
 
 ### Tests
 

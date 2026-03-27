@@ -52,19 +52,25 @@ interface PkgJson {
   sero?: { app?: PkgSeroApp; plugin?: PkgSeroPlugin };
 }
 
-// ── Selective dev mode ────────────────────────────────────────
+// ── Selective plugin dev mode ─────────────────────────────────
+// SERO_DEV_PLUGINS controls which plugin manifests get dev ports.
+// Unset / ""     → no plugins run in dev mode (all use pre-built bundles)
+// "all"          → every plugin runs in dev mode
+// "admin,kanban" → only listed plugins run in dev mode
 // Keep in sync with the equivalent filter in vite.config.ts (Vite build process).
 
-const devAppsEnv = process.env.SERO_DEV_APPS?.trim();
-const selectiveDevFilter: Set<string> | 'all' =
-  !devAppsEnv || devAppsEnv === 'all'
-    ? 'all'
-    : new Set(devAppsEnv.split(',').map((entry) => entry.trim()).filter(Boolean));
+const devPluginsEnv = process.env.SERO_DEV_PLUGINS?.trim();
+const devPluginsFilter: Set<string> | 'all' =
+  !devPluginsEnv
+    ? new Set<string>()
+    : devPluginsEnv === 'all'
+      ? 'all'
+      : new Set(devPluginsEnv.split(',').map((entry) => entry.trim()).filter(Boolean));
 
 function isAppInDevMode(appId: string): boolean {
   if (process.env.NODE_ENV !== 'development') return false;
-  if (selectiveDevFilter === 'all') return true;
-  return selectiveDevFilter.has(appId);
+  if (devPluginsFilter === 'all') return true;
+  return devPluginsFilter.has(appId);
 }
 
 export function isInstalledPluginPackagePath(packagePath: string): boolean {
