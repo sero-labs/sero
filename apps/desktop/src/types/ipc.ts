@@ -186,7 +186,7 @@ export type {
 
 // Re-export the canonical container type from the container subsystem.
 // This avoids duplicating the shape and ensures IPC data stays in sync.
-export type { ContainerState as ContainerInfo } from '../../electron/container/types';
+export type { ContainerState as ContainerInfo } from '../../electron/features/container/core/types';
 
 // ── Dev Servers ────────────────────────────────────────────────
 

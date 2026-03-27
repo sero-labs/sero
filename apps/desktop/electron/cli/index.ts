@@ -1,19 +1,26 @@
 import type { LoadExtensionsResult } from '@mariozechner/pi-coding-agent';
-import { registerAppControlCliCommands } from './commands/app-control';
-import { registerAppStateCliCommands } from './commands/appstate';
-import { registerArtifactCliCommands } from './commands/artifacts';
-import { registerDevServerCliCommands } from './commands/devserver';
+import {
+  registerAppControlCliCommands,
+  registerAppStateCliCommands,
+  registerArtifactCliCommands,
+} from './commands/apps';
+import {
+  registerDevServerCliCommands,
+  registerTerminalCliCommands,
+} from './commands/container';
 import { registerEditorCliCommands } from './commands/editor';
-import { registerGoogleCliCommands } from './commands/google';
-import { registerSessionCliCommands } from './commands/session';
-import { registerTerminalCliCommands } from './commands/terminal';
+import { registerGoogleCliCommands } from './commands/integrations';
+import { registerSessionCliCommands } from './commands/agent';
 import { registerVcsCliCommands } from './commands/vcs';
 import { registerWorkspaceCliCommands } from './commands/workspace';
-import { registerHelpCliCommand } from './help';
-import { CliRegistry } from './registry';
-import { bridgeCommand, bridgeTool } from './schema-bridge';
-import { createSeroCliTool } from './tool';
-import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../plugins/bridge-policy';
+import {
+  registerHelpCliCommand,
+  CliRegistry,
+  bridgeCommand,
+  bridgeTool,
+  createSeroCliTool,
+} from './core';
+import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../features/plugins/bridge-policy';
 
 let registry: CliRegistry | null = null;
 
