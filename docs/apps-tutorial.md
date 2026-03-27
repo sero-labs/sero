@@ -1257,8 +1257,8 @@ The following apps ship with built-in widgets you can use as reference:
 
 | App | Widget | File | What it shows |
 |-----|--------|------|---------------|
-| Kanban | Board Overview | `pi-kanban-extension/ui/widgets/KanbanWidget.tsx` | Animated column bars, priority dots, status glow, distribution bar |
-| Cron | Scheduler | `pi-cron-extension/ui/widgets/CronWidget.tsx` | Status light, job list, active reminders, run history sparkline |
+| Kanban | Board Overview | `sero-kanban-plugin/ui/widgets/KanbanWidget.tsx` | Animated column bars, priority dots, status glow, distribution bar |
+| Cron | Scheduler | `sero-cron-plugin/ui/widgets/CronWidget.tsx` | Status light, job list, active reminders, run history sparkline |
 | Notes | Pinboard | `pi-notes-extension/ui/widgets/NotesWidget.tsx` | Pastel sticky-note cards, pin indicators, body previews |
 | ImageGen | Gallery | `pi-imagegen-extension/ui/widgets/ImageGenWidget.tsx` | Gradient image counter, recent generation grid, prompt hover overlays |
 

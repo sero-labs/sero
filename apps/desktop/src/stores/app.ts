@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import type { PluginChangeEvent, SeroAppManifest } from '@/types/ipc';
 import { persistLayout } from '@/lib/persist-layout';
 import {
+  hasTransientRemote,
   invalidateRemote,
   preloadFederatedModule,
   registerDynamicRemote,
+  refreshTransientRemote,
 } from '@/lib/federation-registry';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore } from '@/stores/sessions';
@@ -247,8 +249,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   pendingApp: null,
   setActiveApp: (app) => {
     const { activeApp, pendingApp, apps } = get();
+    const activate = () => {
+      if (get().pendingApp !== app) return;
+      set({ activeApp: app, pendingApp: null });
+      persistLayout({ activeApp: app });
+    };
+
     if (app === activeApp) {
-      if (pendingApp) set({ pendingApp: null });
+      if (pendingApp) {
+        set({ pendingApp: null });
+        return;
+      }
+
+      const currentEntry = apps.find((candidate) => candidate.id === app);
+      const currentManifest = currentEntry?.manifest;
+      if (currentManifest?.component && hasTransientRemote(currentManifest.id)) {
+        refreshTransientRemote(currentManifest.id);
+        set({ pendingApp: app });
+        void preloadFederatedModule(
+          currentManifest.id,
+          currentManifest.component,
+          currentManifest.devPort,
+        )
+          .catch((err) => {
+            console.warn(`[app-store] Failed to preload ${currentManifest.id}:`, err);
+          })
+          .finally(activate);
+      }
       return;
     }
     if (app === pendingApp) return;
@@ -260,13 +287,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const manifest = entry?.manifest;
 
-    const activate = () => {
-      if (get().pendingApp !== app) return;
-      set({ activeApp: app, pendingApp: null });
-      persistLayout({ activeApp: app });
-    };
-
     if (manifest?.component) {
+      refreshTransientRemote(manifest.id);
       set({ pendingApp: app });
       void preloadFederatedModule(manifest.id, manifest.component, manifest.devPort)
         .catch((err) => {
@@ -393,7 +415,7 @@ export async function handlePluginChange(event: PluginChangeEvent): Promise<void
   if (event.type === 'installed') {
     console.log(`[app-store] Plugin installed: ${event.manifest.name} (${event.manifest.id})`);
     invalidateRemote(event.manifest.id);
-    registerDynamicRemote(event.manifest.id, event.manifest.devPort);
+    void registerDynamicRemote(event.manifest.id, event.manifest.devPort);
   } else {
     console.log(`[app-store] Plugin uninstalled: ${event.pluginId}`);
     invalidateRemote(event.pluginId);

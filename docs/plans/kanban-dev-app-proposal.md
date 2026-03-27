@@ -5,7 +5,7 @@
 
 ## 1. What It Is
 
-A Sero app (`pi-kanban-extension`) that presents a **Kanban board** as the
+A Sero app (`sero-kanban-plugin`) that presents a **Kanban board** as the
 primary interface for managing development work. Each card on the board
 represents a unit of work (feature, bug fix, refactor) that moves through
 stages — from idea to delivered — with AI agents doing the heavy lifting.
@@ -89,7 +89,7 @@ the ChatPanel, answers flow back to the waiting agent).
 Follows the exact pattern from `docs/apps-tutorial.md`:
 
 ```
-packages/pi-kanban-extension/
+plugins/sero-kanban-plugin/
 ├── package.json          # pi + sero manifest
 ├── shared/
 │   └── types.ts          # KanbanState, Card, Subtask, Column
@@ -451,7 +451,7 @@ export interface KanbanState {
 |-----------|-------|
 | **KanbanOrchestrator** | State machine reacting to column transitions. ~300 LOC. |
 | **WorktreeManager** | `git worktree add/remove/list` per card. Provides cwd for card sessions. ~100 LOC. |
-| **`pi-kanban-extension`** | Standard Pi extension with `kanban` tool + `/kanban` command. ~200 LOC. |
+| **`sero-kanban-plugin`** | Standard Pi extension with `kanban` tool + `/kanban` command. ~200 LOC. |
 | **Board UI** | React components: `KanbanApp`, `BoardView`, `ColumnView`, `CardView`, `CardDetail`, `SubtaskList`. Uses existing shadcn + `@sero-ai/app-runtime` + `motion/react`. Rich animations following ToolCallGroup patterns. ~500 LOC total across components. |
 | **Agent definitions** | 2-3 new `.md` agent files: `planner.md`, `implementer.md`. Reviewer and analyst already exist. |
 | **Card session prompt builder** | Constructs system prompts for card sessions from card data + plan. ~100 LOC. |
@@ -730,7 +730,7 @@ Uses existing `@sero-ai/ui` components (shadcn) + CSS variables:
 
 ### Phase 1: Static Board (Sero App)
 
-Build the `pi-kanban-extension` as a standard Sero app:
+Build the `sero-kanban-plugin` as a standard Sero app:
 - State file with cards and columns
 - Pi extension with `kanban` tool (add, list, move, update, delete)
 - Board UI with drag-and-drop between columns

@@ -1,0 +1,63 @@
+{
+  "name": "@sero-ai/plugin-resources",
+  "version": "0.1.0",
+  "description": "Agent and skill editor for Sero",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
+  },
+  "sero": {
+    "app": {
+      "id": "resources",
+      "name": "Resources",
+      "icon": "library",
+      "scope": "global",
+      "stateFile": ".sero/apps/resources/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "ResourcesApp",
+      "devPort": 5190
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": [
+        "agents",
+        "skills",
+        "prompts"
+      ],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": false
+    }
+  },
+  "dependencies": {
+    "@sinclair/typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "catalog:peer",
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "@mariozechner/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
+  "devDependencies": {
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/ui": "workspace:*",
+    "@module-federation/vite": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

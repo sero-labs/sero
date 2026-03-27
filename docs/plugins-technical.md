@@ -381,14 +381,14 @@ These packages are essential to Sero's functionality:
 |---------|--------|
 | `app-runtime` | Infrastructure — required by all UI apps |
 | `templates` | Workspace scaffolding |
-| `pi-memory-extension` | Foundational to agent learning |
-| `pi-cron-extension` | Scheduler, used by other extensions |
-| `pi-context-extension` | Agent context debugging |
-| `pi-kanban-extension` | Reference implementation + deep workflow |
+| `sero-memory-plugin` | Foundational to agent learning |
+| `sero-cron-plugin` | Scheduler, used by other extensions |
+| `sero-context-plugin` | Agent context debugging |
+| `sero-kanban-plugin` | Reference implementation + deep workflow |
 | `pi-research-extension` | Subagent orchestration pattern |
 | `pi-plan-mode-extension` | Structured planning safeguard |
-| `pi-admin-extension` | Workspace administration |
-| `pi-user-feedback` | Agent-user communication primitive |
+| `sero-admin-plugin` | Workspace administration |
+| `sero-user-feedback-plugin` | Agent-user communication primitive |
 
 ### Extractable (can become plugins)
 
@@ -403,12 +403,12 @@ These are standalone and can be distributed independently:
 | `pi-spotify-extension` | entertainment |
 | `pi-starling-extension` | finance |
 | `pi-google-extension` | integrations |
-| `pi-git-extension` | developer-tools |
+| `sero-git-plugin` | developer-tools |
 | `pi-imagegen-extension` | creative |
 | `pi-humanizer-extension` | creative |
 | `pi-slopzilla-extension` | creative |
 | `pi-weight-tracker` | health |
-| `pi-resources-extension` | developer-tools |
+| `sero-resources-plugin` | developer-tools |
 
 ## Build Pipeline
 
@@ -417,20 +417,20 @@ There are two authoring outputs:
 ### Pre-built npm bundle
 
 ```bash
-bash scripts/build-plugin.sh packages/pi-kanban-extension
+bash scripts/build-plugin.sh plugins/sero-kanban-plugin
 ```
 
-This produces `packages/pi-kanban-extension/dist/plugin/` with compiled UI,
+This produces `plugins/sero-kanban-plugin/dist/plugin/` with compiled UI,
 bundled extension entrypoints, and a cleaned manifest suitable for `npm pack`
 or `npm publish`.
 
 ### Standalone Git source repo
 
 ```bash
-bash scripts/export-plugin-source.sh packages/pi-kanban-extension
+bash scripts/export-plugin-source.sh plugins/sero-kanban-plugin
 ```
 
-This produces `packages/pi-kanban-extension/dist/plugin-source/` with source
+This produces `plugins/sero-kanban-plugin/dist/plugin-source/` with source
 files, resolved dependency versions, and vendored unpublished workspace
 packages so Sero can clone it, run `npm install`, and build it locally during
 Git-based installation.

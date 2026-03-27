@@ -2,7 +2,7 @@
 #
 # Sero development launcher — auto-discovers app packages.
 #
-# Scans packages/pi-*/package.json for sero.app.devPort to determine
+# Scans workspace app package.json files for sero.app.devPort to determine
 # which remote Vite dev servers to start. No hardcoded app list needed.
 #
 # ── Selective dev mode ────────────────────────────────────────
@@ -18,31 +18,27 @@
 #
 cd "$(dirname "$0")/.."
 
-PKGS_DIR="$(cd ../../packages && pwd)"
+PACKAGES_DIR="$(cd ../../packages && pwd)"
+PLUGINS_DIR="$(cd ../../plugins && pwd)"
 SERO_DEV_APPS="${SERO_DEV_APPS:-}"
 
 # ── Cleanup trap ────────────────────────────────────────────
-# Track all child PIDs so we can kill them on exit/ctrl-c/crash.
 CHILD_PIDS=()
 
 cleanup() {
   echo ""
   echo "Shutting down Sero dev processes..."
 
-  # 1. SIGTERM tracked PIDs and their entire child trees
   for pid in "${CHILD_PIDS[@]}"; do
-    # Kill the process and all its descendants
     pkill -TERM -P "$pid" 2>/dev/null
     kill "$pid" 2>/dev/null
   done
 
-  # 2. Kill any remaining processes on known ports (catches stragglers)
   for port in "${KILL_PORTS[@]}"; do
     lsof -ti :"$port" 2>/dev/null | xargs kill -9 2>/dev/null
   done
   pkill -f "electron.*sero" 2>/dev/null
 
-  # 3. Brief grace period, then SIGKILL anything still alive
   sleep 1
   for pid in "${CHILD_PIDS[@]}"; do
     pkill -9 -P "$pid" 2>/dev/null
@@ -56,35 +52,37 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ── Discover remote apps ──────────────────────────────────────
-# Reads sero.app.devPort from each package.json to know what to start.
-
 ALL_NAMES=()
 ALL_DIRS=()
 ALL_PORTS=()
 
-for pkg in "$PKGS_DIR"/pi-*/; do
-  [ -f "$pkg/package.json" ] || continue
+PACKAGE_JSONS=()
+while IFS= read -r pkg_json; do
+  PACKAGE_JSONS+=("$pkg_json")
+done < <(
+  find "$PACKAGES_DIR" "$PLUGINS_DIR" -mindepth 2 -maxdepth 2 -name package.json | sort
+)
 
-  # Extract devPort from sero.app manifest (empty if not a sero app)
+for pkg_json in "${PACKAGE_JSONS[@]}"; do
+  pkg_dir="$(dirname "$pkg_json")"
+
   PORT=$(node -e "
-    const p = require('$pkg/package.json');
+    const p = require('$pkg_json');
     if (p.sero?.app?.devPort) console.log(p.sero.app.devPort);
   " 2>/dev/null)
   [ -z "$PORT" ] && continue
 
   NAME=$(node -e "
-    const p = require('$pkg/package.json');
+    const p = require('$pkg_json');
     console.log(p.sero.app.id);
   " 2>/dev/null)
 
   ALL_NAMES+=("$NAME")
-  ALL_DIRS+=("$pkg")
+  ALL_DIRS+=("$pkg_dir")
   ALL_PORTS+=("$PORT")
 done
 
 # ── Filter by SERO_DEV_APPS ─────────────────────────────────
-# If set, only start dev servers for listed apps. Others use pre-built bundles.
-
 REMOTE_NAMES=()
 REMOTE_DIRS=()
 REMOTE_PORTS=()
@@ -97,11 +95,8 @@ if [ -n "$SERO_DEV_APPS" ] && [ "$SERO_DEV_APPS" != "all" ]; then
     name="${ALL_NAMES[$i]}"
     matched=false
 
-    if [ "$SERO_DEV_APPS" = "none" ]; then
-      matched=false
-    else
+    if [ "$SERO_DEV_APPS" != "none" ]; then
       for dev_app in "${DEV_LIST[@]}"; do
-        # Trim whitespace
         dev_app="$(echo "$dev_app" | xargs)"
         if [ "$dev_app" = "$name" ]; then
           matched=true
@@ -119,14 +114,12 @@ if [ -n "$SERO_DEV_APPS" ] && [ "$SERO_DEV_APPS" != "all" ]; then
     fi
   done
 else
-  # No filter — all apps in dev mode (original behavior)
   REMOTE_NAMES=("${ALL_NAMES[@]}")
   REMOTE_DIRS=("${ALL_DIRS[@]}")
   REMOTE_PORTS=("${ALL_PORTS[@]}")
 fi
 
 # ── Kill existing instances ───────────────────────────────────
-
 KILL_PORTS=(5173 "${ALL_PORTS[@]}")
 for port in "${KILL_PORTS[@]}"; do
   lsof -ti :"$port" | xargs kill -9 2>/dev/null
@@ -134,27 +127,18 @@ done
 pkill -f "electron.*sero" 2>/dev/null
 sleep 1
 
-# Build web-remote SPA (served by the gateway at :18800)
-# Runs in watch mode so rebuilds are picked up without restarting.
 WEB_REMOTE_DIR="$(cd ../../apps/web-remote && pwd)"
 if [ -f "$WEB_REMOTE_DIR/package.json" ]; then
-  # Initial build (blocking) so the SPA is ready before Electron starts
   (cd "$WEB_REMOTE_DIR" && npx vite build) > /tmp/sero-web-remote-build.log 2>&1
   echo "  Built web-remote SPA"
-  # Watch mode (background) — rebuilds on source changes.
-  # exec replaces the subshell so the PID we capture is the actual node process
-  # (prevents orphaned processes when cleanup kills the PID).
   (cd "$WEB_REMOTE_DIR" && exec npx vite build --watch) > /tmp/sero-web-remote-watch.log 2>&1 &
   WEB_REMOTE_PID=$!
   CHILD_PIDS+=($WEB_REMOTE_PID)
 fi
 
-# Build Electron main + preload (so we always run latest code)
 node scripts/build-electron.mjs
 
 # ── Start remote dev servers ──────────────────────────────────
-# Remotes must be up before the host so MF can fetch mf-manifest.json.
-
 REMOTE_PIDS=()
 for i in "${!REMOTE_DIRS[@]}"; do
   dir="${REMOTE_DIRS[$i]}"
@@ -165,7 +149,6 @@ for i in "${!REMOTE_DIRS[@]}"; do
   CHILD_PIDS+=($pid)
 done
 
-# Wait for all remotes to be ready
 if [ ${#REMOTE_PORTS[@]} -gt 0 ]; then
   for attempt in {1..15}; do
     ALL_READY=true
@@ -177,7 +160,6 @@ if [ ${#REMOTE_PORTS[@]} -gt 0 ]; then
   done
 fi
 
-# ── Start host dev server (Sero) ─────────────────────────────
 SERO_DEV_APPS="$SERO_DEV_APPS" npx vite > /tmp/sero-vite.log 2>&1 &
 VITE_PID=$!
 CHILD_PIDS+=($VITE_PID)
@@ -187,7 +169,6 @@ for attempt in {1..10}; do
   sleep 1
 done
 
-# ── Start Electron ────────────────────────────────────────────
 SERO_DEV_APPS="$SERO_DEV_APPS" NODE_ENV=development npx electron . > /tmp/sero-electron.log 2>&1 &
 ELECTRON_PID=$!
 CHILD_PIDS+=($ELECTRON_PID)
@@ -214,5 +195,4 @@ done
 echo "  /tmp/sero-electron.log"
 echo ""
 
-# Wait for Electron to exit — trap will handle cleanup
 wait $ELECTRON_PID 2>/dev/null

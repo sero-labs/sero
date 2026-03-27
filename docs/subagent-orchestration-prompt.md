@@ -15,7 +15,7 @@ Analyse `~/Documents/Dev/ai/pi/extensions/pi-subagent` as the architectural star
 - `skills/pi-subagent/SKILL.md` — Execution modes: single, parallel, chain, orchestrator, pool
 
 ### Existing Sero Patterns to Follow
-- **Transient sessions** — `packages/pi-cron-extension/extension/session-runner.ts` uses `createAgentSession` + `SessionManager.inMemory()` with concurrency pooling, timeouts, and re-entrancy guards. Adapt this pattern for subagent execution rather than raw subprocess spawning.
+- **Transient sessions** — `plugins/sero-cron-plugin/extension/session-runner.ts` uses `createAgentSession` + `SessionManager.inMemory()` with concurrency pooling, timeouts, and re-entrancy guards. Adapt this pattern for subagent execution rather than raw subprocess spawning.
 - **Agent store** — `apps/desktop/src/stores/agent.ts` manages `AgentInstance` records keyed by session ID. Subagent instances should integrate here or in a parallel store.
 - **Sessions** — `~/.sero-ui/agent/sessions/*.jsonl` for persistence. Subagent sessions should be transient by default but optionally persistable.
 - **Workspaces/VCS** — Subagents operating on workspace files must respect the active workspace context and VCS state (checkpoint before destructive work, etc).

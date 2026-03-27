@@ -28,7 +28,7 @@ import { ensureDefaultAgents, ensureDefaultThemes, ensureProfileTemplates } from
 import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './ipc/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './csp';
-import { discoverBuiltinPackagePaths } from './builtin-resources';
+import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './builtin-resources';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -42,23 +42,27 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // never sticks). Data is still persisted — just not keychain-encrypted.
 app.commandLine.appendSwitch('use-mock-keychain');
 
+function getWorkspaceAppPaths(): string[] {
+  return [...discoverBuiltinPackagePaths(), ...discoverBuiltinPluginPaths()];
+}
+
 /**
  * Bootstrap ~/.sero-ui/agent/ on first run.
  *
  * Creates the agent directory and a default settings.json with Sero's
- * built-in packages. Skips if settings.json already exists.
+ * built-in packages and workspace plugins. Skips if settings.json already exists.
  */
 function bootstrapAgentDir(): void {
   mkdirSync(SERO_AGENT_DIR, { recursive: true });
 
   const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
   if (!existsSync(settingsPath)) {
-    const builtinPackages = discoverBuiltinPackagePaths();
+    const workspacePackages = getWorkspaceAppPaths();
     const defaults = {
       defaultProvider: 'anthropic',
       defaultModel: 'claude-opus-4-6',
       defaultThinkingLevel: 'high',
-      packages: builtinPackages,
+      packages: workspacePackages,
     };
     writeFileSync(settingsPath, JSON.stringify(defaults, null, 2) + '\n');
     console.log('[sero] Created default settings at', settingsPath);
@@ -66,10 +70,11 @@ function bootstrapAgentDir(): void {
 }
 
 /**
- * Ensure Sero's built-in app packages are registered in settings.json.
+ * Ensure Sero's built-in app packages and workspace plugins are registered in
+ * settings.json.
  *
  * Works in both development and packaged builds so the Pi runtime can always
- * discover Sero's built-in packages via settings.json.
+ * discover Sero's app packages via settings.json.
  */
 function ensureBuiltinPackages(): void {
   const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
@@ -83,10 +88,10 @@ function ensureBuiltinPackages(): void {
   const packages = Array.isArray(settings.packages)
     ? settings.packages as SettingsPackageSource[]
     : [];
-  const builtinPaths = discoverBuiltinPackagePaths();
+  const workspacePackages = getWorkspaceAppPaths();
 
   let changed = false;
-  for (const p of builtinPaths) {
+  for (const p of workspacePackages) {
     const hasPackagePath = packages.some((entry) =>
       (typeof entry === 'string' ? entry : entry.source) === p,
     );
@@ -99,7 +104,7 @@ function ensureBuiltinPackages(): void {
   if (changed) {
     settings.packages = packages;
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-    console.log('[sero] Registered built-in app packages in', settingsPath);
+    console.log('[sero] Registered built-in app packages and workspace plugins in', settingsPath);
   }
 }
 
@@ -203,15 +208,18 @@ app.whenReady().then(async () => {
   // Set up custom protocol for serving extension UI assets
   setupExtProtocol();
 
-  // Ensure built-in app packages are in settings.json and register their
-  // paths for app discovery in both development and packaged builds.
+  // Ensure built-in app packages and workspace plugins are in settings.json.
   ensureBuiltinPackages();
 
-  // Auto-discover and register all built-in app packages for app discovery.
-  // We register them directly as well as via settings.json so discovery
-  // still works even if the user's settings file is missing or stale.
+  // Auto-discover and register all built-in app packages and workspace
+  // plugins for app discovery. We register them directly as well as via
+  // settings.json so discovery still works even if the user's settings file
+  // is missing or stale.
   for (const pkgPath of discoverBuiltinPackagePaths()) {
     registerAppPath(pkgPath);
+  }
+  for (const pluginPath of discoverBuiltinPluginPaths()) {
+    registerAppPath(pluginPath);
   }
 
   // Discover apps and register their assets for the custom protocol.

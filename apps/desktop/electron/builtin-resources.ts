@@ -6,7 +6,13 @@ const MONOREPO_PACKAGES_CANDIDATES = [
   path.resolve(__dirname, '../../../packages'),
 ];
 
+const MONOREPO_PLUGINS_CANDIDATES = [
+  path.resolve(__dirname, '../../../../plugins'),
+  path.resolve(__dirname, '../../../plugins'),
+];
+
 const BUNDLED_PACKAGES_DIR = path.resolve(__dirname, 'builtin/packages');
+const BUNDLED_PLUGINS_DIR = path.resolve(__dirname, 'builtin/plugins');
 const BUNDLED_TEMPLATES_DIR = path.resolve(__dirname, 'builtin/templates');
 
 function firstExistingPath(candidates: string[]): string | null {
@@ -62,6 +68,24 @@ export function discoverBuiltinPackagePaths(): string[] {
     return readdirSync(packagesDir)
       .filter((entry) => entry.startsWith('pi-'))
       .map((entry) => path.join(packagesDir, entry))
+      .filter(isBuiltinPackageDir)
+      .sort((a, b) => a.localeCompare(b));
+  } catch {
+    return [];
+  }
+}
+
+export function discoverBuiltinPluginPaths(): string[] {
+  const pluginsDir = firstExistingPath([
+    ...MONOREPO_PLUGINS_CANDIDATES,
+    BUNDLED_PLUGINS_DIR,
+  ]);
+  if (!pluginsDir) return [];
+
+  try {
+    return readdirSync(pluginsDir)
+      .filter((entry) => entry.startsWith('sero-') && entry.endsWith('-plugin'))
+      .map((entry) => path.join(pluginsDir, entry))
       .filter(isBuiltinPackageDir)
       .sort((a, b) => a.localeCompare(b));
   } catch {

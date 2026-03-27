@@ -1,11 +1,11 @@
 /**
  * Local wrapper for the shared user-feedback EventEmitter singleton.
  *
- * Mirrors packages/pi-user-feedback/shared/emitter.ts. The key MUST match.
+ * Mirrors plugins/sero-user-feedback-plugin/shared/emitter.ts. The key MUST match.
  * This wrapper exists because the electron tsconfig's rootDir constraint
  * prevents importing directly from the packages/ directory.
  *
- * Source of truth: packages/pi-user-feedback/shared/emitter.ts
+ * Source of truth: plugins/sero-user-feedback-plugin/shared/emitter.ts
  */
 
 import { EventEmitter } from 'events';

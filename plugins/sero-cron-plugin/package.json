@@ -1,0 +1,87 @@
+{
+  "name": "@sero-ai/plugin-cron",
+  "version": "0.2.0",
+  "description": "Cron scheduler for Sero - schedule recurring agent prompts",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
+  },
+  "sero": {
+    "app": {
+      "id": "cron",
+      "name": "Scheduler & Reminders",
+      "icon": "clock",
+      "scope": "global",
+      "stateFile": ".sero/apps/cron/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "CronApp",
+      "devPort": 5188,
+      "widgets": [
+        {
+          "id": "scheduler-status",
+          "name": "Scheduler",
+          "component": "CronWidget",
+          "description": "Scheduler status, upcoming jobs, and active reminders",
+          "defaultSize": {
+            "w": 2,
+            "h": 2
+          },
+          "minSize": {
+            "w": 2,
+            "h": 2
+          },
+          "maxSize": {
+            "w": 3,
+            "h": 3
+          }
+        }
+      ]
+    },
+    "plugin": {
+      "category": "productivity",
+      "tags": [
+        "scheduler",
+        "reminders",
+        "jobs"
+      ],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": false
+    }
+  },
+  "dependencies": {
+    "@sinclair/typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "catalog:peer",
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "@mariozechner/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
+  "devDependencies": {
+    "vitest": "catalog:",
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

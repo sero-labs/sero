@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const monorepoPackagesDir = path.resolve(projectRoot, '../../packages');
+const monorepoPluginsDir = path.resolve(projectRoot, '../../plugins');
 
 const shared = {
   platform: 'node',
@@ -55,12 +56,17 @@ function copyIfExists(src, dest) {
 function stageBuiltinResources() {
   const builtinRoot = path.join(projectRoot, 'dist/electron/builtin');
   const builtinPackagesDest = path.join(builtinRoot, 'packages');
+  const builtinPluginsDest = path.join(builtinRoot, 'plugins');
   const builtinTemplatesDest = path.join(builtinRoot, 'templates');
   fs.rmSync(builtinRoot, { recursive: true, force: true });
   fs.mkdirSync(builtinPackagesDest, { recursive: true });
+  fs.mkdirSync(builtinPluginsDest, { recursive: true });
 
   const packageEntries = fs.existsSync(monorepoPackagesDir)
     ? fs.readdirSync(monorepoPackagesDir)
+    : [];
+  const pluginEntries = fs.existsSync(monorepoPluginsDir)
+    ? fs.readdirSync(monorepoPluginsDir)
     : [];
 
   for (const entry of packageEntries) {
@@ -69,6 +75,24 @@ function stageBuiltinResources() {
     if (!isBuiltinPackageDir(srcDir)) continue;
 
     const destDir = path.join(builtinPackagesDest, entry);
+    fs.mkdirSync(destDir, { recursive: true });
+
+    copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));
+    copyIfExists(path.join(srcDir, 'README.md'), path.join(destDir, 'README.md'));
+    copyIfExists(path.join(srcDir, 'dist'), path.join(destDir, 'dist'));
+    copyIfExists(path.join(srcDir, 'extension'), path.join(destDir, 'extension'));
+    copyIfExists(path.join(srcDir, 'shared'), path.join(destDir, 'shared'));
+    copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
+    copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
+    copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
+  }
+
+  for (const entry of pluginEntries) {
+    if (!entry.startsWith('sero-') || !entry.endsWith('-plugin')) continue;
+    const srcDir = path.join(monorepoPluginsDir, entry);
+    if (!isBuiltinPackageDir(srcDir)) continue;
+
+    const destDir = path.join(builtinPluginsDest, entry);
     fs.mkdirSync(destDir, { recursive: true });
 
     copyIfExists(path.join(srcDir, 'package.json'), path.join(destDir, 'package.json'));

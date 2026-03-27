@@ -14,6 +14,13 @@ interface AppStoreCardProps {
   onToggleFavourite: () => void;
 }
 
+function formatLabel(value: string): string {
+  return value
+    .split('-')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
 export function AppStoreCard({
   entry,
   active,
@@ -32,6 +39,8 @@ export function AppStoreCard({
     event.preventDefault();
     onActivate();
   };
+
+  const category = manifest.plugin?.category;
 
   return (
     <div
@@ -79,7 +88,12 @@ export function AppStoreCard({
             onToggleFavourite();
           }}
         >
-          <Star className={cn('size-4', favourite ? 'fill-current text-[var(--status-warning)]' : 'text-[var(--text-muted)]')} />
+          <Star
+            className={cn(
+              'size-4',
+              favourite ? 'fill-current text-[var(--status-warning)]' : 'text-[var(--text-muted)]',
+            )}
+          />
         </Button>
       </div>
 
@@ -87,13 +101,13 @@ export function AppStoreCard({
         {manifest.description ?? 'No description available.'}
       </p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className="text-[11px] capitalize">
-          {manifest.scope}
-        </Badge>
-        {active ? (
-          <Badge variant="secondary" className="text-[11px]">
-            Open
+      <div className="mt-3 flex items-center gap-2">
+        {category ? (
+          <Badge
+            variant="outline"
+            className="text-[11px] capitalize border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]"
+          >
+            {formatLabel(category)}
           </Badge>
         ) : null}
       </div>

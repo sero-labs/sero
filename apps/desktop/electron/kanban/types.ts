@@ -7,7 +7,7 @@
  * no side effects and is the single source of truth for transition rules).
  *
  * If you change the state shape here, update
- * packages/pi-kanban-extension/shared/types.ts to match.
+ * plugins/sero-kanban-plugin/shared/types.ts to match.
  */
 
 export type Column = 'backlog' | 'planning' | 'in-progress' | 'review' | 'done';

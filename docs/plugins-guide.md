@@ -234,7 +234,7 @@ The standard Sero app manifest. See the
 From the monorepo root:
 
 ```bash
-bash scripts/build-plugin.sh packages/pi-kanban-extension
+bash scripts/build-plugin.sh plugins/sero-kanban-plugin
 ```
 
 This builds a ready-to-install plugin bundle at `dist/plugin/` containing:
@@ -265,7 +265,7 @@ dist/plugin/
 ### Standalone Git source repo
 
 ```bash
-bash scripts/export-plugin-source.sh packages/pi-kanban-extension
+bash scripts/export-plugin-source.sh plugins/sero-kanban-plugin
 ```
 
 This exports a standalone source repository at `dist/plugin-source/` containing:
@@ -278,7 +278,7 @@ This exports a standalone source repository at `dist/plugin-source/` containing:
 Smoke test the exported source repo before publishing:
 
 ```bash
-cd packages/pi-kanban-extension/dist/plugin-source
+cd plugins/sero-kanban-plugin/dist/plugin-source
 npm install
 npm run build
 ```
