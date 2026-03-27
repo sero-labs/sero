@@ -36,11 +36,30 @@
           "name": "Board Overview",
           "component": "KanbanWidget",
           "description": "Card counts by column with priority distribution",
-          "defaultSize": { "w": 2, "h": 2 },
-          "minSize": { "w": 2, "h": 2 },
-          "maxSize": { "w": 4, "h": 3 }
+          "defaultSize": {
+            "w": 2,
+            "h": 2
+          },
+          "minSize": {
+            "w": 2,
+            "h": 2
+          },
+          "maxSize": {
+            "w": 4,
+            "h": 3
+          }
         }
       ]
+    },
+    "plugin": {
+      "category": "productivity",
+      "tags": [
+        "kanban",
+        "planning",
+        "workflow"
+      ],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": false
     }
   },
   "dependencies": {

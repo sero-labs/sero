@@ -12,6 +12,7 @@
 import { promises as fs } from 'fs';
 import net from 'net';
 import path from 'path';
+import type { PluginMeta } from '@sero/common';
 import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '../src/types/ipc';
 
 import { SERO_AGENT_DIR, SERO_HOME } from './env';
@@ -43,12 +44,7 @@ interface PkgSeroApp {
   widgets?: PkgWidgetDef[];
 }
 
-interface PkgSeroPlugin {
-  category?: string;
-  tags?: string[];
-  minSeroVersion?: string;
-  preBuilt?: boolean;
-}
+type PkgSeroPlugin = Partial<PluginMeta>;
 
 interface PkgJson {
   name?: string;
@@ -121,6 +117,34 @@ async function resolveManifestDevPort(
   return (await isLocalPortReachable(candidate)) ? candidate : undefined;
 }
 
+function parsePluginMeta(plugin: PkgSeroPlugin | undefined): PluginMeta | null {
+  if (!plugin) return null;
+
+  const category = typeof plugin.category === 'string' && plugin.category.trim()
+    ? plugin.category
+    : null;
+  const tags = Array.isArray(plugin.tags)
+    ? plugin.tags.map((tag) => (typeof tag === 'string' ? tag.trim() : '')).filter(Boolean)
+    : [];
+
+  if (!category || tags.length === 0) return null;
+
+  const parsed: PluginMeta = {
+    category: category as PluginMeta['category'],
+    tags,
+  };
+  if (typeof plugin.minSeroVersion === 'string' && plugin.minSeroVersion.trim()) {
+    parsed.minSeroVersion = plugin.minSeroVersion.trim();
+  }
+  if (typeof plugin.preBuilt === 'boolean') {
+    parsed.preBuilt = plugin.preBuilt;
+  }
+  if (typeof plugin.bridgeTools === 'boolean' || Array.isArray(plugin.bridgeTools)) {
+    parsed.bridgeTools = plugin.bridgeTools;
+  }
+  return parsed;
+}
+
 async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<SeroAppManifest | null> {
   const app = pkgJson.sero?.app;
   if (!app || !app.id || !app.name) return null;
@@ -136,6 +160,8 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
     : null;
 
   // Parse widget definitions
+  const plugin = parsePluginMeta(pkgJson.sero?.plugin);
+
   const widgets: SeroWidgetManifest[] = [];
   if (Array.isArray(app.widgets)) {
     for (const w of app.widgets) {
@@ -175,7 +201,8 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
     component: app.component || null,
     devPort: await resolveManifestDevPort(app.id, packagePath, app.devPort),
     packagePath,
-    isPlugin: Boolean(pkgJson.sero?.plugin),
+    isPlugin: Boolean(plugin),
+    plugin,
     widgets,
   };
 }

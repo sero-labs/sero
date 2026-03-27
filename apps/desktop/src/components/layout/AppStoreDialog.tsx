@@ -22,6 +22,24 @@ interface AppStoreDialogProps {
   onActivateApp: (appId: string) => void;
 }
 
+function buildSearchText(app: AppEntry): string {
+  const manifest = app.manifest;
+  const plugin = manifest?.plugin;
+  return [
+    app.label,
+    manifest?.description ?? '',
+    manifest?.packageName ?? '',
+    manifest?.version ?? '',
+    manifest?.scope ?? '',
+    plugin?.category ?? '',
+    plugin?.tags?.join(' ') ?? '',
+    plugin?.minSeroVersion ?? '',
+    plugin ? (plugin.preBuilt ? 'pre-built' : 'source') : '',
+  ]
+    .join('\n')
+    .toLowerCase();
+}
+
 export function AppStoreDialog({
   open,
   onOpenChange,
@@ -37,13 +55,7 @@ export function AppStoreDialog({
   const filteredApps = apps
     .filter((app) => {
       if (!query) return true;
-      const manifest = app.manifest;
-      const haystack = [
-        app.label,
-        manifest?.description ?? '',
-        manifest?.packageName ?? '',
-      ].join('\n').toLowerCase();
-      return haystack.includes(query);
+      return buildSearchText(app).includes(query);
     })
     .slice()
     .sort((a, b) => {
@@ -77,7 +89,7 @@ export function AppStoreDialog({
               autoFocus
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search apps by name or description…"
+              placeholder="Search apps…"
               className="pl-9"
             />
           </div>
@@ -94,7 +106,7 @@ export function AppStoreDialog({
                 <p className="text-sm text-[var(--text-secondary)]">No apps match “{searchQuery}”.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 2xl:grid-cols-3 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                 {filteredApps.map((app) => (
                   <AppStoreCard
                     key={app.id}

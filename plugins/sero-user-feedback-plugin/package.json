@@ -24,6 +24,16 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "UserFeedbackApp",
       "devPort": 5182
+    },
+    "plugin": {
+      "category": "utilities",
+      "tags": [
+        "questions",
+        "questionnaire",
+        "feedback"
+      ],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": false
     }
   },
   "dependencies": {

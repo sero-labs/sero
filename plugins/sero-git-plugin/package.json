@@ -24,6 +24,16 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "GitApp",
       "devPort": 5194
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": [
+        "git",
+        "branches",
+        "diff"
+      ],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": false
     }
   },
   "dependencies": {

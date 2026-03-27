@@ -25,6 +25,16 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "ResourcesApp",
       "devPort": 5190
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": [
+        "agents",
+        "skills",
+        "prompts"
+      ],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": false
     }
   },
   "dependencies": {

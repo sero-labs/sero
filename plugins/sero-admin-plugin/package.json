@@ -25,6 +25,17 @@
       "ui": "./dist/ui/remoteEntry.js",
       "component": "AdminApp",
       "devPort": 5193
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": [
+        "admin",
+        "settings",
+        "sessions",
+        "logs"
+      ],
+      "minSeroVersion": "0.1.0",
+      "preBuilt": false
     }
   },
   "dependencies": {
