@@ -23,11 +23,15 @@ const federationMocks = vi.hoisted(() => {
       return preloadPromise;
     },
     preloadFederatedModule: vi.fn<() => Promise<void>>(),
+    refreshTransientRemote: vi.fn<(appId: string) => void>(),
+    hasTransientRemote: vi.fn<(appId: string) => boolean>(),
   };
 });
 
 vi.mock('@/lib/federation-registry', () => ({
   preloadFederatedModule: federationMocks.preloadFederatedModule,
+  refreshTransientRemote: federationMocks.refreshTransientRemote,
+  hasTransientRemote: federationMocks.hasTransientRemote,
 }));
 
 vi.mock('@/components/apps/coding/CodingWorkspace', () => ({

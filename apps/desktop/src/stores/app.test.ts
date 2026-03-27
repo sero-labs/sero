@@ -7,12 +7,16 @@ const federationMocks = vi.hoisted(() => ({
   preloadFederatedModule: vi.fn<(appId: string, component: string, devPort: number | undefined) => Promise<void>>(),
   registerDynamicRemote: vi.fn<(appId: string, devPort: number | undefined) => void>(),
   invalidateRemote: vi.fn<(appId: string) => void>(),
+  refreshTransientRemote: vi.fn<(appId: string) => void>(),
+  hasTransientRemote: vi.fn<(appId: string) => boolean>(),
 }));
 
 vi.mock('@/lib/federation-registry', () => ({
   preloadFederatedModule: federationMocks.preloadFederatedModule,
   registerDynamicRemote: federationMocks.registerDynamicRemote,
   invalidateRemote: federationMocks.invalidateRemote,
+  refreshTransientRemote: federationMocks.refreshTransientRemote,
+  hasTransientRemote: federationMocks.hasTransientRemote,
 }));
 
 import { discoverAndRegisterApps, handlePluginChange, useAppStore } from './app';
@@ -49,6 +53,9 @@ describe('discoverAndRegisterApps', () => {
     federationMocks.preloadFederatedModule.mockResolvedValue();
     federationMocks.registerDynamicRemote.mockReset();
     federationMocks.invalidateRemote.mockReset();
+    federationMocks.refreshTransientRemote.mockReset();
+    federationMocks.hasTransientRemote.mockReset();
+    federationMocks.hasTransientRemote.mockReturnValue(false);
     discover.mockReset();
     (window as Window & { sero: any }).sero = {
       apps: {
@@ -116,6 +123,60 @@ describe('discoverAndRegisterApps', () => {
 
     expect(useAppStore.getState().activeApp).toBe('dashboard');
     expect(useAppStore.getState().pendingApp).toBeNull();
+  });
+
+  it('refreshes transient remotes when re-selecting the active app', () => {
+    federationMocks.hasTransientRemote.mockReturnValue(true);
+
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'todo',
+      pendingApp: null,
+      apps: [
+        ...useAppStore.getState().apps,
+        {
+          id: 'todo',
+          label: 'Todo',
+          icon: 'check-square',
+          builtin: false,
+          manifest: createManifest('todo', 'TodoApp', 4101),
+        },
+      ],
+    });
+
+    useAppStore.getState().setActiveApp('todo');
+
+    expect(federationMocks.refreshTransientRemote).toHaveBeenCalledWith('todo');
+    expect(
+      federationMocks.refreshTransientRemote.mock.invocationCallOrder[0],
+    ).toBeLessThan(federationMocks.preloadFederatedModule.mock.invocationCallOrder[0]);
+  });
+
+  it('refreshes transient remotes before re-activating an app', () => {
+    federationMocks.hasTransientRemote.mockReturnValue(true);
+
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'dashboard',
+      pendingApp: null,
+      apps: [
+        ...useAppStore.getState().apps,
+        {
+          id: 'todo',
+          label: 'Todo',
+          icon: 'check-square',
+          builtin: false,
+          manifest: createManifest('todo', 'TodoApp', 4101),
+        },
+      ],
+    });
+
+    useAppStore.getState().setActiveApp('todo');
+
+    expect(federationMocks.refreshTransientRemote).toHaveBeenCalledWith('todo');
+    expect(
+      federationMocks.refreshTransientRemote.mock.invocationCallOrder[0],
+    ).toBeLessThan(federationMocks.preloadFederatedModule.mock.invocationCallOrder[0]);
   });
 
   it('hot-refreshes runtime remotes after plugin install and uninstall events', async () => {

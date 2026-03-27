@@ -25,6 +25,7 @@ import { loadRemote, registerRemotes } from '@module-federation/enhanced/runtime
 
 type LazyComponent = React.LazyExoticComponent<React.ComponentType>;
 type RemoteModule = { default: React.ComponentType };
+type LoadedRemoteModule = { entry: string; mod: RemoteModule };
 
 /** Maximum number of resolved modules to keep in memory. */
 const MAX_CACHED_MODULES = 5;
@@ -47,17 +48,15 @@ const registeredEntries = new Map<string, string>();
 /** Cache of manifest reachability checks keyed by remote entry URL. */
 const manifestReachable = new Map<string, boolean>();
 
+/** Apps whose current cache was populated from a fallback bundle. */
+const transientApps = new Set<string>();
+
 /** Derive the MF remote name from a sero app id. */
 function toRemoteName(appId: string): string {
   return `sero_${appId.replace(/-/g, '_')}`;
 }
 
-/**
- * Derive the remote entry URL candidates for an app.
- *
- * In development we prefer localhost:<devPort> first, then fall back to the
- * built sero-ext:// bundle. In production we only use sero-ext://.
- */
+/** Return the remote entry URL candidates for an app. */
 function getRemoteEntryCandidates(appId: string, devPort: number | undefined): string[] {
   if (process.env.NODE_ENV === 'development' && devPort) {
     return [
@@ -68,19 +67,22 @@ function getRemoteEntryCandidates(appId: string, devPort: number | undefined): s
   return [`sero-ext://${appId}/mf-manifest.json`];
 }
 
+function isHttpEntry(entry: string): boolean {
+  return entry.startsWith('http://') || entry.startsWith('https://');
+}
+
 /**
  * Best-effort manifest reachability check.
  *
- * We probe HTTP(S) remotes before attempting to load them so the MF runtime
- * doesn't emit noisy failed-fetch errors to the console when a dev server is
- * offline. The built `sero-ext://` fallback is always treated as available.
+ * Only successful HTTP(S) probes are cached. Failures are intentionally
+ * re-checked on the next load attempt so a slow-starting dev server can be
+ * retried later in the same session.
  */
 async function isRemoteEntryReachable(entry: string): Promise<boolean> {
   const cached = manifestReachable.get(entry);
   if (cached !== undefined) return cached;
 
-  if (!entry.startsWith('http://') && !entry.startsWith('https://')) {
-    manifestReachable.set(entry, true);
+  if (!isHttpEntry(entry)) {
     return true;
   }
 
@@ -93,11 +95,14 @@ async function isRemoteEntryReachable(entry: string): Promise<boolean> {
       cache: 'no-store',
       signal: controller.signal,
     });
-    const ok = response.ok;
-    manifestReachable.set(entry, ok);
-    return ok;
+    if (response.ok) {
+      manifestReachable.set(entry, true);
+      return true;
+    }
+    manifestReachable.delete(entry);
+    return false;
   } catch {
-    manifestReachable.set(entry, false);
+    manifestReachable.delete(entry);
     return false;
   } finally {
     globalThis.clearTimeout(timeoutId);
@@ -127,9 +132,14 @@ function touchLRU(cacheKey: string): void {
   accessOrder.push(cacheKey);
 }
 
+function getCacheAppId(cacheKey: string): string {
+  const idx = cacheKey.indexOf('/');
+  return idx === -1 ? cacheKey : cacheKey.slice(0, idx);
+}
+
 /** Evict least-recently-used entries that exceed MAX_CACHED_MODULES. */
 function evictLRU(): void {
-  const nonPinned = accessOrder.filter((key) => !pinnedApps.has(key.split('/')[0]));
+  const nonPinned = accessOrder.filter((key) => !pinnedApps.has(getCacheAppId(key)));
   while (nonPinned.length > MAX_CACHED_MODULES) {
     const victim = nonPinned.shift()!;
     resolvedModules.delete(victim);
@@ -139,10 +149,29 @@ function evictLRU(): void {
   }
 }
 
-/**
- * Resolve the best remote entry for an app, preferring dev servers when they
- * are reachable.
- */
+/** Remove all cached wrappers and resolved modules for an app. */
+function clearAppCache(appId: string): void {
+  const keys = new Set([...cache.keys(), ...resolvedModules.keys()]);
+  for (const key of keys) {
+    if (getCacheAppId(key) !== appId) continue;
+    cache.delete(key);
+    resolvedModules.delete(key);
+    const idx = accessOrder.indexOf(key);
+    if (idx !== -1) accessOrder.splice(idx, 1);
+  }
+}
+
+/** Mark whether an app should be treated as a transient fallback cache. */
+function updateTransientState(appId: string, devPort: number | undefined, entry: string): void {
+  if (devPort && !isHttpEntry(entry)) {
+    transientApps.add(appId);
+    return;
+  }
+
+  transientApps.delete(appId);
+}
+
+/** Resolve the best remote entry for an app, preferring dev servers when they are reachable. */
 async function resolveRemoteEntry(appId: string, devPort: number | undefined): Promise<string> {
   const candidates = getRemoteEntryCandidates(appId, devPort);
   for (const entry of candidates) {
@@ -158,7 +187,7 @@ async function loadRemoteModule(
   appId: string,
   component: string,
   devPort: number | undefined,
-): Promise<RemoteModule | null> {
+): Promise<LoadedRemoteModule | null> {
   const remoteName = toRemoteName(appId);
   const modulePath = `${remoteName}/${component}`;
   const candidates = getRemoteEntryCandidates(appId, devPort);
@@ -171,7 +200,8 @@ async function loadRemoteModule(
     try {
       const mod = await loadRemote<RemoteModule>(modulePath);
       if (mod?.default) {
-        return mod;
+        updateTransientState(appId, devPort, entry);
+        return { entry, mod };
       }
     } catch (err) {
       // If this entry was a dev server and it disappeared between the probe
@@ -185,11 +215,26 @@ async function loadRemoteModule(
 }
 
 /**
- * Register a dynamically-installed plugin remote.
+ * Refresh a transient fallback cache before activating an app.
  *
- * Called after a plugin is installed at runtime to make its MF remote
- * available without restarting. Uses the best available entry URL.
+ * If the app was previously rendered from the bundled fallback because the
+ * dev server was unreachable, this clears the stale cache so the next preload
+ * can probe for the dev server again.
  */
+export function refreshTransientRemote(appId: string): void {
+  if (!transientApps.has(appId)) return;
+
+  transientApps.delete(appId);
+  registeredEntries.delete(appId);
+  clearAppCache(appId);
+}
+
+/** Check whether an app currently has a transient fallback cache. */
+export function hasTransientRemote(appId: string): boolean {
+  return transientApps.has(appId);
+}
+
+/** Register a dynamically-installed plugin remote. */
 export async function registerDynamicRemote(appId: string, devPort?: number): Promise<void> {
   const entry = await resolveRemoteEntry(appId, devPort);
   registerRemoteEntry(appId, entry);
@@ -197,15 +242,9 @@ export async function registerDynamicRemote(appId: string, devPort?: number): Pr
 
 /** Invalidate a dynamically-installed plugin's cache entries. */
 export function invalidateRemote(appId: string): void {
+  transientApps.delete(appId);
   registeredEntries.delete(appId);
-
-  for (const [key] of cache) {
-    if (!key.startsWith(`${appId}/`)) continue;
-    cache.delete(key);
-    resolvedModules.delete(key);
-    const idx = accessOrder.indexOf(key);
-    if (idx !== -1) accessOrder.splice(idx, 1);
-  }
+  clearAppCache(appId);
 }
 
 /** Pin an app so it's never evicted from the cache. */
@@ -224,9 +263,9 @@ export async function preloadFederatedModule(
   const cacheKey = `${appId}/${component}`;
   if (resolvedModules.has(cacheKey) || cache.has(cacheKey)) return;
 
-  const mod = await loadRemoteModule(appId, component, devPort);
-  if (mod?.default) {
-    resolvedModules.set(cacheKey, mod.default);
+  const loaded = await loadRemoteModule(appId, component, devPort);
+  if (loaded?.mod.default) {
+    resolvedModules.set(cacheKey, loaded.mod.default);
     touchLRU(cacheKey);
     evictLRU();
   }
@@ -259,16 +298,16 @@ export function getFederatedComponent(
   }
 
   const LazyComp = lazy(async () => {
-    const mod = await loadRemoteModule(appId, component, devPort);
-    if (!mod) {
+    const loaded = await loadRemoteModule(appId, component, devPort);
+    if (!loaded) {
       console.error(`[federation] Failed to load remote: ${toRemoteName(appId)}/${component}`);
       return { default: () => null };
     }
 
-    resolvedModules.set(cacheKey, mod.default);
+    resolvedModules.set(cacheKey, loaded.mod.default);
     touchLRU(cacheKey);
     evictLRU();
-    return mod;
+    return loaded.mod;
   });
 
   cache.set(cacheKey, LazyComp);

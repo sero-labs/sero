@@ -23,6 +23,8 @@ const federationMocks = vi.hoisted(() => {
     preloadFederatedModule: vi.fn<
       (appId: string, component: string, devPort: number | undefined) => Promise<void>
     >(),
+    refreshTransientRemote: vi.fn<(appId: string) => void>(),
+    hasTransientRemote: vi.fn<(appId: string) => boolean>(),
   };
 });
 
@@ -32,6 +34,8 @@ vi.mock('@/lib/persist-layout', () => ({
 
 vi.mock('@/lib/federation-registry', () => ({
   preloadFederatedModule: federationMocks.preloadFederatedModule,
+  refreshTransientRemote: federationMocks.refreshTransientRemote,
+  hasTransientRemote: federationMocks.hasTransientRemote,
 }));
 
 import { useAppStore, type AppEntry } from './app';

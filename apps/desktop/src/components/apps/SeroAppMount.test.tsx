@@ -6,10 +6,14 @@ import { useWorkspaceStore } from '@/stores/workspace';
 
 const federationMocks = vi.hoisted(() => ({
   getFederatedComponent: vi.fn(),
+  refreshTransientRemote: vi.fn<(appId: string) => void>(),
+  hasTransientRemote: vi.fn<(appId: string) => boolean>(),
 }));
 
 vi.mock('@/lib/federation-registry', () => ({
   getFederatedComponent: federationMocks.getFederatedComponent,
+  refreshTransientRemote: federationMocks.refreshTransientRemote,
+  hasTransientRemote: federationMocks.hasTransientRemote,
 }));
 
 import { SeroAppMount } from './SeroAppMount';
