@@ -67,7 +67,7 @@ const devPluginsFilter: Set<string> | 'all' =
       ? 'all'
       : new Set(devPluginsEnv.split(',').map((entry) => entry.trim()).filter(Boolean));
 
-function isAppInDevMode(appId: string): boolean {
+function isPluginInDevMode(appId: string): boolean {
   if (process.env.NODE_ENV !== 'development') return false;
   if (devPluginsFilter === 'all') return true;
   return devPluginsFilter.has(appId);
@@ -85,7 +85,7 @@ export function isInstalledPluginPackagePath(packagePath: string): boolean {
 export function getManifestDevPort(appId: string, packagePath: string, devPort: number | undefined): number | undefined {
   if (!devPort) return undefined;
   if (isInstalledPluginPackagePath(packagePath)) return undefined;
-  return isAppInDevMode(appId) ? devPort : undefined;
+  return isPluginInDevMode(appId) ? devPort : undefined;
 }
 
 function parsePluginMeta(plugin: PkgSeroPlugin | undefined): PluginMeta | null {
