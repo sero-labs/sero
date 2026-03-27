@@ -5,11 +5,15 @@
 ```
 sero/
 ├── apps/
-│   └── desktop/          # Electron + React app
+│   └── desktop/          # Electron + React shell
 ├── packages/
-│   ├── app-runtime/      # @sero-ai/app-runtime — hooks for federated app modules
-│   ├── sero-kanban-plugin/# Pi extension + federated UI (kanban app)
-│   └── other Sero apps....
+│   ├── app-runtime/      # @sero-ai/app-runtime — shared hooks/context
+│   ├── common/           # Shared types and utilities
+│   └── ui/               # Shared UI primitives
+├── plugins/
+│   ├── sero-kanban-plugin/   # Built-in plugin + federated UI
+│   ├── sero-cron-plugin/     # Built-in plugin + background jobs
+│   └── other Sero plugins...
 ├── turbo.json
 ├── pnpm-workspace.yaml
 └── package.json          # Root — workspace scripts
@@ -32,23 +36,23 @@ pnpm build                 # Build all (turbo)
 pnpm typecheck             # Typecheck all (turbo)
 ```
 
-## Packages
+## Shared Packages & Plugins
 
-- **`@sero-ai/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` context for federated app modules
+- **`@sero-ai/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` context for federated plugin modules
 
-Find all the Sero Apps in: `packages/pi-*`;
+Find all the Sero Plugins in: `plugins/sero-*-plugin`;
 The most comprehensive examples are:
 - `plugins/sero-kanban-plugin` - Deep integration with subagents
 - `plugins/sero-cron-plugin` - Background jobs and reminders
-- `packages/pi-imagegen-extension` - Image Generation
-- `packages/pi-humanizer-extension` - One-time-prompts
+- `plugins/sero-admin-plugin` - Config editor, log viewer, and session browser
+- `plugins/sero-memory-plugin` - Persistent memory system and daily logs
 
 ## Documentation
 
 - [docs/sero.md](docs/sero.md) — vision, platform constraints, Pi SDK philosophy
 - [docs/architecture.md](docs/architecture.md) — shell layout, component hierarchy
 - [docs/decisions.md](docs/decisions.md) — numbered architecture decisions with rationale
-- [docs/apps-tutorial.md](docs/apps-tutorial.md) — step-by-step guide to building new Sero apps
+- [docs/apps-tutorial.md](docs/apps-tutorial.md) — step-by-step guide to building new Sero plugins
 - [docs/memory.md](docs/memory.md) — memory system architecture, tools, context injection, proactive logging
 - [docs/state-and-folders-analysis.md](docs/state-and-folders-analysis.md) — config/state locations and rationale
 - [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty native module rebuild guide (MUST READ if terminals fail)
@@ -95,8 +99,8 @@ Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<app-id>.log`, `/tmp/sero-electron
 
 ### Selective Dev Mode
 
-- `SERO_DEV_APPS=todo,kanban bash scripts/dev.sh` starts dev servers only for listed apps; skipped apps load from their built `dist/ui` bundles via `sero-ext://`.
-- When testing skipped apps, rebuild the remotes first with `pnpm build` so their `dist/ui` assets are current.
+- `SERO_DEV_APPS=todo,kanban bash scripts/dev.sh` starts dev servers only for listed plugins; skipped plugins load from their built `dist/ui` bundles via `sero-ext://`.
+- When testing skipped plugins, rebuild the remotes first with `pnpm build` so their `dist/ui` assets are current.
 
 ### Typecheck
 
@@ -112,25 +116,25 @@ piece at a time.
 
 ### Key Architecture
 
-Shell + mountable apps. See [docs/architecture.md](docs/architecture.md) for
+Shell + mountable plugins. See [docs/architecture.md](docs/architecture.md) for
 layout diagrams, component hierarchy, and state management.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  TitleBar (⊞ sidebar toggle … app name … ⌘K … ⊟ chat)     │
+│  TitleBar (⊞ sidebar toggle … plugin name … ⌘K … ⊟ chat)   │
 ├──────────┬──────────────────────────────┬─┬─────────────────┤
 │  Main    │                              │║│                 │
-│  Sidebar │     Active App               │║│  Chat Panel     │
-│  (apps   │     (CodingWorkspace / etc.) │║│  (global agent) │
+│  Sidebar │     Active Plugin            │║│  Chat Panel     │
+│  (plugins│     (CodingWorkspace / etc.) │║│  (global agent) │
 │  + chats)│                              │║│                 │
 ├──────────┴──────────────────────────────┴─┴─────────────────┤
 │  StatusBar                                                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- **MainSidebar** (left, collapsible) — app list + chat sessions
-- **ChatPanel** (right, collapsible + resizable) — global agent, persists across apps
-- **Active App** — currently CodingWorkspace; others are placeholders
+- **MainSidebar** (left, collapsible) — plugin list + chat sessions
+- **ChatPanel** (right, collapsible + resizable) — global agent, persists across the workspace
+- **Active Plugin** — currently CodingWorkspace; others are placeholders
 
 ### Agent Directory (IMPORTANT)
 
@@ -140,7 +144,7 @@ This is set via `PI_CODING_AGENT_DIR` in `electron/env.ts` before any SDK import
 - **All paths** (`auth.json`, `settings.json`, `sessions/`, `skills/`, `extensions/`, `packages/`) resolve under `~/.sero-ui/agent/`.
 - **`~/.pi/agent/`** is the Pi CLI's independent directory — Sero does not read from or write to it.
 - **Single source of truth** for paths: `electron/env.ts` exports `SERO_HOME` and `SERO_AGENT_DIR`. Import from there — never hardcode paths.
-- **App packages** are registered in `~/.sero-ui/agent/settings.json` under `"packages"`.
+- **Plugin packages** are registered in `~/.sero-ui/agent/settings.json` under `"packages"`.
 
 ### Key Conventions
 
@@ -155,19 +159,21 @@ This is set via `PI_CODING_AGENT_DIR` in `electron/env.ts` before any SDK import
   exception is native addons that **must** use `require()` at runtime — wrap
   those in a typed helper module (see `electron/lib/native-pty.ts`).
 
-### Creating a Sero App (IMPORTANT)
+### Creating a Sero Plugin (IMPORTANT)
 
-**When asked to create a new Sero app, you MUST read
+**When asked to create a new Sero plugin, you MUST read
 [docs/apps-tutorial.md](docs/apps-tutorial.md) first.** It covers the full
 process: package structure, shared state types, Pi extension, web UI, module
 federation setup, and dev workflow. Do not improvise — follow the tutorial
 step by step.
 
-**App registration is fully automatic.** The host (`apps/desktop/`) auto-discovers
-all `packages/pi-*/` directories that have a `sero.app` manifest in their
+**Plugin registration is fully automatic.** The host (`apps/desktop/`) auto-discovers
+all `plugins/sero-*-plugin/` directories that have a `sero.app` manifest in their
 `package.json`. No manual edits to `vite.config.ts`, `federation-registry.ts`,
 `electron/main.ts`, or `dev.sh` are needed — just create the package, run
 `pnpm install`, and restart the dev server.
+
+**Built-in plugins in `plugins/` behave like external plugins, but they are not installed/uninstalled and do not appear in the Plugin Manager.**
 
 **Built remote requirement:** Production remote bundles must use a relative Vite
 `base` (`'./'`) so `sero-ext://` can resolve chunk preloads and assets correctly.
@@ -304,7 +310,7 @@ support (required by the Spotify Web Playback SDK for audio decryption).
 - **User-Agent** — `session.defaultSession.setUserAgent()` strips "Electron"
   from the UA; some DRM services reject Electron UAs.
 - **Release packaging** uses the locally installed castlabs Electron dist and
-  stages built-in app packages/templates into `dist/electron/builtin/`, so
+  stages built-in plugin packages/templates into `dist/electron/builtin/`, so
   packaged builds do not depend on the monorepo `packages/` directory at runtime.
 
 ### node-pty Native Module (CRITICAL)
