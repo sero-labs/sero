@@ -1,0 +1,1 @@
+export { registerVcsCliCommands } from './vcs';

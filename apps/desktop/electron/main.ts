@@ -1,5 +1,5 @@
 // Load .env BEFORE any SDK imports (they read process.env at module level)
-import { loadSeroEnv, SERO_AGENT_DIR, SERO_HOME, ACTIVE_PROFILE_ID } from './env';
+import { loadSeroEnv, SERO_AGENT_DIR, SERO_HOME, ACTIVE_PROFILE_ID } from './platform/env';
 loadSeroEnv();
 
 import { app, components, BrowserWindow, session, shell } from 'electron';
@@ -19,16 +19,16 @@ if (ACTIVE_PROFILE_ID) {
   );
   app.setPath('userData', profileUserData);
 }
-import { registerAllIpcHandlers } from './ipc/index';
-import { workspaceManager } from './workspace';
-import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './ext-protocol';
-import { discoverApps, registerAppPath } from './app-discovery';
+import { registerAllIpcHandlers } from './ipc';
+import { workspaceManager } from './features/workspace/manager';
+import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
+import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps';
-import { ensureDefaultAgents, ensureDefaultThemes, ensureProfileTemplates } from './profile/setup';
-import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './ipc/shared-infra';
+import { ensureDefaultAgents, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
+import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
-import { setupContentSecurityPolicy } from './csp';
-import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './builtin-resources';
+import { setupContentSecurityPolicy } from './platform/security/csp';
+import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './platform/protocols/builtin-resources';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
