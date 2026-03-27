@@ -1,9 +1,9 @@
 import { watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 
-import type { GitManagerRequest, GitSyncMode } from '../../../../packages/pi-git-extension/shared/types';
-import { resolveStatePath } from '../../../../packages/pi-git-extension/extension/state-io';
-import { refreshGitState, runGitAction, type GitActionResult } from '../../../../packages/pi-git-extension/extension/git-service';
+import type { GitManagerRequest, GitSyncMode } from '../../../../plugins/sero-git-plugin/shared/types';
+import { resolveStatePath } from '../../../../plugins/sero-git-plugin/extension/state-io';
+import { refreshGitState, runGitAction, type GitActionResult } from '../../../../plugins/sero-git-plugin/extension/git-service';
 import { appStateManager } from '../app-state';
 import { workspaceManager } from '../workspace';
 

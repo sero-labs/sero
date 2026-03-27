@@ -1,0 +1,58 @@
+{
+  "name": "@sero-ai/plugin-context",
+  "version": "0.1.0",
+  "description": "Context management app for Sero - visualise and manage agent context with git-like tools",
+  "keywords": [
+    "pi-package",
+    "context-management",
+    "pi-skill"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "sero": {
+    "app": {
+      "id": "context",
+      "name": "Context",
+      "icon": "git-branch",
+      "stateFile": ".sero/apps/context/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "ContextApp",
+      "devPort": 5187
+    }
+  },
+  "dependencies": {
+    "@sinclair/typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "catalog:peer",
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "@mariozechner/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

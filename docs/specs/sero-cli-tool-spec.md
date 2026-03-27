@@ -414,7 +414,7 @@ Examples:
     - pi-slopzilla-extension
     - pi-imagegen-extension
     - pi-plan-mode-extension
-    - pi-user-feedback (question, questionnaire, interview)
+    - sero-user-feedback-plugin (question, questionnaire, interview)
 16. **Remove `set_session_title` tool** — Replace with builtin `set-title` CLI command
 17. **Remove `register_dev_server` tool** — Replace with `devserver register` CLI command
 18. **Remove `read_terminal` tool** — Replace with `terminal read` CLI command

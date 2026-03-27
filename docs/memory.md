@@ -1,6 +1,6 @@
 # Memory System
 
-> Reference documentation for the Sero memory extension (`packages/pi-memory-extension`).
+> Reference documentation for the Sero memory extension (`plugins/sero-memory-plugin`).
 > For the QMD semantic search spec, see [qmd-semantic-memory-spec.md](qmd-semantic-memory-spec.md).
 > For the original integration analysis, see [memory-integration-analysis.md](memory-integration-analysis.md).
 
@@ -15,7 +15,7 @@ relevant context without being asked.
 ## Architecture
 
 ```
-packages/pi-memory-extension/
+plugins/sero-memory-plugin/
 ├── extension/
 │   ├── index.ts              — Extension entry point, hooks + registration
 │   ├── bootstrap.ts          — First-run questionnaire setup

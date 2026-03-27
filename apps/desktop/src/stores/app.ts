@@ -393,7 +393,7 @@ export async function handlePluginChange(event: PluginChangeEvent): Promise<void
   if (event.type === 'installed') {
     console.log(`[app-store] Plugin installed: ${event.manifest.name} (${event.manifest.id})`);
     invalidateRemote(event.manifest.id);
-    registerDynamicRemote(event.manifest.id, event.manifest.devPort);
+    void registerDynamicRemote(event.manifest.id, event.manifest.devPort);
   } else {
     console.log(`[app-store] Plugin uninstalled: ${event.pluginId}`);
     invalidateRemote(event.pluginId);

@@ -50,10 +50,10 @@ Key infrastructure already in place:
 
 ### Package Structure
 
-Create `packages/pi-memory-extension/` following the standard Sero extension pattern:
+Create `plugins/sero-memory-plugin/` following the standard Sero extension pattern:
 
 ```
-packages/pi-memory-extension/
+plugins/sero-memory-plugin/
 ├── package.json
 ├── extension/
 │   ├── index.ts           # Extension entry — registers hooks + tool
@@ -151,7 +151,7 @@ Questionnaire-driven setup using the existing `questionnaire` tool:
 
 ## Implementation Checklist
 
-1. **Create `packages/pi-memory-extension/`** — standard extension package structure
+1. **Create `plugins/sero-memory-plugin/`** — standard extension package structure
 2. **`shared/types.ts`** — `MemoryTarget`, `WriteMode`, `MemoryAction` types
 3. **`extension/memory-manager.ts`** — file I/O adapted for Sero paths (global workspace root, not `~/.pi/agent/memory/`)
 4. **`extension/context-injector.ts`** — `before_agent_start` hook that reads memory files and appends to system prompt

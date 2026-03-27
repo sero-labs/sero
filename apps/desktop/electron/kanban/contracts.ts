@@ -3,7 +3,7 @@
  * gates for each kanban column transition.
  *
  * Validation logic is NOT duplicated here — it lives in the shared module:
- *   packages/pi-kanban-extension/shared/validation.ts
+ *   plugins/sero-kanban-plugin/shared/validation.ts
  * This file re-exports `validateTransition` from there and adds
  * orchestrator-specific helpers (unblocked card scanning, contract metadata).
  */
@@ -16,8 +16,8 @@ import type { Card, Column, KanbanState } from './types';
 import {
   validateCardTransition,
   getUnmetDependencies as _getUnmetDeps,
-} from '../../../../packages/pi-kanban-extension/shared/validation';
-import type { ValidationResult } from '../../../../packages/pi-kanban-extension/shared/validation';
+} from '../../../../plugins/sero-kanban-plugin/shared/validation';
+import type { ValidationResult } from '../../../../plugins/sero-kanban-plugin/shared/validation';
 
 export type { ValidationResult };
 

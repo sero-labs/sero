@@ -229,7 +229,7 @@ Sero fetches both sources at startup (with cache). Third-party plugins can be ad
 
 #### 3.2 — Plugin management UI (new Sero app)
 
-A new **core** app: `pi-plugins-extension` (or integrate into `pi-admin-extension`):
+A new **core** app: `pi-plugins-extension` (or integrate into `sero-admin-plugin`):
 
 - **Browse tab:** Grid of available plugins from registry, filterable by category
 - **Installed tab:** List of installed plugins with update/uninstall buttons
@@ -263,15 +263,15 @@ Show these during install. For now this is informational; enforcement can come l
 |---|---|
 | `app-runtime` | Infrastructure — required by all UI apps |
 | `templates` | Workspace scaffolding |
-| `pi-memory-extension` | Foundational to agent learning |
-| `pi-cron-extension` | Scheduler — used by other extensions |
-| `pi-context-extension` | Agent context debugging |
-| `pi-kanban-extension` | Reference implementation + deep workflow |
+| `sero-memory-plugin` | Foundational to agent learning |
+| `sero-cron-plugin` | Scheduler — used by other extensions |
+| `sero-context-plugin` | Agent context debugging |
+| `sero-kanban-plugin` | Reference implementation + deep workflow |
 | `pi-research-extension` | Subagent orchestration pattern |
 | `pi-plan-mode-extension` | Structured planning safeguard |
-| `pi-admin-extension` | Workspace administration |
-| `pi-user-feedback` | Agent ↔ user communication primitive |
-| `pi-resources-extension` | developer-tools | medium |
+| `sero-admin-plugin` | Workspace administration |
+| `sero-user-feedback-plugin` | Agent ↔ user communication primitive |
+| `sero-resources-plugin` | developer-tools | medium |
 
 **Extract to plugins:**
 | Package | Category | Priority |
@@ -284,7 +284,7 @@ Show these during install. For now this is informational; enforcement can come l
 | `pi-spotify-extension` | entertainment | medium |
 | `pi-starling-extension` | finance | medium |
 | `pi-google-extension` | integrations | high |
-| `pi-git-extension` | developer-tools | medium |
+| `sero-git-plugin` | developer-tools | medium |
 | `pi-imagegen-extension` | creative | medium |
 | `pi-humanizer-extension` | creative | medium |
 | `pi-slopzilla-extension` | creative | low |

@@ -26,7 +26,7 @@ function isAppInDevMode(appId: string): boolean {
   return devAppsFilter.has(appId);
 }
 
-// ── Auto-discover Sero app manifests from packages/ ──────────
+// ── Auto-discover Sero app manifests from workspace packages ──────────
 
 interface SeroAppDef {
   id: string;
@@ -35,17 +35,35 @@ interface SeroAppDef {
   remoteName: string; // sero_<id> with hyphens → underscores
 }
 
+const APP_PACKAGE_GLOBS = [
+  path.resolve(__dirname, '../../packages/pi-*/package.json'),
+  path.resolve(__dirname, '../../plugins/sero-*-plugin/package.json'),
+];
+
+function discoverAppPackageJsonPaths(): string[] {
+  const seen = new Set<string>();
+  const paths: string[] = [];
+
+  for (const pattern of APP_PACKAGE_GLOBS) {
+    for (const pkgPath of globSync(pattern)) {
+      if (seen.has(pkgPath)) continue;
+      seen.add(pkgPath);
+      paths.push(pkgPath);
+    }
+  }
+
+  return paths.sort();
+}
+
 /**
- * Scan packages/pi-* for package.json files with sero.app manifests.
+ * Scan workspace app package.json files with sero.app manifests.
  * Returns an array of app definitions used to build MF config and types.
  */
 function discoverSeroApps(): SeroAppDef[] {
-  const pkgsDir = path.resolve(__dirname, '../../packages');
   const apps: SeroAppDef[] = [];
 
-  for (const dir of globSync('pi-*', { cwd: pkgsDir })) {
+  for (const pkgPath of discoverAppPackageJsonPaths()) {
     try {
-      const pkgPath = path.join(pkgsDir, dir, 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
       const app = pkg.sero?.app;
       if (!app?.id || !app?.component || !app?.devPort) continue;
@@ -61,7 +79,6 @@ function discoverSeroApps(): SeroAppDef[] {
     }
   }
 
-  // Validate no duplicate ports
   const ports = new Map<number, string>();
   for (const app of apps) {
     if (ports.has(app.devPort)) {
@@ -94,12 +111,10 @@ function buildRemotesConfig(apps: SeroAppDef[]): Record<string, string> {
 // ── Dev-only: watch remote package UI dirs for live reload ────
 
 function watchRemotes(): Plugin {
-  const packagesDir = path.resolve(__dirname, '../../packages');
-  // Only watch UI dirs for apps that are actually in dev mode
-  const remoteDirs = globSync('pi-*/ui', { cwd: packagesDir, absolute: true })
+  const remoteDirs = discoverAppPackageJsonPaths()
+    .map((pkgPath) => path.join(path.dirname(pkgPath), 'ui'))
     .filter((dir) => {
       if (devAppsFilter === 'all') return true;
-      // Extract app id from the package.json in the parent dir
       try {
         const pkgPath = path.join(path.dirname(dir), 'package.json');
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
@@ -121,11 +136,11 @@ function watchRemotes(): Plugin {
 
       let debounce: ReturnType<typeof setTimeout> | null = null;
       server.watcher.on('change', (file) => {
-        if (!remoteDirs.some((d:any) => file.startsWith(d))) return;
+        if (!remoteDirs.some((dir) => file.startsWith(dir))) return;
 
         if (debounce) clearTimeout(debounce);
         debounce = setTimeout(() => {
-          console.log(`[sero-watch-remotes] Remote changed: ${path.relative(packagesDir, file)} → reloading`);
+          console.log(`[sero-watch-remotes] Remote changed: ${path.relative(__dirname, file)} → reloading`);
           server.ws.send({ type: 'full-reload' });
         }, 300);
       });

@@ -10,6 +10,7 @@
  */
 
 import { promises as fs } from 'fs';
+import net from 'net';
 import path from 'path';
 import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '../src/types/ipc';
 
@@ -86,7 +87,41 @@ export function getManifestDevPort(appId: string, packagePath: string, devPort: 
   return isAppInDevMode(appId) ? devPort : undefined;
 }
 
-function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest | null {
+const devPortReachabilityCache = new Map<number, boolean>();
+
+async function isLocalPortReachable(port: number, host = '127.0.0.1', timeoutMs = 250): Promise<boolean> {
+  const cached = devPortReachabilityCache.get(port);
+  if (cached !== undefined) return cached;
+
+  const reachable = await new Promise<boolean>((resolve) => {
+    const socket = net.createConnection({ port, host });
+    const finish = (ok: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(ok);
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
+
+  devPortReachabilityCache.set(port, reachable);
+  return reachable;
+}
+
+async function resolveManifestDevPort(
+  appId: string,
+  packagePath: string,
+  devPort: number | undefined,
+): Promise<number | undefined> {
+  const candidate = getManifestDevPort(appId, packagePath, devPort);
+  if (!candidate) return undefined;
+  return (await isLocalPortReachable(candidate)) ? candidate : undefined;
+}
+
+async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<SeroAppManifest | null> {
   const app = pkgJson.sero?.app;
   if (!app || !app.id || !app.name) return null;
 
@@ -138,7 +173,7 @@ function parseManifest(pkgJson: PkgJson, packagePath: string): SeroAppManifest |
     globalStatePath,
     uiEntry,
     component: app.component || null,
-    devPort: getManifestDevPort(app.id, packagePath, app.devPort),
+    devPort: await resolveManifestDevPort(app.id, packagePath, app.devPort),
     packagePath,
     isPlugin: Boolean(pkgJson.sero?.plugin),
     widgets,
@@ -167,7 +202,7 @@ async function scanDir(dir: string): Promise<SeroAppManifest[]> {
       const pkgPath = path.join(dir, entry.name);
       const pkg = await readPkgJson(pkgPath);
       if (pkg) {
-        const manifest = parseManifest(pkg, pkgPath);
+        const manifest = await parseManifest(pkg, pkgPath);
         if (manifest) results.push(manifest);
       }
     }
@@ -196,7 +231,7 @@ async function scanSettingsPaths(): Promise<SeroAppManifest[]> {
       const resolved = path.resolve(source);
       const pkg = await readPkgJson(resolved);
       if (pkg) {
-        const manifest = parseManifest(pkg, resolved);
+        const manifest = await parseManifest(pkg, resolved);
         if (manifest) results.push(manifest);
       }
     }
@@ -208,7 +243,7 @@ async function scanSettingsPaths(): Promise<SeroAppManifest[]> {
       const resolved = path.resolve(ext);
       const pkg = await readPkgJson(resolved);
       if (pkg) {
-        const manifest = parseManifest(pkg, resolved);
+        const manifest = await parseManifest(pkg, resolved);
         if (manifest) results.push(manifest);
       }
     }
@@ -249,7 +284,7 @@ export async function discoverApps(): Promise<SeroAppManifest[]> {
   for (const p of registeredPaths) {
     const pkg = await readPkgJson(p);
     if (pkg) {
-      const manifest = parseManifest(pkg, p);
+      const manifest = await parseManifest(pkg, p);
       if (manifest) all.push(manifest);
     }
   }

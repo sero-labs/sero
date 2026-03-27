@@ -67,7 +67,7 @@ Daily logs are NOT injected directly — they're surfaced through selective inje
 ### New Files
 
 ```
-packages/pi-memory-extension/
+plugins/sero-memory-plugin/
 ├── extension/
 │   ├── index.ts              # Updated — register new tools + hooks
 │   ├── context-injector.ts   # Updated — priority ordering + search results

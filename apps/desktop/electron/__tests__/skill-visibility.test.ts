@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Skill } from '@mariozechner/pi-coding-agent';
-import { getDisabledModelSkills, withDisabledModelSkills } from '../../../../packages/pi-admin-extension/shared/skill-visibility';
+import { getDisabledModelSkills, withDisabledModelSkills } from '../../../../plugins/sero-admin-plugin/shared/skill-visibility';
 import { createSkillVisibilityOverride } from '../skill-visibility';
 
 function makeSkill(name: string, disableModelInvocation = false): Skill {

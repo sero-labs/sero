@@ -227,7 +227,7 @@ orchestrator, the workflow file is its plan.
 
 ## 7. SubagentRunner — Transient Session Execution
 
-Follows the `pi-cron-extension/session-runner.ts` pattern but adapted for
+Follows the `sero-cron-plugin/session-runner.ts` pattern but adapted for
 subagent-specific needs.
 
 ```typescript

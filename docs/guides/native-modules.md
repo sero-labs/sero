@@ -78,7 +78,7 @@ Could not locate the bindings file. Tried:
 
 The QMD SDK's `getDefaultDbPath()` function requires an internal `enableProductionMode()` call that the CLI makes at startup, but which is not exported from the public SDK. Without it, the function throws, and the memory search silently fails.
 
-The Sero extension (`packages/pi-memory-extension/extension/qmd.ts`) works around this by computing the path directly instead of calling `getDefaultDbPath()`:
+The Sero extension (`plugins/sero-memory-plugin/extension/qmd.ts`) works around this by computing the path directly instead of calling `getDefaultDbPath()`:
 
 ```ts
 function resolveQmdDbPath(): string {

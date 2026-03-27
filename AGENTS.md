@@ -8,7 +8,7 @@ sero/
 │   └── desktop/          # Electron + React app
 ├── packages/
 │   ├── app-runtime/      # @sero-ai/app-runtime — hooks for federated app modules
-│   ├── pi-kanban-extension/# Pi extension + federated UI (kanban app)
+│   ├── sero-kanban-plugin/# Pi extension + federated UI (kanban app)
 │   └── other Sero apps....
 ├── turbo.json
 ├── pnpm-workspace.yaml
@@ -38,8 +38,8 @@ pnpm typecheck             # Typecheck all (turbo)
 
 Find all the Sero Apps in: `packages/pi-*`;
 The most comprehensive examples are:
-- `packages/pi-kanban-extension` - Deep integration with subagents
-- `packages/pi-cron-extension` - Background jobs and reminders
+- `plugins/sero-kanban-plugin` - Deep integration with subagents
+- `plugins/sero-cron-plugin` - Background jobs and reminders
 - `packages/pi-imagegen-extension` - Image Generation
 - `packages/pi-humanizer-extension` - One-time-prompts
 
