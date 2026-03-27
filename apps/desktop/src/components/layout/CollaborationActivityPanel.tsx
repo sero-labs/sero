@@ -1,16 +1,14 @@
 /**
- * CollaborationActivityPanel — rich stage-based progress visualization
- * for collaboration mode (both standard and debate strategies).
- *
- * Inspired by the kanban ImplementationActivityPanel pattern: shows a
- * step pipeline with phase indicators, agent status pills, elapsed timer,
- * and debate round progress when using the debate strategy.
+ * CollaborationActivityPanel — "Group Chat" style visualization
+ * that makes multi-agent collaboration feel like eavesdropping on
+ * a lively team chat room. Each agent has a distinct avatar, color,
+ * and personality. Messages appear as chat bubbles with typing
+ * indicators, reactions, and phase banners.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Loader2,
   CheckCircle2,
   XCircle,
   Search,
@@ -18,382 +16,225 @@ import {
   Lightbulb,
   Users,
   Swords,
-  ChevronDown,
-  ChevronRight,
+  Zap,
 } from 'lucide-react';
-import {
-  useFocusedCollaborationStatus,
-  useFocusedCollaborationSpecialists,
-  useFocusedCollaborationStrategy,
-  useFocusedDebateState,
-} from '@/stores/agent-selectors';
+import { useFocusedCollaborationStatus, useFocusedCollaborationStrategy } from '@/stores/agent-selectors';
 import { cn } from '@sero-ai/ui/lib/utils';
-import type { CollaborationRole, CollaborationStatus, DebatePhase } from '@/types/collaboration';
-import { DEBATE_PHASE_LABELS } from '@/types/collaboration';
+import type { CollaborationRole } from '@/types/collaboration';
 import { useElapsedTimer } from './useCollaborationTimer';
+import { useChatFeed, PHASE_BANNERS } from './collaboration-chat-feed';
 
-// ── Standard strategy steps ─────────────────────────────────────
+// ── Agent identities ────────────────────────────────────────────
 
-interface StepDef {
+interface AgentIdentity {
   label: string;
-  phase: CollaborationStatus;
+  emoji: string;
+  icon: typeof Search;
+  color: string;
+  bg: string;
+  border: string;
+  statusVerb: string;
 }
 
-const STANDARD_STEPS: StepDef[] = [
-  { label: 'Research', phase: 'research' },
-  { label: 'Specialists', phase: 'specialists' },
-  { label: 'Synthesis', phase: 'synthesis' },
-];
-
-// ── Debate strategy steps ───────────────────────────────────────
-
-interface DebateStepDef {
-  label: string;
-  phase: DebatePhase;
-}
-
-const DEBATE_STEPS: DebateStepDef[] = [
-  { label: 'Decompose', phase: 'decomposition' },
-  { label: 'Analyze', phase: 'independent_analysis' },
-  { label: 'Debate', phase: 'debate' },
-  { label: 'Synthesize', phase: 'synthesis' },
-];
-
-// ── Role metadata ───────────────────────────────────────────────
-
-const ROLE_META: Record<CollaborationRole, { label: string; icon: typeof Search; color: string; bg: string }> = {
-  coordinator: { label: 'Coordinator', icon: Users, color: 'text-[var(--collab-primary)]', bg: 'bg-[var(--collab-primary-subtle)]' },
-  researcher: { label: 'Researcher', icon: Search, color: 'text-[var(--status-info)]', bg: 'bg-[var(--status-info-subtle)]' },
-  analyst: { label: 'Analyst', icon: BarChart3, color: 'text-[var(--status-success)]', bg: 'bg-[var(--status-success-subtle)]' },
-  visionary: { label: 'Visionary', icon: Lightbulb, color: 'text-[var(--status-warning)]', bg: 'bg-[var(--status-warning-subtle)]' },
+const AGENTS: Record<CollaborationRole, AgentIdentity> = {
+  coordinator: {
+    label: 'Coordinator',
+    emoji: '🎯',
+    icon: Users,
+    color: 'text-[var(--collab-primary)]',
+    bg: 'bg-[var(--collab-primary-subtle)]',
+    border: 'border-[var(--collab-primary-border)]',
+    statusVerb: 'Orchestrating',
+  },
+  researcher: {
+    label: 'Researcher',
+    emoji: '🔍',
+    icon: Search,
+    color: 'text-[var(--status-info)]',
+    bg: 'bg-[var(--status-info-subtle)]',
+    border: 'border-[var(--status-info-border)]',
+    statusVerb: 'Investigating',
+  },
+  analyst: {
+    label: 'Analyst',
+    emoji: '📊',
+    icon: BarChart3,
+    color: 'text-[var(--status-success)]',
+    bg: 'bg-[var(--status-success-subtle)]',
+    border: 'border-[var(--status-success-border)]',
+    statusVerb: 'Crunching data',
+  },
+  visionary: {
+    label: 'Visionary',
+    emoji: '💡',
+    icon: Lightbulb,
+    color: 'text-[var(--status-warning)]',
+    bg: 'bg-[var(--status-warning-subtle)]',
+    border: 'border-[var(--status-warning-border)]',
+    statusVerb: 'Brainstorming',
+  },
 };
 
-// ── Step pipeline (shared between strategies) ───────────────────
+// ── Avatar component ────────────────────────────────────────────
 
-type StepState = 'done' | 'active' | 'pending';
+function AgentAvatar({ role, size = 'md', pulse }: { role: CollaborationRole; size?: 'sm' | 'md'; pulse?: boolean }) {
+  const agent = AGENTS[role];
+  const sizeClass = size === 'sm' ? 'size-5 text-[10px]' : 'size-7 text-sm';
 
-function StepDot({ state, index }: { state: StepState; index: number }) {
+  return (
+    <div className={cn('relative shrink-0 select-none rounded-full flex items-center justify-center', sizeClass, agent.bg, agent.border, 'border')}>
+      <span>{agent.emoji}</span>
+      {pulse && (
+        <span className={cn('absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-[var(--bg-surface)]', 'bg-[var(--status-success)] animate-pulse')} />
+      )}
+    </div>
+  );
+}
+
+// ── Typing indicator (bouncing dots) ────────────────────────────
+
+function TypingBubble({ role }: { role: CollaborationRole }) {
+  const agent = AGENTS[role];
+
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: index * 0.08, duration: 0.2 }}
-      className={cn(
-        'flex size-5 items-center justify-center rounded-full text-[9px] font-bold',
-        state === 'done' && 'bg-[var(--status-success-border)] text-[var(--status-success)]',
-        state === 'active' && 'bg-[var(--collab-primary-border)] text-[var(--collab-primary)]',
-        state === 'pending' && 'bg-[var(--bg-elevated)] text-[var(--text-muted)]',
-      )}
+      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      className="flex items-end gap-2 px-3"
     >
-      {state === 'done' ? (
-        <CheckCircle2 className="size-3" />
-      ) : state === 'active' ? (
-        <Loader2 className="size-3 animate-spin" />
-      ) : (
-        <span>{index + 1}</span>
-      )}
+      <AgentAvatar role={role} pulse />
+      <div className="flex flex-col gap-0.5">
+        <span className={cn('text-[9px] font-medium pl-1', agent.color)}>{agent.label}</span>
+        <div className={cn('flex items-center gap-1 rounded-2xl rounded-bl-sm px-3 py-2 border', agent.bg, agent.border)}>
+          <span className={cn('text-[10px] italic', agent.color)}>{agent.statusVerb}</span>
+          <span className="flex gap-0.5 ml-1">
+            {[0, 1, 2].map((i) => (
+              <motion.span
+                key={i}
+                className={cn('size-1 rounded-full', agent.color.replace('text-', 'bg-'))}
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }}
+              />
+            ))}
+          </span>
+        </div>
+      </div>
     </motion.div>
   );
 }
 
-function StepLine({ state }: { state: 'done' | 'pending' }) {
-  return (
-    <div
-      className={cn(
-        'h-[2px] flex-1 rounded transition-colors duration-300',
-        state === 'done' ? 'bg-[var(--status-success-border)]' : 'bg-[var(--border-default)]',
-      )}
-    />
-  );
-}
+// ── Chat message bubble ─────────────────────────────────────────
 
-function StepPipeline<T extends { label: string }>({
-  steps,
-  activeIndex,
-}: {
-  steps: T[];
-  activeIndex: number;
+function MessageBubble({ role, text, durationMs, isError }: {
+  role: CollaborationRole;
+  text: string;
+  durationMs: number;
+  isError?: boolean;
 }) {
-  return (
-    <div className="flex items-center gap-1 px-3 py-2">
-      {steps.map((step, i) => {
-        const state: StepState = i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'pending';
-        return (
-          <div key={step.label} className="contents">
-            <div className="flex shrink-0 flex-col items-center gap-0.5">
-              <StepDot state={state} index={i} />
-              <span
-                className={cn(
-                  'text-[9px] whitespace-nowrap',
-                  state === 'active' ? 'font-medium text-[var(--collab-primary)]' : 'text-[var(--text-muted)]',
-                )}
-              >
-                {step.label}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <StepLine state={i < activeIndex ? 'done' : 'pending'} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Agent pills ─────────────────────────────────────────────────
-
-function AgentPill({ role, status }: { role: CollaborationRole; status: 'pending' | 'running' | 'completed' | 'failed' }) {
-  const meta = ROLE_META[role];
-  const Icon = meta.icon;
-
-  return (
-    <div
-      className={cn(
-        'flex flex-1 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[10px]',
-        status === 'running' && `${meta.bg} ${meta.color}`,
-        status === 'completed' && 'bg-[var(--status-success-muted)] text-[var(--status-success)]',
-        status === 'failed' && 'bg-destructive/10 text-destructive',
-        status === 'pending' && 'bg-[var(--bg-elevated)] text-[var(--text-muted)]',
-      )}
-    >
-      {status === 'running' ? (
-        <Loader2 className="size-2.5 animate-spin" />
-      ) : status === 'completed' ? (
-        <CheckCircle2 className="size-2.5" />
-      ) : status === 'failed' ? (
-        <XCircle className="size-2.5" />
-      ) : (
-        <Icon className="size-2.5" />
-      )}
-      <span>{meta.label}</span>
-    </div>
-  );
-}
-
-// ── Debate rounds feed ──────────────────────────────────────────
-
-function DebateRoundsFeed() {
-  const debate = useFocusedDebateState();
+  const agent = AGENTS[role];
   const [expanded, setExpanded] = useState(false);
 
-  if (!debate || debate.rounds.length === 0) return null;
-
-  const Chevron = expanded ? ChevronDown : ChevronRight;
-
-  return (
-    <div className="border-t border-[var(--border-default)]">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]"
-      >
-        <Chevron className="size-2.5" />
-        <Swords className="size-2.5 text-[var(--status-warning)]" />
-        <span>{debate.rounds.length} debate round{debate.rounds.length !== 1 ? 's' : ''}</span>
-      </button>
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="flex flex-col gap-2 px-3 pb-3">
-              {debate.rounds.map((round) => (
-                <div
-                  key={round.roundNumber}
-                  className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2"
-                >
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span className="font-semibold text-[var(--status-warning)]">R{round.roundNumber}</span>
-                    <span className="text-[var(--text-muted)]">
-                      {ROLE_META[round.challengerRole].label} challenges {ROLE_META[round.defenderRole].label}
-                    </span>
-                    <span className="ml-auto shrink-0 text-[var(--text-muted)]">
-                      {Math.round(round.durationMs / 1000)}s
-                    </span>
-                  </div>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">
-                    {round.summary}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ── Standard strategy panel ─────────────────────────────────────
-
-function StandardActivityContent() {
-  const status = useFocusedCollaborationStatus();
-  const specialists = useFocusedCollaborationSpecialists();
-
-  const activeIndex = useMemo(() => {
-    switch (status) {
-      case 'research': return 0;
-      case 'specialists': return 1;
-      case 'synthesis': return 2;
-      case 'complete': return 3;
-      default: return 0;
-    }
-  }, [status]);
-
-  const agentStatuses = useMemo(() => {
-    const completedRoles = new Set(specialists.map((s) => s.role));
-    const roles: CollaborationRole[] = ['researcher', 'analyst', 'visionary', 'coordinator'];
-    return roles.map((role) => ({
-      role,
-      status: completedRoles.has(role)
-        ? ('completed' as const)
-        : (status === 'research' && role === 'researcher') ||
-          (status === 'specialists' && (role === 'analyst' || role === 'visionary')) ||
-          (status === 'synthesis' && role === 'coordinator')
-          ? ('running' as const)
-          : ('pending' as const),
-    }));
-  }, [status, specialists]);
+  const truncateLen = 180;
+  const isLong = text.length > truncateLen;
+  const displayText = expanded ? text : isLong ? text.slice(0, truncateLen) + '...' : text;
+  const duration = durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`;
 
   return (
-    <>
-      <StepPipeline steps={STANDARD_STEPS} activeIndex={activeIndex} />
-      <div className="flex flex-wrap gap-1.5 px-3 pb-2">
-        {agentStatuses.map(({ role, status: s }) => (
-          <AgentPill key={role} role={role} status={s} />
-        ))}
-      </div>
-    </>
-  );
-}
-
-// ── Debate strategy panel ───────────────────────────────────────
-
-function DebateActivityContent() {
-  const debate = useFocusedDebateState();
-  const specialists = useFocusedCollaborationSpecialists();
-
-  const activeIndex = useMemo(() => {
-    if (!debate) return 0;
-    switch (debate.phase) {
-      case 'decomposition': return 0;
-      case 'independent_analysis': return 1;
-      case 'debate': return 2;
-      case 'synthesis': return 3;
-      default: return 0;
-    }
-  }, [debate]);
-
-  const agentStatuses = useMemo(() => {
-    if (!debate) return [];
-    const roles: CollaborationRole[] = ['coordinator', 'researcher', 'analyst', 'visionary'];
-    const completedRoles = new Set(specialists.map((s) => s.role));
-    return roles.map((role) => {
-      const agentName = role === 'analyst' ? 'collab-analyst' : role;
-      const fromDebate = debate.agentStatuses[agentName];
-      if (fromDebate) return { role, status: fromDebate };
-      if (completedRoles.has(role)) return { role, status: 'completed' as const };
-      return { role, status: 'pending' as const };
-    });
-  }, [debate, specialists]);
-
-  const phaseLabel = debate ? DEBATE_PHASE_LABELS[debate.phase] : 'Starting...';
-
-  return (
-    <>
-      <StepPipeline steps={DEBATE_STEPS} activeIndex={activeIndex} />
-
-      {/* Phase label */}
-      <div className="flex items-center gap-2 px-3 pb-1">
-        <span className="text-[10px] font-medium text-[var(--collab-primary)]">{phaseLabel}</span>
-        {debate && debate.phase === 'debate' && debate.totalRounds > 0 && (
-          <DebateRoundIndicator
-            currentRound={debate.currentRound}
-            totalRounds={debate.totalRounds}
-          />
-        )}
-      </div>
-
-      {/* Agent pills */}
-      <div className="flex flex-wrap gap-1.5 px-3 pb-2">
-        {agentStatuses.map(({ role, status }) => (
-          <AgentPill key={role} role={role} status={status} />
-        ))}
-      </div>
-
-      {/* Debate rounds feed */}
-      <DebateRoundsFeed />
-    </>
-  );
-}
-
-function DebateRoundIndicator({
-  currentRound,
-  totalRounds,
-}: {
-  currentRound: number;
-  totalRounds: number;
-}) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: totalRounds }, (_, i) => (
-        <div
-          key={i}
-          className={cn(
-            'h-[3px] w-4 rounded-sm transition-colors duration-300',
-            i + 1 < currentRound
-              ? 'bg-[var(--status-success)]'
-              : i + 1 === currentRound
-                ? 'bg-[var(--status-warning)]'
-                : 'bg-[var(--bg-elevated)]',
-          )}
-        />
-      ))}
-      <span className="ml-1 text-[9px] text-[var(--text-muted)]">
-        {currentRound}/{totalRounds}
-      </span>
-    </div>
-  );
-}
-
-// ── Main panel ──────────────────────────────────────────────────
-
-export function CollaborationActivityPanel() {
-  const status = useFocusedCollaborationStatus();
-  const strategy = useFocusedCollaborationStrategy();
-
-  if (status === 'idle' || status === 'complete') return null;
-
-  return (
-    <div className="mx-3 mb-2 flex max-h-80 flex-col overflow-hidden rounded-md border border-[var(--collab-primary-border)] bg-[var(--collab-primary-muted)]">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-1.5">
-        <div className="size-1.5 animate-pulse rounded-full bg-[var(--collab-primary)]" />
-        <span className="text-[11px] font-medium text-[var(--collab-primary)]">
-          {strategy === 'debate' ? 'Debate Collaboration' : '4-Agent Collaboration'}
-        </span>
-        <ElapsedTimer />
-      </div>
-
-      {/* Strategy-specific content — scrollable when debate feed overflows */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {strategy === 'debate' ? <DebateActivityContent /> : <StandardActivityContent />}
-      </div>
-
-      {/* Error indicator */}
-      {status === 'error' && (
-        <div className="flex items-center gap-1.5 border-t border-destructive/20 bg-destructive/5 px-3 py-1.5">
-          <XCircle className="size-3 text-destructive" />
-          <span className="text-[10px] text-destructive">An error occurred during collaboration</span>
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+      className="flex items-start gap-2 px-3"
+    >
+      <AgentAvatar role={role} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className={cn('text-[9px] font-semibold', agent.color)}>{agent.label}</span>
+          <span className="text-[8px] text-[var(--text-muted)] tabular-nums">{duration}</span>
+          {isError ? <XCircle className="size-2.5 text-destructive" /> : <CheckCircle2 className="size-2.5 text-[var(--status-success)]" />}
         </div>
-      )}
-    </div>
+        <div
+          className={cn(
+            'rounded-2xl rounded-tl-sm border px-3 py-2 text-[11px] leading-relaxed text-[var(--text-secondary)]',
+            isError ? 'border-destructive/20 bg-destructive/5' : `${agent.bg} ${agent.border}`,
+          )}
+        >
+          <p className="whitespace-pre-wrap break-words">{displayText}</p>
+          {isLong && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className={cn('mt-1 text-[10px] font-medium', agent.color, 'hover:underline')}
+            >
+              {expanded ? 'Show less' : 'Read more'}
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }
+
+// ── Debate round card ───────────────────────────────────────────
+
+function DebateRoundBubble({ round, challenger, defender, summary, durationMs }: {
+  round: number;
+  challenger: CollaborationRole;
+  defender: CollaborationRole;
+  summary: string;
+  durationMs: number;
+}) {
+  const duration = durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10, scale: 0.97 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+      className="mx-3 flex flex-col gap-1.5 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] p-3"
+    >
+      <div className="flex items-center gap-2">
+        <Swords className="size-3 text-[var(--status-warning)]" />
+        <span className="text-[10px] font-bold text-[var(--status-warning)]">Round {round}</span>
+        <div className="flex items-center gap-1 ml-1">
+          <AgentAvatar role={challenger} size="sm" />
+          <Zap className="size-2.5 text-[var(--status-warning)]" />
+          <AgentAvatar role={defender} size="sm" />
+        </div>
+        <span className="ml-auto text-[8px] tabular-nums text-[var(--text-muted)]">{duration}</span>
+      </div>
+      <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">{summary}</p>
+    </motion.div>
+  );
+}
+
+// ── Phase banner ────────────────────────────────────────────────
+
+function PhaseBanner({ phase }: { phase: string }) {
+  const config = PHASE_BANNERS[phase];
+  if (!config) return null;
+  const Icon = config.icon;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.25 }}
+      className="flex items-center gap-2 px-4 py-1"
+    >
+      <div className="h-px flex-1 bg-[var(--border-default)]" />
+      <div className="flex items-center gap-1.5">
+        <Icon className={cn('size-2.5', config.color)} />
+        <span className={cn('text-[9px] font-semibold uppercase tracking-wider', config.color)}>
+          {config.label}
+        </span>
+      </div>
+      <div className="h-px flex-1 bg-[var(--border-default)]" />
+    </motion.div>
+  );
+}
+
+// ── Elapsed timer ───────────────────────────────────────────────
 
 function ElapsedTimer() {
   const status = useFocusedCollaborationStatus();
@@ -401,13 +242,128 @@ function ElapsedTimer() {
 
   if (elapsed === 0) return null;
 
-  const formatted = elapsed < 60
-    ? `${elapsed}s`
-    : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
 
   return (
-    <span className="ml-auto text-[10px] tabular-nums text-[var(--text-muted)]">
-      {formatted}
+    <span className="ml-auto flex items-center gap-1 text-[10px] tabular-nums text-[var(--text-muted)]">
+      <span className="size-1.5 rounded-full bg-[var(--status-success)] animate-pulse" />
+      {mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}
     </span>
+  );
+}
+
+// ── Online roster (who's "in the room") ─────────────────────────
+
+function OnlineRoster({ activeRoles }: { activeRoles: Set<CollaborationRole> }) {
+  const allRoles: CollaborationRole[] = ['coordinator', 'researcher', 'analyst', 'visionary'];
+
+  return (
+    <div className="flex items-center gap-1">
+      {allRoles.map((role) => {
+        const agent = AGENTS[role];
+        const isActive = activeRoles.has(role);
+        return (
+          <motion.div
+            key={role}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: isActive ? 1 : 0.35, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            className={cn(
+              'flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] border transition-all duration-300',
+              isActive ? `${agent.bg} ${agent.border} ${agent.color}` : 'bg-transparent border-transparent text-[var(--text-muted)]',
+            )}
+            title={agent.label}
+          >
+            <span className="text-[10px]">{agent.emoji}</span>
+            {isActive && <span className="font-medium">{agent.label}</span>}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Auto-scroll helper ──────────────────────────────────────────
+
+function useAutoScroll(feedLen: number) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, []);
+
+  const prevLen = useRef(0);
+  if (feedLen !== prevLen.current) {
+    prevLen.current = feedLen;
+    requestAnimationFrame(() => scrollToBottom());
+  }
+
+  return scrollRef;
+}
+
+// ── Main panel ──────────────────────────────────────────────────
+
+export function CollaborationActivityPanel() {
+  const status = useFocusedCollaborationStatus();
+  const strategy = useFocusedCollaborationStrategy();
+  const feed = useChatFeed();
+  const scrollRef = useAutoScroll(feed.length);
+
+  if (status === 'idle' || status === 'complete') return null;
+
+  // Determine who's "online" (active or completed)
+  const activeRoles = useMemo(() => {
+    const roles = new Set<CollaborationRole>();
+    for (const item of feed) {
+      if (item.kind === 'typing' || item.kind === 'message') roles.add(item.role);
+      if (item.kind === 'debate-round') { roles.add(item.challenger); roles.add(item.defender); }
+    }
+    return roles;
+  }, [feed]);
+
+  const chatTitle = strategy === 'debate' ? '⚔️ Debate Room' : '💬 Agent Chat';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      className="mx-3 mb-2 flex max-h-80 flex-col overflow-hidden rounded-xl border border-[var(--collab-primary-border)] bg-[var(--bg-surface)]"
+    >
+      {/* Header — chat room title bar */}
+      <div className="flex items-center gap-2 border-b border-[var(--border-default)] bg-gradient-to-r from-[var(--collab-primary-muted)] to-transparent px-3 py-1.5">
+        <span className="text-[11px] font-semibold text-[var(--collab-primary)]">{chatTitle}</span>
+        <OnlineRoster activeRoles={activeRoles} />
+        <ElapsedTimer />
+      </div>
+
+      {/* Chat feed — scrollable */}
+      <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto py-2">
+        <AnimatePresence mode="popLayout">
+          {feed.map((item) => {
+            switch (item.kind) {
+              case 'phase':
+                return <PhaseBanner key={item.key} phase={item.phase} />;
+              case 'typing':
+                return <TypingBubble key={item.key} role={item.role} />;
+              case 'message':
+                return <MessageBubble key={item.key} role={item.role} text={item.text} durationMs={item.durationMs} isError={item.isError} />;
+              case 'debate-round':
+                return <DebateRoundBubble key={item.key} round={item.round} challenger={item.challenger} defender={item.defender} summary={item.summary} durationMs={item.durationMs} />;
+            }
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* Error footer */}
+      {status === 'error' && (
+        <div className="flex items-center gap-1.5 border-t border-destructive/20 bg-destructive/5 px-3 py-1.5">
+          <XCircle className="size-3 text-destructive" />
+          <span className="text-[10px] text-destructive">Connection lost — an error occurred</span>
+        </div>
+      )}
+    </motion.div>
   );
 }
