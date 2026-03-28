@@ -7,7 +7,7 @@ const projectRoot = path.resolve(__dirname, '..');
 
 const electronMainPath = path.join(projectRoot, 'dist/electron/main.mjs');
 const rendererIndexPath = path.join(projectRoot, 'dist/renderer/index.html');
-const webDistSource = path.join(projectRoot, 'electron/gateway/web-dist');
+const webDistSource = path.join(projectRoot, 'electron/features/gateway/web-dist');
 const webDistDest = path.join(projectRoot, 'dist/electron/web-dist');
 const webRemotePackageJson = path.resolve(projectRoot, '../web-remote/package.json');
 

@@ -27,16 +27,16 @@ const MIME_TYPES: Record<string, string> = {
 /**
  * Resolve the web-dist directory. After esbuild bundling, __dirname is
  * dist/electron/ — check there first (copied by build-electron.mjs),
- * then fall back to the source location (electron/gateway/web-dist/).
+ * then fall back to the source location (electron/features/gateway/web-dist/).
  */
 function resolveWebDistDir(gatewayDir: string): string | null {
   // Primary: web-dist/ next to the bundled output (dist/electron/web-dist/)
   const bundled = path.join(gatewayDir, 'web-dist');
   if (fs.existsSync(bundled)) return bundled;
 
-  // Fallback: source location (electron/gateway/web-dist/ relative to project root)
-  // From dist/electron/ → ../../electron/gateway/web-dist/
-  const source = path.join(gatewayDir, '..', '..', 'electron', 'gateway', 'web-dist');
+  // Fallback: source location (electron/features/gateway/web-dist/ relative to project root)
+  // From dist/electron/ → ../../electron/features/gateway/web-dist/
+  const source = path.join(gatewayDir, '..', '..', 'electron', 'features', 'gateway', 'web-dist');
   if (fs.existsSync(source)) return source;
 
   return null;
