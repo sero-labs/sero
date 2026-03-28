@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, memo } from 'react';
-import { Search, Star, Eye, EyeOff, Layers, X } from 'lucide-react';
+import { Search, Star, Eye, EyeOff, Layers, X, Server } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Dialog,
@@ -16,6 +16,7 @@ import { useModelPreferences, modelKey } from '@/stores/model-preferences';
 import type { AvailableModelGroup, ManagerTab } from './types';
 import { ModelManagerProvider } from './ModelManagerProvider';
 import { ModelManagerItem } from './ModelManagerItem';
+import { LocalModelsPanel, useLocalModels } from './local-models';
 
 /** Filter groups by search query. */
 function filterManagerGroups(
@@ -41,6 +42,7 @@ const TAB_CONFIG: { id: ManagerTab; label: string; icon: typeof Star }[] = [
   { id: 'all', label: 'All Models', icon: Layers },
   { id: 'favourites', label: 'Favourites', icon: Star },
   { id: 'hidden', label: 'Hidden', icon: EyeOff },
+  { id: 'local', label: 'Local', icon: Server },
 ];
 
 interface ModelManagerDialogProps {
@@ -104,6 +106,9 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
   const ms = useFocusedModelState();
   const groups = ms?.availableModels ?? [];
 
+  const localModels = useLocalModels();
+  const localProviderCount = Object.keys(localModels.config?.providers ?? {}).length;
+
   const prefs = useModelPreferences();
   const { toggleFavourite, toggleHidden, toggleProviderHidden, hideAll, showAll } = prefs;
 
@@ -166,8 +171,9 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
       all: groups.reduce((n, g) => n + g.models.length, 0),
       favourites: prefs.favouriteModels.length,
       hidden: hiddenSet.size,
+      local: localProviderCount,
     };
-  }, [groups, prefs.favouriteModels, prefs.hiddenModels, prefs.hiddenProviders]);
+  }, [groups, prefs.favouriteModels, prefs.hiddenModels, prefs.hiddenProviders, localProviderCount]);
 
   // Bulk actions — "Hide all" skips favourited models, "Hide all incl.
   // favourites" hides everything. Both respect the search filter.
@@ -205,11 +211,12 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
       if (nextOpen) {
         setFilter('');
         setActiveTab('all');
+        localModels.reload();
         requestAnimationFrame(() => inputRef.current?.focus());
       }
       onOpenChange(nextOpen);
     },
-    [onOpenChange],
+    [onOpenChange, localModels],
   );
 
   const displayGroups =
@@ -259,119 +266,130 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
         {/* Tabs + Search */}
         <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
           <TabBar activeTab={activeTab} onTabChange={setActiveTab} counts={counts} />
-          <div className="flex items-center gap-2 rounded-lg bg-[var(--bg-base)] px-3">
-            <Search className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-            <input
-              ref={inputRef}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Search models, providers…"
-              className="h-8 w-full bg-transparent text-xs text-[var(--text-primary)]
-                placeholder:text-[var(--text-muted)] outline-none"
-            />
-            {filter && (
-              <button
-                onClick={() => setFilter('')}
-                className="rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-              >
-                <X className="size-3" />
-              </button>
-            )}
-          </div>
+          {activeTab !== 'local' && (
+            <div className="flex items-center gap-2 rounded-lg bg-[var(--bg-base)] px-3">
+              <Search className="size-3.5 shrink-0 text-[var(--text-muted)]" />
+              <input
+                ref={inputRef}
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Search models, providers…"
+                className="h-8 w-full bg-transparent text-xs text-[var(--text-primary)]
+                  placeholder:text-[var(--text-muted)] outline-none"
+              />
+              {filter && (
+                <button
+                  onClick={() => setFilter('')}
+                  className="rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Bulk actions bar — context-sensitive per tab */}
-        {activeTab === 'all' && displayGroups.length > 0 && (
-          <div className="flex items-center justify-end gap-1 border-b border-[var(--border-subtle)] px-4 py-1.5">
-            <button
-              onClick={handleHideAll}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
-                text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
-                hover:text-[var(--text-secondary)]"
-            >
-              <EyeOff className="size-3" />
-              {filter ? 'Hide matches' : 'Hide all'}
-            </button>
-            {hasFavouritesInView && (
-              <button
-                onClick={handleHideAllIncludingFavourites}
-                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
-                  text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
-                  hover:text-[var(--text-secondary)]"
-              >
-                <EyeOff className="size-3" />
-                {filter ? 'incl. favourites' : 'Hide all incl. favourites'}
-              </button>
+        {/* Local tab: full custom panel, no search/bulk actions */}
+        {activeTab === 'local' ? (
+          <div className="max-h-[400px] min-h-[200px] overflow-y-auto">
+            <LocalModelsPanel localModels={localModels} />
+          </div>
+        ) : (
+          <>
+            {/* Bulk actions bar — context-sensitive per tab */}
+            {activeTab === 'all' && displayGroups.length > 0 && (
+              <div className="flex items-center justify-end gap-1 border-b border-[var(--border-subtle)] px-4 py-1.5">
+                <button
+                  onClick={handleHideAll}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
+                    text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
+                    hover:text-[var(--text-secondary)]"
+                >
+                  <EyeOff className="size-3" />
+                  {filter ? 'Hide matches' : 'Hide all'}
+                </button>
+                {hasFavouritesInView && (
+                  <button
+                    onClick={handleHideAllIncludingFavourites}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
+                      text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
+                      hover:text-[var(--text-secondary)]"
+                  >
+                    <EyeOff className="size-3" />
+                    {filter ? 'incl. favourites' : 'Hide all incl. favourites'}
+                  </button>
+                )}
+              </div>
             )}
-          </div>
-        )}
-        {activeTab === 'hidden' && displayGroups.length > 0 && (
-          <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-1.5">
-            <button
-              onClick={handleShowAll}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
-                text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
-                hover:text-[var(--text-secondary)]"
-            >
-              <Eye className="size-3" />
-              Show all
-            </button>
-          </div>
-        )}
+            {activeTab === 'hidden' && displayGroups.length > 0 && (
+              <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-1.5">
+                <button
+                  onClick={handleShowAll}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
+                    text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
+                    hover:text-[var(--text-secondary)]"
+                >
+                  <Eye className="size-3" />
+                  Show all
+                </button>
+              </div>
+            )}
 
-        {/* Model list */}
-        <div className="max-h-[400px] min-h-[200px] overflow-y-auto px-2 py-1">
-          <AnimatePresence mode="popLayout">
-            {displayGroups.length === 0 ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center justify-center px-4 py-10 text-center text-xs text-[var(--text-muted)]"
-              >
-                {emptyMessage}
-              </motion.div>
-            ) : activeTab === 'favourites' ? (
-              // Flat list for favourites tab — no provider grouping
-              favouriteGroups.flatMap((group) =>
-                group.models.map((model) => {
-                  const key = modelKey(model.provider, model.modelId);
-                  return (
-                    <ModelManagerItem
-                      key={key}
-                      model={model}
-                      providerLogo={group.logo}
-                      providerName={group.displayName}
-                      isFavourite={isFavourite(key)}
-                      isHidden={isProviderHidden(group.provider) || isHidden(key)}
-                      isHiddenByProvider={isProviderHidden(group.provider)}
-                      onToggleFavourite={toggleFavourite}
-                      onToggleHidden={toggleHidden}
-                    />
-                  );
-                }),
-              )
-            ) : (
-              displayGroups.map((group, i) => (
-                <div key={group.provider}>
-                  {i > 0 && (
-                    <div className="mx-3 my-1 border-t border-[var(--border-subtle)]" />
-                  )}
-                  <ModelManagerProvider
-                    group={group}
-                    isProviderHidden={isProviderHidden(group.provider)}
-                    isFavourite={isFavourite}
-                    isHidden={isHidden}
-                    onToggleFavourite={toggleFavourite}
-                    onToggleHidden={toggleHidden}
-                    onToggleProvider={toggleProviderHidden}
-                  />
-                </div>
-              ))
-            )}
-          </AnimatePresence>
-        </div>
+            {/* Model list */}
+            <div className="max-h-[400px] min-h-[200px] overflow-y-auto px-2 py-1">
+              <AnimatePresence mode="popLayout">
+                {displayGroups.length === 0 ? (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-center px-4 py-10 text-center text-xs text-[var(--text-muted)]"
+                  >
+                    {emptyMessage}
+                  </motion.div>
+                ) : activeTab === 'favourites' ? (
+                  // Flat list for favourites tab — no provider grouping
+                  favouriteGroups.flatMap((group) =>
+                    group.models.map((model) => {
+                      const key = modelKey(model.provider, model.modelId);
+                      return (
+                        <ModelManagerItem
+                          key={key}
+                          model={model}
+                          providerLogo={group.logo}
+                          providerName={group.displayName}
+                          isFavourite={isFavourite(key)}
+                          isHidden={isProviderHidden(group.provider) || isHidden(key)}
+                          isHiddenByProvider={isProviderHidden(group.provider)}
+                          onToggleFavourite={toggleFavourite}
+                          onToggleHidden={toggleHidden}
+                        />
+                      );
+                    }),
+                  )
+                ) : (
+                  displayGroups.map((group, i) => (
+                    <div key={group.provider}>
+                      {i > 0 && (
+                        <div className="mx-3 my-1 border-t border-[var(--border-subtle)]" />
+                      )}
+                      <ModelManagerProvider
+                        group={group}
+                        isProviderHidden={isProviderHidden(group.provider)}
+                        isFavourite={isFavourite}
+                        isHidden={isHidden}
+                        onToggleFavourite={toggleFavourite}
+                        onToggleHidden={toggleHidden}
+                        onToggleProvider={toggleProviderHidden}
+                      />
+                    </div>
+                  ))
+                )}
+              </AnimatePresence>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -36,6 +36,7 @@ import { registerUserFeedbackQuestionHandlers } from './platform/ui';
 import { registerGatewayHandlers } from './gateway';
 import { registerGoogleApiHandlers } from './integrations/google-api';
 import { registerModelsHandlers } from './agent/handlers/models';
+import { registerLocalModelsHandlers } from './agent/handlers/local-models';
 import { registerSubagentHandlers } from './subagent';
 import { registerSkillHandlers } from './agent/handlers/skills';
 import { registerPromptHandlers } from './agent/handlers/prompts';
@@ -75,6 +76,7 @@ export function registerAllIpcHandlers(): void {
   registerGatewayHandlers();
   registerGoogleApiHandlers();
   registerModelsHandlers();
+  registerLocalModelsHandlers();
   registerSubagentHandlers();
   registerSkillHandlers();
   registerPromptHandlers();

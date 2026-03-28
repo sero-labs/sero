@@ -68,6 +68,7 @@ import type {
   AppRecordingResult,
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
+  LocalModelsConfig,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -407,6 +408,17 @@ interface SeroGatewayAPI {
   getQrLoginData(expiryDays?: number): Promise<QrLoginData>;
 }
 
+interface SeroLocalModelsAPI {
+  /** Read the current models.json config. Returns empty config if file doesn't exist. */
+  getConfig(): Promise<LocalModelsConfig>;
+  /** Write the full models.json config to disk and refresh the model registry. */
+  saveConfig(config: LocalModelsConfig): Promise<void>;
+  /** Test connectivity to a local provider's base URL. */
+  testConnection(baseUrl: string): Promise<{ ok: boolean; error?: string }>;
+  /** Fetch available models from a provider's API (e.g. Ollama /api/tags). */
+  fetchRemoteModels(baseUrl: string): Promise<{ id: string; name?: string }[]>;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -444,6 +456,7 @@ interface SeroAPI {
   prompts: SeroPromptsAPI;
   github: SeroGitHubAPI;
   plugins: SeroPluginsAPI;
+  localModels: SeroLocalModelsAPI;
 }
 
 // ── GitHub Auth ──────────────────────────────────────────────

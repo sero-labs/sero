@@ -7,6 +7,7 @@ import { skillsBridge } from './agent/skills';
 import { promptsBridge } from './agent/prompts';
 import { collaborationBridge } from './collaboration';
 import { modelsBridge } from './agent/models';
+import { localModelsBridge } from './agent/local-models';
 import { googleBridge, imagegenBridge } from './integrations/google-imagegen';
 import {
   appStateBridge,
@@ -263,6 +264,7 @@ export const seroPreloadApi = {
   appControl: appControlBridge,
 
   models: modelsBridge,
+  localModels: localModelsBridge,
 
   google: googleBridge,
   imagegen: imagegenBridge,
