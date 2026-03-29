@@ -24,6 +24,7 @@ import { initAppControlBridge } from '@/lib/app-control-bridge';
 import { hydrateShellState } from '@/lib/app-startup';
 import { ActiveAppPanel } from '@/components/apps/ActiveAppPanel';
 import { useAgentStore } from '@/stores/agent';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 /**
  * App shell.
@@ -262,7 +263,11 @@ export function App() {
               collapsedSize={mainSidebarCollapsedSize}
               onResize={handleMainSidebarResize}
             >
-              {mainSidebarOpen ? <MainSidebar /> : null}
+              {mainSidebarOpen ? (
+                <ErrorBoundary region="Sidebar" compact>
+                  <MainSidebar />
+                </ErrorBoundary>
+              ) : null}
             </ResizablePanel>
 
             <ResizableHandle
@@ -271,7 +276,9 @@ export function App() {
             />
 
             <ResizablePanel id="active-app-panel" minSize={40} className="min-w-0 flex flex-col">
-              <ActiveAppPanel app={activeApp} />
+              <ErrorBoundary key={activeApp} region="Plugin">
+                <ActiveAppPanel app={activeApp} />
+              </ErrorBoundary>
             </ResizablePanel>
 
             <ResizableHandle
@@ -288,7 +295,11 @@ export function App() {
               collapsedSize={chatPanelCollapsedSize}
               onResize={handleChatPanelResize}
             >
-              {chatPanelOpen ? <ChatPanel /> : null}
+              {chatPanelOpen ? (
+                <ErrorBoundary region="Chat" compact>
+                  <ChatPanel />
+                </ErrorBoundary>
+              ) : null}
             </ResizablePanel>
           </ResizablePanelGroup>
         </div>
