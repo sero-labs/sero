@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Search, Store } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Search, Store, Loader2, Globe } from 'lucide-react';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero-ai/ui/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,10 @@ import {
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
 import type { AppEntry } from '@/stores/app';
+import type { DiscoveredPlugin } from '@/types/ipc';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import { AppStoreCard } from './AppStoreCard';
+import { DiscoverPluginCard } from './DiscoverPluginCard';
 
 interface AppStoreDialogProps {
   open: boolean;
@@ -50,6 +54,13 @@ export function AppStoreDialog({
   onActivateApp,
 }: AppStoreDialogProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('installed');
+
+  // Discover tab state
+  const [discoverQuery, setDiscoverQuery] = useState('');
+  const [discoverResults, setDiscoverResults] = useState<DiscoveredPlugin[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverSearched, setDiscoverSearched] = useState(false);
 
   const query = searchQuery.trim().toLowerCase();
   const filteredApps = apps
@@ -64,9 +75,47 @@ export function AppStoreDialog({
       return a.label.localeCompare(b.label);
     });
 
+  const runDiscoverSearch = useCallback(async (q: string) => {
+    setDiscoverLoading(true);
+    setDiscoverSearched(true);
+    try {
+      const results = await window.sero.plugins.search(q);
+      setDiscoverResults(results);
+    } catch (err) {
+      console.error('[AppStore] Plugin search failed:', err);
+      setDiscoverResults([]);
+    } finally {
+      setDiscoverLoading(false);
+    }
+  }, []);
+
+  const debouncedSearch = useDebouncedCallback((q: string) => {
+    runDiscoverSearch(q);
+  }, 400);
+
+  const handleDiscoverQueryChange = (value: string) => {
+    setDiscoverQuery(value);
+    debouncedSearch(value);
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Auto-search on first visit to discover tab
+    if (tab === 'discover' && !discoverSearched) {
+      runDiscoverSearch('');
+    }
+  };
+
+  const handleInstallPlugin = async (plugin: DiscoveredPlugin) => {
+    await window.sero.plugins.install(plugin.installSource);
+  };
+
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen);
-    if (!nextOpen) setSearchQuery('');
+    if (!nextOpen) {
+      setSearchQuery('');
+      setActiveTab('installed');
+    }
   };
 
   return (
@@ -78,53 +127,111 @@ export function AppStoreDialog({
             App Store
           </DialogTitle>
           <DialogDescription>
-            Browse installed Sero apps and choose which ones appear in the sidebar.
+            Browse installed apps or discover new plugins from the community.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="border-b border-[var(--border-default)] px-4 py-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
-            <Input
-              autoFocus
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search apps…"
-              className="pl-9"
-            />
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="flex min-h-0 flex-1 flex-col">
+          <div className="border-b border-[var(--border-default)] px-4">
+            <TabsList variant="line" className="h-9">
+              <TabsTrigger value="installed" className="text-xs">
+                Installed
+              </TabsTrigger>
+              <TabsTrigger value="discover" className="text-xs">
+                <Globe className="mr-1 size-3" />
+                Discover
+              </TabsTrigger>
+            </TabsList>
           </div>
-        </div>
 
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="p-4">
-            {apps.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--border-default)] p-6 text-center">
-                <p className="text-sm text-[var(--text-secondary)]">No discovered apps yet.</p>
+          <TabsContent value="installed" className="mt-0 flex min-h-0 flex-1 flex-col">
+            <div className="border-b border-[var(--border-default)] px-4 py-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                <Input
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search installed apps…"
+                  className="pl-9"
+                />
               </div>
-            ) : filteredApps.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--border-default)] p-6 text-center">
-                <p className="text-sm text-[var(--text-secondary)]">No apps match “{searchQuery}”.</p>
+            </div>
+
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="p-4">
+                {apps.length === 0 ? (
+                  <EmptyState message="No discovered apps yet." />
+                ) : filteredApps.length === 0 ? (
+                  <EmptyState message={`No apps match "${searchQuery}".`} />
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                    {filteredApps.map((app) => (
+                      <AppStoreCard
+                        key={app.id}
+                        entry={app}
+                        active={activeApp === app.id}
+                        favourite={isFavourite(app.id)}
+                        onToggleFavourite={() => onToggleFavourite(app.id)}
+                        onActivate={() => {
+                          onActivateApp(app.id);
+                          handleOpenChange(false);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                {filteredApps.map((app) => (
-                  <AppStoreCard
-                    key={app.id}
-                    entry={app}
-                    active={activeApp === app.id}
-                    favourite={isFavourite(app.id)}
-                    onToggleFavourite={() => onToggleFavourite(app.id)}
-                    onActivate={() => {
-                      onActivateApp(app.id);
-                      handleOpenChange(false);
-                    }}
-                  />
-                ))}
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="discover" className="mt-0 flex min-h-0 flex-1 flex-col">
+            <div className="border-b border-[var(--border-default)] px-4 py-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                <Input
+                  value={discoverQuery}
+                  onChange={(event) => handleDiscoverQueryChange(event.target.value)}
+                  placeholder="Search public plugins…"
+                  className="pl-9"
+                />
               </div>
-            )}
-          </div>
-        </ScrollArea>
+            </div>
+
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="p-4">
+                {discoverLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="size-5 animate-spin text-[var(--text-muted)]" />
+                  </div>
+                ) : !discoverSearched ? (
+                  <EmptyState message="Search for community plugins above." />
+                ) : discoverResults.length === 0 ? (
+                  <EmptyState message={discoverQuery ? `No plugins found for "${discoverQuery}".` : 'No public plugins found.'} />
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                    {discoverResults.map((plugin) => (
+                      <DiscoverPluginCard
+                        key={plugin.installSource}
+                        plugin={plugin}
+                        onInstall={handleInstallPlugin}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-[var(--border-default)] p-6 text-center">
+      <p className="text-sm text-[var(--text-secondary)]">{message}</p>
+    </div>
   );
 }

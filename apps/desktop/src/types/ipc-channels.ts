@@ -445,6 +445,8 @@ export const IpcChannels = {
     list: 'sero:plugins:list',
     /** Check if a specific app is an installed plugin. */
     isPlugin: 'sero:plugins:is-plugin',
+    /** Search for public plugins on GitHub (topic) and npm (keyword). */
+    search: 'sero:plugins:search',
     /** Main → renderer push: plugin installed or uninstalled. */
     event: 'sero:plugins:event',
   },
