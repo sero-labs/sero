@@ -17,6 +17,7 @@ working agent tool + live web UI.
 - [Step 4: Build the Web UI](#step-4-build-the-web-ui)
 - [Step 5: Install and Restart](#step-5-install-and-restart)
 - [Step 6: Run and Test](#step-6-run-and-test)
+- [Converting an Existing Pi Extension](#converting-an-existing-pi-extension)
 - [App Runtime API Reference](#app-runtime-api-reference)
 - [Styling Guide](#styling-guide)
 - [Dashboard Widgets](#dashboard-widgets)
@@ -844,6 +845,234 @@ SERO_DEV_PLUGINS=myapp bash scripts/dev.sh
 
 ---
 
+## Converting an Existing Pi Extension
+
+When building a Sero plugin from an existing Pi extension or package
+(e.g. `pi-web-access`, `pi-todoist-extension`), you must **internalize all
+source code** into the plugin. Do not import the original package as a
+dependency.
+
+### The rule: copy, don't import
+
+> **All extension code must live inside the plugin directory.** Never
+> `import` from, `require`, or list an external Pi extension as a
+> dependency. Sero plugins are self-contained units — they must not rely
+> on external Pi packages for their core functionality.
+
+**Why:**
+
+- Pi extensions are loaded by the Pi SDK's TypeScript loader. Transitive
+  TypeScript imports from `node_modules` are unreliable — the loader may
+  not handle them, and module resolution for packages without `"main"` or
+  `"exports"` fields is undefined.
+- External packages couple your plugin to the original author's release
+  schedule and internal structure. A breaking change in an internal module
+  (e.g. `pi-web-access/exa.js`) silently breaks your plugin.
+- You need to modify the extension code to integrate with Sero's state
+  file, which is impossible with an opaque dependency.
+- Sero plugins should work in isolation — installing the plugin installs
+  everything it needs, with no implicit dependency on a separate
+  `pi install` step.
+
+### Step-by-step conversion process
+
+#### 1. Read and understand the source
+
+Clone or locate the original extension. Read its `package.json` to find:
+
+- **Entry point:** `pi.extensions` — usually `["./index.ts"]`
+- **Dependencies:** direct `dependencies` (you'll add these to your plugin)
+- **Peer dependencies:** Pi SDK packages (`@mariozechner/pi-*`,
+  `@sinclair/typebox`) — these are provided by the Pi runtime; list them
+  as `peerDependencies` in your plugin
+
+Read the entry point to understand the tool registrations, commands,
+session handlers, and any in-memory storage.
+
+#### 2. Copy source files into `extension/`
+
+Copy all `.ts` source files from the original package into your plugin's
+`extension/` directory. Keep them flat (same directory level) so relative
+imports between files (`import { foo } from "./bar.js"`) continue to work
+without path changes.
+
+```bash
+# Example: copying from a local clone
+SRC=/path/to/pi-some-extension
+DEST=plugins/sero-some-plugin/extension
+
+for f in "$SRC"/*.ts; do
+  cp "$f" "$DEST/$(basename "$f")"
+done
+```
+
+#### 3. Split files over 500 lines
+
+The [500 LOC rule](../apps/desktop/AGENTS.md) applies to every source file
+you create. After copying, check all files:
+
+```bash
+wc -l plugins/sero-some-plugin/extension/*.ts | sort -rn | head
+```
+
+Split any file exceeding 500 lines. Common split strategies:
+
+| Original pattern | Split into |
+|------------------|------------|
+| Monolithic `index.ts` with multiple tool registrations | `index.ts` (entry + session) + `tools-<name>.ts` per tool group |
+| Large provider file (API + MCP proxy) | `provider.ts` (API) + `provider-mcp.ts` (MCP) |
+| Extractor with HTTP + specialized logic | `extract.ts` (orchestrator) + `http-extract.ts` (HTTP/HTML) |
+| Content generation (trees, formatting) | Main file + `<name>-content.ts` (pure helpers) |
+
+When splitting, keep the original file's public exports stable so other
+files that import from it don't need changes. Extract internal helpers
+into the new file and import them back.
+
+#### 4. Add Sero state sync
+
+The original extension likely uses in-memory storage (a `Map`, module-level
+variables) or Pi's session entries (`pi.appendEntry`). Neither of these is
+visible to the Sero web UI. You need to also write to the state file.
+
+**Pattern — write-through to state.json:**
+
+Every time the extension stores a result (tool execution complete,
+background fetch done), also write a lightweight summary to the state file.
+The UI reads this via `useAppState`.
+
+```typescript
+// In your tool's execute handler or storage wrapper:
+storeResult(id, data);                        // original in-memory store
+pi.appendEntry("my-results", data);           // original session persistence
+syncEntryToState(statePath, data).catch(noop); // NEW: write to state.json
+```
+
+Create a `state-sync.ts` module that handles:
+- Resolving the state file path from `ctx.cwd`
+- Atomic read/write of the state JSON
+- Converting the extension's internal data format to the lighter state
+  shape consumed by the UI (strip large content, images, etc.)
+
+**Pattern — sync provider/config info on session start:**
+
+```typescript
+pi.on('session_start', async (_event, ctx) => {
+  statePath = resolveStatePath(ctx.cwd);
+  // Restore entries from session branch
+  const branch = ctx.sessionManager.getBranch();
+  await syncFromSession(statePath, branch);
+  // Write provider availability to state for UI display
+  await updateProviderInfo(statePath, { ... });
+});
+```
+
+#### 5. Replace TUI-specific features
+
+Sero plugins run in Electron, not a terminal. Several Pi extension features
+are TUI-only and must be replaced or removed:
+
+| TUI feature | Sero replacement |
+|-------------|-----------------|
+| `pi.registerShortcut()` | Remove or map to a command. Sero has its own keybinding system. |
+| `ctx.ui.setWidget()` (TUI widget) | Use the Sero web UI dashboard widget instead. |
+| `ctx.ui.select()` / `ctx.ui.confirm()` | Remove — use the web UI for interactive selection. |
+| `ctx.ui.notify()` | Use `pi.events.emit('sero:notify', { message })` for desktop notifications, or show state in the web UI. |
+| Glimpse windows / `open()` | Remove — the Sero web UI replaces external browser windows. |
+| Curator / interactive browser UIs | Remove the HTTP server + HTML template code entirely. Build the equivalent as a React component in `ui/`. |
+| Activity monitor (TUI widget) | Track activity in the state file and display it in the web UI. |
+
+**For tools with interactive workflows** (e.g. a search tool that opens a
+curator browser for result review), simplify to the non-interactive path.
+If the original tool has `if (shouldCurate) { ... } else { ... }`, use only
+the `else` branch. The Sero web UI provides the review experience instead.
+
+#### 6. Add direct dependencies
+
+Any npm packages the original extension imports go directly in your plugin's
+`dependencies` — not as a transitive dependency through the original package:
+
+```json
+{
+  "dependencies": {
+    "@sinclair/typebox": "catalog:",
+    "@mozilla/readability": "^0.5.0",
+    "linkedom": "^0.16.0",
+    "turndown": "^7.2.0"
+  }
+}
+```
+
+Pi SDK packages remain as `peerDependencies` — they're provided by the runtime.
+
+#### 7. Design the state shape for the UI
+
+The original extension's internal data structures are optimised for the
+agent. The Sero state file should be optimised for the UI — lighter, with
+only the fields the web components need:
+
+```typescript
+// Original (in-memory, agent-facing):
+interface StoredSearchData {
+  id: string;
+  queries: Array<{
+    query: string;
+    answer: string;  // potentially huge
+    results: Array<{ title: string; url: string; snippet: string }>;
+    error: string | null;
+  }>;
+}
+
+// Sero state (UI-facing):
+interface WebEntry {
+  id: string;
+  type: 'search' | 'fetch';
+  timestamp: number;
+  queries?: Array<{
+    query: string;
+    resultCount: number;  // just the count, not the full results
+    provider?: string;
+    error?: string | null;
+    sources: Array<{ title: string; url: string }>;
+  }>;
+}
+```
+
+Strip large text content, base64 images, and anything the UI doesn't
+render. The full data is still accessible to the agent via the original
+in-memory storage and session entries.
+
+### Conversion checklist
+
+- [ ] All extension `.ts` files copied into `extension/`
+- [ ] No `import` from the original package anywhere in the plugin
+- [ ] Original package removed from `dependencies`
+- [ ] Original package's npm dependencies added directly
+- [ ] Every source file under 500 LOC (split if needed)
+- [ ] State sync added: tool results → state.json
+- [ ] Session restore: existing entries synced to state on session start
+- [ ] TUI-specific code removed (shortcuts, widgets, interactive prompts, Glimpse)
+- [ ] Web UI built to replace removed TUI features
+- [ ] `pnpm install && pnpm build && pnpm typecheck` all pass
+
+### Reference: Web Access plugin (`sero-web-plugin`)
+
+The **Web Access plugin** (`plugins/sero-web-plugin/`) is the canonical
+reference for converting an existing Pi extension. It was built from
+[pi-web-access](https://github.com/nicobailon/pi-web-access) (11K+ lines,
+22 source files) and demonstrates every pattern above:
+
+| Conversion pattern | Files |
+|--------------------|-------|
+| Monolithic entry split into tool modules | `index.ts` → `index.ts` + `tools-search.ts` + `tools-fetch.ts` + `tools-code-search.ts` |
+| Provider file split (API + MCP) | `exa.ts` → `exa.ts` + `exa-mcp.ts` |
+| Extractor split (orchestrator + HTTP) | `extract.ts` → `extract.ts` + `http-extract.ts` |
+| Content generation extracted | `github-extract.ts` → `github-extract.ts` + `github-content.ts` |
+| TUI curator removed, replaced by web UI | Curator server/page skipped; `ui/WebApp.tsx` provides history browsing |
+| State sync added | `state-sync.ts` converts internal `StoredSearchData` → `WebEntry` |
+| Session restore | `index.ts` reads session branch entries on `session_start` |
+
+---
+
 ## App Runtime API Reference
 
 `@sero-ai/app-runtime` provides three hooks. All must be used inside a component
@@ -1375,7 +1604,10 @@ add its name to `TOOLS_TO_BRIDGE` in `apps/desktop/electron/cli/index.ts`.
 
 ### Naming
 
-- Package: `packages/pi-<name>-extension/`
+- **Built-in plugin:** `plugins/sero-<name>-plugin/` (auto-discovered,
+  not installed/uninstalled)
+- **Standalone package:** `packages/pi-<name>-extension/` (installable
+  via `pi install`)
 - MF remote name: `sero_<id>` (underscore, not hyphen — MF requires valid JS
   identifiers)
 - Exposed module: `./<Component>` (e.g. `./MyApp`)
@@ -1680,6 +1912,20 @@ for interactive/game-style apps:
 | `ui/game/useGame.ts` | Game loop hook with scoped keyboard listener (accepts `containerRef`), `setInterval` lifecycle |
 | `ui/game/engine.ts` | Pure game logic separated from React (testable, no side effects) |
 | `shared/types.ts` | Persisted stats (high score) vs. ephemeral game state (board, current piece) |
+
+The **Web Access plugin** (`plugins/sero-web-plugin/`) demonstrates converting
+an existing Pi extension into a self-contained Sero plugin:
+
+| File | What to learn |
+|------|---------------|
+| `extension/index.ts` | Entry point with session handlers, state sync, tool delegation |
+| `extension/tools-search.ts` | Extracted tool registration as a standalone module |
+| `extension/state-sync.ts` | Atomic state file writes, session entry conversion |
+| `extension/exa.ts` + `exa-mcp.ts` | Splitting an oversized provider file |
+| `extension/extract.ts` + `http-extract.ts` | Splitting extraction orchestrator from HTTP logic |
+| `ui/WebApp.tsx` | Web UI replacing TUI widgets (search history, provider status) |
+| `ui/widgets/WebWidget.tsx` | Dashboard widget showing recent activity |
+| `shared/types.ts` | Lightweight state shape for UI (stripped from agent-facing data) |
 
 ### Related documentation
 
