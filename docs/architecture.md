@@ -78,6 +78,12 @@ Shows a workspace badge in the header. Keyed on `sessionId` so switching
 sessions remounts instantly (no scroll animation). Uses `initial="instant"`
 for immediate scroll-to-bottom on load; streaming content scrolls smoothly.
 
+When collaboration UI is visible, the panel swaps to an internal vertical
+`ResizablePanelGroup`: the main conversation stays on top while the
+collaboration activity/details section becomes a resizable lower tray. The
+tray uses the same layout persistence pipeline as the shell sidebars, so the
+last collaboration tray size is restored from layout state.
+
 ## Component Map
 
 ```

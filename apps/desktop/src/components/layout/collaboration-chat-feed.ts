@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import type { Search } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Search as SearchIcon,
   FlaskConical,
@@ -31,13 +31,58 @@ export type ChatItem =
 
 // ── Phase banner metadata ───────────────────────────────────────
 
-export const PHASE_BANNERS: Record<string, { icon: typeof Search; label: string; color: string }> = {
-  research: { icon: SearchIcon, label: 'Research phase started', color: 'text-[var(--status-info)]' },
-  specialists: { icon: FlaskConical, label: 'Specialists are joining...', color: 'text-[var(--status-success)]' },
-  synthesis: { icon: Sparkles, label: 'Synthesizing results...', color: 'text-[var(--collab-primary)]' },
-  decomposition: { icon: Eye, label: 'Decomposing the problem...', color: 'text-[var(--status-info)]' },
-  independent_analysis: { icon: FlaskConical, label: 'Independent analysis begun', color: 'text-[var(--status-success)]' },
-  debate: { icon: Swords, label: 'Debate phase — let the sparks fly', color: 'text-[var(--status-warning)]' },
+export const PHASE_BANNERS: Record<
+  string,
+  {
+    icon: LucideIcon;
+    label: string;
+    color: string;
+    surface: string;
+    border: string;
+  }
+> = {
+  research: {
+    icon: SearchIcon,
+    label: 'Research phase started',
+    color: 'text-[var(--status-info)]',
+    surface: 'bg-[var(--status-info-subtle)]',
+    border: 'border-[var(--status-info-border)]',
+  },
+  specialists: {
+    icon: FlaskConical,
+    label: 'Specialists are joining...',
+    color: 'text-[var(--status-success)]',
+    surface: 'bg-[var(--status-success-subtle)]',
+    border: 'border-[var(--status-success-border)]',
+  },
+  synthesis: {
+    icon: Sparkles,
+    label: 'Synthesizing results...',
+    color: 'text-[var(--collab-primary)]',
+    surface: 'bg-[var(--collab-primary-subtle)]',
+    border: 'border-[var(--collab-primary-border)]',
+  },
+  decomposition: {
+    icon: Eye,
+    label: 'Decomposing the problem...',
+    color: 'text-[var(--status-info)]',
+    surface: 'bg-[var(--status-info-subtle)]',
+    border: 'border-[var(--status-info-border)]',
+  },
+  independent_analysis: {
+    icon: FlaskConical,
+    label: 'Independent analysis begun',
+    color: 'text-[var(--status-success)]',
+    surface: 'bg-[var(--status-success-subtle)]',
+    border: 'border-[var(--status-success-border)]',
+  },
+  debate: {
+    icon: Swords,
+    label: 'Debate phase — let the sparks fly',
+    color: 'text-[var(--status-warning)]',
+    surface: 'bg-[var(--status-warning-subtle)]',
+    border: 'border-[var(--status-warning-border)]',
+  },
 };
 
 // ── Hook: build the chat feed ───────────────────────────────────
