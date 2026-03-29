@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -19,6 +19,9 @@ async function createTempPluginDir(tempDirs: string[]): Promise<string> {
 async function writePackageJson(dir: string, pkg: unknown): Promise<void> {
   await writeFile(path.join(dir, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
 }
+
+const desktopRoot = path.resolve(__dirname, '../../../..');
+const stagedWebPluginRoot = path.join(desktopRoot, 'dist/electron/builtin/plugins/sero-web-plugin');
 
 describe('plugin package build helpers', () => {
   const tempDirs: string[] = [];
@@ -228,5 +231,13 @@ describe('plugin package build helpers', () => {
     await expect(ensurePluginPackageReadyForInstall(dir, 'git')).rejects.toThrow(
       /standalone npm-installable repo/,
     );
+  });
+
+  it('stages built-in web plugin runtime dependencies into the packaged artifact tree', async () => {
+    await expect(stat(path.join(stagedWebPluginRoot, 'package.json'))).resolves.toBeDefined();
+    await expect(stat(path.join(stagedWebPluginRoot, 'dist/ui/remoteEntry.js'))).resolves.toBeDefined();
+    await expect(stat(path.join(stagedWebPluginRoot, 'extension/index.ts'))).resolves.toBeDefined();
+    await expect(stat(path.join(stagedWebPluginRoot, 'node_modules/better-sqlite3'))).resolves.toBeDefined();
+    await expect(stat(path.join(stagedWebPluginRoot, 'node_modules/@mozilla/readability'))).resolves.toBeDefined();
   });
 });

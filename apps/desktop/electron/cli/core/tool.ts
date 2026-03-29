@@ -2,7 +2,7 @@ import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
 import { containerManager, workspaceManager } from '../../shared/infra/shared-infra';
 import { tokenizeCliInput, splitCommandLines } from './parser';
-import type { CliCommandContext, CliInvocation, CliResult } from './types';
+import type { CliCommandContext, CliContentBlock, CliInvocation, CliResult } from './types';
 import type { CliRegistry } from './registry';
 import { getCliSessionBridge } from '../bridges/session-bridge';
 import {
@@ -34,6 +34,15 @@ class CommandTimeoutError extends Error {
 interface CliBatchResult {
   output: string;
   exitCode: number;
+  content?: CliContentBlock[];
+  details?: unknown;
+  richOutputFallback?: boolean;
+}
+
+interface CommandExecutionControl {
+  signal: AbortSignal;
+  onUpdate?: (update: Parameters<NonNullable<Parameters<CliRegistry['executeResolved']>[3]>>[0]) => void;
+  markCompleted: () => void;
 }
 
 function truncateOutput(text: string): string {
@@ -67,14 +76,43 @@ function timeoutForCommand(
   return timeoutMs;
 }
 
+function createCommandExecutionControl(
+  signal: AbortSignal | undefined,
+  onUpdate: Parameters<CliRegistry['executeResolved']>[3] | undefined,
+): CommandExecutionControl {
+  const timeoutController = new AbortController();
+  const completionController = new AbortController();
+  const forwardSignal = AbortSignal.any(
+    [timeoutController.signal, completionController.signal, signal].filter(
+      (value): value is AbortSignal => Boolean(value),
+    ),
+  );
+
+  return {
+    signal: forwardSignal,
+    onUpdate: onUpdate
+      ? (update) => {
+          if (forwardSignal.aborted) return;
+          onUpdate(update);
+        }
+      : undefined,
+    markCompleted: () => {
+      if (!completionController.signal.aborted) {
+        completionController.abort();
+      }
+    },
+  };
+}
+
 async function runWithTimeout<T>(
-  fn: () => Promise<T>,
+  fn: (control: CommandExecutionControl) => Promise<T>,
   timeoutMs: number | null,
   signal?: AbortSignal,
+  onUpdate?: Parameters<CliRegistry['executeResolved']>[3],
 ): Promise<T> {
   if (signal?.aborted) throw new Error('Operation aborted');
-  if (!timeoutMs && !signal) return fn();
 
+  const control = createCommandExecutionControl(signal, onUpdate);
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let abortListener: (() => void) | null = null;
 
@@ -84,6 +122,7 @@ async function runWithTimeout<T>(
       const finish = (cb: () => void) => {
         if (settled) return;
         settled = true;
+        control.markCompleted();
         cb();
       };
 
@@ -98,12 +137,13 @@ async function runWithTimeout<T>(
         signal.addEventListener('abort', abortListener, { once: true });
       }
 
-      fn().then(
+      fn(control).then(
         (value) => finish(() => resolve(value)),
         (error) => finish(() => reject(error)),
       );
     });
   } finally {
+    control.markCompleted();
     if (timeout) clearTimeout(timeout);
     if (signal && abortListener) signal.removeEventListener('abort', abortListener);
   }
@@ -113,6 +153,8 @@ function normalizeCliResult(result: CliResult): CliResult {
   return {
     output: typeof result.output === 'string' ? result.output : String(result.output ?? ''),
     exitCode: result.exitCode ?? 0,
+    content: Array.isArray(result.content) ? result.content : undefined,
+    details: result.details,
   };
 }
 
@@ -172,6 +214,7 @@ export async function executeCliBatch(
 
   const sections: string[] = [];
   let finalExitCode = 0;
+  let richOutputFallback = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -210,9 +253,20 @@ export async function executeCliBatch(
       const commandOnUpdate = withBatchUpdateContext(onUpdate, line, i + 1, lines.length);
       result = normalizeCliResult(
         await runWithTimeout(
-          () => resolved.command.execute(resolved.args, context, commandOnUpdate),
+          (control) => resolved.command.execute(
+            resolved.args,
+            {
+              ...context,
+              invocation: {
+                ...context.invocation,
+                signal: control.signal,
+              },
+            },
+            control.onUpdate,
+          ),
           perCommandTimeout,
           context.invocation.signal,
+          commandOnUpdate,
         ),
       );
     } catch (error) {
@@ -225,12 +279,20 @@ export async function executeCliBatch(
     }
 
     finalExitCode = result.exitCode ?? 0;
+    if (!single && Array.isArray(result.content) && result.content.some((block) => block.type !== 'text')) {
+      richOutputFallback = true;
+    }
 
     if (single) {
       const output = context.invocation.source === 'terminal'
         ? result.output
         : truncateOutput(result.output);
-      return { output, exitCode: finalExitCode };
+      return {
+        output,
+        exitCode: finalExitCode,
+        content: result.content,
+        details: result.details,
+      };
     }
 
     sections.push(formatBatchEntry(line, result.output));
@@ -246,7 +308,25 @@ export async function executeCliBatch(
 
   const joined = sections.join('\n\n');
   const output = context.invocation.source === 'terminal' ? joined : truncateOutput(joined);
-  return { output, exitCode: finalExitCode };
+  return { output, exitCode: finalExitCode, richOutputFallback };
+}
+
+function getSingleResultContent(batch: CliBatchResult): CliContentBlock[] {
+  if (Array.isArray(batch.content) && batch.content.length > 0) {
+    return batch.content;
+  }
+  return [{ type: 'text', text: batch.output }];
+}
+
+function getMultiCommandFallbackContent(
+  batch: CliBatchResult,
+  hadRichOutput: boolean,
+): CliContentBlock[] {
+  const lines = [batch.output];
+  if (hadRichOutput) {
+    lines.push('', '[rich output omitted in multi-command batch; rerun the image-producing command alone to view images]');
+  }
+  return [{ type: 'text', text: lines.join('\n') }];
 }
 
 function buildInvocation(
@@ -291,33 +371,24 @@ export function createSeroCliTool(
       };
 
       const batch = await executeCliBatch(registry, cliParams.command, context, cliParams.timeout, onUpdate as any);
+      const lines = splitCommandLines(cliParams.command);
+      const isSingleCommand = lines.length === 1;
+
+      const richOutputFallback = !isSingleCommand && batch.richOutputFallback === true;
+
       return {
-        content: parseOutputContent(batch.output),
-        details: { exitCode: batch.exitCode },
+        content: isSingleCommand
+          ? getSingleResultContent(batch)
+          : getMultiCommandFallbackContent(batch, richOutputFallback),
+        details: {
+          exitCode: batch.exitCode,
+          ...(isSingleCommand ? (batch.details && typeof batch.details === 'object' ? batch.details as Record<string, unknown> : {}) : {
+            richOutputFallback,
+            fallbackReason: 'multi-command batches return text-only content to avoid dropping or interleaving rich blocks',
+          }),
+        },
       };
     },
   };
 }
 
-/**
- * Parse CLI output for embedded image content.
- *
- * Commands like `sero app screenshot` return JSON with
- * `{ type: 'image', format: 'png', base64: '...' }`. Converts to
- * Pi SDK ImageContent so the agent can see screenshots.
- */
-function parseOutputContent(
-  output: string,
-): Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> {
-  try {
-    const parsed = JSON.parse(output);
-    if (parsed?.type === 'image' && parsed.base64) {
-      const blocks: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = [];
-      if (parsed.message) blocks.push({ type: 'text', text: parsed.message });
-      if (parsed.description) blocks.push({ type: 'text', text: parsed.description });
-      blocks.push({ type: 'image', data: parsed.base64, mimeType: parsed.format === 'png' ? 'image/png' : 'image/jpeg' });
-      return blocks;
-    }
-  } catch { /* not JSON */ }
-  return [{ type: 'text', text: output }];
-}

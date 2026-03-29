@@ -1,0 +1,97 @@
+{
+  "configVersion": 1,
+  "taskRunner": {
+    "project": {
+      "name": "sero",
+      "description": ""
+    },
+    "paths": {
+      "tasks": "taskplane-tasks"
+    },
+    "testing": {
+      "commands": {
+        "unit": "npm test",
+        "build": "npm run build"
+      }
+    },
+    "standards": {
+      "docs": [],
+      "rules": []
+    },
+    "standardsOverrides": {},
+    "worker": {
+      "model": "",
+      "tools": "read,write,edit,bash,grep,find,ls",
+      "thinking": "off"
+    },
+    "reviewer": {
+      "model": "openai/gpt-5.3-codex",
+      "tools": "read,bash,grep,find,ls",
+      "thinking": "on"
+    },
+    "context": {
+      "workerContextWindow": 200000,
+      "warnPercent": 70,
+      "killPercent": 85,
+      "maxWorkerIterations": 20,
+      "maxReviewCycles": 2,
+      "noProgressLimit": 3
+    },
+    "taskAreas": {
+      "general": {
+        "path": "taskplane-tasks",
+        "prefix": "TP",
+        "context": "taskplane-tasks/CONTEXT.md"
+      }
+    },
+    "referenceDocs": {},
+    "neverLoad": [],
+    "selfDocTargets": {},
+    "protectedDocs": []
+  },
+  "orchestrator": {
+    "orchestrator": {
+      "maxLanes": 3,
+      "worktreeLocation": "subdirectory",
+      "worktreePrefix": "sero-wt",
+      "batchIdFormat": "timestamp",
+      "spawnMode": "tmux",
+      "tmuxPrefix": "sero-orch",
+      "operatorId": ""
+    },
+    "dependencies": {
+      "source": "prompt",
+      "cache": true
+    },
+    "assignment": {
+      "strategy": "affinity-first",
+      "sizeWeights": {
+        "S": 1,
+        "M": 2,
+        "L": 4
+      }
+    },
+    "preWarm": {
+      "autoDetect": false,
+      "commands": {},
+      "always": []
+    },
+    "merge": {
+      "model": "",
+      "tools": "read,write,edit,bash,grep,find,ls",
+      "verify": [],
+      "order": "fewest-files-first",
+      "timeoutMinutes": 10
+    },
+    "failure": {
+      "onTaskFailure": "skip-dependents",
+      "onMergeFailure": "pause",
+      "stallTimeout": 30,
+      "maxWorkerMinutes": 30,
+      "abortGracePeriod": 60
+    },
+    "monitoring": {
+      "pollInterval": 5
+    }
+  }
+}

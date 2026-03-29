@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 4,
+  "phase": "executing",
+  "batchId": "20260329T191002",
+  "baseBranch": "feat/web-access-plugin",
+  "orchBranch": "orch/danielcarter-20260329T191002",
+  "mode": "repo",
+  "startedAt": 1774807802092,
+  "updatedAt": 1774808531423,
+  "endedAt": null,
+  "currentWaveIndex": 0,
+  "totalWaves": 1,
+  "wavePlan": [
+    [
+      "TP-002",
+      "TP-003",
+      "TP-004"
+    ]
+  ],
+  "lanes": [
+    {
+      "laneNumber": 1,
+      "laneId": "lane-1",
+      "tmuxSessionName": "sero-orch-danielcarter-lane-1",
+      "worktreePath": "/Users/danielcarter/Documents/Dev/projects/sero/sero/.worktrees/danielcarter-20260329T191002/lane-1",
+      "branch": "task/danielcarter-lane-1-20260329T191002",
+      "taskIds": [
+        "TP-002",
+        "TP-003",
+        "TP-004"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "taskId": "TP-002",
+      "laneNumber": 1,
+      "sessionName": "sero-orch-danielcarter-lane-1",
+      "status": "succeeded",
+      "taskFolder": "/Users/danielcarter/Documents/Dev/projects/sero/sero/taskplane-tasks/TP-002-cli-timeout-abort-reliability",
+      "startedAt": 1774807803214,
+      "endedAt": 1774808531400,
+      "doneFileFound": true,
+      "exitReason": "Pending execution"
+    },
+    {
+      "taskId": "TP-003",
+      "laneNumber": 1,
+      "sessionName": "sero-orch-danielcarter-lane-1",
+      "status": "running",
+      "taskFolder": "/Users/danielcarter/Documents/Dev/projects/sero/sero/taskplane-tasks/TP-003-cli-rich-output-bridge",
+      "startedAt": 1774808531400,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Pending execution"
+    },
+    {
+      "taskId": "TP-004",
+      "laneNumber": 1,
+      "sessionName": "sero-orch-danielcarter-lane-1",
+      "status": "pending",
+      "taskFolder": "/Users/danielcarter/Documents/Dev/projects/sero/sero/taskplane-tasks/TP-004-web-plugin-packaging-reliability",
+      "startedAt": null,
+      "endedAt": null,
+      "doneFileFound": false,
+      "exitReason": "Pending execution"
+    }
+  ],
+  "mergeResults": [],
+  "totalTasks": 3,
+  "succeededTasks": 0,
+  "failedTasks": 0,
+  "skippedTasks": 0,
+  "blockedTasks": 0,
+  "blockedTaskIds": [],
+  "lastError": null,
+  "errors": [],
+  "resilience": {
+    "resumeForced": false,
+    "retryCountByScope": {},
+    "lastFailureClass": null,
+    "repairHistory": []
+  },
+  "diagnostics": {
+    "taskExits": {},
+    "batchCost": 0
+  },
+  "segments": []
+}

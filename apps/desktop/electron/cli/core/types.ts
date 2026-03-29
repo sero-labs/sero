@@ -11,9 +11,15 @@ export interface CliInvocation {
   signal?: AbortSignal;
 }
 
+export type CliContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string };
+
 export interface CliResult {
   output: string;
   exitCode?: number;
+  content?: CliContentBlock[];
+  details?: unknown;
 }
 
 export interface CliParam {
@@ -33,10 +39,7 @@ export interface CliCommandContext {
 }
 
 export interface CliCommandUpdate {
-  content: Array<
-    { type: 'text'; text: string } |
-    { type: 'image'; data: string; mimeType: string }
-  >;
+  content: CliContentBlock[];
   details?: unknown;
 }
 

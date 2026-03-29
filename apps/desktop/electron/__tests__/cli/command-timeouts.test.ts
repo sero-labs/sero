@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Type } from '@sinclair/typebox';
 
 import { bridgeTool, getBridgedToolTimeoutMs } from '../../cli/core/schema-bridge';
+import { CliRegistry } from '../../cli/core/registry';
+import { executeCliBatch } from '../../cli/core/tool';
 import {
   buildBatchDeadline,
   DEFAULT_PER_COMMAND_TIMEOUT_MS,
@@ -52,5 +54,50 @@ describe('CLI bridged command timeouts', () => {
     const deadline = buildBatchDeadline('tool', undefined, true);
 
     expect(resolveCommandTimeoutMs(deadline, getBridgedToolTimeoutMs('notes'))).toBe(DEFAULT_PER_COMMAND_TIMEOUT_MS);
+  });
+
+  it('returns a deterministic timeout error and suppresses late updates after cancellation', async () => {
+    const registry = new CliRegistry();
+    const onUpdate = vi.fn();
+    const lateUpdate = vi.fn();
+
+    registry.register({
+      name: 'slow',
+      summary: 'Slow command',
+      timeoutMs: 1_000,
+      execute: async (_args, context, commandOnUpdate) => {
+        setTimeout(() => {
+          commandOnUpdate?.({
+            content: [{ type: 'text', text: 'late update' }],
+            details: { phase: 'late' },
+          });
+          lateUpdate();
+        }, 1_500);
+
+        return new Promise((_resolve, reject) => {
+          context.invocation.signal?.addEventListener('abort', () => {
+            reject(new Error('command observed abort'));
+          }, { once: true });
+        });
+      },
+    });
+
+    const pending = executeCliBatch(registry, 'slow', {
+      workspaceId: 'ws-1',
+      cwd: '/tmp/ws-1',
+      invocation: { workspaceId: 'ws-1', sessionId: 's-1', turnId: null, source: 'tool' },
+      workspaceManager: {} as never,
+      containerManager: {} as never,
+    }, undefined, onUpdate);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await expect(pending).resolves.toEqual({
+      output: 'ERROR: Command timed out after 1s',
+      exitCode: 1,
+    });
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(lateUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
   });
 });

@@ -441,6 +441,12 @@ export default function (pi: ExtensionAPI) {
 > - The tool name becomes a CLI command. Params map to positional args
 >   (required first) and `--flags` (optional). Array/object params accept
 >   JSON strings.
+> - If your tool returns mixed content, **single-command** `sero-cli`
+>   invocations preserve `text`, `image`, and `details` blocks end-to-end.
+>   **Multi-command** batches are text-only by design; if one command emits
+>   rich content, Sero adds a fallback notice and sets
+>   `details.richOutputFallback = true` so the agent can rerun that command
+>   alone when it needs the image payload.
 > - Your tool works unchanged in the **Pi CLI** (where it remains a
 >   standalone tool). The bridging is Sero-only.
 > - **Do NOT** register tools directly as `customTools` in `createAgentSession`
@@ -1042,6 +1048,16 @@ Any npm packages the original extension imports go directly in your plugin's
 ```
 
 Pi SDK packages remain as `peerDependencies` — they're provided by the runtime.
+
+**Built-in/internalized plugin packaging rule:** if the plugin ships inside the
+Sero app bundle (for example under `plugins/sero-*-plugin/`), every runtime npm
+package imported by the extension must also be declared in that plugin's own
+`dependencies` and must be installable as a plugin-local production
+`node_modules/` tree. Do **not** rely on monorepo hoisting or unrelated
+`apps/desktop` dependencies for packaged builds. Packaged Sero stages built-in
+plugins as self-contained directories under `dist/electron/builtin/`, so the
+plugin must carry everything its extension resolves at runtime (including native
+modules like `better-sqlite3`).
 
 #### 7. Design the state shape for the UI
 

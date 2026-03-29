@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "package-runtime": "npm install --package-lock-only --ignore-scripts --omit=dev && npm install --ignore-scripts --omit=dev",
     "typecheck": "tsc --noEmit -p ui/tsconfig.json"
   },
   "pi": {

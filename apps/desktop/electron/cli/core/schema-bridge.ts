@@ -13,7 +13,7 @@
  */
 
 import type { ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
-import type { CliCommand, CliCommandContext, CliResult } from './types';
+import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
 import { parseFlags } from '../lib/utils';
 import { createSeroUIContext } from '../../features/apps/extensions/ui-context';
 
@@ -166,12 +166,32 @@ function generateHelp(
 
 // ── Tool result extraction ──────────────────────────────────
 
-function extractText(result: unknown): string {
-  const content = (result as any)?.content;
-  if (!Array.isArray(content)) return '';
+function extractContent(result: unknown): CliContentBlock[] {
+  const content = (result as { content?: unknown })?.content;
+  if (!Array.isArray(content)) return [];
+
+  return content.flatMap((block): CliContentBlock[] => {
+    if (!block || typeof block !== 'object') return [];
+    if ((block as { type?: string }).type === 'text' && typeof (block as { text?: unknown }).text === 'string') {
+      return [{ type: 'text', text: (block as { text: string }).text }];
+    }
+    if ((block as { type?: string }).type === 'image' && typeof (block as { data?: unknown }).data === 'string') {
+      return [{
+        type: 'image',
+        data: (block as { data: string }).data,
+        mimeType: typeof (block as { mimeType?: unknown }).mimeType === 'string'
+          ? (block as { mimeType: string }).mimeType
+          : 'image/png',
+      }];
+    }
+    return [];
+  });
+}
+
+function extractText(content: CliContentBlock[]): string {
   return content
-    .filter((c: any) => c?.type === 'text')
-    .map((c: any) => c.text)
+    .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
+    .map((c) => c.text)
     .join('\n');
 }
 
@@ -205,9 +225,16 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
           onUpdate as any,
           { cwd: ctx.cwd } as any,
         );
-        const text = extractText(result);
+        const content = extractContent(result);
+        const text = extractText(content);
+        const details = (result as { details?: unknown })?.details ?? null;
         const isError = text.startsWith('Error:') || text.startsWith('ERROR:');
-        return { output: text, exitCode: isError ? 1 : 0 };
+        return {
+          output: text,
+          content,
+          details,
+          exitCode: isError ? 1 : 0,
+        };
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Command failed';
         return { output: `ERROR: ${msg}`, exitCode: 1 };

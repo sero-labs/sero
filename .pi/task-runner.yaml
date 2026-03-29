@@ -1,0 +1,35 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Task Runner Configuration — sero
+# ═══════════════════════════════════════════════════════════════════════
+#
+# This file configures the /task command (task-runner extension).
+# Edit freely — this file is owned by you, not the package.
+
+# ── Task Areas ────────────────────────────────────────────────────────
+# Define where tasks live. Each area has a folder path, ID prefix, and
+# a CONTEXT.md file that provides domain context to agents.
+
+task_areas:
+  general:
+    path: "taskplane-tasks"
+    prefix: "TP"
+    context: "taskplane-tasks/CONTEXT.md"
+
+# ── Reference Docs ────────────────────────────────────────────────────
+# Docs that tasks can reference in their "Context to Read First" section.
+# Add your project's architecture docs, API specs, etc.
+
+reference_docs: {}
+
+# ── Standards ─────────────────────────────────────────────────────────
+# Coding standards and rules. Agents follow these during implementation.
+
+standards: {}
+
+# ── Testing ───────────────────────────────────────────────────────────
+# Commands that agents run to verify their work.
+
+testing:
+  commands:
+    unit: "npm test"
+    build: "npm run build"
