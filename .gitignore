@@ -28,9 +28,14 @@ apps/desktop/sero-desktop-*.tgz
 .pi/npm/
 
 .taskplane-tasks/
-.pi/telemetry/danielcarter-1774817556553-default-tp-005-lane-1-worker-exit.json
-.pi/telemetry/danielcarter-1774817556553-default-tp-005-lane-1-worker.jsonl
-.pi/telemetry/danielcarter-1774817735325-default-tp-005-lane-1-worker-exit.json
-.pi/telemetry/danielcarter-1774817735325-default-tp-005-lane-1-worker.jsonl
-.pi/telemetry/lane-prompt-1774817556701-x08jev.txt
-.pi/telemetry/lane-prompt-1774817735465-ofujet.txt
+.pi/telemetry/**
+
+.pi/batch-state.json
+.pi/batch-history.json
+.pi/lane-state-*
+.pi/merge-result-*
+.pi/merge-request-*
+.pi/worker-conversation-*
+.pi/orch-logs/
+.pi/orch-abort-signal
+.pi/settings.json
