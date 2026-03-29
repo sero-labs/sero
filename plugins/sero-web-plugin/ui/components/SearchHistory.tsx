@@ -18,10 +18,12 @@ export function SearchHistory({ entries }: SearchHistoryProps) {
   const [, updateState] = useAppState<WebAccessState>(DEFAULT_STATE);
 
   const clearAll = useCallback(() => {
+    const clearedAt = Date.now();
     updateState((prev) => ({
       ...prev,
       entries: [],
-      lastSyncedAt: Date.now(),
+      historyClearedAt: clearedAt,
+      lastSyncedAt: clearedAt,
     }));
   }, [updateState]);
 

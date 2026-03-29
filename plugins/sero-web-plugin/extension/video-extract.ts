@@ -156,6 +156,10 @@ function normalizeSpaces(s: string): string {
 	return s.replace(/[\u00A0\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, " ");
 }
 
+function reportProgress(options: ExtractOptions | undefined, message: string): void {
+	options?.onProgress?.(message);
+}
+
 export async function extractVideo(
 	info: VideoFileInfo,
 	signal?: AbortSignal,
@@ -167,16 +171,23 @@ export async function extractVideo(
 	const displayName = basename(info.absolutePath);
 	const activityId = activityMonitor.logStart({ type: "fetch", url: `video:${displayName}` });
 
-	const result = await tryVideoGeminiApi(info, effectivePrompt, effectiveModel, signal)
-		?? await tryVideoGeminiWeb(info, effectivePrompt, effectiveModel, signal);
+	reportProgress(options, "Trying Gemini API for video analysis…");
+	const apiResult = await tryVideoGeminiApi(info, effectivePrompt, effectiveModel, signal, options?.onProgress);
+	let finalResult = apiResult;
+	if (!finalResult) {
+		reportProgress(options, "Gemini API unavailable, trying Gemini Web…");
+		finalResult = await tryVideoGeminiWeb(info, effectivePrompt, effectiveModel, signal, options?.onProgress);
+	}
 
-	if (result) {
+	if (finalResult) {
+		reportProgress(options, "Extracting video thumbnail…");
 		const thumbnail = await extractVideoFrame(info.absolutePath);
+		const resolvedResult = finalResult;
 		if (!("error" in thumbnail)) {
-			result.thumbnail = thumbnail;
+			resolvedResult.thumbnail = thumbnail;
 		}
 		activityMonitor.logComplete(activityId, 200);
-		return result;
+		return resolvedResult;
 	}
 
 	if (signal?.aborted) {
@@ -229,12 +240,14 @@ async function tryVideoGeminiWeb(
 	prompt: string,
 	model: string,
 	signal?: AbortSignal,
+	onProgress?: ExtractOptions["onProgress"],
 ): Promise<ExtractedContent | null> {
 	try {
 		const cookies = await isGeminiWebAvailable();
 		if (!cookies) return null;
 		if (signal?.aborted) return null;
 
+		onProgress?.("Sending video to Gemini Web…");
 		const text = await queryWithCookies(prompt, cookies, {
 			files: [info.absolutePath],
 			model,
@@ -259,6 +272,7 @@ async function tryVideoGeminiApi(
 	prompt: string,
 	model: string,
 	signal?: AbortSignal,
+	onProgress?: ExtractOptions["onProgress"],
 ): Promise<ExtractedContent | null> {
 	const apiKey = getApiKey();
 	if (!apiKey) return null;
@@ -266,11 +280,14 @@ async function tryVideoGeminiApi(
 
 	let fileName: string | null = null;
 	try {
+		onProgress?.("Uploading video to Gemini Files API…");
 		const uploaded = await uploadToFilesApi(info, apiKey, signal);
 		fileName = uploaded.name;
 
+		onProgress?.("Waiting for Gemini to process the upload…");
 		await pollFileState(fileName, apiKey, signal, 120000);
 
+		onProgress?.("Generating analysis from Gemini API…");
 		const text = await queryGeminiApiWithVideo(prompt, uploaded.uri, {
 			model,
 			mimeType: info.mimeType,

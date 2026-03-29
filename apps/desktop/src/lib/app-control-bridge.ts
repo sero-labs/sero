@@ -182,6 +182,7 @@ interface AppControlBridge {
   getActive(): string;
   openApp(appId: string): boolean;
   getInfo(appId: string): AppControlEntry | null;
+  openFile(workspaceId: string, filePath: string): boolean;
   getAppRect(): AppPanelRect | null;
   interact(params: AppInteractionParams): Promise<AppInteractionResult>;
   recordStart(): boolean;
@@ -223,6 +224,12 @@ export function initAppControlBridge(): () => void {
     getInfo(appId) {
       const a = useAppStore.getState().apps.find((x) => x.id === appId);
       return a ? toEntry(a) : null;
+    },
+    openFile(workspaceId: string, filePath: string) {
+      const s = useAppStore.getState();
+      if (s.activeApp !== 'coding') s.setActiveApp('coding');
+      useEditorBridge.getState().requestOpenFile(workspaceId, filePath);
+      return true;
     },
     getAppRect() {
       const el = document.querySelector(APP_PANEL_SELECTOR);

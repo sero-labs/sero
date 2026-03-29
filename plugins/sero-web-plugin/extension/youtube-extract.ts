@@ -6,7 +6,7 @@ import { activityMonitor } from "./activity.js";
 import { isGeminiWebAvailable, queryWithCookies } from "./gemini-web.js";
 import { isGeminiApiAvailable, queryGeminiApiWithVideo } from "./gemini-api.js";
 import { searchWithPerplexity } from "./perplexity.js";
-import { extractHeadingTitle, type ExtractedContent, type FrameResult, type VideoFrame } from "./extract.js";
+import { extractHeadingTitle, type ExtractProgressCallback, type ExtractedContent, type FrameResult, type VideoFrame } from "./extract.js";
 import { formatSeconds, readExecError, isTimeoutError, trimErrorText, mapFfmpegError } from "./utils.js";
 
 const CONFIG_PATH = join(homedir(), ".pi", "web-search.json");
@@ -92,6 +92,7 @@ export async function extractYouTube(
 	signal?: AbortSignal,
 	prompt?: string,
 	model?: string,
+	onProgress?: ExtractProgressCallback,
 ): Promise<ExtractedContent | null> {
 	const config = loadYouTubeConfig();
 	const { videoId } = isYouTubeURL(url);
@@ -103,9 +104,37 @@ export async function extractYouTube(
 
 	const activityId = activityMonitor.logStart({ type: "fetch", url: `youtube.com/${videoId ?? "video"}` });
 
-	const result = await tryGeminiWeb(canonicalUrl, effectivePrompt, effectiveModel, signal)
-		?? await tryGeminiApi(canonicalUrl, effectivePrompt, effectiveModel, signal)
-		?? await tryPerplexity(url, effectivePrompt, signal);
+	onProgress?.("Trying Gemini Web for YouTube analysis…");
+	const webResult = await tryGeminiWeb(canonicalUrl, effectivePrompt, effectiveModel, signal, onProgress);
+	if (webResult) {
+		const result = webResult;
+		result.url = url;
+		if (videoId) {
+			onProgress?.("Downloading YouTube thumbnail…");
+			const thumb = await fetchYouTubeThumbnail(videoId);
+			if (thumb) result.thumbnail = thumb;
+		}
+		activityMonitor.logComplete(activityId, 200);
+		return result;
+	}
+
+	onProgress?.("Gemini Web unavailable, trying Gemini API…");
+	const apiResult = await tryGeminiApi(canonicalUrl, effectivePrompt, effectiveModel, signal, onProgress);
+	if (apiResult) {
+		const result = apiResult;
+		result.url = url;
+		if (videoId) {
+			onProgress?.("Downloading YouTube thumbnail…");
+			const thumb = await fetchYouTubeThumbnail(videoId);
+			if (thumb) result.thumbnail = thumb;
+		}
+		activityMonitor.logComplete(activityId, 200);
+		return result;
+	}
+
+	onProgress?.("Gemini unavailable, falling back to Perplexity summary…");
+	const perplexityResult = await tryPerplexity(url, effectivePrompt, signal, onProgress);
+	const result = perplexityResult;
 
 	if (result) {
 		result.url = url;
@@ -219,6 +248,7 @@ async function tryGeminiWeb(
 	prompt: string,
 	model: string,
 	signal?: AbortSignal,
+	onProgress?: ExtractProgressCallback,
 ): Promise<ExtractedContent | null> {
 	try {
 		const cookies = await isGeminiWebAvailable();
@@ -226,6 +256,7 @@ async function tryGeminiWeb(
 
 		if (signal?.aborted) return null;
 
+		onProgress?.("Sending YouTube link to Gemini Web…");
 		const text = await queryWithCookies(prompt, cookies, {
 			youtubeUrl: url,
 			model,
@@ -250,12 +281,14 @@ async function tryGeminiApi(
 	prompt: string,
 	model: string,
 	signal?: AbortSignal,
+	onProgress?: ExtractProgressCallback,
 ): Promise<ExtractedContent | null> {
 	try {
 		if (!isGeminiApiAvailable()) return null;
 
 		if (signal?.aborted) return null;
 
+		onProgress?.("Sending YouTube URL to Gemini API…");
 		const text = await queryGeminiApiWithVideo(prompt, url, {
 			model,
 			signal,
@@ -278,10 +311,12 @@ async function tryPerplexity(
 	url: string,
 	prompt: string,
 	signal?: AbortSignal,
+	onProgress?: ExtractProgressCallback,
 ): Promise<ExtractedContent | null> {
 	try {
 		if (signal?.aborted) return null;
 
+		onProgress?.("Requesting fallback summary from Perplexity…");
 		const perplexityQuery = prompt === YOUTUBE_PROMPT
 			? `Summarize this YouTube video in detail: ${url}`
 			: `${prompt} YouTube video: ${url}`;

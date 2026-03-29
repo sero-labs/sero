@@ -43,6 +43,27 @@ export interface Bookmark {
   createdAt: number;
 }
 
+// ── Downloads ──────────────────────────────────────────────
+
+export type WebDownloadStatus = 'queued' | 'downloading' | 'completed' | 'error';
+
+export interface WebDownload {
+  id: string;
+  sourceUrl: string;
+  title: string;
+  status: WebDownloadStatus;
+  phase: string;
+  progressPct: number | null;
+  sizeText?: string;
+  speedText?: string;
+  etaText?: string;
+  relativePath?: string;
+  absolutePath?: string;
+  error?: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // ── Provider availability ──────────────────────────────────
 
 export interface ProviderStatus {
@@ -56,9 +77,11 @@ export interface ProviderStatus {
 export interface WebAccessState {
   entries: WebEntry[];
   bookmarks: Bookmark[];
+  downloads: WebDownload[];
   providers: ProviderStatus;
   activeProvider: string;
   workflow: string;
+  historyClearedAt: number;
   lastSyncedAt: number;
 }
 
@@ -67,8 +90,10 @@ export const MAX_STATE_ENTRIES = 50;
 export const DEFAULT_STATE: WebAccessState = {
   entries: [],
   bookmarks: [],
+  downloads: [],
   providers: { exa: false, perplexity: false, gemini: false },
   activeProvider: 'auto',
   workflow: 'summary-review',
+  historyClearedAt: 0,
   lastSyncedAt: 0,
 };

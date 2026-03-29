@@ -17,6 +17,18 @@ import type { CliCommand, CliCommandContext, CliResult } from './types';
 import { parseFlags } from '../lib/utils';
 import { createSeroUIContext } from '../../features/apps/extensions/ui-context';
 
+const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
+  // Content extraction can invoke Gemini video pipelines and other slow fallbacks.
+  fetch_content: 300_000,
+  // Search providers already use internal 60s+ timeouts.
+  web_search: 120_000,
+  code_search: 90_000,
+};
+
+export function getBridgedToolTimeoutMs(toolName: string): number | undefined {
+  return TOOL_TIMEOUT_OVERRIDES_MS[toolName];
+}
+
 // ── Schema introspection ────────────────────────────────────
 
 interface SchemaProp {
@@ -176,20 +188,21 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
     help,
     source: 'app',
     group: 'Apps',
+    timeoutMs: getBridgedToolTimeoutMs(toolName),
     params: props.map((p) => ({
       name: p.name,
       description: p.description,
       required: p.required,
       type: p.type as 'string' | 'number' | 'boolean',
     })),
-    execute: async (args: string[], ctx: CliCommandContext): Promise<CliResult> => {
+    execute: async (args: string[], ctx: CliCommandContext, onUpdate): Promise<CliResult> => {
       try {
         const params = schemaToParams(props, args);
         const result = await toolDef.execute(
           'cli-bridge',
           params,
           ctx.invocation.signal,
-          undefined,
+          onUpdate as any,
           { cwd: ctx.cwd } as any,
         );
         const text = extractText(result);

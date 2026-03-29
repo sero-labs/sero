@@ -232,9 +232,10 @@ function ToolImages({ images }: { images: ToolResultImage[] }) {
 export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
   const isComplete = tool.state === 'completed' || tool.state === 'error';
   const isCancelled = tool.state === 'cancelled';
+  const hasOutput = typeof tool.output === 'string' && tool.output.trim().length > 0;
 
   return (
-    <Tool defaultOpen={isComplete}>
+    <Tool defaultOpen={isComplete || tool.state === 'running'}>
       <ToolHeader
         type={`tool-${tool.toolName}` as `tool-${string}`}
         state={mapToolState(tool.state)}
@@ -242,11 +243,18 @@ export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
       <ToolContent>
         <ToolInput input={tool.input} />
         {isComplete && tool.images?.length ? <ToolImages images={tool.images} /> : null}
-        {isComplete && (
-          <ToolOutput
-            output={tool.output}
-            errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
-          />
+        {(isComplete || hasOutput) && (
+          <>
+            <ToolOutput
+              output={tool.output}
+              errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
+            />
+            {!isComplete && tool.isPartialOutput && (
+              <div className="mt-2 text-xs text-[var(--status-info)] italic">
+                Live update — tool still running.
+              </div>
+            )}
+          </>
         )}
         {isCancelled && (
           <div className="text-xs text-[var(--status-warning)] italic">
@@ -273,7 +281,8 @@ export function SingleToolCall({
   const isComplete = tool.state === 'completed' || tool.state === 'error';
   const isCancelled = tool.state === 'cancelled';
   const hasImages = !!tool.images?.length;
-  const [expanded, setExpanded] = useState(false);
+  const hasOutput = typeof tool.output === 'string' && tool.output.trim().length > 0;
+  const [expanded, setExpanded] = useState(() => isRunning);
 
   const summary = useMemo(() => extractToolSummary(tool.input), [tool.input]);
 
@@ -360,11 +369,18 @@ export function SingleToolCall({
             <div className="border-t border-[var(--border-subtle)] space-y-4 p-3">
               <ToolInput input={tool.input} />
               {isComplete && hasImages ? <ToolImages images={tool.images!} /> : null}
-              {isComplete && (
-                <ToolOutput
-                  output={tool.output}
-                  errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
-                />
+              {(isComplete || hasOutput) && (
+                <>
+                  <ToolOutput
+                    output={tool.output}
+                    errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
+                  />
+                  {!isComplete && tool.isPartialOutput && (
+                    <div className="text-xs text-[var(--status-info)] italic">
+                      Live update — tool still running.
+                    </div>
+                  )}
+                </>
               )}
               {isCancelled && (
                 <div className="text-xs text-[var(--status-warning)] italic">

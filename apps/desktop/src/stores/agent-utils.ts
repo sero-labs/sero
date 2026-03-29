@@ -208,7 +208,24 @@ export function handleAgentStreamEvent(
     case 'tool_start':
       set((s) => ({
         agents: { ...s.agents, [sid]: { ...s.agents[sid],
-          messages: [...s.agents[sid].messages, event.tool],
+          messages: [...s.agents[sid].messages, { ...event.tool, isPartialOutput: false }],
+        } },
+      }));
+      break;
+
+    case 'tool_update':
+      set((s) => ({
+        agents: { ...s.agents, [sid]: { ...s.agents[sid],
+          messages: s.agents[sid].messages.map((m) =>
+            m.type === 'tool' && m.toolCallId === event.toolCallId
+              ? {
+                  ...m,
+                  output: event.output,
+                  state: 'running',
+                  isPartialOutput: true,
+                  images: event.images ?? m.images,
+                } as ChatToolCallMessage
+              : m),
         } },
       }));
       break;
@@ -220,6 +237,7 @@ export function handleAgentStreamEvent(
             m.type === 'tool' && m.toolCallId === event.toolCallId
               ? { ...m, output: event.output, isError: event.isError,
                   state: event.isError ? 'error' : 'completed',
+                  isPartialOutput: false,
                   images: event.images } as ChatToolCallMessage
               : m),
         } },

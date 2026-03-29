@@ -2,10 +2,11 @@
 
 import { useMemo } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
-import { Globe, Search, FileText, Bookmark } from 'lucide-react';
+import { Globe, Search, FileText, Bookmark, Download } from 'lucide-react';
 import type { WebAccessState, WebEntry } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import { relativeTime, truncate } from '../lib/format';
+import { isVisibleDownload } from '../lib/downloads';
 import { ProviderBadge } from '../components/ProviderBadge';
 import '../styles.css';
 
@@ -58,6 +59,12 @@ export function WebWidget() {
           <Bookmark className="h-3 w-3 text-muted-foreground" />
           <span className="text-sm font-bold tabular-nums text-foreground">
             {state.bookmarks?.length ?? 0}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Download className="h-3 w-3 text-muted-foreground" />
+          <span className="text-sm font-bold tabular-nums text-foreground">
+            {(state.downloads ?? []).filter(isVisibleDownload).length}
           </span>
         </div>
         {/* Provider dots */}

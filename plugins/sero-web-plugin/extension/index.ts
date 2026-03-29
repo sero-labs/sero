@@ -11,8 +11,8 @@ import { activityMonitor } from "./activity.js";
 import { isExaAvailable } from "./exa.js";
 import { isPerplexityAvailable } from "./perplexity.js";
 import { isGeminiApiAvailable } from "./gemini-api.js";
-import { isGeminiWebAvailable } from "./gemini-web.js";
-import { resolveStatePath, syncEntryToState, syncFromSession as syncStateFromSession, updateProviderInfo } from "./state-sync.js";
+import { getActiveGoogleEmail, isGeminiWebAvailable } from "./gemini-web.js";
+import { readState, resolveStatePath, syncEntryToState, syncFromSession as syncStateFromSession, updateProviderInfo } from "./state-sync.js";
 import { registerWebSearchTool } from "./tools-search.js";
 import { registerFetchContentTool, registerGetContentTool } from "./tools-fetch.js";
 import { registerCodeSearchTool } from "./tools-code-search.js";
@@ -71,6 +71,25 @@ export default function (pi: ExtensionAPI) {
 		syncEntryToState(sp, data).catch((err) => logSyncError("syncEntryToState", err));
 	}
 
+	function storeFetchedContent(results: ExtractedContent[]): string {
+		const id = generateId();
+		const data: StoredSearchData = {
+			id,
+			type: "fetch",
+			timestamp: Date.now(),
+			urls: stripThumbnails(results),
+		};
+		storeResult(id, data);
+		pi.appendEntry("web-search-results", data);
+		syncToState(data);
+		return id;
+	}
+
+	function clearRuntimeHistory(): void {
+		abortPendingFetches();
+		clearResults();
+	}
+
 	// ── Background fetch ──────────────────────────────────
 
 	function startBackgroundFetch(urls: string[]): string | null {
@@ -110,17 +129,24 @@ export default function (pi: ExtensionAPI) {
 
 	// ── Session lifecycle ─────────────────────────────────
 
-	function handleSessionChange(ctx: ExtensionContext): void {
+	async function handleSessionChange(ctx: ExtensionContext): Promise<void> {
 		abortPendingFetches();
 		clearCloneCache();
 		sessionActive = true;
 		ensureStatePath(ctx.cwd);
-		restoreFromSession(ctx);
 		activityMonitor.clear();
 
 		if (!statePath) {
 			console.error("[sero-web] statePath not set after session change — ctx.cwd:", ctx.cwd);
 			return;
+		}
+
+		try {
+			const state = await readState(statePath);
+			restoreFromSession(ctx, state.historyClearedAt);
+		} catch (err) {
+			logSyncError("readState", err);
+			restoreFromSession(ctx);
 		}
 
 		const branch = ctx.sessionManager.getBranch() as Array<{ type: string; customType?: string; data?: unknown }>;
@@ -138,10 +164,10 @@ export default function (pi: ExtensionAPI) {
 		})();
 	}
 
-	pi.on("session_start", async (_event, ctx) => handleSessionChange(ctx));
-	pi.on("session_switch", async (_event, ctx) => handleSessionChange(ctx));
-	pi.on("session_fork", async (_event, ctx) => handleSessionChange(ctx));
-	pi.on("session_tree", async (_event, ctx) => handleSessionChange(ctx));
+	pi.on("session_start", async (_event, ctx) => { await handleSessionChange(ctx); });
+	pi.on("session_switch", async (_event, ctx) => { await handleSessionChange(ctx); });
+	pi.on("session_fork", async (_event, ctx) => { await handleSessionChange(ctx); });
+	pi.on("session_tree", async (_event, ctx) => { await handleSessionChange(ctx); });
 	pi.on("session_shutdown", () => {
 		sessionActive = false;
 		abortPendingFetches();
@@ -152,12 +178,20 @@ export default function (pi: ExtensionAPI) {
 
 	// ── Register tools ────────────────────────────────────
 
-	const deps = { normalizeQueryList, storeAndPublish, startBackgroundFetch, stripThumbnails, ensureStatePath, syncToState };
+	const deps = {
+		normalizeQueryList,
+		storeAndPublish,
+		storeFetchedContent,
+		startBackgroundFetch,
+		stripThumbnails,
+		ensureStatePath,
+		syncToState,
+	};
 	registerWebSearchTool(pi, deps);
 	registerFetchContentTool(pi, deps);
-	registerGetContentTool(pi);
+	registerGetContentTool(pi, () => statePath);
 	registerCodeSearchTool(pi);
-	registerBookmarkTool(pi, () => statePath, ensureStatePath);
+	registerBookmarkTool(pi, () => statePath, ensureStatePath, clearRuntimeHistory);
 
 	// ── Commands ──────────────────────────────────────────
 	// NOTE: the old /websearch command was removed because sero-cli
@@ -169,7 +203,6 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("google-account", {
 		description: "Show active Google account for Gemini Web",
 		handler: async () => {
-			const { getActiveGoogleEmail } = await import("./gemini-web.js");
 			const cookies = await isGeminiWebAvailable();
 			if (!cookies) {
 				pi.sendMessage({ customType: "google-account", content: [{ type: "text", text: "Gemini Web is unavailable. Sign into gemini.google.com in a supported Chromium-based browser to enable it." }], display: "tool", details: { available: false } }, { triggerTurn: false, deliverAs: "followUp" });

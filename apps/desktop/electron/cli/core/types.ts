@@ -32,15 +32,29 @@ export interface CliCommandContext {
   containerManager: ContainerManager;
 }
 
+export interface CliCommandUpdate {
+  content: Array<
+    { type: 'text'; text: string } |
+    { type: 'image'; data: string; mimeType: string }
+  >;
+  details?: unknown;
+}
+
 export interface CliCommand {
   name: string;
   summary: string;
   help?: string;
   params?: CliParam[];
-  execute: (args: string[], context: CliCommandContext) => Promise<CliResult>;
+  execute: (
+    args: string[],
+    context: CliCommandContext,
+    onUpdate?: (update: CliCommandUpdate) => void,
+  ) => Promise<CliResult>;
   source?: 'app' | 'ipc' | 'builtin';
   group?: string;
   hidden?: boolean;
+  /** Optional per-command timeout override for non-terminal invocations. */
+  timeoutMs?: number;
 }
 
 export interface CliResolvedCommand {

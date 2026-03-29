@@ -63,6 +63,8 @@ export interface ChatToolCallMessage {
   output: string | null;
   isError: boolean;
   state: 'pending' | 'running' | 'completed' | 'error' | 'cancelled';
+  /** True when output is an in-progress partial update rather than the final tool result. */
+  isPartialOutput?: boolean;
   /** Images returned by this tool call (e.g. screenshots). */
   images?: ToolResultImage[];
 }
@@ -83,6 +85,7 @@ export type AgentStreamEvent =
   | { type: 'message_start'; sessionId: string; message: ChatMessage }
   | { type: 'message_end'; sessionId: string; messageId: string; text: string; thinking?: string }
   | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
+  | { type: 'tool_update'; sessionId: string; toolCallId: string; output: string | null; images?: ToolResultImage[] }
   | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; isError: boolean; images?: ToolResultImage[] }
   | { type: 'user_checkpoint'; sessionId: string; userMessageId: string; checkpoint: ChatCheckpointRef }
   | { type: 'session_name'; sessionId: string; name: string }

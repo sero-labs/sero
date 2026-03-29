@@ -2,15 +2,32 @@
 // Converts pi-web-access StoredSearchData into the lighter WebEntry
 // format used by the UI, and manages provider info + bookmarks.
 
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
-import type { WebAccessState, WebEntry, QueryInfo, UrlInfo, ProviderStatus, Bookmark } from "../shared/types.js";
+import type { WebAccessState, WebEntry, QueryInfo, UrlInfo, ProviderStatus, Bookmark, WebDownload } from "../shared/types.js";
 import { DEFAULT_STATE, MAX_STATE_ENTRIES } from "../shared/types.js";
 
 const STATE_REL_PATH = path.join(".sero", "apps", "web", "state.json");
+const WORKSPACE_CONFIG = ".sero-workspace.json";
+const stateWriteQueues = new Map<string, Promise<void>>();
+
+function resolveWorkspaceRoot(cwd: string): string {
+	let current = path.resolve(cwd);
+
+	while (true) {
+		if (existsSync(path.join(current, WORKSPACE_CONFIG))) return current;
+		const parent = path.dirname(current);
+		if (parent === current) return path.resolve(cwd);
+		current = parent;
+	}
+}
+
+export function resolveWorkspaceRootFromStatePath(statePath: string): string {
+	return path.resolve(path.dirname(statePath), "..", "..", "..");
+}
 
 export function resolveStatePath(cwd: string): string {
-	return path.join(cwd, STATE_REL_PATH);
+	return path.join(resolveWorkspaceRoot(cwd), STATE_REL_PATH);
 }
 
 // ── File I/O (atomic) ──────────────────────────────────────
@@ -19,8 +36,13 @@ export async function readState(filePath: string): Promise<WebAccessState> {
 	try {
 		const raw = await fs.readFile(filePath, "utf8");
 		const parsed = JSON.parse(raw) as WebAccessState;
-		// Ensure bookmarks array exists for older state files
+		// Ensure fields exist for older state files
 		if (!Array.isArray(parsed.bookmarks)) parsed.bookmarks = [];
+		if (!Array.isArray(parsed.downloads)) parsed.downloads = [];
+		if (!Array.isArray(parsed.entries)) parsed.entries = [];
+		if (typeof parsed.historyClearedAt !== "number" || !Number.isFinite(parsed.historyClearedAt)) {
+			parsed.historyClearedAt = 0;
+		}
 		return parsed;
 	} catch { return { ...DEFAULT_STATE, bookmarks: [] }; }
 }
@@ -31,6 +53,29 @@ async function writeState(filePath: string, state: WebAccessState): Promise<void
 	const tmpPath = `${filePath}.tmp.${Date.now()}`;
 	await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), "utf8");
 	await fs.rename(tmpPath, filePath);
+}
+
+async function updateState<T>(
+	filePath: string,
+	updater: (state: WebAccessState) => T | Promise<T>,
+): Promise<T> {
+	const previous = stateWriteQueues.get(filePath) ?? Promise.resolve();
+	let resolveDone: (() => void) | null = null;
+	const current = new Promise<void>((resolve) => {
+		resolveDone = resolve;
+	});
+	stateWriteQueues.set(filePath, previous.then(() => current));
+
+	await previous;
+	try {
+		const state = await readState(filePath);
+		return await updater(state);
+	} finally {
+		resolveDone?.();
+		if (stateWriteQueues.get(filePath) === current) {
+			stateWriteQueues.delete(filePath);
+		}
+	}
 }
 
 // ── Convert stored data → WebEntry ─────────────────────────
@@ -72,21 +117,27 @@ function toWebEntry(data: StoredSearchData): WebEntry {
 export async function syncEntryToState(filePath: string, rawData: unknown): Promise<void> {
 	const data = rawData as StoredSearchData;
 	if (!data?.id || !data?.type || !data?.timestamp) return;
-	const state = await readState(filePath);
-	const existing = state.entries.findIndex(e => e.id === data.id);
-	const entry = toWebEntry(data);
-	if (existing >= 0) state.entries[existing] = entry;
-	else state.entries.unshift(entry);
-	if (state.entries.length > MAX_STATE_ENTRIES) state.entries = state.entries.slice(0, MAX_STATE_ENTRIES);
-	state.lastSyncedAt = Date.now();
-	await writeState(filePath, state);
+	await updateState(filePath, async (state) => {
+		if (data.timestamp <= state.historyClearedAt) return;
+		const existing = state.entries.findIndex(e => e.id === data.id);
+		const entry = toWebEntry(data);
+		if (existing >= 0) state.entries[existing] = entry;
+		else state.entries.unshift(entry);
+		if (state.entries.length > MAX_STATE_ENTRIES) state.entries = state.entries.slice(0, MAX_STATE_ENTRIES);
+		state.lastSyncedAt = Date.now();
+		await writeState(filePath, state);
+	});
 }
 
-export async function clearHistory(filePath: string): Promise<void> {
-	const state = await readState(filePath);
-	state.entries = [];
-	state.lastSyncedAt = Date.now();
-	await writeState(filePath, state);
+export async function clearHistory(filePath: string): Promise<number> {
+	return updateState(filePath, async (state) => {
+		const clearedAt = Date.now();
+		state.entries = [];
+		state.historyClearedAt = clearedAt;
+		state.lastSyncedAt = clearedAt;
+		await writeState(filePath, state);
+		return clearedAt;
+	});
 }
 
 // ── Bookmarks ──────────────────────────────────────────────
@@ -98,38 +149,39 @@ function generateBookmarkId(): string {
 export async function addBookmark(
 	filePath: string, url: string, title: string, description?: string, tags?: string[],
 ): Promise<Bookmark> {
-	const state = await readState(filePath);
-	// Deduplicate by URL
-	const existing = state.bookmarks.find(b => b.url === url);
-	if (existing) {
-		existing.title = title || existing.title;
-		if (description !== undefined) existing.description = description;
-		if (tags) existing.tags = tags;
+	return updateState(filePath, async (state) => {
+		const existing = state.bookmarks.find(b => b.url === url);
+		if (existing) {
+			existing.title = title || existing.title;
+			if (description !== undefined) existing.description = description;
+			if (tags) existing.tags = tags;
+			state.lastSyncedAt = Date.now();
+			await writeState(filePath, state);
+			return existing;
+		}
+		const bookmark: Bookmark = {
+			id: generateBookmarkId(),
+			url, title: title || url,
+			description: description || undefined,
+			tags: tags ?? [],
+			createdAt: Date.now(),
+		};
+		state.bookmarks.unshift(bookmark);
 		state.lastSyncedAt = Date.now();
 		await writeState(filePath, state);
-		return existing;
-	}
-	const bookmark: Bookmark = {
-		id: generateBookmarkId(),
-		url, title: title || url,
-		description: description || undefined,
-		tags: tags ?? [],
-		createdAt: Date.now(),
-	};
-	state.bookmarks.unshift(bookmark);
-	state.lastSyncedAt = Date.now();
-	await writeState(filePath, state);
-	return bookmark;
+		return bookmark;
+	});
 }
 
 export async function removeBookmark(filePath: string, idOrUrl: string): Promise<boolean> {
-	const state = await readState(filePath);
-	const before = state.bookmarks.length;
-	state.bookmarks = state.bookmarks.filter(b => b.id !== idOrUrl && b.url !== idOrUrl);
-	if (state.bookmarks.length === before) return false;
-	state.lastSyncedAt = Date.now();
-	await writeState(filePath, state);
-	return true;
+	return updateState(filePath, async (state) => {
+		const before = state.bookmarks.length;
+		state.bookmarks = state.bookmarks.filter(b => b.id !== idOrUrl && b.url !== idOrUrl);
+		if (state.bookmarks.length === before) return false;
+		state.lastSyncedAt = Date.now();
+		await writeState(filePath, state);
+		return true;
+	});
 }
 
 export async function listBookmarks(filePath: string, tag?: string): Promise<Bookmark[]> {
@@ -138,17 +190,45 @@ export async function listBookmarks(filePath: string, tag?: string): Promise<Boo
 	return state.bookmarks;
 }
 
+// ── Downloads ──────────────────────────────────────────────
+
+export async function upsertDownload(filePath: string, download: WebDownload): Promise<void> {
+	await updateState(filePath, async (state) => {
+		const existing = state.downloads.findIndex((entry) => entry.id === download.id);
+		const normalized: WebDownload = {
+			...download,
+			title: download.title || download.sourceUrl,
+			phase: download.phase || "Preparing download…",
+			progressPct: typeof download.progressPct === "number" ? download.progressPct : null,
+			updatedAt: download.updatedAt || Date.now(),
+		};
+		if (existing >= 0) state.downloads[existing] = normalized;
+		else state.downloads.unshift(normalized);
+		state.lastSyncedAt = Date.now();
+		await writeState(filePath, state);
+	});
+}
+
+export async function removeDownload(filePath: string, downloadId: string): Promise<void> {
+	await updateState(filePath, async (state) => {
+		state.downloads = state.downloads.filter((entry) => entry.id !== downloadId);
+		state.lastSyncedAt = Date.now();
+		await writeState(filePath, state);
+	});
+}
+
 // ── Provider info ──────────────────────────────────────────
 
 export async function updateProviderInfo(
 	filePath: string, providers: ProviderStatus, activeProvider: string, workflow: string,
 ): Promise<void> {
-	const state = await readState(filePath);
-	state.providers = providers;
-	state.activeProvider = activeProvider;
-	state.workflow = workflow;
-	state.lastSyncedAt = Date.now();
-	await writeState(filePath, state);
+	await updateState(filePath, async (state) => {
+		state.providers = providers;
+		state.activeProvider = activeProvider;
+		state.workflow = workflow;
+		state.lastSyncedAt = Date.now();
+		await writeState(filePath, state);
+	});
 }
 
 // ── Session restore ────────────────────────────────────────
@@ -157,24 +237,26 @@ export async function syncFromSession(
 	filePath: string,
 	sessionEntries: Array<{ type: string; customType?: string; data?: unknown }>,
 ): Promise<void> {
-	const state = await readState(filePath);
-	const existingIds = new Set(state.entries.map(e => e.id));
-	const now = Date.now();
-	const CACHE_TTL_MS = 60 * 60 * 1000;
-	let changed = false;
-	for (const entry of sessionEntries) {
-		if (entry.type !== "custom" || entry.customType !== "web-search-results") continue;
-		const data = entry.data as StoredSearchData;
-		if (!data?.id || !data?.type || !data?.timestamp) continue;
-		if (now - data.timestamp >= CACHE_TTL_MS) continue;
-		if (existingIds.has(data.id)) continue;
-		state.entries.unshift(toWebEntry(data));
-		existingIds.add(data.id);
-		changed = true;
-	}
-	if (changed) {
+	await updateState(filePath, async (state) => {
+		const existingIds = new Set(state.entries.map(e => e.id));
+		const now = Date.now();
+		const CACHE_TTL_MS = 60 * 60 * 1000;
+		const clearedAt = state.historyClearedAt;
+		let changed = false;
+		for (const entry of sessionEntries) {
+			if (entry.type !== "custom" || entry.customType !== "web-search-results") continue;
+			const data = entry.data as StoredSearchData;
+			if (!data?.id || !data?.type || !data?.timestamp) continue;
+			if (now - data.timestamp >= CACHE_TTL_MS) continue;
+			if (data.timestamp <= clearedAt) continue;
+			if (existingIds.has(data.id)) continue;
+			state.entries.unshift(toWebEntry(data));
+			existingIds.add(data.id);
+			changed = true;
+		}
+		if (!changed) return;
 		if (state.entries.length > MAX_STATE_ENTRIES) state.entries = state.entries.slice(0, MAX_STATE_ENTRIES);
 		state.lastSyncedAt = Date.now();
 		await writeState(filePath, state);
-	}
+	});
 }

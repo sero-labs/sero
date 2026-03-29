@@ -30,8 +30,10 @@ export function storeResult(id: string, data: StoredSearchData): void {
 	storedResults.set(id, data);
 }
 
-export function getResult(id: string): StoredSearchData | null {
-	return storedResults.get(id) ?? null;
+export function getResult(id: string, minTimestamp = 0): StoredSearchData | null {
+	const result = storedResults.get(id) ?? null;
+	if (!result) return null;
+	return result.timestamp > minTimestamp ? result : null;
 }
 
 export function getAllResults(): StoredSearchData[] {
@@ -57,14 +59,14 @@ function isValidStoredData(data: unknown): data is StoredSearchData {
 	return true;
 }
 
-export function restoreFromSession(ctx: ExtensionContext): void {
+export function restoreFromSession(ctx: ExtensionContext, minTimestamp = 0): void {
 	storedResults.clear();
 	const now = Date.now();
 
 	for (const entry of ctx.sessionManager.getBranch()) {
 		if (entry.type === "custom" && entry.customType === "web-search-results") {
 			const data = entry.data;
-			if (isValidStoredData(data) && now - data.timestamp < CACHE_TTL_MS) {
+			if (isValidStoredData(data) && now - data.timestamp < CACHE_TTL_MS && data.timestamp > minTimestamp) {
 				storedResults.set(data.id, data);
 			}
 		}

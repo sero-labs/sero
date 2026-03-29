@@ -4,14 +4,16 @@
 import { useState, useMemo } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { Globe, Search as SearchIcon, FileText, Bookmark } from 'lucide-react';
+import { Globe, Search as SearchIcon, FileText, Bookmark, Download } from 'lucide-react';
 import type { WebAccessState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { SearchHistory } from './components/SearchHistory';
 import { BookmarkList } from './components/BookmarkList';
+import { DownloadsList } from './components/DownloadsList';
+import { isVisibleDownload } from './lib/downloads';
 import './styles.css';
 
-type Tab = 'history' | 'bookmarks';
+type Tab = 'history' | 'bookmarks' | 'downloads';
 
 export function WebApp() {
   const [state] = useAppState<WebAccessState>(DEFAULT_STATE);
@@ -20,8 +22,13 @@ export function WebApp() {
   const stats = useMemo(() => {
     const searches = state.entries.filter((e) => e.type === 'search').length;
     const fetches = state.entries.filter((e) => e.type === 'fetch').length;
-    return { searches, fetches, bookmarks: state.bookmarks?.length ?? 0 };
-  }, [state.entries, state.bookmarks]);
+    return {
+      searches,
+      fetches,
+      bookmarks: state.bookmarks?.length ?? 0,
+      downloads: (state.downloads ?? []).filter(isVisibleDownload).length,
+    };
+  }, [state.entries, state.bookmarks, state.downloads]);
 
   return (
     <div className="flex h-full w-full flex-col bg-background">
@@ -37,6 +44,7 @@ export function WebApp() {
           <StatBadge icon={<SearchIcon className="h-3 w-3" />} label="searches" count={stats.searches} color="text-blue-400" />
           <StatBadge icon={<FileText className="h-3 w-3" />} label="fetches" count={stats.fetches} color="text-amber-400" />
           <StatBadge icon={<Bookmark className="h-3 w-3" />} label="bookmarks" count={stats.bookmarks} color="text-emerald-400" />
+          <StatBadge icon={<Download className="h-3 w-3" />} label="downloads" count={stats.downloads} color="text-violet-400" />
         </div>
       </div>
 
@@ -56,12 +64,20 @@ export function WebApp() {
           count={stats.bookmarks}
           onClick={() => setActiveTab('bookmarks')}
         />
+        <TabButton
+          label="Downloads"
+          icon={<Download className="h-3.5 w-3.5" />}
+          active={activeTab === 'downloads'}
+          count={stats.downloads}
+          onClick={() => setActiveTab('downloads')}
+        />
       </div>
 
       {/* Tab content */}
       <div className="flex min-h-0 flex-1 flex-col">
         {activeTab === 'history' && <SearchHistory entries={state.entries} />}
         {activeTab === 'bookmarks' && <BookmarkList />}
+        {activeTab === 'downloads' && <DownloadsList />}
       </div>
     </div>
   );

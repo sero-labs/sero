@@ -1,15 +1,51 @@
 // tools-fetch.ts — fetch_content + get_search_content tool registrations.
 
+import path from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { fetchAllContent, type ExtractedContent } from "./extract.js";
-import { generateId, getResult, storeResult, getAllResults, deleteResult, type StoredSearchData, type QueryResultData } from "./storage.js";
+import { generateId, getResult, storeResult, type StoredSearchData, type QueryResultData } from "./storage.js";
+import { readState, resolveWorkspaceRootFromStatePath, upsertDownload } from "./state-sync.js";
 import { formatSeconds } from "./utils.js";
 
 import type { ToolDeps } from "./tools-search.js";
 
 const MAX_INLINE_CONTENT = 30000;
+const PROGRESS_UPDATE_INTERVAL_MS = 5000;
+const WORKSPACE_DOWNLOADS_DIR = "Downloads";
+
+function relativePathFor(workspaceRoot: string, absolutePath: string): string | undefined {
+	const relativePath = path.relative(workspaceRoot, absolutePath);
+	if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) return undefined;
+	return relativePath;
+}
+
+function buildSavedDownloadId(url: string, absolutePath: string): string {
+	const key = `${url}\n${absolutePath}`;
+	return `saved-${Buffer.from(key).toString("base64url").slice(0, 32)}`;
+}
+
+async function syncSavedDownloads(statePath: string, fetchResults: ExtractedContent[]): Promise<void> {
+	const workspaceRoot = resolveWorkspaceRootFromStatePath(statePath);
+	for (const result of fetchResults) {
+		const absolutePath = result.savedFile?.absolutePath;
+		if (!absolutePath || result.error) continue;
+		await upsertDownload(statePath, {
+			id: buildSavedDownloadId(result.url, absolutePath),
+			sourceUrl: result.url,
+			title: result.title || path.basename(absolutePath),
+			status: "completed",
+			phase: "Saved extracted file",
+			progressPct: 100,
+			absolutePath,
+			relativePath: relativePathFor(workspaceRoot, absolutePath),
+			error: null,
+			createdAt: Date.now(),
+			updatedAt: Date.now(),
+		});
+	}
+}
 
 export function registerFetchContentTool(pi: ExtensionAPI, deps: ToolDeps) {
 	pi.registerTool({
@@ -28,18 +64,49 @@ export function registerFetchContentTool(pi: ExtensionAPI, deps: ToolDeps) {
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			// Ensure statePath is set from tool context as fallback
-			if (ctx?.cwd) deps.ensureStatePath(ctx.cwd);
+			const statePath = ctx?.cwd ? deps.ensureStatePath(ctx.cwd) : deps.ensureStatePath();
+			const workspaceRoot = statePath ? resolveWorkspaceRootFromStatePath(statePath) : null;
+			const downloadDir = workspaceRoot ? path.join(workspaceRoot, WORKSPACE_DOWNLOADS_DIR) : undefined;
 
 			const urlList = params.urls ?? (params.url ? [params.url] : []);
 			if (urlList.length === 0) {
 				return { content: [{ type: "text", text: "Error: No URL provided." }], details: { error: "No URL provided" } };
 			}
-			onUpdate?.({ content: [{ type: "text", text: `Fetching ${urlList.length} URL(s)...` }], details: { phase: "fetch", progress: 0 } });
 
-			const fetchResults = await fetchAllContent(urlList, signal, {
-				forceClone: params.forceClone, prompt: params.prompt,
-				timestamp: params.timestamp, frames: params.frames, model: params.model,
-			});
+			const startedAt = Date.now();
+			let phaseText = `Fetching ${urlList.length} URL(s)...`;
+			const sendProgressUpdate = (nextPhase?: string) => {
+				if (nextPhase) phaseText = nextPhase;
+				const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+				onUpdate?.({
+					content: [{ type: "text", text: `${phaseText} ${elapsedSec}s elapsed.` }],
+					details: { phase: phaseText, progress: 0, elapsedSec },
+				});
+			};
+			sendProgressUpdate();
+
+			const progressInterval = setInterval(() => {
+				if (signal?.aborted) return;
+				sendProgressUpdate();
+			}, PROGRESS_UPDATE_INTERVAL_MS);
+
+			let fetchResults: ExtractedContent[];
+			try {
+				fetchResults = await fetchAllContent(urlList, signal, {
+					forceClone: params.forceClone,
+					prompt: params.prompt,
+					timestamp: params.timestamp,
+					frames: params.frames,
+					model: params.model,
+					downloadDir,
+					onProgress: (message) => sendProgressUpdate(message),
+				});
+			} finally {
+				clearInterval(progressInterval);
+			}
+			if (statePath) {
+				await syncSavedDownloads(statePath, fetchResults);
+			}
 			const successful = fetchResults.filter(r => !r.error).length;
 			const totalChars = fetchResults.reduce((sum, r) => sum + r.content.length, 0);
 
@@ -101,11 +168,12 @@ export function registerFetchContentTool(pi: ExtensionAPI, deps: ToolDeps) {
 		},
 
 		renderResult(result, { expanded, isPartial }, theme) {
-			const details = result.details as { urlCount?: number; successful?: number; totalChars?: number; error?: string; title?: string; truncated?: boolean; hasImage?: boolean; imageCount?: number; phase?: string; progress?: number; duration?: number };
+			const details = result.details as { urlCount?: number; successful?: number; totalChars?: number; error?: string; title?: string; truncated?: boolean; hasImage?: boolean; imageCount?: number; phase?: string; progress?: number; duration?: number; elapsedSec?: number };
 			if (isPartial) {
 				const progress = details?.progress ?? 0;
 				const bar = "\u2588".repeat(Math.floor(progress * 10)) + "\u2591".repeat(10 - Math.floor(progress * 10));
-				return new Text(theme.fg("accent", `[${bar}] ${details?.phase || "fetching"}`), 0, 0);
+				const elapsed = typeof details?.elapsedSec === "number" && details.elapsedSec > 0 ? ` (${details.elapsedSec}s)` : "";
+				return new Text(theme.fg("accent", `[${bar}] ${details?.phase || "fetching"}${elapsed}`), 0, 0);
 			}
 			if (details?.error) return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
 			if (details?.urlCount === 1) {
@@ -127,7 +195,7 @@ export function registerFetchContentTool(pi: ExtensionAPI, deps: ToolDeps) {
 	});
 }
 
-export function registerGetContentTool(pi: ExtensionAPI) {
+export function registerGetContentTool(pi: ExtensionAPI, getStatePath: () => string) {
 	pi.registerTool({
 		name: "get_search_content",
 		label: "Get Search Content",
@@ -141,7 +209,9 @@ export function registerGetContentTool(pi: ExtensionAPI) {
 		}),
 
 		async execute(_toolCallId, params) {
-			const data = getResult(params.responseId);
+			const statePath = getStatePath();
+			const historyClearedAt = statePath ? (await readState(statePath)).historyClearedAt : 0;
+			const data = getResult(params.responseId, historyClearedAt);
 			if (!data) return { content: [{ type: "text", text: `Error: No stored results for "${params.responseId}"` }], details: { error: "Not found" } };
 
 			if (data.type === "search" && data.queries) {

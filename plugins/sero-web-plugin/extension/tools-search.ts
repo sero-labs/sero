@@ -6,15 +6,16 @@ import { Type } from "@sinclair/typebox";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { search } from "./gemini-search.js";
 import type { ExtractedContent } from "./extract.js";
-import type { QueryResultData } from "./storage.js";
+import type { QueryResultData, StoredSearchData } from "./storage.js";
 
 export interface ToolDeps {
 	normalizeQueryList: (raw: unknown[]) => string[];
 	storeAndPublish: (results: QueryResultData[]) => string;
+	storeFetchedContent: (results: ExtractedContent[]) => string;
 	startBackgroundFetch: (urls: string[]) => string | null;
 	stripThumbnails: (results: ExtractedContent[]) => ExtractedContent[];
 	ensureStatePath: (cwd?: string) => string;
-	syncToState: (data: import("./storage.js").StoredSearchData) => void;
+	syncToState: (data: StoredSearchData) => void;
 }
 
 function formatSearchSummary(results: Array<{ title: string; url: string }>, answer: string): string {
@@ -27,6 +28,14 @@ function hasFullInlineCoverage(urls: string[], inlineContent: ExtractedContent[]
 	if (!inlineContent || inlineContent.length === 0) return false;
 	const coveredUrls = new Set(inlineContent.map(c => c.url));
 	return urls.every(url => coveredUrls.has(url));
+}
+
+function dedupeInlineContent(results: ExtractedContent[]): ExtractedContent[] {
+	const deduped = new Map<string, ExtractedContent>();
+	for (const result of results) {
+		if (!deduped.has(result.url)) deduped.set(result.url, result);
+	}
+	return [...deduped.values()];
 }
 
 export function registerWebSearchTool(pi: ExtensionAPI, deps: ToolDeps) {
@@ -101,8 +110,9 @@ export function registerWebSearchTool(pi: ExtensionAPI, deps: ToolDeps) {
 			const hasInlineReady = hasFullInlineCoverage(allUrls, allInlineContent);
 			let fetchId: string | null = null;
 			if (hasInlineReady && allInlineContent.length > 0) {
-				fetchId = deps.storeAndPublish([]);
-				output += `---\nFull content for ${allInlineContent.length} sources available [${fetchId}].`;
+				const inlineContent = dedupeInlineContent(allInlineContent);
+				fetchId = deps.storeFetchedContent(inlineContent);
+				output += `---\nFull content for ${inlineContent.length} sources available [${fetchId}].`;
 			} else if (includeContent) {
 				fetchId = deps.startBackgroundFetch(allUrls);
 				if (fetchId) output += `---\nContent fetching in background [${fetchId}]. Will notify when ready.`;

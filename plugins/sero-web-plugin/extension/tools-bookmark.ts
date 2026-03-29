@@ -6,7 +6,12 @@ import { Type } from "@sinclair/typebox";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { addBookmark, removeBookmark, listBookmarks, clearHistory } from "./state-sync.js";
 
-export function registerBookmarkTool(pi: ExtensionAPI, getStatePath: () => string, ensureStatePath: (cwd?: string) => string) {
+export function registerBookmarkTool(
+	pi: ExtensionAPI,
+	getStatePath: () => string,
+	ensureStatePath: (cwd?: string) => string,
+	clearRuntimeHistory: () => void,
+) {
 	pi.registerTool({
 		name: "web_bookmark",
 		label: "Web Bookmark",
@@ -89,6 +94,7 @@ export function registerBookmarkTool(pi: ExtensionAPI, getStatePath: () => strin
 				case "clear_history": {
 					try {
 						await clearHistory(sp);
+						clearRuntimeHistory();
 						return {
 							content: [{ type: "text", text: "Search history cleared." }],
 							details: { action: "clear_history" },

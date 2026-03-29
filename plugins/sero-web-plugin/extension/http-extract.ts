@@ -127,9 +127,17 @@ export async function extractViaHttp(
 		if (isPDFContent) {
 			try {
 				const buffer = await response.arrayBuffer();
-				const result = await extractPDFToMarkdown(buffer, url);
+				const result = await extractPDFToMarkdown(buffer, url, {
+					outputDir: options?.downloadDir,
+				});
 				activityMonitor.logComplete(activityId, response.status);
-				return { url, title: result.title, content: `PDF extracted and saved to: ${result.outputPath}\n\nPages: ${result.pages}\nCharacters: ${result.chars}`, error: null };
+				return {
+					url,
+					title: result.title,
+					content: `PDF extracted and saved to: ${result.outputPath}\n\nPages: ${result.pages}\nCharacters: ${result.chars}`,
+					error: null,
+					savedFile: { absolutePath: result.outputPath },
+				};
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				activityMonitor.logError(activityId, message);

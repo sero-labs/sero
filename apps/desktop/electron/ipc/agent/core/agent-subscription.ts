@@ -166,40 +166,20 @@ export function subscribeToSession(
         break;
       }
 
+      case 'tool_execution_update': {
+        const { text, images } = extractToolOutput(event.partialResult);
+        sendEvent({
+          type: 'tool_update',
+          sessionId,
+          toolCallId: event.toolCallId,
+          output: text,
+          images,
+        });
+        break;
+      }
+
       case 'tool_execution_end': {
-        const result = event.result;
-        let text: string | null = null;
-        let images: ToolResultImage[] | undefined;
-
-        if (result?.content && Array.isArray(result.content)) {
-          const textParts = result.content.filter(
-            (c: { type: string }) => c.type === 'text',
-          );
-          const imageParts = result.content.filter(
-            (c: { type: string }) => c.type === 'image',
-          ) as { type: 'image'; data: string; mimeType?: string }[];
-
-          text = textParts.map((c: { text: string }) => c.text).join('\n') || null;
-
-          if (imageParts.length > 0) {
-            const description = text || undefined;
-            images = imageParts.map((img) => ({
-              data: img.data,
-              mimeType: img.mimeType ?? 'image/png',
-              description,
-            }));
-          }
-        } else if (typeof result === 'string') {
-          // Check if result is a JSON-encoded image (sero-cli screenshot output)
-          const parsed = tryParseImageJson(result);
-          if (parsed) {
-            images = [parsed];
-            text = parsed.description ?? null;
-          } else {
-            text = result;
-          }
-        }
-
+        const { text, images } = extractToolOutput(event.result);
         sendEvent({
           type: 'tool_end',
           sessionId,
@@ -215,6 +195,40 @@ export function subscribeToSession(
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+
+function extractToolOutput(result: unknown): { text: string | null; images?: ToolResultImage[] } {
+  let text: string | null = null;
+  let images: ToolResultImage[] | undefined;
+
+  if ((result as { content?: unknown })?.content && Array.isArray((result as { content: unknown[] }).content)) {
+    const content = (result as { content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> }).content;
+    const textParts = content.filter((c) => c.type === 'text');
+    const imageParts = content.filter((c) => c.type === 'image');
+
+    text = textParts.map((c) => c.text ?? '').filter(Boolean).join('\n') || null;
+
+    if (imageParts.length > 0) {
+      const description = text || undefined;
+      images = imageParts
+        .filter((img): img is { type: 'image'; data: string; mimeType?: string } => typeof img.data === 'string')
+        .map((img) => ({
+          data: img.data,
+          mimeType: img.mimeType ?? 'image/png',
+          description,
+        }));
+    }
+  } else if (typeof result === 'string') {
+    const parsed = tryParseImageJson(result);
+    if (parsed) {
+      images = [parsed];
+      text = parsed.description ?? null;
+    } else {
+      text = result;
+    }
+  }
+
+  return { text, images };
+}
 
 /**
  * Try to parse a JSON string as a CLI-encoded image

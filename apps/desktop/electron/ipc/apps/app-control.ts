@@ -83,6 +83,12 @@ export function registerAppControlHandlers(): void {
     return execRenderer<AppControlEntry | null>(`window.__appControl?.getInfo(${JSON.stringify(appId)}) ?? null`);
   });
 
+  ipcMain.handle(IpcChannels.appControl.openFile, async (_e, workspaceId: string, filePath: string): Promise<boolean> => {
+    return execRenderer<boolean>(
+      `window.__appControl?.openFile(${JSON.stringify(workspaceId)}, ${JSON.stringify(filePath)}) ?? false`,
+    );
+  });
+
   ipcMain.handle(IpcChannels.appControl.getAppRect, async (): Promise<AppPanelRect | null> => {
     return execRenderer<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
   });

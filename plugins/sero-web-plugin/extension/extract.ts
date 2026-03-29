@@ -10,6 +10,8 @@ import { isVideoFile, extractVideo, extractVideoFrame, getLocalVideoDuration } f
 import { extractViaHttp, extractWithJinaReader } from "./http-extract.js";
 import { formatSeconds } from "./utils.js";
 
+export { extractHeadingTitle } from "./http-extract.js";
+
 const CONCURRENT_LIMIT = 3;
 const NON_RECOVERABLE_ERRORS = ["Unsupported content type", "Response too large"];
 
@@ -29,11 +31,16 @@ export interface ExtractedContent {
 	thumbnail?: { data: string; mimeType: string };
 	frames?: VideoFrame[];
 	duration?: number;
+	savedFile?: { absolutePath: string };
 }
+
+export type ExtractProgressCallback = (message: string) => void;
 
 export interface ExtractOptions {
 	timeoutMs?: number; forceClone?: boolean; prompt?: string;
 	timestamp?: string; frames?: number; model?: string;
+	downloadDir?: string;
+	onProgress?: ExtractProgressCallback;
 }
 
 function parseTimestamp(ts: string): number | null {
@@ -101,16 +108,22 @@ function safeVideoInfo(url: string): { info: ReturnType<typeof isVideoFile>; err
 	catch (err) { return { info: null, error: errorMessage(err) }; }
 }
 
+function reportProgress(options: ExtractOptions | undefined, message: string): void {
+	options?.onProgress?.(message);
+}
+
 export async function extractContent(url: string, signal?: AbortSignal, options?: ExtractOptions): Promise<ExtractedContent> {
 	if (signal?.aborted) return abortedResult(url);
 
 	// Frame-only extraction (no timestamp, just frame count)
 	if (options?.frames && !options.timestamp) {
+		reportProgress(options, "Extracting video frames…");
 		return extractFramesOnly(url, options.frames, signal);
 	}
 
 	// Timestamp-based extraction
 	if (options?.timestamp) {
+		reportProgress(options, "Extracting requested video frame range…");
 		return extractWithTimestamp(url, options, signal);
 	}
 
@@ -118,6 +131,7 @@ export async function extractContent(url: string, signal?: AbortSignal, options?
 	const localVideo = safeVideoInfo(url);
 	if (localVideo.error) return { url, title: "", content: "", error: localVideo.error };
 	if (localVideo.info) {
+		reportProgress(options, "Preparing local video for analysis…");
 		try {
 			const result = await extractVideo(localVideo.info, signal, options);
 			if (signal?.aborted) return abortedResult(url);
@@ -145,8 +159,9 @@ export async function extractContent(url: string, signal?: AbortSignal, options?
 	let youtubeEnabled = false;
 	try { youtubeEnabled = isYouTubeEnabled(); } catch (err) { return { url, title: "", content: "", error: errorMessage(err) }; }
 	if (ytInfo.isYouTube && youtubeEnabled) {
+		reportProgress(options, "Resolving YouTube metadata…");
 		try {
-			const ytResult = await extractYouTube(url, signal, options?.prompt, options?.model);
+			const ytResult = await extractYouTube(url, signal, options?.prompt, options?.model, options?.onProgress);
 			if (ytResult) return ytResult;
 			if (signal?.aborted) return abortedResult(url);
 		} catch (err) {
@@ -159,16 +174,19 @@ export async function extractContent(url: string, signal?: AbortSignal, options?
 	if (signal?.aborted) return abortedResult(url);
 
 	// HTTP + fallbacks
+	reportProgress(options, "Downloading page content…");
 	const httpResult = await extractViaHttp(url, signal, options);
 	if (signal?.aborted) return abortedResult(url);
 	if (!httpResult.error) return httpResult;
 	if (NON_RECOVERABLE_ERRORS.some(prefix => httpResult.error!.startsWith(prefix))) return httpResult;
 
+	reportProgress(options, "Page extraction blocked, trying Jina Reader…");
 	const jinaResult = await extractWithJinaReader(url, signal);
 	if (jinaResult) return jinaResult;
 	if (signal?.aborted) return abortedResult(url);
 
 	let geminiResult: ExtractedContent | null = null;
+	reportProgress(options, "Trying Gemini-based extraction…");
 	try {
 		geminiResult = await extractWithUrlContext(url, signal) ?? await extractWithGeminiWeb(url, signal);
 	} catch (err) {

@@ -105,6 +105,8 @@ export const appControlBridge = {
     ipcRenderer.invoke(IpcChannels.appControl.open, appId),
   info: (appId: string): Promise<AppControlEntry | null> =>
     ipcRenderer.invoke(IpcChannels.appControl.info, appId),
+  openFile: (workspaceId: string, filePath: string): Promise<boolean> =>
+    ipcRenderer.invoke(IpcChannels.appControl.openFile, workspaceId, filePath),
   screenshot: (): Promise<string | null> =>
     ipcRenderer.invoke(IpcChannels.appControl.screenshot),
   interact: (params: AppInteractionParams): Promise<AppInteractionResult> =>

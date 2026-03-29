@@ -5,11 +5,13 @@ import { tokenizeCliInput, splitCommandLines } from './parser';
 import type { CliCommandContext, CliInvocation, CliResult } from './types';
 import type { CliRegistry } from './registry';
 import { getCliSessionBridge } from '../bridges/session-bridge';
+import {
+  resolveCommandTimeoutMs,
+  buildBatchDeadline,
+} from './timeouts';
 
 const MAX_OUTPUT_BYTES = 50 * 1024;
 const MAX_OUTPUT_LINES = 2000;
-const DEFAULT_BATCH_TIMEOUT_SEC = 120;
-const MAX_PER_COMMAND_TIMEOUT_MS = 30_000;
 const TURN_COMMAND_LIMIT = 50;
 
 const SeroCliToolParams = Type.Object({
@@ -55,11 +57,14 @@ function truncateOutput(text: string): string {
   return `${out}\n\n[output truncated to 50KB / 2000 lines]`;
 }
 
-function timeoutForCommand(batchDeadline: number | null): number | null {
-  if (batchDeadline === null) return null;
-  const remaining = batchDeadline - Date.now();
-  if (remaining <= 0) throw new CommandTimeoutError('Batch timeout exceeded');
-  return Math.min(MAX_PER_COMMAND_TIMEOUT_MS, remaining);
+function timeoutForCommand(
+  batchDeadline: number | null,
+  commandTimeoutMs?: number,
+): number | null {
+  const timeoutMs = resolveCommandTimeoutMs(batchDeadline, commandTimeoutMs);
+  if (timeoutMs === null) return null;
+  if (timeoutMs <= 0) throw new CommandTimeoutError('Batch timeout exceeded');
+  return timeoutMs;
 }
 
 async function runWithTimeout<T>(
@@ -125,6 +130,7 @@ export async function executeCliBatch(
   commandText: string,
   context: CliCommandContext,
   batchTimeoutSec?: number,
+  onUpdate?: Parameters<CliRegistry['executeResolved']>[3],
 ): Promise<CliBatchResult> {
   const lines = splitCommandLines(commandText);
   if (lines.length === 0) {
@@ -132,9 +138,11 @@ export async function executeCliBatch(
   }
 
   const single = lines.length === 1;
-  const batchDeadline = context.invocation.source === 'terminal'
-    ? null
-    : Date.now() + Math.max(1, Math.floor(batchTimeoutSec ?? DEFAULT_BATCH_TIMEOUT_SEC)) * 1000;
+  const batchDeadline = buildBatchDeadline(
+    context.invocation.source,
+    batchTimeoutSec,
+    single,
+  );
 
   const sections: string[] = [];
   let finalExitCode = 0;
@@ -172,10 +180,10 @@ export async function executeCliBatch(
 
       const perCommandTimeout = context.invocation.source === 'terminal'
         ? null
-        : timeoutForCommand(batchDeadline);
+        : timeoutForCommand(batchDeadline, resolved.command.timeoutMs);
       result = normalizeCliResult(
         await runWithTimeout(
-          () => resolved.command.execute(resolved.args, context),
+          () => resolved.command.execute(resolved.args, context, single ? onUpdate : undefined),
           perCommandTimeout,
           context.invocation.signal,
         ),
@@ -240,7 +248,7 @@ export function createSeroCliTool(
     description:
       'Execute Sero platform commands. Run `sero help` for commands. Supports multi-line input to chain commands (one per line).',
     parameters: SeroCliToolParams,
-    async execute(_toolCallId, params, signal, _onUpdate, toolCtx) {
+    async execute(_toolCallId, params, signal, onUpdate, toolCtx) {
       const cliParams = params as { command: string; timeout?: number };
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) {
@@ -255,7 +263,7 @@ export function createSeroCliTool(
         containerManager,
       };
 
-      const batch = await executeCliBatch(registry, cliParams.command, context, cliParams.timeout);
+      const batch = await executeCliBatch(registry, cliParams.command, context, cliParams.timeout, onUpdate as any);
       return {
         content: parseOutputContent(batch.output),
         details: { exitCode: batch.exitCode },
