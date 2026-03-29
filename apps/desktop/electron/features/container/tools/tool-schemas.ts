@@ -123,7 +123,9 @@ export const BrowserParams = Type.Object({
     ],
     {
       description:
-        'The browser action to perform. ' +
+        'The browser action to perform for Playwright-style UI automation on known pages. ' +
+        'Do not use browser for general web search, page fetching, bookmark management, or file downloads — ' +
+        'use web_search, fetch_content, get_search_content, or web_bookmark instead. ' +
         'launch: start browser (optionally navigate to url). ' +
         'navigate: go to a URL. ' +
         'click: click a CSS selector or x,y coordinates. ' +

@@ -17,6 +17,19 @@ apps/desktop/release/
 apps/desktop/sero-desktop-*.tgz
 
 # Taskplane runtime artifacts (machine-specific, do not commit)
+.pi/diagnostics
+.pi/mailbox
+.pi/npm
+.pi/supervisor
+.pi/verification
+.worktrees/
+
+# Pi project-local packages (if using pi install -l)
+.pi/npm/
+
+.taskplane-tasks/
+.pi/telemetry/**
+
 .pi/batch-state.json
 .pi/batch-history.json
 .pi/lane-state-*
@@ -26,7 +39,3 @@ apps/desktop/sero-desktop-*.tgz
 .pi/orch-logs/
 .pi/orch-abort-signal
 .pi/settings.json
-.worktrees/
-
-# Pi project-local packages (if using pi install -l)
-.pi/npm/

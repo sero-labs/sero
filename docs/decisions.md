@@ -250,6 +250,14 @@ agent's tool list, and re-registers them as CLI subcommands under `sero-cli`.
 - Array/object parameters accept JSON strings and are parsed automatically.
 - The tool's `execute()` function is called unchanged — only the invocation
   path differs.
+- **Single-command bridged results preserve rich content** (`text` + `image`
+  blocks) and `details` through `sero-cli`, so the chat stream and history
+  replay can render tool-produced images the same way they do for direct tool
+  calls.
+- **Multi-command CLI batches stay text-only by design.** If any bridged
+  command in a batch returns non-text blocks, `sero-cli` returns the combined
+  textual transcript plus `details.richOutputFallback = true` and a fallback
+  notice telling the agent/user to rerun the image-producing command alone.
 
 **Result:** Only 6 tool schemas in the API request (bash, read, write, edit,
 browser, sero-cli) instead of 16+. Saves ~2,000–3,000 tokens per session.

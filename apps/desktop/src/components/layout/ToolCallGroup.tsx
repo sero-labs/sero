@@ -224,7 +224,13 @@ export const ToolCallGroup = memo(function ToolCallGroup({
   if (prev.tools.length !== next.tools.length) return false;
   for (let i = 0; i < prev.tools.length; i++) {
     const a = prev.tools[i], b = next.tools[i];
-    if (a.id !== b.id || a.state !== b.state || a.output !== b.output) return false;
+    if (
+      a.id !== b.id ||
+      a.state !== b.state ||
+      a.output !== b.output ||
+      a.isPartialOutput !== b.isPartialOutput ||
+      a.details !== b.details
+    ) return false;
   }
   return true;
 });

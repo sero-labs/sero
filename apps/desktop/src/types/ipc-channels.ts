@@ -451,6 +451,8 @@ export const IpcChannels = {
     open: 'sero:app-control:open',
     /** Get detailed info for an app by ID. */
     info: 'sero:app-control:info',
+    /** Open a workspace file in the coding editor. */
+    openFile: 'sero:app-control:open-file',
     /** Capture a screenshot of the app panel area. Returns base64 PNG. */
     screenshot: 'sero:app-control:screenshot',
     /** Execute a DOM interaction in the app panel. */

@@ -1,9 +1,9 @@
 {
-  "migrations": {
-    "applied": {
-      "add-supervisor-local-template-v1": {
-        "appliedAt": "2026-03-26T19:43:39.995Z"
-      }
-    }
+  "version": "0.22.13",
+  "installedAt": "2026-03-29T21:02:45.852Z",
+  "lastUpgraded": "2026-03-29T21:02:45.852Z",
+  "components": {
+    "agents": "0.22.13",
+    "config": "0.22.13"
   }
 }

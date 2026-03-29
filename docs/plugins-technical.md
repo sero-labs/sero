@@ -125,6 +125,16 @@ whether the staged package should be built locally:
 - `preBuilt: false` or omitted -> run `npm install` + `npm run build`
 
 After preparation, Sero validates that `dist/ui/remoteEntry.js` exists if the
+UI is declared.
+
+Built-in monorepo plugins that ship inside the desktop app follow one extra
+rule: the staged copy under `dist/electron/builtin/plugins/<plugin>/` must be
+self-contained for runtime resolution. If an extension imports runtime npm
+packages (including native modules such as `better-sqlite3`), those packages
+must be declared in the plugin's own `dependencies` and staged alongside the
+plugin instead of relying on workspace hoisting or desktop-app-level
+dependencies.
+
 plugin declares a UI.
 
 ## Plugin Manifest

@@ -78,7 +78,8 @@ export class CliRegistry {
     resolved: CliResolvedCommand,
     args: string[],
     context: CliCommandContext,
+    onUpdate?: Parameters<CliCommand['execute']>[2],
   ) {
-    return resolved.command.execute(args, context);
+    return resolved.command.execute(args, context, onUpdate);
   }
 }

@@ -1,3 +1,4 @@
+import { spawnSync } from 'child_process';
 import { build } from 'esbuild';
 import fs from 'fs';
 import path from 'path';
@@ -53,6 +54,45 @@ function copyIfExists(src, dest) {
   fs.cpSync(src, dest, { recursive: true });
 }
 
+function runCommand(command, args, cwd) {
+  const result = spawnSync(command, args, {
+    cwd,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    throw new Error(`Command failed: ${command} ${args.join(' ')}`);
+  }
+}
+
+function stagePluginRuntimeDependencies(srcDir, destDir) {
+  const packageJsonPath = path.join(srcDir, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) return;
+
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  const runtimeDeps = Object.keys(pkg.dependencies ?? {});
+  if (runtimeDeps.length === 0) return;
+
+  const pluginNodeModules = path.join(srcDir, 'node_modules');
+  if (!fs.existsSync(pluginNodeModules)) {
+    const npmLockExists = fs.existsSync(path.join(srcDir, 'package-lock.json'));
+    runCommand('npm', npmLockExists
+      ? ['install', '--ignore-scripts', '--omit=dev']
+      : ['install', '--package-lock-only', '--ignore-scripts', '--omit=dev'], srcDir);
+    if (!npmLockExists) {
+      runCommand('npm', ['install', '--ignore-scripts', '--omit=dev'], srcDir);
+    }
+  }
+
+  const destNodeModules = path.join(destDir, 'node_modules');
+  fs.mkdirSync(destNodeModules, { recursive: true });
+  copyIfExists(path.join(srcDir, 'package-lock.json'), path.join(destDir, 'package-lock.json'));
+
+  for (const dep of runtimeDeps) {
+    copyIfExists(path.join(pluginNodeModules, dep), path.join(destNodeModules, dep));
+  }
+}
+
 function stageBuiltinResources() {
   const builtinRoot = path.join(projectRoot, 'dist/electron/builtin');
   const builtinPackagesDest = path.join(builtinRoot, 'packages');
@@ -85,6 +125,7 @@ function stageBuiltinResources() {
     copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
     copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
     copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
+    stagePluginRuntimeDependencies(srcDir, destDir);
   }
 
   for (const entry of pluginEntries) {
@@ -103,6 +144,7 @@ function stageBuiltinResources() {
     copyIfExists(path.join(srcDir, 'skills'), path.join(destDir, 'skills'));
     copyIfExists(path.join(srcDir, 'prompts'), path.join(destDir, 'prompts'));
     copyIfExists(path.join(srcDir, 'themes'), path.join(destDir, 'themes'));
+    stagePluginRuntimeDependencies(srcDir, destDir);
   }
 
   const templatesSrc = path.join(monorepoPackagesDir, 'templates');
@@ -123,20 +165,20 @@ await build({
 
 // Copy non-JS assets that the main process reads at runtime
 fs.copyFileSync(
-  path.join(projectRoot, 'electron/container/browser-helper.py'),
+  path.join(projectRoot, 'electron/features/container/support/browser-helper.py'),
   path.join(projectRoot, 'dist/electron/browser-helper.py'),
 );
 
 // Symlink web-remote SPA so the gateway can serve it at runtime.
 // Using a symlink instead of a copy means rebuilding web-remote
 // is immediately picked up without re-running build-electron.
-const webDistSrc = path.join(projectRoot, 'electron/gateway/web-dist');
+const webDistSrc = path.join(projectRoot, 'electron/features/gateway/web-dist');
 const webDistDest = path.join(projectRoot, 'dist/electron/web-dist');
 if (fs.existsSync(webDistSrc)) {
   // Remove existing copy or broken symlink
   fs.rmSync(webDistDest, { recursive: true, force: true });
   fs.symlinkSync(webDistSrc, webDistDest, 'dir');
-  console.log('  Symlinked dist/electron/web-dist/ → electron/gateway/web-dist/');
+  console.log('  Symlinked dist/electron/web-dist/ → electron/features/gateway/web-dist/');
 }
 
 // Copy built-in packages/templates into dist/electron/builtin/ so packaged
