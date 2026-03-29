@@ -1,11 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { activityMonitor } from "./activity.js";
 import { getApiKey, API_BASE, DEFAULT_MODEL } from "./gemini-api.js";
 import { isGeminiWebAvailable, queryWithCookies } from "./gemini-web.js";
 import { isPerplexityAvailable, searchWithPerplexity, type SearchResult, type SearchResponse, type SearchOptions } from "./perplexity.js";
 import { hasExaApiKey, isExaAvailable, searchWithExa } from "./exa.js";
+import { getWebConfigPath } from "./paths.js";
 
 export type SearchProvider = "auto" | "perplexity" | "gemini" | "exa";
 export type ResolvedSearchProvider = Exclude<SearchProvider, "auto">;
@@ -14,18 +13,17 @@ export interface AttributedSearchResponse extends SearchResponse {
 	provider: ResolvedSearchProvider;
 }
 
-const CONFIG_PATH = join(homedir(), ".pi", "web-search.json");
-
 let cachedSearchConfig: { searchProvider: SearchProvider; searchModel?: string } | null = null;
 
 function getSearchConfig(): { searchProvider: SearchProvider; searchModel?: string } {
 	if (cachedSearchConfig) return cachedSearchConfig;
-	if (!existsSync(CONFIG_PATH)) {
+	const configPath = getWebConfigPath();
+	if (!existsSync(configPath)) {
 		cachedSearchConfig = { searchProvider: "auto", searchModel: undefined };
 		return cachedSearchConfig;
 	}
 
-	const rawText = readFileSync(CONFIG_PATH, "utf-8");
+	const rawText = readFileSync(configPath, "utf-8");
 	let raw: {
 		searchProvider?: SearchProvider;
 		provider?: SearchProvider;
@@ -39,7 +37,7 @@ function getSearchConfig(): { searchProvider: SearchProvider; searchModel?: stri
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to parse ${CONFIG_PATH}: ${message}`);
+		throw new Error(`Failed to parse ${configPath}: ${message}`);
 	}
 
 	cachedSearchConfig = {
@@ -117,9 +115,10 @@ export async function search(query: string, options: FullSearchOptions = {}): Pr
 	if (provider === "gemini") {
 		const result = await searchWithGemini(query, options, true);
 		if (result) return { ...result, provider: "gemini" };
+		const configPath = getWebConfigPath();
 		throw new Error(
 			"Gemini search unavailable. Either:\n" +
-			"  1. Set GEMINI_API_KEY in ~/.pi/web-search.json\n" +
+			`  1. Set GEMINI_API_KEY in ${configPath}\n` +
 			"  2. Sign into gemini.google.com in a supported Chromium-based browser"
 		);
 	}
@@ -180,11 +179,12 @@ export async function search(query: string, options: FullSearchOptions = {}): Pr
 		throw new Error(`Auto provider search failed:\n  - ${fallbackErrors.join("\n  - ")}`);
 	}
 
+	const configPath = getWebConfigPath();
 	throw new Error(
 		"No search provider available. Either:\n" +
-		"  1. Set perplexityApiKey in ~/.pi/web-search.json\n" +
-		"  2. Set EXA_API_KEY (or exaApiKey) in ~/.pi/web-search.json\n" +
-		"  3. Set GEMINI_API_KEY in ~/.pi/web-search.json\n" +
+		`  1. Set perplexityApiKey in ${configPath}\n` +
+		`  2. Set EXA_API_KEY (or exaApiKey) in ${configPath}\n` +
+		`  3. Set GEMINI_API_KEY in ${configPath}\n` +
 		"  4. Sign into gemini.google.com in a supported Chromium-based browser"
 	);
 }

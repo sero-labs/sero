@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Type } from '@sinclair/typebox';
 
+import { CliRegistry } from '../../cli/core/registry';
 import { bridgeTool } from '../../cli/core/schema-bridge';
+import { executeCliBatch } from '../../cli/core/tool';
 
 describe('CLI bridge tool updates', () => {
   it('forwards partial tool updates through the bridged CLI command', async () => {
@@ -41,5 +43,48 @@ describe('CLI bridge tool updates', () => {
       details: { phase: 'fetch', elapsedSec: 5 },
     });
     expect(result.output).toBe('done');
+  });
+
+  it('forwards partial updates for multi-line CLI batches', async () => {
+    const onUpdate = vi.fn();
+    const registry = new CliRegistry();
+
+    registry.register({
+      name: 'web_search',
+      summary: 'Search the web',
+      execute: async (_args, _context, toolOnUpdate) => {
+        toolOnUpdate?.({
+          content: [{ type: 'text', text: 'Searching 1/2: "valencia"...' }],
+          details: { phase: 'search', progress: 0, currentQuery: 'valencia' },
+        });
+        return { output: 'done', exitCode: 0 };
+      },
+    });
+
+    await executeCliBatch(
+      registry,
+      'web_search --query "valencia"\nweb_search --query "events in valencia"',
+      {
+        workspaceId: 'ws-1',
+        cwd: '/tmp/ws-1',
+        invocation: { workspaceId: 'ws-1', sessionId: 's-1', turnId: null, source: 'tool' },
+        workspaceManager: {} as never,
+        containerManager: {} as never,
+      },
+      undefined,
+      onUpdate,
+    );
+
+    expect(onUpdate).toHaveBeenCalledWith({
+      content: [{ type: 'text', text: 'Searching 1/2: "valencia"...' }],
+      details: {
+        phase: 'search',
+        progress: 0,
+        currentQuery: 'valencia',
+        commandLine: 'web_search --query "valencia"',
+        commandIndex: 1,
+        commandCount: 2,
+      },
+    });
   });
 });

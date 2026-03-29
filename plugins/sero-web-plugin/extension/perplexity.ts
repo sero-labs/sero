@@ -1,11 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { activityMonitor } from "./activity.js";
 import type { ExtractedContent } from "./extract.js";
+import { getWebConfigPath } from "./paths.js";
 
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
-const CONFIG_PATH = join(homedir(), ".pi", "web-search.json");
 
 const RATE_LIMIT = {
 	maxRequests: 10,
@@ -41,18 +39,19 @@ let cachedConfig: WebSearchConfig | null = null;
 
 function loadConfig(): WebSearchConfig {
 	if (cachedConfig) return cachedConfig;
-	if (!existsSync(CONFIG_PATH)) {
+	const configPath = getWebConfigPath();
+	if (!existsSync(configPath)) {
 		cachedConfig = {};
 		return cachedConfig;
 	}
 
-	const content = readFileSync(CONFIG_PATH, "utf-8");
+	const content = readFileSync(configPath, "utf-8");
 	try {
 		cachedConfig = JSON.parse(content) as WebSearchConfig;
 		return cachedConfig;
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to parse ${CONFIG_PATH}: ${message}`);
+		throw new Error(`Failed to parse ${configPath}: ${message}`);
 	}
 }
 
@@ -66,9 +65,10 @@ function getApiKey(): string {
 	const config = loadConfig();
 	const key = normalizeApiKey(process.env.PERPLEXITY_API_KEY) ?? normalizeApiKey(config.perplexityApiKey);
 	if (!key) {
+		const configPath = getWebConfigPath();
 		throw new Error(
 			"Perplexity API key not found. Either:\n" +
-			`  1. Create ${CONFIG_PATH} with { "perplexityApiKey": "your-key" }\n` +
+			`  1. Create ${configPath} with { "perplexityApiKey": "your-key" }\n` +
 			"  2. Set PERPLEXITY_API_KEY environment variable\n" +
 			"Get a key at https://perplexity.ai/settings/api"
 		);

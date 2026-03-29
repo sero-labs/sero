@@ -1,9 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { getWebConfigPath } from "./paths.js";
 
 export const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const CONFIG_PATH = join(homedir(), ".pi", "web-search.json");
 export const DEFAULT_MODEL = "gemini-3-flash-preview";
 
 interface GeminiApiConfig {
@@ -14,18 +12,19 @@ let cachedConfig: GeminiApiConfig | null = null;
 
 function loadConfig(): GeminiApiConfig {
 	if (cachedConfig) return cachedConfig;
-	if (!existsSync(CONFIG_PATH)) {
+	const configPath = getWebConfigPath();
+	if (!existsSync(configPath)) {
 		cachedConfig = {};
 		return cachedConfig;
 	}
 
-	const raw = readFileSync(CONFIG_PATH, "utf-8");
+	const raw = readFileSync(configPath, "utf-8");
 	try {
 		cachedConfig = JSON.parse(raw) as GeminiApiConfig;
 		return cachedConfig;
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to parse ${CONFIG_PATH}: ${message}`);
+		throw new Error(`Failed to parse ${configPath}: ${message}`);
 	}
 }
 

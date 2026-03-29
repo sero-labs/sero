@@ -8,6 +8,7 @@ import { isYouTubeURL, isYouTubeEnabled, extractYouTube, extractYouTubeFrame, ex
 import { extractWithUrlContext, extractWithGeminiWeb } from "./gemini-url-context.js";
 import { isVideoFile, extractVideo, extractVideoFrame, getLocalVideoDuration } from "./video-extract.js";
 import { extractViaHttp, extractWithJinaReader } from "./http-extract.js";
+import { getWebConfigPath } from "./paths.js";
 import { formatSeconds } from "./utils.js";
 
 export { extractHeadingTitle } from "./http-extract.js";
@@ -146,7 +147,7 @@ export async function extractContent(url: string, signal?: AbortSignal, options?
 
 	// GitHub
 	try {
-		const ghResult = await extractGitHub(url, signal);
+		const ghResult = await extractGitHub(url, signal, options?.forceClone);
 		if (ghResult) return ghResult;
 		if (signal?.aborted) return abortedResult(url);
 	} catch (err) {
@@ -196,7 +197,8 @@ export async function extractContent(url: string, signal?: AbortSignal, options?
 	if (geminiResult) return geminiResult;
 	if (signal?.aborted) return abortedResult(url);
 
-	return { ...httpResult, error: [httpResult.error, "", "Fallback options:", "  • Set GEMINI_API_KEY in ~/.pi/web-search.json", "  • Sign into gemini.google.com in Chrome", "  • Use web_search to find content about this topic"].join("\n") };
+	const configPath = getWebConfigPath();
+	return { ...httpResult, error: [httpResult.error, "", "Fallback options:", `  • Set GEMINI_API_KEY in ${configPath}`, "  • Sign into gemini.google.com in Chrome", "  • Use web_search to find content about this topic"].join("\n") };
 }
 
 async function extractFramesOnly(url: string, frameCount: number, signal?: AbortSignal): Promise<ExtractedContent> {

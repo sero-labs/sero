@@ -13,6 +13,12 @@ import {
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { ChatToolCallMessage, ToolResultImage } from '@/types/ipc';
+import {
+  ToolCallProgress,
+  buildToolProgressModel,
+  getEffectiveToolName,
+  getToolProgressHeaderText,
+} from './ToolCallProgress';
 import { useLightbox, type LightboxImage } from './ImageLightbox';
 import {
   Tool,
@@ -129,11 +135,20 @@ export function ToolLine({
   workspaceId: string | null;
 }) {
   const requestOpenFile = useEditorBridge((s) => s.requestOpenFile);
-  const summary = useMemo(() => extractToolSummary(tool.input), [tool.input]);
+  const progressModel = useMemo(() => buildToolProgressModel(tool), [tool]);
+  const progressHeader = useMemo(() => getToolProgressHeaderText(tool), [tool]);
+  const summary = useMemo(
+    () => progressHeader ?? extractToolSummary(tool.input),
+    [progressHeader, tool.input],
+  );
+  const effectiveToolName = useMemo(
+    () => (progressModel ? getEffectiveToolName(tool) : tool.toolName),
+    [progressModel, tool],
+  );
 
   const isFilePath = useMemo(
-    () => !!summary && FILE_PATH_TOOLS.has(tool.toolName) && looksLikeFilePath(summary),
-    [summary, tool.toolName],
+    () => !progressModel && !!summary && FILE_PATH_TOOLS.has(tool.toolName) && looksLikeFilePath(summary),
+    [progressModel, summary, tool.toolName],
   );
 
   const handleSummaryClick = useCallback(
@@ -157,7 +172,7 @@ export function ToolLine({
     >
       {toolStatusDot(tool.state)}
       <span className="shrink-0 text-[11px] font-medium text-[var(--text-muted)]">
-        {tool.toolName}
+        {effectiveToolName}
       </span>
       {summary && (
         <span
@@ -233,6 +248,7 @@ export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
   const isComplete = tool.state === 'completed' || tool.state === 'error';
   const isCancelled = tool.state === 'cancelled';
   const hasOutput = typeof tool.output === 'string' && tool.output.trim().length > 0;
+  const progressModel = buildToolProgressModel(tool);
 
   return (
     <Tool defaultOpen={isComplete || tool.state === 'running'}>
@@ -243,13 +259,14 @@ export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
       <ToolContent>
         <ToolInput input={tool.input} />
         {isComplete && tool.images?.length ? <ToolImages images={tool.images} /> : null}
-        {(isComplete || hasOutput) && (
+        {progressModel ? <ToolCallProgress tool={tool} /> : null}
+        {(isComplete || (hasOutput && !progressModel)) && (
           <>
             <ToolOutput
               output={tool.output}
               errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
             />
-            {!isComplete && tool.isPartialOutput && (
+            {!isComplete && tool.isPartialOutput && !progressModel && (
               <div className="mt-2 text-xs text-[var(--status-info)] italic">
                 Live update — tool still running.
               </div>
@@ -281,14 +298,24 @@ export function SingleToolCall({
   const isComplete = tool.state === 'completed' || tool.state === 'error';
   const isCancelled = tool.state === 'cancelled';
   const hasImages = !!tool.images?.length;
-  const hasOutput = typeof tool.output === 'string' && tool.output.trim().length > 0;
+  const progressModel = buildToolProgressModel(tool);
+  const progressHeader = useMemo(() => getToolProgressHeaderText(tool), [tool]);
   const [expanded, setExpanded] = useState(() => isRunning);
+  const [showDetails, setShowDetails] = useState(false);
 
-  const summary = useMemo(() => extractToolSummary(tool.input), [tool.input]);
+  const summary = useMemo(
+    () => progressHeader ?? extractToolSummary(tool.input),
+    [progressHeader, tool.input],
+  );
+  const effectiveToolName = useMemo(
+    () => (progressModel ? getEffectiveToolName(tool) : tool.toolName),
+    [progressModel, tool],
+  );
+  const hasSummaryContent = !!progressModel || (isComplete && hasImages) || isCancelled;
 
   const isFilePath = useMemo(
-    () => !!summary && FILE_PATH_TOOLS.has(tool.toolName) && looksLikeFilePath(summary),
-    [summary, tool.toolName],
+    () => !progressModel && !!summary && FILE_PATH_TOOLS.has(tool.toolName) && looksLikeFilePath(summary),
+    [progressModel, summary, tool.toolName],
   );
 
   const handleSummaryClick = useCallback(
@@ -333,7 +360,7 @@ export function SingleToolCall({
 
         {toolStatusDot(tool.state)}
         <span className="shrink-0 text-[11px] font-medium text-[var(--text-secondary)]">
-          {tool.toolName}
+          {effectiveToolName}
         </span>
         {summary && (
           <span
@@ -348,7 +375,18 @@ export function SingleToolCall({
             {summary}
           </span>
         )}
+        {progressModel && (
+          <span className="rounded-full bg-[var(--status-info-subtle)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--status-info)]">
+            Live
+          </span>
+        )}
       </button>
+
+      {!expanded && progressModel && (
+        <div className="border-t border-[var(--border-subtle)] p-3">
+          <ToolCallProgress tool={tool} />
+        </div>
+      )}
 
       {/* Inline image thumbnails — always visible when tool has images */}
       {hasImages && !expanded && (
@@ -366,26 +404,52 @@ export function SingleToolCall({
             transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="overflow-hidden"
           >
-            <div className="border-t border-[var(--border-subtle)] space-y-4 p-3">
-              <ToolInput input={tool.input} />
-              {isComplete && hasImages ? <ToolImages images={tool.images!} /> : null}
-              {(isComplete || hasOutput) && (
+            <div className="border-t border-[var(--border-subtle)]">
+              {!showDetails ? (
                 <>
-                  <ToolOutput
-                    output={tool.output}
-                    errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
-                  />
-                  {!isComplete && tool.isPartialOutput && (
-                    <div className="text-xs text-[var(--status-info)] italic">
-                      Live update — tool still running.
+                  {hasSummaryContent ? (
+                    <div className="space-y-4 p-3">
+                      {progressModel ? <ToolCallProgress tool={tool} /> : null}
+                      {!progressModel && isComplete && hasImages ? <ToolImages images={tool.images!} /> : null}
+                      {isCancelled && (
+                        <div className="text-xs text-[var(--status-warning)] italic">
+                          Cancelled — agent was stopped before this tool completed.
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ) : null}
+                  <div className={cn(
+                    'px-3 py-1.5',
+                    hasSummaryContent && 'border-t border-[var(--border-subtle)]/60',
+                  )}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDetails(true);
+                      }}
+                      className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      Show full details
+                    </button>
+                  </div>
                 </>
-              )}
-              {isCancelled && (
-                <div className="text-xs text-[var(--status-warning)] italic">
-                  Cancelled — agent was stopped before this tool completed.
-                </div>
+              ) : (
+                <>
+                  <div className="space-y-0 p-2">
+                    <ToolDetail tool={tool} />
+                  </div>
+                  <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDetails(false);
+                      }}
+                      className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      Collapse details
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </motion.div>

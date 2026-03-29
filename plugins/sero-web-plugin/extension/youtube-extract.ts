@@ -1,15 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { activityMonitor } from "./activity.js";
 import { isGeminiWebAvailable, queryWithCookies } from "./gemini-web.js";
 import { isGeminiApiAvailable, queryGeminiApiWithVideo } from "./gemini-api.js";
 import { searchWithPerplexity } from "./perplexity.js";
 import { extractHeadingTitle, type ExtractProgressCallback, type ExtractedContent, type FrameResult, type VideoFrame } from "./extract.js";
+import { getWebConfigPath } from "./paths.js";
 import { formatSeconds, readExecError, isTimeoutError, trimErrorText, mapFfmpegError } from "./utils.js";
-
-const CONFIG_PATH = join(homedir(), ".pi", "web-search.json");
 
 const YOUTUBE_PROMPT = `Extract the complete content of this YouTube video. Include:
 1. Video title, channel name, and duration
@@ -47,18 +44,19 @@ let cachedConfig: YouTubeConfig | null = null;
 
 function loadYouTubeConfig(): YouTubeConfig {
 	if (cachedConfig) return cachedConfig;
-	if (!existsSync(CONFIG_PATH)) {
+	const configPath = getWebConfigPath();
+	if (!existsSync(configPath)) {
 		cachedConfig = { ...defaults };
 		return cachedConfig;
 	}
 
-	const rawText = readFileSync(CONFIG_PATH, "utf-8");
+	const rawText = readFileSync(configPath, "utf-8");
 	let raw: { youtube?: { enabled?: boolean; preferredModel?: string } };
 	try {
 		raw = JSON.parse(rawText) as { youtube?: { enabled?: boolean; preferredModel?: string } };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to parse ${CONFIG_PATH}: ${message}`);
+		throw new Error(`Failed to parse ${configPath}: ${message}`);
 	}
 
 	const yt = raw.youtube ?? {};

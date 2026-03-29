@@ -159,6 +159,7 @@ export function subscribeToSession(
           toolName: event.toolName,
           input: event.args ?? {},
           output: null,
+          details: null,
           isError: false,
           state: 'running',
         };
@@ -167,24 +168,26 @@ export function subscribeToSession(
       }
 
       case 'tool_execution_update': {
-        const { text, images } = extractToolOutput(event.partialResult);
+        const { text, images, details } = extractToolOutput(event.partialResult);
         sendEvent({
           type: 'tool_update',
           sessionId,
           toolCallId: event.toolCallId,
           output: text,
+          details,
           images,
         });
         break;
       }
 
       case 'tool_execution_end': {
-        const { text, images } = extractToolOutput(event.result);
+        const { text, images, details } = extractToolOutput(event.result);
         sendEvent({
           type: 'tool_end',
           sessionId,
           toolCallId: event.toolCallId,
           output: text,
+          details,
           isError: event.isError,
           images,
         });
@@ -196,9 +199,18 @@ export function subscribeToSession(
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function extractToolOutput(result: unknown): { text: string | null; images?: ToolResultImage[] } {
+function extractToolOutput(result: unknown): {
+  text: string | null;
+  details?: Record<string, unknown> | null;
+  images?: ToolResultImage[];
+} {
   let text: string | null = null;
+  let details: Record<string, unknown> | null = null;
   let images: ToolResultImage[] | undefined;
+
+  if ((result as { details?: unknown })?.details && typeof (result as { details?: unknown }).details === 'object') {
+    details = (result as { details: Record<string, unknown> }).details;
+  }
 
   if ((result as { content?: unknown })?.content && Array.isArray((result as { content: unknown[] }).content)) {
     const content = (result as { content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> }).content;
@@ -227,7 +239,7 @@ function extractToolOutput(result: unknown): { text: string | null; images?: Too
     }
   }
 
-  return { text, images };
+  return { text, details, images };
 }
 
 /**

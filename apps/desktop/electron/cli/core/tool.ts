@@ -125,6 +125,32 @@ function formatBatchEntry(line: string, output: string): string {
   return `$ sero ${line}\n${output}`;
 }
 
+function withBatchUpdateContext(
+  onUpdate: Parameters<CliRegistry['executeResolved']>[3] | undefined,
+  line: string,
+  commandIndex: number,
+  commandCount: number,
+): Parameters<CliRegistry['executeResolved']>[3] | undefined {
+  if (!onUpdate) return undefined;
+  if (commandCount <= 1) return onUpdate;
+
+  return (update) => {
+    const baseDetails = update.details && typeof update.details === 'object'
+      ? update.details as Record<string, unknown>
+      : {};
+
+    onUpdate({
+      ...update,
+      details: {
+        ...baseDetails,
+        commandLine: line,
+        commandIndex,
+        commandCount,
+      },
+    });
+  };
+}
+
 export async function executeCliBatch(
   registry: CliRegistry,
   commandText: string,
@@ -181,9 +207,10 @@ export async function executeCliBatch(
       const perCommandTimeout = context.invocation.source === 'terminal'
         ? null
         : timeoutForCommand(batchDeadline, resolved.command.timeoutMs);
+      const commandOnUpdate = withBatchUpdateContext(onUpdate, line, i + 1, lines.length);
       result = normalizeCliResult(
         await runWithTimeout(
-          () => resolved.command.execute(resolved.args, context, single ? onUpdate : undefined),
+          () => resolved.command.execute(resolved.args, context, commandOnUpdate),
           perCommandTimeout,
           context.invocation.signal,
         ),

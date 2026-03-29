@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, basename } from "node:path";
+import { basename } from "node:path";
 import { type CookieMap, getGoogleCookies } from "./chrome-cookies.js";
+import { getWebConfigPath } from "./paths.js";
 
 const GEMINI_APP_URL = "https://gemini.google.com/app";
 const GEMINI_STREAM_GENERATE_URL =
@@ -22,7 +22,6 @@ const MODEL_HEADERS: Record<string, string> = {
 };
 
 const REQUIRED_COOKIES = ["__Secure-1PSID", "__Secure-1PSIDTS"];
-const CONFIG_PATH = join(homedir(), ".pi", "web-search.json");
 
 interface GeminiWebConfig {
 	chromeProfile?: string;
@@ -40,18 +39,19 @@ export interface GeminiWebOptions {
 
 function loadConfig(): GeminiWebConfig {
 	if (cachedConfig) return cachedConfig;
-	if (!existsSync(CONFIG_PATH)) {
+	const configPath = getWebConfigPath();
+	if (!existsSync(configPath)) {
 		cachedConfig = {};
 		return cachedConfig;
 	}
 
-	const rawText = readFileSync(CONFIG_PATH, "utf-8");
+	const rawText = readFileSync(configPath, "utf-8");
 	let raw: { chromeProfile?: unknown };
 	try {
 		raw = JSON.parse(rawText) as { chromeProfile?: unknown };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to parse ${CONFIG_PATH}: ${message}`);
+		throw new Error(`Failed to parse ${configPath}: ${message}`);
 	}
 
 	cachedConfig = {

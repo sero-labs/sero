@@ -71,6 +71,18 @@ export default function (pi: ExtensionAPI) {
 		syncEntryToState(sp, data).catch((err) => logSyncError("syncEntryToState", err));
 	}
 
+	async function wasHistoryClearedSince(timestamp: number): Promise<boolean> {
+		const sp = statePath;
+		if (!sp) return false;
+		try {
+			const state = await readState(sp);
+			return state.historyClearedAt >= timestamp;
+		} catch (err) {
+			logSyncError("readState", err);
+			return false;
+		}
+	}
+
 	function storeFetchedContent(results: ExtractedContent[]): string {
 		const id = generateId();
 		const data: StoredSearchData = {
@@ -95,12 +107,14 @@ export default function (pi: ExtensionAPI) {
 	function startBackgroundFetch(urls: string[]): string | null {
 		if (urls.length === 0) return null;
 		const fetchId = generateId();
+		const startedAt = Date.now();
 		const controller = new AbortController();
 		pendingFetches.set(fetchId, controller);
 		fetchAllContent(urls, controller.signal)
-			.then((fetched) => {
+			.then(async (fetched) => {
 				if (!sessionActive || !pendingFetches.has(fetchId)) return;
-				const data: StoredSearchData = { id: fetchId, type: "fetch", timestamp: Date.now(), urls: stripThumbnails(fetched) };
+				if (await wasHistoryClearedSince(startedAt)) return;
+				const data: StoredSearchData = { id: fetchId, type: "fetch", timestamp: startedAt, urls: stripThumbnails(fetched) };
 				storeResult(fetchId, data);
 				pi.appendEntry("web-search-results", data);
 				syncToState(data);

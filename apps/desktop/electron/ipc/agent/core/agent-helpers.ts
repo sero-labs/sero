@@ -239,6 +239,7 @@ export function convertSessionMessages(
         );
         let output: string | null = null;
         let isError = false;
+        let details: Record<string, unknown> | null = null;
         let images: ToolResultImage[] | undefined;
 
         if (toolResult && toolResult.role === 'toolResult') {
@@ -246,6 +247,9 @@ export function convertSessionMessages(
             .filter((c: { type: string }): c is { type: 'text'; text: string } => c.type === 'text');
           output = textParts.map((c) => c.text).join('\n') || null;
           isError = toolResult.isError;
+          if (toolResult.details && typeof toolResult.details === 'object') {
+            details = toolResult.details as Record<string, unknown>;
+          }
 
           // Extract image content blocks (screenshots, browser captures).
           // toolResult.content items are a union; only image blocks have `data`.
@@ -278,6 +282,7 @@ export function convertSessionMessages(
           input: tc.arguments,
           output,
           isError,
+          details,
           state: output !== null || images ? (isError ? 'error' : 'completed') : 'completed',
           images,
         });

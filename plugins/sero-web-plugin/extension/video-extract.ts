@@ -2,14 +2,12 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve, extname, basename, join, dirname } from "node:path";
-import { homedir } from "node:os";
 import { activityMonitor } from "./activity.js";
 import { isGeminiWebAvailable, queryWithCookies } from "./gemini-web.js";
 import { queryGeminiApiWithVideo, getApiKey, API_BASE } from "./gemini-api.js";
 import { extractHeadingTitle, type ExtractedContent, type ExtractOptions, type FrameResult } from "./extract.js";
+import { getWebConfigPath } from "./paths.js";
 import { readExecError, trimErrorText, mapFfmpegError } from "./utils.js";
-
-const CONFIG_PATH = join(homedir(), ".pi", "web-search.json");
 const UPLOAD_BASE = "https://generativelanguage.googleapis.com/upload/v1beta";
 
 const DEFAULT_VIDEO_PROMPT = `Extract the complete content of this video. Include:
@@ -75,18 +73,19 @@ let cachedVideoConfig: VideoConfig | null = null;
 
 function loadVideoConfig(): VideoConfig {
 	if (cachedVideoConfig) return cachedVideoConfig;
-	if (!existsSync(CONFIG_PATH)) {
+	const configPath = getWebConfigPath();
+	if (!existsSync(configPath)) {
 		cachedVideoConfig = { ...VIDEO_CONFIG_DEFAULTS };
 		return cachedVideoConfig;
 	}
 
-	const rawText = readFileSync(CONFIG_PATH, "utf-8");
+	const rawText = readFileSync(configPath, "utf-8");
 	let raw: { video?: { enabled?: boolean; preferredModel?: string; maxSizeMB?: number } };
 	try {
 		raw = JSON.parse(rawText) as { video?: { enabled?: boolean; preferredModel?: string; maxSizeMB?: number } };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to parse ${CONFIG_PATH}: ${message}`);
+		throw new Error(`Failed to parse ${configPath}: ${message}`);
 	}
 
 	const v = raw.video ?? {};

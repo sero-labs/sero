@@ -221,6 +221,7 @@ export function handleAgentStreamEvent(
               ? {
                   ...m,
                   output: event.output,
+                  details: event.details ?? m.details,
                   state: 'running',
                   isPartialOutput: true,
                   images: event.images ?? m.images,
@@ -235,7 +236,7 @@ export function handleAgentStreamEvent(
         agents: { ...s.agents, [sid]: { ...s.agents[sid],
           messages: s.agents[sid].messages.map((m) =>
             m.type === 'tool' && m.toolCallId === event.toolCallId
-              ? { ...m, output: event.output, isError: event.isError,
+              ? { ...m, output: event.output, details: event.details ?? m.details, isError: event.isError,
                   state: event.isError ? 'error' : 'completed',
                   isPartialOutput: false,
                   images: event.images } as ChatToolCallMessage

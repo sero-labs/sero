@@ -453,6 +453,38 @@ export default function (pi: ExtensionAPI) {
 > all app tools into one schema (just `command` + `timeout`), saving
 > thousands of tokens per session. See [AD-020](../docs/decisions.md#ad-020).
 
+### Profile-aware config and cache paths
+
+If your extension needs **global config, caches, or usage files** outside the
+workspace state file, do **not** hardcode `~/.pi` or `~/.pi/agent` when running
+inside Sero.
+
+Use these rules instead:
+
+- **App-specific config/cache** → `process.env.SERO_HOME`
+  (for example `path.join(process.env.SERO_HOME!, 'apps', '<id>', 'config.json')`)
+- **Pi SDK / agent resources** (`settings.json`, `auth.json`, `skills/`, etc.)
+  → `process.env.PI_CODING_AGENT_DIR`
+- **Pi CLI fallback only** → if those env vars are unset, then fall back to the
+  legacy Pi location under `~/.pi`
+
+```typescript
+import os from 'node:os';
+import path from 'node:path';
+
+function resolveConfigPath(appId: string, filename: string): string {
+  const seroHome = process.env.SERO_HOME;
+  if (seroHome) {
+    return path.join(seroHome, 'apps', appId, filename);
+  }
+  return path.join(os.homedir(), '.pi', filename);
+}
+```
+
+Hardcoded `homedir() + '/.pi/...'` paths break Sero profile isolation: every
+profile would share one config file and one cache. Keep Sero data inside the
+active `SERO_HOME` instead.
+
 ## Step 4: Build the Web UI
 
 The UI is a React component loaded into Sero via
@@ -953,6 +985,13 @@ Create a `state-sync.ts` module that handles:
 - Converting the extension's internal data format to the lighter state
   shape consumed by the UI (strip large content, images, etc.)
 
+> **Critical:** If the original Pi extension reads or writes files under
+> `~/.pi` or `~/.pi/agent`, rewrite those paths for Sero. App-specific config
+> and caches should resolve from `process.env.SERO_HOME` (usually under
+> `~/.sero-ui/apps/<id>/...`), and Pi SDK resources should resolve from
+> `process.env.PI_CODING_AGENT_DIR`. Only fall back to `~/.pi` when running in
+> the Pi CLI with those env vars unset.
+
 **Pattern — sync provider/config info on session start:**
 
 ```typescript
@@ -1049,6 +1088,7 @@ in-memory storage and session entries.
 - [ ] Original package's npm dependencies added directly
 - [ ] Every source file under 500 LOC (split if needed)
 - [ ] State sync added: tool results → state.json
+- [ ] Any hardcoded `~/.pi` / `~/.pi/agent` paths rewritten to use `SERO_HOME` / `PI_CODING_AGENT_DIR` in Sero
 - [ ] Session restore: existing entries synced to state on session start
 - [ ] TUI-specific code removed (shortcuts, widgets, interactive prompts, Glimpse)
 - [ ] Web UI built to replace removed TUI features
