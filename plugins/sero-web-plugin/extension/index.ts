@@ -17,6 +17,7 @@ import { registerWebSearchTool } from "./tools-search.js";
 import { registerFetchContentTool, registerGetContentTool } from "./tools-fetch.js";
 import { registerCodeSearchTool } from "./tools-code-search.js";
 import { registerBookmarkTool } from "./tools-bookmark.js";
+import { registerWebCommands } from "./commands.js";
 
 let statePath = "";
 let sessionActive = false;
@@ -208,11 +209,10 @@ export default function (pi: ExtensionAPI) {
 	registerBookmarkTool(pi, () => statePath, ensureStatePath, clearRuntimeHistory);
 
 	// ── Commands ──────────────────────────────────────────
-	// NOTE: the old /websearch command was removed because sero-cli
-	// exposed it alongside the web_search tool, and the LLM often
-	// called the command (which just sends a user message → fluff)
-	// instead of the tool (which returns actual results). The
-	// web_search tool is the correct entry point for all searches.
+	// These user-facing slash commands share names with the real tools,
+	// so the CLI bridge keeps the tool-backed command for the agent while
+	// still exposing /web_search and /web_bookmark in the prompt UI.
+	registerWebCommands(pi);
 
 	pi.registerCommand("google-account", {
 		description: "Show active Google account for Gemini Web",

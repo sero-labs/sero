@@ -30,7 +30,7 @@ export function createContainerTools(
     createRead(cm, workspaceId, containerCwd),
     createWrite(cm, workspaceId, containerCwd),
     createEdit(cm, workspaceId, containerCwd),
-    createBrowser(cm, workspaceId),
     createWorkspaceCliTool(workspaceId, sessionId),
+    createBrowser(cm, workspaceId),
   ];
 }

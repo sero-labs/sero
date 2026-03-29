@@ -130,7 +130,10 @@ export function createBrowser(
     name: 'browser',
     label: 'browser',
     description:
-      'Control a headless Chromium browser inside the container for testing web UIs. ' +
+      'Control a headless Chromium browser inside the container for Playwright-style UI automation and visual verification. ' +
+      'Use it for testing known web UIs, reproducing interaction bugs, and capturing screenshots/videos. ' +
+      'Do NOT use it for general web search, document/article retrieval, bookmark management, or file downloads — ' +
+      'use sero-cli commands like web_search, fetch_content, get_search_content, and web_bookmark instead. ' +
       'Actions: launch (start browser), navigate (go to URL), click (CSS selector or x,y), ' +
       'type (text into element), press_key (keyboard key), screenshot (capture page as image), ' +
       'scroll (up/down), evaluate (run JS), get_text (extract text), wait (for element/timeout), ' +
