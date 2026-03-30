@@ -118,7 +118,7 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
             Context Editor
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Configure what is included in the LLM context for this session.
+            Configure what is included in the LLM context for this session. Changes are saved with the session.
           </DialogDescription>
         </DialogHeader>
 
@@ -155,7 +155,7 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
                 tint="blue"
                 badge={
                   systemPrompt !== null
-                    ? (systemPrompt === '' ? 'disabled' : 'modified')
+                    ? (systemPrompt === '' ? 'excluded' : 'custom')
                     : undefined
                 }
                 badgeVariant={
@@ -168,9 +168,11 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-[var(--text-muted)]">
-                      {systemPrompt !== null
-                        ? 'Using custom system prompt'
-                        : 'Using default system prompt'}
+                      {systemPrompt === null
+                        ? 'Using the session default system prompt'
+                        : systemPrompt === ''
+                          ? 'System prompt excluded from this session'
+                          : 'Using a custom system prompt for this session'}
                     </span>
                     {systemPrompt !== null && (
                       <button
@@ -187,6 +189,9 @@ export function ContextEditor({ sessionId }: { sessionId: string }) {
                     className="h-80 w-full resize-y rounded-md border border-border/30 bg-[var(--bg-base)] p-2 font-mono text-[11px] text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent-primary)]"
                     placeholder="Enter system prompt..."
                   />
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    Leave the prompt blank to exclude it entirely, or reset to use the session default.
+                  </p>
                 </div>
               </ContextSection>
 
@@ -361,26 +366,26 @@ function ToolsSection({
       tint="amber"
       count={tools.length}
       badge={
-        allDisabled
-          ? 'disabled'
-          : enabledCount < tools.length
-            ? `${enabledCount}/${tools.length}`
-            : undefined
+        tools.length > 0 && enabledCount < tools.length
+          ? `${enabledCount}/${tools.length} included`
+          : undefined
       }
       badgeVariant={badgeVariant}
       defaultOpen={false}
     >
       <div className="space-y-1">
-        <div className="flex items-center justify-between rounded-md border-b border-border/20 px-2 pb-2 mb-1">
-          <span className="text-[11px] font-medium text-[var(--text-secondary)]">
-            Enable all tools
-          </span>
-          <Switch
-            size="sm"
-            checked={!allDisabled}
-            onCheckedChange={(checked) => onToggleAll(!checked)}
-          />
-        </div>
+        {tools.length > 0 && (
+          <div className="mb-1 flex items-center justify-between rounded-md border-b border-border/20 px-2 pb-2">
+            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+              Include all tools
+            </span>
+            <Switch
+              size="sm"
+              checked={!allDisabled}
+              onCheckedChange={(checked) => onToggleAll(!checked)}
+            />
+          </div>
+        )}
 
         {tools.map((tool) => (
           <ToggleRow
@@ -432,11 +437,9 @@ function SkillsSection({
       tint="violet"
       count={skills.length}
       badge={
-        allDisabled
-          ? 'disabled'
-          : enabledCount < skills.length
-            ? `${enabledCount}/${skills.length}`
-            : undefined
+        skills.length > 0 && enabledCount < skills.length
+          ? `${enabledCount}/${skills.length} included`
+          : undefined
       }
       badgeVariant={badgeVariant}
       defaultOpen={false}
@@ -445,7 +448,7 @@ function SkillsSection({
         {skills.length > 0 && (
           <div className="flex items-center justify-between rounded-md border-b border-border/20 px-2 pb-2 mb-1">
             <span className="text-[11px] font-medium text-[var(--text-secondary)]">
-              Enable all skills
+              Include all skills
             </span>
             <Switch
               size="sm"

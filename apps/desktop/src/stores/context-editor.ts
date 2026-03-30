@@ -26,10 +26,26 @@ const DEFAULT_PRESET: ContextPreset = {
 
 const BUILTIN_PRESETS: ContextPreset[] = [DEFAULT_PRESET, NONE_PRESET];
 
+function normalizeDisabledNames(
+  names: string[] | undefined,
+  availableNames: string[],
+): Set<string> {
+  const allowed = new Set(availableNames);
+  return new Set((names ?? []).filter((name) => allowed.has(name)));
+}
+
+function getAppliedSystemPrompt(overrides: ContextOverrides | null): string | null {
+  if (!overrides || !Object.prototype.hasOwnProperty.call(overrides, 'systemPrompt')) {
+    return null;
+  }
+  return typeof overrides.systemPrompt === 'string' ? overrides.systemPrompt : '';
+}
+
 // ── Store Types ───────────────────────────────────────────────
 
 interface ContextEditorState {
   isOpen: boolean;
+  loadedSessionId: string | null;
   availableContext: SessionContext | null;
 
   systemPrompt: string | null;
@@ -71,6 +87,7 @@ interface ContextEditorState {
 
 export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
   isOpen: false,
+  loadedSessionId: null,
   availableContext: null,
   systemPrompt: null,
   disabledTools: new Set(),
@@ -85,6 +102,7 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
   open: async (sessionId) => {
     set({
       isOpen: true,
+      loadedSessionId: sessionId,
       availableContext: null,
       systemPrompt: null,
       disabledTools: new Set(),
@@ -109,7 +127,26 @@ export const useContextEditorStore = create<ContextEditorState>((set, get) => ({
     try {
       const context = await window.sero.agent.getContext(sessionId);
       if (context) {
-        set({ availableContext: context });
+        const disabledTools = normalizeDisabledNames(
+          context.overrides?.disabledTools,
+          context.tools.map((tool) => tool.name),
+        );
+        const disabledSkills = normalizeDisabledNames(
+          context.overrides?.disabledSkills,
+          context.skills.map((skill) => skill.name),
+        );
+        const allToolsDisabled = context.tools.length > 0 && disabledTools.size >= context.tools.length;
+        const allSkillsDisabled = context.skills.length > 0 && disabledSkills.size >= context.skills.length;
+
+        set({
+          availableContext: context,
+          systemPrompt: getAppliedSystemPrompt(context.overrides),
+          disabledTools: allToolsDisabled ? new Set() : disabledTools,
+          disabledSkills: allSkillsDisabled ? new Set() : disabledSkills,
+          allToolsDisabled,
+          allSkillsDisabled,
+          activePresetId: context.overrides ? null : '__default__',
+        });
       }
     } catch (err) {
       console.error('[context-editor] Failed to load context:', err);

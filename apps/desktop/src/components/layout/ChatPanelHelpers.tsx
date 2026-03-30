@@ -33,7 +33,9 @@ export function ContextEditorMenuItem({
   disabled?: boolean;
 }) {
   const openEditor = useContextEditorStore((s) => s.open);
+  const loadedSessionId = useContextEditorStore((s) => s.loadedSessionId);
   const hasOverrides = useHasOverrides();
+  const showOverrideIndicator = !!sessionId && loadedSessionId === sessionId && hasOverrides;
 
   return (
     <PromptInputActionMenuItem
@@ -45,7 +47,7 @@ export function ContextEditorMenuItem({
     >
       <Settings2 className="mr-2 size-4" />
       Session context
-      {hasOverrides && (
+      {showOverrideIndicator && (
         <span className="ml-auto size-1.5 rounded-full bg-[var(--accent-primary)]" />
       )}
     </PromptInputActionMenuItem>

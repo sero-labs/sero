@@ -12,19 +12,22 @@ import type {
 } from '../../../../src/types/ipc';
 import {
   buildModelState,
-  getBaseSystemPrompt,
-  setBaseSystemPrompt,
-  stripDisabledSkills,
   validateProvider,
   validateThinkingLevel,
 } from './agent-helpers';
+import {
+  applyContextOverrides,
+  areContextOverridesEqual,
+  persistContextOverrides,
+} from './agent-context-overrides';
 import { getConfiguredModelFallbackChain } from '../../../shared/settings/model-fallback-chain';
 
 export interface AgentPoolContextEntry {
   session: AgentSession;
   loader: DefaultResourceLoader;
   contextOverrides: ContextOverrides | null;
-  originalToolNames: string[] | null;
+  baseSystemPrompt: string;
+  baseTools: ContextToolInfo[];
 }
 
 interface RegisterModelContextHandlersOptions {
@@ -196,14 +199,6 @@ export function registerAgentModelContextHandlers(
       const entry = getEntry(sessionId);
       if (!entry) return null;
 
-      const state = entry.session.agent.state;
-
-      const tools: ContextToolInfo[] = state.tools.map((t) => ({
-        name: t.name,
-        label: (t as any).label,
-        description: t.description,
-      }));
-
       const { skills: rawSkills } = entry.loader.getSkills();
       const skills: ContextSkillInfo[] = rawSkills.map((s) => ({
         name: s.name,
@@ -212,9 +207,10 @@ export function registerAgentModelContextHandlers(
       }));
 
       return {
-        systemPrompt: state.systemPrompt ?? '',
-        tools,
+        systemPrompt: entry.baseSystemPrompt,
+        tools: entry.baseTools,
         skills,
+        overrides: entry.contextOverrides,
       };
     },
   );
@@ -225,41 +221,11 @@ export function registerAgentModelContextHandlers(
       const entry = getEntry(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
-      const session = entry.session;
+      const previous = entry.contextOverrides;
+      const next = applyContextOverrides(entry, overrides);
 
-      if (!entry.originalToolNames) {
-        entry.originalToolNames = session.getActiveToolNames();
-      }
-
-      entry.contextOverrides = overrides;
-
-      if (!overrides) {
-        session.setActiveToolsByName(entry.originalToolNames!);
-        return;
-      }
-
-      const toolNames = entry.originalToolNames!.slice();
-      if (overrides.disabledTools?.length) {
-        const disabled = new Set(overrides.disabledTools);
-        session.setActiveToolsByName(toolNames.filter((n) => !disabled.has(n)));
-      } else {
-        session.setActiveToolsByName(toolNames);
-      }
-
-      if (
-        overrides.disabledSkills?.length &&
-        (overrides.systemPrompt === undefined || overrides.systemPrompt === null)
-      ) {
-        const disabled = new Set(overrides.disabledSkills);
-        const prompt = getBaseSystemPrompt(session);
-        if (typeof prompt === 'string') {
-          const filtered = stripDisabledSkills(prompt, disabled);
-          setBaseSystemPrompt(session, filtered);
-        }
-      }
-
-      if (overrides.systemPrompt !== undefined && overrides.systemPrompt !== null) {
-        setBaseSystemPrompt(session, overrides.systemPrompt);
+      if (!areContextOverridesEqual(previous, next)) {
+        persistContextOverrides(entry.session, next);
       }
     },
   );

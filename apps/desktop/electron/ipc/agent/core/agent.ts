@@ -19,6 +19,7 @@ import type {
   ContextUsageInfo,
   CompactResult,
   ContextOverrides,
+  ContextToolInfo,
   SeroSessionInfo,
 } from '../../../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../../../src/types/checkpoints';
@@ -30,6 +31,7 @@ import {
   attachmentsToImages,
   readHiddenCommands,
   buildCommandList,
+  getBaseSystemPrompt,
 } from './agent-helpers';
 import { subscribeToSession } from './agent-subscription';
 import { readGlobalAgentsMd } from './global-agents';
@@ -48,6 +50,7 @@ import {
 import { createContainerTools } from '../../../features/container/tools';
 import type { ContainerState } from '../../../features/container';
 import { registerAgentModelContextHandlers } from './agent-model-context';
+import { applyContextOverrides, readPersistedContextOverrides } from './agent-context-overrides';
 import { createSeroUIContext } from '../../../features/apps/extensions/ui-context';
 import { installCliAgentBridge, noteCliTurnEnd } from '../../../cli/bridges';
 import { createWorkspaceCliTool, bridgeExtensionTools } from '../../../cli';
@@ -65,7 +68,8 @@ interface PoolEntry {
   /** Checkpoint from the most recently completed turn, to attach to the NEXT user message. */
   lastCompletedCheckpoint: ChatCheckpointRef | null;
   contextOverrides: ContextOverrides | null;
-  originalToolNames: string[] | null;
+  baseSystemPrompt: string;
+  baseTools: ContextToolInfo[];
 }
 
 const pool = new Map<string, PoolEntry>();
@@ -182,19 +186,40 @@ async function openSessionInternal(
   // Provide a real UIContext so extensions get working ctx.ui.notify()
   session.extensionRunner?.setUIContext(createSeroUIContext());
 
-  const unsubscribe = subscribeToSession(
-    sessionId, session,
-    () => pool.get(sessionId),
-    sendEvent,
+  const baseTools: ContextToolInfo[] = session.agent.state.tools.map((tool) => ({
+    name: tool.name,
+    label: (tool as { label?: string }).label,
+    description: tool.description,
+  }));
+  const baseSystemPrompt = getBaseSystemPrompt(session) ?? session.agent.state.systemPrompt ?? '';
+  const persistedOverrides = readPersistedContextOverrides(
+    session,
+    baseTools.map((tool) => tool.name),
   );
-  pool.set(sessionId, {
-    session, loader, unsubscribe, workspaceId,
+
+  const entry: PoolEntry = {
+    session,
+    loader,
+    unsubscribe: subscribeToSession(
+      sessionId,
+      session,
+      () => pool.get(sessionId),
+      sendEvent,
+    ),
+    workspaceId,
     currentAssistantId: null,
     lastSessionName: session.sessionName,
     lastCompletedCheckpoint: null,
     contextOverrides: null,
-    originalToolNames: null,
-  });
+    baseSystemPrompt,
+    baseTools,
+  };
+
+  if (persistedOverrides) {
+    applyContextOverrides(entry, persistedOverrides);
+  }
+
+  pool.set(sessionId, entry);
 
   return convertSessionMessages(session.messages, buildCheckpointMapByTurn(session, workspaceId));
 }
