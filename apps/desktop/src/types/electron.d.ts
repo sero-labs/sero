@@ -147,9 +147,9 @@ interface SeroAgentAPI {
   setModel(sessionId: string, provider: string, modelId: string): Promise<SessionModelState>;
   /** Set thinking/reasoning level for a session. */
   setThinkingLevel(sessionId: string, level: string): Promise<SessionModelState>;
-  /** Get session context (system prompt, tools, skills) for the context editor. */
+  /** Get session context (base system prompt, tools, skills, current overrides) for the context editor. */
   getContext(sessionId: string): Promise<SessionContext | null>;
-  /** Apply context overrides (disabled tools, system prompt override). Pass null to clear. */
+  /** Apply per-session context overrides (disabled tools/skills, system prompt override). Pass null to clear. */
   setContextOverrides(sessionId: string, overrides: ContextOverrides | null): Promise<void>;
   /**
    * Restore a session to a checkpoint: performs VCS file restore,

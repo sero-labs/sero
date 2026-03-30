@@ -127,9 +127,14 @@ export interface ContextSkillInfo {
 
 /** Full session context returned by getSessionContext. */
 export interface SessionContext {
+  /** Base system prompt before any per-session overrides are applied. */
   systemPrompt: string;
+  /** Full tool list available to the session before per-session filtering. */
   tools: ContextToolInfo[];
+  /** Full skill list available to the session. */
   skills: ContextSkillInfo[];
+  /** Currently applied per-session overrides, if any. */
+  overrides: ContextOverrides | null;
 }
 
 /** Context overrides sent to the main process. */
