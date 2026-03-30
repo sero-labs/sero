@@ -83,10 +83,7 @@ export function ChatPanel() {
     [persistCollaborationSize],
   );
 
-  const collaborationVisible = isCollaborationSectionVisible(
-    collaborationStatus,
-    collaborationResult,
-  );
+  const collaborationVisible = isCollaborationSectionVisible(collaborationStatus);
 
   // Stable callback ref for ChatMessageItem memo
   const stableRestoreHandler = useMemo(
@@ -225,9 +222,8 @@ export function ChatPanel() {
   );
 
   const collaboration = (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-2">
+    <div className="flex h-full min-h-0 flex-col p-2">
       <CollaborationActivityPanel />
-      <CollaborationDetails />
     </div>
   );
 
@@ -262,6 +258,12 @@ export function ChatPanel() {
         conversation={conversation}
         collaboration={collaboration}
       />
+
+      {!collaborationVisible && collaborationResult && (
+        <div className="shrink-0 px-2 pb-2">
+          <CollaborationDetails />
+        </div>
+      )}
 
       {/* ── Pending question card (single questions only) ──── */}
       <PendingQuestionCard />

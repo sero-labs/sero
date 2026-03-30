@@ -56,7 +56,10 @@ vi.mock('@sero-ai/ui/components/ui/resizable', () => ({
   },
 }));
 
-import { ChatPanelCollaborationLayout } from './ChatPanelCollaborationLayout';
+import {
+  ChatPanelCollaborationLayout,
+  isCollaborationSectionVisible,
+} from './ChatPanelCollaborationLayout';
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -66,6 +69,15 @@ describe('ChatPanelCollaborationLayout', () => {
   let container: HTMLDivElement;
   let root: Root | null = null;
   const onCollaborationResize = vi.fn();
+
+  it('only keeps the resizable tray visible while collaboration is active', () => {
+    expect(isCollaborationSectionVisible('idle')).toBe(false);
+    expect(isCollaborationSectionVisible('research')).toBe(true);
+    expect(isCollaborationSectionVisible('specialists')).toBe(true);
+    expect(isCollaborationSectionVisible('synthesis')).toBe(true);
+    expect(isCollaborationSectionVisible('error')).toBe(true);
+    expect(isCollaborationSectionVisible('complete')).toBe(false);
+  });
 
   beforeEach(() => {
     resizableMocks.reset();

@@ -15,6 +15,7 @@ interface CollaborationRoleVisual {
   surface: string;
   border: string;
   statusVerb: string;
+  lane: 'left' | 'right';
 }
 
 export const COLLABORATION_ROLE_VISUALS: Record<
@@ -28,6 +29,7 @@ export const COLLABORATION_ROLE_VISUALS: Record<
     surface: 'bg-[var(--collab-primary-subtle)]',
     border: 'border-[var(--collab-primary-border)]',
     statusVerb: 'Orchestrating',
+    lane: 'right',
   },
   researcher: {
     label: 'Researcher',
@@ -36,6 +38,7 @@ export const COLLABORATION_ROLE_VISUALS: Record<
     surface: 'bg-[var(--status-info-subtle)]',
     border: 'border-[var(--status-info-border)]',
     statusVerb: 'Investigating',
+    lane: 'left',
   },
   analyst: {
     label: 'Analyst',
@@ -44,6 +47,7 @@ export const COLLABORATION_ROLE_VISUALS: Record<
     surface: 'bg-[var(--status-success-subtle)]',
     border: 'border-[var(--status-success-border)]',
     statusVerb: 'Crunching data',
+    lane: 'right',
   },
   visionary: {
     label: 'Visionary',
@@ -52,6 +56,7 @@ export const COLLABORATION_ROLE_VISUALS: Record<
     surface: 'bg-[var(--status-warning-subtle)]',
     border: 'border-[var(--status-warning-border)]',
     statusVerb: 'Brainstorming',
+    lane: 'left',
   },
 };
 

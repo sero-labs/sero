@@ -2,6 +2,7 @@ import type {
   CollaborationEvent,
   CollaborationResult,
   CollaborationSpecialistOutput,
+  CollaborationStateSnapshot,
   CollaborationStatus,
   CollaborationStrategy,
   DebateState,
@@ -11,17 +12,7 @@ import type {
 } from '@/types/collaboration';
 import { DEFAULT_DEBATE_CONFIG } from '@/types/collaboration';
 
-export interface CollaborationSessionState {
-  mode: boolean;
-  strategy: CollaborationStrategy;
-  status: CollaborationStatus;
-  result: CollaborationResult | null;
-  specialists: CollaborationSpecialistOutput[];
-  /** Debate-specific state (only populated when strategy === 'debate'). */
-  debate: DebateState | null;
-  /** User-configured debate parameters. */
-  debateConfig: DebateConfig;
-}
+export interface CollaborationSessionState extends CollaborationStateSnapshot {}
 
 export type CollaborationSessionMap = Record<string, CollaborationSessionState>;
 
@@ -34,6 +25,7 @@ export function createCollaborationSessionState(): CollaborationSessionState {
     specialists: [],
     debate: null,
     debateConfig: { ...DEFAULT_DEBATE_CONFIG },
+    pendingUserQuery: null,
   };
 }
 
@@ -102,6 +94,41 @@ export function setDebateConfigForSession(
     [sessionId]: {
       ...current,
       debateConfig: { ...current.debateConfig, ...config },
+    },
+  };
+}
+
+export function hydrateCollaborationSessionForRenderer(
+  collaborations: CollaborationSessionMap,
+  sessionId: string,
+  snapshot: CollaborationStateSnapshot | null,
+): CollaborationSessionMap {
+  if (!snapshot) return collaborations;
+
+  return {
+    ...collaborations,
+    [sessionId]: {
+      ...snapshot,
+      specialists: [...snapshot.specialists],
+      result: snapshot.result
+        ? {
+            ...snapshot.result,
+            specialistOutputs: [...snapshot.result.specialistOutputs],
+          }
+        : null,
+      debate: snapshot.debate
+        ? {
+            ...snapshot.debate,
+            rounds: [...snapshot.debate.rounds],
+            agentStatuses: { ...snapshot.debate.agentStatuses },
+          }
+        : null,
+      debateConfig: {
+        ...snapshot.debateConfig,
+        ...(snapshot.debateConfig.models
+          ? { models: { ...snapshot.debateConfig.models } }
+          : {}),
+      },
     },
   };
 }

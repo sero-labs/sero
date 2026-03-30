@@ -4,7 +4,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@sero-ai/ui/components/ui/resizable';
-import type { CollaborationResult, CollaborationStatus } from '@/types/collaboration';
+import type { CollaborationStatus } from '@/types/collaboration';
 
 export interface ChatPanelResizeEvent {
   inPixels: number;
@@ -21,9 +21,8 @@ interface ChatPanelCollaborationLayoutProps {
 
 export function isCollaborationSectionVisible(
   status: CollaborationStatus,
-  result: CollaborationResult | null,
 ): boolean {
-  return (status !== 'idle' && status !== 'complete') || result !== null;
+  return status !== 'idle' && status !== 'complete';
 }
 
 export function ChatPanelCollaborationLayout({

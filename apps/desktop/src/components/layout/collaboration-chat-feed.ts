@@ -167,6 +167,24 @@ function buildDebateFeed(
   for (let i = 0; i <= currentIdx; i++) {
     items.push({ kind: 'phase', key: `phase-${phases[i]}`, phase: phases[i]! });
 
+    if (phases[i] === 'decomposition') {
+      const decomposition = specialists.find((s) => s.role === 'coordinator');
+      const coordinatorStatus =
+        debate.agentStatuses['coordinator'] ?? debate.agentStatuses['collab-coordinator'];
+      if (decomposition) {
+        items.push({
+          kind: 'message',
+          key: 'msg-decomposition-coordinator',
+          role: 'coordinator',
+          text: decomposition.response,
+          durationMs: decomposition.durationMs,
+          isError: !!decomposition.error,
+        });
+      } else if (i === currentIdx && coordinatorStatus === 'running') {
+        items.push({ kind: 'typing', key: 'typing-decomposition-coordinator', role: 'coordinator' });
+      }
+    }
+
     if (phases[i] === 'independent_analysis') {
       for (const role of ['researcher', 'analyst', 'visionary'] as CollaborationRole[]) {
         const spec = specialists.find((s) => s.role === role);
@@ -201,13 +219,8 @@ function buildDebateFeed(
       }
     }
 
-    if (phases[i] === 'synthesis') {
-      const coordinator = specialists.find((s) => s.role === 'coordinator');
-      if (coordinator) {
-        items.push({ kind: 'message', key: 'msg-coordinator', role: 'coordinator', text: coordinator.response, durationMs: coordinator.durationMs });
-      } else if (i === currentIdx) {
-        items.push({ kind: 'typing', key: 'typing-coordinator', role: 'coordinator' });
-      }
+    if (phases[i] === 'synthesis' && i === currentIdx) {
+      items.push({ kind: 'typing', key: 'typing-coordinator', role: 'coordinator' });
     }
   }
 

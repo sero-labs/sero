@@ -25,8 +25,15 @@ import { runDebateCollaboration } from '../../features/collaboration/debate';
 import { subagentManager } from '../../shared/infra/shared-infra';
 import { getAgentPoolEntry } from '../agent';
 import { extractOriginalCollaborationQuery } from './collaboration-message';
+import {
+  applyCollaborationRuntimeEvent,
+  createCollaborationRuntimeSnapshot,
+  getCollaborationRuntimeSnapshot,
+  setCollaborationRuntimeSnapshot,
+} from './runtime-state';
 
 function sendCollabEvent(event: CollaborationEvent): void {
+  applyCollaborationRuntimeEvent(event);
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(IpcChannels.collaboration.event, event);
   }
@@ -85,6 +92,11 @@ ${synthesis}
 
 export function registerCollaborationHandlers(): void {
   ipcMain.handle(
+    IpcChannels.collaboration.getState,
+    async (_event, sessionId: string) => getCollaborationRuntimeSnapshot(sessionId),
+  );
+
+  ipcMain.handle(
     IpcChannels.collaboration.prompt,
     async (
       _event,
@@ -99,6 +111,14 @@ export function registerCollaborationHandlers(): void {
       }
 
       const strategy = config?.strategy ?? 'standard';
+      const debateConfig: DebateConfig = {
+        ...DEFAULT_DEBATE_CONFIG,
+        ...config?.debate,
+      };
+      setCollaborationRuntimeSnapshot(
+        sessionId,
+        createCollaborationRuntimeSnapshot(strategy, debateConfig, query),
+      );
       sendCollabEvent({ type: 'collab_start', sessionId, strategy });
 
       try {
@@ -113,11 +133,6 @@ export function registerCollaborationHandlers(): void {
         let result;
 
         if (strategy === 'debate') {
-          const debateConfig: DebateConfig = {
-            ...DEFAULT_DEBATE_CONFIG,
-            ...config?.debate,
-          };
-
           result = await runDebateCollaboration(
             specialistQuery,
             sessionId,

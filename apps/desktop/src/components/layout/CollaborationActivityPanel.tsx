@@ -17,10 +17,12 @@ import {
   Zap,
 } from 'lucide-react';
 import {
+  useFocusedAgent,
   useFocusedCollaborationStatus,
   useFocusedCollaborationStrategy,
 } from '@/stores/agent-selectors';
 import { cn } from '@sero-ai/ui/lib/utils';
+import type { SubagentEntry } from '@/types/ipc';
 import type { CollaborationRole } from '@/types/collaboration';
 import { useElapsedTimer } from './useCollaborationTimer';
 import { useChatFeed, PHASE_BANNERS } from './collaboration-chat-feed';
@@ -28,6 +30,8 @@ import {
   COLLABORATION_ROLE_VISUALS,
   CollaborationRoleBadge,
 } from './collaboration-visuals';
+import { CollaborationLiveActivity } from './CollaborationLiveActivity';
+import { useCollaborationSubagentEntries } from './useCollaborationSubagentEntries';
 
 // ── Typing indicator (bouncing dots) ────────────────────────────
 
@@ -52,32 +56,52 @@ function TypingDots({ colorClass }: { colorClass: string }) {
   );
 }
 
-function TypingBubble({ role }: { role: CollaborationRole }) {
+function TypingBubble({
+  role,
+  liveEntry,
+}: {
+  role: CollaborationRole;
+  liveEntry?: SubagentEntry | null;
+}) {
   const visual = COLLABORATION_ROLE_VISUALS[role];
+  const isRightAligned = visual.lane === 'right';
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      className="flex items-end gap-2 px-2"
+      className={cn('flex px-2', isRightAligned ? 'justify-end' : 'justify-start')}
     >
-      <CollaborationRoleBadge role={role} pulse />
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className={cn('pl-1 text-[10px] font-semibold', visual.color)}>
-          {visual.label}
-        </span>
-        <div
-          className={cn(
-            'flex items-center gap-1.5 rounded-2xl rounded-bl-md border px-3 py-2',
-            visual.surface,
-            visual.border,
-          )}
-        >
-          <span className={cn('text-[11px] italic', visual.color)}>
-            {visual.statusVerb}
+      <div
+        className={cn(
+          'flex max-w-[92%] items-end gap-2',
+          isRightAligned && 'flex-row-reverse',
+        )}
+      >
+        <CollaborationRoleBadge role={role} pulse />
+        <div className={cn('flex min-w-0 max-w-[26rem] flex-col gap-1', isRightAligned && 'items-end')}>
+          <span className={cn('px-1 text-[10px] font-semibold', visual.color)}>
+            {visual.label}
           </span>
-          <TypingDots colorClass={visual.color} />
+          <div
+            className={cn(
+              'flex items-center gap-1.5 rounded-2xl border px-3 py-2',
+              isRightAligned ? 'rounded-br-md' : 'rounded-bl-md',
+              visual.surface,
+              visual.border,
+            )}
+          >
+            <span className={cn('text-[11px] italic', visual.color)}>
+              {visual.statusVerb}
+            </span>
+            <TypingDots colorClass={visual.color} />
+          </div>
+          <CollaborationLiveActivity
+            entry={liveEntry ?? null}
+            accentClass={visual.color}
+            borderClass={visual.border}
+          />
         </div>
       </div>
     </motion.div>
@@ -98,6 +122,7 @@ function MessageBubble({
   isError?: boolean;
 }) {
   const visual = COLLABORATION_ROLE_VISUALS[role];
+  const isRightAligned = visual.lane === 'right';
   const [expanded, setExpanded] = useState(false);
 
   const truncateLen = 180;
@@ -111,49 +136,57 @@ function MessageBubble({
       initial={{ opacity: 0, y: 10, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-      className="flex items-start gap-2 px-2"
+      className={cn('flex px-2', isRightAligned ? 'justify-end' : 'justify-start')}
     >
-      <CollaborationRoleBadge role={role} />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className={cn('text-[10px] font-semibold', visual.color)}>
-            {visual.label}
-          </span>
-          <span
+      <div
+        className={cn(
+          'flex max-w-[92%] items-start gap-2',
+          isRightAligned && 'flex-row-reverse',
+        )}
+      >
+        <CollaborationRoleBadge role={role} />
+        <div className={cn('flex min-w-0 max-w-[26rem] flex-col gap-1', isRightAligned && 'items-end')}>
+          <div className="flex items-center gap-2">
+            <span className={cn('text-[10px] font-semibold', visual.color)}>
+              {visual.label}
+            </span>
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] tabular-nums',
+                visual.surface,
+                visual.border,
+                visual.color,
+              )}
+            >
+              <Clock3 className="size-2.5" />
+              {duration}
+            </span>
+            {isError ? (
+              <XCircle className="size-3 text-destructive" />
+            ) : (
+              <CheckCircle2 className="size-3 text-[var(--status-success)]" />
+            )}
+          </div>
+          <div
             className={cn(
-              'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] tabular-nums',
-              visual.surface,
-              visual.border,
-              visual.color,
+              'rounded-2xl border px-3 py-2 text-[11px] leading-relaxed text-[var(--text-secondary)] shadow-sm',
+              isRightAligned ? 'rounded-tr-md' : 'rounded-tl-md',
+              isError
+                ? 'border-destructive/20 bg-destructive/5'
+                : cn(visual.surface, visual.border),
             )}
           >
-            <Clock3 className="size-2.5" />
-            {duration}
-          </span>
-          {isError ? (
-            <XCircle className="size-3 text-destructive" />
-          ) : (
-            <CheckCircle2 className="size-3 text-[var(--status-success)]" />
-          )}
-        </div>
-        <div
-          className={cn(
-            'rounded-2xl rounded-tl-md border px-3 py-2 text-[11px] leading-relaxed text-[var(--text-secondary)] shadow-sm',
-            isError
-              ? 'border-destructive/20 bg-destructive/5'
-              : cn(visual.surface, visual.border),
-          )}
-        >
-          <p className="whitespace-pre-wrap break-words">{displayText}</p>
-          {isLong && (
-            <button
-              type="button"
-              onClick={() => setExpanded((value) => !value)}
-              className={cn('mt-1 text-[10px] font-medium hover:underline', visual.color)}
-            >
-              {expanded ? 'Show less' : 'Read more'}
-            </button>
-          )}
+            <p className="whitespace-pre-wrap break-words">{displayText}</p>
+            {isLong && (
+              <button
+                type="button"
+                onClick={() => setExpanded((value) => !value)}
+                className={cn('mt-1 text-[10px] font-medium hover:underline', visual.color)}
+              >
+                {expanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
@@ -326,10 +359,15 @@ function useAutoScroll(feedLen: number) {
 // ── Main panel ──────────────────────────────────────────────────
 
 export function CollaborationActivityPanel() {
+  const focused = useFocusedAgent();
   const status = useFocusedCollaborationStatus();
   const strategy = useFocusedCollaborationStrategy();
   const feed = useChatFeed();
   const scrollRef = useAutoScroll(feed.length);
+  const { latestEntryByRole } = useCollaborationSubagentEntries(
+    focused?.sessionId ?? null,
+    focused?.workspaceId ?? null,
+  );
 
   const activeRoles = useMemo(() => {
     const roles = new Set<CollaborationRole>();
@@ -385,7 +423,13 @@ export function CollaborationActivityPanel() {
               case 'phase':
                 return <PhaseBanner key={item.key} phase={item.phase} />;
               case 'typing':
-                return <TypingBubble key={item.key} role={item.role} />;
+                return (
+                  <TypingBubble
+                    key={item.key}
+                    role={item.role}
+                    liveEntry={latestEntryByRole.get(item.role)}
+                  />
+                );
               case 'message':
                 return (
                   <MessageBubble

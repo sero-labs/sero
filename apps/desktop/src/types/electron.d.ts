@@ -56,6 +56,7 @@ import type {
   PromptTemplateSummary,
   PromptTemplateFileData,
   CollaborationResult,
+  CollaborationStateSnapshot,
   CollaborationEvent,
   CollaborationConfig,
   QrLoginData,
@@ -353,6 +354,8 @@ interface SeroPromptsAPI {
 interface SeroCollaborationAPI {
   /** Send a prompt through the collaboration framework (standard or debate). */
   prompt(sessionId: string, workspaceId: string, query: string, config?: CollaborationConfig): Promise<CollaborationResult>;
+  /** Get the latest collaboration runtime snapshot for a session. */
+  getState(sessionId: string): Promise<CollaborationStateSnapshot | null>;
   /** Subscribe to collaboration lifecycle events. Returns unsubscribe. */
   onEvent(callback: (event: CollaborationEvent) => void): () => void;
 }

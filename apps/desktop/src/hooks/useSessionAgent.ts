@@ -25,6 +25,9 @@ export function useSessionAgent() {
   const openSession = useAgentStore((s) => s.openSession);
   const focusSession = useAgentStore((s) => s.focusSession);
   const clearFocus = useAgentStore((s) => s.clearFocus);
+  const hydrateCollaborationState = useAgentStore(
+    (s) => s.hydrateCollaborationState,
+  );
   const agents = useAgentStore((s) => s.agents);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
 
@@ -34,22 +37,40 @@ export function useSessionAgent() {
   // Open/focus agent session when selection changes or sessions load
   const activeSession = sessions.find((s) => s.id === activeSessionId);
   useEffect(() => {
-    if (!activeSessionId) {
-      clearFocus();
-      return;
+    let cancelled = false;
+
+    async function syncActiveSession() {
+      if (!activeSessionId) {
+        clearFocus();
+        return;
+      }
+
+      if (!activeSession) return; // Sessions not loaded yet
+
+      try {
+        // If fully initialized in the pool, just focus it.
+        // Partial entries (from events arriving before openSession) won't
+        // have a sessionId field — route those through openSession to repair.
+        if (agents[activeSessionId]?.sessionId) {
+          focusSession(activeSessionId);
+        } else {
+          // Opens in pool + focuses (also repairs partial entries)
+          await openSession(activeSessionId, activeSession.path, activeSession.workspaceId);
+        }
+
+        const snapshot = await window.sero.collaboration.getState(activeSessionId);
+        if (cancelled) return;
+        hydrateCollaborationState(activeSessionId, snapshot);
+      } catch (err) {
+        console.error('[useSessionAgent] failed to sync active session:', err);
+      }
     }
 
-    if (!activeSession) return; // Sessions not loaded yet
+    void syncActiveSession();
 
-    // If fully initialized in the pool, just focus it.
-    // Partial entries (from events arriving before openSession) won't
-    // have a sessionId field — route those through openSession to repair.
-    if (agents[activeSessionId]?.sessionId) {
-      focusSession(activeSessionId);
-    } else {
-      // Opens in pool + focuses (also repairs partial entries)
-      openSession(activeSessionId, activeSession.path, activeSession.workspaceId);
-    }
+    return () => {
+      cancelled = true;
+    };
   }, [activeSessionId, activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ensure the container is running whenever a container-enabled workspace

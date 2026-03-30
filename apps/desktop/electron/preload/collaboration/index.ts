@@ -8,6 +8,7 @@ import { ipcRenderer } from 'electron';
 import { IpcChannels } from '../../../src/types/ipc';
 import type {
   CollaborationResult,
+  CollaborationStateSnapshot,
   CollaborationEvent,
   CollaborationConfig,
 } from '../../../src/types/collaboration';
@@ -20,6 +21,9 @@ export const collaborationBridge = {
     config?: CollaborationConfig,
   ): Promise<CollaborationResult> =>
     ipcRenderer.invoke(IpcChannels.collaboration.prompt, sessionId, workspaceId, query, config),
+
+  getState: (sessionId: string): Promise<CollaborationStateSnapshot | null> =>
+    ipcRenderer.invoke(IpcChannels.collaboration.getState, sessionId),
 
   onEvent: (callback: (event: CollaborationEvent) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: CollaborationEvent) => {
