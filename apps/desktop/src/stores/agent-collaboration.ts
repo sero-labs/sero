@@ -142,6 +142,7 @@ export function startCollaborationForSession(
     ...collaborations,
     [sessionId]: {
       ...current,
+      mode: false,
       status: current.strategy === 'debate' ? 'research' : 'research',
       result: null,
       specialists: [],
@@ -243,6 +244,7 @@ export function applyCollaborationEvent(
         ...collaborations,
         [event.sessionId]: {
           ...current,
+          mode: false,
           strategy: event.strategy,
           status: 'research',
           result: null,

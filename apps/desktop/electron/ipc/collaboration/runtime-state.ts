@@ -48,7 +48,7 @@ export function createCollaborationRuntimeSnapshot(
   };
 
   return {
-    mode: true,
+    mode: false,
     strategy,
     status: 'research',
     result: null,
@@ -98,7 +98,7 @@ export function applyCollaborationRuntimeEvent(event: CollaborationEvent): void 
     case 'collab_start':
       updateSnapshot(event.sessionId, (snapshot) => ({
         ...snapshot,
-        mode: true,
+        mode: false,
         strategy: event.strategy,
         status: 'research',
         result: null,
