@@ -29,6 +29,10 @@ import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewaySe
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
 import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './platform/protocols/builtin-resources';
+import {
+  ensureConfiguredModelFallbackChain,
+  getDefaultModelFallbackChain,
+} from './shared/settings/model-fallback-chain';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -63,6 +67,9 @@ function bootstrapAgentDir(): void {
       defaultModel: 'claude-opus-4-6',
       defaultThinkingLevel: 'high',
       packages: workspacePackages,
+      sero: {
+        modelFallbackChain: getDefaultModelFallbackChain(),
+      },
     };
     writeFileSync(settingsPath, JSON.stringify(defaults, null, 2) + '\n');
     console.log('[sero] Created default settings at', settingsPath);
@@ -91,6 +98,9 @@ function ensureBuiltinPackages(): void {
   const workspacePackages = getWorkspaceAppPaths();
 
   let changed = false;
+  const fallbackSettings = ensureConfiguredModelFallbackChain(settings);
+  settings = fallbackSettings.settings;
+  if (fallbackSettings.changed) changed = true;
   for (const p of workspacePackages) {
     const hasPackagePath = packages.some((entry) =>
       (typeof entry === 'string' ? entry : entry.source) === p,

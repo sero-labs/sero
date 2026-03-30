@@ -4,6 +4,9 @@
  * Shared by Electron main process, preload, and renderer.
  * Extracted from ipc.ts to keep that file under 500 LOC.
  */
+
+import { localModelsIpcChannels } from './ipc-channels-local-models';
+
 export const IpcChannels = {
   workspace: {
     list: 'sero:workspace:list',
@@ -122,6 +125,7 @@ export const IpcChannels = {
     /** List all available models (session-independent). Returns AvailableModelGroup[]. */
     list: 'sero:models:list',
   },
+  localModels: localModelsIpcChannels,
   imagegen: {
     /** Generate images via Gemini Nano Banana. Returns generation metadata. */
     generate: 'sero:imagegen:generate',

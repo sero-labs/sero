@@ -68,6 +68,9 @@ import type {
   AppRecordingResult,
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
+  LocalModelsConfig,
+  LocalModelsConnectionRequest,
+  LocalRemoteModelInfo,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -407,6 +410,17 @@ interface SeroGatewayAPI {
   getQrLoginData(expiryDays?: number): Promise<QrLoginData>;
 }
 
+interface SeroLocalModelsAPI {
+  /** Read the current models.json config. Returns empty config if file doesn't exist. */
+  getConfig(): Promise<LocalModelsConfig>;
+  /** Write the full models.json config to disk and refresh the model registry. */
+  saveConfig(config: LocalModelsConfig): Promise<void>;
+  /** Test connectivity to a local provider using its selected API + auth settings. */
+  testConnection(request: LocalModelsConnectionRequest): Promise<{ ok: boolean; error?: string }>;
+  /** Fetch available models from a provider's API (OpenAI, Anthropic, Google, Ollama). */
+  fetchRemoteModels(request: LocalModelsConnectionRequest): Promise<LocalRemoteModelInfo[]>;
+}
+
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -444,6 +458,7 @@ interface SeroAPI {
   prompts: SeroPromptsAPI;
   github: SeroGitHubAPI;
   plugins: SeroPluginsAPI;
+  localModels: SeroLocalModelsAPI;
 }
 
 // ── GitHub Auth ──────────────────────────────────────────────

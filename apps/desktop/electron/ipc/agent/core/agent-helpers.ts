@@ -6,7 +6,7 @@
 
 import type { AgentSession, DefaultResourceLoader } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
-import type { ImageContent, KnownProvider } from '@mariozechner/pi-ai';
+import type { ImageContent } from '@mariozechner/pi-ai';
 import { promises as fs } from 'fs';
 import type {
   ChatMessage,
@@ -148,18 +148,12 @@ export function validateThinkingLevel(level: string): ThinkingLevel {
   );
 }
 
-const KNOWN_PROVIDERS: KnownProvider[] = [
-  'amazon-bedrock', 'anthropic', 'google', 'google-gemini-cli', 'google-antigravity',
-  'google-vertex', 'openai', 'azure-openai-responses', 'openai-codex', 'github-copilot',
-  'xai', 'groq', 'cerebras', 'openrouter', 'vercel-ai-gateway', 'zai', 'mistral',
-  'minimax', 'minimax-cn', 'huggingface', 'opencode', 'kimi-coding',
-];
-
-export function validateProvider(provider: string): KnownProvider {
-  if (KNOWN_PROVIDERS.includes(provider as KnownProvider)) {
-    return provider as KnownProvider;
+export function validateProvider(provider: string): string {
+  const normalized = provider.trim();
+  if (!normalized) {
+    throw new Error('Provider is required');
   }
-  throw new Error(`Unknown provider: "${provider}". Available: ${KNOWN_PROVIDERS.join(', ')}`);
+  return normalized;
 }
 
 // ── Message conversion ───────────────────────────────────────

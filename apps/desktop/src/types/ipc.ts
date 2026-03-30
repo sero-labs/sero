@@ -240,6 +240,22 @@ export type {
   CompactResult,
 } from './agent';
 
+// ── Local Models ─────────────────────────────────────────────────
+
+export type {
+  LocalModelApi,
+  LocalModelCost,
+  LocalModelCompat,
+  LocalModelEntry,
+  LocalModelOverride,
+  LocalProviderConfig,
+  LocalModelsConfig,
+  LocalModelsConnectionRequest,
+  LocalRemoteModelInfo,
+  LocalProviderPreset,
+  LocalProviderPresetConfig,
+} from './local-models';
+
 // ── Sero Apps ──────────────────────────────────────────────────
 
 export type { SettingsPackageSource, SeroAppManifest, SeroWidgetManifest } from './sero-apps';

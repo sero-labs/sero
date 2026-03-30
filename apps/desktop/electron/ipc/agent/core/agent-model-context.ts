@@ -18,6 +18,7 @@ import {
   validateProvider,
   validateThinkingLevel,
 } from './agent-helpers';
+import { getConfiguredModelFallbackChain } from '../../../shared/settings/model-fallback-chain';
 
 export interface AgentPoolContextEntry {
   session: AgentSession;
@@ -31,6 +32,97 @@ interface RegisterModelContextHandlersOptions {
   sendEvent: (event: AgentStreamEvent) => void;
 }
 
+function findAvailableModelByProviderAndId(
+  availableModels: ReturnType<AgentSession['modelRegistry']['getAvailable']>,
+  provider: string | undefined,
+  modelId: string | undefined,
+) {
+  if (!provider || !modelId) return undefined;
+  return availableModels.find((model) => model.provider === provider && model.id === modelId);
+}
+
+function findAvailableModelByReference(
+  availableModels: ReturnType<AgentSession['modelRegistry']['getAvailable']>,
+  reference: string,
+  preferredProvider?: string,
+) {
+  const trimmed = reference.trim();
+  if (!trimmed) return undefined;
+
+  const slashIndex = trimmed.indexOf('/');
+  if (slashIndex !== -1) {
+    const provider = trimmed.slice(0, slashIndex).trim();
+    const modelId = trimmed.slice(slashIndex + 1).trim();
+    return findAvailableModelByProviderAndId(availableModels, provider, modelId);
+  }
+
+  const lowerId = trimmed.toLowerCase();
+  const matches = availableModels.filter((model) => model.id.toLowerCase() === lowerId);
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) return matches[0];
+
+  if (preferredProvider) {
+    const preferredMatch = matches.find((model) => model.provider === preferredProvider);
+    if (preferredMatch) return preferredMatch;
+  }
+
+  return matches[0];
+}
+
+function pickFallbackModel(
+  session: AgentSession,
+  availableModels: ReturnType<AgentSession['modelRegistry']['getAvailable']>,
+) {
+  session.settingsManager.reload();
+
+  const preferredProvider = session.settingsManager.getDefaultProvider();
+  const savedDefaultModel = findAvailableModelByProviderAndId(
+    availableModels,
+    preferredProvider,
+    session.settingsManager.getDefaultModel(),
+  );
+  if (savedDefaultModel) return savedDefaultModel;
+
+  const globalSettings = session.settingsManager.getGlobalSettings() as Record<string, unknown>;
+  const fallbackChain = getConfiguredModelFallbackChain(globalSettings);
+  for (const candidate of fallbackChain) {
+    const model = findAvailableModelByReference(availableModels, candidate, preferredProvider);
+    if (model) return model;
+  }
+
+  return availableModels[0];
+}
+
+async function ensureSessionHasAvailableModel(session: AgentSession): Promise<boolean> {
+  session.modelRegistry.authStorage.reload();
+
+  const currentModel = session.model;
+  const refreshedModel = currentModel
+    ? session.modelRegistry.find(currentModel.provider, currentModel.id)
+    : undefined;
+
+  if (currentModel && refreshedModel && refreshedModel !== currentModel) {
+    session.agent.setModel(refreshedModel);
+  }
+
+  const availableModels = session.modelRegistry.getAvailable();
+  const currentProvider = refreshedModel?.provider ?? currentModel?.provider;
+  const currentModelId = refreshedModel?.id ?? currentModel?.id;
+  const currentStillAvailable = !!findAvailableModelByProviderAndId(
+    availableModels,
+    currentProvider,
+    currentModelId,
+  );
+
+  if (currentStillAvailable) return false;
+
+  const fallbackModel = pickFallbackModel(session, availableModels);
+  if (!fallbackModel) return false;
+
+  await session.setModel(fallbackModel);
+  return true;
+}
+
 export function registerAgentModelContextHandlers(
   options: RegisterModelContextHandlersOptions,
 ): void {
@@ -41,7 +133,12 @@ export function registerAgentModelContextHandlers(
     async (_event, sessionId: string): Promise<SessionModelState | null> => {
       const entry = getEntry(sessionId);
       if (!entry) return null;
-      return buildModelState(entry);
+      const changed = await ensureSessionHasAvailableModel(entry.session);
+      const state = buildModelState(entry);
+      if (changed) {
+        sendEvent({ type: 'model_change', sessionId, state });
+      }
+      return state;
     },
   );
 
