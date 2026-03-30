@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import type { Search } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Search as SearchIcon,
   FlaskConical,
@@ -31,13 +31,58 @@ export type ChatItem =
 
 // ── Phase banner metadata ───────────────────────────────────────
 
-export const PHASE_BANNERS: Record<string, { icon: typeof Search; label: string; color: string }> = {
-  research: { icon: SearchIcon, label: 'Research phase started', color: 'text-[var(--status-info)]' },
-  specialists: { icon: FlaskConical, label: 'Specialists are joining...', color: 'text-[var(--status-success)]' },
-  synthesis: { icon: Sparkles, label: 'Synthesizing results...', color: 'text-[var(--collab-primary)]' },
-  decomposition: { icon: Eye, label: 'Decomposing the problem...', color: 'text-[var(--status-info)]' },
-  independent_analysis: { icon: FlaskConical, label: 'Independent analysis begun', color: 'text-[var(--status-success)]' },
-  debate: { icon: Swords, label: 'Debate phase — let the sparks fly', color: 'text-[var(--status-warning)]' },
+export const PHASE_BANNERS: Record<
+  string,
+  {
+    icon: LucideIcon;
+    label: string;
+    color: string;
+    surface: string;
+    border: string;
+  }
+> = {
+  research: {
+    icon: SearchIcon,
+    label: 'Research phase started',
+    color: 'text-[var(--status-info)]',
+    surface: 'bg-[var(--status-info-subtle)]',
+    border: 'border-[var(--status-info-border)]',
+  },
+  specialists: {
+    icon: FlaskConical,
+    label: 'Specialists are joining...',
+    color: 'text-[var(--status-success)]',
+    surface: 'bg-[var(--status-success-subtle)]',
+    border: 'border-[var(--status-success-border)]',
+  },
+  synthesis: {
+    icon: Sparkles,
+    label: 'Synthesizing results...',
+    color: 'text-[var(--collab-primary)]',
+    surface: 'bg-[var(--collab-primary-subtle)]',
+    border: 'border-[var(--collab-primary-border)]',
+  },
+  decomposition: {
+    icon: Eye,
+    label: 'Decomposing the problem...',
+    color: 'text-[var(--status-info)]',
+    surface: 'bg-[var(--status-info-subtle)]',
+    border: 'border-[var(--status-info-border)]',
+  },
+  independent_analysis: {
+    icon: FlaskConical,
+    label: 'Independent analysis begun',
+    color: 'text-[var(--status-success)]',
+    surface: 'bg-[var(--status-success-subtle)]',
+    border: 'border-[var(--status-success-border)]',
+  },
+  debate: {
+    icon: Swords,
+    label: 'Debate phase — let the sparks fly',
+    color: 'text-[var(--status-warning)]',
+    surface: 'bg-[var(--status-warning-subtle)]',
+    border: 'border-[var(--status-warning-border)]',
+  },
 };
 
 // ── Hook: build the chat feed ───────────────────────────────────
@@ -122,6 +167,24 @@ function buildDebateFeed(
   for (let i = 0; i <= currentIdx; i++) {
     items.push({ kind: 'phase', key: `phase-${phases[i]}`, phase: phases[i]! });
 
+    if (phases[i] === 'decomposition') {
+      const decomposition = specialists.find((s) => s.role === 'coordinator');
+      const coordinatorStatus =
+        debate.agentStatuses['coordinator'] ?? debate.agentStatuses['collab-coordinator'];
+      if (decomposition) {
+        items.push({
+          kind: 'message',
+          key: 'msg-decomposition-coordinator',
+          role: 'coordinator',
+          text: decomposition.response,
+          durationMs: decomposition.durationMs,
+          isError: !!decomposition.error,
+        });
+      } else if (i === currentIdx && coordinatorStatus === 'running') {
+        items.push({ kind: 'typing', key: 'typing-decomposition-coordinator', role: 'coordinator' });
+      }
+    }
+
     if (phases[i] === 'independent_analysis') {
       for (const role of ['researcher', 'analyst', 'visionary'] as CollaborationRole[]) {
         const spec = specialists.find((s) => s.role === role);
@@ -156,13 +219,8 @@ function buildDebateFeed(
       }
     }
 
-    if (phases[i] === 'synthesis') {
-      const coordinator = specialists.find((s) => s.role === 'coordinator');
-      if (coordinator) {
-        items.push({ kind: 'message', key: 'msg-coordinator', role: 'coordinator', text: coordinator.response, durationMs: coordinator.durationMs });
-      } else if (i === currentIdx) {
-        items.push({ kind: 'typing', key: 'typing-coordinator', role: 'coordinator' });
-      }
+    if (phases[i] === 'synthesis' && i === currentIdx) {
+      items.push({ kind: 'typing', key: 'typing-coordinator', role: 'coordinator' });
     }
   }
 

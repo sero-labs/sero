@@ -399,6 +399,7 @@ export type {
   CollaborationStatus,
   CollaborationSpecialistOutput,
   CollaborationResult,
+  CollaborationStateSnapshot,
   CollaborationEvent,
 } from './collaboration';
 

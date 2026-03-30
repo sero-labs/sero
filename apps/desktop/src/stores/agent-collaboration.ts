@@ -2,6 +2,7 @@ import type {
   CollaborationEvent,
   CollaborationResult,
   CollaborationSpecialistOutput,
+  CollaborationStateSnapshot,
   CollaborationStatus,
   CollaborationStrategy,
   DebateState,
@@ -11,17 +12,7 @@ import type {
 } from '@/types/collaboration';
 import { DEFAULT_DEBATE_CONFIG } from '@/types/collaboration';
 
-export interface CollaborationSessionState {
-  mode: boolean;
-  strategy: CollaborationStrategy;
-  status: CollaborationStatus;
-  result: CollaborationResult | null;
-  specialists: CollaborationSpecialistOutput[];
-  /** Debate-specific state (only populated when strategy === 'debate'). */
-  debate: DebateState | null;
-  /** User-configured debate parameters. */
-  debateConfig: DebateConfig;
-}
+export interface CollaborationSessionState extends CollaborationStateSnapshot {}
 
 export type CollaborationSessionMap = Record<string, CollaborationSessionState>;
 
@@ -34,6 +25,8 @@ export function createCollaborationSessionState(): CollaborationSessionState {
     specialists: [],
     debate: null,
     debateConfig: { ...DEFAULT_DEBATE_CONFIG },
+    pendingUserQuery: null,
+    error: null,
   };
 }
 
@@ -106,6 +99,41 @@ export function setDebateConfigForSession(
   };
 }
 
+export function hydrateCollaborationSessionForRenderer(
+  collaborations: CollaborationSessionMap,
+  sessionId: string,
+  snapshot: CollaborationStateSnapshot | null,
+): CollaborationSessionMap {
+  if (!snapshot) return collaborations;
+
+  return {
+    ...collaborations,
+    [sessionId]: {
+      ...snapshot,
+      specialists: [...snapshot.specialists],
+      result: snapshot.result
+        ? {
+            ...snapshot.result,
+            specialistOutputs: [...snapshot.result.specialistOutputs],
+          }
+        : null,
+      debate: snapshot.debate
+        ? {
+            ...snapshot.debate,
+            rounds: [...snapshot.debate.rounds],
+            agentStatuses: { ...snapshot.debate.agentStatuses },
+          }
+        : null,
+      debateConfig: {
+        ...snapshot.debateConfig,
+        ...(snapshot.debateConfig.models
+          ? { models: { ...snapshot.debateConfig.models } }
+          : {}),
+      },
+    },
+  };
+}
+
 export function startCollaborationForSession(
   collaborations: CollaborationSessionMap,
   sessionId: string,
@@ -115,9 +143,11 @@ export function startCollaborationForSession(
     ...collaborations,
     [sessionId]: {
       ...current,
+      mode: false,
       status: current.strategy === 'debate' ? 'research' : 'research',
       result: null,
       specialists: [],
+      error: null,
       debate: current.strategy === 'debate'
         ? {
             phase: 'decomposition',
@@ -216,10 +246,12 @@ export function applyCollaborationEvent(
         ...collaborations,
         [event.sessionId]: {
           ...current,
+          mode: false,
           strategy: event.strategy,
           status: 'research',
           result: null,
           specialists: [],
+          error: null,
           debate: event.strategy === 'debate'
             ? {
                 phase: 'decomposition',
@@ -268,6 +300,7 @@ export function applyCollaborationEvent(
           ...current,
           status: 'complete',
           result: event.result,
+          error: null,
         },
       };
 
@@ -277,6 +310,7 @@ export function applyCollaborationEvent(
         [event.sessionId]: {
           ...current,
           status: 'error',
+          error: event.error,
         },
       };
 

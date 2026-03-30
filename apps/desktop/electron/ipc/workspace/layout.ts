@@ -23,6 +23,10 @@ function isOptionalArray(value: unknown): boolean {
   return value === undefined || Array.isArray(value);
 }
 
+function isOptionalNumber(value: unknown): boolean {
+  return value === undefined || typeof value === 'number';
+}
+
 function sanitizeStringArray(values: string[] | undefined): string[] | undefined {
   return Array.isArray(values)
     ? values.filter((value): value is string => typeof value === 'string')
@@ -40,6 +44,10 @@ function isLayoutState(value: unknown): value is LoadedLayoutState {
   if (!isOptionalArray(c.favouriteModels)) return false;
   if (!isOptionalArray(c.hiddenModels)) return false;
   if (!isOptionalArray(c.hiddenProviders)) return false;
+  // Optional numeric panel sizes
+  if (!isOptionalNumber(c.mainSidebarSizePct)) return false;
+  if (!isOptionalNumber(c.chatPanelSizePct)) return false;
+  if (!isOptionalNumber(c.chatCollaborationSizePct)) return false;
   // Optional strings — reject wrong types to prevent garbage propagation
   if (c.theme !== undefined && typeof c.theme !== 'string') return false;
   if (c.activeApp !== undefined && typeof c.activeApp !== 'string') return false;

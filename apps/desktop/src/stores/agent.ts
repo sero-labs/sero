@@ -6,11 +6,16 @@ import type {
   SeroSlashCommandInfo,
   SessionModelState,
 } from '@/types/ipc';
-import type { CollaborationEvent, CollaborationStrategy, DebateConfig } from '@/types/collaboration';
+import type {
+  CollaborationEvent,
+  CollaborationStateSnapshot,
+  CollaborationStrategy,
+  DebateConfig,
+} from '@/types/collaboration';
 import {
   applyCollaborationEvent,
+  hydrateCollaborationSessionForRenderer,
   removeCollaborationSession,
-  resetCollaborationSession,
   setCollaborationErrorForSession,
   setCollaborationStrategyForSession,
   setDebateConfigForSession,
@@ -38,11 +43,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   collaborations: {},
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
-    // Reset collaboration mode when switching sessions.
-    set((s) => ({
-      focusedSessionId: sessionId,
-      collaborations: resetCollaborationSession(s.collaborations, sessionId),
-    }));
+    set({ focusedSessionId: sessionId });
 
     const pending = pendingSessionOpens.get(sessionId);
     if (pending) {
@@ -228,11 +229,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  focusSession: (sessionId) =>
-    set((s) => ({
-      focusedSessionId: sessionId,
-      collaborations: resetCollaborationSession(s.collaborations, sessionId),
-    })),
+  focusSession: (sessionId) => set({ focusedSessionId: sessionId }),
 
   clearFocus: () => set({ focusedSessionId: null }),
 
@@ -366,6 +363,56 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
+  hydrateCollaborationState: (
+    sessionId: string,
+    snapshot: CollaborationStateSnapshot | null,
+  ) => {
+    if (!snapshot) return;
+
+    set((s) => {
+      const agent = s.agents[sessionId];
+      if (!agent) return s;
+
+      const pendingUserQuery = snapshot.pendingUserQuery?.trim() ?? '';
+      const lastMessage = agent.messages[agent.messages.length - 1];
+      const hasPendingUserMessage =
+        lastMessage?.type === 'user' &&
+        lastMessage.text.trim() === pendingUserQuery;
+      const shouldAppendPendingUser =
+        pendingUserQuery.length > 0 && !hasPendingUserMessage;
+      const collaborationBusy =
+        snapshot.status !== 'idle' &&
+        snapshot.status !== 'complete' &&
+        snapshot.status !== 'error';
+
+      return {
+        collaborations: hydrateCollaborationSessionForRenderer(
+          s.collaborations,
+          sessionId,
+          snapshot,
+        ),
+        agents: {
+          ...s.agents,
+          [sessionId]: {
+            ...agent,
+            error: snapshot.error ?? (collaborationBusy ? null : agent.error),
+            isStreaming: agent.isStreaming || collaborationBusy,
+            messages: shouldAppendPendingUser
+              ? [
+                  ...agent.messages,
+                  {
+                    type: 'user',
+                    id: `collab-pending-${sessionId}`,
+                    text: pendingUserQuery,
+                  },
+                ]
+              : agent.messages,
+          },
+        },
+      };
+    });
+  },
+
   initEventListener: () => {
     // Flush buffered text/thinking deltas into the store in one batch.
     const flushDeltas = () => {
@@ -400,9 +447,35 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   initCollaborationListener: () => {
     return window.sero.collaboration.onEvent((event: CollaborationEvent) => {
-      set((s) => ({
-        collaborations: applyCollaborationEvent(s.collaborations, event),
-      }));
+      set((s) => {
+        const agent = s.agents[event.sessionId];
+        let agents = s.agents;
+
+        if (agent && event.type === 'collab_start') {
+          agents = {
+            ...s.agents,
+            [event.sessionId]: {
+              ...agent,
+              error: null,
+              isStreaming: true,
+            },
+          };
+        } else if (agent && event.type === 'collab_error') {
+          agents = {
+            ...s.agents,
+            [event.sessionId]: {
+              ...agent,
+              error: event.error,
+              isStreaming: false,
+            },
+          };
+        }
+
+        return {
+          agents,
+          collaborations: applyCollaborationEvent(s.collaborations, event),
+        };
+      });
     });
   },
 }));

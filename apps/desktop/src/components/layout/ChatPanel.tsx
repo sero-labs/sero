@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Bot, Loader2, AlertCircle } from 'lucide-react';
 import {
   Conversation,
@@ -9,15 +9,19 @@ import { useAgentStore } from '@/stores/agent';
 import {
   useFocusedAgent,
   useFocusedCollaborationMode,
+  useFocusedCollaborationResult,
+  useFocusedCollaborationStatus,
   useFocusedCollaborationStrategy,
 } from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
+import { useAppStore } from '@/stores/app';
 import { SessionBadge } from './SessionBadge';
 import { groupMessages, ToolCallGroup } from './ToolCallGroup';
 import { ChatMessageItem } from './ChatMessageItem';
 import { CheckpointRestoreDialog } from './CheckpointRestoreDialog';
 import { useFeedbackStore } from '@/stores/feedback';
 import { useCheckpointRestore } from '@/hooks/useCheckpointRestore';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
 import { createFilePathClickHandler } from './ClickableFilePath';
@@ -26,6 +30,10 @@ import { QuestionnaireNotice } from './QuestionnaireNotice';
 import { EmptyState } from './ChatPanelHelpers';
 import { CollaborationDetails } from './CollaborationResponse';
 import { CollaborationActivityPanel } from './CollaborationActivityPanel';
+import {
+  ChatPanelCollaborationLayout,
+  isCollaborationSectionVisible,
+} from './ChatPanelCollaborationLayout';
 import { ChatPromptArea } from './ChatPromptArea';
 import { ImageLightbox } from './ImageLightbox';
 
@@ -40,13 +48,21 @@ export function ChatPanel() {
 
   // Initialize feedback store (load ratings from disk)
   const initFeedback = useFeedbackStore((s) => s.init);
-  useEffect(() => { initFeedback(); }, [initFeedback]);
+  useEffect(() => {
+    initFeedback();
+  }, [initFeedback]);
 
   // Initialize user-feedback IPC listeners (question/questionnaire tools)
   useUserFeedbackInit();
 
   const collaborationMode = useFocusedCollaborationMode();
   const collaborationStrategy = useFocusedCollaborationStrategy();
+  const collaborationStatus = useFocusedCollaborationStatus();
+  const collaborationResult = useFocusedCollaborationResult();
+  const chatCollaborationSizePct = useAppStore((s) => s.chatCollaborationSizePct);
+  const setChatCollaborationSizePct = useAppStore(
+    (s) => s.setChatCollaborationSizePct,
+  );
 
   const messages = focused?.messages ?? [];
   const isStreaming = focused?.isStreaming ?? false;
@@ -54,6 +70,20 @@ export function ChatPanel() {
   const sessionId = focused?.sessionId ?? null;
   const focusedWorkspaceId = focused?.workspaceId ?? null;
   const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
+
+  const persistCollaborationSize = useDebouncedCallback((pct: number) => {
+    setChatCollaborationSizePct(Math.round(pct * 10) / 10);
+  }, 300);
+
+  const handleCollaborationResize = useCallback(
+    ({ asPercentage }: { inPixels: number; asPercentage: number }) => {
+      if (asPercentage <= 0) return;
+      persistCollaborationSize(asPercentage);
+    },
+    [persistCollaborationSize],
+  );
+
+  const collaborationVisible = isCollaborationSectionVisible(collaborationStatus);
 
   // Stable callback ref for ChatMessageItem memo
   const stableRestoreHandler = useMemo(
@@ -91,7 +121,11 @@ export function ChatPanel() {
       const item = groupedItems[i];
       if (item.kind === 'message' && item.message.type === 'user') {
         lastUserText = item.message.text;
-      } else if (item.kind === 'message' && item.message.type === 'assistant' && lastUserText) {
+      } else if (
+        item.kind === 'message' &&
+        item.message.type === 'assistant' &&
+        lastUserText
+      ) {
         map.set(i, lastUserText);
       }
     }
@@ -103,12 +137,95 @@ export function ChatPanel() {
   const showThinking = useMemo(() => {
     if (!isStreaming || groupedItems.length === 0) return false;
     const last = groupedItems[groupedItems.length - 1];
-    if (last.kind === 'message' && last.message.type === 'assistant' && last.message.isStreaming) return false;
-    if (last.kind === 'tool-group' && last.tools.some((t) => t.state === 'pending' || t.state === 'running')) return false;
+    if (
+      last.kind === 'message' &&
+      last.message.type === 'assistant' &&
+      last.message.isStreaming
+    ) {
+      return false;
+    }
+    if (
+      last.kind === 'tool-group' &&
+      last.tools.some((tool) => tool.state === 'pending' || tool.state === 'running')
+    ) {
+      return false;
+    }
     return true;
   }, [isStreaming, groupedItems]);
 
   const hasSession = !!sessionId;
+
+  const conversation = (
+    <Conversation key={sessionId} className="min-h-0 flex-1" initial="instant">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
+      <ConversationContent className="gap-4 p-3" onClick={conversationClickHandler}>
+        {!hasSession ? (
+          <EmptyState message="Select or create a chat to begin" />
+        ) : messages.length === 0 && !isStreaming ? (
+          <EmptyState message="Start a conversation" />
+        ) : (
+          <>
+            {groupedItems.map((item, index) => {
+              if (item.kind === 'tool-group') {
+                const isLast = index === groupedItems.length - 1;
+                const isFinalized = !isLast || !isStreaming;
+
+                // Replace a running questionnaire/interview tool call with clickable notice
+                const feedbackToolName = item.tools[0]?.toolName;
+                const isRunningFeedbackForm =
+                  item.tools.length === 1 &&
+                  (feedbackToolName === 'questionnaire' ||
+                    feedbackToolName === 'interview') &&
+                  (item.tools[0].state === 'pending' ||
+                    item.tools[0].state === 'running');
+
+                if (isRunningFeedbackForm) {
+                  return <QuestionnaireNotice key={item.id} tools={item.tools} />;
+                }
+
+                return (
+                  <ToolCallGroup
+                    key={item.id}
+                    tools={item.tools}
+                    isFinalized={isFinalized}
+                    workspaceId={focusedWorkspaceId}
+                  />
+                );
+              }
+
+              return (
+                <ChatMessageItem
+                  key={item.message.id}
+                  message={item.message}
+                  showThinking={showThinkingBlocks}
+                  showMemory={showMemoryBlocks}
+                  onRestoreCheckpoint={stableRestoreHandler}
+                  sessionId={sessionId ?? undefined}
+                  previousUserText={previousUserTextMap.get(index)}
+                />
+              );
+            })}
+          </>
+        )}
+
+        {showThinking && (
+          <div className="flex items-center gap-2 px-2 py-1">
+            <Loader2 className="size-3.5 animate-spin text-[var(--text-muted)]" />
+            <span className="text-xs text-[var(--text-muted)]">Thinking…</span>
+          </div>
+        )}
+
+        {error && <ChatError error={error} />}
+      </ConversationContent>
+      <ConversationScrollButton />
+    </Conversation>
+  );
+
+  const collaboration = (
+    <div className="flex h-full min-h-0 flex-col p-2">
+      <CollaborationActivityPanel />
+    </div>
+  );
 
   return (
     <div className="flex h-full flex-col border-l border-[var(--border-default)] bg-[var(--bg-surface)]">
@@ -119,7 +236,10 @@ export function ChatPanel() {
           Agent
         </span>
         {sessionLabel && (
-          <span className="truncate text-xs rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[var(--text-muted)]" style={{ maxWidth: '60%' }}>
+          <span
+            className="truncate rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]"
+            style={{ maxWidth: '60%' }}
+          >
             {sessionLabel}
           </span>
         )}
@@ -131,72 +251,19 @@ export function ChatPanel() {
         {sessionId && <SessionBadge sessionId={sessionId} />}
       </div>
 
-      {/* ── Conversation ────────────────────────────────────── */}
-      <Conversation key={sessionId} className="min-h-0 flex-1" initial="instant">
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
-        <ConversationContent className="gap-4 p-3" onClick={conversationClickHandler}>
-          {!hasSession ? (
-            <EmptyState message="Select or create a chat to begin" />
-          ) : messages.length === 0 && !isStreaming ? (
-            <EmptyState message="Start a conversation" />
-          ) : (
-            <>
-              {groupedItems.map((item, index) => {
-                if (item.kind === 'tool-group') {
-                  const isLast = index === groupedItems.length - 1;
-                  const isFinalized = !isLast || !isStreaming;
+      <ChatPanelCollaborationLayout
+        collaborationVisible={collaborationVisible}
+        collaborationDefaultSizePct={chatCollaborationSizePct}
+        onCollaborationResize={handleCollaborationResize}
+        conversation={conversation}
+        collaboration={collaboration}
+      />
 
-                  // Replace a running questionnaire/interview tool call with clickable notice
-                  const feedbackToolName = item.tools[0]?.toolName;
-                  const isRunningFeedbackForm =
-                    item.tools.length === 1 &&
-                    (feedbackToolName === 'questionnaire' || feedbackToolName === 'interview') &&
-                    (item.tools[0].state === 'pending' || item.tools[0].state === 'running');
-
-                  if (isRunningFeedbackForm) {
-                    return <QuestionnaireNotice key={item.id} tools={item.tools} />;
-                  }
-
-                  return (
-                    <ToolCallGroup
-                      key={item.id}
-                      tools={item.tools}
-                      isFinalized={isFinalized}
-                      workspaceId={focusedWorkspaceId}
-                    />
-                  );
-                }
-
-                return (
-                  <ChatMessageItem
-                    key={item.message.id}
-                    message={item.message}
-                    showThinking={showThinkingBlocks}
-                    showMemory={showMemoryBlocks}
-                    onRestoreCheckpoint={stableRestoreHandler}
-                    sessionId={sessionId ?? undefined}
-                    previousUserText={previousUserTextMap.get(index)}
-                  />
-                );
-              })}
-            </>
-          )}
-
-          {showThinking && (
-            <div className="flex items-center gap-2 px-2 py-1">
-              <Loader2 className="size-3.5 animate-spin text-[var(--text-muted)]" />
-              <span className="text-xs text-[var(--text-muted)]">Thinking…</span>
-            </div>
-          )}
-
-          {error && <ChatError error={error} />}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-
-      {/* ── Collaboration activity + expandable details ──────── */}
-      <CollaborationActivityPanel />
-      <CollaborationDetails />
+      {!collaborationVisible && collaborationResult && (
+        <div className="shrink-0 px-2 pb-2">
+          <CollaborationDetails />
+        </div>
+      )}
 
       {/* ── Pending question card (single questions only) ──── */}
       <PendingQuestionCard />
@@ -252,14 +319,16 @@ function ChatError({ error }: { error: string }) {
           </div>
           <p className="pl-[22px] text-[var(--text-muted)]">
             You need to authenticate before using the agent. Type{' '}
-            <code className="rounded bg-[var(--bg-elevated)] px-1 py-0.5 text-[var(--text-secondary)]">/login</code>{' '}
+            <code className="rounded bg-[var(--bg-elevated)] px-1 py-0.5 text-[var(--text-secondary)]">
+              /login
+            </code>{' '}
             in the chat input to sign in.
           </p>
         </>
       ) : (
         <div className="flex items-start gap-2 text-destructive">
           <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
-          <span className="break-words break-all">{error}</span>
+          <span className="break-all break-words">{error}</span>
         </div>
       )}
     </div>

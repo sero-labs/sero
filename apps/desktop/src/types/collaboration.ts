@@ -25,6 +25,21 @@ export interface CollaborationResult {
   hasErrors: boolean;
 }
 
+/** Snapshot of collaboration UI/runtime state for renderer rehydration. */
+export interface CollaborationStateSnapshot {
+  mode: boolean;
+  strategy: CollaborationStrategy;
+  status: CollaborationStatus;
+  result: CollaborationResult | null;
+  specialists: CollaborationSpecialistOutput[];
+  debate: DebateState | null;
+  debateConfig: DebateConfig;
+  /** Original user query used to start the collaboration. */
+  pendingUserQuery: string | null;
+  /** Last collaboration error, if the run failed. */
+  error: string | null;
+}
+
 // ── Strategy types ──────────────────────────────────────────────
 
 /** Available collaboration strategies. */

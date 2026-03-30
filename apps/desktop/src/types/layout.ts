@@ -16,6 +16,7 @@ export interface LayoutState {
   /** Persisted panel size percentages (0–100). */
   mainSidebarSizePct?: number;
   chatPanelSizePct?: number;
+  chatCollaborationSizePct?: number;
   /** UI theme mode preference ('light' | 'dark' | 'system'). Backward compat: also accepts legacy 'dark'/'light'. */
   theme?: string;
   /** Active theme preset ID. */

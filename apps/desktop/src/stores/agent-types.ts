@@ -4,7 +4,11 @@ import type {
   SessionModelState,
   SeroSlashCommandInfo,
 } from '@/types/ipc';
-import type { CollaborationStrategy, DebateConfig } from '@/types/collaboration';
+import type {
+  CollaborationStrategy,
+  CollaborationStateSnapshot,
+  DebateConfig,
+} from '@/types/collaboration';
 import type { CollaborationSessionMap } from '@/stores/agent-collaboration';
 
 /** State for a single agent session in the pool. */
@@ -66,6 +70,11 @@ export interface AgentState {
   setDebateConfig: (config: Partial<DebateConfig>) => void;
   /** Send a prompt through the collaboration framework. */
   sendCollaborationPrompt: (sessionId: string, text: string) => Promise<void>;
+  /** Hydrate collaboration state after a renderer reload / refocus. */
+  hydrateCollaborationState: (
+    sessionId: string,
+    snapshot: CollaborationStateSnapshot | null,
+  ) => void;
   /** Subscribe to main-process events. Returns cleanup function. */
   initEventListener: () => () => void;
   /** Subscribe to collaboration events. Returns cleanup function. */
