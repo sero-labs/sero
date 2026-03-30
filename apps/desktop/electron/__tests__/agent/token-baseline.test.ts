@@ -114,7 +114,6 @@ function buildSkillsListing(): string {
     { name: 'research', desc: 'Get AI-synthesised research on a topic with citations.' },
     { name: 'search', desc: 'Search the web using an LLM-optimised search API.' },
     { name: 'skill-creator', desc: 'Guide for creating effective skills.' },
-    { name: 'tavily-best-practices', desc: 'Build production-ready Tavily integrations.' },
     { name: 'transcribe', desc: 'Speech-to-text transcription for common audio formats.' },
     { name: 'visual-explainer', desc: 'Generate visual HTML explanations for technical concepts.' },
     { name: 'vscode', desc: 'VS Code integration for viewing diffs and comparing files.' },
