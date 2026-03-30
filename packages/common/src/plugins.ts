@@ -86,4 +86,6 @@ export interface DiscoveredPlugin {
   installSource: string;
   /** Whether this plugin is already installed locally. */
   installed: boolean;
+  /** Installed plugin ID, used for uninstall actions in discovery UI. */
+  installedPluginId: string | null;
 }

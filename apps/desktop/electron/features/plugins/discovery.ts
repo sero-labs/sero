@@ -3,7 +3,7 @@
  *
  * GitHub repos are discovered via the "sero-ai-plugin" topic.
  * npm packages are discovered via the "sero-ai-plugin" keyword.
- * Results are merged by matching GitHub repo URLs in npm metadata.
+ * Results are merged by matching GitHub repos referenced in npm metadata.
  */
 
 import type { DiscoveredPlugin } from '@sero/common';
@@ -87,20 +87,67 @@ async function searchNpm(query: string): Promise<NpmPackage[]> {
 
 // ── Merge & deduplicate ────────────────────────────────────
 
-function normalizeGitHubUrl(url: string | undefined): string | null {
-  if (!url) return null;
-  // Strip .git suffix and trailing slashes, lowercase for comparison
-  return url
-    .replace(/\.git$/, '')
-    .replace(/\/$/, '')
-    .toLowerCase();
+function extractGitHubRepoKey(value: string | null | undefined): string | null {
+  if (!value) return null;
+
+  const normalized = value
+    .trim()
+    .replace(/^git\+/, '')
+    .replace(/^git:(?=(?:https?:\/\/github\.com\/|git@github\.com:))/i, '')
+    .replace(/^github:/i, 'https://github.com/')
+    .replace(/^git@github\.com:/i, 'https://github.com/')
+    .replace(/^ssh:\/\/git@github\.com\//i, 'https://github.com/');
+
+  if (!normalized) return null;
+
+  try {
+    const candidate = normalized.includes('://') ? normalized : `https://${normalized.replace(/^\/+/, '')}`;
+    const url = new URL(candidate);
+    const hostname = url.hostname.toLowerCase();
+    if (hostname !== 'github.com' && hostname !== 'www.github.com') {
+      return null;
+    }
+
+    const segments = url.pathname.replace(/^\/+|\/+$/g, '').split('/');
+    const [owner, repo] = segments;
+    if (!owner || !repo) return null;
+
+    return `${owner}/${repo.replace(/\.git$/i, '')}`.toLowerCase();
+  } catch {
+    const match = normalized.match(
+      /^(?:github\.com\/)?([^/]+)\/([^/#?]+?)(?:\.git)?(?:[/?#].*)?$/i,
+    );
+    if (!match) return null;
+    return `${match[1]}/${match[2]}`.toLowerCase();
+  }
+}
+
+function toGitHubRepoUrl(repoKey: string | null): string | null {
+  return repoKey ? `https://github.com/${repoKey}` : null;
+}
+
+function extractNpmPackageName(source: string): string | null {
+  if (!source.startsWith('npm:')) return null;
+
+  const spec = source.slice(4).trim();
+  if (!spec) return null;
+
+  if (spec.startsWith('@')) {
+    const scopeSeparator = spec.indexOf('/');
+    if (scopeSeparator === -1) return null;
+    const versionSeparator = spec.indexOf('@', scopeSeparator + 1);
+    return (versionSeparator === -1 ? spec : spec.slice(0, versionSeparator)).trim() || null;
+  }
+
+  const versionSeparator = spec.indexOf('@');
+  return (versionSeparator === -1 ? spec : spec.slice(0, versionSeparator)).trim() || null;
 }
 
 /**
  * Search for public Sero plugins across GitHub and npm.
- * Results are merged: if a GitHub repo matches an npm package's repository
- * URL, they are combined into a single entry with npm as the preferred
- * install source.
+ * Results are merged: if a GitHub repo matches exactly one npm package's
+ * repository URL, they are combined into a single entry with npm as the
+ * preferred install source.
  */
 export async function searchPlugins(query: string): Promise<DiscoveredPlugin[]> {
   const [githubRepos, npmPackages, installed] = await Promise.all([
@@ -109,25 +156,42 @@ export async function searchPlugins(query: string): Promise<DiscoveredPlugin[]> 
     listInstalledPlugins(),
   ]);
 
-  const installedSources = new Set(installed.map((p) => p.source));
-  const installedNames = new Set(installed.map((p) => p.name));
+  const installedSources = new Map(installed.map((plugin) => [plugin.source, plugin.id]));
+  const installedNpmPackages = new Map<string, string>();
+  const installedGitHubRepos = new Map<string, string>();
 
-  // Index npm packages by normalized GitHub URL for merging
-  const npmByRepoUrl = new Map<string, NpmPackage>();
+  for (const plugin of installed) {
+    const npmPackage = extractNpmPackageName(plugin.source);
+    if (npmPackage && !installedNpmPackages.has(npmPackage)) {
+      installedNpmPackages.set(npmPackage, plugin.id);
+    }
+
+    const repoKey = extractGitHubRepoKey(plugin.source);
+    if (repoKey && !installedGitHubRepos.has(repoKey)) {
+      installedGitHubRepos.set(repoKey, plugin.id);
+    }
+  }
+
+  // Index npm packages by normalized GitHub repo for merging.
+  // If multiple npm packages point at the same repo, leave them as npm-only
+  // results rather than merging the repo with an arbitrary package.
+  const npmByRepoKey = new Map<string, NpmPackage[]>();
   const npmUsed = new Set<string>();
   for (const pkg of npmPackages) {
-    const repoUrl = normalizeGitHubUrl(pkg.links?.repository);
-    if (repoUrl) {
-      npmByRepoUrl.set(repoUrl, pkg);
-    }
+    const repoKey = extractGitHubRepoKey(pkg.links?.repository);
+    if (!repoKey) continue;
+    const existing = npmByRepoKey.get(repoKey) ?? [];
+    existing.push(pkg);
+    npmByRepoKey.set(repoKey, existing);
   }
 
   const results: DiscoveredPlugin[] = [];
 
-  // Process GitHub repos first, merging with npm matches
+  // Process GitHub repos first, merging with npm matches when unambiguous.
   for (const repo of githubRepos) {
-    const normalizedUrl = normalizeGitHubUrl(repo.html_url);
-    const matchedNpm = normalizedUrl ? npmByRepoUrl.get(normalizedUrl) : undefined;
+    const repoKey = extractGitHubRepoKey(repo.html_url);
+    const matchedPackages = repoKey ? (npmByRepoKey.get(repoKey) ?? []) : [];
+    const matchedNpm = matchedPackages.length === 1 ? matchedPackages[0] : undefined;
 
     if (matchedNpm) {
       npmUsed.add(matchedNpm.name);
@@ -135,6 +199,14 @@ export async function searchPlugins(query: string): Promise<DiscoveredPlugin[]> 
 
     const npmName = matchedNpm?.name ?? null;
     const installSource = npmName ? `npm:${npmName}` : `git:${repo.html_url}.git`;
+    const installedPluginId = getInstalledPluginId({
+      source: installSource,
+      npmPackage: npmName,
+      repoKey,
+      installedSources,
+      installedNpmPackages,
+      installedGitHubRepos,
+    });
 
     results.push({
       name: npmName ?? repo.full_name,
@@ -146,7 +218,8 @@ export async function searchPlugins(query: string): Promise<DiscoveredPlugin[]> 
       npmPackage: npmName,
       stars: repo.stargazers_count,
       installSource,
-      installed: isInstalled(installSource, npmName, installedSources, installedNames),
+      installed: installedPluginId !== null,
+      installedPluginId,
     });
   }
 
@@ -154,7 +227,17 @@ export async function searchPlugins(query: string): Promise<DiscoveredPlugin[]> 
   for (const pkg of npmPackages) {
     if (npmUsed.has(pkg.name)) continue;
 
-    const repoUrl = pkg.links?.repository ?? null;
+    const repoKey = extractGitHubRepoKey(pkg.links?.repository);
+
+    const installSource = `npm:${pkg.name}`;
+    const installedPluginId = getInstalledPluginId({
+      source: installSource,
+      npmPackage: pkg.name,
+      repoKey,
+      installedSources,
+      installedNpmPackages,
+      installedGitHubRepos,
+    });
 
     results.push({
       name: pkg.name,
@@ -162,11 +245,12 @@ export async function searchPlugins(query: string): Promise<DiscoveredPlugin[]> 
       description: pkg.description ?? '',
       author: pkg.publisher?.username ?? '',
       version: pkg.version,
-      githubUrl: repoUrl,
+      githubUrl: toGitHubRepoUrl(repoKey),
       npmPackage: pkg.name,
       stars: 0,
-      installSource: `npm:${pkg.name}`,
-      installed: isInstalled(`npm:${pkg.name}`, pkg.name, installedSources, installedNames),
+      installSource,
+      installed: installedPluginId !== null,
+      installedPluginId,
     });
   }
 
@@ -175,15 +259,25 @@ export async function searchPlugins(query: string): Promise<DiscoveredPlugin[]> 
 
 // ── Helpers ────────────────────────────────────────────────
 
-function isInstalled(
-  source: string,
-  npmName: string | null,
-  installedSources: Set<string>,
-  installedNames: Set<string>,
-): boolean {
-  if (installedSources.has(source)) return true;
-  if (npmName && installedNames.has(npmName)) return true;
-  return false;
+function getInstalledPluginId({
+  source,
+  npmPackage,
+  repoKey,
+  installedSources,
+  installedNpmPackages,
+  installedGitHubRepos,
+}: {
+  source: string;
+  npmPackage: string | null;
+  repoKey: string | null;
+  installedSources: Map<string, string>;
+  installedNpmPackages: Map<string, string>;
+  installedGitHubRepos: Map<string, string>;
+}): string | null {
+  return installedSources.get(source)
+    ?? (npmPackage ? installedNpmPackages.get(npmPackage) : null)
+    ?? (repoKey ? installedGitHubRepos.get(repoKey) : null)
+    ?? null;
 }
 
 function formatRepoName(name: string): string {
@@ -191,7 +285,7 @@ function formatRepoName(name: string): string {
     .replace(/^sero-/, '')
     .replace(/-plugin$/, '')
     .split('-')
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(' ');
 }
 

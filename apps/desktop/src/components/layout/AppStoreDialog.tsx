@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Search, Store, Loader2, Globe } from 'lucide-react';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
@@ -62,6 +62,11 @@ export function AppStoreDialog({
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverSearched, setDiscoverSearched] = useState(false);
 
+  const discoverRequestIdRef = useRef(0);
+  const discoverSessionRef = useRef(0);
+  const dialogOpenRef = useRef(open);
+  dialogOpenRef.current = open;
+
   const query = searchQuery.trim().toLowerCase();
   const filteredApps = apps
     .filter((app) => {
@@ -75,46 +80,91 @@ export function AppStoreDialog({
       return a.label.localeCompare(b.label);
     });
 
-  const runDiscoverSearch = useCallback(async (q: string) => {
+  const runDiscoverSearch = useCallback(async (q: string, sessionId: number) => {
+    if (!dialogOpenRef.current || sessionId !== discoverSessionRef.current) return;
+
+    const requestId = ++discoverRequestIdRef.current;
     setDiscoverLoading(true);
     setDiscoverSearched(true);
+
     try {
       const results = await window.sero.plugins.search(q);
+      if (
+        requestId !== discoverRequestIdRef.current ||
+        sessionId !== discoverSessionRef.current ||
+        !dialogOpenRef.current
+      ) {
+        return;
+      }
       setDiscoverResults(results);
     } catch (err) {
+      if (
+        requestId !== discoverRequestIdRef.current ||
+        sessionId !== discoverSessionRef.current ||
+        !dialogOpenRef.current
+      ) {
+        return;
+      }
       console.error('[AppStore] Plugin search failed:', err);
       setDiscoverResults([]);
     } finally {
-      setDiscoverLoading(false);
+      if (
+        requestId === discoverRequestIdRef.current &&
+        sessionId === discoverSessionRef.current &&
+        dialogOpenRef.current
+      ) {
+        setDiscoverLoading(false);
+      }
     }
   }, []);
 
-  const debouncedSearch = useDebouncedCallback((q: string) => {
-    runDiscoverSearch(q);
+  const debouncedSearch = useDebouncedCallback((q: string, sessionId: number) => {
+    void runDiscoverSearch(q, sessionId);
   }, 400);
 
   const handleDiscoverQueryChange = (value: string) => {
     setDiscoverQuery(value);
-    debouncedSearch(value);
+    debouncedSearch(value, discoverSessionRef.current);
   };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    // Auto-search on first visit to discover tab
     if (tab === 'discover' && !discoverSearched) {
-      runDiscoverSearch('');
+      void runDiscoverSearch('', discoverSessionRef.current);
     }
   };
 
   const handleInstallPlugin = async (plugin: DiscoveredPlugin) => {
-    await window.sero.plugins.install(plugin.installSource);
+    const manifest = await window.sero.plugins.install(plugin.installSource);
+    if (!dialogOpenRef.current) return;
+
+    setDiscoverResults((results) => markPluginInstalled(results, plugin, manifest.id));
+  };
+
+  const handleUninstallPlugin = async (plugin: DiscoveredPlugin) => {
+    if (!plugin.installedPluginId) {
+      throw new Error('Could not determine which installed plugin to uninstall.');
+    }
+
+    await window.sero.plugins.uninstall(plugin.installedPluginId);
+    if (!dialogOpenRef.current) return;
+
+    setDiscoverResults((results) => markPluginUninstalled(results, plugin));
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
+    dialogOpenRef.current = nextOpen;
     onOpenChange(nextOpen);
+
     if (!nextOpen) {
+      discoverRequestIdRef.current += 1;
+      discoverSessionRef.current += 1;
       setSearchQuery('');
       setActiveTab('installed');
+      setDiscoverQuery('');
+      setDiscoverResults([]);
+      setDiscoverLoading(false);
+      setDiscoverSearched(false);
     }
   };
 
@@ -215,6 +265,7 @@ export function AppStoreDialog({
                         key={plugin.installSource}
                         plugin={plugin}
                         onInstall={handleInstallPlugin}
+                        onUninstall={handleUninstallPlugin}
                       />
                     ))}
                   </div>
@@ -234,4 +285,47 @@ function EmptyState({ message }: { message: string }) {
       <p className="text-sm text-[var(--text-secondary)]">{message}</p>
     </div>
   );
+}
+
+function markPluginInstalled(
+  results: DiscoveredPlugin[],
+  installedPlugin: DiscoveredPlugin,
+  installedPluginId: string,
+): DiscoveredPlugin[] {
+  return results.map((plugin) => {
+    if (!isSameDiscoveredPlugin(plugin, installedPlugin)) return plugin;
+    return { ...plugin, installed: true, installedPluginId };
+  });
+}
+
+function markPluginUninstalled(
+  results: DiscoveredPlugin[],
+  uninstalledPlugin: DiscoveredPlugin,
+): DiscoveredPlugin[] {
+  return results.map((plugin) => {
+    if (!isSameDiscoveredPlugin(plugin, uninstalledPlugin)) return plugin;
+    return { ...plugin, installed: false, installedPluginId: null };
+  });
+}
+
+function isSameDiscoveredPlugin(
+  plugin: DiscoveredPlugin,
+  target: DiscoveredPlugin,
+): boolean {
+  const pluginRepoKey = getGitHubRepoKey(plugin.githubUrl);
+  const targetRepoKey = getGitHubRepoKey(target.githubUrl);
+
+  return (
+    plugin.installSource === target.installSource ||
+    (plugin.npmPackage !== null && plugin.npmPackage === target.npmPackage) ||
+    (pluginRepoKey !== null && pluginRepoKey === targetRepoKey)
+  );
+}
+
+function getGitHubRepoKey(url: string | null): string | null {
+  if (!url) return null;
+
+  const match = url.match(/github\.com\/([^/]+)\/([^/#?]+)/i);
+  if (!match) return null;
+  return `${match[1]}/${match[2].replace(/\.git$/i, '')}`.toLowerCase();
 }
