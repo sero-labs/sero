@@ -4,13 +4,14 @@
 
 import { BrowserWindow, ipcMain } from 'electron';
 import { IpcChannels } from '../../../src/types/ipc';
-import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent } from '../../../src/types/ipc';
+import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '../../../src/types/ipc';
 import {
   installPlugin,
   uninstallPlugin,
   listInstalledPlugins,
   isInstalledPlugin,
 } from '../../features/plugins/manager';
+import { searchPlugins } from '../../features/plugins/discovery';
 import { reloadAllSessionResources } from '../agent';
 import { disposeAppSessionsForApp } from '../agent/handlers/app-agent';
 
@@ -57,6 +58,13 @@ export function registerPluginHandlers(): void {
     IpcChannels.plugins.isPlugin,
     async (_event, pluginId: string): Promise<boolean> => {
       return isInstalledPlugin(pluginId);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.plugins.search,
+    async (_event, query: string): Promise<DiscoveredPlugin[]> => {
+      return searchPlugins(query ?? '');
     },
   );
 }

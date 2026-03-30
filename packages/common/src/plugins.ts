@@ -63,3 +63,29 @@ export interface PluginRegistryEntry {
   author: string;
   verified?: boolean;
 }
+
+/** A plugin discovered via GitHub topic / npm keyword search. */
+export interface DiscoveredPlugin {
+  /** npm package name (if on npm), otherwise GitHub repo full_name. */
+  name: string;
+  /** Human-readable display name. */
+  displayName: string;
+  /** Package description. */
+  description: string;
+  /** Author / owner name. */
+  author: string;
+  /** Latest version (from npm, if available). */
+  version: string | null;
+  /** GitHub repo URL. */
+  githubUrl: string | null;
+  /** npm package name (if published to npm). */
+  npmPackage: string | null;
+  /** GitHub star count. */
+  stars: number;
+  /** Install source string for installPlugin(). */
+  installSource: string;
+  /** Whether this plugin is already installed locally. */
+  installed: boolean;
+  /** Installed plugin ID, used for uninstall actions in discovery UI. */
+  installedPluginId: string | null;
+}

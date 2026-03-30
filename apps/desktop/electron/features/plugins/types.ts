@@ -10,4 +10,5 @@ export type {
   PluginCategory,
   PluginMeta,
   PluginRegistryEntry,
+  DiscoveredPlugin,
 } from '@sero/common';

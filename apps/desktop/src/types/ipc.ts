@@ -267,7 +267,7 @@ export type { SettingsPackageSource, SeroAppManifest, SeroWidgetManifest } from 
 
 // ── Plugins ─────────────────────────────────────────────────
 
-export type { InstalledPlugin, PluginCategory, PluginMeta, PluginChangeEvent } from './plugins';
+export type { InstalledPlugin, PluginCategory, PluginMeta, PluginChangeEvent, DiscoveredPlugin } from './plugins';
 
 // ── Voice Transcription ──────────────────────────────────────
 

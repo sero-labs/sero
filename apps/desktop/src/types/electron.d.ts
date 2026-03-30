@@ -50,6 +50,7 @@ import type {
   SubagentEntry,
   InstalledPlugin,
   PluginChangeEvent,
+  DiscoveredPlugin,
   SkillSummary,
   AvailableSkillSummary,
   SkillFileData,
@@ -397,6 +398,8 @@ interface SeroPluginsAPI {
   list(): Promise<InstalledPlugin[]>;
   /** Check whether an app ID is an installed plugin (vs core). */
   isPlugin(pluginId: string): Promise<boolean>;
+  /** Search for public plugins on GitHub (topic) and npm (keyword). */
+  search(query: string): Promise<DiscoveredPlugin[]>;
   /** Subscribe to plugin install/uninstall events. */
   onChanged(callback: (event: PluginChangeEvent) => void): () => void;
 }
