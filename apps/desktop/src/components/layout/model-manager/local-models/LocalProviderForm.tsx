@@ -8,8 +8,11 @@ import { ArrowLeft, Loader2, CheckCircle2, XCircle, Plus, Download } from 'lucid
 import type {
   LocalProviderConfig,
   LocalModelApi,
+  LocalModelCompat,
   LocalModelEntry,
+  LocalModelsConnectionRequest,
   LocalProviderPreset,
+  LocalRemoteModelInfo,
 } from '@/types/local-models';
 import { PROVIDER_PRESETS, PRESET_ORDER } from './presets';
 
@@ -27,8 +30,39 @@ interface LocalProviderFormProps {
   existingNames: string[];
   onSave: (name: string, config: LocalProviderConfig) => Promise<void>;
   onCancel: () => void;
-  onTestConnection: (baseUrl: string) => Promise<{ ok: boolean; error?: string }>;
-  onFetchModels: (baseUrl: string) => Promise<{ id: string; name?: string }[]>;
+  onTestConnection: (request: LocalModelsConnectionRequest) => Promise<{ ok: boolean; error?: string }>;
+  onFetchModels: (request: LocalModelsConnectionRequest) => Promise<LocalRemoteModelInfo[]>;
+}
+
+function hasAdvancedCompat(compat?: LocalModelCompat): boolean {
+  if (!compat) return false;
+  return Object.keys(compat).some(
+    (key) => key !== 'supportsDeveloperRole' && key !== 'supportsReasoningEffort',
+  );
+}
+
+function hasAdvancedSettings(config?: LocalProviderConfig | null): boolean {
+  if (!config) return false;
+  if (config.headers || config.authHeader || config.modelOverrides || hasAdvancedCompat(config.compat)) {
+    return true;
+  }
+  return (config.models ?? []).some((model) => !!model.headers || hasAdvancedCompat(model.compat));
+}
+
+function buildCompat(
+  existingCompat: LocalModelCompat | undefined,
+  supportsDeveloperRole: boolean,
+  supportsReasoningEffort: boolean,
+): LocalModelCompat | undefined {
+  const compat: LocalModelCompat = { ...(existingCompat ?? {}) };
+
+  if (supportsDeveloperRole) delete compat.supportsDeveloperRole;
+  else compat.supportsDeveloperRole = false;
+
+  if (supportsReasoningEffort) delete compat.supportsReasoningEffort;
+  else compat.supportsReasoningEffort = false;
+
+  return Object.keys(compat).length > 0 ? compat : undefined;
 }
 
 export function LocalProviderForm({
@@ -40,18 +74,20 @@ export function LocalProviderForm({
   onFetchModels,
 }: LocalProviderFormProps) {
   const isEditing = !!existing;
+  const existingConfig = existing?.config;
+  const showsAdvancedNotice = hasAdvancedSettings(existingConfig);
 
   const [name, setName] = useState(existing?.name ?? '');
-  const [baseUrl, setBaseUrl] = useState(existing?.config.baseUrl ?? '');
-  const [api, setApi] = useState<LocalModelApi>(existing?.config.api ?? 'openai-completions');
-  const [apiKey, setApiKey] = useState(existing?.config.apiKey ?? '');
+  const [baseUrl, setBaseUrl] = useState(existingConfig?.baseUrl ?? '');
+  const [api, setApi] = useState<LocalModelApi>(existingConfig?.api ?? 'openai-completions');
+  const [apiKey, setApiKey] = useState(existingConfig?.apiKey ?? '');
   const [supportsDeveloperRole, setSupportsDeveloperRole] = useState(
-    existing?.config.compat?.supportsDeveloperRole ?? true,
+    existingConfig?.compat?.supportsDeveloperRole ?? true,
   );
   const [supportsReasoningEffort, setSupportsReasoningEffort] = useState(
-    existing?.config.compat?.supportsReasoningEffort ?? true,
+    existingConfig?.compat?.supportsReasoningEffort ?? true,
   );
-  const [models, setModels] = useState<LocalModelEntry[]>(existing?.config.models ?? []);
+  const [models, setModels] = useState<LocalModelEntry[]>(existingConfig?.models ?? []);
   const [newModelId, setNewModelId] = useState('');
 
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
@@ -59,6 +95,14 @@ export function LocalProviderForm({
   const [fetchingModels, setFetchingModels] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const buildConnectionRequest = useCallback((): LocalModelsConnectionRequest => ({
+    baseUrl: baseUrl.trim(),
+    api,
+    apiKey: apiKey.trim() || undefined,
+    headers: existingConfig?.headers,
+    authHeader: existingConfig?.authHeader,
+  }), [api, apiKey, baseUrl, existingConfig]);
 
   const applyPreset = useCallback((preset: LocalProviderPreset) => {
     const cfg = PROVIDER_PRESETS[preset];
@@ -73,40 +117,52 @@ export function LocalProviderForm({
     setSupportsDeveloperRole(cfg.compat?.supportsDeveloperRole ?? true);
     setSupportsReasoningEffort(cfg.compat?.supportsReasoningEffort ?? true);
     setConnectionStatus('idle');
+    setConnectionError(null);
   }, [name]);
 
   const handleTestConnection = useCallback(async () => {
-    if (!baseUrl) return;
+    if (!baseUrl.trim()) return;
     setConnectionStatus('testing');
     setConnectionError(null);
-    const result = await onTestConnection(baseUrl);
-    setConnectionStatus(result.ok ? 'ok' : 'error');
-    setConnectionError(result.error ?? null);
-  }, [baseUrl, onTestConnection]);
+    try {
+      const result = await onTestConnection(buildConnectionRequest());
+      setConnectionStatus(result.ok ? 'ok' : 'error');
+      setConnectionError(result.error ?? null);
+    } catch (err) {
+      setConnectionStatus('error');
+      setConnectionError(err instanceof Error ? err.message : String(err));
+    }
+  }, [baseUrl, buildConnectionRequest, onTestConnection]);
 
   const handleFetchModels = useCallback(async () => {
-    if (!baseUrl) return;
+    if (!baseUrl.trim()) return;
     setFetchingModels(true);
-    const remote = await onFetchModels(baseUrl);
-    if (remote.length > 0) {
-      const existingIds = new Set(models.map((m) => m.id));
-      const newModels = remote.filter((m) => !existingIds.has(m.id));
-      if (newModels.length > 0) {
-        setModels((prev) => [
-          ...prev,
-          ...newModels.map((m) => ({ id: m.id, name: m.name })),
-        ]);
+    setConnectionError(null);
+    try {
+      const remote = await onFetchModels(buildConnectionRequest());
+      if (remote.length > 0) {
+        const existingIds = new Set(models.map((m) => m.id));
+        const newModels = remote.filter((m) => !existingIds.has(m.id));
+        if (newModels.length > 0) {
+          setModels((prev) => [
+            ...prev,
+            ...newModels.map((m) => ({ id: m.id, name: m.name })),
+          ]);
+        }
       }
+    } catch (err) {
+      setConnectionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setFetchingModels(false);
     }
-    setFetchingModels(false);
-  }, [baseUrl, models, onFetchModels]);
+  }, [baseUrl, buildConnectionRequest, models, onFetchModels]);
 
   const handleAddModel = useCallback(() => {
     const id = newModelId.trim();
     if (!id || models.some((m) => m.id === id)) return;
     setModels((prev) => [...prev, { id }]);
     setNewModelId('');
-  }, [newModelId, models]);
+  }, [models, newModelId]);
 
   const handleRemoveModel = useCallback((id: string) => {
     setModels((prev) => prev.filter((m) => m.id !== id));
@@ -120,19 +176,18 @@ export function LocalProviderForm({
       return;
     }
 
-    const compat: LocalProviderConfig['compat'] =
-      !supportsDeveloperRole || !supportsReasoningEffort
-        ? {
-            ...(!supportsDeveloperRole ? { supportsDeveloperRole: false } : {}),
-            ...(!supportsReasoningEffort ? { supportsReasoningEffort: false } : {}),
-          }
-        : undefined;
+    const compat = buildCompat(
+      existingConfig?.compat,
+      supportsDeveloperRole,
+      supportsReasoningEffort,
+    );
 
     const config: LocalProviderConfig = {
-      baseUrl: baseUrl.trim(),
+      ...existingConfig,
+      baseUrl: baseUrl.trim() || undefined,
       api,
-      apiKey: apiKey.trim() || 'none',
-      ...(compat ? { compat } : {}),
+      apiKey: apiKey.trim() || undefined,
+      compat,
       models,
     };
 
@@ -144,7 +199,19 @@ export function LocalProviderForm({
       setSaveError(err instanceof Error ? err.message : String(err));
       setSaving(false);
     }
-  }, [name, baseUrl, api, apiKey, supportsDeveloperRole, supportsReasoningEffort, models, isEditing, existingNames, onSave]);
+  }, [
+    api,
+    apiKey,
+    baseUrl,
+    existingConfig,
+    existingNames,
+    isEditing,
+    models,
+    name,
+    onSave,
+    supportsDeveloperRole,
+    supportsReasoningEffort,
+  ]);
 
   const isValid = name.trim() && baseUrl.trim();
 
@@ -162,6 +229,12 @@ export function LocalProviderForm({
           {isEditing ? 'Edit Provider' : 'Add Local Provider'}
         </h3>
       </div>
+
+      {showsAdvancedNotice && (
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
+          Advanced models.json fields are preserved on save, but they still need to be edited directly in the file.
+        </div>
+      )}
 
       {/* Presets */}
       {!isEditing && (
@@ -207,7 +280,11 @@ export function LocalProviderForm({
         <div className="flex gap-2">
           <input
             value={baseUrl}
-            onChange={(e) => { setBaseUrl(e.target.value); setConnectionStatus('idle'); }}
+            onChange={(e) => {
+              setBaseUrl(e.target.value);
+              setConnectionStatus('idle');
+              setConnectionError(null);
+            }}
             placeholder="http://localhost:11434/v1"
             className="h-8 flex-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
               px-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
@@ -250,7 +327,7 @@ export function LocalProviderForm({
       </Field>
 
       {/* API Key */}
-      <Field label="API Key" hint="Required but often ignored by local servers">
+      <Field label="API Key" hint="Literal value, env var name, or !command">
         <input
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}

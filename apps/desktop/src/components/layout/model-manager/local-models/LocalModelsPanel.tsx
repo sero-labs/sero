@@ -6,14 +6,19 @@
  */
 
 import { useState, useCallback, memo } from 'react';
-import { Plus, Settings2, Trash2, Server, ChevronRight } from 'lucide-react';
+import { Plus, RefreshCw, Settings2, Trash2, Server, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import type { LocalProviderConfig } from '@/types/local-models';
 import type { UseLocalModelsReturn } from './use-local-models';
 import { LocalProviderForm } from './LocalProviderForm';
 
 interface LocalModelsPanelProps {
   localModels: UseLocalModelsReturn;
+}
+
+function getProviderModels(config: LocalProviderConfig) {
+  return config.models ?? [];
 }
 
 /** A single configured provider row. */
@@ -29,6 +34,7 @@ const ProviderRow = memo(function ProviderRow({
   onRemove: (name: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const models = getProviderModels(config);
 
   return (
     <div className="rounded-lg border border-[var(--border-subtle)] transition-colors hover:border-[var(--border-default)]">
@@ -41,10 +47,12 @@ const ProviderRow = memo(function ProviderRow({
           <Server className="size-3.5 shrink-0 text-[var(--text-muted)]" />
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-xs font-medium text-[var(--text-primary)]">{name}</span>
-            <span className="truncate text-[10px] text-[var(--text-muted)]">{config.baseUrl}</span>
+            <span className="truncate text-[10px] text-[var(--text-muted)]">
+              {config.baseUrl ?? 'Override-only provider'}
+            </span>
           </div>
           <span className="shrink-0 rounded-full bg-[var(--bg-muted)] px-1.5 py-px text-[10px] font-semibold text-[var(--text-muted)]">
-            {config.models.length} {config.models.length === 1 ? 'model' : 'models'}
+            {models.length} {models.length === 1 ? 'model' : 'models'}
           </span>
           <motion.div animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.15 }}>
             <ChevronRight className="size-3 text-[var(--text-muted)]" />
@@ -73,7 +81,7 @@ const ProviderRow = memo(function ProviderRow({
 
       {/* Expanded model list */}
       <AnimatePresence initial={false}>
-        {expanded && config.models.length > 0 && (
+        {expanded && models.length > 0 && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -82,7 +90,7 @@ const ProviderRow = memo(function ProviderRow({
             className="overflow-hidden border-t border-[var(--border-subtle)]"
           >
             <div className="px-3 py-1.5">
-              {config.models.map((m) => (
+              {models.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 py-1">
                   <div className="size-1.5 rounded-full bg-[var(--border-default)]" />
                   <span className="text-xs text-[var(--text-secondary)]">{m.name ?? m.id}</span>
@@ -105,6 +113,10 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
+  const clearConfirmRemove = useDebouncedCallback((name: string) => {
+    setConfirmRemove((current) => current === name ? null : current);
+  }, 3000);
+
   const providers = config?.providers ?? {};
   const providerNames = Object.keys(providers);
 
@@ -117,12 +129,11 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
     if (confirmRemove === name) {
       await localModels.removeProvider(name);
       setConfirmRemove(null);
-    } else {
-      setConfirmRemove(name);
-      // Auto-clear confirmation after 3s
-      setTimeout(() => setConfirmRemove((cur) => cur === name ? null : cur), 3000);
+      return;
     }
-  }, [confirmRemove, localModels]);
+    setConfirmRemove(name);
+    clearConfirmRemove(name);
+  }, [clearConfirmRemove, confirmRemove, localModels]);
 
   const handleSaveProvider = useCallback(async (name: string, providerConfig: LocalProviderConfig) => {
     if (view === 'edit' && editingProvider) {
@@ -135,12 +146,16 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
     }
     setView('list');
     setEditingProvider(null);
-  }, [view, editingProvider, localModels]);
+  }, [editingProvider, localModels, view]);
 
   const handleCancel = useCallback(() => {
     setView('list');
     setEditingProvider(null);
   }, []);
+
+  if (error) {
+    return <ErrorState error={error} onRetry={localModels.reload} />;
+  }
 
   // Show form when adding/editing
   if (view === 'add' || view === 'edit') {
@@ -164,7 +179,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
   return (
     <div className="flex flex-col gap-3 p-3">
       {/* Header + Add button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] text-[var(--text-muted)]">
           {providerNames.length === 0
             ? 'Add a local LLM server to use models from Ollama, LM Studio, vLLM, or any OpenAI-compatible endpoint.'
@@ -172,7 +187,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
         </p>
         <button
           onClick={() => setView('add')}
-          className="flex h-7 items-center gap-1.5 rounded-md border border-[var(--border-subtle)]
+          className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-subtle)]
             px-2.5 text-[11px] font-medium text-[var(--text-secondary)]
             transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
         >
@@ -181,17 +196,10 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
         </button>
       </div>
 
-      {/* Loading / error states */}
       {loading && (
         <div className="py-6 text-center text-xs text-[var(--text-muted)]">Loading...</div>
       )}
-      {error && (
-        <div className="rounded-lg bg-[var(--status-error)]/10 px-3 py-2 text-xs text-[var(--status-error)]">
-          {error}
-        </div>
-      )}
 
-      {/* Provider list */}
       {!loading && providerNames.length === 0 && (
         <EmptyState onAdd={() => setView('add')} />
       )}
@@ -215,6 +223,28 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function ErrorState({ error, onRetry }: { error: string; onRetry: () => Promise<void> }) {
+  return (
+    <div className="flex flex-col gap-3 p-3">
+      <div className="rounded-lg bg-[var(--status-error)]/10 px-3 py-2 text-xs text-[var(--status-error)]">
+        {error}
+      </div>
+      <p className="text-[11px] text-[var(--text-muted)]">
+        Fix the invalid models.json entry before adding or editing providers here.
+      </p>
+      <button
+        onClick={() => { void onRetry(); }}
+        className="flex h-8 items-center gap-1.5 self-start rounded-md border border-[var(--border-subtle)]
+          px-3 text-xs font-medium text-[var(--text-secondary)] transition-colors
+          hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+      >
+        <RefreshCw className="size-3.5" />
+        Retry
+      </button>
     </div>
   );
 }

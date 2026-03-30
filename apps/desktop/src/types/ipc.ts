@@ -247,8 +247,11 @@ export type {
   LocalModelCost,
   LocalModelCompat,
   LocalModelEntry,
+  LocalModelOverride,
   LocalProviderConfig,
   LocalModelsConfig,
+  LocalModelsConnectionRequest,
+  LocalRemoteModelInfo,
   LocalProviderPreset,
   LocalProviderPresetConfig,
 } from './local-models';

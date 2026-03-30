@@ -3,7 +3,7 @@
  * and favourites. Opened from the ModelSelector gear icon.
  */
 
-import { useState, useMemo, useCallback, useRef, memo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
 import { Search, Star, Eye, EyeOff, Layers, X, Server } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -11,7 +11,8 @@ import {
   DialogContent,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
-import { useFocusedModelState } from '@/stores/agent-selectors';
+import { useAgentStore } from '@/stores/agent';
+import { useFocusedModelState, useFocusedSessionId } from '@/stores/agent-selectors';
 import { useModelPreferences, modelKey } from '@/stores/model-preferences';
 import type { AvailableModelGroup, ManagerTab } from './types';
 import { ModelManagerProvider } from './ModelManagerProvider';
@@ -104,9 +105,16 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
   const inputRef = useRef<HTMLInputElement>(null);
 
   const ms = useFocusedModelState();
+  const focusedSessionId = useFocusedSessionId();
+  const fetchModelState = useAgentStore((s) => s.fetchModelState);
   const groups = ms?.availableModels ?? [];
 
-  const localModels = useLocalModels();
+  const refreshFocusedModels = useCallback(async () => {
+    if (!focusedSessionId) return;
+    await fetchModelState(focusedSessionId);
+  }, [focusedSessionId, fetchModelState]);
+
+  const localModels = useLocalModels({ onSaved: refreshFocusedModels });
   const localProviderCount = Object.keys(localModels.config?.providers ?? {}).length;
 
   const prefs = useModelPreferences();
@@ -206,17 +214,19 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
     showAll();
   }, [showAll]);
 
+  useEffect(() => {
+    if (!open) return;
+    setFilter('');
+    setActiveTab('all');
+    void localModels.reload();
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [open, localModels.reload]);
+
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
-      if (nextOpen) {
-        setFilter('');
-        setActiveTab('all');
-        localModels.reload();
-        requestAnimationFrame(() => inputRef.current?.focus());
-      }
       onOpenChange(nextOpen);
     },
-    [onOpenChange, localModels],
+    [onOpenChange],
   );
 
   const displayGroups =

@@ -5,6 +5,8 @@
  * Shared by Electron main process and renderer.
  */
 
+import type { OpenAICompletionsCompat } from '@mariozechner/pi-ai';
+
 /** Supported API types for local model providers. */
 export type LocalModelApi =
   | 'openai-completions'
@@ -20,45 +22,66 @@ export interface LocalModelCost {
   cacheWrite: number;
 }
 
-/** OpenAI compatibility overrides. */
-export interface LocalModelCompat {
-  supportsDeveloperRole?: boolean;
-  supportsReasoningEffort?: boolean;
-  supportsUsageInStreaming?: boolean;
-  maxTokensField?: 'max_completion_tokens' | 'max_tokens';
-  requiresToolResultName?: boolean;
-  requiresAssistantAfterToolResult?: boolean;
-  requiresThinkingAsText?: boolean;
-  thinkingFormat?: 'reasoning_effort' | 'zai' | 'qwen' | 'qwen-chat-template';
-  supportsStrictMode?: boolean;
-  supportsStore?: boolean;
-}
+/** OpenAI compatibility overrides supported by models.json. */
+export type LocalModelCompat = OpenAICompletionsCompat;
 
 /** A single model entry within a local provider. */
 export interface LocalModelEntry {
   id: string;
   name?: string;
   api?: LocalModelApi;
+  baseUrl?: string;
   reasoning?: boolean;
   input?: ('text' | 'image')[];
   contextWindow?: number;
   maxTokens?: number;
   cost?: LocalModelCost;
+  headers?: Record<string, string>;
   compat?: LocalModelCompat;
 }
 
-/** A local provider configuration. */
-export interface LocalProviderConfig {
-  baseUrl: string;
-  api: LocalModelApi;
-  apiKey: string;
+/** Per-model override for built-in provider models. */
+export interface LocalModelOverride {
+  name?: string;
+  reasoning?: boolean;
+  input?: ('text' | 'image')[];
+  cost?: Partial<LocalModelCost>;
+  contextWindow?: number;
+  maxTokens?: number;
+  headers?: Record<string, string>;
   compat?: LocalModelCompat;
-  models: LocalModelEntry[];
+}
+
+/** A local provider configuration. Mirrors Pi's models.json schema. */
+export interface LocalProviderConfig {
+  baseUrl?: string;
+  api?: LocalModelApi;
+  apiKey?: string;
+  headers?: Record<string, string>;
+  compat?: LocalModelCompat;
+  authHeader?: boolean;
+  models?: LocalModelEntry[];
+  modelOverrides?: Record<string, LocalModelOverride>;
 }
 
 /** The full models.json structure. */
 export interface LocalModelsConfig {
   providers: Record<string, LocalProviderConfig>;
+}
+
+/** Connection parameters used by the UI for test/discovery calls. */
+export interface LocalModelsConnectionRequest {
+  baseUrl: string;
+  api: LocalModelApi;
+  apiKey?: string;
+  headers?: Record<string, string>;
+  authHeader?: boolean;
+}
+
+/** Model info returned by remote discovery helpers. */
+export interface LocalRemoteModelInfo {
+  id: string;
+  name?: string;
 }
 
 /** Provider preset templates for quick setup. */

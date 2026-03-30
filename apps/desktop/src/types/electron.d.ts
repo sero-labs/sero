@@ -69,6 +69,8 @@ import type {
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
   LocalModelsConfig,
+  LocalModelsConnectionRequest,
+  LocalRemoteModelInfo,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -413,10 +415,10 @@ interface SeroLocalModelsAPI {
   getConfig(): Promise<LocalModelsConfig>;
   /** Write the full models.json config to disk and refresh the model registry. */
   saveConfig(config: LocalModelsConfig): Promise<void>;
-  /** Test connectivity to a local provider's base URL. */
-  testConnection(baseUrl: string): Promise<{ ok: boolean; error?: string }>;
-  /** Fetch available models from a provider's API (e.g. Ollama /api/tags). */
-  fetchRemoteModels(baseUrl: string): Promise<{ id: string; name?: string }[]>;
+  /** Test connectivity to a local provider using its selected API + auth settings. */
+  testConnection(request: LocalModelsConnectionRequest): Promise<{ ok: boolean; error?: string }>;
+  /** Fetch available models from a provider's API (OpenAI, Anthropic, Google, Ollama). */
+  fetchRemoteModels(request: LocalModelsConnectionRequest): Promise<LocalRemoteModelInfo[]>;
 }
 
 interface SeroAPI {

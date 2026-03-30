@@ -4,12 +4,11 @@
 
 import { ipcRenderer } from 'electron';
 import { IpcChannels } from '../../../src/types/ipc';
-import type { LocalModelsConfig } from '../../../src/types/ipc';
-
-export interface RemoteModelInfo {
-  id: string;
-  name?: string;
-}
+import type {
+  LocalModelsConfig,
+  LocalModelsConnectionRequest,
+  LocalRemoteModelInfo,
+} from '../../../src/types/ipc';
 
 export const localModelsBridge = {
   getConfig: (): Promise<LocalModelsConfig> =>
@@ -18,9 +17,9 @@ export const localModelsBridge = {
   saveConfig: (config: LocalModelsConfig): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.localModels.saveConfig, config),
 
-  testConnection: (baseUrl: string): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke(IpcChannels.localModels.testConnection, baseUrl),
+  testConnection: (request: LocalModelsConnectionRequest): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke(IpcChannels.localModels.testConnection, request),
 
-  fetchRemoteModels: (baseUrl: string): Promise<RemoteModelInfo[]> =>
-    ipcRenderer.invoke(IpcChannels.localModels.fetchRemoteModels, baseUrl),
+  fetchRemoteModels: (request: LocalModelsConnectionRequest): Promise<LocalRemoteModelInfo[]> =>
+    ipcRenderer.invoke(IpcChannels.localModels.fetchRemoteModels, request),
 };
