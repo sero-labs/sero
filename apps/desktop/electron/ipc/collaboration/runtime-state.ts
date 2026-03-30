@@ -67,6 +67,7 @@ export function createCollaborationRuntimeSnapshot(
         : null,
     debateConfig: resolvedDebateConfig,
     pendingUserQuery: query.trim() || query,
+    error: null,
   };
 }
 
@@ -103,6 +104,7 @@ export function applyCollaborationRuntimeEvent(event: CollaborationEvent): void 
         status: 'research',
         result: null,
         specialists: [],
+        error: null,
         debate:
           event.strategy === 'debate'
             ? {
@@ -149,6 +151,7 @@ export function applyCollaborationRuntimeEvent(event: CollaborationEvent): void 
         ...snapshot,
         status: 'complete',
         result: event.result,
+        error: null,
       }));
       return;
 
@@ -156,6 +159,7 @@ export function applyCollaborationRuntimeEvent(event: CollaborationEvent): void 
       updateSnapshot(event.sessionId, (snapshot) => ({
         ...snapshot,
         status: 'error',
+        error: event.error,
       }));
       return;
 

@@ -26,6 +26,7 @@ export function createCollaborationSessionState(): CollaborationSessionState {
     debate: null,
     debateConfig: { ...DEFAULT_DEBATE_CONFIG },
     pendingUserQuery: null,
+    error: null,
   };
 }
 
@@ -146,6 +147,7 @@ export function startCollaborationForSession(
       status: current.strategy === 'debate' ? 'research' : 'research',
       result: null,
       specialists: [],
+      error: null,
       debate: current.strategy === 'debate'
         ? {
             phase: 'decomposition',
@@ -249,6 +251,7 @@ export function applyCollaborationEvent(
           status: 'research',
           result: null,
           specialists: [],
+          error: null,
           debate: event.strategy === 'debate'
             ? {
                 phase: 'decomposition',
@@ -297,6 +300,7 @@ export function applyCollaborationEvent(
           ...current,
           status: 'complete',
           result: event.result,
+          error: null,
         },
       };
 
@@ -306,6 +310,7 @@ export function applyCollaborationEvent(
         [event.sessionId]: {
           ...current,
           status: 'error',
+          error: event.error,
         },
       };
 

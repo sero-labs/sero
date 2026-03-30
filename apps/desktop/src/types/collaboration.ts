@@ -36,6 +36,8 @@ export interface CollaborationStateSnapshot {
   debateConfig: DebateConfig;
   /** Original user query used to start the collaboration. */
   pendingUserQuery: string | null;
+  /** Last collaboration error, if the run failed. */
+  error: string | null;
 }
 
 // ── Strategy types ──────────────────────────────────────────────

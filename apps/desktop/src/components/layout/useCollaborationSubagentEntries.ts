@@ -19,10 +19,12 @@ function sortEntries(entries: SubagentEntry[]): SubagentEntry[] {
   return [...entries].sort((a, b) => a.startedAt - b.startedAt);
 }
 
-function rankEntry(entry: SubagentEntry): number {
-  if (entry.status === 'running') return 3;
-  if (entry.status === 'queued') return 2;
-  return 1;
+function isActiveEntry(entry: SubagentEntry): boolean {
+  return entry.status === 'running' || entry.status === 'queued';
+}
+
+function rankActiveEntry(entry: SubagentEntry): number {
+  return entry.status === 'running' ? 2 : 1;
 }
 
 function reduceSubagentEvent(
@@ -98,6 +100,27 @@ function reduceSubagentEvent(
   }
 }
 
+export function buildLatestActiveEntriesByRole(
+  entries: SubagentEntry[],
+): Map<CollaborationRole, SubagentEntry> {
+  const map = new Map<CollaborationRole, SubagentEntry>();
+  const sorted = [...entries]
+    .filter(isActiveEntry)
+    .sort((a, b) => {
+      const rankDiff = rankActiveEntry(b) - rankActiveEntry(a);
+      if (rankDiff !== 0) return rankDiff;
+      return b.startedAt - a.startedAt;
+    });
+
+  for (const entry of sorted) {
+    const role = agentNameToRole(entry.agentName);
+    if (!role || map.has(role)) continue;
+    map.set(role, entry);
+  }
+
+  return map;
+}
+
 export function useCollaborationSubagentEntries(
   sessionId: string | null,
   workspaceId: string | null,
@@ -145,22 +168,10 @@ export function useCollaborationSubagentEntries(
     [entriesById],
   );
 
-  const latestEntryByRole = useMemo(() => {
-    const map = new Map<CollaborationRole, SubagentEntry>();
-    const sorted = [...entries].sort((a, b) => {
-      const rankDiff = rankEntry(b) - rankEntry(a);
-      if (rankDiff !== 0) return rankDiff;
-      return b.startedAt - a.startedAt;
-    });
-
-    for (const entry of sorted) {
-      const role = agentNameToRole(entry.agentName);
-      if (!role || map.has(role)) continue;
-      map.set(role, entry);
-    }
-
-    return map;
-  }, [entries]);
+  const latestEntryByRole = useMemo(
+    () => buildLatestActiveEntriesByRole(entries),
+    [entries],
+  );
 
   return { entries, latestEntryByRole };
 }

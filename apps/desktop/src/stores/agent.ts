@@ -374,11 +374,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       if (!agent) return s;
 
       const pendingUserQuery = snapshot.pendingUserQuery?.trim() ?? '';
-      const hasUserMessage = agent.messages.some(
-        (message) =>
-          message.type === 'user' && message.text.trim() === pendingUserQuery,
-      );
-      const shouldAppendPendingUser = pendingUserQuery.length > 0 && !hasUserMessage;
+      const lastMessage = agent.messages[agent.messages.length - 1];
+      const hasPendingUserMessage =
+        lastMessage?.type === 'user' &&
+        lastMessage.text.trim() === pendingUserQuery;
+      const shouldAppendPendingUser =
+        pendingUserQuery.length > 0 && !hasPendingUserMessage;
       const collaborationBusy =
         snapshot.status !== 'idle' &&
         snapshot.status !== 'complete' &&
@@ -394,6 +395,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           ...s.agents,
           [sessionId]: {
             ...agent,
+            error: snapshot.error ?? (collaborationBusy ? null : agent.error),
             isStreaming: agent.isStreaming || collaborationBusy,
             messages: shouldAppendPendingUser
               ? [
@@ -463,6 +465,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             ...s.agents,
             [event.sessionId]: {
               ...agent,
+              error: event.error,
               isStreaming: false,
             },
           };
