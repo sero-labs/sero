@@ -3,6 +3,14 @@
 > Date: 2026-03-26
 > Sources: Hermes Agent memory docs, Honcho integration spec, OpenClaw plugin docs, Honcho overview
 
+## Reference Documentation
+https://github.com/NousResearch/hermes-agent/blob/cbf195e8066c14ad09e35ce458e888108c5a56f8/website/docs/user-guide/features/memory.md
+https://github.com/NousResearch/hermes-agent/blob/cbf195e8066c14ad09e35ce458e888108c5a56f8/website/docs/user-guide/features/honcho.md
+https://github.com/NousResearch/hermes-agent/blob/cbf195e8066c14ad09e35ce458e888108c5a56f8/docs/honcho-integration-spec.md
+https://github.com/plastic-labs/honcho/blob/9ee331f79bee6f5c88e703b9bd2d277bf891f7e1/docs/v3/guides/integrations/openclaw.mdx
+https://github.com/plastic-labs/honcho/blob/9ee331f79bee6f5c88e703b9bd2d277bf891f7e1/docs/v3/documentation/introduction/overview.mdx
+https://github.com/plastic-labs/honcho/blob/9ee331f79bee6f5c88e703b9bd2d277bf891f7e1/docs/v3/documentation/introduction/vibecoding.mdx
+
 ## Executive Summary
 
 Sero's memory system is already strong in several areas (rich file taxonomy, QMD semantic search, activity observer, git-tracked memory). However, Hermes Agent and the Honcho ecosystem introduce patterns around **capacity management**, **memory curation ergonomics**, **conversation history search**, **async prefetch**, and **cloud-based reasoning over memory** that Sero should adopt.
