@@ -178,8 +178,7 @@ export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensions
  * Groups commands by source and lists them all, so the agent discovers
  * every bridged app tool automatically — no manual prompt updates needed.
  */
-export function buildCliPromptBlock(): string {
-  const reg = getCliRegistry();
+export function buildCliPromptBlock(reg: CliRegistry = getCliRegistry()): string {
   const commands = reg.list().filter((c) => !c.hidden && c.name !== 'help');
 
   const grouped = new Map<string, string[]>();
@@ -194,6 +193,17 @@ export function buildCliPromptBlock(): string {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([group, names]) => `- ${group}: ${names.sort().join(', ')}`);
 
+  const hasMemoryCommands = Boolean(reg.get('memory') || reg.get('memory_search') || reg.get('scratchpad'));
+  const memoryRoutingSection = hasMemoryCommands
+    ? [
+        '',
+        'High-priority routing:',
+        '- Sero memory system files and history (`MEMORY.md`, `IDENTITY.md`, `USER.md`, `SCRATCHPAD.md`, `memory/daily/`, `memory/sessions/`) must go through `sero memory`, `sero memory_search`, or `sero scratchpad`.',
+        '- Start with one precise `sero memory_search` query. If it already answers the question, stop and answer. Only broaden/rephrase if the first search misses or is ambiguous.',
+        '- Never use bash/read/write/edit to inspect or modify those managed memory files. If memory search is unavailable, report that instead of working around it with filesystem tools.',
+      ].join('\n')
+    : '';
+
   return `
 
 ## Sero CLI
@@ -203,7 +213,7 @@ Use \`sero-cli\` for Sero platform actions instead of asking the user to do them
 Commands by group:
 ${sections.join('\n')}
 
-Run \`sero help <command>\` for details. You can send multiple commands separated by newlines.
+Run \`sero help <command>\` for details. You can send multiple commands separated by newlines.${memoryRoutingSection}
 
 For \`sero app\` interactions:
 - If unsure, run \`sero help app\` before acting.

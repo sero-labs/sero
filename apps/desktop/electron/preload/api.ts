@@ -195,6 +195,9 @@ export const seroPreloadApi = {
     close: (sessionId: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.agent.close, sessionId),
 
+    notifySessionSwitch: (previousSessionId: string, reason?: 'new' | 'resume'): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.agent.notifySessionSwitch, previousSessionId, reason),
+
     getCommands: (sessionId: string): Promise<SeroSlashCommandInfo[]> =>
       ipcRenderer.invoke(IpcChannels.agent.getCommands, sessionId),
 

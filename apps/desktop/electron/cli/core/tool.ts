@@ -1,8 +1,8 @@
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
 import { containerManager, workspaceManager } from '../../shared/infra/shared-infra';
 import { tokenizeCliInput, splitCommandLines } from './parser';
-import type { CliCommandContext, CliContentBlock, CliInvocation, CliResult } from './types';
+import type { BridgedAgentContext, CliCommandContext, CliContentBlock, CliInvocation, CliResult } from './types';
 import type { CliRegistry } from './registry';
 import { getCliSessionBridge } from '../bridges/session-bridge';
 import {
@@ -368,6 +368,8 @@ export function createSeroCliTool(
         invocation: buildInvocation(workspaceId, sessionId, signal),
         workspaceManager,
         containerManager,
+        // Forward agent context so bridged tools can access model, modelRegistry, etc.
+        agentContext: toolCtx ? extractAgentContext(toolCtx as ExtensionContext) : undefined,
       };
 
       const batch = await executeCliBatch(registry, cliParams.command, context, cliParams.timeout, onUpdate as any);
@@ -389,6 +391,28 @@ export function createSeroCliTool(
         },
       };
     },
+  };
+}
+
+/**
+ * Extract the agent context fields from an ExtensionContext, excluding `cwd`
+ * (which the CLI provides separately). Method references are wrapped in
+ * closures to preserve `this` binding from the original context.
+ */
+export function extractAgentContext(ctx: ExtensionContext): BridgedAgentContext {
+  return {
+    ui: ctx.ui,
+    hasUI: ctx.hasUI,
+    sessionManager: ctx.sessionManager,
+    modelRegistry: ctx.modelRegistry,
+    model: ctx.model,
+    isIdle: () => ctx.isIdle(),
+    abort: () => ctx.abort(),
+    hasPendingMessages: () => ctx.hasPendingMessages(),
+    shutdown: () => ctx.shutdown(),
+    getContextUsage: () => ctx.getContextUsage(),
+    compact: (options) => ctx.compact(options),
+    getSystemPrompt: () => ctx.getSystemPrompt(),
   };
 }
 

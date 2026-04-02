@@ -22,6 +22,8 @@ import {
 } from './memory-manager';
 import { getOpenScratchpadItems } from './scratchpad';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
+import { error, errorDetails, info } from './logger';
+import { exportTranscriptForSession } from './session-transcripts';
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -29,7 +31,6 @@ import path from 'node:path';
 // ── Constants ──────────────────────────────────────────────────
 
 const SUMMARY_MAX_CHARS = 80_000;
-
 const SUMMARY_SYSTEM_PROMPT = [
   'You are a session recap assistant.',
   'Read the conversation and extract key decisions, lessons learned, notes, and follow-ups.',
@@ -68,9 +69,76 @@ function buildSummaryFallback(error?: string): string {
   ].join('\n');
 }
 
+function buildSessionSummaryEntry(summary: string, sessionId: string, timestamp: string): string {
+  return [
+    `<!-- ${timestamp} -->`,
+    '<!-- source: daily-summary -->',
+    `<!-- session-id: ${sessionId} -->`,
+    '## Session Summary (auto)',
+    '',
+    summary,
+  ].join('\n');
+}
+
+function notifyTranscriptExportFailure(message: string, ctx: {
+  hasUI: boolean;
+  ui: { notify(message: string, type?: 'info' | 'warning' | 'error'): void };
+}): void {
+  if (!ctx.hasUI) return;
+  ctx.ui.notify(message, 'warning');
+}
+
 // ── Register hooks ─────────────────────────────────────────────
 
 export function registerSessionLifecycle(pi: ExtensionAPI): void {
+  pi.on('session_before_switch', async (event, ctx) => {
+    const sessionId = ctx.sessionManager.getSessionId();
+    info('session_before_switch_start', {
+      reason: event.reason,
+      sessionId,
+    });
+    try {
+      const transcript = await exportTranscriptForSession(ctx.sessionManager, `session_before_switch:${event.reason}`);
+      info('session_before_switch', {
+        reason: event.reason,
+        sessionId,
+        transcriptChanged: transcript.changed,
+        transcriptPath: transcript.path ?? null,
+      });
+      if (transcript.changed) {
+        await runQmdUpdateNow();
+      }
+    } catch (err) {
+      error('session_before_switch_transcript_failed', {
+        reason: event.reason,
+        ...errorDetails(err),
+      });
+      notifyTranscriptExportFailure(
+        'Conversation recall could not update this session transcript before switching. Search may be stale until the next retry.',
+        ctx,
+      );
+    }
+  });
+
+  pi.on('session_before_fork', async (_event, ctx) => {
+    try {
+      const transcript = await exportTranscriptForSession(ctx.sessionManager, 'session_before_fork');
+      info('session_before_fork', {
+        transcriptChanged: transcript.changed,
+        transcriptPath: transcript.path ?? null,
+      });
+      if (transcript.changed) {
+        await runQmdUpdateNow();
+      }
+    } catch (err) {
+      error('session_before_fork_transcript_failed', errorDetails(err));
+      notifyTranscriptExportFailure(
+        'Conversation recall could not update this session transcript before forking. Search may be stale until the next retry.',
+        ctx,
+      );
+    }
+  });
+
   // ── Compaction handoff ─────────────────────────────────────
 
   pi.on('session_before_compact', async () => {
@@ -109,88 +177,101 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
   // ── Exit summary ───────────────────────────────────────────
 
   pi.on('session_shutdown', async (_event, ctx) => {
+    const sessionId = ctx.sessionManager.getSessionId();
+    info('session_shutdown_start', { sessionId });
+
     try {
-      // Extract conversation messages using the SDK's discriminated union
       const branch = ctx.sessionManager.getBranch();
       const messageEntries = branch.filter(
         (entry): entry is SessionMessageEntry => entry.type === 'message',
       );
+      if (messageEntries.length === 0) return;
+
+      let qmdDirty = false;
       const messages = messageEntries.map((entry) => entry.message);
 
-      if (messages.length === 0) return;
-      if (!ctx.model) return;
-
-      const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
-      if (!apiKey) return;
-
-      // Serialise and truncate conversation
-      const llmMessages = convertToLlm(messages);
-      const conversationText = serializeConversation(llmMessages);
-      const { text: truncated, truncated: wasTruncated } = truncateText(
-        conversationText.trim(),
-        SUMMARY_MAX_CHARS,
-      );
-      if (!truncated) return;
-
-      // Build prompt
-      const promptLines = [
-        'Review the conversation and extract important decisions, lessons learned, notes, and follow-ups for a daily log.',
-        'Return markdown only with these exact headings:',
-        '### Decisions',
-        '### Lessons Learned',
-        '### Notes',
-        '### Follow-ups',
-        'Use bullet points under each heading. If there is nothing, write "None.".',
-      ];
-      if (wasTruncated) {
-        promptLines.push(
-          `Note: Conversation was truncated to the most recent ${truncated.length} of ${conversationText.length} characters.`,
+      try {
+        const transcript = await exportTranscriptForSession(ctx.sessionManager, 'session_shutdown');
+        qmdDirty = qmdDirty || transcript.changed;
+      } catch (err) {
+        error('session_transcript_export_failed', {
+          sessionId,
+          ...errorDetails(err),
+        });
+        notifyTranscriptExportFailure(
+          'Conversation recall could not save the latest session transcript before shutdown.',
+          ctx,
         );
       }
-      promptLines.push('', '<conversation>', truncated, '</conversation>');
 
-      const summaryMessages: Message[] = [{
-        role: 'user',
-        content: [{ type: 'text', text: promptLines.join('\n') }],
-        timestamp: Date.now(),
-      }];
+      if (ctx.model) {
+        try {
+          const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
+          if (apiKey) {
+            const llmMessages = convertToLlm(messages);
+            const conversationText = serializeConversation(llmMessages);
+            const { text: truncated, truncated: wasTruncated } = truncateText(
+              conversationText.trim(),
+              SUMMARY_MAX_CHARS,
+            );
 
-      const response = await complete(
-        ctx.model,
-        { systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: summaryMessages },
-        { apiKey, reasoningEffort: 'low' },
-      );
+            if (truncated) {
+              const promptLines = [
+                'Review the conversation and extract important decisions, lessons learned, notes, and follow-ups for a daily log.',
+                'Return markdown only with these exact headings:',
+                '### Decisions',
+                '### Lessons Learned',
+                '### Notes',
+                '### Follow-ups',
+                'Use bullet points under each heading. If there is nothing, write "None.".',
+              ];
+              if (wasTruncated) {
+                promptLines.push(
+                  `Note: Conversation was truncated to the most recent ${truncated.length} of ${conversationText.length} characters.`,
+                );
+              }
+              promptLines.push('', '<conversation>', truncated, '</conversation>');
 
-      const summaryText = response.content
-        .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
-        .map((c) => c.text)
-        .join('\n')
-        .trim();
+              const summaryMessages: Message[] = [{
+                role: 'user',
+                content: [{ type: 'text', text: promptLines.join('\n') }],
+                timestamp: Date.now(),
+              }];
 
-      const summary = summaryText || buildSummaryFallback('Summary was empty');
-      const ts = nowTimestamp();
-      const entry = [
-        `<!-- ${ts} -->`,
-        '## Session Summary (auto)',
-        '',
-        summary,
-      ].join('\n');
+              const response = await complete(
+                ctx.model,
+                { systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: summaryMessages },
+                { apiKey, reasoningEffort: 'low' },
+              );
 
-      await appendToDaily(entry);
-      await runQmdUpdateNow();
-    } catch (err) {
-      // Best-effort: write fallback
-      const ts = nowTimestamp();
-      const fallback = buildSummaryFallback(
-        err instanceof Error ? err.message : 'unknown error',
-      );
-      const entry = [
-        `<!-- ${ts} -->`,
-        '## Session Summary (auto)',
-        '',
-        fallback,
-      ].join('\n');
-      await appendToDaily(entry).catch(() => {});
+              const summaryText = response.content
+                .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
+                .map((c) => c.text)
+                .join('\n')
+                .trim();
+
+              const summary = summaryText || buildSummaryFallback('Summary was empty');
+              await appendToDaily(buildSessionSummaryEntry(summary, sessionId, nowTimestamp()));
+              qmdDirty = true;
+              info('session_summary_written', { sessionId });
+            }
+          }
+        } catch (err) {
+          const fallback = buildSummaryFallback(
+            err instanceof Error ? err.message : 'unknown error',
+          );
+          await appendToDaily(buildSessionSummaryEntry(fallback, sessionId, nowTimestamp())).catch(() => {});
+          qmdDirty = true;
+          error('session_summary_failed', {
+            sessionId,
+            ...errorDetails(err),
+          });
+        }
+      }
+
+      if (qmdDirty) {
+        await runQmdUpdateNow();
+      }
     } finally {
       clearUpdateTimer();
     }

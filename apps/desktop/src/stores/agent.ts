@@ -229,9 +229,26 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  focusSession: (sessionId) => set({ focusedSessionId: sessionId }),
+  focusSession: (sessionId) => {
+    const prev = get().focusedSessionId;
+    set({ focusedSessionId: sessionId });
+    // Notify the previous session so extensions can export transcripts
+    if (prev && prev !== sessionId) {
+      window.sero.agent.notifySessionSwitch(prev, 'resume').catch((err) => {
+        console.warn('[agent-store] notifySessionSwitch failed for', prev, err);
+      });
+    }
+  },
 
-  clearFocus: () => set({ focusedSessionId: null }),
+  clearFocus: () => {
+    const prev = get().focusedSessionId;
+    set({ focusedSessionId: null });
+    if (prev) {
+      window.sero.agent.notifySessionSwitch(prev, 'resume').catch((err) => {
+        console.warn('[agent-store] notifySessionSwitch failed for', prev, err);
+      });
+    }
+  },
 
   reloadResources: async (sessionId) => {
     try {

@@ -128,6 +128,8 @@ interface SeroAgentAPI {
   abort(sessionId: string): Promise<void>;
   /** Close a specific session and dispose its AgentSession. */
   close(sessionId: string): Promise<void>;
+  /** Notify that the user switched away from a session (triggers transcript export). */
+  notifySessionSwitch(previousSessionId: string, reason?: 'new' | 'resume'): Promise<void>;
   /** Get available slash commands for a session. */
   getCommands(sessionId: string): Promise<SeroSlashCommandInfo[]>;
   /** Reload resources (skills, prompts, extensions). Returns updated commands. */

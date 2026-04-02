@@ -54,7 +54,14 @@ export default defineConfig({
   projects: [
     {
       name: 'ci',
-      testIgnore: /container\.spec\.ts/,
+      testIgnore: [
+        /container\.spec\.ts/,
+        // UI-rendering specs — Electron window doesn't fully render in
+        // headless CI (elements not found). Run locally with `test:e2e:local`.
+        /layout\.spec\.ts/,
+        /file-tree\.spec\.ts/,
+        /scroll-fix\.spec\.ts/,
+      ],
       metadata: { containers: false },
     },
     {

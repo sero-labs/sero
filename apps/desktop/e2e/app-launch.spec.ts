@@ -32,24 +32,31 @@ test.describe('App Launch', () => {
     expect(title).toBeTruthy();
   });
 
+  // UI rendering tests — Electron windows don't reliably render in headless CI.
+  // Run locally with test:e2e:local or test:e2e:headed.
   test('should render the main app shell', async () => {
+    test.skip(!!process.env.CI, 'UI rendering test — skipped in CI');
     // The flex container wrapping the entire UI
     await expect(page.locator(layout.appShell).first()).toBeVisible();
   });
 
   test('should render the title bar', async () => {
+    test.skip(!!process.env.CI, 'UI rendering test — skipped in CI');
     await expect(page.locator(layout.titleBar)).toBeVisible();
   });
 
   test('should render the status bar', async () => {
+    test.skip(!!process.env.CI, 'UI rendering test — skipped in CI');
     await expect(page.locator(layout.statusBar)).toBeVisible();
   });
 
   test('should have the sidebar toggle button', async () => {
+    test.skip(!!process.env.CI, 'UI rendering test — skipped in CI');
     await expect(page.locator(layout.sidebarToggle)).toBeVisible();
   });
 
   test('should have the chat panel toggle button', async () => {
+    test.skip(!!process.env.CI, 'UI rendering test — skipped in CI');
     await expect(page.locator(layout.chatToggle)).toBeVisible();
   });
 
