@@ -3,16 +3,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentStore } from '../agent';
 
-// Mock the window.sero.agent.notifySessionSwitch IPC bridge
+const initialState = useAgentStore.getState();
 const notifySessionSwitch = vi.fn().mockResolvedValue(undefined);
+const open = vi.fn().mockResolvedValue([]);
+const getCommands = vi.fn().mockResolvedValue([]);
+const getModelState = vi.fn().mockResolvedValue(null);
 
 beforeEach(() => {
-  // Provide a minimal window.sero stub for the store's IPC calls
-  (globalThis as any).window = {
+  (globalThis as typeof globalThis & { window: any }).window = {
     ...globalThis.window,
     sero: {
       agent: {
         notifySessionSwitch,
+        open,
+        getCommands,
+        getModelState,
       },
     },
   };
@@ -20,8 +25,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
-  // Reset store state between tests
-  useAgentStore.setState({ focusedSessionId: null });
+  useAgentStore.setState(initialState, true);
 });
 
 describe('agent store session switch notifications', () => {
@@ -32,6 +36,21 @@ describe('agent store session switch notifications', () => {
 
     expect(notifySessionSwitch).toHaveBeenCalledOnce();
     expect(notifySessionSwitch).toHaveBeenCalledWith('session-A', 'resume');
+    expect(useAgentStore.getState().focusedSessionId).toBe('session-B');
+  });
+
+  it('openSession notifies when switching to an unopened session', async () => {
+    useAgentStore.setState({ focusedSessionId: 'session-A' });
+
+    await useAgentStore.getState().openSession(
+      'session-B',
+      '/tmp/session-B.jsonl',
+      'workspace-1',
+    );
+
+    expect(notifySessionSwitch).toHaveBeenCalledOnce();
+    expect(notifySessionSwitch).toHaveBeenCalledWith('session-A', 'resume');
+    expect(open).toHaveBeenCalledWith('session-B', '/tmp/session-B.jsonl', 'workspace-1');
     expect(useAgentStore.getState().focusedSessionId).toBe('session-B');
   });
 
@@ -77,7 +96,6 @@ describe('agent store session switch notifications', () => {
 
     useAgentStore.getState().focusSession('session-B');
 
-    // Wait for the async .catch handler to fire
     await vi.waitFor(() => {
       expect(warnSpy).toHaveBeenCalledWith(
         '[agent-store] notifySessionSwitch failed for',

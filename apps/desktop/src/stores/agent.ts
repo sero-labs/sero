@@ -28,6 +28,7 @@ import {
   drainDeltaBuffer,
   handleAgentStreamEvent,
 } from '@/stores/agent-utils';
+import { notifyPreviousSessionSwitch } from '@/stores/agent-focus';
 
 // Deduplicate concurrent opens for the same session so every caller waits for
 // the same main-process AgentSession creation instead of racing prompt calls.
@@ -43,6 +44,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   collaborations: {},
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
+    notifyPreviousSessionSwitch(get().focusedSessionId, sessionId);
     set({ focusedSessionId: sessionId });
 
     const pending = pendingSessionOpens.get(sessionId);
@@ -230,24 +232,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   },
 
   focusSession: (sessionId) => {
-    const prev = get().focusedSessionId;
+    notifyPreviousSessionSwitch(get().focusedSessionId, sessionId);
     set({ focusedSessionId: sessionId });
-    // Notify the previous session so extensions can export transcripts
-    if (prev && prev !== sessionId) {
-      window.sero.agent.notifySessionSwitch(prev, 'resume').catch((err) => {
-        console.warn('[agent-store] notifySessionSwitch failed for', prev, err);
-      });
-    }
   },
 
   clearFocus: () => {
-    const prev = get().focusedSessionId;
+    notifyPreviousSessionSwitch(get().focusedSessionId, null);
     set({ focusedSessionId: null });
-    if (prev) {
-      window.sero.agent.notifySessionSwitch(prev, 'resume').catch((err) => {
-        console.warn('[agent-store] notifySessionSwitch failed for', prev, err);
-      });
-    }
   },
 
   reloadResources: async (sessionId) => {

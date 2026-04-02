@@ -68,9 +68,20 @@ function getRootAliases(): string[] {
     aliases.add(`~/${relativeToHome}/workspaces/global`);
     aliases.add(`$HOME/${relativeToHome}/workspaces/global`);
     aliases.add('${HOME}/' + `${relativeToHome}/workspaces/global`);
+    aliases.add(`${relativeToHome}/workspaces/global`);
   }
 
   return [...aliases].sort((a, b) => b.length - a.length);
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function commandMentionsPath(command: string, value: string): boolean {
+  const escaped = escapeRegex(value);
+  const tokenPattern = new RegExp(`(^|[\\s\"'=:(])${escaped}(?=$|[\\s\"'/:;&|)])`);
+  return tokenPattern.test(command);
 }
 
 function getSpecificCommandAliases(rootAlias: string): string[] {
@@ -89,21 +100,8 @@ export function commandTouchesProtectedMemory(command: string): boolean {
   const rootAliases = getRootAliases();
   const specificAliases = rootAliases.flatMap((alias) => getSpecificCommandAliases(alias));
 
-  if (specificAliases.some((alias) => normalized.includes(alias))) {
-    return true;
-  }
-
-  const memoryMarkers = [
-    'MEMORY.md',
-    'IDENTITY.md',
-    'USER.md',
-    'SCRATCHPAD.md',
-    'memory/daily',
-    'memory/sessions',
-  ];
-
-  return rootAliases.some((alias) => normalized.includes(alias))
-    && memoryMarkers.some((marker) => normalized.includes(marker));
+  return specificAliases.some((alias) => normalized.includes(alias))
+    || rootAliases.some((alias) => commandMentionsPath(normalized, alias));
 }
 
 export function getProtectedMemoryAccessError(source: 'bash' | 'read' | 'write' | 'edit'): string {

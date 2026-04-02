@@ -50,11 +50,12 @@ describe('container memory file guard', () => {
     expect(isProtectedMemoryPath('/workspace/memory/sessions/notes.md')).toBe(false);
   });
 
-  it('detects bash commands that touch protected memory locations', () => {
+  it('detects direct and cwd-based bash access to protected memory locations', () => {
     const protectedRoot = getProtectedMemoryRoot();
 
     expect(commandTouchesProtectedMemory(`grep -n notifications '${protectedRoot}/MEMORY.md'`)).toBe(true);
     expect(commandTouchesProtectedMemory(`find '${protectedRoot}/memory/sessions' -type f`)).toBe(true);
+    expect(commandTouchesProtectedMemory(`cd '${protectedRoot}' && cat *.md`)).toBe(true);
     expect(commandTouchesProtectedMemory('grep -n notifications /workspace/MEMORY.md')).toBe(false);
   });
 
@@ -80,9 +81,11 @@ describe('container memory file guard', () => {
   it('blocks bash commands that touch protected memory files before execution', async () => {
     const cm = createMockContainerManager();
     const bashTool = createBash(cm as unknown as ContainerManager, 'ws-1');
-    const command = `cat '${getProtectedMemoryRoot()}/MEMORY.md'`;
+    const protectedRoot = getProtectedMemoryRoot();
 
-    await expect(bashTool.execute('tool-1', { command }, undefined, undefined, undefined as never))
+    await expect(bashTool.execute('tool-1', { command: `cat '${protectedRoot}/MEMORY.md'` }, undefined, undefined, undefined as never))
+      .rejects.toThrow(getProtectedMemoryAccessError('bash'));
+    await expect(bashTool.execute('tool-2', { command: `cd '${protectedRoot}' && cat *.md` }, undefined, undefined, undefined as never))
       .rejects.toThrow(getProtectedMemoryAccessError('bash'));
 
     expect(cm.exec).not.toHaveBeenCalled();

@@ -112,10 +112,8 @@ async function closePoolEntry(sessionId: string): Promise<void> {
   pool.delete(sessionId);
 }
 
-function disposeAll(): void {
-  for (const sessionId of pool.keys()) {
-    closePoolEntry(sessionId);
-  }
+export async function disposeAllAgentSessions(): Promise<void> {
+  await Promise.allSettled([...pool.keys()].map((sessionId) => closePoolEntry(sessionId)));
 }
 
 /** Open (or return) an agent session — shared by IPC handler and gateway. */
@@ -487,10 +485,5 @@ export function registerAgentHandlers(): void {
   registerAgentModelContextHandlers({
     getEntry: (sessionId) => pool.get(sessionId),
     sendEvent,
-  });
-
-  const { app } = require('electron');
-  app.on('before-quit', () => {
-    disposeAll();
   });
 }

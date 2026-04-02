@@ -24,9 +24,10 @@ describe('host coding tools memory guard', () => {
     process.env.SERO_HOME = originalSeroHome;
   });
 
-  it('blocks direct access to managed memory files when containers are disabled', async () => {
+  it('blocks direct and cwd-based access to managed memory files when containers are disabled', async () => {
     const tools = createHostCodingTools('/tmp/workspace');
-    const protectedPath = `${getProtectedMemoryRoot()}/MEMORY.md`;
+    const protectedRoot = getProtectedMemoryRoot();
+    const protectedPath = `${protectedRoot}/MEMORY.md`;
 
     await expect(getTool(tools, 'read').execute('tool-1', { path: protectedPath }, undefined, undefined, undefined as never))
       .rejects.toThrow(getProtectedMemoryAccessError('read'));
@@ -35,6 +36,8 @@ describe('host coding tools memory guard', () => {
     await expect(getTool(tools, 'edit').execute('tool-3', { path: protectedPath, oldText: 'a', newText: 'b' }, undefined, undefined, undefined as never))
       .rejects.toThrow(getProtectedMemoryAccessError('edit'));
     await expect(getTool(tools, 'bash').execute('tool-4', { command: `cat '${protectedPath}'` }, undefined, undefined, undefined as never))
+      .rejects.toThrow(getProtectedMemoryAccessError('bash'));
+    await expect(getTool(tools, 'bash').execute('tool-5', { command: `cd '${protectedRoot}' && cat *.md` }, undefined, undefined, undefined as never))
       .rejects.toThrow(getProtectedMemoryAccessError('bash'));
   });
 });

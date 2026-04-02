@@ -20,6 +20,7 @@ if (ACTIVE_PROFILE_ID) {
   app.setPath('userData', profileUserData);
 }
 import { registerAllIpcHandlers } from './ipc';
+import { disposeAllAgentSessions } from './ipc/agent';
 import { workspaceManager } from './features/workspace/manager';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
 import { discoverApps, registerAppPath } from './features/apps/discovery';
@@ -335,6 +336,12 @@ app.on('activate', () => {
 app.on('before-quit', async (e) => {
   e.preventDefault();
   console.log('[sero] Shutting down — cleaning up containers, terminals, LSP, watchers...');
+
+  try {
+    await disposeAllAgentSessions();
+  } catch (err) {
+    console.error('[sero] Error during agent shutdown cleanup:', err);
+  }
 
   // Stop gateway services
   if (gatewayServer.getStatus().running) {
