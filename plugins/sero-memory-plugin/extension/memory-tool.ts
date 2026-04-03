@@ -6,7 +6,7 @@
  */
 
 import { StringEnum } from '@mariozechner/pi-ai';
-import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 import type { Static } from '@sinclair/typebox';
@@ -36,20 +36,18 @@ import {
   stripManagedFileMetadata,
 } from './memory-format';
 import { checkForDuplicateEntries, scanMemoryContent } from './memory-guards';
-import {
-  describeAutoConsolidationCadence,
-  syncAutoConsolidationCronJobSync,
-  type AutoConsolidationCadence,
-} from './automation-state';
-import {
-  runMemoryConsolidationSafely,
-  type ConsolidationTrigger,
-} from './consolidation';
 import { error, errorDetails, info } from './logger';
 import { scheduleQmdUpdate } from './qmd';
+import {
+  handleMemoryConfig,
+  handleMemoryConsolidate,
+} from './memory-tool-admin';
+import type { AutoConsolidationCadence } from './automation-state';
+import type { ConsolidationTrigger } from './consolidation';
+import type { MemorySnapshotMode } from './memory-config';
 
 const MemoryParams = Type.Object({
-  action: StringEnum(['read', 'write', 'replace', 'remove', 'search', 'list', 'consolidate'] as const),
+  action: StringEnum(['read', 'write', 'replace', 'remove', 'search', 'list', 'consolidate', 'config'] as const),
   target: Type.Optional(StringEnum(['memory', 'identity', 'user', 'daily'] as const)),
   content: Type.Optional(Type.String({ description: 'Content to write (for write / replace actions)' })),
   mode: Type.Optional(StringEnum(['append', 'overwrite'] as const)),
@@ -62,6 +60,7 @@ const MemoryParams = Type.Object({
   type: Type.Optional(StringEnum(['fact', 'decision', 'preference', 'lesson', 'question', 'hypothesis'] as const)),
   schedule: Type.Optional(StringEnum(['daily', 'weekly', 'off'] as const)),
   trigger: Type.Optional(StringEnum(['manual', 'cron', 'auto'] as const)),
+  snapshot: Type.Optional(StringEnum(['frozen', 'live'] as const)),
 });
 
 type MemoryParamsType = Static<typeof MemoryParams>;
@@ -373,45 +372,6 @@ export async function handleList(root: string) {
   return text(parts.join('\n\n'));
 }
 
-async function handleConsolidate(
-  schedule: AutoConsolidationCadence | undefined,
-  trigger: ConsolidationTrigger | undefined,
-  ctx: ExtensionContext,
-) {
-  if (schedule) {
-    const sync = syncAutoConsolidationCronJobSync(schedule);
-    const cadenceLabel = describeAutoConsolidationCadence(sync.cadence);
-    if (sync.cadence === 'off') {
-      if (ctx.hasUI) {
-        ctx.ui.notify('Automatic memory consolidation disabled', 'info');
-      }
-      return text('Automatic memory consolidation disabled.');
-    }
-
-    const message = [
-      `Automatic memory consolidation set to ${cadenceLabel}.`,
-      'Sero will keep older daily logs distilled into MEMORY.md automatically.',
-      'Change it any time with `sero memory consolidate --schedule daily|weekly|off`.',
-    ].join('\n');
-
-    if (ctx.hasUI) {
-      ctx.ui.notify(`Automatic memory consolidation set to ${sync.cadence}`, 'info');
-    }
-    return text(message);
-  }
-
-  const summary = await runMemoryConsolidationSafely(ctx, trigger ?? 'manual');
-  if (ctx.hasUI && summary.changed) {
-    ctx.ui.notify(
-      summary.addedEntries > 0
-        ? `Memory consolidation added ${summary.addedEntries} entries`
-        : 'Memory consolidation finished',
-      'info',
-    );
-  }
-  return text(summary.message);
-}
-
 export function registerMemoryTool(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'memory',
@@ -420,7 +380,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
       'Manage persistent memory files for long-term context across sessions.',
       'ALWAYS use this tool for reading or writing memory files — never use bash, read, write, or edit tools on memory files directly.',
       '',
-      'Actions: read, write, replace, remove, search, list, consolidate.',
+      'Actions: read, write, replace, remove, search, list, consolidate, config.',
       'Targets: memory (MEMORY.md), identity (IDENTITY.md), user (USER.md), daily (daily log).',
     ].join('\n'),
     parameters: MemoryParams,
@@ -438,6 +398,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
         hasOldText: Boolean(p.old_text),
         schedule: p.schedule ?? null,
         trigger: p.trigger ?? null,
+        snapshot: p.snapshot ?? null,
       });
 
       try {
@@ -455,11 +416,13 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
           case 'list':
             return handleList(root);
           case 'consolidate':
-            return handleConsolidate(
+            return handleMemoryConsolidate(
               p.schedule as AutoConsolidationCadence | undefined,
               p.trigger as ConsolidationTrigger | undefined,
               ctx,
             );
+          case 'config':
+            return handleMemoryConfig(p.snapshot as MemorySnapshotMode | undefined);
           default:
             return text(`Unknown action: ${p.action}`);
         }
@@ -480,6 +443,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
       if (args.type) output += ` ${theme.fg('accent', `[${args.type}]`)}`;
       if (args.entry_id) output += ` ${theme.fg('accent', args.entry_id)}`;
       if (args.schedule) output += ` ${theme.fg('accent', `schedule:${args.schedule}`)}`;
+      if (args.snapshot) output += ` ${theme.fg('accent', `snapshot:${args.snapshot}`)}`;
       if (args.query) output += ` ${theme.fg('dim', `"${args.query}"`)}`;
       if (args.content) {
         const preview = args.content.length > 60 ? `${args.content.slice(0, 57)}...` : args.content;

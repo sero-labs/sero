@@ -112,6 +112,46 @@ describe('Test 12 — Context injection', () => {
   });
 });
 
+describe('Frozen snapshot mode', () => {
+  it('keeps long-term memory stable across turns in frozen mode', async () => {
+    await writeFile('IDENTITY.md', '# Identity\n\n- **Name:** Sero');
+    await writeFile('USER.md', '# User\n\n- **Name:** Daniel');
+    await seedMemory([
+      { type: 'preference', text: 'TypeScript over JavaScript' },
+    ]);
+
+    const turnOne = await buildPriorityContext(root, 'hello', 'session-frozen', 'frozen');
+    await seedMemory([
+      { type: 'preference', text: 'TypeScript over JavaScript' },
+      { type: 'preference', text: 'Prefers concise PR descriptions' },
+    ]);
+
+    const turnTwo = await buildPriorityContext(root, 'what do you remember?', 'session-frozen', 'frozen');
+
+    expect(turnTwo).toBe(turnOne);
+    expect(turnTwo).not.toContain('Prefers concise PR descriptions');
+  });
+
+  it('rebuilds long-term memory on each turn in live mode', async () => {
+    await writeFile('IDENTITY.md', '# Identity\n\n- **Name:** Sero');
+    await writeFile('USER.md', '# User\n\n- **Name:** Daniel');
+    await seedMemory([
+      { type: 'preference', text: 'TypeScript over JavaScript' },
+    ]);
+
+    const turnOne = await buildPriorityContext(root, 'hello', 'session-live', 'live');
+    await seedMemory([
+      { type: 'preference', text: 'TypeScript over JavaScript' },
+      { type: 'preference', text: 'Prefers concise PR descriptions' },
+    ]);
+
+    const turnTwo = await buildPriorityContext(root, 'what do you remember?', 'session-live', 'live');
+
+    expect(turnTwo).not.toBe(turnOne);
+    expect(turnTwo).toContain('Prefers concise PR descriptions');
+  });
+});
+
 // ── Memory instructions content (Issue 3 prompt tuning) ────────
 
 describe('Memory instructions — bash prevention (Issue 3)', () => {
@@ -142,5 +182,6 @@ describe('Memory instructions — bash prevention (Issue 3)', () => {
     expect(instructions).toContain('[decision]');
     expect(instructions).toContain('[preference]');
     expect(instructions).toContain('capacity');
+    expect(instructions).toContain('sero memory config');
   });
 });

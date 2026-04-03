@@ -80,6 +80,10 @@ export function getAgentPoolEntry(sessionId: string): PoolEntry | undefined {
   return pool.get(sessionId);
 }
 
+if (process.env.NODE_ENV === 'test') {
+  (globalThis as Record<string, unknown>).__seroTestGetAgentPoolEntry = getAgentPoolEntry;
+}
+
 /** Reload all active session ResourceLoaders after edits. */
 export async function reloadAllSessionResources(): Promise<void> {
   await Promise.all(

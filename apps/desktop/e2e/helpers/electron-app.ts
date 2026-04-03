@@ -43,8 +43,9 @@ export async function launchSeroApp(
   const env: Record<string, string> = {
     ...process.env as Record<string, string>,
     NODE_ENV: 'test',
-    // Isolate test data from real user data
-    SERO_HOME: options.seroHome ?? path.join(desktopRoot, '.sero-test-data'),
+    // Isolate test data from real user data. env.ts resolves profiles via
+    // SERO_HOME_OVERRIDE in tests; SERO_HOME is set later by loadSeroEnv().
+    SERO_HOME_OVERRIDE: options.seroHome ?? path.join(desktopRoot, '.sero-test-data'),
   };
 
   if (!containers) {

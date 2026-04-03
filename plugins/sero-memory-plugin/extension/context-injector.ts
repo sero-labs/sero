@@ -11,54 +11,25 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
 import {
-  resolveMemoryRoot,
-  readFile,
-  getIdentityPath,
-  getMemoryPath,
-  getScratchpadPath,
-  getTargetUsage,
-  getUserPath,
-  statFile,
-} from './memory-manager';
-import {
   checkBootstrapStatus,
   IDENTITY_QUESTIONS,
   MEMORY_QUESTIONS,
   USER_QUESTIONS,
 } from './bootstrap';
 import type { BootstrapStatus } from './bootstrap';
-import { formatScratchpadForInjection, getOpenScratchpadItems } from './scratchpad';
-import { isQmdAvailable, runQmdUpdateNow, searchRelevantMemories } from './qmd';
-import { formatRankedResults } from './retrieval';
-import {
-  buildFingerprint,
-  clearCache,
-  consumeCache,
-  mergeCachedResults,
-  storeTurnResults,
-} from './prefetch';
-import {
-  formatMemoryEntry,
-  formatShortTimestamp,
-  HIGH_PRIORITY_TYPES,
-  LOW_PRIORITY_TYPES,
-  parseMemoryEntries,
-  renderMemoryForRead,
-  stripEntryIdComments,
-  stripManagedFileMetadata,
-  type MemoryEntry,
-} from './memory-format';
+import { resolveMemoryRoot } from './memory-manager';
+import { getMemorySnapshotModeSync } from './memory-config';
+import { buildPriorityContext, clearPriorityContextCache } from './priority-context';
+import { isQmdAvailable, runQmdUpdateNow } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { runPhase1Migration } from './migration';
-import { flushPendingStats, recordHits, sortByScore } from './memory-scoring';
+import { flushPendingStats } from './memory-scoring';
 import { getMemoryInstructions } from './memory-instructions';
-
-const BUDGET_IDENTITY = 1_000;
-const BUDGET_USER = 1_000;
-const BUDGET_SCRATCHPAD = 1_500;
-const BUDGET_SEARCH = 2_500;
-const BUDGET_MEMORY = 1_600;
-const BUDGET_TOTAL = 7_600;
+import {
+  clearMemoryPromptDebugState,
+  logMemoryPromptAgentStart,
+  logMemoryPromptBeforeAgentStart,
+} from './prompt-debug';
 
 let cachedStatus: BootstrapStatus | null = null;
 let migrationChecked = false;
@@ -77,220 +48,7 @@ export function markBootstrapDone(): void {
   cachedStatus = { needsBootstrap: false, existingUserContent: null };
 }
 
-function truncateStart(text: string, maxChars: number): { text: string; notice: string } {
-  if (text.length <= maxChars) return { text, notice: '' };
-  const notice = `_[truncated: showing ${Math.min(maxChars, text.length)} of ${text.length} chars]_`;
-  return { text: text.slice(0, maxChars), notice };
-}
-
-/**
- * Type-aware + score-aware truncation for MEMORY.md (§3.2, §3.3).
- * Preserves [decision], [preference], [question] entries first;
- * drops [hypothesis] entries before others; cuts [fact]/[lesson] last.
- * Within each bucket, entries are already sorted by recency score.
- */
-function truncateMemoryByType(entries: MemoryEntry[], maxChars: number): { text: string; notice: string } {
-  // Render all entries without IDs for injection
-  const allLines = entries.map((e) => stripEntryIdComments(formatMemoryEntry(e)));
-  const fullText = allLines.join('\n');
-  if (fullText.length <= maxChars) return { text: fullText, notice: '' };
-
-  // Bucket entries by priority (order within buckets preserved from score sort)
-  const high: string[] = [];
-  const normal: string[] = [];
-  const low: string[] = [];
-  for (const entry of entries) {
-    const line = stripEntryIdComments(formatMemoryEntry(entry));
-    if (HIGH_PRIORITY_TYPES.has(entry.type)) high.push(line);
-    else if (LOW_PRIORITY_TYPES.has(entry.type)) low.push(line);
-    else normal.push(line);
-  }
-
-  // Build output greedily: high → normal → low
-  const selected: string[] = [];
-  let chars = 0;
-  for (const line of [...high, ...normal, ...low]) {
-    const nextChars = chars + line.length + (selected.length > 0 ? 1 : 0); // +1 for \n
-    if (nextChars > maxChars) break;
-    selected.push(line);
-    chars = nextChars;
-  }
-
-  const dropped = entries.length - selected.length;
-  const notice = dropped > 0
-    ? `_[type-prioritised truncation: showing ${selected.length} of ${entries.length} entries]_`
-    : '';
-  return { text: selected.join('\n'), notice };
-}
-
-function truncateMiddle(text: string, maxChars: number): { text: string; notice: string } {
-  if (text.length <= maxChars) return { text, notice: '' };
-  const marker = '\n\n... (truncated) ...\n\n';
-  const keep = Math.max(0, maxChars - marker.length);
-  const head = Math.ceil(keep / 2);
-  const tail = Math.floor(keep / 2);
-  return {
-    text: text.slice(0, head) + marker + text.slice(text.length - tail),
-    notice: `_[middle-truncated: showing ${Math.min(maxChars, text.length)} of ${text.length} chars]_`,
-  };
-}
-
-async function buildManagedBlock(options: {
-  label: string;
-  path: string;
-  target: 'memory' | 'identity' | 'user' | 'scratchpad';
-  visibleContent: string;
-  usageContent?: string;
-  budget: number;
-  truncateMode: 'start' | 'middle';
-  entryCount?: number;
-}): Promise<string> {
-  const stat = await statFile(options.path);
-  const usage = getTargetUsage(options.target, options.usageContent ?? options.visibleContent);
-  const updated = stat ? formatShortTimestamp(stat.mtime) : 'unknown';
-  const entrySuffix = options.entryCount != null ? ` (${options.entryCount} entries)` : '';
-  const header = `### ${options.label} [${usage.percent}% — ${usage.chars}/${usage.max} chars] (updated: ${updated})${entrySuffix}`;
-  const truncated = options.truncateMode === 'middle'
-    ? truncateMiddle(options.visibleContent.trim(), options.budget)
-    : truncateStart(options.visibleContent.trim(), options.budget);
-
-  const parts = [header];
-  if (truncated.notice) parts.push('', truncated.notice);
-  if (truncated.text.trim()) parts.push('', truncated.text.trim());
-  return parts.join('\n');
-}
-
-/** @internal Exported for testing. */
-export async function buildPriorityContext(root: string, prompt: string, sessionId?: string): Promise<string> {
-  const sections: string[] = [];
-  let totalChars = 0;
-
-  function addSection(section: string): void {
-    if (!section.trim()) return;
-    if (totalChars + section.length > BUDGET_TOTAL) return;
-    sections.push(section);
-    totalChars += section.length;
-  }
-
-  const identityPath = getIdentityPath(root);
-  const identityContent = await readFile(identityPath);
-  if (identityContent?.trim()) {
-    addSection(await buildManagedBlock({
-      label: 'IDENTITY.md',
-      path: identityPath,
-      target: 'identity',
-      visibleContent: stripManagedFileMetadata(identityContent),
-      budget: BUDGET_IDENTITY,
-      truncateMode: 'start',
-    }));
-  }
-
-  const userPath = getUserPath(root);
-  const userContent = await readFile(userPath);
-  if (userContent?.trim()) {
-    addSection(await buildManagedBlock({
-      label: 'USER.md',
-      path: userPath,
-      target: 'user',
-      visibleContent: stripManagedFileMetadata(userContent),
-      budget: BUDGET_USER,
-      truncateMode: 'start',
-    }));
-  }
-
-  const openScratchpadItems = await getOpenScratchpadItems();
-  if (openScratchpadItems.length > 0) {
-    const scratchpadPath = getScratchpadPath(root);
-    const scratchpadContent = await readFile(scratchpadPath);
-    if (scratchpadContent?.trim()) {
-      addSection(await buildManagedBlock({
-        label: 'SCRATCHPAD.md',
-        path: scratchpadPath,
-        target: 'scratchpad',
-        visibleContent: formatScratchpadForInjection(openScratchpadItems),
-        usageContent: scratchpadContent,
-        budget: BUDGET_SCRATCHPAD,
-        truncateMode: 'start',
-        entryCount: openScratchpadItems.length,
-      }));
-    }
-  }
-
-  const skipSearch = process.env.SERO_MEMORY_NO_SEARCH === '1';
-  if (!skipSearch && isQmdAvailable() && prompt) {
-    const { formatted, results: freshResults } = await searchRelevantMemories(prompt);
-    const currentFingerprint = buildFingerprint(prompt);
-
-    // Merge with cache from previous turn if topic overlaps (§2.2)
-    let mergedFormatted = formatted;
-    if (sessionId) {
-      const cached = consumeCache(sessionId);
-      if (cached && freshResults.length > 0) {
-        const merged = mergeCachedResults(freshResults, cached, currentFingerprint, 3);
-        if (merged.length > freshResults.length) {
-          mergedFormatted = formatRankedResults(merged);
-        }
-      }
-      // Store this turn's results for the next turn
-      if (freshResults.length > 0) {
-        storeTurnResults(sessionId, prompt, freshResults, currentFingerprint);
-      }
-    }
-
-    if (mergedFormatted.trim()) {
-      const truncated = truncateStart(`## Relevant memories (auto-retrieved)\n\n${mergedFormatted}`, BUDGET_SEARCH);
-      addSection([truncated.text, truncated.notice ? `\n\n${truncated.notice}` : ''].join('').trim());
-
-      // Record hits for memory entries found in search results (§3.3)
-      const memoryHitIds = freshResults
-        .flatMap((r) => {
-          const text = r.content?.toString() ?? '';
-          const ids: string[] = [];
-          const regex = /<!-- id: (mem-[a-f0-9]+) -->/gi;
-          let match;
-          while ((match = regex.exec(text)) !== null) ids.push(match[1]!);
-          return ids;
-        });
-      if (memoryHitIds.length > 0) {
-        recordHits(memoryHitIds).catch(() => {});
-      }
-    }
-  }
-
-  const memoryPath = getMemoryPath(root);
-  const memoryContent = await readFile(memoryPath);
-  if (memoryContent?.trim()) {
-    const memoryEntries = parseMemoryEntries(memoryContent);
-    if (memoryEntries.length > 0) {
-      // Sort by recency score before type-aware truncation (§3.3)
-      const scoredEntries = await sortByScore(memoryEntries);
-      const truncated = truncateMemoryByType(scoredEntries, BUDGET_MEMORY);
-      const stat = await statFile(memoryPath);
-      const usage = getTargetUsage('memory', memoryContent);
-      const updated = stat ? formatShortTimestamp(stat.mtime) : 'unknown';
-      const header = `### MEMORY.md [${usage.percent}% — ${usage.chars}/${usage.max} chars] (updated: ${updated}) (${memoryEntries.length} entries)`;
-      const parts = [header];
-      if (truncated.notice) parts.push('', truncated.notice);
-      if (truncated.text.trim()) parts.push('', truncated.text.trim());
-      addSection(parts.join('\n'));
-    } else {
-      addSection(await buildManagedBlock({
-        label: 'MEMORY.md',
-        path: memoryPath,
-        target: 'memory',
-        visibleContent: renderMemoryForRead(memoryContent, false),
-        budget: BUDGET_MEMORY,
-        truncateMode: 'middle',
-        entryCount: 0,
-      }));
-    }
-  }
-
-  if (sections.length === 0) return '';
-  return `\n\n## Memory\n\n${sections.join('\n\n---\n\n')}`;
-}
-
-// Memory instructions (getMemoryInstructions) are in memory-instructions.ts
+export { buildPriorityContext } from './priority-context';
 
 function formatToolParamsJson(value: unknown): string {
   return `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
@@ -345,13 +103,19 @@ After receiving answers, write MEMORY.md:
 }
 
 export function registerContextInjection(pi: ExtensionAPI): void {
-  pi.on('session_start', () => {
-    info('bootstrap_cache_reset', { source: 'session_start' });
+  pi.on('session_start', (_event, ctx) => {
+    const sessionId = ctx.sessionManager.getSessionId();
+    info('bootstrap_cache_reset', { source: 'session_start', sessionId });
+    clearPriorityContextCache(sessionId);
+    clearMemoryPromptDebugState(sessionId);
     resetBootstrapCache();
   });
 
-  pi.on('session_switch', () => {
-    info('bootstrap_cache_reset', { source: 'session_switch' });
+  pi.on('session_switch', (_event, ctx) => {
+    const sessionId = ctx.sessionManager.getSessionId();
+    info('bootstrap_cache_reset', { source: 'session_switch', sessionId });
+    clearPriorityContextCache(sessionId);
+    clearMemoryPromptDebugState(sessionId);
     resetBootstrapCache();
   });
 
@@ -365,18 +129,28 @@ export function registerContextInjection(pi: ExtensionAPI): void {
   });
 
   pi.on('session_shutdown', async (_event, ctx) => {
-    clearCache(ctx.sessionManager.getSessionId());
+    const sessionId = ctx.sessionManager.getSessionId();
+    clearPriorityContextCache(sessionId);
+    clearMemoryPromptDebugState(sessionId);
     await flushPendingStats();
+  });
+
+  pi.on('agent_start', async (_event, ctx) => {
+    logMemoryPromptAgentStart(ctx.sessionManager.getSessionId(), ctx.getSystemPrompt());
   });
 
   pi.on('before_agent_start', async (event, ctx) => {
     try {
       const status = await getCachedBootstrapStatus();
       const sessionId = ctx.sessionManager.getSessionId();
+      const snapshotMode = getMemorySnapshotModeSync();
 
       let addition = '';
       let contextBlock = '';
-      if (status.needsBootstrap) {
+      let memoryInstructions = '';
+      let needsBootstrap = status.needsBootstrap;
+
+      if (needsBootstrap) {
         addition = buildBootstrapInstructions(status.existingUserContent);
       } else {
         if (!migrationChecked) {
@@ -394,23 +168,40 @@ export function registerContextInjection(pi: ExtensionAPI): void {
         }
 
         const refreshedStatus = await getCachedBootstrapStatus();
-        if (refreshedStatus.needsBootstrap) {
+        needsBootstrap = refreshedStatus.needsBootstrap;
+        if (needsBootstrap) {
           addition = buildBootstrapInstructions(refreshedStatus.existingUserContent);
         } else {
           const root = resolveMemoryRoot();
-          contextBlock = await buildPriorityContext(root, event.prompt ?? '', sessionId);
-          addition = contextBlock + getMemoryInstructions();
+          contextBlock = await buildPriorityContext(root, event.prompt ?? '', sessionId, snapshotMode);
+          memoryInstructions = getMemoryInstructions();
+          addition = contextBlock + memoryInstructions;
         }
       }
 
-      if (!status.needsBootstrap && !addition) {
+      if (!needsBootstrap && !addition) {
         const root = resolveMemoryRoot();
-        contextBlock = await buildPriorityContext(root, event.prompt ?? '', sessionId);
-        addition = contextBlock + getMemoryInstructions();
+        contextBlock = await buildPriorityContext(root, event.prompt ?? '', sessionId, snapshotMode);
+        memoryInstructions = getMemoryInstructions();
+        addition = contextBlock + memoryInstructions;
       }
 
+      logMemoryPromptBeforeAgentStart({
+        sessionId,
+        prompt: event.prompt ?? '',
+        incomingSystemPrompt: event.systemPrompt,
+        contextBlock,
+        memoryInstructions,
+        addition,
+        needsBootstrap,
+        snapshotMode,
+        qmdAvailable: isQmdAvailable(),
+        skipSearch: process.env.SERO_MEMORY_NO_SEARCH === '1',
+      });
+
       info('before_agent_start', {
-        needsBootstrap: status.needsBootstrap,
+        needsBootstrap,
+        snapshotMode,
         promptChars: event.prompt?.length ?? 0,
         contextChars: contextBlock.length,
         additionChars: addition.length,

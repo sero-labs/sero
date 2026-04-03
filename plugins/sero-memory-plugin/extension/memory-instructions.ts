@@ -79,6 +79,7 @@ function getMemoryStorageInstructions(): string[] {
     '- `sero memory replace --target memory --entry_id "mem-..." --content "..."`',
     '- `sero memory remove --target memory --entry_id "mem-..."`',
     '- `sero memory consolidate [--schedule daily|weekly|off]` — run or configure automatic memory consolidation',
+    '- `sero memory config [--snapshot frozen|live]` — control whether long-term memory is frozen per session or rebuilt each turn',
     '- `sero scratchpad add|done "..."`',
     '',
     'Guidelines:',

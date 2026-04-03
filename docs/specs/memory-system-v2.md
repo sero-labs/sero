@@ -626,8 +626,8 @@ once at session start as a frozen block. Only QMD search results vary per turn.
 the next session. This is acceptable for users who prioritise response speed
 (prefix caching gives ~50% TTFT reduction on long system prompts).
 
-**Configuration:** `sero memory config --snapshot frozen|live` (default: `live`,
-preserving current behaviour).
+**Configuration:** `sero memory config --snapshot frozen|live` (default: `frozen`,
+preserving prefix-cache stability unless the user opts back into live updates).
 
 **Implementation:** Cache the Priority 1 + 4 blocks on `session_start`. On
 `before_agent_start`, use cached blocks for those priorities and only
