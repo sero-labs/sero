@@ -91,12 +91,27 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   'git_manager',
   // NOT bridged — private, kept away from agent by design:
   // 'admin' — Sero Admin reads sensitive config (auth, .env); must not be agent-accessible
-  // NOT bridged — complex schemas or long freeform payloads that need structured params:
-  // 'question', 'questionnaire', 'interview', 'create_agent', 'kanban', 'research'
   // NOT bridged — these depend on ctx.sessionManager (SDK internals):
   // 'context_tag', 'context_log', 'context_checkout'
   // NOT bridged — deliberate standalone exception for nested structured params:
   // 'subagent'
+]);
+
+/**
+ * Tool names that must NEVER be bridged into `sero-cli`.
+ *
+ * These tools either:
+ * - require nested structured params that are awkward/error-prone in shell syntax
+ * - wait on interactive user input and therefore must not inherit the CLI's
+ *   per-command timeout behavior
+ */
+const NEVER_BRIDGE_TO_CLI = new Set([
+  'question',
+  'questionnaire',
+  'interview',
+  'create_agent',
+  'kanban',
+  'research',
 ]);
 
 /**
@@ -111,6 +126,7 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
  * - `string[]`           → bridge only the listed tool names
  */
 function shouldBridgeTool(name: string, extensionPath: string): boolean {
+  if (NEVER_BRIDGE_TO_CLI.has(name)) return false;
   if (CORE_TOOLS_TO_BRIDGE.has(name)) return true;
 
   const pluginPolicy = getPluginBridgePolicy(extensionPath);
@@ -178,8 +194,7 @@ export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensions
  * Groups commands by source and lists them all, so the agent discovers
  * every bridged app tool automatically — no manual prompt updates needed.
  */
-export function buildCliPromptBlock(): string {
-  const reg = getCliRegistry();
+export function buildCliPromptBlock(reg: CliRegistry = getCliRegistry()): string {
   const commands = reg.list().filter((c) => !c.hidden && c.name !== 'help');
 
   const grouped = new Map<string, string[]>();
@@ -194,6 +209,18 @@ export function buildCliPromptBlock(): string {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([group, names]) => `- ${group}: ${names.sort().join(', ')}`);
 
+  const hasMemoryCommands = Boolean(reg.get('memory') || reg.get('memory_search') || reg.get('scratchpad'));
+  const memoryRoutingSection = hasMemoryCommands
+    ? [
+        '',
+        'High-priority routing:',
+        '- Sero memory system files and history (`MEMORY.md`, `IDENTITY.md`, `USER.md`, `SCRATCHPAD.md`, `memory/daily/`, `memory/sessions/`) must go through `sero memory`, `sero memory_search`, or `sero scratchpad`.',
+        '- Start with one precise `sero memory_search` query. If it already answers the question, stop and answer. Only broaden/rephrase if the first search misses or is ambiguous.',
+        '- Never use bash/read/write/edit to inspect or modify those managed memory files. If memory search is unavailable, report that instead of working around it with filesystem tools.',
+        '- Use `question`, `questionnaire`, and `interview` as standalone tools when available — do not try to run them through `sero-cli`.',
+      ].join('\n')
+    : '';
+
   return `
 
 ## Sero CLI
@@ -203,7 +230,7 @@ Use \`sero-cli\` for Sero platform actions instead of asking the user to do them
 Commands by group:
 ${sections.join('\n')}
 
-Run \`sero help <command>\` for details. You can send multiple commands separated by newlines.
+Run \`sero help <command>\` for details. You can send multiple commands separated by newlines.${memoryRoutingSection}
 
 For \`sero app\` interactions:
 - If unsure, run \`sero help app\` before acting.

@@ -28,6 +28,7 @@ import {
   drainDeltaBuffer,
   handleAgentStreamEvent,
 } from '@/stores/agent-utils';
+import { notifyPreviousSessionSwitch } from '@/stores/agent-focus';
 
 // Deduplicate concurrent opens for the same session so every caller waits for
 // the same main-process AgentSession creation instead of racing prompt calls.
@@ -43,6 +44,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   collaborations: {},
 
   openSession: async (sessionId, sessionPath, workspaceId) => {
+    notifyPreviousSessionSwitch(get().focusedSessionId, sessionId);
     set({ focusedSessionId: sessionId });
 
     const pending = pendingSessionOpens.get(sessionId);
@@ -229,9 +231,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  focusSession: (sessionId) => set({ focusedSessionId: sessionId }),
+  focusSession: (sessionId) => {
+    notifyPreviousSessionSwitch(get().focusedSessionId, sessionId);
+    set({ focusedSessionId: sessionId });
+  },
 
-  clearFocus: () => set({ focusedSessionId: null }),
+  clearFocus: () => {
+    notifyPreviousSessionSwitch(get().focusedSessionId, null);
+    set({ focusedSessionId: null });
+  },
 
   reloadResources: async (sessionId) => {
     try {

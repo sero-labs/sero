@@ -4,7 +4,6 @@ import {
   createAgentSession,
   SessionManager,
   DefaultResourceLoader,
-  createCodingTools,
   type AgentSession,
   type SlashCommandInfo,
 } from '@mariozechner/pi-coding-agent';
@@ -28,15 +27,17 @@ import {
   nextId,
   convertSessionMessages,
   buildCheckpointMapByTurn,
-  attachmentsToImages,
   readHiddenCommands,
   buildCommandList,
   getBaseSystemPrompt,
 } from './agent-helpers';
+import { handlePromptInput } from './agent-prompt';
+import { emitSessionShutdown, emitSessionBeforeSwitch } from './agent-session-events';
 import { subscribeToSession } from './agent-subscription';
 import { readGlobalAgentsMd } from './global-agents';
 import { registerAgentCheckpointHandlers } from './agent-checkpoint';
 import { workspaceManager } from '../../../features/workspace/manager';
+import { createHostCodingTools } from '../../../features/container/tools';
 import { createSeroExtensionFactory } from '../../../features/apps/extensions/create-sero-extension';
 import { SERO_AGENT_DIR } from '../../../platform/env';
 import {
@@ -79,6 +80,10 @@ export function getAgentPoolEntry(sessionId: string): PoolEntry | undefined {
   return pool.get(sessionId);
 }
 
+if (process.env.NODE_ENV === 'test') {
+  (globalThis as Record<string, unknown>).__seroTestGetAgentPoolEntry = getAgentPoolEntry;
+}
+
 /** Reload all active session ResourceLoaders after edits. */
 export async function reloadAllSessionResources(): Promise<void> {
   await Promise.all(
@@ -93,19 +98,26 @@ function sendEvent(event: AgentStreamEvent): void {
   forwardEventToGateway(event as unknown as Record<string, unknown>);
 }
 
-function closePoolEntry(sessionId: string): void {
+async function closePoolEntry(sessionId: string): Promise<void> {
   const entry = pool.get(sessionId);
   if (!entry) return;
   noteCliTurnEnd(sessionId);
+
+  // Fire session_shutdown so extensions (e.g. memory) can export transcripts
+  // and run cleanup. The SDK's dispose() does NOT fire this event.
+  try {
+    await emitSessionShutdown(entry.session);
+  } catch (err) {
+    console.error(`[agent] session_shutdown failed for ${sessionId}:`, err);
+  }
+
   entry.unsubscribe();
   entry.session.dispose();
   pool.delete(sessionId);
 }
 
-function disposeAll(): void {
-  for (const sessionId of pool.keys()) {
-    closePoolEntry(sessionId);
-  }
+export async function disposeAllAgentSessions(): Promise<void> {
+  await Promise.allSettled([...pool.keys()].map((sessionId) => closePoolEntry(sessionId)));
 }
 
 /** Open (or return) an agent session — shared by IPC handler and gateway. */
@@ -142,10 +154,9 @@ async function openSessionInternal(
   }
 
   const useContainer = !!containerState;
-  const containerTools = useContainer
+  const platformTools = useContainer
     ? createContainerTools(containerManager, workspaceId, sessionId)
-    : [createWorkspaceCliTool(workspaceId, sessionId)];
-  const builtinTools = useContainer ? [] : createCodingTools(wsPath);
+    : [...createHostCodingTools(wsPath), createWorkspaceCliTool(workspaceId, sessionId)];
   const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
 
   const loader = new DefaultResourceLoader({
@@ -176,8 +187,8 @@ async function openSessionInternal(
     agentDir: SERO_AGENT_DIR,
     authStorage: infra.authStorage,
     modelRegistry: infra.modelRegistry,
-    tools: builtinTools,
-    customTools: containerTools,
+    tools: [],
+    customTools: platformTools,
     resourceLoader: loader,
     sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
     settingsManager: infra.settingsManager,
@@ -251,25 +262,14 @@ export function registerAgentHandlers(): void {
     ): Promise<void> => {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
-
-      const userMessageId = clientMessageId?.trim() || nextId();
-      const userMsg: ChatMessage = { type: 'user', id: userMessageId, text, attachments };
-      sendEvent({ type: 'message_start', sessionId, message: userMsg });
-
-      // Attach the checkpoint from the PREVIOUS turn to this new user message
-      // (shifted-by-one: "restore on this message" means "go back to before it").
-      if (entry.lastCompletedCheckpoint) {
-        sendEvent({
-          type: 'user_checkpoint',
-          sessionId,
-          userMessageId,
-          checkpoint: entry.lastCompletedCheckpoint,
-        });
-        entry.lastCompletedCheckpoint = null;
-      }
-
-      const images = attachmentsToImages(attachments);
-      await entry.session.prompt(text, images ? { images } : undefined);
+      await handlePromptInput({
+        entry,
+        sessionId,
+        text,
+        attachments,
+        clientMessageId,
+        sendEvent,
+      });
     },
   );
   ipcMain.handle(
@@ -306,7 +306,26 @@ export function registerAgentHandlers(): void {
   ipcMain.handle(
     IpcChannels.agent.close,
     async (_event, sessionId: string): Promise<void> => {
-      closePoolEntry(sessionId);
+      await closePoolEntry(sessionId);
+    },
+  );
+
+  // Notify that the user switched away from a session. Fires
+  // session_before_switch so extensions can export transcripts.
+  ipcMain.handle(
+    IpcChannels.agent.notifySessionSwitch,
+    async (
+      _event,
+      previousSessionId: string,
+      reason: 'new' | 'resume' = 'resume',
+    ): Promise<void> => {
+      const entry = pool.get(previousSessionId);
+      if (!entry) return;
+      try {
+        await emitSessionBeforeSwitch(entry.session, reason);
+      } catch (err) {
+        console.error(`[agent] session_before_switch failed for ${previousSessionId}:`, err);
+      }
     },
   );
 
@@ -470,10 +489,5 @@ export function registerAgentHandlers(): void {
   registerAgentModelContextHandlers({
     getEntry: (sessionId) => pool.get(sessionId),
     sendEvent,
-  });
-
-  const { app } = require('electron');
-  app.on('before-quit', () => {
-    disposeAll();
   });
 }

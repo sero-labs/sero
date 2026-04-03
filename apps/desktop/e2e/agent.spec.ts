@@ -66,6 +66,10 @@ test.describe('Agent - Session Management', () => {
 });
 
 test.describe('Agent - Chat Input', () => {
+  // These tests require the full UI to render (locators, clicks).
+  // Electron windows don't reliably render in headless CI.
+  test.skip(() => !!process.env.CI, 'UI tests skipped in CI — run locally with test:e2e:local');
+
   test.beforeAll(async () => {
     // Ensure the chat panel is open — it may be closed by default or by
     // persisted layout state in the test data directory.
@@ -163,6 +167,8 @@ test.describe('Agent - IPC Bridge', () => {
 });
 
 test.describe('Agent - Layout Controls', () => {
+  test.skip(() => !!process.env.CI, 'UI tests skipped in CI — run locally with test:e2e:local');
+
   test('should toggle sidebar visibility', async () => {
     const toggleBtn = page.locator(layout.sidebarToggle);
     await expect(toggleBtn).toBeVisible();

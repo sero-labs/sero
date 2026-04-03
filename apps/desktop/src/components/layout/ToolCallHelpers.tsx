@@ -123,6 +123,28 @@ export function extractToolSummary(input: Record<string, unknown>): string {
   return typeof first === 'string' ? first : '';
 }
 
+function summarizeToolOutput(output: string | null): string | null {
+  if (!output) return null;
+  const firstLine = output
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (!firstLine) return null;
+  return firstLine.length > 96 ? `${firstLine.slice(0, 93)}...` : firstLine;
+}
+
+export function getCollapsedToolSummary(tool: ChatToolCallMessage): string {
+  const progressHeader = getToolProgressHeaderText(tool);
+  if (progressHeader) return progressHeader;
+
+  if (tool.toolName === 'sero-cli' && (tool.state === 'completed' || tool.state === 'error')) {
+    const outputSummary = summarizeToolOutput(tool.output);
+    if (outputSummary) return outputSummary;
+  }
+
+  return extractToolSummary(tool.input);
+}
+
 // ── ToolLine (collapsed row inside a multi-tool group) ──────────
 
 export function ToolLine({
@@ -136,15 +158,11 @@ export function ToolLine({
 }) {
   const requestOpenFile = useEditorBridge((s) => s.requestOpenFile);
   const progressModel = useMemo(() => buildToolProgressModel(tool), [tool]);
-  const progressHeader = useMemo(() => getToolProgressHeaderText(tool), [tool]);
   const summary = useMemo(
-    () => progressHeader ?? extractToolSummary(tool.input),
-    [progressHeader, tool.input],
+    () => getCollapsedToolSummary(tool),
+    [tool],
   );
-  const effectiveToolName = useMemo(
-    () => (progressModel ? getEffectiveToolName(tool) : tool.toolName),
-    [progressModel, tool],
-  );
+  const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);
 
   const isFilePath = useMemo(
     () => !progressModel && !!summary && FILE_PATH_TOOLS.has(tool.toolName) && looksLikeFilePath(summary),
@@ -249,14 +267,16 @@ export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
   const isCancelled = tool.state === 'cancelled';
   const hasOutput = typeof tool.output === 'string' && tool.output.trim().length > 0;
   const progressModel = buildToolProgressModel(tool);
+  const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);
 
   return (
     <Tool defaultOpen={isComplete || tool.state === 'running'}>
       <ToolHeader
-        type={`tool-${tool.toolName}` as `tool-${string}`}
+        title={effectiveToolName}
+        type={`tool-${effectiveToolName}` as `tool-${string}`}
         state={mapToolState(tool.state)}
       />
-      <ToolContent>
+      <ToolContent className="max-h-[min(52vh,30rem)] overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
         <ToolInput input={tool.input} />
         {isComplete && tool.images?.length ? <ToolImages images={tool.images} /> : null}
         {progressModel ? <ToolCallProgress tool={tool} /> : null}
@@ -299,18 +319,14 @@ export function SingleToolCall({
   const isCancelled = tool.state === 'cancelled';
   const hasImages = !!tool.images?.length;
   const progressModel = buildToolProgressModel(tool);
-  const progressHeader = useMemo(() => getToolProgressHeaderText(tool), [tool]);
   const [expanded, setExpanded] = useState(() => isRunning);
   const [showDetails, setShowDetails] = useState(false);
 
   const summary = useMemo(
-    () => progressHeader ?? extractToolSummary(tool.input),
-    [progressHeader, tool.input],
+    () => getCollapsedToolSummary(tool),
+    [tool],
   );
-  const effectiveToolName = useMemo(
-    () => (progressModel ? getEffectiveToolName(tool) : tool.toolName),
-    [progressModel, tool],
-  );
+  const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);
   const hasSummaryContent = !!progressModel || (isComplete && hasImages) || isCancelled;
 
   const isFilePath = useMemo(

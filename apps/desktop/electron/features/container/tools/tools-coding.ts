@@ -40,6 +40,56 @@ import {
   WriteParams,
   EditParams,
 } from './tool-schemas';
+import {
+  commandTouchesProtectedMemory,
+  commandTouchesProtectedMemoryWithResolver,
+  getProtectedMemoryAccessError,
+  isProtectedMemoryPath,
+} from './memory-file-guard';
+
+function normalizeContainerGuardPath(value: string): string {
+  return value.replace(/\\/g, '/');
+}
+
+function buildResolveContainerPathCommand(targetPath: string): string {
+  const escaped = shellEscape(targetPath);
+  return [
+    `python3 - '${escaped}' <<'PY'`,
+    'import os, sys',
+    'target = os.path.abspath(sys.argv[1])',
+    'current = target',
+    'missing = []',
+    'while True:',
+    '    if os.path.lexists(current):',
+    '        resolved = os.path.realpath(current)',
+    '        if missing:',
+    '            resolved = os.path.join(resolved, *reversed(missing))',
+    '        print(resolved)',
+    '        break',
+    '    parent = os.path.dirname(current)',
+    '    if parent == current:',
+    '        print(target)',
+    '        break',
+    '    missing.append(os.path.basename(current))',
+    '    current = parent',
+    'PY',
+  ].join('\n');
+}
+
+async function resolveContainerPathForGuard(
+  cm: ContainerManager,
+  workspaceId: string,
+  targetPath: string,
+  cwd: string,
+): Promise<string> {
+  const result = await cm.exec(
+    workspaceId,
+    buildResolveContainerPathCommand(targetPath),
+    cwd,
+    10_000,
+  );
+  return normalizeContainerGuardPath(result.stdout.trim() || targetPath);
+}
 
 // ── Bash ────────────────────────────────────────────────────
 
@@ -56,6 +106,16 @@ export function createBash(cm: ContainerManager, workspaceId: string, containerC
     parameters: BashParams,
     execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {
       if (signal?.aborted) throw new Error('Command aborted');
+      if (
+        commandTouchesProtectedMemory(params.command)
+        || await commandTouchesProtectedMemoryWithResolver({
+          command: params.command,
+          basedir: cwd,
+          resolvePath: (candidatePath) => resolveContainerPathForGuard(cm, workspaceId, candidatePath, cwd),
+        })
+      ) {
+        throw new Error(getProtectedMemoryAccessError('bash'));
+      }
 
       const timeoutMs = params.timeout ? params.timeout * 1000 : undefined;
       const result = await cm.exec(
@@ -132,6 +192,12 @@ export function createRead(cm: ContainerManager, workspaceId: string, containerC
       if (signal?.aborted) throw new Error('Operation aborted');
 
       const absPath = resolveContainerPath(params.path, basedir);
+      const guardedPath = isProtectedMemoryPath(absPath)
+        ? absPath
+        : await resolveContainerPathForGuard(cm, workspaceId, absPath, basedir);
+      if (isProtectedMemoryPath(guardedPath)) {
+        throw new Error(getProtectedMemoryAccessError('read'));
+      }
       const escaped = shellEscape(absPath);
 
       // ── Image detection by magic bytes ──────────────────
@@ -260,6 +326,12 @@ export function createWrite(cm: ContainerManager, workspaceId: string, container
       if (signal?.aborted) throw new Error('Operation aborted');
 
       const absPath = resolveContainerPath(params.path, basedir);
+      const guardedPath = isProtectedMemoryPath(absPath)
+        ? absPath
+        : await resolveContainerPathForGuard(cm, workspaceId, absPath, basedir);
+      if (isProtectedMemoryPath(guardedPath)) {
+        throw new Error(getProtectedMemoryAccessError('write'));
+      }
       await cm.writeFile(workspaceId, absPath, params.content);
       return {
         content: [
@@ -289,6 +361,12 @@ export function createEdit(cm: ContainerManager, workspaceId: string, containerC
       if (signal?.aborted) throw new Error('Operation aborted');
 
       const absPath = resolveContainerPath(params.path, basedir);
+      const guardedPath = isProtectedMemoryPath(absPath)
+        ? absPath
+        : await resolveContainerPathForGuard(cm, workspaceId, absPath, basedir);
+      if (isProtectedMemoryPath(guardedPath)) {
+        throw new Error(getProtectedMemoryAccessError('edit'));
+      }
       const escaped = shellEscape(absPath);
 
       // Read current file content

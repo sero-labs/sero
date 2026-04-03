@@ -68,6 +68,8 @@ export const IpcChannels = {
     setModel: 'sero:agent:set-model',
     /** Set thinking level for a session. Args: sessionId, level. */
     setThinkingLevel: 'sero:agent:set-thinking-level',
+    /** Notify that the user switched away from a session (triggers transcript export). */
+    notifySessionSwitch: 'sero:agent:notify-session-switch',
     /** Main → renderer push channel for streaming events. */
     event: 'sero:agent:event',
     /** Get session context (system prompt, tools, skills) for context editor. */

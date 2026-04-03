@@ -11,6 +11,8 @@ export interface QuestionOption {
   value: string;
   label: string;
   description?: string;
+  /** If true, this option clears other selections in multi-select mode (e.g. "None"). */
+  exclusive?: boolean;
 }
 
 // ── Pending question (sent from extension → renderer) ──────────
@@ -39,6 +41,8 @@ export interface QuestionItem {
   options: QuestionOption[];
   /** Whether to show a "Type something…" custom input option. */
   allowOther: boolean;
+  /** Whether multiple predefined options may be selected for this question. */
+  multiSelect?: boolean;
 }
 
 // ── Answer (sent from renderer → extension) ────────────────────

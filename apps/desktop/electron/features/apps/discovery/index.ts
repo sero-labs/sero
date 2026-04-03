@@ -14,7 +14,7 @@ import path from 'path';
 import type { PluginMeta } from '@sero/common';
 import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '../../../../src/types/ipc';
 
-import { SERO_AGENT_DIR, SERO_HOME } from '../../../platform/env';
+import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '../../../platform/env';
 
 const SERO_EXTENSIONS_DIR = path.join(SERO_AGENT_DIR, 'extensions');
 const SERO_PACKAGES_DIR = path.join(SERO_AGENT_DIR, 'packages');
@@ -73,13 +73,19 @@ function isPluginInDevMode(appId: string): boolean {
   return devPluginsFilter.has(appId);
 }
 
+function getInstalledPluginPackageDirs(): string[] {
+  return [...new Set([
+    path.resolve(SERO_PACKAGES_DIR),
+    path.resolve(SERO_FIXED_ROOT, 'agent', 'packages'),
+  ])];
+}
+
 export function isInstalledPluginPackagePath(packagePath: string): boolean {
   const resolvedPackagePath = path.resolve(packagePath);
-  const resolvedPluginsDir = path.resolve(SERO_PACKAGES_DIR);
-  return (
+  return getInstalledPluginPackageDirs().some((resolvedPluginsDir) => (
     resolvedPackagePath === resolvedPluginsDir ||
     resolvedPackagePath.startsWith(`${resolvedPluginsDir}${path.sep}`)
-  );
+  ));
 }
 
 export function getManifestDevPort(appId: string, packagePath: string, devPort: number | undefined): number | undefined {

@@ -9,23 +9,39 @@
  * return safe defaults (false, empty string, etc.).
  */
 
+import { mkdir } from 'node:fs/promises';
 import { homedir } from 'os';
-import { join } from 'path';
+import { dirname, join, resolve as resolvePath } from 'path';
 
 import { createStore } from '@tobilu/qmd';
 import type { QMDStore, SearchResult, HybridQueryResult } from '@tobilu/qmd';
 
-/** Compute the QMD db path the same way the CLI does, without requiring enableProductionMode(). */
-function resolveQmdDbPath(): string {
-  const cacheDir = process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache');
-  return join(cacheDir, 'qmd', 'index.sqlite');
+/** Mirror the SDK's agent-dir resolution so QMD state follows the active Sero profile. */
+function resolveAgentDir(): string {
+  const envDir = process.env.PI_CODING_AGENT_DIR?.trim();
+  if (!envDir) return join(homedir(), '.pi', 'agent');
+  if (envDir === '~') return homedir();
+  if (envDir.startsWith('~/')) return join(homedir(), envDir.slice(2));
+  return envDir;
+}
+
+/** Store the QMD index inside the active profile's agent dir, not a global shared cache. */
+export function resolveQmdDbPath(agentDir = resolveAgentDir()): string {
+  return join(agentDir, 'cache', 'qmd', 'index.sqlite');
 }
 
 import { resolveMemoryRoot } from './memory-manager';
-import { getResultPath, getResultText } from '../shared/types';
-import type { QmdSearchResult } from '../shared/types';
+import type { MemorySearchScope, QmdSearchResult } from '../shared/types';
+import {
+  buildPromptVariants,
+  filterResultsByScope,
+  formatRankedResults,
+  rankMultiAnchorResults,
+  type RankedMemoryResult,
+} from './retrieval';
 // Re-export so consumers can import from './qmd'
 export type { QmdSearchResult } from '../shared/types';
+export type { RankedMemoryResult } from './retrieval';
 
 // ── State ──────────────────────────────────────────────────────
 
@@ -68,30 +84,40 @@ function mapHybridResult(r: HybridQueryResult): QmdSearchResult {
 
 // ── Collection management ─────────────────────────────────────
 
-async function ensureCollection(): Promise<boolean> {
-  if (!store) return false;
+type CollectionManager = Pick<QMDStore, 'listCollections' | 'addCollection' | 'removeCollection' | 'addContext' | 'update'>;
 
+function collectionNeedsRefresh(existing: Awaited<ReturnType<QMDStore['listCollections']>>[number] | undefined, root: string): boolean {
+  if (!existing) return true;
+  return resolvePath(existing.pwd) !== resolvePath(root)
+    || existing.glob_pattern !== '**/*.md';
+}
+
+export async function ensureCollectionForRoot(storeRef: CollectionManager, root: string): Promise<boolean> {
   try {
-    const collections = await store.listCollections();
-    const hasCollection = collections.some((c) => c.name === QMD_COLLECTION);
+    const collections = await storeRef.listCollections();
+    const existing = collections.find((collection) => collection.name === QMD_COLLECTION);
+    const needsRefresh = collectionNeedsRefresh(existing, root);
 
-    if (hasCollection) return true;
+    if (needsRefresh && existing) {
+      await storeRef.removeCollection(QMD_COLLECTION);
+    }
 
-    // Create collection pointing to the memory root
-    const root = resolveMemoryRoot();
-    await store.addCollection(QMD_COLLECTION, {
-      path: root,
-      pattern: '**/*.md',
-    });
+    if (needsRefresh) {
+      await storeRef.addCollection(QMD_COLLECTION, {
+        path: root,
+        pattern: '**/*.md',
+      });
+      await storeRef.update({ collections: [QMD_COLLECTION] });
+    }
 
-    // Add path contexts (best-effort)
     const contexts: [string, string][] = [
       ['/memory/daily', 'Daily append-only work logs organised by date'],
+      ['/memory/sessions', 'Session transcript exports for conversation recall'],
       ['/', 'Curated long-term memory: decisions, preferences, facts, lessons'],
     ];
     for (const [ctxPath, desc] of contexts) {
       try {
-        await store.addContext(QMD_COLLECTION, ctxPath, desc);
+        await storeRef.addContext(QMD_COLLECTION, ctxPath, desc);
       } catch { /* context may already exist */ }
     }
 
@@ -101,11 +127,17 @@ async function ensureCollection(): Promise<boolean> {
   }
 }
 
+async function ensureCollection(): Promise<boolean> {
+  if (!store) return false;
+  return ensureCollectionForRoot(store, resolveMemoryRoot());
+}
+
 // ── Initialisation (called on session_start) ──────────────────
 
 export async function initQmd(): Promise<boolean> {
   try {
     const dbPath = resolveQmdDbPath();
+    await mkdir(dirname(dbPath), { recursive: true });
     store = await createStore({ dbPath });
     qmdAvailable = true;
   } catch {
@@ -114,8 +146,12 @@ export async function initQmd(): Promise<boolean> {
   }
 
   // Ensure collection exists
-  await ensureCollection();
-  return true;
+  const ready = await ensureCollection();
+  if (!ready) {
+    qmdAvailable = false;
+    store = null;
+  }
+  return ready;
 }
 
 // ── Search ────────────────────────────────────────────────────
@@ -126,6 +162,7 @@ export async function runSearch(
   mode: QmdSearchMode,
   query: string,
   limit: number,
+  scope: MemorySearchScope = 'all',
 ): Promise<{ results: QmdSearchResult[]; needsEmbed: boolean }> {
   if (!store) return { results: [], needsEmbed: false };
 
@@ -134,12 +171,12 @@ export async function runSearch(
   try {
     if (mode === 'keyword') {
       const raw = await store.searchLex(query, { collection: QMD_COLLECTION, limit });
-      return { results: raw.map(mapSearchResult), needsEmbed: false };
+      return { results: filterResultsByScope(raw.map(mapSearchResult), scope), needsEmbed: false };
     }
 
     if (mode === 'semantic') {
       const raw = await store.searchVector(query, { collection: QMD_COLLECTION, limit });
-      return { results: raw.map(mapSearchResult), needsEmbed: false };
+      return { results: filterResultsByScope(raw.map(mapSearchResult), scope), needsEmbed: false };
     }
 
     // deep — hybrid with reranking
@@ -148,7 +185,7 @@ export async function runSearch(
       collection: QMD_COLLECTION,
       limit,
     });
-    return { results: raw.map(mapHybridResult), needsEmbed: false };
+    return { results: filterResultsByScope(raw.map(mapHybridResult), scope), needsEmbed: false };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/embed/i.test(msg)) {
@@ -158,49 +195,59 @@ export async function runSearch(
   }
 }
 
-/**
- * Search for memories relevant to a user prompt.
- * Used for selective injection (before_agent_start).
- * Returns formatted markdown or empty string on error.
- */
-export async function searchRelevantMemories(prompt: string): Promise<string> {
-  if (!qmdAvailable || !prompt.trim()) return '';
+export async function runMultiAnchorSearch(
+  prompt: string,
+  scope: MemorySearchScope = 'all',
+  limit = 3,
+): Promise<RankedMemoryResult[]> {
+  if (!qmdAvailable || !prompt.trim()) return [];
 
-  const sanitised = prompt
-    .replace(/[\x00-\x1f\x7f]/g, ' ')
-    .trim()
-    .slice(0, 200);
-  if (!sanitised) return '';
+  const variants = buildPromptVariants(prompt);
+  if (variants.length === 0) return [];
 
   try {
     const hasCol = await ensureCollection();
-    if (!hasCol) return '';
+    if (!hasCol) return [];
 
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const { results } = await Promise.race([
-      runSearch('keyword', sanitised, 3).finally(() => clearTimeout(timeoutId)),
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const variantResults = await Promise.race([
+      Promise.all(
+        variants.map(async (query) => ({
+          query,
+          results: (await runSearch('keyword', query, 5, scope)).results,
+        })),
+      ).finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
+      }),
       new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error('timeout')), SEARCH_TIMEOUT_MS);
       }),
     ]);
 
-    if (!results || results.length === 0) return '';
-
-    const snippets = results
-      .map((r) => {
-        const text = getResultText(r);
-        if (!text.trim()) return null;
-        const filePath = getResultPath(r);
-        const filePart = filePath ? `_${filePath}_` : '';
-        return filePart ? `${filePart}\n${text.trim()}` : text.trim();
-      })
-      .filter(Boolean);
-
-    if (snippets.length === 0) return '';
-    return snippets.join('\n\n---\n\n');
+    return rankMultiAnchorResults({
+      prompt,
+      scope,
+      variantResults,
+      limit,
+    });
   } catch {
-    return '';
+    return [];
   }
+}
+
+/**
+ * Search for memories relevant to a user prompt.
+ * Used for selective injection (before_agent_start).
+ * Returns both the formatted markdown AND the raw ranked results
+ * so the caller can feed them into the prefetch cache.
+ */
+export async function searchRelevantMemories(prompt: string): Promise<{
+  formatted: string;
+  results: RankedMemoryResult[];
+}> {
+  const results = await runMultiAnchorSearch(prompt, 'all', 3);
+  if (results.length === 0) return { formatted: '', results: [] };
+  return { formatted: formatRankedResults(results), results };
 }
 
 // ── Re-indexing (debounced) ───────────────────────────────────

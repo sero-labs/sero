@@ -14,15 +14,20 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { Text } from '@mariozechner/pi-tui';
 import { Type } from '@sinclair/typebox';
 
-import { resolveMemoryRoot, readFile, writeFile } from './memory-manager';
+import {
+  resolveMemoryRoot,
+  readFile,
+  writeFile,
+  getScratchpadPath as resolveScratchpadPath,
+  getTargetUsage,
+} from './memory-manager';
 import { scheduleQmdUpdate } from './qmd';
 import type { ScratchpadItem } from '../shared/types';
-import path from 'node:path';
 
 // ── Path ───────────────────────────────────────────────────────
 
 export function getScratchpadPath(): string {
-  return path.join(resolveMemoryRoot(), 'SCRATCHPAD.md');
+  return resolveScratchpadPath(resolveMemoryRoot());
 }
 
 // ── Parse / Serialize ──────────────────────────────────────────
@@ -80,6 +85,12 @@ function text(t: string) {
   return { content: [{ type: 'text' as const, text: t }], details: {} };
 }
 
+function withinScratchpadCapacity(content: string): string | null {
+  const usage = getTargetUsage('scratchpad', content);
+  if (usage.chars <= usage.max) return null;
+  return `Error: SCRATCHPAD.md would exceed capacity (${usage.chars}/${usage.max} chars). Clear done items or shorten open items before adding more.`;
+}
+
 function nowTimestamp(): string {
   return new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
 }
@@ -128,8 +139,12 @@ export function registerScratchpadTool(pi: ExtensionAPI): void {
 
         case 'add': {
           if (!itemText) return text('Error: text is required for add.');
-          items.push({ done: false, text: itemText, meta: `<!-- ${ts} -->` });
-          await writeFile(filePath, serializeScratchpad(items));
+          const nextItems = [...items, { done: false, text: itemText, meta: `<!-- ${ts} -->` }];
+          const nextContent = serializeScratchpad(nextItems);
+          const capacityError = withinScratchpadCapacity(nextContent);
+          if (capacityError) return text(capacityError);
+          items = nextItems;
+          await writeFile(filePath, nextContent);
           scheduleQmdUpdate();
           return text(`Added: - [ ] ${itemText}`);
         }

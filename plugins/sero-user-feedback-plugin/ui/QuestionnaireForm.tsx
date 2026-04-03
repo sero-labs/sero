@@ -13,6 +13,7 @@ import type {
   UserFeedbackPendingQuestion,
   UserFeedbackQuestionItem,
   UserFeedbackAnswer,
+  UserFeedbackQuestionOption,
 } from './types';
 
 interface Props {
@@ -21,10 +22,12 @@ interface Props {
   onCancel: (id: string) => void;
 }
 
+type AnswerMap = Map<string, UserFeedbackAnswer[]>;
+
 export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   const questions = question.questions;
   const [currentStep, setCurrentStep] = useState(0);
-  const [answers, setAnswers] = useState<Map<string, UserFeedbackAnswer>>(new Map());
+  const [answers, setAnswers] = useState<AnswerMap>(new Map());
   const [customMode, setCustomMode] = useState(false);
   const [customText, setCustomText] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,50 +35,107 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   useEffect(() => { containerRef.current?.focus(); }, []);
 
   const isReview = currentStep === questions.length;
-  const allAnswered = questions.every((q) => answers.has(q.id));
+  const allAnswered = questions.every((q) => hasQuestionAnswer(answers, q.id));
   const currentQ = questions[currentStep] as UserFeedbackQuestionItem | undefined;
+  const currentAnswers = currentQ ? getQuestionAnswers(answers, currentQ.id) : [];
 
-  const saveAnswer = useCallback((qId: string, ans: UserFeedbackAnswer) => {
-    setAnswers((prev) => new Map(prev).set(qId, ans));
+  const saveQuestionAnswers = useCallback((qId: string, nextAnswers: UserFeedbackAnswer[]) => {
+    setAnswers((prev) => {
+      const next = new Map(prev);
+      if (nextAnswers.length === 0) {
+        next.delete(qId);
+      } else {
+        next.set(qId, nextAnswers);
+      }
+      return next;
+    });
+  }, []);
+
+  const goToNextStep = useCallback(() => {
+    setCurrentStep((prev) => prev + 1);
+    setCustomMode(false);
+    setCustomText('');
   }, []);
 
   const handleSelectOption = useCallback(
-    (opt: { value: string; label: string }, index: number) => {
+    (opt: UserFeedbackQuestionOption, index: number) => {
       if (!currentQ) return;
-      saveAnswer(currentQ.id, {
+
+      const nextAnswer: UserFeedbackAnswer = {
         questionId: currentQ.id,
         value: opt.value,
         label: opt.label,
         wasCustom: false,
         index: index + 1,
+      };
+
+      if (currentQ.multiSelect !== true) {
+        saveQuestionAnswers(currentQ.id, [nextAnswer]);
+        goToNextStep();
+        return;
+      }
+
+      const isSelected = currentAnswers.some(
+        (answer) => !answer.wasCustom && answer.value === opt.value,
+      );
+
+      if (isSelected) {
+        saveQuestionAnswers(
+          currentQ.id,
+          currentAnswers.filter((answer) => answer.wasCustom || answer.value !== opt.value),
+        );
+        return;
+      }
+
+      if (opt.exclusive) {
+        saveQuestionAnswers(currentQ.id, [nextAnswer]);
+        return;
+      }
+
+      const nextAnswers = currentAnswers.filter((answer) => {
+        if (answer.wasCustom) return true;
+        return !getOptionByValue(currentQ, answer.value)?.exclusive;
       });
-      setCustomMode(false);
-      setCustomText('');
-      // Auto-advance to next question (or to review after the last question)
-      setCurrentStep(currentStep + 1);
+      nextAnswers.push(nextAnswer);
+      saveQuestionAnswers(currentQ.id, nextAnswers);
     },
-    [currentQ, currentStep, saveAnswer],
+    [currentAnswers, currentQ, goToNextStep, saveQuestionAnswers],
   );
 
   const handleCustomSubmit = useCallback(() => {
     if (!currentQ) return;
     const text = customText.trim();
     if (!text) return;
-    saveAnswer(currentQ.id, {
+
+    const customAnswer: UserFeedbackAnswer = {
       questionId: currentQ.id,
       value: text,
       label: text,
       wasCustom: true,
+    };
+
+    if (currentQ.multiSelect !== true) {
+      saveQuestionAnswers(currentQ.id, [customAnswer]);
+      goToNextStep();
+      return;
+    }
+
+    const nextAnswers = currentAnswers.filter((answer) => {
+      if (answer.wasCustom) return false;
+      return !getOptionByValue(currentQ, answer.value)?.exclusive;
     });
+    nextAnswers.push(customAnswer);
+    saveQuestionAnswers(currentQ.id, nextAnswers);
     setCustomMode(false);
     setCustomText('');
-    // Auto-advance to next question (or to review after the last question)
-    setCurrentStep(currentStep + 1);
-  }, [currentQ, customText, currentStep, saveAnswer]);
+  }, [currentAnswers, currentQ, customText, goToNextStep, saveQuestionAnswers]);
 
   const handleSubmit = useCallback(() => {
-    onSubmit(question.id, Array.from(answers.values()));
-  }, [question.id, answers, onSubmit]);
+    onSubmit(
+      question.id,
+      questions.flatMap((q) => getQuestionAnswers(answers, q.id)),
+    );
+  }, [question.id, questions, answers, onSubmit]);
 
   return (
     <div
@@ -90,17 +150,21 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
           {questions.map((q, i) => (
             <button
               key={q.id}
-              onClick={() => { setCurrentStep(i); setCustomMode(false); setCustomText(''); }}
+              onClick={() => {
+                setCurrentStep(i);
+                setCustomMode(false);
+                setCustomText('');
+              }}
               className={cn(
                 'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
                 i === currentStep && !isReview
                   ? 'bg-emerald-500 text-white'
-                  : answers.has(q.id)
+                  : hasQuestionAnswer(answers, q.id)
                     ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                     : 'bg-secondary text-muted-foreground',
               )}
             >
-              {answers.has(q.id) ? '✓' : i + 1} {q.label}
+              {hasQuestionAnswer(answers, q.id) ? '✓' : i + 1} {q.label}
             </button>
           ))}
           <button
@@ -125,21 +189,34 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
           <ReviewStep
             questions={questions}
             answers={answers}
-            allAnswered={allAnswered}
             onSubmit={handleSubmit}
             onGoToStep={(i) => setCurrentStep(i)}
           />
         ) : currentQ ? (
           <QuestionStep
             question={currentQ}
-            answer={answers.get(currentQ.id)}
+            answers={currentAnswers}
             customMode={customMode}
             customText={customText}
             onSelectOption={handleSelectOption}
-            onEnableCustom={() => setCustomMode(true)}
+            onEnableCustom={() => {
+              setCustomMode(true);
+              setCustomText(getCustomAnswer(currentAnswers)?.label ?? '');
+            }}
+            onRemoveCustom={() => {
+              saveQuestionAnswers(
+                currentQ.id,
+                currentAnswers.filter((answer) => !answer.wasCustom),
+              );
+              setCustomMode(false);
+              setCustomText('');
+            }}
             onCustomTextChange={setCustomText}
             onCustomSubmit={handleCustomSubmit}
-            onCancelCustom={() => { setCustomMode(false); setCustomText(''); }}
+            onCancelCustom={() => {
+              setCustomMode(false);
+              setCustomText('');
+            }}
           />
         ) : null}
       </Card>
@@ -154,7 +231,11 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => { setCurrentStep(currentStep - 1); setCustomMode(false); }}
+              onClick={() => {
+                setCurrentStep(currentStep - 1);
+                setCustomMode(false);
+                setCustomText('');
+              }}
             >
               Back
             </Button>
@@ -164,15 +245,19 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => { setCurrentStep(currentStep + 1); setCustomMode(false); setCustomText(''); }}
+                onClick={() => {
+                  setCurrentStep(currentStep + 1);
+                  setCustomMode(false);
+                  setCustomText('');
+                }}
               >
                 Skip
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => { setCurrentStep(currentStep + 1); setCustomMode(false); setCustomText(''); }}
-                disabled={!currentQ || !answers.has(currentQ.id)}
+                onClick={goToNextStep}
+                disabled={!currentQ || !hasQuestionAnswer(answers, currentQ.id)}
               >
                 {currentStep < questions.length - 1 ? 'Next' : 'Review'}
               </Button>
@@ -188,31 +273,40 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
 
 function QuestionStep({
   question,
-  answer,
+  answers,
   customMode,
   customText,
   onSelectOption,
   onEnableCustom,
+  onRemoveCustom,
   onCustomTextChange,
   onCustomSubmit,
   onCancelCustom,
 }: {
   question: UserFeedbackQuestionItem;
-  answer: UserFeedbackAnswer | undefined;
+  answers: UserFeedbackAnswer[];
   customMode: boolean;
   customText: string;
-  onSelectOption: (opt: { value: string; label: string }, index: number) => void;
+  onSelectOption: (opt: UserFeedbackQuestionOption, index: number) => void;
   onEnableCustom: () => void;
+  onRemoveCustom: () => void;
   onCustomTextChange: (text: string) => void;
   onCustomSubmit: () => void;
   onCancelCustom: () => void;
 }) {
+  const customAnswer = getCustomAnswer(answers);
+
   return (
     <div>
-      <p className="mb-4 text-sm font-medium text-foreground">{question.prompt}</p>
+      <p className="mb-1 text-sm font-medium text-foreground">{question.prompt}</p>
+      {question.multiSelect && (
+        <p className="mb-4 text-xs text-muted-foreground">
+          Select one or more options, then continue.
+        </p>
+      )}
       <div className="space-y-1.5">
         {question.options.map((opt, i) => {
-          const isSelected = answer && !answer.wasCustom && answer.value === opt.value;
+          const isSelected = answers.some((answer) => !answer.wasCustom && answer.value === opt.value);
           return (
             <button
               key={opt.value}
@@ -224,11 +318,16 @@ function QuestionStep({
                   : 'border-transparent hover:border-border hover:bg-secondary',
               )}
             >
-              <span className={cn(
-                'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium',
-                isSelected ? 'border-emerald-500 text-emerald-400' : 'border-[var(--border)] text-muted-foreground',
-              )}>
-                {i + 1}
+              <span
+                className={cn(
+                  'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-medium',
+                  question.multiSelect && 'rounded-[4px]',
+                  isSelected
+                    ? 'border-emerald-500 text-emerald-400'
+                    : 'border-[var(--border)] text-muted-foreground',
+                )}
+              >
+                {question.multiSelect ? (isSelected ? '✓' : '') : i + 1}
               </span>
               <div className="min-w-0 flex-1">
                 <span className="text-sm text-foreground">{opt.label}</span>
@@ -240,7 +339,24 @@ function QuestionStep({
           );
         })}
 
-        {question.allowOther && !customMode && (
+        {customAnswer && !customMode && (
+          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Custom answer</p>
+                <p className="mt-0.5 text-sm text-foreground">{customAnswer.label}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={onEnableCustom}>Edit</Button>
+                {question.multiSelect && (
+                  <Button size="sm" variant="ghost" onClick={onRemoveCustom}>Clear</Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {question.allowOther && !customMode && !customAnswer && (
           <button
             onClick={onEnableCustom}
             className="flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-left hover:border-border hover:bg-secondary"
@@ -276,13 +392,11 @@ function QuestionStep({
 function ReviewStep({
   questions,
   answers,
-  allAnswered,
   onSubmit,
   onGoToStep,
 }: {
   questions: UserFeedbackQuestionItem[];
-  answers: Map<string, UserFeedbackAnswer>;
-  allAnswered: boolean;
+  answers: AnswerMap;
   onSubmit: () => void;
   onGoToStep: (index: number) => void;
 }) {
@@ -291,7 +405,7 @@ function ReviewStep({
       <p className="mb-4 text-sm font-medium text-foreground">Review your answers</p>
       <div className="space-y-3">
         {questions.map((q, i) => {
-          const answer = answers.get(q.id);
+          const questionAnswers = getQuestionAnswers(answers, q.id);
           return (
             <div key={q.id} className="rounded-md border border-border p-3">
               <div className="flex items-start justify-between gap-2">
@@ -306,10 +420,14 @@ function ReviewStep({
                   Edit
                 </button>
               </div>
-              {answer ? (
-                <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
-                  {answer.wasCustom ? `✎ ${answer.label}` : `${answer.index}. ${answer.label}`}
-                </p>
+              {questionAnswers.length > 0 ? (
+                <div className="mt-2 space-y-1 text-sm text-emerald-700 dark:text-emerald-400">
+                  {questionAnswers.map((answer, answerIndex) => (
+                    <p key={`${q.id}-${answer.value}-${answerIndex}`}>
+                      {formatAnswerLabel(answer)}
+                    </p>
+                  ))}
+                </div>
               ) : (
                 <p className="mt-2 text-xs text-muted-foreground">Skipped</p>
               )}
@@ -325,4 +443,27 @@ function ReviewStep({
       </div>
     </div>
   );
+}
+
+function getQuestionAnswers(answers: AnswerMap, qId: string): UserFeedbackAnswer[] {
+  return answers.get(qId) ?? [];
+}
+
+function hasQuestionAnswer(answers: AnswerMap, qId: string): boolean {
+  return getQuestionAnswers(answers, qId).length > 0;
+}
+
+function getCustomAnswer(answers: UserFeedbackAnswer[]): UserFeedbackAnswer | undefined {
+  return answers.find((answer) => answer.wasCustom);
+}
+
+function getOptionByValue(
+  question: UserFeedbackQuestionItem,
+  value: string,
+): UserFeedbackQuestionOption | undefined {
+  return question.options.find((opt) => opt.value === value);
+}
+
+function formatAnswerLabel(answer: UserFeedbackAnswer): string {
+  return answer.wasCustom ? `✎ ${answer.label}` : `${answer.index}. ${answer.label}`;
 }

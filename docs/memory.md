@@ -90,6 +90,13 @@ Gracefully degrades if QMD is unavailable — returns install instructions.
 On every `before_agent_start` event, the extension injects memory context into
 the system prompt using a **priority-ordered budget** (8K chars total, ~2K tokens):
 
+- **Default:** `snapshot=frozen` — `IDENTITY.md`, `USER.md`, and `MEMORY.md`
+  are captured once per session to preserve provider prefix caching.
+- **Live mode:** `sero memory config --snapshot live` rebuilds all memory
+  context on every turn.
+- **Frozen mode:** `sero memory config --snapshot frozen` keeps the long-term
+  blocks fixed for the current session; scratchpad + QMD retrieval stay live.
+
 | Priority | Content | Budget | Truncation |
 |----------|---------|--------|------------|
 | 1 | IDENTITY.md + USER.md | 2.0K | From start |
@@ -196,7 +203,7 @@ and allows custom answers.
 
 QMD provides semantic search via the `@tobilu/qmd` SDK (not CLI).
 
-- **Database:** `~/.cache/qmd/index.sqlite`
+- **Database:** `<profile>/agent/cache/qmd/index.sqlite` (profile-scoped, derived from `PI_CODING_AGENT_DIR`)
 - **Collection:** `sero-memory` pointing at the global workspace
 - **Path contexts:** `/memory/daily` → daily logs, `/` → curated long-term memory
 - **Debounced re-indexing:** 500ms after every write, fire-and-forget

@@ -5,7 +5,7 @@ export type MemoryTarget = 'memory' | 'identity' | 'user' | 'daily';
 export type WriteMode = 'append' | 'overwrite';
 
 /** Available memory tool actions. */
-export type MemoryAction = 'read' | 'write' | 'search' | 'list';
+export type MemoryAction = 'read' | 'write' | 'replace' | 'remove' | 'search' | 'list' | 'consolidate';
 
 /** A single grep search result. */
 export interface MemorySearchResult {
@@ -33,6 +33,8 @@ export interface QmdSearchResult {
   [key: string]: unknown;
 }
 
+export type MemorySearchScope = 'memory' | 'sessions' | 'all';
+
 /** Extract the file path from a QMD result (normalises path/file fields). */
 export function getResultPath(r: QmdSearchResult): string | undefined {
   return r.path ?? r.file;
@@ -57,6 +59,7 @@ export interface QuestionOption {
   value: string;
   label: string;
   description?: string;
+  exclusive?: boolean;
 }
 
 export interface QuestionDef {
@@ -65,6 +68,7 @@ export interface QuestionDef {
   prompt: string;
   options: QuestionOption[];
   allowOther?: boolean;
+  multiSelect?: boolean;
 }
 
 export interface QuestionnairePayload {

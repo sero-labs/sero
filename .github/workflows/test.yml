@@ -1,0 +1,84 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Unit tests + typecheck ──────────────────────────────────
+  unit:
+    name: Unit Tests & Typecheck
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (all packages)
+        run: pnpm typecheck
+
+      - name: Build (required by packaging tests)
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm --filter @sero/desktop test -- --run
+
+  # ── Playwright e2e (CI mode — no containers) ────────────────
+  # The `ci` project skips UI-rendering specs (layout, file-tree,
+  # scroll-fix, container) that need a fully rendered Electron window.
+  # IPC-only specs (agent bridge, VCS, memory) run normally.
+  e2e:
+    name: E2E Tests (CI)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    needs: unit
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run e2e tests (CI project — no containers)
+        run: pnpm --filter @sero/desktop test:e2e
+        env:
+          CI: true
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          retention-days: 7

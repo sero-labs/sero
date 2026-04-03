@@ -1,5 +1,13 @@
+import type { ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type { ContainerManager } from '../../features/container';
 import type { WorkspaceManager } from '../../features/workspace/manager';
+
+/**
+ * Subset of the Pi SDK's ExtensionContext forwarded through the CLI bridge.
+ * Excludes `cwd` (provided separately by the CLI context) so it can be
+ * recombined as a full ExtensionContext in schema-bridge.ts.
+ */
+export type BridgedAgentContext = Omit<ExtensionContext, 'cwd'>;
 
 export type CliSource = 'tool' | 'bash' | 'terminal';
 
@@ -36,6 +44,12 @@ export interface CliCommandContext {
   invocation: CliInvocation;
   workspaceManager: WorkspaceManager;
   containerManager: ContainerManager;
+  /**
+   * Agent context forwarded from the SDK's ExtensionContext.
+   * Available when the CLI is invoked as a bridged tool during an agent turn.
+   * Undefined for direct/standalone CLI invocations.
+   */
+  agentContext?: BridgedAgentContext;
 }
 
 export interface CliCommandUpdate {

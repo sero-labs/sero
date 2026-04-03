@@ -30,8 +30,9 @@ function getBridgedCommand(tool: ChatToolCallMessage): string | null {
 export function getEffectiveToolName(tool: ChatToolCallMessage): string {
   const bridged = getBridgedCommand(tool);
   if (!bridged) return tool.toolName;
-  const [name] = bridged.split(/\s+/, 1);
-  return name || tool.toolName;
+  const tokens = bridged.split(/\s+/).filter(Boolean);
+  if (tokens[0] === 'sero') tokens.shift();
+  return tokens[0] || tool.toolName;
 }
 
 function getBatchProgress(details: Record<string, unknown> | null): ToolBatchProgress {

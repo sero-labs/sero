@@ -33,7 +33,8 @@
         "feedback"
       ],
       "minSeroVersion": "0.1.0",
-      "preBuilt": false
+      "preBuilt": false,
+      "bridgeTools": false
     }
   },
   "dependencies": {

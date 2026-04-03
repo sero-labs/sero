@@ -10,7 +10,6 @@ import {
   createAgentSession,
   SessionManager,
   DefaultResourceLoader,
-  createCodingTools,
 } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
 
@@ -20,8 +19,9 @@ import type { WorkspaceManager } from '../../workspace/manager';
 import type { ContainerManager } from '../../container';
 import type { ContainerState } from '../../container/core/types';
 import { buildWorkspaceContainerConfig } from '../../container/core/workspace-container-config';
-import { createContainerTools } from '../../container/tools';
+import { createContainerTools, createHostCodingTools } from '../../container/tools';
 import { WORKSPACE_DIR } from '../../container/tools/tool-schemas';
+import { createWorkspaceCliTool } from '../../../cli';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '../../../platform/env';
 import { logRawEvent, logTurnContext } from '../../../ipc/editor/debug';
@@ -148,11 +148,10 @@ export async function runSubagent(
 
   const useContainer = !!containerState;
 
-  const containerTools = useContainer
+  const platformTools = useContainer
     ? createContainerTools(containerManager, workspaceId, subagentSessionId, containerCwd)
-    : [];
-  const customTools = [...containerTools, ...(config.customTools ?? [])];
-  const builtinTools = useContainer ? [] : createCodingTools(sessionPath);
+    : [...createHostCodingTools(sessionPath), createWorkspaceCliTool(workspaceId, subagentSessionId)];
+  const customTools = [...platformTools, ...(config.customTools ?? [])];
 
   // Build a reduced extension factory for the child session
   const loader = new DefaultResourceLoader({
@@ -192,7 +191,7 @@ export async function runSubagent(
       agentDir: SERO_AGENT_DIR,
       authStorage: infra.authStorage,
       modelRegistry: infra.modelRegistry,
-      tools: builtinTools,
+      tools: [],
       customTools,
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),

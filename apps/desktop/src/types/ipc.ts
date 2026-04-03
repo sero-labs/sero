@@ -347,6 +347,7 @@ export interface UserFeedbackQuestionOption {
   value: string;
   label: string;
   description?: string;
+  exclusive?: boolean;
 }
 
 export interface UserFeedbackQuestionItem {
@@ -355,6 +356,7 @@ export interface UserFeedbackQuestionItem {
   prompt: string;
   options: UserFeedbackQuestionOption[];
   allowOther: boolean;
+  multiSelect?: boolean;
 }
 
 /** Sent from main → renderer when a question/questionnaire/interview/permission tool starts. */

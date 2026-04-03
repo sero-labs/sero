@@ -12,7 +12,7 @@
  * and re-register them as CLI commands (removing them from agent context).
  */
 
-import type { ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition, RegisteredCommand, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
 import { parseFlags } from '../lib/utils';
 import { createSeroUIContext } from '../../features/apps/extensions/ui-context';
@@ -23,6 +23,8 @@ const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
   // Search providers already use internal 60s+ timeouts.
   web_search: 120_000,
   code_search: 90_000,
+  // Memory consolidation runs multiple LLM calls to extract entries from daily logs.
+  memory: 180_000,
 };
 
 export function getBridgedToolTimeoutMs(toolName: string): number | undefined {
@@ -218,12 +220,20 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
     execute: async (args: string[], ctx: CliCommandContext, onUpdate): Promise<CliResult> => {
       try {
         const params = schemaToParams(props, args);
+        // Forward agent context (model, modelRegistry, etc.) when available
+        // so bridged tools like `memory consolidate` can call LLMs.
+        // When agentContext exists, recombining with cwd produces a full ExtensionContext.
+        // When it doesn't (standalone CLI), we provide a bare {cwd} — extension tools
+        // must handle missing fields gracefully (e.g. ctx.model === undefined).
+        const toolContext: ExtensionContext = ctx.agentContext
+          ? { ...ctx.agentContext, cwd: ctx.cwd }
+          : { cwd: ctx.cwd } as ExtensionContext;
         const result = await toolDef.execute(
           'cli-bridge',
           params,
           ctx.invocation.signal,
-          onUpdate as any,
-          { cwd: ctx.cwd } as any,
+          onUpdate as Parameters<typeof toolDef.execute>[3],
+          toolContext,
         );
         const content = extractContent(result);
         const text = extractText(content);

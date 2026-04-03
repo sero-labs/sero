@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChatToolCallMessage } from '@/types/ipc';
-import { buildToolProgressModel, getToolProgressHeaderText } from './ToolCallProgress';
+import { buildToolProgressModel, getEffectiveToolName, getToolProgressHeaderText } from './ToolCallProgress';
 
 function makeTool(overrides: Partial<ChatToolCallMessage>): ChatToolCallMessage {
   return {
@@ -78,6 +78,20 @@ describe('buildToolProgressModel', () => {
     expect(model?.subtitle).toBe('best tourist places to visit Valencia Spain');
     expect(model?.badges).toContain('Query 1 of 2');
     expect(getToolProgressHeaderText(tool)).toBe('Searching query 1 of 2…');
+  });
+
+  it('uses the bridged subcommand name instead of raw sero-cli', () => {
+    const tool = makeTool({
+      toolName: 'sero-cli',
+      input: {
+        command: 'sero memory replace --target memory --entry_id "mem-1" --content "updated"',
+      },
+      state: 'completed',
+      isPartialOutput: false,
+      output: 'Replaced entry mem-1 in MEMORY.md',
+    });
+
+    expect(getEffectiveToolName(tool)).toBe('memory');
   });
 
   it('returns null for completed tool results', () => {

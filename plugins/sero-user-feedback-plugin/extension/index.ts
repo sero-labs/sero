@@ -28,6 +28,7 @@ const OptionSchema = Type.Object({
   label: Type.String({ description: 'Display label for the option' }),
   value: Type.Optional(Type.String({ description: 'Value returned when selected (defaults to label)' })),
   description: Type.Optional(Type.String({ description: 'Optional description shown below label' })),
+  exclusive: Type.Optional(Type.Boolean({ description: 'In multi-select mode, this option clears other selections (for example: None)' })),
 });
 
 const QuestionParams = Type.Object({
@@ -41,6 +42,7 @@ const QuestionnaireQuestionSchema = Type.Object({
   prompt: Type.String({ description: 'The full question text to display' }),
   options: Type.Array(OptionSchema, { description: 'Available options' }),
   allowOther: Type.Optional(Type.Boolean({ description: 'Allow custom text input (default: true)' })),
+  multiSelect: Type.Optional(Type.Boolean({ description: 'Allow selecting multiple options for this question (default: false)' })),
 });
 
 const QuestionnaireParams = Type.Object({
@@ -84,6 +86,7 @@ function registerQuestionTool(pi: ExtensionAPI) {
           value: o.value ?? o.label,
           label: o.label,
           description: o.description,
+          exclusive: o.exclusive,
         })),
         allowOther: true,
       };
@@ -182,8 +185,10 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
           value: o.value ?? o.label,
           label: o.label,
           description: o.description,
+          exclusive: o.exclusive,
         })),
         allowOther: q.allowOther !== false,
+        multiSelect: q.multiSelect === true,
       }));
 
       // ── Sero mode: IPC bridge ──────────────────────────────
@@ -227,23 +232,62 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
     },
 
     renderResult(result, _options, theme) {
-      const details = result.details as { cancelled?: boolean; answers?: QuestionAnswer[] } | undefined;
+      const details = result.details as {
+        cancelled?: boolean;
+        questions?: QuestionItem[];
+        answers?: QuestionAnswer[];
+      } | undefined;
       if (!details || details.cancelled) {
         return new Text(theme.fg('warning', 'Cancelled'), 0, 0);
       }
-      const lines = (details.answers ?? []).map((a) => {
-        if (a.wasCustom) {
-          return `${theme.fg('success', '✓ ')}${theme.fg('accent', a.questionId)}: ${theme.fg('muted', '(wrote) ')}${a.label}`;
-        }
-        const display = a.index ? `${a.index}. ${a.label}` : a.label;
-        return `${theme.fg('success', '✓ ')}${theme.fg('accent', a.questionId)}: ${display}`;
-      });
+      const lines = formatGroupedAnswerLines(details.questions ?? [], details.answers ?? []).map((line) =>
+        `${theme.fg('success', '✓ ')}${theme.fg('accent', line.questionLabel)}: ${line.answerText}`,
+      );
       return new Text(lines.join('\n'), 0, 0);
     },
   });
 }
 
 // ── Result builders ────────────────────────────────────────────
+
+function groupAnswersByQuestion(
+  questions: QuestionItem[],
+  answers: QuestionAnswer[],
+): Array<{ questionLabel: string; answers: QuestionAnswer[] }> {
+  const order = new Map<string, number>(questions.map((q, index) => [q.id, index]));
+  const grouped = new Map<string, { questionLabel: string; answers: QuestionAnswer[] }>();
+
+  for (const answer of answers) {
+    const questionLabel = questions.find((q) => q.id === answer.questionId)?.label || answer.questionId;
+    const existing = grouped.get(answer.questionId);
+    if (existing) {
+      existing.answers.push(answer);
+      continue;
+    }
+    grouped.set(answer.questionId, { questionLabel, answers: [answer] });
+  }
+
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => (order.get(a) ?? Number.MAX_SAFE_INTEGER) - (order.get(b) ?? Number.MAX_SAFE_INTEGER))
+    .map(([, group]) => group);
+}
+
+function formatAnswerText(answer: QuestionAnswer): string {
+  if (answer.wasCustom) {
+    return `user wrote: ${answer.label}`;
+  }
+  return answer.index ? `user selected: ${answer.index}. ${answer.label}` : `user selected: ${answer.label}`;
+}
+
+function formatGroupedAnswerLines(
+  questions: QuestionItem[],
+  answers: QuestionAnswer[],
+): Array<{ questionLabel: string; answerText: string }> {
+  return groupAnswersByQuestion(questions, answers).map((group) => ({
+    questionLabel: group.questionLabel,
+    answerText: group.answers.map(formatAnswerText).join('; '),
+  }));
+}
 
 function buildQuestionResult(
   question: string,
@@ -284,12 +328,9 @@ function buildQuestionnaireResult(
     };
   }
 
-  const answerLines = answers.map((a) => {
-    const qLabel = questions.find((q) => q.id === a.questionId)?.label || a.questionId;
-    return a.wasCustom
-      ? `${qLabel}: user wrote: ${a.label}`
-      : `${qLabel}: user selected: ${a.index}. ${a.label}`;
-  });
+  const answerLines = formatGroupedAnswerLines(questions, answers).map(
+    (line) => `${line.questionLabel}: ${line.answerText}`,
+  );
 
   return {
     content: [{ type: 'text' as const, text: answerLines.join('\n') }],

@@ -16,11 +16,21 @@ import path from 'node:path';
 import os from 'node:os';
 
 import type { MemorySearchResult, MemoryFileList } from '../shared/types';
+import { stripEntryIdComments, stripManagedFileMetadata } from './memory-format';
 
 // ── Constants ──────────────────────────────────────────────────
 
 /** Only these root-level .md files are managed by the memory system. */
 const MEMORY_ROOT_FILES = new Set(['MEMORY.md', 'IDENTITY.md', 'USER.md', 'SCRATCHPAD.md']);
+
+export type CapacityTarget = 'memory' | 'identity' | 'user' | 'scratchpad';
+
+const TARGET_CAPACITIES: Record<CapacityTarget, number> = {
+  memory: 4_000,
+  user: 2_000,
+  identity: 2_000,
+  scratchpad: 2_000,
+};
 
 // ── Path resolution ────────────────────────────────────────────
 
@@ -52,6 +62,19 @@ export function getDailyPath(root: string, date: string): string {
   return path.join(getDailyDir(root), `${date}.md`);
 }
 
+export function getSessionTranscriptDir(root: string): string {
+  return path.join(root, 'memory', 'sessions');
+}
+
+export function getSessionTranscriptPath(root: string, date: string, sessionId: string): string {
+  const shortId = sessionId.slice(0, 8);
+  return path.join(getSessionTranscriptDir(root), `${date}-${shortId}.md`);
+}
+
+export function getScratchpadPath(root: string): string {
+  return path.join(root, 'SCRATCHPAD.md');
+}
+
 export function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -60,6 +83,7 @@ export function todayStr(): string {
 
 export async function ensureDirectories(root: string): Promise<void> {
   await fs.mkdir(getDailyDir(root), { recursive: true });
+  await fs.mkdir(getSessionTranscriptDir(root), { recursive: true });
 }
 
 // ── Read / Write / Append ──────────────────────────────────────
@@ -67,6 +91,15 @@ export async function ensureDirectories(root: string): Promise<void> {
 export async function readFile(filePath: string): Promise<string | null> {
   try {
     return await fs.readFile(filePath, 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
+export async function statFile(filePath: string): Promise<{ mtime: Date } | null> {
+  try {
+    const stat = await fs.stat(filePath);
+    return { mtime: stat.mtime };
   } catch {
     return null;
   }
@@ -87,6 +120,34 @@ export async function appendFile(filePath: string, content: string): Promise<voi
     .replace(/\.\d+Z$/, '');
   const stamped = `<!-- ${timestamp} -->\n${content}`;
   await fs.writeFile(filePath, (existing ?? '') + separator + stamped, 'utf-8');
+}
+
+function normalizeVisibleContent(target: CapacityTarget, content: string): string {
+  switch (target) {
+    case 'memory':
+      return stripEntryIdComments(stripManagedFileMetadata(content)).trim();
+    case 'identity':
+    case 'user':
+      return stripManagedFileMetadata(content).trim();
+    case 'scratchpad':
+      return content.trim();
+  }
+}
+
+export function getCapacityForTarget(target: CapacityTarget): number {
+  return TARGET_CAPACITIES[target];
+}
+
+export function getTargetUsage(target: CapacityTarget, content: string): {
+  chars: number;
+  max: number;
+  percent: number;
+} {
+  const visible = normalizeVisibleContent(target, content);
+  const chars = visible.length;
+  const max = TARGET_CAPACITIES[target];
+  const percent = max === 0 ? 0 : Math.min(999, Math.round((chars / max) * 100));
+  return { chars, max, percent };
 }
 
 export async function fileExists(filePath: string): Promise<boolean> {

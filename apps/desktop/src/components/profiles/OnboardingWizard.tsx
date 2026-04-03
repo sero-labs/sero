@@ -24,7 +24,7 @@
  * picks up naturally. No wizard needed again.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -34,17 +34,25 @@ import {
   DialogFooter,
 } from '@sero-ai/ui/components/ui/dialog';
 import { Button } from '@sero-ai/ui/components/ui/button';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, Loader2, TriangleAlert } from 'lucide-react';
 import { AuthLoginDialog } from '@/components/layout/AuthLoginDialog';
 import { useSessionStore } from '@/stores/sessions';
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
+import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 
-type Phase = 'checking' | 'auth' | 'launching' | 'done';
+type Phase = 'checking' | 'auth' | 'launching' | 'error' | 'done';
 
 export function OnboardingWizard() {
   const [phase, setPhase] = useState<Phase>('checking');
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hideLaunchingDialogRef = useRef(false);
+  const hasPendingUserInput = useUserFeedbackStore((s) => s.pending.size > 0);
+
+  if (phase === 'launching' && hasPendingUserInput) {
+    hideLaunchingDialogRef.current = true;
+  }
 
   // ── Initial check ───────────────────────────────────────────
   useEffect(() => {
@@ -80,12 +88,14 @@ export function OnboardingWizard() {
 
   // ── Launch the agentic memory session ───────────────────────
   const launchMemorySession = useCallback(async () => {
+    hideLaunchingDialogRef.current = false;
+    setErrorMessage(null);
     setPhase('launching');
     try {
       const session = await useSessionStore.getState().createSession('global');
       useSessionStore.getState().setActiveSession(session.id);
-      await useSessionStore.getState().renameSession(session.id, 'Welcome');
       await window.sero.agent.open(session.id, session.path, 'global');
+      await useSessionStore.getState().renameSession(session.id, 'Welcome');
       useAgentStore.getState().focusSession(session.id);
       useAppStore.getState().setChatPanelOpen(true);
 
@@ -105,11 +115,11 @@ export function OnboardingWizard() {
       if (msg.includes('Authentication failed') || msg.includes('authentication') || msg.includes('unauthorized') || msg.includes('401') || msg.includes('No API key') || msg.includes('credentials')) {
         // Copied credentials were invalid/expired → show auth dialog
         setPhase('auth');
-      } else {
-        // Non-auth error — mark done so we don't loop
-        await window.sero.profiles.markOnboardingDone();
-        setPhase('done');
+        return;
       }
+
+      setErrorMessage(msg);
+      setPhase('error');
     }
   }, []);
 
@@ -125,10 +135,28 @@ export function OnboardingWizard() {
   }, [launchMemorySession]);
 
   // Nothing to show
-  if (phase === 'checking' || phase === 'launching' || phase === 'done') return null;
+  if (phase === 'checking' || phase === 'done') return null;
 
   return (
     <>
+      <Dialog
+        open={phase === 'launching' && !hideLaunchingDialogRef.current}
+        onOpenChange={() => {/* prevent close via overlay/escape */}}
+      >
+        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
+              <Loader2 className="size-5 animate-spin text-[var(--status-success)]" />
+            </div>
+            <DialogTitle>Setting up your memory</DialogTitle>
+            <DialogDescription>
+              Sero is opening a welcome session and starting the memory setup flow.
+              This should only take a moment.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={phase === 'auth'} onOpenChange={() => {/* prevent close via overlay/escape */}}>
         <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
@@ -152,6 +180,35 @@ export function OnboardingWizard() {
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={handleSkipAuth}>
               Skip for now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={phase === 'error'} onOpenChange={() => {/* prevent close via overlay/escape */}}>
+        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
+              <TriangleAlert className="size-5 text-[var(--status-warning)]" />
+            </div>
+            <DialogTitle>Memory setup couldn't start</DialogTitle>
+            <DialogDescription>
+              Sero hit an error while opening the welcome session for memory setup.
+            </DialogDescription>
+          </DialogHeader>
+
+          {errorMessage ? (
+            <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setPhase('done')}>
+              Continue for now
+            </Button>
+            <Button size="sm" onClick={() => void launchMemorySession()}>
+              Retry setup
             </Button>
           </DialogFooter>
         </DialogContent>
