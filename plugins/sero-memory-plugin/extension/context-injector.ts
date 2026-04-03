@@ -292,11 +292,14 @@ export async function buildPriorityContext(root: string, prompt: string, session
 
 // Memory instructions (getMemoryInstructions) are in memory-instructions.ts
 
+function formatToolParamsJson(value: unknown): string {
+  return `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
+}
+
 function buildBootstrapInstructions(existingUserContent: string | null): string {
-  const root = resolveMemoryRoot();
-  const identityJson = JSON.stringify(IDENTITY_QUESTIONS, null, 2);
-  const userJson = JSON.stringify(USER_QUESTIONS, null, 2);
-  const memoryJson = JSON.stringify(MEMORY_QUESTIONS, null, 2);
+  const identityJson = formatToolParamsJson(IDENTITY_QUESTIONS);
+  const userJson = formatToolParamsJson(USER_QUESTIONS);
+  const memoryJson = formatToolParamsJson(MEMORY_QUESTIONS);
 
   const userNote = existingUserContent
     ? `\n\nNote: USER.md already has content:\n\`\`\`\n${existingUserContent}\n\`\`\`\nConfirm this is correct with the user rather than re-asking. Skip the user questionnaire if the content looks good.`
@@ -308,31 +311,35 @@ function buildBootstrapInstructions(existingUserContent: string | null): string 
 The memory system is not yet initialised. You MUST set it up now before doing anything else.
 Use the \`questionnaire\` tool to ask the user three rounds of questions, then write the answers to memory files.${userNote}
 
+The questionnaire UI supports step-based multiple-choice forms, including multi-select questions. For any question that already includes predefined \`options\`, preserve those options exactly so the user gets clickable choices. Do NOT rewrite option-based questions into free-form chat. Only rely on custom text when none of the provided options fit.
+
 ### Step 1: Identity Setup
-YOU MUST Call the \`questionnaire\` tool with these questions to configure the agent persona:
+YOU MUST call the \`questionnaire\` tool with the exact JSON parameters below to configure the agent persona. Preserve every \`options\`, \`label\`, \`description\`, \`exclusive\`, \`multiSelect\`, and \`allowOther\` field exactly as shown:
 ${identityJson}
 
 After receiving answers, write IDENTITY.md:
-\`sero memory write --target identity --mode overwrite --content "# Identity\\n\\n- **Name:** <agent_name answer>\\n- **Style:** <personality answer>\\n- **Rules:** <rules answer>"\`
+\`sero memory write --target identity --mode overwrite --content "# Identity\\n\\n- **Name:** <agent_name answer>\\n- **Style:** <personality answers joined with commas if multiple>\\n- **Rules:** <rules answers joined with commas if multiple>"\`
 
 ### Step 2: User Profile setup
-YOU MUST Call the \`questionnaire\` tool again with these questions to configure the user profile:
+YOU MUST call the \`questionnaire\` tool again with the exact JSON parameters below to configure the user profile. Keep the predefined options intact so the user can tap through the multiple-choice UI where applicable:
 ${userJson}
 
 After receiving answers, write USER.md:
-\`sero memory write --target user --mode overwrite --content "# User\\n\\n- **Name:** <name>\\n- **Role:** <role>\\n- **Location:** <location>\\n- **Tech Stack:** <stack>\\n- **Communication:** <communication>"\`
-
+\`sero memory write --target user --mode overwrite --content "# User\\n\\n- **Name:** <name>\\n- **Role:** <role answers joined with commas if multiple>\\n- **Location:** <location>\\n- **Tech Stack:** <stack answers joined with commas if multiple>\\n- **Communication:** <communication answers joined with commas if multiple>"\`
 
 ### Step 3: Long-term Memory
-YOU MUST Call the \`questionnaire\` tool again with these questions:
+YOU MUST call the \`questionnaire\` tool again with the exact JSON parameters below. Keep the option lists intact instead of converting these prompts into open-ended chat questions:
 ${memoryJson}
 
 After receiving answers, write MEMORY.md:
-\`sero memory write --target memory --mode overwrite --content "# Memory\\n\\n## Technical Knowledge\\n\\n<tech_knowledge>\\n\\n## Coding Preferences\\n\\n<coding_prefs>\\n\\n## Active Projects\\n\\n<projects>"\`
+\`sero memory write --target memory --mode overwrite --content "# Memory\\n\\n## Technical Knowledge\\n\\n<tech_knowledge answers — use short bullet lines if multiple>\\n\\n## Coding Preferences\\n\\n<coding_prefs answers — use short bullet lines if multiple>\\n\\n## Active Projects\\n\\n<projects answer>"\`
 
 ### Important
 - Run each questionnaire step in order — don't skip steps.
-- Use the exact tool calls shown above.
+- Use the exact tool parameters shown above.
+- Prefer the predefined multiple-choice options whenever they fit; \`allowOther\` is only the fallback for custom answers.
+- For any \`multiSelect\` question, preserve all selected human-readable answers when writing the memory files.
+- When writing the memory files, use the human-readable answer text the user selected or typed.
 - After writing all three files, confirm to the user that memory is set up.
 - Be friendly and natural between steps — this is a first-time experience.`;
 }

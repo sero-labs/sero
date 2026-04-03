@@ -22,6 +22,10 @@ import {
 //
 // Typed objects — serialised to JSON when injected into the system
 // prompt. Compile-time validated via QuestionnairePayload.
+//
+// The predefined options are intentional: they should drive the
+// questionnaire's click-to-select multiple-choice UI whenever possible,
+// while `allowOther` keeps a free-text escape hatch for custom answers.
 
 export const IDENTITY_QUESTIONS: QuestionnairePayload = {
   questions: [
@@ -30,16 +34,16 @@ export const IDENTITY_QUESTIONS: QuestionnairePayload = {
       label: 'AI Name',
       prompt: 'What should the AI assistant call itself?',
       options: [
-        { value: 'Sero', label: 'Sero' },
-        { value: 'Assistant', label: 'Assistant' },
-        { value: 'Claude', label: 'Claude' },
+        { value: 'Sero', label: 'Sero', description: 'Default Sero identity' },
+        { value: 'Assistant', label: 'Assistant', description: 'Neutral, generic assistant name' },
+        { value: 'Claude', label: 'Claude', description: 'Keep the Claude name' },
       ],
       allowOther: true,
     },
     {
       id: 'personality',
       label: 'Personality',
-      prompt: 'What personality style should the AI have?',
+      prompt: 'Which personality traits should the AI emphasise?',
       options: [
         { value: 'direct', label: 'Direct & concise', description: 'Straight to the point, minimal filler' },
         { value: 'friendly', label: 'Friendly & conversational', description: 'Warm, natural, collaborative tone' },
@@ -47,18 +51,20 @@ export const IDENTITY_QUESTIONS: QuestionnairePayload = {
         { value: 'casual', label: 'Casual & relaxed', description: 'Laid-back, informal, natural' },
       ],
       allowOther: true,
+      multiSelect: true,
     },
     {
       id: 'rules',
       label: 'Rules',
       prompt: 'Any specific behavioural rules for the AI?',
       options: [
-        { value: 'none', label: 'No special rules' },
-        { value: 'british', label: 'Use British English spellings' },
-        { value: 'no-emoji', label: 'Avoid emoji' },
-        { value: 'concise', label: 'Keep responses short' },
+        { value: 'none', label: 'No special rules', description: 'Use the default behaviour', exclusive: true },
+        { value: 'british', label: 'Use British English spellings', description: 'Prefer colour, organise, etc.' },
+        { value: 'no-emoji', label: 'Avoid emoji', description: 'Keep responses text-only' },
+        { value: 'concise', label: 'Keep responses short', description: 'Bias toward compact answers' },
       ],
       allowOther: true,
+      multiSelect: true,
     },
   ],
 };
@@ -75,45 +81,57 @@ export const USER_QUESTIONS: QuestionnairePayload = {
     {
       id: 'role',
       label: 'Role',
-      prompt: "What's your role or profession?",
+      prompt: 'Which roles best describe you?',
       options: [
-        { value: 'software-engineer', label: 'Software Engineer' },
-        { value: 'designer', label: 'Designer' },
-        { value: 'product-manager', label: 'Product Manager' },
-        { value: 'student', label: 'Student' },
+        { value: 'software-engineer', label: 'Software Engineer', description: 'Builds software / writes code' },
+        { value: 'designer', label: 'Designer', description: 'Product, UX, or visual design' },
+        { value: 'product-manager', label: 'Product Manager', description: 'Roadmaps, requirements, coordination' },
+        { value: 'founder', label: 'Founder / Entrepreneur', description: 'Runs or is building a company/product' },
+        { value: 'student', label: 'Student', description: 'Learning, studying, or early-career' },
       ],
       allowOther: true,
+      multiSelect: true,
     },
     {
       id: 'location',
       label: 'Location',
-      prompt: 'Where are you based? (for timezone context)',
-      options: [],
+      prompt: 'What timezone or region are you in? (for time/context cues)',
+      options: [
+        { value: 'us-pacific', label: 'US / Pacific', description: 'West Coast North America' },
+        { value: 'us-eastern', label: 'US / Eastern', description: 'East Coast North America' },
+        { value: 'uk-ireland', label: 'UK / Ireland', description: 'GMT / BST' },
+        { value: 'central-europe', label: 'Central Europe', description: 'CET / CEST' },
+        { value: 'india', label: 'India', description: 'IST' },
+        { value: 'east-asia', label: 'East Asia', description: 'China, Singapore, nearby' },
+        { value: 'australia-eastern', label: 'Australia / Eastern', description: 'AEST / AEDT' },
+      ],
       allowOther: true,
     },
     {
       id: 'stack',
       label: 'Tech Stack',
-      prompt: "What's your primary tech stack?",
+      prompt: 'Which tech stacks do you work in most?',
       options: [
-        { value: 'ts-react', label: 'TypeScript + React' },
-        { value: 'python', label: 'Python' },
-        { value: 'rust', label: 'Rust' },
-        { value: 'go', label: 'Go' },
-        { value: 'fullstack-js', label: 'Full-stack JavaScript' },
+        { value: 'ts-react', label: 'TypeScript + React', description: 'Frontend or full-stack TS work' },
+        { value: 'python', label: 'Python', description: 'Scripting, data, backend, or AI workflows' },
+        { value: 'rust', label: 'Rust', description: 'Systems or performance-focused work' },
+        { value: 'go', label: 'Go', description: 'Backend, infra, or tooling' },
+        { value: 'fullstack-js', label: 'Full-stack JavaScript', description: 'Node + browser JavaScript' },
       ],
       allowOther: true,
+      multiSelect: true,
     },
     {
       id: 'communication',
       label: 'Comms Style',
-      prompt: 'How do you prefer the AI to communicate?',
+      prompt: 'How should the AI communicate with you?',
       options: [
-        { value: 'direct', label: 'Direct — no waffle, just answers' },
-        { value: 'explanatory', label: 'Explanatory — teach me as we go' },
-        { value: 'collaborative', label: 'Collaborative — discuss options together' },
+        { value: 'direct', label: 'Direct — no waffle, just answers', description: 'Optimise for speed and clarity' },
+        { value: 'explanatory', label: 'Explanatory — teach me as we go', description: 'Include reasoning and learning context' },
+        { value: 'collaborative', label: 'Collaborative — discuss options together', description: 'Explore trade-offs before deciding' },
       ],
       allowOther: true,
+      multiSelect: true,
     },
   ],
 };
@@ -125,27 +143,35 @@ export const MEMORY_QUESTIONS: QuestionnairePayload = {
       label: 'Technical',
       prompt: 'Any crucial technical knowledge to remember? (frameworks, patterns, configs)',
       options: [
-        { value: 'none', label: 'Nothing specific right now' },
+        { value: 'none', label: 'Nothing specific right now', description: 'No key technical context to save yet', exclusive: true },
+        { value: 'repo-docs-source', label: 'The repo/docs are the source of truth', description: 'Read existing code and docs before guessing' },
+        { value: 'env-constraints', label: 'There are important environment/setup constraints', description: 'Config, platform, or setup details matter' },
       ],
       allowOther: true,
+      multiSelect: true,
     },
     {
       id: 'coding_prefs',
       label: 'Coding',
-      prompt: 'Any coding preferences or conventions?',
+      prompt: 'Any coding preferences or conventions to remember?',
       options: [
-        { value: 'functional', label: 'Prefer functional patterns over classes' },
-        { value: 'oop', label: 'Prefer OOP / class-based' },
-        { value: 'none', label: 'No strong preference' },
+        { value: 'none', label: 'No strong preference', description: 'Use whatever best fits the task', exclusive: true },
+        { value: 'functional', label: 'Prefer functional patterns over classes', description: 'Lean toward functions and composition' },
+        { value: 'oop', label: 'Prefer OOP / class-based', description: 'Class-oriented structure is welcome' },
+        { value: 'strong-types', label: 'Prefer strong typing / explicit types', description: 'Bias toward explicit type safety' },
+        { value: 'tests-first', label: 'Prefer tests or verification for changes', description: 'Validate behaviour when practical' },
       ],
       allowOther: true,
+      multiSelect: true,
     },
     {
       id: 'projects',
       label: 'Projects',
       prompt: 'Any active projects or contexts the AI should know about?',
       options: [
-        { value: 'none', label: 'Nothing specific right now' },
+        { value: 'none', label: 'Nothing specific right now', description: 'No active project context to store yet' },
+        { value: 'one-main-project', label: 'One main active project', description: 'There is a primary project to optimise around' },
+        { value: 'multiple-contexts', label: 'Multiple active projects / contexts', description: 'Expect task-switching across different areas' },
       ],
       allowOther: true,
     },

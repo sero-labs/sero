@@ -44,6 +44,29 @@ function createQuestion(
   };
 }
 
+function createMultiSelectQuestion(id: string): UserFeedbackPendingQuestion {
+  return {
+    id,
+    type: 'questionnaire',
+    toolCallId: `tool-${id}`,
+    timestamp: new Date().toISOString(),
+    questions: [
+      {
+        id: 'rules',
+        label: 'Rules',
+        prompt: 'Which rules should apply?',
+        options: [
+          { value: 'none', label: 'No special rules', exclusive: true },
+          { value: 'british', label: 'Use British English' },
+          { value: 'concise', label: 'Keep responses short' },
+        ],
+        allowOther: true,
+        multiSelect: true,
+      },
+    ],
+  };
+}
+
 type TestSeroAPI = {
   userFeedback: Pick<
     Window['sero']['userFeedback'],
@@ -208,5 +231,37 @@ describe('UserFeedbackApp', () => {
     });
     expect(container.textContent).toContain('Second prompt');
     expect(container.textContent).not.toContain('First prompt');
+  });
+
+  it('submits multiple selected answers for a multi-select questionnaire step', async () => {
+    const multi = createMultiSelectQuestion('questionnaire-multi');
+
+    await renderApp([multi]);
+
+    await clickButton('Use British English');
+    await clickButton('Keep responses short');
+    await clickButton('Review');
+    await clickButton('Submit All Answers');
+
+    expect(answer).toHaveBeenCalledWith({
+      id: 'questionnaire-multi',
+      answers: [
+        {
+          questionId: 'rules',
+          value: 'british',
+          label: 'Use British English',
+          wasCustom: false,
+          index: 2,
+        },
+        {
+          questionId: 'rules',
+          value: 'concise',
+          label: 'Keep responses short',
+          wasCustom: false,
+          index: 3,
+        },
+      ],
+      cancelled: false,
+    });
   });
 });

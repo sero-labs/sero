@@ -59,6 +59,7 @@ export interface QuestionOption {
   value: string;
   label: string;
   description?: string;
+  exclusive?: boolean;
 }
 
 export interface QuestionDef {
@@ -67,6 +68,7 @@ export interface QuestionDef {
   prompt: string;
   options: QuestionOption[];
   allowOther?: boolean;
+  multiSelect?: boolean;
 }
 
 export interface QuestionnairePayload {
