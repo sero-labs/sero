@@ -9,16 +9,25 @@
  * return safe defaults (false, empty string, etc.).
  */
 
+import { mkdir } from 'node:fs/promises';
 import { homedir } from 'os';
-import { join } from 'path';
+import { dirname, join, resolve as resolvePath } from 'path';
 
 import { createStore } from '@tobilu/qmd';
 import type { QMDStore, SearchResult, HybridQueryResult } from '@tobilu/qmd';
 
-/** Compute the QMD db path the same way the CLI does, without requiring enableProductionMode(). */
-function resolveQmdDbPath(): string {
-  const cacheDir = process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache');
-  return join(cacheDir, 'qmd', 'index.sqlite');
+/** Mirror the SDK's agent-dir resolution so QMD state follows the active Sero profile. */
+function resolveAgentDir(): string {
+  const envDir = process.env.PI_CODING_AGENT_DIR?.trim();
+  if (!envDir) return join(homedir(), '.pi', 'agent');
+  if (envDir === '~') return homedir();
+  if (envDir.startsWith('~/')) return join(homedir(), envDir.slice(2));
+  return envDir;
+}
+
+/** Store the QMD index inside the active profile's agent dir, not a global shared cache. */
+export function resolveQmdDbPath(agentDir = resolveAgentDir()): string {
+  return join(agentDir, 'cache', 'qmd', 'index.sqlite');
 }
 
 import { resolveMemoryRoot } from './memory-manager';
@@ -75,19 +84,30 @@ function mapHybridResult(r: HybridQueryResult): QmdSearchResult {
 
 // ── Collection management ─────────────────────────────────────
 
-async function ensureCollection(): Promise<boolean> {
-  if (!store) return false;
+type CollectionManager = Pick<QMDStore, 'listCollections' | 'addCollection' | 'removeCollection' | 'addContext' | 'update'>;
 
+function collectionNeedsRefresh(existing: Awaited<ReturnType<QMDStore['listCollections']>>[number] | undefined, root: string): boolean {
+  if (!existing) return true;
+  return resolvePath(existing.pwd) !== resolvePath(root)
+    || existing.glob_pattern !== '**/*.md';
+}
+
+export async function ensureCollectionForRoot(storeRef: CollectionManager, root: string): Promise<boolean> {
   try {
-    const collections = await store.listCollections();
-    const hasCollection = collections.some((c) => c.name === QMD_COLLECTION);
+    const collections = await storeRef.listCollections();
+    const existing = collections.find((collection) => collection.name === QMD_COLLECTION);
+    const needsRefresh = collectionNeedsRefresh(existing, root);
 
-    const root = resolveMemoryRoot();
-    if (!hasCollection) {
-      await store.addCollection(QMD_COLLECTION, {
+    if (needsRefresh && existing) {
+      await storeRef.removeCollection(QMD_COLLECTION);
+    }
+
+    if (needsRefresh) {
+      await storeRef.addCollection(QMD_COLLECTION, {
         path: root,
         pattern: '**/*.md',
       });
+      await storeRef.update({ collections: [QMD_COLLECTION] });
     }
 
     const contexts: [string, string][] = [
@@ -97,7 +117,7 @@ async function ensureCollection(): Promise<boolean> {
     ];
     for (const [ctxPath, desc] of contexts) {
       try {
-        await store.addContext(QMD_COLLECTION, ctxPath, desc);
+        await storeRef.addContext(QMD_COLLECTION, ctxPath, desc);
       } catch { /* context may already exist */ }
     }
 
@@ -107,11 +127,17 @@ async function ensureCollection(): Promise<boolean> {
   }
 }
 
+async function ensureCollection(): Promise<boolean> {
+  if (!store) return false;
+  return ensureCollectionForRoot(store, resolveMemoryRoot());
+}
+
 // ── Initialisation (called on session_start) ──────────────────
 
 export async function initQmd(): Promise<boolean> {
   try {
     const dbPath = resolveQmdDbPath();
+    await mkdir(dirname(dbPath), { recursive: true });
     store = await createStore({ dbPath });
     qmdAvailable = true;
   } catch {
@@ -120,8 +146,12 @@ export async function initQmd(): Promise<boolean> {
   }
 
   // Ensure collection exists
-  await ensureCollection();
-  return true;
+  const ready = await ensureCollection();
+  if (!ready) {
+    qmdAvailable = false;
+    store = null;
+  }
+  return ready;
 }
 
 // ── Search ────────────────────────────────────────────────────

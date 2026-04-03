@@ -14,7 +14,6 @@ import type { Static } from '@sinclair/typebox';
 import {
   ensureDirectories,
   appendFile,
-  getCapacityForTarget,
   getTargetUsage,
   listFiles,
   readFile,
@@ -174,7 +173,11 @@ export async function handleRead(root: string, target?: string, date?: string, w
       parsedEntries: withIds === true ? entries.length : parseMemoryEntries(content).length,
       firstLine: content.split('\n')[0] ?? '',
     });
-    return text(renderMemoryForRead(content, withIds === true));
+    const usage = getTargetUsage('memory', content);
+    return text(renderMemoryForRead(content, withIds === true).replace(
+      /^# Memory\b/,
+      `# Memory [${usage.percent}% — ${usage.chars}/${usage.max} chars]`,
+    ));
   }
 
   const content = await readFile(resolved.path);

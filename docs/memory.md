@@ -196,7 +196,7 @@ and allows custom answers.
 
 QMD provides semantic search via the `@tobilu/qmd` SDK (not CLI).
 
-- **Database:** `~/.cache/qmd/index.sqlite`
+- **Database:** `<profile>/agent/cache/qmd/index.sqlite` (profile-scoped, derived from `PI_CODING_AGENT_DIR`)
 - **Collection:** `sero-memory` pointing at the global workspace
 - **Path contexts:** `/memory/daily` → daily logs, `/` → curated long-term memory
 - **Debounced re-indexing:** 500ms after every write, fire-and-forget

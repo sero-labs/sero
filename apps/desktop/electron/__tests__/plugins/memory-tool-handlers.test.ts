@@ -98,6 +98,7 @@ describe('Test 1 — Basic read/write', () => {
     const result = await handleRead(root, 'memory');
     const text = resultText(result);
     expect(text).toContain('Tailwind 4');
+    expect(text).toMatch(/# Memory \[\d+% — \d+\/4000 chars\]/);
   });
 
   it('reads with IDs when requested', async () => {
@@ -106,6 +107,7 @@ describe('Test 1 — Basic read/write', () => {
     const result = await handleRead(root, 'memory', undefined, true);
     const text = resultText(result);
     expect(text).toMatch(/mem-[a-f0-9]+/);
+    expect(text).toMatch(/# Memory \[\d+% — \d+\/4000 chars\]/);
   });
 
   it('lists files from an empty root', async () => {
