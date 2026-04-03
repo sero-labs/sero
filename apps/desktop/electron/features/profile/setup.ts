@@ -153,15 +153,28 @@ export async function ensureDefaultThemes(): Promise<void> {
 
 /**
  * Files to skip when copying profile templates.
- * MEMORY.md is excluded because its absence is the trigger for
- * the memory extension's bootstrap questionnaire flow.
+ *
+ * The memory system owns the lifecycle of all managed memory files:
+ * - MEMORY.md absence triggers the bootstrap questionnaire flow
+ * - IDENTITY.md and USER.md are written from the bootstrap answers so the
+ *   user can define the agent's personality/identity and their own profile
+ * - SCRATCHPAD.md is created lazily by the scratchpad tool when first used
+ *
+ * Only non-managed workspace guidance files (for example AGENTS.md and
+ * TOOLS.md) should be copied from the built-in profile template set.
  */
-const SKIP_PROFILE_FILES = new Set(['MEMORY.md']);
+const SKIP_PROFILE_FILES = new Set([
+  'MEMORY.md',
+  'IDENTITY.md',
+  'USER.md',
+  'SCRATCHPAD.md',
+]);
 
 /**
- * Copy profile templates (AGENTS.md, USER.md, etc.) to the global workspace.
- * Only copies files that don't already exist. Skips MEMORY.md so the memory
- * extension's bootstrap flow is preserved.
+ * Copy profile templates (AGENTS.md, TOOLS.md, etc.) to the global workspace.
+ * Only copies files that don't already exist. Managed memory files are skipped
+ * so the memory extension can create and populate them through the v2
+ * bootstrap and memory tools.
  *
  * Templates with `{{PLACEHOLDER}}` syntax are substituted with runtime
  * values (SERO_HOME, SERO_AGENT_DIR, SERO_MONOREPO).
