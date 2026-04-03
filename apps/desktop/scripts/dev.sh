@@ -23,6 +23,9 @@ SERO_DEV_PLUGINS="${SERO_DEV_PLUGINS:-}"
 
 # ── Cleanup trap ────────────────────────────────────────────
 CHILD_PIDS=()
+# Match the top-level Electron browser process launched by `npx electron .`.
+# This avoids helper processes (`--type=...`) and survives app.relaunch().
+ELECTRON_MAIN_MATCH_PATTERN="Contents/MacOS/Electron \\."
 
 cleanup() {
   echo ""
@@ -36,7 +39,7 @@ cleanup() {
   for port in "${KILL_PORTS[@]}"; do
     lsof -ti :"$port" 2>/dev/null | xargs kill -9 2>/dev/null
   done
-  pkill -f "electron.*sero" 2>/dev/null
+  pkill -f "$ELECTRON_MAIN_MATCH_PATTERN" 2>/dev/null
 
   sleep 1
   for pid in "${CHILD_PIDS[@]}"; do
@@ -46,6 +49,36 @@ cleanup() {
 
   wait 2>/dev/null
   echo "All dev processes stopped."
+}
+
+# Keep the host/remotes alive across app.relaunch(). A relaunched Electron
+# process is no longer the original child of this shell, so a plain `wait`
+# would return and the EXIT trap would tear down Vite underneath the new app.
+electron_browser_running() {
+  pgrep -fal "$ELECTRON_MAIN_MATCH_PATTERN" | grep -q .
+}
+
+monitor_electron_lifecycle() {
+  local relaunched=false
+
+  while true; do
+    if electron_browser_running; then
+      sleep 1
+      continue
+    fi
+
+    relaunched=false
+    for attempt in {1..20}; do
+      sleep 0.25
+      if electron_browser_running; then
+        relaunched=true
+        echo "Electron relaunched — keeping dev servers running."
+        break
+      fi
+    done
+
+    $relaunched || break
+  done
 }
 
 trap cleanup EXIT INT TERM
@@ -123,7 +156,7 @@ KILL_PORTS=(5173 "${ALL_PORTS[@]}")
 for port in "${KILL_PORTS[@]}"; do
   lsof -ti :"$port" | xargs kill -9 2>/dev/null
 done
-pkill -f "electron.*sero" 2>/dev/null
+pkill -f "$ELECTRON_MAIN_MATCH_PATTERN" 2>/dev/null
 sleep 1
 
 WEB_REMOTE_DIR="$(cd ../../apps/web-remote && pwd)"
@@ -195,3 +228,4 @@ echo "  /tmp/sero-electron.log"
 echo ""
 
 wait $ELECTRON_PID 2>/dev/null
+monitor_electron_lifecycle

@@ -39,6 +39,7 @@ import {
 registerExtProtocolScheme();
 
 let mainWindow: BrowserWindow | null = null;
+let isGracefullyShuttingDown = false;
 
 // Spotify Web Playback SDK needs autoplay + EME support in the renderer.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -332,9 +333,14 @@ app.on('activate', () => {
   }
 });
 
-// ── Graceful shutdown ──────────────────────────────────────────
-app.on('before-quit', async (e) => {
-  e.preventDefault();
+function hideAllWindowsForShutdown(): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (window.isDestroyed()) continue;
+    window.hide();
+  }
+}
+
+async function performGracefulShutdown(): Promise<void> {
   console.log('[sero] Shutting down — cleaning up containers, terminals, LSP, watchers...');
 
   try {
@@ -369,8 +375,23 @@ app.on('before-quit', async (e) => {
   } catch (err) {
     console.error('[sero] Error during shutdown cleanup:', err);
   }
+}
 
-  app.exit(0);
+// ── Graceful shutdown ──────────────────────────────────────────
+app.on('before-quit', (e) => {
+  if (isGracefullyShuttingDown) return;
+
+  e.preventDefault();
+  isGracefullyShuttingDown = true;
+  hideAllWindowsForShutdown();
+
+  void performGracefulShutdown()
+    .catch((err) => {
+      console.error('[sero] Unexpected error during graceful shutdown:', err);
+    })
+    .finally(() => {
+      app.exit(0);
+    });
 });
 
 // ── Orphan cleanup ─────────────────────────────────────────────

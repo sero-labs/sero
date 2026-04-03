@@ -91,12 +91,27 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   'git_manager',
   // NOT bridged — private, kept away from agent by design:
   // 'admin' — Sero Admin reads sensitive config (auth, .env); must not be agent-accessible
-  // NOT bridged — complex schemas or long freeform payloads that need structured params:
-  // 'question', 'questionnaire', 'interview', 'create_agent', 'kanban', 'research'
   // NOT bridged — these depend on ctx.sessionManager (SDK internals):
   // 'context_tag', 'context_log', 'context_checkout'
   // NOT bridged — deliberate standalone exception for nested structured params:
   // 'subagent'
+]);
+
+/**
+ * Tool names that must NEVER be bridged into `sero-cli`.
+ *
+ * These tools either:
+ * - require nested structured params that are awkward/error-prone in shell syntax
+ * - wait on interactive user input and therefore must not inherit the CLI's
+ *   per-command timeout behavior
+ */
+const NEVER_BRIDGE_TO_CLI = new Set([
+  'question',
+  'questionnaire',
+  'interview',
+  'create_agent',
+  'kanban',
+  'research',
 ]);
 
 /**
@@ -111,6 +126,7 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
  * - `string[]`           → bridge only the listed tool names
  */
 function shouldBridgeTool(name: string, extensionPath: string): boolean {
+  if (NEVER_BRIDGE_TO_CLI.has(name)) return false;
   if (CORE_TOOLS_TO_BRIDGE.has(name)) return true;
 
   const pluginPolicy = getPluginBridgePolicy(extensionPath);
@@ -201,6 +217,7 @@ export function buildCliPromptBlock(reg: CliRegistry = getCliRegistry()): string
         '- Sero memory system files and history (`MEMORY.md`, `IDENTITY.md`, `USER.md`, `SCRATCHPAD.md`, `memory/daily/`, `memory/sessions/`) must go through `sero memory`, `sero memory_search`, or `sero scratchpad`.',
         '- Start with one precise `sero memory_search` query. If it already answers the question, stop and answer. Only broaden/rephrase if the first search misses or is ambiguous.',
         '- Never use bash/read/write/edit to inspect or modify those managed memory files. If memory search is unavailable, report that instead of working around it with filesystem tools.',
+        '- Use `question`, `questionnaire`, and `interview` as standalone tools when available — do not try to run them through `sero-cli`.',
       ].join('\n')
     : '';
 
