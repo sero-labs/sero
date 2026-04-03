@@ -30,6 +30,7 @@ import {
 } from './tool-schemas';
 import {
   commandTouchesProtectedMemory,
+  commandTouchesProtectedMemoryWithResolver,
   getProtectedMemoryAccessError,
   isProtectedMemoryPath,
 } from './memory-file-guard';
@@ -46,6 +47,43 @@ function resolveHostPath(filePath: string, basedir: string): string {
 
 function readFileErrorMessage(filePath: string, err: unknown): string {
   return err instanceof Error ? err.message : `Could not access ${filePath}`;
+}
+
+function normalizeHostGuardPath(value: string): string {
+  return path.resolve(value).replace(/\\/g, '/');
+}
+
+function isMissingPathError(err: unknown): boolean {
+  return !!err
+    && typeof err === 'object'
+    && 'code' in err
+    && (err.code === 'ENOENT' || err.code === 'ENOTDIR');
+}
+
+async function resolveHostPathForGuard(candidatePath: string): Promise<string> {
+  let current = normalizeHostGuardPath(candidatePath);
+  const missingSegments: string[] = [];
+
+  while (true) {
+    try {
+      const resolved = normalizeHostGuardPath(await fs.realpath(current));
+      return missingSegments.length > 0
+        ? normalizeHostGuardPath(path.join(resolved, ...missingSegments.reverse()))
+        : resolved;
+    } catch (err) {
+      if (!isMissingPathError(err)) {
+        return normalizeHostGuardPath(candidatePath);
+      }
+
+      const parent = path.dirname(current);
+      if (parent === current) {
+        return normalizeHostGuardPath(candidatePath);
+      }
+
+      missingSegments.push(path.basename(current));
+      current = parent;
+    }
+  }
 }
 
 async function runHostCommand(
@@ -144,7 +182,14 @@ function createHostBash(basedir: string): ToolDefinition {
     parameters: BashParams,
     execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {
       if (signal?.aborted) throw new Error('Command aborted');
-      if (commandTouchesProtectedMemory(params.command)) {
+      if (
+        commandTouchesProtectedMemory(params.command)
+        || await commandTouchesProtectedMemoryWithResolver({
+          command: params.command,
+          basedir,
+          resolvePath: resolveHostPathForGuard,
+        })
+      ) {
         throw new Error(getProtectedMemoryAccessError('bash'));
       }
 
@@ -202,7 +247,10 @@ function createHostRead(basedir: string): ToolDefinition {
       if (signal?.aborted) throw new Error('Operation aborted');
 
       const absPath = resolveHostPath(params.path, basedir);
-      if (isProtectedMemoryPath(absPath)) {
+      const guardedPath = isProtectedMemoryPath(absPath)
+        ? absPath
+        : await resolveHostPathForGuard(absPath);
+      if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('read'));
       }
 
@@ -308,7 +356,10 @@ function createHostWrite(basedir: string): ToolDefinition {
       if (signal?.aborted) throw new Error('Operation aborted');
 
       const absPath = resolveHostPath(params.path, basedir);
-      if (isProtectedMemoryPath(absPath)) {
+      const guardedPath = isProtectedMemoryPath(absPath)
+        ? absPath
+        : await resolveHostPathForGuard(absPath);
+      if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('write'));
       }
 
@@ -339,7 +390,10 @@ function createHostEdit(basedir: string): ToolDefinition {
       if (signal?.aborted) throw new Error('Operation aborted');
 
       const absPath = resolveHostPath(params.path, basedir);
-      if (isProtectedMemoryPath(absPath)) {
+      const guardedPath = isProtectedMemoryPath(absPath)
+        ? absPath
+        : await resolveHostPathForGuard(absPath);
+      if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('edit'));
       }
 

@@ -1,4 +1,4 @@
-import type { AgentSession } from '@mariozechner/pi-coding-agent';
+import type { AgentSession, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type {
   AssistantMessage,
   ImageContent,
@@ -14,6 +14,7 @@ import { getCliRegistry } from '../../../cli';
 import type { CliContentBlock } from '../../../cli/core';
 import { createSeroCliTool, splitCommandLines } from '../../../cli/core';
 import { workspaceManager } from '../../../shared/infra/shared-infra';
+import { createSeroUIContext } from '../../../features/apps/extensions/ui-context';
 import { attachmentsToImages, nextId } from './agent-helpers';
 
 const ZERO_USAGE: Usage = {
@@ -122,6 +123,49 @@ export async function handlePromptInput({
   await entry.session.prompt(text, images ? { images } : undefined);
 }
 
+function handleDirectCliCompactResult(
+  options: Parameters<ExtensionContext['compact']>[0] | undefined,
+  result: Promise<unknown>,
+): void {
+  void result.then(
+    (value) => options?.onComplete?.(value as never),
+    (error: unknown) => {
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      options?.onError?.(normalizedError);
+    },
+  );
+}
+
+export function buildDirectCliExtensionContext(
+  entry: PromptPoolEntry,
+  cwd: string,
+): ExtensionContext {
+  return {
+    cwd,
+    hasUI: true,
+    ui: createSeroUIContext(),
+    sessionManager: entry.session.sessionManager,
+    modelRegistry: entry.session.modelRegistry,
+    model: entry.session.model,
+    isIdle: () => true,
+    abort: () => {
+      void entry.session.abort();
+    },
+    hasPendingMessages: () => false,
+    shutdown: () => {
+      void entry.session.abort();
+    },
+    getContextUsage: () => entry.session.getContextUsage() ?? undefined,
+    compact: (options) => {
+      handleDirectCliCompactResult(
+        options,
+        entry.session.compact(options?.customInstructions),
+      );
+    },
+    getSystemPrompt: () => entry.session.agent.state.systemPrompt ?? '',
+  };
+}
+
 export async function executeDirectCliPrompt({
   entry,
   sessionId,
@@ -130,7 +174,7 @@ export async function executeDirectCliPrompt({
   executeTool,
 }: ExecuteDirectCliPromptArgs): Promise<void> {
   const toolCallId = `cli-${nextId()}`;
-  const cwd = workspaceManager.getPath(entry.workspaceId) ?? entry.session.sessionManager.getCwd();
+  const cwd = entry.session.sessionManager.getCwd() || workspaceManager.getPath(entry.workspaceId) || '';
   const toolInput = { command: text };
   const toolMessage: ChatToolCallMessage = {
     type: 'tool',
@@ -150,7 +194,7 @@ export async function executeDirectCliPrompt({
   sendEvent({ type: 'agent_start', sessionId });
   sendEvent({ type: 'tool_start', sessionId, tool: toolMessage });
 
-  const runTool = executeTool ?? createDirectCliToolExecutor(entry.workspaceId, sessionId);
+  const runTool = executeTool ?? createDirectCliToolExecutor(entry, sessionId);
 
   try {
     const result = await runTool({
@@ -203,10 +247,10 @@ export async function executeDirectCliPrompt({
 }
 
 function createDirectCliToolExecutor(
-  workspaceId: string,
+  entry: PromptPoolEntry,
   sessionId: string,
 ): DirectCliToolExecute {
-  const tool = createSeroCliTool(getCliRegistry(), workspaceId, sessionId);
+  const tool = createSeroCliTool(getCliRegistry(), entry.workspaceId, sessionId);
   return async ({ toolCallId, command, cwd, onUpdate }) => {
     // The Pi SDK ToolDefinition.execute has generic onUpdate/context params.
     // We bridge our DirectCliToolUpdate → the SDK's expected shape. The SDK
@@ -224,7 +268,7 @@ function createDirectCliToolExecutor(
       { command },
       undefined,
       bridgedOnUpdate as Parameters<typeof tool.execute>[3],
-      { cwd } as Parameters<typeof tool.execute>[4],
+      buildDirectCliExtensionContext(entry, cwd) as Parameters<typeof tool.execute>[4],
     );
   };
 }

@@ -90,4 +90,26 @@ describe('container memory file guard', () => {
 
     expect(cm.exec).not.toHaveBeenCalled();
   });
+
+  it('blocks symlinked protected paths inside the container tool wrappers', async () => {
+    const protectedPath = `${getProtectedMemoryRoot()}/MEMORY.md`;
+    const cm = createMockContainerManager();
+    cm.exec = vi.fn().mockResolvedValue({ stdout: `${protectedPath}\n`, stderr: '', exitCode: 0 });
+
+    const readTool = createRead(cm as unknown as ContainerManager, 'ws-1');
+    const writeTool = createWrite(cm as unknown as ContainerManager, 'ws-1');
+    const editTool = createEdit(cm as unknown as ContainerManager, 'ws-1');
+    const bashTool = createBash(cm as unknown as ContainerManager, 'ws-1');
+
+    await expect(readTool.execute('tool-1', { path: 'memory-link' }, undefined, undefined, undefined as never))
+      .rejects.toThrow(getProtectedMemoryAccessError('read'));
+    await expect(writeTool.execute('tool-2', { path: 'memory-link', content: 'x' }, undefined, undefined, undefined as never))
+      .rejects.toThrow(getProtectedMemoryAccessError('write'));
+    await expect(editTool.execute('tool-3', { path: 'memory-link', oldText: 'a', newText: 'b' }, undefined, undefined, undefined as never))
+      .rejects.toThrow(getProtectedMemoryAccessError('edit'));
+    await expect(bashTool.execute('tool-4', { command: 'cat memory-link' }, undefined, undefined, undefined as never))
+      .rejects.toThrow(getProtectedMemoryAccessError('bash'));
+
+    expect(cm.writeFile).not.toHaveBeenCalled();
+  });
 });

@@ -4,6 +4,7 @@ import type { ChatAttachment, AgentStreamEvent } from '../../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../../src/types/checkpoints';
 import { workspaceManager } from '../../shared/infra/shared-infra';
 import {
+  buildDirectCliExtensionContext,
   executeDirectCliPrompt,
   handlePromptInput,
   isDirectSeroCliPrompt,
@@ -96,6 +97,84 @@ describe('direct CLI chat prompts', () => {
       'tool_end',
       'agent_end',
     ]);
+  });
+
+  it('uses the session cwd for direct sero prompts instead of the workspace root', async () => {
+    vi.spyOn(workspaceManager, 'getPath').mockReturnValue('/tmp/ws-1');
+
+    const executeTool = vi.fn().mockResolvedValue({
+      content: [{ type: 'text', text: 'done' }],
+      details: { exitCode: 0 },
+    });
+    const sendEvent = vi.fn<(event: AgentStreamEvent) => void>();
+
+    const entry: PromptPoolEntry = {
+      workspaceId: 'ws-1',
+      lastCompletedCheckpoint: null,
+      session: {
+        model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
+        agent: { appendMessage: vi.fn() },
+        sessionManager: {
+          getCwd: () => '/tmp/ws-1/packages/app',
+          appendMessage: vi.fn(),
+        },
+      } as never,
+    };
+
+    await executeDirectCliPrompt({
+      entry,
+      sessionId: 'session-1',
+      text: 'sero memory read --target memory',
+      sendEvent,
+      executeTool,
+    });
+
+    expect(executeTool).toHaveBeenCalledWith(expect.objectContaining({
+      cwd: '/tmp/ws-1/packages/app',
+    }));
+  });
+
+  it('builds a full extension context for direct sero commands', async () => {
+    const abort = vi.fn().mockResolvedValue(undefined);
+    const compact = vi.fn().mockResolvedValue(undefined);
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+    const sessionManager = {
+      getCwd: () => '/tmp/ws-1/packages/app',
+      getSessionId: vi.fn(() => 'session-1'),
+      appendMessage: vi.fn(),
+    };
+    const modelRegistry = { getApiKey: vi.fn() };
+
+    const entry: PromptPoolEntry = {
+      workspaceId: 'ws-1',
+      lastCompletedCheckpoint: null,
+      session: {
+        model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
+        modelRegistry,
+        abort,
+        compact,
+        getContextUsage: () => undefined,
+        agent: {
+          state: { systemPrompt: 'system prompt' },
+          appendMessage: vi.fn(),
+        },
+        sessionManager,
+      } as never,
+    };
+
+    const ctx = buildDirectCliExtensionContext(entry, '/tmp/ws-1/packages/app');
+    ctx.compact({ customInstructions: 'summarize', onComplete, onError });
+    await Promise.resolve();
+
+    expect(ctx.cwd).toBe('/tmp/ws-1/packages/app');
+    expect(ctx.model).toBe(entry.session.model);
+    expect(ctx.modelRegistry).toBe(modelRegistry as never);
+    expect(ctx.sessionManager).toBe(sessionManager as never);
+    expect(ctx.getSystemPrompt()).toBe('system prompt');
+    expect(compact).toHaveBeenCalledWith('summarize');
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(onError).not.toHaveBeenCalled();
   });
 
   it('uses the normal agent prompt path for non-sero text and preserves checkpoints', async () => {
