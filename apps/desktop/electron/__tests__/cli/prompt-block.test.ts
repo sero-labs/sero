@@ -4,27 +4,57 @@ import { CliRegistry } from '../../cli/core';
 import { buildCliPromptBlock } from '../../cli';
 
 describe('CLI prompt block', () => {
-  it('includes memory routing rules when memory commands are registered', () => {
+  it('lists commands with summaries grouped by source', () => {
     const registry = new CliRegistry();
     const execute = async () => ({ output: 'ok', exitCode: 0 });
 
     registry.register({
       name: 'memory',
-      summary: 'memory',
+      summary: 'Manage long-term memory',
       group: 'Apps',
       source: 'app',
       execute,
     });
     registry.register({
       name: 'memory_search',
-      summary: 'memory search',
+      summary: 'Search memory and transcripts',
       group: 'Apps',
       source: 'app',
       execute,
     });
     registry.register({
       name: 'scratchpad',
-      summary: 'scratchpad',
+      summary: 'Active working notes',
+      group: 'Apps',
+      source: 'app',
+      execute,
+    });
+    registry.register({
+      name: 'workspace',
+      summary: 'Manage workspaces',
+      group: 'Builtin',
+      source: 'builtin',
+      execute,
+    });
+
+    const prompt = buildCliPromptBlock(registry);
+
+    // Commands are grouped with summaries
+    expect(prompt).toContain('Apps:');
+    expect(prompt).toContain('memory — Manage long-term memory');
+    expect(prompt).toContain('memory_search — Search memory and transcripts');
+    expect(prompt).toContain('scratchpad — Active working notes');
+    expect(prompt).toContain('Builtin:');
+    expect(prompt).toContain('workspace — Manage workspaces');
+  });
+
+  it('does NOT include memory routing rules (owned by memory-instructions.ts)', () => {
+    const registry = new CliRegistry();
+    const execute = async () => ({ output: 'ok', exitCode: 0 });
+
+    registry.register({
+      name: 'memory',
+      summary: 'Manage long-term memory',
       group: 'Apps',
       source: 'app',
       execute,
@@ -32,9 +62,61 @@ describe('CLI prompt block', () => {
 
     const prompt = buildCliPromptBlock(registry);
 
-    expect(prompt).toContain('High-priority routing:');
-    expect(prompt).toContain('Sero memory system files and history');
-    expect(prompt).toContain('Start with one precise `sero memory_search` query');
-    expect(prompt).toContain('Never use bash/read/write/edit');
+    // Memory routing is the memory plugin's responsibility, not the CLI block's
+    expect(prompt).not.toContain('High-priority routing');
+    expect(prompt).not.toContain('Sero memory system files and history');
+    expect(prompt).not.toContain('MEMORY.md');
+    expect(prompt).not.toContain('IDENTITY.md');
+  });
+
+  it('instructs to check help before calling commands with JSON parameters', () => {
+    const registry = new CliRegistry();
+    const prompt = buildCliPromptBlock(registry);
+
+    expect(prompt).toContain('sero help <command>');
+    expect(prompt).toContain('JSON parameters');
+    expect(prompt).toContain('exact schema');
+  });
+
+  it('includes app interaction guidance', () => {
+    const registry = new CliRegistry();
+    const prompt = buildCliPromptBlock(registry);
+
+    expect(prompt).toContain('sero help app');
+    expect(prompt).toContain('app click');
+  });
+
+  it('excludes hidden commands and help from the listing', () => {
+    const registry = new CliRegistry();
+    const execute = async () => ({ output: 'ok', exitCode: 0 });
+
+    registry.register({
+      name: 'help',
+      summary: 'Show help',
+      group: 'Builtin',
+      source: 'builtin',
+      execute,
+    });
+    registry.register({
+      name: 'secret',
+      summary: 'Hidden command',
+      group: 'Internal',
+      source: 'builtin',
+      hidden: true,
+      execute,
+    });
+    registry.register({
+      name: 'visible',
+      summary: 'Visible command',
+      group: 'Apps',
+      source: 'app',
+      execute,
+    });
+
+    const prompt = buildCliPromptBlock(registry);
+
+    expect(prompt).toContain('visible — Visible command');
+    expect(prompt).not.toContain('secret');
+    expect(prompt).not.toContain('help — Show help');
   });
 });

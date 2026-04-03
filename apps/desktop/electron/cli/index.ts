@@ -81,6 +81,13 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   // Planning & context
   'plan_todos',
   'slopzilla',
+  // Kanban & agent management
+  'kanban',
+  'create_agent',
+  // User input — interactive (timeout-exempt via INTERACTIVE_TOOLS)
+  'question',
+  'questionnaire',
+  'interview',
   // Scheduling
   'current_time',
   'cron',
@@ -100,18 +107,24 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
 /**
  * Tool names that must NEVER be bridged into `sero-cli`.
  *
- * These tools either:
- * - require nested structured params that are awkward/error-prone in shell syntax
- * - wait on interactive user input and therefore must not inherit the CLI's
- *   per-command timeout behavior
+ * Only tools that genuinely cannot work through the CLI bridge belong here:
+ * - `research` — external skill with its own streaming/timeout model
+ *
+ * User-interactive tools (question, questionnaire, interview) are now bridged
+ * with `interactive: true` which disables the per-command timeout.
  */
 const NEVER_BRIDGE_TO_CLI = new Set([
+  'research',
+]);
+
+/**
+ * Tools that block on user input and need indefinite wait time.
+ * Bridged into sero-cli with `interactive: true` (timeout-exempt).
+ */
+const INTERACTIVE_TOOLS = new Set([
   'question',
   'questionnaire',
   'interview',
-  'create_agent',
-  'kanban',
-  'research',
 ]);
 
 /**
@@ -170,7 +183,9 @@ export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensions
         ext.tools.delete(name);
         continue;
       }
-      const command = bridgeTool(name, registered.definition);
+      const command = bridgeTool(name, registered.definition, {
+        interactive: INTERACTIVE_TOOLS.has(name),
+      });
       reg.register(command);
       ext.tools.delete(name);
     }
@@ -197,29 +212,23 @@ export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensions
 export function buildCliPromptBlock(reg: CliRegistry = getCliRegistry()): string {
   const commands = reg.list().filter((c) => !c.hidden && c.name !== 'help');
 
-  const grouped = new Map<string, string[]>();
+  // Group commands and include per-command summaries
+  const grouped = new Map<string, Array<{ name: string; summary: string }>>();
   for (const cmd of commands) {
     const group = cmd.group ?? 'Other';
     const list = grouped.get(group) ?? [];
-    list.push(cmd.name);
+    list.push({ name: cmd.name, summary: cmd.summary });
     grouped.set(group, list);
   }
 
   const sections = [...grouped.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([group, names]) => `- ${group}: ${names.sort().join(', ')}`);
-
-  const hasMemoryCommands = Boolean(reg.get('memory') || reg.get('memory_search') || reg.get('scratchpad'));
-  const memoryRoutingSection = hasMemoryCommands
-    ? [
-        '',
-        'High-priority routing:',
-        '- Sero memory system files and history (`MEMORY.md`, `IDENTITY.md`, `USER.md`, `SCRATCHPAD.md`, `memory/daily/`, `memory/sessions/`) must go through `sero memory`, `sero memory_search`, or `sero scratchpad`.',
-        '- Start with one precise `sero memory_search` query. If it already answers the question, stop and answer. Only broaden/rephrase if the first search misses or is ambiguous.',
-        '- Never use bash/read/write/edit to inspect or modify those managed memory files. If memory search is unavailable, report that instead of working around it with filesystem tools.',
-        '- Use `question`, `questionnaire`, and `interview` as standalone tools when available — do not try to run them through `sero-cli`.',
-      ].join('\n')
-    : '';
+    .map(([group, cmds]) => {
+      const lines = cmds
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((c) => `  ${c.name} — ${c.summary}`);
+      return `${group}:\n${lines.join('\n')}`;
+    });
 
   return `
 
@@ -227,17 +236,11 @@ export function buildCliPromptBlock(reg: CliRegistry = getCliRegistry()): string
 
 Use \`sero-cli\` for Sero platform actions instead of asking the user to do them manually.
 
-Commands by group:
 ${sections.join('\n')}
 
-Run \`sero help <command>\` for details. You can send multiple commands separated by newlines.${memoryRoutingSection}
+Run \`sero help <command>\` for details. Chain multiple commands (one per line).
+**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`, \`kanban\`), run \`sero help <command>\` first to check the exact schema.**
 
-For \`sero app\` interactions:
-- If unsure, run \`sero help app\` before acting.
-- Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; click coordinates are relative to the active app screenshot, not the full Sero window.
-- Do NOT pass bare labels like \`app click 42\` or comma pairs like \`app click 214,692\`.
-- \`app type\` only works for real text inputs or contenteditable fields.
-- \`app record stop\` already saves into \`<workspace>/sero-recordings/\` by default; only use \`--save\` if the user explicitly asks for a custom location.
-- There is no \`app press\` command. For button grids like Calculator, take a screenshot and use coordinate clicks.
+For \`sero app\`: run \`sero help app\` first. Use \`app click <selector>\` or \`app click --x <n> --y <n>\` (coordinates relative to the active app screenshot). \`app type\` only works for text inputs/contenteditable. No \`app press\` command — use coordinate clicks.
 `;
 }

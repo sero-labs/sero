@@ -39,6 +39,26 @@ interface SchemaProp {
   description: string;
   required: boolean;
   enumValues?: string[];
+  /** For array types: the raw JSON Schema of the items element. */
+  itemsSchema?: Record<string, unknown>;
+}
+
+function resolveAnyOf(p: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(p.anyOf)) return p;
+  return (p.anyOf as Record<string, unknown>[]).find(
+    (v) => typeof v === 'object' && v !== null && v.type !== undefined,
+  ) ?? p;
+}
+
+function extractEnumValues(resolved: Record<string, unknown>): string[] | undefined {
+  if (Array.isArray(resolved.enum)) return resolved.enum as string[];
+  if (Array.isArray((resolved as any).anyOf)) {
+    const vals = (resolved as any).anyOf
+      .filter((v: any) => v?.const !== undefined)
+      .map((v: any) => String(v.const));
+    return vals.length ? vals : undefined;
+  }
+  return undefined;
 }
 
 function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
@@ -48,29 +68,22 @@ function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
 
   for (const [name, prop] of Object.entries(properties)) {
     const p = prop as Record<string, unknown>;
+    const resolved = resolveAnyOf(p);
+    const type = (resolved.type as string) ?? 'string';
 
-    // Handle anyOf (TypeBox Optional wraps in { anyOf: [type, ...] })
-    let resolved = p;
-    if (Array.isArray(p.anyOf)) {
-      resolved = (p.anyOf as Record<string, unknown>[]).find(
-        (v) => typeof v === 'object' && v !== null && v.type !== undefined,
-      ) ?? p;
+    // Capture items schema for arrays with object items
+    let itemsSchema: Record<string, unknown> | undefined;
+    if (type === 'array' && resolved.items && typeof resolved.items === 'object') {
+      itemsSchema = resolved.items as Record<string, unknown>;
     }
-
-    const enumValues = Array.isArray(resolved.enum)
-      ? (resolved.enum as string[])
-      : Array.isArray((resolved as any).anyOf)
-        ? (resolved as any).anyOf
-            .filter((v: any) => v?.const !== undefined)
-            .map((v: any) => String(v.const))
-        : undefined;
 
     props.push({
       name,
-      type: (resolved.type as string) ?? 'string',
+      type,
       description: (p.description as string) ?? (resolved.description as string) ?? '',
       required: required.has(name),
-      enumValues: enumValues?.length ? enumValues : undefined,
+      enumValues: extractEnumValues(resolved),
+      itemsSchema,
     });
   }
 
@@ -128,6 +141,55 @@ function schemaToParams(
 
 // ── Help generation ─────────────────────────────────────────
 
+/**
+ * Describe the fields of a JSON Schema object for help text.
+ * Returns lines like: `  label (required, string) — Display text`
+ */
+function describeObjectFields(schema: Record<string, unknown>, indent: string): string[] {
+  const properties = (schema as any)?.properties ?? {};
+  const requiredSet = new Set<string>((schema as any)?.required ?? []);
+  const lines: string[] = [];
+
+  for (const [fieldName, fieldDef] of Object.entries(properties)) {
+    const f = fieldDef as Record<string, unknown>;
+    const resolved = resolveAnyOf(f);
+    const type = (resolved.type as string) ?? 'string';
+    const desc = (f.description as string) ?? (resolved.description as string) ?? '';
+    const req = requiredSet.has(fieldName) ? 'required' : 'optional';
+    const enumVals = extractEnumValues(resolved);
+    const enumHint = enumVals ? ` {${enumVals.join(', ')}}` : '';
+    lines.push(`${indent}${fieldName} (${req}, ${type}${enumHint}) — ${desc}`);
+  }
+
+  return lines;
+}
+
+/**
+ * Build a minimal JSON example from a schema object.
+ * Shows required fields with placeholder values, omits optional fields.
+ */
+function buildJsonExample(schema: Record<string, unknown>): Record<string, unknown> {
+  const properties = (schema as any)?.properties ?? {};
+  const requiredSet = new Set<string>((schema as any)?.required ?? []);
+  const example: Record<string, unknown> = {};
+
+  for (const [fieldName, fieldDef] of Object.entries(properties)) {
+    const f = fieldDef as Record<string, unknown>;
+    const resolved = resolveAnyOf(f);
+    const type = (resolved.type as string) ?? 'string';
+    // Only include required fields + first optional for context
+    if (!requiredSet.has(fieldName) && Object.keys(example).length >= requiredSet.size) continue;
+
+    if (type === 'string') example[fieldName] = `<${fieldName}>`;
+    else if (type === 'number' || type === 'integer') example[fieldName] = 0;
+    else if (type === 'boolean') example[fieldName] = false;
+    else if (type === 'array') example[fieldName] = [];
+    else example[fieldName] = {};
+  }
+
+  return example;
+}
+
 function generateHelp(
   name: string,
   description: string,
@@ -161,6 +223,31 @@ function generateHelp(
       const typeHint = isComplex ? ' (JSON)' : p.type !== 'string' ? ` (${p.type})` : '';
       lines.push(`  --${p.name}${typeHint} — ${p.description || p.name}`);
     }
+  }
+
+  // Document nested JSON shapes for array/object params
+  const complexProps = props.filter(
+    (p) => p.type === 'array' && p.itemsSchema && (p.itemsSchema as any).type === 'object',
+  );
+  for (const p of complexProps) {
+    const itemSchema = p.itemsSchema!;
+    lines.push('', `JSON shape for ${p.name} (array of objects):`);
+    lines.push(...describeObjectFields(itemSchema, '  '));
+
+    // Recurse one level into nested array-of-object fields
+    const nestedProps = (itemSchema as any)?.properties ?? {};
+    for (const [nestedName, nestedDef] of Object.entries(nestedProps)) {
+      const nd = nestedDef as Record<string, unknown>;
+      const resolved = resolveAnyOf(nd);
+      if (resolved.type === 'array' && resolved.items && (resolved.items as any).type === 'object') {
+        lines.push('', `  JSON shape for ${nestedName} (nested array of objects):`);
+        lines.push(...describeObjectFields(resolved.items as Record<string, unknown>, '    '));
+      }
+    }
+
+    // Generate a compact example
+    const example = buildJsonExample(itemSchema);
+    lines.push('', `Example ${p.name}: '[${JSON.stringify(example)}]'`);
   }
 
   return lines.join('\n');
@@ -199,7 +286,12 @@ function extractText(content: CliContentBlock[]): string {
 
 // ── Bridge a ToolDefinition into a CliCommand ───────────────
 
-export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliCommand {
+export interface BridgeToolOptions {
+  /** Mark this command as interactive (disables per-command timeout). */
+  interactive?: boolean;
+}
+
+export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: BridgeToolOptions): CliCommand {
   const props = extractSchemaProps(toolDef.parameters as Record<string, unknown>);
   const summary = (toolDef.description ?? '').split(/\.\s/)[0]?.slice(0, 80) ?? toolName;
   const help = generateHelp(toolName, toolDef.description ?? toolName, props);
@@ -210,6 +302,7 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
     help,
     source: 'app',
     group: 'Apps',
+    interactive: options?.interactive,
     timeoutMs: getBridgedToolTimeoutMs(toolName),
     params: props.map((p) => ({
       name: p.name,

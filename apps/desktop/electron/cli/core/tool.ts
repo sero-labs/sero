@@ -247,7 +247,9 @@ export async function executeCliBatch(
         }
       }
 
-      const perCommandTimeout = context.invocation.source === 'terminal'
+      // Interactive commands (user input tools) skip timeout entirely,
+      // same as terminal-invoked commands.
+      const perCommandTimeout = context.invocation.source === 'terminal' || resolved.command.interactive
         ? null
         : timeoutForCommand(batchDeadline, resolved.command.timeoutMs);
       const commandOnUpdate = withBatchUpdateContext(onUpdate, line, i + 1, lines.length);

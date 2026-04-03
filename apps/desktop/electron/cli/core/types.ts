@@ -72,6 +72,11 @@ export interface CliCommand {
   hidden?: boolean;
   /** Optional per-command timeout override for non-terminal invocations. */
   timeoutMs?: number;
+  /**
+   * When true, per-command and batch timeouts are disabled for this command.
+   * Use for tools that block on user input (question, questionnaire, interview).
+   */
+  interactive?: boolean;
 }
 
 export interface CliResolvedCommand {

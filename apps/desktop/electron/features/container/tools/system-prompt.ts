@@ -44,7 +44,7 @@ ${containerIp ? `- Container IP: ${containerIp} (accessible from the host)` : ''
 **Cross-workspace access**
 - Other open workspaces (including the global workspace) are mounted at their original host paths.
 - You CAN read and write cross-workspace **project files** via absolute host paths.
-- **Exception: memory files** (MEMORY.md, IDENTITY.md, USER.md, SCRATCHPAD.md, daily logs, session transcripts). Always use the \`sero memory\`, \`sero memory_search\`, or \`sero scratchpad\` commands for these — never access them directly with bash, read, write, or edit tools. Direct file access bypasses IDs, capacity limits, transcript export, and search indexing. If memory search is unavailable, report that limitation instead of falling back to filesystem tools.
+- **Memory files** — always use \`sero memory\`/\`memory_search\`/\`scratchpad\` commands (see Memory System section), never direct file access.
 - For the CURRENT workspace, stay in the current working directory or under \`/workspace\`, not its host absolute path.
 - Use absolute host paths only when you intentionally need a DIFFERENT workspace.
 - Use \`sero-cli\` with \`workspace list\` to discover workspace paths.

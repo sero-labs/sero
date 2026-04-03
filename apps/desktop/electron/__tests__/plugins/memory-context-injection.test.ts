@@ -158,8 +158,8 @@ describe('Memory instructions — bash prevention (Issue 3)', () => {
   it('instructs to use sero-cli memory commands instead of direct file access', () => {
     const instructions = getMemoryInstructions();
 
-    expect(instructions).toContain('Run the commands below through the `sero-cli` tool');
-    expect(instructions).toContain('never read/write/grep those files directly');
+    expect(instructions).toContain('sero-cli');
+    expect(instructions).toContain('never read/write/grep managed files');
     expect(instructions).toContain('SCRATCHPAD.md');
     expect(instructions).toContain('bash');
   });
@@ -167,11 +167,10 @@ describe('Memory instructions — bash prevention (Issue 3)', () => {
   it('still routes recall queries through memory_search when QMD is unavailable', () => {
     const instructions = getMemoryInstructions();
 
-    expect(instructions).toContain('### Retrieving information');
+    expect(instructions).toContain('### Retrieval');
     expect(instructions).toContain('sero memory_search');
-    expect(instructions).toContain('ONE precise search query');
-    expect(instructions).toContain('Only run a second search when the first search misses, is ambiguous, or needs broader recall');
-    expect(instructions).toContain('do NOT fall back to bash/read on managed memory files');
+    expect(instructions).toContain('ONE precise query');
+    expect(instructions).toContain('do NOT fall back to bash/read');
     expect(instructions).toContain('sero scratchpad list');
   });
 
