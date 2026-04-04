@@ -107,6 +107,7 @@ export function registerGoogleApiHandlers(): void {
   ipcMain.handle(
     IpcChannels.google.execute,
     async (_event, service: string, subArgs: string[]): Promise<GogExecResult> => {
+      await auth.ensureCredentialsAvailable();
       return runGog([service, ...subArgs], auth.getEmail() ?? undefined);
     },
   );

@@ -83,11 +83,14 @@ export const GOG_AUTH_TIMEOUT_MS = 60_000;
 // ── Local execution (non-container workspaces) ───────────────
 
 /** Run gog locally on the host. Auto-injects Sero account + keyring. */
-function runGogLocal(gogArgs: string[], opts?: GogOpts): Promise<GogResult> {
+async function runGogLocal(gogArgs: string[], opts?: GogOpts): Promise<GogResult> {
+  const auth = getGoogleAuthManager();
+  await auth.ensureCredentialsAvailable();
+
   return new Promise((resolve) => {
     const fullArgs: string[] = [];
     // Auto-inject account from Sero Google auth if none provided
-    const account = opts?.account ?? getGoogleAuthManager().getEmail() ?? undefined;
+    const account = opts?.account ?? auth.getEmail() ?? undefined;
     fullArgs.push('--client', getGoogleClientName());
     if (account) fullArgs.push('--account', account);
     if (opts?.json) fullArgs.push('--json');

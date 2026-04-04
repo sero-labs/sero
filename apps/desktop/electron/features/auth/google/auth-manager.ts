@@ -69,7 +69,7 @@ export interface GoogleAuthProgress {
 
 export class GoogleAuthManager {
   private email: string | null = null;
-  private credsImported = false;
+  private credsImportedClients = new Set<string>();
   private statusCache: { validUntil: number; result: GoogleAuthStatus } | null = null;
   private static STATUS_CACHE_TTL = 30_000; // 30 seconds
   private migrationAttempted = false;
@@ -91,7 +91,12 @@ export class GoogleAuthManager {
    */
   resetForConfigChange(): void {
     this.statusCache = null;
-    this.credsImported = false;
+    this.credsImportedClients.clear();
+  }
+
+  async ensureCredentialsAvailable(): Promise<void> {
+    if (!this.isConfigured()) return;
+    await this.ensureCredentials();
   }
 
   async getStatus(): Promise<GoogleAuthStatus> {
@@ -117,6 +122,7 @@ export class GoogleAuthManager {
     }
 
     this.email = email;
+    await this.ensureCredentials();
     return this.cacheStatus({ configured: true, authenticated: true, email });
   }
 
@@ -369,10 +375,16 @@ export class GoogleAuthManager {
   }
 
   private async ensureCredentials(): Promise<void> {
-    if (this.credsImported) return;
+    const clientName = getGoogleClientName();
+    if (this.credsImportedClients.has(clientName)) return;
+    if (await this.clientHasCredentials(clientName)) {
+      this.credsImportedClients.add(clientName);
+      return;
+    }
+
     const creds = getCredentials();
     const r = await pipeToGog(
-      argsWithClient(getGoogleClientName(), ['auth', 'credentials', 'set', '-']),
+      argsWithClient(clientName, ['auth', 'credentials', 'set', '-']),
       JSON.stringify({
         installed: {
           client_id: creds.clientId,
@@ -383,6 +395,24 @@ export class GoogleAuthManager {
         },
       }),
     );
-    if (r.ok) this.credsImported = true;
+    if (r.ok) {
+      this.credsImportedClients.add(clientName);
+      return;
+    }
+    console.warn(`[google-auth] Failed to import OAuth credentials for client ${clientName}:`, r.out);
+  }
+
+  private async clientHasCredentials(clientName: string): Promise<boolean> {
+    const status = await gogExecWithPassword(
+      argsWithClient(clientName, ['--json', 'auth', 'status']),
+      deriveKeyringPassword(),
+    );
+    if (!status) return false;
+    try {
+      const parsed = JSON.parse(status) as { account?: { credentials_exists?: boolean } };
+      return parsed.account?.credentials_exists === true;
+    } catch {
+      return false;
+    }
   }
 }
