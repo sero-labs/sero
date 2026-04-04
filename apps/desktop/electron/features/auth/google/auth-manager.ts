@@ -148,6 +148,8 @@ function pipeToGog(args: string[], stdin: string): Promise<{ ok: boolean; out: s
 export class GoogleAuthManager {
   private email: string | null = null;
   private credsImported = false;
+  private statusCache: { validUntil: number; result: GoogleAuthStatus } | null = null;
+  private static STATUS_CACHE_TTL = 30_000; // 30 seconds
 
   isConfigured(): boolean { return !!getClientId() && !!getClientSecret(); }
   getEmail(): string | null { return this.email; }
@@ -155,19 +157,44 @@ export class GoogleAuthManager {
   async getStatus(): Promise<GoogleAuthStatus> {
     if (!this.isConfigured()) return { configured: false, authenticated: false };
 
-    // Check gogcli for stored tokens
-    const result = await this.gogExec(['--json', 'auth', 'tokens', 'list']);
-    if (result) {
-      try {
-        const keys: string[] = (JSON.parse(result) as { keys?: string[] }).keys ?? [];
-        const tok = keys.find((k) => k.startsWith('token:'));
-        if (tok) {
-          this.email = tok.split(':').slice(2).join(':');
-          return { configured: true, authenticated: true, email: this.email };
-        }
-      } catch { /* parse error */ }
+    // Return cached result if fresh
+    if (this.statusCache && Date.now() < this.statusCache.validUntil) {
+      return this.statusCache.result;
     }
-    return { configured: true, authenticated: false };
+
+    // Check gogcli for stored tokens
+    const listResult = await this.gogExec(['--json', 'auth', 'tokens', 'list']);
+    if (!listResult) {
+      return this.cacheStatus({ configured: true, authenticated: false });
+    }
+
+    let email: string | null = null;
+    try {
+      const keys: string[] = (JSON.parse(listResult) as { keys?: string[] }).keys ?? [];
+      const tok = keys.find((k) => k.startsWith('token:'));
+      if (tok) {
+        email = tok.split(':').slice(2).join(':');
+      }
+    } catch { /* parse error */ }
+
+    if (!email) {
+      return this.cacheStatus({ configured: true, authenticated: false });
+    }
+
+    // Validate token by attempting a refresh
+    const tokenResult = await this.gogExec(['--json', 'auth', 'token', email]);
+    if (!tokenResult) {
+      // Token exists but refresh failed — expired/revoked
+      return this.cacheStatus({ configured: true, authenticated: false });
+    }
+
+    this.email = email;
+    return this.cacheStatus({ configured: true, authenticated: true, email });
+  }
+
+  private cacheStatus(result: GoogleAuthStatus): GoogleAuthStatus {
+    this.statusCache = { validUntil: Date.now() + GoogleAuthManager.STATUS_CACHE_TTL, result };
+    return result;
   }
 
   /**
@@ -214,10 +241,12 @@ export class GoogleAuthManager {
     // Import into gogcli
     await this.importToGogcli(email, tokens.refresh_token);
 
+    this.statusCache = null;
     onProgress({ type: 'success', message: `Signed in as ${email}`, email });
   }
 
   async logout(): Promise<void> {
+    this.statusCache = null;
     if (this.email) {
       await pipeToGog(['auth', 'tokens', 'delete', this.email, '--force'], '');
       this.email = null;
