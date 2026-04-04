@@ -9,21 +9,32 @@
  */
 
 import { shell } from 'electron';
-import http from 'node:http';
 import crypto from 'node:crypto';
-import { existsSync, readFileSync, unlinkSync } from 'node:fs';
-import { execFile } from 'node:child_process';
-import { homedir, hostname, tmpdir, userInfo } from 'node:os';
+import http from 'node:http';
 import path from 'node:path';
+
 import { readPluginConfig } from '../../plugin-config';
-import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '../../../platform/env';
+import { readRegistrySync } from '../../profile/manager';
+import { SERO_AGENT_DIR } from '../../../platform/env';
+import {
+  argsWithClient,
+  deriveKeyringPassword,
+  deriveProfileScopedKeyringPassword,
+  exportTokenForClient,
+  findTokenCandidateEmails,
+  getGoogleClientName,
+  GOG_DEFAULT_CLIENT,
+  gogExecWithPassword,
+  parseEmailFromTokenData,
+  pipeToGog,
+} from './gog-keyring';
 
 // ── Constants ───────────────────────────────────────────────
+
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const LOOPBACK = '127.0.0.1';
-
 const GOOGLE_PLUGIN_ID = 'sero-google-plugin';
 
 function getCredentials(): { clientId: string; clientSecret: string } {
@@ -40,7 +51,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
 ].join(' ');
 
-// ── Types ────────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────
 
 export interface GoogleAuthStatus {
   configured: boolean;
@@ -54,83 +65,7 @@ export interface GoogleAuthProgress {
   email?: string;
 }
 
-// ── Binary helpers (inlined to avoid circular imports) ────────
-
-function findGog(): string {
-  const paths = ['/opt/homebrew/bin/gog', '/usr/local/bin/gog',
-    path.join(homedir(), '.local/bin/gog'), path.join(homedir(), 'go/bin/gog')];
-  return paths.find((p) => existsSync(p)) ?? 'gog';
-}
-
-/**
- * Derive a profile-specific keyring password.
- * Combines hostname, uid, and the active profile's agent directory so
- * each Sero profile gets its own isolated token bucket in gogcli's
- * shared keyring. Tokens imported in one profile cannot be decrypted
- * by another profile.
- *
- * NOTE: This is defense-in-depth, not a real secret — the inputs are
- * discoverable by any local user. The primary protection is file
- * permissions on the keyring file itself (user-only directory).
- *
- * Exported because google-api.ts (IPC data commands) must use the same
- * password that was used to import the token.
- */
-export function deriveKeyringPassword(): string {
-  const host = hostname();
-  let uid: string;
-  try {
-    uid = String(userInfo().uid);
-  } catch {
-    uid = 'unknown';
-  }
-  // SERO_AGENT_DIR is resolved per-profile at module load time
-  const profileScope = SERO_AGENT_DIR;
-  return crypto.createHash('sha256')
-    .update(`sero-google-keyring:${host}:${uid}:${profileScope}`)
-    .digest('hex')
-    .slice(0, 32);
-}
-
-/** Legacy password (pre-profile-scoping) for one-time keyring migration. */
-function deriveLegacyKeyringPassword(): string {
-  const host = hostname();
-  let uid: string;
-  try {
-    uid = String(userInfo().uid);
-  } catch {
-    uid = 'unknown';
-  }
-  return crypto.createHash('sha256')
-    .update(`sero-google-keyring:${host}:${uid}`)
-    .digest('hex')
-    .slice(0, 32);
-}
-
-function gogEnv(password?: string): NodeJS.ProcessEnv {
-  const extra = ['/opt/homebrew/bin', '/usr/local/bin',
-    path.join(homedir(), '.local/bin'), path.join(homedir(), 'go/bin')];
-  return {
-    ...process.env,
-    PATH: [...extra, process.env.PATH || ''].join(':'),
-    GOG_KEYRING_PASSWORD: password ?? deriveKeyringPassword(),
-  };
-}
-
-function pipeToGog(args: string[], stdin: string, password?: string): Promise<{ ok: boolean; out: string }> {
-  return new Promise((resolve) => {
-    const child = execFile(findGog(), args, { env: gogEnv(password), timeout: 10_000 },
-      (err, stdout, stderr) => {
-        if (err) console.warn(`[google-auth] gog ${args.slice(0, 3).join(' ')} failed:`, stderr?.trim() || err.message);
-        resolve({ ok: !err, out: (stdout ?? '').trim() });
-      });
-    child.stdin?.write(stdin);
-    child.stdin?.end();
-    child.on('error', (e) => resolve({ ok: false, out: e.message }));
-  });
-}
-
-// ── Manager ──────────────────────────────────────────────────
+// ── Manager ─────────────────────────────────────────────────
 
 export class GoogleAuthManager {
   private email: string | null = null;
@@ -143,13 +78,16 @@ export class GoogleAuthManager {
     const { clientId, clientSecret } = getCredentials();
     return !!clientId && !!clientSecret;
   }
-  getEmail(): string | null { return this.email; }
+
+  getEmail(): string | null {
+    return this.email;
+  }
 
   /**
-   * Reset cached state after config changes (e.g. new OAuth credentials
-   * saved via the setup form). Clears the status cache so the next
-   * getStatus() re-checks, and resets credsImported so ensureCredentials()
-   * re-imports the new client ID/secret into gogcli.
+   * Reset cached state after config changes (e.g. new OAuth credentials saved
+   * via the setup form). Clears the status cache so the next getStatus()
+   * re-checks, and resets credsImported so ensureCredentials() re-imports the
+   * new client ID/secret into gogcli.
    */
   resetForConfigChange(): void {
     this.statusCache = null;
@@ -159,38 +97,22 @@ export class GoogleAuthManager {
   async getStatus(): Promise<GoogleAuthStatus> {
     if (!this.isConfigured()) return { configured: false, authenticated: false };
 
-    // Return cached result if fresh
     if (this.statusCache && Date.now() < this.statusCache.validUntil) {
       return this.statusCache.result;
     }
 
-    // Check gogcli for stored tokens
-    let listResult = await this.gogExec(['--json', 'auth', 'tokens', 'list']);
+    const clientName = getGoogleClientName();
+    let email = await this.findAccessibleEmail(deriveKeyringPassword(), clientName);
 
-    // Only the legacy/default profile may inherit pre-profile-scoping tokens.
-    // New secondary profiles must not auto-clone that shared legacy auth state.
-    if (
-      !listResult
-      && !this.migrationAttempted
-      && path.resolve(SERO_HOME) === path.resolve(SERO_FIXED_ROOT)
-    ) {
-      listResult = await this.migrateFromLegacyKeyring();
-    }
-
-    if (!listResult) {
-      return this.cacheStatus({ configured: true, authenticated: false });
-    }
-
-    let email: string | null = null;
-    try {
-      const keys: string[] = (JSON.parse(listResult) as { keys?: string[] }).keys ?? [];
-      const tok = keys.find((k) => k.startsWith('token:'));
-      if (tok) {
-        email = tok.split(':').slice(2).join(':');
+    if (!email && !this.migrationAttempted) {
+      const migrated = await this.migrateFromBuggyKeyring(clientName);
+      if (migrated) {
+        email = await this.findAccessibleEmail(deriveKeyringPassword(), clientName);
       }
-    } catch { /* parse error */ }
+    }
 
     if (!email) {
+      this.email = null;
       return this.cacheStatus({ configured: true, authenticated: false });
     }
 
@@ -198,81 +120,117 @@ export class GoogleAuthManager {
     return this.cacheStatus({ configured: true, authenticated: true, email });
   }
 
-  /**
-   * One-time migration from the legacy keyring password (pre-profile-scoping).
-   * If tokens exist under the old password, export and re-import them with
-   * the new profile-scoped password.
-   */
-  private async migrateFromLegacyKeyring(): Promise<string | null> {
-    this.migrationAttempted = true;
-    const legacyPw = deriveLegacyKeyringPassword();
-
-    // If legacy and current passwords are the same, no migration needed
-    if (legacyPw === deriveKeyringPassword()) return null;
-
-    // Try listing tokens with the legacy password
-    const legacyList = await this.gogExecWithPassword(['--json', 'auth', 'tokens', 'list'], legacyPw);
-    if (!legacyList) return null;
-
-    let email: string | null = null;
-    try {
-      const keys: string[] = (JSON.parse(legacyList) as { keys?: string[] }).keys ?? [];
-      const tok = keys.find((k) => k.startsWith('token:'));
-      if (tok) email = tok.split(':').slice(2).join(':');
-    } catch { return null; }
-
-    if (!email) return null;
-
-    console.log(`[google-auth] Found token under legacy keyring password for ${email}, migrating…`);
-
-    // Export the token to a temp file with the legacy password
-    const tmpFile = path.join(tmpdir(), `sero-gog-migrate-${Date.now()}.json`);
-    const exportResult = await this.gogExecWithPassword(
-      ['auth', 'tokens', 'export', email, '--out', tmpFile, '--overwrite'], legacyPw,
-    );
-    if (!exportResult) {
-      console.warn('[google-auth] Legacy token export failed');
-      return null;
-    }
-
-    let tokenData: string;
-    try {
-      tokenData = readFileSync(tmpFile, 'utf8');
-    } catch {
-      console.warn('[google-auth] Could not read exported token file');
-      return null;
-    } finally {
-      try { unlinkSync(tmpFile); } catch { /* ignore */ }
-    }
-
-    // Re-import with the new password (ensuring credentials are set first)
-    await this.ensureCredentials();
-    const importResult = await pipeToGog(['auth', 'tokens', 'import', '-'], tokenData);
-    if (importResult.ok) {
-      console.log(`[google-auth] Successfully migrated token for ${email} to profile-scoped keyring`);
-      // Re-list with the new password to confirm
-      return this.gogExec(['--json', 'auth', 'tokens', 'list']);
-    }
-
-    console.warn('[google-auth] Legacy token import with new password failed:', importResult.out);
-    return null;
-  }
-
-  private gogExecWithPassword(args: string[], password: string): Promise<string | null> {
-    return new Promise((resolve) => {
-      execFile(findGog(), args, { env: gogEnv(password), timeout: 10_000 },
-        (err, stdout, stderr) => {
-          if (err) {
-            console.warn(`[google-auth] gogExec (legacy) ${args.join(' ')} failed:`, stderr?.trim() || err.message);
-          }
-          resolve(err ? null : (stdout ?? ''));
-        });
-    });
-  }
-
   private cacheStatus(result: GoogleAuthStatus): GoogleAuthStatus {
-    this.statusCache = { validUntil: Date.now() + GoogleAuthManager.STATUS_CACHE_TTL, result };
+    this.statusCache = {
+      validUntil: Date.now() + GoogleAuthManager.STATUS_CACHE_TTL,
+      result,
+    };
     return result;
+  }
+
+  /**
+   * Find the current profile's token without enumerating the whole keyring.
+   *
+   * `gog auth tokens list` and `gog auth status` fail if *any* sibling token in
+   * the shared file keyring was written with a different password. Exporting a
+   * specific email key is resilient, so we probe candidate emails directly.
+   */
+  private async findAccessibleEmail(
+    password: string,
+    clientName: string,
+  ): Promise<string | null> {
+    const candidates = findTokenCandidateEmails();
+    for (const email of candidates) {
+      const tokenData = await exportTokenForClient(email, password, clientName);
+      if (!tokenData) continue;
+      return parseEmailFromTokenData(tokenData) ?? email;
+    }
+    return this.findEmailFromStatus(password, clientName);
+  }
+
+  private async findEmailFromStatus(
+    password: string,
+    clientName: string,
+  ): Promise<string | null> {
+    const status = await gogExecWithPassword(
+      argsWithClient(clientName, ['--json', 'auth', 'status']),
+      password,
+    );
+    if (!status) return null;
+    try {
+      const parsed = JSON.parse(status) as { account?: { email?: string } };
+      const email = parsed.account?.email;
+      return typeof email === 'string' && email ? email : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Migrate tokens written by the buggy profile-scoped-password implementation
+   * into the stable-password + per-profile-client-bucket layout.
+   *
+   * First we try the active profile's old password. If that finds nothing and
+   * exactly one token exists on disk, we also try the other registered profile
+   * passwords — this recovers the "same Google account in two profiles" case
+   * where the second sign-in overwrote the shared `token:default:<email>` file.
+   */
+  private async migrateFromBuggyKeyring(targetClient: string): Promise<boolean> {
+    this.migrationAttempted = true;
+
+    const candidates = findTokenCandidateEmails();
+    if (candidates.length === 0) return false;
+
+    const currentScopedPassword = deriveProfileScopedKeyringPassword(SERO_AGENT_DIR);
+    if (await this.tryMigrateFromPassword(candidates, currentScopedPassword, targetClient)) {
+      return true;
+    }
+
+    if (candidates.length !== 1) {
+      return false;
+    }
+
+    const registry = readRegistrySync();
+    for (const profile of registry.profiles) {
+      const profileAgentDir = path.join(profile.path, 'agent');
+      if (path.resolve(profileAgentDir) === path.resolve(SERO_AGENT_DIR)) continue;
+      const password = deriveProfileScopedKeyringPassword(profileAgentDir);
+      if (password === currentScopedPassword) continue;
+      if (await this.tryMigrateFromPassword(candidates, password, targetClient)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private async tryMigrateFromPassword(
+    candidates: string[],
+    sourcePassword: string,
+    targetClient: string,
+  ): Promise<boolean> {
+    for (const email of candidates) {
+      const tokenData = await exportTokenForClient(email, sourcePassword, GOG_DEFAULT_CLIENT);
+      if (!tokenData) continue;
+
+      await this.ensureCredentials();
+      const importResult = await pipeToGog(
+        argsWithClient(targetClient, ['auth', 'tokens', 'import', '-']),
+        tokenData,
+      );
+      if (!importResult.ok) {
+        console.warn('[google-auth] Token migration import failed:', importResult.out);
+        continue;
+      }
+
+      const migratedEmail = parseEmailFromTokenData(tokenData) ?? email;
+      this.email = migratedEmail;
+      console.log(
+        `[google-auth] Migrated token for ${migratedEmail} into client bucket ${targetClient}`,
+      );
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -284,20 +242,22 @@ export class GoogleAuthManager {
       throw new Error('Google OAuth not configured. Use the setup form in the Google plugin or add credentials to ~/.sero-ui/agent/plugin-config/sero-google-plugin.json');
     }
 
-    // PKCE
     const verifier = crypto.randomBytes(32).toString('base64url');
     const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
 
-    // Loopback server
     const { port, getCode, server } = await this.startServer();
     const redirect = `http://${LOOPBACK}:${port}`;
 
     const creds = getCredentials();
     const params = new URLSearchParams({
-      client_id: creds.clientId, redirect_uri: redirect,
-      response_type: 'code', scope: SCOPES,
-      access_type: 'offline', prompt: 'consent',
-      code_challenge: challenge, code_challenge_method: 'S256',
+      client_id: creds.clientId,
+      redirect_uri: redirect,
+      response_type: 'code',
+      scope: SCOPES,
+      access_type: 'offline',
+      prompt: 'consent',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
     });
 
     onProgress({ type: 'browser', message: 'Opening Google sign-in…' });
@@ -305,19 +265,20 @@ export class GoogleAuthManager {
     onProgress({ type: 'waiting', message: 'Waiting for authorization…' });
 
     let code: string;
-    try { code = await getCode; } finally { server.close(); }
+    try {
+      code = await getCode;
+    } finally {
+      server.close();
+    }
 
-    // Exchange code → tokens
     const tokens = await this.exchangeCode(code, redirect, verifier);
     if (!tokens.refresh_token) {
       throw new Error('No refresh token. Revoke access at myaccount.google.com/permissions and retry.');
     }
 
-    // Get email from Google
     const email = await this.fetchEmail(tokens.access_token);
     this.email = email;
 
-    // Import into gogcli
     await this.importToGogcli(email, tokens.refresh_token);
 
     this.statusCache = null;
@@ -326,13 +287,17 @@ export class GoogleAuthManager {
 
   async logout(): Promise<void> {
     this.statusCache = null;
-    if (this.email) {
-      await pipeToGog(['auth', 'tokens', 'delete', this.email, '--force'], '');
-      this.email = null;
+    const email = this.email ?? await this.findAccessibleEmail(deriveKeyringPassword(), getGoogleClientName());
+    if (email) {
+      await pipeToGog(
+        argsWithClient(getGoogleClientName(), ['auth', 'tokens', 'delete', email, '--force']),
+        '',
+      );
     }
+    this.email = null;
   }
 
-  // ── OAuth helpers ──────────────────────────────────────────
+  // ── OAuth helpers ─────────────────────────────────────────
 
   private startServer(): Promise<{ port: number; getCode: Promise<string>; server: http.Server }> {
     return new Promise((resolve, reject) => {
@@ -354,7 +319,10 @@ export class GoogleAuthManager {
       });
       server.listen(0, LOOPBACK, () => {
         const addr = server.address();
-        if (!addr || typeof addr === 'string') { reject(new Error('Listen failed')); return; }
+        if (!addr || typeof addr === 'string') {
+          reject(new Error('Listen failed'));
+          return;
+        }
         resolve({ port: addr.port, getCode, server });
       });
       server.on('error', reject);
@@ -367,8 +335,12 @@ export class GoogleAuthManager {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        code, client_id: creds.clientId, client_secret: creds.clientSecret,
-        redirect_uri: redirect, grant_type: 'authorization_code', code_verifier: verifier,
+        code,
+        client_id: creds.clientId,
+        client_secret: creds.clientSecret,
+        redirect_uri: redirect,
+        grant_type: 'authorization_code',
+        code_verifier: verifier,
       }),
     });
     if (!resp.ok) throw new Error(`Token exchange failed: ${resp.status} ${await resp.text()}`);
@@ -376,20 +348,22 @@ export class GoogleAuthManager {
   }
 
   private async fetchEmail(accessToken: string): Promise<string> {
-    const resp = await fetch(USERINFO_URL, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const resp = await fetch(USERINFO_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     if (!resp.ok) throw new Error(`Userinfo failed: ${resp.status}`);
     return ((await resp.json()) as { email: string }).email;
   }
 
-  // ── gogcli integration ─────────────────────────────────────
+  // ── gogcli integration ────────────────────────────────────
 
   private async importToGogcli(email: string, refreshToken: string): Promise<void> {
-    // 1. Import OAuth client credentials
     await this.ensureCredentials();
 
-    // 2. Import refresh token into keychain
-    const r = await pipeToGog(['auth', 'tokens', 'import', '-'],
-      JSON.stringify({ email, refresh_token: refreshToken }));
+    const r = await pipeToGog(
+      argsWithClient(getGoogleClientName(), ['auth', 'tokens', 'import', '-']),
+      JSON.stringify({ email, refresh_token: refreshToken }),
+    );
     if (r.ok) console.log('[google-auth] Token imported into gogcli for', email);
     else console.warn('[google-auth] Token import failed:', r.out);
   }
@@ -397,24 +371,18 @@ export class GoogleAuthManager {
   private async ensureCredentials(): Promise<void> {
     if (this.credsImported) return;
     const creds = getCredentials();
-    const r = await pipeToGog(['auth', 'credentials', 'set', '-'], JSON.stringify({
-      installed: {
-        client_id: creds.clientId, client_secret: creds.clientSecret,
-        auth_uri: AUTH_URL, token_uri: TOKEN_URL, redirect_uris: ['http://localhost'],
-      },
-    }));
+    const r = await pipeToGog(
+      argsWithClient(getGoogleClientName(), ['auth', 'credentials', 'set', '-']),
+      JSON.stringify({
+        installed: {
+          client_id: creds.clientId,
+          client_secret: creds.clientSecret,
+          auth_uri: AUTH_URL,
+          token_uri: TOKEN_URL,
+          redirect_uris: ['http://localhost'],
+        },
+      }),
+    );
     if (r.ok) this.credsImported = true;
-  }
-
-  private gogExec(args: string[]): Promise<string | null> {
-    return new Promise((resolve) => {
-      execFile(findGog(), args, { env: gogEnv(), timeout: 10_000 },
-        (err, stdout, stderr) => {
-          if (err) {
-            console.warn(`[google-auth] gogExec ${args.join(' ')} failed:`, stderr?.trim() || err.message);
-          }
-          resolve(err ? null : (stdout ?? ''));
-        });
-    });
   }
 }

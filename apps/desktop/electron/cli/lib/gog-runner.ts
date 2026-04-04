@@ -17,6 +17,10 @@ import path from 'node:path';
 
 import { containerManager } from '../../shared/infra/shared-infra';
 import { getGoogleAuthManager } from '../../ipc/integrations/google-api';
+import {
+  deriveKeyringPassword,
+  getGoogleClientName,
+} from '../../features/auth/google/gog-keyring';
 import type { CliCommandContext, CliResult } from '../core/types';
 
 // ── Shell helpers ────────────────────────────────────────────
@@ -84,6 +88,7 @@ function runGogLocal(gogArgs: string[], opts?: GogOpts): Promise<GogResult> {
     const fullArgs: string[] = [];
     // Auto-inject account from Sero Google auth if none provided
     const account = opts?.account ?? getGoogleAuthManager().getEmail() ?? undefined;
+    fullArgs.push('--client', getGoogleClientName());
     if (account) fullArgs.push('--account', account);
     if (opts?.json) fullArgs.push('--json');
     if (opts?.noInput !== false) fullArgs.push('--no-input');
@@ -97,7 +102,7 @@ function runGogLocal(gogArgs: string[], opts?: GogOpts): Promise<GogResult> {
         PATH: buildEnhancedPath(),
         // Use Sero-managed keyring so gog finds the tokens imported
         // during Sero's Google OAuth sign-in flow.
-        GOG_KEYRING_PASSWORD: 'sero-google-keyring',
+        GOG_KEYRING_PASSWORD: deriveKeyringPassword(),
       },
     }, (error, stdout, stderr) => {
       if (error && (error as any).code === 'ENOENT') {
@@ -125,7 +130,7 @@ function runGogContainer(
   ctx: CliCommandContext,
   opts?: GogOpts,
 ): Promise<GogResult> {
-  const parts = ['gog'];
+  const parts = ['gog', '--client', getGoogleClientName()];
   if (opts?.account) parts.push('--account', opts.account);
   if (opts?.json) parts.push('--json');
   if (opts?.noInput !== false) parts.push('--no-input');
