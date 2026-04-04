@@ -31,7 +31,7 @@ tools, commands, hooks). The only difference is where they're stored:
 
 | | Core app | Plugin |
 |---|----------|--------|
-| **Location** | `packages/pi-*` in the monorepo | `~/.sero-ui/agent/packages/<id>/` |
+| **Location** | `plugins/sero-*-plugin/` in the monorepo | `~/.sero-ui/agent/packages/<id>/` |
 | **Ships with Sero** | Yes | No — installed separately |
 | **Removable** | No | Yes |
 | **Source** | Monorepo | npm, git, or local path |
@@ -128,6 +128,17 @@ my-plugin/
 └── vite.config.ts        # Module Federation remote config
 ```
 
+Keep app-local state/types in `shared/types.ts`. For **monorepo-shared**
+contracts used across desktop, remotes, and multiple built-in plugins, move
+that neutral code into `packages/common/src/`, re-export it from
+`packages/common/src/index.ts`, and consume it via
+`import type { ... } from '@sero/common'`. Keep `@sero/common` renderer-safe —
+no Electron, Node-only APIs, or desktop-only internals.
+
+If you later extract/publish the plugin outside this monorepo, vendor or
+publish any shared code it still depends on instead of assuming the workspace
+package will exist in the installed plugin environment.
+
 ### 2. Add plugin metadata
 
 Add a `sero.plugin` key to your `package.json` alongside `sero.app`:
@@ -162,40 +173,43 @@ Add a `sero.plugin` key to your `package.json` alongside `sero.app`:
 For **npm distribution**, build a ready-to-install plugin bundle:
 
 ```bash
-bash scripts/build-plugin.sh packages/pi-my-app-extension
+bash scripts/build-plugin.sh plugins/sero-my-app-plugin
 ```
 
 This produces a publishable bundle at:
 
 ```
-packages/pi-my-app-extension/dist/plugin/
+plugins/sero-my-app-plugin/dist/plugin/
 ```
 
 For **GitHub source distribution**, export a standalone source repo:
 
 ```bash
-bash scripts/export-plugin-source.sh packages/pi-my-app-extension
+bash scripts/export-plugin-source.sh plugins/sero-my-app-plugin
 ```
 
 This produces a source repo at:
 
 ```
-packages/pi-my-app-extension/dist/plugin-source/
+plugins/sero-my-app-plugin/dist/plugin-source/
 ```
 
 Install either locally from the Sero renderer console:
 
 ```typescript
 await window.sero.plugins.install(
-  '/absolute/path/to/packages/pi-my-app-extension/dist/plugin'
+  '/absolute/path/to/plugins/sero-my-app-plugin/dist/plugin'
 );
 
 await window.sero.plugins.install(
-  '/absolute/path/to/packages/pi-my-app-extension/dist/plugin-source'
+  '/absolute/path/to/plugins/sero-my-app-plugin/dist/plugin-source'
 );
 ```
 
 The plugin should appear in the sidebar immediately — no restart required.
+Active chat sessions also reload their resource loaders, so `sero help <tool>`
+and other CLI-bridged plugin commands become available without manually
+restarting Sero.
 
 ## Plugin Manifest Reference
 
@@ -319,7 +333,7 @@ Push the contents of `dist/plugin-source/` to a public repository. Tag it with
 the **`sero-agent-plugin`** topic for discoverability.
 
 ```bash
-bash scripts/export-plugin-source.sh packages/pi-my-app-extension
+bash scripts/export-plugin-source.sh plugins/sero-my-app-plugin
 ```
 
 Users install with:
@@ -367,15 +381,17 @@ To maximize discoverability:
 
 ### Can I develop a plugin inside the monorepo?
 
-Yes. During development, your plugin lives in `packages/pi-*` like any other
-app. When ready to extract, add the `sero.plugin` metadata, build it, and
-publish. The `sero.plugin` key in `package.json` marks it as extractable.
+Yes. During development, built-in plugins live in `plugins/sero-*-plugin/`
+like any other shipped Sero app. When ready to distribute one externally,
+keep the same package self-contained, add or keep the `sero.plugin` metadata,
+build it, and publish the extracted bundle/source package.
 
 ### Do plugins auto-update?
 
 Not yet. Users manually update by re-installing from the same source.
 If the app ID matches an existing installed plugin, Sero replaces that plugin
-in place and hot-loads the updated UI/tools without a restart.
+in place and hot-loads the updated UI, tools, and active-session CLI bridge
+state without a restart.
 Auto-update support is planned for a future release.
 
 ### What happens to my data if I uninstall a plugin?

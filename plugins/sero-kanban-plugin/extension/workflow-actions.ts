@@ -4,9 +4,8 @@
  * Extracted from index.ts for file size compliance.
  */
 
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-
 import type { KanbanState, Column, ErrorSeverity } from '../shared/types';
+import type { KanbanSessionRuntime } from './session-runtime';
 import { COLUMN_LABELS } from '../shared/types';
 import { validateCardTransition } from '../shared/validation';
 import { writeState } from './state-io';
@@ -134,8 +133,8 @@ export async function handleRetry(
 
 // ── Brainstorm ───────────────────────────────────────────────
 
-export function handleBrainstorm(pi: ExtensionAPI): ToolResult {
-  pi.sendUserMessage('/brainstorm', { deliverAs: 'followUp' });
+export async function handleBrainstorm(runtime: KanbanSessionRuntime): Promise<ToolResult> {
+  await runtime.sendUserMessage('/brainstorm', { deliverAs: 'followUp' });
   return text('Queued the /brainstorm workflow in the chat session.');
 }
 
@@ -289,7 +288,7 @@ export async function handleErrorLog(statePath: string, cardId?: string): Promis
 
 export async function handleRetrospective(
   statePath: string,
-  pi: ExtensionAPI,
+  runtime: KanbanSessionRuntime,
 ): Promise<ToolResult> {
   const log = await readErrorLog(statePath);
   if (log.errors.length === 0) {
@@ -303,7 +302,7 @@ export async function handleRetrospective(
   await writeErrorLog(statePath, log);
 
   // Send the retrospective data to the agent for analysis
-  pi.sendUserMessage(
+  await runtime.sendUserMessage(
     'Perform a retrospective analysis on the Kanban board errors below. '
     + 'Identify root causes, recurring patterns, and suggest concrete process '
     + 'improvements to prevent these errors in future. Group your findings by:\n'

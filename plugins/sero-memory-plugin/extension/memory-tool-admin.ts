@@ -6,9 +6,13 @@ import {
   type AutoConsolidationCadence,
 } from './automation-state';
 import {
+  describeAutoRetrieveMode,
   describeMemorySnapshotMode,
+  getAutoRetrieveModeSync,
   getMemorySnapshotModeSync,
+  setAutoRetrieveModeSync,
   setMemorySnapshotModeSync,
+  type AutoRetrieveMode,
   type MemorySnapshotMode,
 } from './memory-config';
 import {
@@ -66,21 +70,39 @@ export async function handleMemoryConsolidate(
 
 export function handleMemoryConfig(
   snapshot: MemorySnapshotMode | undefined,
+  autoRetrieve: AutoRetrieveMode | undefined,
 ): ToolTextResult {
+  const lines: string[] = [];
+
   if (snapshot) {
     const nextMode = setMemorySnapshotModeSync(snapshot);
-    return text([
+    lines.push(
       `Memory snapshot mode set to ${nextMode}.`,
       describeMemorySnapshotMode(nextMode),
       nextMode === 'frozen'
         ? 'Mid-session writes to IDENTITY.md, USER.md, and MEMORY.md will appear in the next session.'
         : 'Memory context will be rebuilt on every turn.',
-    ].join('\n'));
+    );
   }
 
-  const currentMode = getMemorySnapshotModeSync();
-  return text([
-    `Memory snapshot mode: ${currentMode}.`,
-    describeMemorySnapshotMode(currentMode),
-  ].join('\n'));
+  if (autoRetrieve) {
+    const nextMode = setAutoRetrieveModeSync(autoRetrieve);
+    if (lines.length > 0) lines.push('');
+    lines.push(
+      `Auto-retrieve set to ${nextMode}.`,
+      describeAutoRetrieveMode(nextMode),
+    );
+  }
+
+  // No arguments — show current config
+  if (!snapshot && !autoRetrieve) {
+    const currentSnapshot = getMemorySnapshotModeSync();
+    const currentAutoRetrieve = getAutoRetrieveModeSync();
+    lines.push(
+      `Memory snapshot mode: ${currentSnapshot} — ${describeMemorySnapshotMode(currentSnapshot)}`,
+      `Auto-retrieve: ${currentAutoRetrieve} — ${describeAutoRetrieveMode(currentAutoRetrieve)}`,
+    );
+  }
+
+  return text(lines.join('\n'));
 }

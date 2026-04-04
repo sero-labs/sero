@@ -56,6 +56,41 @@ describe('CLI bridged command timeouts', () => {
     expect(resolveCommandTimeoutMs(deadline, getBridgedToolTimeoutMs('notes'))).toBe(DEFAULT_PER_COMMAND_TIMEOUT_MS);
   });
 
+  it('skips per-command timeout for interactive commands', async () => {
+    const registry = new CliRegistry();
+    let resolveCommand: ((value: { output: string; exitCode: number }) => void) | null = null;
+
+    registry.register({
+      name: 'question',
+      summary: 'Ask the user',
+      interactive: true,
+      execute: async () => {
+        // Simulate waiting for user input — resolves via external trigger
+        return new Promise<{ output: string; exitCode: number }>((resolve) => {
+          resolveCommand = resolve;
+        });
+      },
+    });
+
+    const pending = executeCliBatch(registry, 'question', {
+      workspaceId: 'ws-1',
+      cwd: '/tmp/ws-1',
+      invocation: { workspaceId: 'ws-1', sessionId: 's-1', turnId: null, source: 'tool' },
+      workspaceManager: {} as never,
+      containerManager: {} as never,
+    });
+
+    // Advance past the default 30s per-command timeout
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    // Command should NOT have timed out — it's interactive
+    resolveCommand!({ output: 'User answered', exitCode: 0 });
+
+    const result = await pending;
+    expect(result.output).toBe('User answered');
+    expect(result.exitCode).toBe(0);
+  });
+
   it('returns a deterministic timeout error and suppresses late updates after cancellation', async () => {
     const registry = new CliRegistry();
     const onUpdate = vi.fn();

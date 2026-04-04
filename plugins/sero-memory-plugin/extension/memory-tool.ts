@@ -44,7 +44,7 @@ import {
 } from './memory-tool-admin';
 import type { AutoConsolidationCadence } from './automation-state';
 import type { ConsolidationTrigger } from './consolidation';
-import type { MemorySnapshotMode } from './memory-config';
+import type { AutoRetrieveMode, MemorySnapshotMode } from './memory-config';
 
 const MemoryParams = Type.Object({
   action: StringEnum(['read', 'write', 'replace', 'remove', 'search', 'list', 'consolidate', 'config'] as const),
@@ -61,6 +61,7 @@ const MemoryParams = Type.Object({
   schedule: Type.Optional(StringEnum(['daily', 'weekly', 'off'] as const)),
   trigger: Type.Optional(StringEnum(['manual', 'cron', 'auto'] as const)),
   snapshot: Type.Optional(StringEnum(['frozen', 'live'] as const)),
+  auto_retrieve: Type.Optional(StringEnum(['on', 'off'] as const)),
 });
 
 type MemoryParamsType = Static<typeof MemoryParams>;
@@ -422,7 +423,10 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
               ctx,
             );
           case 'config':
-            return handleMemoryConfig(p.snapshot as MemorySnapshotMode | undefined);
+            return handleMemoryConfig(
+              p.snapshot as MemorySnapshotMode | undefined,
+              p.auto_retrieve as AutoRetrieveMode | undefined,
+            );
           default:
             return text(`Unknown action: ${p.action}`);
         }
@@ -444,6 +448,7 @@ export function registerMemoryTool(pi: ExtensionAPI): void {
       if (args.entry_id) output += ` ${theme.fg('accent', args.entry_id)}`;
       if (args.schedule) output += ` ${theme.fg('accent', `schedule:${args.schedule}`)}`;
       if (args.snapshot) output += ` ${theme.fg('accent', `snapshot:${args.snapshot}`)}`;
+      if (args.auto_retrieve) output += ` ${theme.fg('accent', `auto_retrieve:${args.auto_retrieve}`)}`;
       if (args.query) output += ` ${theme.fg('dim', `"${args.query}"`)}`;
       if (args.content) {
         const preview = args.content.length > 60 ? `${args.content.slice(0, 57)}...` : args.content;

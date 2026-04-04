@@ -12,9 +12,10 @@
  * and re-register them as CLI commands (removing them from agent context).
  */
 
-import type { ToolDefinition, RegisteredCommand, ExtensionContext } from '@mariozechner/pi-coding-agent';
-import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
+import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { CliCommand, CliCommandContext, CliContentBlock, CliResult, CliSessionRuntime } from './types';
 import { parseFlags } from '../lib/utils';
+import { getBridgedExtensionCommand, getBridgedExtensionTool } from '../bridges/extension-session-bridge';
 import { createSeroUIContext } from '../../features/apps/extensions/ui-context';
 
 const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
@@ -39,6 +40,26 @@ interface SchemaProp {
   description: string;
   required: boolean;
   enumValues?: string[];
+  /** For array types: the raw JSON Schema of the items element. */
+  itemsSchema?: Record<string, unknown>;
+}
+
+function resolveAnyOf(p: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(p.anyOf)) return p;
+  return (p.anyOf as Record<string, unknown>[]).find(
+    (v) => typeof v === 'object' && v !== null && v.type !== undefined,
+  ) ?? p;
+}
+
+function extractEnumValues(resolved: Record<string, unknown>): string[] | undefined {
+  if (Array.isArray(resolved.enum)) return resolved.enum as string[];
+  if (Array.isArray((resolved as any).anyOf)) {
+    const vals = (resolved as any).anyOf
+      .filter((v: any) => v?.const !== undefined)
+      .map((v: any) => String(v.const));
+    return vals.length ? vals : undefined;
+  }
+  return undefined;
 }
 
 function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
@@ -48,29 +69,22 @@ function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
 
   for (const [name, prop] of Object.entries(properties)) {
     const p = prop as Record<string, unknown>;
+    const resolved = resolveAnyOf(p);
+    const type = (resolved.type as string) ?? 'string';
 
-    // Handle anyOf (TypeBox Optional wraps in { anyOf: [type, ...] })
-    let resolved = p;
-    if (Array.isArray(p.anyOf)) {
-      resolved = (p.anyOf as Record<string, unknown>[]).find(
-        (v) => typeof v === 'object' && v !== null && v.type !== undefined,
-      ) ?? p;
+    // Capture items schema for arrays with object items
+    let itemsSchema: Record<string, unknown> | undefined;
+    if (type === 'array' && resolved.items && typeof resolved.items === 'object') {
+      itemsSchema = resolved.items as Record<string, unknown>;
     }
-
-    const enumValues = Array.isArray(resolved.enum)
-      ? (resolved.enum as string[])
-      : Array.isArray((resolved as any).anyOf)
-        ? (resolved as any).anyOf
-            .filter((v: any) => v?.const !== undefined)
-            .map((v: any) => String(v.const))
-        : undefined;
 
     props.push({
       name,
-      type: (resolved.type as string) ?? 'string',
+      type,
       description: (p.description as string) ?? (resolved.description as string) ?? '',
       required: required.has(name),
-      enumValues: enumValues?.length ? enumValues : undefined,
+      enumValues: extractEnumValues(resolved),
+      itemsSchema,
     });
   }
 
@@ -128,6 +142,55 @@ function schemaToParams(
 
 // ── Help generation ─────────────────────────────────────────
 
+/**
+ * Describe the fields of a JSON Schema object for help text.
+ * Returns lines like: `  label (required, string) — Display text`
+ */
+function describeObjectFields(schema: Record<string, unknown>, indent: string): string[] {
+  const properties = (schema as any)?.properties ?? {};
+  const requiredSet = new Set<string>((schema as any)?.required ?? []);
+  const lines: string[] = [];
+
+  for (const [fieldName, fieldDef] of Object.entries(properties)) {
+    const f = fieldDef as Record<string, unknown>;
+    const resolved = resolveAnyOf(f);
+    const type = (resolved.type as string) ?? 'string';
+    const desc = (f.description as string) ?? (resolved.description as string) ?? '';
+    const req = requiredSet.has(fieldName) ? 'required' : 'optional';
+    const enumVals = extractEnumValues(resolved);
+    const enumHint = enumVals ? ` {${enumVals.join(', ')}}` : '';
+    lines.push(`${indent}${fieldName} (${req}, ${type}${enumHint}) — ${desc}`);
+  }
+
+  return lines;
+}
+
+/**
+ * Build a minimal JSON example from a schema object.
+ * Shows required fields with placeholder values, omits optional fields.
+ */
+function buildJsonExample(schema: Record<string, unknown>): Record<string, unknown> {
+  const properties = (schema as any)?.properties ?? {};
+  const requiredSet = new Set<string>((schema as any)?.required ?? []);
+  const example: Record<string, unknown> = {};
+
+  for (const [fieldName, fieldDef] of Object.entries(properties)) {
+    const f = fieldDef as Record<string, unknown>;
+    const resolved = resolveAnyOf(f);
+    const type = (resolved.type as string) ?? 'string';
+    // Only include required fields + first optional for context
+    if (!requiredSet.has(fieldName) && Object.keys(example).length >= requiredSet.size) continue;
+
+    if (type === 'string') example[fieldName] = `<${fieldName}>`;
+    else if (type === 'number' || type === 'integer') example[fieldName] = 0;
+    else if (type === 'boolean') example[fieldName] = false;
+    else if (type === 'array') example[fieldName] = [];
+    else example[fieldName] = {};
+  }
+
+  return example;
+}
+
 function generateHelp(
   name: string,
   description: string,
@@ -161,6 +224,31 @@ function generateHelp(
       const typeHint = isComplex ? ' (JSON)' : p.type !== 'string' ? ` (${p.type})` : '';
       lines.push(`  --${p.name}${typeHint} — ${p.description || p.name}`);
     }
+  }
+
+  // Document nested JSON shapes for array/object params
+  const complexProps = props.filter(
+    (p) => p.type === 'array' && p.itemsSchema && (p.itemsSchema as any).type === 'object',
+  );
+  for (const p of complexProps) {
+    const itemSchema = p.itemsSchema!;
+    lines.push('', `JSON shape for ${p.name} (array of objects):`);
+    lines.push(...describeObjectFields(itemSchema, '  '));
+
+    // Recurse one level into nested array-of-object fields
+    const nestedProps = (itemSchema as any)?.properties ?? {};
+    for (const [nestedName, nestedDef] of Object.entries(nestedProps)) {
+      const nd = nestedDef as Record<string, unknown>;
+      const resolved = resolveAnyOf(nd);
+      if (resolved.type === 'array' && resolved.items && (resolved.items as any).type === 'object') {
+        lines.push('', `  JSON shape for ${nestedName} (nested array of objects):`);
+        lines.push(...describeObjectFields(resolved.items as Record<string, unknown>, '    '));
+      }
+    }
+
+    // Generate a compact example
+    const example = buildJsonExample(itemSchema);
+    lines.push('', `Example ${p.name}: '[${JSON.stringify(example)}]'`);
   }
 
   return lines.join('\n');
@@ -199,7 +287,12 @@ function extractText(content: CliContentBlock[]): string {
 
 // ── Bridge a ToolDefinition into a CliCommand ───────────────
 
-export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliCommand {
+export interface BridgeToolOptions {
+  /** Mark this command as interactive (disables per-command timeout). */
+  interactive?: boolean;
+}
+
+export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: BridgeToolOptions): CliCommand {
   const props = extractSchemaProps(toolDef.parameters as Record<string, unknown>);
   const summary = (toolDef.description ?? '').split(/\.\s/)[0]?.slice(0, 80) ?? toolName;
   const help = generateHelp(toolName, toolDef.description ?? toolName, props);
@@ -210,6 +303,7 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
     help,
     source: 'app',
     group: 'Apps',
+    interactive: options?.interactive,
     timeoutMs: getBridgedToolTimeoutMs(toolName),
     params: props.map((p) => ({
       name: p.name,
@@ -222,17 +316,22 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
         const params = schemaToParams(props, args);
         // Forward agent context (model, modelRegistry, etc.) when available
         // so bridged tools like `memory consolidate` can call LLMs.
+        // We also inject a narrow execution-scoped `sessionRuntime` so bridged
+        // tools can perform current-session side effects without capturing `pi`.
         // When agentContext exists, recombining with cwd produces a full ExtensionContext.
         // When it doesn't (standalone CLI), we provide a bare {cwd} — extension tools
         // must handle missing fields gracefully (e.g. ctx.model === undefined).
-        const toolContext: ExtensionContext = ctx.agentContext
-          ? { ...ctx.agentContext, cwd: ctx.cwd }
-          : { cwd: ctx.cwd } as ExtensionContext;
-        const result = await toolDef.execute(
+        const activeToolDef = getBridgedExtensionTool(toolName, ctx)?.definition ?? toolDef;
+        const toolContext = (ctx.agentContext
+          ? { ...ctx.agentContext, cwd: ctx.cwd, sessionRuntime: ctx.sessionRuntime }
+          : { cwd: ctx.cwd, sessionRuntime: ctx.sessionRuntime }) as ExtensionContext & {
+            sessionRuntime?: CliSessionRuntime;
+          };
+        const result = await activeToolDef.execute(
           'cli-bridge',
           params,
           ctx.invocation.signal,
-          onUpdate as Parameters<typeof toolDef.execute>[3],
+          onUpdate as Parameters<typeof activeToolDef.execute>[3],
           toolContext,
         );
         const content = extractContent(result);
@@ -259,30 +358,41 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition): CliComman
  * Wraps a Pi extension command (registered via `pi.registerCommand()`)
  * into a CLI command so the agent can invoke it via `sero <name> [args]`.
  *
- * The command handler receives `{ cwd }` as context — it can use
- * `ctx.cwd` but not session-level APIs like `ctx.sessionManager`.
- * Side effects (pi.sendMessage, pi.setActiveTools, etc.) work through
- * the extension's closure-captured `pi` reference.
+ * The concrete command handler is resolved from the active session at
+ * execute time, so bridged plugin commands never reuse another session's
+ * closure-captured `pi` or extension-local state.
  */
 /**
  * Build a minimal ExtensionCommandContext for bridged commands.
  *
  * Reuses the canonical `createSeroUIContext()` so there's a single
- * source of truth for the UIContext shim across Sero.
+ * source of truth for the UIContext shim across Sero. When agent context
+ * is available, we forward it and add `sessionRuntime` for current-session
+ * side effects.
  */
 function buildCommandContext(ctx: CliCommandContext): Record<string, unknown> {
-  return { cwd: ctx.cwd, hasUI: true, ui: createSeroUIContext() };
+  return {
+    ...(ctx.agentContext ? { ...ctx.agentContext } : {}),
+    cwd: ctx.cwd,
+    hasUI: true,
+    ui: createSeroUIContext(),
+    sessionRuntime: ctx.sessionRuntime,
+  };
 }
 
-export function bridgeCommand(name: string, cmd: RegisteredCommand): CliCommand {
+export function bridgeCommand(name: string, description?: string): CliCommand {
   return {
     name,
-    summary: cmd.description ?? name,
+    summary: description ?? name,
     source: 'app',
     group: 'App Commands',
     execute: async (args: string[], ctx: CliCommandContext): Promise<CliResult> => {
       try {
-        await cmd.handler(args.join(' '), buildCommandContext(ctx) as any);
+        const registered = getBridgedExtensionCommand(name, ctx);
+        if (!registered) {
+          return { output: 'ERROR: This command requires an active agent session.', exitCode: 1 };
+        }
+        await registered.handler(args.join(' '), buildCommandContext(ctx) as any);
         return { output: `/${name} executed`, exitCode: 0 };
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Command failed';

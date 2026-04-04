@@ -176,13 +176,22 @@ standard `sero.app` manifest:
 
 ### Types
 
-Defined in `packages/common/src/plugins.ts` and re-exported to the renderer via
-`src/types/plugins.ts` / `src/types/ipc.ts`:
+Shared cross-package contracts live in `packages/common/src/` and should be
+re-exported from `packages/common/src/index.ts` so desktop, remotes, and
+plugins can consume them via `@sero/common`.
+
+Current plugin-system types are defined in `packages/common/src/plugins.ts` and
+re-exported to the renderer via `src/types/plugins.ts` / `src/types/ipc.ts`:
 
 - **`PluginCategory`** — Union of category string literals
 - **`PluginMeta`** — Shape of `sero.plugin` from package.json
 - **`InstalledPlugin`** — Renderer-safe info about an installed plugin
 - **`PluginRegistryEntry`** — Entry from the remote plugin registry
+
+Rules for `@sero/common`:
+- keep it renderer-safe (`type`/utility code only; no Electron or Node-only imports)
+- use it for neutral contracts shared across multiple packages
+- keep app-local state in the app/plugin's own `shared/` directory instead of promoting everything prematurely
 
 ## Installation Flow
 
@@ -257,7 +266,7 @@ its `package.json`. This lets the renderer distinguish core apps from plugins
 
 ### Build-time (Vite config)
 
-`vite.config.ts` scans `packages/pi-*` for sero.app manifests and builds
+`vite.config.ts` scans `plugins/sero-*-plugin/` for `sero.app` manifests and builds
 the MF remotes config. Plugins installed at `~/.sero-ui/agent/packages/`
 are NOT known at build time — they use pre-built bundles.
 
@@ -283,8 +292,14 @@ registerDynamicRemote(appId);
 invalidateRemote(appId);
 ```
 
-The install IPC path also disposes any app-agent sessions for that app ID so
-plugin-local extensions, prompts, and skills refresh immediately after update.
+The install IPC path also disposes any app-agent sessions for that app ID and
+reloads active chat-session ResourceLoaders so plugin-local extensions,
+prompts, skills, tools, and bridged CLI commands refresh immediately after
+install/update.
+
+Additionally, `electron/ipc/apps/app-state.ts` watches the active profile's
+`settings.json`. If package paths are added or removed outside the install IPC
+path, Sero still reloads running session resources automatically.
 
 ### `sero-ext://` Protocol
 
@@ -299,11 +314,12 @@ registry. The protocol:
 
 ## Tool Bridging
 
-### Core tools (hardcoded)
+### Core tools (static policy)
 
-`CORE_TOOLS_TO_BRIDGE` in `electron/cli/index.ts` lists tool names that are
-always bridged from extension tools into `sero-cli` commands. This saves
-tokens by collapsing individual tool schemas into one CLI tool.
+`CORE_TOOLS_TO_BRIDGE` in `electron/cli/index.ts` still exists for non-plugin
+or legacy tool names that Sero always wants to expose through `sero-cli`.
+Core coding tools like `bash`, `read`, `write`, `edit`, and `browser` remain
+standalone.
 
 ### Plugin tools (manifest-driven)
 
@@ -316,7 +332,26 @@ checks `sero.plugin.bridgeTools`:
 - `string[]` → bridge only the listed tool names
 
 This means plugin tools get bridged into `sero-cli` automatically without
-editing the core allowlist.
+editing a core allowlist.
+
+### Session-scoped execution
+
+The bridge is not just schema translation. It also preserves **session
+correctness**:
+
+- `bridgeExtensionTools()` records the loaded tools and commands for each
+  active agent session.
+- A bridged `sero <tool>` invocation resolves the **current session's**
+  registered tool definition at execute time.
+- Bridged extension commands do the same for the **current session's** command
+  handler.
+- Bridged tool/command contexts include a narrow execution-scoped
+  `sessionRuntime` capability for current-session side effects such as:
+  - `sendUserMessage(...)`
+  - `sendMessage(...)`
+
+This prevents session leakage when plugin logic depends on extension-local
+state or on session-bound messaging behavior.
 
 ## IPC Surface
 

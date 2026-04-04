@@ -21,6 +21,10 @@ import { reloadAllSessionResources } from '../agent';
 
 const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
 const KANBAN_WORKSPACE_SUFFIX = '/.sero/apps/kanban/state.json';
+const SETTINGS_RELOAD_COALESCE_MS = 75;
+
+let runtimeSettingsReloadPending = false;
+let runtimeSettingsReloadTask: Promise<void> | null = null;
 
 /** Notify the orchestrator immediately if this is a kanban state file. */
 function notifyKanbanOrchestrator(filePath: string, data: unknown): void {
@@ -42,17 +46,47 @@ async function primeKanbanWorkspaceWatch(filePath: string, data: unknown): Promi
   }
 }
 
+async function runRuntimeSettingsReload(): Promise<void> {
+  const infra = await ensureInfra();
+  infra.settingsManager.reload();
+  applyRuntimeSettings(infra.settingsManager);
+  await reloadAllSessionResources();
+}
+
+/**
+ * Coalesce repeated settings.json notifications from both the direct IPC write
+ * path and the file watcher. The short coalescing window collapses back-to-back
+ * events for the same logical change, and any additional notifications that
+ * arrive during a reload trigger one more pass before the task settles.
+ */
+function queueCoalescedRuntimeSettingsReload(): Promise<void> {
+  runtimeSettingsReloadPending = true;
+
+  if (runtimeSettingsReloadTask) {
+    return runtimeSettingsReloadTask;
+  }
+
+  runtimeSettingsReloadTask = (async () => {
+    await new Promise((resolve) => setTimeout(resolve, SETTINGS_RELOAD_COALESCE_MS));
+
+    while (runtimeSettingsReloadPending) {
+      runtimeSettingsReloadPending = false;
+      try {
+        await runRuntimeSettingsReload();
+      } catch (err) {
+        console.error('[app-state] Failed to reload runtime settings:', err);
+      }
+    }
+  })().finally(() => {
+    runtimeSettingsReloadTask = null;
+  });
+
+  return runtimeSettingsReloadTask;
+}
+
 async function refreshRuntimeSettingsIfNeeded(filePath: string): Promise<void> {
   if (path.resolve(filePath) !== path.resolve(SERO_CONFIG_PATH)) return;
-
-  try {
-    const infra = await ensureInfra();
-    infra.settingsManager.reload();
-    applyRuntimeSettings(infra.settingsManager);
-    await reloadAllSessionResources();
-  } catch (err) {
-    console.error('[app-state] Failed to reload runtime settings:', err);
-  }
+  await queueCoalescedRuntimeSettingsReload();
 }
 
 export function registerAppStateHandlers(): void {
@@ -65,7 +99,15 @@ export function registerAppStateHandlers(): void {
         .then(() => kanbanOrchestrator.onStateChange(filePath, data as KanbanState))
         .catch((err) => console.error('[app-state] Kanban orchestrator listener error:', err));
     }
+
+    refreshRuntimeSettingsIfNeeded(filePath).catch((err) => {
+      console.error('[app-state] Settings change reload failed:', err);
+    });
   });
+
+  // Watch settings.json so direct edits or package-manager writes that bypass
+  // the IPC layer still refresh session resources and CLI-bridged tools.
+  appStateManager.watch(SERO_CONFIG_PATH);
 
   // Read state file
   ipcMain.handle(

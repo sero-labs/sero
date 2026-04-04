@@ -54,7 +54,11 @@ import { registerAgentModelContextHandlers } from './agent-model-context';
 import { applyContextOverrides, readPersistedContextOverrides } from './agent-context-overrides';
 import { createSeroUIContext } from '../../../features/apps/extensions/ui-context';
 import { installCliAgentBridge, noteCliTurnEnd } from '../../../cli/bridges';
-import { createWorkspaceCliTool, bridgeExtensionTools } from '../../../cli';
+import {
+  createWorkspaceCliTool,
+  bridgeExtensionTools,
+  clearBridgedExtensionSessionItemsForSession,
+} from '../../../cli';
 import { installGatewayAgentOps, forwardEventToGateway } from '../../../features/gateway/bridge/agent-bridge';
 import { createSkillVisibilityOverride } from '../../../features/apps/extensions/skill-visibility';
 import { buildGatewayOps } from '../../gateway/gateway-ops';
@@ -114,6 +118,7 @@ async function closePoolEntry(sessionId: string): Promise<void> {
   entry.unsubscribe();
   entry.session.dispose();
   pool.delete(sessionId);
+  clearBridgedExtensionSessionItemsForSession(sessionId);
 }
 
 export async function disposeAllAgentSessions(): Promise<void> {
@@ -170,7 +175,7 @@ async function openSessionInternal(
       }),
     ],
     skillsOverride: createSkillVisibilityOverride(infra.settingsManager),
-    extensionsOverride: bridgeExtensionTools,
+    extensionsOverride: (base) => bridgeExtensionTools(base, { sessionId }),
     ...(globalAgentsFile && {
       agentsFilesOverride: (discovered: { agentsFiles: Array<{ path: string; content: string }> }) => ({
         agentsFiles: [

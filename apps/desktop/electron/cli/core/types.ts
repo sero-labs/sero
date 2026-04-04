@@ -1,4 +1,8 @@
 import type { ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type {
+  ExtensionRuntimeMessage,
+  ExtensionSessionRuntime,
+} from '@sero/common';
 import type { ContainerManager } from '../../features/container';
 import type { WorkspaceManager } from '../../features/workspace/manager';
 
@@ -38,6 +42,12 @@ export interface CliParam {
   default?: unknown;
 }
 
+export type CliCustomMessage = ExtensionRuntimeMessage;
+
+export interface CliSessionRuntime extends ExtensionSessionRuntime {
+  sessionId: string;
+}
+
 export interface CliCommandContext {
   workspaceId: string;
   cwd: string;
@@ -50,6 +60,11 @@ export interface CliCommandContext {
    * Undefined for direct/standalone CLI invocations.
    */
   agentContext?: BridgedAgentContext;
+  /**
+   * Narrow execution-scoped runtime for session side effects.
+   * Lets bridged tools interact with the current session without capturing `pi`.
+   */
+  sessionRuntime?: CliSessionRuntime;
 }
 
 export interface CliCommandUpdate {
@@ -72,6 +87,11 @@ export interface CliCommand {
   hidden?: boolean;
   /** Optional per-command timeout override for non-terminal invocations. */
   timeoutMs?: number;
+  /**
+   * When true, per-command and batch timeouts are disabled for this command.
+   * Use for tools that block on user input (question, questionnaire, interview).
+   */
+  interactive?: boolean;
 }
 
 export interface CliResolvedCommand {

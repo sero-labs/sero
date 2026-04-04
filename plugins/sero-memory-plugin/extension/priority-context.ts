@@ -256,19 +256,43 @@ export function clearPriorityContextCache(sessionId: string): void {
   clearCache(sessionId);
 }
 
-export async function buildPriorityContext(
+/**
+ * Result of building priority context with search results separated out.
+ * `staticContext` goes into the system prompt.
+ * `searchContext` can be injected as a per-turn message (if auto-retrieve is on).
+ */
+export interface PriorityContextResult {
+  /** Static memory sections (IDENTITY, USER, SCRATCHPAD, MEMORY.md) for the system prompt. */
+  staticContext: string;
+  /** Dynamic QMD search results for the current prompt. Empty if no results or QMD unavailable. */
+  searchContext: string;
+}
+
+export interface BuildPriorityContextOptions {
+  /** When false, skip prompt-specific QMD retrieval entirely. */
+  includeSearch?: boolean;
+}
+
+/**
+ * Build priority context with search results returned separately.
+ *
+ * Use this when you need to inject static context into the system prompt
+ * and optionally send search results as a per-turn message.
+ */
+export async function buildPriorityContextSplit(
   root: string,
   prompt: string,
   sessionId?: string,
   snapshotMode: MemorySnapshotMode = 'live',
-): Promise<string> {
-  const sections: string[] = [];
+  options: BuildPriorityContextOptions = {},
+): Promise<PriorityContextResult> {
+  const staticSections: string[] = [];
   let totalChars = 0;
 
   function addSection(section: string): void {
     if (!section.trim()) return;
     if (totalChars + section.length > BUDGET_TOTAL) return;
-    sections.push(section);
+    staticSections.push(section);
     totalChars += section.length;
   }
 
@@ -279,9 +303,35 @@ export async function buildPriorityContext(
   addSection(frozenSnapshot?.identitySection ?? await buildIdentitySection(root));
   addSection(frozenSnapshot?.userSection ?? await buildUserSection(root));
   addSection(await buildScratchpadSection(root));
-  addSection(await buildSearchSection(prompt, sessionId));
   addSection(frozenSnapshot?.memorySection ?? await buildMemorySection(root));
 
-  if (sections.length === 0) return '';
-  return `\n\n## Memory\n\n${sections.join('\n\n---\n\n')}`;
+  const searchSection = options.includeSearch === false
+    ? ''
+    : await buildSearchSection(prompt, sessionId);
+
+  const staticContext = staticSections.length > 0
+    ? `\n\n## Memory\n\n${staticSections.join('\n\n---\n\n')}`
+    : '';
+
+  return { staticContext, searchContext: searchSection };
+}
+
+/**
+ * Build the full priority context as a single string.
+ * Combines static memory + search results.
+ * Used by tests and as a compatibility wrapper.
+ */
+export async function buildPriorityContext(
+  root: string,
+  prompt: string,
+  sessionId?: string,
+  snapshotMode: MemorySnapshotMode = 'live',
+): Promise<string> {
+  const { staticContext, searchContext } = await buildPriorityContextSplit(root, prompt, sessionId, snapshotMode);
+  if (!staticContext && !searchContext) return '';
+  if (!searchContext) return staticContext;
+  // Append search results after the static sections
+  return staticContext
+    ? `${staticContext}\n\n---\n\n${searchContext}`
+    : `\n\n## Memory\n\n${searchContext}`;
 }

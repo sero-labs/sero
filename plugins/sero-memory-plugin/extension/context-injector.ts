@@ -1,11 +1,18 @@
 /**
- * ContextInjector — injects memory context into the system prompt.
+ * ContextInjector — injects memory context into the agent's context.
  *
- * Priority ordering (8K total budget):
- *   1. IDENTITY.md + USER.md  — persona, never fully dropped
- *   2. Open scratchpad items  — active work context
- *   3. QMD search results     — auto-retrieved relevant memories
- *   4. MEMORY.md              — curated long-term memory
+ * Split injection model:
+ *   System prompt (static, per-session or per-turn depending on snapshot mode):
+ *     - IDENTITY.md + USER.md — persona
+ *     - SCRATCHPAD.md — active work items
+ *     - MEMORY.md — curated long-term memory
+ *     - Memory instructions — retrieval/storage commands
+ *
+ *   Per-turn message (dynamic, only when auto-retrieve is on):
+ *     - QMD search results — memories relevant to the current user prompt
+ *
+ * The `context` event strips prior-turn search messages so only the
+ * latest search results reach the LLM.
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
@@ -18,8 +25,9 @@ import {
 } from './bootstrap';
 import type { BootstrapStatus } from './bootstrap';
 import { resolveMemoryRoot } from './memory-manager';
-import { getMemorySnapshotModeSync } from './memory-config';
-import { buildPriorityContext, clearPriorityContextCache } from './priority-context';
+import { getAutoRetrieveModeSync, getMemorySnapshotModeSync } from './memory-config';
+import type { AutoRetrieveMode } from './memory-config';
+import { buildPriorityContextSplit, clearPriorityContextCache } from './priority-context';
 import { isQmdAvailable, runQmdUpdateNow } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { runPhase1Migration } from './migration';
@@ -30,6 +38,9 @@ import {
   logMemoryPromptAgentStart,
   logMemoryPromptBeforeAgentStart,
 } from './prompt-debug';
+
+/** Custom message type for auto-retrieved search results. */
+const SEARCH_CONTEXT_TYPE = 'memory-search-context';
 
 let cachedStatus: BootstrapStatus | null = null;
 let migrationChecked = false;
@@ -102,6 +113,43 @@ After receiving answers, write MEMORY.md:
 - Be friendly and natural between steps — this is a first-time experience.`;
 }
 
+/**
+ * Build the memory context for a normal (non-bootstrap) turn.
+ *
+ * Returns:
+ *   - `systemPromptAddition`: static memory + instructions for the system prompt
+ *   - `searchContext`: dynamic QMD search results for message injection
+ *   - `contextBlock`: full combined context (for debug logging)
+ */
+async function buildTurnContext(
+  prompt: string,
+  sessionId: string,
+  autoRetrieveMode: AutoRetrieveMode,
+): Promise<{
+  systemPromptAddition: string;
+  searchContext: string;
+  contextBlock: string;
+  memoryInstructions: string;
+}> {
+  const root = resolveMemoryRoot();
+  const snapshotMode = getMemorySnapshotModeSync();
+  const { staticContext, searchContext } = await buildPriorityContextSplit(
+    root,
+    prompt,
+    sessionId,
+    snapshotMode,
+    { includeSearch: autoRetrieveMode === 'on' },
+  );
+  const memoryInstructions = getMemoryInstructions();
+  const systemPromptAddition = staticContext + memoryInstructions;
+  // Full combined context for debug logging
+  const contextBlock = searchContext
+    ? (staticContext ? `${staticContext}\n\n---\n\n${searchContext}` : searchContext)
+    : staticContext;
+
+  return { systemPromptAddition, searchContext, contextBlock, memoryInstructions };
+}
+
 export function registerContextInjection(pi: ExtensionAPI): void {
   pi.on('session_start', (_event, ctx) => {
     const sessionId = ctx.sessionManager.getSessionId();
@@ -119,11 +167,12 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     resetBootstrapCache();
   });
 
+  // Strip prior-turn search context messages so only the latest reaches the LLM.
   pi.on('context', async (event) => {
     return {
       messages: event.messages.filter((message) => {
         const custom = message as unknown as Record<string, unknown>;
-        return custom.customType !== 'memory-context';
+        return custom.customType !== SEARCH_CONTEXT_TYPE;
       }),
     };
   });
@@ -143,11 +192,12 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     try {
       const status = await getCachedBootstrapStatus();
       const sessionId = ctx.sessionManager.getSessionId();
-      const snapshotMode = getMemorySnapshotModeSync();
+      const autoRetrieveMode = getAutoRetrieveModeSync();
 
       let addition = '';
       let contextBlock = '';
       let memoryInstructions = '';
+      let searchContext = '';
       let needsBootstrap = status.needsBootstrap;
 
       if (needsBootstrap) {
@@ -172,18 +222,20 @@ export function registerContextInjection(pi: ExtensionAPI): void {
         if (needsBootstrap) {
           addition = buildBootstrapInstructions(refreshedStatus.existingUserContent);
         } else {
-          const root = resolveMemoryRoot();
-          contextBlock = await buildPriorityContext(root, event.prompt ?? '', sessionId, snapshotMode);
-          memoryInstructions = getMemoryInstructions();
-          addition = contextBlock + memoryInstructions;
+          const turn = await buildTurnContext(event.prompt ?? '', sessionId, autoRetrieveMode);
+          addition = turn.systemPromptAddition;
+          contextBlock = turn.contextBlock;
+          memoryInstructions = turn.memoryInstructions;
+          searchContext = turn.searchContext;
         }
       }
 
       if (!needsBootstrap && !addition) {
-        const root = resolveMemoryRoot();
-        contextBlock = await buildPriorityContext(root, event.prompt ?? '', sessionId, snapshotMode);
-        memoryInstructions = getMemoryInstructions();
-        addition = contextBlock + memoryInstructions;
+        const turn = await buildTurnContext(event.prompt ?? '', sessionId, autoRetrieveMode);
+        addition = turn.systemPromptAddition;
+        contextBlock = turn.contextBlock;
+        memoryInstructions = turn.memoryInstructions;
+        searchContext = turn.searchContext;
       }
 
       logMemoryPromptBeforeAgentStart({
@@ -194,27 +246,32 @@ export function registerContextInjection(pi: ExtensionAPI): void {
         memoryInstructions,
         addition,
         needsBootstrap,
-        snapshotMode,
+        snapshotMode: getMemorySnapshotModeSync(),
         qmdAvailable: isQmdAvailable(),
         skipSearch: process.env.SERO_MEMORY_NO_SEARCH === '1',
       });
 
       info('before_agent_start', {
         needsBootstrap,
-        snapshotMode,
+        snapshotMode: getMemorySnapshotModeSync(),
+        autoRetrieve: autoRetrieveMode,
         promptChars: event.prompt?.length ?? 0,
         contextChars: contextBlock.length,
+        searchChars: searchContext.length,
         additionChars: addition.length,
       });
 
-      if (contextBlock.trim()) {
+      // Inject QMD search results as a per-turn message when auto-retrieve is on.
+      // The `context` event filter strips these from prior turns so only the
+      // latest search results reach the LLM.
+      if (searchContext.trim() && autoRetrieveMode === 'on') {
         try {
           pi.sendMessage(
-            { customType: 'memory-context', content: contextBlock.trim(), display: false },
+            { customType: SEARCH_CONTEXT_TYPE, content: searchContext.trim(), display: false },
             { triggerTurn: false },
           );
         } catch {
-          // Non-fatal — the same content is already injected into the system prompt.
+          // Non-fatal — search results are supplementary context, not critical.
         }
       }
 

@@ -2,10 +2,9 @@
  * Memory system prompt instructions — injected into the agent's system prompt
  * on every turn via the context injector's `before_agent_start` hook.
  *
- * These instructions teach the agent:
- * 1. To ALWAYS use memory commands instead of bash/grep/find/read for memory files
- * 2. When to use `memory_search` vs `memory read` vs `memory search`
- * 3. How to write/replace/remove memory entries correctly
+ * This is the SINGLE SOURCE OF TRUTH for memory-related agent instructions.
+ * Other prompt sources (AGENTS.md, CLI block, container block) should reference
+ * this section — not duplicate its content.
  */
 
 import { isQmdAvailable } from './qmd';
@@ -18,8 +17,7 @@ export function getMemoryInstructions(): string {
   return [
     '\n\n## Memory System',
     '',
-    `All memory files live in \`${root}\`. Run the commands below through the \`sero-cli\` tool. **Always use these memory commands** — never read/write/grep those files directly with bash, read, or edit tools. Direct file access bypasses IDs, timestamps, capacity limits, duplicate detection, transcript export, and search indexing.`,
-    'Managed files include `MEMORY.md`, `IDENTITY.md`, `USER.md`, `SCRATCHPAD.md`, `memory/daily/`, and `memory/sessions/`.',
+    `All memory files live in \`${root}\`. **Always use \`sero memory\`, \`sero memory_search\`, or \`sero scratchpad\` via \`sero-cli\`** — never read/write/grep managed files (\`MEMORY.md\`, \`IDENTITY.md\`, \`USER.md\`, \`SCRATCHPAD.md\`, \`memory/daily/\`, \`memory/sessions/\`) directly with bash, read, write, or edit tools. Direct access bypasses IDs, timestamps, capacity limits, duplicate detection, and search indexing.`,
     '',
     ...getMemoryRetrievalInstructions(hasSearch),
     '',
@@ -28,66 +26,50 @@ export function getMemoryInstructions(): string {
 }
 
 /**
- * Instructions for retrieving/searching memory — the "when to reach for memory" rules.
- *
- * These tell the agent to prefer memory_search over bash/grep/find
- * for any question about past context, conversations, or stored knowledge.
+ * Retrieval instructions — when and how to search memory.
  */
 function getMemoryRetrievalInstructions(hasSearch: boolean): string[] {
   const lines: string[] = [
-    '### Retrieving information',
+    '### Retrieval',
     '',
-    '**When the user asks about past conversations, previous decisions, what was discussed, or anything that might be in memory — use `sero memory_search`, not bash/grep/find/read.**',
+    'For past conversations, decisions, preferences, or stored knowledge — use `sero memory_search`, not bash/grep/find.',
+    '- `sero memory_search --query "X"` — ranked search across memory + transcripts (default `--scope all`)',
+    '- `sero memory_search --query "X" --scope sessions` — search transcripts only',
+    '- `sero memory_search --query "X" --scope memory` — search memory files only',
     '',
-    '`sero memory_search` is the canonical recall/search path for Sero memory. It searches across long-term memory files AND exported session transcripts with ranked results. Bash tools cannot do this reliably — they miss transcripts, lack semantic matching, bypass indexing, and return raw file content instead of ranked excerpts.',
-    '',
-    'Use `memory_search` for:',
-    '- "What did we discuss about X?" → `sero memory_search --query "X" --scope sessions`',
-    '- "Do I have any memory about Y?" → `sero memory_search --query "Y" --scope memory`',
-    '- "Search for Z across everything" → `sero memory_search --query "Z"` (defaults to `--scope all`)',
-    '- Any question about past context, decisions, preferences, or conversation history',
-    '',
-    'Efficiency rule: start with ONE precise search query. If that first search already returns a direct answer, stop and answer the user. Only run a second search when the first search misses, is ambiguous, or needs broader recall.',
-    '',
+    'Start with ONE precise query. If it answers the question, stop. Only broaden if the first search misses.',
   ];
 
   if (hasSearch) {
-    lines.push('Modes: `keyword` (fast, default) → `semantic` (conceptual matching) → `deep` (hybrid reranking). Escalate only if the first mode misses or stays ambiguous.');
+    lines.push('Modes: `keyword` (default) → `semantic` → `deep`. Escalate only if needed.');
   } else {
-    lines.push('If `memory_search` reports that search indexing is unavailable, surface that limitation to the user and do NOT fall back to bash/read on managed memory files.');
+    lines.push('If search indexing is unavailable, report that to the user — do NOT fall back to bash/read.');
   }
 
   lines.push(
     '',
-    'Use `sero memory read` to view the full contents of a specific managed file:',
-    '- `sero memory read --target memory [--with_ids true]` — view MEMORY.md (use --with_ids before replace/remove)',
-    '- `sero memory read --target identity|user|daily`',
-    '',
-    'Use `sero memory search --query "..."` only for quick text grep across memory files (no transcripts, no ranked recall).',
-    'Use `sero scratchpad list` to view SCRATCHPAD.md instead of reading it directly.',
+    'To view full file contents: `sero memory read --target memory|identity|user|daily` (add `--with_ids true` before replace/remove).',
+    'For quick text grep (no transcripts): `sero memory search --query "..."`.',
+    'For scratchpad: `sero scratchpad list`.',
   );
 
   return lines;
 }
 
-/** Instructions for writing/updating memory. */
+/** Storage instructions — how to write/update memory. */
 function getMemoryStorageInstructions(): string[] {
   return [
-    '### Storing information',
+    '### Storage',
     '',
     '- `sero memory write --target memory|daily|user|identity --content "..." [--type fact|decision|preference|lesson|question|hypothesis] [--mode append|overwrite]`',
     '- `sero memory replace --target memory --entry_id "mem-..." --content "..."`',
     '- `sero memory remove --target memory --entry_id "mem-..."`',
-    '- `sero memory consolidate [--schedule daily|weekly|off]` — run or configure automatic memory consolidation',
-    '- `sero memory config [--snapshot frozen|live]` — control whether long-term memory is frozen per session or rebuilt each turn',
+    '- `sero memory consolidate [--schedule daily|weekly|off]`',
+    '- `sero memory config [--snapshot frozen|live] [--auto_retrieve on|off]`',
     '- `sero scratchpad add|done "..."`',
     '',
-    'Guidelines:',
-    '- Save durable preferences, decisions, project facts, and corrections to `memory`',
-    '- Save session-specific progress, blockers, and follow-ups to `daily`',
-    '- Read with IDs before updating memory so you replace stale entries instead of duplicating them',
-    '- Use type tags: [fact], [decision], [preference], [lesson], [question], [hypothesis] — decisions and preferences are preserved first when memory is truncated',
-    '- The memory tool assigns stable entry IDs automatically; do not edit raw files to manage them',
-    '- If a file is near capacity, replace or remove stale memory instead of appending more',
+    'Save durable facts, decisions, preferences, corrections → `memory`. Session progress, blockers → `daily`.',
+    'Read with IDs before updating to avoid duplicates. Use type tags ([fact], [decision], [preference], etc.).',
+    'Near capacity? Replace or remove stale entries instead of appending.',
   ];
 }

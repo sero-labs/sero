@@ -196,7 +196,8 @@ describe('Token Baseline Benchmark', () => {
   it('CLI prompt block', () => {
     const block = buildCliPromptBlock();
     const tokens = measure('cli_block', block);
-    expect(tokens).toBeLessThan(400);
+    // Includes per-command summaries (saves sero help round-trips)
+    expect(tokens).toBeLessThan(600);
   });
 
   it('Skills listing', () => {
