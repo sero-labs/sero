@@ -16,6 +16,7 @@ import { execFile } from 'node:child_process';
 import { homedir, hostname, userInfo } from 'node:os';
 import path from 'node:path';
 import { readPluginConfig } from '../../plugin-config';
+import { SERO_AGENT_DIR } from '../../../platform/env';
 
 // ── Constants ───────────────────────────────────────────────
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -83,8 +84,8 @@ export function deriveKeyringPassword(): string {
   } catch {
     uid = 'unknown';
   }
-  // SERO_AGENT_DIR is set per-profile by loadSeroEnv() at startup
-  const profileScope = process.env.SERO_AGENT_DIR ?? '';
+  // SERO_AGENT_DIR is resolved per-profile at module load time
+  const profileScope = SERO_AGENT_DIR;
   return crypto.createHash('sha256')
     .update(`sero-google-keyring:${host}:${uid}:${profileScope}`)
     .digest('hex')
