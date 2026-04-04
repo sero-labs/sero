@@ -13,6 +13,12 @@ import type {
   SeroVcsAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
+import type {
+  SeroGatewayAPI,
+  SeroGitHubAPI,
+  SeroLocalModelsAPI,
+  SeroPluginConfigAPI,
+} from './electron-services';
 import type { ThemePreset, ThemePresetMeta } from './theme';
 
 import type {
@@ -60,18 +66,12 @@ import type {
   CollaborationStateSnapshot,
   CollaborationEvent,
   CollaborationConfig,
-  QrLoginData,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
   AppRecordingResult,
-  CreateGitHubRepoInput,
-  CreateGitHubRepoResult,
-  LocalModelsConfig,
-  LocalModelsConnectionRequest,
-  LocalRemoteModelInfo,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -406,26 +406,6 @@ interface SeroPluginsAPI {
   onChanged(callback: (event: PluginChangeEvent) => void): () => void;
 }
 
-interface SeroGatewayAPI {
-  /**
-   * Generate a QR code for device pairing.
-   * Creates a time-limited web token and returns the QR data URL + login URL.
-   * @param expiryDays  Number of days until the token expires (default 7).
-   */
-  getQrLoginData(expiryDays?: number): Promise<QrLoginData>;
-}
-
-interface SeroLocalModelsAPI {
-  /** Read the current models.json config. Returns empty config if file doesn't exist. */
-  getConfig(): Promise<LocalModelsConfig>;
-  /** Write the full models.json config to disk and refresh the model registry. */
-  saveConfig(config: LocalModelsConfig): Promise<void>;
-  /** Test connectivity to a local provider using its selected API + auth settings. */
-  testConnection(request: LocalModelsConnectionRequest): Promise<{ ok: boolean; error?: string }>;
-  /** Fetch available models from a provider's API (OpenAI, Anthropic, Google, Ollama). */
-  fetchRemoteModels(request: LocalModelsConnectionRequest): Promise<LocalRemoteModelInfo[]>;
-}
-
 interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
@@ -464,32 +444,7 @@ interface SeroAPI {
   github: SeroGitHubAPI;
   plugins: SeroPluginsAPI;
   localModels: SeroLocalModelsAPI;
-}
-
-// ── GitHub Auth ──────────────────────────────────────────────
-
-interface GitHubAuthStatus {
-  authenticated: boolean;
-  username?: string;
-  scopes?: string;
-}
-
-interface GitHubDeviceFlowEvent {
-  type: 'code' | 'polling' | 'success' | 'error';
-  userCode?: string;
-  verificationUri?: string;
-  message?: string;
-  username?: string;
-}
-
-interface SeroGitHubAPI {
-  status(): Promise<GitHubAuthStatus>;
-  login(): Promise<void>;
-  logout(): Promise<void>;
-  cancel(): Promise<void>;
-  onEvent(callback: (event: GitHubDeviceFlowEvent) => void): () => void;
-  /** Create a GitHub repository for a workspace. */
-  createRepo(workspaceId: string, input: CreateGitHubRepoInput): Promise<CreateGitHubRepoResult>;
+  pluginConfig: SeroPluginConfigAPI;
 }
 
 declare global {

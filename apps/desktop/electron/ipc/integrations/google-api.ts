@@ -15,7 +15,12 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { IpcChannels } from '../../../src/types/ipc';
-import { GoogleAuthManager, deriveKeyringPassword } from '../../features/auth/google/auth-manager';
+import { GoogleAuthManager } from '../../features/auth/google/auth-manager';
+import {
+  deriveKeyringPassword,
+  getGoogleClientName,
+} from '../../features/auth/google/gog-keyring';
+import { onPluginConfigChange } from '../../features/plugin-config';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -59,7 +64,7 @@ const GOG_TIMEOUT_MS = 30_000;
 function runGog(args: string[], email?: string): Promise<GogExecResult> {
   return new Promise((resolve) => {
     const accountArgs = email ? ['--account', email] : [];
-    const fullArgs = ['--json', '--no-input', ...accountArgs, ...args];
+    const fullArgs = ['--client', getGoogleClientName(), '--json', '--no-input', ...accountArgs, ...args];
     const child = execFile(findGogBinary(), fullArgs, {
       timeout: GOG_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
@@ -92,10 +97,17 @@ export function getGoogleAuthManager(): GoogleAuthManager {
 export function registerGoogleApiHandlers(): void {
   const auth = getGoogleAuthManager();
 
+  // Reset auth manager state when Google plugin config changes
+  // (e.g. user saves new OAuth credentials via the setup form)
+  onPluginConfigChange('sero-google-plugin', () => {
+    auth.resetForConfigChange();
+  });
+
   /** Execute a gogcli data command — auto-injects --account from auth. */
   ipcMain.handle(
     IpcChannels.google.execute,
     async (_event, service: string, subArgs: string[]): Promise<GogExecResult> => {
+      await auth.ensureCredentialsAvailable();
       return runGog([service, ...subArgs], auth.getEmail() ?? undefined);
     },
   );
