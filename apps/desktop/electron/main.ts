@@ -25,7 +25,7 @@ import { workspaceManager } from './features/workspace/manager';
 import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
 import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps';
-import { ensureDefaultAgents, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
+import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
 import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
@@ -246,6 +246,7 @@ app.whenReady().then(async () => {
 
   // ── Copy default templates if first launch ─────────────────
   ensureDefaultAgents().catch((err) => console.warn('[sero] Agent template copy failed:', err));
+  ensureDefaultSkills().catch((err) => console.warn('[sero] Skill template copy failed:', err));
   ensureProfileTemplates().catch((err) => console.warn('[sero] Profile template copy failed:', err));
   ensureDefaultThemes().catch((err) => console.warn('[sero] Theme template copy failed:', err));
 

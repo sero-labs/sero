@@ -2,19 +2,21 @@
  * Profile bootstrapping — first-launch template setup.
  *
  * 1. Copies built-in agent templates to <SERO_AGENT_DIR>/agents/
- * 2. Copies profile templates to the global workspace root
+ * 2. Copies built-in skill templates to <SERO_AGENT_DIR>/skills/
+ * 3. Copies profile templates to the global workspace root
  *    (with placeholder substitution for dynamic paths)
  *
- * Both operations only copy files whose filename is missing from the
+ * All operations only copy entries whose name is missing from the
  * target directory, so user edits are never overwritten.
  */
 
-import { readdir, copyFile, readFile, writeFile, mkdir } from 'fs/promises';
+import { readdir, copyFile, readFile, writeFile, mkdir, cp } from 'fs/promises';
 import path from 'path';
 import { SERO_AGENT_DIR, SERO_HOME } from '../../platform/env';
 import { resolveBuiltinTemplatesDir } from '../../platform/protocols/builtin-resources';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
+const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
 const GLOBAL_WORKSPACE_DIR = path.join(SERO_HOME, 'workspaces', 'global');
 
 /**
@@ -88,7 +90,10 @@ async function copyMissingFiles(
   let copied = 0;
 
   for (const file of matchingFiles) {
-    if (existing.has(file)) continue;
+    if (existing.has(file)) {
+      console.log(`[setup] Skipped (already exists): ${file} in ${destDir}`);
+      continue;
+    }
 
     const src = path.join(srcDir, file);
     const dest = path.join(destDir, file);
@@ -123,6 +128,64 @@ export async function ensureDefaultAgents(): Promise<void> {
   } catch (err) {
     console.warn('[setup] Failed to copy agent templates:', err);
   }
+}
+
+/**
+ * Copy default skill templates (directories) to SERO_AGENT_DIR/skills/.
+ * Each skill is a directory containing SKILL.md + optional references/.
+ * Only copies skill directories whose name is missing from the target.
+ *
+ * Call once from electron/main.ts at startup.
+ */
+export async function ensureDefaultSkills(): Promise<void> {
+  try {
+    const templatesDir = getTemplatesDir('skills');
+    if (!templatesDir) return;
+    const copied = await copyMissingDirs(templatesDir, SKILLS_DIR);
+    if (copied > 0) {
+      console.log(`[setup] Copied ${copied} skill template(s) to ${SKILLS_DIR}`);
+    }
+  } catch (err) {
+    console.warn('[setup] Failed to copy skill templates:', err);
+  }
+}
+
+/**
+ * Copy subdirectories from `srcDir` to `destDir` that don't already exist
+ * in the target. Uses recursive copy for the entire directory tree.
+ * Returns the number of directories copied.
+ */
+async function copyMissingDirs(
+  srcDir: string,
+  destDir: string,
+): Promise<number> {
+  await mkdir(destDir, { recursive: true });
+
+  const existing = new Set(await readdir(destDir));
+
+  let entries: string[];
+  try {
+    entries = await readdir(srcDir);
+  } catch {
+    console.warn('[setup] Templates directory not found:', srcDir);
+    return 0;
+  }
+
+  let copied = 0;
+  for (const entry of entries) {
+    if (existing.has(entry)) {
+      console.log(`[setup] Skipped (already exists): ${entry} in ${destDir}`);
+      continue;
+    }
+
+    const src = path.join(srcDir, entry);
+    const dest = path.join(destDir, entry);
+    await cp(src, dest, { recursive: true });
+    console.log(`[setup] Copied template: ${entry} → ${destDir}`);
+    copied++;
+  }
+
+  return copied;
 }
 
 const THEMES_DIR = path.join(SERO_HOME, 'themes');
