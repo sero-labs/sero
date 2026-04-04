@@ -369,6 +369,10 @@ export const IpcChannels = {
     logout: 'sero:google:logout',
     /** Main → renderer push: auth flow progress events. */
     authEvent: 'sero:google:auth-event',
+    /** Get Google OAuth config status (configured or not). */
+    getConfig: 'sero:google:get-config',
+    /** Save Google OAuth client credentials. */
+    saveConfig: 'sero:google:save-config',
   },
   safeStorage: {
     /** Encrypt a string via OS keychain (macOS Keychain / DPAPI). */

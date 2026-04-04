@@ -67,6 +67,10 @@ interface SeroGoogleAPI {
   logout(): Promise<void>;
   /** Subscribe to auth flow progress events. Returns unsubscribe. */
   onAuthEvent(callback: (event: GoogleAuthEvent) => void): () => void;
+  /** Check if Google OAuth client credentials are configured. */
+  getConfig(): Promise<{ configured: boolean }>;
+  /** Save Google OAuth client credentials. Returns success. */
+  saveConfig(clientId: string, clientSecret: string): Promise<{ ok: boolean }>;
 }
 
 interface SeroAppAgentAPI {
