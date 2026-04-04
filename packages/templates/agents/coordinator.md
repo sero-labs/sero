@@ -2,7 +2,7 @@
 {
   "name": "coordinator",
   "description": "Lead synthesizer for 4-agent collaboration",
-  "model": "claude-sonnet-4-6",
+  "model": { "prefer": "HIGH", "fallbacks": ["gpt-5.4", "claude-sonnet-4-6", "gemini-2.5-pro"] },
   "thinking": "high"
 }
 ```

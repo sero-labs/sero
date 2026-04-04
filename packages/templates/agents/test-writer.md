@@ -2,7 +2,7 @@
 {
   "name": "test-writer",
   "description": "Unit test generation",
-  "model": "claude-sonnet-4-6",
+  "model": { "prefer": "MED", "fallbacks": ["gpt-5.4", "claude-sonnet-4-6", "gemini-2.5-pro"] },
   "thinking": "medium",
   "tools": ["read", "write", "bash", "edit"]
 }
