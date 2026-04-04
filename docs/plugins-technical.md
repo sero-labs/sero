@@ -176,13 +176,22 @@ standard `sero.app` manifest:
 
 ### Types
 
-Defined in `packages/common/src/plugins.ts` and re-exported to the renderer via
-`src/types/plugins.ts` / `src/types/ipc.ts`:
+Shared cross-package contracts live in `packages/common/src/` and should be
+re-exported from `packages/common/src/index.ts` so desktop, remotes, and
+plugins can consume them via `@sero/common`.
+
+Current plugin-system types are defined in `packages/common/src/plugins.ts` and
+re-exported to the renderer via `src/types/plugins.ts` / `src/types/ipc.ts`:
 
 - **`PluginCategory`** — Union of category string literals
 - **`PluginMeta`** — Shape of `sero.plugin` from package.json
 - **`InstalledPlugin`** — Renderer-safe info about an installed plugin
 - **`PluginRegistryEntry`** — Entry from the remote plugin registry
+
+Rules for `@sero/common`:
+- keep it renderer-safe (`type`/utility code only; no Electron or Node-only imports)
+- use it for neutral contracts shared across multiple packages
+- keep app-local state in the app/plugin's own `shared/` directory instead of promoting everything prematurely
 
 ## Installation Flow
 

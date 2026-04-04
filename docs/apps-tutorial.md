@@ -157,6 +157,7 @@ plugin manifest.
   },
   "devDependencies": {
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero/common": "workspace:*",
     "@sero-ai/ui": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@vitejs/plugin-react": "catalog:",
@@ -190,14 +191,25 @@ plugin manifest.
 - `@sero-ai/ui` is a `devDependency` that provides shared shadcn/ui components
   (`Button`, `Card`, etc.) and utilities (`cn`). Components are bundled into
   your app at build time — no MF sharing needed.
+- `@sero/common` is the place for **renderer-safe shared contracts** used across
+  desktop, remotes, and plugins **inside this monorepo**. If a type/helper
+  stops being app-local, move it into `packages/common/src/`, re-export it
+  from `packages/common/src/index.ts`, add `@sero/common` to the consuming
+  package's `devDependencies`, and import it via `@sero/common`.
 - `"devPort"` must be unique (see [Port conventions](#port-conventions)). The
   host auto-discovers it from the manifest — no central registry or Vite remotes
   file to update.
 
 ## Step 2: Define the Shared State
 
-Create `shared/types.ts` — the single source of truth for your state shape.
-Both the Pi extension and the web UI import this.
+Create `shared/types.ts` — the single source of truth for your app-local
+state shape. Both the Pi extension and the web UI import this.
+
+If a type/helper needs to be shared more broadly across the desktop app,
+multiple plugins, or web/remotes **in this monorepo**, move that neutral
+contract into `@sero/common` instead of duplicating it. Keep `@sero/common`
+renderer-safe, re-export new types from `packages/common/src/index.ts`, and
+then import them from each consumer via `@sero/common`.
 
 ```typescript
 // shared/types.ts

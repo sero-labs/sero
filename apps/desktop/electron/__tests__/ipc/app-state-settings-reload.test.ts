@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { IpcChannels } from '../../../src/types/ipc';
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -67,9 +68,10 @@ vi.mock('../../features/apps/git-app/manager', () => ({
   },
 }));
 
-describe('app-state settings reload', () => {
+describe('app-state settings reload coalescing', () => {
   beforeEach(() => {
     vi.resetModules();
+    vi.useFakeTimers();
     mocks.fileChangeListener = null;
     mocks.ipcHandle.mockClear();
     mocks.settingsReload.mockClear();
@@ -88,7 +90,12 @@ describe('app-state settings reload', () => {
     mocks.appStateManager.write.mockClear();
   });
 
-  it('watches settings.json and reloads session resources when it changes on disk', async () => {
+  afterEach(async () => {
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+  });
+
+  it('watches settings.json and reloads session resources after the coalescing window', async () => {
     const { registerAppStateHandlers } = await import('../../ipc/apps/app-state');
 
     registerAppStateHandlers();
@@ -97,12 +104,38 @@ describe('app-state settings reload', () => {
     expect(mocks.fileChangeListener).toBeTypeOf('function');
 
     mocks.fileChangeListener?.('/tmp/sero-settings.json', { packages: ['/tmp/todo'] });
-    await vi.waitFor(() => {
-      expect(mocks.ensureInfra).toHaveBeenCalledOnce();
-      expect(mocks.settingsReload).toHaveBeenCalledOnce();
-      expect(mocks.applyRuntimeSettings).toHaveBeenCalledOnce();
-      expect(mocks.reloadAllSessionResources).toHaveBeenCalledOnce();
-    });
+
+    expect(mocks.ensureInfra).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(80);
+
+    expect(mocks.ensureInfra).toHaveBeenCalledOnce();
+    expect(mocks.settingsReload).toHaveBeenCalledOnce();
+    expect(mocks.applyRuntimeSettings).toHaveBeenCalledOnce();
+    expect(mocks.reloadAllSessionResources).toHaveBeenCalledOnce();
+  });
+
+  it('coalesces duplicate write-path and watcher notifications into one reload', async () => {
+    const { registerAppStateHandlers } = await import('../../ipc/apps/app-state');
+
+    registerAppStateHandlers();
+
+    const writeHandler = mocks.ipcHandle.mock.calls.find(
+      ([channel]) => channel === IpcChannels.appState.write,
+    )?.[1] as ((event: unknown, filePath: string, data: unknown) => Promise<void>) | undefined;
+
+    expect(writeHandler).toBeTypeOf('function');
+
+    const writePromise = writeHandler?.({}, '/tmp/sero-settings.json', { packages: ['/tmp/todo'] });
+    mocks.fileChangeListener?.('/tmp/sero-settings.json', { packages: ['/tmp/todo'] });
+
+    await vi.advanceTimersByTimeAsync(80);
+    await writePromise;
+
+    expect(mocks.ensureInfra).toHaveBeenCalledOnce();
+    expect(mocks.settingsReload).toHaveBeenCalledOnce();
+    expect(mocks.applyRuntimeSettings).toHaveBeenCalledOnce();
+    expect(mocks.reloadAllSessionResources).toHaveBeenCalledOnce();
   });
 
   it('ignores unrelated file changes', async () => {
@@ -111,7 +144,7 @@ describe('app-state settings reload', () => {
     registerAppStateHandlers();
     mocks.fileChangeListener?.('/tmp/not-settings.json', {});
 
-    await Promise.resolve();
+    await vi.runOnlyPendingTimersAsync();
 
     expect(mocks.ensureInfra).not.toHaveBeenCalled();
     expect(mocks.settingsReload).not.toHaveBeenCalled();

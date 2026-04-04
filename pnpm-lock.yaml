@@ -783,6 +783,9 @@ importers:
       '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../../packages/app-runtime
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.1.18(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(yaml@2.8.2))

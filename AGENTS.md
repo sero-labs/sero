@@ -39,6 +39,7 @@ pnpm typecheck             # Typecheck all (turbo)
 ## Shared Packages & Plugins
 
 - **`@sero-ai/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` context for federated plugin modules
+- **`@sero/common`** — shared renderer-safe types/utilities for code that should be reused across the desktop app, web/remotes, and plugins. Prefer moving neutral cross-package code here instead of duplicating it, as long as it does not depend on Electron, Node-only APIs, or desktop-only internals. When adding a new shared contract, put it under `packages/common/src/`, re-export it from `packages/common/src/index.ts`, and consume it via `import type { ... } from '@sero/common'` from apps/plugins that need it.
 
 Find all the Sero Plugins in: `plugins/sero-*-plugin`;
 The most comprehensive examples are:

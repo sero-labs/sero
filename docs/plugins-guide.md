@@ -128,6 +128,17 @@ my-plugin/
 └── vite.config.ts        # Module Federation remote config
 ```
 
+Keep app-local state/types in `shared/types.ts`. For **monorepo-shared**
+contracts used across desktop, remotes, and multiple built-in plugins, move
+that neutral code into `packages/common/src/`, re-export it from
+`packages/common/src/index.ts`, and consume it via
+`import type { ... } from '@sero/common'`. Keep `@sero/common` renderer-safe —
+no Electron, Node-only APIs, or desktop-only internals.
+
+If you later extract/publish the plugin outside this monorepo, vendor or
+publish any shared code it still depends on instead of assuming the workspace
+package will exist in the installed plugin environment.
+
 ### 2. Add plugin metadata
 
 Add a `sero.plugin` key to your `package.json` alongside `sero.app`:

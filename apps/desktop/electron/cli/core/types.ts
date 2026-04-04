@@ -1,5 +1,8 @@
-import type { ImageContent, TextContent } from '@mariozechner/pi-ai';
 import type { ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type {
+  ExtensionRuntimeMessage,
+  ExtensionSessionRuntime,
+} from '@sero/common';
 import type { ContainerManager } from '../../features/container';
 import type { WorkspaceManager } from '../../features/workspace/manager';
 
@@ -39,23 +42,10 @@ export interface CliParam {
   default?: unknown;
 }
 
-export interface CliCustomMessage {
-  customType: string;
-  content: string | (TextContent | ImageContent)[];
-  display: boolean;
-  details?: unknown;
-}
+export type CliCustomMessage = ExtensionRuntimeMessage;
 
-export interface CliSessionRuntime {
+export interface CliSessionRuntime extends ExtensionSessionRuntime {
   sessionId: string;
-  sendUserMessage: (
-    content: string | (TextContent | ImageContent)[],
-    options?: { deliverAs?: 'steer' | 'followUp' },
-  ) => void | Promise<void>;
-  sendMessage: (
-    message: CliCustomMessage,
-    options?: { triggerTurn?: boolean; deliverAs?: 'steer' | 'followUp' | 'nextTurn' },
-  ) => void | Promise<void>;
 }
 
 export interface CliCommandContext {

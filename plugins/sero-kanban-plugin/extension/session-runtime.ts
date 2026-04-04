@@ -1,21 +1,7 @@
-import type { ImageContent, TextContent } from '@mariozechner/pi-ai';
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { ExtensionSessionRuntime } from '@sero/common';
 
-export interface KanbanSessionRuntime {
-  sendUserMessage: (
-    content: string | (TextContent | ImageContent)[],
-    options?: { deliverAs?: 'steer' | 'followUp' },
-  ) => void | Promise<void>;
-  sendMessage: (
-    message: {
-      customType: string;
-      content: string | (TextContent | ImageContent)[];
-      display: boolean;
-      details?: unknown;
-    },
-    options?: { triggerTurn?: boolean; deliverAs?: 'steer' | 'followUp' | 'nextTurn' },
-  ) => void | Promise<void>;
-}
+export type KanbanSessionRuntime = ExtensionSessionRuntime;
 
 type RuntimeAwareExtensionContext = ExtensionContext & {
   sessionRuntime?: KanbanSessionRuntime;
