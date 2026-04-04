@@ -65,12 +65,11 @@ function bootstrapAgentDir(): void {
   if (!existsSync(settingsPath)) {
     const workspacePackages = getWorkspaceAppPaths();
     const defaults = {
-      defaultProvider: 'anthropic',
-      defaultModel: 'claude-opus-4-6',
       defaultThinkingLevel: 'high',
       packages: workspacePackages,
       sero: {
         modelFallbackChain: getDefaultModelFallbackChain(),
+        modelTiers: {},
       },
     };
     writeFileSync(settingsPath, JSON.stringify(defaults, null, 2) + '\n');

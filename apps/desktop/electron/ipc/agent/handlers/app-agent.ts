@@ -149,7 +149,7 @@ async function getOrCreateAppSession(
   const { session } = await createAgentSession({
     cwd: wsPath,
     agentDir: SERO_AGENT_DIR,
-    model: infra.model,
+    model: infra.model ?? undefined,
     thinkingLevel: 'high',
     authStorage: infra.authStorage,
     modelRegistry: infra.modelRegistry,
