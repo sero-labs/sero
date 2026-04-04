@@ -15,14 +15,13 @@ import { readFileSync, writeFileSync, chmodSync, existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { homedir, hostname, userInfo } from 'node:os';
 import path from 'node:path';
+import { SERO_AGENT_DIR } from '../../../platform/env';
 
-// ── Lazy env access ──────────────────────────────────────────
+// ── Constants ───────────────────────────────────────────────
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const LOOPBACK = '127.0.0.1';
-
-import { SERO_AGENT_DIR } from '../../../platform/env';
 
 const GOOGLE_CONFIG_PATH = path.join(SERO_AGENT_DIR, 'google-oauth.json');
 
@@ -55,11 +54,12 @@ export function getGoogleConfig(): { configured: boolean } {
   return { configured: !!cfg || envConfigured };
 }
 
-function getClientId(): string {
-  return loadConfig()?.clientId ?? process.env.GOOGLE_CLIENT_ID ?? '';
-}
-function getClientSecret(): string {
-  return loadConfig()?.clientSecret ?? process.env.GOOGLE_CLIENT_SECRET ?? '';
+function getCredentials(): { clientId: string; clientSecret: string } {
+  const cfg = loadConfig();
+  return {
+    clientId: cfg?.clientId ?? process.env.GOOGLE_CLIENT_ID ?? '',
+    clientSecret: cfg?.clientSecret ?? process.env.GOOGLE_CLIENT_SECRET ?? '',
+  };
 }
 
 const SCOPES = [
@@ -151,8 +151,14 @@ export class GoogleAuthManager {
   private statusCache: { validUntil: number; result: GoogleAuthStatus } | null = null;
   private static STATUS_CACHE_TTL = 30_000; // 30 seconds
 
-  isConfigured(): boolean { return !!getClientId() && !!getClientSecret(); }
+  isConfigured(): boolean {
+    const { clientId, clientSecret } = getCredentials();
+    return !!clientId && !!clientSecret;
+  }
   getEmail(): string | null { return this.email; }
+
+  /** Clear the cached auth status (call after saving new config). */
+  clearStatusCache(): void { this.statusCache = null; }
 
   async getStatus(): Promise<GoogleAuthStatus> {
     if (!this.isConfigured()) return { configured: false, authenticated: false };
@@ -203,7 +209,7 @@ export class GoogleAuthManager {
    */
   async login(onProgress: (e: GoogleAuthProgress) => void): Promise<void> {
     if (!this.isConfigured()) {
-      throw new Error('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in ~/.sero-ui/agent/.env');
+      throw new Error('Google OAuth not configured. Use the setup form in the Google plugin or add credentials to ~/.sero-ui/agent/google-oauth.json');
     }
 
     // PKCE
@@ -214,8 +220,9 @@ export class GoogleAuthManager {
     const { port, getCode, server } = await this.startServer();
     const redirect = `http://${LOOPBACK}:${port}`;
 
+    const creds = getCredentials();
     const params = new URLSearchParams({
-      client_id: getClientId(), redirect_uri: redirect,
+      client_id: creds.clientId, redirect_uri: redirect,
       response_type: 'code', scope: SCOPES,
       access_type: 'offline', prompt: 'consent',
       code_challenge: challenge, code_challenge_method: 'S256',
@@ -283,11 +290,12 @@ export class GoogleAuthManager {
   }
 
   private async exchangeCode(code: string, redirect: string, verifier: string) {
+    const creds = getCredentials();
     const resp = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        code, client_id: getClientId(), client_secret: getClientSecret(),
+        code, client_id: creds.clientId, client_secret: creds.clientSecret,
         redirect_uri: redirect, grant_type: 'authorization_code', code_verifier: verifier,
       }),
     });
@@ -316,9 +324,10 @@ export class GoogleAuthManager {
 
   private async ensureCredentials(): Promise<void> {
     if (this.credsImported) return;
+    const creds = getCredentials();
     const r = await pipeToGog(['auth', 'credentials', 'set', '-'], JSON.stringify({
       installed: {
-        client_id: getClientId(), client_secret: getClientSecret(),
+        client_id: creds.clientId, client_secret: creds.clientSecret,
         auth_uri: AUTH_URL, token_uri: TOKEN_URL, redirect_uris: ['http://localhost'],
       },
     }));
