@@ -62,14 +62,15 @@ function findGog(): string {
 }
 
 /**
- * Derive a machine-specific keyring password instead of using a hardcoded value.
- * Combines hostname, uid, and a salt so the password varies per machine/user.
+ * Derive a profile-specific keyring password.
+ * Combines hostname, uid, and the active profile's agent directory so
+ * each Sero profile gets its own isolated token bucket in gogcli's
+ * shared keyring. Tokens imported in one profile cannot be decrypted
+ * by another profile.
  *
- * NOTE: This is defense-in-depth, not a real secret — hostname and uid are
- * both easily discoverable by any local user. The primary protection is
- * file permissions on the keyring file itself (user-only directory).
- * TODO: Consider using Electron safeStorage or macOS Keychain for the
- * keyring password if stronger isolation is needed.
+ * NOTE: This is defense-in-depth, not a real secret — the inputs are
+ * discoverable by any local user. The primary protection is file
+ * permissions on the keyring file itself (user-only directory).
  *
  * Exported because google-api.ts (IPC data commands) must use the same
  * password that was used to import the token.
@@ -82,8 +83,10 @@ export function deriveKeyringPassword(): string {
   } catch {
     uid = 'unknown';
   }
+  // SERO_AGENT_DIR is set per-profile by loadSeroEnv() at startup
+  const profileScope = process.env.SERO_AGENT_DIR ?? '';
   return crypto.createHash('sha256')
-    .update(`sero-google-keyring:${host}:${uid}`)
+    .update(`sero-google-keyring:${host}:${uid}:${profileScope}`)
     .digest('hex')
     .slice(0, 32);
 }
