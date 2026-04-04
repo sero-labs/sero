@@ -48,12 +48,11 @@ The most comprehensive examples are:
 - `plugins/sero-admin-plugin` - Config editor, log viewer, and session browser
 - `plugins/sero-memory-plugin` - Persistent memory system and daily logs
 
-## Documentation
+## Documentation (read when needed)
 
 - [docs/sero.md](docs/sero.md) — vision, platform constraints, Pi SDK philosophy
 - [docs/architecture.md](docs/architecture.md) — shell layout, component hierarchy
 - [docs/decisions.md](docs/decisions.md) — numbered architecture decisions with rationale
-- [docs/apps-tutorial.md](docs/apps-tutorial.md) — step-by-step guide to building new Sero plugins
 - [docs/features/memory.md](docs/features/memory.md) — memory system architecture, tools, context injection, proactive logging
 - [docs/reference/state-and-folders.md](docs/reference/state-and-folders.md) — config/state locations and rationale
 - [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty native module rebuild guide (MUST READ if terminals fail)
@@ -161,10 +160,9 @@ This is set via `PI_CODING_AGENT_DIR` in `electron/env.ts` before any SDK import
 
 ### Creating a Sero Plugin (IMPORTANT)
 
-**When asked to create a new Sero plugin, you MUST read
-[docs/apps-tutorial.md](docs/apps-tutorial.md) first.** It covers the full
+**When asked to create a new Sero plugin, you MUST use the `sero-plugin` skill
 process: package structure, shared state types, Pi extension, web UI, module
-federation setup, and dev workflow. Do not improvise — follow the tutorial
+federation setup, and dev workflow. Do not improvise — follow the skill
 step by step.
 
 **Plugin registration is fully automatic.** The host (`apps/desktop/`) auto-discovers

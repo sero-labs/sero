@@ -3,6 +3,12 @@
 Complete file templates for every file in a Sero plugin. Replace `myapp`/`MyApp`
 with your actual plugin name throughout.
 
+If the plugin is **extension-only** (no federated web UI), keep `package.json`,
+`shared/`, and `extension/`, and omit `vite.config.ts`, `ui/`, and the
+`sero.app.ui` / `component` / `devPort` fields. Also replace the Vite-based
+`scripts` with extension-only ones (for example, `typecheck` should point only
+at `extension/tsconfig.json`).
+
 ## Table of Contents
 
 - [package.json](#packagejson)
@@ -79,6 +85,10 @@ with your actual plugin name throughout.
 - Pi SDK packages in `peerDependencies` (runtime provides them)
 - `@sero-ai/app-runtime` in `devDependencies` (shared via MF singleton)
 - `@sero-ai/ui` in `devDependencies` (bundled at build time)
+- Use `@sero/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
+- `stateFile` remains required even for global apps — Sero ignores it there, but Pi CLI uses it as a fallback path
+- `ui`, `component`, and `devPort` are only needed when the plugin ships a web UI
+- For extension-only plugins, remove the Vite `dev` / `build` scripts and keep an extension-only `typecheck`
 - `devPort` must be unique — check existing plugins first
 - Omit `bridgeTools` in `sero.plugin` to bridge all tools by default
 
@@ -111,6 +121,7 @@ export const DEFAULT_STATE: MyAppState = {
 - Always provide `DEFAULT_STATE`
 - Keep shape flat-ish
 - Include auto-incrementing ID for lists
+- If a type/helper stops being app-local, move that neutral contract into `@sero/common`
 
 ---
 
@@ -287,6 +298,24 @@ export default function (pi: ExtensionAPI) {
 - Resolve `statePath` from `ctx.cwd` in execute handler (reliable) with session fallback
 - Atomic writes always (temp -> rename)
 - Handle both `session_start` and `session_switch`
+- If a bridged tool needs current-session side effects, depend on the execution context instead of capturing a registration-scoped `pi` object inside tool logic
+
+**Profile-aware config/cache paths:**
+- App-specific config/caches outside the workspace state file should resolve from `process.env.SERO_HOME`
+- Pi SDK / agent resources (`settings.json`, `auth.json`, `skills/`, `extensions/`) should resolve from `process.env.PI_CODING_AGENT_DIR`
+- Only fall back to `~/.pi` when those env vars are unset (Pi CLI mode)
+
+**Global app state path example:**
+
+```typescript
+function resolveStatePath(cwd: string): string {
+  const seroHome = process.env.SERO_HOME;
+  if (seroHome) {
+    return path.join(seroHome, 'apps', 'myapp', 'state.json');
+  }
+  return path.join(cwd, STATE_REL_PATH);
+}
+```
 
 ---
 

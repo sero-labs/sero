@@ -229,6 +229,15 @@ const unregister = registerWidget({
 // Later: unregister();
 ```
 
+Widget runtime API:
+
+| Export | Description |
+|--------|-------------|
+| `useWidgetRegistration(opts)` | Hook — registers on mount, unregisters on unmount |
+| `registerWidget(widget)` | Imperative registration — returns `unregister()` |
+| `getRuntimeWidgets()` | Returns all runtime-registered widgets |
+| `onWidgetRegistryChange(fn)` | Subscribe to registry changes |
+
 ### Dashboard grid sizing
 
 6-column grid, 120px row height, 16px margins.
@@ -252,7 +261,7 @@ const unregister = registerWidget({
 | `name` | Yes | Display name in sidebar |
 | `icon` | Yes | Lucide icon name |
 | `scope` | No | `"workspace"` (default) or `"global"` |
-| `stateFile` | Yes | Path relative to workspace root. Convention: `.sero/apps/<id>/state.json` |
+| `stateFile` | Yes | Path relative to workspace root. Convention: `.sero/apps/<id>/state.json`. For global apps, keep it in the manifest as the Pi CLI fallback even though Sero resolves state from `SERO_HOME`. |
 | `ui` | No | Path to built `remoteEntry.js`. Null if no UI. |
 | `component` | No | Exported component name. Required if `ui` is set. |
 | `devPort` | No | Vite dev server port. Required if `ui` is set. Must be unique. |

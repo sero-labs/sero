@@ -68,6 +68,8 @@ grep -r '"devPort"' plugins/sero-*-plugin/package.json
 
 ### Step 2: Create the directory structure
 
+For plugins with a web UI, use this shape:
+
 ```
 plugins/sero-<name>-plugin/
 +-- package.json
@@ -84,6 +86,10 @@ plugins/sero-<name>-plugin/
 |   +-- index.html
 ```
 
+If the plugin is **extension-only** (no sidebar UI / no federated remote),
+keep `package.json`, `shared/`, and `extension/`, and omit `vite.config.ts`,
+`ui/`, and the `sero.app.ui` / `component` / `devPort` fields.
+
 Read `references/templates.md` for the exact content of each file.
 
 ### Step 3: Create package.json
@@ -96,6 +102,10 @@ Critical rules:
 - Pi SDK packages go in `peerDependencies` (runtime provides them)
 - `@sero-ai/app-runtime` is a `devDependency` (shared via MF at runtime)
 - `@sero-ai/ui` is a `devDependency` (bundled at build time)
+- Use `@sero/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
+- `stateFile` stays required even for global apps — Sero ignores it there, but Pi CLI uses it as the fallback path
+- `ui`, `component`, and `devPort` are required only when the plugin ships a web UI
+- If the plugin is extension-only, remove the Vite-based `dev` / `build` / UI typecheck scripts and keep an extension-only `typecheck`
 - `devPort` must be unique across all plugins
 
 ### Step 4: Define shared state types
@@ -108,6 +118,7 @@ Rules:
 - Provide a `DEFAULT_STATE` constant
 - Keep the shape flat-ish
 - Include auto-incrementing ID fields for lists
+- If a type/helper stops being app-local, move that neutral contract into `@sero/common` instead of duplicating it
 
 ### Step 5: Build the Pi extension
 
@@ -125,6 +136,9 @@ Read `references/templates.md` for the full extension template.
 ### Step 6: Build the web UI
 
 Create the React component in `ui/<Name>App.tsx`.
+
+If the plugin is **extension-only**, skip this step and omit `vite.config.ts`,
+`ui/`, and the `sero.app.ui` / `component` / `devPort` fields.
 
 Critical requirements:
 - **Both named and default exports required** — `export function MyApp()` AND `export default MyApp`
@@ -151,6 +165,14 @@ pnpm --filter @sero-ai/plugin-<name> typecheck
 
 All three must pass before the plugin is ready.
 
+Why these steps matter:
+- `pnpm install` links the new workspace package and dependencies
+- `build` validates Module Federation and produces `dist/ui/remoteEntry.js` when the plugin has a UI
+- `typecheck` catches both extension and UI errors before Sero loads the plugin
+
+For **extension-only** plugins, skip the Vite build and use an extension-only
+`typecheck` script instead.
+
 ### Step 8: Test
 
 ```bash
@@ -161,6 +183,17 @@ SERO_DEV_PLUGINS=<name> bash scripts/dev.sh
 1. Click the app in the sidebar
 2. Add items via UI -> state.json updates -> UI re-renders
 3. Ask agent to use the tool -> writes state.json -> file watcher fires -> UI updates
+
+## Development workflow
+
+- Include the plugin ID in `SERO_DEV_PLUGINS` to get UI HMR from the remote Vite dev server
+- UI file changes under `ui/` should reload quickly without restarting Electron
+- Changes to `extension/` or `shared/types.ts` require restarting the desktop dev server / Electron main process
+- `devPort` in `package.json` must match `server.port` in `vite.config.ts`
+- Useful logs:
+  - `/tmp/sero-vite.log` — host Vite + remote reload events
+  - `/tmp/sero-remote-<name>.log` — remote Vite dev server
+  - `/tmp/sero-electron.log` — Electron main + forwarded renderer errors
 
 ## Critical rules
 
@@ -173,6 +206,7 @@ standalone tool schemas. Always use `pi.registerTool()` in extensions.
 - Use `sero.plugin.bridgeTools` only to disable or be selective
 - **Never** register app tools as `customTools` in `createAgentSession()`
 - Bridged tools execute against the **current session's** loaded extension instance
+- If a bridged tool needs current-session side effects, depend on the execution context passed into the tool instead of capturing a registration-scoped `pi` object inside the tool logic
 
 ### Auto-discovery
 
@@ -240,6 +274,13 @@ When in doubt, study these existing plugins:
 | `plugins/sero-web-plugin/` | Converting an existing Pi extension |
 | `plugins/sero-cron-plugin/` | Background jobs, command-oriented plugins |
 
+## Related docs
+
+- `docs/plugins-guide.md` — packaging and distributing installable plugins
+- `docs/plugins-technical.md` — plugin system internals, federation, IPC, security
+- `docs/architecture.md` — desktop shell layout and host-side state flow
+- `apps/desktop/AGENTS.md` — project-wide rules (500 LOC, storage bans, import rules)
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -249,6 +290,7 @@ When in doubt, study these existing plugins:
 | Agent missing tool | Restart dev server, check `pi.extensions` field |
 | UI changes not showing | Check remote Vite dev server running, extension changes need full restart |
 | "No UI module registered" | Set `sero.app.component` and `devPort` in package.json |
+| "No workspace selected" | Pick a workspace first, or make the plugin `scope: "global"` if it should work without one |
 | State not syncing | Verify same `stateFile` path, use atomic writes |
 | Keyboard stealing input | Scope listeners to container, not `window` |
 | `lazy: Expected dynamic import` | Add `export default MyApp` to component file |
