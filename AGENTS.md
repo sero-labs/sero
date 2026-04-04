@@ -57,7 +57,6 @@ The most comprehensive examples are:
 - [docs/memory.md](docs/memory.md) — memory system architecture, tools, context injection, proactive logging
 - [docs/state-and-folders-analysis.md](docs/state-and-folders-analysis.md) — config/state locations and rationale
 - [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty native module rebuild guide (MUST READ if terminals fail)
-- [docs/libs/container.md](docs/libs/container.md) — Apple Container CLI reference + ghost container protocol
 - [docs/themes/README.md](docs/themes/README.md) - Theming and style guide
 - [docs/plugins-guide.md](docs/plugins-guide.md) — creating, distributing, and installing Sero plugins
 - [docs/plugins-technical.md](docs/plugins-technical.md) — plugin system internals (architecture, IPC, file layout)
@@ -300,9 +299,8 @@ framework). See [docs/decisions.md](docs/decisions.md) AD-018 for full details.
 - **SSH forwarding** — `--ssh` on `container run` for git with private repos
 - **Container code** lives in `electron/container/` — types, lifecycle, files,
   terminal, image, tools, system-prompt, file-watcher
-- **Ghost containers** — follow the protocol in
-  [docs/libs/container.md](docs/libs/container.md). NEVER delete container
-  storage directories directly. NEVER restart the API server in normal operation.
+- **Ghost containers** — NEVER delete container storage directories directly.
+  NEVER restart the API server in normal operation.
 - **Container CLI** is at `/usr/local/bin/container` (v0.8.0+)
 
 ### Widevine DRM / Castlabs Electron
