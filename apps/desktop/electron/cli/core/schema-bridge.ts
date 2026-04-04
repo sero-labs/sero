@@ -12,9 +12,10 @@
  * and re-register them as CLI commands (removing them from agent context).
  */
 
-import type { ToolDefinition, RegisteredCommand, ExtensionContext } from '@mariozechner/pi-coding-agent';
-import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
+import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { CliCommand, CliCommandContext, CliContentBlock, CliResult, CliSessionRuntime } from './types';
 import { parseFlags } from '../lib/utils';
+import { getBridgedExtensionCommand, getBridgedExtensionTool } from '../bridges/extension-session-bridge';
 import { createSeroUIContext } from '../../features/apps/extensions/ui-context';
 
 const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
@@ -315,17 +316,22 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
         const params = schemaToParams(props, args);
         // Forward agent context (model, modelRegistry, etc.) when available
         // so bridged tools like `memory consolidate` can call LLMs.
+        // We also inject a narrow execution-scoped `sessionRuntime` so bridged
+        // tools can perform current-session side effects without capturing `pi`.
         // When agentContext exists, recombining with cwd produces a full ExtensionContext.
         // When it doesn't (standalone CLI), we provide a bare {cwd} — extension tools
         // must handle missing fields gracefully (e.g. ctx.model === undefined).
-        const toolContext: ExtensionContext = ctx.agentContext
-          ? { ...ctx.agentContext, cwd: ctx.cwd }
-          : { cwd: ctx.cwd } as ExtensionContext;
-        const result = await toolDef.execute(
+        const activeToolDef = getBridgedExtensionTool(toolName, ctx)?.definition ?? toolDef;
+        const toolContext = (ctx.agentContext
+          ? { ...ctx.agentContext, cwd: ctx.cwd, sessionRuntime: ctx.sessionRuntime }
+          : { cwd: ctx.cwd, sessionRuntime: ctx.sessionRuntime }) as ExtensionContext & {
+            sessionRuntime?: CliSessionRuntime;
+          };
+        const result = await activeToolDef.execute(
           'cli-bridge',
           params,
           ctx.invocation.signal,
-          onUpdate as Parameters<typeof toolDef.execute>[3],
+          onUpdate as Parameters<typeof activeToolDef.execute>[3],
           toolContext,
         );
         const content = extractContent(result);
@@ -352,30 +358,41 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
  * Wraps a Pi extension command (registered via `pi.registerCommand()`)
  * into a CLI command so the agent can invoke it via `sero <name> [args]`.
  *
- * The command handler receives `{ cwd }` as context — it can use
- * `ctx.cwd` but not session-level APIs like `ctx.sessionManager`.
- * Side effects (pi.sendMessage, pi.setActiveTools, etc.) work through
- * the extension's closure-captured `pi` reference.
+ * The concrete command handler is resolved from the active session at
+ * execute time, so bridged plugin commands never reuse another session's
+ * closure-captured `pi` or extension-local state.
  */
 /**
  * Build a minimal ExtensionCommandContext for bridged commands.
  *
  * Reuses the canonical `createSeroUIContext()` so there's a single
- * source of truth for the UIContext shim across Sero.
+ * source of truth for the UIContext shim across Sero. When agent context
+ * is available, we forward it and add `sessionRuntime` for current-session
+ * side effects.
  */
 function buildCommandContext(ctx: CliCommandContext): Record<string, unknown> {
-  return { cwd: ctx.cwd, hasUI: true, ui: createSeroUIContext() };
+  return {
+    ...(ctx.agentContext ? { ...ctx.agentContext } : {}),
+    cwd: ctx.cwd,
+    hasUI: true,
+    ui: createSeroUIContext(),
+    sessionRuntime: ctx.sessionRuntime,
+  };
 }
 
-export function bridgeCommand(name: string, cmd: RegisteredCommand): CliCommand {
+export function bridgeCommand(name: string, description?: string): CliCommand {
   return {
     name,
-    summary: cmd.description ?? name,
+    summary: description ?? name,
     source: 'app',
     group: 'App Commands',
     execute: async (args: string[], ctx: CliCommandContext): Promise<CliResult> => {
       try {
-        await cmd.handler(args.join(' '), buildCommandContext(ctx) as any);
+        const registered = getBridgedExtensionCommand(name, ctx);
+        if (!registered) {
+          return { output: 'ERROR: This command requires an active agent session.', exitCode: 1 };
+        }
+        await registered.handler(args.join(' '), buildCommandContext(ctx) as any);
         return { output: `/${name} executed`, exitCode: 0 };
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Command failed';

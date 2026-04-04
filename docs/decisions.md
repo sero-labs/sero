@@ -237,23 +237,28 @@ request. With 15+ extensions, tool schemas alone consumed ~3,000–5,000 tokens
 per turn — before the user even sent a message. Combined with the system
 prompt, a "tell me a joke" session started at 13k+ tokens.
 
-**Decision:** All extension/app tools are bridged into the single `sero-cli`
-tool at runtime. The bridge (`electron/cli/index.ts` → `TOOLS_TO_BRIDGE`)
-intercepts tools during `extensionsOverride`, removes their schemas from the
-agent's tool list, and re-registers them as CLI subcommands under `sero-cli`.
+**Decision:** All app/extension tools are bridged into the single `sero-cli`
+tool at runtime. In addition, extension slash commands are exposed as CLI
+commands for agent use while remaining available to the user as slash
+commands.
 
 **Mechanism:**
 - `bridgeExtensionTools()` runs during `DefaultResourceLoader` setup.
-- For each tool in `TOOLS_TO_BRIDGE`, the generic schema bridge
-  (`electron/cli/schema-bridge.ts`) converts the TypeBox parameter schema
-  into CLI-style arg parsing (positionals + `--flags`).
+- The generic schema bridge (`electron/cli/schema-bridge.ts`) converts a
+  tool's TypeBox schema into CLI-style arg parsing (positionals + `--flags`).
 - Array/object parameters accept JSON strings and are parsed automatically.
-- The tool's `execute()` function is called unchanged — only the invocation
-  path differs.
+- Plugin tools are bridged **manifest-first** via `sero.plugin.bridgeTools`:
+  - `undefined` / `true` → bridge all tools from that plugin
+  - `false` → bridge none
+  - `string[]` → bridge only selected tool names
+- Bridged tools and bridged extension commands resolve against the
+  **current session's loaded extension instance** at execute time, not the
+  first session that registered the command.
+- Bridged execution contexts include a narrow execution-scoped
+  `sessionRuntime` capability (`sendUserMessage`, `sendMessage`) for
+  current-session side effects without exposing raw `pi`.
 - **Single-command bridged results preserve rich content** (`text` + `image`
-  blocks) and `details` through `sero-cli`, so the chat stream and history
-  replay can render tool-produced images the same way they do for direct tool
-  calls.
+  blocks) and `details` through `sero-cli`.
 - **Multi-command CLI batches stay text-only by design.** If any bridged
   command in a batch returns non-text blocks, `sero-cli` returns the combined
   textual transcript plus `details.richOutputFallback = true` and a fallback
@@ -265,9 +270,11 @@ browser, sero-cli) instead of 16+. Saves ~2,000–3,000 tokens per session.
 **Rules:**
 - **All app/extension tools MUST use `pi.registerTool()`** — never add them
   as `customTools` in `createAgentSession()` (those bypass the bridge).
-- **New extension tools** must be added to `TOOLS_TO_BRIDGE` in
-  `electron/cli/index.ts`. If a tool appears as a standalone schema in the
-  agent, it's missing from the bridge list.
+- **Plugin authors do not edit a central allowlist** just to bridge a normal
+  plugin tool. Use `sero.plugin.bridgeTools` only when you need to opt out or
+  bridge selectively.
+- **Tools that need session side effects** must depend on execution-scoped
+  runtime capabilities, not on registration-scoped captured extension objects.
 - **Core coding tools** (bash, read, write, edit, browser) remain standalone
   because models are trained to use them with structured parameters.
 - Tools work unchanged in the **Pi CLI** — the bridge is Sero-only.

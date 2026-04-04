@@ -180,11 +180,19 @@ all `plugins/sero-*-plugin/` directories that have a `sero.app` manifest in thei
 If the remote Vite config uses `root: 'ui'`, the package must include
 `ui/index.html` or `vite build` will fail.
 
-**Tool bridging (AD-020):** All extension tools are automatically bridged into
-the single `sero-cli` tool — they do NOT appear as standalone tool schemas.
-Always use `pi.registerTool()` in extensions, never `customTools` in
-`createAgentSession()`. New tools must be added to `TOOLS_TO_BRIDGE` in
-`electron/cli/index.ts`. See [docs/decisions.md](docs/decisions.md) AD-020.
+**Tool bridging (AD-020):** App/extension tools are bridged into the single
+`sero-cli` tool — they do NOT appear as standalone tool schemas. Always use
+`pi.registerTool()` in extensions, never `customTools` in
+`createAgentSession()`.
+
+- Plugin packages with `sero.plugin` bridge **all tools by default**.
+- Use `sero.plugin.bridgeTools` only when you need to disable bridging or
+  bridge a selective subset.
+- Bridged tools/commands execute against the **current session's** loaded
+  extension instance, so do not rely on registration-scoped captured `pi`
+  objects for session-specific behavior inside bridged execution paths.
+
+See [docs/decisions.md](docs/decisions.md) AD-020.
 
 ### IPC Data Flow (IMPORTANT)
 

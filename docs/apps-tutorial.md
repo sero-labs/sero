@@ -15,7 +15,7 @@ working agent tool + live web UI.
 - [Step 2: Define the Shared State](#step-2-define-the-shared-state)
 - [Step 3: Build the Pi Extension](#step-3-build-the-pi-extension)
 - [Step 4: Build the Web UI](#step-4-build-the-web-ui)
-- [Step 5: Install and Restart](#step-5-install-and-restart)
+- [Step 5: Build and Start](#step-5-build-and-start)
 - [Step 6: Run and Test](#step-6-run-and-test)
 - [Converting an Existing Pi Extension](#converting-an-existing-pi-extension)
 - [App Runtime API Reference](#app-runtime-api-reference)
@@ -92,16 +92,17 @@ Key properties:
 
 ## Step 1: Create the Package
 
-Create a new directory under `packages/`:
+Create a new directory under `plugins/`:
 
 ```
-packages/pi-myapp-extension/
+plugins/sero-myapp-plugin/
 ├── package.json
 ├── vite.config.ts          ← root-level, uses root: 'ui'
 ├── shared/
 │   └── types.ts
 ├── extension/
-│   └── index.ts
+│   ├── index.ts
+│   └── tsconfig.json
 ├── ui/
 │   ├── MyApp.tsx
 │   ├── styles.css
@@ -112,18 +113,19 @@ packages/pi-myapp-extension/
 
 ### `package.json`
 
-The package.json serves double duty: Pi manifest + Sero app manifest.
+The package.json serves triple duty: Pi manifest + Sero app manifest + Sero
+plugin manifest.
 
 ```json
 {
-  "name": "@sero/myapp",
+  "name": "@sero-ai/plugin-myapp",
   "version": "0.1.0",
   "description": "My app for Sero",
   "keywords": ["pi-package"],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
     "extensions": ["./extension/index.ts"]
@@ -137,49 +139,60 @@ The package.json serves double duty: Pi manifest + Sero app manifest.
       "ui": "./dist/ui/remoteEntry.js",
       "component": "MyApp",
       "devPort": 5175
+    },
+    "plugin": {
+      "category": "productivity",
+      "tags": ["myapp", "example"],
+      "minSeroVersion": "0.1.0"
     }
   },
   "dependencies": {
-    "@sinclair/typebox": "^0.34.48"
+    "@sinclair/typebox": "catalog:"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": ">=0.52.0",
-    "@mariozechner/pi-coding-agent": ">=0.52.0",
-    "@mariozechner/pi-tui": ">=0.52.0"
+    "@mariozechner/pi-ai": "catalog:peer",
+    "@mariozechner/pi-coding-agent": "catalog:peer",
+    "@mariozechner/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
   },
   "devDependencies": {
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/ui": "workspace:*",
-    "@module-federation/vite": "^1.11.0",
-    "@vitejs/plugin-react": "^4.7.0",
-    "@tailwindcss/vite": "^4.1.18",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3",
-    "vite": "^6.4.1"
+    "@module-federation/vite": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
   }
 }
 ```
 
 **Important notes:**
 
-- `"keywords": ["pi-package"]` makes it discoverable by Pi.
-- `"pi"` section is standard Pi — see
-  [Pi Packages](../docs/libs/pi-coding-agent/packages.md) for full
-  options.
-- `"sero"` section is ignored by Pi CLI. Sero reads it for app discovery.
-- Pi SDK packages (`@mariozechner/*`, `@sinclair/typebox`) go in
-  `peerDependencies` — they're provided by the Pi runtime. See
+- Built-in Sero apps in this monorepo live under `plugins/sero-*-plugin/`.
+  The host auto-discovers them — no manual registration files to edit.
+- `"keywords": ["pi-package"]` keeps the package compatible with Pi tooling.
+- `"pi"` is standard Pi metadata — see
+  [Pi Packages](../docs/libs/pi-coding-agent/packages.md) for full options.
+- `"sero.app"` is the Sero app manifest used for sidebar discovery, app state,
+  and module federation.
+- `"sero.plugin"` marks the package as a plugin-style app. Omit
+  `bridgeTools` to bridge **all** plugin tools into `sero-cli` by default; use
+  `false` or a string array only if you need to opt out or be selective.
+- Pi SDK packages (`@mariozechner/*`, `@sinclair/typebox`) stay in
+  `peerDependencies` — the Pi runtime provides them. See
   [Extension Dependencies](../docs/libs/pi-coding-agent/packages.md#dependencies).
 - `@sero-ai/app-runtime` is a `devDependency` because it's shared via module
   federation at runtime — the host provides the singleton.
 - `@sero-ai/ui` is a `devDependency` that provides shared shadcn/ui components
   (`Button`, `Card`, etc.) and utilities (`cn`). Components are bundled into
   your app at build time — no MF sharing needed.
-- `"devPort"` must be a unique port (see [Port conventions](#port-conventions)).
-  The host auto-discovers this at build time — no manual Vite config edits
-  needed.
+- `"devPort"` must be unique (see [Port conventions](#port-conventions)). The
+  host auto-discovers it from the manifest — no central registry or Vite remotes
+  file to update.
 
 ## Step 2: Define the Shared State
 
@@ -427,37 +440,40 @@ export default function (pi: ExtensionAPI) {
 - Extension tools should keep output concise. See
   [Output Truncation](../docs/libs/pi-coding-agent/extensions.md#output-truncation).
 
-> **⚠️ Tool bridging — no standalone tool schemas in Sero.**
+> **⚠️ Tool bridging — no standalone app tool schemas in Sero.**
 >
-> All extension tools are automatically bridged into the single `sero-cli`
-> tool at runtime (see [AD-020](../docs/decisions.md#ad-020)). Your tool's
-> JSON schema is **removed** from the agent's tool list and re-registered
-> as a CLI subcommand (e.g. `sero myapp list`, `sero myapp add "title"`).
+> App/plugin tools are bridged into the single `sero-cli` tool at runtime (see
+> [AD-020](../docs/decisions.md#ad-020)). In Sero, your tool schema is removed
+> from the agent's direct tool list and re-registered as a CLI subcommand
+> (for example `sero myapp list`, `sero myapp add --title "Test"`).
 >
 > **What this means for you:**
-> - Write your `pi.registerTool()` exactly as shown above — no changes needed.
-> - The bridge is automatic: any tool registered by a Pi extension is
->   intercepted and moved into `sero-cli`.
-> - The tool name becomes a CLI command. Params map to positional args
->   (required first) and `--flags` (optional). Array/object params accept
->   JSON strings.
-> - If your tool returns mixed content, **single-command** `sero-cli`
->   invocations preserve `text`, `image`, and `details` blocks end-to-end.
->   **Multi-command** batches are text-only by design; if one command emits
->   rich content, Sero adds a fallback notice and sets
->   `details.richOutputFallback = true` so the agent can rerun that command
->   alone when it needs the image payload.
-> - Your tool works unchanged in the **Pi CLI** (where it remains a
->   standalone tool). The bridging is Sero-only.
-> - **Do NOT** register tools directly as `customTools` in `createAgentSession`
->   — those bypass the bridge and waste token budget. All app tools must go
->   through Pi extension `registerTool()`.
+> - Keep writing normal Pi extensions with `pi.registerTool()`.
+> - Built-in/core tool names may still be matched by a static allowlist, but
+>   plugin packages with `sero.plugin` bridge **all tools by default**.
+>   Use `sero.plugin.bridgeTools` only when you need to disable bridging or
+>   bridge a selective subset.
+> - The tool name becomes a CLI command. Required params come first; optional
+>   params become `--flags`. Array/object params accept JSON strings.
+> - **Single-command** `sero-cli` invocations preserve `text`, `image`, and
+>   `details` blocks end-to-end. **Multi-command** batches are text-only by
+>   design and set `details.richOutputFallback = true` when rich content must
+>   be rerun alone.
+> - Bridged tools execute against the **current session's loaded extension
+>   instance**, not the first session that registered the command.
+> - If a bridged tool needs current-session side effects (for example queueing
+>   follow-up messages or sending custom status messages), depend on the
+>   execution context passed into the tool instead of capturing a registration-
+>   scoped `pi` object inside tool logic.
+> - Your tool still works unchanged in the **Pi CLI** where it remains a normal
+>   standalone Pi tool. The bridging behavior is Sero-only.
+> - **Do NOT** register app tools directly as `customTools` in
+>   `createAgentSession()` — those bypass the bridge and waste token budget.
 >
-> **Why:** Each standalone tool schema costs ~200–400 tokens. With 15+
-> extensions, that's 3,000–5,000 tokens of tool schemas on every turn —
-> before the user even sends a message. The `sero-cli` bridge collapses
-> all app tools into one schema (just `command` + `timeout`), saving
-> thousands of tokens per session. See [AD-020](../docs/decisions.md#ad-020).
+> **Why:** Each standalone tool schema costs ~200–400 tokens. With many
+> extensions, that adds thousands of tokens before the user even sends a
+> message. `sero-cli` collapses app tools into one compact schema (`command`
+> + `timeout`), saving a large chunk of context budget every session.
 
 ### Profile-aware config and cache paths
 
@@ -799,51 +815,52 @@ You can add app-specific `@keyframes` and `@utility` rules to this file too.
 </html>
 ```
 
-## Step 5: Build, Install, and Restart
+## Step 5: Build and Start
 
-App registration is **fully automatic**. The host auto-discovers all
-`packages/pi-*/` directories that have a `sero.app` manifest. No manual
-edits to any `apps/desktop/` file are needed.
+App registration is **fully automatic**. For built-in monorepo apps, the host
+auto-discovers all `plugins/sero-*-plugin/` directories that have a `sero.app`
+manifest. No manual edits to Vite remotes, federation registries, Electron
+startup, or CLI bridge files are needed.
 
-**After creating your package, run these commands from the monorepo root
-before restarting Sero:**
+**After creating a new built-in plugin, run these commands from the monorepo
+root before starting or restarting the desktop dev server:**
 
 ```bash
-# From the monorepo root — install deps + build the new package:
 pnpm install
-pnpm --filter @sero/myapp build
+pnpm --filter @sero-ai/plugin-myapp build
+pnpm --filter @sero-ai/plugin-myapp typecheck
 
-# Then restart the dev server (set SERO_DEV_PLUGINS=myapp for HMR):
 cd apps/desktop
-bash scripts/dev.sh
+SERO_DEV_PLUGINS=myapp bash scripts/dev.sh
 ```
 
-> **You MUST run `pnpm install` and `pnpm --filter <package-name> build`
-> after creating a new app package.** `pnpm install` links the workspace
-> dependencies (including `@sero-ai/app-runtime`). The build step produces
-> `dist/ui/remoteEntry.js` which the host needs for production mode and
-> which validates that the MF config is correct. To run the UI in dev mode,
-> start `dev.sh` with `SERO_DEV_PLUGINS=<plugin-id>`; otherwise the host
-> loads the built bundle. The initial build catches errors early.
+> **You MUST run `pnpm install`, `build`, and `typecheck` after creating a new
+> app package.** `pnpm install` links workspace dependencies. The build step
+> produces `dist/ui/remoteEntry.js`, which validates the MF setup and is used
+> whenever the plugin is not running in dev mode. `typecheck` catches extension
+> and UI errors early. For UI HMR, include your app ID in `SERO_DEV_PLUGINS`;
+> otherwise the host loads the built bundle.
 
-On startup:
+On startup (and on profile settings reload for installed plugins):
 
-1. **`vite.config.ts`** scans `packages/pi-*/package.json` for `sero.app`
-   manifests and builds the Module Federation remotes map from `id` +
-   `devPort`.
-2. **`dev.sh`** discovers the same packages and starts a Vite dev server
-   only for the plugin IDs listed in `SERO_DEV_PLUGINS`; everything else
-   loads from pre-built bundles.
-3. **`electron/main.ts`** scans packages and registers their paths for
-   app discovery + adds them to `~/.sero-ui/agent/settings.json` so the
-   agent loads the extension tools.
-4. **`federation-registry.ts`** uses MF's `loadRemote()` at runtime —
-   it derives the module path from the manifest's `id` and `component`
-   fields. No static per-app imports needed.
+1. **`vite.config.ts`** scans `plugins/sero-*-plugin/package.json` for
+   `sero.app` manifests and builds the Module Federation remotes map from
+   `id` + `devPort`.
+2. **`dev.sh`** discovers the same packages and starts Vite dev servers only
+   for the plugin IDs listed in `SERO_DEV_PLUGINS`; everything else loads from
+   pre-built bundles.
+3. **`electron/main.ts`** registers built-in plugin paths in the active
+   profile's `settings.json` so the Pi resource loader sees their extensions.
+4. **`app-state.ts`** watches that `settings.json`; when it changes (for
+   example after installing an external plugin), Sero reloads active session
+   resources so new `sero-cli` commands appear without a manual restart.
+5. **`federation-registry.ts`** uses MF's `loadRemote()` at runtime — it
+   derives the module path from the manifest's `id` and `component` fields.
+   No static per-app imports are needed.
 
 ### How auto-discovery works
 
-The host reads three fields from each package's `sero.app` manifest:
+The host reads three fields from each plugin's `sero.app` manifest:
 
 | Field | Used by | Example |
 |-------|---------|---------|
@@ -854,17 +871,12 @@ The host reads three fields from each package's `sero.app` manifest:
 All other fields (`name`, `icon`, `stateFile`, `ui`) are used for sidebar
 display and app state management — they don't affect the federation wiring.
 
-### Production
+### External / installed plugins
 
-In production, apps are discovered via `pi install`:
-
-```bash
-pi install npm:@sero/myapp        # from npm
-pi install ./packages/pi-myapp-extension  # local path
-```
-
-See [Pi Packages](../docs/libs/pi-coding-agent/packages.md) for
-full install/publish documentation.
+For plugins distributed outside the monorepo, package and install them via the
+Sero plugin flow described in [plugins-guide.md](plugins-guide.md). Installed
+plugins are added to the active profile's `settings.json` and their tools,
+commands, and UI refresh into running sessions automatically.
 
 ## Step 6: Run and Test
 
@@ -1650,20 +1662,28 @@ Pi CLI it's unset, so the extension falls back to the workspace-relative path
 
 **All app tools go through the `sero-cli` bridge.** Never add app tools as
 `customTools` in `createAgentSession()` — always use `pi.registerTool()` in
-your extension. The bridge in `electron/cli/index.ts` (`TOOLS_TO_BRIDGE`)
-automatically intercepts extension tools, removes their schemas from the
-agent's tool context, and re-registers them as CLI subcommands.
+your extension.
 
-If you add a new extension tool and it appears as a standalone tool in the
-agent (visible in the system prompt's tool list alongside bash/read/write/edit),
-add its name to `TOOLS_TO_BRIDGE` in `apps/desktop/electron/cli/index.ts`.
+For plugin packages with `sero.plugin`, tool bridging is now **manifest-driven**:
+
+- omit `sero.plugin.bridgeTools` or set it to `true` to bridge all tools
+- set it to `false` to keep all plugin tools standalone in Sero
+- set it to `string[]` to bridge only selected tool names
+
+Sero resolves bridged tools and bridged extension commands against the
+**current session's loaded extension instance**, so session-local plugin state
+and command behavior stay correct across workspaces and sessions.
+
+If a bridged tool needs to perform current-session side effects (for example
+queueing follow-up messages), make that dependency explicit in the execution
+context instead of relying on a registration-time captured `pi` object.
 
 ### Naming
 
 - **Built-in plugin:** `plugins/sero-<name>-plugin/` (auto-discovered,
   not installed/uninstalled)
-- **Standalone package:** `packages/pi-<name>-extension/` (installable
-  via `pi install`)
+- **External distribution package:** publishable bundle/source derived from
+  your plugin (see [plugins-guide.md](plugins-guide.md))
 - MF remote name: `sero_<id>` (underscore, not hyphen — MF requires valid JS
   identifiers)
 - Exposed module: `./<Component>` (e.g. `./MyApp`)
@@ -1857,7 +1877,8 @@ for plugins that are running in dev mode. No manual restart needed.
 
 Each app's `devPort` in `package.json` must be unique. The dev script and
 Vite config both read it automatically — no central port registry to maintain.
-Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
+Check the existing plugin manifests under `plugins/sero-*-plugin/package.json`
+before picking a new port.
 
 ### Logs
 
@@ -1878,19 +1899,24 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
 
 **App doesn't appear in sidebar:**
 - Check that `sero.app.id` and `sero.app.name` are set in `package.json`.
-- Verify the package directory is under `packages/` and starts with `pi-`.
+- Verify the package directory is under `plugins/` and matches
+  `sero-<name>-plugin/`.
 - Check that `pnpm install` was run after creating the package.
 - Check the electron log for `[app-discovery]` messages.
 
 **Agent doesn't have the tool:**
-- The host auto-registers packages in `~/.sero-ui/agent/settings.json` on
-  startup. Restart Sero after adding a new package.
+- For a **new built-in monorepo plugin**, restart the desktop dev server after
+  adding the package so startup discovery and Vite remotes pick it up.
+- For an **installed/external plugin**, a manual restart should not be needed:
+  changes to the active profile's `settings.json` are watched and active
+  session resources reload automatically.
 - Verify the package's `pi.extensions` field points to the correct file.
+- Run `sero help <tool-name>` to confirm the CLI bridge sees the tool.
 
 **UI changes don't appear after editing:**
 - Check that the remote Vite dev server is running (look for its log file).
 - The host's `watchRemotes` plugin triggers reload on file saves to
-  `packages/pi-*/ui/`. Check `/tmp/sero-vite.log` for
+  `plugins/sero-*/ui/`. Check `/tmp/sero-vite.log` for
   `[sero-watch-remotes]` messages.
 - Extension code changes (in `extension/`) require a full restart.
 
@@ -1938,50 +1964,53 @@ Current assignments: Todo=5174, Calc=5175, Weight=5176, Quote=5177.
 
 ## Reference Implementations
 
-The **Calculator app** (`packages/pi-calc-extension/`) is the best reference
-for using `@sero-ai/ui` components with Tailwind:
+The **Git plugin** (`plugins/sero-git-plugin/`) is a strong reference for a
+clean, focused app with a single core tool and a substantial UI:
 
 | File | What to learn |
 |------|---------------|
-| `ui/CalcApp.tsx` | `Button` and `Card` from `@sero-ai/ui`, `cn()` usage, container-scoped keyboard events |
-| `ui/styles.css` | Minimal Tailwind + `@theme inline` setup for remote apps |
-| `ui/calc-engine.ts` | Pure logic separated from React (testable, no side effects) |
-| `package.json` | `@sero-ai/ui` as workspace devDependency |
+| `package.json` | Modern built-in plugin manifest shape (`sero.app` + `sero.plugin`) |
+| `extension/index.ts` | Single-tool extension structure with cached workspace state |
+| `ui/GitApp.tsx` | `useAppState`, app composition, renderer-side state derivation |
+| `ui/components/CommitGraph.tsx` | Larger UI broken into focused sub-components |
+| `ui/lib/graph-layout.ts` | Pure UI logic extracted from React |
 
-The **Todo app** (`packages/pi-todo-extension/`) is the canonical reference
-for app structure:
-
-| File | What to learn |
-|------|---------------|
-| `package.json` | Dual Pi + Sero manifest, scripts, dependency structure |
-| `vite.config.ts` | MF remote configuration, `root: 'ui'` pattern, shared singletons |
-| `shared/types.ts` | Shared state shape pattern |
-| `extension/index.ts` | Tool registration, atomic file I/O, TUI rendering |
-| `ui/TodoApp.tsx` | `useAppState` usage, Tailwind styling, sub-components |
-
-The **Tetris app** (`packages/pi-tetris-extension/`) demonstrates patterns
-for interactive/game-style apps:
+The **Kanban plugin** (`plugins/sero-kanban-plugin/`) is the canonical full
+reference for a rich Sero app:
 
 | File | What to learn |
 |------|---------------|
-| `ui/TetrisApp.tsx` | Dynamic sizing with `ResizeObserver`, container-scoped keyboard events, `tabIndex` focus management |
-| `ui/game/useGame.ts` | Game loop hook with scoped keyboard listener (accepts `containerRef`), `setInterval` lifecycle |
-| `ui/game/engine.ts` | Pure game logic separated from React (testable, no side effects) |
-| `shared/types.ts` | Persisted stats (high score) vs. ephemeral game state (board, current piece) |
+| `package.json` | Built-in plugin manifest, prompts, widgets, and dependency setup |
+| `shared/types.ts` | Shared state + helper functions used by extension and UI |
+| `extension/index.ts` | Entry point wiring, session lifecycle, and tool registration |
+| `extension/workflow-actions.ts` | Extracting complex tool behavior into focused modules |
+| `extension/session-runtime.ts` | Adapting current-session runtime capabilities for bridged execution |
+| `ui/KanbanApp.tsx` | Main app shell with `useAppState`, derived board state, and composition |
+| `ui/components/*` | Splitting a large app into maintainable UI modules under the 500 LOC rule |
+| `ui/widgets/KanbanWidget.tsx` | Dashboard widget integration |
 
 The **Web Access plugin** (`plugins/sero-web-plugin/`) demonstrates converting
 an existing Pi extension into a self-contained Sero plugin:
 
 | File | What to learn |
 |------|---------------|
-| `extension/index.ts` | Entry point with session handlers, state sync, tool delegation |
+| `extension/index.ts` | Entry point with session handlers, state sync, and delegated tool modules |
+| `extension/commands.ts` | Slash commands that route users toward tool-driven workflows |
 | `extension/tools-search.ts` | Extracted tool registration as a standalone module |
-| `extension/state-sync.ts` | Atomic state file writes, session entry conversion |
-| `extension/exa.ts` + `exa-mcp.ts` | Splitting an oversized provider file |
-| `extension/extract.ts` + `http-extract.ts` | Splitting extraction orchestrator from HTTP logic |
+| `extension/tools-fetch.ts` | Rich output, progress updates, and persisted fetch history |
+| `extension/state-sync.ts` | Atomic state file writes and session-entry conversion |
 | `ui/WebApp.tsx` | Web UI replacing TUI widgets (search history, provider status) |
+| `ui/components/*` | Real-world use of `@sero-ai/ui` primitives inside a remote app |
 | `ui/widgets/WebWidget.tsx` | Dashboard widget showing recent activity |
-| `shared/types.ts` | Lightweight state shape for UI (stripped from agent-facing data) |
+
+The **Cron plugin** (`plugins/sero-cron-plugin/`) is a good reference for
+background jobs and command-oriented plugins:
+
+| File | What to learn |
+|------|---------------|
+| `extension/index.ts` | Long-lived service initialization with session lifecycle hooks |
+| `extension/state-io.ts` | Isolated persistence helpers |
+| `extension/notifier.ts` | Separating delivery/integration code from core logic |
 
 ### Related documentation
 

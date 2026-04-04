@@ -91,7 +91,7 @@ describe('plugin CLI bridging', () => {
     expect(getCliRegistry().get('plugin_all_default')).toBeTruthy();
   });
 
-  it('keeps kanban standalone even when plugin manifest defaults to bridge all tools', async () => {
+  it('bridges kanban when plugin manifest defaults to bridge all tools', async () => {
     const pluginDir = path.join(tmpDir, 'plugin-kanban');
     const extensionPath = path.join(pluginDir, 'extension', 'index.js');
     await mkdir(path.dirname(extensionPath), { recursive: true });
@@ -114,8 +114,8 @@ describe('plugin CLI bridging', () => {
     const base = createLoadExtensionsResult(extensionPath, ['kanban']);
     bridgeExtensionTools(base);
 
-    expect(base.extensions[0]?.tools.has('kanban')).toBe(true);
-    expect(getCliRegistry().get('kanban')).toBeFalsy();
+    expect(base.extensions[0]?.tools.has('kanban')).toBe(false);
+    expect(getCliRegistry().get('kanban')).toBeTruthy();
   });
 
   it('does not bridge plugin tools when sero.plugin.bridgeTools is false', async () => {

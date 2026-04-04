@@ -65,7 +65,15 @@ export function registerAppStateHandlers(): void {
         .then(() => kanbanOrchestrator.onStateChange(filePath, data as KanbanState))
         .catch((err) => console.error('[app-state] Kanban orchestrator listener error:', err));
     }
+
+    refreshRuntimeSettingsIfNeeded(filePath).catch((err) => {
+      console.error('[app-state] Settings change reload failed:', err);
+    });
   });
+
+  // Watch settings.json so direct edits or package-manager writes that bypass
+  // the IPC layer still refresh session resources and CLI-bridged tools.
+  appStateManager.watch(SERO_CONFIG_PATH);
 
   // Read state file
   ipcMain.handle(

@@ -20,6 +20,11 @@ import {
   bridgeTool,
   createSeroCliTool,
 } from './core';
+import {
+  clearBridgedExtensionSessionItems,
+  clearBridgedExtensionSessionItemsForSession,
+  replaceBridgedExtensionSessionItems,
+} from './bridges/extension-session-bridge';
 import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../features/plugins/bridge-policy';
 
 let registry: CliRegistry | null = null;
@@ -28,6 +33,7 @@ let registry: CliRegistry | null = null;
 export function resetCliRegistryForTests(): void {
   registry = null;
   clearPluginBridgePolicyCache();
+  clearBridgedExtensionSessionItems();
 }
 
 function registerCoreCommands(target: CliRegistry): void {
@@ -62,10 +68,10 @@ export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
  * Core tools to always bridge into the single `sero-cli` tool.
  * Every app/extension tool should be listed here — only core coding
  * tools (bash, read, write, edit, browser) and tools that depend on
- * SDK internals (ctx.sessionManager) remain as standalone tools.
+ * unavailable SDK internals remain as standalone tools.
  *
- * DO NOT bridge tools that use ctx.sessionManager, ctx.getContextUsage,
- * or other SDK context — the CLI bridge only passes { cwd }.
+ * Bridged tools receive `{ cwd }`, forwarded agent context, and a narrow
+ * execution-scoped `sessionRuntime` for current-session side effects.
  */
 const CORE_TOOLS_TO_BRIDGE = new Set([
   // Data & productivity
@@ -87,7 +93,8 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   // Planning & context
   'plan_todos',
   'slopzilla',
-  // Agent management
+  // Kanban & agent management
+  'kanban',
   'create_agent',
   // User input — interactive (timeout-exempt via INTERACTIVE_TOOLS)
   'question',
@@ -113,14 +120,12 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
  * Tool names that must NEVER be bridged into `sero-cli`.
  *
  * Only tools that genuinely cannot work through the CLI bridge belong here:
- * - `kanban` — some actions enqueue follow-up chat work through a session-bound `pi`
  * - `research` — external skill with its own streaming/timeout model
  *
  * User-interactive tools (question, questionnaire, interview) are now bridged
  * with `interactive: true` which disables the per-command timeout.
  */
 const NEVER_BRIDGE_TO_CLI = new Set([
-  'kanban',
   'research',
 ]);
 
@@ -155,7 +160,11 @@ function shouldBridgeTool(name: string, extensionPath: string): boolean {
   return pluginPolicy.bridgeAll || pluginPolicy.toolNames.has(name);
 }
 
-export { clearPluginBridgePolicyCache };
+export {
+  clearBridgedExtensionSessionItems,
+  clearBridgedExtensionSessionItemsForSession,
+  clearPluginBridgePolicyCache,
+};
 
 /**
  * Sero built-in commands (registered by the sero extension factory).
@@ -179,8 +188,15 @@ const BUILTIN_COMMANDS = new Set([
  *    wraps each into a CLI command so the agent can invoke them.
  *    Commands stay registered in extensions (user can still type /plan).
  */
-export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensionsResult {
+export function bridgeExtensionTools(
+  base: LoadExtensionsResult,
+  options?: { sessionId?: string },
+): LoadExtensionsResult {
   const reg = getCliRegistry();
+
+  if (options?.sessionId) {
+    replaceBridgedExtensionSessionItems(options.sessionId, base.extensions);
+  }
 
   for (const ext of base.extensions) {
     // Bridge tools → CLI (removes from agent tool list)
@@ -201,7 +217,7 @@ export function bridgeExtensionTools(base: LoadExtensionsResult): LoadExtensions
     for (const [name, registered] of ext.commands) {
       if (BUILTIN_COMMANDS.has(name)) continue;
       if (reg.get(name)) continue;
-      reg.register(bridgeCommand(name, registered));
+      reg.register(bridgeCommand(name, registered.description));
     }
   }
 
@@ -246,7 +262,7 @@ Use \`sero-cli\` for Sero platform actions instead of asking the user to do them
 ${sections.join('\n')}
 
 Run \`sero help <command>\` for details. Chain multiple commands (one per line).
-**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
+**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`, \`kanban\`), run \`sero help <command>\` first to check the exact schema.**
 
 For \`sero app\`: run \`sero help app\` first. Use \`app click <selector>\` or \`app click --x <n> --y <n>\` (coordinates relative to the active app screenshot). \`app type\` only works for text inputs/contenteditable. No \`app press\` command — use coordinate clicks.
 `;

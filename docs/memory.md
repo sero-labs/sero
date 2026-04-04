@@ -218,15 +218,17 @@ QMD provides semantic search via the `@tobilu/qmd` SDK (not CLI).
 | `SERO_HOME` | `~/.sero-ui` | Base directory for all Sero state |
 | `SERO_MEMORY_NO_SEARCH` | unset | Set to `1` to disable QMD selective injection |
 
-## Adding to TOOLS_TO_BRIDGE
+## CLI bridge registration
 
-All memory tools are already in `TOOLS_TO_BRIDGE` in `apps/desktop/electron/cli/index.ts`:
+The memory extension registers its tools normally via `pi.registerTool()`:
 - `memory`
 - `memory_search`
 - `scratchpad`
 
-No manual registration is needed — the extension auto-registers tools via
-`pi.registerTool()` and the CLI bridge picks them up.
+In Sero, plugin tool bridging is manifest-driven. Because the memory plugin is a
+`sero.plugin` package and does not opt out via `bridgeTools`, these tools are
+picked up automatically by the `sero-cli` bridge. No manual allowlist edit is
+required for normal plugin tools.
 
 ## Key Design Decisions
 

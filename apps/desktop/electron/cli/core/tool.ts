@@ -2,7 +2,14 @@ import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-a
 import { Type } from '@sinclair/typebox';
 import { containerManager, workspaceManager } from '../../shared/infra/shared-infra';
 import { tokenizeCliInput, splitCommandLines } from './parser';
-import type { BridgedAgentContext, CliCommandContext, CliContentBlock, CliInvocation, CliResult } from './types';
+import type {
+  BridgedAgentContext,
+  CliCommandContext,
+  CliContentBlock,
+  CliInvocation,
+  CliResult,
+  CliSessionRuntime,
+} from './types';
 import type { CliRegistry } from './registry';
 import { getCliSessionBridge } from '../bridges/session-bridge';
 import {
@@ -346,6 +353,26 @@ function buildInvocation(
   };
 }
 
+function buildSessionRuntime(context: Pick<CliCommandContext, 'workspaceId' | 'invocation'>): CliSessionRuntime | undefined {
+  let bridge: ReturnType<typeof getCliSessionBridge>;
+  try {
+    bridge = getCliSessionBridge();
+  } catch {
+    return undefined;
+  }
+
+  const entry = context.invocation.sessionId
+    ? bridge.getSessionEntry(context.invocation.sessionId) ?? bridge.getActiveSessionForWorkspace(context.workspaceId)
+    : bridge.getActiveSessionForWorkspace(context.workspaceId);
+  if (!entry) return undefined;
+
+  return {
+    sessionId: entry.sessionId,
+    sendUserMessage: (content, options) => entry.session.sendUserMessage(content, options),
+    sendMessage: (message, options) => entry.session.sendCustomMessage(message, options),
+  };
+}
+
 export function createSeroCliTool(
   registry: CliRegistry,
   workspaceId: string,
@@ -364,14 +391,16 @@ export function createSeroCliTool(
         return { content: [{ type: 'text', text: `ERROR: Workspace not found: ${workspaceId}` }], details: { exitCode: 1 } };
       }
 
+      const invocation = buildInvocation(workspaceId, sessionId, signal);
       const context: CliCommandContext = {
         workspaceId,
         cwd: toolCtx?.cwd ?? wsPath,
-        invocation: buildInvocation(workspaceId, sessionId, signal),
+        invocation,
         workspaceManager,
         containerManager,
         // Forward agent context so bridged tools can access model, modelRegistry, etc.
         agentContext: toolCtx ? extractAgentContext(toolCtx as ExtensionContext) : undefined,
+        sessionRuntime: buildSessionRuntime({ workspaceId, invocation }),
       };
 
       const batch = await executeCliBatch(registry, cliParams.command, context, cliParams.timeout, onUpdate as any);

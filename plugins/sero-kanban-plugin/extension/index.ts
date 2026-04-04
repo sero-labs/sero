@@ -25,6 +25,7 @@ import {
   handleReportError, handleErrorLog, handleRetrospective,
 } from './workflow-actions';
 import { handleRequestRevisions, handleCancelPR } from './review-actions';
+import { createKanbanSessionRuntime, getKanbanSessionRuntime } from './session-runtime';
 
 // ── Tool parameters ────────────────────────────────────────────
 
@@ -52,6 +53,7 @@ const KanbanParams = Type.Object({
 
 export default function (pi: ExtensionAPI) {
   let statePath = '';
+  const extensionRuntime = createKanbanSessionRuntime(pi);
 
   pi.on('session_start', async (_event, ctx) => {
     statePath = resolveStatePath(ctx.cwd);
@@ -81,6 +83,7 @@ export default function (pi: ExtensionAPI) {
       const workspacePath = ctx?.cwd ?? resolveWorkspacePathFromStatePath(statePath);
 
       const state = await readState(statePath);
+      const sessionRuntime = getKanbanSessionRuntime(ctx) ?? extensionRuntime;
 
       switch (params.action) {
         case 'list': {
@@ -295,7 +298,7 @@ export default function (pi: ExtensionAPI) {
           return handleRetry(statePath, state, params.id);
 
         case 'brainstorm':
-          return handleBrainstorm(pi);
+          return handleBrainstorm(sessionRuntime);
 
         case 'settings':
           return handleSettings(statePath, state, params.setting, params.value);
@@ -327,7 +330,7 @@ export default function (pi: ExtensionAPI) {
           return handleErrorLog(statePath, params.id);
 
         case 'retrospective':
-          return handleRetrospective(statePath, pi);
+          return handleRetrospective(statePath, sessionRuntime);
 
         default:
           return {

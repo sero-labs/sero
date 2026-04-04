@@ -1,3 +1,4 @@
+import type { ImageContent, TextContent } from '@mariozechner/pi-ai';
 import type { ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type { ContainerManager } from '../../features/container';
 import type { WorkspaceManager } from '../../features/workspace/manager';
@@ -38,6 +39,25 @@ export interface CliParam {
   default?: unknown;
 }
 
+export interface CliCustomMessage {
+  customType: string;
+  content: string | (TextContent | ImageContent)[];
+  display: boolean;
+  details?: unknown;
+}
+
+export interface CliSessionRuntime {
+  sessionId: string;
+  sendUserMessage: (
+    content: string | (TextContent | ImageContent)[],
+    options?: { deliverAs?: 'steer' | 'followUp' },
+  ) => void | Promise<void>;
+  sendMessage: (
+    message: CliCustomMessage,
+    options?: { triggerTurn?: boolean; deliverAs?: 'steer' | 'followUp' | 'nextTurn' },
+  ) => void | Promise<void>;
+}
+
 export interface CliCommandContext {
   workspaceId: string;
   cwd: string;
@@ -50,6 +70,11 @@ export interface CliCommandContext {
    * Undefined for direct/standalone CLI invocations.
    */
   agentContext?: BridgedAgentContext;
+  /**
+   * Narrow execution-scoped runtime for session side effects.
+   * Lets bridged tools interact with the current session without capturing `pi`.
+   */
+  sessionRuntime?: CliSessionRuntime;
 }
 
 export interface CliCommandUpdate {
