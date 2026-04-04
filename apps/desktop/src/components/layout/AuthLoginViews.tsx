@@ -12,6 +12,7 @@ import {
   EyeOff,
   Key,
   Loader2,
+  TriangleAlert,
   LogIn,
   LogOut,
   Trash2,
@@ -41,6 +42,7 @@ export function ProviderListView({
   onLogout: (id: string) => void;
 }) {
   const isLogin = mode === 'login';
+  const [anthropicWarning, setAnthropicWarning] = useState<string | null>(null);
 
   if (isLogin) {
     return (
@@ -54,7 +56,13 @@ export function ProviderListView({
             {oauthProviders.map((p) => (
               <button
                 key={p.id}
-                onClick={() => onOAuthLogin(p.id)}
+                onClick={() => {
+                  if (p.id === 'anthropic' && !anthropicWarning) {
+                    setAnthropicWarning(p.id);
+                    return;
+                  }
+                  onOAuthLogin(p.id);
+                }}
                 className="flex w-full items-center justify-between rounded-md px-3 py-2
                            text-sm hover:bg-accent transition-colors text-left group"
               >
@@ -66,6 +74,15 @@ export function ProviderListView({
               </button>
             ))}
           </div>
+          {anthropicWarning === 'anthropic' && (
+            <AnthropicWarningBanner
+              onContinue={() => {
+                setAnthropicWarning(null);
+                onOAuthLogin('anthropic');
+              }}
+              onCancel={() => setAnthropicWarning(null)}
+            />
+          )}
         </div>
 
         {/* API Key section */}
@@ -81,7 +98,13 @@ export function ProviderListView({
                            text-sm hover:bg-accent transition-colors group"
               >
                 <button
-                  onClick={() => onApiKeyStart(p.id, p.name)}
+                  onClick={() => {
+                    if (p.id === 'anthropic' && !anthropicWarning) {
+                      setAnthropicWarning('anthropic-apikey');
+                      return;
+                    }
+                    onApiKeyStart(p.id, p.name);
+                  }}
                   className="flex items-center gap-2.5 text-left flex-1 min-w-0"
                 >
                   <Key className="size-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
@@ -109,6 +132,15 @@ export function ProviderListView({
               </div>
             ))}
           </div>
+          {anthropicWarning === 'anthropic-apikey' && (
+            <AnthropicWarningBanner
+              onContinue={() => {
+                setAnthropicWarning(null);
+                onApiKeyStart('anthropic', 'Anthropic');
+              }}
+              onCancel={() => setAnthropicWarning(null)}
+            />
+          )}
         </div>
       </div>
     );
@@ -148,6 +180,42 @@ export function ProviderListView({
           </span>
         </button>
       ))}
+    </div>
+  );
+}
+
+// ── Anthropic warning banner ──────────────────────────────────
+
+function AnthropicWarningBanner({
+  onContinue,
+  onCancel,
+}: {
+  onContinue: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="mx-1 flex items-start gap-2 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning)]/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[var(--status-warning)]" />
+      <div className="space-y-1.5">
+        <p>
+          Anthropic may restrict third-party use of consumer subscriptions.
+          We recommend using an API key with your own billing account.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onContinue}
+            className="text-xs font-medium text-[var(--text-primary)] hover:underline"
+          >
+            Continue anyway
+          </button>
+          <button
+            onClick={onCancel}
+            className="text-xs text-[var(--text-tertiary)] hover:underline"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
