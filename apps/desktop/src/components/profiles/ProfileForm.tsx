@@ -149,7 +149,7 @@ export function ProfileForm({
           />
           <div>
             <span className="text-xs text-[var(--text-secondary)]">
-              Copy credentials from current profile
+              Copy credentials and model preferences from current profile
             </span>
             <p className="text-[10px] text-[var(--text-muted)]">
               Copies API keys and tokens so you can start chatting immediately.
