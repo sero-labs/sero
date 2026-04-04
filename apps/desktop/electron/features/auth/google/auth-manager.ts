@@ -11,11 +11,11 @@
 import { shell } from 'electron';
 import http from 'node:http';
 import crypto from 'node:crypto';
-import { readFileSync, writeFileSync, chmodSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { homedir, hostname, userInfo } from 'node:os';
 import path from 'node:path';
-import { SERO_AGENT_DIR } from '../../../platform/env';
+import { readPluginConfig } from '../../plugin-config';
 
 // ── Constants ───────────────────────────────────────────────
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -23,43 +23,13 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const LOOPBACK = '127.0.0.1';
 
-const GOOGLE_CONFIG_PATH = path.join(SERO_AGENT_DIR, 'google-oauth.json');
-
-interface GoogleOAuthConfig {
-  clientId: string;
-  clientSecret: string;
-}
-
-function loadConfig(): GoogleOAuthConfig | null {
-  try {
-    const raw = readFileSync(GOOGLE_CONFIG_PATH, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<GoogleOAuthConfig>;
-    if (parsed.clientId && parsed.clientSecret) {
-      return { clientId: parsed.clientId, clientSecret: parsed.clientSecret };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveGoogleConfig(clientId: string, clientSecret: string): void {
-  writeFileSync(GOOGLE_CONFIG_PATH, JSON.stringify({ clientId, clientSecret }, null, 2) + '\n', 'utf8');
-  chmodSync(GOOGLE_CONFIG_PATH, 0o600);
-}
-
-export function getGoogleConfig(): { configured: boolean } {
-  const cfg = loadConfig();
-  const envConfigured = !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
-  return { configured: !!cfg || envConfigured };
-}
+const GOOGLE_PLUGIN_ID = 'sero-google-plugin';
 
 function getCredentials(): { clientId: string; clientSecret: string } {
-  const cfg = loadConfig();
-  return {
-    clientId: cfg?.clientId ?? process.env.GOOGLE_CLIENT_ID ?? '',
-    clientSecret: cfg?.clientSecret ?? process.env.GOOGLE_CLIENT_SECRET ?? '',
-  };
+  const cfg = readPluginConfig(GOOGLE_PLUGIN_ID);
+  const clientId = (cfg?.clientId as string) || process.env.GOOGLE_CLIENT_ID || '';
+  const clientSecret = (cfg?.clientSecret as string) || process.env.GOOGLE_CLIENT_SECRET || '';
+  return { clientId, clientSecret };
 }
 
 const SCOPES = [

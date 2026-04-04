@@ -464,6 +464,14 @@ interface SeroAPI {
   github: SeroGitHubAPI;
   plugins: SeroPluginsAPI;
   localModels: SeroLocalModelsAPI;
+  pluginConfig: SeroPluginConfigAPI;
+}
+
+interface SeroPluginConfigAPI {
+  /** Read a plugin's config. Returns null if not found. */
+  read(pluginId: string): Promise<Record<string, unknown> | null>;
+  /** Write a plugin's config. Returns success. */
+  write(pluginId: string, config: Record<string, unknown>): Promise<{ ok: boolean }>;
 }
 
 // ── GitHub Auth ──────────────────────────────────────────────

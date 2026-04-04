@@ -272,6 +272,13 @@ export const seroPreloadApi = {
   google: googleBridge,
   imagegen: imagegenBridge,
 
+  pluginConfig: {
+    read: (pluginId: string): Promise<Record<string, unknown> | null> =>
+      ipcRenderer.invoke(IpcChannels.pluginConfig.read, pluginId),
+    write: (pluginId: string, config: Record<string, unknown>): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke(IpcChannels.pluginConfig.write, pluginId, config),
+  },
+
   voice: voiceBridge,
 
   auth: authBridge,

@@ -20,10 +20,6 @@ export const googleBridge = {
       ipcRenderer.removeListener(IpcChannels.google.authEvent, handler);
     };
   },
-  getConfig: (): Promise<{ configured: boolean }> =>
-    ipcRenderer.invoke(IpcChannels.google.getConfig),
-  saveConfig: (clientId: string, clientSecret: string): Promise<{ ok: boolean }> =>
-    ipcRenderer.invoke(IpcChannels.google.saveConfig, clientId, clientSecret),
 };
 
 export const imagegenBridge = {

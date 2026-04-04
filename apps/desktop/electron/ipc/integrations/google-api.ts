@@ -15,7 +15,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { IpcChannels } from '../../../src/types/ipc';
-import { GoogleAuthManager, deriveKeyringPassword, saveGoogleConfig, getGoogleConfig } from '../../features/auth/google/auth-manager';
+import { GoogleAuthManager, deriveKeyringPassword } from '../../features/auth/google/auth-manager';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -117,24 +117,4 @@ export function registerGoogleApiHandlers(): void {
   ipcMain.handle(IpcChannels.google.logout, async () => {
     auth.logout();
   });
-
-  /** Get Google OAuth config status. */
-  ipcMain.handle(IpcChannels.google.getConfig, async () => {
-    return getGoogleConfig();
-  });
-
-  /** Save Google OAuth client credentials. */
-  ipcMain.handle(
-    IpcChannels.google.saveConfig,
-    async (_event, clientId: string, clientSecret: string): Promise<{ ok: boolean }> => {
-      try {
-        saveGoogleConfig(clientId, clientSecret);
-        auth.clearStatusCache();
-        return { ok: true };
-      } catch (err) {
-        console.error('[google-api] Failed to save config:', err);
-        return { ok: false };
-      }
-    },
-  );
 }
