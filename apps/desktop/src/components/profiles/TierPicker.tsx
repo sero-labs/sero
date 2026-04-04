@@ -121,6 +121,7 @@ function ModelPickerPopover({
         sideOffset={4}
         className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl
           border-[var(--border-subtle)] bg-[var(--bg-surface)] p-0 shadow-2xl shadow-black/40"
+        onWheel={(e) => e.stopPropagation()}
       >
         {/* Search */}
         <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3">
@@ -135,8 +136,8 @@ function ModelPickerPopover({
           />
         </div>
 
-        {/* Model list */}
-        <div className="max-h-[240px] overflow-y-auto py-1">
+        {/* Model list — overscroll-contain fixes trackpad scrolling inside Radix popovers */}
+        <div className="max-h-[240px] overflow-y-auto overscroll-contain py-1">
           {filtered.length === 0 ? (
             <div className="px-3 py-3 text-center text-xs text-[var(--text-muted)]">
               No models matching &ldquo;{filter}&rdquo;
