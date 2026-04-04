@@ -1,6 +1,15 @@
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import { userFeedbackBridge } from './platform/user-feedback';
+import {
+  feedbackBridge,
+  gatewayBridge,
+  layoutBridge,
+  netBridge,
+  pluginConfigBridge,
+  safeStorageBridge,
+  themesBridge,
+} from './platform/host-services';
 import { debugBridge, lspBridge } from './editor/debug-lsp';
 import { subagentBridge } from './agent/subagent';
 import { skillsBridge } from './agent/skills';
@@ -45,12 +54,7 @@ import type {
   ContextPreset,
   VoiceTranscriptionStatus,
   VoiceTranscriptionResult,
-  ResponseFeedbackEntry,
-  ResponseFeedbackState,
   ChatAttachment,
-  ProxyFetchRequest,
-  ProxyFetchResponse,
-  QrLoginData,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
@@ -78,7 +82,6 @@ import type {
   CreatePullRequestInput,
   CreatePullRequestResult,
 } from '../../src/types/vcs';
-import type { ThemePreset, ThemePresetMeta } from '../../src/types/theme';
 
 export const seroPreloadApi = {
   platform: process.platform,
@@ -271,13 +274,7 @@ export const seroPreloadApi = {
 
   google: googleBridge,
   imagegen: imagegenBridge,
-
-  pluginConfig: {
-    read: (pluginId: string): Promise<Record<string, unknown> | null> =>
-      ipcRenderer.invoke(IpcChannels.pluginConfig.read, pluginId),
-    write: (pluginId: string, config: Record<string, unknown>): Promise<{ ok: boolean }> =>
-      ipcRenderer.invoke(IpcChannels.pluginConfig.write, pluginId, config),
-  },
+  pluginConfig: pluginConfigBridge,
 
   voice: voiceBridge,
 
@@ -408,55 +405,12 @@ export const seroPreloadApi = {
     },
   },
 
-  layout: {
-    save: (state: { mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps: string[] }): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.layout.save, state),
-    load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps?: string[] } | null> =>
-      ipcRenderer.invoke(IpcChannels.layout.load),
-  },
-  themes: {
-    list: (): Promise<ThemePresetMeta[]> =>
-      ipcRenderer.invoke(IpcChannels.themes.list),
-    load: (id: string): Promise<ThemePreset | null> =>
-      ipcRenderer.invoke(IpcChannels.themes.load, id),
-    save: (preset: ThemePreset): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.themes.save, preset),
-    delete: (id: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.themes.delete, id),
-    import: (): Promise<ThemePreset | null> =>
-      ipcRenderer.invoke(IpcChannels.themes.import),
-    export: (id: string): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.themes.export, id),
-    reset: (id: string): Promise<ThemePreset | null> =>
-      ipcRenderer.invoke(IpcChannels.themes.reset, id),
-  },
-  net: {
-    fetch: (request: ProxyFetchRequest): Promise<ProxyFetchResponse> =>
-      ipcRenderer.invoke(IpcChannels.net.fetch, request),
-  },
-
-  safeStorage: {
-    encrypt: (plaintext: string): Promise<string> =>
-      ipcRenderer.invoke(IpcChannels.safeStorage.encrypt, plaintext),
-    decrypt: (encryptedBase64: string): Promise<string> =>
-      ipcRenderer.invoke(IpcChannels.safeStorage.decrypt, encryptedBase64),
-    available: (): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.safeStorage.available),
-  },
-
-  gateway: {
-    getQrLoginData: (expiryDays?: number): Promise<QrLoginData> =>
-      ipcRenderer.invoke(IpcChannels.gateway.getQrLoginData, expiryDays),
-  },
-
-  feedback: {
-    load: (): Promise<ResponseFeedbackState> =>
-      ipcRenderer.invoke(IpcChannels.feedback.load),
-    submit: (entry: ResponseFeedbackEntry): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.feedback.submit, entry),
-    remove: (messageId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.feedback.remove, messageId),
-  },
+  layout: layoutBridge,
+  themes: themesBridge,
+  net: netBridge,
+  safeStorage: safeStorageBridge,
+  gateway: gatewayBridge,
+  feedback: feedbackBridge,
 
   collaboration: collaborationBridge,
 

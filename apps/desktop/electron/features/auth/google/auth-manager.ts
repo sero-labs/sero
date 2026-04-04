@@ -13,11 +13,10 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { execFile } from 'node:child_process';
-import { tmpdir } from 'node:os';
-import { homedir, hostname, userInfo } from 'node:os';
+import { homedir, hostname, tmpdir, userInfo } from 'node:os';
 import path from 'node:path';
 import { readPluginConfig } from '../../plugin-config';
-import { SERO_AGENT_DIR } from '../../../platform/env';
+import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '../../../platform/env';
 
 // ── Constants ───────────────────────────────────────────────
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -168,8 +167,13 @@ export class GoogleAuthManager {
     // Check gogcli for stored tokens
     let listResult = await this.gogExec(['--json', 'auth', 'tokens', 'list']);
 
-    // If no tokens with current password, try migrating from legacy password
-    if (!listResult && !this.migrationAttempted) {
+    // Only the legacy/default profile may inherit pre-profile-scoping tokens.
+    // New secondary profiles must not auto-clone that shared legacy auth state.
+    if (
+      !listResult
+      && !this.migrationAttempted
+      && path.resolve(SERO_HOME) === path.resolve(SERO_FIXED_ROOT)
+    ) {
       listResult = await this.migrateFromLegacyKeyring();
     }
 
@@ -277,7 +281,7 @@ export class GoogleAuthManager {
    */
   async login(onProgress: (e: GoogleAuthProgress) => void): Promise<void> {
     if (!this.isConfigured()) {
-      throw new Error('Google OAuth not configured. Use the setup form in the Google plugin or add credentials to ~/.sero-ui/agent/google-oauth.json');
+      throw new Error('Google OAuth not configured. Use the setup form in the Google plugin or add credentials to ~/.sero-ui/agent/plugin-config/sero-google-plugin.json');
     }
 
     // PKCE
