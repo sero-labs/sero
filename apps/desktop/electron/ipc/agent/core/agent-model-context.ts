@@ -21,6 +21,7 @@ import {
   persistContextOverrides,
 } from './agent-context-overrides';
 import { getConfiguredModelFallbackChain } from '../../../shared/settings/model-fallback-chain';
+import { getModelTiers } from '../../../shared/settings/model-tiers';
 
 export interface AgentPoolContextEntry {
   session: AgentSession;
@@ -78,6 +79,7 @@ function pickFallbackModel(
 ) {
   session.settingsManager.reload();
 
+  // 1. Try saved default provider/model (existing settings)
   const preferredProvider = session.settingsManager.getDefaultProvider();
   const savedDefaultModel = findAvailableModelByProviderAndId(
     availableModels,
@@ -86,7 +88,17 @@ function pickFallbackModel(
   );
   if (savedDefaultModel) return savedDefaultModel;
 
+  // 2. Try HIGH tier model (main sessions use the most capable model)
   const globalSettings = session.settingsManager.getGlobalSettings() as Record<string, unknown>;
+  const tiers = getModelTiers(globalSettings);
+  if (tiers.HIGH) {
+    const tierMatch = availableModels.find(
+      (m) => m.provider === tiers.HIGH!.provider && m.id === tiers.HIGH!.modelId,
+    );
+    if (tierMatch) return tierMatch;
+  }
+
+  // 3. Walk fallback chain
   const fallbackChain = getConfiguredModelFallbackChain(globalSettings);
   for (const candidate of fallbackChain) {
     const model = findAvailableModelByReference(availableModels, candidate, preferredProvider);
