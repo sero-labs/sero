@@ -16,6 +16,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { IpcChannels } from '../../../src/types/ipc';
 import { GoogleAuthManager, deriveKeyringPassword } from '../../features/auth/google/auth-manager';
+import { onPluginConfigChange } from '../../features/plugin-config';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -91,6 +92,12 @@ export function getGoogleAuthManager(): GoogleAuthManager {
 
 export function registerGoogleApiHandlers(): void {
   const auth = getGoogleAuthManager();
+
+  // Reset auth manager state when Google plugin config changes
+  // (e.g. user saves new OAuth credentials via the setup form)
+  onPluginConfigChange('sero-google-plugin', () => {
+    auth.resetForConfigChange();
+  });
 
   /** Execute a gogcli data command — auto-injects --account from auth. */
   ipcMain.handle(

@@ -41,4 +41,22 @@ export function writePluginConfig(pluginId: string, config: Record<string, unkno
   const p = configPath(pluginId);
   writeFileSync(p, JSON.stringify(config, null, 2) + '\n', 'utf8');
   chmodSync(p, 0o600);
+  // Notify listeners after successful write
+  changeListeners.get(pluginId)?.forEach((cb) => cb());
+}
+
+// ── Change notification ─────────────────────────────────────
+
+type ChangeCallback = () => void;
+const changeListeners = new Map<string, Set<ChangeCallback>>();
+
+/** Register a callback for when a specific plugin's config is written. */
+export function onPluginConfigChange(pluginId: string, cb: ChangeCallback): () => void {
+  let set = changeListeners.get(pluginId);
+  if (!set) {
+    set = new Set();
+    changeListeners.set(pluginId, set);
+  }
+  set.add(cb);
+  return () => { set!.delete(cb); };
 }

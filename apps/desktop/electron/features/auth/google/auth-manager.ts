@@ -11,8 +11,9 @@
 import { shell } from 'electron';
 import http from 'node:http';
 import crypto from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { homedir, hostname, userInfo } from 'node:os';
 import path from 'node:path';
 import { readPluginConfig } from '../../plugin-config';
@@ -92,21 +93,34 @@ export function deriveKeyringPassword(): string {
     .slice(0, 32);
 }
 
-function gogEnv(): NodeJS.ProcessEnv {
+/** Legacy password (pre-profile-scoping) for one-time keyring migration. */
+function deriveLegacyKeyringPassword(): string {
+  const host = hostname();
+  let uid: string;
+  try {
+    uid = String(userInfo().uid);
+  } catch {
+    uid = 'unknown';
+  }
+  return crypto.createHash('sha256')
+    .update(`sero-google-keyring:${host}:${uid}`)
+    .digest('hex')
+    .slice(0, 32);
+}
+
+function gogEnv(password?: string): NodeJS.ProcessEnv {
   const extra = ['/opt/homebrew/bin', '/usr/local/bin',
     path.join(homedir(), '.local/bin'), path.join(homedir(), 'go/bin')];
   return {
     ...process.env,
     PATH: [...extra, process.env.PATH || ''].join(':'),
-    // File-based keyring (no macOS Keychain prompts). Password is derived
-    // from machine-specific data so it's not trivially guessable.
-    GOG_KEYRING_PASSWORD: deriveKeyringPassword(),
+    GOG_KEYRING_PASSWORD: password ?? deriveKeyringPassword(),
   };
 }
 
-function pipeToGog(args: string[], stdin: string): Promise<{ ok: boolean; out: string }> {
+function pipeToGog(args: string[], stdin: string, password?: string): Promise<{ ok: boolean; out: string }> {
   return new Promise((resolve) => {
-    const child = execFile(findGog(), args, { env: gogEnv(), timeout: 10_000 },
+    const child = execFile(findGog(), args, { env: gogEnv(password), timeout: 10_000 },
       (err, stdout, stderr) => {
         if (err) console.warn(`[google-auth] gog ${args.slice(0, 3).join(' ')} failed:`, stderr?.trim() || err.message);
         resolve({ ok: !err, out: (stdout ?? '').trim() });
@@ -124,6 +138,7 @@ export class GoogleAuthManager {
   private credsImported = false;
   private statusCache: { validUntil: number; result: GoogleAuthStatus } | null = null;
   private static STATUS_CACHE_TTL = 30_000; // 30 seconds
+  private migrationAttempted = false;
 
   isConfigured(): boolean {
     const { clientId, clientSecret } = getCredentials();
@@ -131,8 +146,16 @@ export class GoogleAuthManager {
   }
   getEmail(): string | null { return this.email; }
 
-  /** Clear the cached auth status (call after saving new config). */
-  clearStatusCache(): void { this.statusCache = null; }
+  /**
+   * Reset cached state after config changes (e.g. new OAuth credentials
+   * saved via the setup form). Clears the status cache so the next
+   * getStatus() re-checks, and resets credsImported so ensureCredentials()
+   * re-imports the new client ID/secret into gogcli.
+   */
+  resetForConfigChange(): void {
+    this.statusCache = null;
+    this.credsImported = false;
+  }
 
   async getStatus(): Promise<GoogleAuthStatus> {
     if (!this.isConfigured()) return { configured: false, authenticated: false };
@@ -143,7 +166,13 @@ export class GoogleAuthManager {
     }
 
     // Check gogcli for stored tokens
-    const listResult = await this.gogExec(['--json', 'auth', 'tokens', 'list']);
+    let listResult = await this.gogExec(['--json', 'auth', 'tokens', 'list']);
+
+    // If no tokens with current password, try migrating from legacy password
+    if (!listResult && !this.migrationAttempted) {
+      listResult = await this.migrateFromLegacyKeyring();
+    }
+
     if (!listResult) {
       return this.cacheStatus({ configured: true, authenticated: false });
     }
@@ -163,6 +192,78 @@ export class GoogleAuthManager {
 
     this.email = email;
     return this.cacheStatus({ configured: true, authenticated: true, email });
+  }
+
+  /**
+   * One-time migration from the legacy keyring password (pre-profile-scoping).
+   * If tokens exist under the old password, export and re-import them with
+   * the new profile-scoped password.
+   */
+  private async migrateFromLegacyKeyring(): Promise<string | null> {
+    this.migrationAttempted = true;
+    const legacyPw = deriveLegacyKeyringPassword();
+
+    // If legacy and current passwords are the same, no migration needed
+    if (legacyPw === deriveKeyringPassword()) return null;
+
+    // Try listing tokens with the legacy password
+    const legacyList = await this.gogExecWithPassword(['--json', 'auth', 'tokens', 'list'], legacyPw);
+    if (!legacyList) return null;
+
+    let email: string | null = null;
+    try {
+      const keys: string[] = (JSON.parse(legacyList) as { keys?: string[] }).keys ?? [];
+      const tok = keys.find((k) => k.startsWith('token:'));
+      if (tok) email = tok.split(':').slice(2).join(':');
+    } catch { return null; }
+
+    if (!email) return null;
+
+    console.log(`[google-auth] Found token under legacy keyring password for ${email}, migrating…`);
+
+    // Export the token to a temp file with the legacy password
+    const tmpFile = path.join(tmpdir(), `sero-gog-migrate-${Date.now()}.json`);
+    const exportResult = await this.gogExecWithPassword(
+      ['auth', 'tokens', 'export', email, '--out', tmpFile, '--overwrite'], legacyPw,
+    );
+    if (!exportResult) {
+      console.warn('[google-auth] Legacy token export failed');
+      return null;
+    }
+
+    let tokenData: string;
+    try {
+      tokenData = readFileSync(tmpFile, 'utf8');
+    } catch {
+      console.warn('[google-auth] Could not read exported token file');
+      return null;
+    } finally {
+      try { unlinkSync(tmpFile); } catch { /* ignore */ }
+    }
+
+    // Re-import with the new password (ensuring credentials are set first)
+    await this.ensureCredentials();
+    const importResult = await pipeToGog(['auth', 'tokens', 'import', '-'], tokenData);
+    if (importResult.ok) {
+      console.log(`[google-auth] Successfully migrated token for ${email} to profile-scoped keyring`);
+      // Re-list with the new password to confirm
+      return this.gogExec(['--json', 'auth', 'tokens', 'list']);
+    }
+
+    console.warn('[google-auth] Legacy token import with new password failed:', importResult.out);
+    return null;
+  }
+
+  private gogExecWithPassword(args: string[], password: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      execFile(findGog(), args, { env: gogEnv(password), timeout: 10_000 },
+        (err, stdout, stderr) => {
+          if (err) {
+            console.warn(`[google-auth] gogExec (legacy) ${args.join(' ')} failed:`, stderr?.trim() || err.message);
+          }
+          resolve(err ? null : (stdout ?? ''));
+        });
+    });
   }
 
   private cacheStatus(result: GoogleAuthStatus): GoogleAuthStatus {
