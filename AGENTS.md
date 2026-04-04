@@ -54,12 +54,12 @@ The most comprehensive examples are:
 - [docs/architecture.md](docs/architecture.md) — shell layout, component hierarchy
 - [docs/decisions.md](docs/decisions.md) — numbered architecture decisions with rationale
 - [docs/apps-tutorial.md](docs/apps-tutorial.md) — step-by-step guide to building new Sero plugins
-- [docs/memory.md](docs/memory.md) — memory system architecture, tools, context injection, proactive logging
-- [docs/state-and-folders-analysis.md](docs/state-and-folders-analysis.md) — config/state locations and rationale
+- [docs/features/memory.md](docs/features/memory.md) — memory system architecture, tools, context injection, proactive logging
+- [docs/reference/state-and-folders.md](docs/reference/state-and-folders.md) — config/state locations and rationale
 - [docs/node-pty-setup.md](docs/node-pty-setup.md) — node-pty native module rebuild guide (MUST READ if terminals fail)
-- [docs/themes/README.md](docs/themes/README.md) - Theming and style guide
-- [docs/plugins-guide.md](docs/plugins-guide.md) — creating, distributing, and installing Sero plugins
-- [docs/plugins-technical.md](docs/plugins-technical.md) — plugin system internals (architecture, IPC, file layout)
+- [docs/themes/README.md](docs/themes/README.md) — theming and style guide
+- [docs/plugins/guide.md](docs/plugins/guide.md) — creating, distributing, and installing Sero plugins
+- [docs/plugins/technical.md](docs/plugins/technical.md) — plugin system internals (architecture, IPC, file layout)
 
 ## Typecheck Before Commit (CRITICAL)
 
