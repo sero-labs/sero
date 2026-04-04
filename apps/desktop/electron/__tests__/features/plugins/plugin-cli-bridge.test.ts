@@ -9,6 +9,7 @@ import {
   bridgeExtensionTools,
   clearPluginBridgePolicyCache,
   getCliRegistry,
+  resetCliRegistryForTests,
 } from '../../../cli';
 
 function createLoadExtensionsResult(
@@ -52,11 +53,13 @@ describe('plugin CLI bridging', () => {
   let tmpDir = '';
 
   beforeEach(async () => {
+    resetCliRegistryForTests();
     clearPluginBridgePolicyCache();
     tmpDir = await mkdtemp(path.join(os.tmpdir(), 'plugin-cli-bridge-'));
   });
 
   afterEach(async () => {
+    resetCliRegistryForTests();
     clearPluginBridgePolicyCache();
     await rm(tmpDir, { recursive: true, force: true });
   });
@@ -86,6 +89,33 @@ describe('plugin CLI bridging', () => {
 
     expect(base.extensions[0]?.tools.has('plugin_all_default')).toBe(false);
     expect(getCliRegistry().get('plugin_all_default')).toBeTruthy();
+  });
+
+  it('keeps kanban standalone even when plugin manifest defaults to bridge all tools', async () => {
+    const pluginDir = path.join(tmpDir, 'plugin-kanban');
+    const extensionPath = path.join(pluginDir, 'extension', 'index.js');
+    await mkdir(path.dirname(extensionPath), { recursive: true });
+    await writeFile(extensionPath, 'export default {}\n', 'utf8');
+    await writeFile(
+      path.join(pluginDir, 'package.json'),
+      JSON.stringify({
+        name: '@test/plugin-kanban',
+        version: '1.0.0',
+        sero: {
+          plugin: {
+            category: 'productivity',
+            tags: [],
+          },
+        },
+      }, null, 2),
+      'utf8',
+    );
+
+    const base = createLoadExtensionsResult(extensionPath, ['kanban']);
+    bridgeExtensionTools(base);
+
+    expect(base.extensions[0]?.tools.has('kanban')).toBe(true);
+    expect(getCliRegistry().get('kanban')).toBeFalsy();
   });
 
   it('does not bridge plugin tools when sero.plugin.bridgeTools is false', async () => {

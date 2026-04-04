@@ -8,10 +8,10 @@
  * intercepted vs which remain standalone.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Type, type TSchema } from '@sinclair/typebox';
 import type { LoadExtensionsResult, ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
-import { bridgeExtensionTools, getCliRegistry } from '../../cli';
+import { bridgeExtensionTools, getCliRegistry, resetCliRegistryForTests } from '../../cli';
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -44,15 +44,16 @@ function makeExtResult(tools: ToolDefinition[]): LoadExtensionsResult {
 // ── Tests ───────────────────────────────────────────────────
 
 describe('Tool bridge policy', () => {
-  it('bridges kanban tool (removed from NEVER_BRIDGE)', () => {
+  beforeEach(() => {
+    resetCliRegistryForTests();
+  });
+
+  it('does NOT bridge kanban tool (kept standalone for session-bound follow-up actions)', () => {
     const ext = makeExtResult([makeTool('kanban')]);
     const result = bridgeExtensionTools(ext);
-    // kanban should be removed from extension tools (bridged to CLI)
-    expect(result.extensions[0]!.tools.has('kanban')).toBe(false);
 
-    // And should be available in the CLI registry
-    const reg = getCliRegistry();
-    expect(reg.get('kanban')).toBeTruthy();
+    expect(result.extensions[0]!.tools.has('kanban')).toBe(true);
+    expect(getCliRegistry().get('kanban')).toBeFalsy();
   });
 
   it('bridges create_agent tool (moved to CORE_TOOLS_TO_BRIDGE)', () => {

@@ -26,6 +26,7 @@ import {
 import type { BootstrapStatus } from './bootstrap';
 import { resolveMemoryRoot } from './memory-manager';
 import { getAutoRetrieveModeSync, getMemorySnapshotModeSync } from './memory-config';
+import type { AutoRetrieveMode } from './memory-config';
 import { buildPriorityContextSplit, clearPriorityContextCache } from './priority-context';
 import { isQmdAvailable, runQmdUpdateNow } from './qmd';
 import { error, errorDetails, info } from './logger';
@@ -123,6 +124,7 @@ After receiving answers, write MEMORY.md:
 async function buildTurnContext(
   prompt: string,
   sessionId: string,
+  autoRetrieveMode: AutoRetrieveMode,
 ): Promise<{
   systemPromptAddition: string;
   searchContext: string;
@@ -132,7 +134,11 @@ async function buildTurnContext(
   const root = resolveMemoryRoot();
   const snapshotMode = getMemorySnapshotModeSync();
   const { staticContext, searchContext } = await buildPriorityContextSplit(
-    root, prompt, sessionId, snapshotMode,
+    root,
+    prompt,
+    sessionId,
+    snapshotMode,
+    { includeSearch: autoRetrieveMode === 'on' },
   );
   const memoryInstructions = getMemoryInstructions();
   const systemPromptAddition = staticContext + memoryInstructions;
@@ -186,6 +192,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     try {
       const status = await getCachedBootstrapStatus();
       const sessionId = ctx.sessionManager.getSessionId();
+      const autoRetrieveMode = getAutoRetrieveModeSync();
 
       let addition = '';
       let contextBlock = '';
@@ -215,7 +222,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
         if (needsBootstrap) {
           addition = buildBootstrapInstructions(refreshedStatus.existingUserContent);
         } else {
-          const turn = await buildTurnContext(event.prompt ?? '', sessionId);
+          const turn = await buildTurnContext(event.prompt ?? '', sessionId, autoRetrieveMode);
           addition = turn.systemPromptAddition;
           contextBlock = turn.contextBlock;
           memoryInstructions = turn.memoryInstructions;
@@ -224,7 +231,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
       }
 
       if (!needsBootstrap && !addition) {
-        const turn = await buildTurnContext(event.prompt ?? '', sessionId);
+        const turn = await buildTurnContext(event.prompt ?? '', sessionId, autoRetrieveMode);
         addition = turn.systemPromptAddition;
         contextBlock = turn.contextBlock;
         memoryInstructions = turn.memoryInstructions;
@@ -247,7 +254,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
       info('before_agent_start', {
         needsBootstrap,
         snapshotMode: getMemorySnapshotModeSync(),
-        autoRetrieve: getAutoRetrieveModeSync(),
+        autoRetrieve: autoRetrieveMode,
         promptChars: event.prompt?.length ?? 0,
         contextChars: contextBlock.length,
         searchChars: searchContext.length,
@@ -257,7 +264,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
       // Inject QMD search results as a per-turn message when auto-retrieve is on.
       // The `context` event filter strips these from prior turns so only the
       // latest search results reach the LLM.
-      if (searchContext.trim() && getAutoRetrieveModeSync() === 'on') {
+      if (searchContext.trim() && autoRetrieveMode === 'on') {
         try {
           pi.sendMessage(
             { customType: SEARCH_CONTEXT_TYPE, content: searchContext.trim(), display: false },

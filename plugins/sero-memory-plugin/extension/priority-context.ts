@@ -268,6 +268,11 @@ export interface PriorityContextResult {
   searchContext: string;
 }
 
+export interface BuildPriorityContextOptions {
+  /** When false, skip prompt-specific QMD retrieval entirely. */
+  includeSearch?: boolean;
+}
+
 /**
  * Build priority context with search results returned separately.
  *
@@ -279,6 +284,7 @@ export async function buildPriorityContextSplit(
   prompt: string,
   sessionId?: string,
   snapshotMode: MemorySnapshotMode = 'live',
+  options: BuildPriorityContextOptions = {},
 ): Promise<PriorityContextResult> {
   const staticSections: string[] = [];
   let totalChars = 0;
@@ -299,7 +305,9 @@ export async function buildPriorityContextSplit(
   addSection(await buildScratchpadSection(root));
   addSection(frozenSnapshot?.memorySection ?? await buildMemorySection(root));
 
-  const searchSection = await buildSearchSection(prompt, sessionId);
+  const searchSection = options.includeSearch === false
+    ? ''
+    : await buildSearchSection(prompt, sessionId);
 
   const staticContext = staticSections.length > 0
     ? `\n\n## Memory\n\n${staticSections.join('\n\n---\n\n')}`

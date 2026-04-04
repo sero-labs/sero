@@ -24,6 +24,12 @@ import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../features
 
 let registry: CliRegistry | null = null;
 
+/** @internal Test helper: reset the singleton registry between tests. */
+export function resetCliRegistryForTests(): void {
+  registry = null;
+  clearPluginBridgePolicyCache();
+}
+
 function registerCoreCommands(target: CliRegistry): void {
   registerAppControlCliCommands(target);
   registerWorkspaceCliCommands(target);
@@ -81,8 +87,7 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   // Planning & context
   'plan_todos',
   'slopzilla',
-  // Kanban & agent management
-  'kanban',
+  // Agent management
   'create_agent',
   // User input — interactive (timeout-exempt via INTERACTIVE_TOOLS)
   'question',
@@ -108,12 +113,14 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
  * Tool names that must NEVER be bridged into `sero-cli`.
  *
  * Only tools that genuinely cannot work through the CLI bridge belong here:
+ * - `kanban` — some actions enqueue follow-up chat work through a session-bound `pi`
  * - `research` — external skill with its own streaming/timeout model
  *
  * User-interactive tools (question, questionnaire, interview) are now bridged
  * with `interactive: true` which disables the per-command timeout.
  */
 const NEVER_BRIDGE_TO_CLI = new Set([
+  'kanban',
   'research',
 ]);
 
@@ -239,7 +246,7 @@ Use \`sero-cli\` for Sero platform actions instead of asking the user to do them
 ${sections.join('\n')}
 
 Run \`sero help <command>\` for details. Chain multiple commands (one per line).
-**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`, \`kanban\`), run \`sero help <command>\` first to check the exact schema.**
+**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
 
 For \`sero app\`: run \`sero help app\` first. Use \`app click <selector>\` or \`app click --x <n> --y <n>\` (coordinates relative to the active app screenshot). \`app type\` only works for text inputs/contenteditable. No \`app press\` command — use coordinate clicks.
 `;
