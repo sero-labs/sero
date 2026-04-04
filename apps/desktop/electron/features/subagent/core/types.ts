@@ -34,8 +34,8 @@ export interface AgentConfig {
   name: string;
   /** What this agent does (from frontmatter `description`). */
   description: string;
-  /** Default model for this agent. */
-  model?: string;
+  /** Default model — plain string (legacy) or structured { prefer, fallbacks }. */
+  model?: string | { prefer: string; fallbacks: string[] };
   /** Default thinking level. */
   thinking?: string;
   /** Default timeout in milliseconds. */

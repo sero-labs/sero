@@ -125,7 +125,7 @@ export function registerSubagentHandlers(): void {
       return agents.map((a) => ({
         name: a.name,
         description: a.description,
-        model: a.model,
+        model: typeof a.model === 'string' ? a.model : a.model?.prefer,
         thinking: a.thinking,
         timeoutMs: a.timeoutMs,
       }));

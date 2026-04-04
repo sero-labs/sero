@@ -8,6 +8,7 @@
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
 import type { AgentConfig } from '../core/types';
+import { parseModelField } from '../../../shared/settings/resolve-tier-model';
 
 /**
  * Parse JSON frontmatter from a markdown file.
@@ -87,6 +88,18 @@ function validateFrontmatter(
 }
 
 /**
+ * Parse model field from frontmatter into the AgentConfig union type.
+ * Returns plain string for legacy format, structured object for new format.
+ */
+function parseAgentModelField(
+  raw: unknown,
+): string | { prefer: string; fallbacks: string[] } | undefined {
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  const parsed = parseModelField(raw);
+  return parsed ?? undefined;
+}
+
+/**
  * Convert frontmatter to AgentConfig.
  */
 function toAgentConfig(
@@ -97,7 +110,7 @@ function toAgentConfig(
   return {
     name: fm.name as string,
     description: fm.description as string,
-    model: typeof fm.model === 'string' ? fm.model : undefined,
+    model: parseAgentModelField(fm.model),
     thinking: typeof fm.thinking === 'string' ? fm.thinking : undefined,
     timeoutMs: typeof fm.timeoutMs === 'number' ? fm.timeoutMs : undefined,
     tools: Array.isArray(fm.tools) ? fm.tools.filter((t): t is string => typeof t === 'string') : undefined,
@@ -155,13 +168,14 @@ export async function discoverAgents(
         }
       }
 
-      // Warn about unknown models (non-blocking)
+      // Warn about unknown models (non-blocking) — skip tier aliases
       const model = parsed.frontmatter.model;
       if (typeof model === 'string' && options?.isValidModel && !options.isValidModel(model)) {
         console.warn(
           `[subagent/discovery] ${absPath}: model '${model}' not found in registry`,
         );
       }
+      // Structured model fields are validated at resolution time, not discovery
 
       agents.push(toAgentConfig(parsed.frontmatter, parsed.body, absPath));
     } catch (err) {
