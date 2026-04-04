@@ -21,7 +21,12 @@ import { replaceBridgedExtensionSessionItems } from '../../cli/bridges/extension
 import { installCliSessionBridge } from '../../cli/bridges/session-bridge';
 import { workspaceManager } from '../../shared/infra/shared-infra';
 
-function installSessionBridge(sessionIds: string[], sendUserMessage = vi.fn(), sendCustomMessage = vi.fn()) {
+function installSessionBridge(
+  sessionIds: string[],
+  sendUserMessage = vi.fn(),
+  sendCustomMessage = vi.fn(),
+  sessionOverrides?: Partial<AgentSession>,
+) {
   installCliSessionBridge({
     getSessionEntry: (sessionId) => {
       if (!sessionIds.includes(sessionId)) return undefined;
@@ -31,6 +36,7 @@ function installSessionBridge(sessionIds: string[], sendUserMessage = vi.fn(), s
         session: {
           sendUserMessage,
           sendCustomMessage,
+          ...sessionOverrides,
         } as unknown as AgentSession,
         lastSessionName: undefined,
       };
@@ -185,6 +191,68 @@ describe('bridged extension sessions', () => {
     expect(session1Spy).not.toHaveBeenCalled();
     expect(session2Spy).toHaveBeenCalledWith('refresh status');
     expect(result.content).toEqual([{ type: 'text', text: '/shared_command executed' }]);
+  });
+
+  it('prefers the live session extensionRunner command so captured pi actions stay bound', async () => {
+    const staleHandler = vi.fn(async () => {
+      throw new Error('Extension runtime not initialized. Action methods cannot be called during extension loading.');
+    });
+    const liveHandler = vi.fn(async () => undefined);
+
+    installSessionBridge(
+      ['session-1'],
+      vi.fn(),
+      vi.fn(),
+      {
+        extensionRunner: {
+          getCommand: (name: string) => (name === 'todos'
+            ? {
+                name: 'todos',
+                description: 'Live todos command.',
+                handler: liveHandler,
+              }
+            : undefined),
+          createCommandContext: () => ({
+            cwd: '/tmp/ws-1',
+            hasUI: true,
+            ui: {},
+            waitForIdle: async () => {},
+            newSession: async () => ({ cancelled: false }),
+            fork: async () => ({ cancelled: false }),
+            navigateTree: async () => ({ cancelled: false }),
+            switchSession: async () => ({ cancelled: false }),
+            reload: async () => {},
+          }),
+        } as unknown as AgentSession['extensionRunner'],
+      },
+    );
+
+    bridgeExtensionTools(
+      makeLoadExtensionsResult({
+        extensionPath: '/tmp/plugin-c/extension/index.ts',
+        commands: [
+          {
+            name: 'todos',
+            description: 'Stale todos command.',
+            handler: staleHandler,
+          },
+        ],
+      }),
+      { sessionId: 'session-1' },
+    );
+
+    const tool = createSeroCliTool(getCliRegistry(), 'ws-1', 'session-1');
+    const result = await tool.execute(
+      'tool-1',
+      { command: 'todos' },
+      undefined,
+      undefined,
+      { cwd: '/tmp/ws-1' } as never,
+    );
+
+    expect(staleHandler).not.toHaveBeenCalled();
+    expect(liveHandler).toHaveBeenCalledWith('', expect.any(Object));
+    expect(result.content).toEqual([{ type: 'text', text: '/todos executed' }]);
   });
 
   it('injects sessionRuntime into bridged command contexts', async () => {

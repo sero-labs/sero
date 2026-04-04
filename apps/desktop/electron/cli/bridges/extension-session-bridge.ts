@@ -26,6 +26,20 @@ function resolveSessionId(
   }
 }
 
+function resolveSessionEntry(
+  context: Pick<CliCommandContext, 'workspaceId' | 'invocation'>,
+) {
+  const sessionId = resolveSessionId(context);
+  if (!sessionId) return null;
+
+  try {
+    const entry = getCliSessionBridge().getSessionEntry(sessionId);
+    return entry ? { sessionId, entry } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function replaceBridgedExtensionSessionItems(
   sessionId: string,
   extensions: Extension[],
@@ -49,18 +63,41 @@ export function getBridgedExtensionTool(
   name: string,
   context: Pick<CliCommandContext, 'workspaceId' | 'invocation'>,
 ): RegisteredTool | undefined {
-  const sessionId = resolveSessionId(context);
-  if (!sessionId) return undefined;
-  return sessionItems.get(sessionId)?.tools.get(name);
+  const resolved = resolveSessionEntry(context);
+  if (!resolved) return undefined;
+
+  const liveTool = resolved.entry.session.extensionRunner?.getToolDefinition(name);
+  if (liveTool) {
+    return {
+      definition: liveTool,
+      extensionPath: sessionItems.get(resolved.sessionId)?.tools.get(name)?.extensionPath ?? '<session>',
+    };
+  }
+
+  return sessionItems.get(resolved.sessionId)?.tools.get(name);
 }
 
 export function getBridgedExtensionCommand(
   name: string,
-  context: Pick<CliCommandContext, 'workspaceId' | 'invocation'>,
+  context: CliCommandContext,
 ): RegisteredCommand | undefined {
-  const sessionId = resolveSessionId(context);
-  if (!sessionId) return undefined;
-  return sessionItems.get(sessionId)?.commands.get(name);
+  const resolved = resolveSessionEntry(context);
+  if (!resolved) return undefined;
+
+  const liveRunner = resolved.entry.session.extensionRunner;
+  const liveCommand = liveRunner?.getCommand(name);
+  if (liveCommand && liveRunner) {
+    return {
+      ...liveCommand,
+      handler: (args, _ctx) => liveCommand.handler(args, {
+        ...(context.agentContext ? { ...context.agentContext } : {}),
+        ...liveRunner.createCommandContext(),
+        sessionRuntime: context.sessionRuntime,
+      } as Parameters<typeof liveCommand.handler>[1]),
+    };
+  }
+
+  return sessionItems.get(resolved.sessionId)?.commands.get(name);
 }
 
 export function clearBridgedExtensionSessionItemsForSession(sessionId: string): void {
