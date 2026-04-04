@@ -298,6 +298,20 @@ export interface AuthProvidersResponse {
   apiKey: ApiKeyProviderInfo[];
 }
 
+// ── Model Tiers ──────────────────────────────────────────────
+
+/** Model tier levels for user-configured defaults. */
+export type ModelTier = 'LOW' | 'MED' | 'HIGH';
+
+/** A user-configured model for a specific tier. */
+export interface ModelTierEntry {
+  provider: string;
+  modelId: string;
+}
+
+/** Per-profile tier configuration stored in settings.json. */
+export type ModelTierSettings = Partial<Record<ModelTier, ModelTierEntry>>;
+
 /**
  * Events pushed from main → renderer during an OAuth login flow.
  * The renderer dialog reacts to each event to update its UI state.
