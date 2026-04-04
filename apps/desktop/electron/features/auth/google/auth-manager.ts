@@ -161,13 +161,6 @@ export class GoogleAuthManager {
       return this.cacheStatus({ configured: true, authenticated: false });
     }
 
-    // Validate token by attempting a refresh
-    const tokenResult = await this.gogExec(['--json', 'auth', 'token', email]);
-    if (!tokenResult) {
-      // Token exists but refresh failed — expired/revoked
-      return this.cacheStatus({ configured: true, authenticated: false });
-    }
-
     this.email = email;
     return this.cacheStatus({ configured: true, authenticated: true, email });
   }
@@ -311,7 +304,12 @@ export class GoogleAuthManager {
   private gogExec(args: string[]): Promise<string | null> {
     return new Promise((resolve) => {
       execFile(findGog(), args, { env: gogEnv(), timeout: 10_000 },
-        (err, stdout) => resolve(err ? null : (stdout ?? '')));
+        (err, stdout, stderr) => {
+          if (err) {
+            console.warn(`[google-auth] gogExec ${args.join(' ')} failed:`, stderr?.trim() || err.message);
+          }
+          resolve(err ? null : (stdout ?? ''));
+        });
     });
   }
 }
