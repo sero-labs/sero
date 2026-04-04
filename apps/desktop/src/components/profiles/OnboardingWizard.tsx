@@ -36,12 +36,14 @@ import {
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { KeyRound, Loader2, TriangleAlert } from 'lucide-react';
 import { AuthLoginDialog } from '@/components/layout/AuthLoginDialog';
+import { TierPicker } from './TierPicker';
+import type { ModelTierSettings } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 
-type Phase = 'checking' | 'auth' | 'launching' | 'error' | 'done';
+type Phase = 'checking' | 'auth' | 'tiers' | 'launching' | 'error' | 'done';
 
 export function OnboardingWizard() {
   const [phase, setPhase] = useState<Phase>('checking');
@@ -72,8 +74,13 @@ export function OnboardingWizard() {
           || providers.apiKey.some((p) => p.hasKey && !p.fromEnv);
 
         if (hasAuth) {
-          // Auth present (copied at creation) → launch memory setup
-          launchMemorySession();
+          // Auth present — check if tiers are configured
+          const tiers = await window.sero.modelTiers.get();
+          if (Object.keys(tiers).length > 0) {
+            launchMemorySession();
+          } else {
+            setPhase('tiers');
+          }
         } else {
           setPhase('auth');
         }
@@ -126,11 +133,24 @@ export function OnboardingWizard() {
   // ── Auth completed → launch memory session ──────────────────
   const handleLoginComplete = useCallback(() => {
     setShowLoginDialog(false);
-    launchMemorySession();
-  }, [launchMemorySession]);
+    setPhase('tiers');
+  }, []);
 
   // ── Auth skipped → launch memory session anyway ─────────────
   const handleSkipAuth = useCallback(() => {
+    setPhase('tiers');
+  }, []);
+
+  const handleTierComplete = useCallback(async (tiers: ModelTierSettings) => {
+    try {
+      await window.sero.modelTiers.set(tiers);
+    } catch (err) {
+      console.warn('[onboarding] Failed to save model tiers:', err);
+    }
+    launchMemorySession();
+  }, [launchMemorySession]);
+
+  const handleTierSkip = useCallback(() => {
     launchMemorySession();
   }, [launchMemorySession]);
 
@@ -154,6 +174,19 @@ export function OnboardingWizard() {
               This should only take a moment.
             </DialogDescription>
           </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={phase === 'tiers'} onOpenChange={() => {/* prevent close */}}>
+        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Choose your default models</DialogTitle>
+            <DialogDescription>
+              Pick which models to use for different task complexities.
+              You can change these anytime in settings.
+            </DialogDescription>
+          </DialogHeader>
+          <TierPicker onComplete={handleTierComplete} onSkip={handleTierSkip} />
         </DialogContent>
       </Dialog>
 
