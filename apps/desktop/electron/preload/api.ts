@@ -63,6 +63,7 @@ import type {
   AppRecordingResult,
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
+  ModelTierSettings,
 } from '../../src/types/ipc';
 import type {
   VcsCheckpoint,
@@ -271,6 +272,13 @@ export const seroPreloadApi = {
 
   models: modelsBridge,
   localModels: localModelsBridge,
+
+  modelTiers: {
+    get: (): Promise<ModelTierSettings> =>
+      ipcRenderer.invoke(IpcChannels.modelTiers.get),
+    set: (tiers: ModelTierSettings): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.modelTiers.set, tiers),
+  },
 
   google: googleBridge,
   imagegen: imagegenBridge,

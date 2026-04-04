@@ -66,6 +66,7 @@ import type {
   CollaborationStateSnapshot,
   CollaborationEvent,
   CollaborationConfig,
+  ModelTierSettings,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
@@ -366,6 +367,13 @@ interface SeroCollaborationAPI {
   onEvent(callback: (event: CollaborationEvent) => void): () => void;
 }
 
+interface SeroModelTiersAPI {
+  /** Get current model tier settings from settings.json. */
+  get(): Promise<ModelTierSettings>;
+  /** Write model tier settings to settings.json. */
+  set(tiers: ModelTierSettings): Promise<void>;
+}
+
 interface SeroProfilesAPI {
   /** List all profiles with active flag. */
   list(): Promise<ProfileInfo[]>;
@@ -442,6 +450,7 @@ interface SeroAPI {
   skills: SeroSkillsAPI;
   prompts: SeroPromptsAPI;
   github: SeroGitHubAPI;
+  modelTiers: SeroModelTiersAPI;
   plugins: SeroPluginsAPI;
   localModels: SeroLocalModelsAPI;
   pluginConfig: SeroPluginConfigAPI;

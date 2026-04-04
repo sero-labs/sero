@@ -135,6 +135,10 @@ export const IpcChannels = {
     /** List all available models (session-independent). Returns AvailableModelGroup[]. */
     list: 'sero:models:list',
   },
+  modelTiers: {
+    get: 'sero:model-tiers:get',
+    set: 'sero:model-tiers:set',
+  },
   localModels: localModelsIpcChannels,
   imagegen: {
     /** Generate images via Gemini Nano Banana. Returns generation metadata. */
