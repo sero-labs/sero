@@ -53,9 +53,3 @@ export function setModelTiers(
     },
   };
 }
-
-/** Check if any tier is configured. */
-export function hasModelTiers(settings: Record<string, unknown>): boolean {
-  const tiers = getModelTiers(settings);
-  return Object.keys(tiers).length > 0;
-}
