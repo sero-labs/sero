@@ -11,19 +11,56 @@
 import { shell } from 'electron';
 import http from 'node:http';
 import crypto from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, chmodSync, existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { homedir, hostname, userInfo } from 'node:os';
 import path from 'node:path';
 
 // ── Lazy env access ──────────────────────────────────────────
-function getClientId(): string { return process.env.GOOGLE_CLIENT_ID ?? ''; }
-function getClientSecret(): string { return process.env.GOOGLE_CLIENT_SECRET ?? ''; }
-
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const LOOPBACK = '127.0.0.1';
+
+import { SERO_AGENT_DIR } from '../../../platform/env';
+
+const GOOGLE_CONFIG_PATH = path.join(SERO_AGENT_DIR, 'google-oauth.json');
+
+interface GoogleOAuthConfig {
+  clientId: string;
+  clientSecret: string;
+}
+
+function loadConfig(): GoogleOAuthConfig | null {
+  try {
+    const raw = readFileSync(GOOGLE_CONFIG_PATH, 'utf8');
+    const parsed = JSON.parse(raw) as Partial<GoogleOAuthConfig>;
+    if (parsed.clientId && parsed.clientSecret) {
+      return { clientId: parsed.clientId, clientSecret: parsed.clientSecret };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveGoogleConfig(clientId: string, clientSecret: string): void {
+  writeFileSync(GOOGLE_CONFIG_PATH, JSON.stringify({ clientId, clientSecret }, null, 2) + '\n', 'utf8');
+  chmodSync(GOOGLE_CONFIG_PATH, 0o600);
+}
+
+export function getGoogleConfig(): { configured: boolean } {
+  const cfg = loadConfig();
+  const envConfigured = !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+  return { configured: !!cfg || envConfigured };
+}
+
+function getClientId(): string {
+  return loadConfig()?.clientId ?? process.env.GOOGLE_CLIENT_ID ?? '';
+}
+function getClientSecret(): string {
+  return loadConfig()?.clientSecret ?? process.env.GOOGLE_CLIENT_SECRET ?? '';
+}
 
 const SCOPES = [
   'openid',
