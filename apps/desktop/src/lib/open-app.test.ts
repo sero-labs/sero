@@ -25,7 +25,7 @@ describe('openApp', () => {
       activeApp: 'kanban',
       pendingApp: null,
       apps: [
-        createApp('coding', 'Coding', true),
+        createApp('explorer', 'Explorer', true),
         createApp('kanban', 'Kanban'),
         createApp('todo', 'Todo'),
         createApp('userfeedback', 'User Feedback'),
@@ -62,9 +62,9 @@ describe('openApp', () => {
   });
 
   it('opens non-feedback apps without changing return navigation', () => {
-    openApp('coding');
+    openApp('explorer');
 
-    expect(useAppStore.getState().activeApp).toBe('coding');
+    expect(useAppStore.getState().activeApp).toBe('explorer');
     expect(useUserFeedbackStore.getState().returnApp).toBeNull();
   });
 });

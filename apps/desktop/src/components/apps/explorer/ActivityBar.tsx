@@ -6,10 +6,10 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import { useSubagentStore } from '@/stores/subagent';
 
 // ── Types ──────────────────────────────────────────────────────
-export type CodingPanel = 'explorer' | 'git' | 'orchestration' | 'terminal';
+export type ExplorerPanel = 'explorer' | 'git' | 'orchestration' | 'terminal';
 
 interface ActivityItem {
-  id: CodingPanel;
+  id: ExplorerPanel;
   label: string;
   icon: React.ReactNode;
   /** If true, this item is placed at the bottom of the activity bar. */
@@ -25,15 +25,15 @@ const items: ActivityItem[] = [
 
 // ── Component ──────────────────────────────────────────────────
 interface ActivityBarProps {
-  activePanel: CodingPanel;
+  activePanel: ExplorerPanel;
   sidebarOpen: boolean;
   terminalOpen: boolean;
-  onPanelClick: (panel: CodingPanel) => void;
+  onPanelClick: (panel: ExplorerPanel) => void;
   workspaceId?: string;
 }
 
 /**
- * ActivityBar — narrow icon strip for the coding workspace.
+ * ActivityBar — narrow icon strip for the explorer workspace.
  *
  * Explorer, Search, Source Control, Orchestration (top) and Terminal (bottom).
  * Shows a badge on the orchestration icon when subagents are running.

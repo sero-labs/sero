@@ -2,13 +2,13 @@
 
 ## AD-001: Shell + Mountable Apps
 
-The main sidebar selects which app fills the main area. CodingWorkspace is one
+The main sidebar selects which app fills the main area. ExplorerWorkspace is one
 app; Calendar, Todos, etc. are future apps. Each app is a self-contained
 component — the shell doesn't know about project tabs or file explorers.
 
-## AD-002: CodingWorkspace Owns Its Layout
+## AD-002: ExplorerWorkspace Owns Its Layout
 
-Project tabs, activity bar, and sidebar are internal to the coding app. State
+Project tabs, activity bar, and sidebar are internal to the explorer app. State
 is local (`useState`) until we need persistence, then we'll add a dedicated
 store.
 
@@ -195,7 +195,7 @@ cleaned up on startup.
 - Workspace files bind-mounted: `<workspace.path>` → `/workspace`
 - SSH agent forwarding enabled (`--ssh` on `container run`)
 - Ghost container recovery follows the protocol in `docs/libs/container.md`
-- Terminal via `node-pty` → `container exec -it` → xterm.js in CodingWorkspace
+- Terminal via `node-pty` → `container exec -it` → xterm.js in ExplorerWorkspace
 - Container status indicator in WorkspaceTree (dot: none/starting/running/error)
 - File watcher on host-side bind-mount dirs for future file tree integration
 - System prompt injected via `before_agent_start` hook with container-specific
@@ -306,8 +306,8 @@ via the Pi SDK. Markdown-first agent definitions, three execution modes
   blocks only. No external extension package loading in v1.
 - **Snapshot + events for UI** — Renderer uses mount-time snapshot hydration plus
   live IPC events. Mirrors the user-feedback pattern.
-- **Orchestration in coding sidebar** — Uses the existing `ActivityBar` +
-  `CodingSidebar` structure. No new shell-level panel.
+- **Orchestration in explorer sidebar** — Uses the existing `ActivityBar` +
+  `ExplorerSidebar` structure. No new shell-level panel.
 
 **Concurrency model:**
 - `maxConcurrent` (default: 4) — per-invocation fan-out cap

@@ -1,8 +1,8 @@
 /**
  * Terminal state store — manages terminal tabs per workspace.
  *
- * CodingWorkspace UI state (sidebar, panel visibility) lives in
- * stores/coding-ui.ts — this store is purely terminal tabs.
+ * ExplorerWorkspace UI state (sidebar, panel visibility) lives in
+ * stores/explorer.ts — this store is purely terminal tabs.
  */
 
 import { create } from 'zustand';

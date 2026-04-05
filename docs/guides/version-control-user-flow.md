@@ -1,6 +1,6 @@
 # Source Control User Flow (Sero)
 
-This guide explains how users move through the new Source Control section in Sero’s Coding workspace.
+This guide explains how users move through the new Source Control section in Sero’s Explorer workspace.
 
 ## Overview
 
@@ -16,7 +16,7 @@ Sero Source Control is JJ-backed and organized into these sections:
 
 ## 1. Open Source Control
 
-1. Open a workspace in Coding mode.
+1. Open a workspace in Explorer mode.
 2. Open the `Source Control` panel in the sidebar.
 3. Sero loads current JJ state (working copy, bookmarks, change log, remotes).
 

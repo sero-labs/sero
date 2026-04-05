@@ -20,7 +20,7 @@ export interface AppEntry {
   id: string;
   label: string;
   icon: string;
-  /** True for built-in apps (coding, etc.), false for discovered sero apps. */
+  /** True for built-in apps (explorer, etc.), false for discovered sero apps. */
   builtin: boolean;
   /** Manifest for discovered sero apps (null for built-ins). */
   manifest: SeroAppManifest | null;
@@ -28,7 +28,7 @@ export interface AppEntry {
 
 const BUILTIN_APPS: AppEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', builtin: true, manifest: null },
-  { id: 'coding', label: 'Coding', icon: 'code', builtin: true, manifest: null },
+  { id: 'explorer', label: 'Explorer', icon: 'code', builtin: true, manifest: null },
 ];
 const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
 const DEFAULT_FAVOURITE_APP_IDS = ['todo', 'notes', 'planmode'] as const;

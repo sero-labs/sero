@@ -117,7 +117,7 @@ interface SeroAppControlAPI {
   open(appId: string): Promise<boolean>;
   /** Get detailed info for a specific app. */
   info(appId: string): Promise<AppControlEntry | null>;
-  /** Open a workspace file in the coding editor / preview pane. */
+  /** Open a workspace file in the explorer editor / preview pane. */
   openFile(workspaceId: string, filePath: string): Promise<boolean>;
   /** Capture a screenshot of the app panel. Returns base64 PNG or null. */
   screenshot(): Promise<string | null>;

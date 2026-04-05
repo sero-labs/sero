@@ -1,14 +1,14 @@
 /**
  * Editor bridge — lightweight event bus for "open file in editor" requests.
  *
- * Used by the ChatPanel / ToolCallGroup to request that the CodingWorkspace
- * opens a specific file tab.  CodingWorkspace subscribes and handles the event.
+ * Used by the ChatPanel / ToolCallGroup to request that the ExplorerWorkspace
+ * opens a specific file tab.  ExplorerWorkspace subscribes and handles the event.
  */
 
 import { create } from 'zustand';
 
 interface EditorBridgeState {
-  /** Pending file-open request. Consumed by CodingWorkspace on the next tick. */
+  /** Pending file-open request. Consumed by ExplorerWorkspace on the next tick. */
   pendingOpen: { workspaceId: string; filePath: string } | null;
 
   /** Request the editor to open a file. */

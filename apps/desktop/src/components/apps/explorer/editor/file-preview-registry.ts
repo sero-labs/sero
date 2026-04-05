@@ -1,7 +1,7 @@
 import type { ViewMode } from './ViewModeToggle';
 
 /**
- * Data-driven preview registry for CodingWorkspace.
+ * Data-driven preview registry for ExplorerWorkspace.
  *
  * New file extensions should map onto an existing preview category whenever
  * possible so we do not need a bespoke renderer for every single file type.

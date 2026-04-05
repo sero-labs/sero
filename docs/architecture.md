@@ -4,11 +4,11 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  TitleBar (⊞ toggle … Coding — Workspace / Session … ⊟ chat)│
+│  TitleBar (⊞ toggle … Explorer — Workspace / Session … ⊟ chat)│
 ├──────────┬──────────────────────────────┬─┬─────────────────┤
 │  Main    │                              │║│                 │
 │  Sidebar │     Active App               │║│  Chat Panel     │
-│  (apps   │     (CodingWorkspace / etc.) │║│  (global agent) │
+│  (apps   │     (ExplorerWorkspace / etc.) │║│  (global agent) │
 │  + wksp  │                              │║│                 │
 │    tree) │                              │║│                 │
 ├──────────┴──────────────────────────────┴─┴─────────────────┤
@@ -50,7 +50,7 @@ own root directory and `.sero-workspace.json` config.
 
 See `docs/ideas/multi-workspace-spec.md` for the full specification.
 
-## CodingWorkspace
+## ExplorerWorkspace
 
 ```
 ┌────┬──────┬──────────────────────────────────┐
@@ -62,7 +62,7 @@ See `docs/ideas/multi-workspace-spec.md` for the full specification.
 ```
 
 Self-contained. Has its own ActivityBar (Explorer, Search, Source Control)
-and CodingSidebar. No ProjectBar — workspaces replace project tabs (AD-010).
+and ExplorerSidebar. No ProjectBar — workspaces replace project tabs (AD-010).
 State is local (`useState`) — will extract to a Zustand store when real
 functionality requires it.
 
@@ -98,10 +98,10 @@ src/
       ChatPanel.tsx          Agent chat (ai-elements), multi-agent aware
       StatusBar.tsx          Workspace info, active agent count
 
-    apps/coding/
-      CodingWorkspace.tsx    Self-contained coding app (no ProjectBar)
+    apps/explorer/
+      ExplorerWorkspace.tsx    Self-contained explorer app (no ProjectBar)
       ActivityBar.tsx        Icon strip (Explorer, Search, Git)
-      CodingSidebar.tsx      Panel content per activity
+      ExplorerSidebar.tsx      Panel content per activity
 
     ai-elements/             Vercel ai-elements (48 components, source in project)
     ui/                      shadcn/ui primitives (57 components)
@@ -166,12 +166,12 @@ electron/
 Each `AgentInstance` tracks: sessionId, sessionPath, workspaceId, messages,
 isStreaming, error.
 
-### CodingWorkspace (local `useState`)
+### ExplorerWorkspace (local `useState`)
 
 | State          | Type          | Description                         |
 | -------------- | ------------- | ----------------------------------- |
-| `activePanel`  | `CodingPanel` | Which activity bar item is selected |
-| `sidebarOpen`  | `boolean`     | CodingSidebar visibility            |
+| `activePanel`  | `ExplorerPanel` | Which activity bar item is selected |
+| `sidebarOpen`  | `boolean`     | ExplorerSidebar visibility            |
 
 ## Agent Architecture
 

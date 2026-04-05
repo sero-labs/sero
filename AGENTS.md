@@ -85,7 +85,7 @@ Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<app-id>.log`, `/tmp/sero-electron
 ├──────────┬──────────────────────────────┬─┬─────────────────┤
 │  Main    │                              │║│                 │
 │  Sidebar │     Active Plugin            │║│  Chat Panel     │
-│  (plugins│     (CodingWorkspace / etc.) │║│  (global agent) │
+│  (plugins│     (ExplorerWorkspace / etc.) │║│  (global agent) │
 │  + chats)│                              │║│                 │
 ├──────────┴──────────────────────────────┴─┴─────────────────┤
 │  StatusBar                                                   │
@@ -94,7 +94,7 @@ Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<app-id>.log`, `/tmp/sero-electron
 
 - **MainSidebar** (left, collapsible) — plugin list + chat sessions
 - **ChatPanel** (right, collapsible + resizable) — global agent
-- **Active Plugin** — currently CodingWorkspace (others are placeholders)
+- **Active Plugin** — currently ExplorerWorkspace (others are placeholders)
 
 **Agent Directory (IMPORTANT)**  
 Sero uses **`~/.sero-ui/agent/`** (set via `PI_CODING_AGENT_DIR` in `electron/env.ts`). Never use `~/.pi/agent/`. Single source of truth: `electron/env.ts` exports `SERO_HOME` and `SERO_AGENT_DIR`.

@@ -223,7 +223,7 @@ useAgentPrompt(): (text: string) => void
 ┌─ Renderer ───────────────────────────────────────────────┐
 │                                                          │
 │  App Switcher (MainSidebar):                             │
-│    [Coding] [Todo] [...]  ← discovered from manifests    │
+│    [Explorer] [Todo] [...]  ← discovered from manifests    │
 │                                                          │
 │  When user selects Todo:                                 │
 │    Module federation loads remoteEntry.js                 │

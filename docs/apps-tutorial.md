@@ -77,7 +77,7 @@ Key properties:
 ┌─ Renderer ───────────────────────────────────────────────┐
 │                                                          │
 │  MainSidebar:                                            │
-│    [Coding] [Todo] [YourApp]  ← from discovery           │
+│    [Explorer] [Todo] [YourApp]  ← from discovery           │
 │                                                          │
 │  When user clicks YourApp:                               │
 │    Module Federation loads remoteEntry.js                 │
