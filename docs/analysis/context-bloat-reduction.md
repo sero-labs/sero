@@ -32,11 +32,11 @@ A minimal "tell me a joke" turn sends **~14,450 chars of system prompt** and
 | **interview** | 994 | ❌ `NEVER_BRIDGE` | "user input, no CLI timeout" |
 | **question** | 892 | ❌ `NEVER_BRIDGE` | "user input, no CLI timeout" |
 | **create_agent** | 678 | ❌ `NEVER_BRIDGE` | listed alongside kanban |
-| read | 689 | n/a | core coding tool |
-| edit | 557 | n/a | core coding tool |
+| read | 689 | n/a | core explorer tool |
+| edit | 557 | n/a | core explorer tool |
 | sero-cli | 503 | n/a | the bridge itself |
-| bash | 496 | n/a | core coding tool |
-| write | 437 | n/a | core coding tool |
+| bash | 496 | n/a | core explorer tool |
+| write | 437 | n/a | core explorer tool |
 | **Total** | **11,930** | | |
 | *Unbridged non-core* | *9,226* | | *78% of tool context* |
 

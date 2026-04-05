@@ -2,8 +2,8 @@
  * EditorPanel — Monaco editor with multi-tab support, dirty tracking,
  * view state persistence, and LSP integration.
  *
- * Does NOT render its own FileTree — the FileTree lives in CodingSidebar.
- * Tab/file state is managed by the parent CodingWorkspace.
+ * Does NOT render its own FileTree — the FileTree lives in ExplorerSidebar.
+ * Tab/file state is managed by the parent ExplorerWorkspace.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -328,7 +328,7 @@ export function EditorPanel({
   }, []);
 
   // ── Handle file renames (from FileTree) ──
-  // This is called by CodingWorkspace when FileTree reports a path change
+  // This is called by ExplorerWorkspace when FileTree reports a path change
   // For now, the parent handles re-mapping tabs
 
   const tabDescriptors: EditorTab[] = tabs.map((path) => ({ path, dirty: dirtyPaths.has(path) }));

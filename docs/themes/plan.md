@@ -33,7 +33,7 @@ toggle working throughout.
 | **36 files** use hardcoded Tailwind colour classes | 122 occurrences of `text-red-400`, `bg-emerald-500`, `bg-blue-500`, etc. |
 | `TerminalPanel.tsx` has 48 hardcoded ANSI hex colours | Separate light/dark palettes |
 | `ModelSelector.tsx` has 2 hardcoded gradient strings | Inline `style` attributes |
-| `CodingWorkspace.tsx` has `bg-[#0a0a0b]` | Should use `var(--bg-base)` |
+| `ExplorerWorkspace.tsx` has `bg-[#0a0a0b]` | Should use `var(--bg-base)` |
 | No font/spacing/radius customisation | All hardcoded in CSS or Tailwind defaults |
 | No theme preset storage, export, or sharing | `layout.json` only stores `"dark"` or `"light"` |
 | No theme UI panel | Toggle exists in store but no settings surface |
@@ -260,7 +260,7 @@ variable already changes value under `.dark`. This _simplifies_ the markup.
 
 | File | Fix |
 |------|-----|
-| `CodingWorkspace.tsx` | `bg-[#0a0a0b]` → `bg-[var(--bg-base)]` |
+| `ExplorerWorkspace.tsx` | `bg-[#0a0a0b]` → `bg-[var(--bg-base)]` |
 | `ModelSelector.tsx` | Extract gradient tokens `--gradient-thinking-high`, `--gradient-thinking-low` |
 | `TerminalPanel.tsx` | Map ANSI palette to `--terminal-*` tokens with light/dark defaults |
 
@@ -543,7 +543,7 @@ Create 4-6 built-in theme presets:
 | **36 component files** | Replace hardcoded Tailwind colours with `var()` tokens |
 | `TerminalPanel.tsx` | Replace ANSI hex map with `--terminal-*` tokens |
 | `ModelSelector.tsx` | Replace gradient hex with tokens |
-| `CodingWorkspace.tsx` | Replace `bg-[#0a0a0b]` |
+| `ExplorerWorkspace.tsx` | Replace `bg-[#0a0a0b]` |
 | `TitleBar.tsx` or `CommandMenu.tsx` | Add theme panel trigger |
 
 ---

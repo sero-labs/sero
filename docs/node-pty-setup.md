@@ -110,7 +110,7 @@ xterm.js (renderer)
 
 - **`electron/container/terminal.ts`** — `TerminalManager` spawns PTY sessions
 - **`electron/ipc/terminal.ts`** — IPC handlers bridge renderer ↔ PTY
-- **`src/components/apps/coding/TerminalPanel.tsx`** — xterm.js UI
+- **`src/components/apps/explorer/TerminalPanel.tsx`** — xterm.js UI
 - node-pty is marked as `external` in esbuild (`scripts/build-electron.mjs`)
   so it's resolved from `node_modules` at runtime, not bundled
 

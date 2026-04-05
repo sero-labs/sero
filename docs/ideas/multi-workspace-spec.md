@@ -22,7 +22,7 @@ architecture and the PI SDK.
 |---|----------|-----------|
 | 1 | **Full scope** — composite environment, cross-workspace refs, inference, lifecycle — all in | Integral to what makes or breaks the app |
 | 2 | **External paths** — workspaces point to real directories on disk (like PI's `cwd`) | Dev projects live in `~/Dev/...`, not inside `~/.sero-ui/` |
-| 3 | **Workspaces replace project tabs** — ProjectBar is removed from CodingWorkspace | Workspaces subsume the "project" concept entirely |
+| 3 | **Workspaces replace project tabs** — ProjectBar is removed from ExplorerWorkspace | Workspaces subsume the "project" concept entirely |
 | 4 | **ChatPanel stays global** — sessions know their workspace, sidebar groups them | Matches existing AD-003; session selection changes workspace context |
 | 5 | **Multiple simultaneous `AgentSession`s** — one per active session, keyed by session ID | Enables parallel work; active agents indicated in sidebar |
 | 6 | **Scratchpad default** — new sessions go to scratchpad unless user picks a workspace | VSCode-style workspace selection for explicit binding |
@@ -142,7 +142,7 @@ interface WorkspaceConfig {
 ├──────────┬──────────────────────────────┬─┬─────────────────┤
 │  Main    │                              │║│                 │
 │  Sidebar │     Active App               │║│  Chat Panel     │
-│  ┌─────┐ │     (CodingWorkspace / etc.) │║│  (global agent) │
+│  ┌─────┐ │     (ExplorerWorkspace / etc.) │║│  (global agent) │
 │  │Wksp │ │                              │║│                 │
 │  │  ├ S │ │                              │║│                 │
 │  │  └ S │ │                              │║│                 │
@@ -160,7 +160,7 @@ interface WorkspaceConfig {
 |-----------|--------|-------|
 | **MainSidebar** | Apps list + flat chat list | Apps list + workspace→session tree |
 | **ProjectBar** | Static project tabs | **Removed** — workspaces replace projects |
-| **CodingWorkspace** | Has ProjectBar | No ProjectBar; reflects active workspace filesystem |
+| **ExplorerWorkspace** | Has ProjectBar | No ProjectBar; reflects active workspace filesystem |
 | **ChatPanel** | Global, single agent | Global, multi-agent aware (shows active session's workspace) |
 | **StatusBar** | Placeholder | Shows workspace name, cwd, active agent count |
 | **TitleBar** | Static "Sero" | Shows active workspace name |
@@ -428,7 +428,7 @@ Replace the flat session list with a tree view:
 ```
 ┌─────────────────────────────────┐
 │ Apps                            │
-│  💻 Coding                      │
+│  💻 Explorer                      │
 │  📅 Calendar                    │
 │  ...                            │
 ├─────────────────────────────────┤
@@ -475,11 +475,11 @@ For new workspace (non-dev):
 1. Text input for name
 2. Created under `~/.sero-ui/workspaces/{slug}/`
 
-### 4.3 CodingWorkspace
+### 4.3 ExplorerWorkspace
 
 - **Remove** `ProjectBar` component entirely
-- **Remove** `ProjectBar` import and render from `CodingWorkspace.tsx`
-- CodingWorkspace reflects the active workspace's filesystem
+- **Remove** `ProjectBar` import and render from `ExplorerWorkspace.tsx`
+- ExplorerWorkspace reflects the active workspace's filesystem
 - ActivityBar Explorer will eventually show the active workspace's file tree
 
 ### 4.4 StatusBar
@@ -711,16 +711,16 @@ a session opens it in the ChatPanel. Active streaming shown with indicator.
 ### Phase 5: Remove ProjectBar, Update Shell
 
 **Files:**
-- `src/components/apps/coding/CodingWorkspace.tsx` — remove ProjectBar
-- `src/components/apps/coding/ProjectBar.tsx` — delete file
+- `src/components/apps/explorer/ExplorerWorkspace.tsx` — remove ProjectBar
+- `src/components/apps/explorer/ProjectBar.tsx` — delete file
 - `src/components/layout/StatusBar.tsx` — workspace info
 - `src/components/layout/TitleBar.tsx` — workspace name
 - `src/components/layout/ChatPanel.tsx` — workspace badge, multi-agent
 
 **Tasks:**
 1. Delete `ProjectBar.tsx`
-2. Remove ProjectBar from CodingWorkspace layout
-3. CodingWorkspace fills its space (ActivityBar + Sidebar + Editor area)
+2. Remove ProjectBar from ExplorerWorkspace layout
+3. ExplorerWorkspace fills its space (ActivityBar + Sidebar + Editor area)
 4. StatusBar: show active workspace name, path, active agent count
 5. TitleBar: show active workspace name in center
 6. ChatPanel header: show workspace badge next to "Agent"
@@ -768,7 +768,7 @@ workspace via `@ws:` prefix. System prompt mentions other open workspaces.
 ## 9. Migration from Current State
 
 ### What Gets Deleted
-- `src/components/apps/coding/ProjectBar.tsx`
+- `src/components/apps/explorer/ProjectBar.tsx`
 
 ### What Gets Renamed/Moved
 - Nothing — new files are additive
@@ -791,7 +791,7 @@ workspace via `@ws:` prefix. System prompt mentions other open workspaces.
 | `src/components/layout/ChatPanel.tsx` | Multi-agent, workspace badge |
 | `src/components/layout/StatusBar.tsx` | Workspace info |
 | `src/components/layout/TitleBar.tsx` | Workspace name |
-| `src/components/apps/coding/CodingWorkspace.tsx` | Remove ProjectBar |
+| `src/components/apps/explorer/ExplorerWorkspace.tsx` | Remove ProjectBar |
 | `src/hooks/useSessionAgent.ts` | Multi-agent bridge |
 
 ### Data Migration

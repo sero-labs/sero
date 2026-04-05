@@ -684,7 +684,7 @@ graph TD
     subgraph MidRow[" "]
       direction LR
       MS["MainSidebar\n(Apps + Workspaces)"]
-      AA["Active App\n(CodingWorkspace)"]
+      AA["Active App\n(ExplorerWorkspace)"]
       CP["ChatPanel\n(Agent Chat)"]
     end
     SB["StatusBar"]
@@ -717,11 +717,11 @@ graph TD
       </div>
       <div class="inner-card">
         <div class="title"><span class="tag tag--mint">MainSidebar</span></div>
-        <div class="desc">App switcher (Coding, Todo, etc.) + WorkspaceTree with sessions grouped by workspace. Streaming indicators per session.</div>
+        <div class="desc">App switcher (Explorer, Todo, etc.) + WorkspaceTree with sessions grouped by workspace. Streaming indicators per session.</div>
       </div>
       <div class="inner-card">
         <div class="title"><span class="tag tag--cyan">Active App</span></div>
-        <div class="desc">Mountable app area — CodingWorkspace is the primary app. Each app is self-contained with its own internal layout.</div>
+        <div class="desc">Mountable app area — ExplorerWorkspace is the primary app. Each app is self-contained with its own internal layout.</div>
       </div>
       <div class="inner-card">
         <div class="title"><span class="tag tag--amber">ChatPanel</span></div>
@@ -873,7 +873,7 @@ graph TB
           <div class="desc">Workspace-scoped skill and AGENTS.md discovery</div>
         </div>
         <div class="inner-card">
-          <div class="title"><code>createCodingTools(cwd)</code></div>
+          <div class="title"><code>createHostCodingTools(cwd)</code></div>
           <div class="desc">Bash, read, write, edit — scoped to workspace path</div>
         </div>
         <div class="inner-card">
@@ -1067,7 +1067,7 @@ graph TB
     <div class="inner-grid anim" style="--i:32">
       <div class="inner-card">
         <div class="title">🖥️ Terminal</div>
-        <div class="desc"><code>node-pty</code> → <code>container exec -it</code> → xterm.js in CodingWorkspace. Full PTY support.</div>
+        <div class="desc"><code>node-pty</code> → <code>container exec -it</code> → xterm.js in ExplorerWorkspace. Full PTY support.</div>
       </div>
       <div class="inner-card">
         <div class="title">📡 Dev Servers</div>
@@ -1178,10 +1178,10 @@ graph TD
       StatusBar["StatusBar"]
     end
 
-    subgraph Coding["components/apps/coding/"]
-      CodingWorkspace["CodingWorkspace"]
+    subgraph Explorer["components/apps/explorer/"]
+      ExplorerWorkspace["ExplorerWorkspace"]
       ActivityBar["ActivityBar"]
-      CodingSidebar["CodingSidebar"]
+      ExplorerSidebar["ExplorerSidebar"]
       TerminalPanel["TerminalPanel"]
       Editor["Monaco Editor"]
       FileTree["File Tree"]
@@ -1211,13 +1211,13 @@ graph TD
   App --> StatusBar
   MainSidebar --> WorkspaceTree
 
-  App --> CodingWorkspace
-  CodingWorkspace --> ActivityBar
-  CodingWorkspace --> CodingSidebar
-  CodingWorkspace --> TerminalPanel
-  CodingWorkspace --> Editor
-  CodingSidebar --> FileTree
-  CodingSidebar --> VCS
+  App --> ExplorerWorkspace
+  ExplorerWorkspace --> ActivityBar
+  ExplorerWorkspace --> ExplorerSidebar
+  ExplorerWorkspace --> TerminalPanel
+  ExplorerWorkspace --> Editor
+  ExplorerSidebar --> FileTree
+  ExplorerSidebar --> VCS
 
   ChatPanel --> AgentStore
   MainSidebar --> WSStore
@@ -1231,13 +1231,13 @@ graph TD
 
   classDef renderer fill:#6ee7b711,stroke:#6ee7b7,stroke-width:1.5px
   classDef layout fill:#a78bfa22,stroke:#a78bfa,stroke-width:1px
-  classDef coding fill:#67e8f922,stroke:#67e8f9,stroke-width:1px
+  classDef explorer fill:#67e8f922,stroke:#67e8f9,stroke-width:1px
   classDef stores fill:#fbbf2422,stroke:#fbbf24,stroke-width:1px
   classDef electron fill:#fda4af22,stroke:#fda4af,stroke-width:1.5px
 
   class Renderer renderer
   class Layout layout
-  class Coding coding
+  class Explorer explorer
   class Stores stores
   class ElectronMain electron
       </pre>

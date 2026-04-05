@@ -1,17 +1,17 @@
-import type { CodingPanel } from './ActivityBar';
+import type { ExplorerPanel } from './ActivityBar';
 import { FileTree } from './file-tree/FileTree';
 import { VcsPanel } from './vcs/VcsPanel';
 import { OrchestrationPanel } from './orchestration/OrchestrationPanel';
 
-const panelTitles: Record<CodingPanel, string> = {
+const panelTitles: Record<ExplorerPanel, string> = {
   explorer: 'Explorer',
   git: 'Source Control',
   orchestration: 'Orchestration',
   terminal: 'Terminal',
 };
 
-interface CodingSidebarProps {
-  activePanel: CodingPanel;
+interface ExplorerSidebarProps {
+  activePanel: ExplorerPanel;
   workspaceId: string;
   /** Props forwarded to the FileTree when panel=explorer. */
   fileTreeProps?: {
@@ -27,11 +27,11 @@ interface CodingSidebarProps {
 }
 
 /**
- * CodingSidebar — panel content for the coding workspace activity bar.
+ * ExplorerSidebar — panel content for the explorer workspace activity bar.
  *
  * Explorer panel renders the FileTree; other panels are placeholders.
  */
-export function CodingSidebar({ activePanel, workspaceId, fileTreeProps, onOpenDiff }: CodingSidebarProps) {
+export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps, onOpenDiff }: ExplorerSidebarProps) {
   const title = panelTitles[activePanel];
 
   return (
@@ -46,7 +46,7 @@ export function CodingSidebar({ activePanel, workspaceId, fileTreeProps, onOpenD
       )}
 
       {/* ── Content ──────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col min-h-0 overflow-hidden" data-testid="coding-sidebar-content">
+      <div className="flex flex-1 flex-col min-h-0 overflow-hidden" data-testid="explorer-sidebar-content">
         {activePanel === 'explorer' && fileTreeProps ? (
           <FileTree {...fileTreeProps} />
         ) : activePanel === 'git' ? (

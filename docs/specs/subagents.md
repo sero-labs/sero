@@ -75,8 +75,8 @@
     and copied to `~/.sero-ui/agent/agents/` on first launch. They are
     user-editable and deletable after copy.
 
-12. **Desktop UI** — Orchestration is accessible from CodingWorkspace via a new
-    activity bar item. It reuses the existing coding sidebar pattern rather than
+12. **Desktop UI** — Orchestration is accessible from ExplorerWorkspace via a new
+    activity bar item. It reuses the existing explorer sidebar pattern rather than
     introducing a second independent sidebar surface.
 
 13. **Error Handling** — Failed subagents return a plain error message. The main
@@ -166,9 +166,9 @@
 │    ├─ mount-time snapshot hydration                                 │
 │    └─ live events from main process via IPC                         │
 │                                                                     │
-│  CodingWorkspace                                                    │
+│  ExplorerWorkspace                                                    │
 │    ├─ ActivityBar — new "Orchestration" item                        │
-│    └─ CodingSidebar                                                 │
+│    └─ ExplorerSidebar                                                 │
 │         └─ OrchestrationPanel                                       │
 │              ├─ SubagentList                                        │
 │              ├─ SubagentCard                                        │
@@ -203,7 +203,7 @@ apps/desktop/
       ipc-channels.ts       # Subagent IPC channel constants
       electron.d.ts         # window.sero.subagent API typing
 
-    components/apps/coding/orchestration/
+    components/apps/explorer/orchestration/
       OrchestrationPanel.tsx
       SubagentList.tsx
       SubagentCard.tsx
@@ -687,15 +687,15 @@ missing.
 4. The user can inspect details in the panel.
 
 ### UI Integration
-The orchestration surface is a new `CodingPanel` inside the existing coding app
+The orchestration surface is a new `ExplorerPanel` inside the existing explorer app
 layout, not a new top-level shell panel:
 
 - `ActivityBar` gets a new `orchestration` item
-- `CodingSidebar` renders `OrchestrationPanel` when that item is active
+- `ExplorerSidebar` renders `OrchestrationPanel` when that item is active
 - the panel is scoped to the active workspace
 
 This keeps the feature aligned with the current `ActivityBar` and
-`CodingSidebar` structure instead of introducing another sidebar system.
+`ExplorerSidebar` structure instead of introducing another sidebar system.
 
 ### UI States
 | State | Panel Display |
@@ -876,7 +876,7 @@ Focus on structure, not implementation details.
 | `create_agent` main-session only | Child sessions must not manage agents or create recursion-adjacent flows. |
 | Reduced child-session extension factory | Preserves prompt/workspace/container helpers without full extension loading. |
 | Snapshot + events for UI state | Prevents late-mount and reload desync in the orchestration panel. |
-| Orchestration uses the existing coding sidebar | Matches the current `ActivityBar` + `CodingSidebar` architecture. |
+| Orchestration uses the existing explorer sidebar | Matches the current `ActivityBar` + `ExplorerSidebar` architecture. |
 
 ### Dependencies
 - Pi SDK `createAgentSession`, `SessionManager.inMemory()`,
@@ -955,7 +955,7 @@ agent directory. Agents are user-editable. Discovery finds them.
 
 ### Phase 4: Desktop UI
 **Scope**: `SubagentStore`, IPC handlers, preload bridge, `OrchestrationPanel`
-components, `ActivityBar` / `CodingSidebar` integration, snapshot hydration.
+components, `ActivityBar` / `ExplorerSidebar` integration, snapshot hydration.
 
 **Success criteria**: User can see live subagent activity in the orchestration
 panel. Status indicators, output viewers, summary stats, and reload-safe

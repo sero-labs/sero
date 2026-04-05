@@ -110,7 +110,7 @@ describe('useUserFeedbackStore', () => {
       activeApp: 'kanban',
       pendingApp: null,
       apps: [
-        createApp('coding', 'Coding', { builtin: true }),
+        createApp('explorer', 'Explorer', { builtin: true }),
         createApp('kanban', 'Kanban'),
         createApp('userfeedback', 'User Feedback', { manifest: userFeedbackManifest }),
       ],
@@ -208,17 +208,17 @@ describe('useUserFeedbackStore', () => {
   it('returns to the latest originating app when feedback is reopened from a notice', () => {
     emitQuestion(createQuestion('questionnaire-1'));
 
-    useAppStore.getState().setActiveApp('coding');
-    expect(useAppStore.getState().activeApp).toBe('coding');
+    useAppStore.getState().setActiveApp('explorer');
+    expect(useAppStore.getState().activeApp).toBe('explorer');
 
     useUserFeedbackStore.getState().openFeedbackApp();
 
     expect(useAppStore.getState().activeApp).toBe('userfeedback');
-    expect(useUserFeedbackStore.getState().returnApp).toBe('coding');
+    expect(useUserFeedbackStore.getState().returnApp).toBe('explorer');
 
     emitAnswered('questionnaire-1');
 
-    expect(useAppStore.getState().activeApp).toBe('coding');
+    expect(useAppStore.getState().activeApp).toBe('explorer');
     expect(useUserFeedbackStore.getState().returnApp).toBeNull();
   });
 

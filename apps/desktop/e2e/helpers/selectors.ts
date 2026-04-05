@@ -30,10 +30,10 @@ export const layout = {
   chatPanel: '[data-testid="chat-panel"]',
   /** Handle between sidebar and active-app. */
   sidebarHandle: '[data-testid="app-shell-panels"] [data-separator]',
-  /** CodingWorkspace vertical panel group. */
-  codingVerticalGroup: '[data-testid="coding-vertical"]',
-  /** CodingWorkspace terminal panel. */
-  terminalPanel: '[data-testid="coding-terminal"]',
+  /** ExplorerWorkspace vertical panel group. */
+  explorerVerticalGroup: '[data-testid="explorer-vertical"]',
+  /** ExplorerWorkspace terminal panel. */
+  terminalPanel: '[data-testid="explorer-terminal"]',
 } as const;
 
 // ── Sidebar ─────────────────────────────────────────────────────
@@ -124,8 +124,8 @@ export const workspace = {
 export const fileTree = {
   /** The file tree container. */
   container: '[data-testid="file-tree"]',
-  /** Sidebar content area (coding panel body). */
-  sidebarContent: '[data-testid="coding-sidebar-content"]',
+  /** Sidebar content area (explorer panel body). */
+  sidebarContent: '[data-testid="explorer-sidebar-content"]',
   /** File tree item by filename. */
   itemByName: (name: string) => `[data-testid="file-tree-item-${name}"]`,
 } as const;

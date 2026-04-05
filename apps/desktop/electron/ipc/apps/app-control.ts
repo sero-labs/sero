@@ -72,7 +72,7 @@ export function registerAppControlHandlers(): void {
   });
 
   ipcMain.handle(IpcChannels.appControl.active, async (): Promise<string> => {
-    return execRenderer<string>('window.__appControl?.getActive() ?? "coding"');
+    return execRenderer<string>('window.__appControl?.getActive() ?? "explorer"');
   });
 
   ipcMain.handle(IpcChannels.appControl.open, async (_e, appId: string): Promise<boolean> => {

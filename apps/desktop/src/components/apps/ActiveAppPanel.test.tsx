@@ -34,8 +34,8 @@ vi.mock('@/lib/federation-registry', () => ({
   hasTransientRemote: federationMocks.hasTransientRemote,
 }));
 
-vi.mock('@/components/apps/coding/CodingWorkspace', () => ({
-  CodingWorkspace: () => <div>coding workspace</div>,
+vi.mock('@/components/apps/explorer/ExplorerWorkspace', () => ({
+  ExplorerWorkspace: () => <div>explorer workspace</div>,
 }));
 
 vi.mock('@/components/apps/SeroAppMount', () => ({
@@ -87,7 +87,7 @@ describe('ActiveAppPanel', () => {
 
     useAppStore.setState({
       ...initialAppState,
-      activeApp: 'coding',
+      activeApp: 'explorer',
       pendingApp: null,
       apps: [
         ...initialAppState.apps.filter((app) => app.id !== 'todo'),
@@ -124,15 +124,15 @@ describe('ActiveAppPanel', () => {
       root?.render(<ActiveAppHarness />);
     });
 
-    expect(container.textContent).toContain('coding workspace');
+    expect(container.textContent).toContain('explorer workspace');
 
     await act(async () => {
       useAppStore.getState().setActiveApp('todo');
     });
 
-    expect(useAppStore.getState().activeApp).toBe('coding');
+    expect(useAppStore.getState().activeApp).toBe('explorer');
     expect(useAppStore.getState().pendingApp).toBe('todo');
-    expect(container.textContent).toContain('coding workspace');
+    expect(container.textContent).toContain('explorer workspace');
     expect(container.textContent).not.toContain('todo remote');
 
     await act(async () => {

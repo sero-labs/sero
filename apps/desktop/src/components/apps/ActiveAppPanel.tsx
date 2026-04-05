@@ -1,7 +1,8 @@
-import { CodingWorkspace } from '@/components/apps/coding/CodingWorkspace';
+
 import { Dashboard } from '@/components/apps/dashboard/Dashboard';
 import { SeroAppMount } from '@/components/apps/SeroAppMount';
 import { useAppStore } from '@/stores/app';
+import { ExplorerWorkspace } from './explorer/ExplorerWorkspace';
 
 interface ActiveAppPanelProps {
   app: string;
@@ -20,8 +21,8 @@ export function ActiveAppPanel({ app }: ActiveAppPanelProps) {
 
   if (app === 'dashboard') {
     content = <Dashboard />;
-  } else if (app === 'coding') {
-    content = <CodingWorkspace />;
+  } else if (app === 'explorer') {
+    content = <ExplorerWorkspace />;
   } else if (entry?.manifest) {
     content = <SeroAppMount manifest={entry.manifest} />;
   } else {

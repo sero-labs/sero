@@ -34,7 +34,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
  * ├──────────┬──────────────────────────────┬─┬─────────────────┤
  * │  Main    │                              │║│                 │
  * │  Sidebar │     Active App               │║│  Chat Panel     │
- * │  (apps   │     (CodingWorkspace etc.)   │║│  (global agent) │
+ * │  (apps   │     (ExplorerWorkspace etc.)   │║│  (global agent) │
  * │  + chats)│                              │║│                 │
  * ├──────────┴──────────────────────────────┴─┴─────────────────┤
  * │  StatusBar                                                   │

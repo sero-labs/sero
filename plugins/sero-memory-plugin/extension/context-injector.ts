@@ -101,7 +101,7 @@ YOU MUST call the \`questionnaire\` tool again with the exact JSON parameters be
 ${memoryJson}
 
 After receiving answers, write MEMORY.md:
-\`sero memory write --target memory --mode overwrite --content "# Memory\\n\\n## Technical Knowledge\\n\\n<tech_knowledge answers — use short bullet lines if multiple>\\n\\n## Coding Preferences\\n\\n<coding_prefs answers — use short bullet lines if multiple>\\n\\n## Active Projects\\n\\n<projects answer>"\`
+\`sero memory write --target memory --mode overwrite --content "# Memory\\n\\n## Technical Knowledge\\n\\n<tech_knowledge answers — use short bullet lines if multiple>\\n\\n## Coding Preferences\\n\\n<explorer_prefs answers — use short bullet lines if multiple>\\n\\n## Active Projects\\n\\n<projects answer>"\`
 
 ### Important
 - Run each questionnaire step in order — don't skip steps.

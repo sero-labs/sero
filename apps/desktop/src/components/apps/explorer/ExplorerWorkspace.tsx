@@ -5,8 +5,8 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from '@sero-ai/ui/components/ui/resizable';
-import { ActivityBar, type CodingPanel } from './ActivityBar';
-import { CodingSidebar } from './CodingSidebar';
+import { ActivityBar, type ExplorerPanel } from './ActivityBar';
+import { ExplorerSidebar } from './ExplorerSidebar';
 import { EditorPanel } from './editor/EditorPanel';
 import { DiffTab, type DiffTabState } from './editor/DiffTab';
 import { TerminalTabs } from './TerminalTabs';
@@ -17,12 +17,12 @@ import {
   useActiveTerminalId,
   useTerminalStore,
 } from '@/stores/terminal';
-import { useWorkspaceCodingUi, useCodingUiStore } from '@/stores/coding-ui';
+import { useWorkspaceExplorer, useExplorerStore } from '@/stores/explorer';
 import { useVcsStore } from '@/stores/vcs';
 import { useEditorBridge } from '@/stores/editor-bridge';
 
 /**
- * CodingWorkspace — the full coding app, mounted into the main area.
+ * ExplorerWorkspace — the full explorer app, mounted into the main area.
  *
  * ┌────┬──────┬───────────────────────────────────┐
  * │ A  │ Side │                                   │
@@ -32,7 +32,7 @@ import { useEditorBridge } from '@/stores/editor-bridge';
  * │    │      │       Terminal Panel (bottom)      │
  * └────┴──────┴───────────────────────────────────┘
  */
-export function CodingWorkspace() {
+export function ExplorerWorkspace() {
   const activeWorkspace = useActiveWorkspace();
   const workspaceId = activeWorkspace?.id ?? 'global';
   const watchVcsWorkspace = useVcsStore((s) => s.watchWorkspace);
@@ -40,9 +40,9 @@ export function CodingWorkspace() {
   const loadVcsWorkspace = useVcsStore((s) => s.loadWorkspace);
 
   // Per-workspace UI state
-  const { sidebarOpen, activePanel, terminalOpen, codingSidebarSizePct, terminalSizePct } =
-    useWorkspaceCodingUi(workspaceId);
-  const setCodingUi = useCodingUiStore((s) => s.set);
+  const { sidebarOpen, activePanel, terminalOpen, explorerSidebarSizePct, terminalSizePct } =
+    useWorkspaceExplorer(workspaceId);
+  const setExplorer = useExplorerStore((s) => s.set);
 
   // Terminal state
   const termTabs = useWorkspaceTerminals(workspaceId);
@@ -153,7 +153,7 @@ export function CodingWorkspace() {
     if (termTabs.length > 0 || autoCreatingRef.current || !terminalOpen) return;
     autoCreatingRef.current = true;
     useTerminalStore.getState().createTab(workspaceId).catch((err) => {
-      console.warn('[coding] Failed to auto-create terminal:', err);
+      console.warn('[explorer] Failed to auto-create terminal:', err);
     }).finally(() => {
       autoCreatingRef.current = false;
     });
@@ -161,27 +161,27 @@ export function CodingWorkspace() {
 
   // ── Activity bar handler ──
   const handlePanelClick = useCallback(
-    (panel: CodingPanel) => {
+    (panel: ExplorerPanel) => {
       if (panel === 'terminal') {
         const nextOpen = !terminalOpen;
-        setCodingUi(workspaceId, { terminalOpen: nextOpen });
+        setExplorer(workspaceId, { terminalOpen: nextOpen });
         // Eagerly create a terminal when opening the panel with no tabs.
         // The effect above also handles this, but doing it here avoids a
         // visible flash of the empty "No terminals" state.
         if (nextOpen && termTabs.length === 0) {
           useTerminalStore.getState().createTab(workspaceId).catch((err) => {
-            console.warn('[coding] Failed to create terminal on open:', err);
+            console.warn('[explorer] Failed to create terminal on open:', err);
           });
         }
         return;
       }
       if (panel === activePanel && sidebarOpen) {
-        setCodingUi(workspaceId, { sidebarOpen: false });
+        setExplorer(workspaceId, { sidebarOpen: false });
       } else {
-        setCodingUi(workspaceId, { activePanel: panel, sidebarOpen: true });
+        setExplorer(workspaceId, { activePanel: panel, sidebarOpen: true });
       }
     },
-    [workspaceId, activePanel, sidebarOpen, terminalOpen, termTabs.length, setCodingUi],
+    [workspaceId, activePanel, sidebarOpen, terminalOpen, termTabs.length, setExplorer],
   );
 
   // ── Editor bridge: open files from ChatPanel ctrl+click ──
@@ -280,7 +280,7 @@ export function CodingWorkspace() {
   const terminalDefaultRef = useRef(
     terminalOpen ? `${terminalSizePct || 30}%` : 0,
   );
-  const codingSidebarLastExpandedPctRef = useRef(codingSidebarSizePct || 0);
+  const explorerSidebarLastExpandedPctRef = useRef(explorerSidebarSizePct || 0);
 
   // Sync sidebar panel collapse/expand with sidebarOpen state
   useEffect(() => {
@@ -296,7 +296,7 @@ export function CodingWorkspace() {
     } else {
       rafId = window.requestAnimationFrame(() => {
         sidebarPanelRef.current?.expand();
-        const target = codingSidebarLastExpandedPctRef.current;
+        const target = explorerSidebarLastExpandedPctRef.current;
         if (target > 0) {
           sidebarPanelRef.current?.resize(`${target}%`);
         }
@@ -317,15 +317,15 @@ export function CodingWorkspace() {
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
       if (isSidebarProgrammaticRef.current) return;
       if (inPixels <= 1) {
-        setCodingUi(workspaceId, { sidebarOpen: false });
+        setExplorer(workspaceId, { sidebarOpen: false });
       } else if (!sidebarOpen && inPixels >= 120) {
-        setCodingUi(workspaceId, { sidebarOpen: true });
+        setExplorer(workspaceId, { sidebarOpen: true });
       } else {
-        codingSidebarLastExpandedPctRef.current = asPercentage;
-        setCodingUi(workspaceId, { codingSidebarSizePct: Math.round(asPercentage * 10) / 10 });
+        explorerSidebarLastExpandedPctRef.current = asPercentage;
+        setExplorer(workspaceId, { explorerSidebarSizePct: Math.round(asPercentage * 10) / 10 });
       }
     },
-    [workspaceId, sidebarOpen, setCodingUi],
+    [workspaceId, sidebarOpen, setExplorer],
   );
 
   // Sync terminal panel collapse/expand with terminalOpen state
@@ -361,13 +361,13 @@ export function CodingWorkspace() {
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
       if (isTerminalProgrammaticRef.current) return;
       if (inPixels <= 1) {
-        setCodingUi(workspaceId, { terminalOpen: false });
+        setExplorer(workspaceId, { terminalOpen: false });
       } else {
         terminalLastExpandedPctRef.current = asPercentage;
-        setCodingUi(workspaceId, { terminalSizePct: Math.round(asPercentage * 10) / 10 });
+        setExplorer(workspaceId, { terminalSizePct: Math.round(asPercentage * 10) / 10 });
       }
     },
-    [workspaceId, setCodingUi],
+    [workspaceId, setExplorer],
   );
 
   return (
@@ -380,11 +380,11 @@ export function CodingWorkspace() {
           workspaceId={workspaceId}
         />
 
-        <ResizablePanelGroup id="coding-vertical" orientation="vertical" className="min-w-0 flex-1">
-          <ResizablePanel id="coding-main" minSize={20}>
-            <ResizablePanelGroup id="coding-layout" orientation="horizontal" className="h-full">
+        <ResizablePanelGroup id="explorer-vertical" orientation="vertical" className="min-w-0 flex-1">
+          <ResizablePanel id="explorer-main" minSize={20}>
+            <ResizablePanelGroup id="explorer-layout" orientation="horizontal" className="h-full">
           <ResizablePanel
-            id="coding-sidebar"
+            id="explorer-sidebar"
             panelRef={sidebarPanelRef}
             defaultSize="220px"
             minSize={160}
@@ -394,7 +394,7 @@ export function CodingWorkspace() {
             style={{ overflow: 'hidden' }}
           >
             {sidebarOpen && (
-              <CodingSidebar
+              <ExplorerSidebar
                 activePanel={activePanel}
                 workspaceId={workspaceId}
                 onOpenDiff={handleOpenDiff}
@@ -414,7 +414,7 @@ export function CodingWorkspace() {
           />
 
           {/* ── Editor fills all remaining space ─────────────── */}
-          <ResizablePanel id="coding-editor" minSize={200} className="min-w-0">
+          <ResizablePanel id="explorer-editor" minSize={200} className="min-w-0">
             <div className="flex h-full min-h-0 min-w-0 flex-col bg-[var(--bg-base)]">
               {diffState ? (
                 <>
@@ -457,7 +457,7 @@ export function CodingWorkspace() {
           />
 
           <ResizablePanel
-            id="coding-terminal"
+            id="explorer-terminal"
             panelRef={terminalPanelRef}
             defaultSize={terminalDefaultRef.current}
             minSize={TERMINAL_MIN_HEIGHT}

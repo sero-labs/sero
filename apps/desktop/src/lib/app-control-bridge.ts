@@ -227,7 +227,7 @@ export function initAppControlBridge(): () => void {
     },
     openFile(workspaceId: string, filePath: string) {
       const s = useAppStore.getState();
-      if (s.activeApp !== 'coding') s.setActiveApp('coding');
+      if (s.activeApp !== 'explorer') s.setActiveApp('explorer');
       useEditorBridge.getState().requestOpenFile(workspaceId, filePath);
       return true;
     },
@@ -263,8 +263,8 @@ export function initAppControlBridge(): () => void {
     },
     openDevPreview(url: string) {
       const s = useAppStore.getState();
-      // Ensure we're on the coding workspace so the editor is visible
-      if (s.activeApp !== 'coding') s.setActiveApp('coding');
+      // Ensure we're on the explorer workspace so the editor is visible
+      if (s.activeApp !== 'explorer') s.setActiveApp('explorer');
       // Use the editor bridge to open a devserver:// tab
       const workspaceId = useWorkspaceStore.getState().activeWorkspaceId ?? 'global';
       useEditorBridge.getState().requestOpenFile(workspaceId, `devserver://${url}`);

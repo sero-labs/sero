@@ -7,7 +7,7 @@ import path from 'path';
  * Layout e2e tests.
  *
  * Verifies panel toggle, resize, persistence, and reload behaviour
- * for the main sidebar, chat panel, and CodingWorkspace terminal.
+ * for the main sidebar, chat panel, and ExplorerWorkspace terminal.
  */
 
 const SERO_TEST_HOME = path.resolve(__dirname, '../.sero-layout-test');

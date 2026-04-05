@@ -151,9 +151,9 @@ export const MEMORY_QUESTIONS: QuestionnairePayload = {
       multiSelect: true,
     },
     {
-      id: 'coding_prefs',
-      label: 'Coding',
-      prompt: 'Any coding preferences or conventions to remember?',
+      id: 'explorer_prefs',
+      label: 'Explorer',
+      prompt: 'Any explorer preferences or conventions to remember?',
       options: [
         { value: 'none', label: 'No strong preference', description: 'Use whatever best fits the task', exclusive: true },
         { value: 'functional', label: 'Prefer functional patterns over classes', description: 'Lean toward functions and composition' },

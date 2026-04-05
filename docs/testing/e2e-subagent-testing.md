@@ -98,7 +98,7 @@
 ## Test 7: Orchestration Panel UI
 
 **Steps:**
-1. Click the Network icon in the coding workspace activity bar
+1. Click the Network icon in the explorer workspace activity bar
 2. Run a few subagent tasks (single + parallel)
 3. Observe the panel
 

@@ -208,7 +208,7 @@ The orchestration panel shows live subagent activity for the current workspace.
 
 ### Opening it
 
-Click the **Network icon** (⬡) in the coding workspace activity bar — the
+Click the **Network icon** (⬡) in the explorer workspace activity bar — the
 narrow icon strip on the far left, between Source Control and Terminal.
 
 ### What you see
