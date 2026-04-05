@@ -3,12 +3,13 @@
  *
  * Two concerns, handled differently:
  *
- * 1. **Auth** (UI) — if no provider credentials exist, show the auth
- *    dialog. The agent can't run without auth, so this must be a modal
- *    gate. Cancelling does NOT mark onboarding complete — it shows again
- *    on next launch.
+ * 1. **Model access** (UI) — if no usable models are currently available,
+ *    show the auth dialog. This counts all working model sources surfaced
+ *    by the host (saved keys, OAuth, env-backed keys, local models). The
+ *    agent can't run without a usable model, so this must be a modal gate.
+ *    Cancelling does NOT mark onboarding complete — it shows again on next launch.
  *
- * 2. **Memory setup** (agentic) — once auth is ready, auto-create a
+ * 2. **Memory setup** (agentic) — once model access is ready, auto-create a
  *    session and let the agent handle it conversationally. The memory
  *    extension's bootstrap instructions inject automatically (triggered
  *    by MEMORY.md not existing). The questionnaire tool is forced to
@@ -16,7 +17,7 @@
  *    Completion is detected by the memory extension writing MEMORY.md.
  *
  * The `.onboarding-complete` marker is written once:
- *   - Auth is configured (or was already present from credential copy)
+ *   - At least one usable model is available
  *   - AND the memory session has been launched (the agent takes it from here)
  *
  * If the user quits before the agent finishes writing MEMORY.md, the
@@ -118,6 +119,15 @@ async function tryFallbackModel(sessionId: string, failedProviders: Set<string>)
   return false;
 }
 
+async function hasUsableModels(): Promise<boolean> {
+  try {
+    const groups = await window.sero.models.list();
+    return groups.some((group) => group.models.length > 0);
+  } catch {
+    return false;
+  }
+}
+
 export function OnboardingWizard() {
   const [phase, setPhase] = useState<Phase>('checking');
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -140,15 +150,10 @@ export function OnboardingWizard() {
         const needed = await window.sero.profiles.needsOnboarding();
         if (cancelled || !needed) { setPhase('done'); return; }
 
-        const providers = await window.sero.auth.getProviders();
+        const hasModels = await hasUsableModels();
         if (cancelled) return;
 
-        // Only count profile-local credentials, not inherited env vars
-        const hasAuth = providers.oauth.some((p) => p.isLoggedIn)
-          || providers.apiKey.some((p) => p.hasKey && !p.fromEnv);
-
-        if (hasAuth) {
-          // Auth present — check if tiers are configured
+        if (hasModels) {
           const tiers = await window.sero.modelTiers.get();
           if (Object.keys(tiers).length > 0) {
             launchMemorySession();
@@ -230,13 +235,13 @@ export function OnboardingWizard() {
     }
   }, []);
 
-  // ── Auth completed → launch memory session ──────────────────
+  // ── Auth completed → move on to tier selection ──────────────
   const handleLoginComplete = useCallback(() => {
     setShowLoginDialog(false);
     setPhase('tiers');
   }, []);
 
-  // ── Auth skipped → launch memory session anyway ─────────────
+  // ── Auth skipped → still allow tier selection / later retry ─
   const handleSkipAuth = useCallback(() => {
     setPhase('tiers');
   }, []);

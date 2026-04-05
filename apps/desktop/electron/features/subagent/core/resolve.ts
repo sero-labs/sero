@@ -9,9 +9,11 @@
  *   5. Session / app defaults
  *
  * The `model` field from agent frontmatter may be a plain string (legacy)
- * or a structured `{ prefer, fallbacks }` object. When structured, the
- * `prefer` value is emitted as the model string — tier resolution happens
- * downstream in the runner where the model registry is available.
+ * or a structured `{ prefer, fallbacks }` object. The merged winner is
+ * returned in `ResolvedConfig.modelSelection`, while `ResolvedConfig.model`
+ * exposes the primary display/reference string (`prefer` for structured
+ * fields). Tier resolution still happens downstream in the runner where the
+ * model registry is available.
  */
 
 import type {
@@ -49,6 +51,16 @@ function extractModelString(
   return undefined;
 }
 
+function firstDefinedModel(
+  ...values: (string | { prefer: string; fallbacks: string[] } | null | undefined)[]
+): string | { prefer: string; fallbacks: string[] } {
+  for (const v of values) {
+    if (typeof v === 'string' && v !== '') return v;
+    if (v && typeof v === 'object') return v;
+  }
+  return HARDCODED_DEFAULTS.model;
+}
+
 /**
  * Resolve the concrete model, thinking, and timeoutMs for a subagent run.
  *
@@ -56,8 +68,8 @@ function extractModelString(
  * Falls back to hardcoded defaults as the last resort.
  *
  * NOTE: The returned `model` may be a tier alias (e.g. "MED") when it
- * originates from agent frontmatter or hardcoded defaults. The runner
- * is responsible for resolving tier aliases to concrete model IDs.
+ * originates from overrides, agent frontmatter, or hardcoded defaults. The
+ * runner is responsible for resolving aliases/fallbacks to a concrete model.
  */
 export function resolveConfig(
   taskOverride?: TaskOverride,
@@ -66,14 +78,15 @@ export function resolveConfig(
   settings?: Pick<SubagentSettings, 'model' | 'thinking' | 'timeoutMs' | 'toolStallTimeoutMs'>,
   sessionDefaults?: SessionDefaults,
 ): ResolvedConfig {
-  const model = firstDefined(
+  const modelSelection = firstDefinedModel(
     taskOverride?.model,
     callOverride?.model,
-    extractModelString(agentConfig?.model),
+    agentConfig?.model,
     settings?.model,
     sessionDefaults?.model,
     HARDCODED_DEFAULTS.model,
   );
+  const model = extractModelString(modelSelection) ?? HARDCODED_DEFAULTS.model;
 
   const thinking = firstDefined(
     taskOverride?.thinking,
@@ -94,7 +107,7 @@ export function resolveConfig(
 
   const toolStallTimeoutMs = settings?.toolStallTimeoutMs ?? HARDCODED_DEFAULTS.toolStallTimeoutMs;
 
-  return { model, thinking, timeoutMs, toolStallTimeoutMs };
+  return { model, modelSelection, thinking, timeoutMs, toolStallTimeoutMs };
 }
 
 /**

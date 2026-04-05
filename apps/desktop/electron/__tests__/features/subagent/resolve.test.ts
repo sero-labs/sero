@@ -12,6 +12,7 @@ describe('resolveConfig', () => {
     );
 
     expect(result.model).toBe('task-model');
+    expect(result.modelSelection).toBe('task-model');
     expect(result.thinking).toBe('low');
     expect(result.timeoutMs).toBe(1000);
   });
@@ -25,8 +26,22 @@ describe('resolveConfig', () => {
     );
 
     expect(result.model).toBe('call-model');
+    expect(result.modelSelection).toBe('call-model');
     expect(result.thinking).toBe('high');
     expect(result.timeoutMs).toBe(2000);
+  });
+
+  it('call override beats structured agent frontmatter', () => {
+    const result = resolveConfig(
+      undefined,
+      { model: 'HIGH' },
+      { model: { prefer: 'MED', fallbacks: ['gpt-5.4'] } },
+      undefined,
+      undefined,
+    );
+
+    expect(result.model).toBe('HIGH');
+    expect(result.modelSelection).toBe('HIGH');
   });
 
   it('agent frontmatter wins over global settings', () => {
@@ -38,8 +53,24 @@ describe('resolveConfig', () => {
     );
 
     expect(result.model).toBe('agent-model');
+    expect(result.modelSelection).toBe('agent-model');
     expect(result.thinking).toBe('medium');
     expect(result.timeoutMs).toBe(3000);
+  });
+
+  it('preserves structured agent frontmatter when it wins', () => {
+    const result = resolveConfig(
+      undefined,
+      undefined,
+      { model: { prefer: 'MED', fallbacks: ['gpt-5.4', 'claude-sonnet-4-6'] } },
+      { model: 'settings-model', thinking: 'off', timeoutMs: 4000, toolStallTimeoutMs: 120_000 },
+    );
+
+    expect(result.model).toBe('MED');
+    expect(result.modelSelection).toEqual({
+      prefer: 'MED',
+      fallbacks: ['gpt-5.4', 'claude-sonnet-4-6'],
+    });
   });
 
   it('global settings win over session defaults', () => {
@@ -52,6 +83,7 @@ describe('resolveConfig', () => {
     );
 
     expect(result.model).toBe('settings-model');
+    expect(result.modelSelection).toBe('settings-model');
     expect(result.thinking).toBe('off');
     expect(result.timeoutMs).toBe(4000);
   });
@@ -66,6 +98,7 @@ describe('resolveConfig', () => {
     );
 
     expect(result.model).toBe('agent-model'); // Skips undefined call override
+    expect(result.modelSelection).toBe('agent-model');
     expect(result.thinking).toBe('xhigh'); // From call override
   });
 
@@ -78,7 +111,8 @@ describe('resolveConfig', () => {
       undefined,
     );
 
-    expect(result.model).toBe('claude-sonnet-4-6');
+    expect(result.model).toBe('MED');
+    expect(result.modelSelection).toBe('MED');
     expect(result.thinking).toBe('high');
     expect(result.timeoutMs).toBe(600_000);
   });
@@ -93,6 +127,7 @@ describe('resolveConfig', () => {
     );
 
     expect(result.model).toBe('session-model'); // Skips null settings model
+    expect(result.modelSelection).toBe('session-model');
     expect(result.timeoutMs).toBe(300_000);
   });
 });

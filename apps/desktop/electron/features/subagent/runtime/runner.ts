@@ -207,22 +207,10 @@ export async function runSubagent(
       const available = infra.modelRegistry.getAvailable();
       const globalSettings = infra.settingsManager.getGlobalSettings() as Record<string, unknown>;
       const tierSettings = getModelTiers(globalSettings);
-
-      // Check if the resolved model string is a tier alias or has a structured source
-      const agentModelField = agent.model;
-      const parsed = parseModelField(agentModelField);
-      let resolvedModel: { provider: string; modelId: string } | null = null;
-
-      if (parsed) {
-        // Use the full structured field for resolution (tier + fallbacks)
-        resolvedModel = resolveTierModel(parsed, tierSettings, available);
-      }
-
-      if (!resolvedModel) {
-        // Legacy: try the flat resolved.model string directly
-        const match = available.find((m) => m.id === resolved.model);
-        if (match) resolvedModel = { provider: match.provider, modelId: match.id };
-      }
+      const parsed = parseModelField(resolved.modelSelection);
+      const resolvedModel = parsed
+        ? resolveTierModel(parsed, tierSettings, available)
+        : null;
 
       if (resolvedModel) {
         const model = infra.modelRegistry.find(resolvedModel.provider, resolvedModel.modelId);

@@ -190,6 +190,30 @@ export function registerSubagentHandlers(): void {
 
 // ── Agent file parsing/serialization ─────────────────────────
 
+function parseEditableAgentModelField(raw: unknown): SubagentAgentFile['model'] | undefined {
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    return trimmed || undefined;
+  }
+
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined;
+  }
+
+  const obj = raw as Record<string, unknown>;
+  const prefer = typeof obj.prefer === 'string' ? obj.prefer.trim() : '';
+  if (!prefer) return undefined;
+
+  const fallbacks = Array.isArray(obj.fallbacks)
+    ? obj.fallbacks
+        .filter((entry): entry is string => typeof entry === 'string')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+
+  return { prefer, fallbacks };
+}
+
 function parseAgentFile(raw: string, fallbackName: string): SubagentAgentFile {
   const fmMatch = raw.match(/```json\s*\n([\s\S]*?)\n```/);
   let fm: Record<string, unknown> = {};
@@ -203,7 +227,7 @@ function parseAgentFile(raw: string, fallbackName: string): SubagentAgentFile {
   return {
     name: (fm.name as string) || fallbackName,
     description: (fm.description as string) || '',
-    model: fm.model as string | undefined,
+    model: parseEditableAgentModelField(fm.model),
     thinking: fm.thinking as string | undefined,
     timeoutMs: fm.timeoutMs as number | undefined,
     tools: Array.isArray(fm.tools) ? fm.tools : undefined,
