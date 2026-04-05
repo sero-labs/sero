@@ -148,7 +148,14 @@ export function registerAgentModelContextHandlers(
     async (_event, sessionId: string): Promise<SessionModelState | null> => {
       const entry = getEntry(sessionId);
       if (!entry) return null;
-      const changed = await ensureSessionHasAvailableModel(entry.session);
+      let changed = false;
+      try {
+        changed = await ensureSessionHasAvailableModel(entry.session);
+      } catch (err) {
+        // Model switch failed (e.g. stale OAuth token) — still return
+        // the model state so the user can manually pick a working model.
+        console.warn('[agent-model-context] ensureSessionHasAvailableModel failed:', err);
+      }
       const state = buildModelState(entry);
       if (changed) {
         sendEvent({ type: 'model_change', sessionId, state });
