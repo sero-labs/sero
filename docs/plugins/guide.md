@@ -107,7 +107,7 @@ deleted — you can clean those up manually if desired.
 ## Creating a Plugin
 
 Any existing Sero app can become a plugin. Follow the
-[Building Sero Apps](apps-tutorial.md) tutorial to create an app, then add
+[Building Sero Apps] For a step-by-step guide to building a new app use the `sero-plugin` skill, then add
 the plugin metadata described below.
 
 ### 1. Start with a standard Sero app
@@ -216,7 +216,7 @@ restarting Sero.
 ### `sero.app` (required)
 
 The standard Sero app manifest. See the
-[Manifest Reference](apps-tutorial.md#manifest-reference) in the apps tutorial.
+For a step-by-step guide to building a new app use the `sero-plugin` skill
 
 ### `sero.plugin` (required for plugins)
 

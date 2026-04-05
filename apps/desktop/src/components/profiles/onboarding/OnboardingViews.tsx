@@ -102,9 +102,9 @@ export function LaunchingScreen({ statusMessage }: { statusMessage?: string | nu
         <Loader2 className="size-5 animate-spin text-[var(--status-success)]" />
       </div>
       <div>
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Opening your welcome session</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Preparing Oboarding</h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          Sero is saving your model setup and starting the memory onboarding flow.
+          Sero is saving your model preferences and starting the memory onboarding workflow.
         </p>
       </div>
       {statusMessage ? (

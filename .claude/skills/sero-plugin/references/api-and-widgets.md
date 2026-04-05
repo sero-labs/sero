@@ -1,0 +1,344 @@
+# App Runtime API & Widgets Reference
+
+## Table of Contents
+
+- [App Runtime Hooks](#app-runtime-hooks)
+- [Dashboard Widgets](#dashboard-widgets)
+- [Manifest Reference](#manifest-reference)
+- [Styling Guide](#styling-guide)
+
+---
+
+## App Runtime Hooks
+
+All hooks from `@sero-ai/app-runtime` must be used inside a component mounted
+by `SeroAppMount` (which wraps your component in `<AppProvider>`).
+
+### useAppState<T>(defaultState: T)
+
+File-backed reactive state. The core hook.
+
+```typescript
+const [state, updateState] = useAppState<MyState>(DEFAULT_STATE);
+
+// Read
+state.items.length;
+
+// Update (updater function, like React's setState)
+updateState((prev) => ({
+  ...prev,
+  items: [...prev.items, newItem],
+}));
+```
+
+How it works:
+1. On mount: IPC starts `fs.watch()` + reads current contents
+2. On file change: main process reads file, pushes via IPC -> React re-renders
+3. On `updateState`: optimistic local update + IPC write. Writes are serialised.
+   Atomic write (temp -> rename) prevents corrupt reads.
+
+### useAppInfo()
+
+Read-only context about the current app and workspace.
+
+```typescript
+const { appId, workspacePath } = useAppInfo();
+```
+
+### useAgentPrompt()
+
+Send a message to the active agent session from your app UI.
+
+```typescript
+const prompt = useAgentPrompt();
+prompt('Do something with the myapp tool.');
+```
+
+Requires an active chat session. If no chat, the prompt is silently dropped.
+
+### useAI()
+
+Make ad-hoc LLM calls — no active chat session required. Each app gets a
+dedicated agent session keyed by app ID + workspace.
+
+```typescript
+const ai = useAI();
+const response = await ai.prompt('Generate an inspirational quote.');
+```
+
+Properties:
+- Works without an active chat session
+- In-memory only session (store results via `useAppState`)
+- Accumulates conversation history for follow-ups
+- Independent from user's chat panel
+
+### useWidgetRegistration(options)
+
+Register a dashboard widget at runtime. See [Dashboard Widgets](#dashboard-widgets).
+
+```typescript
+useWidgetRegistration({
+  widgetId: 'summary',
+  name: 'Summary',
+  component: MyWidget,
+  defaultSize: { w: 2, h: 2 },
+});
+```
+
+---
+
+## Dashboard Widgets
+
+Apps can provide dashboard widgets — compact views on the Dashboard landing page.
+Two registration methods: static (manifest) and dynamic (runtime hook).
+
+### Static widgets (manifest)
+
+Declare in `sero.app.widgets` in package.json:
+
+```json
+{
+  "sero": {
+    "app": {
+      "widgets": [
+        {
+          "id": "summary",
+          "name": "Summary",
+          "component": "MyAppWidget",
+          "description": "Quick overview of items",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 1, "h": 1 },
+          "maxSize": { "w": 4, "h": 3 }
+        }
+      ]
+    }
+  }
+}
+```
+
+Widget manifest fields:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique within the app |
+| `name` | Yes | Display name in header and picker |
+| `component` | Yes | Exported component name from MF remote |
+| `description` | No | Shown in Add Widget picker |
+| `defaultSize` | Yes | Grid size in columns x rows |
+| `minSize` | No | Minimum resize constraint |
+| `maxSize` | No | Maximum resize constraint |
+
+### Expose widget via Module Federation
+
+Add to `exposes` in vite.config.ts:
+
+```typescript
+federation({
+  name: 'sero_myapp',
+  exposes: {
+    './MyApp': './ui/MyApp.tsx',
+    './MyAppWidget': './ui/widgets/MyAppWidget.tsx',
+  },
+  // ...
+}),
+```
+
+### Widget component template
+
+```tsx
+// ui/widgets/MyAppWidget.tsx
+
+import { useMemo } from 'react';
+import { useAppState } from '@sero-ai/app-runtime';
+import type { MyAppState } from '../../shared/types';
+import { DEFAULT_STATE } from '../../shared/types';
+
+export function MyAppWidget() {
+  const [state] = useAppState<MyAppState>(DEFAULT_STATE);
+  const count = state.items.length;
+
+  return (
+    <div className="flex h-full flex-col gap-2 p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg font-bold tabular-nums text-[var(--text-primary)]">
+          {count}
+        </span>
+        <span className="text-xs text-[var(--text-muted)]">items</span>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto">
+        {state.items.slice(0, 5).map((item) => (
+          <div
+            key={item.id}
+            className="truncate rounded-md bg-[var(--bg-elevated)] px-2 py-1 text-xs text-[var(--text-primary)]"
+          >
+            {item.title}
+          </div>
+        ))}
+        {count > 5 && (
+          <span className="text-[10px] text-[var(--text-muted)]">
+            +{count - 5} more
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default MyAppWidget;
+```
+
+Widget conventions:
+- Both named and default exports required
+- Fill `h-full` — wrapper provides container with header/resize handle
+- Use `p-3` padding (no built-in padding)
+- Keep compact — `text-xs` / `text-[10px]` for details, `text-lg` for headlines
+- Add `overflow-auto` on scrollable areas, `min-h-0` on flex children
+- Limit to top 3-5 items with "+N more" overflow
+
+### Dynamic widgets (runtime)
+
+```tsx
+import { useWidgetRegistration } from '@sero-ai/app-runtime';
+import { MyAppWidget } from './widgets/MyAppWidget';
+
+export function MyApp() {
+  useWidgetRegistration({
+    widgetId: 'summary',
+    name: 'Summary',
+    component: MyAppWidget,
+    defaultSize: { w: 2, h: 2 },
+    description: 'Quick overview of items',
+  });
+  // ...
+}
+```
+
+Imperative API:
+
+```typescript
+import { registerWidget } from '@sero-ai/app-runtime';
+
+const unregister = registerWidget({
+  appId: 'myapp',
+  widgetId: 'summary',
+  name: 'Summary',
+  component: MyAppWidget,
+  defaultSize: { w: 2, h: 2 },
+});
+// Later: unregister();
+```
+
+### Dashboard grid sizing
+
+6-column grid, 120px row height, 16px margins.
+
+| Size | Columns x Rows | Approx pixels |
+|------|----------------|---------------|
+| Small | 1x1 | ~160x120 |
+| Standard | 2x2 | ~340x256 |
+| Wide | 3x2 | ~520x256 |
+| Large | 4x3 | ~700x392 |
+
+---
+
+## Manifest Reference
+
+### sero.app fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique identifier. Lowercase, no spaces. Used in file paths, registry, MF remote name. |
+| `name` | Yes | Display name in sidebar |
+| `icon` | Yes | Lucide icon name |
+| `scope` | No | `"workspace"` (default) or `"global"` |
+| `stateFile` | Yes | Path relative to workspace root. Convention: `.sero/apps/<id>/state.json` |
+| `ui` | No | Path to built `remoteEntry.js`. Null if no UI. |
+| `component` | No | Exported component name. Required if `ui` is set. |
+| `devPort` | No | Vite dev server port. Required if `ui` is set. Must be unique. |
+| `widgets` | No | Array of widget definitions |
+
+### sero.plugin fields
+
+| Field | Description |
+|-------|-------------|
+| `category` | Plugin category (e.g. `"productivity"`) |
+| `tags` | Array of searchable tags |
+| `minSeroVersion` | Minimum compatible Sero version |
+| `preBuilt` | Whether plugin ships pre-built |
+| `bridgeTools` | `true` (default/omit), `false`, or `string[]` of tool names |
+
+### State scope
+
+| | Workspace (default) | Global |
+|---|---------------------|--------|
+| Location | `<workspace>/.sero/apps/<id>/state.json` | `~/.sero-ui/apps/<id>/state.json` |
+| Instances | One per workspace | One shared across all workspaces |
+| Requires workspace | Yes | No |
+| Use when | Project-specific data | Personal/cross-project data |
+
+For global apps, resolve state from `SERO_HOME`:
+
+```typescript
+function resolveStatePath(cwd: string): string {
+  const seroHome = process.env.SERO_HOME;
+  if (seroHome) {
+    return path.join(seroHome, 'apps', 'myapp', 'state.json');
+  }
+  return path.join(cwd, STATE_REL_PATH);
+}
+```
+
+---
+
+## Styling Guide
+
+### Component imports
+
+```tsx
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { Card } from '@sero-ai/ui/components/ui/card';
+import { Badge } from '@sero-ai/ui/components/ui/badge';
+import { cn } from '@sero-ai/ui/lib/utils';
+```
+
+Common components: Button, Card, Badge, Separator, ScrollArea, Checkbox.
+
+### Tailwind semantic colors
+
+| Class | Use for |
+|-------|---------|
+| `bg-background` | Primary background |
+| `bg-card` | Card/panel backgrounds |
+| `bg-secondary` | Hover/active states |
+| `text-foreground` | Main text |
+| `text-muted-foreground` | Hints, metadata |
+| `border-border` | Standard borders |
+| `text-destructive` | Error/danger text |
+| `bg-primary` | Primary action backgrounds |
+
+### Design system variables (for non-shadcn colours)
+
+| Variable | Usage |
+|----------|-------|
+| `var(--bg-base)` | Primary background |
+| `var(--bg-surface)` | Cards, elevated sections |
+| `var(--bg-elevated)` | Active/hover states |
+| `var(--text-primary)` | Main text |
+| `var(--text-secondary)` | Less prominent text |
+| `var(--text-muted)` | Hints, metadata |
+
+### Customising components
+
+```tsx
+<Card className="rounded-2xl py-0 gap-0 shadow-none">
+  {/* cn() + tailwind-merge handles deduplication */}
+</Card>
+
+<Button
+  variant="secondary"
+  className={cn('h-12 rounded-xl', isActive && 'bg-accent')}
+>
+  Click me
+</Button>
+```

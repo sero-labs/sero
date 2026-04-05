@@ -6,7 +6,7 @@
 
 ### Creating a Sero App
 
-**Read [docs/apps-tutorial.md]({{SERO_MONOREPO}}/docs/apps-tutorial.md) first.** It covers the full process: package structure, shared state types, Pi extension, web UI, module federation setup, and dev workflow. Don't improvise — follow the tutorial step by step.
+**For a step-by-step guide to building a new app use the `sero-plugin` skill first.** It covers the full process: package structure, shared state types, Pi extension, web UI, module federation setup, and dev workflow. Don't improvise — follow the tutorial step by step.
 
 **App registration is fully automatic.** The host auto-discovers all `packages/pi-*/` directories that have a `sero.app` manifest in their `package.json`. No manual edits to any `apps/desktop/` file are needed.
 

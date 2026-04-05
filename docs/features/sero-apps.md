@@ -258,8 +258,7 @@ useAgentPrompt(): (text: string) => void
 
 ## Tutorial
 
-For a step-by-step guide to building a new app, see
-[docs/apps-tutorial.md](../../../docs/apps-tutorial.md).
+For a step-by-step guide to building a new app use the `sero-plugin` skill
 
 ## Open Decisions
 
