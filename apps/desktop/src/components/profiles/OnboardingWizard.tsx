@@ -28,6 +28,7 @@ import {
 type OnboardingUiPhase = 'checking' | 'ready' | 'auth' | 'launching' | 'error' | 'done';
 
 const WELCOME_PROMPT = "Hey! I'm new here — set up my memory so you can get to know me.";
+const WELCOME_GREETING_PROMPT = "The user just finished setting up their profile. Say hello, introduce yourself briefly, and let them know you're ready to help.";
 const EMPTY_PROVIDER_DEFAULTS: ResolvedProviderDefaultsState = {
   builtInDefaults: {},
   globalDefaults: {},
@@ -88,6 +89,49 @@ async function applyModelEntry(sessionId: string, entry: ModelTierEntry | null):
 
 async function applyTierModel(sessionId: string, tiers: ModelTierSettings): Promise<boolean> {
   return applyModelEntry(sessionId, tiers.HIGH ?? tiers.MED ?? tiers.LOW ?? null);
+}
+
+async function createAndRunSession(options: {
+  name?: string;
+  tiers: ModelTierSettings;
+  thinkingLevel?: string;
+  prompt: string;
+  setupUi?: (sessionId: string) => void;
+}): Promise<{ sessionId: string; sessionPath: string }> {
+  const session = await useSessionStore.getState().createSession('global');
+  await window.sero.agent.open(session.id, session.path, 'global');
+
+  if (options.name) {
+    await useSessionStore.getState().renameSession(session.id, options.name);
+  }
+
+  await applyTierModel(session.id, options.tiers);
+
+  if (options.thinkingLevel) {
+    try {
+      await window.sero.agent.setThinkingLevel(session.id, options.thinkingLevel);
+    } catch {
+      // Model may not support thinking levels — proceed with default.
+    }
+  }
+
+  options.setupUi?.(session.id);
+
+  await window.sero.agent.prompt(session.id, options.prompt);
+  return { sessionId: session.id, sessionPath: session.path };
+}
+
+async function teardownSession(sessionId: string, sessionPath: string): Promise<void> {
+  try {
+    await window.sero.agent.close(sessionId);
+  } catch {
+    // Session may already be closed.
+  }
+  try {
+    await useSessionStore.getState().deleteSession(sessionPath);
+  } catch {
+    // Best-effort cleanup.
+  }
 }
 
 export function OnboardingWizard() {
@@ -165,23 +209,47 @@ export function OnboardingWizard() {
     setLaunchStatusMessage(null);
     setUiPhase('launching');
 
-    let sessionId: string | null = null;
+    let tempSessionId: string | null = null;
+    let tempSessionPath: string | null = null;
 
     try {
-      const session = await useSessionStore.getState().createSession('global');
-      sessionId = session.id;
-      useSessionStore.getState().setActiveSession(session.id);
-      await window.sero.agent.open(session.id, session.path, 'global');
-      await useSessionStore.getState().renameSession(session.id, 'Welcome');
-      useAgentStore.getState().focusSession(session.id);
-      useAppStore.getState().setChatPanelOpen(true);
+      // Phase 1: Run memory setup in a dedicated low-thinking session.
+      const temp = await createAndRunSession({
+        tiers,
+        thinkingLevel: 'low',
+        prompt: WELCOME_PROMPT,
+      });
+      tempSessionId = temp.sessionId;
+      tempSessionPath = temp.sessionPath;
 
-      await applyTierModel(session.id, tiers);
-      await window.sero.agent.prompt(session.id, WELCOME_PROMPT);
+      // Phase 2: Tear down the temp session.
+      await teardownSession(tempSessionId, tempSessionPath);
+      tempSessionId = null;
+      tempSessionPath = null;
+
+      // Phase 3: Create the user's clean welcome session.
+      const welcome = await createAndRunSession({
+        name: 'Welcome',
+        tiers,
+        prompt: WELCOME_GREETING_PROMPT,
+        setupUi: (sessionId) => {
+          useSessionStore.getState().setActiveSession(sessionId);
+          useAgentStore.getState().focusSession(sessionId);
+          useAppStore.getState().setChatPanelOpen(true);
+        },
+      });
+
+      useSessionStore.getState().setActiveSession(welcome.sessionId);
       await finishOnboardingLaunch();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (isAuthError(message) && sessionId) {
+
+      // Clean up temp session on failure if it's still around.
+      if (tempSessionId && tempSessionPath) {
+        await teardownSession(tempSessionId, tempSessionPath);
+      }
+
+      if (isAuthError(message)) {
         try {
           const refreshedState = await window.sero.onboarding.getState();
           setOnboardingState(refreshedState);
@@ -206,12 +274,8 @@ export function OnboardingWizard() {
 
             if (canAutoRetry) {
               await window.sero.onboarding.saveTierSelections(refreshedState.recommendation.tiers);
-              const applied = await applyTierModel(sessionId, refreshedState.recommendation.tiers);
-              if (applied) {
-                await window.sero.agent.prompt(sessionId, WELCOME_PROMPT);
-                await finishOnboardingLaunch();
-                return;
-              }
+              await launchWelcomeSession(refreshedState.recommendation.tiers);
+              return;
             }
           }
 
@@ -235,7 +299,7 @@ export function OnboardingWizard() {
       setErrorMessage(message);
       setUiPhase('error');
     }
-  }, [finishOnboardingLaunch, onboardingState]);
+  }, [finishOnboardingLaunch]);
 
   const handleContinue = useCallback(async (tiers: ModelTierSettings) => {
     if (continueInFlightRef.current) return;
