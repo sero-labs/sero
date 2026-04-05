@@ -141,6 +141,7 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.getProviders,
     async (): Promise<AuthProvidersResponse> => {
       const infra = await ensureInfra();
+      infra.authStorage.reload();
 
       // OAuth providers
       const oauthProviders = getOAuthProviders();
