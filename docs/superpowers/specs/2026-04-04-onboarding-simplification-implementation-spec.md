@@ -147,10 +147,28 @@ Suggested new files/folders:
 
 ### Exact Onboarding States
 
-Renderer-visible onboarding state machine:
+Split backend onboarding outcome state from renderer-local UI state.
+
+#### Backend / IPC onboarding outcome
+
+Returned from `window.sero.onboarding.getState()`:
 
 ```ts
-type OnboardingPhase =
+type OnboardingStatePhase =
+  | 'ready'
+  | 'auth'
+  | 'error'
+  | 'done';
+```
+
+This is the authoritative Electron-derived onboarding result.
+
+#### Renderer-local UI state
+
+Managed inside the onboarding shell component:
+
+```ts
+type OnboardingUiPhase =
   | 'checking'
   | 'ready'
   | 'customize'
@@ -160,12 +178,15 @@ type OnboardingPhase =
   | 'done';
 ```
 
+The renderer derives `ready` / `auth` / `error` / `done` from `OnboardingState.phase`,
+and owns transient UI-only phases such as `checking`, `customize`, and `launching`.
+
 #### State meanings
 
-- `checking`: preflight in progress
+- `checking`: renderer is waiting for `getState()` to resolve
 - `ready`: valid recommended setup exists; primary one-click screen
 - `customize`: advanced tier editor
-- `auth`: no usable model path, or user explicitly chose reconnect/add provider
+- `auth`: no usable model path, or user explicitly chose add/reconnect provider
 - `launching`: saving selections + opening welcome session
 - `error`: unexpected onboarding failure that needs retry/recovery
 - `done`: onboarding complete or not needed
@@ -186,6 +207,17 @@ type OnboardingPhase =
 1. If the user already has a clear valid provider preference, prefer that provider.
 2. Otherwise prefer a cohesive single-provider recommendation.
 3. Only mix providers if necessary to fill missing tiers or preserve valid explicit user choices.
+
+#### Preferred-provider heuristic
+
+Determine the user’s "existing/default provider" in this order:
+
+1. If the currently valid saved tiers have a single provider owning the majority of populated tiers, prefer that provider.
+2. Else if a legacy `defaultProvider` exists and is healthy, prefer it.
+3. Else if imported valid tiers all point to the same provider, prefer that provider.
+4. Else there is no existing provider preference.
+
+If there is no existing provider preference, choose a cohesive single-provider setup based on the healthy provider with the best LOW/MED/HIGH coverage from provider defaults plus currently usable models.
 
 #### Tier recommendation rules
 
@@ -256,12 +288,25 @@ export interface ProviderHealthInfo {
 
 ### Onboarding State Shape
 
+Use existing shared types from `apps/desktop/src/types/ipc.ts` for:
+
+- `AvailableModelGroup`
+- `ModelTierSettings`
+
 Suggested IPC-returned shape:
 
 ```ts
+export type OnboardingTierSource =
+  | 'preserved'
+  | 'imported'
+  | 'provider-defaults'
+  | 'fallback';
+
 export interface OnboardingRecommendation {
-  tiers: Partial<Record<'LOW' | 'MED' | 'HIGH', { provider: string; modelId: string }>>;
-  source: 'existing' | 'imported' | 'provider-defaults' | 'fallback';
+  /** Final tiers the renderer displays on the Ready screen. */
+  tiers: ModelTierSettings;
+  /** Where each displayed tier came from. */
+  sourcesByTier: Partial<Record<'LOW' | 'MED' | 'HIGH', OnboardingTierSource>>;
   preferredProvider?: string;
 }
 
@@ -277,17 +322,18 @@ export interface OnboardingWarning {
 
 export interface OnboardingState {
   needed: boolean;
-  phase: 'ready' | 'auth' | 'error' | 'done';
+  phase: OnboardingStatePhase;
   hasAnyUsableModels: boolean;
   hasImportedCredentials: boolean;
   recommendation: OnboardingRecommendation | null;
   providerHealth: ProviderHealthInfo[];
   availableModelGroups: AvailableModelGroup[];
   warnings: OnboardingWarning[];
-  preservedTiers: ModelTierSettings;
   invalidTiers: Array<'LOW' | 'MED' | 'HIGH'>;
 }
 ```
+
+`recommendation.tiers` is the only tier payload the renderer should render on the Ready screen. In `phase: 'ready'`, it is expected to contain usable entries for LOW, MED, and HIGH. Preservation/import/default/fallback details are conveyed through `sourcesByTier`, not a separate `preservedTiers` field.
 
 ### IPC Design
 
@@ -297,8 +343,6 @@ export interface OnboardingState {
 interface SeroOnboardingAPI {
   getState(): Promise<OnboardingState>;
   saveTierSelections(tiers: ModelTierSettings): Promise<void>;
-  saveProviderDefaults(defaults: ProviderModelDefaults): Promise<void>;
-  reconnectProvider(providerId: string): Promise<void>; // may forward into auth flow helper
   dismissWarning?(code: string): Promise<void>; // optional, only if needed
 }
 ```
@@ -311,11 +355,30 @@ Suggested additions:
 onboarding: {
   getState: 'sero:onboarding:get-state',
   saveTierSelections: 'sero:onboarding:save-tier-selections',
-  getProviderDefaults: 'sero:onboarding:get-provider-defaults',
-  saveProviderDefaults: 'sero:onboarding:save-provider-defaults',
-  reconnectProvider: 'sero:onboarding:reconnect-provider',
 }
 ```
+
+Provider-default editing is intentionally **not** part of the onboarding API. It belongs to the Admin plugin / CLI / app-state settings surface.
+
+#### Refresh behavior
+
+`getState()` is both the initial load and the refresh entry point. The onboarding shell must re-call `getState()`:
+
+1. on mount
+2. after successful auth or API-key save in the auth dialog
+3. after saving customized tier selections
+4. after a launch-time provider failure that forces recommendation repair
+
+No separate polling API is required for MVP.
+
+#### Reconnect behavior
+
+Onboarding should not define a separate `reconnectProvider()` IPC method. Instead:
+
+1. the onboarding shell opens the existing `AuthLoginDialog`, optionally targeted at a specific provider
+2. auth happens inside that dialog while the onboarding shell remains mounted
+3. the dialog uses existing `window.sero.auth.*` APIs
+4. on auth success, the onboarding shell re-calls `window.sero.onboarding.getState()` and transitions to the updated state
 
 ### APIs & Integrations
 
@@ -376,8 +439,8 @@ Wants control over tiers and provider defaults, but does not want onboarding to 
 1. User opens new profile.
 2. Preflight finds no usable models.
 3. Auth screen appears.
-4. User connects one provider.
-5. Preflight reruns / onboarding state refreshes.
+4. User connects one provider in the existing auth dialog.
+5. On auth success, the onboarding shell re-calls `getState()`.
 6. Ready screen appears with recommended defaults.
 7. User clicks Continue.
 8. Welcome session launches.
@@ -388,14 +451,17 @@ Wants control over tiers and provider defaults, but does not want onboarding to 
 3. Healthy provider still exists.
 4. Ready screen appears with healthy recommendation.
 5. Compact inline warning shows broken providers and reconnect CTA.
-6. User either continues or reconnects a provider.
+6. If the user chooses reconnect, onboarding opens the existing auth dialog targeted at that provider.
+7. On auth success, the onboarding shell re-calls `getState()` and redraws the recommendation/warnings.
+8. User continues when satisfied.
 
 #### Flow D — User customizes tiers
 1. From ready screen, user clicks Customize models.
 2. Tier editor opens with prefilled LOW/MED/HIGH.
 3. User changes one or more tiers.
-4. User saves.
-5. Returns to ready/launch flow or launches directly depending on final UX implementation.
+4. User saves tier selections.
+5. The onboarding shell persists them, re-calls `getState()`, and returns to the Ready summary screen.
+6. The user explicitly clicks Continue to launch the welcome session.
 
 ### UI States
 
@@ -408,6 +474,8 @@ Must include:
 - secondary CTA: Customize models
 - tertiary CTA: Add/reconnect provider
 
+`Add/reconnect provider` opens the existing `AuthLoginDialog`. If invoked from a broken-provider warning, it should target that provider; otherwise it opens the generic provider list.
+
 #### Customize screen
 Must include:
 - prefilled tier choices
@@ -415,6 +483,7 @@ Must include:
 - healthy models shown normally
 - broken provider models hidden or visibly disabled
 - Save / Back controls
+- Save returns to the Ready summary screen; it does not launch directly
 
 #### Auth screen
 Must include:
@@ -489,6 +558,9 @@ Must include:
 4. **Per-profile tiers remain in profile settings**.
 5. **Validation happens in onboarding preflight**, not primarily at clone time.
 6. **Single cohesive rollout** is preferred over a feature flag rollout.
+7. **Backend onboarding state and renderer UI state are separate**.
+8. **Auth/reconnect reuses the existing auth dialog and APIs**, not a new onboarding-specific reconnect IPC.
+9. **Saving customized tiers always returns to the Ready summary screen**; only Continue launches the welcome session.
 
 ### Dependencies
 
@@ -562,11 +634,12 @@ Add built-in provider defaults + settings merge/override helpers.
 #### `apps/desktop/src/components/profiles/OnboardingWizard.tsx`
 Refactor from local orchestration to onboarding-state-driven rendering.
 Expected changes:
-- replace current `checking/auth/tiers/...` orchestration with `ready/customize/auth/...`
-- call `window.sero.onboarding.getState()`
+- manage renderer-local `OnboardingUiPhase`
+- call `window.sero.onboarding.getState()` on mount and refresh points
 - render ready screen first when usable setup exists
 - move TierPicker behind Customize action
-- handle reconnect/add-provider flow
+- open the existing `AuthLoginDialog` for add/reconnect flows
+- refresh onboarding state after auth success and after tier save
 - retain launching/error behavior
 
 #### `apps/desktop/src/components/profiles/TierPicker.tsx`
@@ -580,8 +653,9 @@ Expected changes:
 
 #### `apps/desktop/src/components/layout/AuthLoginDialog.tsx`
 Possible updates:
-- support reconnecting a specific provider from onboarding
-- allow onboarding refresh callback after successful auth
+- support opening the dialog pre-targeted to a specific provider from onboarding
+- allow onboarding refresh callback after successful auth / API-key save
+- keep the onboarding shell mounted while the dialog is open
 
 #### `apps/desktop/src/components/layout/AuthLoginViews.tsx`
 Possible updates:
@@ -682,8 +756,6 @@ This can initially be debug logging if full analytics are not in scope.
 1. What is the exact persisted location/schema for global provider defaults in app state?
 2. Do per-profile provider-default overrides need to ship in the first iteration, or just be supported by the model?
 3. Should provider-health probing have a small cache window to avoid repeated checks during the same onboarding session?
-4. How should onboarding identify a user’s “existing/default provider” when there are multiple historical providers?
-5. Should the ready screen allow launching directly after saving custom tiers, or return to the confirmation summary first?
 
 ---
 
