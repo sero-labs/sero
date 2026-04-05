@@ -18,6 +18,7 @@ import type {
   ModelTierSettings,
   ProviderHealthInfo,
 } from '@/types/ipc';
+import { modelKey, parseModelKey } from '@/lib/model-keys';
 
 interface TierPickerProps {
   groups: AvailableModelGroup[];
@@ -36,24 +37,11 @@ const TIER_META = [
 type TierKey = (typeof TIER_META)[number]['key'];
 type SelectionState = Record<TierKey, string>;
 
-function mkKey(provider: string, modelId: string): string {
-  return `${provider}/${modelId}`;
-}
-
-function parseModelKey(key: string): ModelTierEntry | null {
-  const separatorIndex = key.indexOf('/');
-  if (separatorIndex <= 0) return null;
-  return {
-    provider: key.slice(0, separatorIndex),
-    modelId: key.slice(separatorIndex + 1),
-  };
-}
-
 function createSelectionState(tiers: ModelTierSettings): SelectionState {
   return {
-    LOW: tiers.LOW ? mkKey(tiers.LOW.provider, tiers.LOW.modelId) : '',
-    MED: tiers.MED ? mkKey(tiers.MED.provider, tiers.MED.modelId) : '',
-    HIGH: tiers.HIGH ? mkKey(tiers.HIGH.provider, tiers.HIGH.modelId) : '',
+    LOW: tiers.LOW ? modelKey(tiers.LOW.provider, tiers.LOW.modelId) : '',
+    MED: tiers.MED ? modelKey(tiers.MED.provider, tiers.MED.modelId) : '',
+    HIGH: tiers.HIGH ? modelKey(tiers.HIGH.provider, tiers.HIGH.modelId) : '',
   };
 }
 
@@ -104,7 +92,7 @@ function ModelPickerPopover({
   const selectedModel = useMemo(() => {
     if (!selectedKey) return null;
     for (const group of groups) {
-      const model = group.models.find((entry) => mkKey(entry.provider, entry.modelId) === selectedKey);
+      const model = group.models.find((entry) => modelKey(entry.provider, entry.modelId) === selectedKey);
       if (model) return { group, model };
     }
     return null;
@@ -119,7 +107,7 @@ function ModelPickerPopover({
   }, []);
 
   const handleSelect = useCallback((model: ModelInfo) => {
-    onSelect(mkKey(model.provider, model.modelId));
+    onSelect(modelKey(model.provider, model.modelId));
     setOpen(false);
   }, [onSelect]);
 
@@ -191,7 +179,7 @@ function ModelPickerPopover({
                   </div>
                   <div className="px-1">
                     {group.models.map((model) => {
-                      const key = mkKey(model.provider, model.modelId);
+                      const key = modelKey(model.provider, model.modelId);
                       const isSelected = key === selectedKey;
                       return (
                         <button

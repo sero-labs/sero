@@ -19,21 +19,9 @@ import type {
   ProviderHealthInfo,
   ResolvedProviderDefaultsState,
 } from '@/types/ipc';
+import { modelKey, parseModelKey } from '@/lib/model-keys';
 
 const TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;
-
-function modelKey(provider: string, modelId: string): string {
-  return `${provider}/${modelId}`;
-}
-
-function parseModelKey(value: string): { provider: string; modelId: string } | null {
-  const separatorIndex = value.indexOf('/');
-  if (separatorIndex <= 0) return null;
-  return {
-    provider: value.slice(0, separatorIndex),
-    modelId: value.slice(separatorIndex + 1),
-  };
-}
 
 function getProviderGroup(
   groups: AvailableModelGroup[],
