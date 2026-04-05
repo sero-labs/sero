@@ -2,7 +2,7 @@
  * OnboardingWizard — recommendation-first profile onboarding.
  *
  * Electron preflight decides whether onboarding is ready, auth-blocked, or done.
- * The renderer only manages transient UI states like customize and launching.
+ * The renderer only manages transient UI states like launching and recovery.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -12,25 +12,27 @@ import { useAppStore } from '@/stores/app';
 import { useAgentStore } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
-import type { ModelTierEntry, ModelTierSettings, OnboardingState } from '@/types/ipc';
-import { TierPicker } from './TierPicker';
+import type {
+  ModelTierEntry,
+  ModelTierSettings,
+  OnboardingState,
+  ResolvedProviderDefaultsState,
+} from '@/types/ipc';
 import {
   AuthScreen,
   ErrorScreen,
   LaunchingScreen,
-  ReadyScreen,
+  OnboardingSetupScreen,
 } from './onboarding/OnboardingViews';
 
-type OnboardingUiPhase =
-  | 'checking'
-  | 'ready'
-  | 'customize'
-  | 'auth'
-  | 'launching'
-  | 'error'
-  | 'done';
+type OnboardingUiPhase = 'checking' | 'ready' | 'auth' | 'launching' | 'error' | 'done';
 
 const WELCOME_PROMPT = "Hey! I'm new here — set up my memory so you can get to know me.";
+const EMPTY_PROVIDER_DEFAULTS: ResolvedProviderDefaultsState = {
+  builtInDefaults: {},
+  globalDefaults: {},
+  effectiveDefaults: {},
+};
 
 function deriveUiPhase(state: OnboardingState): OnboardingUiPhase {
   if (!state.needed || state.phase === 'done') return 'done';
@@ -49,7 +51,10 @@ function extractFailedProvider(message: string): string | null {
   return match ? match[1] : null;
 }
 
-function getDisplayProviderName(state: OnboardingState | null, providerId: string | null): string | null {
+function getDisplayProviderName(
+  state: Pick<OnboardingState, 'providerHealth'> | null,
+  providerId: string | null,
+): string | null {
   if (!state || !providerId) return providerId;
   return state.providerHealth.find((provider) => provider.providerId === providerId)?.displayName ?? providerId;
 }
@@ -88,11 +93,14 @@ async function applyTierModel(sessionId: string, tiers: ModelTierSettings): Prom
 export function OnboardingWizard() {
   const [uiPhase, setUiPhase] = useState<OnboardingUiPhase>('checking');
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
+  const [providerDefaults, setProviderDefaults] = useState<ResolvedProviderDefaultsState>(EMPTY_PROVIDER_DEFAULTS);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [preferredProviderId, setPreferredProviderId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [launchStatusMessage, setLaunchStatusMessage] = useState<string | null>(null);
+  const [isContinuing, setIsContinuing] = useState(false);
   const hideLaunchingDialogRef = useRef(false);
+  const continueInFlightRef = useRef(false);
   const hasPendingUserInput = useUserFeedbackStore((state) => state.pending.size > 0);
 
   if (uiPhase === 'launching' && hasPendingUserInput) {
@@ -103,12 +111,18 @@ export function OnboardingWizard() {
     if (!options?.preserveLaunchMessage) {
       setLaunchStatusMessage(null);
     }
+    continueInFlightRef.current = false;
+    setIsContinuing(false);
     setErrorMessage(null);
     setUiPhase('checking');
 
     try {
-      const nextState = await window.sero.onboarding.getState();
+      const [nextState, nextProviderDefaults] = await Promise.all([
+        window.sero.onboarding.getState(),
+        window.sero.providerDefaults.get().catch(() => EMPTY_PROVIDER_DEFAULTS),
+      ]);
       setOnboardingState(nextState);
+      setProviderDefaults(nextProviderDefaults);
       setUiPhase(deriveUiPhase(nextState));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -121,7 +135,7 @@ export function OnboardingWizard() {
     void syncOnboardingState();
   }, [syncOnboardingState]);
 
-  const openAuthDialog = useCallback((providerId: string | null = null) => {
+  const openProviders = useCallback((providerId: string | null = null) => {
     setPreferredProviderId(providerId);
     setShowLoginDialog(true);
   }, []);
@@ -137,16 +151,13 @@ export function OnboardingWizard() {
     void syncOnboardingState();
   }, [syncOnboardingState]);
 
-  const handleSaveCustomizations = useCallback(async (tiers: ModelTierSettings) => {
-    try {
-      await window.sero.onboarding.saveTierSelections(tiers);
-      await syncOnboardingState();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setErrorMessage(message);
-      setUiPhase('error');
-    }
-  }, [syncOnboardingState]);
+  const finishOnboardingLaunch = useCallback(async () => {
+    useAppStore.getState().setActiveApp('dashboard');
+    await window.sero.profiles.markOnboardingDone();
+    continueInFlightRef.current = false;
+    setIsContinuing(false);
+    setUiPhase('done');
+  }, []);
 
   const launchWelcomeSession = useCallback(async (tiers: ModelTierSettings) => {
     hideLaunchingDialogRef.current = false;
@@ -167,8 +178,7 @@ export function OnboardingWizard() {
 
       await applyTierModel(session.id, tiers);
       await window.sero.agent.prompt(session.id, WELCOME_PROMPT);
-      await window.sero.profiles.markOnboardingDone();
-      setUiPhase('done');
+      await finishOnboardingLaunch();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (isAuthError(message) && sessionId) {
@@ -191,7 +201,7 @@ export function OnboardingWizard() {
             setLaunchStatusMessage(
               failedName && nextName && failedName !== nextName
                 ? `${failedName} stopped working. Switching to ${nextName}.`
-                : 'Refreshing your recommended provider before launch.',
+                : 'Refreshing your provider before launch.',
             );
 
             if (canAutoRetry) {
@@ -199,43 +209,50 @@ export function OnboardingWizard() {
               const applied = await applyTierModel(sessionId, refreshedState.recommendation.tiers);
               if (applied) {
                 await window.sero.agent.prompt(sessionId, WELCOME_PROMPT);
-                await window.sero.profiles.markOnboardingDone();
-                setUiPhase('done');
+                await finishOnboardingLaunch();
                 return;
               }
             }
           }
 
-          setLaunchStatusMessage(
-            'Your previous provider needs to be reconnected before onboarding can continue.',
-          );
+          setLaunchStatusMessage('Reconnect a provider before onboarding can continue.');
+          continueInFlightRef.current = false;
+          setIsContinuing(false);
           setUiPhase(deriveUiPhase(refreshedState));
           return;
         } catch (retryError) {
           const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+          continueInFlightRef.current = false;
+          setIsContinuing(false);
           setErrorMessage(retryMessage);
           setUiPhase('error');
           return;
         }
       }
 
+      continueInFlightRef.current = false;
+      setIsContinuing(false);
       setErrorMessage(message);
       setUiPhase('error');
     }
-  }, [onboardingState]);
+  }, [finishOnboardingLaunch, onboardingState]);
 
-  const handleContinue = useCallback(async () => {
-    if (!onboardingState?.recommendation) return;
+  const handleContinue = useCallback(async (tiers: ModelTierSettings) => {
+    if (continueInFlightRef.current) return;
+    continueInFlightRef.current = true;
+    setIsContinuing(true);
 
     try {
-      await window.sero.onboarding.saveTierSelections(onboardingState.recommendation.tiers);
-      await launchWelcomeSession(onboardingState.recommendation.tiers);
+      await window.sero.onboarding.saveTierSelections(tiers);
+      await launchWelcomeSession(tiers);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      continueInFlightRef.current = false;
+      setIsContinuing(false);
       setErrorMessage(message);
       setUiPhase('error');
     }
-  }, [launchWelcomeSession, onboardingState]);
+  }, [launchWelcomeSession]);
 
   const handleErrorBack = useCallback(() => {
     if (!onboardingState) {
@@ -245,6 +262,10 @@ export function OnboardingWizard() {
     }
     setUiPhase(deriveUiPhase(onboardingState));
   }, [onboardingState, syncOnboardingState]);
+
+  const dismissReadyScreen = useCallback(() => {
+    setUiPhase('done');
+  }, []);
 
   if (uiPhase === 'checking' || uiPhase === 'done' || !onboardingState) {
     return (
@@ -261,58 +282,62 @@ export function OnboardingWizard() {
 
   return (
     <>
-      <Dialog
-        open={uiPhase === 'launching' && !hideLaunchingDialogRef.current}
-        onOpenChange={() => {}}
-      >
-        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+      <Dialog open={uiPhase === 'launching' && !hideLaunchingDialogRef.current} onOpenChange={() => {}}>
+        <DialogContent
+          className="max-w-md"
+          showCloseButton={false}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
           <LaunchingScreen statusMessage={launchStatusMessage} />
         </DialogContent>
       </Dialog>
 
-      <Dialog open={uiPhase === 'ready'} onOpenChange={() => {}}>
+      <Dialog
+        open={uiPhase === 'ready'}
+        onOpenChange={(open) => {
+          if (!open) dismissReadyScreen();
+        }}
+      >
         <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
           {readyRecommendation ? (
-            <ReadyScreen
+            <OnboardingSetupScreen
+              key={`${readyRecommendation.preferredProvider ?? 'provider'}:${JSON.stringify(readyRecommendation.tiers)}`}
               recommendation={readyRecommendation}
               availableModelGroups={onboardingState.availableModelGroups}
               providerHealth={onboardingState.providerHealth}
+              providerDefaults={providerDefaults}
               warnings={onboardingState.warnings.filter((warning) => warning.code !== 'no_usable_models')}
               launchNotice={launchStatusMessage}
-              onContinue={() => void handleContinue()}
-              onCustomize={() => setUiPhase('customize')}
-              onAddProvider={() => openAuthDialog()}
-              onReconnectProvider={openAuthDialog}
+              continueDisabled={isContinuing}
+              onContinue={(tiers) => void handleContinue(tiers)}
+              onOpenProviders={() => openProviders()}
+              onReconnectProvider={openProviders}
             />
           ) : null}
         </DialogContent>
       </Dialog>
 
-      <Dialog open={uiPhase === 'customize'} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
-          <TierPicker
-            groups={onboardingState.availableModelGroups}
-            providerHealth={onboardingState.providerHealth}
-            initialTiers={readyRecommendation?.tiers ?? {}}
-            onSave={(tiers) => void handleSaveCustomizations(tiers)}
-            onBack={() => setUiPhase('ready')}
-          />
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={uiPhase === 'auth'} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+        <DialogContent
+          className="max-w-md"
+          showCloseButton={false}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
           <AuthScreen
             providerHealth={onboardingState.providerHealth}
             launchNotice={launchStatusMessage}
-            onAddProvider={() => openAuthDialog()}
-            onReconnectProvider={openAuthDialog}
+            onOpenProviders={() => openProviders()}
+            onReconnectProvider={openProviders}
           />
         </DialogContent>
       </Dialog>
 
       <Dialog open={uiPhase === 'error'} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+        <DialogContent
+          className="max-w-md"
+          showCloseButton={false}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
           <ErrorScreen
             message={errorMessage}
             onRetry={() => void syncOnboardingState({ preserveLaunchMessage: true })}

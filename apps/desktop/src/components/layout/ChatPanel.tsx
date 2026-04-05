@@ -26,7 +26,7 @@ import { useEditorBridge } from '@/stores/editor-bridge';
 import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
 import { createFilePathClickHandler } from './ClickableFilePath';
 import { PendingQuestionCard } from './PendingQuestionCard';
-import { QuestionnaireNotice } from './QuestionnaireNotice';
+import { QuestionnaireNotice, getFeedbackToolGroupDisposition } from './QuestionnaireNotice';
 import { EmptyState } from './ChatPanelHelpers';
 import { CollaborationDetails } from './CollaborationResponse';
 import { CollaborationActivityPanel } from './CollaborationActivityPanel';
@@ -170,17 +170,18 @@ export function ChatPanel() {
                 const isLast = index === groupedItems.length - 1;
                 const isFinalized = !isLast || !isStreaming;
 
-                // Replace a running questionnaire/interview tool call with clickable notice
-                const feedbackToolName = item.tools[0]?.toolName;
-                const isRunningFeedbackForm =
-                  item.tools.length === 1 &&
-                  (feedbackToolName === 'questionnaire' ||
-                    feedbackToolName === 'interview') &&
-                  (item.tools[0].state === 'pending' ||
-                    item.tools[0].state === 'running');
-
-                if (isRunningFeedbackForm) {
-                  return <QuestionnaireNotice key={item.id} tools={item.tools} />;
+                const feedbackDisposition = getFeedbackToolGroupDisposition(item.tools);
+                if (feedbackDisposition === 'hide') {
+                  return null;
+                }
+                if (feedbackDisposition === 'notice') {
+                  return (
+                    <QuestionnaireNotice
+                      key={item.id}
+                      tools={item.tools}
+                      sessionLabel={sessionLabel ?? null}
+                    />
+                  );
                 }
 
                 return (

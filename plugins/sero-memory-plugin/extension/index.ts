@@ -44,6 +44,8 @@ import { startBackfillInBackground } from './session-transcripts';
 export default function memoryExtension(pi: ExtensionAPI): void {
   info('extension_loaded', { logPath: getMemoryLogPath() });
 
+  let awaitingBootstrapFollowUp = false;
+
   try {
     const autoConsolidation = syncAutoConsolidationCronJobSync();
     info('auto_consolidation_sync', { ...autoConsolidation });
@@ -66,6 +68,8 @@ export default function memoryExtension(pi: ExtensionAPI): void {
       needsBootstrap: status.needsBootstrap,
       hasExistingUserContent: Boolean(status.existingUserContent),
     });
+
+    awaitingBootstrapFollowUp = status.needsBootstrap;
 
     if (status.needsBootstrap) {
       pi.sendMessage(
@@ -199,9 +203,26 @@ export default function memoryExtension(pi: ExtensionAPI): void {
 
   pi.on('agent_end', async () => {
     const status = await checkBootstrapStatus();
-    info('agent_end', { needsBootstrap: status.needsBootstrap });
+    info('agent_end', {
+      needsBootstrap: status.needsBootstrap,
+      awaitingBootstrapFollowUp,
+    });
+
     if (!status.needsBootstrap) {
       markBootstrapDone();
+
+      if (awaitingBootstrapFollowUp) {
+        awaitingBootstrapFollowUp = false;
+        pi.sendMessage(
+          {
+            customType: '',
+            content: 'Memory is all set — what would you like to work on?',
+            display: true,
+          },
+          { triggerTurn: false },
+        );
+        info('bootstrap_follow_up_sent', {});
+      }
     }
   });
 
