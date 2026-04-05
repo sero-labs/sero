@@ -316,17 +316,16 @@ export function OnboardingSetupScreen({
 
       <div className="grid gap-4">
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
             <Label className="text-xs font-medium text-[var(--text-primary)]">Provider</Label>
             <button
               type="button"
               onClick={() => onOpenProviders()}
               disabled={continueDisabled}
-              className="flex items-center gap-1 text-[10px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] disabled:opacity-50"
+              className="rounded p-0.5 text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] disabled:opacity-50"
               title="Manage providers"
             >
               <KeyRound className="size-3" />
-              Manage
             </button>
           </div>
           <Select value={selectedProviderId} onValueChange={handleProviderChange}>
