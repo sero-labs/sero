@@ -56,6 +56,23 @@ function extractFailedProvider(msg: string): string | null {
 }
 
 /**
+ * Switch the session to the user's preferred tier model (HIGH for main sessions).
+ * Falls back through MED → LOW if HIGH isn't set.
+ */
+async function applyTierModel(sessionId: string): Promise<void> {
+  try {
+    const tiers = await window.sero.modelTiers.get();
+    const entry = tiers.HIGH ?? tiers.MED ?? tiers.LOW;
+    if (entry) {
+      await window.sero.agent.setModel(sessionId, entry.provider, entry.modelId);
+    }
+  } catch (err) {
+    // Non-fatal — session keeps its current model
+    console.warn('[onboarding] Could not apply tier model:', err);
+  }
+}
+
+/**
  * Try to switch the session to a model from a provider that hasn't failed.
  * Returns true if a fallback model was found and set.
  */
@@ -142,6 +159,9 @@ export function OnboardingWizard() {
       await useSessionStore.getState().renameSession(session.id, 'Welcome');
       useAgentStore.getState().focusSession(session.id);
       useAppStore.getState().setChatPanelOpen(true);
+
+      // Switch session to the user's tier model (HIGH for main sessions)
+      await applyTierModel(session.id);
 
       // Await the prompt — if auth fails for one provider, we try another
       await window.sero.agent.prompt(
