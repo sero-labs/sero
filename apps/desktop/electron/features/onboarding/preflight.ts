@@ -5,18 +5,10 @@ import { SERO_AGENT_DIR } from '../../platform/env';
 import { profileManager } from '../profile/manager';
 import { getModelTiers } from '../../shared/settings/model-tiers';
 import { resolveProviderDefaultsState } from '../../shared/settings/provider-model-defaults';
+import { readSettings } from '../../shared/settings/settings-helpers';
 import { buildOnboardingRecommendation, validateCurrentTiers } from './recommendations';
 import { getProviderHealthSnapshot } from './provider-health';
 import { emptyOnboardingState } from './types';
-
-function readSettings(): Record<string, unknown> {
-  const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
-  try {
-    return JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
 
 function readLegacyDefaultProvider(settings: Record<string, unknown>): string | null {
   const sero = settings.sero;

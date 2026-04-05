@@ -6,16 +6,9 @@
  */
 
 import type { ModelTier, ModelTierEntry, ModelTierSettings } from '../../../src/types/ipc';
+import { getSeroSettings } from './settings-helpers';
 
 export const MODEL_TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;
-
-function getSeroSettings(settings: Record<string, unknown>): Record<string, unknown> {
-  const raw = settings.sero;
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    return raw as Record<string, unknown>;
-  }
-  return {};
-}
 
 /** Read the model tier settings from a settings object. */
 export function getModelTiers(settings: Record<string, unknown>): ModelTierSettings {

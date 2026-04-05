@@ -1,6 +1,4 @@
 import { ipcMain } from 'electron';
-import { readFileSync } from 'fs';
-import path from 'path';
 import { IpcChannels } from '../../../src/types/ipc';
 import type {
   ModelTierSettings,
@@ -8,21 +6,12 @@ import type {
   ProviderModelDefaults,
   ResolvedProviderDefaultsState,
 } from '../../../src/types/ipc';
-import { SERO_AGENT_DIR } from '../../platform/env';
 import { getOnboardingState, saveOnboardingTierSelections } from '../../features/onboarding';
 import {
   resolveProviderDefaultsState,
   writeGlobalProviderModelDefaults,
 } from '../../shared/settings/provider-model-defaults';
-
-function readSettings(): Record<string, unknown> {
-  const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
-  try {
-    return JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
+import { readSettings } from '../../shared/settings/settings-helpers';
 
 export function registerOnboardingHandlers(): void {
   ipcMain.handle(

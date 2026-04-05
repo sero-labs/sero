@@ -7,6 +7,7 @@ import type {
   ResolvedProviderDefaultsState,
 } from '../../../src/types/ipc';
 import { SERO_FIXED_ROOT } from '../../platform/env';
+import { getSeroSettings } from './settings-helpers';
 
 const TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;
 const GLOBAL_PROVIDER_DEFAULTS_PATH = path.join(SERO_FIXED_ROOT, 'provider-model-defaults.json');
@@ -62,14 +63,6 @@ function normalizeProviderDefaults(value: unknown): ProviderModelDefaults {
     result[normalizedProviderId] = normalizedTierDefaults;
   }
   return result;
-}
-
-function getSeroSettings(settings: Record<string, unknown>): Record<string, unknown> {
-  const raw = settings.sero;
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    return raw as Record<string, unknown>;
-  }
-  return {};
 }
 
 function mergeProviderDefaults(...defaultsList: Array<ProviderModelDefaults | undefined>): ProviderModelDefaults {
