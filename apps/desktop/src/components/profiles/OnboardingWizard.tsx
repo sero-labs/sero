@@ -157,14 +157,14 @@ export function OnboardingWizard() {
       console.error('[onboarding] Memory prompt failed:', msg);
 
       if (isAuthError(msg) && sessionId) {
-        const failedProvider = extractFailedProvider(msg);
-        if (failedProvider) failedProvidersRef.current.add(failedProvider);
+        try {
+          const failedProvider = extractFailedProvider(msg);
+          if (failedProvider) failedProvidersRef.current.add(failedProvider);
 
-        // Try switching to a model from a provider that hasn't failed
-        const switched = await tryFallbackModel(sessionId, failedProvidersRef.current);
-        if (switched) {
-          console.log('[onboarding] Switched to fallback model, retrying prompt...');
-          try {
+          // Try switching to a model from a provider that hasn't failed
+          const switched = await tryFallbackModel(sessionId, failedProvidersRef.current);
+          if (switched) {
+            console.log('[onboarding] Switched to fallback model, retrying prompt...');
             await window.sero.agent.prompt(
               sessionId,
               "Hey! I'm new here — set up my memory so you can get to know me.",
@@ -172,12 +172,9 @@ export function OnboardingWizard() {
             await window.sero.profiles.markOnboardingDone();
             setPhase('done');
             return;
-          } catch (retryErr) {
-            const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-            console.error('[onboarding] Retry also failed:', retryMsg);
-            const retryProvider = extractFailedProvider(retryMsg);
-            if (retryProvider) failedProvidersRef.current.add(retryProvider);
           }
+        } catch (retryErr) {
+          console.error('[onboarding] Fallback retry failed:', retryErr);
         }
 
         // No fallback available or retry also failed — show auth dialog
@@ -207,11 +204,11 @@ export function OnboardingWizard() {
     } catch (err) {
       console.warn('[onboarding] Failed to save model tiers:', err);
     }
-    launchMemorySession();
+    void launchMemorySession();
   }, [launchMemorySession]);
 
   const handleTierSkip = useCallback(() => {
-    launchMemorySession();
+    void launchMemorySession();
   }, [launchMemorySession]);
 
   // Nothing to show
