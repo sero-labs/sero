@@ -121,8 +121,6 @@ function ensureBuiltinPackages(): void {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
     minWidth: 800,
     minHeight: 500,
     titleBarStyle: 'hiddenInset',
@@ -136,6 +134,8 @@ function createWindow() {
       plugins: true,
     },
   });
+
+  mainWindow.maximize();
 
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
