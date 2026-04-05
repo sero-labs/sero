@@ -316,22 +316,12 @@ export function OnboardingSetupScreen({
 
       <div className="grid gap-4">
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <Label className="text-xs font-medium text-[var(--text-primary)]">Provider</Label>
-            <button
-              type="button"
-              onClick={() => onOpenProviders()}
-              disabled={continueDisabled}
-              className="rounded p-0.5 text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] disabled:opacity-50"
-              title="Manage providers"
-            >
-              <KeyRound className="size-3" />
-            </button>
-          </div>
-          <Select value={selectedProviderId} onValueChange={handleProviderChange}>
-            <SelectTrigger className="h-10 text-left">
-              <SelectValue placeholder="Choose a provider" />
-            </SelectTrigger>
+          <Label className="text-xs font-medium text-[var(--text-primary)]">Provider</Label>
+          <div className="flex items-center gap-2">
+            <Select value={selectedProviderId} onValueChange={handleProviderChange}>
+              <SelectTrigger className="h-10 text-left">
+                <SelectValue placeholder="Choose a provider" />
+              </SelectTrigger>
             <SelectContent>
               {providerGroups.map((group) => (
                 <SelectItem key={group.provider} value={group.provider}>
@@ -340,6 +330,16 @@ export function OnboardingSetupScreen({
               ))}
             </SelectContent>
           </Select>
+          <button
+            type="button"
+            onClick={() => onOpenProviders()}
+            disabled={continueDisabled}
+            className="flex size-10 shrink-0 items-center justify-center rounded-md border border-[var(--border-default)] bg-[var(--bg-base)] text-[var(--text-muted)] transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] disabled:opacity-50"
+            title="Manage providers"
+          >
+            <KeyRound className="size-4" />
+          </button>
+          </div>
         </div>
 
         <div className="space-y-1.5">
