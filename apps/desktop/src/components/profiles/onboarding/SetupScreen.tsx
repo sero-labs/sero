@@ -199,7 +199,7 @@ function TierModelFields({
   if (!providerGroup) return null;
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       {TIERS.map((tier) => (
         <div key={tier} className="space-y-1.5">
           <Label className="text-xs font-medium text-[var(--text-primary)]">
@@ -295,9 +295,9 @@ export function OnboardingSetupScreen({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
           <Sparkles className="size-5 text-[var(--status-success)]" />
         </div>
         <div>
@@ -314,7 +314,7 @@ export function OnboardingSetupScreen({
         </div>
       ) : null}
 
-      <div className="grid gap-3">
+      <div className="grid gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-[var(--text-primary)]">Provider</Label>
           <Select value={selectedProviderId} onValueChange={handleProviderChange}>
@@ -363,7 +363,7 @@ export function OnboardingSetupScreen({
         </div>
       </div>
 
-      <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)]/40 px-3 py-2.5">
+      <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)]/40 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-[var(--text-primary)]">Use different models by complexity</p>
@@ -375,7 +375,7 @@ export function OnboardingSetupScreen({
         </div>
 
         {useTieredModels ? (
-          <div className="mt-3 border-t border-[var(--border-default)] pt-3">
+          <div className="mt-3.5 border-t border-[var(--border-default)] pt-3.5">
             <TierModelFields
               providerId={selectedProviderId}
               availableModelGroups={providerGroups}
@@ -395,7 +395,7 @@ export function OnboardingSetupScreen({
         />
       ))}
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+      <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-between">
         <Button variant="outline" size="sm" onClick={onOpenProviders} disabled={continueDisabled}>
           <KeyRound className="mr-2 size-3.5" />
           Providers
