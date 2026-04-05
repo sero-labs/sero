@@ -56,18 +56,41 @@ function extractFailedProvider(msg: string): string | null {
 }
 
 /**
- * Switch the session to the user's preferred tier model (HIGH for main sessions).
- * Falls back through MED → LOW if HIGH isn't set.
+ * Switch the session to the user's preferred tier model (HIGH → MED → LOW).
+ *
+ * The saved tier entry uses the provider/modelId from the model list at
+ * onboarding time. If the exact provider/modelId fails (e.g. the provider
+ * uses a different ID internally), fall back to finding the modelId under
+ * any available provider.
  */
 async function applyTierModel(sessionId: string): Promise<void> {
   try {
     const tiers = await window.sero.modelTiers.get();
     const entry = tiers.HIGH ?? tiers.MED ?? tiers.LOW;
-    if (entry) {
+    if (!entry) return;
+
+    // Try the exact provider/modelId first
+    try {
       await window.sero.agent.setModel(sessionId, entry.provider, entry.modelId);
+      return;
+    } catch {
+      // Exact match failed — try finding the model under any provider
     }
+
+    // Search all available models for a matching modelId
+    const state = await window.sero.agent.getModelState(sessionId);
+    if (!state) return;
+
+    for (const group of state.availableModels) {
+      const match = group.models.find((m) => m.modelId === entry.modelId);
+      if (match) {
+        await window.sero.agent.setModel(sessionId, match.provider, match.modelId);
+        return;
+      }
+    }
+
+    console.warn('[onboarding] Tier model not available:', entry);
   } catch (err) {
-    // Non-fatal — session keeps its current model
     console.warn('[onboarding] Could not apply tier model:', err);
   }
 }
