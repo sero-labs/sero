@@ -45,10 +45,44 @@ import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 
 type Phase = 'checking' | 'auth' | 'tiers' | 'launching' | 'error' | 'done';
 
+function isAuthError(msg: string): boolean {
+  return /authentication failed|unauthorized|401|no api key|credentials/i.test(msg);
+}
+
+/** Extract the failed provider from an auth error message, e.g. 'Authentication failed for "anthropic"' */
+function extractFailedProvider(msg: string): string | null {
+  const match = msg.match(/Authentication failed for "([^"]+)"/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Try to switch the session to a model from a provider that hasn't failed.
+ * Returns true if a fallback model was found and set.
+ */
+async function tryFallbackModel(sessionId: string, failedProviders: Set<string>): Promise<boolean> {
+  try {
+    const state = await window.sero.agent.getModelState(sessionId);
+    if (!state) return false;
+
+    for (const group of state.availableModels) {
+      if (failedProviders.has(group.provider)) continue;
+      const model = group.models[0];
+      if (model) {
+        await window.sero.agent.setModel(sessionId, model.provider, model.modelId);
+        return true;
+      }
+    }
+  } catch {
+    // Can't switch — fall through
+  }
+  return false;
+}
+
 export function OnboardingWizard() {
   const [phase, setPhase] = useState<Phase>('checking');
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const failedProvidersRef = useRef<Set<string>>(new Set());
   const hideLaunchingDialogRef = useRef(false);
   const hasPendingUserInput = useUserFeedbackStore((s) => s.pending.size > 0);
 
@@ -98,15 +132,18 @@ export function OnboardingWizard() {
     hideLaunchingDialogRef.current = false;
     setErrorMessage(null);
     setPhase('launching');
+
+    let sessionId: string | null = null;
     try {
       const session = await useSessionStore.getState().createSession('global');
+      sessionId = session.id;
       useSessionStore.getState().setActiveSession(session.id);
       await window.sero.agent.open(session.id, session.path, 'global');
       await useSessionStore.getState().renameSession(session.id, 'Welcome');
       useAgentStore.getState().focusSession(session.id);
       useAppStore.getState().setChatPanelOpen(true);
 
-      // Await the prompt — if auth fails, we catch it and show the auth dialog
+      // Await the prompt — if auth fails for one provider, we try another
       await window.sero.agent.prompt(
         session.id,
         "Hey! I'm new here — set up my memory so you can get to know me.",
@@ -119,8 +156,31 @@ export function OnboardingWizard() {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[onboarding] Memory prompt failed:', msg);
 
-      if (msg.includes('Authentication failed') || msg.includes('authentication') || msg.includes('unauthorized') || msg.includes('401') || msg.includes('No API key') || msg.includes('credentials')) {
-        // Copied credentials were invalid/expired → show auth dialog
+      if (isAuthError(msg) && sessionId) {
+        const failedProvider = extractFailedProvider(msg);
+        if (failedProvider) failedProvidersRef.current.add(failedProvider);
+
+        // Try switching to a model from a provider that hasn't failed
+        const switched = await tryFallbackModel(sessionId, failedProvidersRef.current);
+        if (switched) {
+          console.log('[onboarding] Switched to fallback model, retrying prompt...');
+          try {
+            await window.sero.agent.prompt(
+              sessionId,
+              "Hey! I'm new here — set up my memory so you can get to know me.",
+            );
+            await window.sero.profiles.markOnboardingDone();
+            setPhase('done');
+            return;
+          } catch (retryErr) {
+            const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            console.error('[onboarding] Retry also failed:', retryMsg);
+            const retryProvider = extractFailedProvider(retryMsg);
+            if (retryProvider) failedProvidersRef.current.add(retryProvider);
+          }
+        }
+
+        // No fallback available or retry also failed — show auth dialog
         setPhase('auth');
         return;
       }
