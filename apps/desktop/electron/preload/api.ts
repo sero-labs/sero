@@ -18,6 +18,7 @@ import { collaborationBridge } from './collaboration';
 import { modelsBridge } from './agent/models';
 import { localModelsBridge } from './agent/local-models';
 import { googleBridge, imagegenBridge } from './integrations/google-imagegen';
+import { onboardingBridge, providerDefaultsBridge } from './onboarding';
 import {
   appStateBridge,
   appsBridge,
@@ -279,6 +280,8 @@ export const seroPreloadApi = {
     set: (tiers: ModelTierSettings): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.modelTiers.set, tiers),
   },
+  onboarding: onboardingBridge,
+  providerDefaults: providerDefaultsBridge,
 
   google: googleBridge,
   imagegen: imagegenBridge,

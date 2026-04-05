@@ -7,7 +7,7 @@
 
 // ── App state (persisted) ──────────────────────────────────
 
-export type AdminTab = 'config' | 'skills' | 'plugins' | 'logs' | 'sessions';
+export type AdminTab = 'config' | 'modelDefaults' | 'skills' | 'plugins' | 'logs' | 'sessions';
 
 export interface AdminState {
   /** Last active tab. */

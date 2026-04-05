@@ -1,8 +1,9 @@
 /**
  * AdminApp — main Sero Admin app component.
  *
- * Five-tab interface:
+ * Six-tab interface:
  *  - Config: browse and edit Sero configuration files
+ *  - Defaults: edit global provider model defaults used by onboarding
  *  - Skills: control which skills stay visible to the model by default
  *  - Plugins: install and remove optional Sero plugins
  *  - Logs: view Sero log files with auto-refresh
@@ -21,6 +22,7 @@ import { DEFAULT_STATE } from '../shared/types';
 import { useProfiles } from './hooks/useSeroFiles';
 import { Header } from './components/Header';
 import { ConfigPanel } from './components/ConfigPanel';
+import { ModelDefaultsPanel } from './components/ModelDefaultsPanel';
 import { SkillsPanel } from './components/SkillsPanel';
 import { PluginsPanel } from './components/PluginsPanel';
 import { LogViewer } from './components/LogViewer';
@@ -94,6 +96,18 @@ export function AdminApp() {
               </span>
             </TabsTrigger>
             <TabsTrigger
+              value="modelDefaults"
+              className={cn(
+                'h-8 rounded-none px-3 text-xs',
+                activeTab === 'modelDefaults' && 'text-indigo-400',
+              )}
+            >
+              <span className="flex items-center gap-1.5">
+                <ModelIcon />
+                Defaults
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
               value="skills"
               className={cn(
                 'h-8 rounded-none px-3 text-xs',
@@ -154,6 +168,10 @@ export function AdminApp() {
           />
         </TabsContent>
 
+        <TabsContent value="modelDefaults" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ModelDefaultsPanel />
+        </TabsContent>
+
         <TabsContent value="skills" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <SkillsPanel profilePath={profilePath} />
         </TabsContent>
@@ -186,6 +204,16 @@ function ConfigIcon() {
       <path d="M14 2v4a2 2 0 0 0 2 2h4" />
       <path d="M10 12h4" />
       <path d="M10 16h4" />
+    </svg>
+  );
+}
+
+function ModelIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v18" />
+      <path d="M6 8h12" />
+      <path d="M4 16h16" />
     </svg>
   );
 }

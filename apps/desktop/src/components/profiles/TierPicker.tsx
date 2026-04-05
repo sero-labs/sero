@@ -1,54 +1,88 @@
 /**
- * TierPicker — onboarding step for picking default models per tier.
+ * TierPicker — advanced onboarding editor for LOW/MED/HIGH model tiers.
  *
- * Uses popover-based model pickers with search and provider grouping,
- * matching the look/feel of the main ModelSelector. Includes a "use same
- * for all" toggle and a skip button.
+ * Prefills the current recommendation, supports a same-model-for-all toggle,
+ * and only surfaces providers that currently have usable models.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { Label } from '@sero-ai/ui/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { Switch } from '@sero-ai/ui/components/ui/switch';
-import { Label } from '@sero-ai/ui/components/ui/label';
-import type { ModelTierSettings, ModelTierEntry, AvailableModelGroup, ModelInfo } from '@/types/ipc';
+import type {
+  AvailableModelGroup,
+  ModelInfo,
+  ModelTierEntry,
+  ModelTierSettings,
+  ProviderHealthInfo,
+} from '@/types/ipc';
 
 interface TierPickerProps {
-  onComplete: (tiers: ModelTierSettings) => void;
-  onSkip: () => void;
+  groups: AvailableModelGroup[];
+  providerHealth: ProviderHealthInfo[];
+  initialTiers: ModelTierSettings;
+  onSave: (tiers: ModelTierSettings) => void;
+  onBack: () => void;
 }
 
 const TIER_META = [
-  { key: 'LOW' as const, label: 'Low', desc: 'Fast, cheap tasks' },
-  { key: 'MED' as const, label: 'Medium', desc: 'Everyday agents' },
-  { key: 'HIGH' as const, label: 'High', desc: 'Complex reasoning' },
+  { key: 'LOW' as const, label: 'Low', desc: 'Fast, inexpensive work' },
+  { key: 'MED' as const, label: 'Medium', desc: 'General-purpose agents' },
+  { key: 'HIGH' as const, label: 'High', desc: 'Deep reasoning and complex work' },
 ] as const;
+
+type TierKey = (typeof TIER_META)[number]['key'];
+type SelectionState = Record<TierKey, string>;
 
 function mkKey(provider: string, modelId: string): string {
   return `${provider}/${modelId}`;
 }
 
 function parseModelKey(key: string): ModelTierEntry | null {
-  const idx = key.indexOf('/');
-  if (idx === -1) return null;
-  return { provider: key.slice(0, idx), modelId: key.slice(idx + 1) };
+  const separatorIndex = key.indexOf('/');
+  if (separatorIndex <= 0) return null;
+  return {
+    provider: key.slice(0, separatorIndex),
+    modelId: key.slice(separatorIndex + 1),
+  };
+}
+
+function createSelectionState(tiers: ModelTierSettings): SelectionState {
+  return {
+    LOW: tiers.LOW ? mkKey(tiers.LOW.provider, tiers.LOW.modelId) : '',
+    MED: tiers.MED ? mkKey(tiers.MED.provider, tiers.MED.modelId) : '',
+    HIGH: tiers.HIGH ? mkKey(tiers.HIGH.provider, tiers.HIGH.modelId) : '',
+  };
+}
+
+function areSelectionsUniform(selections: SelectionState): boolean {
+  const values = [selections.LOW, selections.MED, selections.HIGH].filter(Boolean);
+  return values.length === 3 && new Set(values).size === 1;
 }
 
 function filterGroups(groups: AvailableModelGroup[], query: string): AvailableModelGroup[] {
-  if (!query) return groups;
-  const q = query.toLowerCase();
-  const filtered: AvailableModelGroup[] = [];
-  for (const group of groups) {
-    const matches = group.models.filter(
-      (m) => m.name.toLowerCase().includes(q) || m.modelId.toLowerCase().includes(q),
-    );
-    if (matches.length) filtered.push({ ...group, models: matches });
-  }
-  return filtered;
+  if (!query.trim()) return groups;
+  const lowerQuery = query.trim().toLowerCase();
+
+  return groups
+    .map((group) => ({
+      ...group,
+      models: group.models.filter((model) =>
+        model.name.toLowerCase().includes(lowerQuery)
+        || model.modelId.toLowerCase().includes(lowerQuery),
+      ),
+    }))
+    .filter((group) => group.models.length > 0);
 }
 
-// ── Popover-based Model Picker ──────────────────────────────
+function hiddenBrokenProviders(providerHealth: ProviderHealthInfo[]): string[] {
+  return providerHealth
+    .filter((provider) => !provider.hasUsableModels && (provider.status === 'broken_expired' || provider.status === 'broken_invalid'))
+    .map((provider) => provider.displayName)
+    .sort((a, b) => a.localeCompare(b));
+}
 
 function ModelPickerPopover({
   groups,
@@ -65,29 +99,29 @@ function ModelPickerPopover({
   const [filter, setFilter] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = useMemo(() => filterGroups(groups, filter), [groups, filter]);
+  const filteredGroups = useMemo(() => filterGroups(groups, filter), [groups, filter]);
 
   const selectedModel = useMemo(() => {
     if (!selectedKey) return null;
-    for (const g of groups) {
-      const m = g.models.find((model) => mkKey(model.provider, model.modelId) === selectedKey);
-      if (m) return { model: m, group: g };
+    for (const group of groups) {
+      const model = group.models.find((entry) => mkKey(entry.provider, entry.modelId) === selectedKey);
+      if (model) return { group, model };
     }
     return null;
   }, [groups, selectedKey]);
+
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      setFilter('');
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+    setOpen(nextOpen);
+  }, []);
 
   const handleSelect = useCallback((model: ModelInfo) => {
     onSelect(mkKey(model.provider, model.modelId));
     setOpen(false);
   }, [onSelect]);
-
-  const handleOpenChange = useCallback((next: boolean) => {
-    if (next) {
-      setFilter('');
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-    setOpen(next);
-  }, []);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -98,11 +132,11 @@ function ModelPickerPopover({
             hover:border-[var(--border-hover)] hover:bg-[var(--bg-elevated)]"
         >
           {selectedModel ? (
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
               <img
                 src={selectedModel.group.logo}
                 alt={selectedModel.group.displayName}
-                className="size-3.5 rounded-sm shrink-0 dark:invert"
+                className="size-3.5 shrink-0 rounded-sm dark:invert"
               />
               <span className="truncate font-medium text-[var(--text-primary)]">
                 {selectedModel.model.name}
@@ -121,31 +155,29 @@ function ModelPickerPopover({
         sideOffset={4}
         className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl
           border-[var(--border-subtle)] bg-[var(--bg-surface)] p-0 shadow-2xl shadow-black/40"
-        onWheel={(e) => e.stopPropagation()}
+        onWheel={(event) => event.stopPropagation()}
       >
-        {/* Search */}
         <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3">
           <Search className="size-3.5 shrink-0 text-[var(--text-muted)]" />
           <input
             ref={inputRef}
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(event) => setFilter(event.target.value)}
             placeholder="Search models…"
             className="h-8 w-full bg-transparent text-xs text-[var(--text-primary)]
               placeholder:text-[var(--text-muted)] outline-none"
           />
         </div>
 
-        {/* Model list — overscroll-contain fixes trackpad scrolling inside Radix popovers */}
         <div className="max-h-[240px] overflow-y-auto overscroll-contain py-1">
-          {filtered.length === 0 ? (
+          {filteredGroups.length === 0 ? (
             <div className="px-3 py-3 text-center text-xs text-[var(--text-muted)]">
-              No models matching &ldquo;{filter}&rdquo;
+              No models match “{filter}”
             </div>
           ) : (
-            filtered.map((group, i) => (
+            filteredGroups.map((group, groupIndex) => (
               <div key={group.provider}>
-                {i > 0 && <div className="mx-3 border-t border-[var(--border-subtle)]" />}
+                {groupIndex > 0 ? <div className="mx-3 border-t border-[var(--border-subtle)]" /> : null}
                 <div className="py-1">
                   <div className="flex items-center gap-2 px-3 pb-1 pt-2">
                     <img
@@ -165,8 +197,7 @@ function ModelPickerPopover({
                         <button
                           key={key}
                           onClick={() => handleSelect(model)}
-                          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5
-                            text-left text-xs transition-colors duration-100 ${
+                          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors duration-100 ${
                             isSelected
                               ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
                               : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]/60 hover:text-[var(--text-primary)]'
@@ -194,111 +225,96 @@ function ModelPickerPopover({
   );
 }
 
-// ── Main Component ──────────────────────────────────────────
+export function TierPicker({
+  groups,
+  providerHealth,
+  initialTiers,
+  onSave,
+  onBack,
+}: TierPickerProps) {
+  const usableGroups = useMemo(
+    () => groups.filter((group) => group.models.length > 0),
+    [groups],
+  );
+  const brokenProviders = useMemo(
+    () => hiddenBrokenProviders(providerHealth),
+    [providerHealth],
+  );
 
-export function TierPicker({ onComplete, onSkip }: TierPickerProps) {
-  const [groups, setGroups] = useState<AvailableModelGroup[]>([]);
-  const [sameForAll, setSameForAll] = useState(false);
-  const [selections, setSelections] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const initialSelections = useMemo(() => createSelectionState(initialTiers), [initialTiers]);
+  const [sameForAll, setSameForAll] = useState(areSelectionsUniform(initialSelections));
+  const [selections, setSelections] = useState<SelectionState>(initialSelections);
 
-  // Load available models via session-independent IPC
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await window.sero.models.list();
-        if (!cancelled) setGroups(result);
-      } catch {
-        // No models available
-      } finally {
-        if (!cancelled) setLoading(false);
+  const handleSelect = useCallback((tier: TierKey, value: string) => {
+    setSelections((current) => {
+      if (sameForAll) {
+        return { LOW: value, MED: value, HIGH: value };
       }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleSelect = useCallback((tier: string, value: string) => {
-    setSelections((prev) => {
-      if (sameForAll) return { LOW: value, MED: value, HIGH: value };
-      return { ...prev, [tier]: value };
+      return { ...current, [tier]: value };
     });
   }, [sameForAll]);
 
   const handleSameToggle = useCallback((checked: boolean) => {
     setSameForAll(checked);
-    if (checked) {
-      setSelections((prev) => {
-        const first = prev.LOW || prev.MED || prev.HIGH || '';
-        return { LOW: first, MED: first, HIGH: first };
-      });
-    }
+    if (!checked) return;
+
+    setSelections((current) => {
+      const sharedValue = current.LOW || current.MED || current.HIGH || '';
+      return { LOW: sharedValue, MED: sharedValue, HIGH: sharedValue };
+    });
   }, []);
 
-  const handleComplete = useCallback(() => {
-    const tiers: ModelTierSettings = {};
+  const allSelectionsFilled = sameForAll
+    ? Boolean(selections.LOW || selections.MED || selections.HIGH)
+    : TIER_META.every(({ key }) => Boolean(selections[key]));
+
+  const handleSave = useCallback(() => {
+    const nextTiers: ModelTierSettings = {};
     for (const { key } of TIER_META) {
-      const val = selections[key];
-      if (val) {
-        const parsed = parseModelKey(val);
-        if (parsed) tiers[key] = parsed;
-      }
+      const rawValue = sameForAll ? (selections.LOW || selections.MED || selections.HIGH) : selections[key];
+      const entry = rawValue ? parseModelKey(rawValue) : null;
+      if (entry) nextTiers[key] = entry;
     }
-    onComplete(tiers);
-  }, [selections, onComplete]);
-
-  const hasAnySelection = Object.values(selections).some(Boolean);
-  const totalModels = groups.reduce((n, g) => n + g.models.length, 0);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-        Loading available models...
-      </div>
-    );
-  }
-
-  if (totalModels === 0) {
-    return (
-      <div className="space-y-3 text-center py-4">
-        <p className="text-sm text-muted-foreground">
-          No models available. Sign in to a provider first.
-        </p>
-        <Button variant="ghost" size="sm" onClick={onSkip}>
-          Skip for now
-        </Button>
-      </div>
-    );
-  }
+    onSave(nextTiers);
+  }, [onSave, sameForAll, selections]);
 
   return (
     <div className="space-y-4">
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-[var(--text-primary)]">Customize your model tiers</p>
+        <p className="text-xs text-[var(--text-secondary)]">
+          These defaults stay tied to this profile. You can change them again later.
+        </p>
+      </div>
+
       <div className="flex items-center gap-2">
-        <Switch
-          id="same-for-all"
-          checked={sameForAll}
-          onCheckedChange={handleSameToggle}
-        />
-        <Label htmlFor="same-for-all" className="text-xs text-muted-foreground">
+        <Switch id="same-for-all" checked={sameForAll} onCheckedChange={handleSameToggle} />
+        <Label htmlFor="same-for-all" className="text-xs text-[var(--text-secondary)]">
           Use the same model for all tiers
         </Label>
       </div>
+
+      {brokenProviders.length > 0 ? (
+        <div className="rounded-md border border-[var(--status-warning)]/20 bg-[var(--status-warning)]/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
+          Hidden for now: {brokenProviders.join(', ')} need to be reconnected before their models can be used.
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         {(sameForAll ? [TIER_META[0]] : TIER_META).map(({ key, label, desc }) => (
           <div key={key} className="space-y-1.5">
             <div>
-              <Label className="text-sm font-medium">
+              <Label className="text-sm font-medium text-[var(--text-primary)]">
                 {sameForAll ? 'All tiers' : label}
               </Label>
-              <p className="text-xs text-muted-foreground">
-                {sameForAll ? 'Single model for all task types' : desc}
+              <p className="text-xs text-[var(--text-secondary)]">
+                {sameForAll ? 'One model for every task complexity.' : desc}
               </p>
             </div>
             <ModelPickerPopover
-              groups={groups}
-              selectedKey={selections[key] || ''}
-              onSelect={(v) => handleSelect(key, v)}
+              groups={usableGroups}
+              selectedKey={selections[key]}
+              onSelect={(value) => handleSelect(key, value)}
               placeholder="Choose a model…"
             />
           </div>
@@ -306,11 +322,11 @@ export function TierPicker({ onComplete, onSkip }: TierPickerProps) {
       </div>
 
       <div className="flex items-center justify-between pt-1">
-        <Button variant="ghost" size="sm" onClick={onSkip}>
-          Skip
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          Back
         </Button>
-        <Button size="sm" onClick={handleComplete} disabled={!hasAnySelection}>
-          Continue
+        <Button size="sm" onClick={handleSave} disabled={!allSelectionsFilled}>
+          Save model tiers
         </Button>
       </div>
     </div>

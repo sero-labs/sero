@@ -1,184 +1,161 @@
 /**
- * OnboardingWizard — new-profile first-run flow.
+ * OnboardingWizard — recommendation-first profile onboarding.
  *
- * Two concerns, handled differently:
- *
- * 1. **Model access** (UI) — if no usable models are currently available,
- *    show the auth dialog. This counts all working model sources surfaced
- *    by the host (saved keys, OAuth, env-backed keys, local models). The
- *    agent can't run without a usable model, so this must be a modal gate.
- *    Cancelling does NOT mark onboarding complete — it shows again on next launch.
- *
- * 2. **Memory setup** (agentic) — once model access is ready, auto-create a
- *    session and let the agent handle it conversationally. The memory
- *    extension's bootstrap instructions inject automatically (triggered
- *    by MEMORY.md not existing). The questionnaire tool is forced to
- *    use exactly the predefined questions via globalThis override.
- *    Completion is detected by the memory extension writing MEMORY.md.
- *
- * The `.onboarding-complete` marker is written once:
- *   - At least one usable model is available
- *   - AND the memory session has been launched (the agent takes it from here)
- *
- * If the user quits before the agent finishes writing MEMORY.md, the
- * bootstrap instructions still inject into the next session — the agent
- * picks up naturally. No wizard needed again.
+ * Electron preflight decides whether onboarding is ready, auth-blocked, or done.
+ * The renderer only manages transient UI states like customize and launching.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@sero-ai/ui/components/ui/dialog';
-import { Button } from '@sero-ai/ui/components/ui/button';
-import { KeyRound, Loader2, TriangleAlert } from 'lucide-react';
+import { Dialog, DialogContent } from '@sero-ai/ui/components/ui/dialog';
 import { AuthLoginDialog } from '@/components/layout/AuthLoginDialog';
-import { TierPicker } from './TierPicker';
-import type { ModelTierSettings } from '@/types/ipc';
-import { useSessionStore } from '@/stores/sessions';
-import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
+import { useAgentStore } from '@/stores/agent';
+import { useSessionStore } from '@/stores/sessions';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
+import type { ModelTierEntry, ModelTierSettings, OnboardingState } from '@/types/ipc';
+import { TierPicker } from './TierPicker';
+import {
+  AuthScreen,
+  ErrorScreen,
+  LaunchingScreen,
+  ReadyScreen,
+} from './onboarding/OnboardingViews';
 
-type Phase = 'checking' | 'auth' | 'tiers' | 'launching' | 'error' | 'done';
+type OnboardingUiPhase =
+  | 'checking'
+  | 'ready'
+  | 'customize'
+  | 'auth'
+  | 'launching'
+  | 'error'
+  | 'done';
 
-function isAuthError(msg: string): boolean {
-  return /authentication failed|unauthorized|401|no api key|credentials/i.test(msg);
+const WELCOME_PROMPT = "Hey! I'm new here — set up my memory so you can get to know me.";
+
+function deriveUiPhase(state: OnboardingState): OnboardingUiPhase {
+  if (!state.needed || state.phase === 'done') return 'done';
+  if (state.phase === 'ready') return 'ready';
+  if (state.phase === 'auth') return 'auth';
+  if (state.phase === 'error') return 'error';
+  return 'done';
 }
 
-/** Extract the failed provider from an auth error message, e.g. 'Authentication failed for "anthropic"' */
-function extractFailedProvider(msg: string): string | null {
-  const match = msg.match(/Authentication failed for "([^"]+)"/i);
+function isAuthError(message: string): boolean {
+  return /authentication failed|unauthorized|401|no api key|credentials/i.test(message);
+}
+
+function extractFailedProvider(message: string): string | null {
+  const match = message.match(/Authentication failed for "([^"]+)"/i);
   return match ? match[1] : null;
 }
 
-/**
- * Switch the session to the user's preferred tier model (HIGH → MED → LOW).
- *
- * The saved tier entry uses the provider/modelId from the model list at
- * onboarding time. If the exact provider/modelId fails (e.g. the provider
- * uses a different ID internally), fall back to finding the modelId under
- * any available provider.
- */
-async function applyTierModel(sessionId: string): Promise<void> {
-  try {
-    const tiers = await window.sero.modelTiers.get();
-    const entry = tiers.HIGH ?? tiers.MED ?? tiers.LOW;
-    if (!entry) return;
-
-    // Try the exact provider/modelId first
-    try {
-      await window.sero.agent.setModel(sessionId, entry.provider, entry.modelId);
-      return;
-    } catch {
-      // Exact match failed — try finding the model under any provider
-    }
-
-    // Search all available models for a matching modelId
-    const state = await window.sero.agent.getModelState(sessionId);
-    if (!state) return;
-
-    for (const group of state.availableModels) {
-      const match = group.models.find((m) => m.modelId === entry.modelId);
-      if (match) {
-        await window.sero.agent.setModel(sessionId, match.provider, match.modelId);
-        return;
-      }
-    }
-
-    console.warn('[onboarding] Tier model not available:', entry);
-  } catch (err) {
-    console.warn('[onboarding] Could not apply tier model:', err);
-  }
+function getDisplayProviderName(state: OnboardingState | null, providerId: string | null): string | null {
+  if (!state || !providerId) return providerId;
+  return state.providerHealth.find((provider) => provider.providerId === providerId)?.displayName ?? providerId;
 }
 
-/**
- * Try to switch the session to a model from a provider that hasn't failed.
- * Returns true if a fallback model was found and set.
- */
-async function tryFallbackModel(sessionId: string, failedProviders: Set<string>): Promise<boolean> {
+async function applyModelEntry(sessionId: string, entry: ModelTierEntry | null): Promise<boolean> {
+  if (!entry) return false;
+
+  try {
+    await window.sero.agent.setModel(sessionId, entry.provider, entry.modelId);
+    return true;
+  } catch {
+    // Fall through to lookup-by-model-id fallback.
+  }
+
   try {
     const state = await window.sero.agent.getModelState(sessionId);
     if (!state) return false;
 
     for (const group of state.availableModels) {
-      if (failedProviders.has(group.provider)) continue;
-      const model = group.models[0];
-      if (model) {
-        await window.sero.agent.setModel(sessionId, model.provider, model.modelId);
-        return true;
-      }
+      const match = group.models.find((model) => model.modelId === entry.modelId);
+      if (!match) continue;
+      await window.sero.agent.setModel(sessionId, match.provider, match.modelId);
+      return true;
     }
   } catch {
-    // Can't switch — fall through
+    // Ignore — onboarding will recover via preflight on the next refresh.
   }
+
   return false;
 }
 
-async function hasUsableModels(): Promise<boolean> {
-  try {
-    const groups = await window.sero.models.list();
-    return groups.some((group) => group.models.length > 0);
-  } catch {
-    return false;
-  }
+async function applyTierModel(sessionId: string, tiers: ModelTierSettings): Promise<boolean> {
+  return applyModelEntry(sessionId, tiers.HIGH ?? tiers.MED ?? tiers.LOW ?? null);
 }
 
 export function OnboardingWizard() {
-  const [phase, setPhase] = useState<Phase>('checking');
+  const [uiPhase, setUiPhase] = useState<OnboardingUiPhase>('checking');
+  const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [preferredProviderId, setPreferredProviderId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const failedProvidersRef = useRef<Set<string>>(new Set());
+  const [launchStatusMessage, setLaunchStatusMessage] = useState<string | null>(null);
   const hideLaunchingDialogRef = useRef(false);
-  const hasPendingUserInput = useUserFeedbackStore((s) => s.pending.size > 0);
+  const hasPendingUserInput = useUserFeedbackStore((state) => state.pending.size > 0);
 
-  if (phase === 'launching' && hasPendingUserInput) {
+  if (uiPhase === 'launching' && hasPendingUserInput) {
     hideLaunchingDialogRef.current = true;
   }
 
-  // ── Initial check ───────────────────────────────────────────
+  const syncOnboardingState = useCallback(async (options?: { preserveLaunchMessage?: boolean }) => {
+    if (!options?.preserveLaunchMessage) {
+      setLaunchStatusMessage(null);
+    }
+    setErrorMessage(null);
+    setUiPhase('checking');
+
+    try {
+      const nextState = await window.sero.onboarding.getState();
+      setOnboardingState(nextState);
+      setUiPhase(deriveUiPhase(nextState));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setErrorMessage(message);
+      setUiPhase('error');
+    }
+  }, []);
+
   useEffect(() => {
-    if (phase !== 'checking') return;
-    let cancelled = false;
+    void syncOnboardingState();
+  }, [syncOnboardingState]);
 
-    (async () => {
-      try {
-        const needed = await window.sero.profiles.needsOnboarding();
-        if (cancelled || !needed) { setPhase('done'); return; }
+  const openAuthDialog = useCallback((providerId: string | null = null) => {
+    setPreferredProviderId(providerId);
+    setShowLoginDialog(true);
+  }, []);
 
-        const hasModels = await hasUsableModels();
-        if (cancelled) return;
+  const handleLoginDialogOpenChange = useCallback((open: boolean) => {
+    setShowLoginDialog(open);
+    if (!open) setPreferredProviderId(null);
+  }, []);
 
-        if (hasModels) {
-          const tiers = await window.sero.modelTiers.get();
-          if (Object.keys(tiers).length > 0) {
-            launchMemorySession();
-          } else {
-            setPhase('tiers');
-          }
-        } else {
-          setPhase('auth');
-        }
-      } catch {
-        setPhase('done');
-      }
-    })();
+  const handleLoginComplete = useCallback(() => {
+    setShowLoginDialog(false);
+    setPreferredProviderId(null);
+    void syncOnboardingState();
+  }, [syncOnboardingState]);
 
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  const handleSaveCustomizations = useCallback(async (tiers: ModelTierSettings) => {
+    try {
+      await window.sero.onboarding.saveTierSelections(tiers);
+      await syncOnboardingState();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setErrorMessage(message);
+      setUiPhase('error');
+    }
+  }, [syncOnboardingState]);
 
-  // ── Launch the agentic memory session ───────────────────────
-  const launchMemorySession = useCallback(async () => {
+  const launchWelcomeSession = useCallback(async (tiers: ModelTierSettings) => {
     hideLaunchingDialogRef.current = false;
     setErrorMessage(null);
-    setPhase('launching');
+    setLaunchStatusMessage(null);
+    setUiPhase('launching');
 
     let sessionId: string | null = null;
+
     try {
       const session = await useSessionStore.getState().createSession('global');
       sessionId = session.id;
@@ -188,174 +165,167 @@ export function OnboardingWizard() {
       useAgentStore.getState().focusSession(session.id);
       useAppStore.getState().setChatPanelOpen(true);
 
-      // Switch session to the user's tier model (HIGH for main sessions)
-      await applyTierModel(session.id);
-
-      // Await the prompt — if auth fails for one provider, we try another
-      await window.sero.agent.prompt(
-        session.id,
-        "Hey! I'm new here — set up my memory so you can get to know me.",
-      );
-
-      // Prompt completed successfully → mark onboarding done
+      await applyTierModel(session.id, tiers);
+      await window.sero.agent.prompt(session.id, WELCOME_PROMPT);
       await window.sero.profiles.markOnboardingDone();
-      setPhase('done');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error('[onboarding] Memory prompt failed:', msg);
-
-      if (isAuthError(msg) && sessionId) {
+      setUiPhase('done');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isAuthError(message) && sessionId) {
         try {
-          const failedProvider = extractFailedProvider(msg);
-          if (failedProvider) failedProvidersRef.current.add(failedProvider);
+          const refreshedState = await window.sero.onboarding.getState();
+          setOnboardingState(refreshedState);
 
-          // Try switching to a model from a provider that hasn't failed
-          const switched = await tryFallbackModel(sessionId, failedProvidersRef.current);
-          if (switched) {
-            console.log('[onboarding] Switched to fallback model, retrying prompt...');
-            await window.sero.agent.prompt(
-              sessionId,
-              "Hey! I'm new here — set up my memory so you can get to know me.",
+          if (refreshedState.phase === 'ready' && refreshedState.recommendation) {
+            const failedProvider = extractFailedProvider(message);
+            const nextProvider = refreshedState.recommendation.preferredProvider
+              ?? refreshedState.recommendation.tiers.HIGH?.provider
+              ?? refreshedState.recommendation.tiers.MED?.provider
+              ?? refreshedState.recommendation.tiers.LOW?.provider
+              ?? null;
+
+            const failedName = getDisplayProviderName(onboardingState, failedProvider);
+            const nextName = getDisplayProviderName(refreshedState, nextProvider);
+            const canAutoRetry = !failedProvider || !nextProvider || failedProvider !== nextProvider;
+
+            setLaunchStatusMessage(
+              failedName && nextName && failedName !== nextName
+                ? `${failedName} stopped working. Switching to ${nextName}.`
+                : 'Refreshing your recommended provider before launch.',
             );
-            await window.sero.profiles.markOnboardingDone();
-            setPhase('done');
-            return;
-          }
-        } catch (retryErr) {
-          console.error('[onboarding] Fallback retry failed:', retryErr);
-        }
 
-        // No fallback available or retry also failed — show auth dialog
-        setPhase('auth');
-        return;
+            if (canAutoRetry) {
+              await window.sero.onboarding.saveTierSelections(refreshedState.recommendation.tiers);
+              const applied = await applyTierModel(sessionId, refreshedState.recommendation.tiers);
+              if (applied) {
+                await window.sero.agent.prompt(sessionId, WELCOME_PROMPT);
+                await window.sero.profiles.markOnboardingDone();
+                setUiPhase('done');
+                return;
+              }
+            }
+          }
+
+          setLaunchStatusMessage(
+            'Your previous provider needs to be reconnected before onboarding can continue.',
+          );
+          setUiPhase(deriveUiPhase(refreshedState));
+          return;
+        } catch (retryError) {
+          const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+          setErrorMessage(retryMessage);
+          setUiPhase('error');
+          return;
+        }
       }
 
-      setErrorMessage(msg);
-      setPhase('error');
+      setErrorMessage(message);
+      setUiPhase('error');
     }
-  }, []);
+  }, [onboardingState]);
 
-  // ── Auth completed → move on to tier selection ──────────────
-  const handleLoginComplete = useCallback(() => {
-    setShowLoginDialog(false);
-    setPhase('tiers');
-  }, []);
+  const handleContinue = useCallback(async () => {
+    if (!onboardingState?.recommendation) return;
 
-  // ── Auth skipped → still allow tier selection / later retry ─
-  const handleSkipAuth = useCallback(() => {
-    setPhase('tiers');
-  }, []);
-
-  const handleTierComplete = useCallback(async (tiers: ModelTierSettings) => {
     try {
-      await window.sero.modelTiers.set(tiers);
-    } catch (err) {
-      console.warn('[onboarding] Failed to save model tiers:', err);
+      await window.sero.onboarding.saveTierSelections(onboardingState.recommendation.tiers);
+      await launchWelcomeSession(onboardingState.recommendation.tiers);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setErrorMessage(message);
+      setUiPhase('error');
     }
-    void launchMemorySession();
-  }, [launchMemorySession]);
+  }, [launchWelcomeSession, onboardingState]);
 
-  const handleTierSkip = useCallback(() => {
-    void launchMemorySession();
-  }, [launchMemorySession]);
+  const handleErrorBack = useCallback(() => {
+    if (!onboardingState) {
+      setUiPhase('checking');
+      void syncOnboardingState();
+      return;
+    }
+    setUiPhase(deriveUiPhase(onboardingState));
+  }, [onboardingState, syncOnboardingState]);
 
-  // Nothing to show
-  if (phase === 'checking' || phase === 'done') return null;
+  if (uiPhase === 'checking' || uiPhase === 'done' || !onboardingState) {
+    return (
+      <AuthLoginDialog
+        open={showLoginDialog}
+        onOpenChange={handleLoginDialogOpenChange}
+        onComplete={handleLoginComplete}
+        preferredProviderId={preferredProviderId}
+      />
+    );
+  }
+
+  const readyRecommendation = onboardingState.recommendation;
 
   return (
     <>
       <Dialog
-        open={phase === 'launching' && !hideLaunchingDialogRef.current}
-        onOpenChange={() => {/* prevent close via overlay/escape */}}
+        open={uiPhase === 'launching' && !hideLaunchingDialogRef.current}
+        onOpenChange={() => {}}
       >
-        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-              <Loader2 className="size-5 animate-spin text-[var(--status-success)]" />
-            </div>
-            <DialogTitle>Setting up your memory</DialogTitle>
-            <DialogDescription>
-              Sero is opening a welcome session and starting the memory setup flow.
-              This should only take a moment.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+          <LaunchingScreen statusMessage={launchStatusMessage} />
         </DialogContent>
       </Dialog>
 
-      <Dialog open={phase === 'tiers'} onOpenChange={() => {/* prevent close */}}>
-        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle>Choose your default models</DialogTitle>
-            <DialogDescription>
-              Pick which models to use for different task complexities.
-              You can change these anytime in settings.
-            </DialogDescription>
-          </DialogHeader>
-          <TierPicker onComplete={handleTierComplete} onSkip={handleTierSkip} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={phase === 'auth'} onOpenChange={() => {/* prevent close via overlay/escape */}}>
-        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-              <KeyRound className="size-5 text-[var(--status-success)]" />
-            </div>
-            <DialogTitle>Welcome to Sero</DialogTitle>
-            <DialogDescription>
-              Sign in to a model provider so the AI agent can work.
-              You can add more providers later in settings.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-3 pt-1">
-            <Button onClick={() => setShowLoginDialog(true)} variant="outline" className="w-full">
-              <KeyRound className="mr-2 size-3.5" />
-              Sign in to a provider
-            </Button>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={handleSkipAuth}>
-              Skip for now
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={phase === 'error'} onOpenChange={() => {/* prevent close via overlay/escape */}}>
-        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-[var(--bg-elevated)]">
-              <TriangleAlert className="size-5 text-[var(--status-warning)]" />
-            </div>
-            <DialogTitle>Memory setup couldn't start</DialogTitle>
-            <DialogDescription>
-              Sero hit an error while opening the welcome session for memory setup.
-            </DialogDescription>
-          </DialogHeader>
-
-          {errorMessage ? (
-            <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-              {errorMessage}
-            </div>
+      <Dialog open={uiPhase === 'ready'} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+          {readyRecommendation ? (
+            <ReadyScreen
+              recommendation={readyRecommendation}
+              availableModelGroups={onboardingState.availableModelGroups}
+              providerHealth={onboardingState.providerHealth}
+              warnings={onboardingState.warnings.filter((warning) => warning.code !== 'no_usable_models')}
+              launchNotice={launchStatusMessage}
+              onContinue={() => void handleContinue()}
+              onCustomize={() => setUiPhase('customize')}
+              onAddProvider={() => openAuthDialog()}
+              onReconnectProvider={openAuthDialog}
+            />
           ) : null}
+        </DialogContent>
+      </Dialog>
 
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setPhase('done')}>
-              Continue for now
-            </Button>
-            <Button size="sm" onClick={() => void launchMemorySession()}>
-              Retry setup
-            </Button>
-          </DialogFooter>
+      <Dialog open={uiPhase === 'customize'} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+          <TierPicker
+            groups={onboardingState.availableModelGroups}
+            providerHealth={onboardingState.providerHealth}
+            initialTiers={readyRecommendation?.tiers ?? {}}
+            onSave={(tiers) => void handleSaveCustomizations(tiers)}
+            onBack={() => setUiPhase('ready')}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={uiPhase === 'auth'} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+          <AuthScreen
+            providerHealth={onboardingState.providerHealth}
+            launchNotice={launchStatusMessage}
+            onAddProvider={() => openAuthDialog()}
+            onReconnectProvider={openAuthDialog}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={uiPhase === 'error'} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+          <ErrorScreen
+            message={errorMessage}
+            onRetry={() => void syncOnboardingState({ preserveLaunchMessage: true })}
+            onBack={handleErrorBack}
+          />
         </DialogContent>
       </Dialog>
 
       <AuthLoginDialog
         open={showLoginDialog}
-        onOpenChange={setShowLoginDialog}
+        onOpenChange={handleLoginDialogOpenChange}
         onComplete={handleLoginComplete}
+        preferredProviderId={preferredProviderId}
       />
     </>
   );

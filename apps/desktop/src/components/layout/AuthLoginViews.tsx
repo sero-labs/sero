@@ -24,10 +24,23 @@ import type { OAuthProviderInfo, ApiKeyProviderInfo } from '@/types/ipc';
 
 // ── Provider list ─────────────────────────────────────────────
 
+function sortProvidersByPreference<T extends { id: string; name: string }>(
+  providers: T[],
+  preferredProviderId?: string | null,
+): T[] {
+  return [...providers].sort((a, b) => {
+    const aPreferred = preferredProviderId && a.id === preferredProviderId ? 1 : 0;
+    const bPreferred = preferredProviderId && b.id === preferredProviderId ? 1 : 0;
+    if (aPreferred !== bPreferred) return bPreferred - aPreferred;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export function ProviderListView({
   oauthProviders,
   apiKeyProviders,
   mode,
+  preferredProviderId,
   onOAuthLogin,
   onApiKeyStart,
   onApiKeyRemove,
@@ -36,6 +49,7 @@ export function ProviderListView({
   oauthProviders: OAuthProviderInfo[];
   apiKeyProviders: ApiKeyProviderInfo[];
   mode: 'login' | 'logout';
+  preferredProviderId?: string | null;
   onOAuthLogin: (id: string) => void;
   onApiKeyStart: (id: string, name: string) => void;
   onApiKeyRemove: (id: string) => void;
@@ -53,7 +67,7 @@ export function ProviderListView({
             OAuth
           </h4>
           <div className="space-y-0.5">
-            {oauthProviders.map((p) => (
+            {sortProvidersByPreference(oauthProviders, preferredProviderId).map((p) => (
               <button
                 key={p.id}
                 onClick={() => {
@@ -69,6 +83,7 @@ export function ProviderListView({
                 <div className="flex items-center gap-2.5">
                   <LogIn className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                   <span>{p.name}</span>
+                  {preferredProviderId === p.id ? <PreferredProviderBadge /> : null}
                 </div>
                 {p.isLoggedIn && <AuthBadge />}
               </button>
@@ -91,7 +106,7 @@ export function ProviderListView({
             API Key
           </h4>
           <div className="space-y-0.5">
-            {apiKeyProviders.map((p) => (
+            {sortProvidersByPreference(apiKeyProviders, preferredProviderId).map((p) => (
               <div
                 key={p.id}
                 className="flex w-full items-center justify-between rounded-md px-3 py-2
@@ -109,6 +124,7 @@ export function ProviderListView({
                 >
                   <Key className="size-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
                   <span className="truncate">{p.name}</span>
+                  {preferredProviderId === p.id ? <PreferredProviderBadge /> : null}
                 </button>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {p.hasKey && (
@@ -221,6 +237,14 @@ function AnthropicWarningBanner({
 }
 
 // ── Badges ────────────────────────────────────────────────────
+
+function PreferredProviderBadge() {
+  return (
+    <span className="rounded-full border border-[var(--status-warning)]/30 px-1.5 py-0.5 text-[10px] text-[var(--status-warning)]">
+      reconnect
+    </span>
+  );
+}
 
 function AuthBadge() {
   return (

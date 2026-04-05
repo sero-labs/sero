@@ -47,11 +47,19 @@ interface Props {
   onComplete?: () => void;
   /** Start in logout mode. */
   mode?: 'login' | 'logout';
+  /** Optionally highlight a provider that needs attention. */
+  preferredProviderId?: string | null;
 }
 
 // ── Component ────────────────────────────────────────────────
 
-export function AuthLoginDialog({ open, onOpenChange, onComplete, mode = 'login' }: Props) {
+export function AuthLoginDialog({
+  open,
+  onOpenChange,
+  onComplete,
+  mode = 'login',
+  preferredProviderId = null,
+}: Props) {
   const [oauthProviders, setOauthProviders] = useState<OAuthProviderInfo[]>([]);
   const [apiKeyProviders, setApiKeyProviders] = useState<ApiKeyProviderInfo[]>([]);
   const [phase, setPhase] = useState<DialogPhase>('providers');
@@ -257,6 +265,7 @@ export function AuthLoginDialog({ open, onOpenChange, onComplete, mode = 'login'
               oauthProviders={oauthProviders}
               apiKeyProviders={apiKeyProviders}
               mode={mode}
+              preferredProviderId={preferredProviderId}
               onOAuthLogin={handleOAuthLogin}
               onApiKeyStart={handleApiKeyStart}
               onApiKeyRemove={handleApiKeyRemove}

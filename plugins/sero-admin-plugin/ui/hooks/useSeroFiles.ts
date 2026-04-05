@@ -16,6 +16,16 @@ import { formatDate } from '../lib/format';
 
 import type { InstalledPlugin } from '@sero/common';
 
+export type ProviderTierDefaults = Partial<Record<'LOW' | 'MED' | 'HIGH', string>>;
+export type ProviderModelDefaults = Record<string, ProviderTierDefaults>;
+
+export interface ProviderDefaultsState {
+  builtInDefaults: ProviderModelDefaults;
+  globalDefaults: ProviderModelDefaults;
+  profileOverrides?: ProviderModelDefaults;
+  effectiveDefaults: ProviderModelDefaults;
+}
+
 export interface SeroApi {
   appState: {
     read(filePath: string): Promise<unknown>;
@@ -45,6 +55,10 @@ export interface SeroApi {
   skills: {
     listAvailableSkills(): Promise<AvailableSkillInfo[]>;
     setDisabledModelSkills(skillNames: string[]): Promise<void>;
+  };
+  providerDefaults: {
+    get(): Promise<ProviderDefaultsState>;
+    setGlobalDefaults(defaults: ProviderModelDefaults): Promise<void>;
   };
 }
 

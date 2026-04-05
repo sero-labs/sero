@@ -13,5 +13,9 @@ test-results/
 playwright-report/
 .playwright-cli/
 .sero-test-data/
+
+# Local agent scratch data
+.superpowers/
+
 apps/desktop/release/
 apps/desktop/sero-desktop-*.tgz

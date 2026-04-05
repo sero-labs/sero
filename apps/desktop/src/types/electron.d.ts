@@ -74,6 +74,9 @@ import type {
   AppPanelRect,
   AppRecordingStatus,
   AppRecordingResult,
+  OnboardingState,
+  ProviderModelDefaults,
+  ResolvedProviderDefaultsState,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -380,6 +383,20 @@ interface SeroModelTiersAPI {
   set(tiers: ModelTierSettings): Promise<void>;
 }
 
+interface SeroOnboardingAPI {
+  /** Run onboarding preflight and return the current onboarding state. */
+  getState(): Promise<OnboardingState>;
+  /** Persist validated tier selections for onboarding. */
+  saveTierSelections(tiers: ModelTierSettings): Promise<void>;
+}
+
+interface SeroProviderDefaultsAPI {
+  /** Read built-in, global, and effective provider defaults. */
+  get(): Promise<ResolvedProviderDefaultsState>;
+  /** Persist the global/shared provider defaults registry. */
+  setGlobalDefaults(defaults: ProviderModelDefaults): Promise<void>;
+}
+
 interface SeroProfilesAPI {
   /** List all profiles with active flag. */
   list(): Promise<ProfileInfo[]>;
@@ -458,6 +475,8 @@ interface SeroAPI {
   github: SeroGitHubAPI;
   models: SeroModelsAPI;
   modelTiers: SeroModelTiersAPI;
+  onboarding: SeroOnboardingAPI;
+  providerDefaults: SeroProviderDefaultsAPI;
   plugins: SeroPluginsAPI;
   localModels: SeroLocalModelsAPI;
   pluginConfig: SeroPluginConfigAPI;
