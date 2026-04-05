@@ -2,7 +2,7 @@
 {
   "name": "reviewer",
   "description": "Code review specialist",
-  "model": "claude-sonnet-4-6",
+  "model": { "prefer": "MED", "fallbacks": ["gpt-5.4", "claude-sonnet-4-6", "gemini-2.5-pro"] },
   "thinking": "high",
   "tools": ["read", "bash", "grep", "find"]
 }

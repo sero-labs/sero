@@ -66,12 +66,17 @@ import type {
   CollaborationStateSnapshot,
   CollaborationEvent,
   CollaborationConfig,
+  ModelTierSettings,
+  AvailableModelGroup,
   AppControlEntry,
   AppInteractionParams,
   AppInteractionResult,
   AppPanelRect,
   AppRecordingStatus,
   AppRecordingResult,
+  OnboardingState,
+  ProviderModelDefaults,
+  ResolvedProviderDefaultsState,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -366,6 +371,32 @@ interface SeroCollaborationAPI {
   onEvent(callback: (event: CollaborationEvent) => void): () => void;
 }
 
+interface SeroModelsAPI {
+  /** List all available models (session-independent). */
+  list(): Promise<AvailableModelGroup[]>;
+}
+
+interface SeroModelTiersAPI {
+  /** Get current model tier settings from settings.json. */
+  get(): Promise<ModelTierSettings>;
+  /** Write model tier settings to settings.json. */
+  set(tiers: ModelTierSettings): Promise<void>;
+}
+
+interface SeroOnboardingAPI {
+  /** Run onboarding preflight and return the current onboarding state. */
+  getState(): Promise<OnboardingState>;
+  /** Persist validated tier selections for onboarding. */
+  saveTierSelections(tiers: ModelTierSettings): Promise<void>;
+}
+
+interface SeroProviderDefaultsAPI {
+  /** Read built-in, global, and effective provider defaults. */
+  get(): Promise<ResolvedProviderDefaultsState>;
+  /** Persist the global/shared provider defaults registry. */
+  setGlobalDefaults(defaults: ProviderModelDefaults): Promise<void>;
+}
+
 interface SeroProfilesAPI {
   /** List all profiles with active flag. */
   list(): Promise<ProfileInfo[]>;
@@ -442,6 +473,10 @@ interface SeroAPI {
   skills: SeroSkillsAPI;
   prompts: SeroPromptsAPI;
   github: SeroGitHubAPI;
+  models: SeroModelsAPI;
+  modelTiers: SeroModelTiersAPI;
+  onboarding: SeroOnboardingAPI;
+  providerDefaults: SeroProviderDefaultsAPI;
   plugins: SeroPluginsAPI;
   localModels: SeroLocalModelsAPI;
   pluginConfig: SeroPluginConfigAPI;

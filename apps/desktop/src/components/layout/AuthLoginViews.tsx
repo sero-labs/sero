@@ -12,6 +12,7 @@ import {
   EyeOff,
   Key,
   Loader2,
+  TriangleAlert,
   LogIn,
   LogOut,
   Trash2,
@@ -23,10 +24,23 @@ import type { OAuthProviderInfo, ApiKeyProviderInfo } from '@/types/ipc';
 
 // ── Provider list ─────────────────────────────────────────────
 
+function sortProvidersByPreference<T extends { id: string; name: string }>(
+  providers: T[],
+  preferredProviderId?: string | null,
+): T[] {
+  return [...providers].sort((a, b) => {
+    const aPreferred = preferredProviderId && a.id === preferredProviderId ? 1 : 0;
+    const bPreferred = preferredProviderId && b.id === preferredProviderId ? 1 : 0;
+    if (aPreferred !== bPreferred) return bPreferred - aPreferred;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export function ProviderListView({
   oauthProviders,
   apiKeyProviders,
   mode,
+  preferredProviderId,
   onOAuthLogin,
   onApiKeyStart,
   onApiKeyRemove,
@@ -35,12 +49,14 @@ export function ProviderListView({
   oauthProviders: OAuthProviderInfo[];
   apiKeyProviders: ApiKeyProviderInfo[];
   mode: 'login' | 'logout';
+  preferredProviderId?: string | null;
   onOAuthLogin: (id: string) => void;
   onApiKeyStart: (id: string, name: string) => void;
   onApiKeyRemove: (id: string) => void;
   onLogout: (id: string) => void;
 }) {
   const isLogin = mode === 'login';
+  const [anthropicWarning, setAnthropicWarning] = useState<string | null>(null);
 
   if (isLogin) {
     return (
@@ -51,21 +67,37 @@ export function ProviderListView({
             OAuth
           </h4>
           <div className="space-y-0.5">
-            {oauthProviders.map((p) => (
+            {sortProvidersByPreference(oauthProviders, preferredProviderId).map((p) => (
               <button
                 key={p.id}
-                onClick={() => onOAuthLogin(p.id)}
+                onClick={() => {
+                  if (p.id === 'anthropic' && !anthropicWarning) {
+                    setAnthropicWarning(p.id);
+                    return;
+                  }
+                  onOAuthLogin(p.id);
+                }}
                 className="flex w-full items-center justify-between rounded-md px-3 py-2
                            text-sm hover:bg-accent transition-colors text-left group"
               >
                 <div className="flex items-center gap-2.5">
                   <LogIn className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                   <span>{p.name}</span>
+                  {preferredProviderId === p.id ? <PreferredProviderBadge /> : null}
                 </div>
                 {p.isLoggedIn && <AuthBadge />}
               </button>
             ))}
           </div>
+          {anthropicWarning === 'anthropic' && (
+            <AnthropicWarningBanner
+              onContinue={() => {
+                setAnthropicWarning(null);
+                onOAuthLogin('anthropic');
+              }}
+              onCancel={() => setAnthropicWarning(null)}
+            />
+          )}
         </div>
 
         {/* API Key section */}
@@ -74,18 +106,25 @@ export function ProviderListView({
             API Key
           </h4>
           <div className="space-y-0.5">
-            {apiKeyProviders.map((p) => (
+            {sortProvidersByPreference(apiKeyProviders, preferredProviderId).map((p) => (
               <div
                 key={p.id}
                 className="flex w-full items-center justify-between rounded-md px-3 py-2
                            text-sm hover:bg-accent transition-colors group"
               >
                 <button
-                  onClick={() => onApiKeyStart(p.id, p.name)}
+                  onClick={() => {
+                    if (p.id === 'anthropic' && !anthropicWarning) {
+                      setAnthropicWarning('anthropic-apikey');
+                      return;
+                    }
+                    onApiKeyStart(p.id, p.name);
+                  }}
                   className="flex items-center gap-2.5 text-left flex-1 min-w-0"
                 >
                   <Key className="size-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
                   <span className="truncate">{p.name}</span>
+                  {preferredProviderId === p.id ? <PreferredProviderBadge /> : null}
                 </button>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {p.hasKey && (
@@ -109,6 +148,15 @@ export function ProviderListView({
               </div>
             ))}
           </div>
+          {anthropicWarning === 'anthropic-apikey' && (
+            <AnthropicWarningBanner
+              onContinue={() => {
+                setAnthropicWarning(null);
+                onApiKeyStart('anthropic', 'Anthropic');
+              }}
+              onCancel={() => setAnthropicWarning(null)}
+            />
+          )}
         </div>
       </div>
     );
@@ -152,7 +200,51 @@ export function ProviderListView({
   );
 }
 
+// ── Anthropic warning banner ──────────────────────────────────
+
+function AnthropicWarningBanner({
+  onContinue,
+  onCancel,
+}: {
+  onContinue: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="mx-1 flex items-start gap-2 rounded-md border border-[var(--status-warning)]/30 bg-[var(--status-warning)]/5 px-3 py-2 text-xs text-[var(--text-secondary)]">
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[var(--status-warning)]" />
+      <div className="space-y-1.5">
+        <p>
+          Anthropic may restrict third-party use of consumer subscriptions.
+          We recommend using an API key with your own billing account.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onContinue}
+            className="text-xs font-medium text-[var(--text-primary)] hover:underline"
+          >
+            Continue anyway
+          </button>
+          <button
+            onClick={onCancel}
+            className="text-xs text-[var(--text-tertiary)] hover:underline"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Badges ────────────────────────────────────────────────────
+
+function PreferredProviderBadge() {
+  return (
+    <span className="rounded-full border border-[var(--status-warning)]/30 px-1.5 py-0.5 text-[10px] text-[var(--status-warning)]">
+      reconnect
+    </span>
+  );
+}
 
 function AuthBadge() {
   return (

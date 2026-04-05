@@ -12,6 +12,7 @@ import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import type {
   SubagentMode as _SubagentMode,
   SubagentUsage as _SubagentUsage,
+  SubagentModelConfig as _SubagentModelConfig,
 } from '../../../../src/types/subagent';
 
 // Re-export IPC-shared types as the single source of truth
@@ -26,6 +27,7 @@ export type {
 // Local aliases for use within this file
 type SubagentUsage = _SubagentUsage;
 type SubagentMode = _SubagentMode;
+type SubagentModelConfig = _SubagentModelConfig;
 
 // ── Agent Config (from .md discovery) ────────────────────────
 
@@ -34,8 +36,8 @@ export interface AgentConfig {
   name: string;
   /** What this agent does (from frontmatter `description`). */
   description: string;
-  /** Default model for this agent. */
-  model?: string;
+  /** Default model — plain string (legacy) or structured { prefer, fallbacks }. */
+  model?: SubagentModelConfig;
   /** Default thinking level. */
   thinking?: string;
   /** Default timeout in milliseconds. */
@@ -99,8 +101,14 @@ export interface RunResult {
 // ── Resolved Config (merged precedence output) ───────────────
 
 export interface ResolvedConfig {
-  /** Concrete model ID to use. */
+  /** Primary model reference for UI/tracking (model ID or tier alias). */
   model: string;
+  /**
+   * The merged winning model config after precedence resolution.
+   * Preserves structured `{ prefer, fallbacks }` fields so the runner can
+   * resolve the correct concrete model without re-reading agent frontmatter.
+   */
+  modelSelection: SubagentModelConfig;
   /** Concrete thinking level. */
   thinking: string;
   /** Concrete timeout in milliseconds. */

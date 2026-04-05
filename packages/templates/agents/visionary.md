@@ -2,7 +2,7 @@
 {
   "name": "visionary",
   "description": "Creative and divergent thinking for 4-agent collaboration",
-  "model": "claude-sonnet-4-6",
+  "model": { "prefer": "MED", "fallbacks": ["gpt-5.4", "claude-sonnet-4-6", "gemini-2.5-pro"] },
   "thinking": "medium",
   "tools": ["read", "bash", "grep", "find", "ls"]
 }

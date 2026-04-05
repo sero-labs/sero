@@ -298,6 +298,27 @@ export interface AuthProvidersResponse {
   apiKey: ApiKeyProviderInfo[];
 }
 
+// ── Model Tiers & Onboarding ────────────────────────────────
+
+export type {
+  ModelTier,
+  ModelTierEntry,
+  ModelTierSettings,
+  ProviderTierDefaults,
+  ProviderModelDefaults,
+  ResolvedProviderDefaultsState,
+} from './model-tiers';
+
+export type {
+  ProviderHealthStatus,
+  ProviderHealthInfo,
+  OnboardingStatePhase,
+  OnboardingTierSource,
+  OnboardingRecommendation,
+  OnboardingWarning,
+  OnboardingState,
+} from './onboarding';
+
 /**
  * Events pushed from main → renderer during an OAuth login flow.
  * The renderer dialog reacts to each event to update its UI state.

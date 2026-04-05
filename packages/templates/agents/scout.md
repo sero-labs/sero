@@ -2,7 +2,7 @@
 {
   "name": "scout",
   "description": "Fast codebase reconnaissance",
-  "model": "claude-haiku-4-5",
+  "model": { "prefer": "LOW", "fallbacks": ["gpt-4.1-mini", "claude-haiku-4-5", "gemini-2.5-flash"] },
   "thinking": "off",
   "tools": ["read", "bash", "grep", "find", "ls"]
 }

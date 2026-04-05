@@ -26,6 +26,8 @@ import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '../../../platform/env';
 import { logRawEvent, logTurnContext } from '../../../ipc/editor/debug';
 import { createSkillVisibilityOverride } from '../../apps/extensions/skill-visibility';
+import { parseModelField, resolveTierModel } from '../../../shared/settings/resolve-tier-model';
+import { getModelTiers } from '../../../shared/settings/model-tiers';
 import path from 'path';
 
 const EMPTY_USAGE: SubagentUsage = {
@@ -203,9 +205,15 @@ export async function runSubagent(
     // Try to set the resolved model — needs provider/modelId lookup
     try {
       const available = infra.modelRegistry.getAvailable();
-      const match = available.find((m) => m.id === resolved.model);
-      if (match) {
-        const model = infra.modelRegistry.find(match.provider, match.id);
+      const globalSettings = infra.settingsManager.getGlobalSettings() as Record<string, unknown>;
+      const tierSettings = getModelTiers(globalSettings);
+      const parsed = parseModelField(resolved.modelSelection);
+      const resolvedModel = parsed
+        ? resolveTierModel(parsed, tierSettings, available)
+        : null;
+
+      if (resolvedModel) {
+        const model = infra.modelRegistry.find(resolvedModel.provider, resolvedModel.modelId);
         if (model) await session.setModel(model);
       }
     } catch {

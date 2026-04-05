@@ -1,17 +1,19 @@
-import { createAgentSession, SessionManager } from '@mariozechner/pi-coding-agent';
+import { createAgentSession, SettingsManager, SessionManager } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
 import type { Api, Model } from '@mariozechner/pi-ai';
 
 import { SERO_AGENT_DIR } from '../../../platform/env';
 import { ensureInfra } from '../../../shared/infra/shared-infra';
+import { getModelTiers } from '../../../shared/settings/model-tiers';
 
+/** Provider-neutral fast model preferences, ordered by speed/cost. */
 const FAST_MODEL_PREFERENCES: Array<{ provider: string; modelId: string }> = [
-  { provider: 'anthropic', modelId: 'claude-haiku-4-5' },
-  { provider: 'anthropic', modelId: 'claude-3-5-haiku-latest' },
   { provider: 'openai', modelId: 'gpt-4.1-mini' },
   { provider: 'openai', modelId: 'gpt-4o-mini' },
   { provider: 'google', modelId: 'gemini-2.5-flash' },
   { provider: 'google', modelId: 'gemini-2.0-flash' },
+  { provider: 'anthropic', modelId: 'claude-haiku-4-5' },
+  { provider: 'anthropic', modelId: 'claude-3-5-haiku-latest' },
 ];
 
 interface SelectedModel {
@@ -33,7 +35,12 @@ export async function runAdhocAgent(
   thinkingLevel: ThinkingLevel = 'low',
 ): Promise<AdhocAgentResult> {
   const infra = await ensureInfra();
-  const selectedModel = selectFastModel(infra.modelRegistry.getAvailable(), infra.model);
+  const available = infra.modelRegistry.getAvailable();
+  const selectedModel = selectFastModel(
+    available,
+    infra.settingsManager,
+    infra.model,
+  );
 
   const { session } = await createAgentSession({
     cwd: workspacePath,
@@ -74,8 +81,22 @@ export async function runAdhocAgent(
 
 function selectFastModel(
   available: Model<Api>[],
-  fallback: Model<Api>,
+  settingsManager: ReturnType<typeof SettingsManager.create>,
+  fallback: Model<Api> | null,
 ): SelectedModel {
+  // 1. Try user's LOW tier model
+  const globalSettings = settingsManager.getGlobalSettings() as Record<string, unknown>;
+  const tiers = getModelTiers(globalSettings);
+  if (tiers.LOW) {
+    const match = available.find(
+      (m) => m.provider === tiers.LOW!.provider && m.id === tiers.LOW!.modelId,
+    );
+    if (match) {
+      return { model: match, provider: match.provider, modelId: match.id };
+    }
+  }
+
+  // 2. Walk provider-neutral preference list
   for (const pref of FAST_MODEL_PREFERENCES) {
     const model = available.find((m) => m.provider === pref.provider && m.id === pref.modelId);
     if (model) {
@@ -83,6 +104,7 @@ function selectFastModel(
     }
   }
 
+  // 3. First available model
   if (available[0]) {
     return {
       model: available[0],
@@ -91,10 +113,14 @@ function selectFastModel(
     };
   }
 
-  return {
-    model: fallback,
-    provider: fallback.provider,
-    modelId: fallback.id,
-  };
-}
+  // 4. Absolute fallback (shared infra model, may be null)
+  if (fallback) {
+    return {
+      model: fallback,
+      provider: fallback.provider,
+      modelId: fallback.id,
+    };
+  }
 
+  throw new Error('No models available — please authenticate with a model provider.');
+}

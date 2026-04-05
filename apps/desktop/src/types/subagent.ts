@@ -13,11 +13,20 @@ export interface SubagentAgentSummary {
   timeoutMs?: number;
 }
 
+/** Structured model field supported in subagent frontmatter. */
+export interface StructuredSubagentModelField {
+  prefer: string;
+  fallbacks: string[];
+}
+
+/** Plain string model ID/tier alias, or structured prefer+fallbacks config. */
+export type SubagentModelConfig = string | StructuredSubagentModelField;
+
 /** Full agent data for editing (includes system prompt body). */
 export interface SubagentAgentFile {
   name: string;
   description: string;
-  model?: string;
+  model?: SubagentModelConfig;
   thinking?: string;
   timeoutMs?: number;
   tools?: string[];

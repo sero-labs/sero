@@ -8,6 +8,7 @@
 
 import { registerProfileHandlers } from './workspace/profiles';
 import { registerWorkspaceHandlers } from './workspace';
+import { registerOnboardingHandlers } from './onboarding/onboarding';
 import { registerSessionHandlers } from './agent/handlers/sessions';
 import { registerAgentHandlers } from './agent';
 import { registerAppAgentHandlers } from './agent/handlers/app-agent';
@@ -49,6 +50,7 @@ import { registerThemeHandlers } from './platform/ui';
 export function registerAllIpcHandlers(): void {
   registerProfileHandlers();
   registerWorkspaceHandlers();
+  registerOnboardingHandlers();
   registerSessionHandlers();
   registerAgentHandlers();
   registerAppAgentHandlers();

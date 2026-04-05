@@ -31,6 +31,7 @@ import type {
   OAuthEvent,
 } from '../../../../src/types/ipc';
 import { ensureInfra } from '../../../shared/infra/shared-infra';
+import { API_KEY_PROVIDERS } from '../../../shared/auth/provider-catalog';
 import { AUTH_JSON_PATH } from '../../../platform/env';
 
 // ── auth.json permission hardening ───────────────────────────
@@ -65,27 +66,6 @@ function repairAuthJsonPermissionsOnStartup(): void {
     // File doesn't exist yet — nothing to repair
   }
 }
-
-// ── API-key provider definitions ─────────────────────────────
-// Providers that accept a plain API key (not OAuth).
-// Ordered roughly by popularity.
-
-const API_KEY_PROVIDERS: { id: string; name: string }[] = [
-  { id: 'anthropic', name: 'Anthropic' },
-  { id: 'openai', name: 'OpenAI' },
-  { id: 'google', name: 'Google (Gemini)' },
-  { id: 'openrouter', name: 'OpenRouter' },
-  { id: 'xai', name: 'xAI' },
-  { id: 'groq', name: 'Groq' },
-  { id: 'cerebras', name: 'Cerebras' },
-  { id: 'mistral', name: 'Mistral' },
-  { id: 'azure-openai-responses', name: 'Azure OpenAI' },
-  { id: 'huggingface', name: 'Hugging Face' },
-  { id: 'vercel-ai-gateway', name: 'Vercel AI Gateway' },
-  { id: 'zai', name: 'ZAI' },
-  { id: 'opencode', name: 'OpenCode' },
-  { id: 'kimi-coding', name: 'Kimi' },
-];
 
 // ── In-flight login state ────────────────────────────────────
 
@@ -141,6 +121,7 @@ export function registerAuthHandlers(): void {
     IpcChannels.auth.getProviders,
     async (): Promise<AuthProvidersResponse> => {
       const infra = await ensureInfra();
+      infra.authStorage.reload();
 
       // OAuth providers
       const oauthProviders = getOAuthProviders();

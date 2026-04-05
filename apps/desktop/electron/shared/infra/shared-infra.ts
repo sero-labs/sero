@@ -18,9 +18,11 @@ import {
   AuthStorage,
   ModelRegistry,
 } from '@mariozechner/pi-coding-agent';
-import { getModel, type Model, type Api } from '@mariozechner/pi-ai';
+import { type Model, type Api } from '@mariozechner/pi-ai';
 
 import { SERO_AGENT_DIR, SERO_HOME } from '../../platform/env';
+import { getConfiguredModelFallbackChain } from '../settings/model-fallback-chain';
+import { getModelTiers } from '../settings/model-tiers';
 import type { ContainerConfig } from '../../features/container/core/types';
 import { containerManager } from '../../features/container/core/singleton';
 import { buildWorkspaceContainerConfig } from '../../features/container/core/workspace-container-config';
@@ -119,7 +121,7 @@ export interface SharedInfra {
   authStorage: AuthStorage;
   modelRegistry: ModelRegistry;
   settingsManager: ReturnType<typeof SettingsManager.create>;
-  model: Model<Api>;
+  model: Model<Api> | null;
 }
 
 /** Apply runtime-only settings that need to update live singletons. */
@@ -137,6 +139,39 @@ export function applyRuntimeSettings(
   });
 }
 
+/**
+ * Pick the first available model using tier settings, then fallback chain.
+ * Returns null if no model is available (no auth configured yet).
+ */
+function pickFirstAvailableModel(
+  registry: ModelRegistry,
+  settingsManager: ReturnType<typeof SettingsManager.create>,
+): Model<Api> | null {
+  const available = registry.getAvailable();
+  if (available.length === 0) return null;
+
+  const globalSettings = settingsManager.getGlobalSettings() as Record<string, unknown>;
+
+  // Try HIGH tier model first (most capable, used for main sessions)
+  const tiers = getModelTiers(globalSettings);
+  if (tiers.HIGH) {
+    const match = available.find(
+      (m) => m.provider === tiers.HIGH!.provider && m.id === tiers.HIGH!.modelId,
+    );
+    if (match) return match;
+  }
+
+  // Try fallback chain
+  const chain = getConfiguredModelFallbackChain(globalSettings);
+  for (const candidate of chain) {
+    const match = available.find((m) => m.id === candidate);
+    if (match) return match;
+  }
+
+  // Last resort: first available model
+  return available[0] ?? null;
+}
+
 /** Lazy-init shared infrastructure. Called once, then cached. */
 export async function ensureInfra(): Promise<SharedInfra> {
   if (!_authStorage) {
@@ -150,15 +185,14 @@ export async function ensureInfra(): Promise<SharedInfra> {
     if (!_settingsManager.getDefaultThinkingLevel()) {
       _settingsManager.setDefaultThinkingLevel('high');
     }
-    _model = getModel('anthropic', 'claude-opus-4-6');
-    if (!_model) throw new Error('Model claude-opus-4-6 not found in registry');
+    _model = pickFirstAvailableModel(_modelRegistry, _settingsManager);
   }
 
   const infra = {
     authStorage: _authStorage,
     modelRegistry: _modelRegistry!,
     settingsManager: _settingsManager!,
-    model: _model!,
+    model: _model,
   };
 
   // Wire subagent manager deps lazily (avoids circular imports)

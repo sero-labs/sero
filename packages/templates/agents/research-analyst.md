@@ -2,7 +2,7 @@
 {
   "name": "research-analyst",
   "description": "Synthesizes multi-agent research outputs into unified, insight-driven documents with cross-cutting analysis, confidence assessments, and actionable recommendations",
-  "model": "claude-sonnet-4-6",
+  "model": { "prefer": "MED", "fallbacks": ["gpt-5.4", "claude-sonnet-4-6", "gemini-2.5-pro"] },
   "thinking": "high"
 }
 ```

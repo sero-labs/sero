@@ -5,14 +5,16 @@
  * sensible default chain if the setting is missing so users can override it.
  */
 
+import { getSeroSettings } from './settings-helpers';
+
 const DEFAULT_FALLBACK_CHAIN = [
+  'gpt-5.4',
+  'gpt-4.1-mini',
   'claude-sonnet-4-6',
   'claude-haiku-4-5',
-  'gpt-5.4',
-  'gpt-5',
-  'gemini-3-flash-preview',
-  'gemini-3-flash',
+  'gemini-2.5-pro',
   'gemini-2.5-flash',
+  'gemini-3-flash',
 ] as const;
 
 function normalizeFallbackChain(value: unknown): string[] {
@@ -30,14 +32,6 @@ function normalizeFallbackChain(value: unknown): string[] {
     result.push(trimmed);
   }
   return result;
-}
-
-function getSeroSettings(settings: Record<string, unknown>): Record<string, unknown> {
-  const raw = settings.sero;
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    return { ...(raw as Record<string, unknown>) };
-  }
-  return {};
 }
 
 export function getDefaultModelFallbackChain(): string[] {
