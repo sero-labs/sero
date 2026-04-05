@@ -194,7 +194,7 @@ export function OnboardingWizard() {
               ?? refreshedState.recommendation.tiers.LOW?.provider
               ?? null;
 
-            const failedName = getDisplayProviderName(onboardingState, failedProvider);
+            const failedName = getDisplayProviderName(refreshedState, failedProvider);
             const nextName = getDisplayProviderName(refreshedState, nextProvider);
             const canAutoRetry = !failedProvider || !nextProvider || failedProvider !== nextProvider;
 
