@@ -316,7 +316,19 @@ export function OnboardingSetupScreen({
 
       <div className="grid gap-4">
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-[var(--text-primary)]">Provider</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium text-[var(--text-primary)]">Provider</Label>
+            <button
+              type="button"
+              onClick={() => onOpenProviders()}
+              disabled={continueDisabled}
+              className="flex items-center gap-1 text-[10px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] disabled:opacity-50"
+              title="Manage providers"
+            >
+              <KeyRound className="size-3" />
+              Manage
+            </button>
+          </div>
           <Select value={selectedProviderId} onValueChange={handleProviderChange}>
             <SelectTrigger className="h-10 text-left">
               <SelectValue placeholder="Choose a provider" />
@@ -395,11 +407,7 @@ export function OnboardingSetupScreen({
         />
       ))}
 
-      <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-between">
-        <Button variant="outline" size="sm" onClick={onOpenProviders} disabled={continueDisabled}>
-          <KeyRound className="mr-2 size-3.5" />
-          Providers
-        </Button>
+      <div className="flex justify-end pt-1">
         <Button size="sm" onClick={handleContinue} disabled={!canContinue || continueDisabled}>
           Continue
         </Button>
