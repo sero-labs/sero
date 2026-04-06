@@ -1,70 +1,83 @@
-# Prompt caching stability — ensures system prompt and tool list remain
-# consistent across runs. Uses the snapshot provider (no LLM calls).
+# Prompt caching stability — ensures the FULL Sero system prompt remains
+# stable across releases. Uses the snapshot provider (no LLM calls).
 #
-# These tests catch unintentional changes to the SDK base prompt that would
-# break Anthropic's prompt caching (cache keys depend on exact prefix match).
+# The snapshot provider assembles the same prompt that a real Sero session
+# gets by calling the actual prompt-building functions:
+#   1. SDK base prompt (from createAgentSession)
+#   2. CLI block (buildCliPromptBlock — all sero-cli commands)
+#   3. Container block (buildContainerPromptBlock — if containerized)
+#   4. Subagent block (buildSubagentPromptBlock — delegation guidance)
 #
-# NOTE: The headless eval session captures the SDK's base state WITHOUT
-# Sero's extension factory (no CLI prompt, no container prompt, no subagent
-# prompt). This tests the *foundation* that all sessions share. Full Sero
-# session stability testing requires running inside Electron with extensions.
+# WHY THIS MATTERS: Anthropic's prompt caching keys on the exact prefix
+# of the system prompt. If ANY block changes (content, order, whitespace),
+# the cache invalidates → higher latency + cost. These tests catch drift.
 #
 # HOW TO UPDATE BASELINES:
 #   1. Run: pnpm eval:snapshot
-#   2. If tests fail because of INTENTIONAL changes (e.g. SDK upgrade),
-#      update the expected values below.
-#   3. Commit the updated baselines alongside the code change.
-#
-# METADATA ACCESS: context.providerResponse.metadata (not output.metadata)
+#   2. If tests fail because of INTENTIONAL changes, update baselines below.
+#   3. Commit updated baselines alongside the code change.
 
-# ── System prompt structure ───────────────────────────────────
+# ── Full prompt assembly ──────────────────────────────────────
 
-- description: "SDK base system prompt is non-empty and within size bounds"
+- description: "Full Sero prompt is assembled from all blocks"
   vars:
     scenario_prompt: "snapshot"
   assert:
     - type: javascript
       value: |
-        const meta = context.providerResponse?.metadata ?? {};
-        const len = meta.systemPromptLength || 0;
-        const minLen = 500;
-        const maxLen = 50000;
-        const inRange = len >= minLen && len <= maxLen;
+        const m = context.providerResponse?.metadata ?? {};
+        const hasBase = (m.sdkBasePromptLength || 0) > 0;
+        const hasCli = (m.cliBlockLength || 0) > 0;
+        const hasSub = (m.subagentBlockLength || 0) > 0;
+        const total = m.systemPromptLength || 0;
+        const parts = [
+          hasBase ? 'sdk-base' : null,
+          hasCli ? 'cli' : null,
+          hasSub ? 'subagent' : null,
+        ].filter(Boolean);
+        const allPresent = hasBase && hasCli && hasSub;
         return {
-          pass: inRange,
-          score: inRange ? 1.0 : 0.0,
-          reason: `System prompt length: ${len} chars (expected ${minLen}-${maxLen})`
+          pass: allPresent,
+          score: parts.length / 3,
+          reason: allPresent
+            ? `All prompt blocks present (${total} chars total): [${parts.join(', ')}]`
+            : `Missing blocks! Present: [${parts.join(', ')}]. Sizes: base=${m.sdkBasePromptLength} cli=${m.cliBlockLength} sub=${m.subagentBlockLength}`
         };
 
-- description: "System prompt hash is stable across runs"
+- description: "Full prompt size is within expected range"
   vars:
     scenario_prompt: "snapshot"
   assert:
     - type: javascript
       value: |
-        const meta = context.providerResponse?.metadata ?? {};
-        const hash = meta.systemPromptHash || '';
-        const len = meta.systemPromptLength || 0;
-        const valid = hash.length === 64 && len > 0;
+        const m = context.providerResponse?.metadata ?? {};
+        const len = m.systemPromptLength || 0;
+        // Full Sero prompt: SDK base + CLI commands + subagent guidance
+        // Should be between 2KB and 100KB
+        const min = 2000;
+        const max = 100000;
+        const ok = len >= min && len <= max;
         return {
-          pass: valid,
-          score: valid ? 1.0 : 0.0,
-          reason: valid
-            ? `Prompt hash: ${hash.slice(0, 16)}... (${len} chars)`
-            : `Invalid snapshot: hash=${hash.slice(0, 16)} len=${len}`
+          pass: ok,
+          score: ok ? 1.0 : 0.0,
+          reason: `Full prompt: ${len} chars (expected ${min}-${max})`
         };
 
-- description: "System prompt contains tool-use instructions"
+# ── CLI block stability ──────────────────────────────────────
+
+- description: "CLI block contains sero-cli usage instructions"
   vars:
     scenario_prompt: "snapshot"
   assert:
     - type: javascript
       value: |
-        const meta = context.providerResponse?.metadata ?? {};
-        const prompt = meta.systemPrompt || '';
+        const m = context.providerResponse?.metadata ?? {};
+        const cli = m.cliBlock || '';
         const checks = [
-          { name: 'non-empty', ok: prompt.length > 0 },
-          { name: 'has-instructions', ok: /tool|function|command/i.test(prompt) },
+          { name: 'sero-cli reference', ok: cli.includes('sero-cli') || cli.includes('Sero CLI') },
+          { name: 'has command listings', ok: cli.includes('workspace') && cli.includes('session') },
+          { name: 'has app tools', ok: cli.includes('todo') || cli.includes('memory') },
+          { name: 'has help guidance', ok: cli.includes('help') },
         ];
         const passed = checks.filter(c => c.ok);
         const failed = checks.filter(c => !c.ok);
@@ -72,68 +85,106 @@
           pass: failed.length === 0,
           score: passed.length / checks.length,
           reason: failed.length === 0
-            ? `All checks passed: [${passed.map(c => c.name).join(', ')}]`
-            : `Failed: [${failed.map(c => c.name).join(', ')}]`
+            ? `CLI block OK (${cli.length} chars): [${passed.map(c => c.name).join(', ')}]`
+            : `CLI block issues: missing [${failed.map(c => c.name).join(', ')}]`
         };
 
-# ── Tool list baseline ────────────────────────────────────────
+# ── Subagent block stability ─────────────────────────────────
 
-- description: "Headless session tool count is stable"
+- description: "Subagent block contains delegation guidance"
   vars:
     scenario_prompt: "snapshot"
   assert:
     - type: javascript
       value: |
-        const meta = context.providerResponse?.metadata ?? {};
-        const count = meta.toolCount ?? -1;
-        const names = meta.toolNames || [];
-        // Headless: expect 0 tools (SDK lazy-loads on first prompt).
-        // If this starts returning >0, the SDK changed behavior.
-        const expected = 0;
-        const tolerance = 5;
-        const inRange = count >= expected && count <= expected + tolerance;
+        const m = context.providerResponse?.metadata ?? {};
+        const sub = m.subagentBlock || '';
+        const checks = [
+          { name: 'mentions subagent tool', ok: sub.includes('subagent') },
+          { name: 'has when-to-use guidance', ok: sub.includes('parallel') || sub.includes('independent') },
+          { name: 'has when-not-to-use', ok: sub.includes('NOT') || sub.includes('not use') },
+        ];
+        const passed = checks.filter(c => c.ok);
+        const failed = checks.filter(c => !c.ok);
         return {
-          pass: inRange,
-          score: inRange ? 1.0 : 0.0,
-          reason: `Tool count: ${count} (expected ${expected}±${tolerance}). Tools: [${names.join(', ')}]`
+          pass: failed.length === 0,
+          score: passed.length / checks.length,
+          reason: failed.length === 0
+            ? `Subagent block OK (${sub.length} chars)`
+            : `Subagent block issues: missing [${failed.map(c => c.name).join(', ')}]`
         };
 
-# ── Prompt length regression ─────────────────────────────────
+# ── Block ordering (critical for caching) ────────────────────
 
-- description: "SDK base prompt has not grown unexpectedly"
+- description: "Prompt blocks are in the correct order for cache stability"
   vars:
     scenario_prompt: "snapshot"
   assert:
+    # The order MUST be: SDK base → CLI → Container → Subagent
+    # If blocks reorder, the cache prefix changes and all caches invalidate.
     - type: javascript
       value: |
-        const meta = context.providerResponse?.metadata ?? {};
-        const len = meta.systemPromptLength || 0;
-        // BASELINE: pi-coding-agent@0.61.1 base prompt size
-        const BASELINE = 1683;
-        const threshold = 0.30;
+        const m = context.providerResponse?.metadata ?? {};
+        const full = m.systemPrompt || '';
+        const cli = m.cliBlock || '';
+        const sub = m.subagentBlock || '';
+        const base = m.sdkBasePrompt || '';
+        if (!full || !cli || !sub || !base) {
+          return { pass: false, score: 0, reason: 'Missing prompt blocks' };
+        }
+        // Check ordering: base comes before CLI, CLI before subagent
+        const cliStart = full.indexOf(cli.slice(0, 50));
+        const subStart = full.indexOf(sub.slice(0, 50));
+        const baseEnd = base.length;
+        const correctOrder = cliStart >= baseEnd && subStart > cliStart;
+        return {
+          pass: correctOrder,
+          score: correctOrder ? 1.0 : 0.0,
+          reason: correctOrder
+            ? `Correct order: base(0-${baseEnd}) → cli(${cliStart}) → subagent(${subStart})`
+            : `WRONG ORDER! base ends at ${baseEnd}, cli at ${cliStart}, subagent at ${subStart}. Cache will break!`
+        };
+
+# ── Prompt growth regression ─────────────────────────────────
+
+- description: "Full prompt has not grown more than 20% from baseline"
+  vars:
+    scenario_prompt: "snapshot"
+  assert:
+    # BASELINE: Update after intentional prompt changes.
+    # Set to 0 to skip (first run).
+    - type: javascript
+      value: |
+        const m = context.providerResponse?.metadata ?? {};
+        const len = m.systemPromptLength || 0;
+        const BASELINE = 3815;
         const growth = (len - BASELINE) / BASELINE;
         return {
-          pass: Math.abs(growth) <= threshold,
+          pass: Math.abs(growth) <= 0.20,
           score: Math.max(0, 1 - Math.abs(growth)),
-          reason: `Prompt length: ${len} (baseline: ${BASELINE}, delta: ${growth > 0 ? '+' : ''}${(growth * 100).toFixed(1)}%)`
+          reason: `Full prompt: ${len} chars (baseline: ${BASELINE}, delta: ${growth > 0 ? '+' : ''}${(growth * 100).toFixed(1)}%)`
         };
 
-# ── Determinism check ─────────────────────────────────────────
+# ── Snapshot integrity ────────────────────────────────────────
 
-- description: "Snapshot output format is well-structured"
+- description: "Snapshot metadata is complete"
   vars:
     scenario_prompt: "snapshot"
   assert:
     - type: javascript
       value: |
-        const meta = context.providerResponse?.metadata ?? {};
-        const fields = ['systemPromptHash', 'toolListHash', 'systemPromptLength', 'toolCount', 'toolNames'];
-        const present = fields.filter(f => meta[f] !== undefined);
-        const missing = fields.filter(f => meta[f] === undefined);
+        const m = context.providerResponse?.metadata ?? {};
+        const required = [
+          'systemPrompt', 'sdkBasePrompt', 'cliBlock', 'subagentBlock',
+          'systemPromptHash', 'systemPromptLength',
+          'sdkBasePromptLength', 'cliBlockLength', 'subagentBlockLength',
+        ];
+        const present = required.filter(f => m[f] !== undefined && m[f] !== null);
+        const missing = required.filter(f => m[f] === undefined || m[f] === null);
         return {
           pass: missing.length === 0,
-          score: present.length / fields.length,
+          score: present.length / required.length,
           reason: missing.length === 0
-            ? `All metadata fields present`
+            ? `All ${required.length} metadata fields present`
             : `Missing: [${missing.join(', ')}]`
         };
