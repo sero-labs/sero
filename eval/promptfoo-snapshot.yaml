@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Prompt caching stability evals — NO LLM calls required.
+#
+# These verify that the system prompt and tool list remain stable across
+# releases so Anthropic prompt caching isn't broken by accidental changes.
+#
+# Run:  pnpm eval:snapshot
+# Fast: ~2s, no API key needed, safe to run in every CI build.
+
+description: "Sero prompt caching stability checks"
+
+providers:
+  - id: file://./snapshotProvider.ts
+    label: "Sero (snapshot)"
+
+prompts:
+  - "{{scenario_prompt}}"
+
+tests:
+  - file://./scenarios/prompt-stability.yaml

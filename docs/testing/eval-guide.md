@@ -1,0 +1,237 @@
+# Sero Eval Guide
+
+Structured evaluation framework for tracking agent performance across releases using [Promptfoo](https://promptfoo.dev).
+
+## Quick Start
+
+```bash
+# Snapshot evals — fast, no API key, safe for CI (~2s)
+pnpm eval:snapshot
+
+# Agent evals — requires ANTHROPIC_API_KEY (real LLM calls, ~2min)
+pnpm eval
+
+# View results in browser
+pnpm eval:view
+
+# Or use the shell script directly
+./eval/run.sh                    # Agent evals
+./eval/run.sh snapshot           # Snapshot evals
+./eval/run.sh --filter-first-n 3 # First 3 agent tests only
+```
+
+## Two Eval Modes
+
+### 1. Snapshot Evals (no LLM calls)
+
+**Config:** `eval/promptfoo-snapshot.yaml`
+**Provider:** `eval/snapshotProvider.ts`
+**Scenarios:** `eval/scenarios/prompt-stability.yaml` (7 tests)
+
+These assemble an approximation of the full Sero session prompt by calling the pure prompt-building functions from `apps/desktop/electron/`. The subagent and container blocks are imported directly from the real source. The CLI block uses a **reconstructed registry** with hardcoded command names (since the real registration path requires Electron), so it tests the prompt *template* and *structure* but not the exact live command list. They verify:
+
+- All prompt blocks are present (SDK base + CLI + subagent)
+- Block content has expected keywords (sero-cli commands, subagent guidance)
+- Block ordering is correct (critical for Anthropic prompt caching)
+- Total prompt size hasn't grown more than 20% from baseline
+- Snapshot metadata is complete
+
+**When to run:** Before every commit that touches agent prompts, CLI commands, or session setup. Safe to add to CI — no API key needed, runs in ~2 seconds.
+
+**What breaks the cache:** Anthropic's prompt caching keys on the exact prefix of the system prompt. If any block changes content, order, or even whitespace, the cache invalidates. These evals catch that drift.
+
+### 2. Agent Evals (real LLM calls)
+
+**Config:** `promptfooconfig.yaml` (project root)
+**Provider:** `eval/seroProvider.ts`
+**Scenarios:** 10 tests across 3 files:
+
+| File | Tests | What it covers |
+|------|-------|----------------|
+| `file-ops.yaml` | 3 | File create, read, edit via agent tools |
+| `coding-tasks.yaml` | 3 | React component generation, null-safety fixes, utility functions |
+| `cli-ops.yaml` | 4 | Agent uses `sero-cli` for todos, workspace info, batch commands, VCS |
+
+**When to run:** Before releases, after SDK upgrades, or when changing agent behavior. Requires `ANTHROPIC_API_KEY` and costs real API tokens.
+
+## File Layout
+
+```
+eval/
+├── seroProvider.ts              # Agent provider (real LLM calls)
+├── snapshotProvider.ts          # Snapshot provider (no LLM calls)
+├── setup.ts                     # Temp directory helpers
+├── patch-drizzle.cjs            # Workaround for drizzle-orm async tx bug
+├── run.sh                       # Convenience runner
+├── promptfoo-snapshot.yaml      # Snapshot eval config
+├── scenarios/
+│   ├── file-ops.yaml            # File operation scenarios
+│   ├── coding-tasks.yaml        # Code generation scenarios
+│   ├── cli-ops.yaml             # CLI tool usage scenarios
+│   └── prompt-stability.yaml    # Prompt caching stability scenarios
+├── assertions/
+│   └── toolSequence.ts          # Reusable tool-sequence assertion
+└── helpers/
+    └── sessionSnapshot.ts       # Session capture + diff utilities
+promptfooconfig.yaml             # Main agent eval config (project root)
+```
+
+## Maintaining Evals
+
+### After an SDK Upgrade
+
+1. Run `pnpm eval:snapshot` — if the SDK base prompt changed, tests will fail
+2. Verify the change is intentional
+3. Run the snapshot eval again to get the new total prompt size
+4. Update the `BASELINE` value in `eval/scenarios/prompt-stability.yaml`
+5. Commit the updated baseline alongside the SDK version bump
+
+### After Changing Sero Prompts
+
+Any edit to these files can break prompt caching:
+
+- `electron/cli/index.ts` — `buildCliPromptBlock()` (CLI command listings)
+- `electron/features/container/tools/system-prompt.ts` — `buildContainerPromptBlock()`
+- `electron/features/subagent/extensions/prompt.ts` — `buildSubagentPromptBlock()`
+- `electron/features/apps/extensions/create-sero-extension.ts` — prompt assembly order
+
+After editing:
+1. Run `pnpm eval:snapshot`
+2. If the growth test fails, update `BASELINE` in `prompt-stability.yaml`
+3. If the ordering test fails, you've changed the assembly order — make sure this is intentional
+
+### After `pnpm install`
+
+The drizzle-orm patch must be re-applied after installing dependencies:
+
+```bash
+node eval/patch-drizzle.cjs
+```
+
+Both `pnpm eval` and `./eval/run.sh` do this automatically, but if you run `npx promptfoo eval` directly you'll need to apply it first.
+
+## Writing New Scenarios
+
+### Adding an Agent Scenario
+
+Create or edit a YAML file in `eval/scenarios/`. Each scenario has a prompt, optional vars, and assertions:
+
+```yaml
+- description: "Agent creates a React hook"
+  vars:
+    scenario_prompt: "Create a custom React hook called useDebounce that debounces a value"
+  assert:
+    # Simple output check
+    - type: contains
+      value: "useDebounce"
+    # Check tool usage via metadata
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const tools = meta.toolCalls || [];
+        const usedWrite = tools.some(t => t.name === 'write');
+        return {
+          pass: usedWrite,
+          score: usedWrite ? 1.0 : 0.0,
+          reason: usedWrite
+            ? 'Agent used write tool to create the file'
+            : `Agent tools: [${tools.map(t => t.name).join(', ')}]`
+        };
+```
+
+Then add the file to `promptfooconfig.yaml`:
+
+```yaml
+tests:
+  - file://./eval/scenarios/file-ops.yaml
+  - file://./eval/scenarios/your-new-file.yaml  # add here
+```
+
+### Adding a Snapshot Scenario
+
+Add a test to `eval/scenarios/prompt-stability.yaml`:
+
+```yaml
+- description: "CLI block lists the memory command"
+  vars:
+    scenario_prompt: "snapshot"
+  assert:
+    - type: javascript
+      value: |
+        const m = context.providerResponse?.metadata ?? {};
+        const cli = m.cliBlock || '';
+        const has = cli.includes('memory');
+        return {
+          pass: has,
+          score: has ? 1.0 : 0.0,
+          reason: has ? 'memory command found in CLI block' : 'memory command missing from CLI block'
+        };
+```
+
+### Key Patterns
+
+**Accessing metadata in assertions:** Always use `context.providerResponse?.metadata`, not `output.metadata`. The `output` variable is a string.
+
+**Available metadata from the agent provider (`seroProvider`):**
+- `toolCalls` — array of `{ name, args }` for every tool the agent called
+- `toolCallCount` — number of tool calls
+- `latencyMs` — wall-clock time for the agent run
+- `snapshot.systemPrompt` — the system prompt text
+- `snapshot.toolNames` — list of available tool names
+
+**Available metadata from the snapshot provider:**
+- `systemPrompt` — full assembled Sero prompt
+- `sdkBasePrompt`, `cliBlock`, `containerBlock`, `subagentBlock` — individual blocks
+- `systemPromptLength`, `cliBlockLength`, etc. — char counts
+- `systemPromptHash` — SHA-256 of the full prompt
+
+**Reusable tool-sequence assertion** (`eval/assertions/toolSequence.ts`):
+```yaml
+- type: javascript
+  value: file://./eval/assertions/toolSequence.ts
+  config:
+    required: ["write", "read"]
+    forbidden: ["bash"]
+    # orderedSubset: ["read", "edit"]  # optional: checks order
+```
+
+**File-based assertion signature:** When using `value: file://...`, promptfoo calls `(output: string, context: { providerResponse, vars, ... })` — NOT a single input object. Always destructure `context.providerResponse?.metadata` for metadata access.
+
+**sero-cli tool args shape:** The sero-cli tool takes `{ command: string, timeout?: number }`. When checking tool call args in assertions, use `t.args?.command` to access the command string.
+
+## Viewing Results
+
+```bash
+pnpm eval:view
+```
+
+Opens a local web UI showing pass/fail history, score trends, and detailed output for each scenario. Results are stored in promptfoo's local database (`~/.promptfoo/`).
+
+## Comparing Models
+
+Uncomment the second provider in `promptfooconfig.yaml` to run scenarios against multiple models side-by-side. The `model` config is passed to `session.setModel()` in `seroProvider.ts`:
+
+```yaml
+providers:
+  - id: file://./eval/seroProvider.ts
+    label: "Sero (Sonnet)"
+  - id: file://./eval/seroProvider.ts
+    label: "Sero (Haiku)"
+    config:
+      model: claude-haiku-4-5-20251001
+      timeout: 60000
+```
+
+Promptfoo runs each scenario against every listed provider and displays results side-by-side in the web viewer (`pnpm eval:view`).
+
+## Troubleshooting
+
+**`FOREIGN KEY constraint failed` from promptfoo** — The drizzle-orm patch needs re-applying. Run `node eval/patch-drizzle.cjs` or use `pnpm eval` which applies it automatically.
+
+**`Cannot find module` errors in snapshot provider** — Dynamic imports require `.ts` extensions. If adding a new import, use the full path: `path.join(SERO_ROOT, 'apps/desktop/electron/.../file.ts')`.
+
+**Snapshot tests fail after `pnpm install`** — Re-apply the drizzle patch: `node eval/patch-drizzle.cjs`.
+
+**Agent evals hang or timeout** — Increase `timeout` in the provider config (default 120s). Some complex coding tasks need more time.
+
+**`No "exports" main defined`** — The pi-coding-agent SDK is ESM-only. The providers use `await import()` to handle this. Don't change to static imports.

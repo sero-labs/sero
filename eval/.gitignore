@@ -1,0 +1,4 @@
+# Promptfoo output
+*.json
+!package.json
+output/
