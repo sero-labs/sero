@@ -1,0 +1,23 @@
+{
+  "name": "@sero-ai/plugin-alibaba",
+  "version": "0.1.0",
+  "description": "Alibaba Cloud (DashScope) LLM provider for Sero — Qwen models via OpenAI-compatible API",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p extension/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "catalog:peer"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

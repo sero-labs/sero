@@ -21,6 +21,7 @@ export const API_KEY_PROVIDERS: NamedProvider[] = [
   { id: 'zai', name: 'ZAI' },
   { id: 'opencode', name: 'OpenCode' },
   { id: 'kimi-coding', name: 'Kimi' },
+  { id: 'alibaba-cloud', name: 'Alibaba Cloud' },
 ];
 
 export function getOAuthProviderCatalog(): NamedProvider[] {

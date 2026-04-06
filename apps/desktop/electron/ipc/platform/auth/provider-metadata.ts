@@ -28,6 +28,7 @@ const PROVIDER_NAMES: Record<string, string> = {
   'kimi-coding': 'Kimi',
   minimax: 'MiniMax',
   'minimax-cn': 'MiniMax CN',
+  'alibaba-cloud': 'Alibaba Cloud',
 };
 
 const PROVIDER_LOGO_MAP: Record<string, string> = {
@@ -40,6 +41,7 @@ const PROVIDER_LOGO_MAP: Record<string, string> = {
   'github-copilot': 'github-copilot',
   'vercel-ai-gateway': 'vercel',
   'kimi-coding': 'openai',
+  'alibaba-cloud': 'alibaba-cloud',
 };
 
 export function providerLogo(provider: string): string {
