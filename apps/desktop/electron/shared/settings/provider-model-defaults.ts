@@ -34,9 +34,9 @@ const BUILTIN_PROVIDER_MODEL_DEFAULTS: ProviderModelDefaults = {
     HIGH: 'claude-sonnet-4-6',
   },
   'alibaba-cloud': {
-    LOW: 'qwen-coder-turbo-latest',
-    MED: 'qwen-coder-plus-latest',
-    HIGH: 'qwen-max-latest',
+    LOW: 'qwen3-coder-plus',
+    MED: 'qwen3-coder-plus',
+    HIGH: 'qwen3.5-plus',
   },
 };
 
