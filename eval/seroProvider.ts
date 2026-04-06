@@ -1,11 +1,12 @@
 /**
  * Custom Promptfoo provider that wraps pi-coding-agent's SDK.
  *
- * Creates a headless agent session (no Electron, no containers) and sends
- * the eval prompt through the same code path Sero's desktop app uses.
+ * Creates a headless agent session for evals, with:
+ * - standard coding tools (read/bash/edit/write)
+ * - a minimal eval-only `sero-cli` tool for Sero platform actions
+ * - runtime API-key overrides so env vars beat stale OAuth state
  *
- * Uses dynamic import() because the SDK is ESM-only and promptfoo's tsx
- * loader resolves via CJS by default.
+ * Uses dynamic import() for the SDK because it is ESM-only.
  *
  * SDK event shapes (from agent-subscription.ts):
  *   message_update       → { assistantMessageEvent: { type: 'text_delta', delta } }
@@ -13,8 +14,14 @@
  *   tool_execution_end   → { toolCallId, result, isError }
  */
 import type { ApiProvider, ProviderResponse } from 'promptfoo';
-import { setupTempDir, teardownTempDir } from './setup';
 import { captureSessionSnapshot } from './helpers/sessionSnapshot';
+import {
+  createEvalPromptExtensionFactory,
+  createEvalSeroCliTool,
+  seedEvalWorkspace,
+  stripExtensionTools,
+} from './evalCli';
+import { setupTempDir, teardownTempDir } from './setup';
 
 const DEFAULT_AGENT_DIR =
   process.env.SERO_AGENT_DIR ?? `${process.env.HOME}/.sero-ui/agent`;
@@ -33,6 +40,74 @@ interface ToolCall {
   args: unknown;
 }
 
+const RUNTIME_API_KEY_ENV_VARS: Record<string, string[]> = {
+  anthropic: ['ANTHROPIC_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
+  openai: ['OPENAI_API_KEY'],
+  google: ['GEMINI_API_KEY'],
+  openrouter: ['OPENROUTER_API_KEY'],
+  xai: ['XAI_API_KEY'],
+  groq: ['GROQ_API_KEY'],
+  cerebras: ['CEREBRAS_API_KEY'],
+  mistral: ['MISTRAL_API_KEY'],
+  'azure-openai-responses': ['AZURE_OPENAI_API_KEY'],
+  huggingface: ['HF_TOKEN'],
+  'vercel-ai-gateway': ['AI_GATEWAY_API_KEY'],
+  zai: ['ZAI_API_KEY'],
+  opencode: ['OPENCODE_API_KEY'],
+  'opencode-go': ['OPENCODE_API_KEY'],
+  'kimi-coding': ['KIMI_API_KEY'],
+  minimax: ['MINIMAX_API_KEY'],
+  'minimax-cn': ['MINIMAX_CN_API_KEY'],
+};
+
+function getRuntimeEnvApiKey(providerId: string): string | undefined {
+  const envVars = RUNTIME_API_KEY_ENV_VARS[providerId] ?? [];
+  for (const envVar of envVars) {
+    const value = process.env[envVar]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function applyRuntimeApiKeyOverrides(authStorage: any): string[] {
+  const applied: string[] = [];
+  for (const providerId of Object.keys(RUNTIME_API_KEY_ENV_VARS)) {
+    const apiKey = getRuntimeEnvApiKey(providerId);
+    if (!apiKey) continue;
+    authStorage.setRuntimeApiKey(providerId, apiKey);
+    applied.push(providerId);
+  }
+  return applied;
+}
+
+function buildAuthDiagnostics(
+  authStorage: any,
+  providerId: string | undefined,
+  runtimeOverrideProviders: string[],
+): string | undefined {
+  if (!providerId) return undefined;
+
+  const cred = authStorage.get(providerId);
+  const errors = authStorage
+    .drainErrors()
+    .map((error: unknown) => (error instanceof Error ? error.message : String(error)));
+
+  const parts = [
+    `provider=${providerId}`,
+    `runtimeOverride=${runtimeOverrideProviders.includes(providerId)}`,
+    `authJsonType=${cred?.type ?? 'none'}`,
+  ];
+
+  if (cred?.type === 'oauth' && typeof cred.expires === 'number') {
+    parts.push(`oauthExpires=${new Date(cred.expires).toISOString()}`);
+  }
+  if (errors.length > 0) {
+    parts.push(`authErrors=${errors.join(' | ')}`);
+  }
+
+  return parts.join(', ');
+}
+
 // Lazy-loaded SDK modules (ESM-only)
 let _sdk: {
   createAgentSession: any;
@@ -41,6 +116,7 @@ let _sdk: {
   AuthStorage: any;
   ModelRegistry: any;
   SettingsManager: any;
+  createCodingTools: any;
 } | null = null;
 
 async function loadSdk() {
@@ -53,6 +129,7 @@ async function loadSdk() {
     AuthStorage: mod.AuthStorage,
     ModelRegistry: mod.ModelRegistry,
     SettingsManager: mod.SettingsManager,
+    createCodingTools: mod.createCodingTools,
   };
   return _sdk;
 }
@@ -76,45 +153,51 @@ export default class SeroProvider implements ApiProvider {
     const tmpDir = await setupTempDir();
     const start = Date.now();
 
+    let authStorage: any = null;
+    let runtimeOverrideProviders: string[] = [];
+    let activeModel: { provider?: string; id?: string } | undefined;
+
     try {
+      await seedEvalWorkspace(tmpDir);
+
       const sdk = await loadSdk();
 
-      // Initialise SDK infra — mirrors shared-infra.ts but headless
-      const authStorage = sdk.AuthStorage.create(`${agentDir}/auth.json`);
+      authStorage = sdk.AuthStorage.create(`${agentDir}/auth.json`);
+      runtimeOverrideProviders = applyRuntimeApiKeyOverrides(authStorage);
+
       const modelRegistry = new sdk.ModelRegistry(
         authStorage,
         `${agentDir}/models.json`,
       );
       const settingsManager = sdk.SettingsManager.create(agentDir, agentDir);
-
       const loader = new sdk.DefaultResourceLoader({
         cwd: tmpDir,
         agentDir,
         settingsManager,
+        extensionFactories: [createEvalPromptExtensionFactory()],
+        extensionsOverride: stripExtensionTools,
       });
       await loader.reload();
 
-      const { session } = await sdk.createAgentSession({
+      const created = await sdk.createAgentSession({
         cwd: tmpDir,
         agentDir,
         authStorage,
         modelRegistry,
-        tools: [],
-        customTools: [],
+        tools: sdk.createCodingTools(tmpDir),
+        customTools: [createEvalSeroCliTool(tmpDir)],
         resourceLoader: loader,
         sessionManager: sdk.SessionManager.inMemory(),
         settingsManager,
       });
+      const session = created.session;
 
-      // Apply model override if configured
       if (this.config.model) {
         await session.setModel(this.config.model);
       }
+      activeModel = session.model;
 
-      // Capture initial session state for prompt-caching assertions
       const snapshot = captureSessionSnapshot(session);
-
-      // Collect events during the agent run
       const toolCalls: ToolCall[] = [];
       let fullText = '';
 
@@ -160,11 +243,21 @@ export default class SeroProvider implements ApiProvider {
           toolCalls,
           toolCallCount: toolCalls.length,
           snapshot,
+          runtimeOverrideProviders,
+          model: activeModel,
         },
       };
     } catch (err: any) {
+      const authDiagnostics = authStorage
+        ? buildAuthDiagnostics(
+            authStorage,
+            activeModel?.provider,
+            runtimeOverrideProviders,
+          )
+        : undefined;
+      const details = authDiagnostics ? ` [${authDiagnostics}]` : '';
       return {
-        error: `Agent error: ${err.message}`,
+        error: `Agent error: ${err.message}${details}`,
       };
     } finally {
       await teardownTempDir(tmpDir);

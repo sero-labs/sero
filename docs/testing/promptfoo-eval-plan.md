@@ -1,7 +1,9 @@
 # Promptfoo Eval Integration Plan
 
-**Status:** Proposed
+**Status:** Implemented (historical design notes)
 **Date:** 2026-04-06
+
+> This document is the original implementation plan. For the current workflow and runtime behavior, use [`docs/testing/eval-guide.md`](./eval-guide.md). The shipped eval harness now runs Promptfoo through `node scripts/run-promptfoo.mjs ...`, applies runtime API-key overrides, and uses `eval/evalCli.ts` for the eval-only `sero-cli` shim.
 
 ## Goal
 
