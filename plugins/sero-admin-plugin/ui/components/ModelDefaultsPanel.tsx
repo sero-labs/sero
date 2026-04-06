@@ -76,18 +76,26 @@ export function ModelDefaultsPanel() {
 
   // ── Provider health mapping ───────────────────────────────
 
+  // Provider IDs in defaults (e.g. 'openai') may differ from models.list()
+  // (e.g. 'openai-codex') and auth (e.g. 'openai-codex'). Use prefix matching:
+  // 'openai' matches 'openai-codex', 'google' matches 'google-gemini-cli'.
+  const matchesProvider = useCallback((groupId: string, defaultsId: string): boolean => {
+    return groupId === defaultsId || groupId.startsWith(defaultsId + '-');
+  }, []);
+
   const getProviderHealth = useCallback((providerId: string): ProviderHealth => {
-    // If models.list() returned models for this provider, it's usable —
-    // the main process already filters to authenticated providers.
+    // If models.list() returned models for this provider (prefix match), it's usable
     const hasModels = modelGroups.some(
-      (g) => g.provider === providerId && g.models.length > 0,
+      (g) => matchesProvider(g.provider, providerId) && g.models.length > 0,
     );
     if (hasModels) return { status: 'healthy', canReconnect: false };
 
     if (!authProviders) return { status: 'unknown', canReconnect: false };
 
-    // Check OAuth providers (IDs may differ from defaults, e.g. openai-codex vs openai)
-    const oauth = authProviders.oauth.find((p) => p.id === providerId);
+    // Check OAuth providers with prefix match
+    const oauth = authProviders.oauth.find(
+      (p) => p.id === providerId || p.id.startsWith(providerId + '-'),
+    );
     if (oauth) {
       if (oauth.isLoggedIn) return { status: 'healthy', canReconnect: false };
       return {
@@ -109,14 +117,16 @@ export function ModelDefaultsPanel() {
     }
 
     return { status: 'missing', message: 'No API key configured', canReconnect: false };
-  }, [authProviders, modelGroups]);
+  }, [authProviders, modelGroups, matchesProvider]);
 
   // ── Provider display name ─────────────────────────────────
 
   const getDisplayName = useCallback((providerId: string): string => {
-    const group = modelGroups.find((g) => g.provider === providerId);
+    const group = modelGroups.find((g) => matchesProvider(g.provider, providerId));
     if (group) return group.displayName;
-    const oauth = authProviders?.oauth.find((p) => p.id === providerId);
+    const oauth = authProviders?.oauth.find(
+      (p) => p.id === providerId || p.id.startsWith(providerId + '-'),
+    );
     if (oauth) return oauth.name;
     const apiKey = authProviders?.apiKey.find((p) => p.id === providerId);
     if (apiKey) return apiKey.name;

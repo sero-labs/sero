@@ -42,7 +42,9 @@ export function TierModelPicker({
 
   const groups = useMemo(() => {
     let filtered = providerFilter
-      ? modelGroups.filter((g) => g.provider === providerFilter)
+      ? modelGroups.filter((g) =>
+          g.provider === providerFilter || g.provider.startsWith(providerFilter + '-'),
+        )
       : modelGroups;
 
     if (filter) {
