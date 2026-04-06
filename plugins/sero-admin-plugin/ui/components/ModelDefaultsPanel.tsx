@@ -66,12 +66,17 @@ export function ModelDefaultsPanel() {
   // ── Provider list ─────────────────────────────────────────
 
   const providerIds = useMemo(() => {
-    const ids = new Set<string>([
+    const raw = new Set<string>([
       ...Object.keys(state?.builtInDefaults ?? {}),
       ...Object.keys(state?.globalDefaults ?? {}),
       ...Object.keys(state?.effectiveDefaults ?? {}),
     ]);
-    return [...ids].sort((a, b) => a.localeCompare(b));
+    // Deduplicate: if both 'openai' and 'openai-codex' exist, keep only the
+    // base ID — prefix matching in health/display/tier picker handles the rest.
+    const sorted = [...raw].sort((a, b) => a.localeCompare(b));
+    return sorted.filter((id) =>
+      !sorted.some((other) => other !== id && id.startsWith(other + '-')),
+    );
   }, [state]);
 
   // ── Provider health mapping ───────────────────────────────
@@ -217,14 +222,27 @@ export function ModelDefaultsPanel() {
   const globalTierValues = useMemo(() => {
     if (!state) return { LOW: '', MED: '', HIGH: '' };
     const result: Record<TierKey, string> = { LOW: '', MED: '', HIGH: '' };
+    // All provider IDs from both user overrides and built-in defaults
+    const allIds = new Set<string>([
+      ...Object.keys(state.globalDefaults),
+      ...Object.keys(state.effectiveDefaults),
+    ]);
     for (const tier of TIERS) {
-      for (const providerId of providerIds) {
-        const val = state.effectiveDefaults[providerId]?.[tier];
+      // User's explicit overrides take priority
+      for (const pid of allIds) {
+        const val = state.globalDefaults[pid]?.[tier];
         if (val) { result[tier] = val; break; }
+      }
+      // Fall back to effective (built-in merged) if no user override
+      if (!result[tier]) {
+        for (const pid of allIds) {
+          const val = state.effectiveDefaults[pid]?.[tier];
+          if (val) { result[tier] = val; break; }
+        }
       }
     }
     return result;
-  }, [state, providerIds]);
+  }, [state]);
 
   // ── Loading ───────────────────────────────────────────────
 
