@@ -123,15 +123,6 @@ export function ModelDefaultsPanel() {
     return providerId;
   }, [modelGroups, authProviders]);
 
-  // ── Filter model groups to only healthy providers ──────────
-
-  const healthyModelGroups = useMemo(() => {
-    return modelGroups.filter((group) => {
-      const health = getProviderHealth(group.provider);
-      return health.status === 'healthy';
-    });
-  }, [modelGroups, getProviderHealth]);
-
   // ── Save with feedback ────────────────────────────────────
 
   const saveDefaults = useCallback(async (nextDefaults: ProviderModelDefaults) => {
@@ -155,7 +146,7 @@ export function ModelDefaultsPanel() {
     if (!state) return;
     // Find which provider this model belongs to
     let targetProvider: string | null = null;
-    for (const group of healthyModelGroups) {
+    for (const group of modelGroups) {
       if (group.models.some((m) => m.modelId === modelId)) {
         targetProvider = group.provider;
         break;
@@ -166,7 +157,7 @@ export function ModelDefaultsPanel() {
     if (!next[targetProvider]) next[targetProvider] = {};
     next[targetProvider] = { ...next[targetProvider], [tier]: modelId };
     void saveDefaults(next);
-  }, [state, healthyModelGroups, saveDefaults]);
+  }, [state, modelGroups, saveDefaults]);
 
   // ── Per-provider tier change ──────────────────────────────
 
@@ -275,7 +266,7 @@ export function ModelDefaultsPanel() {
                     value={globalTierValues[tier]}
                     providerFilter={null}
                     placeholder={globalTierValues[tier] || 'Select model'}
-                    modelGroups={healthyModelGroups}
+                    modelGroups={modelGroups}
                     onSelect={(modelId) => handleGlobalTierChange(tier, modelId)}
                   />
                 </div>
@@ -308,7 +299,7 @@ export function ModelDefaultsPanel() {
                       canReconnect={health.canReconnect}
                       overrides={state?.globalDefaults[providerId] ?? {}}
                       builtInDefaults={state?.builtInDefaults[providerId] ?? {}}
-                      modelGroups={healthyModelGroups}
+                      modelGroups={modelGroups}
                       onTierChange={handleProviderTierChange}
                       onReset={handleResetProvider}
                       onReconnect={handleReconnect}
