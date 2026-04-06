@@ -59,14 +59,14 @@ export const PluginsPanel = memo(function PluginsPanel() {
           </div>
           <Badge
             variant="outline"
-            className="border-indigo-500/20 bg-indigo-500/5 text-[10px] text-indigo-400"
+            className="border-primary/20 bg-primary/5 text-[10px] text-primary"
           >
             {installedCountLabel}
           </Badge>
         </div>
       </div>
 
-      <div className="border-b border-border/20 bg-[linear-gradient(135deg,rgba(99,102,241,0.08),transparent_55%,rgba(16,185,129,0.05))] px-4 py-4">
+      <div className="border-b border-border/20 bg-[linear-gradient(135deg,hsl(var(--primary)/0.08),transparent_55%,hsl(var(--primary)/0.03))] px-4 py-4">
         <div className="flex flex-col gap-3">
           <div className="space-y-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/55">
@@ -88,7 +88,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
             <Button
               onClick={handleInstall}
               disabled={installing || !installSource.trim()}
-              className="h-9 min-w-28 bg-indigo-600 text-xs font-medium hover:bg-indigo-500"
+              className="h-9 min-w-28 bg-primary text-xs font-medium hover:bg-primary/90"
             >
               {installing ? 'Installing…' : 'Install Plugin'}
             </Button>
@@ -102,7 +102,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
                 onClick={() => setInstallSource(example.value)}
                 className={cn(
                   'rounded-full border px-2.5 py-1 text-[10px] transition-colors',
-                  'border-border/50 bg-background/70 text-muted-foreground hover:border-indigo-400/30 hover:text-indigo-300',
+                  'border-border/50 bg-background/70 text-muted-foreground hover:border-primary/30 hover:text-primary',
                 )}
               >
                 {example.label}: <span className="font-mono">{example.value}</span>
@@ -155,18 +155,18 @@ function PluginCard({
   onUninstall: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-border/50 bg-card/60 p-4 shadow-[0_20px_60px_-42px_rgba(0,0,0,0.7)] backdrop-blur-sm transition-colors hover:border-indigo-400/25">
+    <div className="rounded-2xl border border-border/50 bg-card/60 p-4 shadow-[0_20px_60px_-42px_rgba(0,0,0,0.7)] backdrop-blur-sm transition-colors hover:border-primary/25">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/12 text-[10px] font-semibold uppercase tracking-wider text-indigo-300">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/12 text-[10px] font-semibold uppercase tracking-wider text-primary">
               {plugin.name.slice(0, 2)}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="truncate text-sm font-semibold text-foreground/90">{plugin.name}</h3>
                 {plugin.hasUI ? (
-                  <Badge variant="outline" className="h-5 border-emerald-500/20 bg-emerald-500/5 px-1.5 text-[9px] text-emerald-400">
+                  <Badge variant="outline" className="h-5 border-primary/20 bg-primary/5 px-1.5 text-[9px] text-primary">
                     UI
                   </Badge>
                 ) : (
@@ -180,7 +180,7 @@ function PluginCard({
           </div>
         </div>
 
-        <Badge variant="outline" className="border-indigo-500/20 bg-indigo-500/6 text-[9px] uppercase tracking-wide text-indigo-300">
+        <Badge variant="outline" className="border-primary/20 bg-primary/6 text-[9px] uppercase tracking-wide text-primary">
           {plugin.category}
         </Badge>
       </div>
@@ -239,7 +239,7 @@ function PluginCard({
 function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
         <svg
           width="22"
           height="22"
@@ -249,7 +249,7 @@ function EmptyState() {
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="text-indigo-400/65"
+          className="text-primary/65"
         >
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
           <path d="M12 22V12" />

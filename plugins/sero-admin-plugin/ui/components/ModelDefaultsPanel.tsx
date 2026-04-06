@@ -172,7 +172,7 @@ export function ModelDefaultsPanel() {
           <p className="mt-2 text-[11px] text-destructive">{error}</p>
         ) : null}
         {notice ? (
-          <p className="mt-2 text-[11px] text-emerald-400">{notice}</p>
+          <p className="mt-2 text-[11px] text-primary">{notice}</p>
         ) : null}
       </div>
 
