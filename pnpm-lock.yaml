@@ -595,7 +595,7 @@ importers:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: catalog:peer
-        version: 0.61.1
+        version: 0.61.1(ws@8.19.0)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -12434,38 +12434,6 @@ snapshots:
       '@mariozechner/jiti': 2.6.5
       '@mariozechner/pi-agent-core': 0.61.1(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-ai': 0.61.1(@modelcontextprotocol/sdk@1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-tui': 0.61.1
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.3
-      extract-zip: 2.0.1
-      file-type: 21.3.2
-      glob: 13.0.6
-      hosted-git-info: 9.0.2
-      ignore: 7.0.5
-      marked: 15.0.12
-      minimatch: 10.2.4
-      proper-lockfile: 4.1.2
-      strip-ansi: 7.2.0
-      undici: 7.24.2
-      yaml: 2.8.2
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.2
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.61.1(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.61.1(zod@4.3.6)
-      '@mariozechner/pi-ai': 0.61.1(zod@4.3.6)
       '@mariozechner/pi-tui': 0.61.1
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
