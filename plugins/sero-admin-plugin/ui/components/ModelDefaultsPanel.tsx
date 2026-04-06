@@ -77,8 +77,16 @@ export function ModelDefaultsPanel() {
   // ── Provider health mapping ───────────────────────────────
 
   const getProviderHealth = useCallback((providerId: string): ProviderHealth => {
+    // If models.list() returned models for this provider, it's usable —
+    // the main process already filters to authenticated providers.
+    const hasModels = modelGroups.some(
+      (g) => g.provider === providerId && g.models.length > 0,
+    );
+    if (hasModels) return { status: 'healthy', canReconnect: false };
+
     if (!authProviders) return { status: 'unknown', canReconnect: false };
 
+    // Check OAuth providers (IDs may differ from defaults, e.g. openai-codex vs openai)
     const oauth = authProviders.oauth.find((p) => p.id === providerId);
     if (oauth) {
       if (oauth.isLoggedIn) return { status: 'healthy', canReconnect: false };
@@ -89,6 +97,7 @@ export function ModelDefaultsPanel() {
       };
     }
 
+    // Check API key providers
     const apiKey = authProviders.apiKey.find((p) => p.id === providerId);
     if (apiKey) {
       if (apiKey.hasKey) return { status: 'healthy', canReconnect: false };
@@ -99,8 +108,8 @@ export function ModelDefaultsPanel() {
       };
     }
 
-    return { status: 'unknown', canReconnect: false };
-  }, [authProviders]);
+    return { status: 'missing', message: 'No API key configured', canReconnect: false };
+  }, [authProviders, modelGroups]);
 
   // ── Provider display name ─────────────────────────────────
 
