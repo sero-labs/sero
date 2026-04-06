@@ -116,13 +116,11 @@ export function AuthLoginDialog({
           setPromptPlaceholder(event.placeholder ?? '');
           setInputValue('');
           setPhase('prompt');
-          setTimeout(() => inputRef.current?.focus(), 50);
           break;
         case 'manual_input':
           setPromptMessage(event.prompt);
           setInputValue('');
           setPhase('manual_input');
-          setTimeout(() => inputRef.current?.focus(), 50);
           break;
         case 'waiting':
           setStatusMessage(event.message);
@@ -149,6 +147,13 @@ export function AuthLoginDialog({
 
     return unsub;
   }, [open, loadProviders, onComplete]);
+
+  // ── Focus input when a phase requires text entry ────────────
+  useEffect(() => {
+    if (phase === 'prompt' || phase === 'manual_input' || phase === 'api_key_entry') {
+      inputRef.current?.focus();
+    }
+  }, [phase]);
 
   // ── Cancel on close ─────────────────────────────────────────
   const handleOpenChange = useCallback(
@@ -208,7 +213,6 @@ export function AuthLoginDialog({
     setSelectedProviderName(providerName);
     setInputValue('');
     setPhase('api_key_entry');
-    setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
   const handleApiKeySave = useCallback(async () => {

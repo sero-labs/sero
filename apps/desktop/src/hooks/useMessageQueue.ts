@@ -56,19 +56,26 @@ export function useMessageQueue({
 
   // Auto-send the next queued message when streaming stops.
   useEffect(() => {
-    if (prevStreamingRef.current && !isStreaming && sessionId) {
-      // Streaming just stopped — send next queued message
-      setQueue((prev) => {
-        if (prev.length === 0) return prev;
-        const [next, ...rest] = prev;
-        // Schedule the send asynchronously to avoid state update conflicts
-        setTimeout(() => {
-          sendPrompt(sessionId, next.text, next.attachments);
-        }, 100);
-        return rest;
-      });
+    if (!prevStreamingRef.current || isStreaming || !sessionId) {
+      prevStreamingRef.current = isStreaming;
+      return;
     }
     prevStreamingRef.current = isStreaming;
+
+    // Streaming just stopped — dequeue and send the next message.
+    // Capture the message inside the functional updater, then send it after
+    // the state update is committed (avoids calling sendPrompt inside a
+    // setState call, which could conflict with React's batching).
+    let nextMessage: QueuedMessage | undefined;
+    setQueue((prev) => {
+      if (prev.length === 0) return prev;
+      const [next, ...rest] = prev;
+      nextMessage = next;
+      return rest;
+    });
+    if (nextMessage) {
+      sendPrompt(sessionId, nextMessage.text, nextMessage.attachments);
+    }
   }, [isStreaming, sessionId, sendPrompt]);
 
   return {

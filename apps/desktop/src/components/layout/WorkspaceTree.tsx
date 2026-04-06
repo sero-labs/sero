@@ -231,18 +231,18 @@ function WorkspaceNode({
     setActiveWorkspace(workspace.id);
   };
 
-  const handleNewSession = async (e: React.MouseEvent) => {
+  const handleNewSession = async (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
     await createSession(workspace.id);
     setActiveWorkspace(workspace.id);
   };
 
-  const handleToggleContainer = async (e: React.MouseEvent) => {
+  const handleToggleContainer = async (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
     await toggleContainer(workspace.id);
   };
 
-  const handleClose = (e: React.MouseEvent) => {
+  const handleClose = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
     closeWorkspace(workspace.id);
   };
@@ -330,7 +330,7 @@ function WorkspaceNode({
                   role="button"
                   tabIndex={-1}
                   onClick={handleNewSession}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleNewSession(e as unknown as React.MouseEvent); } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { handleNewSession(e); } }}
                   className="rounded p-0.5 hover:bg-[var(--bg-base)]"
                   title="New session"
                 >
@@ -340,7 +340,7 @@ function WorkspaceNode({
                   role="button"
                   tabIndex={-1}
                   onClick={handleToggleContainer}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleToggleContainer(e as unknown as React.MouseEvent); } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { handleToggleContainer(e); } }}
                   className="rounded p-0.5 hover:bg-[var(--bg-base)]"
                   title={workspace.container ? 'Disable container (use host)' : 'Enable container'}
                 >
@@ -368,7 +368,7 @@ function WorkspaceNode({
                     role="button"
                     tabIndex={-1}
                     onClick={handleClose}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleClose(e as unknown as React.MouseEvent); } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { handleClose(e); } }}
                     className="rounded p-0.5 hover:bg-[var(--bg-base)]"
                     title="Close workspace"
                   >

@@ -208,12 +208,12 @@ export function convertDiagnostics(diagnostics: LspDiagnostic[]): editor.IMarker
 
 function convertDocumentation(
   doc: LspCompletionItem['documentation'],
-): string | languages.CompletionItem['documentation'] {
-  if (!doc) return undefined as unknown as string;
+): string | languages.CompletionItem['documentation'] | undefined {
+  if (!doc) return undefined;
   if (typeof doc === 'string') return doc;
   if ('kind' in doc && doc.kind === 'markdown') return { value: doc.value };
   if ('value' in doc) return doc.value;
-  return undefined as unknown as string;
+  return undefined;
 }
 
 // ── Language helpers ───────────────────────────────────────────

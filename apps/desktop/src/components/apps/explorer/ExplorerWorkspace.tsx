@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
+import { usePanelOpenSync } from './usePanelOpenSync';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import {
   ResizablePanelGroup,
@@ -283,35 +284,12 @@ export function ExplorerWorkspace() {
   const explorerSidebarLastExpandedPctRef = useRef(explorerSidebarSizePct || 0);
 
   // Sync sidebar panel collapse/expand with sidebarOpen state
-  useEffect(() => {
-    let rafId: number | null = null;
-    let rafId2: number | null = null;
-    isSidebarProgrammaticRef.current = true;
-
-    if (!sidebarOpen) {
-      sidebarPanelRef.current?.collapse();
-      rafId = window.requestAnimationFrame(() => {
-        isSidebarProgrammaticRef.current = false;
-      });
-    } else {
-      rafId = window.requestAnimationFrame(() => {
-        sidebarPanelRef.current?.expand();
-        const target = explorerSidebarLastExpandedPctRef.current;
-        if (target > 0) {
-          sidebarPanelRef.current?.resize(`${target}%`);
-        }
-        rafId2 = window.requestAnimationFrame(() => {
-          isSidebarProgrammaticRef.current = false;
-        });
-      });
-    }
-
-    return () => {
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-      if (rafId2 !== null) window.cancelAnimationFrame(rafId2);
-      isSidebarProgrammaticRef.current = false;
-    };
-  }, [sidebarOpen]);
+  usePanelOpenSync(
+    sidebarPanelRef,
+    isSidebarProgrammaticRef,
+    sidebarOpen,
+    explorerSidebarLastExpandedPctRef.current || undefined,
+  );
 
   const handleSidebarResize = useCallback(
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
@@ -329,33 +307,12 @@ export function ExplorerWorkspace() {
   );
 
   // Sync terminal panel collapse/expand with terminalOpen state
-  useEffect(() => {
-    let rafId: number | null = null;
-    let rafId2: number | null = null;
-    isTerminalProgrammaticRef.current = true;
-
-    if (!terminalOpen) {
-      terminalPanelRef.current?.collapse();
-      rafId = window.requestAnimationFrame(() => {
-        isTerminalProgrammaticRef.current = false;
-      });
-    } else {
-      rafId = window.requestAnimationFrame(() => {
-        const targetPct = terminalLastExpandedPctRef.current || 30;
-        terminalPanelRef.current?.expand();
-        terminalPanelRef.current?.resize(`${targetPct}%`);
-        rafId2 = window.requestAnimationFrame(() => {
-          isTerminalProgrammaticRef.current = false;
-        });
-      });
-    }
-
-    return () => {
-      if (rafId !== null) window.cancelAnimationFrame(rafId);
-      if (rafId2 !== null) window.cancelAnimationFrame(rafId2);
-      isTerminalProgrammaticRef.current = false;
-    };
-  }, [terminalOpen]);
+  usePanelOpenSync(
+    terminalPanelRef,
+    isTerminalProgrammaticRef,
+    terminalOpen,
+    terminalLastExpandedPctRef.current || 30,
+  );
 
   const handleTerminalResize = useCallback(
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {

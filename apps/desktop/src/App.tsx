@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import { TooltipProvider } from '@sero-ai/ui/components/ui/tooltip';
 import {
@@ -64,8 +65,6 @@ export function App() {
   const chatPanelLastExpandedPctRef = useRef(30);
   const mainSidebarDefaultRef = useRef<string | number>(0);
   const chatPanelDefaultRef = useRef<string | number>(0);
-  // Debounce disk persist so we don't write on every pixel of drag.
-  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Hydrate once — refs capture persisted values on the FIRST render where
   // layoutReady=true, which is the same render that first mounts the panels
   // (because the loading guard returns early until then).
@@ -125,6 +124,16 @@ export function App() {
     return unsub;
   }, [initCollaborationListener]);
 
+  const persistMainSidebarSize = useDebouncedCallback(
+    (pct: number) => useAppStore.getState().setMainSidebarSizePct(Math.round(pct * 10) / 10),
+    300,
+  );
+
+  const persistChatPanelSize = useDebouncedCallback(
+    (pct: number) => useAppStore.getState().setChatPanelSizePct(Math.round(pct * 10) / 10),
+    300,
+  );
+
   const handleMainSidebarResize = useCallback(
     ({ inPixels, asPercentage }: { inPixels: number; asPercentage: number }) => {
       if (!layoutReady || !appsReady) return;
@@ -136,12 +145,9 @@ export function App() {
       }
 
       mainSidebarLastExpandedPctRef.current = asPercentage;
-      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-      persistTimerRef.current = setTimeout(() => {
-        useAppStore.getState().setMainSidebarSizePct(Math.round(asPercentage * 10) / 10);
-      }, 300);
+      persistMainSidebarSize(asPercentage);
     },
-    [appsReady, layoutReady, setMainSidebarOpen],
+    [appsReady, layoutReady, setMainSidebarOpen, persistMainSidebarSize],
   );
 
   const handleChatPanelResize = useCallback(
@@ -155,12 +161,9 @@ export function App() {
       }
 
       chatPanelLastExpandedPctRef.current = asPercentage;
-      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-      persistTimerRef.current = setTimeout(() => {
-        useAppStore.getState().setChatPanelSizePct(Math.round(asPercentage * 10) / 10);
-      }, 300);
+      persistChatPanelSize(asPercentage);
     },
-    [appsReady, layoutReady, setChatPanelOpen],
+    [appsReady, layoutReady, setChatPanelOpen, persistChatPanelSize],
   );
 
   // ── Panel sync effects ──────────────────────────────────────

@@ -2,19 +2,19 @@ import { create } from 'zustand';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
+import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
 
 // ── Store ──────────────────────────────────────────────────────
 
 /** Debounced save of expanded state to main process (avoids excessive disk writes). */
-let expandedSaveTimer: ReturnType<typeof setTimeout> | null = null;
-function saveExpandedDebounced(id: string, expanded: boolean) {
-  if (expandedSaveTimer) clearTimeout(expandedSaveTimer);
-  expandedSaveTimer = setTimeout(() => {
+const saveExpandedDebounced = createDebouncedFn(
+  (id: string, expanded: boolean) => {
     window.sero.workspace.setExpanded(id, expanded).catch((err) => {
       console.error('[workspace] Failed to persist expanded state:', err);
     });
-  }, 300);
-}
+  },
+  300,
+);
 
 interface WorkspaceState {
   /** All registered workspaces. Presence in this list = visible in sidebar. */

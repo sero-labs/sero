@@ -58,7 +58,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
       if (event.sessionId !== sessionId) return;
       // Update on message completion (per-message stats) and turn end
       if (event.type === 'message_end' || event.type === 'agent_end') {
-        setTimeout(fetchAll, 300);
+        void fetchAll();
       }
     });
     return unsub;
@@ -77,7 +77,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
         setActionError(result.error || 'Compaction failed');
       } else {
         setCompactInstructions('');
-        setTimeout(fetchAll, 500);
+        void fetchAll();
       }
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Compaction failed');
@@ -109,7 +109,7 @@ export function SessionBadge({ sessionId }: SessionBadgeProps) {
     setClearing(true);
     try {
       await window.sero.agent.clearSession(sessionId);
-      setTimeout(fetchAll, 300);
+      void fetchAll();
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Clear failed');
     } finally {

@@ -106,10 +106,10 @@ export function EditorPanel({
       const pending = pendingGotoRef.current;
       if (!pending || pending.path !== activeTab) return;
       pendingGotoRef.current = null;
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         const ed = editorRef.current;
         if (ed) applyGoto(ed, pending.selection);
-      }, 50);
+      });
     };
 
     if (contentMapRef.current.has(activeTab)) {
@@ -274,8 +274,10 @@ export function EditorPanel({
   }, [activeTab, onOpenTab]);
 
   // ── Go-to-definition: cross-file navigation ──
+  // Assign directly in render so the Monaco opener callback always has the
+  // latest function without needing to re-register the opener on each change.
   const handleOpenTabRef = useRef(handleOpenTab);
-  useEffect(() => { handleOpenTabRef.current = handleOpenTab; }, [handleOpenTab]);
+  handleOpenTabRef.current = handleOpenTab;
 
   useEffect(() => {
     if (!monacoInstance) return;
@@ -317,13 +319,15 @@ export function EditorPanel({
       const model = ed.getModel();
       if (!model) return;
       const vs = viewStateMapRef.current.get(model.uri.path);
-      if (vs) setTimeout(() => { ed.restoreViewState(vs); ed.focus(); }, 0);
+      // Defer until after Monaco finishes its model-change cycle and the
+      // browser has had a chance to paint the new model content.
+      if (vs) requestAnimationFrame(() => { ed.restoreViewState(vs); ed.focus(); });
     });
 
     const currentModel = ed.getModel();
     if (currentModel) {
       const vs = viewStateMapRef.current.get(currentModel.uri.path);
-      if (vs) setTimeout(() => { ed.restoreViewState(vs); ed.focus(); }, 0);
+      if (vs) requestAnimationFrame(() => { ed.restoreViewState(vs); ed.focus(); });
     }
   }, []);
 
@@ -335,12 +339,13 @@ export function EditorPanel({
 
   // Keep refs for tabs/activeTab so the file-watcher callback always sees
   // the latest values without re-subscribing on every tab change.
+  // Assigned directly in render so values are always current (no useEffect lag).
   const tabsRef = useRef(tabs);
   const activeTabRef = useRef(activeTab);
   const dirtyPathsRef = useRef(dirtyPaths);
-  useEffect(() => { tabsRef.current = tabs; }, [tabs]);
-  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
-  useEffect(() => { dirtyPathsRef.current = dirtyPaths; }, [dirtyPaths]);
+  tabsRef.current = tabs;
+  activeTabRef.current = activeTab;
+  dirtyPathsRef.current = dirtyPaths;
 
   // ── Reload open files when their directory changes on disk ──
   //
