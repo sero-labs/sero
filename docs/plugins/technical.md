@@ -2,7 +2,7 @@
 
 Internal documentation for Sero developers working on the plugin system.
 For user-facing plugin authoring instructions, see
-[plugins-guide.md](plugins-guide.md).
+[guide.md](guide.md).
 
 ## Contents
 
@@ -43,7 +43,8 @@ The architecture leverages existing infrastructure:
 - **All extensions are independent** — zero cross-package dependencies
 
 The plugin system adds: a manager for lifecycle operations, IPC bridging,
-dynamic MF registration, and manifest-driven tool bridging.
+dynamic MF registration, manifest-driven tool bridging, and optional
+plugin-defined provider metadata via `sero.providers`.
 
 ## Architecture
 
@@ -73,6 +74,7 @@ dynamic MF registration, and manifest-driven tool bridging.
 │  ext-protocol.ts   → sero-ext://<id>/...    │
 │  federation-registry.ts → MF remote load    │
 │  cli/index.ts      → tool bridging          │
+│  package-provider-manifests.ts → host UI    │
 └─────────────────────────────────────────────┘
 ```
 
@@ -135,12 +137,12 @@ must be declared in the plugin's own `dependencies` and staged alongside the
 plugin instead of relying on workspace hoisting or desktop-app-level
 dependencies.
 
-plugin declares a UI.
-
 ## Plugin Manifest
 
 Plugins declare metadata via `sero.plugin` in `package.json`, alongside the
-standard `sero.app` manifest:
+standard `sero.app` manifest. Plugins that register custom model providers can
+also declare optional `sero.providers` metadata so the Electron host can render
+provider-specific auth and model UI without hardcoded app-level logic:
 
 ```json
 {
@@ -159,7 +161,23 @@ standard `sero.app` manifest:
       "tags": ["todo", "tasks", "productivity"],
       "minSeroVersion": "0.1.0",
       "preBuilt": true
-    }
+    },
+    "providers": [
+      {
+        "id": "alibaba-coding-plan",
+        "name": "Alibaba Coding Plan",
+        "logo": "alibaba-cloud",
+        "auth": {
+          "type": "apiKey",
+          "envVar": "ALIBABA_CODING_PLAN_KEY"
+        },
+        "defaults": {
+          "LOW": "qwen3-coder-plus",
+          "MED": "qwen3-coder-plus",
+          "HIGH": "qwen3.5-plus"
+        }
+      }
+    ]
   }
 }
 ```
@@ -173,6 +191,30 @@ standard `sero.app` manifest:
 | `minSeroVersion` | `string?` | Minimum Sero version required. Used for compatibility checks. |
 | `preBuilt` | `boolean?` | Controls git/local install behavior. `true` means the package already includes a valid pre-built UI bundle; `false`/omitted means Sero rebuilds it locally during install. npm bundles are always expected to ship pre-built artifacts. |
 | `bridgeTools` | `boolean \| string[]` | Controls manifest-driven CLI bridging for plugin tools. `true`/omitted bridges all plugin tools, `false` bridges none, and `string[]` bridges only the named tools. |
+
+### `sero.providers` Fields
+
+Use this optional manifest when a plugin extension registers custom providers via
+`pi.registerProvider(...)` and wants the desktop host to discover matching
+provider metadata from the plugin package itself.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Provider ID. Must match the ID passed to `pi.registerProvider(...)`. |
+| `name` | `string?` | Display name for auth UI and model selectors. Defaults to a title-cased provider ID. |
+| `logo` | `string?` | Logo slug or absolute URL. Slugs resolve through `models.dev`. |
+| `auth.type` | `"apiKey"` | Declares API-key auth for this provider. |
+| `auth.envVar` | `string?` | Environment variable the host should check for auth. |
+| `defaults` | `{ LOW?, MED?, HIGH? }` | Optional per-tier default model IDs used by onboarding and model tier suggestions. |
+
+Notes:
+
+- `sero.providers` is host metadata only. The plugin extension still owns the
+  runtime provider registration.
+- Keep `id`, auth env var, and default model IDs aligned with the provider the
+  extension actually registers.
+- Prefer plugin-owned env var names such as `ALIBABA_CODING_PLAN_KEY` over
+  ambiguous upstream product names when exposing provider auth to users.
 
 ### Types
 
@@ -254,6 +296,23 @@ lives at `<workspace>/.sero/apps/<id>/state.json`; global state lives at
 
 Plugins are just regular app packages in location 3. No special discovery
 logic was needed — the existing infrastructure handles it.
+
+### Provider manifest discovery
+
+The desktop host also scans plugin `package.json` files for `sero.providers`.
+That metadata is consumed by shared host helpers so optional provider plugins
+can fully describe themselves without adding provider-specific conditionals to
+Electron code.
+
+Current host uses of `sero.providers` include:
+
+- API-key provider list in the auth dialog
+- provider display names and logos in model UIs
+- environment-variable lookup for plugin-defined providers
+- provider tier defaults used by onboarding / suggestions
+
+This keeps optional provider plugins self-contained: uninstalling the plugin
+removes both the extension and the host-visible provider metadata.
 
 ### `isPlugin` Flag
 
@@ -398,8 +457,15 @@ apps/desktop/
 │   │   └── security.ts         # Safe plugin ids and install paths
 │   ├── ipc/
 │   │   └── plugins.ts          # IPC handlers
-│   └── preload/
-│       └── plugins.ts          # Preload bridge
+│   ├── preload/
+│   │   └── plugins.ts          # Preload bridge
+│   └── shared/
+│       ├── auth/
+│       │   └── provider-catalog.ts         # Built-in + plugin API-key providers
+│       ├── providers/
+│       │   └── package-provider-manifests.ts # Reads sero.providers metadata
+│       └── settings/
+│           └── provider-model-defaults.ts  # Static + plugin-defined tier defaults
 ├── src/
 │   ├── types/
 │   │   ├── ipc.ts              # Re-exports plugin types

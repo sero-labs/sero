@@ -1,7 +1,7 @@
 {
   "name": "@sero-ai/plugin-alibaba",
   "version": "0.1.0",
-  "description": "Alibaba Cloud (DashScope) LLM provider for Sero — Qwen models via OpenAI-compatible API",
+  "description": "Alibaba Coding Plan provider for Sero — Qwen, GLM, Kimi, and MiniMax via OpenAI-compatible API",
   "keywords": [
     "pi-package"
   ],
@@ -11,6 +11,24 @@
   "pi": {
     "extensions": [
       "./extension/index.ts"
+    ]
+  },
+  "sero": {
+    "providers": [
+      {
+        "id": "alibaba-coding-plan",
+        "name": "Alibaba Coding Plan",
+        "logo": "alibaba-cloud",
+        "auth": {
+          "type": "apiKey",
+          "envVar": "ALIBABA_CODING_PLAN_KEY"
+        },
+        "defaults": {
+          "LOW": "qwen3-coder-plus",
+          "MED": "qwen3-coder-plus",
+          "HIGH": "qwen3.5-plus"
+        }
+      }
     ]
   },
   "peerDependencies": {

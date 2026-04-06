@@ -7,12 +7,13 @@ import type {
   ResolvedProviderDefaultsState,
 } from '../../../src/types/ipc';
 import { SERO_FIXED_ROOT } from '../../platform/env';
+import { getPackageProviderDefaults } from '../providers/package-provider-manifests';
 import { getSeroSettings } from './settings-helpers';
 
 const TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;
 const GLOBAL_PROVIDER_DEFAULTS_PATH = path.join(SERO_FIXED_ROOT, 'provider-model-defaults.json');
 
-const BUILTIN_PROVIDER_MODEL_DEFAULTS: ProviderModelDefaults = {
+const STATIC_PROVIDER_MODEL_DEFAULTS: ProviderModelDefaults = {
   openai: {
     LOW: 'gpt-4.1-mini',
     MED: 'gpt-5.4',
@@ -32,11 +33,6 @@ const BUILTIN_PROVIDER_MODEL_DEFAULTS: ProviderModelDefaults = {
     LOW: 'claude-haiku-4-5',
     MED: 'claude-sonnet-4-6',
     HIGH: 'claude-sonnet-4-6',
-  },
-  'alibaba-cloud': {
-    LOW: 'qwen3-coder-plus',
-    MED: 'qwen3-coder-plus',
-    HIGH: 'qwen3.5-plus',
   },
 };
 
@@ -65,7 +61,10 @@ function normalizeProviderDefaults(value: unknown): ProviderModelDefaults {
     if (!normalizedProviderId) continue;
     const normalizedTierDefaults = normalizeTierDefaults(tierDefaults);
     if (Object.keys(normalizedTierDefaults).length === 0) continue;
-    result[normalizedProviderId] = normalizedTierDefaults;
+    result[normalizedProviderId] = {
+      ...(result[normalizedProviderId] ?? {}),
+      ...normalizedTierDefaults,
+    };
   }
   return result;
 }
@@ -92,7 +91,8 @@ export function getGlobalProviderDefaultsPath(): string {
 }
 
 export function getBuiltInProviderModelDefaults(): ProviderModelDefaults {
-  return JSON.parse(JSON.stringify(BUILTIN_PROVIDER_MODEL_DEFAULTS)) as ProviderModelDefaults;
+  const defaults = mergeProviderDefaults(STATIC_PROVIDER_MODEL_DEFAULTS, getPackageProviderDefaults());
+  return JSON.parse(JSON.stringify(defaults)) as ProviderModelDefaults;
 }
 
 export function readGlobalProviderModelDefaults(): ProviderModelDefaults {

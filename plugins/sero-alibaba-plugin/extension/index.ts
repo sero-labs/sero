@@ -1,29 +1,76 @@
 /**
- * Alibaba Cloud Extension — registers the Alibaba Cloud (DashScope) provider.
+ * Alibaba Coding Plan Extension — registers Coding Plan models.
  *
- * Uses the OpenAI-compatible DashScope API (international endpoint).
- * Set DASHSCOPE_API_KEY in the environment, or add via Sero auth settings.
+ * Uses Alibaba Coding Plan's OpenAI-compatible endpoint.
+ * Authenticate by either:
+ *   1. Saving an API key in Sero auth settings for provider `alibaba-coding-plan`, or
+ *   2. Setting ALIBABA_CODING_PLAN_KEY in the environment.
  *
- * Provider ID: alibaba-cloud
+ * Provider ID: alibaba-coding-plan
  *
- * Coding Plan models (all brands via single DashScope API key):
+ * Coding Plan models:
  *   Qwen:    qwen3.5-plus, qwen3-max-2026-01-23, qwen3-coder-next, qwen3-coder-plus
  *   Zhipu:   glm-5, glm-4.7
  *   Kimi:    kimi-k2.5
  *   MiniMax: MiniMax-M2.5
- *
- * Full API key also unlocks legacy Qwen2.5 models listed at the bottom.
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
+const REASONING_EFFORT_MAP = {
+  minimal: 'false',
+  low: 'false',
+  medium: 'true',
+  high: 'true',
+  xhigh: 'true',
+} as const;
+
+function textCompat() {
+  return {
+    supportsDeveloperRole: false,
+    supportsReasoningEffort: false,
+    maxTokensField: 'max_tokens' as const,
+  };
+}
+
+function reasoningCompat() {
+  return {
+    supportsDeveloperRole: false,
+    supportsReasoningEffort: true,
+    reasoningEffortMap: REASONING_EFFORT_MAP,
+    maxTokensField: 'max_tokens' as const,
+    thinkingFormat: 'qwen' as const,
+  };
+}
+
 export default function (pi: ExtensionAPI) {
-  pi.registerProvider('alibaba-cloud', {
-    baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
-    apiKey: 'DASHSCOPE_API_KEY',
+  pi.registerProvider('alibaba-coding-plan', {
+    baseUrl: 'https://coding-intl.dashscope.aliyuncs.com/v1',
+    // Shell-resolved env lookup keeps the provider hidden until the user has
+    // either saved a key in auth.json or actually exported ALIBABA_CODING_PLAN_KEY.
+    apiKey: '!printenv ALIBABA_CODING_PLAN_KEY',
     api: 'openai-completions',
     models: [
-      // ── Qwen3 Coder ───────────────────────────────────────────────────
+      {
+        id: 'qwen3.5-plus',
+        name: 'Qwen3.5 Plus',
+        reasoning: true,
+        input: ['text', 'image'],
+        cost: { input: 1.5, output: 6.0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 1000000,
+        maxTokens: 65536,
+        compat: reasoningCompat(),
+      },
+      {
+        id: 'qwen3-max-2026-01-23',
+        name: 'Qwen3 Max',
+        reasoning: true,
+        input: ['text'],
+        cost: { input: 1.2, output: 6.0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 262144,
+        maxTokens: 16384,
+        compat: reasoningCompat(),
+      },
       {
         id: 'qwen3-coder-next',
         name: 'Qwen3 Coder Next',
@@ -32,11 +79,7 @@ export default function (pi: ExtensionAPI) {
         cost: { input: 3.5, output: 7.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 262144,
         maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: false,
-          maxTokensField: 'max_tokens',
-        },
+        compat: textCompat(),
       },
       {
         id: 'qwen3-coder-plus',
@@ -46,96 +89,8 @@ export default function (pi: ExtensionAPI) {
         cost: { input: 3.5, output: 7.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 262144,
         maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: false,
-          maxTokensField: 'max_tokens',
-        },
+        compat: textCompat(),
       },
-      // ── Qwen3.5 ───────────────────────────────────────────────────────
-      {
-        // Vision + Deep Thinking, 1M context
-        id: 'qwen3.5-plus',
-        name: 'Qwen3.5 Plus',
-        reasoning: true,
-        input: ['text', 'image'],
-        cost: { input: 1.5, output: 6.0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 1000000,
-        maxTokens: 65536,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: true,
-          reasoningEffortMap: {
-            minimal: 'false',
-            low: 'false',
-            medium: 'true',
-            high: 'true',
-            xhigh: 'true',
-          },
-          maxTokensField: 'max_tokens',
-          thinkingFormat: 'qwen',
-        },
-      },
-      // ── Qwen3 General ─────────────────────────────────────────────────
-      {
-        id: 'qwen3-max-2026-01-23',
-        name: 'Qwen3 Max',
-        reasoning: true,
-        input: ['text'],
-        cost: { input: 1.2, output: 6.0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 262144,
-        maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: true,
-          reasoningEffortMap: {
-            minimal: 'false',
-            low: 'false',
-            medium: 'true',
-            high: 'true',
-            xhigh: 'true',
-          },
-          maxTokensField: 'max_tokens',
-          thinkingFormat: 'qwen',
-        },
-      },
-      {
-        id: 'qwen3-plus',
-        name: 'Qwen3 Plus',
-        reasoning: true,
-        input: ['text'],
-        cost: { input: 0.4, output: 1.2, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 131072,
-        maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: true,
-          reasoningEffortMap: {
-            minimal: 'false',
-            low: 'false',
-            medium: 'true',
-            high: 'true',
-            xhigh: 'true',
-          },
-          maxTokensField: 'max_tokens',
-          thinkingFormat: 'qwen',
-        },
-      },
-      {
-        id: 'qwen3-turbo',
-        name: 'Qwen3 Turbo',
-        reasoning: false,
-        input: ['text'],
-        cost: { input: 0.05, output: 0.2, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 1000000,
-        maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: false,
-          maxTokensField: 'max_tokens',
-        },
-      },
-      // ── Zhipu GLM (via DashScope Coding Plan) ─────────────────────────
       {
         id: 'glm-5',
         name: 'GLM-5',
@@ -144,19 +99,7 @@ export default function (pi: ExtensionAPI) {
         cost: { input: 2.0, output: 6.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 131072,
         maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: true,
-          reasoningEffortMap: {
-            minimal: 'false',
-            low: 'false',
-            medium: 'true',
-            high: 'true',
-            xhigh: 'true',
-          },
-          maxTokensField: 'max_tokens',
-          thinkingFormat: 'qwen',
-        },
+        compat: reasoningCompat(),
       },
       {
         id: 'glm-4.7',
@@ -166,21 +109,8 @@ export default function (pi: ExtensionAPI) {
         cost: { input: 1.0, output: 3.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 131072,
         maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: true,
-          reasoningEffortMap: {
-            minimal: 'false',
-            low: 'false',
-            medium: 'true',
-            high: 'true',
-            xhigh: 'true',
-          },
-          maxTokensField: 'max_tokens',
-          thinkingFormat: 'qwen',
-        },
+        compat: reasoningCompat(),
       },
-      // ── Kimi (via DashScope Coding Plan) ──────────────────────────────
       {
         id: 'kimi-k2.5',
         name: 'Kimi K2.5',
@@ -189,21 +119,8 @@ export default function (pi: ExtensionAPI) {
         cost: { input: 2.0, output: 6.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 1000000,
         maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: true,
-          reasoningEffortMap: {
-            minimal: 'false',
-            low: 'false',
-            medium: 'true',
-            high: 'true',
-            xhigh: 'true',
-          },
-          maxTokensField: 'max_tokens',
-          thinkingFormat: 'qwen',
-        },
+        compat: reasoningCompat(),
       },
-      // ── MiniMax (via DashScope Coding Plan) ───────────────────────────
       {
         id: 'MiniMax-M2.5',
         name: 'MiniMax M2.5',
@@ -212,98 +129,7 @@ export default function (pi: ExtensionAPI) {
         cost: { input: 2.0, output: 6.0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: 1000000,
         maxTokens: 16384,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: true,
-          reasoningEffortMap: {
-            minimal: 'false',
-            low: 'false',
-            medium: 'true',
-            high: 'true',
-            xhigh: 'true',
-          },
-          maxTokensField: 'max_tokens',
-          thinkingFormat: 'qwen',
-        },
-      },
-      // ── Qwen2.5 legacy (full API key only) ────────────────────────────
-      {
-        id: 'qwen-coder-plus-latest',
-        name: 'Qwen2.5 Coder Plus',
-        reasoning: false,
-        input: ['text'],
-        cost: { input: 3.5, output: 7.0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 131072,
-        maxTokens: 8192,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: false,
-          maxTokensField: 'max_tokens',
-        },
-      },
-      {
-        id: 'qwen-coder-turbo-latest',
-        name: 'Qwen2.5 Coder Turbo',
-        reasoning: false,
-        input: ['text'],
-        cost: { input: 0.5, output: 2.0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 131072,
-        maxTokens: 8192,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: false,
-          maxTokensField: 'max_tokens',
-        },
-      },
-      {
-        id: 'qwen-max-latest',
-        name: 'Qwen2.5 Max',
-        reasoning: true,
-        input: ['text', 'image'],
-        cost: { input: 4.0, output: 12.0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 32768,
-        maxTokens: 8192,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: true,
-          reasoningEffortMap: {
-            minimal: 'false',
-            low: 'false',
-            medium: 'true',
-            high: 'true',
-            xhigh: 'true',
-          },
-          maxTokensField: 'max_tokens',
-          thinkingFormat: 'qwen',
-        },
-      },
-      {
-        id: 'qwen-plus-latest',
-        name: 'Qwen2.5 Plus',
-        reasoning: false,
-        input: ['text', 'image'],
-        cost: { input: 0.8, output: 2.4, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 131072,
-        maxTokens: 8192,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: false,
-          maxTokensField: 'max_tokens',
-        },
-      },
-      {
-        id: 'qwen-long',
-        name: 'Qwen2.5 Long',
-        reasoning: false,
-        input: ['text'],
-        cost: { input: 0.05, output: 0.14, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 1000000,
-        maxTokens: 6000,
-        compat: {
-          supportsDeveloperRole: false,
-          supportsReasoningEffort: false,
-          maxTokensField: 'max_tokens',
-        },
+        compat: reasoningCompat(),
       },
     ],
   });
