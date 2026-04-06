@@ -5,147 +5,238 @@
 
 ## Goal
 
-Replace the current ModelDefaultsPanel with a clean, progressive-disclosure Providers panel that shows providers as compact cards, expanding to reveal tier configuration only when needed.
+Replace the current ModelDefaultsPanel with a two-section Providers panel: global tier selectors at the top (the main thing users care about), and a provider list below showing health status and optional per-provider overrides.
 
 ## Why
 
-The current UI dumps all providers with all 3 tier inputs visible, a cryptic "Effective:" summary, confusing "Clear override" buttons, and a global save/reload flow. It's overwhelming for what is usually a one-time setup task.
+The current UI dumps every provider with all 3 tier inputs visible, a cryptic "Effective:" summary, and a confusing global save flow. Users have to understand the per-provider tier model to do anything. Most users just want to pick which models to use at each quality level.
 
 ## Design
 
-### Collapsed State (Default)
-
-Each provider is a single compact row:
+### Overall Layout
 
 ```
-┌─ anthropic ─────────────────────────────────────┐
-│  claude-sonnet-4-6                          [▸]  │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Providers                                                │
+│  Configure which models are used at each quality tier.    │
+│                                                           │
+│  ┌─ GLOBAL TIERS ──────────────────────────────────────┐ │
+│  │                                                      │ │
+│  │  LOW              MED              HIGH               │ │
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────────┐ │ │
+│  │  │gpt-4.1-mini▾│  │claude-son…▾│  │ claude-opus-4 ▾│ │ │
+│  │  │ OpenAI      │  │ Anthropic  │  │ Anthropic      │ │ │
+│  │  └────────────┘  └────────────┘  └────────────────┘ │ │
+│  └──────────────────────────────────────────────────────┘ │
+│                                                           │
+│  PROVIDERS                                                │
+│                                                           │
+│  ┌─ anthropic ──── ● healthy ───────────────────────┐   │
+│  │  claude-sonnet-4-6                           [▸]  │   │
+│  └───────────────────────────────────────────────────┘   │
+│                                                           │
+│  ┌─ openai ──── ● healthy ──────────────────────────┐   │
+│  │  gpt-5.4-mini                                [▸]  │   │
+│  └───────────────────────────────────────────────────┘   │
+│                                                           │
+│  ┌─ google ──── ⚠ expired ──────────────────────────┐   │
+│  │  Token expired · Re-authenticate             [▸]  │   │
+│  └───────────────────────────────────────────────────┘   │
+│                                                           │
+│  [+ Add provider]                                         │
+└──────────────────────────────────────────────────────────┘
 ```
 
-- **Provider name** — top-left, `text-sm font-medium`
-- **Representative model** — the effective HIGH-tier model shown below or beside the name. This is the most meaningful model to display since HIGH is the primary/default tier.
-- **Chevron** — right side, `▸` collapsed / `▾` expanded
-- **"overridden" badge** — subtle badge shown if the user has any custom values for this provider. Uses `text-primary` styling.
-- Clicking anywhere on the row toggles expand/collapse.
+### Section 1: Global Tiers
 
-### Expanded State
+Three model selectors across the top, one per tier (LOW / MED / HIGH). Each can pick **any model from any authenticated provider**. This is what the agent actually uses.
 
-Expanding reveals the three tier selectors below the header row:
+**Tier selector trigger:** A button showing:
+- The selected model name (e.g. "claude-sonnet-4-6")
+- The provider name below in muted text (e.g. "Anthropic")
+- Chevron indicator
 
-```
-┌─ openai ────────────────────────────── overridden ──┐
-│  gpt-5.4-mini                                  [▾]  │
-│                                                      │
-│  LOW                MED                HIGH           │
-│  ┌─────────────┐   ┌─────────────┐   ┌────────────┐ │
-│  │ gpt-5.4-mini▾│   │ gpt-5.4-mini▾│   │gpt-5.4-mini▾│ │
-│  └─────────────┘   └─────────────┘   └────────────┘ │
-│   default: gpt-4.1-mini  default: gpt-5.4  ...      │
-│                                                      │
-│                               Reset to defaults      │
-└──────────────────────────────────────────────────────┘
-```
-
-### Tier Model Selectors
-
-Each tier uses a **Popover-based model picker** — the same UX pattern as the main ModelSelector (`apps/desktop/src/components/layout/ModelSelector.tsx`). This replaces the raw text inputs.
-
-**Trigger button:** Displays the current effective model name (or "default: model-id" in muted text if no override). Clicking opens the picker popover.
-
-**Popover content:** A compact searchable list of available models for that provider:
+**Tier selector popover:** Uses the same Popover-based model picker pattern as the main ModelSelector (`apps/desktop/src/components/layout/ModelSelector.tsx`):
 
 ```
 ┌────────────────────────────┐
 │ 🔍 Search models…          │
 ├────────────────────────────┤
-│ ● gpt-5.4                  │
-│   gpt-5.4-mini             │
-│   gpt-4.1                  │
-│   gpt-4.1-mini             │
-│   o3                        │
-│   o4-mini                   │
+│ ANTHROPIC                   │
+│   ● claude-opus-4           │
+│     claude-sonnet-4-6       │
+│     claude-haiku-4-5        │
+│ OPENAI                      │
+│     gpt-5.4                 │
+│     gpt-5.4-mini            │
+│     o3                      │
+│ GOOGLE                      │
+│     gemini-2.5-pro          │
+│     gemini-2.5-flash        │
 ├────────────────────────────┤
 │ ✎ Custom model ID…         │
 └────────────────────────────┘
 ```
 
-- **Model list** — sourced from the available models data for this provider (same data the main ModelSelector uses, via `window.sero.models.listAvailable()` or equivalent IPC). Each item is a button; clicking selects it and closes the popover.
-- **Selected indicator** — check mark on the currently selected model (matches ModelSelector's `Check` icon pattern).
-- **Search** — filters the model list by name/ID as the user types.
-- **"Custom model ID..."** — footer action that switches the popover to a text input for entering an arbitrary model ID (for models not in the known list). Pressing Enter confirms.
-- **"default" fallback display** — if no override is set, the trigger button shows the built-in default model name in muted text with a "(default)" suffix, making it clear this value comes from defaults, not a user choice.
+- Models grouped by provider with provider name as section header
+- Search filters across all providers by model name/ID
+- Check mark on currently selected model
+- "Custom model ID..." footer for arbitrary model IDs
+- Only shows models from healthy/authenticated providers (unhealthy providers excluded from picker, with a note if relevant)
 
-**Data source:** The host app already exposes `window.sero.models.list(): Promise<AvailableModelGroup[]>` (see `apps/desktop/src/types/electron.d.ts:374-377`). Each `AvailableModelGroup` has `{ provider, displayName, logo, models: ModelInfo[] }` where `ModelInfo` has `{ modelId, name, provider, reasoning }`. Add a `models.list()` method to `SeroApi` in `useSeroFiles.ts`. Filter the returned groups by the current provider's ID to populate that provider's tier picker. If a provider has no available models (not authenticated), fall back to a plain text input for that tier.
+**Auto-save:** Selecting a model saves immediately via `providerDefaults.setGlobalDefaults()`. Brief inline "Saved" feedback.
 
-### Auto-Save & Persistence
+**Data source:** `window.sero.models.list()` returns `AvailableModelGroup[]` with `{ provider, displayName, logo, models: ModelInfo[] }`. Add `models.list()` to `SeroApi` in admin plugin.
 
-- **Auto-save** — selecting a model from the picker immediately saves. No global save button.
-- All current overrides are collected and saved via `providerDefaults.setGlobalDefaults()`
-- Inline "Saved" feedback appears next to the provider name, fades after 1.5s
-- On error, inline error text in `text-destructive`
-- State reloaded after save to get fresh effective values
+### Section 2: Providers
 
-### Other Expanded State Details
+A list of all providers the user has configured (authenticated or with API keys). Each provider is a compact card.
 
-- **"Reset to defaults"** — only shown when the provider has overrides. Clears all custom values for that provider.
-- **Default hint** — below each tier selector, `text-[10px] text-muted-foreground/60` showing "default: model-id" so users know what they'll get if they clear the override.
+#### Collapsed State (Default)
+
+```
+┌─ anthropic ──── ● healthy ───────────────────────┐
+│  claude-sonnet-4-6                           [▸]  │
+└───────────────────────────────────────────────────┘
+```
+
+- **Provider name** — `text-sm font-medium`
+- **Health badge** — next to provider name:
+  - `● healthy` — green dot, muted text
+  - `⚠ expired` — amber warning icon, amber text
+  - `⚠ invalid` — amber warning icon
+  - `○ missing` — muted dot, "Not configured"
+- **Default model** — the provider's effective HIGH-tier model (the representative model)
+- **Chevron** — expand/collapse
+- Click anywhere to toggle
+
+#### Unhealthy Provider State
+
+When a provider has issues, the collapsed card shows the problem and a resolution action instead of a model name:
+
+```
+┌─ google ──── ⚠ expired ─────────────────────────┐
+│  Token expired · Re-authenticate            [▸]  │
+└──────────────────────────────────────────────────┘
+```
+
+- **"Re-authenticate"** — clickable link that triggers `window.sero.auth.login(providerId)` for OAuth providers
+- **"Add API key"** — for API-key providers that are missing, shows inline input or links to Settings
+- **Message** — from `ProviderHealthInfo.message` if available
+
+**Health data source:** `window.sero.auth.getProviders()` returns `AuthProvidersResponse` with OAuth + API key provider lists. Each has auth status. Cross-reference with `ProviderHealthInfo` from onboarding state if available, or derive health from `hasKey`/`isLoggedIn` status.
+
+Add `auth.getProviders()` and `auth.login(providerId)` to `SeroApi`.
+
+#### Expanded State
+
+Expanding reveals per-provider tier overrides — for the rare case where someone wants different models per provider (e.g. "when using OpenAI specifically, use gpt-5.4 for HIGH instead of gpt-5.4-mini").
+
+```
+┌─ openai ──── ● healthy ───── overridden ─────────┐
+│  gpt-5.4-mini                                [▾]  │
+│                                                    │
+│  LOW              MED              HIGH             │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  │
+│  │gpt-5.4-mini▾│  │gpt-5.4-mini▾│  │gpt-5.4-mini▾│  │
+│  └────────────┘  └────────────┘  └────────────┘  │
+│   default: gpt-4.1-mini  default: gpt-5.4  ...   │
+│                                                    │
+│                            Reset to defaults       │
+└────────────────────────────────────────────────────┘
+```
+
+- **Per-provider tier selectors** — same Popover picker pattern, but filtered to only show models from this provider
+- **"overridden" badge** — shown in the collapsed header when custom values exist
+- **"Reset to defaults"** — clears all per-provider overrides
+- **Default hint** — below each selector, shows built-in default model ID
+- **Auto-save** on selection
+
+### Tier Model Picker Component
+
+A shared `TierModelPicker` component used by both global and per-provider tier selectors. Props:
+
+```typescript
+interface TierModelPickerProps {
+  /** Currently selected model ID (or empty for default). */
+  value: string;
+  /** Provider filter — if set, only show models from this provider. Null = all providers. */
+  providerFilter: string | null;
+  /** Placeholder text when no value is set. */
+  placeholder: string;
+  /** Provider name to show below model name in the trigger. Null = derive from value. */
+  providerLabel?: string;
+  /** Available model groups (from models.list()). */
+  modelGroups: AvailableModelGroup[];
+  /** Called when user selects a model. */
+  onSelect: (modelId: string) => void;
+}
+```
+
+Internally:
+- Renders a Popover trigger button + content
+- Search input at top filters models
+- Models grouped by provider (when `providerFilter` is null) or flat list (when filtered)
+- Check mark on selected model
+- "Custom model ID..." footer switches to text input mode
+- Compact — max-height ~320px with scroll
+
+### Nav Sidebar & Header
+
+Rename:
+- NavSidebar: "Defaults" → "Providers"
+- Header SECTION_LABELS: "Model Defaults" → "Providers"
+
+The `AdminSection` type value stays `modelDefaults` (no state migration needed).
 
 ### Add Provider
 
-A `+ Add provider` button at the bottom of the list. Clicking it reveals an inline input row:
+A `+ Add provider` button at the bottom of the list. Clicking reveals an inline input:
 
 ```
 │  Provider ID: [_______________]  [Add]  [Cancel]  │
 ```
 
-After adding, the new provider appears in the list in expanded state so the user can immediately set tier values.
-
-### Nav Sidebar
-
-Rename:
-- `modelDefaults` section label: "Defaults" → "Providers"
-- `SECTION_LABELS` in Header: "Model Defaults" → "Providers"
-
-The `AdminSection` type value stays `modelDefaults` (no state migration needed).
+New provider appears expanded so the user can immediately configure it.
 
 ### Empty State
 
-If no providers exist at all (unlikely but possible):
+If no providers are configured:
 
 ```
-No providers configured yet.
-[+ Add provider]
+No providers available yet. Add a provider API key in Settings
+or authenticate with a provider to get started.
 ```
 
 ### Auto-Save Flow
 
-1. User edits a tier input and blurs or presses Enter
-2. All current overrides are collected and saved via `providerDefaults.setGlobalDefaults()`
-3. Inline "Saved" text appears next to the provider name, fades after 1.5s
-4. On error, inline error text appears in `text-destructive`
-5. State is reloaded after save to get fresh effective values
+1. User selects a model in any tier picker (global or per-provider)
+2. All current tier settings are collected and saved via `providerDefaults.setGlobalDefaults()`
+3. Brief "Saved" feedback inline, fades after 1.5s
+4. On error, `text-destructive` inline message
+5. State reloaded after save
 
 ### What's Removed
 
 - Global "Save defaults" / "Reload" buttons
 - "Effective: LOW x · MED y · HIGH z" summary line
-- "Clear override" button (replaced with "Reset to defaults", only when expanded)
-- Top-level "Add provider id..." input field
+- Raw text inputs for model IDs (replaced by Popover pickers)
+- "Clear override" label (replaced with "Reset to defaults")
+- Top-level "Add provider id..." input
 
 ### What's Unchanged
 
-- Same IPC bridge: `providerDefaults.get()`, `setGlobalDefaults()`
-- Same data model: `ProviderModelDefaults` = `Record<string, Partial<Record<'LOW'|'MED'|'HIGH', string>>>`
-- Same `ProviderDefaultsState` shape with `builtInDefaults`, `globalDefaults`, `effectiveDefaults`
-- File stays at `ui/components/ModelDefaultsPanel.tsx` (component name unchanged to avoid touching AdminApp routing)
+- IPC: `providerDefaults.get()`, `setGlobalDefaults()`
+- Data model: `ProviderModelDefaults`, `ProviderDefaultsState`
+- Component file stays at `ui/components/ModelDefaultsPanel.tsx`
 
 ## File Changes
 
 | File | Action |
 |------|--------|
-| `ui/components/ModelDefaultsPanel.tsx` | Rewrite — collapsed/expanded provider cards, popover-based tier selectors, auto-save |
-| `ui/components/TierModelPicker.tsx` | **NEW** — Popover-based model picker for a single tier (search, model list, custom ID fallback) |
-| `ui/hooks/useSeroFiles.ts` | Add `models.list()` to `SeroApi` interface |
+| `ui/components/ModelDefaultsPanel.tsx` | Rewrite — global tiers + provider cards with health + auto-save |
+| `ui/components/TierModelPicker.tsx` | **NEW** — Popover-based model picker (search, grouped models, custom ID) |
+| `ui/components/ProviderCard.tsx` | **NEW** — Collapsible provider card with health badge + per-provider tier overrides |
+| `ui/hooks/useSeroFiles.ts` | Add `models.list()` and `auth.getProviders()`/`auth.login()` to `SeroApi` |
 | `ui/components/NavSidebar.tsx` | Change "Defaults" label to "Providers" |
 | `ui/components/Header.tsx` | Change "Model Defaults" label to "Providers" |
