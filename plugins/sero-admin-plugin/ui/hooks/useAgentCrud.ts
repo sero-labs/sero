@@ -52,7 +52,7 @@ export function useAgentCrud(
       })));
     } catch (err) {
       onError('Failed to load agents');
-      console.error('[resources-app] refreshAgents failed:', err);
+      console.error('[admin] refreshAgents failed:', err);
     }
   }, [onError]);
 

@@ -84,6 +84,39 @@ export function AdminApp() {
     updateState((prev) => ({ ...prev, lastSessionFile: id }));
   }, [updateState]);
 
+  // Wrap CRUD select to persist last-selected resource
+  const handleAgentSelect = useCallback(async (name: string) => {
+    await agentCrud.select(name);
+    updateState((prev) => ({ ...prev, lastAgent: name }));
+  }, [agentCrud, updateState]);
+
+  const handleSkillSelect = useCallback(async (filePath: string) => {
+    await skillCrud.select(filePath);
+    updateState((prev) => ({ ...prev, lastSkill: filePath }));
+  }, [skillCrud, updateState]);
+
+  const handlePromptSelect = useCallback(async (filePath: string) => {
+    await promptCrud.select(filePath);
+    updateState((prev) => ({ ...prev, lastPrompt: filePath }));
+  }, [promptCrud, updateState]);
+
+  // Restore last-selected resources on initial load
+  useEffect(() => {
+    if (!resourceLoading) {
+      if (state.lastAgent && agentCrud.agents.some((a) => a.name === state.lastAgent)) {
+        agentCrud.select(state.lastAgent);
+      }
+      if (state.lastSkill && skillCrud.skills.some((s) => s.filePath === state.lastSkill)) {
+        skillCrud.select(state.lastSkill);
+      }
+      if (state.lastPrompt && promptCrud.prompts.some((p) => p.filePath === state.lastPrompt)) {
+        promptCrud.select(state.lastPrompt);
+      }
+    }
+    // Only run when initial load completes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resourceLoading]);
+
   // ── Skill visibility lookup for the editor ────────────────
 
   const getSkillVisibility = useCallback((skillName: string) => {
@@ -125,7 +158,7 @@ export function AdminApp() {
               <AgentList
                 agents={agentCrud.agents}
                 selected={agentCrud.selected}
-                onSelect={agentCrud.select}
+                onSelect={handleAgentSelect}
               />
             }
             editor={agentCrud.editing ? (
@@ -157,7 +190,7 @@ export function AdminApp() {
               <SkillList
                 skills={skillCrud.skills}
                 selected={skillCrud.selected}
-                onSelect={skillCrud.select}
+                onSelect={handleSkillSelect}
               />
             }
             editor={skillCrud.editing ? (
@@ -193,7 +226,7 @@ export function AdminApp() {
               <PromptList
                 prompts={promptCrud.prompts}
                 selected={promptCrud.selected}
-                onSelect={promptCrud.select}
+                onSelect={handlePromptSelect}
               />
             }
             editor={promptCrud.editing ? (

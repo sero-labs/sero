@@ -49,7 +49,7 @@ export function useSkillCrud(
       setSkills(list);
     } catch (err) {
       onError('Failed to load skills');
-      console.error('[resources-app] refreshSkills failed:', err);
+      console.error('[admin] refreshSkills failed:', err);
     }
   }, [onError]);
 

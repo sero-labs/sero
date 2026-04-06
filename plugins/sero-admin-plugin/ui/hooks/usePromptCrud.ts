@@ -45,7 +45,7 @@ export function usePromptCrud(
       setPrompts(list);
     } catch (err) {
       onError('Failed to load prompt templates');
-      console.error('[resources-app] refreshPrompts failed:', err);
+      console.error('[admin] refreshPrompts failed:', err);
     }
   }, [onError]);
 
