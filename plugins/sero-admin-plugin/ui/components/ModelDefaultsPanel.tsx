@@ -114,6 +114,15 @@ export function ModelDefaultsPanel() {
     return providerId;
   }, [modelGroups, authProviders]);
 
+  // ── Filter model groups to only healthy providers ──────────
+
+  const healthyModelGroups = useMemo(() => {
+    return modelGroups.filter((group) => {
+      const health = getProviderHealth(group.provider);
+      return health.status === 'healthy';
+    });
+  }, [modelGroups, getProviderHealth]);
+
   // ── Save with feedback ────────────────────────────────────
 
   const saveDefaults = useCallback(async (nextDefaults: ProviderModelDefaults) => {
@@ -137,25 +146,18 @@ export function ModelDefaultsPanel() {
     if (!state) return;
     // Find which provider this model belongs to
     let targetProvider: string | null = null;
-    for (const group of modelGroups) {
+    for (const group of healthyModelGroups) {
       if (group.models.some((m) => m.modelId === modelId)) {
         targetProvider = group.provider;
         break;
       }
     }
-    // For global tiers, we store under a special '__global' key
-    // or update the effective defaults directly. The existing IPC
-    // uses per-provider defaults, so we set the model on the
-    // appropriate provider's tier.
-    if (!targetProvider) {
-      // Custom model ID — can't determine provider, skip
-      return;
-    }
+    if (!targetProvider) return;
     const next: ProviderModelDefaults = { ...state.globalDefaults };
     if (!next[targetProvider]) next[targetProvider] = {};
     next[targetProvider] = { ...next[targetProvider], [tier]: modelId };
     void saveDefaults(next);
-  }, [state, modelGroups, saveDefaults]);
+  }, [state, healthyModelGroups, saveDefaults]);
 
   // ── Per-provider tier change ──────────────────────────────
 
@@ -264,7 +266,7 @@ export function ModelDefaultsPanel() {
                     value={globalTierValues[tier]}
                     providerFilter={null}
                     placeholder={globalTierValues[tier] || 'Select model'}
-                    modelGroups={modelGroups}
+                    modelGroups={healthyModelGroups}
                     onSelect={(modelId) => handleGlobalTierChange(tier, modelId)}
                   />
                 </div>
@@ -297,7 +299,7 @@ export function ModelDefaultsPanel() {
                       canReconnect={health.canReconnect}
                       overrides={state?.globalDefaults[providerId] ?? {}}
                       builtInDefaults={state?.builtInDefaults[providerId] ?? {}}
-                      modelGroups={modelGroups}
+                      modelGroups={healthyModelGroups}
                       onTierChange={handleProviderTierChange}
                       onReset={handleResetProvider}
                       onReconnect={handleReconnect}
