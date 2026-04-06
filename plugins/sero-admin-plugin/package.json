@@ -32,7 +32,10 @@
         "admin",
         "settings",
         "sessions",
-        "logs"
+        "logs",
+        "agents",
+        "skills",
+        "prompts"
       ],
       "minSeroVersion": "0.1.0",
       "preBuilt": false
