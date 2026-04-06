@@ -31,7 +31,7 @@ const BUILTIN_APPS: AppEntry[] = [
   { id: 'explorer', label: 'Explorer', icon: 'code', builtin: true, manifest: null },
 ];
 const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
-const DEFAULT_FAVOURITE_APP_IDS = ['todo', 'notes', 'planmode'] as const;
+const DEFAULT_FAVOURITE_APP_IDS = ['admin', 'cron', 'git', 'kanban' ] as const;
 
 
 // ── Theme (delegated to theme store) ──────────────────────────

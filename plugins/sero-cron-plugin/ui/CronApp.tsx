@@ -177,7 +177,7 @@ export function CronApp() {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">
-            ⏰ Scheduler & Reminders
+            ⏰ Scheduler
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Cron jobs, reminders, and notifications

@@ -20,7 +20,7 @@
   "sero": {
     "app": {
       "id": "cron",
-      "name": "Scheduler & Reminders",
+      "name": "Scheduler",
       "icon": "clock",
       "scope": "global",
       "stateFile": ".sero/apps/cron/state.json",
