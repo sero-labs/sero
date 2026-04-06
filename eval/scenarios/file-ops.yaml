@@ -1,4 +1,6 @@
 # File operations — tests that the agent can read, write, and edit files correctly.
+#
+# METADATA ACCESS: context.providerResponse.metadata (not output.metadata)
 
 - description: "Create a TypeScript file with an exported function"
   vars:
@@ -10,7 +12,8 @@
     # Agent used a file-writing tool
     - type: javascript
       value: |
-        const tools = output.metadata?.toolCalls?.map(t => t.name) || [];
+        const meta = context.providerResponse?.metadata ?? {};
+        const tools = (meta.toolCalls || []).map(t => t.name);
         const wrote = tools.some(t => ['write', 'edit'].includes(t));
         return {
           pass: wrote,
@@ -35,7 +38,8 @@
     # Latency guard — should complete in under 60s
     - type: javascript
       value: |
-        const ms = output.metadata?.latencyMs || 0;
+        const meta = context.providerResponse?.metadata ?? {};
+        const ms = meta.latencyMs || 0;
         return {
           pass: ms < 60000,
           score: Math.max(0, 1 - (ms / 60000)),
@@ -65,7 +69,8 @@
   assert:
     - type: javascript
       value: |
-        const tools = output.metadata?.toolCalls?.map(t => t.name) || [];
+        const meta = context.providerResponse?.metadata ?? {};
+        const tools = (meta.toolCalls || []).map(t => t.name);
         const wrote = tools.some(t => t === 'write');
         const edited = tools.some(t => t === 'edit');
         const score = [wrote, edited].filter(Boolean).length / 2;

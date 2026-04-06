@@ -220,15 +220,31 @@ This can be a phase-2 addition. Start with single-turn evals.
 
 ## 5. Scenario Categories
 
-Start with 5-8 scenarios across these categories:
+### Agent scenarios (require `ANTHROPIC_API_KEY`)
 
-| Category | What it tests | Assertion types |
-|---|---|---|
-| **File operations** | Agent uses write/edit/read tools correctly | JS on `metadata.toolCalls` |
-| **Code generation** | Produces valid TS/React output | `contains` + `llm-rubric` |
-| **Error recovery** | Handles bad input, missing files | `llm-rubric` + `not-contains` (no panics) |
-| **Instruction following** | Respects constraints (Tailwind, no useEffect, etc.) | `contains` + `llm-rubric` |
-| **Latency** | Completes within time budget | JS on `metadata.latencyMs` |
+| Category | File | What it tests | Assertion types |
+|---|---|---|---|
+| **File operations** | `file-ops.yaml` | Agent uses write/edit/read tools correctly | JS on `metadata.toolCalls` |
+| **Code generation** | `coding-tasks.yaml` | Produces valid TS/React output | `contains` + `llm-rubric` |
+| **CLI operations** | `cli-ops.yaml` | Agent uses `sero-cli` for platform actions, batching | JS on `metadata.toolCalls` |
+
+### Prompt stability scenarios (no API key needed)
+
+| Category | File | What it tests | Assertion types |
+|---|---|---|---|
+| **Prompt caching** | `prompt-stability.yaml` | SDK base prompt size, hash, structure | JS on snapshot metadata |
+
+Run prompt stability checks with `pnpm eval:snapshot` — fast (~2s), deterministic,
+safe for every CI build. These use the `snapshotProvider.ts` which creates a headless
+session and captures `session.agent.state` without sending any prompts.
+
+**Why this matters for caching:** Anthropic's prompt caching keys on the exact prefix
+of the system prompt. If the prompt structure changes (even whitespace), the cache
+invalidates and costs increase. The snapshot evals catch drift early.
+
+**Metadata access in assertions:** Use `context.providerResponse.metadata` (not
+`output.metadata`). Promptfoo passes `output` as a string; metadata lives on the
+context object.
 
 ### Example: file-ops.yaml
 
@@ -241,7 +257,8 @@ Start with 5-8 scenarios across these categories:
   assert:
     - type: javascript
       value: |
-        const tools = output.metadata?.toolCalls?.map(t => t.name) || [];
+        const meta = context.providerResponse?.metadata ?? {};
+        const tools = (meta.toolCalls || []).map(t => t.name);
         const wrote = tools.some(t => ['write', 'edit'].includes(t));
         const read = tools.includes('read');
         return { pass: wrote && read, score: wrote && read ? 1 : 0 };

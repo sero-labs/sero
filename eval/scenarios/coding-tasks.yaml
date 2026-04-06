@@ -1,4 +1,6 @@
 # Code generation — tests quality of generated TypeScript / React code.
+#
+# METADATA ACCESS: context.providerResponse.metadata (not output.metadata)
 
 - description: "Generate a React component with props"
   vars:
@@ -23,10 +25,9 @@
 
     - type: javascript
       value: |
-        const text = typeof output === 'string' ? output : output.output || '';
-        const hasTS = text.includes('interface') || text.includes(': React') || text.includes('Props');
-        const hasTW = text.includes('className');
-        const hasOnSelect = text.includes('onSelect');
+        const hasTS = output.includes('interface') || output.includes(': React') || output.includes('Props');
+        const hasTW = output.includes('className');
+        const hasOnSelect = output.includes('onSelect');
         const score = [hasTS, hasTW, hasOnSelect].filter(Boolean).length / 3;
         return {
           pass: score >= 0.66,
@@ -62,9 +63,8 @@
 
     - type: javascript
       value: |
-        const text = typeof output === 'string' ? output : output.output || '';
-        const hasGuard = text.includes('?.map') || text.includes('= []')
-          || text.includes('?? []') || text.includes('|| []');
+        const hasGuard = output.includes('?.map') || output.includes('= []')
+          || output.includes('?? []') || output.includes('|| []');
         return {
           pass: hasGuard,
           score: hasGuard ? 1.0 : 0.0,
@@ -93,7 +93,8 @@
 
     - type: javascript
       value: |
-        const ms = output.metadata?.latencyMs || 0;
+        const meta = context.providerResponse?.metadata ?? {};
+        const ms = meta.latencyMs || 0;
         return {
           pass: ms < 90000,
           score: Math.max(0, 1 - (ms / 90000)),

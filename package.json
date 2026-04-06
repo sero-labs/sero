@@ -11,6 +11,7 @@
     "clean": "rm -rf node_modules apps/*/.__mf__temp packages/*/.__mf__temp plugins/*/.__mf__temp apps/*/node_modules packages/*/node_modules plugins/*/node_modules apps/*/.next apps/*/.turbo packages/*/.turbo plugins/*/.turbo apps/*/dist packages/*/dist plugins/*/dist apps/*/out packages/*/out plugins/*/out .turbo",
     "prepare": "husky",
     "eval": "node eval/patch-drizzle.cjs && promptfoo eval",
+    "eval:snapshot": "node eval/patch-drizzle.cjs && promptfoo eval --config eval/promptfoo-snapshot.yaml --no-cache",
     "eval:view": "promptfoo view"
   },
   "devDependencies": {

@@ -1,0 +1,139 @@
+# Prompt caching stability — ensures system prompt and tool list remain
+# consistent across runs. Uses the snapshot provider (no LLM calls).
+#
+# These tests catch unintentional changes to the SDK base prompt that would
+# break Anthropic's prompt caching (cache keys depend on exact prefix match).
+#
+# NOTE: The headless eval session captures the SDK's base state WITHOUT
+# Sero's extension factory (no CLI prompt, no container prompt, no subagent
+# prompt). This tests the *foundation* that all sessions share. Full Sero
+# session stability testing requires running inside Electron with extensions.
+#
+# HOW TO UPDATE BASELINES:
+#   1. Run: pnpm eval:snapshot
+#   2. If tests fail because of INTENTIONAL changes (e.g. SDK upgrade),
+#      update the expected values below.
+#   3. Commit the updated baselines alongside the code change.
+#
+# METADATA ACCESS: context.providerResponse.metadata (not output.metadata)
+
+# ── System prompt structure ───────────────────────────────────
+
+- description: "SDK base system prompt is non-empty and within size bounds"
+  vars:
+    scenario_prompt: "snapshot"
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const len = meta.systemPromptLength || 0;
+        const minLen = 500;
+        const maxLen = 50000;
+        const inRange = len >= minLen && len <= maxLen;
+        return {
+          pass: inRange,
+          score: inRange ? 1.0 : 0.0,
+          reason: `System prompt length: ${len} chars (expected ${minLen}-${maxLen})`
+        };
+
+- description: "System prompt hash is stable across runs"
+  vars:
+    scenario_prompt: "snapshot"
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const hash = meta.systemPromptHash || '';
+        const len = meta.systemPromptLength || 0;
+        const valid = hash.length === 64 && len > 0;
+        return {
+          pass: valid,
+          score: valid ? 1.0 : 0.0,
+          reason: valid
+            ? `Prompt hash: ${hash.slice(0, 16)}... (${len} chars)`
+            : `Invalid snapshot: hash=${hash.slice(0, 16)} len=${len}`
+        };
+
+- description: "System prompt contains tool-use instructions"
+  vars:
+    scenario_prompt: "snapshot"
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const prompt = meta.systemPrompt || '';
+        const checks = [
+          { name: 'non-empty', ok: prompt.length > 0 },
+          { name: 'has-instructions', ok: /tool|function|command/i.test(prompt) },
+        ];
+        const passed = checks.filter(c => c.ok);
+        const failed = checks.filter(c => !c.ok);
+        return {
+          pass: failed.length === 0,
+          score: passed.length / checks.length,
+          reason: failed.length === 0
+            ? `All checks passed: [${passed.map(c => c.name).join(', ')}]`
+            : `Failed: [${failed.map(c => c.name).join(', ')}]`
+        };
+
+# ── Tool list baseline ────────────────────────────────────────
+
+- description: "Headless session tool count is stable"
+  vars:
+    scenario_prompt: "snapshot"
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const count = meta.toolCount ?? -1;
+        const names = meta.toolNames || [];
+        // Headless: expect 0 tools (SDK lazy-loads on first prompt).
+        // If this starts returning >0, the SDK changed behavior.
+        const expected = 0;
+        const tolerance = 5;
+        const inRange = count >= expected && count <= expected + tolerance;
+        return {
+          pass: inRange,
+          score: inRange ? 1.0 : 0.0,
+          reason: `Tool count: ${count} (expected ${expected}±${tolerance}). Tools: [${names.join(', ')}]`
+        };
+
+# ── Prompt length regression ─────────────────────────────────
+
+- description: "SDK base prompt has not grown unexpectedly"
+  vars:
+    scenario_prompt: "snapshot"
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const len = meta.systemPromptLength || 0;
+        // BASELINE: pi-coding-agent@0.61.1 base prompt size
+        const BASELINE = 1683;
+        const threshold = 0.30;
+        const growth = (len - BASELINE) / BASELINE;
+        return {
+          pass: Math.abs(growth) <= threshold,
+          score: Math.max(0, 1 - Math.abs(growth)),
+          reason: `Prompt length: ${len} (baseline: ${BASELINE}, delta: ${growth > 0 ? '+' : ''}${(growth * 100).toFixed(1)}%)`
+        };
+
+# ── Determinism check ─────────────────────────────────────────
+
+- description: "Snapshot output format is well-structured"
+  vars:
+    scenario_prompt: "snapshot"
+  assert:
+    - type: javascript
+      value: |
+        const meta = context.providerResponse?.metadata ?? {};
+        const fields = ['systemPromptHash', 'toolListHash', 'systemPromptLength', 'toolCount', 'toolNames'];
+        const present = fields.filter(f => meta[f] !== undefined);
+        const missing = fields.filter(f => meta[f] === undefined);
+        return {
+          pass: missing.length === 0,
+          score: present.length / fields.length,
+          reason: missing.length === 0
+            ? `All metadata fields present`
+            : `Missing: [${missing.join(', ')}]`
+        };

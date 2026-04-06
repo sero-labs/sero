@@ -14,6 +14,7 @@
  */
 import type { ApiProvider, ProviderResponse } from 'promptfoo';
 import { setupTempDir, teardownTempDir } from './setup';
+import { captureSessionSnapshot } from './helpers/sessionSnapshot';
 
 const DEFAULT_AGENT_DIR =
   process.env.SERO_AGENT_DIR ?? `${process.env.HOME}/.sero-ui/agent`;
@@ -105,6 +106,9 @@ export default class SeroProvider implements ApiProvider {
         settingsManager,
       });
 
+      // Capture initial session state for prompt-caching assertions
+      const snapshot = captureSessionSnapshot(session);
+
       // Collect events during the agent run
       const toolCalls: ToolCall[] = [];
       let fullText = '';
@@ -150,6 +154,7 @@ export default class SeroProvider implements ApiProvider {
           latencyMs,
           toolCalls,
           toolCallCount: toolCalls.length,
+          snapshot,
         },
       };
     } catch (err: any) {

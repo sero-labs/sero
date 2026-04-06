@@ -17,7 +17,11 @@ providers:
 prompts:
   - "{{scenario_prompt}}"
 
-tests: file://./eval/scenarios/*.yaml
+# Agent scenarios — require ANTHROPIC_API_KEY (real LLM calls)
+tests:
+  - file://./eval/scenarios/file-ops.yaml
+  - file://./eval/scenarios/coding-tasks.yaml
+  - file://./eval/scenarios/cli-ops.yaml
 
 defaultTest:
   options:
