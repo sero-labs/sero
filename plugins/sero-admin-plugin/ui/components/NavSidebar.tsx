@@ -52,7 +52,7 @@ export const NavSidebar = memo(function NavSidebar({ active, onSelect }: NavSide
     <nav className="flex w-[160px] shrink-0 flex-col border-r border-border/30 bg-background">
       {NAV_GROUPS.map((group) => (
         <div key={group.title}>
-          <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-primary/50">
+          <p className="px-3 pt-4 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-primary/80">
             {group.title}
           </p>
           {group.items.map((item) => (
