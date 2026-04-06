@@ -519,7 +519,6 @@ These are standalone and can be distributed independently:
 | `pi-humanizer-extension` | creative |
 | `pi-slopzilla-extension` | creative |
 | `pi-weight-tracker` | health |
-| `sero-resources-plugin` | developer-tools |
 
 ## Build Pipeline
 
