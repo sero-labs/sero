@@ -168,9 +168,18 @@ export function ModelDefaultsPanel() {
       }
     }
     if (!targetProvider) return;
-    const next: ProviderModelDefaults = { ...state.globalDefaults };
-    if (!next[targetProvider]) next[targetProvider] = {};
-    next[targetProvider] = { ...next[targetProvider], [tier]: modelId };
+    // Global tier = one model per tier across all providers.
+    // Clear this tier from every other provider so the new value wins.
+    const next: ProviderModelDefaults = {};
+    for (const [pid, tiers] of Object.entries(state.globalDefaults)) {
+      if (pid === targetProvider) {
+        next[pid] = { ...tiers, [tier]: modelId };
+      } else {
+        const { [tier]: _removed, ...rest } = tiers;
+        if (Object.keys(rest).length > 0) next[pid] = rest;
+      }
+    }
+    if (!next[targetProvider]) next[targetProvider] = { [tier]: modelId };
     void saveDefaults(next);
   }, [state, modelGroups, saveDefaults]);
 
