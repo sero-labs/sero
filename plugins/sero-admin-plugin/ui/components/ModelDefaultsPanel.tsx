@@ -1,9 +1,9 @@
 /**
- * ModelDefaultsPanel — Providers panel with global tier selectors and
+ * ModelDefaultsPanel — Providers panel with shared tier quick picks and
  * provider cards showing health status.
  *
  * Two sections:
- *  1. Global tiers (LOW/MED/HIGH) — pick any model from any provider
+ *  1. Tier quick picks — a fast way to set one preferred model per tier
  *  2. Provider list — health status, default model, per-provider overrides
  */
 
@@ -11,25 +11,55 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
-import { getSero, type ProviderDefaultsState, type ProviderModelDefaults, type AvailableModelGroupIPC, type AuthProvidersResponseIPC } from '../hooks/useSeroFiles';
-import { TierModelPicker } from './TierModelPicker';
+import {
+  getSero,
+  type AvailableModelGroupIPC,
+  type ProviderDefaultsState,
+  type ProviderHealthInfoIPC,
+  type ProviderModelDefaults,
+} from '../hooks/useSeroFiles';
 import { ProviderCard } from './ProviderCard';
+import { TierModelPicker, type TierModelSelection } from './TierModelPicker';
 
 type TierKey = 'LOW' | 'MED' | 'HIGH';
 const TIERS: readonly TierKey[] = ['LOW', 'MED', 'HIGH'] as const;
+const EMPTY_TIER_SELECTIONS: Record<TierKey, TierModelSelection | null> = {
+  LOW: null,
+  MED: null,
+  HIGH: null,
+};
 
-type HealthStatus = 'healthy' | 'expired' | 'invalid' | 'missing' | 'unknown';
+function pickUniqueTierSelection(
+  defaults: ProviderModelDefaults | undefined,
+  tier: TierKey,
+): TierModelSelection | null {
+  if (!defaults) return null;
 
-interface ProviderHealth {
-  status: HealthStatus;
-  message?: string;
-  canReconnect: boolean;
+  const matches = Object.entries(defaults)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([providerId, tiers]) => {
+      const modelId = tiers[tier];
+      return modelId ? [{ providerId, modelId }] : [];
+    });
+
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function buildUniqueTierSelections(
+  defaults: ProviderModelDefaults | undefined,
+): Record<TierKey, TierModelSelection | null> {
+  return {
+    LOW: pickUniqueTierSelection(defaults, 'LOW'),
+    MED: pickUniqueTierSelection(defaults, 'MED'),
+    HIGH: pickUniqueTierSelection(defaults, 'HIGH'),
+  };
 }
 
 export function ModelDefaultsPanel() {
   const [state, setState] = useState<ProviderDefaultsState | null>(null);
   const [modelGroups, setModelGroups] = useState<AvailableModelGroupIPC[]>([]);
-  const [authProviders, setAuthProviders] = useState<AuthProvidersResponseIPC | null>(null);
+  const [providerHealth, setProviderHealth] = useState<ProviderHealthInfoIPC[]>([]);
+  const [oauthProviderIds, setOauthProviderIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
@@ -37,21 +67,21 @@ export function ModelDefaultsPanel() {
   const [newProviderId, setNewProviderId] = useState('');
   const saveNoticeTimerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
 
-  // ── Load all data ─────────────────────────────────────────
-
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       const sero = getSero();
-      const [defaults, models, auth] = await Promise.all([
+      const [defaults, onboarding, authProviders] = await Promise.all([
         sero.providerDefaults.get(),
-        sero.models.list(),
+        sero.onboarding.getState(),
         sero.auth.getProviders(),
       ]);
       setState(defaults);
-      setModelGroups(models);
-      setAuthProviders(auth);
+      setModelGroups(onboarding.availableModelGroups);
+      setProviderHealth(onboarding.providerHealth);
+      setOauthProviderIds(authProviders.oauth.map((provider) => provider.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load providers');
     } finally {
@@ -63,91 +93,85 @@ export function ModelDefaultsPanel() {
     void load();
   }, [load]);
 
-  // ── Provider list ─────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (saveNoticeTimerRef.current) {
+        clearTimeout(saveNoticeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const providerHealthById = useMemo(
+    () => new Map(providerHealth.map((entry) => [entry.providerId, entry] as const)),
+    [providerHealth],
+  );
+
+  const modelGroupsById = useMemo(
+    () => new Map(modelGroups.map((entry) => [entry.provider, entry] as const)),
+    [modelGroups],
+  );
+
+  const getDisplayName = useCallback((providerId: string): string => {
+    return providerHealthById.get(providerId)?.displayName
+      ?? modelGroupsById.get(providerId)?.displayName
+      ?? providerId;
+  }, [modelGroupsById, providerHealthById]);
 
   const providerIds = useMemo(() => {
-    const raw = new Set<string>([
+    const ids = new Set<string>([
       ...Object.keys(state?.builtInDefaults ?? {}),
       ...Object.keys(state?.globalDefaults ?? {}),
       ...Object.keys(state?.effectiveDefaults ?? {}),
+      ...modelGroups.map((group) => group.provider),
+      ...providerHealth.map((entry) => entry.providerId),
     ]);
-    // Deduplicate: if both 'openai' and 'openai-codex' exist, keep only the
-    // base ID — prefix matching in health/display/tier picker handles the rest.
-    const sorted = [...raw].sort((a, b) => a.localeCompare(b));
-    return sorted.filter((id) =>
-      !sorted.some((other) => other !== id && id.startsWith(other + '-')),
+
+    return [...ids].sort(
+      (a, b) => getDisplayName(a).localeCompare(getDisplayName(b)) || a.localeCompare(b),
     );
-  }, [state]);
+  }, [getDisplayName, modelGroups, providerHealth, state]);
 
-  // ── Provider health mapping ───────────────────────────────
+  const getProviderHealth = useCallback((providerId: string): ProviderHealthInfoIPC => {
+    const exact = providerHealthById.get(providerId);
+    if (exact) return exact;
 
-  // Provider IDs in defaults (e.g. 'openai') may differ from models.list()
-  // (e.g. 'openai-codex') and auth (e.g. 'openai-codex'). Use prefix matching:
-  // 'openai' matches 'openai-codex', 'google' matches 'google-gemini-cli'.
-  const matchesProvider = useCallback((groupId: string, defaultsId: string): boolean => {
-    return groupId === defaultsId || groupId.startsWith(defaultsId + '-');
-  }, []);
-
-  const getProviderHealth = useCallback((providerId: string): ProviderHealth => {
-    // If models.list() returned models for this provider (prefix match), it's usable
-    const hasModels = modelGroups.some(
-      (g) => matchesProvider(g.provider, providerId) && g.models.length > 0,
-    );
-    if (hasModels) return { status: 'healthy', canReconnect: false };
-
-    if (!authProviders) return { status: 'unknown', canReconnect: false };
-
-    // Check OAuth providers with prefix match
-    const oauth = authProviders.oauth.find(
-      (p) => p.id === providerId || p.id.startsWith(providerId + '-'),
-    );
-    if (oauth) {
-      if (oauth.isLoggedIn) return { status: 'healthy', canReconnect: false };
+    const group = modelGroupsById.get(providerId);
+    const usableModelIds = group?.models.map((model) => model.modelId) ?? [];
+    if (usableModelIds.length > 0) {
       return {
-        status: 'expired',
-        message: 'Token expired or revoked',
-        canReconnect: true,
-      };
-    }
-
-    // Check API key providers
-    const apiKey = authProviders.apiKey.find((p) => p.id === providerId);
-    if (apiKey) {
-      if (apiKey.hasKey) return { status: 'healthy', canReconnect: false };
-      return {
-        status: 'missing',
-        message: 'No API key configured',
+        providerId,
+        displayName: getDisplayName(providerId),
+        status: 'unknown',
+        message: 'Usable models are available.',
         canReconnect: false,
+        hasUsableModels: true,
+        usableModelIds,
       };
     }
 
-    return { status: 'missing', message: 'No API key configured', canReconnect: false };
-  }, [authProviders, modelGroups, matchesProvider]);
+    return {
+      providerId,
+      displayName: getDisplayName(providerId),
+      status: 'missing',
+      message: 'Not connected yet.',
+      canReconnect: false,
+      hasUsableModels: false,
+      usableModelIds: [],
+    };
+  }, [getDisplayName, modelGroupsById, providerHealthById]);
 
-  // ── Provider display name ─────────────────────────────────
-
-  const getDisplayName = useCallback((providerId: string): string => {
-    const group = modelGroups.find((g) => matchesProvider(g.provider, providerId));
-    if (group) return group.displayName;
-    const oauth = authProviders?.oauth.find(
-      (p) => p.id === providerId || p.id.startsWith(providerId + '-'),
-    );
-    if (oauth) return oauth.name;
-    const apiKey = authProviders?.apiKey.find((p) => p.id === providerId);
-    if (apiKey) return apiKey.name;
-    return providerId;
-  }, [modelGroups, authProviders]);
-
-  // ── Save with feedback ────────────────────────────────────
+  const canAuthenticateProvider = useCallback((providerId: string): boolean => {
+    return oauthProviderIds.includes(providerId);
+  }, [oauthProviderIds]);
 
   const saveDefaults = useCallback(async (nextDefaults: ProviderModelDefaults) => {
     setError(null);
+
     try {
       await getSero().providerDefaults.setGlobalDefaults(nextDefaults);
       setSaveNotice('Saved');
       if (saveNoticeTimerRef.current) clearTimeout(saveNoticeTimerRef.current);
       saveNoticeTimerRef.current = globalThis.setTimeout(() => setSaveNotice(null), 1500);
-      // Reload to get fresh effective values
       const fresh = await getSero().providerDefaults.get();
       setState(fresh);
     } catch (err) {
@@ -155,53 +179,48 @@ export function ModelDefaultsPanel() {
     }
   }, []);
 
-  // ── Global tier change ────────────────────────────────────
-
-  const handleGlobalTierChange = useCallback((tier: TierKey, modelId: string) => {
+  const handleQuickPickChange = useCallback((tier: TierKey, selection: TierModelSelection) => {
     if (!state) return;
-    // Find which provider this model belongs to
-    let targetProvider: string | null = null;
-    for (const group of modelGroups) {
-      if (group.models.some((m) => m.modelId === modelId)) {
-        targetProvider = group.provider;
-        break;
-      }
-    }
-    if (!targetProvider) return;
-    // Global tier = one model per tier across all providers.
-    // Clear this tier from every other provider so the new value wins.
+
     const next: ProviderModelDefaults = {};
-    for (const [pid, tiers] of Object.entries(state.globalDefaults)) {
-      if (pid === targetProvider) {
-        next[pid] = { ...tiers, [tier]: modelId };
-      } else {
-        const { [tier]: _removed, ...rest } = tiers;
-        if (Object.keys(rest).length > 0) next[pid] = rest;
+    for (const [providerId, tiers] of Object.entries(state.globalDefaults)) {
+      if (providerId === selection.providerId) {
+        next[providerId] = { ...tiers, [tier]: selection.modelId };
+        continue;
       }
+
+      const { [tier]: _removed, ...rest } = tiers;
+      if (Object.keys(rest).length > 0) next[providerId] = rest;
     }
-    if (!next[targetProvider]) next[targetProvider] = { [tier]: modelId };
+
+    if (!next[selection.providerId]) {
+      next[selection.providerId] = { [tier]: selection.modelId };
+    }
+
     void saveDefaults(next);
-  }, [state, modelGroups, saveDefaults]);
+  }, [saveDefaults, state]);
 
-  // ── Per-provider tier change ──────────────────────────────
-
-  const handleProviderTierChange = useCallback((providerId: string, tier: TierKey, modelId: string) => {
+  const handleProviderTierChange = useCallback((
+    providerId: string,
+    tier: TierKey,
+    selection: TierModelSelection,
+  ) => {
     if (!state) return;
-    const next: ProviderModelDefaults = { ...state.globalDefaults };
-    if (!next[providerId]) next[providerId] = {};
-    next[providerId] = { ...next[providerId], [tier]: modelId };
-    void saveDefaults(next);
-  }, [state, saveDefaults]);
 
-  // ── Reset provider ────────────────────────────────────────
+    const next: ProviderModelDefaults = { ...state.globalDefaults };
+    next[providerId] = {
+      ...(next[providerId] ?? {}),
+      [tier]: selection.modelId,
+    };
+    void saveDefaults(next);
+  }, [saveDefaults, state]);
 
   const handleResetProvider = useCallback((providerId: string) => {
     if (!state) return;
+
     const { [providerId]: _removed, ...rest } = state.globalDefaults;
     void saveDefaults(rest);
-  }, [state, saveDefaults]);
-
-  // ── Reconnect provider ────────────────────────────────────
+  }, [saveDefaults, state]);
 
   const handleReconnect = useCallback(async (providerId: string) => {
     try {
@@ -212,48 +231,23 @@ export function ModelDefaultsPanel() {
     }
   }, [load]);
 
-  // ── Add provider ──────────────────────────────────────────
-
   const handleAddProvider = useCallback(() => {
-    const id = newProviderId.trim();
-    if (!id || !state) return;
+    const providerId = newProviderId.trim();
+    if (!providerId || !state) return;
+
     const next: ProviderModelDefaults = {
       ...state.globalDefaults,
-      [id]: state.globalDefaults[id] ?? {},
+      [providerId]: state.globalDefaults[providerId] ?? {},
     };
     void saveDefaults(next);
     setNewProviderId('');
     setAddingProvider(false);
-  }, [newProviderId, state, saveDefaults]);
+  }, [newProviderId, saveDefaults, state]);
 
-  // ── Effective global tier values (from effective defaults) ─
-
-  const globalTierValues = useMemo(() => {
-    if (!state) return { LOW: '', MED: '', HIGH: '' };
-    const result: Record<TierKey, string> = { LOW: '', MED: '', HIGH: '' };
-    // All provider IDs from both user overrides and built-in defaults
-    const allIds = new Set<string>([
-      ...Object.keys(state.globalDefaults),
-      ...Object.keys(state.effectiveDefaults),
-    ]);
-    for (const tier of TIERS) {
-      // User's explicit overrides take priority
-      for (const pid of allIds) {
-        const val = state.globalDefaults[pid]?.[tier];
-        if (val) { result[tier] = val; break; }
-      }
-      // Fall back to effective (built-in merged) if no user override
-      if (!result[tier]) {
-        for (const pid of allIds) {
-          const val = state.effectiveDefaults[pid]?.[tier];
-          if (val) { result[tier] = val; break; }
-        }
-      }
-    }
-    return result;
-  }, [state]);
-
-  // ── Loading ───────────────────────────────────────────────
+  const quickPickSelections = useMemo(
+    () => state ? buildUniqueTierSelections(state.globalDefaults) : EMPTY_TIER_SELECTIONS,
+    [state],
+  );
 
   if (loading) {
     return (
@@ -265,18 +259,18 @@ export function ModelDefaultsPanel() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* Header */}
       <div className="border-b border-border/30 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Providers</h2>
             <p className="mt-1 text-xs text-muted-foreground/70">
-              Configure which models are used at each quality tier.
+              Quick picks set one preferred model per tier. Provider cards below manage exact
+              per-provider fallbacks and connection status.
             </p>
           </div>
           <div className="flex items-center gap-2">
             {saveNotice && (
-              <span className="text-[11px] text-primary admin-fade-in">{saveNotice}</span>
+              <span className="admin-fade-in text-[11px] text-primary">{saveNotice}</span>
             )}
             {error && (
               <span className="text-[11px] text-destructive">{error}</span>
@@ -287,31 +281,37 @@ export function ModelDefaultsPanel() {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-6 p-4">
-
-          {/* ── Global Tiers ─────────────────────────────── */}
           <div className="rounded-xl border border-border/40 bg-background/60 p-4">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-              Global Tiers
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              Tier Quick Picks
+            </p>
+            <p className="mb-3 text-[11px] text-muted-foreground/60">
+              Selecting a model here updates the provider that owns that model and clears the same
+              tier from the other provider overrides. If multiple providers already override the
+              same tier, the quick pick stays blank until you choose one here.
             </p>
             <div className="grid gap-4 md:grid-cols-3">
-              {TIERS.map((tier) => (
-                <div key={tier} className="space-y-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    {tier}
-                  </span>
-                  <TierModelPicker
-                    value={globalTierValues[tier]}
-                    providerFilter={null}
-                    placeholder={globalTierValues[tier] || 'Select model'}
-                    modelGroups={modelGroups}
-                    onSelect={(modelId) => handleGlobalTierChange(tier, modelId)}
-                  />
-                </div>
-              ))}
+              {TIERS.map((tier) => {
+                const value = quickPickSelections[tier];
+                return (
+                  <div key={tier} className="space-y-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                      {tier}
+                    </span>
+                    <TierModelPicker
+                      value={value}
+                      providerFilter={null}
+                      placeholder="Select model"
+                      showDefaultIndicator={false}
+                      modelGroups={modelGroups}
+                      onSelect={(selection) => handleQuickPickChange(tier, selection)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* ── Provider List ────────────────────────────── */}
           <div>
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
               Providers
@@ -319,7 +319,8 @@ export function ModelDefaultsPanel() {
             <div className="space-y-2">
               {providerIds.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border/40 px-4 py-8 text-center text-xs text-muted-foreground/60">
-                  No providers available yet. Add a provider API key in Settings or authenticate with a provider.
+                  No providers available yet. Add a provider API key in Settings or authenticate
+                  with a provider.
                 </div>
               ) : (
                 providerIds.map((providerId) => {
@@ -332,8 +333,14 @@ export function ModelDefaultsPanel() {
                       displayName={getDisplayName(providerId)}
                       defaultModel={effectiveHigh}
                       health={health.status}
-                      healthMessage={health.message}
-                      canReconnect={health.canReconnect}
+                      healthMessage={
+                        health.status === 'healthy' || health.status === 'env' || health.status === 'local'
+                          ? undefined
+                          : health.message
+                      }
+                      canReconnect={canAuthenticateProvider(providerId) && (
+                        health.status === 'missing' || health.status === 'broken_expired'
+                      )}
                       overrides={state?.globalDefaults[providerId] ?? {}}
                       builtInDefaults={state?.builtInDefaults[providerId] ?? {}}
                       modelGroups={modelGroups}
@@ -346,21 +353,36 @@ export function ModelDefaultsPanel() {
               )}
             </div>
 
-            {/* Add provider */}
             {addingProvider ? (
               <div className="mt-2 flex items-center gap-2 rounded-xl border border-border/40 bg-background/60 px-4 py-3">
                 <Input
                   value={newProviderId}
-                  onChange={(e) => setNewProviderId(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddProvider(); if (e.key === 'Escape') setAddingProvider(false); }}
+                  onChange={(event) => setNewProviderId(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') handleAddProvider();
+                    if (event.key === 'Escape') setAddingProvider(false);
+                  }}
                   placeholder="Provider ID…"
                   className="h-7 flex-1 text-xs"
                   autoFocus
                 />
-                <Button size="sm" className="h-7 px-2.5 text-xs" onClick={handleAddProvider} disabled={!newProviderId.trim()}>
+                <Button
+                  size="sm"
+                  className="h-7 px-2.5 text-xs"
+                  onClick={handleAddProvider}
+                  disabled={!newProviderId.trim()}
+                >
                   Add
                 </Button>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => { setAddingProvider(false); setNewProviderId(''); }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    setAddingProvider(false);
+                    setNewProviderId('');
+                  }}
+                >
                   Cancel
                 </Button>
               </div>
@@ -373,7 +395,6 @@ export function ModelDefaultsPanel() {
               </button>
             )}
           </div>
-
         </div>
       </ScrollArea>
     </div>

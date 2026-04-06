@@ -3,47 +3,45 @@
  *
  * Sectioned vertical nav layout:
  *  - RESOURCES: Agents, Skills, Prompts (CRUD with list + editor)
- *  - CONFIG: Settings, Defaults, Plugins
+ *  - CONFIG: Settings, Providers, Plugins
  *  - SYSTEM: Logs, Sessions
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
-import type { AdminState, AdminSection } from '../shared/types';
+import type { AdminSection, AdminState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { useProfiles } from './hooks/useSeroFiles';
 import { useAgentCrud } from './hooks/useAgentCrud';
-import { useSkillCrud } from './hooks/useSkillCrud';
 import { usePromptCrud } from './hooks/usePromptCrud';
+import { useSkillCrud } from './hooks/useSkillCrud';
 import { useSkillVisibility } from './hooks/useSkillVisibility';
-import { Header } from './components/Header';
-import { NavSidebar } from './components/NavSidebar';
-import { ResourceSection } from './components/ResourceSection';
-import { AgentList } from './components/AgentList';
 import { AgentEditor } from './components/AgentEditor';
-import { SkillList } from './components/SkillList';
-import { SkillEditor } from './components/SkillEditor';
-import { PromptList } from './components/PromptList';
-import { PromptEditor } from './components/PromptEditor';
+import { AgentList } from './components/AgentList';
 import { ConfigPanel } from './components/ConfigPanel';
-import { ModelDefaultsPanel } from './components/ModelDefaultsPanel';
-import { PluginsPanel } from './components/PluginsPanel';
+import { Header } from './components/Header';
 import { LogViewer } from './components/LogViewer';
+import { ModelDefaultsPanel } from './components/ModelDefaultsPanel';
+import { NavSidebar } from './components/NavSidebar';
+import { PluginsPanel } from './components/PluginsPanel';
+import { PromptEditor } from './components/PromptEditor';
+import { PromptList } from './components/PromptList';
+import { ResourceSection } from './components/ResourceSection';
 import { SessionBrowser } from './components/SessionBrowser';
+import { SkillEditor } from './components/SkillEditor';
+import { SkillList } from './components/SkillList';
 import './styles.css';
 
 export function AdminApp() {
   const [state, updateState] = useAppState<AdminState>(DEFAULT_STATE);
   const { activeProfile, loading: profilesLoading } = useProfiles();
 
-  const [activeSection, setActiveSection] = useState<AdminSection>(state.lastSection ?? 'agents');
-  const [selectedConfigKey, setSelectedConfigKey] = useState<string | null>(state.lastConfigKey);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(state.lastSessionFile);
-
-  // ── Resource CRUD state ───────────────────────────────────
   const [resourceLoading, setResourceLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const restoredAgentRef = useRef<string | null>(null);
+  const restoredSkillRef = useRef<string | null>(null);
+  const restoredPromptRef = useRef<string | null>(null);
   const setErrorMsg = useCallback((msg: string) => setError(msg), []);
 
   const agentCrud = useAgentCrud(setErrorMsg, setSaving);
@@ -52,75 +50,93 @@ export function AdminApp() {
 
   const profilePath = activeProfile?.path ?? null;
   const profileName = activeProfile?.name ?? null;
-
-  // Skill visibility (for the toggle in SkillEditor)
+  const activeSection = state.lastSection ?? 'agents';
+  const selectedConfigKey = state.lastConfigKey;
+  const selectedSessionId = state.lastSessionFile;
   const skillVisibility = useSkillVisibility(profilePath);
 
-  // Initial load for resources
   useEffect(() => {
     setResourceLoading(true);
     setError(null);
-    Promise.all([agentCrud.refresh(), skillCrud.refresh(), promptCrud.refresh()]).finally(() =>
-      setResourceLoading(false),
-    );
+    Promise.all([agentCrud.refresh(), skillCrud.refresh(), promptCrud.refresh()]).finally(() => {
+      setResourceLoading(false);
+    });
+    // Initial data load for CRUD sections.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Persistence callbacks ─────────────────────────────────
+  useEffect(() => {
+    if (resourceLoading || !state.lastAgent) return;
+    if (restoredAgentRef.current === state.lastAgent) return;
+    if (agentCrud.selected === state.lastAgent) {
+      restoredAgentRef.current = state.lastAgent;
+      return;
+    }
+    if (!agentCrud.agents.some((agent) => agent.name === state.lastAgent)) return;
+
+    restoredAgentRef.current = state.lastAgent;
+    void agentCrud.select(state.lastAgent);
+  }, [agentCrud, resourceLoading, state.lastAgent]);
+
+  useEffect(() => {
+    if (resourceLoading || !state.lastSkill) return;
+    if (restoredSkillRef.current === state.lastSkill) return;
+    if (skillCrud.selected === state.lastSkill) {
+      restoredSkillRef.current = state.lastSkill;
+      return;
+    }
+    if (!skillCrud.skills.some((skill) => skill.filePath === state.lastSkill)) return;
+
+    restoredSkillRef.current = state.lastSkill;
+    void skillCrud.select(state.lastSkill);
+  }, [resourceLoading, skillCrud, state.lastSkill]);
+
+  useEffect(() => {
+    if (resourceLoading || !state.lastPrompt) return;
+    if (restoredPromptRef.current === state.lastPrompt) return;
+    if (promptCrud.selected === state.lastPrompt) {
+      restoredPromptRef.current = state.lastPrompt;
+      return;
+    }
+    if (!promptCrud.prompts.some((prompt) => prompt.filePath === state.lastPrompt)) return;
+
+    restoredPromptRef.current = state.lastPrompt;
+    void promptCrud.select(state.lastPrompt);
+  }, [promptCrud, resourceLoading, state.lastPrompt]);
 
   const handleSectionChange = useCallback((section: AdminSection) => {
-    setActiveSection(section);
     setError(null);
     updateState((prev) => ({ ...prev, lastSection: section }));
   }, [updateState]);
 
   const handleSelectConfig = useCallback((key: string) => {
-    setSelectedConfigKey(key);
     updateState((prev) => ({ ...prev, lastConfigKey: key }));
   }, [updateState]);
 
   const handleSelectSession = useCallback((id: string | null) => {
-    setSelectedSessionId(id);
     updateState((prev) => ({ ...prev, lastSessionFile: id }));
   }, [updateState]);
 
-  // Wrap CRUD select to persist last-selected resource
   const handleAgentSelect = useCallback(async (name: string) => {
     await agentCrud.select(name);
+    restoredAgentRef.current = name;
     updateState((prev) => ({ ...prev, lastAgent: name }));
   }, [agentCrud, updateState]);
 
   const handleSkillSelect = useCallback(async (filePath: string) => {
     await skillCrud.select(filePath);
+    restoredSkillRef.current = filePath;
     updateState((prev) => ({ ...prev, lastSkill: filePath }));
   }, [skillCrud, updateState]);
 
   const handlePromptSelect = useCallback(async (filePath: string) => {
     await promptCrud.select(filePath);
+    restoredPromptRef.current = filePath;
     updateState((prev) => ({ ...prev, lastPrompt: filePath }));
   }, [promptCrud, updateState]);
 
-  // Restore last-selected resources on initial load
-  useEffect(() => {
-    if (!resourceLoading) {
-      if (state.lastAgent && agentCrud.agents.some((a) => a.name === state.lastAgent)) {
-        agentCrud.select(state.lastAgent);
-      }
-      if (state.lastSkill && skillCrud.skills.some((s) => s.filePath === state.lastSkill)) {
-        skillCrud.select(state.lastSkill);
-      }
-      if (state.lastPrompt && promptCrud.prompts.some((p) => p.filePath === state.lastPrompt)) {
-        promptCrud.select(state.lastPrompt);
-      }
-    }
-    // Only run when initial load completes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resourceLoading]);
-
-  // ── Skill visibility lookup for the editor ────────────────
-
   const getSkillVisibility = useCallback((skillName: string) => {
-    const row = skillVisibility.skills.find((s) => s.name === skillName);
+    const row = skillVisibility.skills.find((skill) => skill.name === skillName);
     return {
       visibleToModel: row?.visibleToModel ?? true,
       lockedHidden: row?.lockedHidden ?? false,
@@ -131,8 +147,6 @@ export function AdminApp() {
     skillVisibility.setSkillEnabled(skillName, visible);
   }, [skillVisibility]);
 
-  // ── Loading state ─────────────────────────────────────────
-
   if (profilesLoading) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
@@ -140,8 +154,6 @@ export function AdminApp() {
       </div>
     );
   }
-
-  // ── Section content renderer ──────────────────────────────
 
   const renderSection = () => {
     switch (activeSection) {
@@ -175,7 +187,7 @@ export function AdminApp() {
         );
 
       case 'skills': {
-        const vis = skillCrud.editing && !skillCrud.isNew
+        const visibility = skillCrud.editing && !skillCrud.isNew
           ? getSkillVisibility(skillCrud.editing.name)
           : null;
         return (
@@ -199,10 +211,12 @@ export function AdminApp() {
                 isNew={skillCrud.isNew}
                 saving={saving}
                 source={skillCrud.selectedSource}
-                visibleToModel={vis?.visibleToModel}
-                lockedHidden={vis?.lockedHidden}
+                visibleToModel={visibility?.visibleToModel}
+                lockedHidden={visibility?.lockedHidden}
                 onVisibilityChange={
-                  vis ? (visible) => handleSkillVisibilityChange(skillCrud.editing!.name, visible) : undefined
+                  visibility
+                    ? (visible) => handleSkillVisibilityChange(skillCrud.editing!.name, visible)
+                    : undefined
                 }
                 onSave={skillCrud.save}
                 onDelete={skillCrud.remove}

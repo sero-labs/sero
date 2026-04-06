@@ -83,6 +83,9 @@ export interface SeroApi {
     getProviders(): Promise<AuthProvidersResponseIPC>;
     login(providerId: string): Promise<void>;
   };
+  onboarding: {
+    getState(): Promise<OnboardingStateIPC>;
+  };
 }
 
 interface ProfileInfo {
@@ -193,6 +196,30 @@ export interface ApiKeyProviderInfoIPC {
 export interface AuthProvidersResponseIPC {
   oauth: OAuthProviderInfoIPC[];
   apiKey: ApiKeyProviderInfoIPC[];
+}
+
+export type ProviderHealthStatusIPC =
+  | 'healthy'
+  | 'broken_expired'
+  | 'broken_invalid'
+  | 'env'
+  | 'local'
+  | 'missing'
+  | 'unknown';
+
+export interface ProviderHealthInfoIPC {
+  providerId: string;
+  displayName: string;
+  status: ProviderHealthStatusIPC;
+  message?: string;
+  canReconnect: boolean;
+  hasUsableModels: boolean;
+  usableModelIds: string[];
+}
+
+export interface OnboardingStateIPC {
+  providerHealth: ProviderHealthInfoIPC[];
+  availableModelGroups: AvailableModelGroupIPC[];
 }
 
 /** Single cast site for the window.sero API. Import this instead of casting inline. */

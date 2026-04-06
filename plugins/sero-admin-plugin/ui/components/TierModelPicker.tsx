@@ -2,34 +2,42 @@
  * TierModelPicker — Popover-based model selector for a single tier.
  *
  * Shows a trigger button with the current model name. Opens a searchable
- * popover listing available models grouped by provider. Supports custom
- * model ID entry for models not in the known list.
+ * popover listing available models grouped by provider. Custom model IDs are
+ * only supported when the picker is already scoped to a single provider.
  */
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { AvailableModelGroupIPC, ModelInfoIPC } from '../hooks/useSeroFiles';
 
+export interface TierModelSelection {
+  providerId: string;
+  modelId: string;
+}
+
 interface TierModelPickerProps {
-  /** Currently selected model ID (empty string = using default). */
-  value: string;
-  /** Provider filter — if set, only show models from this provider. Null = all providers. */
+  /** Currently selected model (null = using placeholder/default). */
+  value: TierModelSelection | null;
+  /** Provider filter — if set, only show models from this exact provider. */
   providerFilter: string | null;
-  /** Placeholder text when no value is set (e.g. "claude-sonnet-4-6"). */
+  /** Placeholder text when no explicit value is set. */
   placeholder: string;
-  /** Provider label shown below model name in the trigger. */
+  /** Append "(default)" when no explicit value is set. Defaults to true. */
+  showDefaultIndicator?: boolean;
+  /** Provider label shown below the placeholder when no value is set. */
   providerLabel?: string;
   /** Available model groups. */
   modelGroups: AvailableModelGroupIPC[];
   /** Called when user selects a model. */
-  onSelect: (modelId: string) => void;
+  onSelect: (selection: TierModelSelection) => void;
 }
 
 export function TierModelPicker({
   value,
   providerFilter,
   placeholder,
+  showDefaultIndicator = true,
   providerLabel,
   modelGroups,
   onSelect,
@@ -38,13 +46,10 @@ export function TierModelPicker({
   const [filter, setFilter] = useState('');
   const [customMode, setCustomMode] = useState(false);
   const [customValue, setCustomValue] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const groups = useMemo(() => {
     let filtered = providerFilter
-      ? modelGroups.filter((g) =>
-          g.provider === providerFilter || g.provider.startsWith(providerFilter + '-'),
-        )
+      ? modelGroups.filter((g) => g.provider === providerFilter)
       : modelGroups;
 
     if (filter) {
@@ -60,45 +65,59 @@ export function TierModelPicker({
     }
 
     return filtered;
-  }, [modelGroups, providerFilter, filter]);
+  }, [filter, modelGroups, providerFilter]);
 
   const totalModels = useMemo(
-    () => groups.reduce((n, g) => n + g.models.length, 0),
+    () => groups.reduce((count, group) => count + group.models.length, 0),
     [groups],
   );
 
-  // Derive display label for the trigger
+  const scopedProviderLabel = useMemo(() => {
+    if (providerLabel) return providerLabel;
+    if (!providerFilter) return undefined;
+    return modelGroups.find((group) => group.provider === providerFilter)?.displayName;
+  }, [modelGroups, providerFilter, providerLabel]);
+
   const displayModel = useMemo(() => {
     if (!value) return null;
-    for (const g of modelGroups) {
-      const m = g.models.find((m) => m.modelId === value);
-      if (m) return { name: m.name, provider: g.displayName };
-    }
-    return { name: value, provider: providerLabel ?? '' };
-  }, [value, modelGroups, providerLabel]);
 
-  const handleSelect = useCallback((modelId: string) => {
-    onSelect(modelId);
+    const group = modelGroups.find((candidate) => candidate.provider === value.providerId);
+    const model = group?.models.find((candidate) => candidate.modelId === value.modelId);
+    if (model) {
+      return {
+        name: model.name,
+        provider: group?.displayName ?? value.providerId,
+      };
+    }
+
+    return {
+      name: value.modelId,
+      provider: scopedProviderLabel ?? value.providerId,
+    };
+  }, [modelGroups, scopedProviderLabel, value]);
+
+  const handleSelect = useCallback((selection: TierModelSelection) => {
+    onSelect(selection);
     setOpen(false);
     setFilter('');
     setCustomMode(false);
+    setCustomValue('');
   }, [onSelect]);
 
   const handleCustomSubmit = useCallback(() => {
-    const trimmed = customValue.trim();
-    if (trimmed) {
-      handleSelect(trimmed);
-      setCustomValue('');
-    }
-  }, [customValue, handleSelect]);
+    const modelId = customValue.trim();
+    if (!modelId || !providerFilter) return;
+
+    handleSelect({ providerId: providerFilter, modelId });
+  }, [customValue, handleSelect, providerFilter]);
 
   const handleOpenChange = useCallback((next: boolean) => {
     setOpen(next);
-    if (next) {
-      setFilter('');
-      setCustomMode(false);
-      setCustomValue('');
-    }
+    if (!next) return;
+
+    setFilter('');
+    setCustomMode(false);
+    setCustomValue('');
   }, []);
 
   return (
@@ -111,16 +130,18 @@ export function TierModelPicker({
             open && 'ring-1 ring-ring',
           )}
         >
-          <span className={cn(
-            'truncate text-xs',
-            value ? 'font-medium text-foreground' : 'text-muted-foreground',
-          )}>
+          <span
+            className={cn(
+              'truncate text-xs',
+              value ? 'font-medium text-foreground' : 'text-muted-foreground',
+            )}
+          >
             {displayModel?.name ?? placeholder}
-            {!value && ' (default)'}
+            {!value && showDefaultIndicator && ' (default)'}
           </span>
-          {(displayModel?.provider || (!value && providerLabel)) && (
+          {(displayModel?.provider || (!value && scopedProviderLabel)) && (
             <span className="truncate text-[10px] text-muted-foreground/60">
-              {displayModel?.provider ?? providerLabel}
+              {displayModel?.provider ?? scopedProviderLabel}
             </span>
           )}
         </button>
@@ -133,14 +154,15 @@ export function TierModelPicker({
         className="w-[260px] overflow-hidden rounded-xl border-border/50 bg-background p-0 shadow-xl"
       >
         {customMode ? (
-          /* Custom model ID input */
           <div className="p-2">
             <div className="flex items-center gap-1.5 rounded-md border border-input px-2">
               <input
-                ref={inputRef}
                 value={customValue}
-                onChange={(e) => setCustomValue(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleCustomSubmit(); if (e.key === 'Escape') setCustomMode(false); }}
+                onChange={(event) => setCustomValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') handleCustomSubmit();
+                  if (event.key === 'Escape') setCustomMode(false);
+                }}
                 placeholder="Enter model ID…"
                 className="h-8 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none"
                 autoFocus
@@ -164,30 +186,39 @@ export function TierModelPicker({
           </div>
         ) : (
           <>
-            {/* Search input */}
             <div className="flex items-center gap-2 border-b border-border/30 px-3">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground">
-                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="shrink-0 text-muted-foreground"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
               </svg>
               <input
                 value={filter}
-                onChange={(e) => setFilter(e.target.value)}
+                onChange={(event) => setFilter(event.target.value)}
                 placeholder="Search models…"
                 className="h-8 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none"
                 autoFocus
               />
             </div>
 
-            {/* Model list */}
             <div className="max-h-[280px] overflow-y-auto py-1">
               {totalModels === 0 ? (
                 <p className="px-3 py-4 text-center text-xs text-muted-foreground">
                   {filter ? 'No models match' : 'No models available'}
                 </p>
               ) : (
-                groups.map((group, i) => (
+                groups.map((group, index) => (
                   <div key={group.provider}>
-                    {i > 0 && <div className="mx-3 my-0.5 border-t border-border/20" />}
+                    {index > 0 && <div className="mx-3 my-0.5 border-t border-border/20" />}
                     {!providerFilter && (
                       <div className="flex items-center gap-2 px-3 pb-0.5 pt-2">
                         <img
@@ -205,8 +236,13 @@ export function TierModelPicker({
                         <ModelItem
                           key={`${model.provider}/${model.modelId}`}
                           model={model}
-                          isSelected={value === model.modelId}
-                          onSelect={() => handleSelect(model.modelId)}
+                          isSelected={
+                            value?.providerId === model.provider && value?.modelId === model.modelId
+                          }
+                          onSelect={() => handleSelect({
+                            providerId: model.provider,
+                            modelId: model.modelId,
+                          })}
                         />
                       ))}
                     </div>
@@ -215,18 +251,28 @@ export function TierModelPicker({
               )}
             </div>
 
-            {/* Custom model ID footer */}
-            <div className="border-t border-border/30">
-              <button
-                onClick={() => { setCustomMode(true); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                </svg>
-                Custom model ID…
-              </button>
-            </div>
+            {providerFilter && (
+              <div className="border-t border-border/30">
+                <button
+                  onClick={() => setCustomMode(true)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+                >
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  </svg>
+                  Custom model ID…
+                </button>
+              </div>
+            )}
           </>
         )}
       </PopoverContent>
@@ -234,9 +280,11 @@ export function TierModelPicker({
   );
 }
 
-// ── Model item ────────────────────────────────────────────────
-
-function ModelItem({ model, isSelected, onSelect }: {
+function ModelItem({
+  model,
+  isSelected,
+  onSelect,
+}: {
   model: ModelInfoIPC;
   isSelected: boolean;
   onSelect: () => void;
@@ -253,7 +301,17 @@ function ModelItem({ model, isSelected, onSelect }: {
     >
       <div className="flex size-3.5 shrink-0 items-center justify-center">
         {isSelected ? (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-primary"
+          >
             <polyline points="20 6 9 17 4 12" />
           </svg>
         ) : (
