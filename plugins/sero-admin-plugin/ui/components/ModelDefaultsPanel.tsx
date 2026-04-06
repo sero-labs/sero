@@ -200,22 +200,10 @@ export function ModelDefaultsPanel() {
     setAddingProvider(false);
   }, [newProviderId, state, saveDefaults]);
 
-  // ── Loading ───────────────────────────────────────────────
-
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="admin-loading text-xs text-muted-foreground">Loading providers…</div>
-      </div>
-    );
-  }
-
   // ── Effective global tier values (from effective defaults) ─
 
   const globalTierValues = useMemo(() => {
     if (!state) return { LOW: '', MED: '', HIGH: '' };
-    // Find the effective model for each tier across all providers
-    // Use the first provider that has an effective value for each tier
     const result: Record<TierKey, string> = { LOW: '', MED: '', HIGH: '' };
     for (const tier of TIERS) {
       for (const providerId of providerIds) {
@@ -225,6 +213,16 @@ export function ModelDefaultsPanel() {
     }
     return result;
   }, [state, providerIds]);
+
+  // ── Loading ───────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="admin-loading text-xs text-muted-foreground">Loading providers…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
