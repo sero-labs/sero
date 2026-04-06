@@ -7,21 +7,30 @@
  *     config:
  *       required: [write, read]
  *       forbidden: [bash]
+ *
+ * For file-based JS assertions, promptfoo calls the default export as:
+ *   (output: string, context: { vars, prompt, test, providerResponse, ... })
+ * Metadata lives at context.providerResponse.metadata.
  */
 
-interface AssertionInput {
-  output: string;
-  metadata?: {
-    toolCalls?: Array<{ name: string; args: unknown }>;
+interface AssertionConfig {
+  /** Tools that must appear at least once */
+  required?: string[];
+  /** Tools that must NOT appear */
+  forbidden?: string[];
+  /** Exact ordered sequence (subset match) */
+  orderedSubset?: string[];
+}
+
+interface PromptfooContext {
+  vars?: Record<string, unknown>;
+  test?: { assert?: unknown[]; options?: { config?: AssertionConfig } };
+  providerResponse?: {
+    metadata?: {
+      toolCalls?: Array<{ name: string; args: unknown }>;
+    };
   };
-  config?: {
-    /** Tools that must appear at least once */
-    required?: string[];
-    /** Tools that must NOT appear */
-    forbidden?: string[];
-    /** Exact ordered sequence (subset match) */
-    orderedSubset?: string[];
-  };
+  config?: AssertionConfig;
 }
 
 interface AssertionResult {
@@ -30,9 +39,13 @@ interface AssertionResult {
   reason: string;
 }
 
-export default function toolSequenceAssert(input: AssertionInput): AssertionResult {
-  const tools = input.metadata?.toolCalls?.map((t) => t.name) ?? [];
-  const cfg = input.config ?? {};
+export default function toolSequenceAssert(
+  output: string,
+  context: PromptfooContext,
+): AssertionResult {
+  const meta = context.providerResponse?.metadata ?? {};
+  const tools = meta.toolCalls?.map((t) => t.name) ?? [];
+  const cfg = context.config ?? {};
   const failures: string[] = [];
 
   // Check required tools

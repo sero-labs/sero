@@ -28,7 +28,7 @@ pnpm eval:view
 **Provider:** `eval/snapshotProvider.ts`
 **Scenarios:** `eval/scenarios/prompt-stability.yaml` (7 tests)
 
-These assemble the full Sero session prompt — the same one a real agent session gets — by calling the actual prompt-building functions from `apps/desktop/electron/`. They verify:
+These assemble an approximation of the full Sero session prompt by calling the pure prompt-building functions from `apps/desktop/electron/`. The subagent and container blocks are imported directly from the real source. The CLI block uses a **reconstructed registry** with hardcoded command names (since the real registration path requires Electron), so it tests the prompt *template* and *structure* but not the exact live command list. They verify:
 
 - All prompt blocks are present (SDK base + CLI + subagent)
 - Block content has expected keywords (sero-cli commands, subagent guidance)
@@ -190,9 +190,14 @@ Add a test to `eval/scenarios/prompt-stability.yaml`:
 - type: javascript
   value: file://./eval/assertions/toolSequence.ts
   config:
-    requiredTools: ["write", "read"]
-    forbiddenTools: ["bash"]
+    required: ["write", "read"]
+    forbidden: ["bash"]
+    # orderedSubset: ["read", "edit"]  # optional: checks order
 ```
+
+**File-based assertion signature:** When using `value: file://...`, promptfoo calls `(output: string, context: { providerResponse, vars, ... })` — NOT a single input object. Always destructure `context.providerResponse?.metadata` for metadata access.
+
+**sero-cli tool args shape:** The sero-cli tool takes `{ command: string, timeout?: number }`. When checking tool call args in assertions, use `t.args?.command` to access the command string.
 
 ## Viewing Results
 
@@ -204,7 +209,7 @@ Opens a local web UI showing pass/fail history, score trends, and detailed outpu
 
 ## Comparing Models
 
-Uncomment the second provider in `promptfooconfig.yaml` to run scenarios against multiple models side-by-side:
+Uncomment the second provider in `promptfooconfig.yaml` to run scenarios against multiple models side-by-side. The `model` config is passed to `session.setModel()` in `seroProvider.ts`:
 
 ```yaml
 providers:
@@ -216,6 +221,8 @@ providers:
       model: claude-haiku-4-5-20251001
       timeout: 60000
 ```
+
+Promptfoo runs each scenario against every listed provider and displays results side-by-side in the web viewer (`pnpm eval:view`).
 
 ## Troubleshooting
 

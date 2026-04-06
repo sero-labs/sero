@@ -7,7 +7,8 @@ providers:
     config:
       timeout: 120000
 
-  # Uncomment to compare models side-by-side:
+  # Uncomment to compare models side-by-side (model override is passed
+  # to session.setModel() in seroProvider.ts):
   # - id: file://./eval/seroProvider.ts
   #   label: "Sero (Haiku)"
   #   config:
@@ -23,6 +24,9 @@ tests:
   - file://./eval/scenarios/coding-tasks.yaml
   - file://./eval/scenarios/cli-ops.yaml
 
+# Grading provider for llm-rubric assertions (NOT the test execution provider).
+# Tests execute through seroProvider.ts above; this only controls which model
+# scores the llm-rubric judgments.
 defaultTest:
   options:
     provider:

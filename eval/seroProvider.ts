@@ -106,6 +106,11 @@ export default class SeroProvider implements ApiProvider {
         settingsManager,
       });
 
+      // Apply model override if configured
+      if (this.config.model) {
+        await session.setModel(this.config.model);
+      }
+
       // Capture initial session state for prompt-caching assertions
       const snapshot = captureSessionSnapshot(session);
 
