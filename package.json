@@ -10,12 +10,13 @@
     "rebuild-electron": "bash apps/desktop/scripts/rebuild-electron.sh",
     "clean": "rm -rf node_modules apps/*/.__mf__temp packages/*/.__mf__temp plugins/*/.__mf__temp apps/*/node_modules packages/*/node_modules plugins/*/node_modules apps/*/.next apps/*/.turbo packages/*/.turbo plugins/*/.turbo apps/*/dist packages/*/dist plugins/*/dist apps/*/out packages/*/out plugins/*/out .turbo",
     "prepare": "husky",
-    "eval": "node eval/patch-drizzle.cjs && promptfoo eval",
-    "eval:snapshot": "node eval/patch-drizzle.cjs && promptfoo eval --config eval/promptfoo-snapshot.yaml --no-cache",
-    "eval:view": "promptfoo view"
+    "eval": "node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval",
+    "eval:snapshot": "node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-snapshot.yaml --no-cache",
+    "eval:view": "node scripts/run-promptfoo.mjs view"
   },
   "devDependencies": {
     "@mariozechner/pi-coding-agent": "catalog:",
+    "@sinclair/typebox": "catalog:",
     "husky": "^9.1.7",
     "promptfoo": "0.103.5",
     "turbo": "^2.8.17"

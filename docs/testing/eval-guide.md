@@ -54,11 +54,23 @@ These assemble an approximation of the full Sero session prompt by calling the p
 
 **When to run:** Before releases, after SDK upgrades, or when changing agent behavior. Requires `ANTHROPIC_API_KEY` and costs real API tokens.
 
+**Runtime shape of the harness:**
+- Each scenario runs in its own isolated temp workspace under `/tmp/sero-eval-*`
+- The temp workspace is initialised as a clean Git repo so VCS/workspace prompts behave predictably
+- The provider exposes real coding tools (`read`, `bash`, `write`, `edit`) plus a small eval-only `sero-cli` shim for deterministic Sero platform checks
+- Raw extension tools are intentionally hidden during agent evals so CLI scenarios assert against `sero-cli`, not direct tool calls like `todo` or `git_manager`
+
+**Auth behavior:**
+- `pnpm eval` honors `ANTHROPIC_API_KEY` from the shell or from `--env-path .env`
+- The provider applies env credentials as runtime overrides before falling back to `~/.sero-ui/agent/auth.json`
+- This prevents stale OAuth entries in `auth.json` from breaking evals that should use an API key
+
 ## File Layout
 
 ```
 eval/
 ├── seroProvider.ts              # Agent provider (real LLM calls)
+├── evalCli.ts                   # Eval-only sero-cli shim + temp workspace seeding
 ├── snapshotProvider.ts          # Snapshot provider (no LLM calls)
 ├── setup.ts                     # Temp directory helpers
 ├── patch-drizzle.cjs            # Workaround for drizzle-orm async tx bug
@@ -108,7 +120,7 @@ The drizzle-orm patch must be re-applied after installing dependencies:
 node eval/patch-drizzle.cjs
 ```
 
-Both `pnpm eval` and `./eval/run.sh` do this automatically, but if you run `npx promptfoo eval` directly you'll need to apply it first.
+Both `pnpm eval` and `./eval/run.sh` do this automatically. If you need to invoke promptfoo manually, use `node scripts/run-promptfoo.mjs ...` instead of `npx promptfoo ...`; the wrapper runs promptfoo under Electron's Node ABI so `better-sqlite3` stays compatible.
 
 ## Writing New Scenarios
 
@@ -227,6 +239,12 @@ Promptfoo runs each scenario against every listed provider and displays results 
 ## Troubleshooting
 
 **`FOREIGN KEY constraint failed` from promptfoo** — The drizzle-orm patch needs re-applying. Run `node eval/patch-drizzle.cjs` or use `pnpm eval` which applies it automatically.
+
+**`NODE_MODULE_VERSION` / `better-sqlite3` mismatch** — Use `pnpm eval`, `pnpm eval:snapshot`, `pnpm eval:view`, or `node scripts/run-promptfoo.mjs ...`. Those commands run promptfoo under Electron's Node runtime so it matches the `better-sqlite3` binary rebuilt in `postinstall`.
+
+**Anthropic auth still fails even with `ANTHROPIC_API_KEY` set** — A stale `anthropic` OAuth entry in `~/.sero-ui/agent/auth.json` can shadow env-based auth. The eval provider now applies env vars as runtime API-key overrides, but if you still need to debug, inspect `~/.sero-ui/agent/auth.json` and check whether the `anthropic` entry is an expired OAuth token.
+
+**`Cannot find module '@sinclair/typebox'` when running evals** — Run `pnpm install` from the monorepo root. The eval harness uses TypeBox for its local `sero-cli` tool schema, and the dependency is declared at the workspace root.
 
 **`Cannot find module` errors in snapshot provider** — Dynamic imports require `.ts` extensions. If adding a new import, use the full path: `path.join(SERO_ROOT, 'apps/desktop/electron/.../file.ts')`.
 

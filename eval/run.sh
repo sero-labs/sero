@@ -16,7 +16,7 @@ node eval/patch-drizzle.cjs
 
 if [[ "${1:-}" == "snapshot" ]]; then
   shift
-  exec npx promptfoo eval --config eval/promptfoo-snapshot.yaml --no-cache "$@"
+  exec node scripts/run-promptfoo.mjs eval --config eval/promptfoo-snapshot.yaml --no-cache "$@"
 else
-  exec npx promptfoo eval "$@"
+  exec node scripts/run-promptfoo.mjs eval "$@"
 fi
