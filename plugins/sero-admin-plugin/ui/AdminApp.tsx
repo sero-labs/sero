@@ -21,7 +21,7 @@ import { AgentList } from './components/AgentList';
 import { ConfigPanel } from './components/ConfigPanel';
 import { Header } from './components/Header';
 import { LogViewer } from './components/LogViewer';
-import { ModelDefaultsPanel } from './components/ModelDefaultsPanel';
+import { ModelPanel } from './components/ModelPanel';
 import { NavSidebar } from './components/NavSidebar';
 import { PluginsPanel } from './components/PluginsPanel';
 import { PromptEditor } from './components/PromptEditor';
@@ -31,6 +31,11 @@ import { SessionBrowser } from './components/SessionBrowser';
 import { SkillEditor } from './components/SkillEditor';
 import { SkillList } from './components/SkillList';
 import './styles.css';
+
+function normalizeSection(section: AdminState['lastSection'] | 'modelDefaults' | null | undefined): AdminSection {
+  if (section === 'modelDefaults') return 'model';
+  return section ?? 'agents';
+}
 
 export function AdminApp() {
   const [state, updateState] = useAppState<AdminState>(DEFAULT_STATE);
@@ -50,7 +55,7 @@ export function AdminApp() {
 
   const profilePath = activeProfile?.path ?? null;
   const profileName = activeProfile?.name ?? null;
-  const activeSection = state.lastSection ?? 'agents';
+  const activeSection = normalizeSection(state.lastSection as AdminState['lastSection'] | 'modelDefaults' | null | undefined);
   const selectedConfigKey = state.lastConfigKey;
   const selectedSessionId = state.lastSessionFile;
   const skillVisibility = useSkillVisibility(profilePath);
@@ -265,8 +270,8 @@ export function AdminApp() {
           />
         );
 
-      case 'modelDefaults':
-        return <ModelDefaultsPanel />;
+      case 'model':
+        return <ModelPanel />;
 
       case 'plugins':
         return <PluginsPanel />;

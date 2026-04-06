@@ -110,22 +110,10 @@ function clearPending(): void {
   loginOriginWebContents = null;
 }
 
-function cleanupInvalidModelSelectionsAfterAuthRefresh(
-  infra: Awaited<ReturnType<typeof ensureInfra>>,
-): void {
-  cleanupUnavailableModelSelections(
-    infra.modelRegistry.getAvailable().map((model) => ({
-      provider: model.provider,
-      modelId: model.id,
-    })),
-  );
-}
-
 async function refreshModelAvailabilityAfterAuthChange(
   infra: Awaited<ReturnType<typeof ensureInfra>>,
 ): Promise<void> {
   infra.modelRegistry.refresh();
-  cleanupInvalidModelSelectionsAfterAuthRefresh(infra);
 }
 
 // ── Registration ─────────────────────────────────────────────

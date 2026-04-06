@@ -114,6 +114,7 @@ describe('resolveConfig', () => {
     expect(result.model).toBe('MED');
     expect(result.modelSelection).toBe('MED');
     expect(result.thinking).toBe('high');
+    expect(result.thinkingSource).toBe('default');
     expect(result.timeoutMs).toBe(600_000);
   });
 

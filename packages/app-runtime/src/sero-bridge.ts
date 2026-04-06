@@ -66,6 +66,8 @@ export interface AppModelInfo {
   modelId: string;
   name: string;
   reasoning: boolean;
+  availableThinkingLevels?: string[];
+  supportsXhigh?: boolean;
 }
 
 /** A group of models under a single provider. */

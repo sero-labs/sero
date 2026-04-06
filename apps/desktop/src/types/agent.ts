@@ -5,6 +5,7 @@
  * Re-exported from ipc.ts so existing imports continue to work.
  */
 
+import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
 import type { ChatCheckpointRef } from './checkpoints';
 
 // ── Chat Messages ──────────────────────────────────────────────
@@ -106,13 +107,15 @@ export interface ModelInfo {
   modelId: string;
   name: string;
   reasoning: boolean;
+  availableThinkingLevels?: ThinkingLevel[];
+  supportsXhigh?: boolean;
 }
 
 /** Current model + thinking level for a session. */
 export interface SessionModelState {
   model: ModelInfo;
-  thinkingLevel: string;
-  availableThinkingLevels: string[];
+  thinkingLevel: ThinkingLevel;
+  availableThinkingLevels: ThinkingLevel[];
   supportsXhigh: boolean;
   /** All models with auth, grouped by provider display name. */
   availableModels: AvailableModelGroup[];

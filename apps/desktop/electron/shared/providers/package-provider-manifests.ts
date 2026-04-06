@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import path from 'path';
-import type { ModelTier, ProviderModelDefaults, SettingsPackageSource } from '../../../src/types/ipc';
+import type { ModelTier, SettingsPackageSource } from '../../../src/types/ipc';
 import { SERO_AGENT_DIR } from '../../platform/env';
 import {
   discoverBuiltinPackagePaths,
@@ -203,13 +203,3 @@ export function getPackageProviderEnvVar(providerId: string): string | undefined
   return getPackageProviderManifest(providerId)?.auth?.envVar;
 }
 
-export function getPackageProviderDefaults(): ProviderModelDefaults {
-  const result: ProviderModelDefaults = {};
-
-  for (const provider of loadProviderManifests()) {
-    if (!provider.defaults || Object.keys(provider.defaults).length === 0) continue;
-    result[provider.id] = { ...provider.defaults };
-  }
-
-  return result;
-}

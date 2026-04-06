@@ -10,8 +10,8 @@ import type { AgentSummaryIPC } from './useSeroFiles';
 const NEW_AGENT: AgentFileData = {
   name: '',
   description: '',
-  model: '',
-  thinking: '',
+  model: undefined,
+  thinking: undefined,
   timeoutMs: undefined,
   tools: [],
   systemPrompt: '',

@@ -89,15 +89,15 @@ const ConfigFileItem = memo(function ConfigFileItem({
     <button
       onClick={onSelect}
       className={cn(
-        'admin-sidebar-item w-full px-3 py-2 text-left transition-colors duration-150',
+        'admin-sidebar-item w-full border-l-2 border-l-transparent px-3 py-2 text-left transition-colors duration-150',
         'hover:bg-secondary/50',
-        isSelected && 'bg-primary/8 border-r-2 border-primary',
+        isSelected && 'border-l-primary bg-secondary',
       )}
     >
       <div className="flex items-center gap-2">
         <span className={cn(
           'text-xs font-medium',
-          isSelected ? 'text-primary' : 'text-foreground/80',
+          isSelected ? 'text-foreground' : 'text-foreground/80',
         )}>
           {config.label}
         </span>

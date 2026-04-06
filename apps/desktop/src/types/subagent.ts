@@ -8,7 +8,7 @@
 export interface SubagentAgentSummary {
   name: string;
   description: string;
-  model?: string;
+  model?: SubagentModelConfig;
   thinking?: string;
   timeoutMs?: number;
 }

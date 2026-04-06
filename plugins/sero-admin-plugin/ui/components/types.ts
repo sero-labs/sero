@@ -1,10 +1,17 @@
 // ── Agent types ──────────────────────────────────────────────
 
+export interface StructuredAgentModel {
+  prefer: string;
+  fallbacks: string[];
+}
+
+export type AgentModelConfig = string | StructuredAgentModel;
+
 /** Agent summary (from listAgents IPC). */
 export interface AgentSummary {
   name: string;
   description: string;
-  model?: string;
+  model?: AgentModelConfig;
   thinking?: string;
   timeoutMs?: number;
 }
@@ -13,7 +20,7 @@ export interface AgentSummary {
 export interface AgentFileData {
   name: string;
   description: string;
-  model?: string;
+  model?: AgentModelConfig;
   thinking?: string;
   timeoutMs?: number;
   tools?: string[];

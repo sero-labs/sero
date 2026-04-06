@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type {
   AvailableModelGroup,
   ProviderHealthInfo,
-  ResolvedProviderDefaultsState,
 } from '../../../../src/types/ipc';
 import { buildOnboardingRecommendation } from '../../../features/onboarding/recommendations';
 
@@ -38,42 +37,29 @@ const availableModelGroups: AvailableModelGroup[] = [
   },
 ];
 
-const providerDefaults: ResolvedProviderDefaultsState = {
-  builtInDefaults: {},
-  globalDefaults: {
-    openai: { LOW: 'gpt-4.1-mini', MED: 'gpt-5.4', HIGH: 'gpt-5.4' },
-    google: { LOW: 'gemini-2.5-flash', MED: 'gemini-2.5-pro', HIGH: 'gemini-2.5-pro' },
-  },
-  effectiveDefaults: {
-    openai: { LOW: 'gpt-4.1-mini', MED: 'gpt-5.4', HIGH: 'gpt-5.4' },
-    google: { LOW: 'gemini-2.5-flash', MED: 'gemini-2.5-pro', HIGH: 'gemini-2.5-pro' },
-  },
-};
-
 describe('buildOnboardingRecommendation', () => {
   it('preserves valid tiers and repairs invalid tiers within the preferred provider', () => {
     const result = buildOnboardingRecommendation({
       availableModelGroups,
       currentTiers: {
-        LOW: { provider: 'openai', modelId: 'gpt-4.1-mini' },
-        MED: { provider: 'openai', modelId: 'missing-model' },
+        LOW: { provider: 'openai', modelId: 'gpt-4.1-mini', thinkingLevel: 'off' },
+        MED: { provider: 'openai', modelId: 'missing-model', thinkingLevel: 'medium' },
       },
       providerHealth: [makeProviderHealth('openai'), makeProviderHealth('google')],
-      providerDefaults,
       legacyDefaultProvider: null,
     });
 
     expect(result.invalidTiers).toEqual(['MED']);
     expect(result.recommendation?.preferredProvider).toBe('openai');
     expect(result.recommendation?.tiers).toEqual({
-      LOW: { provider: 'openai', modelId: 'gpt-4.1-mini' },
-      MED: { provider: 'openai', modelId: 'gpt-5.4' },
-      HIGH: { provider: 'openai', modelId: 'gpt-5.4' },
+      LOW: { provider: 'openai', modelId: 'gpt-4.1-mini', thinkingLevel: 'off' },
+      MED: { provider: 'openai', modelId: 'gpt-5.4', thinkingLevel: 'medium' },
+      HIGH: { provider: 'openai', modelId: 'gpt-5.4', thinkingLevel: 'high' },
     });
     expect(result.recommendation?.sourcesByTier).toEqual({
       LOW: 'preserved',
-      MED: 'provider-defaults',
-      HIGH: 'provider-defaults',
+      MED: 'recommended',
+      HIGH: 'recommended',
     });
   });
 
@@ -82,16 +68,15 @@ describe('buildOnboardingRecommendation', () => {
       availableModelGroups,
       currentTiers: {},
       providerHealth: [makeProviderHealth('openai'), makeProviderHealth('google')],
-      providerDefaults,
       legacyDefaultProvider: 'openai',
     });
 
     expect(result.invalidTiers).toEqual([]);
     expect(result.recommendation?.preferredProvider).toBe('openai');
     expect(result.recommendation?.tiers).toEqual({
-      LOW: { provider: 'openai', modelId: 'gpt-4.1-mini' },
-      MED: { provider: 'openai', modelId: 'gpt-5.4' },
-      HIGH: { provider: 'openai', modelId: 'gpt-5.4' },
+      LOW: { provider: 'openai', modelId: 'gpt-4.1-mini', thinkingLevel: 'off' },
+      MED: { provider: 'openai', modelId: 'gpt-5.4', thinkingLevel: 'high' },
+      HIGH: { provider: 'openai', modelId: 'gpt-5.4', thinkingLevel: 'high' },
     });
   });
 
@@ -99,18 +84,17 @@ describe('buildOnboardingRecommendation', () => {
     const result = buildOnboardingRecommendation({
       availableModelGroups,
       currentTiers: {
-        HIGH: { provider: 'google', modelId: 'gemini-2.5-pro' },
+        HIGH: { provider: 'google', modelId: 'gemini-2.5-pro', thinkingLevel: 'medium' },
       },
       providerHealth: [makeProviderHealth('openai'), makeProviderHealth('google')],
-      providerDefaults,
       legacyDefaultProvider: 'openai',
     });
 
     expect(result.recommendation?.preferredProvider).toBe('google');
     expect(result.recommendation?.tiers).toEqual({
-      LOW: { provider: 'google', modelId: 'gemini-2.5-flash' },
-      MED: { provider: 'google', modelId: 'gemini-2.5-pro' },
-      HIGH: { provider: 'google', modelId: 'gemini-2.5-pro' },
+      LOW: { provider: 'google', modelId: 'gemini-2.5-flash', thinkingLevel: 'off' },
+      MED: { provider: 'google', modelId: 'gemini-2.5-pro', thinkingLevel: 'high' },
+      HIGH: { provider: 'google', modelId: 'gemini-2.5-pro', thinkingLevel: 'medium' },
     });
     expect(result.recommendation?.sourcesByTier?.HIGH).toBe('preserved');
   });

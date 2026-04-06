@@ -1,3 +1,6 @@
+import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
+import type { ModelValidationWarning } from '@sero/common';
+
 /** Model tier levels for user-configured defaults. */
 export type ModelTier = 'LOW' | 'MED' | 'HIGH';
 
@@ -5,20 +8,17 @@ export type ModelTier = 'LOW' | 'MED' | 'HIGH';
 export interface ModelTierEntry {
   provider: string;
   modelId: string;
+  thinkingLevel?: ThinkingLevel;
 }
 
 /** Per-profile tier configuration stored in settings.json. */
 export type ModelTierSettings = Partial<Record<ModelTier, ModelTierEntry>>;
 
-/** Recommended model IDs per provider and tier. */
-export type ProviderTierDefaults = Partial<Record<ModelTier, string>>;
+export interface GlobalModelConfigInput {
+  tiers: ModelTierSettings;
+}
 
-/** Provider → recommended LOW/MED/HIGH models mapping. */
-export type ProviderModelDefaults = Record<string, ProviderTierDefaults>;
-
-export interface ResolvedProviderDefaultsState {
-  builtInDefaults: ProviderModelDefaults;
-  globalDefaults: ProviderModelDefaults;
-  profileOverrides?: ProviderModelDefaults;
-  effectiveDefaults: ProviderModelDefaults;
+export interface GlobalModelConfigState extends GlobalModelConfigInput {
+  warnings: ModelValidationWarning[];
+  migrationNotice?: string;
 }

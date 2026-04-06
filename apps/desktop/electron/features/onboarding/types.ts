@@ -7,8 +7,6 @@ import type {
   OnboardingState,
   OnboardingTierSource,
   ProviderHealthInfo,
-  ProviderModelDefaults,
-  ResolvedProviderDefaultsState,
 } from '../../../src/types/ipc';
 
 export type {
@@ -16,8 +14,6 @@ export type {
   OnboardingState,
   OnboardingTierSource,
   ProviderHealthInfo,
-  ProviderModelDefaults,
-  ResolvedProviderDefaultsState,
 } from '../../../src/types/ipc';
 
 export const ONBOARDING_TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;
@@ -38,7 +34,6 @@ export interface RecommendationContext {
   availableModelGroups: AvailableModelGroup[];
   currentTiers: ModelTierSettings;
   providerHealth: ProviderHealthInfo[];
-  providerDefaults: ResolvedProviderDefaultsState;
   legacyDefaultProvider?: string | null;
 }
 

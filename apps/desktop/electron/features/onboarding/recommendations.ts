@@ -1,3 +1,4 @@
+import { resolveSupportedThinkingLevel } from '@sero/common';
 import type {
   AvailableModelGroup,
   ModelTier,
@@ -5,11 +6,9 @@ import type {
   ModelTierSettings,
   OnboardingRecommendation,
   OnboardingTierSource,
-  ProviderModelDefaults,
 } from '../../../src/types/ipc';
 import {
   ONBOARDING_TIERS,
-  buildRecommendation,
   flattenAvailableModels,
   hasTierEntry,
   type AvailableModelRecord,
@@ -24,10 +23,7 @@ const TIER_PRIORITY_IDS: Record<ModelTier, string[]> = {
   HIGH: ['gpt-5.4', 'claude-sonnet-4-6', 'gemini-2.5-pro'],
 };
 
-function getProviderModels(
-  groups: AvailableModelGroup[],
-  providerId: string,
-): AvailableModelRecord[] {
+function getProviderModels(groups: AvailableModelGroup[], providerId: string): AvailableModelRecord[] {
   const group = groups.find((candidate) => candidate.provider === providerId);
   if (!group) return [];
   return group.models.map((model) => ({
@@ -52,9 +48,7 @@ function inferPreferredFromValidTiers(tiers: ModelTierSettings): string | null {
   const counts = countTierProviders(tiers);
   let preferred: string | null = null;
   let bestCount = 0;
-  let total = 0;
 
-  for (const count of counts.values()) total += count;
   for (const [providerId, count] of counts.entries()) {
     if (count > bestCount || (count === bestCount && preferred !== null && providerId.localeCompare(preferred) < 0)) {
       preferred = providerId;
@@ -62,19 +56,11 @@ function inferPreferredFromValidTiers(tiers: ModelTierSettings): string | null {
     }
   }
 
-  if (!preferred || total === 0) return null;
-  return bestCount >= Math.ceil(total / 2) ? preferred : null;
+  return preferred;
 }
 
 function modelMatches(entry: ModelTierEntry, model: AvailableModelRecord): boolean {
   return entry.provider === model.provider && entry.modelId === model.modelId;
-}
-
-function findExactModel(
-  models: AvailableModelRecord[],
-  modelId: string,
-): AvailableModelRecord | null {
-  return models.find((model) => model.modelId === modelId) ?? null;
 }
 
 function scoreModelForTier(model: AvailableModelRecord, tier: ModelTier): number {
@@ -110,10 +96,7 @@ function scoreModelForTier(model: AvailableModelRecord, tier: ModelTier): number
   return score;
 }
 
-function rankModelsForTier(
-  models: AvailableModelRecord[],
-  tier: ModelTier,
-): AvailableModelRecord[] {
+function rankModelsForTier(models: AvailableModelRecord[], tier: ModelTier): AvailableModelRecord[] {
   return [...models].sort((a, b) => {
     const scoreDelta = scoreModelForTier(b, tier) - scoreModelForTier(a, tier);
     if (scoreDelta !== 0) return scoreDelta;
@@ -125,71 +108,47 @@ function rankModelsForTier(
   });
 }
 
-function pickFromDefaults(
-  providerId: string,
+function pickBestModel(
+  models: AvailableModelRecord[],
   tier: ModelTier,
-  providerDefaults: ProviderModelDefaults,
-  groups: AvailableModelGroup[],
+  preferredThinkingLevel?: string,
 ): TierSelectionResult | null {
-  const defaults = providerDefaults[providerId];
-  const modelId = defaults?.[tier];
-  if (!modelId) return null;
-
-  const model = findExactModel(getProviderModels(groups, providerId), modelId);
-  if (!model) return null;
-
-  return {
-    entry: {
-      provider: model.provider,
-      modelId: model.modelId,
-    },
-    source: 'provider-defaults',
-  };
-}
-
-function pickBestModel(models: AvailableModelRecord[], tier: ModelTier): TierSelectionResult | null {
   const best = rankModelsForTier(models, tier)[0];
   if (!best) return null;
   return {
     entry: {
       provider: best.provider,
       modelId: best.modelId,
+      thinkingLevel: resolveSupportedThinkingLevel(best, preferredThinkingLevel ?? 'high'),
     },
-    source: 'fallback',
+    source: 'recommended',
   };
 }
 
-function scoreProviderCoverage(
-  providerId: string,
-  groups: AvailableModelGroup[],
-  providerDefaults: ProviderModelDefaults,
-): number {
+function scoreProviderCoverage(providerId: string, groups: AvailableModelGroup[]): number {
   const providerModels = getProviderModels(groups, providerId);
   if (providerModels.length === 0) return Number.NEGATIVE_INFINITY;
 
   let score = 0;
   for (const tier of ONBOARDING_TIERS) {
-    if (pickFromDefaults(providerId, tier, providerDefaults, groups)) {
-      score += 5;
-      continue;
-    }
-    if (pickBestModel(providerModels, tier)) {
-      score += 1;
-    }
+    const match = pickBestModel(providerModels, tier);
+    if (match) score += scoreModelForTier({
+      provider: match.entry.provider,
+      modelId: match.entry.modelId,
+      name: providerModels.find((model) => modelMatches(match.entry, model))?.name ?? match.entry.modelId,
+      reasoning: providerModels.find((model) => modelMatches(match.entry, model))?.reasoning ?? false,
+    }, tier);
   }
 
   return score;
 }
 
-function pickBestCoverageProvider(
-  groups: AvailableModelGroup[],
-  providerDefaults: ProviderModelDefaults,
-): string | null {
+function pickBestCoverageProvider(groups: AvailableModelGroup[]): string | null {
   let preferred: string | null = null;
   let bestScore = Number.NEGATIVE_INFINITY;
 
   for (const group of groups) {
-    const score = scoreProviderCoverage(group.provider, groups, providerDefaults);
+    const score = scoreProviderCoverage(group.provider, groups);
     if (score > bestScore || (score === bestScore && preferred !== null && group.provider.localeCompare(preferred) < 0)) {
       preferred = group.provider;
       bestScore = score;
@@ -199,10 +158,7 @@ function pickBestCoverageProvider(
   return preferred;
 }
 
-function inferPreferredProvider(
-  context: RecommendationContext,
-  validTiers: ModelTierSettings,
-): string | undefined {
+function inferPreferredProvider(context: RecommendationContext, validTiers: ModelTierSettings): string | undefined {
   const preferredFromValidTiers = inferPreferredFromValidTiers(validTiers);
   if (preferredFromValidTiers) return preferredFromValidTiers;
 
@@ -218,15 +174,11 @@ function inferPreferredProvider(
 
   const preferredByCoverage = pickBestCoverageProvider(
     context.availableModelGroups.filter((group) => healthyProviders.has(group.provider)),
-    context.providerDefaults.effectiveDefaults,
   );
   return preferredByCoverage ?? undefined;
 }
 
-export function validateCurrentTiers(
-  groups: AvailableModelGroup[],
-  tiers: ModelTierSettings,
-): ValidatedTierResult {
+export function validateCurrentTiers(groups: AvailableModelGroup[], tiers: ModelTierSettings): ValidatedTierResult {
   const validTiers: ModelTierSettings = {};
   const invalidTiers: ModelTier[] = [];
 
@@ -257,25 +209,35 @@ function pickTierSelection(
     };
   }
 
-  if (preferredProvider) {
-    const fromDefaults = pickFromDefaults(
-      preferredProvider,
-      tier,
-      context.providerDefaults.effectiveDefaults,
-      context.availableModelGroups,
-    );
-    if (fromDefaults) return fromDefaults;
+  const preferredThinkingLevel = context.currentTiers[tier]?.thinkingLevel ?? 'high';
 
-    const preferredModels = getProviderModels(context.availableModelGroups, preferredProvider);
-    const withinProviderFallback = pickBestModel(preferredModels, tier);
-    if (withinProviderFallback) return withinProviderFallback;
+  if (preferredProvider) {
+    const withinProvider = pickBestModel(
+      getProviderModels(context.availableModelGroups, preferredProvider),
+      tier,
+      preferredThinkingLevel,
+    );
+    if (withinProvider) return withinProvider;
   }
 
-  const anyModelFallback = pickBestModel(
+  const fallback = pickBestModel(
     flattenAvailableModels(context.availableModelGroups),
     tier,
+    preferredThinkingLevel,
   );
-  return anyModelFallback;
+  return fallback ? { ...fallback, source: 'fallback' as OnboardingTierSource } : null;
+}
+
+function buildRecommendation(
+  tiers: ModelTierSettings,
+  sourcesByTier: Partial<Record<ModelTier, OnboardingTierSource>>,
+  preferredProvider?: string,
+): OnboardingRecommendation {
+  return {
+    tiers,
+    sourcesByTier,
+    preferredProvider,
+  };
 }
 
 export function buildOnboardingRecommendation(context: RecommendationContext): {

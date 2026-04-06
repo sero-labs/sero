@@ -135,17 +135,12 @@ export const IpcChannels = {
     /** List all available models (session-independent). Returns AvailableModelGroup[]. */
     list: 'sero:models:list',
   },
-  modelTiers: {
-    get: 'sero:model-tiers:get',
-    set: 'sero:model-tiers:set',
+  modelConfig: {
+    get: 'sero:model-config:get',
+    set: 'sero:model-config:set',
   },
   onboarding: {
     getState: 'sero:onboarding:get-state',
-    saveTierSelections: 'sero:onboarding:save-tier-selections',
-  },
-  providerDefaults: {
-    get: 'sero:provider-defaults:get',
-    setGlobalDefaults: 'sero:provider-defaults:set-global-defaults',
   },
   localModels: localModelsIpcChannels,
   imagegen: {

@@ -3,10 +3,8 @@ import path from 'path';
 import type { ModelTier, OnboardingState, OnboardingWarning } from '../../../src/types/ipc';
 import { SERO_AGENT_DIR } from '../../platform/env';
 import { profileManager } from '../profile/manager';
-import { getModelTiers } from '../../shared/settings/model-tiers';
-import { resolveProviderDefaultsState } from '../../shared/settings/provider-model-defaults';
-import { cleanupUnavailableModelSelections } from '../../shared/settings/cleanup-unavailable-model-selections';
 import { readSettings } from '../../shared/settings/settings-helpers';
+import { getGlobalModelConfigTiers } from '../../shared/settings/model-config';
 import { buildOnboardingRecommendation, validateCurrentTiers } from './recommendations';
 import { getProviderHealthSnapshot } from './provider-health';
 import { emptyOnboardingState } from './types';
@@ -59,7 +57,7 @@ function buildWarnings(args: {
   if (invalidTiers.length > 0) {
     warnings.push({
       code: 'invalid_existing_tiers',
-      message: `We repaired unavailable saved model selections for ${invalidTiers.map(formatTierLabel).join(', ')}.`,
+      message: `Some saved model selections are no longer available: ${invalidTiers.map(formatTierLabel).join(', ')}.`,
     });
   }
 
@@ -91,6 +89,9 @@ export async function getOnboardingState(): Promise<OnboardingState> {
   }
 
   const memoryBootstrapComplete = hasCompletedMemoryBootstrap(activeProfile.path);
+  const { availableModelGroups, providerHealth } = await getProviderHealthSnapshot();
+  const hasAnyUsableModels = availableModelGroups.some((group) => group.models.length > 0);
+  const hasImportedCredentials = hasSavedAuthJson();
 
   if (!activeProfile.onboarded) {
     const { availableModelGroups, providerHealth } = await getProviderHealthSnapshot();
@@ -103,9 +104,7 @@ export async function getOnboardingState(): Promise<OnboardingState> {
     );
 
     const settings = readSettings();
-    const currentTiers = getModelTiers(settings);
-    const providerDefaults = resolveProviderDefaultsState(settings);
-    const hasAnyUsableModels = availableModelGroups.some((group) => group.models.length > 0);
+    const currentTiers = getGlobalModelConfigTiers(settings);
     const brokenProviderIds = providerHealth
       .filter((provider) => provider.status === 'broken_expired' || provider.status === 'broken_invalid')
       .map((provider) => provider.providerId);
@@ -115,7 +114,6 @@ export async function getOnboardingState(): Promise<OnboardingState> {
         availableModelGroups,
         currentTiers,
         providerHealth,
-        providerDefaults,
         legacyDefaultProvider: readLegacyDefaultProvider(settings),
       })
       : {
@@ -127,7 +125,7 @@ export async function getOnboardingState(): Promise<OnboardingState> {
       needed: true,
       phase: hasAnyUsableModels ? 'ready' : 'auth',
       hasAnyUsableModels,
-      hasImportedCredentials: hasSavedAuthJson(),
+      hasImportedCredentials,
       memoryBootstrapComplete,
       recommendation,
       providerHealth,
@@ -144,6 +142,10 @@ export async function getOnboardingState(): Promise<OnboardingState> {
 
   return {
     ...emptyOnboardingState(),
+    hasAnyUsableModels,
+    hasImportedCredentials,
     memoryBootstrapComplete,
+    providerHealth,
+    availableModelGroups,
   };
 }

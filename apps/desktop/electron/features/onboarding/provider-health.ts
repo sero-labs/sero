@@ -9,41 +9,24 @@ import {
   getOAuthProviderCatalog,
   getProviderEnvApiKey,
 } from '../../shared/auth/provider-catalog';
-import { providerDisplayName, providerLogo } from '../../ipc/platform/auth';
+import { providerDisplayName } from '../../ipc/platform/auth';
+import { buildAvailableModelGroups } from '../../ipc/agent/core/model-groups';
 
 export interface ProviderHealthSnapshot {
   availableModelGroups: AvailableModelGroup[];
   providerHealth: ProviderHealthInfo[];
 }
 
-function buildAvailableModelGroups(
+function buildGroupsFromInfra(
   infra: Awaited<ReturnType<typeof ensureInfra>>,
 ): AvailableModelGroup[] {
   const { modelRegistry } = infra;
   modelRegistry.authStorage.reload();
-  const available = modelRegistry.getAvailable();
-
-  const grouped = new Map<string, typeof available>();
-  for (const model of available) {
-    const models = grouped.get(model.provider) ?? [];
-    models.push(model);
-    grouped.set(model.provider, models);
-  }
-
-  return [...grouped.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([provider, models]) => ({
-      provider,
-      displayName: providerDisplayName(provider),
-      logo: providerLogo(provider),
-      models: models
-        .map((model) => ({
-          provider: model.provider,
-          modelId: model.id,
-          name: model.name,
-          reasoning: model.reasoning,
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name) || a.modelId.localeCompare(b.modelId)),
+  return buildAvailableModelGroups(modelRegistry.getAvailable())
+    .sort((a, b) => a.provider.localeCompare(b.provider))
+    .map((group) => ({
+      ...group,
+      models: [...group.models].sort((a, b) => a.name.localeCompare(b.name) || a.modelId.localeCompare(b.modelId)),
     }));
 }
 
@@ -112,7 +95,7 @@ function sortProviderHealth(providerHealth: ProviderHealthInfo[]): ProviderHealt
 
 export async function getProviderHealthSnapshot(): Promise<ProviderHealthSnapshot> {
   const infra = await ensureInfra();
-  const availableModelGroups = buildAvailableModelGroups(infra);
+  const availableModelGroups = buildGroupsFromInfra(infra);
   const usableModelIdsByProvider = new Map<string, string[]>();
   for (const group of availableModelGroups) {
     usableModelIdsByProvider.set(

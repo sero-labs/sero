@@ -10,6 +10,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@mariozechner/pi-agent-core": "catalog:"
+  },
   "devDependencies": {
     "typescript": "catalog:"
   }

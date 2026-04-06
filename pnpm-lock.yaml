@@ -150,6 +150,9 @@ importers:
       '@remixicon/react':
         specifier: ^4.9.0
         version: 4.9.0(react@19.2.4)
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
@@ -244,9 +247,6 @@ importers:
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@sero/common':
-        specifier: workspace:*
-        version: link:../../packages/common
       '@types/diff':
         specifier: ^8.0.0
         version: 8.0.0
@@ -380,6 +380,10 @@ importers:
         version: 5.9.3
 
   packages/common:
+    dependencies:
+      '@mariozechner/pi-agent-core':
+        specifier: 'catalog:'
+        version: 0.61.1(ws@8.19.0)(zod@3.25.76)
     devDependencies:
       typescript:
         specifier: 'catalog:'
@@ -405,6 +409,9 @@ importers:
       '@rive-app/react-webgl2':
         specifier: ^4.27.1
         version: 4.27.2(react@19.2.4)
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../common
       '@streamdown/cjk':
         specifier: ^1.0.2
         version: 1.0.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.4)(unified@11.0.5)

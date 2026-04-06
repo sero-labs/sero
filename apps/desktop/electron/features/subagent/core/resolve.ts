@@ -88,14 +88,7 @@ export function resolveConfig(
   );
   const model = extractModelString(modelSelection) ?? HARDCODED_DEFAULTS.model;
 
-  const thinking = firstDefined(
-    taskOverride?.thinking,
-    callOverride?.thinking,
-    agentConfig?.thinking,
-    settings?.thinking,
-    sessionDefaults?.thinking,
-    HARDCODED_DEFAULTS.thinking,
-  );
+  const thinking = resolveThinking(taskOverride, callOverride, agentConfig, settings, sessionDefaults);
 
   const timeoutMs = firstDefinedNumber(
     taskOverride?.timeoutMs,
@@ -107,17 +100,29 @@ export function resolveConfig(
 
   const toolStallTimeoutMs = settings?.toolStallTimeoutMs ?? HARDCODED_DEFAULTS.toolStallTimeoutMs;
 
-  return { model, modelSelection, thinking, timeoutMs, toolStallTimeoutMs };
+  return {
+    model,
+    modelSelection,
+    thinking: thinking.value,
+    thinkingSource: thinking.source,
+    timeoutMs,
+    toolStallTimeoutMs,
+  };
 }
 
-/**
- * Return the first non-null, non-undefined string value.
- */
-function firstDefined(...values: (string | null | undefined)[]): string {
-  for (const v of values) {
-    if (v !== null && v !== undefined && v !== '') return v;
-  }
-  return '';
+function resolveThinking(
+  taskOverride?: Pick<TaskOverride, 'thinking'>,
+  callOverride?: Pick<TaskOverride, 'thinking'>,
+  agentConfig?: Pick<AgentConfig, 'thinking'>,
+  settings?: Pick<SubagentSettings, 'thinking'>,
+  sessionDefaults?: SessionDefaults,
+): { value: string; source: ResolvedConfig['thinkingSource'] } {
+  if (taskOverride?.thinking) return { value: taskOverride.thinking, source: 'task' };
+  if (callOverride?.thinking) return { value: callOverride.thinking, source: 'call' };
+  if (agentConfig?.thinking) return { value: agentConfig.thinking, source: 'agent' };
+  if (settings?.thinking) return { value: settings.thinking, source: 'settings' };
+  if (sessionDefaults?.thinking) return { value: sessionDefaults.thinking, source: 'session' };
+  return { value: HARDCODED_DEFAULTS.thinking, source: 'default' };
 }
 
 /**

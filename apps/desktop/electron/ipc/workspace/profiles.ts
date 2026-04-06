@@ -10,11 +10,41 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '../../../src/types/ipc';
 import { profileManager } from '../../features/profile/manager';
-import { SERO_AGENT_DIR } from '../../platform/env';
-import { getModelTiers, setModelTiers } from '../../shared/settings/model-tiers';
+import { getModelTiers } from '../../shared/settings/model-tiers';
+import {
+  buildGlobalModelConfigState,
+  deriveTierSelectionsFromLegacyDefaults,
+  getGlobalModelConfigTiers,
+  readLegacyProviderDefaults,
+  setGlobalModelConfig,
+} from '../../shared/settings/model-config';
+import { getProviderHealthSnapshot } from '../../features/onboarding/provider-health';
+import { readSettings, writeSettings } from '../../shared/settings/settings-helpers';
 
 import type { ProfileInfo } from '../../features/profile/types';
-import type { ModelTierSettings } from '../../../src/types/ipc';
+import type { GlobalModelConfigInput, GlobalModelConfigState } from '../../../src/types/ipc';
+
+async function loadGlobalModelConfigState(): Promise<GlobalModelConfigState> {
+  let settings = readSettings();
+  let migrationNotice: string | undefined;
+
+  if (Object.keys(getModelTiers(settings)).length === 0) {
+    const legacyDefaults = readLegacyProviderDefaults();
+    if (Object.keys(legacyDefaults).length > 0) {
+      const migrated = deriveTierSelectionsFromLegacyDefaults(legacyDefaults);
+      if (Object.keys(migrated.tiers).length > 0) {
+        settings = setGlobalModelConfig(settings, {
+          tiers: migrated.tiers,
+        });
+        writeSettings(settings);
+      }
+      migrationNotice = migrated.migrationNotice;
+    }
+  }
+
+  const { availableModelGroups } = await getProviderHealthSnapshot();
+  return buildGlobalModelConfigState(settings, availableModelGroups, migrationNotice);
+}
 
 export function registerProfileHandlers(): void {
   /** List all profiles with active flag. */
@@ -54,23 +84,23 @@ export function registerProfileHandlers(): void {
             writeFileSync(path.join(destDir, 'auth.json'), content, 'utf8');
           }
 
-          // Copy model tier settings
+          // Copy global model tiers + default thinking level.
           const srcSettingsPath = path.join(source.path, 'agent', 'settings.json');
           if (existsSync(srcSettingsPath)) {
             try {
-              const srcSettingsObj = JSON.parse(readFileSync(srcSettingsPath, 'utf8'));
-              const srcTiers = getModelTiers(srcSettingsObj);
-              if (Object.keys(srcTiers).length > 0) {
-                const destSettingsPath = path.join(entry.path, 'agent', 'settings.json');
-                let destSettings: Record<string, unknown> = {};
-                try {
-                  destSettings = JSON.parse(readFileSync(destSettingsPath, 'utf8'));
-                } catch { /* fresh settings */ }
-                const updated = setModelTiers(destSettings, srcTiers);
-                writeFileSync(destSettingsPath, JSON.stringify(updated, null, 2) + '\n');
-              }
+              const srcSettingsObj = JSON.parse(readFileSync(srcSettingsPath, 'utf8')) as Record<string, unknown>;
+              const srcTiers = getGlobalModelConfigTiers(srcSettingsObj);
+              const destSettingsPath = path.join(entry.path, 'agent', 'settings.json');
+              let destSettings: Record<string, unknown> = {};
+              try {
+                destSettings = JSON.parse(readFileSync(destSettingsPath, 'utf8')) as Record<string, unknown>;
+              } catch { /* fresh settings */ }
+              const updated = setGlobalModelConfig(destSettings, {
+                tiers: srcTiers,
+              });
+              writeFileSync(destSettingsPath, JSON.stringify(updated, null, 2) + '\n');
             } catch {
-              // Non-critical — tiers can be configured later
+              // Non-critical — model preferences can be configured later.
             }
           }
         }
@@ -174,31 +204,19 @@ export function registerProfileHandlers(): void {
     },
   );
 
-  // ── Model Tier Settings ──────────────────────────────────────
+  // ── Global Model Config ───────────────────────────────────────
 
-  /** Get current model tier settings. */
-  ipcMain.handle(IpcChannels.modelTiers.get, (): ModelTierSettings => {
-    const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
-    try {
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-      return getModelTiers(settings);
-    } catch {
-      return {};
-    }
-  });
-
-  /** Set model tier settings. */
   ipcMain.handle(
-    IpcChannels.modelTiers.set,
-    (_e, tiers: ModelTierSettings): void => {
-      const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
-      let settings: Record<string, unknown> = {};
-      try {
-        settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-      } catch { /* fresh settings */ }
-      const updated = setModelTiers(settings, tiers);
-      writeFileSync(settingsPath, JSON.stringify(updated, null, 2) + '\n');
-    },
+    IpcChannels.modelConfig.get,
+    async (): Promise<GlobalModelConfigState> => loadGlobalModelConfigState(),
   );
 
+  ipcMain.handle(
+    IpcChannels.modelConfig.set,
+    async (_e, config: GlobalModelConfigInput): Promise<GlobalModelConfigState> => {
+      const updated = setGlobalModelConfig(readSettings(), config);
+      writeSettings(updated);
+      return loadGlobalModelConfigState();
+    },
+  );
 }

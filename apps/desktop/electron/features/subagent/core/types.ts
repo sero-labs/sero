@@ -111,6 +111,8 @@ export interface ResolvedConfig {
   modelSelection: SubagentModelConfig;
   /** Concrete thinking level. */
   thinking: string;
+  /** Where the winning thinking level came from. */
+  thinkingSource: 'task' | 'call' | 'agent' | 'settings' | 'session' | 'default';
   /** Concrete timeout in milliseconds. */
   timeoutMs: number;
   /** Per-tool stall timeout in milliseconds. 0 = disabled. */
