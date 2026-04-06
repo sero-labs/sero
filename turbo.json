@@ -11,6 +11,10 @@
     },
     "typecheck": {
       "dependsOn": ["^build"]
+    },
+    "eval": {
+      "cache": false,
+      "dependsOn": ["build"]
     }
   }
 }

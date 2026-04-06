@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Sero agent evaluation suite"
+
+providers:
+  - id: file://./eval/seroProvider.ts
+    label: "Sero (default model)"
+    config:
+      timeout: 120000
+
+  # Uncomment to compare models side-by-side:
+  # - id: file://./eval/seroProvider.ts
+  #   label: "Sero (Haiku)"
+  #   config:
+  #     model: claude-haiku-4-5-20251001
+  #     timeout: 60000
+
+prompts:
+  - "{{scenario_prompt}}"
+
+tests: file://./eval/scenarios/*.yaml
+
+defaultTest:
+  options:
+    provider:
+      id: anthropic:messages:claude-sonnet-4-5-20250929

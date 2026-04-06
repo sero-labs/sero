@@ -365,17 +365,21 @@ Promptfoo stores history in `~/.promptfoo/` locally. For release tracking:
 
 ## 9. Implementation Phases
 
-### Phase 1 — Foundation (do first)
+### Phase 1 — Foundation (done)
 
-- [ ] Create `eval/` directory structure at monorepo root
-- [ ] Implement `seroProvider.ts` with single-turn support
-- [ ] Implement `setup.ts` (temp dir create/teardown)
-- [ ] Write `promptfooconfig.yaml`
-- [ ] Create 3-5 scenarios in `file-ops.yaml` and `coding-tasks.yaml`
-- [ ] Add `promptfoo` to root devDependencies
-- [ ] Add `eval` / `eval:view` scripts to root `package.json`
-- [ ] Verify event shapes match actual SDK version (check `agent-subscription.ts`)
-- [ ] Run `pnpm eval` manually, calibrate assertion thresholds
+- [x] Create `eval/` directory structure at monorepo root
+- [x] Implement `seroProvider.ts` with single-turn support
+- [x] Implement `setup.ts` (temp dir create/teardown)
+- [x] Write `promptfooconfig.yaml`
+- [x] Create 3-5 scenarios in `file-ops.yaml` and `coding-tasks.yaml`
+- [x] Add `promptfoo` + `pi-coding-agent` to root devDependencies
+- [x] Add `eval` / `eval:view` scripts to root `package.json`
+- [x] Add `eval` task to `turbo.json`
+- [x] Verify event shapes match actual SDK version
+- [x] Fix drizzle-orm async transaction bug (`eval/patch-drizzle.cjs`)
+- [x] Create `eval/assertions/toolSequence.ts` helper
+- [x] Verify end-to-end: provider loads, scenarios parse, SDK initializes
+- [ ] Run full eval with API key, calibrate assertion thresholds
 
 ### Phase 2 — Expand
 
@@ -394,7 +398,22 @@ Promptfoo stores history in `~/.promptfoo/` locally. For release tracking:
 
 ---
 
-## 10. Risks and Mitigations
+## 10. Known Issue: drizzle-orm Async Transaction Bug
+
+Promptfoo uses drizzle-orm 0.35.x which passes `async` callbacks to
+better-sqlite3's synchronous `db.transaction()`. This causes FK constraint
+failures because the transaction commits before the async operations complete.
+
+**Workaround:** `eval/patch-drizzle.cjs` patches drizzle-orm's
+`better-sqlite3/session.cjs` to wrap async callbacks in a sync wrapper.
+The `pnpm eval` script runs this patch automatically before each eval.
+Run `node eval/patch-drizzle.cjs` manually after `pnpm install` if needed.
+
+This is only needed for promptfoo <=0.107; future versions may fix this.
+
+---
+
+## 11. Risks and Mitigations
 
 | Risk | Impact | Mitigation |
 |---|---|---|
@@ -406,7 +425,7 @@ Promptfoo stores history in `~/.promptfoo/` locally. For release tracking:
 
 ---
 
-## 11. What the Spec Got Right / What Needs Adjustment
+## 12. What the Spec Got Right / What Needs Adjustment
 
 **Keep from spec:**
 - Overall architecture (custom provider wrapping SDK)

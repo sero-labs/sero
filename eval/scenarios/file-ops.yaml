@@ -1,0 +1,78 @@
+# File operations — tests that the agent can read, write, and edit files correctly.
+
+- description: "Create a TypeScript file with an exported function"
+  vars:
+    scenario_prompt: >
+      Create a file called hello.ts that exports a function called greet.
+      It should accept a name parameter (string) and return a greeting string
+      like "Hello, <name>!". Do not create any other files.
+  assert:
+    # Agent used a file-writing tool
+    - type: javascript
+      value: |
+        const tools = output.metadata?.toolCalls?.map(t => t.name) || [];
+        const wrote = tools.some(t => ['write', 'edit'].includes(t));
+        return {
+          pass: wrote,
+          score: wrote ? 1.0 : 0.0,
+          reason: wrote
+            ? `Agent used file tools: [${tools.join(', ')}]`
+            : `Agent only used: [${tools.join(', ')}]`
+        };
+
+    # Output mentions the function
+    - type: contains
+      value: "greet"
+
+    # Qualitative check
+    - type: llm-rubric
+      value: >
+        The agent should have created a hello.ts file containing a TypeScript
+        function called greet that takes a name string parameter and returns
+        a greeting. The response should confirm the file was created.
+      threshold: 0.7
+
+    # Latency guard — should complete in under 60s
+    - type: javascript
+      value: |
+        const ms = output.metadata?.latencyMs || 0;
+        return {
+          pass: ms < 60000,
+          score: Math.max(0, 1 - (ms / 60000)),
+          reason: `Completed in ${(ms / 1000).toFixed(1)}s`
+        };
+
+- description: "Read and summarise an existing file"
+  vars:
+    scenario_prompt: >
+      Read the file called package.json in the current directory.
+      If it does not exist, say "no package.json found".
+      If it does exist, summarise its name and dependencies.
+  assert:
+    - type: llm-rubric
+      value: >
+        The agent should have attempted to read package.json. Since the
+        working directory is a temp dir with no package.json, the agent
+        should report that the file does not exist or is empty.
+      threshold: 0.6
+
+- description: "Create then edit a file"
+  vars:
+    scenario_prompt: >
+      1. Create a file called config.ts with: export const PORT = 3000;
+      2. Then edit it to change the port to 8080.
+      3. Confirm the final content.
+  assert:
+    - type: javascript
+      value: |
+        const tools = output.metadata?.toolCalls?.map(t => t.name) || [];
+        const wrote = tools.some(t => t === 'write');
+        const edited = tools.some(t => t === 'edit');
+        const score = [wrote, edited].filter(Boolean).length / 2;
+        return {
+          pass: score >= 0.5,
+          score,
+          reason: `write:${wrote} edit:${edited} tools:[${tools.join(', ')}]`
+        };
+    - type: contains
+      value: "8080"
