@@ -3,7 +3,7 @@
 How to create, distribute, install, and manage Sero plugins.
 
 For internal architecture details, see
-[plugins-technical.md](plugins-technical.md).
+[technical.md](technical.md).
 
 ## Contents
 
@@ -106,9 +106,9 @@ deleted — you can clean those up manually if desired.
 
 ## Creating a Plugin
 
-Any existing Sero app can become a plugin. Follow the
-[Building Sero Apps] For a step-by-step guide to building a new app use the `sero-plugin` skill, then add
-the plugin metadata described below.
+Any existing Sero app can become a plugin. For a step-by-step guide to building
+a new app, use the `sero-plugin` skill, then add the plugin metadata described
+below.
 
 ### 1. Start with a standard Sero app
 
@@ -168,6 +168,47 @@ Add a `sero.plugin` key to your `package.json` alongside `sero.app`:
 }
 ```
 
+If your plugin registers one or more custom model providers via
+`pi.registerProvider(...)`, also add a `sero.providers` section so the Electron
+host can discover provider metadata directly from the plugin package instead of
+hardcoding it:
+
+```json
+{
+  "sero": {
+    "providers": [
+      {
+        "id": "alibaba-coding-plan",
+        "name": "Alibaba Coding Plan",
+        "logo": "alibaba-cloud",
+        "auth": {
+          "type": "apiKey",
+          "envVar": "ALIBABA_CODING_PLAN_KEY"
+        },
+        "defaults": {
+          "LOW": "qwen3-coder-plus",
+          "MED": "qwen3-coder-plus",
+          "HIGH": "qwen3.5-plus"
+        }
+      }
+    ]
+  }
+}
+```
+
+This metadata is used for:
+
+- the auth dialog API-key provider list
+- provider display names and logos in model pickers
+- environment-variable lookup for plugin-defined providers
+- onboarding / tier default suggestions for plugin-defined models
+
+When you do this, keep the extension's provider ID and env var in sync with the
+manifest entry. For example, if your manifest declares
+`id: "alibaba-coding-plan"` and `envVar: "ALIBABA_CODING_PLAN_KEY"`, your
+extension should also register `alibaba-coding-plan` and resolve the same env
+var when calling `pi.registerProvider(...)`.
+
 ### 3. Build and test locally
 
 For **npm distribution**, build a ready-to-install plugin bundle:
@@ -215,8 +256,8 @@ restarting Sero.
 
 ### `sero.app` (required)
 
-The standard Sero app manifest. See the
-For a step-by-step guide to building a new app use the `sero-plugin` skill
+The standard Sero app manifest used by all Sero apps and plugins. For a
+step-by-step guide to building a new app, use the `sero-plugin` skill.
 
 ### `sero.plugin` (required for plugins)
 
@@ -227,6 +268,32 @@ For a step-by-step guide to building a new app use the `sero-plugin` skill
 | `minSeroVersion` | string | No | Minimum compatible Sero version (semver). |
 | `preBuilt` | boolean | No | Controls install behavior for git/local plugins. Set `true` only when the package already ships a valid `dist/ui/` bundle and should be installed without rebuilding. Set `false` or omit it for source repos that Sero should build locally on install. npm bundles are always expected to ship pre-built artifacts. |
 | `bridgeTools` | boolean \| string[] | No | Controls whether plugin tools are bridged into `sero-cli`. Omit or set `true` to bridge all tools; `false` to bridge none; or provide a list of tool names to bridge selectively. |
+
+### `sero.providers` (optional)
+
+Declare this when a plugin registers one or more custom model providers with
+`pi.registerProvider(...)` and wants the Electron host to surface matching
+provider metadata automatically.
+
+Each entry supports:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | Yes | Provider ID. Must match the ID passed to `pi.registerProvider(...)`. |
+| `name` | string | No | Display name shown in auth UI and model selectors. Defaults to a title-cased version of `id`. |
+| `logo` | string | No | Logo slug or absolute URL used by the host UI. Slugs resolve to `https://models.dev/logos/<slug>.svg`. |
+| `auth.type` | `"apiKey"` | No | Declares that the provider authenticates via API key. |
+| `auth.envVar` | string | No | Environment variable name the host should check for this provider. |
+| `defaults` | object | No | Optional default LOW/MED/HIGH model IDs for onboarding and tier suggestions. |
+
+Notes:
+
+- `sero.providers` is metadata for the Electron host. It does **not** register
+  models by itself — your extension still needs to call `pi.registerProvider(...)`.
+- Keep `id`, auth env var, and default model IDs aligned with the provider your
+  extension actually registers.
+- Use plugin-owned env var names such as `ALIBABA_CODING_PLAN_KEY` rather than
+  reusing ambiguous upstream product names where possible.
 
 ### Categories
 
@@ -411,7 +478,10 @@ commands will still work through the agent.
 
 A Pi package works in the Pi CLI. A Sero plugin adds a `sero.app` manifest
 (for sidebar + UI) and a `sero.plugin` manifest (for distribution metadata).
-Every Sero plugin is also a valid Pi package — it works in both environments.
+Plugins that register custom model providers can also add `sero.providers` so
+Sero's Electron host can surface provider auth and model metadata without core
+changes. Every Sero plugin is also a valid Pi package — it works in both
+environments.
 
 ### Can third-party plugins be installed?
 

@@ -19,7 +19,6 @@
 
 import fs from 'fs';
 import { ipcMain, BrowserWindow, shell, type WebContents } from 'electron';
-import { getEnvApiKey } from '@mariozechner/pi-ai';
 import { getOAuthProviders } from '@mariozechner/pi-ai/oauth';
 import type { OAuthProviderId } from '@mariozechner/pi-ai';
 
@@ -31,7 +30,7 @@ import type {
   OAuthEvent,
 } from '../../../../src/types/ipc';
 import { ensureInfra } from '../../../shared/infra/shared-infra';
-import { API_KEY_PROVIDERS } from '../../../shared/auth/provider-catalog';
+import { getApiKeyProviderCatalog, getProviderEnvApiKey } from '../../../shared/auth/provider-catalog';
 import { AUTH_JSON_PATH } from '../../../platform/env';
 
 // ── auth.json permission hardening ───────────────────────────
@@ -135,9 +134,9 @@ export function registerAuthHandlers(): void {
       });
 
       // API key providers
-      const apiKey: ApiKeyProviderInfo[] = API_KEY_PROVIDERS.map((p) => {
+      const apiKey: ApiKeyProviderInfo[] = getApiKeyProviderCatalog().map((p) => {
         const cred = infra.authStorage.get(p.id);
-        const envKey = getEnvApiKey(p.id);
+        const envKey = getProviderEnvApiKey(p.id);
         return {
           id: p.id,
           name: p.name,

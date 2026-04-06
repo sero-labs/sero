@@ -1,11 +1,14 @@
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import { getEnvApiKey } from '@mariozechner/pi-ai';
 import type { AvailableModelGroup, ProviderHealthInfo, ProviderHealthStatus } from '../../../src/types/ipc';
 import type { LocalModelsConfig } from '../../../src/types/local-models';
 import { SERO_AGENT_DIR } from '../../platform/env';
 import { ensureInfra } from '../../shared/infra/shared-infra';
-import { API_KEY_PROVIDERS, getOAuthProviderCatalog } from '../../shared/auth/provider-catalog';
+import {
+  getApiKeyProviderCatalog,
+  getOAuthProviderCatalog,
+  getProviderEnvApiKey,
+} from '../../shared/auth/provider-catalog';
 import { providerDisplayName, providerLogo } from '../../ipc/platform/auth';
 
 export interface ProviderHealthSnapshot {
@@ -138,10 +141,10 @@ export async function getProviderHealthSnapshot(): Promise<ProviderHealthSnapsho
     }));
   }
 
-  for (const provider of API_KEY_PROVIDERS) {
+  for (const provider of getApiKeyProviderCatalog()) {
     knownProviders.add(provider.id);
     const credential = infra.authStorage.get(provider.id);
-    const envKey = getEnvApiKey(provider.id);
+    const envKey = getProviderEnvApiKey(provider.id);
     const usableModelIds = usableModelIdsByProvider.get(provider.id) ?? [];
 
     let status: ProviderHealthStatus;

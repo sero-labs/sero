@@ -5,6 +5,8 @@
  * Extracted from agent-helpers.ts to keep it under 500 LOC.
  */
 
+import { getPackageProviderManifest } from '../../../shared/providers/package-provider-manifests';
+
 const PROVIDER_NAMES: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
@@ -42,11 +44,23 @@ const PROVIDER_LOGO_MAP: Record<string, string> = {
   'kimi-coding': 'openai',
 };
 
+function titleizeProviderId(provider: string): string {
+  return provider.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function providerLogo(provider: string): string {
+  const manifestLogo = getPackageProviderManifest(provider)?.logo;
+  if (manifestLogo) {
+    if (/^https?:\/\//.test(manifestLogo)) return manifestLogo;
+    return `https://models.dev/logos/${manifestLogo}.svg`;
+  }
+
   const slug = PROVIDER_LOGO_MAP[provider] ?? provider;
   return `https://models.dev/logos/${slug}.svg`;
 }
 
 export function providerDisplayName(provider: string): string {
-  return PROVIDER_NAMES[provider] ?? provider.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const manifestName = getPackageProviderManifest(provider)?.name;
+  if (manifestName) return manifestName;
+  return PROVIDER_NAMES[provider] ?? titleizeProviderId(provider);
 }
