@@ -2,6 +2,7 @@
 
 @source "../../ui/src/components";
 @source "./components";
+@source "./hooks";
 @source "./lib";
 
 @custom-variant dark (&:is(.dark *));
@@ -112,4 +113,11 @@
 
 .admin-loading {
   animation: admin-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Nav sidebar items ─────────────────────────────────── */
+
+.admin-nav-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
 }
