@@ -76,6 +76,13 @@ export interface SeroApi {
     get(): Promise<ProviderDefaultsState>;
     setGlobalDefaults(defaults: ProviderModelDefaults): Promise<void>;
   };
+  models: {
+    list(): Promise<AvailableModelGroupIPC[]>;
+  };
+  auth: {
+    getProviders(): Promise<AuthProvidersResponseIPC>;
+    login(providerId: string): Promise<void>;
+  };
 }
 
 interface ProfileInfo {
@@ -151,6 +158,41 @@ export interface PromptTemplateFileDataIPC {
   description: string;
   filePath?: string;
   body: string;
+}
+
+// ── Model / auth IPC types ────────────────────────────────
+
+export interface ModelInfoIPC {
+  provider: string;
+  modelId: string;
+  name: string;
+  reasoning: boolean;
+}
+
+export interface AvailableModelGroupIPC {
+  provider: string;
+  displayName: string;
+  logo: string;
+  models: ModelInfoIPC[];
+}
+
+export interface OAuthProviderInfoIPC {
+  id: string;
+  name: string;
+  isLoggedIn: boolean;
+  canRefresh: boolean;
+}
+
+export interface ApiKeyProviderInfoIPC {
+  id: string;
+  name: string;
+  hasKey: boolean;
+  fromEnv: boolean;
+}
+
+export interface AuthProvidersResponseIPC {
+  oauth: OAuthProviderInfoIPC[];
+  apiKey: ApiKeyProviderInfoIPC[];
 }
 
 /** Single cast site for the window.sero API. Import this instead of casting inline. */
