@@ -18,7 +18,7 @@ const SECTION_LABELS: Record<AdminSection, string> = {
   skills: 'Skills',
   prompts: 'Prompts',
   settings: 'Configuration',
-  modelDefaults: 'Model Defaults',
+  modelDefaults: 'Providers',
   plugins: 'Plugins',
   logs: 'Logs',
   sessions: 'Sessions',

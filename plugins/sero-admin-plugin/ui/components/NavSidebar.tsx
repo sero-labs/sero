@@ -34,7 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'Config',
     items: [
       { id: 'settings', label: 'Settings' },
-      { id: 'modelDefaults', label: 'Defaults' },
+      { id: 'modelDefaults', label: 'Providers' },
       { id: 'plugins', label: 'Plugins' },
     ],
   },
