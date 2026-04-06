@@ -31,24 +31,65 @@ Each provider is a single compact row:
 
 ### Expanded State
 
-Expanding reveals the three tier inputs below the header row:
+Expanding reveals the three tier selectors below the header row:
 
 ```
 ┌─ openai ────────────────────────────── overridden ──┐
 │  gpt-5.4-mini                                  [▾]  │
 │                                                      │
-│  LOW              MED              HIGH               │
-│  [gpt-5.4-mini ] [gpt-5.4-mini ] [gpt-5.4-mini  ]  │
+│  LOW                MED                HIGH           │
+│  ┌─────────────┐   ┌─────────────┐   ┌────────────┐ │
+│  │ gpt-5.4-mini▾│   │ gpt-5.4-mini▾│   │gpt-5.4-mini▾│ │
+│  └─────────────┘   └─────────────┘   └────────────┘ │
 │   default: gpt-4.1-mini  default: gpt-5.4  ...      │
 │                                                      │
 │                               Reset to defaults      │
 └──────────────────────────────────────────────────────┘
 ```
 
-- **Tier inputs** — 3-column grid, each with a label (LOW/MED/HIGH), an input field, and a "default: model-id" hint below showing the built-in value.
-- **Placeholder text** — each input uses the built-in default as placeholder, so empty = using default.
+### Tier Model Selectors
+
+Each tier uses a **Popover-based model picker** — the same UX pattern as the main ModelSelector (`apps/desktop/src/components/layout/ModelSelector.tsx`). This replaces the raw text inputs.
+
+**Trigger button:** Displays the current effective model name (or "default: model-id" in muted text if no override). Clicking opens the picker popover.
+
+**Popover content:** A compact searchable list of available models for that provider:
+
+```
+┌────────────────────────────┐
+│ 🔍 Search models…          │
+├────────────────────────────┤
+│ ● gpt-5.4                  │
+│   gpt-5.4-mini             │
+│   gpt-4.1                  │
+│   gpt-4.1-mini             │
+│   o3                        │
+│   o4-mini                   │
+├────────────────────────────┤
+│ ✎ Custom model ID…         │
+└────────────────────────────┘
+```
+
+- **Model list** — sourced from the available models data for this provider (same data the main ModelSelector uses, via `window.sero.models.listAvailable()` or equivalent IPC). Each item is a button; clicking selects it and closes the popover.
+- **Selected indicator** — check mark on the currently selected model (matches ModelSelector's `Check` icon pattern).
+- **Search** — filters the model list by name/ID as the user types.
+- **"Custom model ID..."** — footer action that switches the popover to a text input for entering an arbitrary model ID (for models not in the known list). Pressing Enter confirms.
+- **"default" fallback display** — if no override is set, the trigger button shows the built-in default model name in muted text with a "(default)" suffix, making it clear this value comes from defaults, not a user choice.
+
+**Data source:** The host app already exposes `window.sero.models.list(): Promise<AvailableModelGroup[]>` (see `apps/desktop/src/types/electron.d.ts:374-377`). Each `AvailableModelGroup` has `{ provider, displayName, logo, models: ModelInfo[] }` where `ModelInfo` has `{ modelId, name, provider, reasoning }`. Add a `models.list()` method to `SeroApi` in `useSeroFiles.ts`. Filter the returned groups by the current provider's ID to populate that provider's tier picker. If a provider has no available models (not authenticated), fall back to a plain text input for that tier.
+
+### Auto-Save & Persistence
+
+- **Auto-save** — selecting a model from the picker immediately saves. No global save button.
+- All current overrides are collected and saved via `providerDefaults.setGlobalDefaults()`
+- Inline "Saved" feedback appears next to the provider name, fades after 1.5s
+- On error, inline error text in `text-destructive`
+- State reloaded after save to get fresh effective values
+
+### Other Expanded State Details
+
 - **"Reset to defaults"** — only shown when the provider has overrides. Clears all custom values for that provider.
-- **Auto-save** — saves on input blur or Enter keypress. No global save button. Shows brief inline "Saved" feedback text that fades after 1.5s.
+- **Default hint** — below each tier selector, `text-[10px] text-muted-foreground/60` showing "default: model-id" so users know what they'll get if they clear the override.
 
 ### Add Provider
 
@@ -103,6 +144,8 @@ No providers configured yet.
 
 | File | Action |
 |------|--------|
-| `ui/components/ModelDefaultsPanel.tsx` | Rewrite — new collapsed/expanded card layout with auto-save |
+| `ui/components/ModelDefaultsPanel.tsx` | Rewrite — collapsed/expanded provider cards, popover-based tier selectors, auto-save |
+| `ui/components/TierModelPicker.tsx` | **NEW** — Popover-based model picker for a single tier (search, model list, custom ID fallback) |
+| `ui/hooks/useSeroFiles.ts` | Add `models.list()` to `SeroApi` interface |
 | `ui/components/NavSidebar.tsx` | Change "Defaults" label to "Providers" |
 | `ui/components/Header.tsx` | Change "Model Defaults" label to "Providers" |
