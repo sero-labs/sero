@@ -8,6 +8,7 @@
 
 import { useState, useCallback } from 'react';
 import type { PromptTemplateSummary, PromptTemplateFileData } from '../components/types';
+import { getSero } from './useSeroFiles';
 
 const NEW_PROMPT: PromptTemplateFileData = {
   name: '',
@@ -40,7 +41,7 @@ export function usePromptCrud(
 
   const refresh = useCallback(async () => {
     try {
-      const list = await window.sero.prompts.listPrompts();
+      const list = await getSero().prompts.listPrompts();
       setPrompts(list);
     } catch (err) {
       onError('Failed to load prompt templates');
@@ -52,7 +53,7 @@ export function usePromptCrud(
     try {
       setSelected(filePath);
       setIsNew(false);
-      const data = await window.sero.prompts.readPrompt(filePath);
+      const data = await getSero().prompts.readPrompt(filePath);
       setEditing(data);
     } catch (err) {
       const name = filePath.split('/').pop() ?? filePath;
@@ -69,7 +70,7 @@ export function usePromptCrud(
   const save = useCallback(async (data: PromptTemplateFileData) => {
     setSaving(true);
     try {
-      const filePath = await window.sero.prompts.writePrompt(data);
+      const filePath = await getSero().prompts.writePrompt(data);
       await refresh();
       setSelected(filePath);
       setIsNew(false);
@@ -83,7 +84,7 @@ export function usePromptCrud(
 
   const remove = useCallback(async (filePath: string) => {
     try {
-      await window.sero.prompts.deletePrompt(filePath);
+      await getSero().prompts.deletePrompt(filePath);
       if (selected === filePath) {
         setSelected(null);
         setEditing(null);

@@ -4,6 +4,8 @@
 
 import { useState, useCallback } from 'react';
 import type { AgentSummary, AgentFileData } from '../components/types';
+import { getSero } from './useSeroFiles';
+import type { AgentSummaryIPC } from './useSeroFiles';
 
 const NEW_AGENT: AgentFileData = {
   name: '',
@@ -40,8 +42,8 @@ export function useAgentCrud(
 
   const refresh = useCallback(async () => {
     try {
-      const list = await window.sero.subagent.listAgents();
-      setAgents(list.map((a) => ({
+      const list = await getSero().subagent.listAgents();
+      setAgents(list.map((a: AgentSummaryIPC) => ({
         name: a.name,
         description: a.description,
         model: a.model,
@@ -58,7 +60,7 @@ export function useAgentCrud(
     try {
       setSelected(name);
       setIsNew(false);
-      const data = await window.sero.subagent.readAgent(name);
+      const data = await getSero().subagent.readAgent(name);
       setEditing(data);
     } catch (err) {
       onError(`Failed to load agent '${name}'`);
@@ -74,7 +76,7 @@ export function useAgentCrud(
   const save = useCallback(async (data: AgentFileData) => {
     setSaving(true);
     try {
-      await window.sero.subagent.writeAgent(data);
+      await getSero().subagent.writeAgent(data);
       await refresh();
       setSelected(data.name);
       setIsNew(false);
@@ -88,7 +90,7 @@ export function useAgentCrud(
 
   const remove = useCallback(async (name: string) => {
     try {
-      await window.sero.subagent.deleteAgent(name);
+      await getSero().subagent.deleteAgent(name);
       if (selected === name) {
         setSelected(null);
         setEditing(null);

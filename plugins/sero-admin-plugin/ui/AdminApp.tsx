@@ -1,29 +1,32 @@
 /**
- * AdminApp — main Sero Admin app component.
+ * AdminApp — unified Sero Admin + Resources app.
  *
- * Six-tab interface:
- *  - Config: browse and edit Sero configuration files
- *  - Defaults: edit global provider model defaults used by onboarding
- *  - Skills: control which skills stay visible to the model by default
- *  - Plugins: install and remove optional Sero plugins
- *  - Logs: view Sero log files with auto-refresh
- *  - Sessions: browse session data (CSS content-visibility skip)
- *
- * Uses CSS fade transitions for smooth tab switching.
- * Profile-aware — shows active profile and reads from the correct path.
+ * Sectioned vertical nav layout:
+ *  - RESOURCES: Agents, Skills, Prompts (CRUD with list + editor)
+ *  - CONFIG: Settings, Defaults, Plugins
+ *  - SYSTEM: Logs, Sessions
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
-import { cn } from '@sero-ai/ui/lib/utils';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sero-ai/ui/components/ui/tabs';
-import type { AdminState, AdminTab } from '../shared/types';
+import type { AdminState, AdminSection } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
 import { useProfiles } from './hooks/useSeroFiles';
+import { useAgentCrud } from './hooks/useAgentCrud';
+import { useSkillCrud } from './hooks/useSkillCrud';
+import { usePromptCrud } from './hooks/usePromptCrud';
+import { useSkillVisibility } from './hooks/useSkillVisibility';
 import { Header } from './components/Header';
+import { NavSidebar } from './components/NavSidebar';
+import { ResourceSection } from './components/ResourceSection';
+import { AgentList } from './components/AgentList';
+import { AgentEditor } from './components/AgentEditor';
+import { SkillList } from './components/SkillList';
+import { SkillEditor } from './components/SkillEditor';
+import { PromptList } from './components/PromptList';
+import { PromptEditor } from './components/PromptEditor';
 import { ConfigPanel } from './components/ConfigPanel';
 import { ModelDefaultsPanel } from './components/ModelDefaultsPanel';
-import { SkillsPanel } from './components/SkillsPanel';
 import { PluginsPanel } from './components/PluginsPanel';
 import { LogViewer } from './components/LogViewer';
 import { SessionBrowser } from './components/SessionBrowser';
@@ -33,35 +36,69 @@ export function AdminApp() {
   const [state, updateState] = useAppState<AdminState>(DEFAULT_STATE);
   const { activeProfile, loading: profilesLoading } = useProfiles();
 
-  const [activeTab, setActiveTab] = useState<AdminTab>(state.lastTab ?? 'config');
-  const [selectedConfigKey, setSelectedConfigKey] = useState<string | null>(
-    state.lastConfigKey,
-  );
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    state.lastSessionFile,
-  );
+  const [activeSection, setActiveSection] = useState<AdminSection>(state.lastSection ?? 'agents');
+  const [selectedConfigKey, setSelectedConfigKey] = useState<string | null>(state.lastConfigKey);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(state.lastSessionFile);
 
-  // Persist tab preference
-  const handleTabChange = useCallback((value: string) => {
-    const tab = value as AdminTab;
-    setActiveTab(tab);
-    updateState((prev) => ({ ...prev, lastTab: tab }));
+  // ── Resource CRUD state ───────────────────────────────────
+  const [resourceLoading, setResourceLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const setErrorMsg = useCallback((msg: string) => setError(msg), []);
+
+  const agentCrud = useAgentCrud(setErrorMsg, setSaving);
+  const skillCrud = useSkillCrud(setErrorMsg, setSaving);
+  const promptCrud = usePromptCrud(setErrorMsg, setSaving);
+
+  const profilePath = activeProfile?.path ?? null;
+  const profileName = activeProfile?.name ?? null;
+
+  // Skill visibility (for the toggle in SkillEditor)
+  const skillVisibility = useSkillVisibility(profilePath);
+
+  // Initial load for resources
+  useEffect(() => {
+    setResourceLoading(true);
+    setError(null);
+    Promise.all([agentCrud.refresh(), skillCrud.refresh(), promptCrud.refresh()]).finally(() =>
+      setResourceLoading(false),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Persistence callbacks ─────────────────────────────────
+
+  const handleSectionChange = useCallback((section: AdminSection) => {
+    setActiveSection(section);
+    setError(null);
+    updateState((prev) => ({ ...prev, lastSection: section }));
   }, [updateState]);
 
-  // Persist selected config
   const handleSelectConfig = useCallback((key: string) => {
     setSelectedConfigKey(key);
     updateState((prev) => ({ ...prev, lastConfigKey: key }));
   }, [updateState]);
 
-  // Persist selected session
   const handleSelectSession = useCallback((id: string | null) => {
     setSelectedSessionId(id);
     updateState((prev) => ({ ...prev, lastSessionFile: id }));
   }, [updateState]);
 
-  const profilePath = activeProfile?.path ?? null;
-  const profileName = activeProfile?.name ?? null;
+  // ── Skill visibility lookup for the editor ────────────────
+
+  const getSkillVisibility = useCallback((skillName: string) => {
+    const row = skillVisibility.skills.find((s) => s.name === skillName);
+    return {
+      visibleToModel: row?.visibleToModel ?? true,
+      lockedHidden: row?.lockedHidden ?? false,
+    };
+  }, [skillVisibility.skills]);
+
+  const handleSkillVisibilityChange = useCallback((skillName: string, visible: boolean) => {
+    skillVisibility.setSkillEnabled(skillName, visible);
+  }, [skillVisibility]);
+
+  // ── Loading state ─────────────────────────────────────────
 
   if (profilesLoading) {
     return (
@@ -71,189 +108,147 @@ export function AdminApp() {
     );
   }
 
-  return (
-    <div className="flex h-full flex-col overflow-hidden bg-background">
-      <Header profileName={profileName} activeTab={activeTab} />
+  // ── Section content renderer ──────────────────────────────
 
-      <Tabs
-        value={activeTab}
-        onValueChange={handleTabChange}
-        className="flex min-h-0 flex-1 flex-col gap-0"
-      >
-        {/* Tab bar */}
-        <div className="border-b border-border/30 px-4">
-          <TabsList variant="line" className="h-8 gap-0">
-            <TabsTrigger
-              value="config"
-              className={cn(
-                'h-8 rounded-none px-3 text-xs',
-                activeTab === 'config' && 'text-indigo-400',
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <ConfigIcon />
-                Config
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="modelDefaults"
-              className={cn(
-                'h-8 rounded-none px-3 text-xs',
-                activeTab === 'modelDefaults' && 'text-indigo-400',
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <ModelIcon />
-                Defaults
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="skills"
-              className={cn(
-                'h-8 rounded-none px-3 text-xs',
-                activeTab === 'skills' && 'text-indigo-400',
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <SkillsIcon />
-                Skills
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="plugins"
-              className={cn(
-                'h-8 rounded-none px-3 text-xs',
-                activeTab === 'plugins' && 'text-violet-400',
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <PluginIcon />
-                Plugins
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="logs"
-              className={cn(
-                'h-8 rounded-none px-3 text-xs',
-                activeTab === 'logs' && 'text-emerald-400',
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <LogIcon />
-                Logs
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="sessions"
-              className={cn(
-                'h-8 rounded-none px-3 text-xs',
-                activeTab === 'sessions' && 'text-emerald-400',
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <SessionIcon />
-                Sessions
-              </span>
-            </TabsTrigger>
-          </TabsList>
-        </div>
+  const renderSection = () => {
+    switch (activeSection) {
+      case 'agents':
+        return (
+          <ResourceSection
+            label="Agent"
+            count={agentCrud.agents.length}
+            loading={resourceLoading}
+            error={error}
+            onRefresh={agentCrud.refresh}
+            onNew={agentCrud.startNew}
+            list={
+              <AgentList
+                agents={agentCrud.agents}
+                selected={agentCrud.selected}
+                onSelect={agentCrud.select}
+              />
+            }
+            editor={agentCrud.editing ? (
+              <AgentEditor
+                data={agentCrud.editing}
+                isNew={agentCrud.isNew}
+                saving={saving}
+                onSave={agentCrud.save}
+                onDelete={agentCrud.remove}
+                onChange={agentCrud.setEditing}
+              />
+            ) : null}
+          />
+        );
 
-        {/* Tab content — each must be a flex column with overflow
-             hidden so children can fill height and scroll internally. */}
-        <TabsContent value="config" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      case 'skills': {
+        const vis = skillCrud.editing && !skillCrud.isNew
+          ? getSkillVisibility(skillCrud.editing.name)
+          : null;
+        return (
+          <ResourceSection
+            label="Skill"
+            count={skillCrud.skills.length}
+            loading={resourceLoading}
+            error={error}
+            onRefresh={skillCrud.refresh}
+            onNew={skillCrud.startNew}
+            list={
+              <SkillList
+                skills={skillCrud.skills}
+                selected={skillCrud.selected}
+                onSelect={skillCrud.select}
+              />
+            }
+            editor={skillCrud.editing ? (
+              <SkillEditor
+                data={skillCrud.editing}
+                isNew={skillCrud.isNew}
+                saving={saving}
+                source={skillCrud.selectedSource}
+                visibleToModel={vis?.visibleToModel}
+                lockedHidden={vis?.lockedHidden}
+                onVisibilityChange={
+                  vis ? (visible) => handleSkillVisibilityChange(skillCrud.editing!.name, visible) : undefined
+                }
+                onSave={skillCrud.save}
+                onDelete={skillCrud.remove}
+                onChange={skillCrud.setEditing}
+              />
+            ) : null}
+          />
+        );
+      }
+
+      case 'prompts':
+        return (
+          <ResourceSection
+            label="Prompt"
+            count={promptCrud.prompts.length}
+            loading={resourceLoading}
+            error={error}
+            onRefresh={promptCrud.refresh}
+            onNew={promptCrud.startNew}
+            list={
+              <PromptList
+                prompts={promptCrud.prompts}
+                selected={promptCrud.selected}
+                onSelect={promptCrud.select}
+              />
+            }
+            editor={promptCrud.editing ? (
+              <PromptEditor
+                data={promptCrud.editing}
+                isNew={promptCrud.isNew}
+                saving={saving}
+                onSave={promptCrud.save}
+                onDelete={promptCrud.remove}
+                onChange={promptCrud.setEditing}
+              />
+            ) : null}
+          />
+        );
+
+      case 'settings':
+        return (
           <ConfigPanel
             profilePath={profilePath}
             selectedKey={selectedConfigKey}
             onSelectKey={handleSelectConfig}
           />
-        </TabsContent>
+        );
 
-        <TabsContent value="modelDefaults" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ModelDefaultsPanel />
-        </TabsContent>
+      case 'modelDefaults':
+        return <ModelDefaultsPanel />;
 
-        <TabsContent value="skills" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <SkillsPanel profilePath={profilePath} />
-        </TabsContent>
+      case 'plugins':
+        return <PluginsPanel />;
 
-        <TabsContent value="plugins" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <PluginsPanel />
-        </TabsContent>
+      case 'logs':
+        return <LogViewer />;
 
-        <TabsContent value="logs" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <LogViewer />
-        </TabsContent>
-
-        <TabsContent value="sessions" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      case 'sessions':
+        return (
           <SessionBrowser
             selectedSessionId={selectedSessionId}
             onSelectSession={handleSelectSession}
           />
-        </TabsContent>
-      </Tabs>
+        );
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden bg-background">
+      <Header profileName={profileName} activeSection={activeSection} />
+      <div className="flex min-h-0 flex-1">
+        <NavSidebar active={activeSection} onSelect={handleSectionChange} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div key={activeSection} className="admin-fade-in flex min-h-0 flex-1 flex-col overflow-hidden">
+            {renderSection()}
+          </div>
+        </div>
+      </div>
     </div>
-  );
-}
-
-// ── Tab icons (inline SVGs to avoid Lucide dependency) ─────
-
-function ConfigIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-      <path d="M10 12h4" />
-      <path d="M10 16h4" />
-    </svg>
-  );
-}
-
-function ModelIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v18" />
-      <path d="M6 8h12" />
-      <path d="M4 16h16" />
-    </svg>
-  );
-}
-
-function SkillsIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2v20" />
-      <path d="M7 8.5h6a3.5 3.5 0 1 0 0-7H9" />
-      <path d="M7 15.5h8a3.5 3.5 0 1 1 0 7H9" />
-    </svg>
-  );
-}
-
-function PluginIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-      <path d="M12 22V12" />
-      <path d="m3.27 6.96 8.73 5.05 8.73-5.05" />
-    </svg>
-  );
-}
-
-function LogIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="16" y1="13" x2="8" y2="13" />
-      <line x1="16" y1="17" x2="8" y2="17" />
-    </svg>
-  );
-}
-
-function SessionIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
   );
 }
 
