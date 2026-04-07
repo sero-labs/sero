@@ -204,6 +204,7 @@ export function GitApp() {
             </div>
 
             <CommitDetail
+              key={selectedCommit?.hash ?? 'none'}
               commit={selectedCommit}
               diffs={commitDiffs}
               hasWorkingTreeChanges={state.fileChanges.length > 0}
@@ -358,6 +359,7 @@ function getActionFailureTitle(action: GitManagerRequest['action']): string {
       return 'Could not fetch remotes';
     case 'stash':
     case 'stash_pop':
+    case 'stash_apply':
       return 'Could not update stashes';
     case 'cherry_pick':
       return 'Could not cherry-pick commit';

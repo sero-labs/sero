@@ -22,6 +22,7 @@ import {
 } from './git-commands';
 import { getBranches, getRemoteBranches } from './git-refs';
 import { getDefaultBranch } from './git-default-branch';
+import { canUseQuickRefresh, createGitRefSnapshot, createQuickRefreshState } from './git-refresh';
 import { runGit, runGitAsync } from './git-exec';
 import { readState, writeState } from './state-io';
 
@@ -104,36 +105,6 @@ async function unstageChanges(cwd: string, exec: (args: string[]) => Promise<str
   await exec(['rm', '-r', '--cached', '--', '.']);
 }
 
-function canUseQuickRefresh(previousState: GitAppState, currentBranch: string, headHash: string): boolean {
-  if (!previousState.repoPath) return false;
-  if (!previousState.commits.length) return false;
-  if (!previousState.branches.length && !previousState.remoteBranches.length) return false;
-  return previousState.currentBranch === currentBranch && previousState.headHash === headHash;
-}
-
-function createQuickRefreshState(
-  cwd: string,
-  syncMode: GitSyncMode,
-  previousState: GitAppState,
-  currentBranch: string,
-  headHash: string,
-): GitAppState {
-  return {
-    ...previousState,
-    repoPath: cwd,
-    repoName: getRepoName(cwd),
-    currentBranch,
-    headHash,
-    defaultBranch: previousState.defaultBranch,
-    fileChanges: getFileChanges(cwd),
-    stashes: getStashes(cwd),
-    lastRefresh: new Date().toISOString(),
-    loading: false,
-    syncMode,
-    error: undefined,
-  };
-}
-
 function createFullRefreshState(cwd: string, syncMode: GitSyncMode): GitAppState {
   return {
     repoPath: cwd,
@@ -185,11 +156,10 @@ export async function refreshGitState(
 
   if (scope === 'auto') {
     const previousState = await readState(statePath);
-    const currentBranch = getCurrentBranch(cwd);
-    const headHash = getHeadHash(cwd);
+    const snapshot = createGitRefSnapshot(cwd);
 
-    if (canUseQuickRefresh(previousState, currentBranch, headHash)) {
-      const state = createQuickRefreshState(cwd, syncMode, previousState, currentBranch, headHash);
+    if (canUseQuickRefresh(previousState, snapshot)) {
+      const state = createQuickRefreshState(cwd, syncMode, previousState, snapshot);
       await writeState(statePath, state);
       return state;
     }
