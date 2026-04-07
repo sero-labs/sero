@@ -19,6 +19,7 @@ import {
   todayStr,
   readFile,
 } from './memory-manager';
+import { nowTimestamp } from './memory-format';
 import { scheduleQmdUpdate } from './qmd';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -42,13 +43,6 @@ const AUTO_LOG_COOLDOWN_MS = 60_000; // 1 minute
 
 function freshTurn(): TurnSummary {
   return { editedPaths: new Set(), notableCommands: [] };
-}
-
-function nowStamp(): string {
-  return new Date()
-    .toISOString()
-    .replace('T', ' ')
-    .replace(/\.\d+Z$/, '');
 }
 
 // ── Classification ─────────────────────────────────────────────
@@ -165,7 +159,7 @@ async function appendToDailyLog(entry: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 
   const existing = await readFile(filePath);
-  const timestamp = nowStamp();
+  const timestamp = nowTimestamp();
 
   // Append under a "## Activity" heading if it doesn't exist yet
   const heading = '## Activity (auto)';
@@ -207,7 +201,7 @@ async function logToolFailure(
   result: unknown,
 ): Promise<void> {
   const entry = [
-    `[${nowStamp()}] ${pending?.toolName ?? toolName}`,
+    `[${nowTimestamp()}] ${pending?.toolName ?? toolName}`,
     `cwd: ${pending?.cwd ?? cwd}`,
     `input: ${pending?.inputSummary ?? '(input unavailable)'}`,
     'result:',

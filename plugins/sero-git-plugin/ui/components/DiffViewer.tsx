@@ -29,7 +29,9 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
     return (
       <DiffShell path={diff.path} diff={diff} onClose={onClose}>
         <div className="flex items-center justify-center py-12 text-[var(--g-dim)] text-xs">
-          No changes
+          {diff.oldPath && diff.oldPath !== diff.path
+            ? `Renamed without content changes: ${diff.oldPath} → ${diff.path}`
+            : 'No changes'}
         </div>
       </DiffShell>
     );
@@ -66,13 +68,20 @@ function DiffShell({
     <div className="border border-[var(--g-border)] rounded-lg bg-[var(--g-bg)] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--g-border)] bg-[var(--g-surface)]">
-        <div className="flex items-center gap-2">
+        <div className="min-w-0 flex items-center gap-2">
           <span
             className="w-2 h-2 rounded-full shrink-0"
             style={{ background: statusColor }}
           />
-          <span className="text-xs text-[var(--g-text)] git-mono">{path}</span>
-          <div className="flex items-center gap-1.5 ml-2">
+          <div className="min-w-0">
+            <div className="truncate text-xs text-[var(--g-text)] git-mono">{path}</div>
+            {diff.oldPath && diff.oldPath !== path && (
+              <div className="truncate text-[10px] text-[var(--g-dim)] git-mono">
+                {diff.oldPath} → {path}
+              </div>
+            )}
+          </div>
+          <div className="ml-2 flex items-center gap-1.5">
             {diff.additions > 0 && (
               <span className="text-[10px] text-[var(--g-green)] font-medium">+{diff.additions}</span>
             )}

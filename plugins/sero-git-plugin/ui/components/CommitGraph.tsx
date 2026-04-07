@@ -60,7 +60,7 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
               {/* SVG graph column */}
               <div className="shrink-0" style={{ width: graphWidth, height: ROW_HEIGHT, position: 'relative' }}>
                 <svg width={graphWidth} height={ROW_HEIGHT} className="absolute inset-0">
-                  {renderEdgesForRow(layout.edges, node.row, node.row, graphWidth)}
+                  {renderEdgesForRow(layout.edges, node.row)}
                   <CommitDot
                     cx={GRAPH_PAD_LEFT + node.lane * LANE_WIDTH}
                     cy={ROW_HEIGHT / 2}
@@ -110,65 +110,72 @@ export function CommitGraph({ commits, selectedHash, onSelectCommit }: CommitGra
 
 // ── Edge rendering for a specific row ───────────────────────
 
-function renderEdgesForRow(edges: GraphEdge[], row: number, _currentRow: number, _width: number) {
-  const relevantEdges = edges.filter((e) => {
-    // Edge passes through this row (between fromRow and toRow)
-    return e.fromRow <= row && e.toRow >= row;
-  });
+function renderEdgesForRow(edges: GraphEdge[], row: number) {
+  const relevantEdges = edges.filter((edge) => edge.fromRow <= row && edge.toRow >= row);
 
   return relevantEdges.map((edge, i) => {
     const fromX = GRAPH_PAD_LEFT + edge.fromLane * LANE_WIDTH;
     const toX = GRAPH_PAD_LEFT + edge.toLane * LANE_WIDTH;
 
-    // Calculate Y positions relative to this row
-    const relFromY = (edge.fromRow - row) * ROW_HEIGHT + ROW_HEIGHT / 2;
-    const relToY = (edge.toRow - row) * ROW_HEIGHT + ROW_HEIGHT / 2;
-
-    // Only render the portion visible in this row
-    const y1 = Math.max(relFromY, 0);
-    const y2 = Math.min(relToY, ROW_HEIGHT);
-
     if (fromX === toX) {
-      // Straight vertical line
+      const relFromY = (edge.fromRow - row) * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const relToY = (edge.toRow - row) * ROW_HEIGHT + ROW_HEIGHT / 2;
       return (
         <line
           key={`e-${i}`}
-          x1={fromX} y1={y1} x2={toX} y2={y2}
-          stroke={edge.color} strokeWidth={2} strokeOpacity={0.7}
+          x1={fromX}
+          y1={Math.max(relFromY, 0)}
+          x2={toX}
+          y2={Math.min(relToY, ROW_HEIGHT)}
+          stroke={edge.color}
+          strokeWidth={2}
+          strokeOpacity={0.7}
+          strokeLinecap="round"
         />
       );
     }
 
-    // Diagonal/curved connection for merge/branch
     if (edge.fromRow === row) {
-      // Start of edge (commit row) — draw curve down to next row
       return (
         <path
           key={`e-${i}`}
-          d={`M ${fromX} ${ROW_HEIGHT / 2} C ${fromX} ${ROW_HEIGHT}, ${toX} ${ROW_HEIGHT / 2}, ${toX} ${ROW_HEIGHT}`}
-          fill="none" stroke={edge.color} strokeWidth={2} strokeOpacity={0.6}
+          d={`M ${fromX} ${ROW_HEIGHT / 2} C ${fromX} ${ROW_HEIGHT * 0.9}, ${toX} ${ROW_HEIGHT * 0.15}, ${toX} ${ROW_HEIGHT}`}
+          fill="none"
+          stroke={edge.color}
+          strokeWidth={2}
+          strokeOpacity={0.65}
+          strokeLinecap="round"
         />
       );
     }
 
     if (edge.toRow === row) {
-      // End of edge (parent row) — curve into parent
       return (
-        <path
+        <line
           key={`e-${i}`}
-          d={`M ${fromX} 0 C ${fromX} ${ROW_HEIGHT / 2}, ${toX} 0, ${toX} ${ROW_HEIGHT / 2}`}
-          fill="none" stroke={edge.color} strokeWidth={2} strokeOpacity={0.6}
+          x1={toX}
+          y1={0}
+          x2={toX}
+          y2={ROW_HEIGHT / 2}
+          stroke={edge.color}
+          strokeWidth={2}
+          strokeOpacity={0.55}
+          strokeLinecap="round"
         />
       );
     }
 
-    // Middle rows — straight vertical in the target lane
-    const x = row - edge.fromRow < edge.toRow - row ? fromX : toX;
     return (
       <line
         key={`e-${i}`}
-        x1={x} y1={0} x2={x} y2={ROW_HEIGHT}
-        stroke={edge.color} strokeWidth={2} strokeOpacity={0.5}
+        x1={toX}
+        y1={0}
+        x2={toX}
+        y2={ROW_HEIGHT}
+        stroke={edge.color}
+        strokeWidth={2}
+        strokeOpacity={0.5}
+        strokeLinecap="round"
       />
     );
   });

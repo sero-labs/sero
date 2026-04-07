@@ -169,6 +169,7 @@ class GitWorkspaceStateManager {
     entry.ignoreEventsUntil = Date.now() + 1_000;
     entry.refreshInFlight = refreshGitState(entry.workspacePath, entry.stateFilePath, {
       syncMode: entry.syncMode,
+      scope: 'auto',
     })
       .then(() => {
         // no-op; the state file watcher notifies renderers
@@ -181,6 +182,7 @@ class GitWorkspaceStateManager {
           currentBranch: '',
           headHash: '',
           branches: [],
+          remoteBranches: [],
           remotes: [],
           commits: [],
           stashes: [],

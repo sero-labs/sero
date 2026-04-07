@@ -20,6 +20,7 @@ import {
   getDailyPath,
   todayStr,
 } from './memory-manager';
+import { nowTimestamp } from './memory-format';
 import { getOpenScratchpadItems } from './scratchpad';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
 import { error, errorDetails, info } from './logger';
@@ -38,10 +39,6 @@ const SUMMARY_SYSTEM_PROMPT = [
 ].join('\n');
 
 // ── Helpers ────────────────────────────────────────────────────
-
-function nowTimestamp(): string {
-  return new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
-}
 
 async function appendToDaily(content: string): Promise<void> {
   const root = resolveMemoryRoot();

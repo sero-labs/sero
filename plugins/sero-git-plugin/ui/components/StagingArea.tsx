@@ -46,23 +46,18 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
   }
 
   return (
-    <div className="border-t border-[var(--g-border)] bg-[var(--g-surface)] flex flex-col max-h-72">
-      <div className="flex flex-1 overflow-hidden">
-        {/* Unstaged changes */}
-        <div className="flex-1 border-r border-[var(--g-border)] overflow-y-auto git-scrollbar">
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--g-border)] bg-[var(--g-bg)]">
-            <span className="text-[10px] font-semibold tracking-wider text-[var(--g-dim)]">
-              UNSTAGED ({unstaged.length})
-            </span>
-            {unstaged.length > 0 && (
-              <button
-                onClick={handleStageAll}
-                className="text-[10px] text-[var(--g-accent)] hover:text-[var(--g-accent-hover)] transition-colors cursor-pointer"
-              >
-                Stage all
-              </button>
-            )}
-          </div>
+    <div className="border-t border-[var(--g-border)] bg-[var(--g-surface)] flex max-h-72 flex-col">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <ChangeColumn
+          title="UNSTAGED"
+          count={unstaged.length}
+          className="border-r border-[var(--g-border)]"
+          action={unstaged.length > 0 ? {
+            label: 'Stage all',
+            onClick: handleStageAll,
+            tone: 'accent',
+          } : undefined}
+        >
           {unstaged.map((f) => (
             <ChangeRow
               key={`${f.path}:unstaged:${f.status}`}
@@ -72,23 +67,17 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
               actionLabel="+"
             />
           ))}
-        </div>
+        </ChangeColumn>
 
-        {/* Staged changes */}
-        <div className="flex-1 overflow-y-auto git-scrollbar">
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--g-border)] bg-[var(--g-bg)]">
-            <span className="text-[10px] font-semibold tracking-wider text-[var(--g-dim)]">
-              STAGED ({staged.length})
-            </span>
-            {staged.length > 0 && (
-              <button
-                onClick={handleUnstageAll}
-                className="text-[10px] text-[var(--g-muted)] hover:text-[var(--g-text)] transition-colors cursor-pointer"
-              >
-                Unstage all
-              </button>
-            )}
-          </div>
+        <ChangeColumn
+          title="STAGED"
+          count={staged.length}
+          action={staged.length > 0 ? {
+            label: 'Unstage all',
+            onClick: handleUnstageAll,
+            tone: 'muted',
+          } : undefined}
+        >
           {staged.map((f) => (
             <ChangeRow
               key={`${f.path}:staged:${f.status}`}
@@ -98,7 +87,7 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
               actionLabel="-"
             />
           ))}
-        </div>
+        </ChangeColumn>
       </div>
 
       {/* Commit input */}
@@ -123,6 +112,45 @@ export function StagingArea({ fileChanges, onAction, onSelectFile }: StagingArea
         >
           Commit
         </button>
+      </div>
+    </div>
+  );
+}
+
+interface ChangeColumnProps {
+  title: string;
+  count: number;
+  className?: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+    tone: 'accent' | 'muted';
+  };
+  children: React.ReactNode;
+}
+
+function ChangeColumn({ title, count, className = '', action, children }: ChangeColumnProps) {
+  const actionClassName = action?.tone === 'accent'
+    ? 'text-[var(--g-accent)] hover:text-[var(--g-accent-hover)]'
+    : 'text-[var(--g-muted)] hover:text-[var(--g-text)]';
+
+  return (
+    <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${className}`.trim()}>
+      <div className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b border-[var(--g-border)] bg-[var(--g-bg)]">
+        <span className="text-[10px] font-semibold tracking-wider text-[var(--g-dim)]">
+          {title} ({count})
+        </span>
+        {action && (
+          <button
+            onClick={action.onClick}
+            className={`text-[10px] transition-colors cursor-pointer ${actionClassName}`}
+          >
+            {action.label}
+          </button>
+        )}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto git-scrollbar">
+        {children}
       </div>
     </div>
   );

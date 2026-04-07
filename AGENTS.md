@@ -142,6 +142,7 @@ See [docs/node-pty-setup.md](docs/node-pty-setup.md).
 - Save new documentation/plans in `@docs/` or typed subfolders
 - Use Conventional Commit messages
 - Ensure good type safety in source files when conducting PR reviews
+- Don't push to remote git branch automatically unless asked specifically or asked to create a PR
 - Do not delete relevant comments
 - Prefer `useDebouncedCallback` / `createDebouncedFn` from `src/hooks/useDebouncedCallback.ts` over hand-rolled `setTimeout` debounce patterns
 - Preview `.html` files in the in-app editor (sandboxed iframe)

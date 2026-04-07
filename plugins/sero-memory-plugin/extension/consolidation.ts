@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { ExtensionContext } from '@mariozechner/pi-coding-agent';
 import { complete, type Message } from '@mariozechner/pi-ai';
 
+import { format } from 'date-fns';
 import {
   appendFile,
   ensureDirectories,
@@ -312,7 +313,7 @@ export async function hasPendingStaleLogs(staleDays = 7): Promise<boolean> {
   const root = resolveMemoryRoot();
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - staleDays);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const cutoffStr = format(cutoff, 'yyyy-MM-dd');
 
   const logs = await listPendingDailyLogs(root);
   return logs.some((log) => log.date <= cutoffStr);

@@ -33,6 +33,8 @@ export interface BranchInfo {
   behind: number;
   lastCommitHash?: string;
   lastCommitDate?: string;
+  /** Absolute worktree path when the branch is checked out elsewhere. */
+  checkedOutIn?: string;
 }
 
 export interface RemoteInfo {
@@ -103,11 +105,13 @@ export type GitManagerAction =
   | 'checkout'
   | 'stash'
   | 'stash_pop'
+  | 'stash_apply'
   | 'fetch'
   | 'pull'
   | 'push'
   | 'create_branch'
   | 'delete_branch'
+  | 'remove_worktree'
   | 'merge'
   | 'cherry_pick'
   | 'show_commit';
@@ -118,8 +122,10 @@ export interface GitManagerRequest {
   message?: string;
   branch?: string;
   hash?: string;
+  worktreePath?: string;
   staged?: boolean;
   all?: boolean;
+  force?: boolean;
   stashIndex?: number;
 }
 
@@ -132,8 +138,10 @@ export interface GitAppState {
   repoName: string;
   currentBranch: string;
   headHash: string;
+  defaultBranch?: string;
 
   branches: BranchInfo[];
+  remoteBranches: BranchInfo[];
   remotes: RemoteInfo[];
   commits: CommitNode[];
   stashes: StashEntry[];
@@ -153,21 +161,55 @@ export interface GitAppState {
   error?: string;
 }
 
-export const DEFAULT_GIT_STATE: GitAppState = {
-  repoPath: '',
-  repoName: '',
-  currentBranch: '',
-  headHash: '',
-  branches: [],
-  remotes: [],
-  commits: [],
-  stashes: [],
-  fileChanges: [],
-  commitCount: 0,
-  lastRefresh: new Date().toISOString(),
-  loading: false,
-  syncMode: 'manual',
-};
+export function createDefaultGitState(): GitAppState {
+  return {
+    repoPath: '',
+    repoName: '',
+    currentBranch: '',
+    headHash: '',
+    defaultBranch: undefined,
+    branches: [],
+    remoteBranches: [],
+    remotes: [],
+    commits: [],
+    stashes: [],
+    fileChanges: [],
+    commitCount: 0,
+    lastRefresh: new Date().toISOString(),
+    loading: false,
+    syncMode: 'manual',
+  };
+}
+
+export function normalizeGitState(state: Partial<GitAppState> | null | undefined): GitAppState {
+  const defaults = createDefaultGitState();
+  if (!state) return defaults;
+
+  return {
+    ...defaults,
+    ...state,
+    repoPath: typeof state.repoPath === 'string' ? state.repoPath : defaults.repoPath,
+    repoName: typeof state.repoName === 'string' ? state.repoName : defaults.repoName,
+    currentBranch: typeof state.currentBranch === 'string' ? state.currentBranch : defaults.currentBranch,
+    headHash: typeof state.headHash === 'string' ? state.headHash : defaults.headHash,
+    defaultBranch: typeof state.defaultBranch === 'string' ? state.defaultBranch : undefined,
+    branches: Array.isArray(state.branches) ? state.branches : defaults.branches,
+    remoteBranches: Array.isArray(state.remoteBranches) ? state.remoteBranches : defaults.remoteBranches,
+    remotes: Array.isArray(state.remotes) ? state.remotes : defaults.remotes,
+    commits: Array.isArray(state.commits) ? state.commits : defaults.commits,
+    stashes: Array.isArray(state.stashes) ? state.stashes : defaults.stashes,
+    fileChanges: Array.isArray(state.fileChanges) ? state.fileChanges : defaults.fileChanges,
+    commitDiffs: Array.isArray(state.commitDiffs) ? state.commitDiffs : undefined,
+    lastRefresh: typeof state.lastRefresh === 'string' ? state.lastRefresh : defaults.lastRefresh,
+    loading: typeof state.loading === 'boolean' ? state.loading : defaults.loading,
+    syncMode: state.syncMode === 'watch' || state.syncMode === 'poll' || state.syncMode === 'manual'
+      ? state.syncMode
+      : defaults.syncMode,
+    error: typeof state.error === 'string' ? state.error : undefined,
+  };
+}
+
+export const DEFAULT_GIT_STATE: GitAppState = createDefaultGitState();
 
 /** Vibrant branch colors for the commit graph — GitKraken-inspired */
 export const BRANCH_COLORS = [
