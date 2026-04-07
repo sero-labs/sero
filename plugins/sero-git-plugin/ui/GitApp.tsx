@@ -10,7 +10,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { getSeroApi, useAppInfo, useAppState } from '@sero-ai/app-runtime';
 
 import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
-import { createDefaultGitState } from '../shared/types';
+import { createDefaultGitState, normalizeGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitDetail } from './components/CommitDetail';
 import { CommitGraph } from './components/CommitGraph';
@@ -38,7 +38,8 @@ interface GitActionResult {
 
 export function GitApp() {
   const initialState = useMemo(() => createDefaultGitState(), []);
-  const [state] = useAppState<GitAppState>(initialState);
+  const [rawState] = useAppState<GitAppState>(initialState);
+  const state = useMemo(() => normalizeGitState(rawState), [rawState]);
   const { workspaceId, workspacePath } = useAppInfo();
 
   const [selectedCommit, setSelectedCommit] = useState<CommitNode | null>(null);

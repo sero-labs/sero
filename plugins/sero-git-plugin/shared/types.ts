@@ -176,6 +176,33 @@ export function createDefaultGitState(): GitAppState {
   };
 }
 
+export function normalizeGitState(state: Partial<GitAppState> | null | undefined): GitAppState {
+  const defaults = createDefaultGitState();
+  if (!state) return defaults;
+
+  return {
+    ...defaults,
+    ...state,
+    repoPath: typeof state.repoPath === 'string' ? state.repoPath : defaults.repoPath,
+    repoName: typeof state.repoName === 'string' ? state.repoName : defaults.repoName,
+    currentBranch: typeof state.currentBranch === 'string' ? state.currentBranch : defaults.currentBranch,
+    headHash: typeof state.headHash === 'string' ? state.headHash : defaults.headHash,
+    branches: Array.isArray(state.branches) ? state.branches : defaults.branches,
+    remoteBranches: Array.isArray(state.remoteBranches) ? state.remoteBranches : defaults.remoteBranches,
+    remotes: Array.isArray(state.remotes) ? state.remotes : defaults.remotes,
+    commits: Array.isArray(state.commits) ? state.commits : defaults.commits,
+    stashes: Array.isArray(state.stashes) ? state.stashes : defaults.stashes,
+    fileChanges: Array.isArray(state.fileChanges) ? state.fileChanges : defaults.fileChanges,
+    commitDiffs: Array.isArray(state.commitDiffs) ? state.commitDiffs : undefined,
+    lastRefresh: typeof state.lastRefresh === 'string' ? state.lastRefresh : defaults.lastRefresh,
+    loading: typeof state.loading === 'boolean' ? state.loading : defaults.loading,
+    syncMode: state.syncMode === 'watch' || state.syncMode === 'poll' || state.syncMode === 'manual'
+      ? state.syncMode
+      : defaults.syncMode,
+    error: typeof state.error === 'string' ? state.error : undefined,
+  };
+}
+
 export const DEFAULT_GIT_STATE: GitAppState = createDefaultGitState();
 
 /** Vibrant branch colors for the commit graph — GitKraken-inspired */
