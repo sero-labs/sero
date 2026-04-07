@@ -49,6 +49,8 @@ export interface OnboardingState {
   phase: OnboardingStatePhase;
   hasAnyUsableModels: boolean;
   hasImportedCredentials: boolean;
+  /** True once the memory plugin has written MEMORY.md for this profile. */
+  memoryBootstrapComplete: boolean;
   recommendation: OnboardingRecommendation | null;
   providerHealth: ProviderHealthInfo[];
   availableModelGroups: AvailableModelGroup[];

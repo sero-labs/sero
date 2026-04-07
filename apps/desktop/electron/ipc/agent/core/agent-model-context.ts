@@ -22,6 +22,7 @@ import {
 } from './agent-context-overrides';
 import { getConfiguredModelFallbackChain } from '../../../shared/settings/model-fallback-chain';
 import { getModelTiers } from '../../../shared/settings/model-tiers';
+import { cleanupUnavailableModelSelections } from '../../../shared/settings/cleanup-unavailable-model-selections';
 
 export interface AgentPoolContextEntry {
   session: AgentSession;
@@ -156,6 +157,14 @@ export function registerAgentModelContextHandlers(
         // the model state so the user can manually pick a working model.
         console.warn('[agent-model-context] ensureSessionHasAvailableModel failed:', err);
       }
+
+      cleanupUnavailableModelSelections(
+        entry.session.modelRegistry.getAvailable().map((model) => ({
+          provider: model.provider,
+          modelId: model.id,
+        })),
+      );
+
       const state = buildModelState(entry);
       if (changed) {
         sendEvent({ type: 'model_change', sessionId, state });

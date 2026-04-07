@@ -96,6 +96,7 @@ export function emptyOnboardingState(): OnboardingState {
     phase: 'done',
     hasAnyUsableModels: false,
     hasImportedCredentials: false,
+    memoryBootstrapComplete: false,
     recommendation: null,
     providerHealth: [],
     availableModelGroups: [],

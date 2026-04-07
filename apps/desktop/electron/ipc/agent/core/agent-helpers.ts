@@ -360,16 +360,23 @@ export function buildModelState(entry: Pick<PoolEntryRef, 'session'>): SessionMo
     })),
   }));
 
+  const activeModel = model && available.some(
+    (candidate) => candidate.provider === model.provider && candidate.id === model.id,
+  )
+    ? model
+    : null;
+  const inactiveModelLabel = available.length > 0 ? 'Select model' : 'No models available';
+
   return {
     model: {
-      provider: model?.provider ?? 'unknown',
-      modelId: model?.id ?? 'unknown',
-      name: model?.name ?? 'Unknown',
-      reasoning: model?.reasoning ?? false,
+      provider: activeModel?.provider ?? 'unknown',
+      modelId: activeModel?.id ?? 'unknown',
+      name: activeModel?.name ?? inactiveModelLabel,
+      reasoning: activeModel?.reasoning ?? false,
     },
-    thinkingLevel: session.thinkingLevel,
-    availableThinkingLevels: session.getAvailableThinkingLevels(),
-    supportsXhigh: session.supportsXhighThinking(),
+    thinkingLevel: activeModel ? session.thinkingLevel : 'off',
+    availableThinkingLevels: activeModel ? session.getAvailableThinkingLevels() : [],
+    supportsXhigh: activeModel ? session.supportsXhighThinking() : false,
     availableModels,
   };
 }

@@ -124,6 +124,18 @@ export function App() {
     return unsub;
   }, [initCollaborationListener]);
 
+  useEffect(() => {
+    return window.sero.auth.onEvent((event) => {
+      if (event.type !== 'success') return;
+      const { agents, fetchModelState } = useAgentStore.getState();
+      void Promise.allSettled(
+        Object.keys(agents).map(async (sessionId) => {
+          await fetchModelState(sessionId);
+        }),
+      );
+    });
+  }, []);
+
   const persistMainSidebarSize = useDebouncedCallback(
     (pct: number) => useAppStore.getState().setMainSidebarSizePct(Math.round(pct * 10) / 10),
     300,
