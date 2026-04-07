@@ -8,6 +8,7 @@
 
 import { useState, useCallback } from 'react';
 import type { SkillSummary, SkillFileData, SkillSource } from '../components/types';
+import { getSero } from './useSeroFiles';
 
 const NEW_SKILL: SkillFileData = {
   name: '',
@@ -44,11 +45,11 @@ export function useSkillCrud(
 
   const refresh = useCallback(async () => {
     try {
-      const list = await window.sero.skills.listSkills();
+      const list = await getSero().skills.listSkills();
       setSkills(list);
     } catch (err) {
       onError('Failed to load skills');
-      console.error('[resources-app] refreshSkills failed:', err);
+      console.error('[admin] refreshSkills failed:', err);
     }
   }, [onError]);
 
@@ -59,7 +60,7 @@ export function useSkillCrud(
       // Look up source from the skills list
       const summary = skills.find((s) => s.filePath === filePath);
       setSelectedSource(summary?.source ?? null);
-      const data = await window.sero.skills.readSkill(filePath);
+      const data = await getSero().skills.readSkill(filePath);
       setEditing(data);
     } catch (err) {
       const name = filePath.split('/').at(-2) ?? filePath;
@@ -77,7 +78,7 @@ export function useSkillCrud(
   const save = useCallback(async (data: SkillFileData) => {
     setSaving(true);
     try {
-      const filePath = await window.sero.skills.writeSkill(data);
+      const filePath = await getSero().skills.writeSkill(data);
       await refresh();
       setSelected(filePath);
       setIsNew(false);
@@ -92,7 +93,7 @@ export function useSkillCrud(
 
   const remove = useCallback(async (filePath: string) => {
     try {
-      await window.sero.skills.deleteSkill(filePath);
+      await getSero().skills.deleteSkill(filePath);
       if (selected === filePath) {
         setSelected(null);
         setEditing(null);

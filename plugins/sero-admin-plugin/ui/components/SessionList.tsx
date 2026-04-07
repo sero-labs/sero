@@ -55,13 +55,13 @@ export const SessionList = memo(function SessionList({
               className={cn(
                 'admin-sidebar-item w-full px-3 py-2 text-left transition-colors duration-150',
                 'hover:bg-secondary/50',
-                s.sessionId === selectedId && 'bg-emerald-500/8 border-r-2 border-emerald-400',
+                s.sessionId === selectedId && 'bg-primary/8 border-r-2 border-primary',
               )}
             >
               <div className="flex items-center justify-between gap-1.5">
                 <span className={cn(
                   'font-mono text-[10px]',
-                  s.sessionId === selectedId ? 'text-emerald-400' : 'text-foreground/70',
+                  s.sessionId === selectedId ? 'text-primary' : 'text-foreground/70',
                 )}>
                   {s.sessionId.slice(0, 8)}…
                 </span>

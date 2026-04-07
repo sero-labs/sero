@@ -32,6 +32,7 @@ import type {
 import { ensureInfra } from '../../../shared/infra/shared-infra';
 import { getApiKeyProviderCatalog, getProviderEnvApiKey } from '../../../shared/auth/provider-catalog';
 import { AUTH_JSON_PATH } from '../../../platform/env';
+import { cleanupUnavailableModelSelections } from '../../../shared/settings/cleanup-unavailable-model-selections';
 
 // ── auth.json permission hardening ───────────────────────────
 // The Pi SDK writes auth.json with default permissions (0o644).
@@ -107,6 +108,24 @@ function clearPending(): void {
   manualCodeRejecter = null;
   abortController = null;
   loginOriginWebContents = null;
+}
+
+function cleanupInvalidModelSelectionsAfterAuthRefresh(
+  infra: Awaited<ReturnType<typeof ensureInfra>>,
+): void {
+  cleanupUnavailableModelSelections(
+    infra.modelRegistry.getAvailable().map((model) => ({
+      provider: model.provider,
+      modelId: model.id,
+    })),
+  );
+}
+
+async function refreshModelAvailabilityAfterAuthChange(
+  infra: Awaited<ReturnType<typeof ensureInfra>>,
+): Promise<void> {
+  infra.modelRegistry.refresh();
+  cleanupInvalidModelSelectionsAfterAuthRefresh(infra);
 }
 
 // ── Registration ─────────────────────────────────────────────
@@ -236,7 +255,7 @@ export function registerAuthHandlers(): void {
         });
 
         // Success — refresh model registry so new credentials are picked up
-        infra.modelRegistry.refresh();
+        await refreshModelAvailabilityAfterAuthChange(infra);
         hardenAuthJsonPermissions();
 
         sendAuthEvent({
@@ -267,7 +286,7 @@ export function registerAuthHandlers(): void {
     async (_event, providerId: string): Promise<void> => {
       const infra = await ensureInfra();
       infra.authStorage.logout(providerId);
-      infra.modelRegistry.refresh();
+      await refreshModelAvailabilityAfterAuthChange(infra);
     },
   );
 
@@ -278,7 +297,7 @@ export function registerAuthHandlers(): void {
       const infra = await ensureInfra();
       infra.authStorage.set(providerId, { type: 'api_key', key });
       hardenAuthJsonPermissions();
-      infra.modelRegistry.refresh();
+      await refreshModelAvailabilityAfterAuthChange(infra);
     },
   );
 
@@ -288,7 +307,7 @@ export function registerAuthHandlers(): void {
     async (_event, providerId: string): Promise<void> => {
       const infra = await ensureInfra();
       infra.authStorage.remove(providerId);
-      infra.modelRegistry.refresh();
+      await refreshModelAvailabilityAfterAuthChange(infra);
     },
   );
 

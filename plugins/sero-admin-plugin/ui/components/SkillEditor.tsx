@@ -1,9 +1,11 @@
 /**
  * SkillEditor — form for editing skill metadata + SKILL.md body.
+ * Includes a visibility toggle (merged from Admin's SkillsPanel).
  */
 
 import { useCallback } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { Switch } from '@sero-ai/ui/components/ui/switch';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { SkillFileData, SkillSource } from './types';
 
@@ -11,18 +13,22 @@ interface SkillEditorProps {
   data: SkillFileData;
   isNew: boolean;
   saving: boolean;
-  /** Source of the skill — only 'user' skills can be deleted. */
   source: SkillSource | null;
+  visibleToModel?: boolean;
+  lockedHidden?: boolean;
+  onVisibilityChange?: (visible: boolean) => void;
   onSave: (data: SkillFileData) => void;
-  /** Called with the skill's filePath for existing skills. */
   onDelete: (filePath: string) => void;
   onChange: (data: SkillFileData) => void;
 }
 
-/** Must match VALID_SKILL_NAME in electron/ipc/skills.ts */
 const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
-export function SkillEditor({ data, isNew, saving, source, onSave, onDelete, onChange }: SkillEditorProps) {
+export function SkillEditor({
+  data, isNew, saving, source,
+  visibleToModel, lockedHidden, onVisibilityChange,
+  onSave, onDelete, onChange,
+}: SkillEditorProps) {
   const update = useCallback(
     (partial: Partial<SkillFileData>) => onChange({ ...data, ...partial }),
     [data, onChange],
@@ -38,7 +44,6 @@ export function SkillEditor({ data, isNew, saving, source, onSave, onDelete, onC
 
   return (
     <form onSubmit={handleSave} className="flex flex-1 flex-col min-h-0">
-      {/* ── Header bar ─────────────────────────────────── */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
         <span className="flex-1 text-sm font-medium text-foreground truncate">
           {isNew ? 'New Skill' : data.name}
@@ -64,7 +69,6 @@ export function SkillEditor({ data, isNew, saving, source, onSave, onDelete, onC
         </Button>
       </div>
 
-      {/* ── Metadata fields ────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
         <Field label="Name" hint="lowercase, hyphens only">
           <input
@@ -88,7 +92,29 @@ export function SkillEditor({ data, isNew, saving, source, onSave, onDelete, onC
         </Field>
       </div>
 
-      {/* ── Skill body (SKILL.md content after frontmatter) ── */}
+      {/* Visibility toggle — only for existing, non-new skills */}
+      {!isNew && onVisibilityChange !== undefined && visibleToModel !== undefined && (
+        <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5">
+          <div className="space-y-0.5">
+            <p className="text-xs font-medium text-foreground/85">Model Visibility</p>
+            <p className="text-[10px] text-muted-foreground/60">
+              {lockedHidden
+                ? 'This skill requires explicit invocation'
+                : visibleToModel
+                  ? 'Model can invoke this skill automatically'
+                  : 'Hidden — use /skill:name to invoke'}
+            </p>
+          </div>
+          <Switch
+            checked={visibleToModel}
+            disabled={lockedHidden}
+            onCheckedChange={onVisibilityChange}
+            aria-label={`Toggle model visibility for ${data.name}`}
+            className="data-[state=checked]:bg-[var(--status-success)]"
+          />
+        </div>
+      )}
+
       <div className="flex flex-1 flex-col min-h-0 px-4 py-3">
         <label className="mb-1.5 text-xs font-medium text-muted-foreground">
           Skill Body
@@ -107,8 +133,6 @@ export function SkillEditor({ data, isNew, saving, source, onSave, onDelete, onC
     </form>
   );
 }
-
-// ── Helpers ──────────────────────────────────────────────────
 
 const fieldClass = cn(
   'w-full rounded-md border border-input bg-background',

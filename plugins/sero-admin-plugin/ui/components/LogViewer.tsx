@@ -117,12 +117,12 @@ const LogSidebar = memo(function LogSidebar({
             className={cn(
               'admin-sidebar-item w-full px-3 py-2 text-left transition-colors duration-150',
               'hover:bg-secondary/50',
-              log.key === selectedKey && 'bg-emerald-500/8 border-r-2 border-emerald-400',
+              log.key === selectedKey && 'bg-primary/8 border-r-2 border-primary',
             )}
           >
             <span className={cn(
               'text-xs font-medium',
-              log.key === selectedKey ? 'text-emerald-400' : 'text-foreground/80',
+              log.key === selectedKey ? 'text-primary' : 'text-foreground/80',
             )}>
               {log.label}
             </span>
@@ -231,7 +231,7 @@ function LogContent({ log }: { log: LogEntry }) {
             size="sm"
             className={cn(
               'h-6 px-2 text-[11px]',
-              autoRefresh ? 'text-emerald-400' : 'text-muted-foreground',
+              autoRefresh ? 'text-primary' : 'text-muted-foreground',
             )}
             onClick={() => setAutoRefresh(!autoRefresh)}
           >
@@ -302,7 +302,7 @@ function LogContent({ log }: { log: LogEntry }) {
         <p className="text-[10px] text-muted-foreground/40">
           {totalLines} lines
           {autoRefresh && (
-            <span className="ml-2 text-emerald-400/50">● Refreshing every 3s</span>
+            <span className="ml-2 text-primary/50">● Refreshing every 3s</span>
           )}
         </p>
       </div>

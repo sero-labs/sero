@@ -5,6 +5,7 @@ import { SERO_AGENT_DIR } from '../../platform/env';
 import { profileManager } from '../profile/manager';
 import { getModelTiers } from '../../shared/settings/model-tiers';
 import { resolveProviderDefaultsState } from '../../shared/settings/provider-model-defaults';
+import { cleanupUnavailableModelSelections } from '../../shared/settings/cleanup-unavailable-model-selections';
 import { readSettings } from '../../shared/settings/settings-helpers';
 import { buildOnboardingRecommendation, validateCurrentTiers } from './recommendations';
 import { getProviderHealthSnapshot } from './provider-health';
@@ -32,6 +33,10 @@ function formatTierLabel(tier: ModelTier): string {
   if (tier === 'LOW') return 'Low';
   if (tier === 'MED') return 'Medium';
   return 'High';
+}
+
+function hasCompletedMemoryBootstrap(profilePath: string): boolean {
+  return existsSync(path.join(profilePath, 'workspaces', 'global', 'MEMORY.md'));
 }
 
 function formatProviderNames(providerIds: string[], providerHealth: OnboardingState['providerHealth']): string {
@@ -85,11 +90,21 @@ export async function getOnboardingState(): Promise<OnboardingState> {
     return emptyOnboardingState();
   }
 
+  const memoryBootstrapComplete = hasCompletedMemoryBootstrap(activeProfile.path);
+
   if (!activeProfile.onboarded) {
+    const { availableModelGroups, providerHealth } = await getProviderHealthSnapshot();
+    cleanupUnavailableModelSelections(
+      availableModelGroups.flatMap((group) =>
+        group.models.map((model) => ({
+          provider: model.provider,
+          modelId: model.modelId,
+        }))),
+    );
+
     const settings = readSettings();
     const currentTiers = getModelTiers(settings);
     const providerDefaults = resolveProviderDefaultsState(settings);
-    const { availableModelGroups, providerHealth } = await getProviderHealthSnapshot();
     const hasAnyUsableModels = availableModelGroups.some((group) => group.models.length > 0);
     const brokenProviderIds = providerHealth
       .filter((provider) => provider.status === 'broken_expired' || provider.status === 'broken_invalid')
@@ -113,6 +128,7 @@ export async function getOnboardingState(): Promise<OnboardingState> {
       phase: hasAnyUsableModels ? 'ready' : 'auth',
       hasAnyUsableModels,
       hasImportedCredentials: hasSavedAuthJson(),
+      memoryBootstrapComplete,
       recommendation,
       providerHealth,
       availableModelGroups,
@@ -126,5 +142,8 @@ export async function getOnboardingState(): Promise<OnboardingState> {
     };
   }
 
-  return emptyOnboardingState();
+  return {
+    ...emptyOnboardingState(),
+    memoryBootstrapComplete,
+  };
 }

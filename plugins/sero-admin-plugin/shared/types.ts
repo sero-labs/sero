@@ -7,21 +7,27 @@
 
 // ── App state (persisted) ──────────────────────────────────
 
-export type AdminTab = 'config' | 'modelDefaults' | 'skills' | 'plugins' | 'logs' | 'sessions';
+export type AdminSection =
+  | 'agents' | 'skills' | 'prompts'
+  | 'settings' | 'modelDefaults' | 'plugins'
+  | 'logs' | 'sessions';
 
 export interface AdminState {
-  /** Last active tab. */
-  lastTab: AdminTab;
-  /** Last opened config file key. */
+  lastSection: AdminSection;
   lastConfigKey: string | null;
-  /** Last opened session filename. */
   lastSessionFile: string | null;
+  lastAgent: string | null;
+  lastSkill: string | null;
+  lastPrompt: string | null;
 }
 
 export const DEFAULT_STATE: AdminState = {
-  lastTab: 'config',
+  lastSection: 'agents',
   lastConfigKey: null,
   lastSessionFile: null,
+  lastAgent: null,
+  lastSkill: null,
+  lastPrompt: null,
 };
 
 // ── Config file descriptors ────────────────────────────────

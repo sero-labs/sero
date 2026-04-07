@@ -60,7 +60,7 @@ export const SessionBrowser = memo(function SessionBrowser({
 const SessionEmptyState = memo(function SessionEmptyState({ count }: { count: number }) {
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
         <svg
           width="18"
           height="18"
@@ -70,7 +70,7 @@ const SessionEmptyState = memo(function SessionEmptyState({ count }: { count: nu
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="text-emerald-400/60"
+          className="text-primary/60"
         >
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>

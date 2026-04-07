@@ -52,13 +52,39 @@ export interface SeroApi {
     /** Callback receives the raw IPC event; hook only uses it as a reload signal. */
     onChanged(callback: (event: unknown) => void): () => void;
   };
+  subagent: {
+    listAgents(): Promise<AgentSummaryIPC[]>;
+    readAgent(name: string): Promise<AgentFileDataIPC>;
+    writeAgent(data: AgentFileDataIPC): Promise<void>;
+    deleteAgent(name: string): Promise<void>;
+  };
   skills: {
     listAvailableSkills(): Promise<AvailableSkillInfo[]>;
     setDisabledModelSkills(skillNames: string[]): Promise<void>;
+    listSkills(): Promise<SkillSummaryIPC[]>;
+    readSkill(filePath: string): Promise<SkillFileDataIPC>;
+    writeSkill(data: SkillFileDataIPC): Promise<string>;
+    deleteSkill(filePath: string): Promise<void>;
+  };
+  prompts: {
+    listPrompts(): Promise<PromptTemplateSummaryIPC[]>;
+    readPrompt(filePath: string): Promise<PromptTemplateFileDataIPC>;
+    writePrompt(data: PromptTemplateFileDataIPC): Promise<string>;
+    deletePrompt(filePath: string): Promise<void>;
   };
   providerDefaults: {
     get(): Promise<ProviderDefaultsState>;
     setGlobalDefaults(defaults: ProviderModelDefaults): Promise<void>;
+  };
+  models: {
+    list(): Promise<AvailableModelGroupIPC[]>;
+  };
+  auth: {
+    getProviders(): Promise<AuthProvidersResponseIPC>;
+    login(providerId: string): Promise<void>;
+  };
+  onboarding: {
+    getState(): Promise<OnboardingStateIPC>;
   };
 }
 
@@ -86,6 +112,114 @@ export interface AvailableSkillInfo {
   description: string;
   source: string;
   disableModelInvocation: boolean;
+}
+
+// ── Resource IPC types ────────────────────────────────────
+
+export interface AgentSummaryIPC {
+  name: string;
+  description: string;
+  model?: string;
+  thinking?: string;
+  timeoutMs?: number;
+}
+
+export interface AgentFileDataIPC {
+  name: string;
+  description: string;
+  model?: string;
+  thinking?: string;
+  timeoutMs?: number;
+  tools?: string[];
+  systemPrompt: string;
+}
+
+export interface SkillSummaryIPC {
+  name: string;
+  description: string;
+  filePath: string;
+  source: 'user' | 'project' | 'path';
+}
+
+export interface SkillFileDataIPC {
+  name: string;
+  description: string;
+  extraFrontmatter: Record<string, unknown>;
+  filePath?: string;
+  body: string;
+}
+
+export interface PromptTemplateSummaryIPC {
+  name: string;
+  description: string;
+  filePath: string;
+  relativePath: string;
+}
+
+export interface PromptTemplateFileDataIPC {
+  name: string;
+  description: string;
+  filePath?: string;
+  body: string;
+}
+
+// ── Model / auth IPC types ────────────────────────────────
+
+export interface ModelInfoIPC {
+  provider: string;
+  modelId: string;
+  name: string;
+  reasoning: boolean;
+}
+
+export interface AvailableModelGroupIPC {
+  provider: string;
+  displayName: string;
+  logo: string;
+  models: ModelInfoIPC[];
+}
+
+export interface OAuthProviderInfoIPC {
+  id: string;
+  name: string;
+  isLoggedIn: boolean;
+  canRefresh: boolean;
+}
+
+export interface ApiKeyProviderInfoIPC {
+  id: string;
+  name: string;
+  hasKey: boolean;
+  fromEnv: boolean;
+}
+
+export interface AuthProvidersResponseIPC {
+  oauth: OAuthProviderInfoIPC[];
+  apiKey: ApiKeyProviderInfoIPC[];
+}
+
+export type ProviderHealthStatusIPC =
+  | 'healthy'
+  | 'broken_expired'
+  | 'broken_invalid'
+  | 'env'
+  | 'local'
+  | 'missing'
+  | 'unknown';
+
+export interface ProviderHealthInfoIPC {
+  providerId: string;
+  displayName: string;
+  status: ProviderHealthStatusIPC;
+  message?: string;
+  canReconnect: boolean;
+  hasUsableModels: boolean;
+  usableModelIds: string[];
+}
+
+export interface OnboardingStateIPC {
+  providerHealth: ProviderHealthInfoIPC[];
+  availableModelGroups: AvailableModelGroupIPC[];
 }
 
 /** Single cast site for the window.sero API. Import this instead of casting inline. */

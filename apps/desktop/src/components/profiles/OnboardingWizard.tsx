@@ -13,6 +13,8 @@ import { useAgentStore } from '@/stores/agent';
 import { useSessionStore } from '@/stores/sessions';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import type {
+  ChatMessage,
+  ModelTier,
   ModelTierEntry,
   ModelTierSettings,
   OnboardingState,
@@ -34,6 +36,7 @@ const EMPTY_PROVIDER_DEFAULTS: ResolvedProviderDefaultsState = {
   globalDefaults: {},
   effectiveDefaults: {},
 };
+const DEFAULT_TIER_ORDER: readonly ModelTier[] = ['HIGH', 'MED', 'LOW'] as const;
 
 function deriveUiPhase(state: OnboardingState): OnboardingUiPhase {
   if (!state.needed || state.phase === 'done') return 'done';
@@ -58,6 +61,42 @@ function getDisplayProviderName(
 ): string | null {
   if (!state || !providerId) return providerId;
   return state.providerHealth.find((provider) => provider.providerId === providerId)?.displayName ?? providerId;
+}
+
+function extractAssistantErrorMessage(text: string): string | null {
+  const match = text.match(/^_Assistant error:\s*(.+?)_$/s);
+  return match?.[1]?.trim() ?? null;
+}
+
+async function getLatestTurnFailure(sessionId: string, sessionPath: string): Promise<string | null> {
+  const messages = await window.sero.agent.open(sessionId, sessionPath, 'global');
+  let lastUserIndex = -1;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].type === 'user') {
+      lastUserIndex = index;
+      break;
+    }
+  }
+
+  const turnMessages: ChatMessage[] = lastUserIndex >= 0 ? messages.slice(lastUserIndex + 1) : messages;
+  if (turnMessages.length === 0) {
+    return 'The selected model did not produce a response.';
+  }
+
+  for (let index = turnMessages.length - 1; index >= 0; index -= 1) {
+    const message = turnMessages[index];
+    if (message.type === 'assistant') {
+      const assistantError = extractAssistantErrorMessage(message.text);
+      if (assistantError) return assistantError;
+      continue;
+    }
+    if (message.type === 'tool' && message.isError) {
+      return message.output?.trim() || `${message.toolName} failed during onboarding.`;
+    }
+  }
+
+  return null;
 }
 
 async function applyModelEntry(sessionId: string, entry: ModelTierEntry | null): Promise<boolean> {
@@ -87,8 +126,16 @@ async function applyModelEntry(sessionId: string, entry: ModelTierEntry | null):
   return false;
 }
 
-async function applyTierModel(sessionId: string, tiers: ModelTierSettings): Promise<boolean> {
-  return applyModelEntry(sessionId, tiers.HIGH ?? tiers.MED ?? tiers.LOW ?? null);
+async function applyTierModel(
+  sessionId: string,
+  tiers: ModelTierSettings,
+  tierOrder: readonly ModelTier[] = DEFAULT_TIER_ORDER,
+): Promise<boolean> {
+  for (const tier of tierOrder) {
+    const entry = tiers[tier];
+    if (entry) return applyModelEntry(sessionId, entry);
+  }
+  return false;
 }
 
 async function createAndRunSession(options: {
@@ -97,6 +144,7 @@ async function createAndRunSession(options: {
   thinkingLevel?: string;
   prompt: string;
   setupUi?: (sessionId: string) => void;
+  tierOrder?: readonly ModelTier[];
 }): Promise<{ sessionId: string; sessionPath: string }> {
   const session = await useSessionStore.getState().createSession('global');
   await window.sero.agent.open(session.id, session.path, 'global');
@@ -105,7 +153,7 @@ async function createAndRunSession(options: {
     await useSessionStore.getState().renameSession(session.id, options.name);
   }
 
-  await applyTierModel(session.id, options.tiers);
+  await applyTierModel(session.id, options.tiers, options.tierOrder);
 
   if (options.thinkingLevel) {
     try {
@@ -211,6 +259,7 @@ export function OnboardingWizard() {
 
     let tempSessionId: string | null = null;
     let tempSessionPath: string | null = null;
+    let memoryBootstrapComplete = false;
 
     try {
       // Phase 1: Run memory setup in a dedicated low-thinking session.
@@ -218,9 +267,22 @@ export function OnboardingWizard() {
         tiers,
         thinkingLevel: 'low',
         prompt: WELCOME_PROMPT,
+        tierOrder: ['LOW', 'MED', 'HIGH'],
       });
       tempSessionId = temp.sessionId;
       tempSessionPath = temp.sessionPath;
+
+      const tempFailure = await getLatestTurnFailure(tempSessionId, tempSessionPath);
+      if (tempFailure) {
+        throw new Error(tempFailure);
+      }
+
+      const refreshedState = await window.sero.onboarding.getState();
+      setOnboardingState(refreshedState);
+      if (!refreshedState.memoryBootstrapComplete) {
+        throw new Error('Memory onboarding did not finish. Try another model or reconnect a provider.');
+      }
+      memoryBootstrapComplete = true;
 
       // Phase 2: Tear down the temp session.
       await teardownSession(tempSessionId, tempSessionPath);
@@ -239,6 +301,11 @@ export function OnboardingWizard() {
         },
       });
 
+      const welcomeFailure = await getLatestTurnFailure(welcome.sessionId, welcome.sessionPath);
+      if (welcomeFailure) {
+        console.warn('[onboarding] Welcome session failed after bootstrap:', welcomeFailure);
+      }
+
       useSessionStore.getState().setActiveSession(welcome.sessionId);
       await finishOnboardingLaunch();
     } catch (error) {
@@ -247,6 +314,12 @@ export function OnboardingWizard() {
       // Clean up temp session on failure if it's still around.
       if (tempSessionId && tempSessionPath) {
         await teardownSession(tempSessionId, tempSessionPath);
+      }
+
+      if (memoryBootstrapComplete) {
+        console.warn('[onboarding] Welcome launch failed after memory bootstrap:', message);
+        await finishOnboardingLaunch();
+        return;
       }
 
       if (isAuthError(message)) {

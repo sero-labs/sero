@@ -61,7 +61,3 @@ export interface PromptTemplateFileData {
   body: string;
 }
 
-// ── Shared types ─────────────────────────────────────────────
-
-/** Which resource tab is active. */
-export type ResourceTab = 'agents' | 'skills' | 'prompts';

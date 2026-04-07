@@ -91,13 +91,13 @@ const ConfigFileItem = memo(function ConfigFileItem({
       className={cn(
         'admin-sidebar-item w-full px-3 py-2 text-left transition-colors duration-150',
         'hover:bg-secondary/50',
-        isSelected && 'bg-indigo-500/8 border-r-2 border-indigo-400',
+        isSelected && 'bg-primary/8 border-r-2 border-primary',
       )}
     >
       <div className="flex items-center gap-2">
         <span className={cn(
           'text-xs font-medium',
-          isSelected ? 'text-indigo-400' : 'text-foreground/80',
+          isSelected ? 'text-primary' : 'text-foreground/80',
         )}>
           {config.label}
         </span>
@@ -292,7 +292,7 @@ function ConfigEditor({
               <Button
                 variant="default"
                 size="sm"
-                className="h-6 bg-emerald-600 px-2.5 text-[11px] hover:bg-emerald-500"
+                className="h-6 bg-primary px-2.5 text-[11px] hover:bg-primary/90"
                 onClick={handleSave}
                 disabled={!!parseError || saving || isReadOnly}
               >
@@ -349,7 +349,7 @@ function ConfigEditor({
 const EmptyState = memo(function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
         <svg
           width="18"
           height="18"
@@ -359,7 +359,7 @@ const EmptyState = memo(function EmptyState() {
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="text-indigo-400/60"
+          className="text-primary/60"
         >
           <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
           <path d="M14 2v4a2 2 0 0 0 2 2h4" />

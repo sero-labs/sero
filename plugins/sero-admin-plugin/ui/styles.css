@@ -2,6 +2,7 @@
 
 @source "../../ui/src/components";
 @source "./components";
+@source "./hooks";
 @source "./lib";
 
 @custom-variant dark (&:is(.dark *));
@@ -51,9 +52,9 @@
 .admin-config-pane {
   background: linear-gradient(
     135deg,
-    rgba(16, 185, 129, 0.03) 0%,
+    hsl(var(--primary) / 0.03) 0%,
     transparent 50%,
-    rgba(99, 102, 241, 0.02) 100%
+    hsl(var(--primary) / 0.02) 100%
   );
 }
 
@@ -72,7 +73,7 @@
 }
 
 .admin-editor::selection {
-  background: rgba(99, 102, 241, 0.2);
+  background: hsl(var(--primary) / 0.2);
 }
 
 /* ── content-visibility for all repeated rows ─────────── */
@@ -85,7 +86,7 @@
 }
 
 .admin-log-line:hover {
-  background: rgba(99, 102, 241, 0.04);
+  background: hsl(var(--primary) / 0.04);
 }
 
 .admin-sidebar-item {
@@ -100,7 +101,7 @@
 }
 
 .admin-message-card:hover {
-  border-color: rgba(16, 185, 129, 0.2);
+  border-color: hsl(var(--primary) / 0.2);
 }
 
 /* ── Loading pulse ────────────────────────────────────── */
@@ -112,4 +113,11 @@
 
 .admin-loading {
   animation: admin-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Nav sidebar items ─────────────────────────────────── */
+
+.admin-nav-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
 }

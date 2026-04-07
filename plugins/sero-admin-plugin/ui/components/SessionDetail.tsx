@@ -114,7 +114,7 @@ export const SessionDetail = memo(function SessionDetail({
         </div>
         <Badge
           variant="outline"
-          className="h-5 rounded-md border-emerald-500/20 bg-emerald-500/5 px-2 text-[10px] text-emerald-400"
+          className="h-5 rounded-md border-primary/20 bg-primary/5 px-2 text-[10px] text-primary"
         >
           {messages.length} messages
         </Badge>
@@ -162,7 +162,7 @@ const MessageRow = memo(function MessageRow({
       className={cn(
         'admin-message-card w-full flex gap-3 px-4 py-2 border-b border-border/20',
         'text-left transition-colors duration-150 hover:bg-secondary/30',
-        isExpanded && 'bg-indigo-500/5 border-indigo-500/20',
+        isExpanded && 'bg-primary/5 border-primary/20',
       )}
     >
       <span className="mt-0.5 w-5 shrink-0 text-right font-mono text-[10px] text-muted-foreground/30">
@@ -252,7 +252,7 @@ const MessageDetailOverlay = memo(function MessageDetailOverlay({
 function getRoleColor(role: string): string {
   switch (role) {
     case 'user':
-      return 'border-indigo-500/30 bg-indigo-500/5 text-indigo-400';
+      return 'border-primary/30 bg-primary/5 text-primary';
     case 'assistant':
       return 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400';
     case 'toolResult':

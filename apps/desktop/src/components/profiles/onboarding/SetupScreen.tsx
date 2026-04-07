@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { KeyRound, Sparkles, TriangleAlert } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import {
+  DialogDescription,
+  DialogTitle,
+} from '@sero-ai/ui/components/ui/dialog';
 import { Label } from '@sero-ai/ui/components/ui/label';
 import {
   Select,
@@ -301,10 +305,10 @@ export function OnboardingSetupScreen({
           <Sparkles className="size-5 text-[var(--status-success)]" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Choose your model</h2>
-          <p className="text-sm text-[var(--text-secondary)]">
+          <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Choose your model</DialogTitle>
+          <DialogDescription className="text-sm text-[var(--text-secondary)]">
             Pick a provider and default model to get started.
-          </p>
+          </DialogDescription>
         </div>
       </div>
 

@@ -30,8 +30,14 @@ const ModelTrigger = memo(function ModelTrigger({
 
   const model = ms ? findModel(groups, ms.model.provider, ms.model.modelId) : null;
   const group = ms ? findGroup(groups, ms.model.provider, ms.model.modelId) : null;
-  const label = model?.name ?? ms?.model.name ?? 'Select model';
-  const thinking = ms?.thinkingLevel ?? 'off';
+  const hasAvailableModels = groups.length > 0;
+  const hasActiveAvailableModel = Boolean(model && group);
+  const label = !hasAvailableModels
+    ? 'No models available'
+    : hasActiveAvailableModel
+      ? model!.name
+      : 'Select model';
+  const thinking = hasActiveAvailableModel ? (ms?.thinkingLevel ?? 'off') : 'off';
 
   return (
     <PopoverTrigger asChild disabled={disabled}>
@@ -43,7 +49,7 @@ const ModelTrigger = memo(function ModelTrigger({
           hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]
           disabled:pointer-events-none disabled:opacity-40"
       >
-        {group && (
+        {hasActiveAvailableModel && group && (
           <img src={group.logo} alt={group.displayName}
             className="size-3.5 rounded-sm dark:invert" />
         )}
@@ -259,6 +265,7 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
   const allGroups = ms?.availableModels ?? [];
   const selectedProvider = ms?.model.provider ?? null;
   const selectedModelId = ms?.model.modelId ?? null;
+  const activeSelectedModel = ms ? findModel(allGroups, ms.model.provider, ms.model.modelId) : null;
 
   // Apply visibility preferences then search filter
   const visibleGroups = useMemo(
@@ -422,10 +429,10 @@ export function ModelSelector({ disabled }: { disabled: boolean }) {
 
             {/* Thinking Level Picker — always shown, disabled when model has no reasoning */}
             <ThinkingPicker
-              current={ms?.thinkingLevel ?? 'off'}
+              current={activeSelectedModel ? (ms?.thinkingLevel ?? 'off') : 'off'}
               available={ms?.availableThinkingLevels ?? []}
               supportsXhigh={ms?.supportsXhigh ?? false}
-              disabled={!ms?.model.reasoning}
+              disabled={!activeSelectedModel || !activeSelectedModel.reasoning}
               onSelect={handleThinkingSelect}
             />
           </div>

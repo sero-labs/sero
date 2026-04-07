@@ -1,5 +1,9 @@
 import { KeyRound, Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import {
+  DialogDescription,
+  DialogTitle,
+} from '@sero-ai/ui/components/ui/dialog';
 import type { ProviderHealthInfo } from '@/types/ipc';
 
 export { OnboardingSetupScreen } from './SetupScreen';
@@ -46,10 +50,10 @@ export function AuthScreen({
           <KeyRound className="size-5 text-[var(--status-success)]" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Connect a provider</h2>
-          <p className="text-sm text-[var(--text-secondary)]">
+          <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Connect a provider</DialogTitle>
+          <DialogDescription className="text-sm text-[var(--text-secondary)]">
             Sero needs a working model before it can start your welcome session.
-          </p>
+          </DialogDescription>
         </div>
       </div>
 
@@ -102,10 +106,10 @@ export function LaunchingScreen({ statusMessage }: { statusMessage?: string | nu
         <Loader2 className="size-5 animate-spin text-[var(--status-success)]" />
       </div>
       <div>
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Preparing Oboarding</h2>
-        <p className="text-sm text-[var(--text-secondary)]">
+        <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Preparing Onboarding</DialogTitle>
+        <DialogDescription className="text-sm text-[var(--text-secondary)]">
           Sero is saving your model preferences and starting the memory onboarding workflow.
-        </p>
+        </DialogDescription>
       </div>
       {statusMessage ? (
         <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
@@ -132,10 +136,10 @@ export function ErrorScreen({
           <TriangleAlert className="size-5 text-[var(--status-warning)]" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Onboarding hit an error</h2>
-          <p className="text-sm text-[var(--text-secondary)]">
+          <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">Onboarding hit an error</DialogTitle>
+          <DialogDescription className="text-sm text-[var(--text-secondary)]">
             Something unexpected happened while Sero was preparing your first session.
-          </p>
+          </DialogDescription>
         </div>
       </div>
 

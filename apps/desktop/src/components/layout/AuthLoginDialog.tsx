@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
 import type { OAuthProviderInfo, ApiKeyProviderInfo, OAuthEvent } from '@/types/ipc';
+import { useAgentStore } from '@/stores/agent';
 import {
   ProviderListView,
   AuthenticatingView,
@@ -98,6 +99,17 @@ export function AuthLoginDialog({
     }
   }, [open, loadProviders]);
 
+  const refreshAuthDependentState = useCallback(async () => {
+    await loadProviders();
+    const { agents, fetchModelState } = useAgentStore.getState();
+    await Promise.allSettled(
+      Object.keys(agents).map(async (sessionId) => {
+        await fetchModelState(sessionId);
+      }),
+    );
+    onComplete?.();
+  }, [loadProviders, onComplete]);
+
   // ── Subscribe to OAuth events ───────────────────────────────
   useEffect(() => {
     if (!open) return;
@@ -132,8 +144,7 @@ export function AuthLoginDialog({
         case 'success':
           setStatusMessage(event.message);
           setPhase('success');
-          loadProviders();
-          onComplete?.();
+          void refreshAuthDependentState();
           break;
         case 'error':
           setStatusMessage(event.message);
@@ -146,7 +157,7 @@ export function AuthLoginDialog({
     });
 
     return unsub;
-  }, [open, loadProviders, onComplete]);
+  }, [open, refreshAuthDependentState]);
 
   // ── Focus input when a phase requires text entry ────────────
   useEffect(() => {
@@ -177,15 +188,14 @@ export function AuthLoginDialog({
     async (providerId: string) => {
       try {
         await window.sero.auth.logout(providerId);
-        await loadProviders();
-        onComplete?.();
+        await refreshAuthDependentState();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setStatusMessage(`Failed to logout: ${msg}`);
         setPhase('error');
       }
     },
-    [loadProviders, onComplete],
+    [refreshAuthDependentState],
   );
 
   const handleSubmitPrompt = useCallback(() => {
@@ -221,28 +231,26 @@ export function AuthLoginDialog({
       await window.sero.auth.setApiKey(selectedProvider, inputValue.trim());
       setStatusMessage(`API key saved for ${selectedProviderName}.`);
       setPhase('success');
-      await loadProviders();
-      onComplete?.();
+      await refreshAuthDependentState();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setStatusMessage(`Failed to save API key: ${msg}`);
       setPhase('error');
     }
-  }, [inputValue, selectedProvider, selectedProviderName, loadProviders, onComplete]);
+  }, [inputValue, selectedProvider, selectedProviderName, refreshAuthDependentState]);
 
   const handleApiKeyRemove = useCallback(
     async (providerId: string) => {
       try {
         await window.sero.auth.removeApiKey(providerId);
-        await loadProviders();
-        onComplete?.();
+        await refreshAuthDependentState();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setStatusMessage(`Failed to remove API key: ${msg}`);
         setPhase('error');
       }
     },
-    [loadProviders, onComplete],
+    [refreshAuthDependentState],
   );
 
   // ── Render ──────────────────────────────────────────────────
