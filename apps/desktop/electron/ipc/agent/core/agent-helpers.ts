@@ -351,13 +351,6 @@ export function buildModelState(entry: Pick<PoolEntryRef, 'session'>): SessionMo
     : null;
   const inactiveModelLabel = available.length > 0 ? 'Select model' : 'No models available';
 
-  const activeModel = model && available.some(
-    (candidate) => candidate.provider === model.provider && candidate.id === model.id,
-  )
-    ? model
-    : null;
-  const inactiveModelLabel = available.length > 0 ? 'Select model' : 'No models available';
-
   return {
     model: {
       provider: activeModel?.provider ?? 'unknown',
