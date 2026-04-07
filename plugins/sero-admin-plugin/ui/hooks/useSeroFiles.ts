@@ -14,16 +14,20 @@ import { formatDate } from '../lib/format';
 
 // ── Types ──────────────────────────────────────────────────
 
-import type { InstalledPlugin } from '@sero/common';
+import type {
+  InstalledPlugin,
+  ModelValidationWarning,
+  ThinkingLevel,
+} from '@sero/common';
 
-export type ProviderTierDefaults = Partial<Record<'LOW' | 'MED' | 'HIGH', string>>;
-export type ProviderModelDefaults = Record<string, ProviderTierDefaults>;
-
-export interface ProviderDefaultsState {
-  builtInDefaults: ProviderModelDefaults;
-  globalDefaults: ProviderModelDefaults;
-  profileOverrides?: ProviderModelDefaults;
-  effectiveDefaults: ProviderModelDefaults;
+export interface GlobalModelConfigStateIPC {
+  tiers: Partial<Record<'LOW' | 'MED' | 'HIGH', {
+    provider: string;
+    modelId: string;
+    thinkingLevel?: ThinkingLevel;
+  }>>;
+  warnings: ModelValidationWarning[];
+  migrationNotice?: string;
 }
 
 export interface SeroApi {
@@ -52,6 +56,9 @@ export interface SeroApi {
     /** Callback receives the raw IPC event; hook only uses it as a reload signal. */
     onChanged(callback: (event: unknown) => void): () => void;
   };
+  auth: {
+    onEvent(callback: (event: OAuthEventIPC) => void): () => void;
+  };
   subagent: {
     listAgents(): Promise<AgentSummaryIPC[]>;
     readAgent(name: string): Promise<AgentFileDataIPC>;
@@ -72,9 +79,21 @@ export interface SeroApi {
     writePrompt(data: PromptTemplateFileDataIPC): Promise<string>;
     deletePrompt(filePath: string): Promise<void>;
   };
-  providerDefaults: {
-    get(): Promise<ProviderDefaultsState>;
-    setGlobalDefaults(defaults: ProviderModelDefaults): Promise<void>;
+  modelConfig: {
+    get(): Promise<GlobalModelConfigStateIPC>;
+    set(config: {
+      tiers: Partial<Record<'LOW' | 'MED' | 'HIGH', {
+        provider: string;
+        modelId: string;
+        thinkingLevel?: ThinkingLevel;
+      }>>;
+    }): Promise<GlobalModelConfigStateIPC>;
+  };
+  models: {
+    list(): Promise<AvailableModelGroupIPC[]>;
+  };
+  onboarding: {
+    getState(): Promise<OnboardingStateIPC>;
   };
   models: {
     list(): Promise<AvailableModelGroupIPC[]>;
@@ -116,10 +135,17 @@ export interface AvailableSkillInfo {
 
 // ── Resource IPC types ────────────────────────────────────
 
+export interface StructuredAgentModelIPC {
+  prefer: string;
+  fallbacks: string[];
+}
+
+export type AgentModelIPC = string | StructuredAgentModelIPC;
+
 export interface AgentSummaryIPC {
   name: string;
   description: string;
-  model?: string;
+  model?: AgentModelIPC;
   thinking?: string;
   timeoutMs?: number;
 }
@@ -127,7 +153,7 @@ export interface AgentSummaryIPC {
 export interface AgentFileDataIPC {
   name: string;
   description: string;
-  model?: string;
+  model?: AgentModelIPC;
   thinking?: string;
   timeoutMs?: number;
   tools?: string[];
@@ -170,6 +196,8 @@ export interface ModelInfoIPC {
   modelId: string;
   name: string;
   reasoning: boolean;
+  availableThinkingLevels?: ThinkingLevel[];
+  supportsXhigh?: boolean;
 }
 
 export interface AvailableModelGroupIPC {
@@ -196,6 +224,10 @@ export interface ApiKeyProviderInfoIPC {
 export interface AuthProvidersResponseIPC {
   oauth: OAuthProviderInfoIPC[];
   apiKey: ApiKeyProviderInfoIPC[];
+}
+
+export interface OAuthEventIPC {
+  type: 'auth' | 'prompt' | 'manual_input' | 'waiting' | 'progress' | 'success' | 'error' | 'cancelled';
 }
 
 export type ProviderHealthStatusIPC =

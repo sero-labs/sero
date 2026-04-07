@@ -9,7 +9,7 @@
 
 export type AdminSection =
   | 'agents' | 'skills' | 'prompts'
-  | 'settings' | 'modelDefaults' | 'plugins'
+  | 'settings' | 'model' | 'plugins'
   | 'logs' | 'sessions';
 
 export interface AdminState {

@@ -10,10 +10,7 @@ import { ipcMain } from 'electron';
 import { IpcChannels } from '../../../../src/types/ipc';
 import type { AvailableModelGroup } from '../../../../src/types/ipc';
 import { ensureInfra } from '../../../shared/infra/shared-infra';
-import {
-  providerDisplayName,
-  providerLogo,
-} from '../core/agent-helpers';
+import { buildAvailableModelGroups } from '../core/model-groups';
 
 export function registerModelsHandlers(): void {
   ipcMain.handle(
@@ -25,25 +22,7 @@ export function registerModelsHandlers(): void {
       modelRegistry.authStorage.reload();
       const available = modelRegistry.getAvailable();
 
-      // Group by provider
-      const grouped = new Map<string, typeof available>();
-      for (const m of available) {
-        const list = grouped.get(m.provider) ?? [];
-        list.push(m);
-        grouped.set(m.provider, list);
-      }
-
-      return [...grouped.entries()].map(([provider, models]) => ({
-        provider,
-        displayName: providerDisplayName(provider),
-        logo: providerLogo(provider),
-        models: models.map((m) => ({
-          provider: m.provider,
-          modelId: m.id,
-          name: m.name,
-          reasoning: m.reasoning,
-        })),
-      }));
+      return buildAvailableModelGroups(available);
     },
   );
 }

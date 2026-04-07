@@ -4,7 +4,7 @@
 
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
-import type { AgentSummary } from './types';
+import type { AgentModelConfig, AgentSummary } from './types';
 
 interface AgentListProps {
   agents: AgentSummary[];
@@ -19,10 +19,15 @@ const THINKING_COLORS: Record<string, string> = {
   high: 'bg-red-500/20 text-red-400',
 };
 
-function modelShort(model?: string): string {
-  if (!model) return '';
-  // claude-sonnet-4-6 → sonnet-4-6
-  return model.replace(/^claude-/, '');
+function modelShort(model?: AgentModelConfig): string {
+  if (!model) return 'Sero default';
+
+  const value = typeof model === 'string' ? model : model.prefer;
+  if (value === 'LOW') return 'Low tier';
+  if (value === 'MED') return 'Med tier';
+  if (value === 'HIGH') return 'High tier';
+
+  return value.replace(/^claude-/, '').replace(/^[^/]+\//, '');
 }
 
 export function AgentList({ agents, selected, onSelect }: AgentListProps) {
@@ -68,11 +73,9 @@ export function AgentList({ agents, selected, onSelect }: AgentListProps) {
           <p className="text-[11px] text-muted-foreground truncate leading-snug">
             {agent.description || 'No description'}
           </p>
-          {agent.model && (
-            <span className="text-[10px] text-muted-foreground/60">
-              {modelShort(agent.model)}
-            </span>
-          )}
+          <span className="text-[10px] text-muted-foreground/60">
+            {modelShort(agent.model)}
+          </span>
         </button>
       ))}
     </div>

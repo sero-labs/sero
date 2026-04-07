@@ -53,15 +53,15 @@ export const SessionList = memo(function SessionList({
               key={s.sessionId}
               onClick={() => onSelect(s.sessionId)}
               className={cn(
-                'admin-sidebar-item w-full px-3 py-2 text-left transition-colors duration-150',
+                'admin-sidebar-item w-full border-l-2 border-l-transparent px-3 py-2 text-left transition-colors duration-150',
                 'hover:bg-secondary/50',
-                s.sessionId === selectedId && 'bg-primary/8 border-r-2 border-primary',
+                s.sessionId === selectedId && 'border-l-primary bg-secondary',
               )}
             >
               <div className="flex items-center justify-between gap-1.5">
                 <span className={cn(
                   'font-mono text-[10px]',
-                  s.sessionId === selectedId ? 'text-primary' : 'text-foreground/70',
+                  s.sessionId === selectedId ? 'text-foreground' : 'text-foreground/70',
                 )}>
                   {s.sessionId.slice(0, 8)}…
                 </span>

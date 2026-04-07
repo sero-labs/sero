@@ -66,10 +66,10 @@ export const PluginsPanel = memo(function PluginsPanel() {
         </div>
       </div>
 
-      <div className="border-b border-border/20 bg-[linear-gradient(135deg,hsl(var(--primary)/0.08),transparent_55%,hsl(var(--primary)/0.03))] px-4 py-4">
+      <div className="border-b border-border/20 bg-secondary px-4 py-4">
         <div className="flex flex-col gap-3">
           <div className="space-y-1">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/55">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/85">
               Install from source
             </p>
             <p className="text-[11px] leading-5 text-muted-foreground/75">

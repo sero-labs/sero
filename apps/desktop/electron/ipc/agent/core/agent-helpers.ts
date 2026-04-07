@@ -21,6 +21,7 @@ import type { ChatCheckpointRef } from '../../../../src/types/checkpoints';
 import { resizeImageForApi } from '../../../shared/media/image-resize';
 import { tryParseImageJson } from './agent-subscription';
 import { extractOriginalCollaborationQuery } from '../../collaboration/collaboration-message';
+import { buildAvailableModelGroups } from './model-groups';
 
 // ── ID generation ────────────────────────────────────────────
 
@@ -341,24 +342,7 @@ export function buildModelState(entry: Pick<PoolEntryRef, 'session'>): SessionMo
   session.modelRegistry.authStorage.reload();
 
   const available = session.modelRegistry.getAvailable();
-  const grouped = new Map<string, typeof available>();
-  for (const m of available) {
-    const list = grouped.get(m.provider) ?? [];
-    list.push(m);
-    grouped.set(m.provider, list);
-  }
-
-  const availableModels = [...grouped.entries()].map(([provider, models]) => ({
-    provider,
-    displayName: providerDisplayName(provider),
-    logo: providerLogo(provider),
-    models: models.map((m) => ({
-      provider: m.provider,
-      modelId: m.id,
-      name: m.name,
-      reasoning: m.reasoning,
-    })),
-  }));
+  const availableModels = buildAvailableModelGroups(available);
 
   const activeModel = model && available.some(
     (candidate) => candidate.provider === model.provider && candidate.id === model.id,

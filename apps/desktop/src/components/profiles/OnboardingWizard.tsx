@@ -14,11 +14,11 @@ import { useSessionStore } from '@/stores/sessions';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import type {
   ChatMessage,
+  GlobalModelConfigInput,
   ModelTier,
   ModelTierEntry,
   ModelTierSettings,
   OnboardingState,
-  ResolvedProviderDefaultsState,
 } from '@/types/ipc';
 import {
   AuthScreen,
@@ -31,11 +31,6 @@ type OnboardingUiPhase = 'checking' | 'ready' | 'auth' | 'launching' | 'error' |
 
 const WELCOME_PROMPT = "Hey! I'm new here — set up my memory so you can get to know me.";
 const WELCOME_GREETING_PROMPT = "The user just finished setting up their profile. Say hello, introduce yourself briefly, and let them know you're ready to help.";
-const EMPTY_PROVIDER_DEFAULTS: ResolvedProviderDefaultsState = {
-  builtInDefaults: {},
-  globalDefaults: {},
-  effectiveDefaults: {},
-};
 const DEFAULT_TIER_ORDER: readonly ModelTier[] = ['HIGH', 'MED', 'LOW'] as const;
 
 function deriveUiPhase(state: OnboardingState): OnboardingUiPhase {
@@ -185,7 +180,6 @@ async function teardownSession(sessionId: string, sessionPath: string): Promise<
 export function OnboardingWizard() {
   const [uiPhase, setUiPhase] = useState<OnboardingUiPhase>('checking');
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
-  const [providerDefaults, setProviderDefaults] = useState<ResolvedProviderDefaultsState>(EMPTY_PROVIDER_DEFAULTS);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [preferredProviderId, setPreferredProviderId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -209,12 +203,8 @@ export function OnboardingWizard() {
     setUiPhase('checking');
 
     try {
-      const [nextState, nextProviderDefaults] = await Promise.all([
-        window.sero.onboarding.getState(),
-        window.sero.providerDefaults.get().catch(() => EMPTY_PROVIDER_DEFAULTS),
-      ]);
+      const nextState = await window.sero.onboarding.getState();
       setOnboardingState(nextState);
-      setProviderDefaults(nextProviderDefaults);
       setUiPhase(deriveUiPhase(nextState));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -346,7 +336,10 @@ export function OnboardingWizard() {
             );
 
             if (canAutoRetry) {
-              await window.sero.onboarding.saveTierSelections(refreshedState.recommendation.tiers);
+              const nextConfig: GlobalModelConfigInput = {
+                tiers: refreshedState.recommendation.tiers,
+              };
+              await window.sero.modelConfig.set(nextConfig);
               await launchWelcomeSession(refreshedState.recommendation.tiers);
               return;
             }
@@ -374,14 +367,14 @@ export function OnboardingWizard() {
     }
   }, [finishOnboardingLaunch]);
 
-  const handleContinue = useCallback(async (tiers: ModelTierSettings) => {
+  const handleContinue = useCallback(async (config: GlobalModelConfigInput) => {
     if (continueInFlightRef.current) return;
     continueInFlightRef.current = true;
     setIsContinuing(true);
 
     try {
-      await window.sero.onboarding.saveTierSelections(tiers);
-      await launchWelcomeSession(tiers);
+      await window.sero.modelConfig.set(config);
+      await launchWelcomeSession(config.tiers);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       continueInFlightRef.current = false;
@@ -442,11 +435,10 @@ export function OnboardingWizard() {
               recommendation={readyRecommendation}
               availableModelGroups={onboardingState.availableModelGroups}
               providerHealth={onboardingState.providerHealth}
-              providerDefaults={providerDefaults}
               warnings={onboardingState.warnings.filter((warning) => warning.code !== 'no_usable_models')}
               launchNotice={launchStatusMessage}
               continueDisabled={isContinuing}
-              onContinue={(tiers) => void handleContinue(tiers)}
+              onContinue={(config) => void handleContinue(config)}
               onOpenProviders={() => openProviders()}
               onReconnectProvider={openProviders}
             />

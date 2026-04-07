@@ -304,9 +304,8 @@ export type {
   ModelTier,
   ModelTierEntry,
   ModelTierSettings,
-  ProviderTierDefaults,
-  ProviderModelDefaults,
-  ResolvedProviderDefaultsState,
+  GlobalModelConfigInput,
+  GlobalModelConfigState,
 } from './model-tiers';
 
 export type {

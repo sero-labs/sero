@@ -115,14 +115,14 @@ const LogSidebar = memo(function LogSidebar({
             key={log.key}
             onClick={() => onSelect(log.key)}
             className={cn(
-              'admin-sidebar-item w-full px-3 py-2 text-left transition-colors duration-150',
+              'admin-sidebar-item w-full border-l-2 border-l-transparent px-3 py-2 text-left transition-colors duration-150',
               'hover:bg-secondary/50',
-              log.key === selectedKey && 'bg-primary/8 border-r-2 border-primary',
+              log.key === selectedKey && 'border-l-primary bg-secondary',
             )}
           >
             <span className={cn(
               'text-xs font-medium',
-              log.key === selectedKey ? 'text-primary' : 'text-foreground/80',
+              log.key === selectedKey ? 'text-foreground' : 'text-foreground/80',
             )}>
               {log.label}
             </span>

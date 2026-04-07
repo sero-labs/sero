@@ -24,8 +24,7 @@ export type OnboardingStatePhase = 'ready' | 'auth' | 'error' | 'done';
 
 export type OnboardingTierSource =
   | 'preserved'
-  | 'imported'
-  | 'provider-defaults'
+  | 'recommended'
   | 'fallback';
 
 export interface OnboardingRecommendation {

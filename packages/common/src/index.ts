@@ -21,3 +21,40 @@ export type {
   ExtensionRuntimeMessage,
   ExtensionSessionRuntime,
 } from './session-runtime';
+
+export {
+  THINKING_LEVELS,
+  THINKING_LABELS,
+  MODEL_TIERS,
+  modelKey,
+  parseModelKey,
+  formatModelRef,
+  isThinkingLevel,
+  normalizeThinkingLevel,
+  isModelTier,
+  findModel,
+  findGroup,
+  findModelByReference,
+  flattenModelGroups,
+  filterModelGroups,
+  inferSupportsXhigh,
+  getAvailableThinkingLevels,
+  resolveSupportedThinkingLevel,
+  supportsThinkingLevel,
+  getModelTierThinkingLevel,
+  validateGlobalTierSelections,
+  validateAgentModelConfig,
+} from './model-selection';
+
+export type {
+  ThinkingLevel,
+  ModelTier,
+  SharedModelInfo,
+  SharedAvailableModelGroup,
+  SharedModelTierEntry,
+  SharedModelTierSettings,
+  StructuredModelPreference,
+  AgentModelPreference,
+  ModelValidationWarningCode,
+  ModelValidationWarning,
+} from './model-selection';

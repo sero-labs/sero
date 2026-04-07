@@ -158,13 +158,6 @@ export function registerAgentModelContextHandlers(
         console.warn('[agent-model-context] ensureSessionHasAvailableModel failed:', err);
       }
 
-      cleanupUnavailableModelSelections(
-        entry.session.modelRegistry.getAvailable().map((model) => ({
-          provider: model.provider,
-          modelId: model.id,
-        })),
-      );
-
       const state = buildModelState(entry);
       if (changed) {
         sendEvent({ type: 'model_change', sessionId, state });

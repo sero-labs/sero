@@ -34,7 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'Config',
     items: [
       { id: 'settings', label: 'Settings' },
-      { id: 'modelDefaults', label: 'Providers' },
+      { id: 'model', label: 'Model' },
       { id: 'plugins', label: 'Plugins' },
     ],
   },
@@ -63,7 +63,7 @@ export const NavSidebar = memo(function NavSidebar({ active, onSelect }: NavSide
                 'admin-nav-item flex w-full items-center px-3 py-1.5 text-xs transition-colors duration-150',
                 'hover:bg-secondary/50 hover:text-foreground',
                 active === item.id
-                  ? 'border-l-2 border-l-primary bg-primary/8 text-foreground font-medium'
+                  ? 'border-l-2 border-l-primary bg-secondary text-foreground font-medium'
                   : 'border-l-2 border-l-transparent text-muted-foreground',
               )}
             >

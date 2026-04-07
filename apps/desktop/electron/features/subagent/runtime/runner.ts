@@ -12,6 +12,7 @@ import {
   DefaultResourceLoader,
 } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
+import { getModelTierThinkingLevel, isModelTier } from '@sero/common';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from '../core/types';
 import type { SharedInfra } from '../../../shared/infra/shared-infra';
@@ -202,6 +203,8 @@ export async function runSubagent(
     } as Parameters<typeof createAgentSession>[0]); // systemPromptSuffix is a Sero extension not in the SDK's public type
     session = result.session;
 
+    let effectiveThinking = resolved.thinking;
+
     // Try to set the resolved model — needs provider/modelId lookup
     try {
       const available = infra.modelRegistry.getAvailable();
@@ -211,6 +214,10 @@ export async function runSubagent(
       const resolvedModel = parsed
         ? resolveTierModel(parsed, tierSettings, available)
         : null;
+
+      if (parsed && isModelTier(parsed.prefer) && resolved.thinkingSource === 'default') {
+        effectiveThinking = getModelTierThinkingLevel(tierSettings[parsed.prefer], resolved.thinking);
+      }
 
       if (resolvedModel) {
         const model = infra.modelRegistry.find(resolvedModel.provider, resolvedModel.modelId);
@@ -222,7 +229,7 @@ export async function runSubagent(
 
     // Set thinking level
     try {
-      session.setThinkingLevel(resolved.thinking as ThinkingLevel);
+      session.setThinkingLevel(effectiveThinking as ThinkingLevel);
     } catch {
       // Fall back to default
     }

@@ -1,22 +1,19 @@
 import { ipcRenderer } from 'electron';
 import { IpcChannels } from '../../src/types/ipc';
 import type {
-  ModelTierSettings,
+  GlobalModelConfigInput,
+  GlobalModelConfigState,
   OnboardingState,
-  ProviderModelDefaults,
-  ResolvedProviderDefaultsState,
 } from '../../src/types/ipc';
 
 export const onboardingBridge = {
   getState: (): Promise<OnboardingState> =>
     ipcRenderer.invoke(IpcChannels.onboarding.getState),
-  saveTierSelections: (tiers: ModelTierSettings): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.onboarding.saveTierSelections, tiers),
 };
 
-export const providerDefaultsBridge = {
-  get: (): Promise<ResolvedProviderDefaultsState> =>
-    ipcRenderer.invoke(IpcChannels.providerDefaults.get),
-  setGlobalDefaults: (defaults: ProviderModelDefaults): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.providerDefaults.setGlobalDefaults, defaults),
+export const modelConfigBridge = {
+  get: (): Promise<GlobalModelConfigState> =>
+    ipcRenderer.invoke(IpcChannels.modelConfig.get),
+  set: (config: GlobalModelConfigInput): Promise<GlobalModelConfigState> =>
+    ipcRenderer.invoke(IpcChannels.modelConfig.set, config),
 };

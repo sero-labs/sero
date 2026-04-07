@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { SERO_AGENT_DIR } from '../../platform/env';
 
@@ -19,4 +19,10 @@ export function readSettings(): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/** Persist the active profile's settings.json. */
+export function writeSettings(settings: Record<string, unknown>): void {
+  const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
 }
