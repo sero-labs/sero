@@ -87,28 +87,33 @@ export function computeGraphLayout(commits: CommitNode[]): GraphLayout {
 
     nodes.push({ commit, row, lane, color });
 
+    const visibleParents = commit.parents.filter((parentHash) => hashToRow.has(parentHash));
+
     // Process parents
-    for (let pi = 0; pi < commit.parents.length; pi++) {
-      const parentHash = commit.parents[pi];
+    for (let pi = 0; pi < visibleParents.length; pi++) {
+      const parentHash = visibleParents[pi]!;
       const parentRow = hashToRow.get(parentHash);
-      if (parentRow === undefined) continue; // parent not in visible range
+      if (parentRow === undefined) continue;
 
       if (pi === 0) {
-        // First parent: inherit this commit's lane
+        // First parent keeps the current lane unless that parent already
+        // owns another lane, in which case this lane can collapse.
         if (!hashToLane.has(parentHash)) {
           hashToLane.set(parentHash, lane);
           hashToColor.set(parentHash, color);
-          lanes[lane] = parentHash;
         }
+
+        const parentLane = hashToLane.get(parentHash) ?? lane;
+        lanes[lane] = parentLane === lane ? parentHash : null;
         edges.push({
           fromRow: row,
           fromLane: lane,
           toRow: parentRow,
-          toLane: hashToLane.get(parentHash) ?? lane,
+          toLane: parentLane,
           color,
         });
       } else {
-        // Merge parent: may need a new lane
+        // Merge parent: may need a new lane.
         if (!hashToLane.has(parentHash)) {
           const mergeLane = findFreeLane();
           hashToLane.set(parentHash, mergeLane);
@@ -116,6 +121,7 @@ export function computeGraphLayout(commits: CommitNode[]): GraphLayout {
           lanes[mergeLane] = parentHash;
         }
         const parentLane = hashToLane.get(parentHash)!;
+        lanes[parentLane] = parentHash;
         edges.push({
           fromRow: row,
           fromLane: lane,
@@ -126,8 +132,8 @@ export function computeGraphLayout(commits: CommitNode[]): GraphLayout {
       }
     }
 
-    // Free lane if no parent will use it
-    if (commit.parents.length === 0) {
+    // Free lane if no visible parent will continue in-range.
+    if (visibleParents.length === 0) {
       lanes[lane] = null;
     }
   }

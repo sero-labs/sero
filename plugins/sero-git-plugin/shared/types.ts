@@ -33,6 +33,8 @@ export interface BranchInfo {
   behind: number;
   lastCommitHash?: string;
   lastCommitDate?: string;
+  /** Absolute worktree path when the branch is checked out elsewhere. */
+  checkedOutIn?: string;
 }
 
 export interface RemoteInfo {
@@ -103,6 +105,7 @@ export type GitManagerAction =
   | 'checkout'
   | 'stash'
   | 'stash_pop'
+  | 'stash_apply'
   | 'fetch'
   | 'pull'
   | 'push'
@@ -134,6 +137,7 @@ export interface GitAppState {
   headHash: string;
 
   branches: BranchInfo[];
+  remoteBranches: BranchInfo[];
   remotes: RemoteInfo[];
   commits: CommitNode[];
   stashes: StashEntry[];
@@ -153,21 +157,26 @@ export interface GitAppState {
   error?: string;
 }
 
-export const DEFAULT_GIT_STATE: GitAppState = {
-  repoPath: '',
-  repoName: '',
-  currentBranch: '',
-  headHash: '',
-  branches: [],
-  remotes: [],
-  commits: [],
-  stashes: [],
-  fileChanges: [],
-  commitCount: 0,
-  lastRefresh: new Date().toISOString(),
-  loading: false,
-  syncMode: 'manual',
-};
+export function createDefaultGitState(): GitAppState {
+  return {
+    repoPath: '',
+    repoName: '',
+    currentBranch: '',
+    headHash: '',
+    branches: [],
+    remoteBranches: [],
+    remotes: [],
+    commits: [],
+    stashes: [],
+    fileChanges: [],
+    commitCount: 0,
+    lastRefresh: new Date().toISOString(),
+    loading: false,
+    syncMode: 'manual',
+  };
+}
+
+export const DEFAULT_GIT_STATE: GitAppState = createDefaultGitState();
 
 /** Vibrant branch colors for the commit graph — GitKraken-inspired */
 export const BRANCH_COLORS = [

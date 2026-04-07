@@ -6,11 +6,11 @@
  * from @sero-ai/app-runtime for file-backed reactive state.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { getSeroApi, useAppInfo, useAppState } from '@sero-ai/app-runtime';
 
 import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
-import { DEFAULT_GIT_STATE } from '../shared/types';
+import { createDefaultGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';
 import { CommitDetail } from './components/CommitDetail';
 import { CommitGraph } from './components/CommitGraph';
@@ -25,30 +25,74 @@ interface PendingDiffRequest {
   refreshSnapshot: string;
 }
 
+interface GitActionNoticeState {
+  id: number;
+  title: string;
+  message: string;
+}
+
+interface GitActionResult {
+  ok: boolean;
+  message: string;
+}
+
 export function GitApp() {
-  const [state] = useAppState<GitAppState>(DEFAULT_GIT_STATE);
+  const initialState = useMemo(() => createDefaultGitState(), []);
+  const [state] = useAppState<GitAppState>(initialState);
   const { workspaceId, workspacePath } = useAppInfo();
 
   const [selectedCommit, setSelectedCommit] = useState<CommitNode | null>(null);
   const [activeDiff, setActiveDiff] = useState<FileDiff | null>(null);
   const [pendingDiffRequest, setPendingDiffRequest] = useState<PendingDiffRequest | null>(null);
   const [showDiffPanel, setShowDiffPanel] = useState(false);
+  const [notice, setNotice] = useState<GitActionNoticeState | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismissNotice = useCallback(() => {
+    if (noticeTimerRef.current) {
+      clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = null;
+    }
+    setNotice(null);
+  }, []);
+
+  const showNotice = useCallback((title: string, message: string) => {
+    if (noticeTimerRef.current) {
+      clearTimeout(noticeTimerRef.current);
+    }
+
+    const nextNotice: GitActionNoticeState = {
+      id: Date.now(),
+      title,
+      message,
+    };
+    setNotice(nextNotice);
+    noticeTimerRef.current = setTimeout(() => {
+      setNotice((current) => current?.id === nextNotice.id ? null : current);
+      noticeTimerRef.current = null;
+    }, 5000);
+  }, []);
 
   const runAction = useCallback((params: GitManagerRequest) => {
     const gitApp = getSeroApi().gitApp;
     if (!gitApp) {
       console.warn('[git-app] gitApp bridge unavailable');
+      showNotice('Git bridge unavailable', 'Reload Sero or reopen this workspace to restore Git actions.');
       return;
     }
 
     void gitApp.run(workspaceId, params).then((result) => {
-      if (!result.ok) {
-        console.error('[git-app] Action failed:', result.message);
+      const actionResult = result as GitActionResult;
+      if (!actionResult.ok) {
+        console.error('[git-app] Action failed:', actionResult.message);
+        showNotice(getActionFailureTitle(params.action), actionResult.message);
       }
     }).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
       console.error('[git-app] Action failed:', error);
+      showNotice(getActionFailureTitle(params.action), message);
     });
-  }, [workspaceId]);
+  }, [showNotice, workspaceId]);
 
   const handleSelectCommit = useCallback((commit: CommitNode) => {
     setSelectedCommit(commit);
@@ -116,6 +160,12 @@ export function GitApp() {
       <div className="git-root relative flex h-full w-full flex-col overflow-hidden">
         <Header state={state} onAction={runAction} />
 
+        {notice && (
+          <div className="pointer-events-none absolute right-4 top-14 z-30 flex w-[min(30rem,calc(100%-2rem))] justify-end">
+            <GitActionNotice notice={notice} onClose={dismissNotice} />
+          </div>
+        )}
+
         {showWorkspaceLoading ? (
           <WorkspaceLoadingState workspacePath={workspacePath} />
         ) : isNotRepo ? (
@@ -125,6 +175,7 @@ export function GitApp() {
             <div className="flex flex-1 overflow-hidden">
               <BranchPanel
                 branches={state.branches}
+                remoteBranches={state.remoteBranches}
                 remotes={state.remotes}
                 stashes={state.stashes}
                 currentBranch={state.currentBranch}
@@ -153,6 +204,7 @@ export function GitApp() {
             <CommitDetail
               commit={selectedCommit}
               diffs={commitDiffs}
+              hasWorkingTreeChanges={state.fileChanges.length > 0}
               onSelectFile={handleSelectDiffFile}
               onClose={handleCloseCommitDetail}
               onAction={runAction}
@@ -201,6 +253,43 @@ function DiffPlaceholder({
   );
 }
 
+function GitActionNotice({
+  notice,
+  onClose,
+}: {
+  notice: GitActionNoticeState;
+  onClose: () => void;
+}) {
+  return (
+    <div className="pointer-events-auto w-full rounded-lg border border-[var(--g-red)]/30 bg-[var(--g-surface)] shadow-2xl shadow-black/30 backdrop-blur-sm">
+      <div className="flex items-start gap-3 px-3 py-2.5">
+        <div className="mt-0.5 shrink-0 rounded-full bg-[var(--g-red)]/12 p-1 text-[var(--g-red)]">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M6 3.2v3.2" />
+            <path d="M6 8.8h.01" />
+            <circle cx="6" cy="6" r="4.5" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold text-[var(--g-text)]">{notice.title}</div>
+          <div className="mt-0.5 text-[11px] leading-relaxed text-[var(--g-muted)]">
+            {notice.message}
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 p-1 text-[var(--g-dim)] transition-colors hover:text-[var(--g-text)]"
+          aria-label="Dismiss git action notice"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M2 2l8 8M10 2l-8 8" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function WorkspaceLoadingState({ workspacePath }: { workspacePath: string }) {
   return (
     <div className="flex flex-1 items-center justify-center">
@@ -241,6 +330,42 @@ function EmptyRepoState({ workspacePath }: { workspacePath: string }) {
       </div>
     </div>
   );
+}
+
+function getActionFailureTitle(action: GitManagerRequest['action']): string {
+  switch (action) {
+    case 'checkout':
+      return 'Could not switch branch';
+    case 'create_branch':
+      return 'Could not create branch';
+    case 'delete_branch':
+      return 'Could not delete branch';
+    case 'stage':
+      return 'Could not stage changes';
+    case 'unstage':
+      return 'Could not unstage changes';
+    case 'commit':
+      return 'Could not create commit';
+    case 'push':
+      return 'Could not push changes';
+    case 'pull':
+      return 'Could not pull changes';
+    case 'fetch':
+      return 'Could not fetch remotes';
+    case 'stash':
+    case 'stash_pop':
+      return 'Could not update stashes';
+    case 'cherry_pick':
+      return 'Could not cherry-pick commit';
+    case 'merge':
+      return 'Could not merge branch';
+    case 'diff':
+      return 'Could not load diff';
+    case 'show_commit':
+      return 'Could not load commit details';
+    default:
+      return 'Git action failed';
+  }
 }
 
 export default GitApp;

@@ -77,6 +77,7 @@ export function Header({ state, onAction }: HeaderProps) {
 
         <div className="w-px h-4 bg-[var(--g-border)]" />
 
+        <ActionBtn label="Refresh" icon="refresh" onClick={() => onAction({ action: 'refresh' })} />
         <ActionBtn label="Fetch" icon="fetch" onClick={() => onAction({ action: 'fetch' })} />
         <ActionBtn label="Pull" icon="pull" onClick={() => onAction({ action: 'pull' })} />
         <ActionBtn label="Push" icon="push" onClick={() => onAction({ action: 'push' })} />

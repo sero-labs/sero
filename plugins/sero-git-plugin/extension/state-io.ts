@@ -6,7 +6,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import type { GitAppState } from '../shared/types';
-import { DEFAULT_GIT_STATE } from '../shared/types';
+import { createDefaultGitState } from '../shared/types';
 
 const STATE_REL_PATH = path.join('.sero', 'apps', 'git', 'state.json');
 
@@ -19,7 +19,7 @@ export async function readState(filePath: string): Promise<GitAppState> {
     const raw = await fs.readFile(filePath, 'utf8');
     return JSON.parse(raw) as GitAppState;
   } catch {
-    return { ...DEFAULT_GIT_STATE };
+    return createDefaultGitState();
   }
 }
 

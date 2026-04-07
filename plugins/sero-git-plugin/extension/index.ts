@@ -29,6 +29,7 @@ const ACTIONS = [
   'checkout',
   'stash',
   'stash_pop',
+  'stash_apply',
   'fetch',
   'pull',
   'push',
@@ -47,7 +48,7 @@ const GitManagerParams = Type.Object({
   hash: Type.Optional(Type.String({ description: 'Commit hash' })),
   staged: Type.Optional(Type.Boolean({ description: 'View staged diff (default: false)' })),
   all: Type.Optional(Type.Boolean({ description: 'Stage all / push all' })),
-  stashIndex: Type.Optional(Type.Number({ description: 'Specific stash index to pop (e.g. 0 for stash@{0})' })),
+  stashIndex: Type.Optional(Type.Number({ description: 'Specific stash index to apply/pop (e.g. 0 for stash@{0})' })),
 });
 
 type ToolResult = {
@@ -77,7 +78,7 @@ export default function (pi: ExtensionAPI) {
     name: 'git_manager',
     label: 'Git',
     description:
-      'Manage the workspace Git repository. Actions: refresh (reload all state), status (working tree summary), log (recent commits), branches (list branches), diff (file diff — requires file, optional staged), stage (requires file or all=true), unstage (requires file or all=true), commit (requires message, optional all to auto-stage), checkout (requires branch), create_branch (requires branch), delete_branch (requires branch), merge (requires branch), cherry_pick (requires hash), stash (optional message), stash_pop (optional stashIndex to pop a specific stash), fetch, pull, push, show_commit (requires hash for detailed commit diff).',
+      'Manage the workspace Git repository. Actions: refresh (reload all state), status (working tree summary), log (recent commits), branches (list branches), diff (file diff — requires file, optional staged), stage (requires file or all=true), unstage (requires file or all=true), commit (requires message, optional all to auto-stage), checkout (requires branch), create_branch (requires branch), delete_branch (requires branch), merge (requires branch), cherry_pick (requires hash, optional all=true to auto-stash a dirty working tree first), stash (optional message), stash_pop (optional stashIndex to pop a specific stash), stash_apply (optional stashIndex to apply without dropping the stash), fetch, pull, push, show_commit (requires hash for detailed commit diff).',
     parameters: GitManagerParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {

@@ -6,9 +6,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import type { GitAppState, GitManagerRequest, GitSyncMode } from '../shared/types';
-import { DEFAULT_GIT_STATE } from '../shared/types';
+import { createDefaultGitState } from '../shared/types';
 import {
-  getBranches,
   getCommitCount,
   getCommitDiff,
   getCommits,
@@ -21,7 +20,8 @@ import {
   getStashes,
   isGitRepo,
 } from './git-commands';
-import { runGit } from './git-exec';
+import { getBranches, getRemoteBranches } from './git-refs';
+import { runGit, runGitAsync } from './git-exec';
 import { readState, writeState } from './state-io';
 
 // Match the Git app state directory anywhere in the repo so nested workspaces
@@ -33,8 +33,11 @@ export type GitActionResult = {
   message: string;
 };
 
+type GitRefreshScope = 'auto' | 'full';
+
 interface GitRefreshOptions {
   syncMode?: GitSyncMode;
+  scope?: GitRefreshScope;
 }
 
 async function ensureGitStateIgnored(cwd: string): Promise<void> {
@@ -64,9 +67,9 @@ async function ensureGitStateIgnored(cwd: string): Promise<void> {
   await fs.writeFile(excludePath, next, 'utf8');
 }
 
-function pushWithUpstreamFallback(cwd: string, exec: (args: string[]) => string): string {
+async function pushWithUpstreamFallback(cwd: string, exec: (args: string[]) => Promise<string>): Promise<string> {
   try {
-    return exec(['push']);
+    return await exec(['push']);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const upstreamMissing = /upstream branch|has no upstream branch|set the remote as upstream/i.test(message);
@@ -81,16 +84,91 @@ function pushWithUpstreamFallback(cwd: string, exec: (args: string[]) => string)
   }
 }
 
+function hasHeadCommit(cwd: string): boolean {
+  return runGit(['rev-parse', '--verify', 'HEAD'], cwd, { allowFailure: true }).length > 0;
+}
+
+async function unstageChanges(cwd: string, exec: (args: string[]) => Promise<string>, file?: string): Promise<void> {
+  if (hasHeadCommit(cwd)) {
+    if (file) await exec(['reset', 'HEAD', '--', file]);
+    else await exec(['reset', 'HEAD']);
+    return;
+  }
+
+  if (file) {
+    await exec(['rm', '--cached', '--', file]);
+    return;
+  }
+
+  await exec(['rm', '-r', '--cached', '--', '.']);
+}
+
+function canUseQuickRefresh(previousState: GitAppState, currentBranch: string, headHash: string): boolean {
+  if (!previousState.repoPath) return false;
+  if (!previousState.commits.length) return false;
+  if (!previousState.branches.length && !previousState.remoteBranches.length) return false;
+  return previousState.currentBranch === currentBranch && previousState.headHash === headHash;
+}
+
+function createQuickRefreshState(
+  cwd: string,
+  syncMode: GitSyncMode,
+  previousState: GitAppState,
+  currentBranch: string,
+  headHash: string,
+): GitAppState {
+  return {
+    ...previousState,
+    repoPath: cwd,
+    repoName: getRepoName(cwd),
+    currentBranch,
+    headHash,
+    fileChanges: getFileChanges(cwd),
+    stashes: getStashes(cwd),
+    lastRefresh: new Date().toISOString(),
+    loading: false,
+    syncMode,
+    error: undefined,
+  };
+}
+
+function createFullRefreshState(cwd: string, syncMode: GitSyncMode): GitAppState {
+  return {
+    repoPath: cwd,
+    repoName: getRepoName(cwd),
+    currentBranch: getCurrentBranch(cwd),
+    headHash: getHeadHash(cwd),
+    branches: getBranches(cwd),
+    remoteBranches: getRemoteBranches(cwd),
+    remotes: getRemotes(cwd),
+    commits: getCommits(cwd, 150),
+    stashes: getStashes(cwd),
+    fileChanges: getFileChanges(cwd),
+    commitCount: getCommitCount(cwd),
+    lastRefresh: new Date().toISOString(),
+    loading: false,
+    syncMode,
+  };
+}
+
+function formatActionError(action: GitManagerRequest['action'], message: string): string {
+  if ((action === 'cherry_pick' || action === 'merge') && /after resolving the conflicts|conflict/i.test(message)) {
+    return `${message} Resolve the conflicts in your workspace, stage the files, and continue from the command line if needed.`;
+  }
+  return message;
+}
+
 export async function refreshGitState(
   cwd: string,
   statePath: string,
   options: GitRefreshOptions = {},
 ): Promise<GitAppState> {
   const syncMode = options.syncMode ?? 'manual';
+  const scope = options.scope ?? 'full';
 
   if (!isGitRepo(cwd)) {
     const state: GitAppState = {
-      ...DEFAULT_GIT_STATE,
+      ...createDefaultGitState(),
       repoPath: cwd,
       error: 'Not a git repository',
       lastRefresh: new Date().toISOString(),
@@ -102,22 +180,19 @@ export async function refreshGitState(
 
   await ensureGitStateIgnored(cwd);
 
-  const state: GitAppState = {
-    repoPath: cwd,
-    repoName: getRepoName(cwd),
-    currentBranch: getCurrentBranch(cwd),
-    headHash: getHeadHash(cwd),
-    branches: getBranches(cwd),
-    remotes: getRemotes(cwd),
-    commits: getCommits(cwd, 150),
-    stashes: getStashes(cwd),
-    fileChanges: getFileChanges(cwd),
-    commitCount: getCommitCount(cwd),
-    lastRefresh: new Date().toISOString(),
-    loading: false,
-    syncMode,
-  };
+  if (scope === 'auto') {
+    const previousState = await readState(statePath);
+    const currentBranch = getCurrentBranch(cwd);
+    const headHash = getHeadHash(cwd);
 
+    if (canUseQuickRefresh(previousState, currentBranch, headHash)) {
+      const state = createQuickRefreshState(cwd, syncMode, previousState, currentBranch, headHash);
+      await writeState(statePath, state);
+      return state;
+    }
+  }
+
+  const state = createFullRefreshState(cwd, syncMode);
   await writeState(statePath, state);
   return state;
 }
@@ -130,13 +205,13 @@ export async function runGitAction(
 ): Promise<GitActionResult> {
   const ok = (message: string): GitActionResult => ({ ok: true, message });
   const err = (message: string): GitActionResult => ({ ok: false, message });
-  const exec = (args: string[]) => runGit(args, cwd, { timeout: 30_000 });
-  const refresh = () => refreshGitState(cwd, statePath, options);
+  const exec = (args: string[]) => runGitAsync(args, cwd, { timeout: 30_000 });
+  const refresh = (scope: GitRefreshScope = 'full') => refreshGitState(cwd, statePath, { ...options, scope });
 
   try {
     switch (params.action) {
       case 'refresh': {
-        const state = await refresh();
+        const state = await refresh('full');
         const staged = state.fileChanges.filter((file) => file.staged).length;
         const unstaged = state.fileChanges.filter((file) => !file.staged).length;
         return ok(
@@ -147,7 +222,7 @@ export async function runGitAction(
       }
 
       case 'status': {
-        const state = await refresh();
+        const state = await refresh('auto');
         const staged = state.fileChanges.filter((file) => file.staged);
         const unstaged = state.fileChanges.filter((file) => !file.staged);
         let message = `On branch ${state.currentBranch}\n`;
@@ -174,16 +249,18 @@ export async function runGitAction(
 
       case 'branches': {
         const state = await readState(statePath);
-        return ok(
-          state.branches
-            .map((branch) => {
-              return `${branch.current ? '* ' : '  '}${branch.name}` +
-                `${branch.remote ? ` -> ${branch.remote}` : ''}` +
-                `${branch.ahead ? ` +${branch.ahead}` : ''}` +
-                `${branch.behind ? ` -${branch.behind}` : ''}`;
-            })
-            .join('\n') || 'No branches.',
-        );
+        const localBranchLines = state.branches.map((branch) => {
+          return `${branch.current ? '* ' : '  '}${branch.name}` +
+            `${branch.remote ? ` -> ${branch.remote}` : ''}` +
+            `${branch.ahead ? ` +${branch.ahead}` : ''}` +
+            `${branch.behind ? ` -${branch.behind}` : ''}` +
+            `${branch.checkedOutIn ? ` [worktree: ${branch.checkedOutIn}]` : ''}`;
+        });
+        const remoteBranchLines = state.remoteBranches.map((branch) => `  ${branch.name}`);
+        const sections = [];
+        if (localBranchLines.length) sections.push(`Local:\n${localBranchLines.join('\n')}`);
+        if (remoteBranchLines.length) sections.push(`\nRemote:\n${remoteBranchLines.join('\n')}`);
+        return ok(sections.join('\n') || 'No branches.');
       }
 
       case 'diff': {
@@ -200,69 +277,80 @@ export async function runGitAction(
       }
 
       case 'stage': {
-        if (params.all) exec(['add', '-A']);
-        else if (params.file) exec(['add', '--', params.file]);
+        if (params.all) await exec(['add', '-A']);
+        else if (params.file) await exec(['add', '--', params.file]);
         else return err('file or all=true required');
-        await refresh();
+        await refresh('auto');
         return ok(params.all ? 'Staged all changes.' : `Staged ${params.file}`);
       }
 
       case 'unstage': {
-        if (params.all) exec(['reset', 'HEAD']);
-        else if (params.file) exec(['reset', 'HEAD', '--', params.file]);
+        if (params.all) await unstageChanges(cwd, exec);
+        else if (params.file) await unstageChanges(cwd, exec, params.file);
         else return err('file or all=true required');
-        await refresh();
+        await refresh('auto');
         return ok(params.all ? 'Unstaged all.' : `Unstaged ${params.file}`);
       }
 
       case 'commit': {
         if (!params.message) return err('message is required for commit');
-        if (params.all) exec(['add', '-A']);
-        exec(['commit', '-m', params.message]);
-        await refresh();
+        if (params.all) await exec(['add', '-A']);
+        await exec(['commit', '-m', params.message]);
+        await refresh('full');
         return ok(`Committed: ${params.message}`);
       }
 
       case 'checkout': {
         if (!params.branch) return err('branch is required');
-        exec(['checkout', params.branch]);
-        await refresh();
+        const branch = getBranches(cwd).find((entry) => entry.name === params.branch);
+        if (branch?.checkedOutIn) {
+          return err(`Branch ${params.branch} is already checked out in ${branch.checkedOutIn}`);
+        }
+        await exec(['switch', params.branch]);
+        await refresh('full');
         return ok(`Switched to ${params.branch}`);
       }
 
       case 'create_branch': {
         if (!params.branch) return err('branch name is required');
-        exec(['checkout', '-b', params.branch]);
-        await refresh();
+        await exec(['switch', '-c', params.branch]);
+        await refresh('full');
         return ok(`Created and switched to ${params.branch}`);
       }
 
       case 'delete_branch': {
         if (!params.branch) return err('branch name is required');
-        exec(['branch', '-d', params.branch]);
-        await refresh();
+        await exec(['branch', '-d', params.branch]);
+        await refresh('full');
         return ok(`Deleted branch ${params.branch}`);
       }
 
       case 'merge': {
         if (!params.branch) return err('branch is required');
-        const result = exec(['merge', params.branch]);
-        await refresh();
+        const result = await exec(['merge', params.branch]);
+        await refresh('full');
         return ok(`Merged ${params.branch}: ${result.split('\n')[0]}`);
       }
 
       case 'cherry_pick': {
         if (!params.hash) return err('hash is required');
-        exec(['cherry-pick', params.hash]);
-        await refresh();
+        const fileChanges = getFileChanges(cwd);
+        if (fileChanges.length > 0) {
+          if (!params.all) {
+            return err('Working tree has uncommitted changes. Stash or commit them before cherry-picking.');
+          }
+          await exec(['stash', 'push', '-u', '-m', `Auto-stash before cherry-pick ${params.hash}`]);
+        }
+        await exec(['cherry-pick', params.hash]);
+        await refresh('full');
         return ok(`Cherry-picked ${params.hash}`);
       }
 
       case 'stash': {
         const args = ['stash', 'push'];
         if (params.message) args.push('-m', params.message);
-        exec(args);
-        await refresh();
+        await exec(args);
+        await refresh('auto');
         return ok('Changes stashed.');
       }
 
@@ -278,26 +366,43 @@ export async function runGitAction(
           ? `stash@{${params.stashIndex}}`
           : undefined;
         const args = target ? ['stash', 'pop', target] : ['stash', 'pop'];
-        exec(args);
-        await refresh();
+        await exec(args);
+        await refresh('auto');
         return ok(target ? `Popped ${target}.` : 'Stash popped.');
       }
 
+      case 'stash_apply': {
+        if (
+          params.stashIndex !== undefined &&
+          (!Number.isInteger(params.stashIndex) || params.stashIndex < 0)
+        ) {
+          return err('stashIndex must be a non-negative integer');
+        }
+
+        const target = params.stashIndex !== undefined
+          ? `stash@{${params.stashIndex}}`
+          : undefined;
+        const args = target ? ['stash', 'apply', target] : ['stash', 'apply'];
+        await exec(args);
+        await refresh('auto');
+        return ok(target ? `Applied ${target}.` : 'Stash applied.');
+      }
+
       case 'fetch': {
-        exec(['fetch', '--all', '--prune']);
-        await refresh();
+        await exec(['fetch', '--all', '--prune']);
+        await refresh('full');
         return ok('Fetched all remotes.');
       }
 
       case 'pull': {
-        const result = exec(['pull']);
-        await refresh();
+        const result = await exec(['pull']);
+        await refresh('full');
         return ok(`Pulled: ${result.split('\n')[0]}`);
       }
 
       case 'push': {
-        const result = pushWithUpstreamFallback(cwd, exec);
-        await refresh();
+        const result = await pushWithUpstreamFallback(cwd, exec);
+        await refresh('full');
         return ok(`Pushed: ${result || 'up to date'}`);
       }
 
@@ -318,6 +423,6 @@ export async function runGitAction(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return err(message.split('\n')[0] ?? message);
+    return err(formatActionError(params.action, message));
   }
 }

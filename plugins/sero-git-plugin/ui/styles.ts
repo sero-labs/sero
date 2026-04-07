@@ -6,9 +6,6 @@
  */
 
 export const GIT_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&display=swap');
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
-
   .git-root {
     --g-bg: #0c0e14;
     --g-surface: #14161e;
@@ -26,9 +23,9 @@ export const GIT_STYLES = `
     --g-border: rgba(255, 255, 255, 0.06);
     --g-border-bright: rgba(255, 255, 255, 0.10);
     --g-glow: rgba(129, 140, 248, 0.08);
-    --g-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --g-mono: ui-monospace, 'SF Mono', 'Fira Code', monospace;
 
-    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    font-family: Inter, 'SF Pro Display', system-ui, -apple-system, sans-serif;
     background: var(--g-bg);
     color: var(--g-text);
   }
@@ -44,7 +41,7 @@ export const GIT_STYLES = `
   }
 
   .git-root h1, .git-root h2, .git-root h3, .git-root h4 {
-    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    font-family: Inter, 'SF Pro Display', system-ui, -apple-system, sans-serif;
   }
 
   .git-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }

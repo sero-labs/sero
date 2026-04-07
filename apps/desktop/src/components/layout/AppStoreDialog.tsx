@@ -197,13 +197,13 @@ export function AppStoreDialog({
           <TabsContent value="installed" className="mt-0 flex min-h-0 flex-1 flex-col">
             <div className="border-b border-[var(--border-default)] px-4 py-3">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
                 <Input
                   autoFocus
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search installed apps…"
-                  className="pl-9"
+                  className="pl-10"
                 />
               </div>
             </div>
@@ -238,12 +238,12 @@ export function AppStoreDialog({
           <TabsContent value="discover" className="mt-0 flex min-h-0 flex-1 flex-col">
             <div className="border-b border-[var(--border-default)] px-4 py-3">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
                 <Input
                   value={discoverQuery}
                   onChange={(event) => handleDiscoverQueryChange(event.target.value)}
                   placeholder="Search public plugins…"
-                  className="pl-9"
+                  className="pl-10"
                 />
               </div>
             </div>

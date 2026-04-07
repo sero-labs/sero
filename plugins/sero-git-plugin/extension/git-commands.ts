@@ -9,7 +9,6 @@ import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import type {
-  BranchInfo,
   CommitNode,
   DiffHunk,
   DiffLine,
@@ -108,32 +107,6 @@ function parseRefs(raw: string): RefLabel[] {
     });
 }
 
-// ── Branches ────────────────────────────────────────────────
-
-export function getBranches(cwd: string): BranchInfo[] {
-  const raw = git([
-    'for-each-ref',
-    '--format=%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(objectname:short)%00%(creatordate:iso-strict)',
-    'refs/heads/',
-  ], cwd);
-  if (!raw) return [];
-
-  return raw.split('\n').filter(nonEmpty).map((line) => {
-    const [name, head, upstream, track, hash, date] = line.split('\x00');
-    const ahead = parseInt(track?.match(/ahead (\d+)/)?.[1] ?? '0', 10);
-    const behind = parseInt(track?.match(/behind (\d+)/)?.[1] ?? '0', 10);
-    return {
-      name: name ?? '',
-      current: head === '*',
-      remote: upstream || undefined,
-      ahead,
-      behind,
-      lastCommitHash: hash,
-      lastCommitDate: date,
-    };
-  });
-}
-
 // ── Remotes ─────────────────────────────────────────────────
 
 export function getRemotes(cwd: string): RemoteInfo[] {
@@ -216,20 +189,37 @@ export function getStashes(cwd: string): StashEntry[] {
 // ── Diff ────────────────────────────────────────────────────
 
 export function getFileDiff(cwd: string, filePath: string, staged: boolean): FileDiff | null {
-  const args = staged ? ['diff', '--cached', '--', filePath] : ['diff', '--', filePath];
+  const args = staged ? ['diff', '--cached', '-M', '--', filePath] : ['diff', '-M', '--', filePath];
   const raw = git(args, cwd);
+  const statusEntry = getFileChanges(cwd).find((change) => change.path === filePath && change.staged === staged);
   const diff = parseDiffOutput(raw, filePath, staged);
-  if (diff) return diff;
+  if (diff) {
+    if (statusEntry?.oldPath && !diff.oldPath) diff.oldPath = statusEntry.oldPath;
+    if (statusEntry?.status === 'renamed') diff.status = 'renamed';
+    if (statusEntry?.status === 'copied') diff.status = 'copied';
+    return diff;
+  }
 
   if (!staged && isUntrackedWorktreePath(cwd, filePath)) {
     return createUntrackedFileDiff(cwd, filePath, staged);
   }
 
-  return null;
+  return statusEntry?.status === 'renamed' || statusEntry?.status === 'copied'
+    ? {
+      path: statusEntry.path,
+      oldPath: statusEntry.oldPath,
+      status: statusEntry.status,
+      hunks: [],
+      binary: false,
+      additions: 0,
+      deletions: 0,
+      staged,
+    }
+    : null;
 }
 
 export function getCommitDiff(cwd: string, hash: string): FileDiff[] {
-  const raw = git(['diff-tree', '--root', '-p', '--no-commit-id', hash], cwd);
+  const raw = git(['diff-tree', '--root', '-M', '-p', '--no-commit-id', hash], cwd);
   if (!raw) return [];
   return splitDiffByFile(raw);
 }
@@ -237,6 +227,7 @@ export function getCommitDiff(cwd: string, hash: string): FileDiff[] {
 function parseDiffOutput(raw: string, filePath: string, staged: boolean): FileDiff | null {
   if (!raw) return null;
 
+  const resolvedPaths = extractDiffPaths(raw, filePath);
   const hunks = parseHunks(raw);
   const additions = hunks.reduce((sum, hunk) => {
     return sum + hunk.lines.filter((line) => line.type === 'add').length;
@@ -246,7 +237,8 @@ function parseDiffOutput(raw: string, filePath: string, staged: boolean): FileDi
   }, 0);
 
   return {
-    path: filePath,
+    path: resolvedPaths.path,
+    oldPath: resolvedPaths.oldPath,
     status: inferDiffStatus(raw),
     hunks,
     binary: raw.includes('Binary files') || raw.includes('GIT binary patch'),
@@ -261,8 +253,7 @@ function splitDiffByFile(raw: string): FileDiff[] {
   const chunks = raw.split(/^diff --git /m).filter(nonEmpty);
 
   for (const chunk of chunks) {
-    const nameMatch = chunk.match(/^a\/(.+?) b\/(.+)/);
-    const filePath = nameMatch?.[2] ?? nameMatch?.[1] ?? 'unknown';
+    const resolvedPaths = extractDiffPaths(chunk, 'unknown');
     const hunks = parseHunks(chunk);
     const additions = hunks.reduce((sum, hunk) => {
       return sum + hunk.lines.filter((line) => line.type === 'add').length;
@@ -272,7 +263,8 @@ function splitDiffByFile(raw: string): FileDiff[] {
     }, 0);
 
     fileDiffs.push({
-      path: filePath,
+      path: resolvedPaths.path,
+      oldPath: resolvedPaths.oldPath,
       status: inferDiffStatus(chunk),
       hunks,
       binary: chunk.includes('Binary files') || chunk.includes('GIT binary patch'),
@@ -289,6 +281,35 @@ function inferDiffStatus(raw: string): FileChangeStatus {
   if (raw.includes('rename from')) return 'renamed';
   if (raw.includes('copy from')) return 'copied';
   return 'modified';
+}
+
+function extractDiffPaths(raw: string, fallbackPath: string): { path: string; oldPath?: string } {
+  const renameFrom = raw.match(/^rename from (.+)$/m)?.[1];
+  const renameTo = raw.match(/^rename to (.+)$/m)?.[1];
+  if (renameFrom && renameTo) {
+    return { path: renameTo, oldPath: renameFrom };
+  }
+
+  const copyFrom = raw.match(/^copy from (.+)$/m)?.[1];
+  const copyTo = raw.match(/^copy to (.+)$/m)?.[1];
+  if (copyFrom && copyTo) {
+    return { path: copyTo, oldPath: copyFrom };
+  }
+
+  const diffHeader = raw.match(/^a\/(.+?) b\/(.+)$/m);
+  if (diffHeader?.[2]) {
+    return {
+      path: diffHeader[2],
+      oldPath: diffHeader[1] !== diffHeader[2] ? diffHeader[1] : undefined,
+    };
+  }
+
+  const newPath = raw.match(/^\+\+\+ b\/(.+)$/m)?.[1];
+  const oldPath = raw.match(/^--- a\/(.+)$/m)?.[1];
+  return {
+    path: newPath ?? fallbackPath,
+    oldPath: oldPath && oldPath !== newPath ? oldPath : undefined,
+  };
 }
 
 function isUntrackedWorktreePath(cwd: string, filePath: string): boolean {
