@@ -1,5 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
+import { format } from 'date-fns';
 
 import {
   SessionManager,
@@ -38,6 +39,8 @@ export function getSessionStoreDir(): string {
 function resolveTranscriptDate(sessionManager: SessionTranscriptManager): string {
   const timestamp = sessionManager.getHeader()?.timestamp;
   if (typeof timestamp === 'string' && /^\d{4}-\d{2}-\d{2}/.test(timestamp)) {
+    const d = new Date(timestamp);
+    if (!Number.isNaN(d.getTime())) return format(d, 'yyyy-MM-dd');
     return timestamp.slice(0, 10);
   }
   return todayStr();
@@ -46,7 +49,7 @@ function resolveTranscriptDate(sessionManager: SessionTranscriptManager): string
 function formatClockTime(timestamp: number): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return 'unknown';
-  return date.toISOString().slice(11, 16);
+  return format(date, 'HH:mm');
 }
 
 function truncateTranscriptSection(text: string): string {

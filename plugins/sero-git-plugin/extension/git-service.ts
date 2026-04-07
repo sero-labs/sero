@@ -21,6 +21,7 @@ import {
   isGitRepo,
 } from './git-commands';
 import { getBranches, getRemoteBranches } from './git-refs';
+import { getDefaultBranch } from './git-default-branch';
 import { runGit, runGitAsync } from './git-exec';
 import { readState, writeState } from './state-io';
 
@@ -123,6 +124,7 @@ function createQuickRefreshState(
     repoName: getRepoName(cwd),
     currentBranch,
     headHash,
+    defaultBranch: previousState.defaultBranch,
     fileChanges: getFileChanges(cwd),
     stashes: getStashes(cwd),
     lastRefresh: new Date().toISOString(),
@@ -138,6 +140,7 @@ function createFullRefreshState(cwd: string, syncMode: GitSyncMode): GitAppState
     repoName: getRepoName(cwd),
     currentBranch: getCurrentBranch(cwd),
     headHash: getHeadHash(cwd),
+    defaultBranch: getDefaultBranch(cwd),
     branches: getBranches(cwd),
     remoteBranches: getRemoteBranches(cwd),
     remotes: getRemotes(cwd),
@@ -320,9 +323,65 @@ export async function runGitAction(
 
       case 'delete_branch': {
         if (!params.branch) return err('branch name is required');
-        await exec(['branch', '-d', params.branch]);
+
+        const branchName = params.branch;
+        const currentBranch = getCurrentBranch(cwd);
+        if (branchName === currentBranch) {
+          return err(`Cannot delete the current branch ${branchName}. Switch to another branch first.`);
+        }
+
+        const defaultBranch = getDefaultBranch(cwd);
+        if (defaultBranch && branchName === defaultBranch) {
+          return err(`Cannot delete the default branch ${branchName}.`);
+        }
+
+        const branch = getBranches(cwd).find((entry) => entry.name === branchName);
+        if (branch?.checkedOutIn) {
+          return err(`Branch ${branchName} is already checked out in ${branch.checkedOutIn}`);
+        }
+
+        try {
+          await exec(['branch', params.force ? '-D' : '-d', branchName]);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!params.force && /not fully merged/i.test(message)) {
+            return err(`${message} Use force delete to remove it anyway.`);
+          }
+          throw error;
+        }
+
         await refresh('full');
-        return ok(`Deleted branch ${params.branch}`);
+        return ok(`${params.force ? 'Force deleted' : 'Deleted'} branch ${branchName}`);
+      }
+
+      case 'remove_worktree': {
+        if (!params.worktreePath) return err('worktreePath is required');
+
+        const worktreePath = params.worktreePath;
+        const repoRoot = runGit(['rev-parse', '--show-toplevel'], cwd, { allowFailure: true }) || cwd;
+        const resolvedWorktreePath = await fs.realpath(worktreePath).catch(() => path.resolve(worktreePath));
+        const resolvedRepoRoot = await fs.realpath(repoRoot).catch(() => path.resolve(repoRoot));
+        if (resolvedWorktreePath === resolvedRepoRoot) {
+          return err('Cannot remove the main worktree.');
+        }
+
+        try {
+          await exec([
+            'worktree',
+            'remove',
+            ...(params.force ? ['--force', '--force'] : []),
+            worktreePath,
+          ]);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!params.force && /(dirty|modified|untracked|locked)/i.test(message)) {
+            return err(`${message} Use force remove to remove it anyway.`);
+          }
+          throw error;
+        }
+
+        await refresh('full');
+        return ok(`${params.force ? 'Force removed' : 'Removed'} worktree ${worktreePath}`);
       }
 
       case 'merge': {

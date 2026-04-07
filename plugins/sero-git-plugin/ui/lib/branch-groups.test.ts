@@ -8,7 +8,7 @@ import {
 } from './branch-groups';
 
 describe('branch group helpers', () => {
-  it('sorts the current branch first, then newest branches', () => {
+  it('sorts branches by most recent commit date without prioritizing the current branch', () => {
     const branches: BranchInfo[] = [
       {
         name: 'older',
@@ -34,8 +34,8 @@ describe('branch group helpers', () => {
     ];
 
     expect(sortBranchesForDisplay(branches).map((branch) => branch.name)).toEqual([
-      'current',
       'newer',
+      'current',
       'older',
     ]);
   });

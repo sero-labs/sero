@@ -35,6 +35,7 @@ const ACTIONS = [
   'push',
   'create_branch',
   'delete_branch',
+  'remove_worktree',
   'merge',
   'cherry_pick',
   'show_commit',
@@ -46,8 +47,10 @@ const GitManagerParams = Type.Object({
   message: Type.Optional(Type.String({ description: 'Commit or stash message' })),
   branch: Type.Optional(Type.String({ description: 'Branch name' })),
   hash: Type.Optional(Type.String({ description: 'Commit hash' })),
+  worktreePath: Type.Optional(Type.String({ description: 'Linked worktree path' })),
   staged: Type.Optional(Type.Boolean({ description: 'View staged diff (default: false)' })),
   all: Type.Optional(Type.Boolean({ description: 'Stage all / push all' })),
+  force: Type.Optional(Type.Boolean({ description: 'Force the action when supported (for example, branch deletion)' })),
   stashIndex: Type.Optional(Type.Number({ description: 'Specific stash index to apply/pop (e.g. 0 for stash@{0})' })),
 });
 
@@ -78,7 +81,7 @@ export default function (pi: ExtensionAPI) {
     name: 'git_manager',
     label: 'Git',
     description:
-      'Manage the workspace Git repository. Actions: refresh (reload all state), status (working tree summary), log (recent commits), branches (list branches), diff (file diff — requires file, optional staged), stage (requires file or all=true), unstage (requires file or all=true), commit (requires message, optional all to auto-stage), checkout (requires branch), create_branch (requires branch), delete_branch (requires branch), merge (requires branch), cherry_pick (requires hash, optional all=true to auto-stash a dirty working tree first), stash (optional message), stash_pop (optional stashIndex to pop a specific stash), stash_apply (optional stashIndex to apply without dropping the stash), fetch, pull, push, show_commit (requires hash for detailed commit diff).',
+      'Manage the workspace Git repository. Actions: refresh (reload all state), status (working tree summary), log (recent commits), branches (list branches), diff (file diff — requires file, optional staged), stage (requires file or all=true), unstage (requires file or all=true), commit (requires message, optional all to auto-stage), checkout (requires branch), create_branch (requires branch), delete_branch (requires branch, optional force=true for -D), remove_worktree (requires worktreePath, optional force=true), merge (requires branch), cherry_pick (requires hash, optional all=true to auto-stash a dirty working tree first), stash (optional message), stash_pop (optional stashIndex to pop a specific stash), stash_apply (optional stashIndex to apply without dropping the stash), fetch, pull, push, show_commit (requires hash for detailed commit diff).',
     parameters: GitManagerParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -100,6 +103,8 @@ export default function (pi: ExtensionAPI) {
       if (args.file) text += ` ${theme.fg('dim', args.file)}`;
       if (args.branch) text += ` ${theme.fg('accent', args.branch)}`;
       if (args.hash) text += ` ${theme.fg('accent', args.hash)}`;
+      if (args.worktreePath) text += ` ${theme.fg('dim', args.worktreePath)}`;
+      if (args.force) text += ` ${theme.fg('error', '--force')}`;
       if (typeof args.stashIndex === 'number') text += ` ${theme.fg('accent', `stash@{${args.stashIndex}}`)}`;
       return new Text(text, 0, 0);
     },

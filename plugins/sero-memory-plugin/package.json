@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@sinclair/typebox": "catalog:",
-    "@tobilu/qmd": "^2.0.1"
+    "@tobilu/qmd": "^2.0.1",
+    "date-fns": "^4.1.0"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "catalog:peer",

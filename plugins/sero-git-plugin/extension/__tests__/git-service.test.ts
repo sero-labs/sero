@@ -7,6 +7,7 @@ import { runGit } from '../git-exec';
 import {
   cleanupPaths,
   commitAll,
+  createBareRemote,
   createGitRepo,
   statePathFor,
   writeRepoFile,
@@ -48,6 +49,139 @@ describe('runGitAction', () => {
       expect(result.ok).toBe(false);
       expect(result.message).toContain('already checked out in');
       expect(result.message).toContain(worktreePath);
+    } finally {
+      await cleanupPaths([repoPath]);
+    }
+  });
+
+  it('removes linked worktrees and supports force removal for dirty ones', async () => {
+    const repoPath = await createGitRepo();
+    const worktreePath = path.join(repoPath, 'feature-worktree');
+
+    try {
+      await writeRepoFile(repoPath, 'a.txt', 'base\n');
+      commitAll(repoPath, 'initial');
+      runGit(['branch', 'feature'], repoPath);
+      runGit(['worktree', 'add', worktreePath, 'feature'], repoPath);
+      await writeRepoFile(worktreePath, 'dirty.txt', 'dirty\n');
+
+      const blockedResult = await runGitAction(
+        { action: 'remove_worktree', worktreePath },
+        repoPath,
+        statePathFor(repoPath),
+      );
+      expect(blockedResult.ok).toBe(false);
+      expect(blockedResult.message).toContain('Use force remove to remove it anyway');
+
+      const forcedResult = await runGitAction(
+        { action: 'remove_worktree', worktreePath, force: true },
+        repoPath,
+        statePathFor(repoPath),
+      );
+      expect(forcedResult.ok).toBe(true);
+      expect(runGit(['worktree', 'list', '--porcelain'], repoPath)).not.toContain(worktreePath);
+    } finally {
+      await cleanupPaths([repoPath]);
+    }
+  });
+
+  it('blocks removing the main worktree', async () => {
+    const repoPath = await createGitRepo();
+
+    try {
+      await writeRepoFile(repoPath, 'a.txt', 'base\n');
+      commitAll(repoPath, 'initial');
+
+      const result = await runGitAction(
+        { action: 'remove_worktree', worktreePath: repoPath },
+        repoPath,
+        statePathFor(repoPath),
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('Cannot remove the main worktree');
+    } finally {
+      await cleanupPaths([repoPath]);
+    }
+  });
+
+  it('blocks deleting the default branch', async () => {
+    const repoPath = await createGitRepo();
+    const remotePath = await createBareRemote();
+
+    try {
+      await writeRepoFile(repoPath, 'a.txt', 'base\n');
+      commitAll(repoPath, 'initial');
+      const defaultBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
+
+      runGit(['remote', 'add', 'origin', remotePath], repoPath);
+      runGit(['push', '-u', 'origin', defaultBranch], repoPath);
+      runGit(['remote', 'set-head', 'origin', '--auto'], repoPath);
+
+      runGit(['switch', '-c', 'feature'], repoPath);
+
+      const result = await runGitAction(
+        { action: 'delete_branch', branch: defaultBranch },
+        repoPath,
+        statePathFor(repoPath),
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('Cannot delete the default branch');
+    } finally {
+      await cleanupPaths([repoPath, remotePath]);
+    }
+  });
+
+  it('blocks deleting the current branch', async () => {
+    const repoPath = await createGitRepo();
+
+    try {
+      await writeRepoFile(repoPath, 'a.txt', 'base\n');
+      commitAll(repoPath, 'initial');
+      const currentBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
+
+      const result = await runGitAction(
+        { action: 'delete_branch', branch: currentBranch },
+        repoPath,
+        statePathFor(repoPath),
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('Cannot delete the current branch');
+    } finally {
+      await cleanupPaths([repoPath]);
+    }
+  });
+
+  it('supports force-deleting unmerged branches', async () => {
+    const repoPath = await createGitRepo();
+
+    try {
+      await writeRepoFile(repoPath, 'a.txt', 'base\n');
+      commitAll(repoPath, 'initial');
+      const defaultBranch = runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath);
+
+      runGit(['switch', '-c', 'feature'], repoPath);
+      await writeRepoFile(repoPath, 'feature.txt', 'feature\n');
+      commitAll(repoPath, 'feature work');
+      runGit(['switch', defaultBranch], repoPath);
+
+      const blockedResult = await runGitAction(
+        { action: 'delete_branch', branch: 'feature' },
+        repoPath,
+        statePathFor(repoPath),
+      );
+      expect(blockedResult.ok).toBe(false);
+      expect(blockedResult.message).toContain('Use force delete to remove it anyway');
+
+      const forcedResult = await runGitAction(
+        { action: 'delete_branch', branch: 'feature', force: true },
+        repoPath,
+        statePathFor(repoPath),
+      );
+      expect(forcedResult.ok).toBe(true);
+      expect(runGit(['branch', '--list', 'feature'], repoPath)).toBe('');
     } finally {
       await cleanupPaths([repoPath]);
     }

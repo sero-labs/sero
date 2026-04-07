@@ -111,6 +111,7 @@ export type GitManagerAction =
   | 'push'
   | 'create_branch'
   | 'delete_branch'
+  | 'remove_worktree'
   | 'merge'
   | 'cherry_pick'
   | 'show_commit';
@@ -121,8 +122,10 @@ export interface GitManagerRequest {
   message?: string;
   branch?: string;
   hash?: string;
+  worktreePath?: string;
   staged?: boolean;
   all?: boolean;
+  force?: boolean;
   stashIndex?: number;
 }
 
@@ -135,6 +138,7 @@ export interface GitAppState {
   repoName: string;
   currentBranch: string;
   headHash: string;
+  defaultBranch?: string;
 
   branches: BranchInfo[];
   remoteBranches: BranchInfo[];
@@ -163,6 +167,7 @@ export function createDefaultGitState(): GitAppState {
     repoName: '',
     currentBranch: '',
     headHash: '',
+    defaultBranch: undefined,
     branches: [],
     remoteBranches: [],
     remotes: [],
@@ -187,6 +192,7 @@ export function normalizeGitState(state: Partial<GitAppState> | null | undefined
     repoName: typeof state.repoName === 'string' ? state.repoName : defaults.repoName,
     currentBranch: typeof state.currentBranch === 'string' ? state.currentBranch : defaults.currentBranch,
     headHash: typeof state.headHash === 'string' ? state.headHash : defaults.headHash,
+    defaultBranch: typeof state.defaultBranch === 'string' ? state.defaultBranch : undefined,
     branches: Array.isArray(state.branches) ? state.branches : defaults.branches,
     remoteBranches: Array.isArray(state.remoteBranches) ? state.remoteBranches : defaults.remoteBranches,
     remotes: Array.isArray(state.remotes) ? state.remotes : defaults.remotes,

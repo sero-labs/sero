@@ -16,7 +16,8 @@ import path from 'node:path';
 import os from 'node:os';
 
 import type { MemorySearchResult, MemoryFileList } from '../shared/types';
-import { stripEntryIdComments, stripManagedFileMetadata } from './memory-format';
+import { format } from 'date-fns';
+import { nowTimestamp, stripEntryIdComments, stripManagedFileMetadata } from './memory-format';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ export function getScratchpadPath(root: string): string {
 }
 
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return format(new Date(), 'yyyy-MM-dd');
 }
 
 // ── Directory setup ────────────────────────────────────────────
@@ -114,10 +115,7 @@ export async function appendFile(filePath: string, content: string): Promise<voi
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const existing = await readFile(filePath);
   const separator = existing?.trim() ? '\n\n' : '';
-  const timestamp = new Date()
-    .toISOString()
-    .replace('T', ' ')
-    .replace(/\.\d+Z$/, '');
+  const timestamp = nowTimestamp();
   const stamped = `<!-- ${timestamp} -->\n${content}`;
   await fs.writeFile(filePath, (existing ?? '') + separator + stamped, 'utf-8');
 }

@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { format } from 'date-fns';
 
 export const MEMORY_V2_MARKER = '<!-- v2 format: structured memory entries with ids -->';
 export const FILE_UPDATED_PREFIX = '<!-- last updated: ';
@@ -39,11 +40,15 @@ export interface LegacyMemoryEntrySeed {
 }
 
 export function nowTimestamp(): string {
-  return new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+  return format(new Date(), 'yyyy-MM-dd HH:mm:ss');
 }
 
 export function formatShortTimestamp(date: Date): string {
-  return date.toISOString().replace('T', ' ').slice(0, 16);
+  return format(date, 'yyyy-MM-dd HH:mm');
+}
+
+export function localDateStr(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
 }
 
 export function generateEntryId(): string {

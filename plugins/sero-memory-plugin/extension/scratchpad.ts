@@ -21,6 +21,7 @@ import {
   getScratchpadPath as resolveScratchpadPath,
   getTargetUsage,
 } from './memory-manager';
+import { nowTimestamp } from './memory-format';
 import { scheduleQmdUpdate } from './qmd';
 import type { ScratchpadItem } from '../shared/types';
 
@@ -89,10 +90,6 @@ function withinScratchpadCapacity(content: string): string | null {
   const usage = getTargetUsage('scratchpad', content);
   if (usage.chars <= usage.max) return null;
   return `Error: SCRATCHPAD.md would exceed capacity (${usage.chars}/${usage.max} chars). Clear done items or shorten open items before adding more.`;
-}
-
-function nowTimestamp(): string {
-  return new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
 }
 
 // ── Tool parameters ────────────────────────────────────────────

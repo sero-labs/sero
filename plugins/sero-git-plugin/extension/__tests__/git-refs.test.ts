@@ -13,7 +13,7 @@ import {
 } from './git-test-helpers';
 
 describe('git refs helpers', () => {
-  it('marks branches checked out in linked worktrees and keeps the current branch first', async () => {
+  it('marks branches checked out in linked worktrees and sorts by branch activity rather than current selection', async () => {
     const repoPath = await createGitRepo();
     const worktreePath = path.join(repoPath, 'feature-worktree');
 
@@ -23,11 +23,15 @@ describe('git refs helpers', () => {
       runGit(['branch', 'feature'], repoPath);
       runGit(['worktree', 'add', worktreePath, 'feature'], repoPath);
 
+      runGit(['switch', 'feature'], worktreePath);
+      await writeRepoFile(worktreePath, 'feature.txt', 'feature\n');
+      commitAll(worktreePath, 'feature work');
+
       const branches = getBranches(repoPath);
 
-      expect(branches[0]?.current).toBe(true);
-      expect(branches[0]?.name).toBe(runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath));
+      expect(branches[0]?.name).toBe('feature');
       expect(branches.find((branch) => branch.name === 'feature')?.checkedOutIn).toContain('feature-worktree');
+      expect(branches.find((branch) => branch.name === runGit(['rev-parse', '--abbrev-ref', 'HEAD'], repoPath))?.current).toBe(true);
     } finally {
       await cleanupPaths([repoPath]);
     }

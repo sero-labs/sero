@@ -5,6 +5,8 @@
 import { useMemo, useState } from 'react';
 import type { BranchInfo, GitManagerRequest, StashEntry } from '../../shared/types';
 import type { RemoteInfo } from '../../shared/types';
+import { BranchContextMenu } from './BranchContextMenu';
+import { canDeleteBranch } from '../lib/branch-actions';
 import {
   formatBranchLabel,
   groupRemoteBranches,
@@ -17,6 +19,7 @@ interface BranchPanelProps {
   remotes: RemoteInfo[];
   stashes: StashEntry[];
   currentBranch: string;
+  defaultBranch?: string;
   onAction: (action: GitManagerRequest) => void;
 }
 
@@ -26,6 +29,7 @@ export function BranchPanel({
   remotes,
   stashes,
   currentBranch,
+  defaultBranch,
   onAction,
 }: BranchPanelProps) {
   const [localOpen, setLocalOpen] = useState(true);
@@ -76,15 +80,43 @@ export function BranchPanel({
     >
       <div className="min-h-full">
         <Section title="LOCAL" count={localBranches.length} open={localOpen} onToggle={() => setLocalOpen(!localOpen)}>
-          {localBranches.map((branch) => (
-            <BranchRow
-              key={branch.name}
-              branch={branch}
-              label={branch.name}
-              isCurrent={branch.name === currentBranch}
-              onCheckout={() => onAction({ action: 'checkout', branch: branch.name })}
-            />
-          ))}
+          {localBranches.map((branch) => {
+            const onCheckout = branch.name === currentBranch
+              ? undefined
+              : () => onAction({ action: 'checkout', branch: branch.name });
+            const allowDelete = canDeleteBranch(branch, currentBranch, defaultBranch);
+            const onDelete = allowDelete
+              ? () => onAction({ action: 'delete_branch', branch: branch.name })
+              : undefined;
+            const onForceDelete = allowDelete
+              ? () => onAction({ action: 'delete_branch', branch: branch.name, force: true })
+              : undefined;
+            const onRemoveWorktree = branch.checkedOutIn
+              ? () => onAction({ action: 'remove_worktree', worktreePath: branch.checkedOutIn })
+              : undefined;
+            const onForceRemoveWorktree = branch.checkedOutIn
+              ? () => onAction({ action: 'remove_worktree', worktreePath: branch.checkedOutIn, force: true })
+              : undefined;
+
+            return (
+              <BranchContextMenu
+                key={branch.name}
+                branch={branch}
+                onCheckout={onCheckout}
+                onDelete={onDelete}
+                onForceDelete={onForceDelete}
+                onRemoveWorktree={onRemoveWorktree}
+                onForceRemoveWorktree={onForceRemoveWorktree}
+              >
+                <BranchRow
+                  branch={branch}
+                  label={branch.name}
+                  isCurrent={branch.name === currentBranch}
+                  onCheckout={onCheckout}
+                />
+              </BranchContextMenu>
+            );
+          })}
 
           {creatingBranch ? (
             <div className="space-y-2 border-t border-[var(--g-border)] px-3 py-2">

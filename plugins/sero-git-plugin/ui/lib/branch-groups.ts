@@ -12,7 +12,6 @@ function getBranchTimestamp(branch: BranchInfo): number {
 
 export function sortBranchesForDisplay(branches: BranchInfo[]): BranchInfo[] {
   return [...branches].sort((a, b) => {
-    if (a.current !== b.current) return a.current ? -1 : 1;
     const aTime = getBranchTimestamp(a);
     const bTime = getBranchTimestamp(b);
     if (aTime !== bTime) return bTime - aTime;

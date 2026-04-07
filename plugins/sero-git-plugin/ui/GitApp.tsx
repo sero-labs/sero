@@ -180,6 +180,7 @@ export function GitApp() {
                 remotes={state.remotes}
                 stashes={state.stashes}
                 currentBranch={state.currentBranch}
+                defaultBranch={state.defaultBranch}
                 onAction={runAction}
               />
 
@@ -341,6 +342,8 @@ function getActionFailureTitle(action: GitManagerRequest['action']): string {
       return 'Could not create branch';
     case 'delete_branch':
       return 'Could not delete branch';
+    case 'remove_worktree':
+      return 'Could not remove worktree';
     case 'stage':
       return 'Could not stage changes';
     case 'unstage':

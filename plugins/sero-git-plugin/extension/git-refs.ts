@@ -47,7 +47,6 @@ function parseTracking(track?: string): { ahead: number; behind: number } {
 
 function sortBranches(branches: BranchInfo[]): BranchInfo[] {
   return [...branches].sort((a, b) => {
-    if (a.current !== b.current) return a.current ? -1 : 1;
     const aTime = a.lastCommitDate ? Date.parse(a.lastCommitDate) : 0;
     const bTime = b.lastCommitDate ? Date.parse(b.lastCommitDate) : 0;
     if (aTime !== bTime) return bTime - aTime;
