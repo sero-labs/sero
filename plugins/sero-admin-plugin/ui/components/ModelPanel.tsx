@@ -199,7 +199,7 @@ export function ModelPanel() {
         <div>
           <h2 className="text-sm font-semibold text-foreground">Model</h2>
           <p className="mt-1 text-xs text-muted-foreground/70">
-            Configure the global LOW / MED / HIGH defaults. Each tier keeps its own thinking level.
+            Configure the global LOW / MED / HIGH model tiers
           </p>
         </div>
         <div className="flex items-center gap-2">
