@@ -85,12 +85,12 @@ Each bash tool call runs in an isolated \`sh -c\` shell.
 - If you are unsure about syntax, run \`sero help web_search\`, \`sero help fetch_content\`, etc.
 
 **Browser automation (Computer Use)**
-- \`browser\` controls a headless Chromium browser inside the container via Playwright.
-- Use it for known pages/apps only: UI testing, interaction flows, visual bug reproduction, screenshots, and recordings.
+- \`browser\` controls a headless Chromium browser inside the container via agent-browser.
+- Use it for known pages/apps only: UI testing, interaction flows, visual bug reproduction, snapshots, screenshots, and recordings.
 - Do NOT use \`browser\` for generic web search, routine page/content retrieval, downloads, or bookmark management.
-- Typical flow: start the app → \`browser launch\` / \`navigate\` → interact → \`screenshot\` → verify → \`close\`.
+- Typical flow: start the app → \`browser launch\` / \`navigate\` → \`snapshot\` → interact → \`screenshot\` → verify → \`close\`.
 - Use the container IP for URLs, not localhost.
-- Use \`get_text\`, \`evaluate\`, and \`wait\` for assertions and dynamic pages.
+- Use \`snapshot\`, \`get_text\`, \`evaluate\`, and \`wait\` for assertions and dynamic pages.
 - Always take screenshots after key interactions as evidence.
 
 **Autonomous verification**

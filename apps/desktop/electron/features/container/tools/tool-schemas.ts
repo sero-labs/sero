@@ -139,8 +139,8 @@ export const BrowserParams = Type.Object({
         'wait: wait for a selector or timeout. ' +
         'snapshot: capture an accessibility snapshot for LLM-friendly element refs. ' +
         'close: close the browser. ' +
-        'start_recording: begin MP4 video recording of the browser (periodic screenshots encoded to video). ' +
-        'stop_recording: stop recording and save MP4 video to the specified path.',
+        'start_recording: begin browser video recording (WebM output via agent-browser). ' +
+        'stop_recording: stop recording and save the WebM video to the specified path.',
     },
   ),
   url: Type.Optional(Type.String({ description: 'URL for launch/navigate actions' })),
@@ -188,7 +188,7 @@ export const BrowserParams = Type.Object({
     ),
   ),
   save_path: Type.Optional(
-    Type.String({ description: 'File path to save the recording to (for stop_recording action, default: /tmp/sero-browser-recording.mp4)' }),
+    Type.String({ description: 'File path to save the recording to (default: /workspace/agent-browser-recording.webm)' }),
   ),
   fps: Type.Optional(
     Type.Number({ description: 'Frames per second for recording (default: 2)' }),

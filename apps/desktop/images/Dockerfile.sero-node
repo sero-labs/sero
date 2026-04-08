@@ -18,8 +18,10 @@ RUN git config --global user.name "Sero" && \
     git config --global user.email "sero@local" && \
     git config --global init.defaultBranch main
 
-# Playwright + Chromium — used by agent for screenshot validation & web testing
-RUN pip3 install --break-system-packages playwright && \
+# agent-browser CLI + Playwright Chromium — browser automation backend.
+# agent-browser can reuse the Playwright-managed Chromium install.
+RUN npm install -g agent-browser && \
+    pip3 install --break-system-packages playwright && \
     python3 -m playwright install --with-deps chromium
 
 # Use tini as PID 1 — reaps zombie processes automatically

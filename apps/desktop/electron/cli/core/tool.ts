@@ -12,6 +12,8 @@ import type {
 } from './types';
 import type { CliRegistry } from './registry';
 import { getCliSessionBridge } from '../bridges/session-bridge';
+import { tryParseImageJson, summarizeImageJson } from '../../ipc/agent/core/tool-result-images';
+import { prepareToolImage } from '../../shared/media/image-resize';
 import {
   resolveCommandTimeoutMs,
   buildBatchDeadline,
@@ -174,6 +176,23 @@ function formatBatchEntry(line: string, output: string): string {
   return `$ sero ${line}\n${output}`;
 }
 
+function contentFromLegacyImageJson(output: string): CliContentBlock[] | null {
+  const parsed = tryParseImageJson(output);
+  if (!parsed) return null;
+
+  const image = prepareToolImage(parsed.data, parsed.mimeType, parsed.description);
+  const content: CliContentBlock[] = [];
+  if (image.text) {
+    content.push({ type: 'text', text: image.text });
+  }
+  content.push({ type: 'image', data: image.data, mimeType: image.mimeType });
+  return content;
+}
+
+function summarizeLegacyImageOutput(output: string): string {
+  return summarizeImageJson(output) ?? output;
+}
+
 function withBatchUpdateContext(
   onUpdate: Parameters<CliRegistry['executeResolved']>[3] | undefined,
   line: string,
@@ -288,7 +307,11 @@ export async function executeCliBatch(
     }
 
     finalExitCode = result.exitCode ?? 0;
-    if (!single && Array.isArray(result.content) && result.content.some((block) => block.type !== 'text')) {
+    const hasLegacyInlineImage = !!contentFromLegacyImageJson(result.output);
+    if (!single && (
+      (Array.isArray(result.content) && result.content.some((block) => block.type !== 'text')) ||
+      hasLegacyInlineImage
+    )) {
       richOutputFallback = true;
     }
 
@@ -304,7 +327,7 @@ export async function executeCliBatch(
       };
     }
 
-    sections.push(formatBatchEntry(line, result.output));
+    sections.push(formatBatchEntry(line, summarizeLegacyImageOutput(result.output)));
 
     if (finalExitCode !== 0) {
       const suffix = timedOut
@@ -324,6 +347,8 @@ function getSingleResultContent(batch: CliBatchResult): CliContentBlock[] {
   if (Array.isArray(batch.content) && batch.content.length > 0) {
     return batch.content;
   }
+  const legacyImageContent = contentFromLegacyImageJson(batch.output);
+  if (legacyImageContent) return legacyImageContent;
   return [{ type: 'text', text: batch.output }];
 }
 

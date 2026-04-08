@@ -34,6 +34,7 @@ import {
   getProtectedMemoryAccessError,
   isProtectedMemoryPath,
 } from './memory-file-guard';
+import { prepareToolImage } from '../../../shared/media/image-resize';
 
 interface HostCommandResult {
   stdout: string;
@@ -272,10 +273,12 @@ function createHostRead(basedir: string): ToolDefinition {
           );
         }
 
+        const image = prepareToolImage(base64, mimeType);
+        const text = [`Read image file [${image.mimeType}]`, image.text].filter(Boolean).join('\n');
         return {
           content: [
-            { type: 'text', text: `Read image file [${mimeType}]` },
-            { type: 'image', data: base64, mimeType },
+            { type: 'text' as const, text },
+            { type: 'image' as const, data: image.data, mimeType: image.mimeType },
           ],
           details: { path: absPath },
         };

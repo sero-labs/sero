@@ -9,7 +9,7 @@ import { BrowserWindow } from 'electron';
 import { copyFile, cp as copyTree, lstat, mkdir as mkdirFs, writeFile } from 'fs/promises';
 import pathMod from 'path';
 import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
+import type { CliCommandContext, CliResult } from '../../core/types';
 import { fail, ok, parseFlags, requireFlagString, stringifyJson } from '../../lib/utils';
 import type {
   AppControlEntry,
@@ -20,6 +20,8 @@ import type {
   AppRecordingResult,
 } from '../../../../src/types/ipc';
 import { captureRegion } from '../../../shared/media/capture';
+import { prepareToolImage } from '../../../shared/media/image-resize';
+import { resolveAppTarget } from './app-control-target';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -41,6 +43,29 @@ async function captureAppScreenshot(): Promise<{ base64: string; rect: AppPanelR
   const base64 = await captureRegion(win, rect);
   if (!base64) return null;
   return { base64, rect };
+}
+
+function okWithImage(
+  summary: string,
+  base64: string,
+  mimeType = 'image/png',
+  details?: CliResult['details'],
+): CliResult {
+  const image = prepareToolImage(base64, mimeType, summary);
+  return {
+    output: image.text ?? summary,
+    exitCode: 0,
+    content: [
+      ...(image.text ? [{ type: 'text' as const, text: image.text }] : []),
+      { type: 'image' as const, data: image.data, mimeType: image.mimeType },
+    ],
+    details,
+  };
+}
+
+async function resolveApp(query: string): Promise<AppControlEntry | null> {
+  const apps = await exec<AppControlEntry[]>('window.__appControl?.getList() ?? []');
+  return resolveAppTarget(apps, query);
 }
 
 function getFramesDirPath(targetPath: string): string {
@@ -96,14 +121,16 @@ async function handleList() {
 }
 
 async function handleOpen(args: string[]) {
-  const appId = args[0];
-  if (!appId) return fail('Usage: sero app open <appId>');
-  const success = await exec<boolean>(`window.__appControl?.openApp(${JSON.stringify(appId)}) ?? false`);
-  if (!success) {
+  const query = args[0];
+  if (!query) return fail('Usage: sero app open <appId>');
+  const match = await resolveApp(query);
+  if (!match) {
     const apps = await exec<AppControlEntry[]>('window.__appControl?.getList() ?? []');
-    return fail(`App "${appId}" not found. Available: ${apps.map((a) => a.id).join(', ')}`);
+    return fail(`App "${query}" not found. Use an app id or visible name. Available: ${apps.map((a) => a.id).join(', ')}`);
   }
-  return ok(`Switched to app: ${appId}`);
+  const success = await exec<boolean>(`window.__appControl?.openApp(${JSON.stringify(match.id)}) ?? false`);
+  if (!success) return fail(`Failed to open app "${match.name}" (${match.id}).`);
+  return ok(`Switched to app: ${match.name} (${match.id})`);
 }
 
 async function handleActive() {
@@ -112,11 +139,12 @@ async function handleActive() {
 }
 
 async function handleInfo(args: string[]) {
-  const appId = args[0];
-  if (!appId) return fail('Usage: sero app info <appId>');
-  const info = await exec<AppControlEntry | null>(`window.__appControl?.getInfo(${JSON.stringify(appId)}) ?? null`);
-  if (!info) return fail(`App "${appId}" not found.`);
-  return ok(stringifyJson(info));
+  const query = args[0];
+  if (!query) return fail('Usage: sero app info <appId>');
+  const match = await resolveApp(query);
+  if (!match) return fail(`App "${query}" not found.`);
+  const info = await exec<AppControlEntry | null>(`window.__appControl?.getInfo(${JSON.stringify(match.id)}) ?? null`);
+  return ok(stringifyJson(info ?? match));
 }
 
 // ── Screenshots ──────────────────────────────────────────────
@@ -126,37 +154,34 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
   const targetApp = requireFlagString(flags, 'app');
   const savePath = requireFlagString(flags, 'save');
 
+  let targetEntry: AppControlEntry | null = null;
   if (targetApp) {
-    const success = await exec<boolean>(`window.__appControl?.openApp(${JSON.stringify(targetApp)}) ?? false`);
-    if (!success) return fail(`App "${targetApp}" not found.`);
+    targetEntry = await resolveApp(targetApp);
+    if (!targetEntry) return fail(`App "${targetApp}" not found. Use an app id or visible name.`);
+    const success = await exec<boolean>(`window.__appControl?.openApp(${JSON.stringify(targetEntry.id)}) ?? false`);
+    if (!success) return fail(`Failed to open app "${targetEntry.name}" (${targetEntry.id}).`);
     await new Promise((r) => setTimeout(r, 500));
   }
   const capture = await captureAppScreenshot();
   if (!capture) return fail('Screenshot failed — app panel not found or not visible.');
 
   const { base64, rect } = capture;
-  const description = `Screenshot of ${targetApp ?? 'active'} app (${Math.round(rect.width)}×${Math.round(rect.height)} CSS px). For app click --x/--y, use coordinates relative to this image from the top-left corner.`;
+  const appLabel = targetEntry?.name ?? targetApp ?? 'active';
+  const description = `Screenshot of ${appLabel} app (${Math.round(rect.width)}×${Math.round(rect.height)} CSS px). For app click --x/--y, use coordinates relative to this image from the top-left corner.`;
 
-  // If --save specified, also write to disk
   if (savePath) {
     const absPath = pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath);
     await mkdirFs(pathMod.dirname(absPath), { recursive: true });
     await writeFile(absPath, Buffer.from(base64, 'base64'));
-    // Still return the image inline so it displays in the chat
-    return {
-      output: JSON.stringify({
-        type: 'image', format: 'png', base64,
-        description: `${description}\nSaved: ${absPath} (${Math.round(base64.length * 0.75 / 1024)}KB)`,
-      }),
-      exitCode: 0,
-    };
+    return okWithImage(
+      `${description}\nSaved: ${absPath} (${Math.round(base64.length * 0.75 / 1024)}KB)`,
+      base64,
+      'image/png',
+      { savedPath: absPath, appId: targetEntry?.id ?? null },
+    );
   }
 
-  // Return inline image for the agent to see
-  return {
-    output: JSON.stringify({ type: 'image', format: 'png', base64, description }),
-    exitCode: 0,
-  };
+  return okWithImage(description, base64, 'image/png', { appId: targetEntry?.id ?? null });
 }
 
 // ── Interaction ──────────────────────────────────────────────
@@ -288,10 +313,7 @@ async function interactAndReturn(params: AppInteractionParams) {
   const result = await exec<AppInteractionResult>(`window.sero.appControl.interact(${JSON.stringify(params)})`);
   if (!result.success) return fail(result.message);
   if (result.screenshot) {
-    return {
-      output: JSON.stringify({ message: result.message, type: 'image', format: 'png', base64: result.screenshot }),
-      exitCode: 0,
-    };
+    return okWithImage(result.message, result.screenshot);
   }
   return ok(result.message);
 }
@@ -307,12 +329,12 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       'app — Sero app control\n\n' +
       'Navigation:\n' +
       '  sero app list                       List all available apps\n' +
-      '  sero app open <appId>               Switch to an app\n' +
+      '  sero app open <appId|name>          Switch to an app by id or visible name\n' +
       '  sero app active                     Show the currently active app\n' +
-      '  sero app info <appId>               Show app details\n\n' +
+      '  sero app info <appId|name>          Show app details\n\n' +
       'Screenshots:\n' +
       '  sero app screenshot                 Capture the active app (inline image)\n' +
-      '  sero app screenshot --app <id>      Navigate to app then capture\n' +
+      '  sero app screenshot --app <id|name> Navigate to app then capture\n' +
       '  sero app screenshot --save <path>   Save screenshot to file\n' +
       '  sero app screenshot --app todo --save ./shot.png\n\n' +
       'Interaction:\n' +
@@ -332,6 +354,7 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app preview <url>               Open URL in editor panel\n' +
       '  Renders the dev server inside Sero so it can be captured by\n' +
       '  sero app record and sero app screenshot.\n\n' +
+      'App matching accepts visible names as well as ids (for example, Calculator → calc).\n\n' +
       'Click/type/scroll/select/hover auto-capture a screenshot after the action.',
     execute: handleApp,
   });

@@ -2,14 +2,10 @@ import type { Static } from '@sinclair/typebox';
 import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
 import type { ContainerManager } from '..';
+import { prepareToolImage } from '../../../shared/media/image-resize';
 import { BrowserParams, shellEscape } from './tool-schemas';
 
-const daemonReadyWorkspaces = new Set<string>();
-const metricsByWorkspace = new Map<string, {
-  success: number;
-  failure: number;
-  totalLatencyMs: number;
-}>();
+const metricsByWorkspace = new Map<string, { success: number; failure: number; totalLatencyMs: number }>();
 
 interface AgentBrowserJson {
   success?: boolean;
@@ -20,20 +16,41 @@ interface AgentBrowserJson {
   url?: string;
   text?: string;
   output?: string;
+  snapshot?: string;
   screenshot?: string;
   path?: string;
   running?: boolean;
+  result?: unknown;
+  refs?: Record<string, unknown>;
   data?: unknown;
 }
 
-function command(args: string[]): string {
-  return `agent-browser ${args.map((arg) => `'${shellEscape(arg)}'`).join(' ')}`;
+interface AgentCommandOptions { execTimeoutMs?: number; defaultActionTimeoutMs?: number; }
+
+function browserSessionName(workspaceId: string): string {
+  return `sero-${workspaceId}`;
+}
+
+function command(args: string[], env?: Record<string, string | number | boolean | undefined>): string {
+  const envPrefix = Object.entries(env ?? {})
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => `${key}='${shellEscape(String(value))}'`)
+    .join(' ');
+  const commandArgs = args.map((arg) => `'${shellEscape(arg)}'`).join(' ');
+  return `${envPrefix ? `${envPrefix} ` : ''}agent-browser ${commandArgs}`;
+}
+
+function sessionCommand(
+  workspaceId: string,
+  args: string[],
+  env?: Record<string, string | number | boolean | undefined>,
+): string {
+  return command(['--session', browserSessionName(workspaceId), ...args], env);
 }
 
 function parseJsonOutput(raw: string): AgentBrowserJson {
   const trimmed = raw.trim();
   if (!trimmed) return {};
-
   try {
     return JSON.parse(trimmed) as AgentBrowserJson;
   } catch {
@@ -46,19 +63,48 @@ function parseJsonOutput(raw: string): AgentBrowserJson {
       }
     }
   }
-
   return { output: trimmed };
+}
+
+function flattenDataPayload(data: unknown): Partial<AgentBrowserJson> {
+  if (data === undefined) return {};
+  if (typeof data === 'string') return { output: data };
+  if (typeof data === 'number' || typeof data === 'boolean' || data === null) return { result: data };
+  if (Array.isArray(data)) return { result: data };
+  if (typeof data !== 'object') return { output: String(data) };
+
+  const record = data as Record<string, unknown>;
+  const flattened: Partial<AgentBrowserJson> = {};
+  const knownKeys = ['message', 'error', 'warning', 'title', 'url', 'text', 'output', 'snapshot', 'screenshot', 'path', 'running', 'result'] as const;
+  for (const key of knownKeys) {
+    const value = record[key];
+    if (value !== undefined) flattened[key] = value as never;
+  }
+  if (record.refs && typeof record.refs === 'object' && !Array.isArray(record.refs)) {
+    flattened.refs = record.refs as Record<string, unknown>;
+  }
+  return Object.keys(flattened).length > 0 ? flattened : { result: record };
+}
+
+function normalizeResponse(response: AgentBrowserJson): AgentBrowserJson {
+  return { ...response, ...flattenDataPayload(response.data) };
 }
 
 function looksLikeBase64(value: string): boolean {
   return /^[A-Za-z0-9+/=]+$/.test(value) && value.length > 64;
 }
 
-async function readImageAsBase64(
-  cm: ContainerManager,
-  workspaceId: string,
-  imagePath: string,
-): Promise<string> {
+function formatResult(result: unknown): string | undefined {
+  if (result === undefined) return undefined;
+  if (typeof result === 'string') return result;
+  try {
+    return JSON.stringify(result, null, 2);
+  } catch {
+    return String(result);
+  }
+}
+
+async function readImageAsBase64(cm: ContainerManager, workspaceId: string, imagePath: string): Promise<string> {
   const escaped = shellEscape(imagePath);
   const result = await cm.exec(
     workspaceId,
@@ -66,80 +112,87 @@ async function readImageAsBase64(
     undefined,
     15_000,
   );
-
   if (result.exitCode !== 0 || !result.stdout.trim()) {
     throw new Error(`Failed reading screenshot at ${imagePath}: ${result.stderr || result.stdout}`);
   }
-
   return result.stdout.trim();
 }
 
-async function ensureAgentBrowserReady(cm: ContainerManager, workspaceId: string): Promise<void> {
+async function ensureAgentBrowserAvailable(cm: ContainerManager, workspaceId: string): Promise<void> {
   const hasBinary = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
-  if (hasBinary.exitCode !== 0) {
-    throw new Error(
-      'agent-browser CLI is not installed in this container.',
-    );
+  if (hasBinary.exitCode === 0) return;
+
+  const install = await cm.exec(workspaceId, 'npm install -g agent-browser', undefined, 180_000);
+  if (install.exitCode !== 0) {
+    throw new Error(`Failed to install agent-browser CLI: ${install.stderr || install.stdout}`);
   }
 
-  if (daemonReadyWorkspaces.has(workspaceId)) return;
-
-  const daemonStatus = await cm.exec(
-    workspaceId,
-    `${command(['daemon', 'status', '--json', '--no-color', '--yes'])} || true`,
-    undefined,
-    10_000,
-  );
-
-  const parsedStatus = parseJsonOutput(daemonStatus.stdout);
-  const data = parsedStatus.data as { running?: boolean } | undefined;
-  const alreadyRunning = Boolean(
-    parsedStatus.running ||
-    data?.running ||
-    (typeof parsedStatus.message === 'string' &&
-      parsedStatus.message.toLowerCase().includes('running')),
-  );
-
-  if (!alreadyRunning) {
-    const daemonStart = await cm.exec(
-      workspaceId,
-      command(['daemon', 'start', '--json', '--no-color', '--yes']),
-      undefined,
-      20_000,
-    );
-
-    if (daemonStart.exitCode !== 0) {
-      throw new Error(`Failed to start agent-browser daemon: ${daemonStart.stderr || daemonStart.stdout}`);
-    }
-  }
-
-  daemonReadyWorkspaces.add(workspaceId);
+  const verify = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
+  if (verify.exitCode !== 0) throw new Error('agent-browser CLI is not available after installation.');
 }
 
 async function runAgent(
   cm: ContainerManager,
   workspaceId: string,
   args: string[],
-  timeoutMs = 60_000,
+  options: AgentCommandOptions = {},
 ): Promise<AgentBrowserJson> {
+  const env = options.defaultActionTimeoutMs !== undefined
+    ? { AGENT_BROWSER_DEFAULT_TIMEOUT: options.defaultActionTimeoutMs }
+    : undefined;
   const result = await cm.exec(
     workspaceId,
-    command([...args, '--json', '--no-color', '--yes']),
+    sessionCommand(workspaceId, [...args, '--json'], env),
     undefined,
-    timeoutMs,
+    options.execTimeoutMs ?? 60_000,
   );
-
-  const parsed = parseJsonOutput(result.stdout);
+  const parsed = normalizeResponse(parseJsonOutput([result.stdout, result.stderr].filter(Boolean).join('\n')));
   if (result.exitCode !== 0) {
     const fallback = result.stderr || result.stdout || 'Unknown agent-browser error';
     throw new Error(parsed.error || fallback);
   }
+  if (parsed.success === false) throw new Error(parsed.error || parsed.message || 'agent-browser command failed');
+  return parsed;
+}
 
-  if (parsed.success === false) {
-    throw new Error(parsed.error || parsed.message || 'agent-browser command failed');
+async function runEval(
+  cm: ContainerManager,
+  workspaceId: string,
+  expression: string,
+  options: AgentCommandOptions = {},
+): Promise<AgentBrowserJson> {
+  const encodedExpression = Buffer.from(expression, 'utf8').toString('base64');
+  return runAgent(cm, workspaceId, ['eval', '-b', encodedExpression], options);
+}
+
+async function launchBrowser(
+  cm: ContainerManager,
+  workspaceId: string,
+  params: Static<typeof BrowserParams>,
+): Promise<AgentBrowserJson> {
+  const targetUrl = params.url ?? 'about:blank';
+  const viewport = params.viewport;
+  const hasViewport = viewport?.width !== undefined || viewport?.height !== undefined;
+  let response: AgentBrowserJson;
+
+  if (hasViewport) {
+    response = await runAgent(cm, workspaceId, ['open', 'about:blank']);
+    await runAgent(
+      cm,
+      workspaceId,
+      ['set', 'viewport', String(viewport?.width ?? 1280), String(viewport?.height ?? 720)],
+      { execTimeoutMs: 20_000 },
+    );
+    if (targetUrl !== 'about:blank') response = await runAgent(cm, workspaceId, ['open', targetUrl]);
+  } else {
+    response = await runAgent(cm, workspaceId, ['open', targetUrl]);
   }
 
-  return parsed;
+  const waitUntil = params.wait_until ?? 'domcontentloaded';
+  if (targetUrl !== 'about:blank' && waitUntil !== 'domcontentloaded') {
+    await runAgent(cm, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
+  }
+  return response;
 }
 
 function asText(response: AgentBrowserJson, fallback = 'Done.'): string {
@@ -149,24 +202,28 @@ function asText(response: AgentBrowserJson, fallback = 'Done.'): string {
     response.title ? `Title: ${response.title}` : undefined,
     response.url ? `URL: ${response.url}` : undefined,
     response.text,
+    response.snapshot,
+    formatResult(response.result),
     response.output,
-  ]
-    .filter(Boolean)
-    .map(String);
-
+  ].filter(Boolean).map(String);
   return parts.join('\n') || fallback;
 }
 
-export function createAgentBrowser(
-  cm: ContainerManager,
-  workspaceId: string,
-): ToolDefinition {
+function screenshotContent(base64: string, text: string): AgentToolResult<unknown>['content'] {
+  const image = prepareToolImage(base64, 'image/png', text);
+  return [
+    ...(image.text ? [{ type: 'text' as const, text: image.text }] : []),
+    { type: 'image' as const, data: image.data, mimeType: image.mimeType },
+  ];
+}
+
+export function createAgentBrowser(cm: ContainerManager, workspaceId: string): ToolDefinition {
   return {
     name: 'browser',
     label: 'browser',
     description:
-      'Control browser automation through Vercel agent-browser with daemon-backed sessions. ' +
-      'Use launch first, then navigate/click/type/screenshot/get_text/wait, and close when done.',
+      'Control browser automation through Vercel agent-browser with persistent per-workspace sessions. ' +
+      'Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done.',
     parameters: BrowserParams,
     execute: async (
       _toolCallId: string,
@@ -178,170 +235,163 @@ export function createAgentBrowser(
       const startedAt = Date.now();
       const action = params.action;
       const record = (ok: boolean) => {
-        const cur = metricsByWorkspace.get(workspaceId) ?? { success: 0, failure: 0, totalLatencyMs: 0 };
-        if (ok) cur.success += 1;
-        else cur.failure += 1;
-        cur.totalLatencyMs += Date.now() - startedAt;
-        metricsByWorkspace.set(workspaceId, cur);
+        const current = metricsByWorkspace.get(workspaceId) ?? { success: 0, failure: 0, totalLatencyMs: 0 };
+        if (ok) current.success += 1;
+        else current.failure += 1;
+        current.totalLatencyMs += Date.now() - startedAt;
+        metricsByWorkspace.set(workspaceId, current);
       };
 
       if (signal?.aborted) throw new Error('Operation aborted');
 
-      if (params.action === 'start_recording' || params.action === 'stop_recording') {
-        await ensureAgentBrowserReady(cm, workspaceId);
-      }
+      try {
+        await ensureAgentBrowserAvailable(cm, workspaceId);
 
-      if (params.action === 'start_recording') {
-        const targetPath = params.save_path ?? '/workspace/agent-browser-recording.webm';
-        const response = await runAgent(cm, workspaceId, ['record', 'start', targetPath], 20_000);
-        record(true);
-        return {
-          content: [{ type: 'text', text: asText(response, `Recording started: ${targetPath}`) }],
-          details: undefined,
-        };
-      }
-
-      if (params.action === 'stop_recording') {
-        const response = await runAgent(cm, workspaceId, ['record', 'stop'], 20_000);
-        record(true);
-        return {
-          content: [{ type: 'text', text: asText(response, 'Recording stopped.') }],
-          details: undefined,
-        };
-      }
-
-      await ensureAgentBrowserReady(cm, workspaceId);
-
-      if (params.action === 'close') {
-        await runAgent(cm, workspaceId, ['close']);
-        await cm.exec(workspaceId, `${command(['daemon', 'stop', '--json', '--no-color', '--yes'])} || true`);
-        daemonReadyWorkspaces.delete(workspaceId);
-        record(true);
-        return { content: [{ type: 'text', text: 'Browser closed.' }], details: undefined };
-      }
-
-      if (params.action === 'launch' || params.action === 'navigate') {
-        if (!params.url) throw new Error('url is required for launch/navigate');
-        const response = await runAgent(cm, workspaceId, ['open', params.url]);
-        record(true);
-        return { content: [{ type: 'text', text: asText(response, `Opened ${params.url}`) }], details: undefined };
-      }
-
-      if (params.action === 'click') {
-        if (params.selector) {
-          const response = await runAgent(cm, workspaceId, ['click', params.selector]);
+        if (action === 'start_recording') {
+          const targetPath = params.save_path ?? '/workspace/agent-browser-recording.webm';
+          const response = await runAgent(cm, workspaceId, ['record', 'start', targetPath], { execTimeoutMs: 20_000 });
           record(true);
-          return { content: [{ type: 'text', text: asText(response, `Clicked ${params.selector}`) }], details: undefined };
+          return { content: [{ type: 'text', text: asText(response, `Recording started: ${targetPath}`) }], details: undefined };
         }
 
-        if (params.x !== undefined && params.y !== undefined) {
-          const expression = `(() => { const el = document.elementFromPoint(${params.x}, ${params.y}); if (!el) throw new Error('No element at point'); (el as HTMLElement).click(); return 'clicked'; })()`;
-          const response = await runAgent(cm, workspaceId, ['eval', expression]);
+        if (action === 'stop_recording') {
+          const response = await runAgent(cm, workspaceId, ['record', 'stop'], { execTimeoutMs: 20_000 });
           record(true);
-          return { content: [{ type: 'text', text: asText(response, `Clicked (${params.x}, ${params.y})`) }], details: undefined };
+          return { content: [{ type: 'text', text: asText(response, 'Recording stopped.') }], details: undefined };
         }
 
-        throw new Error("Provide 'selector' or both 'x' and 'y'");
-      }
-
-      if (params.action === 'type') {
-        if (!params.text) throw new Error('text is required for type action');
-
-        if (params.selector) {
-          if (params.clear) {
-            await runAgent(cm, workspaceId, ['fill', params.selector, params.text]);
-            record(true);
-            return { content: [{ type: 'text', text: `Filled ${params.selector}.` }], details: undefined };
-          }
-
-          const response = await runAgent(cm, workspaceId, ['type', params.selector, params.text]);
+        if (action === 'close') {
+          await runAgent(cm, workspaceId, ['close'], { execTimeoutMs: 20_000 });
           record(true);
-          return { content: [{ type: 'text', text: asText(response, `Typed into ${params.selector}`) }], details: undefined };
+          return { content: [{ type: 'text', text: 'Browser closed.' }], details: undefined };
         }
 
-        const response = await runAgent(cm, workspaceId, ['keyboard', 'type', params.text]);
-        record(true);
-        return { content: [{ type: 'text', text: asText(response, 'Typed into focused element.') }], details: undefined };
-      }
-
-      if (params.action === 'press_key') {
-        if (!params.key) throw new Error('key is required for press_key action');
-        const response = await runAgent(cm, workspaceId, ['press', params.key]);
-        record(true);
-        return { content: [{ type: 'text', text: asText(response, `Pressed ${params.key}`) }], details: undefined };
-      }
-
-      if (params.action === 'scroll') {
-        const direction = params.direction ?? 'down';
-        const amount = String(params.amount ?? 500);
-        const response = await runAgent(cm, workspaceId, ['scroll', direction, amount]);
-        record(true);
-        return { content: [{ type: 'text', text: asText(response, `Scrolled ${direction}`) }], details: undefined };
-      }
-
-      if (params.action === 'evaluate') {
-        if (!params.expression) throw new Error('expression is required for evaluate');
-        const response = await runAgent(cm, workspaceId, ['eval', params.expression]);
-        record(true);
-        return { content: [{ type: 'text', text: asText(response) }], details: undefined };
-      }
-
-      if (params.action === 'get_text') {
-        if (params.selector) {
-          const response = await runAgent(cm, workspaceId, ['get', 'text', params.selector]);
-          record(true);
-          return { content: [{ type: 'text', text: asText(response, 'Text retrieved.') }], details: undefined };
-        }
-
-        const response = await runAgent(cm, workspaceId, ['get', 'text', 'body']);
-        record(true);
-        return { content: [{ type: 'text', text: asText(response, 'Text retrieved.') }], details: undefined };
-      }
-
-      if (params.action === 'snapshot') {
-        const response = await runAgent(cm, workspaceId, ['snapshot'], 20_000);
-        record(true);
-        return { content: [{ type: 'text', text: asText(response, 'Snapshot captured.') }], details: undefined };
-      }
-
-      if (params.action === 'wait') {
-        const timeoutMs = params.timeout ?? 1000;
-        if (params.selector) {
-          const response = await runAgent(cm, workspaceId, ['wait', params.selector], timeoutMs + 10_000);
+        if (action === 'launch') {
+          const response = await launchBrowser(cm, workspaceId, params);
           record(true);
           return {
-            content: [{ type: 'text', text: asText(response, `Element '${params.selector}' is ready.`) }],
+            content: [{ type: 'text', text: asText(response, params.url ? `Opened ${params.url}` : 'Browser launched.') }],
             details: undefined,
           };
         }
 
-        const response = await runAgent(cm, workspaceId, ['wait', String(timeoutMs)], timeoutMs + 10_000);
-        record(true);
-        return { content: [{ type: 'text', text: asText(response, `Waited ${timeoutMs}ms.`) }], details: undefined };
+        if (action === 'navigate') {
+          if (!params.url) throw new Error('url is required for navigate');
+          const response = await runAgent(cm, workspaceId, ['open', params.url]);
+          const waitUntil = params.wait_until ?? 'domcontentloaded';
+          if (waitUntil !== 'domcontentloaded') {
+            await runAgent(cm, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
+          }
+          record(true);
+          return { content: [{ type: 'text', text: asText(response, `Opened ${params.url}`) }], details: undefined };
+        }
+
+        if (action === 'click') {
+          if (params.selector) {
+            const response = await runAgent(cm, workspaceId, ['click', params.selector]);
+            record(true);
+            return { content: [{ type: 'text', text: asText(response, `Clicked ${params.selector}`) }], details: undefined };
+          }
+          if (params.x !== undefined && params.y !== undefined) {
+            await runAgent(cm, workspaceId, ['mouse', 'move', String(params.x), String(params.y)], { execTimeoutMs: 20_000 });
+            await runAgent(cm, workspaceId, ['mouse', 'down', 'left'], { execTimeoutMs: 20_000 });
+            await runAgent(cm, workspaceId, ['mouse', 'up', 'left'], { execTimeoutMs: 20_000 });
+            record(true);
+            return { content: [{ type: 'text', text: `Clicked (${params.x}, ${params.y})` }], details: undefined };
+          }
+          throw new Error("Provide 'selector' or both 'x' and 'y'");
+        }
+
+        if (action === 'type') {
+          if (!params.text) throw new Error('text is required for type action');
+          if (params.selector) {
+            if (params.clear) {
+              await runAgent(cm, workspaceId, ['fill', params.selector, params.text]);
+              record(true);
+              return { content: [{ type: 'text', text: `Filled ${params.selector}.` }], details: undefined };
+            }
+            const response = await runAgent(cm, workspaceId, ['type', params.selector, params.text]);
+            record(true);
+            return { content: [{ type: 'text', text: asText(response, `Typed into ${params.selector}`) }], details: undefined };
+          }
+          const response = await runAgent(cm, workspaceId, ['keyboard', 'type', params.text]);
+          record(true);
+          return { content: [{ type: 'text', text: asText(response, 'Typed into focused element.') }], details: undefined };
+        }
+
+        if (action === 'press_key') {
+          if (!params.key) throw new Error('key is required for press_key action');
+          const response = await runAgent(cm, workspaceId, ['press', params.key]);
+          record(true);
+          return { content: [{ type: 'text', text: asText(response, `Pressed ${params.key}`) }], details: undefined };
+        }
+
+        if (action === 'scroll') {
+          const direction = params.direction ?? 'down';
+          const amount = String(params.amount ?? 500);
+          const args = ['scroll', direction, amount];
+          if (params.selector) args.push('--selector', params.selector);
+          const response = await runAgent(cm, workspaceId, args);
+          record(true);
+          return { content: [{ type: 'text', text: asText(response, `Scrolled ${direction}`) }], details: undefined };
+        }
+
+        if (action === 'evaluate') {
+          if (!params.expression) throw new Error('expression is required for evaluate');
+          const response = await runEval(cm, workspaceId, params.expression);
+          record(true);
+          return { content: [{ type: 'text', text: asText(response) }], details: undefined };
+        }
+
+        if (action === 'get_text') {
+          const response = await runAgent(
+            cm,
+            workspaceId,
+            params.selector ? ['get', 'text', params.selector] : ['get', 'text', 'body'],
+          );
+          record(true);
+          return { content: [{ type: 'text', text: asText(response, 'Text retrieved.') }], details: undefined };
+        }
+
+        if (action === 'snapshot') {
+          const response = await runAgent(cm, workspaceId, ['snapshot'], { execTimeoutMs: 20_000 });
+          record(true);
+          return { content: [{ type: 'text', text: asText(response, 'Snapshot captured.') }], details: undefined };
+        }
+
+        if (action === 'wait') {
+          const timeoutMs = params.timeout ?? 10_000;
+          const response = params.selector
+            ? await runAgent(cm, workspaceId, ['wait', params.selector], { execTimeoutMs: timeoutMs + 10_000, defaultActionTimeoutMs: timeoutMs })
+            : await runAgent(cm, workspaceId, ['wait', String(timeoutMs)], { execTimeoutMs: timeoutMs + 10_000 });
+          record(true);
+          return {
+            content: [{ type: 'text', text: asText(response, params.selector ? `Element '${params.selector}' is ready.` : `Waited ${timeoutMs}ms.`) }],
+            details: undefined,
+          };
+        }
+
+        if (action === 'screenshot') {
+          const shotPath = '/tmp/sero-agent-browser-shot.png';
+          const screenshotArgs = ['screenshot', shotPath];
+          if (params.full_page) screenshotArgs.push('--full');
+          const response = await runAgent(cm, workspaceId, screenshotArgs, { execTimeoutMs: 20_000 });
+          const imagePath = response.path || shotPath;
+          const imageData = response.screenshot && looksLikeBase64(response.screenshot)
+            ? response.screenshot
+            : await readImageAsBase64(cm, workspaceId, imagePath);
+          record(true);
+          return {
+            content: screenshotContent(imageData, asText(response, 'Screenshot captured.')),
+            details: undefined,
+          };
+        }
+
+        throw new Error(`Unsupported action for agent-browser backend: ${action}`);
+      } catch (error) {
+        record(false);
+        throw error;
       }
-
-      if (params.action === 'screenshot') {
-        const shotPath = '/tmp/sero-agent-browser-shot.png';
-        const screenshotArgs = ['screenshot', shotPath];
-        if (params.full_page) screenshotArgs.push('--full');
-        const response = await runAgent(cm, workspaceId, screenshotArgs, 20_000);
-        const imagePath = response.path || shotPath;
-        const imageData = response.screenshot && looksLikeBase64(response.screenshot)
-          ? response.screenshot
-          : await readImageAsBase64(cm, workspaceId, imagePath);
-        record(true);
-
-        return {
-          content: [
-            { type: 'image', data: imageData, mimeType: 'image/png' },
-            { type: 'text', text: asText(response, 'Screenshot captured.') },
-          ],
-          details: undefined,
-        };
-      }
-
-      record(false);
-      throw new Error(`Unsupported action for agent-browser backend: ${action}`);
     },
   };
 }

@@ -19,7 +19,7 @@ import type {
 } from '../../../../src/types/ipc';
 import type { ChatCheckpointRef } from '../../../../src/types/checkpoints';
 import { resizeImageForApi } from '../../../shared/media/image-resize';
-import { tryParseImageJson } from './agent-subscription';
+import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
 import { extractOriginalCollaborationQuery } from '../../collaboration/collaboration-message';
 import { buildAvailableModelGroups } from './model-groups';
 
@@ -248,6 +248,7 @@ export function convertSessionMessages(
 
           // Extract image content blocks (screenshots, browser captures).
           // toolResult.content items are a union; only image blocks have `data`.
+          const filePath = extractImageFilePath(details);
           for (const block of toolResult.content) {
             if (block.type !== 'image') continue;
             const imgBlock = block as { type: 'image'; data: string; mimeType?: string };
@@ -256,6 +257,7 @@ export function convertSessionMessages(
               data: imgBlock.data,
               mimeType: imgBlock.mimeType ?? 'image/png',
               description: output || undefined,
+              ...(filePath ? { filePath } : {}),
             });
           }
 

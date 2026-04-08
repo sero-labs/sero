@@ -33,6 +33,8 @@ export interface ToolResultImage {
   mimeType: string;
   /** Optional description (e.g. "Screenshot of todo app"). */
   description?: string;
+  /** Optional source/saved file path for surfacing image locations in the UI. */
+  filePath?: string;
 }
 
 export interface ChatUserMessage {
