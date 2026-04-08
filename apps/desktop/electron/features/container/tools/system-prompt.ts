@@ -85,10 +85,11 @@ Each bash tool call runs in an isolated \`sh -c\` shell.
 - If you are unsure about syntax, run \`sero help web_search\`, \`sero help fetch_content\`, etc.
 
 **Browser automation (Computer Use)**
-- \`browser\` controls a headless Chromium browser inside the container via agent-browser.
+- \`browser\` controls a headless Chromium automation browser inside the container via agent-browser.
 - Use it for known pages/apps only: UI testing, interaction flows, visual bug reproduction, snapshots, screenshots, and recordings.
 - Do NOT use \`browser\` for generic web search, routine page/content retrieval, downloads, or bookmark management.
 - Typical flow: start the app → \`browser launch\` / \`navigate\` → \`snapshot\` → interact → \`screenshot\` → verify → \`close\`.
+- The visible Sero preview pane is separate from the hidden automation browser; verify browser actions using browser screenshots, text extraction, snapshot output, and evaluate results.
 - Use the container IP for URLs, not localhost.
 - Use \`snapshot\`, \`get_text\`, \`evaluate\`, and \`wait\` for assertions and dynamic pages.
 - Coordinate clicks use viewport-relative CSS pixels, not document coordinates. If you derive coordinates from the DOM, use the center of \`getBoundingClientRect()\` directly and do not add/subtract scroll offsets.

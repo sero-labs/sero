@@ -124,7 +124,7 @@ export const BrowserParams = Type.Object({
     ],
     {
       description:
-        'The browser action to perform for Playwright-style UI automation on known pages. ' +
+        'The browser action to perform for the hidden Playwright-style automation browser on known pages. ' +
         'Do not use browser for general web search, page fetching, bookmark management, or file downloads — ' +
         'use web_search, fetch_content, get_search_content, or web_bookmark instead. ' +
         'launch: start browser (optionally navigate to url). ' +
@@ -138,8 +138,8 @@ export const BrowserParams = Type.Object({
         'get_text: extract text content from the page or an element. ' +
         'wait: wait for a selector or timeout. ' +
         'snapshot: capture an accessibility snapshot for LLM-friendly element refs. ' +
-        'close: close the browser. ' +
-        'start_recording: begin browser video recording (WebM output via agent-browser); set save_path here. ' +
+        'close: close the automation browser session. ' +
+        'start_recording: begin automation-browser video recording (WebM output via agent-browser); set save_path here. ' +
         'stop_recording: stop the current recording and save it to the path chosen when recording started.',
     },
   ),
@@ -168,7 +168,7 @@ export const BrowserParams = Type.Object({
     Type.Number({ description: 'Scroll amount in pixels (default: 500)' }),
   ),
   full_page: Type.Optional(
-    Type.Boolean({ description: 'Capture full page screenshot (default: false)' }),
+    Type.Boolean({ description: 'Capture the full scrollable automation-browser page when supported (default: false)' }),
   ),
   timeout: Type.Optional(
     Type.Number({ description: 'Timeout in ms for wait action (default: 10000)' }),

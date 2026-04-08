@@ -198,16 +198,17 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[1][1]).toContain("'eval' '-b'");
   });
 
-  it('returns image blocks for screenshot path responses', async () => {
+  it('returns image blocks for screenshot path responses and passes full-page screenshots through', async () => {
     const fakeB64 = Buffer.from('pngdata').toString('base64');
-    const { tool } = await createToolWithExec([
+    const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
       { stdout: '{"path":"/tmp/sero-agent-browser-shot.png"}', stderr: '', exitCode: 0 },
       { stdout: fakeB64, stderr: '', exitCode: 0 },
     ]);
 
-    const result = await tool.execute('tc-2', { action: 'screenshot' }, undefined, undefined, undefined as never);
+    const result = await tool.execute('tc-2', { action: 'screenshot', full_page: true }, undefined, undefined, undefined as never);
 
+    expect(exec.mock.calls[1][1]).toContain("'screenshot' '/tmp/sero-agent-browser-shot.png' '--full'");
     expect(result.content).toContainEqual({
       type: 'image',
       data: fakeB64,
@@ -215,7 +216,7 @@ describe('createAgentBrowser', () => {
     });
     expect(result.content).toContainEqual({
       type: 'text',
-      text: 'Screenshot captured.',
+      text: 'Full-page automation browser screenshot captured.',
     });
   });
 

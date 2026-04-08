@@ -288,8 +288,8 @@ function asText(response: AgentBrowserJson, fallback = 'Done.'): string {
   const parts = [
     response.message,
     response.warning ? `Warning: ${response.warning}` : undefined,
-    response.title ? `Title: ${response.title}` : undefined,
-    response.url ? `URL: ${response.url}` : undefined,
+    response.title ? `Automation browser title: ${response.title}` : undefined,
+    response.url ? `Automation browser URL: ${response.url}` : undefined,
     response.text,
     response.snapshot,
     formatResult(response.result),
@@ -311,8 +311,8 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
     name: 'browser',
     label: 'browser',
     description:
-      'Control browser automation through Vercel agent-browser with persistent per-workspace sessions. ' +
-      'Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done.',
+      'Control a hidden automation browser through Vercel agent-browser with persistent per-workspace sessions. ' +
+      'This browser is separate from Sero\'s visible preview pane. Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done.',
     parameters: BrowserParams,
     execute: async (
       _toolCallId: string,
@@ -357,20 +357,20 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
           await ensureFfmpegAvailable(cm, workspaceId);
           const response = await runAgent(cm, workspaceId, ['record', 'stop'], { execTimeoutMs: 20_000 });
           record(true);
-          return { content: [{ type: 'text', text: asText(response, 'Recording stopped.') }], details: undefined };
+          return { content: [{ type: 'text', text: asText(response, 'Automation browser recording stopped.') }], details: undefined };
         }
 
         if (action === 'close') {
           await runAgent(cm, workspaceId, ['close'], { execTimeoutMs: 20_000 });
           record(true);
-          return { content: [{ type: 'text', text: 'Browser closed.' }], details: undefined };
+          return { content: [{ type: 'text', text: 'Automation browser closed.' }], details: undefined };
         }
 
         if (action === 'launch') {
           const response = await launchBrowser(cm, workspaceId, params);
           record(true);
           return {
-            content: [{ type: 'text', text: asText(response, params.url ? `Opened ${params.url}` : 'Browser launched.') }],
+            content: [{ type: 'text', text: asText(response, params.url ? `Opened ${params.url} in the automation browser.` : 'Automation browser launched.') }],
             details: undefined,
           };
         }
@@ -483,7 +483,7 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
             : await readImageAsBase64(cm, workspaceId, imagePath);
           record(true);
           return {
-            content: screenshotContent(imageData, asText(response, 'Screenshot captured.')),
+            content: screenshotContent(imageData, asText(response, params.full_page ? 'Full-page automation browser screenshot captured.' : 'Automation browser screenshot captured.')),
             details: undefined,
           };
         }

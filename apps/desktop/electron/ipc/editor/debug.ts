@@ -158,6 +158,19 @@ function sanitizeString(value: string): unknown {
     });
   }
 
+  if ((value.startsWith('{') || value.startsWith('[')) && value.length > 128) {
+    try {
+      return JSON.stringify(sanitizeValue(JSON.parse(value)));
+    } catch {
+      // Not JSON; fall through.
+    }
+  }
+
+  const compact = value.replace(/\s+/g, '');
+  if (compact.length > 2048 && /^(?:iVBORw0KGgo|\/9j\/|UklGR|R0lGOD|Qk)/.test(compact)) {
+    return redactBase64('image', compact);
+  }
+
   return value;
 }
 
