@@ -32,6 +32,7 @@ async function createToolWithExec(results: ExecResult[]) {
 describe('createAgentBrowser', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it('auto-installs agent-browser when the CLI is missing', async () => {
@@ -86,6 +87,37 @@ describe('createAgentBrowser', () => {
     expect(exec.mock.calls[4][1]).toContain("'record' 'start'");
   });
 
+  it('auto-stops recordings after the 120s safety limit', async () => {
+    vi.useFakeTimers();
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
+      ffmpegCacheResult,
+      { stdout: '', stderr: '', exitCode: 0 },
+      { stdout: '{"message":"recording"}', stderr: '', exitCode: 0 },
+      ffmpegCacheResult,
+      { stdout: '{"message":"stopped"}', stderr: '', exitCode: 0 },
+    ]);
+
+    const start = await tool.execute(
+      'tc-auto-stop-start',
+      { action: 'start_recording', save_path: '/workspace/capture.webm' },
+      undefined,
+      undefined,
+      undefined as never,
+    );
+
+    expect((start.content[0] as { type: string; text: string }).text).toContain('auto-stop after 120s');
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    const stop = await tool.execute('tc-auto-stop-stop', { action: 'stop_recording' }, undefined, undefined, undefined as never);
+
+    expect((stop.content[0] as { type: string; text: string }).text).toContain('already auto-stopped after reaching the 120s limit');
+    expect((stop.content[0] as { type: string; text: string }).text).toContain('/workspace/capture.webm');
+    expect(exec).toHaveBeenCalledTimes(7);
+    expect(exec.mock.calls[6][1]).toContain("'record' 'stop'");
+  });
+
   it('restarts recording when a stale recording is already active', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
@@ -133,6 +165,19 @@ describe('createAgentBrowser', () => {
 
     expect(exec.mock.calls[3][1]).toContain('playwright@1.57.0 install ffmpeg');
     expect(exec.mock.calls[5][1]).toContain("'record' 'start'");
+  });
+
+  it('uses a longer timeout for record stop finalization', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      ffmpegCacheResult,
+      { stdout: '{"message":"stopped"}', stderr: '', exitCode: 0 },
+    ]);
+
+    await tool.execute('tc-stop-recording', { action: 'stop_recording' }, undefined, undefined, undefined as never);
+
+    expect(exec.mock.calls[2][1]).toContain("'record' 'stop'");
+    expect(exec.mock.calls[2][3]).toBe(60_000);
   });
 
   it('supports launch without a url by opening about:blank', async () => {

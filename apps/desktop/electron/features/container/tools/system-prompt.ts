@@ -95,6 +95,7 @@ Each bash tool call runs in an isolated \`sh -c\` shell.
 - Coordinate clicks use viewport-relative CSS pixels, not document coordinates. If you derive coordinates from the DOM, use the center of \`getBoundingClientRect()\` directly and do not add/subtract scroll offsets.
 - If coordinates are outside the current viewport, scroll the element into view first or use selector click instead.
 - Always take screenshots after key interactions as evidence.
+- Browser recordings auto-stop after 120 seconds as a safety limit; stop them explicitly sooner when you only need a short clip.
 
 **Autonomous verification**
 - For UI work: build/start the app, verify with \`browser\`, capture screenshots, and save artifacts with \`sero-cli artifacts save\`.

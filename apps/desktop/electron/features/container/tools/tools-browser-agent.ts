@@ -2,7 +2,14 @@ import type { Static } from '@sinclair/typebox';
 import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
 import type { ContainerManager } from '..';
-import { prepareToolImage } from '../../../shared/media/image-resize';
+import {
+  armRecordingAutoStop,
+  clearRecordingState,
+  finishRecordingState,
+  formatBrowserText,
+  recordingLimitNote,
+  screenshotContent,
+} from './tools-browser-agent-helpers';
 import { BrowserParams, shellEscape } from './tool-schemas';
 
 const metricsByWorkspace = new Map<string, { success: number; failure: number; totalLatencyMs: number }>();
@@ -99,16 +106,6 @@ function normalizeResponse(response: AgentBrowserJson): AgentBrowserJson {
 
 function looksLikeBase64(value: string): boolean {
   return /^[A-Za-z0-9+/=]+$/.test(value) && value.length > 64;
-}
-
-function formatResult(result: unknown): string | undefined {
-  if (result === undefined) return undefined;
-  if (typeof result === 'string') return result;
-  try {
-    return JSON.stringify(result, null, 2);
-  } catch {
-    return String(result);
-  }
 }
 
 async function readImageAsBase64(cm: ContainerManager, workspaceId: string, imagePath: string): Promise<string> {
@@ -284,28 +281,6 @@ async function launchBrowser(
   return response;
 }
 
-function asText(response: AgentBrowserJson, fallback = 'Done.'): string {
-  const parts = [
-    response.message,
-    response.warning ? `Warning: ${response.warning}` : undefined,
-    response.title ? `Automation browser title: ${response.title}` : undefined,
-    response.url ? `Automation browser URL: ${response.url}` : undefined,
-    response.text,
-    response.snapshot,
-    formatResult(response.result),
-    response.output,
-  ].filter(Boolean).map(String);
-  return parts.join('\n') || fallback;
-}
-
-function screenshotContent(base64: string, text: string): AgentToolResult<unknown>['content'] {
-  const image = prepareToolImage(base64, 'image/png', text);
-  return [
-    ...(image.text ? [{ type: 'text' as const, text: image.text }] : []),
-    { type: 'image' as const, data: image.data, mimeType: image.mimeType },
-  ];
-}
-
 export function createAgentBrowser(cm: ContainerManager, workspaceId: string): ToolDefinition {
   return {
     name: 'browser',
@@ -334,12 +309,17 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
       if (signal?.aborted) throw new Error('Operation aborted');
 
       try {
+        const recordingState = action === 'stop_recording' ? finishRecordingState(workspaceId) : null;
+        if (recordingState?.autoStopped) {
+          record(true);
+          return { content: [{ type: 'text', text: `Automation browser recording already auto-stopped after reaching the 120s limit. Saved to: ${recordingState.savePath}` }], details: undefined };
+        }
         await ensureAgentBrowserAvailable(cm, workspaceId, { requireMatchingBrowser: action === 'launch' || action === 'start_recording' });
 
         if (action === 'start_recording') {
           await ensureFfmpegAvailable(cm, workspaceId);
           const targetPath = params.save_path ?? '/workspace/agent-browser-recording.webm';
-          const targetDir = targetPath.slice(0, targetPath.lastIndexOf('/'));
+          const targetDir = targetPath.includes('/') ? targetPath.slice(0, targetPath.lastIndexOf('/')) : '';
           if (targetDir) await cm.exec(workspaceId, `mkdir -p '${shellEscape(targetDir)}'`, undefined, 10_000);
           let response: AgentBrowserJson;
           try {
@@ -349,18 +329,23 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
             if (!/already (?:in progress|active)/i.test(message)) throw error;
             response = await runAgent(cm, workspaceId, ['record', 'restart', targetPath], { execTimeoutMs: 20_000 });
           }
+          armRecordingAutoStop(workspaceId, targetPath, async () => {
+            await ensureFfmpegAvailable(cm, workspaceId);
+            await runAgent(cm, workspaceId, ['record', 'stop'], { execTimeoutMs: 60_000 });
+          });
           record(true);
-          return { content: [{ type: 'text', text: asText(response, `Recording started: ${targetPath}`) }], details: undefined };
+          return { content: [{ type: 'text', text: `${formatBrowserText(response, `Recording started: ${targetPath}`)}\n${recordingLimitNote()}` }], details: undefined };
         }
 
         if (action === 'stop_recording') {
           await ensureFfmpegAvailable(cm, workspaceId);
-          const response = await runAgent(cm, workspaceId, ['record', 'stop'], { execTimeoutMs: 20_000 });
+          const response = await runAgent(cm, workspaceId, ['record', 'stop'], { execTimeoutMs: 60_000 });
           record(true);
-          return { content: [{ type: 'text', text: asText(response, 'Automation browser recording stopped.') }], details: undefined };
+          return { content: [{ type: 'text', text: formatBrowserText(response, 'Automation browser recording stopped.') }], details: undefined };
         }
 
         if (action === 'close') {
+          clearRecordingState(workspaceId);
           await runAgent(cm, workspaceId, ['close'], { execTimeoutMs: 20_000 });
           record(true);
           return { content: [{ type: 'text', text: 'Automation browser closed.' }], details: undefined };
@@ -370,7 +355,7 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
           const response = await launchBrowser(cm, workspaceId, params);
           record(true);
           return {
-            content: [{ type: 'text', text: asText(response, params.url ? `Opened ${params.url} in the automation browser.` : 'Automation browser launched.') }],
+            content: [{ type: 'text', text: formatBrowserText(response, params.url ? `Opened ${params.url} in the automation browser.` : 'Automation browser launched.') }],
             details: undefined,
           };
         }
@@ -383,14 +368,14 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
             await runAgent(cm, workspaceId, ['wait', '--load', waitUntil], { execTimeoutMs: 30_000 });
           }
           record(true);
-          return { content: [{ type: 'text', text: asText(response, `Opened ${params.url}`) }], details: undefined };
+          return { content: [{ type: 'text', text: formatBrowserText(response, `Opened ${params.url}`) }], details: undefined };
         }
 
         if (action === 'click') {
           if (params.selector) {
             const response = await runAgent(cm, workspaceId, ['click', params.selector]);
             record(true);
-            return { content: [{ type: 'text', text: asText(response, `Clicked ${params.selector}`) }], details: undefined };
+            return { content: [{ type: 'text', text: formatBrowserText(response, `Clicked ${params.selector}`) }], details: undefined };
           }
           if (params.x !== undefined && params.y !== undefined) {
             await assertViewportClickPoint(cm, workspaceId, params.x, params.y);
@@ -413,18 +398,18 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
             }
             const response = await runAgent(cm, workspaceId, ['type', params.selector, params.text]);
             record(true);
-            return { content: [{ type: 'text', text: asText(response, `Typed into ${params.selector}`) }], details: undefined };
+            return { content: [{ type: 'text', text: formatBrowserText(response, `Typed into ${params.selector}`) }], details: undefined };
           }
           const response = await runAgent(cm, workspaceId, ['keyboard', 'type', params.text]);
           record(true);
-          return { content: [{ type: 'text', text: asText(response, 'Typed into focused element.') }], details: undefined };
+          return { content: [{ type: 'text', text: formatBrowserText(response, 'Typed into focused element.') }], details: undefined };
         }
 
         if (action === 'press_key') {
           if (!params.key) throw new Error('key is required for press_key action');
           const response = await runAgent(cm, workspaceId, ['press', params.key]);
           record(true);
-          return { content: [{ type: 'text', text: asText(response, `Pressed ${params.key}`) }], details: undefined };
+          return { content: [{ type: 'text', text: formatBrowserText(response, `Pressed ${params.key}`) }], details: undefined };
         }
 
         if (action === 'scroll') {
@@ -434,14 +419,14 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
           if (params.selector) args.push('--selector', params.selector);
           const response = await runAgent(cm, workspaceId, args);
           record(true);
-          return { content: [{ type: 'text', text: asText(response, `Scrolled ${direction}`) }], details: undefined };
+          return { content: [{ type: 'text', text: formatBrowserText(response, `Scrolled ${direction}`) }], details: undefined };
         }
 
         if (action === 'evaluate') {
           if (!params.expression) throw new Error('expression is required for evaluate');
           const response = await runEval(cm, workspaceId, params.expression);
           record(true);
-          return { content: [{ type: 'text', text: asText(response) }], details: undefined };
+          return { content: [{ type: 'text', text: formatBrowserText(response) }], details: undefined };
         }
 
         if (action === 'get_text') {
@@ -451,13 +436,13 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
             params.selector ? ['get', 'text', params.selector] : ['get', 'text', 'body'],
           );
           record(true);
-          return { content: [{ type: 'text', text: asText(response, 'Text retrieved.') }], details: undefined };
+          return { content: [{ type: 'text', text: formatBrowserText(response, 'Text retrieved.') }], details: undefined };
         }
 
         if (action === 'snapshot') {
           const response = await runAgent(cm, workspaceId, ['snapshot'], { execTimeoutMs: 20_000 });
           record(true);
-          return { content: [{ type: 'text', text: asText(response, 'Snapshot captured.') }], details: undefined };
+          return { content: [{ type: 'text', text: formatBrowserText(response, 'Snapshot captured.') }], details: undefined };
         }
 
         if (action === 'wait') {
@@ -467,7 +452,7 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
             : await runAgent(cm, workspaceId, ['wait', String(timeoutMs)], { execTimeoutMs: timeoutMs + 10_000 });
           record(true);
           return {
-            content: [{ type: 'text', text: asText(response, params.selector ? `Element '${params.selector}' is ready.` : `Waited ${timeoutMs}ms.`) }],
+            content: [{ type: 'text', text: formatBrowserText(response, params.selector ? `Element '${params.selector}' is ready.` : `Waited ${timeoutMs}ms.`) }],
             details: undefined,
           };
         }
@@ -483,7 +468,7 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
             : await readImageAsBase64(cm, workspaceId, imagePath);
           record(true);
           return {
-            content: screenshotContent(imageData, asText(response, params.full_page ? 'Full-page automation browser screenshot captured.' : 'Automation browser screenshot captured.')),
+            content: screenshotContent(imageData, formatBrowserText(response, params.full_page ? 'Full-page automation browser screenshot captured.' : 'Automation browser screenshot captured.')),
             details: undefined,
           };
         }

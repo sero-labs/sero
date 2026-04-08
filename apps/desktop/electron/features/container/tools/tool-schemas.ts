@@ -139,7 +139,7 @@ export const BrowserParams = Type.Object({
         'wait: wait for a selector or timeout. ' +
         'snapshot: capture an accessibility snapshot for LLM-friendly element refs. ' +
         'close: close the automation browser session. ' +
-        'start_recording: begin automation-browser video recording (WebM output via agent-browser); set save_path here. ' +
+        'start_recording: begin automation-browser video recording (WebM output via agent-browser); set save_path here. Recordings auto-stop after 120 seconds as a safety limit. ' +
         'stop_recording: stop the current recording and save it to the path chosen when recording started.',
     },
   ),
@@ -188,7 +188,7 @@ export const BrowserParams = Type.Object({
     ),
   ),
   save_path: Type.Optional(
-    Type.String({ description: 'File path for start_recording output (default: /workspace/agent-browser-recording.webm)' }),
+    Type.String({ description: 'File path for start_recording output (default: /workspace/agent-browser-recording.webm; auto-stops after 120s)' }),
   ),
   fps: Type.Optional(
     Type.Number({ description: 'Ignored for agent-browser native recording; recordings use Playwright defaults.' }),
