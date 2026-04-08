@@ -117,6 +117,7 @@ export const BrowserParams = Type.Object({
       Type.Literal('evaluate'),
       Type.Literal('get_text'),
       Type.Literal('wait'),
+      Type.Literal('snapshot'),
       Type.Literal('close'),
       Type.Literal('start_recording'),
       Type.Literal('stop_recording'),
@@ -136,6 +137,7 @@ export const BrowserParams = Type.Object({
         'evaluate: run JavaScript in the page. ' +
         'get_text: extract text content from the page or an element. ' +
         'wait: wait for a selector or timeout. ' +
+        'snapshot: capture an accessibility snapshot for LLM-friendly element refs. ' +
         'close: close the browser. ' +
         'start_recording: begin MP4 video recording of the browser (periodic screenshots encoded to video). ' +
         'stop_recording: stop recording and save MP4 video to the specified path.',

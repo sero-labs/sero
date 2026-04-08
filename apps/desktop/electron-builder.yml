@@ -33,15 +33,6 @@ files:
   - "!**/*.{tsx,map}"
   - "!**/node_modules/.cache/**"
 
-# ── Extra resources (outside asar, accessible via process.resourcesPath) ──
-# browser-helper.py is also copied into dist/electron/ by build-electron.mjs
-# for development. In packaged builds, the asar-internal copy is readable via
-# Node's fs module, but this extraResources entry ensures it's also available
-# at process.resourcesPath for container exec (which can't read inside asar).
-extraResources:
-  - from: electron/container/browser-helper.py
-    to: browser-helper.py
-
 # ── asar ──────────────────────────────────────────────────────
 asar: true
 asarUnpack:

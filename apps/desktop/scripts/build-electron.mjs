@@ -163,12 +163,6 @@ await build({
   outExtension: { '.js': '.mjs' },
 });
 
-// Copy non-JS assets that the main process reads at runtime
-fs.copyFileSync(
-  path.join(projectRoot, 'electron/features/container/support/browser-helper.py'),
-  path.join(projectRoot, 'dist/electron/browser-helper.py'),
-);
-
 // Symlink web-remote SPA so the gateway can serve it at runtime.
 // Using a symlink instead of a copy means rebuilding web-remote
 // is immediately picked up without re-running build-electron.
