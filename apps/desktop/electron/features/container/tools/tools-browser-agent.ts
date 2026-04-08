@@ -6,6 +6,7 @@ import { prepareToolImage } from '../../../shared/media/image-resize';
 import { BrowserParams, shellEscape } from './tool-schemas';
 
 const metricsByWorkspace = new Map<string, { success: number; failure: number; totalLatencyMs: number }>();
+const executablePathByWorkspace = new Map<string, string>();
 
 interface AgentBrowserJson {
   success?: boolean;
@@ -45,7 +46,11 @@ function sessionCommand(
   args: string[],
   env?: Record<string, string | number | boolean | undefined>,
 ): string {
-  return command(['--session', browserSessionName(workspaceId), ...args], env);
+  const executablePath = executablePathByWorkspace.get(workspaceId);
+  return command(
+    ['--session', browserSessionName(workspaceId), ...(executablePath ? ['--executable-path', executablePath] : []), ...args],
+    env,
+  );
 }
 
 function parseJsonOutput(raw: string): AgentBrowserJson {
@@ -118,17 +123,51 @@ async function readImageAsBase64(cm: ContainerManager, workspaceId: string, imag
   return result.stdout.trim();
 }
 
+async function resolveBrowserExecutable(cm: ContainerManager, workspaceId: string): Promise<string | null> {
+  const cached = executablePathByWorkspace.get(workspaceId);
+  if (cached) return cached;
+
+  const result = await cm.exec(
+    workspaceId,
+    "sh -lc 'for p in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome /ms-playwright/chromium-*/chrome-linux/chrome; do if [ -x \"$p\" ]; then printf \"%s\" \"$p\"; exit 0; fi; done; command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || command -v google-chrome-stable 2>/dev/null'",
+    undefined,
+    10_000,
+  );
+  const executablePath = result.stdout.trim();
+  if (result.exitCode === 0 && executablePath) {
+    executablePathByWorkspace.set(workspaceId, executablePath);
+    return executablePath;
+  }
+  return null;
+}
+
 async function ensureAgentBrowserAvailable(cm: ContainerManager, workspaceId: string): Promise<void> {
   const hasBinary = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
-  if (hasBinary.exitCode === 0) return;
+  if (hasBinary.exitCode !== 0) {
+    const install = await cm.exec(workspaceId, 'npm install -g agent-browser', undefined, 180_000);
+    if (install.exitCode !== 0) {
+      throw new Error(`Failed to install agent-browser CLI: ${install.stderr || install.stdout}`);
+    }
 
-  const install = await cm.exec(workspaceId, 'npm install -g agent-browser', undefined, 180_000);
-  if (install.exitCode !== 0) {
-    throw new Error(`Failed to install agent-browser CLI: ${install.stderr || install.stdout}`);
+    const verify = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
+    if (verify.exitCode !== 0) throw new Error('agent-browser CLI is not available after installation.');
   }
 
-  const verify = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
-  if (verify.exitCode !== 0) throw new Error('agent-browser CLI is not available after installation.');
+  if (await resolveBrowserExecutable(cm, workspaceId)) return;
+
+  const installBrowser = await cm.exec(
+    workspaceId,
+    'pip3 install --break-system-packages playwright && python3 -m playwright install --with-deps chromium',
+    undefined,
+    180_000,
+  );
+  if (installBrowser.exitCode !== 0) {
+    throw new Error(`Failed to install Chromium for agent-browser: ${installBrowser.stderr || installBrowser.stdout}`);
+  }
+
+  if (!await resolveBrowserExecutable(cm, workspaceId)) {
+    throw new Error('Chromium is installed but agent-browser could not locate an executable path.');
+  }
 }
 
 async function runAgent(

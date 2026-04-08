@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
+const BROWSER_PATH = '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome';
+const browserPathResult: ExecResult = { stdout: `${BROWSER_PATH}\n`, stderr: '', exitCode: 0 };
+
 function createExecMock(results: ExecResult[]) {
   const exec = vi.fn();
   for (const result of results) {
@@ -28,18 +31,21 @@ describe('createAgentBrowser', () => {
       { stdout: '', stderr: '', exitCode: 1 },
       { stdout: 'installed\n', stderr: '', exitCode: 0 },
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
       { stdout: '{"message":"opened"}', stderr: '', exitCode: 0 },
     ]);
 
     await tool.execute('tc-install', { action: 'launch' }, undefined, undefined, undefined as never);
 
     expect(exec.mock.calls[1][1]).toContain('npm install -g agent-browser');
-    expect(exec.mock.calls[3][1]).toContain("'open' 'about:blank'");
+    expect(exec.mock.calls[4][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
+    expect(exec.mock.calls[4][1]).toContain("'open' 'about:blank'");
   });
 
   it('maps start_recording to agent-browser record start', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
       { stdout: '{"message":"recording"}', stderr: '', exitCode: 0 },
     ]);
 
@@ -53,24 +59,28 @@ describe('createAgentBrowser', () => {
 
     expect(result.content[0]).toMatchObject({ type: 'text' });
     expect((result.content[0] as { type: string; text: string }).text).toContain('recording');
-    expect(exec.mock.calls[1][1]).toContain("'record' 'start'");
+    expect(exec.mock.calls[2][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
+    expect(exec.mock.calls[2][1]).toContain("'record' 'start'");
   });
 
   it('supports launch without a url by opening about:blank', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
       { stdout: '{"message":"Browser launched","url":"about:blank"}', stderr: '', exitCode: 0 },
     ]);
 
     const result = await tool.execute('tc-launch', { action: 'launch' }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[1][1]).toContain("'open' 'about:blank'");
+    expect(exec.mock.calls[2][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
+    expect(exec.mock.calls[2][1]).toContain("'open' 'about:blank'");
     expect((result.content[0] as { type: string; text: string }).text).toContain('about:blank');
   });
 
   it('returns snapshot text from nested data payloads', async () => {
     const { tool } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
       {
         stdout: '{"success":true,"data":{"snapshot":"- button \"Submit\" [ref=e1]"}}',
         stderr: '',
@@ -86,6 +96,7 @@ describe('createAgentBrowser', () => {
   it('uses mouse commands for coordinate clicks', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
       { stdout: '{"message":"moved"}', stderr: '', exitCode: 0 },
       { stdout: '{"message":"down"}', stderr: '', exitCode: 0 },
       { stdout: '{"message":"up"}', stderr: '', exitCode: 0 },
@@ -93,15 +104,17 @@ describe('createAgentBrowser', () => {
 
     await tool.execute('tc-click', { action: 'click', x: 10, y: 20 }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[1][1]).toContain("'mouse' 'move' '10' '20'");
-    expect(exec.mock.calls[2][1]).toContain("'mouse' 'down' 'left'");
-    expect(exec.mock.calls[3][1]).toContain("'mouse' 'up' 'left'");
+    expect(exec.mock.calls[2][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
+    expect(exec.mock.calls[2][1]).toContain("'mouse' 'move' '10' '20'");
+    expect(exec.mock.calls[3][1]).toContain("'mouse' 'down' 'left'");
+    expect(exec.mock.calls[4][1]).toContain("'mouse' 'up' 'left'");
   });
 
   it('returns image blocks for screenshot path responses', async () => {
     const fakeB64 = Buffer.from('pngdata').toString('base64');
     const { tool } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
       { stdout: '{"path":"/tmp/sero-agent-browser-shot.png"}', stderr: '', exitCode: 0 },
       { stdout: fakeB64, stderr: '', exitCode: 0 },
     ]);
@@ -122,23 +135,43 @@ describe('createAgentBrowser', () => {
   it('uses the schema default wait timeout for selector waits', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
       { stdout: '{"message":"ready"}', stderr: '', exitCode: 0 },
     ]);
 
     await tool.execute('tc-3', { action: 'wait', selector: '#ready' }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[1][1]).toContain("AGENT_BROWSER_DEFAULT_TIMEOUT='10000'");
-    expect(exec.mock.calls[1][1]).toContain("'wait' '#ready'");
+    expect(exec.mock.calls[2][1]).toContain("AGENT_BROWSER_DEFAULT_TIMEOUT='10000'");
+    expect(exec.mock.calls[2][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
+    expect(exec.mock.calls[2][1]).toContain("'wait' '#ready'");
+  });
+
+  it('installs Playwright Chromium when no executable is present and passes --executable-path', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      { stdout: '', stderr: '', exitCode: 1 },
+      { stdout: 'installed browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
+      { stdout: '{"message":"opened","url":"about:blank"}', stderr: '', exitCode: 0 },
+    ]);
+
+    await tool.execute('tc-install-browser', { action: 'launch' }, undefined, undefined, undefined as never);
+
+    expect(exec.mock.calls[2][1]).toContain('python3 -m playwright install --with-deps chromium');
+    expect(exec.mock.calls[4][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
+    expect(exec.mock.calls[4][1]).toContain("'open' 'about:blank'");
   });
 
   it('uses native wait command for timeout waits', async () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
       { stdout: '{"message":"waited"}', stderr: '', exitCode: 0 },
     ]);
 
     await tool.execute('tc-4', { action: 'wait', timeout: 750 }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[1][1]).toContain("'wait' '750'");
+    expect(exec.mock.calls[2][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
+    expect(exec.mock.calls[2][1]).toContain("'wait' '750'");
   });
 });
