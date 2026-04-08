@@ -18,11 +18,9 @@ RUN git config --global user.name "Sero" && \
     git config --global user.email "sero@local" && \
     git config --global init.defaultBranch main
 
-# agent-browser CLI + Playwright Chromium — browser automation backend.
-# agent-browser can reuse the Playwright-managed Chromium install.
+# agent-browser + matching Playwright browser assets for browser automation/recording.
 RUN npm install -g agent-browser && \
-    pip3 install --break-system-packages playwright && \
-    python3 -m playwright install --with-deps chromium
+    npx -y playwright@1.57.0 install chromium ffmpeg
 
 # Use tini as PID 1 — reaps zombie processes automatically
 ENTRYPOINT ["/usr/bin/tini", "--"]

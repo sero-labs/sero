@@ -7,6 +7,8 @@ import { BrowserParams, shellEscape } from './tool-schemas';
 
 const metricsByWorkspace = new Map<string, { success: number; failure: number; totalLatencyMs: number }>();
 const executablePathByWorkspace = new Map<string, string>();
+const AGENT_BROWSER_PLAYWRIGHT_VERSION = '1.57.0';
+const AGENT_BROWSER_CHROMIUM_REVISION = '1200';
 
 interface AgentBrowserJson {
   success?: boolean;
@@ -129,7 +131,7 @@ async function resolveBrowserExecutable(cm: ContainerManager, workspaceId: strin
 
   const result = await cm.exec(
     workspaceId,
-    "sh -lc 'for p in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome /ms-playwright/chromium-*/chrome-linux/chrome; do if [ -x \"$p\" ]; then printf \"%s\" \"$p\"; exit 0; fi; done; command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || command -v google-chrome-stable 2>/dev/null'",
+    `sh -lc 'for p in /root/.cache/ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /ms-playwright/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/chrome-linux/chrome /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome /ms-playwright/chromium-*/chrome-linux/chrome; do if [ -x "$p" ]; then printf "%s" "$p"; exit 0; fi; done; command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null || command -v google-chrome 2>/dev/null || command -v google-chrome-stable 2>/dev/null'`,
     undefined,
     10_000,
   );
@@ -141,7 +143,27 @@ async function resolveBrowserExecutable(cm: ContainerManager, workspaceId: strin
   return null;
 }
 
-async function ensureAgentBrowserAvailable(cm: ContainerManager, workspaceId: string): Promise<void> {
+async function ensureFfmpegAvailable(cm: ContainerManager, workspaceId: string): Promise<void> {
+  const existing = await cm.exec(
+    workspaceId,
+    "sh -lc 'set -- /root/.cache/ms-playwright/ffmpeg-*/ffmpeg-linux /ms-playwright/ffmpeg-*/ffmpeg-linux; for p in \"$@\"; do if [ -x \"$p\" ]; then exit 0; fi; done; exit 1'",
+    undefined,
+    10_000,
+  );
+  if (existing.exitCode === 0) return;
+
+  const install = await cm.exec(
+    workspaceId,
+    `npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install ffmpeg`,
+    undefined,
+    180_000,
+  );
+  if (install.exitCode !== 0) {
+    throw new Error(`Failed to install Playwright ffmpeg for browser recording: ${install.stderr || install.stdout}`);
+  }
+}
+
+async function ensureAgentBrowserAvailable(cm: ContainerManager, workspaceId: string, options: { requireMatchingBrowser?: boolean } = {}): Promise<void> {
   const hasBinary = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
   if (hasBinary.exitCode !== 0) {
     const install = await cm.exec(workspaceId, 'npm install -g agent-browser', undefined, 180_000);
@@ -152,19 +174,20 @@ async function ensureAgentBrowserAvailable(cm: ContainerManager, workspaceId: st
     const verify = await cm.exec(workspaceId, 'command -v agent-browser', undefined, 5_000);
     if (verify.exitCode !== 0) throw new Error('agent-browser CLI is not available after installation.');
   }
-
-  if (await resolveBrowserExecutable(cm, workspaceId)) return;
+  if (!options.requireMatchingBrowser) return;
+  const executablePath = await resolveBrowserExecutable(cm, workspaceId);
+  if (executablePath?.includes(`/chromium-${AGENT_BROWSER_CHROMIUM_REVISION}/`)) return;
 
   const installBrowser = await cm.exec(
     workspaceId,
-    'pip3 install --break-system-packages playwright && python3 -m playwright install --with-deps chromium',
+    `npx -y playwright@${AGENT_BROWSER_PLAYWRIGHT_VERSION} install chromium`,
     undefined,
     180_000,
   );
   if (installBrowser.exitCode !== 0) {
-    throw new Error(`Failed to install Chromium for agent-browser: ${installBrowser.stderr || installBrowser.stdout}`);
+    throw new Error(`Failed to install Playwright Chromium for agent-browser: ${installBrowser.stderr || installBrowser.stdout}`);
   }
-
+  executablePathByWorkspace.delete(workspaceId);
   if (!await resolveBrowserExecutable(cm, workspaceId)) {
     throw new Error('Chromium is installed but agent-browser could not locate an executable path.');
   }
@@ -311,16 +334,27 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
       if (signal?.aborted) throw new Error('Operation aborted');
 
       try {
-        await ensureAgentBrowserAvailable(cm, workspaceId);
+        await ensureAgentBrowserAvailable(cm, workspaceId, { requireMatchingBrowser: action === 'launch' || action === 'start_recording' });
 
         if (action === 'start_recording') {
+          await ensureFfmpegAvailable(cm, workspaceId);
           const targetPath = params.save_path ?? '/workspace/agent-browser-recording.webm';
-          const response = await runAgent(cm, workspaceId, ['record', 'start', targetPath], { execTimeoutMs: 20_000 });
+          const targetDir = targetPath.slice(0, targetPath.lastIndexOf('/'));
+          if (targetDir) await cm.exec(workspaceId, `mkdir -p '${shellEscape(targetDir)}'`, undefined, 10_000);
+          let response: AgentBrowserJson;
+          try {
+            response = await runAgent(cm, workspaceId, ['record', 'start', targetPath], { execTimeoutMs: 20_000 });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (!/already (?:in progress|active)/i.test(message)) throw error;
+            response = await runAgent(cm, workspaceId, ['record', 'restart', targetPath], { execTimeoutMs: 20_000 });
+          }
           record(true);
           return { content: [{ type: 'text', text: asText(response, `Recording started: ${targetPath}`) }], details: undefined };
         }
 
         if (action === 'stop_recording') {
+          await ensureFfmpegAvailable(cm, workspaceId);
           const response = await runAgent(cm, workspaceId, ['record', 'stop'], { execTimeoutMs: 20_000 });
           record(true);
           return { content: [{ type: 'text', text: asText(response, 'Recording stopped.') }], details: undefined };
