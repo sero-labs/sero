@@ -113,7 +113,7 @@ export function registerAppControlHandlers(): void {
         );
 
         // Auto-screenshot after interaction (unless disabled)
-        if (params.captureAfter !== false && result.success) {
+        if (params.action !== 'inspect' && params.captureAfter !== false && result.success) {
           await new Promise((r) => setTimeout(r, 200));
           const rect = await execRenderer<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
           if (rect) {

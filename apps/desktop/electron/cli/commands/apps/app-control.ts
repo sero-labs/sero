@@ -84,6 +84,46 @@ async function copyRecordingOutput(srcPath: string, destPath: string): Promise<v
   await copyFile(srcPath, destPath);
 }
 
+type ParsedFlags = ReturnType<typeof parseFlags>['flags'];
+
+function parseFiniteFlagValue(value: string | null): number | null {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseCoordinateFlags(
+  flags: ParsedFlags,
+  usage: string,
+): { x: number; y: number } | CliResult | null {
+  const xStr = requireFlagString(flags, 'x');
+  const yStr = requireFlagString(flags, 'y');
+
+  if ((xStr && !yStr) || (!xStr && yStr)) {
+    return fail(usage);
+  }
+  if (!xStr || !yStr) return null;
+
+  const x = parseFiniteFlagValue(xStr);
+  const y = parseFiniteFlagValue(yStr);
+  if (x == null || y == null) {
+    return fail('--x and --y must be finite numbers.');
+  }
+
+  return { x, y };
+}
+
+function parseAmountFlag(flags: ParsedFlags): number | CliResult {
+  const amountStr = requireFlagString(flags, 'amount');
+  if (!amountStr) return 300;
+  const amount = parseFiniteFlagValue(amountStr);
+  return amount == null ? fail('--amount must be a finite number.') : amount;
+}
+
+function isCliResult(value: CliResult | { x: number; y: number }): value is CliResult {
+  return 'exitCode' in value;
+}
+
 // ── Main Router ──────────────────────────────────────────────
 
 async function handleApp(args: string[], ctx: CliCommandContext) {
@@ -99,11 +139,12 @@ async function handleApp(args: string[], ctx: CliCommandContext) {
     case 'scroll': return handleScroll(rest);
     case 'select': return handleSelect(rest);
     case 'hover': return handleHover(rest);
+    case 'inspect': return handleInspect(rest);
     case 'get-text': return handleGetText(rest);
     case 'record': return handleRecord(rest, ctx);
     case 'preview': return handlePreview(rest);
     default:
-      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|get-text|record|preview>');
+      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|inspect|get-text|record|preview>');
   }
 }
 
@@ -189,12 +230,18 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
 async function handleClick(args: string[]) {
   const { positionals, flags } = parseFlags(args);
   const selector = positionals[0] ?? null;
-  const xStr = requireFlagString(flags, 'x');
-  const yStr = requireFlagString(flags, 'y');
+  const pointResult = parseCoordinateFlags(flags, 'Usage: sero app click <selector> OR sero app click --x <n> --y <n>');
+  if (pointResult && isCliResult(pointResult)) return pointResult;
+  const point = pointResult ?? null;
+
   const params: AppInteractionParams = { action: 'click' };
   if (selector) params.selector = selector;
-  else if (xStr && yStr) { params.x = Number(xStr); params.y = Number(yStr); }
-  else return fail('Usage: sero app click <selector> OR sero app click --x <n> --y <n>');
+  else if (point) {
+    params.x = point.x;
+    params.y = point.y;
+  } else {
+    return fail('Usage: sero app click <selector> OR sero app click --x <n> --y <n>');
+  }
   return interactAndReturn(params);
 }
 
@@ -211,10 +258,13 @@ async function handleType(args: string[]) {
 async function handleScroll(args: string[]) {
   const { flags } = parseFlags(args);
   const direction = (requireFlagString(flags, 'direction') ?? 'down') as AppInteractionParams['direction'];
-  const amountStr = requireFlagString(flags, 'amount');
+  const amount = parseAmountFlag(flags);
+  if (typeof amount !== 'number') return amount;
+
   return interactAndReturn({
-    action: 'scroll', direction,
-    amount: amountStr ? Number(amountStr) : 300,
+    action: 'scroll',
+    direction,
+    amount,
     selector: requireFlagString(flags, 'selector') ?? undefined,
   });
 }
@@ -227,6 +277,25 @@ async function handleSelect(args: string[]) {
 async function handleHover(args: string[]) {
   if (!args[0]) return fail('Usage: sero app hover <selector>');
   return interactAndReturn({ action: 'hover', selector: args[0] });
+}
+
+async function handleInspect(args: string[]) {
+  const { positionals, flags } = parseFlags(args);
+  const selector = positionals[0] ?? requireFlagString(flags, 'selector') ?? undefined;
+  const pointResult = parseCoordinateFlags(flags, 'Usage: sero app inspect [<selector>] [--x <n> --y <n>]');
+  if (pointResult && isCliResult(pointResult)) return pointResult;
+  const point = pointResult ?? null;
+  if (selector && point) {
+    return fail('Use either a selector or --x/--y coordinates for inspect, not both.');
+  }
+
+  const params: AppInteractionParams = { action: 'inspect', captureAfter: false };
+  if (selector) params.selector = selector;
+  else if (point) {
+    params.x = point.x;
+    params.y = point.y;
+  }
+  return interactAndReturn(params);
 }
 
 async function handleGetText(args: string[]) {
@@ -312,6 +381,9 @@ async function handlePreview(args: string[]) {
 async function interactAndReturn(params: AppInteractionParams) {
   const result = await exec<AppInteractionResult>(`window.sero.appControl.interact(${JSON.stringify(params)})`);
   if (!result.success) return fail(result.message);
+  if (result.inspection) {
+    return ok(stringifyJson(result.inspection));
+  }
   if (result.screenshot) {
     return okWithImage(result.message, result.screenshot);
   }
@@ -344,6 +416,8 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app scroll --direction <dir> [--amount <px>]\n' +
       '  sero app select <selector>          Focus an element\n' +
       '  sero app hover <selector>           Hover over an element\n' +
+      '  sero app inspect [<selector>] [--x <n> --y <n>]\n' +
+      '                                     Inspect elements / point hits\n' +
       '  sero app get-text <selector>        Read text content\n\n' +
       'Recording (MP4 video capture):\n' +
       '  sero app record start               Start recording (2 FPS)\n' +
@@ -355,7 +429,8 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  Renders the dev server inside Sero so it can be captured by\n' +
       '  sero app record and sero app screenshot.\n\n' +
       'App matching accepts visible names as well as ids (for example, Calculator → calc).\n\n' +
-      'Click/type/scroll/select/hover auto-capture a screenshot after the action.',
+      'Click/type/scroll/select/hover auto-capture a screenshot after the action.\n' +
+      'Inspect returns JSON and skips the post-action screenshot.',
     execute: handleApp,
   });
 }
