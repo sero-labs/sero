@@ -129,7 +129,7 @@ export const BrowserParams = Type.Object({
         'use web_search, fetch_content, get_search_content, or web_bookmark instead. ' +
         'launch: start browser (optionally navigate to url). ' +
         'navigate: go to a URL. ' +
-        'click: click a CSS selector or x,y coordinates. ' +
+        'click: click a CSS selector or viewport-relative x,y coordinates. ' +
         'type: type text into selector or focused element. ' +
         'press_key: press a key (Enter, Tab, Escape, etc). ' +
         'screenshot: capture the page as an image. ' +
@@ -147,8 +147,8 @@ export const BrowserParams = Type.Object({
   selector: Type.Optional(
     Type.String({ description: 'CSS selector for click/type/screenshot/scroll/get_text/wait' }),
   ),
-  x: Type.Optional(Type.Number({ description: 'X coordinate for click (use with y)' })),
-  y: Type.Optional(Type.Number({ description: 'Y coordinate for click (use with x)' })),
+  x: Type.Optional(Type.Number({ description: 'Viewport-relative X coordinate in CSS px for click (use with y)' })),
+  y: Type.Optional(Type.Number({ description: 'Viewport-relative Y coordinate in CSS px for click (use with x). If the element is off-screen, scroll it into view first.' })),
   text: Type.Optional(Type.String({ description: 'Text to type (for type action)' })),
   clear: Type.Optional(
     Type.Boolean({ description: 'Clear the field before typing (default: false)' }),

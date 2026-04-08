@@ -91,6 +91,8 @@ Each bash tool call runs in an isolated \`sh -c\` shell.
 - Typical flow: start the app → \`browser launch\` / \`navigate\` → \`snapshot\` → interact → \`screenshot\` → verify → \`close\`.
 - Use the container IP for URLs, not localhost.
 - Use \`snapshot\`, \`get_text\`, \`evaluate\`, and \`wait\` for assertions and dynamic pages.
+- Coordinate clicks use viewport-relative CSS pixels, not document coordinates. If you derive coordinates from the DOM, use the center of \`getBoundingClientRect()\` directly and do not add/subtract scroll offsets.
+- If coordinates are outside the current viewport, scroll the element into view first or use selector click instead.
 - Always take screenshots after key interactions as evidence.
 
 **Autonomous verification**

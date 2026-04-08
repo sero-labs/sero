@@ -204,6 +204,33 @@ async function runEval(
   return runAgent(cm, workspaceId, ['eval', '-b', encodedExpression], options);
 }
 
+async function assertViewportClickPoint(
+  cm: ContainerManager,
+  workspaceId: string,
+  x: number,
+  y: number,
+): Promise<void> {
+  const response = await runEval(
+    cm,
+    workspaceId,
+    '(() => ({ width: window.innerWidth, height: window.innerHeight, scrollX: window.scrollX, scrollY: window.scrollY }))()',
+    { execTimeoutMs: 10_000 },
+  );
+  const viewport = response.result as { width?: number; height?: number; scrollX?: number; scrollY?: number } | undefined;
+  const width = viewport?.width;
+  const height = viewport?.height;
+  const scrollX = viewport?.scrollX ?? 0;
+  const scrollY = viewport?.scrollY ?? 0;
+
+  if (typeof width !== 'number' || typeof height !== 'number') return;
+  if (x >= 0 && y >= 0 && x <= width && y <= height) return;
+
+  throw new Error(
+    `Click coordinates (${x}, ${y}) are outside the current browser viewport (${Math.round(width)}×${Math.round(height)} CSS px; scroll ${Math.round(scrollX)}, ${Math.round(scrollY)}). ` +
+    'Browser click coordinates must be relative to the visible viewport. Scroll the element into view first, or use selector click.',
+  );
+}
+
 async function launchBrowser(
   cm: ContainerManager,
   workspaceId: string,
@@ -332,6 +359,7 @@ export function createAgentBrowser(cm: ContainerManager, workspaceId: string): T
             return { content: [{ type: 'text', text: asText(response, `Clicked ${params.selector}`) }], details: undefined };
           }
           if (params.x !== undefined && params.y !== undefined) {
+            await assertViewportClickPoint(cm, workspaceId, params.x, params.y);
             await runAgent(cm, workspaceId, ['mouse', 'move', String(params.x), String(params.y)], { execTimeoutMs: 20_000 });
             await runAgent(cm, workspaceId, ['mouse', 'down', 'left'], { execTimeoutMs: 20_000 });
             await runAgent(cm, workspaceId, ['mouse', 'up', 'left'], { execTimeoutMs: 20_000 });

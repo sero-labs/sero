@@ -4,6 +4,11 @@ type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
 const BROWSER_PATH = '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome';
 const browserPathResult: ExecResult = { stdout: `${BROWSER_PATH}\n`, stderr: '', exitCode: 0 };
+const viewportResult: ExecResult = {
+  stdout: '{"result":{"width":1280,"height":720,"scrollX":0,"scrollY":0}}',
+  stderr: '',
+  exitCode: 0,
+};
 
 function createExecMock(results: ExecResult[]) {
   const exec = vi.fn();
@@ -97,6 +102,7 @@ describe('createAgentBrowser', () => {
     const { tool, exec } = await createToolWithExec([
       { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
       browserPathResult,
+      viewportResult,
       { stdout: '{"message":"moved"}', stderr: '', exitCode: 0 },
       { stdout: '{"message":"down"}', stderr: '', exitCode: 0 },
       { stdout: '{"message":"up"}', stderr: '', exitCode: 0 },
@@ -104,10 +110,29 @@ describe('createAgentBrowser', () => {
 
     await tool.execute('tc-click', { action: 'click', x: 10, y: 20 }, undefined, undefined, undefined as never);
 
-    expect(exec.mock.calls[2][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
-    expect(exec.mock.calls[2][1]).toContain("'mouse' 'move' '10' '20'");
-    expect(exec.mock.calls[3][1]).toContain("'mouse' 'down' 'left'");
-    expect(exec.mock.calls[4][1]).toContain("'mouse' 'up' 'left'");
+    expect(exec.mock.calls[3][1]).toContain("'--executable-path' '/root/.cache/ms-playwright/chromium-1208/chrome-linux/chrome'");
+    expect(exec.mock.calls[3][1]).toContain("'mouse' 'move' '10' '20'");
+    expect(exec.mock.calls[4][1]).toContain("'mouse' 'down' 'left'");
+    expect(exec.mock.calls[5][1]).toContain("'mouse' 'up' 'left'");
+  });
+
+  it('rejects coordinate clicks outside the current viewport', async () => {
+    const { tool, exec } = await createToolWithExec([
+      { stdout: '/usr/bin/agent-browser\n', stderr: '', exitCode: 0 },
+      browserPathResult,
+      {
+        stdout: '{"result":{"width":1280,"height":720,"scrollX":0,"scrollY":1200}}',
+        stderr: '',
+        exitCode: 0,
+      },
+    ]);
+
+    await expect(
+      tool.execute('tc-click-oob', { action: 'click', x: 194, y: -795 }, undefined, undefined, undefined as never),
+    ).rejects.toThrow(/outside the current browser viewport/);
+
+    expect(exec).toHaveBeenCalledTimes(3);
+    expect(exec.mock.calls[2][1]).toContain("'eval' '-b'");
   });
 
   it('returns image blocks for screenshot path responses', async () => {
