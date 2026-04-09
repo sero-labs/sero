@@ -24,6 +24,7 @@ import {
 } from '@sero-ai/ui/components/ui/dialog';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import type { QrLoginData } from '@/types/ipc';
+import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
 interface Props {
   open: boolean;
@@ -75,14 +76,14 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
 
   const handleCopy = useCallback(async () => {
     if (!data) return;
-    try {
-      await navigator.clipboard.writeText(data.loginUrl);
+    const ok = await copyTextToClipboard(data.loginUrl);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopyFailed(true);
-      setTimeout(() => setCopyFailed(false), 3000);
+      return;
     }
+    setCopyFailed(true);
+    setTimeout(() => setCopyFailed(false), 3000);
   }, [data]);
 
   const expiresFormatted = data

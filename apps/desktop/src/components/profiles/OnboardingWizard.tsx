@@ -428,7 +428,7 @@ export function OnboardingWizard() {
           if (!open) dismissReadyScreen();
         }}
       >
-        <DialogContent className="max-w-md" onInteractOutside={(event) => event.preventDefault()}>
+        <DialogContent className="max-w-lg" onInteractOutside={(event) => event.preventDefault()}>
           {readyRecommendation ? (
             <OnboardingSetupScreen
               key={`${readyRecommendation.preferredProvider ?? 'provider'}:${JSON.stringify(readyRecommendation.tiers)}`}

@@ -9,6 +9,7 @@ import { useCallback } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useState } from 'react';
+import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
 interface SubagentOutputProps {
   response?: string;
@@ -21,13 +22,9 @@ export function SubagentOutput({ response, error, isFailed }: SubagentOutputProp
   const text = isFailed ? (error ?? '') : (response ?? '');
 
   const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* ignore */
-    }
+    if (!(await copyTextToClipboard(text))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }, [text]);
 
   return (

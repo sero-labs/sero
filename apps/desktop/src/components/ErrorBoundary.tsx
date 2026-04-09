@@ -2,6 +2,7 @@ import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RotateCcw, Copy, Check } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -47,7 +48,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const { error } = this.state;
     if (!error) return;
     const text = `${error.name}: ${error.message}\n${error.stack ?? ''}`;
-    navigator.clipboard.writeText(text).then(() => {
+    void copyTextToClipboard(text).then((ok) => {
+      if (!ok) return;
       this.setState({ copied: true });
       setTimeout(() => this.setState({ copied: false }), 2000);
     });

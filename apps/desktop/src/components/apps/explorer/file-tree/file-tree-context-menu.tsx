@@ -14,6 +14,7 @@ import {
   RiFolderLine, RiClipboardLine,
 } from '@remixicon/react';
 import { createFile, createFolder, deleteItem } from './file-tree-ops';
+import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
 interface FileTreeContextMenuProps {
   children: React.ReactNode;
@@ -39,7 +40,7 @@ export function FileTreeContextMenu({
   const targetDir = isFolder ? itemPath : itemPath.substring(0, itemPath.lastIndexOf('/'));
 
   const handleCopyPath = useCallback(() => {
-    navigator.clipboard.writeText(itemPath);
+    void copyTextToClipboard(itemPath);
   }, [itemPath]);
 
   const handleDelete = useCallback(async () => {
