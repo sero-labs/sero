@@ -128,6 +128,9 @@ Extensions emit: `pi.events.emit('sero:notify', { message, type?, sound?, subtit
 **Container Integration (AD-018)**
 One macOS container per workspace (`sero-<workspaceId>`). Lazy-started on first prompt. Tools proxied via `container exec`. Code in `electron/container/`.
 
+**Container Image (CRITICAL)**
+If you change `apps/desktop/images/Dockerfile.sero-node` or container-installed tools, rebuild `sero-node:latest` and recreate affected workspace containers. New workspaces do **not** automatically pick up Dockerfile changes.
+
 **Widevine / Castlabs Electron**
 Uses castlabs fork for Spotify support. Await `components.whenReady()` in `main.ts`. Run `pnpm sign-vmp` (or `bash scripts/sign-vmp.sh`) after install.
 

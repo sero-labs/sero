@@ -264,6 +264,10 @@ ${sections.join('\n')}
 Run \`sero help <command>\` for details. Chain multiple commands (one per line).
 **Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`, \`kanban\`), run \`sero help <command>\` first to check the exact schema.**
 
-For \`sero app\`: run \`sero help app\` first. Use \`app click <selector>\` or \`app click --x <n> --y <n>\` (coordinates relative to the active app screenshot). \`app type\` only works for text inputs/contenteditable. No \`app press\` command — use coordinate clicks.
+For \`sero app\`, skip help for common flows.
+- Screenshot directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
+- Names resolve too (\`Calculator\` → \`calc\`); use \`sero app list\` only if ambiguous.
+- \`appstate\` is JSON state only, not UI automation.
+- Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; no \`app press\`.
 `;
 }

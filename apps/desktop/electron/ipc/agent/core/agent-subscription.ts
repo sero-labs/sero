@@ -19,6 +19,7 @@ import {
   formatCustomMessage,
   buildCheckpointMapByTurn,
 } from './agent-helpers';
+import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
 import { logRawEvent, logTurnContext } from '../../editor/debug';
 import { noteCliTurnEnd, noteCliTurnStart } from '../../../cli/bridges';
 
@@ -221,13 +222,23 @@ function extractToolOutput(result: unknown): {
 
     if (imageParts.length > 0) {
       const description = text || undefined;
+      const filePath = extractImageFilePath(details);
       images = imageParts
         .filter((img): img is { type: 'image'; data: string; mimeType?: string } => typeof img.data === 'string')
         .map((img) => ({
           data: img.data,
           mimeType: img.mimeType ?? 'image/png',
           description,
+          ...(filePath ? { filePath } : {}),
         }));
+    }
+
+    if (!images && text) {
+      const parsed = tryParseImageJson(text);
+      if (parsed) {
+        images = [parsed];
+        text = parsed.description ?? null;
+      }
     }
   } else if (typeof result === 'string') {
     const parsed = tryParseImageJson(result);
@@ -240,28 +251,4 @@ function extractToolOutput(result: unknown): {
   }
 
   return { text, details, images };
-}
-
-/**
- * Try to parse a JSON string as a CLI-encoded image
- * (e.g. `{ type: 'image', format: 'png', base64: '...' }`).
- * Also used by agent-helpers.ts for history replay.
- */
-export function tryParseImageJson(text: string): ToolResultImage | null {
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed?.type === 'image' && typeof parsed.base64 === 'string') {
-      const mimeType = parsed.format
-        ? `image/${parsed.format}`
-        : 'image/png';
-      return {
-        data: parsed.base64,
-        mimeType,
-        description: parsed.description ?? parsed.message,
-      };
-    }
-  } catch {
-    /* not JSON — ignore */
-  }
-  return null;
 }

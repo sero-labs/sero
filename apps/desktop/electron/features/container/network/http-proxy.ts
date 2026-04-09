@@ -15,6 +15,19 @@ import * as net from 'net';
 
 const DEFAULT_PORT = 19800;
 
+export function handleProxyRequestError(
+  res: Pick<http.ServerResponse, 'headersSent' | 'writableEnded' | 'destroyed' | 'writeHead' | 'end' | 'destroy'>,
+  message = 'Proxy error',
+): void {
+  if (res.destroyed || res.writableEnded) return;
+  if (res.headersSent) {
+    res.destroy();
+    return;
+  }
+  res.writeHead(502);
+  res.end(message);
+}
+
 export class ContainerHttpProxy {
   private server: http.Server | null = null;
   private port: number;
@@ -75,11 +88,19 @@ export class ContainerHttpProxy {
 
         const proxyReq = http.request(options, (proxyRes) => {
           res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
+          proxyRes.on('error', () => {
+            handleProxyRequestError(res);
+          });
           proxyRes.pipe(res);
         });
         proxyReq.on('error', () => {
-          res.writeHead(502);
-          res.end('Proxy error');
+          handleProxyRequestError(res);
+        });
+        req.on('aborted', () => {
+          proxyReq.destroy();
+        });
+        res.on('close', () => {
+          proxyReq.destroy();
         });
         req.pipe(proxyReq);
       });

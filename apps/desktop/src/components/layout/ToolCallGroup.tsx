@@ -9,6 +9,7 @@ import {
   groupStatusLabel,
   ToolLine,
   ToolDetail,
+  ToolImages,
   SingleToolCall,
 } from './ToolCallHelpers';
 
@@ -90,6 +91,10 @@ export const ToolCallGroup = memo(function ToolCallGroup({
 }) {
   const status = deriveGroupStatus(tools);
   const isRunning = status === 'running';
+  const latestImageTool = useMemo(
+    () => [...tools].reverse().find((tool) => tool.images?.length),
+    [tools],
+  );
 
   const [showDetails, setShowDetails] = useState(false);
 
@@ -163,6 +168,12 @@ export const ToolCallGroup = memo(function ToolCallGroup({
         </span>
       </button>
 
+      {!expanded && latestImageTool?.images?.length ? (
+        <div className="border-t border-[var(--border-subtle)] px-3 py-2">
+          <ToolImages images={latestImageTool.images} workspaceId={workspaceId} />
+        </div>
+      ) : null}
+
       {/* Expanded: list of tool lines */}
       <AnimatePresence>
         {expanded && (
@@ -181,6 +192,11 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                       <ToolLine key={tool.id} tool={tool} index={i} workspaceId={workspaceId} />
                     ))}
                   </div>
+                  {latestImageTool?.images?.length ? (
+                    <div className="border-t border-[var(--border-subtle)] px-3 py-2">
+                      <ToolImages images={latestImageTool.images} workspaceId={workspaceId} />
+                    </div>
+                  ) : null}
                   <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
                     <button
                       onClick={(e) => {
@@ -197,7 +213,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                 <>
                   <div className="space-y-0 p-2">
                     {tools.map((tool) => (
-                      <ToolDetail key={tool.id} tool={tool} />
+                      <ToolDetail key={tool.id} tool={tool} workspaceId={workspaceId} />
                     ))}
                   </div>
                   <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
@@ -229,7 +245,8 @@ export const ToolCallGroup = memo(function ToolCallGroup({
       a.state !== b.state ||
       a.output !== b.output ||
       a.isPartialOutput !== b.isPartialOutput ||
-      a.details !== b.details
+      a.details !== b.details ||
+      a.images !== b.images
     ) return false;
   }
   return true;

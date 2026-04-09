@@ -112,7 +112,7 @@ describe('CLI bridge rich output', () => {
                 { type: 'text', text: 'Screenshot ready' },
                 { type: 'image', data: 'abc123', mimeType: 'image/png' },
               ],
-              details: { stage: 'capture' },
+              details: { stage: 'capture', savedPath: '/tmp/screenshot.png' },
             },
           });
           handler({
@@ -123,7 +123,7 @@ describe('CLI bridge rich output', () => {
                 { type: 'text', text: 'Screenshot ready' },
                 { type: 'image', data: 'abc123', mimeType: 'image/png' },
               ],
-              details: { stage: 'done' },
+              details: { stage: 'done', savedPath: '/tmp/screenshot.png' },
             },
             isError: false,
           });
@@ -145,17 +145,17 @@ describe('CLI bridge rich output', () => {
       sessionId: 'session-1',
       toolCallId: 'tc-1',
       output: 'Screenshot ready',
-      details: { stage: 'capture' },
-      images: [{ data: 'abc123', mimeType: 'image/png', description: 'Screenshot ready' }],
+      details: { stage: 'capture', savedPath: '/tmp/screenshot.png' },
+      images: [{ data: 'abc123', mimeType: 'image/png', description: 'Screenshot ready', filePath: '/tmp/screenshot.png' }],
     });
     expect(sendEvent).toHaveBeenNthCalledWith(2, {
       type: 'tool_end',
       sessionId: 'session-1',
       toolCallId: 'tc-1',
       output: 'Screenshot ready',
-      details: { stage: 'done' },
+      details: { stage: 'done', savedPath: '/tmp/screenshot.png' },
       isError: false,
-      images: [{ data: 'abc123', mimeType: 'image/png', description: 'Screenshot ready' }],
+      images: [{ data: 'abc123', mimeType: 'image/png', description: 'Screenshot ready', filePath: '/tmp/screenshot.png' }],
     });
 
     const messages = convertSessionMessages([
@@ -173,7 +173,7 @@ describe('CLI bridge rich output', () => {
           { type: 'text', text: 'Screenshot ready' },
           { type: 'image', data: 'abc123', mimeType: 'image/png' },
         ],
-        details: { exitCode: 0, source: 'plugin' },
+        details: { exitCode: 0, source: 'plugin', savedPath: '/tmp/screenshot.png' },
       },
     ] as never);
 
@@ -182,8 +182,88 @@ describe('CLI bridge rich output', () => {
       type: 'tool',
       toolName: 'sero-cli',
       output: 'Screenshot ready',
-      details: { exitCode: 0, source: 'plugin' },
-      images: [{ data: 'abc123', mimeType: 'image/png', description: 'Screenshot ready' }],
+      details: { exitCode: 0, source: 'plugin', savedPath: '/tmp/screenshot.png' },
+      images: [{ data: 'abc123', mimeType: 'image/png', description: 'Screenshot ready', filePath: '/tmp/screenshot.png' }],
+    });
+  });
+
+  it('converts legacy JSON image output into rich image blocks for single commands', async () => {
+    const registry = new CliRegistry();
+    registry.register({
+      name: 'capture_legacy',
+      summary: 'Capture legacy screenshot',
+      execute: async () => ({
+        output: JSON.stringify({
+          type: 'image',
+          format: 'png',
+          base64: 'abc123',
+          description: 'Legacy screenshot',
+        }),
+        exitCode: 0,
+      }),
+    });
+
+    const tool = createSeroCliTool(registry, 'ws-1', 'session-1');
+    const result = await tool.execute(
+      'tool-legacy',
+      { command: 'capture_legacy' },
+      undefined,
+      undefined,
+      { cwd: '/tmp/ws-1' } as never,
+    );
+
+    expect(result.content).toEqual([
+      { type: 'text', text: 'Legacy screenshot' },
+      { type: 'image', data: 'abc123', mimeType: 'image/png' },
+    ]);
+  });
+
+  it('maps legacy JSON image text payloads through live tool streaming', async () => {
+    const sendEvent = vi.fn();
+    const unsubscribe = subscribeToSession(
+      'session-1',
+      {
+        subscribe: (handler: (event: unknown) => void) => {
+          handler({
+            type: 'tool_execution_end',
+            toolCallId: 'tc-legacy',
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    type: 'image',
+                    format: 'png',
+                    base64: 'abc123',
+                    description: 'Legacy screenshot',
+                  }),
+                },
+              ],
+              details: { stage: 'done' },
+            },
+            isError: false,
+          });
+          return () => {};
+        },
+      } as never,
+      () => ({
+        session: { messages: [] } as never,
+        workspaceId: 'ws-1',
+        currentAssistantId: null,
+        lastCompletedCheckpoint: null,
+      }),
+      sendEvent,
+    );
+    unsubscribe();
+
+    expect(sendEvent).toHaveBeenCalledWith({
+      type: 'tool_end',
+      sessionId: 'session-1',
+      toolCallId: 'tc-legacy',
+      output: 'Legacy screenshot',
+      details: { stage: 'done' },
+      isError: false,
+      images: [{ data: 'abc123', mimeType: 'image/png', description: 'Legacy screenshot' }],
     });
   });
 

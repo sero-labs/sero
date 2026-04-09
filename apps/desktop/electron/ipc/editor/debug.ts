@@ -20,6 +20,7 @@ import path from 'path';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 import { SERO_HOME } from '../../platform/env';
 import { IpcChannels } from '../../../src/types/ipc';
+import { tryParseImageJson } from '../agent/core/tool-result-images';
 
 /** Resolve debug dir from SERO_DEBUG_DIR env var, falling back to ~/.sero-ui/debug. */
 const DEBUG_DIR = process.env.SERO_DEBUG_DIR || path.join(SERO_HOME, 'debug');
@@ -136,11 +137,70 @@ export function logProviderRequest(sessionId: string, payload: unknown): void {
 
 // ── Internal helpers ─────────────────────────────────────────
 
+function redactBase64(label: string, value: string): string {
+  const approxKb = Math.round((value.length * 0.75) / 1024);
+  return `[omitted ${label}: ${approxKb}KB, ${value.length} base64 chars]`;
+}
+
+function sanitizeString(value: string): unknown {
+  if (value.startsWith('data:image/')) {
+    const match = value.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) return `[omitted image data URL: ${match[1]}, ${redactBase64('image', match[2])}]`;
+  }
+
+  const parsedImage = tryParseImageJson(value);
+  if (parsedImage) {
+    return JSON.stringify({
+      type: 'image',
+      mimeType: parsedImage.mimeType,
+      description: parsedImage.description,
+      base64: redactBase64('image', parsedImage.data),
+    });
+  }
+
+  if ((value.startsWith('{') || value.startsWith('[')) && value.length > 128) {
+    try {
+      return JSON.stringify(sanitizeValue(JSON.parse(value)));
+    } catch {
+      // Not JSON; fall through.
+    }
+  }
+
+  const compact = value.replace(/\s+/g, '');
+  if (compact.length > 2048 && /^(?:iVBORw0KGgo|\/9j\/|UklGR|R0lGOD|Qk)/.test(compact)) {
+    return redactBase64('image', compact);
+  }
+
+  return value;
+}
+
+function sanitizeValue(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (typeof value === 'string') return sanitizeString(value);
+  if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return '[circular]';
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeValue(entry, seen));
+  }
+
+  const record = value as Record<string, unknown>;
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    if ((key === 'data' || key === 'base64') && typeof entry === 'string' && entry.length > 64) {
+      sanitized[key] = redactBase64(key, entry);
+      continue;
+    }
+    sanitized[key] = sanitizeValue(entry, seen);
+  }
+  return sanitized;
+}
+
 /** Write a single JSONL line to the log. No-op if stream is closed. */
 function writeEntry(data: Record<string, unknown>): void {
   if (!writeStream) return;
   try {
-    writeStream.write(JSON.stringify(data) + '\n');
+    writeStream.write(JSON.stringify(sanitizeValue(data)) + '\n');
   } catch (err) {
     console.error('[debug] Failed to write log entry:', err);
   }

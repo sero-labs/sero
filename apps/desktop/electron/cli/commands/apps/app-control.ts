@@ -9,7 +9,7 @@ import { BrowserWindow } from 'electron';
 import { copyFile, cp as copyTree, lstat, mkdir as mkdirFs, writeFile } from 'fs/promises';
 import pathMod from 'path';
 import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
+import type { CliCommandContext, CliResult } from '../../core/types';
 import { fail, ok, parseFlags, requireFlagString, stringifyJson } from '../../lib/utils';
 import type {
   AppControlEntry,
@@ -20,6 +20,8 @@ import type {
   AppRecordingResult,
 } from '../../../../src/types/ipc';
 import { captureRegion } from '../../../shared/media/capture';
+import { prepareToolImage } from '../../../shared/media/image-resize';
+import { resolveAppTarget } from './app-control-target';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -43,6 +45,29 @@ async function captureAppScreenshot(): Promise<{ base64: string; rect: AppPanelR
   return { base64, rect };
 }
 
+function okWithImage(
+  summary: string,
+  base64: string,
+  mimeType = 'image/png',
+  details?: CliResult['details'],
+): CliResult {
+  const image = prepareToolImage(base64, mimeType, summary);
+  return {
+    output: image.text ?? summary,
+    exitCode: 0,
+    content: [
+      ...(image.text ? [{ type: 'text' as const, text: image.text }] : []),
+      { type: 'image' as const, data: image.data, mimeType: image.mimeType },
+    ],
+    details,
+  };
+}
+
+async function resolveApp(query: string): Promise<AppControlEntry | null> {
+  const apps = await exec<AppControlEntry[]>('window.__appControl?.getList() ?? []');
+  return resolveAppTarget(apps, query);
+}
+
 function getFramesDirPath(targetPath: string): string {
   const parsed = pathMod.parse(targetPath);
   return pathMod.extname(targetPath)
@@ -57,6 +82,46 @@ async function copyRecordingOutput(srcPath: string, destPath: string): Promise<v
     return;
   }
   await copyFile(srcPath, destPath);
+}
+
+type ParsedFlags = ReturnType<typeof parseFlags>['flags'];
+
+function parseFiniteFlagValue(value: string | null): number | null {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseCoordinateFlags(
+  flags: ParsedFlags,
+  usage: string,
+): { x: number; y: number } | CliResult | null {
+  const xStr = requireFlagString(flags, 'x');
+  const yStr = requireFlagString(flags, 'y');
+
+  if ((xStr && !yStr) || (!xStr && yStr)) {
+    return fail(usage);
+  }
+  if (!xStr || !yStr) return null;
+
+  const x = parseFiniteFlagValue(xStr);
+  const y = parseFiniteFlagValue(yStr);
+  if (x == null || y == null) {
+    return fail('--x and --y must be finite numbers.');
+  }
+
+  return { x, y };
+}
+
+function parseAmountFlag(flags: ParsedFlags): number | CliResult {
+  const amountStr = requireFlagString(flags, 'amount');
+  if (!amountStr) return 300;
+  const amount = parseFiniteFlagValue(amountStr);
+  return amount == null ? fail('--amount must be a finite number.') : amount;
+}
+
+function isCliResult(value: CliResult | { x: number; y: number }): value is CliResult {
+  return 'exitCode' in value;
 }
 
 // ── Main Router ──────────────────────────────────────────────
@@ -74,11 +139,12 @@ async function handleApp(args: string[], ctx: CliCommandContext) {
     case 'scroll': return handleScroll(rest);
     case 'select': return handleSelect(rest);
     case 'hover': return handleHover(rest);
+    case 'inspect': return handleInspect(rest);
     case 'get-text': return handleGetText(rest);
     case 'record': return handleRecord(rest, ctx);
     case 'preview': return handlePreview(rest);
     default:
-      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|get-text|record|preview>');
+      return fail('Usage: sero app <list|open|active|info|screenshot|click|type|scroll|select|hover|inspect|get-text|record|preview>');
   }
 }
 
@@ -96,14 +162,16 @@ async function handleList() {
 }
 
 async function handleOpen(args: string[]) {
-  const appId = args[0];
-  if (!appId) return fail('Usage: sero app open <appId>');
-  const success = await exec<boolean>(`window.__appControl?.openApp(${JSON.stringify(appId)}) ?? false`);
-  if (!success) {
+  const query = args[0];
+  if (!query) return fail('Usage: sero app open <appId>');
+  const match = await resolveApp(query);
+  if (!match) {
     const apps = await exec<AppControlEntry[]>('window.__appControl?.getList() ?? []');
-    return fail(`App "${appId}" not found. Available: ${apps.map((a) => a.id).join(', ')}`);
+    return fail(`App "${query}" not found. Use an app id or visible name. Available: ${apps.map((a) => a.id).join(', ')}`);
   }
-  return ok(`Switched to app: ${appId}`);
+  const success = await exec<boolean>(`window.__appControl?.openApp(${JSON.stringify(match.id)}) ?? false`);
+  if (!success) return fail(`Failed to open app "${match.name}" (${match.id}).`);
+  return ok(`Switched to app: ${match.name} (${match.id})`);
 }
 
 async function handleActive() {
@@ -112,11 +180,12 @@ async function handleActive() {
 }
 
 async function handleInfo(args: string[]) {
-  const appId = args[0];
-  if (!appId) return fail('Usage: sero app info <appId>');
-  const info = await exec<AppControlEntry | null>(`window.__appControl?.getInfo(${JSON.stringify(appId)}) ?? null`);
-  if (!info) return fail(`App "${appId}" not found.`);
-  return ok(stringifyJson(info));
+  const query = args[0];
+  if (!query) return fail('Usage: sero app info <appId>');
+  const match = await resolveApp(query);
+  if (!match) return fail(`App "${query}" not found.`);
+  const info = await exec<AppControlEntry | null>(`window.__appControl?.getInfo(${JSON.stringify(match.id)}) ?? null`);
+  return ok(stringifyJson(info ?? match));
 }
 
 // ── Screenshots ──────────────────────────────────────────────
@@ -126,37 +195,34 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
   const targetApp = requireFlagString(flags, 'app');
   const savePath = requireFlagString(flags, 'save');
 
+  let targetEntry: AppControlEntry | null = null;
   if (targetApp) {
-    const success = await exec<boolean>(`window.__appControl?.openApp(${JSON.stringify(targetApp)}) ?? false`);
-    if (!success) return fail(`App "${targetApp}" not found.`);
+    targetEntry = await resolveApp(targetApp);
+    if (!targetEntry) return fail(`App "${targetApp}" not found. Use an app id or visible name.`);
+    const success = await exec<boolean>(`window.__appControl?.openApp(${JSON.stringify(targetEntry.id)}) ?? false`);
+    if (!success) return fail(`Failed to open app "${targetEntry.name}" (${targetEntry.id}).`);
     await new Promise((r) => setTimeout(r, 500));
   }
   const capture = await captureAppScreenshot();
   if (!capture) return fail('Screenshot failed — app panel not found or not visible.');
 
   const { base64, rect } = capture;
-  const description = `Screenshot of ${targetApp ?? 'active'} app (${Math.round(rect.width)}×${Math.round(rect.height)} CSS px). For app click --x/--y, use coordinates relative to this image from the top-left corner.`;
+  const appLabel = targetEntry?.name ?? targetApp ?? 'active';
+  const description = `Screenshot of ${appLabel} app (${Math.round(rect.width)}×${Math.round(rect.height)} CSS px). For app click --x/--y, use coordinates relative to this image from the top-left corner.`;
 
-  // If --save specified, also write to disk
   if (savePath) {
     const absPath = pathMod.isAbsolute(savePath) ? savePath : pathMod.join(ctx.cwd, savePath);
     await mkdirFs(pathMod.dirname(absPath), { recursive: true });
     await writeFile(absPath, Buffer.from(base64, 'base64'));
-    // Still return the image inline so it displays in the chat
-    return {
-      output: JSON.stringify({
-        type: 'image', format: 'png', base64,
-        description: `${description}\nSaved: ${absPath} (${Math.round(base64.length * 0.75 / 1024)}KB)`,
-      }),
-      exitCode: 0,
-    };
+    return okWithImage(
+      `${description}\nSaved: ${absPath} (${Math.round(base64.length * 0.75 / 1024)}KB)`,
+      base64,
+      'image/png',
+      { savedPath: absPath, appId: targetEntry?.id ?? null },
+    );
   }
 
-  // Return inline image for the agent to see
-  return {
-    output: JSON.stringify({ type: 'image', format: 'png', base64, description }),
-    exitCode: 0,
-  };
+  return okWithImage(description, base64, 'image/png', { appId: targetEntry?.id ?? null });
 }
 
 // ── Interaction ──────────────────────────────────────────────
@@ -164,12 +230,18 @@ async function handleScreenshot(args: string[], ctx: CliCommandContext) {
 async function handleClick(args: string[]) {
   const { positionals, flags } = parseFlags(args);
   const selector = positionals[0] ?? null;
-  const xStr = requireFlagString(flags, 'x');
-  const yStr = requireFlagString(flags, 'y');
+  const pointResult = parseCoordinateFlags(flags, 'Usage: sero app click <selector> OR sero app click --x <n> --y <n>');
+  if (pointResult && isCliResult(pointResult)) return pointResult;
+  const point = pointResult ?? null;
+
   const params: AppInteractionParams = { action: 'click' };
   if (selector) params.selector = selector;
-  else if (xStr && yStr) { params.x = Number(xStr); params.y = Number(yStr); }
-  else return fail('Usage: sero app click <selector> OR sero app click --x <n> --y <n>');
+  else if (point) {
+    params.x = point.x;
+    params.y = point.y;
+  } else {
+    return fail('Usage: sero app click <selector> OR sero app click --x <n> --y <n>');
+  }
   return interactAndReturn(params);
 }
 
@@ -186,10 +258,13 @@ async function handleType(args: string[]) {
 async function handleScroll(args: string[]) {
   const { flags } = parseFlags(args);
   const direction = (requireFlagString(flags, 'direction') ?? 'down') as AppInteractionParams['direction'];
-  const amountStr = requireFlagString(flags, 'amount');
+  const amount = parseAmountFlag(flags);
+  if (typeof amount !== 'number') return amount;
+
   return interactAndReturn({
-    action: 'scroll', direction,
-    amount: amountStr ? Number(amountStr) : 300,
+    action: 'scroll',
+    direction,
+    amount,
     selector: requireFlagString(flags, 'selector') ?? undefined,
   });
 }
@@ -202,6 +277,25 @@ async function handleSelect(args: string[]) {
 async function handleHover(args: string[]) {
   if (!args[0]) return fail('Usage: sero app hover <selector>');
   return interactAndReturn({ action: 'hover', selector: args[0] });
+}
+
+async function handleInspect(args: string[]) {
+  const { positionals, flags } = parseFlags(args);
+  const selector = positionals[0] ?? requireFlagString(flags, 'selector') ?? undefined;
+  const pointResult = parseCoordinateFlags(flags, 'Usage: sero app inspect [<selector>] [--x <n> --y <n>]');
+  if (pointResult && isCliResult(pointResult)) return pointResult;
+  const point = pointResult ?? null;
+  if (selector && point) {
+    return fail('Use either a selector or --x/--y coordinates for inspect, not both.');
+  }
+
+  const params: AppInteractionParams = { action: 'inspect', captureAfter: false };
+  if (selector) params.selector = selector;
+  else if (point) {
+    params.x = point.x;
+    params.y = point.y;
+  }
+  return interactAndReturn(params);
 }
 
 async function handleGetText(args: string[]) {
@@ -287,11 +381,11 @@ async function handlePreview(args: string[]) {
 async function interactAndReturn(params: AppInteractionParams) {
   const result = await exec<AppInteractionResult>(`window.sero.appControl.interact(${JSON.stringify(params)})`);
   if (!result.success) return fail(result.message);
+  if (result.inspection) {
+    return ok(stringifyJson(result.inspection));
+  }
   if (result.screenshot) {
-    return {
-      output: JSON.stringify({ message: result.message, type: 'image', format: 'png', base64: result.screenshot }),
-      exitCode: 0,
-    };
+    return okWithImage(result.message, result.screenshot);
   }
   return ok(result.message);
 }
@@ -307,12 +401,12 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       'app — Sero app control\n\n' +
       'Navigation:\n' +
       '  sero app list                       List all available apps\n' +
-      '  sero app open <appId>               Switch to an app\n' +
+      '  sero app open <appId|name>          Switch to an app by id or visible name\n' +
       '  sero app active                     Show the currently active app\n' +
-      '  sero app info <appId>               Show app details\n\n' +
+      '  sero app info <appId|name>          Show app details\n\n' +
       'Screenshots:\n' +
       '  sero app screenshot                 Capture the active app (inline image)\n' +
-      '  sero app screenshot --app <id>      Navigate to app then capture\n' +
+      '  sero app screenshot --app <id|name> Navigate to app then capture\n' +
       '  sero app screenshot --save <path>   Save screenshot to file\n' +
       '  sero app screenshot --app todo --save ./shot.png\n\n' +
       'Interaction:\n' +
@@ -322,6 +416,8 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app scroll --direction <dir> [--amount <px>]\n' +
       '  sero app select <selector>          Focus an element\n' +
       '  sero app hover <selector>           Hover over an element\n' +
+      '  sero app inspect [<selector>] [--x <n> --y <n>]\n' +
+      '                                     Inspect elements / point hits\n' +
       '  sero app get-text <selector>        Read text content\n\n' +
       'Recording (MP4 video capture):\n' +
       '  sero app record start               Start recording (2 FPS)\n' +
@@ -332,7 +428,9 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app preview <url>               Open URL in editor panel\n' +
       '  Renders the dev server inside Sero so it can be captured by\n' +
       '  sero app record and sero app screenshot.\n\n' +
-      'Click/type/scroll/select/hover auto-capture a screenshot after the action.',
+      'App matching accepts visible names as well as ids (for example, Calculator → calc).\n\n' +
+      'Click/type/scroll/select/hover auto-capture a screenshot after the action.\n' +
+      'Inspect returns JSON and skips the post-action screenshot.',
     execute: handleApp,
   });
 }

@@ -110,8 +110,15 @@ export function ToolLine({
 
 // ── ToolImages (thumbnail strip for tool result images) ─────────
 
-function ToolImages({ images }: { images: ToolResultImage[] }) {
+export function ToolImages({
+  images,
+  workspaceId = null,
+}: {
+  images: ToolResultImage[];
+  workspaceId?: string | null;
+}) {
   const showLightbox = useLightbox((s) => s.show);
+  const requestOpenFile = useEditorBridge((s) => s.requestOpenFile);
 
   const lightboxImages: LightboxImage[] = useMemo(
     () =>
@@ -128,31 +135,56 @@ function ToolImages({ images }: { images: ToolResultImage[] }) {
     [showLightbox, lightboxImages],
   );
 
+  const handlePathClick = useCallback((filePath: string) => {
+    if (!workspaceId) return;
+    requestOpenFile(workspaceId, filePath);
+  }, [requestOpenFile, workspaceId]);
+
   return (
-    <div className="flex flex-wrap gap-2 py-1">
+    <div className="flex flex-wrap gap-3 py-1">
       {images.map((img, i) => {
         const src = img.data.startsWith('data:')
           ? img.data
           : `data:${img.mimeType ?? 'image/png'};base64,${img.data}`;
+        const isOpenablePath = !!workspaceId && !!img.filePath && looksLikeFilePath(img.filePath);
         return (
-          <button
-            key={i}
-            onClick={() => handleClick(i)}
-            className={cn(
-              'group/img relative overflow-hidden rounded-md border border-[var(--border-subtle)]',
-              'transition-all hover:border-[var(--accent-primary)] hover:shadow-md',
-              'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]',
-            )}
-            title={img.description ?? 'Click to preview'}
-          >
-            <img
-              src={src}
-              alt={img.description ?? 'Tool result image'}
-              className="h-24 w-auto max-w-[200px] object-cover"
-              loading="lazy"
-            />
-            <div className="absolute inset-0 bg-black/0 transition-colors group-hover/img:bg-black/10" />
-          </button>
+          <div key={i} className="flex max-w-[220px] flex-col gap-1.5">
+            <button
+              onClick={() => handleClick(i)}
+              className={cn(
+                'group/img relative overflow-hidden rounded-md border border-[var(--border-subtle)]',
+                'transition-all hover:border-[var(--accent-primary)] hover:shadow-md',
+                'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]',
+              )}
+              title={img.description ?? 'Click to preview'}
+            >
+              <img
+                src={src}
+                alt={img.description ?? 'Tool result image'}
+                className="h-24 w-auto max-w-[200px] object-cover"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-black/0 transition-colors group-hover/img:bg-black/10" />
+            </button>
+            {img.filePath ? (
+              isOpenablePath ? (
+                <button
+                  onClick={() => handlePathClick(img.filePath!)}
+                  className="truncate rounded bg-[var(--bg-elevated)] px-2 py-1 text-left font-mono text-[10px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+                  title={`Open ${img.filePath} in editor`}
+                >
+                  {img.filePath}
+                </button>
+              ) : (
+                <div
+                  className="truncate rounded bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]"
+                  title={img.filePath}
+                >
+                  {img.filePath}
+                </div>
+              )
+            ) : null}
+          </div>
         );
       })}
     </div>
@@ -161,7 +193,7 @@ function ToolImages({ images }: { images: ToolResultImage[] }) {
 
 // ── ToolDetail (expanded single tool — full input/output) ───────
 
-export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
+export function ToolDetail({ tool, workspaceId = null }: { tool: ChatToolCallMessage; workspaceId?: string | null }) {
   const isComplete = tool.state === 'completed' || tool.state === 'error';
   const isCancelled = tool.state === 'cancelled';
   const hasOutput = typeof tool.output === 'string' && tool.output.trim().length > 0;
@@ -177,7 +209,7 @@ export function ToolDetail({ tool }: { tool: ChatToolCallMessage }) {
       />
       <ToolContent className="max-h-[min(52vh,30rem)] overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
         <ToolInput input={tool.input} />
-        {isComplete && tool.images?.length ? <ToolImages images={tool.images} /> : null}
+        {isComplete && tool.images?.length ? <ToolImages images={tool.images} workspaceId={workspaceId} /> : null}
         {progressModel ? <ToolCallProgress tool={tool} /> : null}
         {(isComplete || (hasOutput && !progressModel)) && (
           <>
@@ -306,7 +338,7 @@ export function SingleToolCall({
       {/* Inline image thumbnails — always visible when tool has images */}
       {hasImages && !expanded && (
         <div className="border-t border-[var(--border-subtle)] px-3 py-2">
-          <ToolImages images={tool.images!} />
+          <ToolImages images={tool.images!} workspaceId={workspaceId} />
         </div>
       )}
 
@@ -325,7 +357,7 @@ export function SingleToolCall({
                   {hasSummaryContent ? (
                     <div className="space-y-4 p-3">
                       {progressModel ? <ToolCallProgress tool={tool} /> : null}
-                      {!progressModel && isComplete && hasImages ? <ToolImages images={tool.images!} /> : null}
+                      {!progressModel && isComplete && hasImages ? <ToolImages images={tool.images!} workspaceId={workspaceId} /> : null}
                       {isCancelled && (
                         <div className="text-xs text-[var(--status-warning)] italic">
                           Cancelled — agent was stopped before this tool completed.
@@ -351,7 +383,7 @@ export function SingleToolCall({
               ) : (
                 <>
                   <div className="space-y-0 p-2">
-                    <ToolDetail tool={tool} />
+                    <ToolDetail tool={tool} workspaceId={workspaceId} />
                   </div>
                   <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
                     <button

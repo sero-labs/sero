@@ -481,6 +481,9 @@ export type { QrLoginData } from './gateway';
 // ── App Control (extracted to app-control.ts) ─────────────────
 export type {
   AppControlEntry,
+  AppElementRect,
+  AppElementInfo,
+  AppInspectionResult,
   AppInteractionResult,
   AppInteractionParams,
   AppPanelRect,

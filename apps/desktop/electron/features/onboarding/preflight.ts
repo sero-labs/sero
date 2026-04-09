@@ -5,6 +5,7 @@ import { SERO_AGENT_DIR } from '../../platform/env';
 import { profileManager } from '../profile/manager';
 import { readSettings } from '../../shared/settings/settings-helpers';
 import { getGlobalModelConfigTiers } from '../../shared/settings/model-config';
+import { cleanupUnavailableModelSelections } from '../../shared/settings/cleanup-unavailable-model-selections';
 import { buildOnboardingRecommendation, validateCurrentTiers } from './recommendations';
 import { getProviderHealthSnapshot } from './provider-health';
 import { emptyOnboardingState } from './types';

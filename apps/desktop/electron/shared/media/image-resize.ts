@@ -16,7 +16,18 @@ import { nativeImage } from 'electron';
 export interface ImageResizeResult {
   data: string; // base64
   mimeType: string;
+  originalWidth: number;
+  originalHeight: number;
+  width: number;
+  height: number;
   wasResized: boolean;
+}
+
+export interface PreparedToolImage {
+  data: string;
+  mimeType: string;
+  text?: string;
+  resize: ImageResizeResult;
 }
 
 // 4.5MB — provides headroom below Anthropic's 5MB limit (matches Pi CLI)
@@ -37,35 +48,57 @@ function pickSmaller(
  *
  * @param base64Data Raw base64 string (no data: prefix)
  * @param mimeType   Original MIME type (e.g. "image/png")
- * @returns Resized image data + updated mimeType
+ * @returns Resized image data + updated mimeType + original/final dimensions
  */
 export function resizeImageForApi(base64Data: string, mimeType: string): ImageResizeResult {
   const inputBuffer = Buffer.from(base64Data, 'base64');
-
-  // Fast path: if small enough, check dimensions
-  if (inputBuffer.length <= MAX_BYTES) {
-    const img = nativeImage.createFromBuffer(inputBuffer);
-    if (img.isEmpty()) {
-      return { data: base64Data, mimeType, wasResized: false };
-    }
-    const size = img.getSize();
-    if (size.width <= MAX_WIDTH && size.height <= MAX_HEIGHT) {
-      return { data: base64Data, mimeType, wasResized: false };
-    }
+  if (typeof nativeImage?.createFromBuffer !== 'function') {
+    return {
+      data: base64Data,
+      mimeType,
+      originalWidth: 0,
+      originalHeight: 0,
+      width: 0,
+      height: 0,
+      wasResized: false,
+    };
   }
 
-  // Load the image
   const img = nativeImage.createFromBuffer(inputBuffer);
   if (img.isEmpty()) {
-    // Can't process — return as-is and let the API reject if needed
-    return { data: base64Data, mimeType, wasResized: false };
+    return {
+      data: base64Data,
+      mimeType,
+      originalWidth: 0,
+      originalHeight: 0,
+      width: 0,
+      height: 0,
+      wasResized: false,
+    };
   }
 
   const originalSize = img.getSize();
+  const originalWidth = originalSize.width;
+  const originalHeight = originalSize.height;
 
-  // Calculate target dimensions respecting max limits
-  let targetWidth = originalSize.width;
-  let targetHeight = originalSize.height;
+  if (
+    inputBuffer.length <= MAX_BYTES &&
+    originalWidth <= MAX_WIDTH &&
+    originalHeight <= MAX_HEIGHT
+  ) {
+    return {
+      data: base64Data,
+      mimeType,
+      originalWidth,
+      originalHeight,
+      width: originalWidth,
+      height: originalHeight,
+      wasResized: false,
+    };
+  }
+
+  let targetWidth = originalWidth;
+  let targetHeight = originalHeight;
 
   if (targetWidth > MAX_WIDTH) {
     targetHeight = Math.round((targetHeight * MAX_WIDTH) / targetWidth);
@@ -76,14 +109,13 @@ export function resizeImageForApi(base64Data: string, mimeType: string): ImageRe
     targetHeight = MAX_HEIGHT;
   }
 
-  // Helper: resize to dimensions, try both PNG & JPEG, return smaller
   function tryEncode(
     width: number,
     height: number,
     jpegQuality: number,
   ): { buffer: Buffer; mimeType: string } {
     const resized =
-      width === originalSize.width && height === originalSize.height
+      width === originalWidth && height === originalHeight
         ? img
         : img.resize({ width, height, quality: 'better' });
 
@@ -97,36 +129,89 @@ export function resizeImageForApi(base64Data: string, mimeType: string): ImageRe
   }
 
   const qualitySteps = [85, 70, 55, 40];
+  let finalWidth = targetWidth;
+  let finalHeight = targetHeight;
 
-  // Attempt 1: resize to target dimensions, try both formats
   let best = tryEncode(targetWidth, targetHeight, 80);
   if (best.buffer.length <= MAX_BYTES) {
-    return { data: best.buffer.toString('base64'), mimeType: best.mimeType, wasResized: true };
+    return {
+      data: best.buffer.toString('base64'),
+      mimeType: best.mimeType,
+      originalWidth,
+      originalHeight,
+      width: finalWidth,
+      height: finalHeight,
+      wasResized: true,
+    };
   }
 
-  // Attempt 2: JPEG with decreasing quality at target dimensions
   for (const quality of qualitySteps) {
     best = tryEncode(targetWidth, targetHeight, quality);
     if (best.buffer.length <= MAX_BYTES) {
-      return { data: best.buffer.toString('base64'), mimeType: best.mimeType, wasResized: true };
+      return {
+        data: best.buffer.toString('base64'),
+        mimeType: best.mimeType,
+        originalWidth,
+        originalHeight,
+        width: finalWidth,
+        height: finalHeight,
+        wasResized: true,
+      };
     }
   }
 
-  // Attempt 3: progressively reduce dimensions
   const scaleSteps = [0.75, 0.5, 0.35, 0.25];
   for (const scale of scaleSteps) {
-    const w = Math.round(targetWidth * scale);
-    const h = Math.round(targetHeight * scale);
-    if (w < 100 || h < 100) break;
+    finalWidth = Math.round(targetWidth * scale);
+    finalHeight = Math.round(targetHeight * scale);
+    if (finalWidth < 100 || finalHeight < 100) break;
 
     for (const quality of qualitySteps) {
-      best = tryEncode(w, h, quality);
+      best = tryEncode(finalWidth, finalHeight, quality);
       if (best.buffer.length <= MAX_BYTES) {
-        return { data: best.buffer.toString('base64'), mimeType: best.mimeType, wasResized: true };
+        return {
+          data: best.buffer.toString('base64'),
+          mimeType: best.mimeType,
+          originalWidth,
+          originalHeight,
+          width: finalWidth,
+          height: finalHeight,
+          wasResized: true,
+        };
       }
     }
   }
 
-  // Last resort: return the smallest we produced
-  return { data: best.buffer.toString('base64'), mimeType: best.mimeType, wasResized: true };
+  return {
+    data: best.buffer.toString('base64'),
+    mimeType: best.mimeType,
+    originalWidth,
+    originalHeight,
+    width: finalWidth,
+    height: finalHeight,
+    wasResized: true,
+  };
+}
+
+/**
+ * Format a dimension note for resized images.
+ * Helps the model map coordinates back to the original image.
+ */
+export function formatDimensionNote(result: ImageResizeResult): string | undefined {
+  if (!result.wasResized || result.width <= 0 || result.height <= 0) {
+    return undefined;
+  }
+  const scale = result.originalWidth / result.width;
+  return `[Image: original ${result.originalWidth}x${result.originalHeight}, displayed at ${result.width}x${result.height}. Multiply coordinates by ${scale.toFixed(2)} to map to original image.]`;
+}
+
+export function prepareToolImage(base64Data: string, mimeType: string, text?: string): PreparedToolImage {
+  const resize = resizeImageForApi(base64Data, mimeType);
+  const normalizedText = [text?.trim(), formatDimensionNote(resize)].filter(Boolean).join('\n') || undefined;
+  return {
+    data: resize.data,
+    mimeType: resize.mimeType,
+    text: normalizedText,
+    resize,
+  };
 }

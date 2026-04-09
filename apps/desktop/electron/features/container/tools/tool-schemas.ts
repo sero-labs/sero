@@ -117,18 +117,19 @@ export const BrowserParams = Type.Object({
       Type.Literal('evaluate'),
       Type.Literal('get_text'),
       Type.Literal('wait'),
+      Type.Literal('snapshot'),
       Type.Literal('close'),
       Type.Literal('start_recording'),
       Type.Literal('stop_recording'),
     ],
     {
       description:
-        'The browser action to perform for Playwright-style UI automation on known pages. ' +
+        'The browser action to perform for the hidden Playwright-style automation browser on known pages. ' +
         'Do not use browser for general web search, page fetching, bookmark management, or file downloads — ' +
         'use web_search, fetch_content, get_search_content, or web_bookmark instead. ' +
         'launch: start browser (optionally navigate to url). ' +
         'navigate: go to a URL. ' +
-        'click: click a CSS selector or x,y coordinates. ' +
+        'click: click a CSS selector or viewport-relative x,y coordinates. ' +
         'type: type text into selector or focused element. ' +
         'press_key: press a key (Enter, Tab, Escape, etc). ' +
         'screenshot: capture the page as an image. ' +
@@ -136,17 +137,18 @@ export const BrowserParams = Type.Object({
         'evaluate: run JavaScript in the page. ' +
         'get_text: extract text content from the page or an element. ' +
         'wait: wait for a selector or timeout. ' +
-        'close: close the browser. ' +
-        'start_recording: begin MP4 video recording of the browser (periodic screenshots encoded to video). ' +
-        'stop_recording: stop recording and save MP4 video to the specified path.',
+        'snapshot: capture an accessibility snapshot for LLM-friendly element refs. ' +
+        'close: close the automation browser session. ' +
+        'start_recording: begin automation-browser video recording (WebM output via agent-browser); set save_path here. Recordings auto-stop after 120 seconds as a safety limit. ' +
+        'stop_recording: stop the current recording and save it to the path chosen when recording started.',
     },
   ),
   url: Type.Optional(Type.String({ description: 'URL for launch/navigate actions' })),
   selector: Type.Optional(
     Type.String({ description: 'CSS selector for click/type/screenshot/scroll/get_text/wait' }),
   ),
-  x: Type.Optional(Type.Number({ description: 'X coordinate for click (use with y)' })),
-  y: Type.Optional(Type.Number({ description: 'Y coordinate for click (use with x)' })),
+  x: Type.Optional(Type.Number({ description: 'Viewport-relative X coordinate in CSS px for click (use with y)' })),
+  y: Type.Optional(Type.Number({ description: 'Viewport-relative Y coordinate in CSS px for click (use with x). If the element is off-screen, scroll it into view first.' })),
   text: Type.Optional(Type.String({ description: 'Text to type (for type action)' })),
   clear: Type.Optional(
     Type.Boolean({ description: 'Clear the field before typing (default: false)' }),
@@ -166,7 +168,7 @@ export const BrowserParams = Type.Object({
     Type.Number({ description: 'Scroll amount in pixels (default: 500)' }),
   ),
   full_page: Type.Optional(
-    Type.Boolean({ description: 'Capture full page screenshot (default: false)' }),
+    Type.Boolean({ description: 'Capture the full scrollable automation-browser page when supported (default: false)' }),
   ),
   timeout: Type.Optional(
     Type.Number({ description: 'Timeout in ms for wait action (default: 10000)' }),
@@ -186,10 +188,10 @@ export const BrowserParams = Type.Object({
     ),
   ),
   save_path: Type.Optional(
-    Type.String({ description: 'File path to save the recording to (for stop_recording action, default: /tmp/sero-browser-recording.mp4)' }),
+    Type.String({ description: 'File path for start_recording output (default: /workspace/agent-browser-recording.webm; auto-stops after 120s)' }),
   ),
   fps: Type.Optional(
-    Type.Number({ description: 'Frames per second for recording (default: 2)' }),
+    Type.Number({ description: 'Ignored for agent-browser native recording; recordings use Playwright defaults.' }),
   ),
 });
 

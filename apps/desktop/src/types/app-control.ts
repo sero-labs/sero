@@ -17,6 +17,41 @@ export interface AppControlEntry {
   hasUI: boolean;
 }
 
+/** Bounding box for an element inside the app panel, in CSS px relative to the panel top-left. */
+export interface AppElementRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Description of an element discovered by app inspection. */
+export interface AppElementInfo {
+  tagName: string;
+  id: string | null;
+  className: string | null;
+  role: string | null;
+  ariaLabel: string | null;
+  title: string | null;
+  text: string | null;
+  value: string | null;
+  rect: AppElementRect;
+  interactive: boolean;
+  selectorHint: string | null;
+}
+
+/** Result of an inspection query against the app panel. */
+export interface AppInspectionResult {
+  mode: 'point' | 'selector' | 'interactive-list';
+  panelRect: AppPanelRect;
+  point?: { x: number; y: number } | null;
+  selector?: string | null;
+  matched?: AppElementInfo | null;
+  clickTarget?: AppElementInfo | null;
+  stack?: AppElementInfo[];
+  interactives?: AppElementInfo[];
+}
+
 /** Result of an app interaction command. */
 export interface AppInteractionResult {
   success: boolean;
@@ -25,11 +60,13 @@ export interface AppInteractionResult {
   screenshot?: string;
   /** Text content extracted from the target element (for get-text). */
   textContent?: string;
+  /** DOM inspection output for inspection queries. */
+  inspection?: AppInspectionResult;
 }
 
 /** Parameters for an app interaction command. */
 export interface AppInteractionParams {
-  action: 'click' | 'type' | 'scroll' | 'select' | 'get-text' | 'hover';
+  action: 'click' | 'type' | 'scroll' | 'select' | 'get-text' | 'hover' | 'inspect';
   /** CSS selector targeting an element within the app panel. */
   selector?: string;
   /** X coordinate relative to app panel (for positional click). */
@@ -46,7 +83,7 @@ export interface AppInteractionParams {
   captureAfter?: boolean;
 }
 
-/** Bounding rect of the app panel in screen coordinates. */
+/** Bounding rect of the app panel in CSS px relative to the renderer viewport. */
 export interface AppPanelRect {
   x: number;
   y: number;

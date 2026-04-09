@@ -58,6 +58,8 @@ export interface SeroApi {
   };
   auth: {
     onEvent(callback: (event: OAuthEventIPC) => void): () => void;
+    getProviders(): Promise<AuthProvidersResponseIPC>;
+    login(providerId: string): Promise<void>;
   };
   subagent: {
     listAgents(): Promise<AgentSummaryIPC[]>;
@@ -91,16 +93,6 @@ export interface SeroApi {
   };
   models: {
     list(): Promise<AvailableModelGroupIPC[]>;
-  };
-  onboarding: {
-    getState(): Promise<OnboardingStateIPC>;
-  };
-  models: {
-    list(): Promise<AvailableModelGroupIPC[]>;
-  };
-  auth: {
-    getProviders(): Promise<AuthProvidersResponseIPC>;
-    login(providerId: string): Promise<void>;
   };
   onboarding: {
     getState(): Promise<OnboardingStateIPC>;

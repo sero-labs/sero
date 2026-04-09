@@ -78,11 +78,12 @@ describe('CLI prompt block', () => {
     expect(prompt).toContain('exact schema');
   });
 
-  it('includes app interaction guidance', () => {
+  it('includes direct app interaction guidance', () => {
     const registry = new CliRegistry();
     const prompt = buildCliPromptBlock(registry);
 
-    expect(prompt).toContain('sero help app');
+    expect(prompt).toContain('sero app screenshot');
+    expect(prompt).toContain('appstate');
     expect(prompt).toContain('app click');
   });
 
