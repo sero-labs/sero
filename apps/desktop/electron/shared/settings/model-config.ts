@@ -15,10 +15,11 @@ import type {
   ModelTierEntry,
   ModelTierSettings,
 } from '../../../src/types/ipc';
-import { SERO_FIXED_ROOT } from '../../platform/env';
+import { SERO_AGENT_DIR, SERO_HOME } from '../../platform/env';
 import { MODEL_TIERS, getModelTiers, setModelTiers } from './model-tiers';
 
-const LEGACY_PROVIDER_DEFAULTS_PATH = path.join(SERO_FIXED_ROOT, 'provider-model-defaults.json');
+const PROVIDER_DEFAULTS_PATH = path.join(SERO_AGENT_DIR, 'provider-model-defaults.json');
+const LEGACY_PROVIDER_DEFAULTS_PATH = path.join(SERO_HOME, 'provider-model-defaults.json');
 
 function parseLegacyProviderDefaults(
   value: unknown,
@@ -82,8 +83,13 @@ function getPrimaryThinkingLevel(
 
 export function readLegacyProviderDefaults(): Record<string, Partial<Record<ModelTier, string>>> {
   try {
-    if (!existsSync(LEGACY_PROVIDER_DEFAULTS_PATH)) return {};
-    const raw = JSON.parse(readFileSync(LEGACY_PROVIDER_DEFAULTS_PATH, 'utf8')) as unknown;
+    const sourcePath = existsSync(PROVIDER_DEFAULTS_PATH)
+      ? PROVIDER_DEFAULTS_PATH
+      : existsSync(LEGACY_PROVIDER_DEFAULTS_PATH)
+        ? LEGACY_PROVIDER_DEFAULTS_PATH
+        : null;
+    if (!sourcePath) return {};
+    const raw = JSON.parse(readFileSync(sourcePath, 'utf8')) as unknown;
     return parseLegacyProviderDefaults(raw);
   } catch {
     return {};
@@ -121,6 +127,30 @@ export function deriveTierSelectionsFromLegacyDefaults(
   return {
     tiers,
     migrationNotice: `Some legacy provider defaults could not be migrated automatically (${partialTiers.join(', ')} had multiple provider overrides).`,
+  };
+}
+
+export function applyLegacyProviderDefaultsMigration(
+  settings: Record<string, unknown>,
+  defaults: Record<string, Partial<Record<ModelTier, string>>> = readLegacyProviderDefaults(),
+): { settings: Record<string, unknown>; migrationNotice?: string; changed: boolean } {
+  if (Object.keys(getModelTiers(settings)).length > 0 || Object.keys(defaults).length === 0) {
+    return { settings, changed: false };
+  }
+
+  const migrated = deriveTierSelectionsFromLegacyDefaults(defaults);
+  if (Object.keys(migrated.tiers).length === 0) {
+    return {
+      settings,
+      migrationNotice: migrated.migrationNotice,
+      changed: false,
+    };
+  }
+
+  return {
+    settings: setGlobalModelConfig(settings, { tiers: migrated.tiers }),
+    migrationNotice: migrated.migrationNotice,
+    changed: true,
   };
 }
 

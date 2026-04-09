@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AvailableModelGroup } from '../../../../src/types/ipc';
 import {
+  applyLegacyProviderDefaultsMigration,
   buildGlobalModelConfigState,
   deriveTierSelectionsFromLegacyDefaults,
   getGlobalModelConfigTiers,
@@ -40,6 +41,43 @@ describe('deriveTierSelectionsFromLegacyDefaults', () => {
       LOW: { provider: 'openai', modelId: 'gpt-4.1-mini' },
     });
     expect(result.migrationNotice).toContain('MED');
+  });
+});
+
+describe('applyLegacyProviderDefaultsMigration', () => {
+  it('hydrates empty tier settings from legacy provider defaults', () => {
+    const result = applyLegacyProviderDefaultsMigration(
+      { defaultThinkingLevel: 'medium' },
+      {
+        openai: {
+          HIGH: 'gpt-5.4',
+          LOW: 'gpt-4.1-mini',
+        },
+      },
+    );
+
+    expect(result.changed).toBe(true);
+    expect(getGlobalModelConfigTiers(result.settings)).toEqual({
+      HIGH: { provider: 'openai', modelId: 'gpt-5.4', thinkingLevel: 'medium' },
+      LOW: { provider: 'openai', modelId: 'gpt-4.1-mini', thinkingLevel: 'medium' },
+    });
+  });
+
+  it('leaves existing tier settings alone when already configured', () => {
+    const settings = setGlobalModelConfig({}, {
+      tiers: {
+        HIGH: { provider: 'openai', modelId: 'gpt-5.4', thinkingLevel: 'high' },
+      },
+    });
+
+    const result = applyLegacyProviderDefaultsMigration(settings, {
+      openai: { LOW: 'gpt-4.1-mini' },
+    });
+
+    expect(result.changed).toBe(false);
+    expect(getGlobalModelConfigTiers(result.settings)).toEqual({
+      HIGH: { provider: 'openai', modelId: 'gpt-5.4', thinkingLevel: 'high' },
+    });
   });
 });
 

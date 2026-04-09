@@ -16,6 +16,12 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
+import { GitHubConnectCard } from './GitHubConnectCard';
+
+const GITHUB_STEP_CONFIG = {
+  title: 'Connect GitHub (optional)',
+  description: 'Strongly suggested if you work with repos. You can skip this for now and connect later from Explorer.',
+} as const;
 import type {
   AvailableModelGroup,
   GlobalModelConfigInput,
@@ -104,6 +110,8 @@ export function OnboardingSetupScreen({
   onReconnectProvider: (providerId: string | null) => void;
 }) {
   const [tiers, setTiers] = useState<ModelTierSettings>(recommendation.tiers);
+  const [step, setStep] = useState<'tiers' | 'github'>('tiers');
+  const [checkingGitHub, setCheckingGitHub] = useState(false);
 
   const modelWarnings = useMemo(
     () => validateGlobalTierSelections(tiers, availableModelGroups),
@@ -111,6 +119,67 @@ export function OnboardingSetupScreen({
   );
 
   const canContinue = TIERS.every(({ key }) => Boolean(tiers[key]));
+
+  const handleTierContinue = async () => {
+    if (!canContinue || continueDisabled || checkingGitHub) return;
+    setCheckingGitHub(true);
+    try {
+      const status = await window.sero.github.status();
+      if (status.authenticated) {
+        onContinue({ tiers });
+        return;
+      }
+      setStep('github');
+    } catch {
+      setStep('github');
+    } finally {
+      setCheckingGitHub(false);
+    }
+  };
+
+  if (step === 'github') {
+    return (
+      <div className="space-y-5">
+        <div className="space-y-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-[var(--bg-elevated)]">
+            <Sparkles className="size-5 text-[var(--status-success)]" />
+          </div>
+          <div>
+            <DialogTitle className="text-lg font-semibold text-[var(--text-primary)]">{GITHUB_STEP_CONFIG.title}</DialogTitle>
+            <DialogDescription className="text-sm text-[var(--text-secondary)]">
+              {GITHUB_STEP_CONFIG.description}
+            </DialogDescription>
+          </div>
+        </div>
+
+        <GitHubConnectCard showConnectedState />
+
+        <div className="flex justify-between gap-2 pt-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              void window.sero.github.cancel();
+              setStep('tiers');
+            }}
+            disabled={continueDisabled}
+          >
+            Back
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              void window.sero.github.cancel();
+              onContinue({ tiers });
+            }}
+            disabled={continueDisabled}
+          >
+            Continue to memory setup
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -230,10 +299,10 @@ export function OnboardingSetupScreen({
       <div className="flex justify-end pt-1">
         <Button
           size="sm"
-          onClick={() => onContinue({ tiers })}
-          disabled={!canContinue || continueDisabled}
+          onClick={() => void handleTierContinue()}
+          disabled={!canContinue || continueDisabled || checkingGitHub}
         >
-          Continue
+          {checkingGitHub ? 'Checking GitHub…' : 'Continue'}
         </Button>
       </div>
     </div>

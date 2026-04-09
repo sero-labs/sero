@@ -408,7 +408,7 @@ interface SeroProfilesAPI {
   needsOnboarding(): Promise<boolean>;
   /** Mark onboarding as complete — won't show again. */
   markOnboardingDone(): Promise<void>;
-  /** List other profiles that have an auth.json available for import. */
+  /** List profiles that have transferable credentials/config available for import. */
   listAuthSources(): Promise<ProfileInfo[]>;
 }
 

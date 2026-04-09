@@ -3,7 +3,7 @@
  *
  * Used by both the setup screen and the create-profile dialog.
  * Handles name input, optional custom folder picker, and optional
- * credential import from an existing profile.
+ * credential/config import from an existing profile.
  */
 
 import { useEffect, useState } from 'react';
@@ -35,7 +35,7 @@ export function ProfileForm({
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if the current active profile has auth.json to copy
+  // Check if the current active profile has transferable profile data to copy
   useEffect(() => {
     (async () => {
       try {
@@ -152,7 +152,7 @@ export function ProfileForm({
               Copy credentials and model preferences from current profile
             </span>
             <p className="text-[10px] text-[var(--text-muted)]">
-              Copies API keys and tokens so you can start chatting immediately.
+              Copies API keys, OAuth tokens, env-backed credentials, local model config, gateway access, and model preferences.
             </p>
           </div>
         </label>

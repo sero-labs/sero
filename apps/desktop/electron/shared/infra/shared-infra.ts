@@ -20,7 +20,7 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { type Model, type Api } from '@mariozechner/pi-ai';
 
-import { SERO_AGENT_DIR, SERO_HOME } from '../../platform/env';
+import { SERO_AGENT_DIR } from '../../platform/env';
 import { getConfiguredModelFallbackChain } from '../settings/model-fallback-chain';
 import { getModelTiers } from '../settings/model-tiers';
 import type { ContainerConfig } from '../../features/container/core/types';
@@ -36,6 +36,14 @@ import { LspManager } from '../../features/editor/lsp/lsp-manager';
 import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../../features/vcs';
 import { GitHubRepoOps } from '../../features/auth/github/repo-ops';
 import { ArtifactRegistry } from '../../features/container/registries/artifact-registry';
+import { migrateLegacyProfileRootConfigsSync } from '../../features/profile/agent-config-migration';
+
+if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
+  migrateLegacyProfileRootConfigsSync(
+    path.dirname(SERO_AGENT_DIR),
+    SERO_AGENT_DIR,
+  );
+}
 
 // ── GitHub Auth Manager (singleton) ──────────────────────────
 
@@ -62,13 +70,13 @@ export const artifactRegistry = new ArtifactRegistry();
 
 const GATEWAY_PORT = 18800;
 const WEB_CHAT_PORT = 18801;
-const GATEWAY_TOKEN_PATH = path.join(SERO_HOME, 'gateway-token');
+const GATEWAY_TOKEN_PATH = path.join(SERO_AGENT_DIR, 'gateway-token');
 
 export const gatewayServer = new GatewayServer({
   port: GATEWAY_PORT,
   host: '127.0.0.1',
   tokenPath: GATEWAY_TOKEN_PATH,
-  configDir: SERO_HOME,
+  configDir: SERO_AGENT_DIR,
 });
 
 export const webChatServer = new WebChatServer({

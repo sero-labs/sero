@@ -467,7 +467,7 @@ export const IpcChannels = {
     needsOnboarding: 'sero:profiles:needs-onboarding',
     /** Mark onboarding as complete (persists across restarts). */
     markOnboardingDone: 'sero:profiles:mark-onboarding-done',
-    /** List other profiles that have auth.json (for import during creation). */
+    /** List profiles that have transferable credentials/config (for import during creation). */
     listAuthSources: 'sero:profiles:list-auth-sources',
   },
 } as const;
