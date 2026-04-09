@@ -15,10 +15,11 @@ import type {
   ModelTierEntry,
   ModelTierSettings,
 } from '../../../src/types/ipc';
-import { SERO_FIXED_ROOT } from '../../platform/env';
+import { SERO_AGENT_DIR, SERO_HOME } from '../../platform/env';
 import { MODEL_TIERS, getModelTiers, setModelTiers } from './model-tiers';
 
-const LEGACY_PROVIDER_DEFAULTS_PATH = path.join(SERO_FIXED_ROOT, 'provider-model-defaults.json');
+const PROVIDER_DEFAULTS_PATH = path.join(SERO_AGENT_DIR, 'provider-model-defaults.json');
+const LEGACY_PROVIDER_DEFAULTS_PATH = path.join(SERO_HOME, 'provider-model-defaults.json');
 
 function parseLegacyProviderDefaults(
   value: unknown,
@@ -82,8 +83,13 @@ function getPrimaryThinkingLevel(
 
 export function readLegacyProviderDefaults(): Record<string, Partial<Record<ModelTier, string>>> {
   try {
-    if (!existsSync(LEGACY_PROVIDER_DEFAULTS_PATH)) return {};
-    const raw = JSON.parse(readFileSync(LEGACY_PROVIDER_DEFAULTS_PATH, 'utf8')) as unknown;
+    const sourcePath = existsSync(PROVIDER_DEFAULTS_PATH)
+      ? PROVIDER_DEFAULTS_PATH
+      : existsSync(LEGACY_PROVIDER_DEFAULTS_PATH)
+        ? LEGACY_PROVIDER_DEFAULTS_PATH
+        : null;
+    if (!sourcePath) return {};
+    const raw = JSON.parse(readFileSync(sourcePath, 'utf8')) as unknown;
     return parseLegacyProviderDefaults(raw);
   } catch {
     return {};

@@ -15,7 +15,7 @@
 import { safeStorage, shell } from 'electron';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'fs';
 import path from 'path';
-import { SERO_HOME } from '../../../platform/env';
+import { SERO_AGENT_DIR, SERO_HOME } from '../../../platform/env';
 
 // ── GitHub OAuth App ─────────────────────────────────────────
 // Client ID for "Sero Desktop" GitHub OAuth App (public, no secret needed for device flow).
@@ -29,8 +29,15 @@ const USER_API_URL = 'https://api.github.com/user';
 // Scopes needed: repo (push/PR), read:org (org membership for private repos)
 const SCOPES = 'repo read:org';
 
-const TOKEN_FILE = path.join(SERO_HOME, 'github-auth.json');
+const TOKEN_FILE = path.join(SERO_AGENT_DIR, 'github-auth.json');
+const LEGACY_TOKEN_FILE = path.join(SERO_HOME, 'github-auth.json');
 const POLL_INTERVAL_MIN_MS = 5_000;
+
+function getExistingTokenFile(): string | null {
+  if (existsSync(TOKEN_FILE)) return TOKEN_FILE;
+  if (existsSync(LEGACY_TOKEN_FILE)) return LEGACY_TOKEN_FILE;
+  return null;
+}
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -134,6 +141,7 @@ export class GitHubAuthManager {
     this.cachedUsername = null;
     try {
       if (existsSync(TOKEN_FILE)) unlinkSync(TOKEN_FILE);
+      if (existsSync(LEGACY_TOKEN_FILE)) unlinkSync(LEGACY_TOKEN_FILE);
     } catch (err) {
       console.warn('[github-auth] Failed to delete token file:', err);
     }
@@ -276,9 +284,10 @@ export class GitHubAuthManager {
 
   private loadCachedToken(): void {
     try {
-      if (!existsSync(TOKEN_FILE)) return;
+      const tokenFile = getExistingTokenFile();
+      if (!tokenFile) return;
 
-      const raw = readFileSync(TOKEN_FILE, 'utf8');
+      const raw = readFileSync(tokenFile, 'utf8');
       const stored = JSON.parse(raw) as StoredToken;
 
       const token = safeStorage.isEncryptionAvailable()
