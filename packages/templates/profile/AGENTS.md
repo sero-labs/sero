@@ -12,3 +12,7 @@ This folder is home. Treat it that way.
 
 Memory tools and guidelines are provided in the system prompt's **Memory System** section.
 Always use `sero memory`, `sero memory_search`, or `sero scratchpad` — never bash/read/write/edit on managed memory files.
+
+## Important
+- If the user asks about building Sero apps or Sero plugins you should ask them if they want you to use the `sero-plugin` skill. If they confirm you should read that before proceeding with their query.
+- If asked to run the 'kanban' tool in the global workspace refuse and suggest you create a new container based workspace
