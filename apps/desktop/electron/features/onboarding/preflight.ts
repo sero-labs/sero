@@ -3,8 +3,11 @@ import path from 'path';
 import type { ModelTier, OnboardingState, OnboardingWarning } from '../../../src/types/ipc';
 import { SERO_AGENT_DIR } from '../../platform/env';
 import { profileManager } from '../profile/manager';
-import { readSettings } from '../../shared/settings/settings-helpers';
-import { getGlobalModelConfigTiers } from '../../shared/settings/model-config';
+import { readSettings, writeSettings } from '../../shared/settings/settings-helpers';
+import {
+  applyLegacyProviderDefaultsMigration,
+  getGlobalModelConfigTiers,
+} from '../../shared/settings/model-config';
 import { cleanupUnavailableModelSelections } from '../../shared/settings/cleanup-unavailable-model-selections';
 import { buildOnboardingRecommendation, validateCurrentTiers } from './recommendations';
 import { getProviderHealthSnapshot } from './provider-health';
@@ -95,16 +98,24 @@ export async function getOnboardingState(): Promise<OnboardingState> {
   const hasImportedCredentials = hasSavedAuthJson();
 
   if (!activeProfile.onboarded) {
-    const { availableModelGroups, providerHealth } = await getProviderHealthSnapshot();
-    cleanupUnavailableModelSelections(
+    let settings = readSettings();
+    const migrated = applyLegacyProviderDefaultsMigration(settings);
+    settings = migrated.settings;
+    if (migrated.changed) {
+      writeSettings(settings);
+    }
+
+    const cleaned = cleanupUnavailableModelSelections(
       availableModelGroups.flatMap((group) =>
         group.models.map((model) => ({
           provider: model.provider,
           modelId: model.modelId,
         }))),
     );
+    if (cleaned) {
+      settings = readSettings();
+    }
 
-    const settings = readSettings();
     const currentTiers = getGlobalModelConfigTiers(settings);
     const brokenProviderIds = providerHealth
       .filter((provider) => provider.status === 'broken_expired' || provider.status === 'broken_invalid')

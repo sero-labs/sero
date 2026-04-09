@@ -8,11 +8,9 @@
 import { app, dialog, ipcMain } from 'electron';
 import { IpcChannels } from '../../../src/types/ipc';
 import { profileManager } from '../../features/profile/manager';
-import { getModelTiers } from '../../shared/settings/model-tiers';
 import {
+  applyLegacyProviderDefaultsMigration,
   buildGlobalModelConfigState,
-  deriveTierSelectionsFromLegacyDefaults,
-  readLegacyProviderDefaults,
   setGlobalModelConfig,
 } from '../../shared/settings/model-config';
 import { getProviderHealthSnapshot } from '../../features/onboarding/provider-health';
@@ -23,25 +21,17 @@ import type { ProfileInfo } from '../../features/profile/types';
 import type { GlobalModelConfigInput, GlobalModelConfigState } from '../../../src/types/ipc';
 
 async function loadGlobalModelConfigState(): Promise<GlobalModelConfigState> {
-  let settings = readSettings();
-  let migrationNotice: string | undefined;
-
-  if (Object.keys(getModelTiers(settings)).length === 0) {
-    const legacyDefaults = readLegacyProviderDefaults();
-    if (Object.keys(legacyDefaults).length > 0) {
-      const migrated = deriveTierSelectionsFromLegacyDefaults(legacyDefaults);
-      if (Object.keys(migrated.tiers).length > 0) {
-        settings = setGlobalModelConfig(settings, {
-          tiers: migrated.tiers,
-        });
-        writeSettings(settings);
-      }
-      migrationNotice = migrated.migrationNotice;
-    }
+  const migrated = applyLegacyProviderDefaultsMigration(readSettings());
+  if (migrated.changed) {
+    writeSettings(migrated.settings);
   }
 
   const { availableModelGroups } = await getProviderHealthSnapshot();
-  return buildGlobalModelConfigState(settings, availableModelGroups, migrationNotice);
+  return buildGlobalModelConfigState(
+    migrated.settings,
+    availableModelGroups,
+    migrated.migrationNotice,
+  );
 }
 
 export function registerProfileHandlers(): void {

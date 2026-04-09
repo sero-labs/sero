@@ -130,6 +130,30 @@ export function deriveTierSelectionsFromLegacyDefaults(
   };
 }
 
+export function applyLegacyProviderDefaultsMigration(
+  settings: Record<string, unknown>,
+  defaults: Record<string, Partial<Record<ModelTier, string>>> = readLegacyProviderDefaults(),
+): { settings: Record<string, unknown>; migrationNotice?: string; changed: boolean } {
+  if (Object.keys(getModelTiers(settings)).length > 0 || Object.keys(defaults).length === 0) {
+    return { settings, changed: false };
+  }
+
+  const migrated = deriveTierSelectionsFromLegacyDefaults(defaults);
+  if (Object.keys(migrated.tiers).length === 0) {
+    return {
+      settings,
+      migrationNotice: migrated.migrationNotice,
+      changed: false,
+    };
+  }
+
+  return {
+    settings: setGlobalModelConfig(settings, { tiers: migrated.tiers }),
+    migrationNotice: migrated.migrationNotice,
+    changed: true,
+  };
+}
+
 export function getGlobalModelConfigTiers(settings: Record<string, unknown>): ModelTierSettings {
   return normalizeTierSettings(getModelTiers(settings), getLegacyDefaultThinkingLevel(settings));
 }

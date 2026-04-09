@@ -152,7 +152,7 @@ export function ProfileForm({
               Copy credentials and model preferences from current profile
             </span>
             <p className="text-[10px] text-[var(--text-muted)]">
-              Copies API keys, OAuth tokens, gateway access, and model preferences.
+              Copies API keys, OAuth tokens, env-backed credentials, local model config, gateway access, and model preferences.
             </p>
           </div>
         </label>
