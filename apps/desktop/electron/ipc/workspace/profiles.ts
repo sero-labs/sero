@@ -6,20 +6,18 @@
  */
 
 import { app, dialog, ipcMain } from 'electron';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import path from 'path';
 import { IpcChannels } from '../../../src/types/ipc';
 import { profileManager } from '../../features/profile/manager';
 import { getModelTiers } from '../../shared/settings/model-tiers';
 import {
   buildGlobalModelConfigState,
   deriveTierSelectionsFromLegacyDefaults,
-  getGlobalModelConfigTiers,
   readLegacyProviderDefaults,
   setGlobalModelConfig,
 } from '../../shared/settings/model-config';
 import { getProviderHealthSnapshot } from '../../features/onboarding/provider-health';
 import { readSettings, writeSettings } from '../../shared/settings/settings-helpers';
+import { copyProfileDataSync, profileHasTransferableData } from '../../features/profile/copy-profile-data';
 
 import type { ProfileInfo } from '../../features/profile/types';
 import type { GlobalModelConfigInput, GlobalModelConfigState } from '../../../src/types/ipc';
@@ -66,43 +64,16 @@ export function registerProfileHandlers(): void {
     return profileManager.hasProfiles() && profileManager.getActiveId() !== null;
   });
 
-  /** Create a new profile. Optionally copies auth.json from another profile. */
+  /** Create a new profile. Optionally copies credentials/config from another profile. */
   ipcMain.handle(
     IpcChannels.profiles.create,
     async (_e, name: string, profilePath?: string, copyAuthFromId?: string): Promise<ProfileInfo> => {
       const entry = await profileManager.create(name, profilePath);
 
-      // Copy auth.json from source profile into the new profile before restart
       if (copyAuthFromId) {
         const source = profileManager.findById(copyAuthFromId);
         if (source) {
-          const srcAuth = path.join(source.path, 'agent', 'auth.json');
-          if (existsSync(srcAuth)) {
-            const content = readFileSync(srcAuth, 'utf8');
-            const destDir = path.join(entry.path, 'agent');
-            mkdirSync(destDir, { recursive: true });
-            writeFileSync(path.join(destDir, 'auth.json'), content, 'utf8');
-          }
-
-          // Copy global model tiers + default thinking level.
-          const srcSettingsPath = path.join(source.path, 'agent', 'settings.json');
-          if (existsSync(srcSettingsPath)) {
-            try {
-              const srcSettingsObj = JSON.parse(readFileSync(srcSettingsPath, 'utf8')) as Record<string, unknown>;
-              const srcTiers = getGlobalModelConfigTiers(srcSettingsObj);
-              const destSettingsPath = path.join(entry.path, 'agent', 'settings.json');
-              let destSettings: Record<string, unknown> = {};
-              try {
-                destSettings = JSON.parse(readFileSync(destSettingsPath, 'utf8')) as Record<string, unknown>;
-              } catch { /* fresh settings */ }
-              const updated = setGlobalModelConfig(destSettings, {
-                tiers: srcTiers,
-              });
-              writeFileSync(destSettingsPath, JSON.stringify(updated, null, 2) + '\n');
-            } catch {
-              // Non-critical — model preferences can be configured later.
-            }
-          }
+          copyProfileDataSync(source.path, entry.path);
         }
       }
 
@@ -181,8 +152,8 @@ export function registerProfileHandlers(): void {
   );
 
   /**
-   * List profiles that have an auth.json available for credential import.
-   * Used by the profile creation form to offer "Copy credentials from…".
+   * List profiles that have transferable credentials/config available.
+   * Used by the profile creation form to offer the copy option.
    * Includes the active profile — the user is creating a NEW profile and
    * likely wants to copy credentials from the one they're currently using.
    */
@@ -190,17 +161,7 @@ export function registerProfileHandlers(): void {
     IpcChannels.profiles.listAuthSources,
     (): ProfileInfo[] => {
       const all = profileManager.list();
-      return all.filter((p) => {
-        const authPath = path.join(p.path, 'agent', 'auth.json');
-        try {
-          if (!existsSync(authPath)) return false;
-          const content = readFileSync(authPath, 'utf8').trim();
-          // Must be a non-empty JSON object (not "{}" or empty)
-          return content.length > 2 && content !== '{}';
-        } catch {
-          return false;
-        }
-      });
+      return all.filter((p) => profileHasTransferableData(p.path));
     },
   );
 
