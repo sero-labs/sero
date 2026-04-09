@@ -17,7 +17,8 @@ import { resolveBuiltinTemplatesDir } from '../../platform/protocols/builtin-res
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');
-const GLOBAL_WORKSPACE_DIR = path.join(SERO_HOME, 'workspaces', 'global');
+const WORKSPACES_DIR = path.join(SERO_HOME, 'workspaces');
+const GLOBAL_WORKSPACE_DIR = path.join(WORKSPACES_DIR, 'global');
 
 /**
  * Resolve the path to built-in templates.
@@ -39,11 +40,15 @@ function getMonorepoRoot(): string {
  * Templates use `{{KEY}}` syntax — keys are replaced with runtime values.
  */
 function getTemplatePlaceholders(): Record<string, string> {
-  return {
+  const templatePlaceholders = {
+    SERO_MONOREPO: getMonorepoRoot(),
     SERO_HOME,
     SERO_AGENT_DIR,
-    SERO_MONOREPO: getMonorepoRoot(),
+    WORKSPACES_DIR,
+    GLOBAL_WORKSPACE_DIR
   };
+  console.info(`[setup] Found template placeholders: ${templatePlaceholders}`);
+  return templatePlaceholders;
 }
 
 /** Replace `{{KEY}}` placeholders in content with runtime values. */
