@@ -1,5 +1,6 @@
 import type { ExplorerPanel } from './ActivityBar';
-import { FileTree } from './file-tree/FileTree';
+import type { EditorRoot } from '@/types/ipc';
+import { MultiRootFileTree } from './file-tree/MultiRootFileTree';
 import { VcsPanel } from './vcs/VcsPanel';
 import { OrchestrationPanel } from './orchestration/OrchestrationPanel';
 
@@ -13,14 +14,15 @@ const panelTitles: Record<ExplorerPanel, string> = {
 interface ExplorerSidebarProps {
   activePanel: ExplorerPanel;
   workspaceId: string;
-  /** Props forwarded to the FileTree when panel=explorer. */
+  /** Props forwarded to the file tree when panel=explorer. */
   fileTreeProps?: {
     workspaceId: string;
-    rootId: string;
+    roots: EditorRoot[];
     activePath: string | null;
     onFileSelect: (path: string) => void;
     onPathChanged?: (oldPath: string, newPath: string) => void;
     onDeleted?: (path: string) => void;
+    onRemoveRoot?: (rootId: string) => void;
   };
   /** Called when VcsPanel wants to open a diff in the editor area. */
   onOpenDiff?: (from: string, to: string, path?: string) => void;
@@ -48,7 +50,7 @@ export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps, onOpe
       {/* ── Content ──────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col min-h-0 overflow-hidden" data-testid="explorer-sidebar-content">
         {activePanel === 'explorer' && fileTreeProps ? (
-          <FileTree {...fileTreeProps} />
+          <MultiRootFileTree {...fileTreeProps} />
         ) : activePanel === 'git' ? (
           <VcsPanel workspaceId={workspaceId} onOpenDiff={onOpenDiff} />
         ) : activePanel === 'orchestration' ? (

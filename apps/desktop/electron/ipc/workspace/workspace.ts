@@ -7,7 +7,7 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '../../../src/types/ipc';
-import type { WorkspaceInfo, WorkspaceConfig } from '../../../src/types/ipc';
+import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '../../../src/types/ipc';
 import { workspaceManager } from '../../features/workspace/manager';
 import { showNotification } from '../../platform/desktop/notifications';
 import { containerManager, buildContainerConfig } from '../../shared/infra/shared-infra';
@@ -133,6 +133,44 @@ export function registerWorkspaceHandlers(): void {
     async (_event, id: string, folderPath: string): Promise<void> => {
       await workspaceManager.removeMount(id, folderPath);
       await recreateContainerIfRunning(id);
+    },
+  );
+
+  // ── Multi-root: list / add / remove / rename ───────────────
+  ipcMain.handle(
+    IpcChannels.workspace.listRoots,
+    async (_event, id: string): Promise<WorkspaceRoot[]> => {
+      return workspaceManager.getRoots(id);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.addRoot,
+    async (
+      _event,
+      id: string,
+      input: { name: string; path: string; kind?: WorkspaceRoot['kind'] },
+    ): Promise<WorkspaceRoot> => {
+      const root = await workspaceManager.addRoot(id, input);
+      // Mirror via mounts → recreate container so the new bind-mount takes effect.
+      await recreateContainerIfRunning(id);
+      return root;
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.removeRoot,
+    async (_event, id: string, rootId: string): Promise<void> => {
+      await workspaceManager.removeRoot(id, rootId);
+      await recreateContainerIfRunning(id);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.renameRoot,
+    async (_event, id: string, rootId: string, newName: string): Promise<void> => {
+      await workspaceManager.renameRoot(id, rootId, newName);
+      // Rename is metadata-only; no container recreation needed.
     },
   );
 

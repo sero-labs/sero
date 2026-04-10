@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { usePanelOpenSync } from './usePanelOpenSync';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
+import type { EditorRoot } from '@/types/ipc';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -52,7 +53,12 @@ export function ExplorerWorkspace() {
   // Editor tab state
   const [editorTabs, setEditorTabs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [rootId, setRootId] = useState<string>('/workspace');
+  // Multi-root: list of roots (primary + additional). Always has at least
+  // the primary root once loaded; falls back to a single virtual /workspace
+  // entry while the IPC is in flight or for unknown workspace ids.
+  const [roots, setRoots] = useState<EditorRoot[]>([
+    { id: 'workspace', name: 'Workspace', virtualPath: '/workspace', kind: 'workspace' },
+  ]);
 
   // Diff tab state — when set, renders DiffTab instead of EditorPanel
   const [diffState, setDiffState] = useState<DiffTabState | null>(null);
@@ -62,17 +68,35 @@ export function ExplorerWorkspace() {
   // save stale/empty state to the new workspace's file.
   const editorReadyRef = useRef(false);
 
-  // ── Resolve root path for the file tree ──
-  useEffect(() => {
-    (async () => {
-      try {
-        const root = await window.sero.editor.getRootPath(workspaceId);
-        setRootId(root);
-      } catch {
-        setRootId('/workspace');
+  // ── Resolve roots for the file tree ──
+  // Multi-root workspaces expose all roots via editor.getRoots; the primary
+  // root always comes back first as `{ id: 'workspace', virtualPath: '/workspace' }`.
+  const refreshRoots = useCallback(async () => {
+    try {
+      const next = await window.sero.editor.getRoots(workspaceId);
+      if (Array.isArray(next) && next.length > 0) {
+        setRoots(next);
+        return;
       }
-    })();
+    } catch {
+      /* fall through to default */
+    }
+    setRoots([
+      { id: 'workspace', name: 'Workspace', virtualPath: '/workspace', kind: 'workspace' },
+    ]);
   }, [workspaceId]);
+
+  useEffect(() => { void refreshRoots(); }, [refreshRoots]);
+
+  // ── Remove an additional root via the explorer header × button ──
+  const handleRemoveRoot = useCallback(async (rootId: string) => {
+    try {
+      await window.sero.workspace.removeRoot(workspaceId, rootId);
+      await refreshRoots();
+    } catch (err) {
+      console.warn('[explorer] Failed to remove root:', err);
+    }
+  }, [workspaceId, refreshRoots]);
 
   // ── Restore persisted editor state ──
   // Runs on every workspaceId change. Cancels stale loads so a fast
@@ -356,10 +380,11 @@ export function ExplorerWorkspace() {
                 workspaceId={workspaceId}
                 onOpenDiff={handleOpenDiff}
                 fileTreeProps={{
-                  workspaceId, rootId, activePath: activeTab,
+                  workspaceId, roots, activePath: activeTab,
                   onFileSelect: handleOpenTab,
                   onPathChanged: handlePathChanged,
                   onDeleted: handleDeleted,
+                  onRemoveRoot: handleRemoveRoot,
                 }}
               />
             )}

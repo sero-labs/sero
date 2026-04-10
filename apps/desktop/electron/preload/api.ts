@@ -36,6 +36,8 @@ import type {
   ProfileInfo,
   WorkspaceInfo,
   WorkspaceConfig,
+  WorkspaceRoot,
+  EditorRoot,
   SeroSessionInfo,
   ChatMessage,
   AgentStreamEvent,
@@ -161,6 +163,21 @@ export const seroPreloadApi = {
 
     setExpanded: (id: string, expanded: boolean): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.workspace.setExpanded, id, expanded),
+
+    listRoots: (id: string): Promise<WorkspaceRoot[]> =>
+      ipcRenderer.invoke(IpcChannels.workspace.listRoots, id),
+
+    addRoot: (
+      id: string,
+      input: { name: string; path: string; kind?: WorkspaceRoot['kind'] },
+    ): Promise<WorkspaceRoot> =>
+      ipcRenderer.invoke(IpcChannels.workspace.addRoot, id, input),
+
+    removeRoot: (id: string, rootId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.removeRoot, id, rootId),
+
+    renameRoot: (id: string, rootId: string, newName: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.workspace.renameRoot, id, rootId, newName),
   },
 
   sessions: {
@@ -441,6 +458,8 @@ export const seroPreloadApi = {
       ipcRenderer.invoke(IpcChannels.editor.loadState, workspaceId),
     getRootPath: (workspaceId: string): Promise<string> =>
       ipcRenderer.invoke(IpcChannels.editor.getRootPath, workspaceId),
+    getRoots: (workspaceId: string): Promise<EditorRoot[]> =>
+      ipcRenderer.invoke(IpcChannels.editor.getRoots, workspaceId),
     isContainer: (workspaceId: string): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannels.editor.isContainer, workspaceId),
     rename: (wId: string, o: string, n: string): Promise<boolean> => ipcRenderer.invoke(IpcChannels.editor.rename, wId, o, n),

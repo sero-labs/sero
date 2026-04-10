@@ -19,6 +19,7 @@ import { SERO_HOME, SERO_AGENT_DIR } from '../../platform/env';
 import { inferWorkspaceFromMessage } from './inference';
 import { slugify, ensureUniqueId, prettifyName } from './utils';
 import * as mounts from './mounts';
+import * as roots from './roots';
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
@@ -416,6 +417,19 @@ export class WorkspaceManager {
   addMount(id: string, p: string) { return mounts.addMount(this, id, p); }
   removeMount(id: string, p: string) { return mounts.removeMount(this, id, p); }
 
+  // ── Additional roots (delegated to roots.ts) ──
+  getRoots(id: string) { return roots.getRoots(this, id); }
+  addRoot(id: string, input: Parameters<typeof roots.addRoot>[2]) {
+    return roots.addRoot(this, id, input);
+  }
+  removeRoot(id: string, rootId: string) { return roots.removeRoot(this, id, rootId); }
+  renameRoot(id: string, rootId: string, newName: string) {
+    return roots.renameRoot(this, id, rootId, newName);
+  }
+  resolveRootPath(id: string, rootId: string) {
+    return roots.resolveRootPath(this, id, rootId);
+  }
+
   /** Merge registry entry + config into WorkspaceInfo. */
   private async getInfo(entry: WorkspaceRegistryEntry): Promise<WorkspaceInfo | null> {
     const config = await this.readConfig(entry.path);
@@ -431,6 +445,7 @@ export class WorkspaceManager {
       container: config?.container !== false,
       references: config?.references ?? [],
       mounts: config?.mounts ?? [],
+      roots: config?.roots ?? [],
     };
   }
 

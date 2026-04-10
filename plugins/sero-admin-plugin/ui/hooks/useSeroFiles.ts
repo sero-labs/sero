@@ -30,6 +30,13 @@ export interface GlobalModelConfigStateIPC {
   migrationNotice?: string;
 }
 
+export interface WorkspaceRootIPC {
+  id: string;
+  name: string;
+  path: string;
+  kind?: 'folder' | 'linked-plugin';
+}
+
 export interface SeroApi {
   appState: {
     read(filePath: string): Promise<unknown>;
@@ -48,6 +55,16 @@ export interface SeroApi {
   };
   shell: {
     showItemInFolder(path: string): Promise<void>;
+  };
+  workspace: {
+    pickFolder(): Promise<string | null>;
+    listRoots(workspaceId: string): Promise<WorkspaceRootIPC[]>;
+    addRoot(
+      workspaceId: string,
+      input: { name: string; path: string; kind?: WorkspaceRootIPC['kind'] },
+    ): Promise<WorkspaceRootIPC>;
+    removeRoot(workspaceId: string, rootId: string): Promise<void>;
+    renameRoot(workspaceId: string, rootId: string, newName: string): Promise<void>;
   };
   plugins: {
     list(): Promise<InstalledPlugin[]>;
