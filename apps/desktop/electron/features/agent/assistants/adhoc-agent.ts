@@ -8,12 +8,10 @@ import { getModelTiers } from '@electron/shared/settings/model-tiers';
 
 /** Provider-neutral fast model preferences, ordered by speed/cost. */
 const FAST_MODEL_PREFERENCES: Array<{ provider: string; modelId: string }> = [
-  { provider: 'openai', modelId: 'gpt-4.1-mini' },
-  { provider: 'openai', modelId: 'gpt-4o-mini' },
-  { provider: 'google', modelId: 'gemini-2.5-flash' },
-  { provider: 'google', modelId: 'gemini-2.0-flash' },
+  { provider: 'openai', modelId: 'gpt-5.4-mini' },
+  { provider: 'google', modelId: 'gemini-3-flash-preview' },
   { provider: 'anthropic', modelId: 'claude-haiku-4-5' },
-  { provider: 'anthropic', modelId: 'claude-3-5-haiku-latest' },
+  { provider: 'google', modelId: 'gemini-2.5-flash' },
 ];
 
 interface SelectedModel {

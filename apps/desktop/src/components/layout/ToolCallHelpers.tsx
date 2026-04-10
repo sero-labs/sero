@@ -198,19 +198,27 @@ export function ToolDetail({ tool, workspaceId = null }: { tool: ChatToolCallMes
   const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);
 
   return (
-    <Tool defaultOpen={isComplete || tool.state === 'running'}>
+    <Tool
+      defaultOpen={isComplete || tool.state === 'running'}
+      className="border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 mb-2"
+    >
       <ToolHeader
         title={effectiveToolName}
         type={`tool-${effectiveToolName}` as `tool-${string}`}
         state={mapToolState(tool.state)}
+        className="border-b border-[var(--border-subtle)]/60 p-1.5"
       />
-      <ToolContent className="max-h-[min(52vh,30rem)] overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
-        <ToolInput input={tool.input} />
+      <ToolContent className="max-h-[min(52vh,30rem)] overflow-y-auto overscroll-contain space-y-0 p-0 [scrollbar-gutter:stable]">
+        <ToolInput
+          input={tool.input}
+          className="rounded-none border border-[var(--border-subtle)]/60 bg-[var(--bg-surface)]/60 p-2.5 [&_[data-language]]:border-[var(--border-subtle)]/60 [&_[data-language]]:bg-[var(--bg-elevated)]/40"
+        />
         {isComplete && tool.images?.length ? <ToolImages images={tool.images} workspaceId={workspaceId} /> : null}
         {progressModel ? <ToolCallProgress tool={tool} /> : null}
         {(isComplete || (hasOutput && !progressModel)) && (
           <>
             <ToolOutput
+              className="rounded-none border border-[var(--border-subtle)]/60 bg-[var(--bg-surface)]/60 p-2.5 [&_[data-language]]:border-[var(--border-subtle)]/60 [&_[data-language]]:bg-[var(--bg-elevated)]/40"
               output={tool.output}
               errorText={tool.isError ? (tool.output ?? 'Tool execution failed') : undefined}
             />

@@ -158,7 +158,7 @@ export function ChatPanel() {
   const conversation = (
     <Conversation key={sessionId} className="min-h-0 flex-1" initial="instant">
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
-      <ConversationContent className="gap-4 p-3" onClick={conversationClickHandler}>
+      <ConversationContent className="gap-2.5 p-3" onClick={conversationClickHandler}>
         {!hasSession ? (
           <EmptyState message="Select or create a chat to begin" />
         ) : messages.length === 0 && !isStreaming ? (
