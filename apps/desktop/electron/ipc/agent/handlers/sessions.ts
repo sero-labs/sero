@@ -14,11 +14,11 @@ import { promises as fs, appendFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { IpcChannels } from '../../../../src/types/ipc';
-import type { SeroSessionInfo } from '../../../../src/types/ipc';
-import { workspaceManager } from '../../../features/workspace/manager';
-import { SERO_SESSION_DIR } from '../../../shared/infra/shared-infra';
-import { extractOriginalCollaborationQuery } from '../../collaboration/collaboration-message';
+import { IpcChannels } from '@/types/ipc';
+import type { SeroSessionInfo } from '@/types/ipc';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { SERO_SESSION_DIR } from '@electron/shared/infra/shared-infra';
+import { extractOriginalCollaborationQuery } from '@electron/ipc/collaboration/collaboration-message';
 
 /**
  * Legacy cwd used before workspaces existed.

@@ -10,7 +10,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-import { workspaceManager } from '../../../features/workspace/manager';
+import { workspaceManager } from '@electron/features/workspace/manager';
 
 export async function readGlobalAgentsMd(
   forWorkspaceId: string,

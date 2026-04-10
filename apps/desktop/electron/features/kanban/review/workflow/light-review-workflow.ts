@@ -1,9 +1,9 @@
 import { executeLightReview } from './light-review';
 import type { LightReviewResult } from './light-review';
-import { buildLightReviewRepairPrompt } from '../../prompts/prompt-light-review-repair';
-import type { Card, KanbanSettings } from '../../core/types';
+import { buildLightReviewRepairPrompt } from '@electron/features/kanban/prompts/prompt-light-review-repair';
+import type { Card, KanbanSettings } from '@electron/features/kanban/core/types';
 import type { ReviewProgressTracker } from '../state/review-progress';
-import type { SubagentManager } from '../../../subagent';
+import type { SubagentManager } from '@electron/features/subagent';
 
 const MAX_LIGHT_REPAIR_ATTEMPTS = 1;
 

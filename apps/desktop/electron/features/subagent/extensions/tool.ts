@@ -14,7 +14,7 @@ import { Type } from '@sinclair/typebox';
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type { AgentToolResult, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
 import type { SubagentManager } from '..';
-import { SERO_AGENT_DIR } from '../../../platform/env';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 

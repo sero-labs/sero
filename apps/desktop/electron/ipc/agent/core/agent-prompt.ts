@@ -8,13 +8,13 @@ import type {
   Usage,
   UserMessage,
 } from '@mariozechner/pi-ai';
-import type { ChatAttachment, ChatMessage, ChatToolCallMessage, AgentStreamEvent, ToolResultImage } from '../../../../src/types/ipc';
-import type { ChatCheckpointRef } from '../../../../src/types/checkpoints';
-import { getCliRegistry } from '../../../cli';
-import type { CliContentBlock } from '../../../cli/core';
-import { createSeroCliTool, splitCommandLines } from '../../../cli/core';
-import { workspaceManager } from '../../../shared/infra/shared-infra';
-import { createSeroUIContext } from '../../../features/apps/extensions/ui-context';
+import type { ChatAttachment, ChatMessage, ChatToolCallMessage, AgentStreamEvent, ToolResultImage } from '@/types/ipc';
+import type { ChatCheckpointRef } from '@/types/checkpoints';
+import { getCliRegistry } from '@electron/cli';
+import type { CliContentBlock } from '@electron/cli/core';
+import { createSeroCliTool, splitCommandLines } from '@electron/cli/core';
+import { workspaceManager } from '@electron/shared/infra/shared-infra';
+import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import { attachmentsToImages, nextId } from './agent-helpers';
 
 const ZERO_USAGE: Usage = {

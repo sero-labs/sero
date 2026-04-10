@@ -1,5 +1,5 @@
 import type { AgentSession, DefaultResourceLoader } from '@mariozechner/pi-coding-agent';
-import type { AgentStreamEvent } from '../../../src/types/ipc';
+import type { AgentStreamEvent } from '@/types/ipc';
 import { installCliSessionBridge } from './session-bridge';
 
 const TURN_LIMIT = 50;

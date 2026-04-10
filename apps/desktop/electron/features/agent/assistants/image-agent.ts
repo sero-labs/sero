@@ -14,7 +14,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-import { ensureInfra } from '../../../shared/infra/shared-infra';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
 
 // ── Types (mirrored from shared/types.ts to avoid cross-package import) ──
 

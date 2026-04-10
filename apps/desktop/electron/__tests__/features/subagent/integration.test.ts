@@ -6,21 +6,21 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { AgentConfig, RunResult } from '../../../features/subagent/core/types';
+import type { AgentConfig, RunResult } from '@electron/features/subagent/core/types';
 
 // Mock the runner module to avoid real session creation
-vi.mock('../../../features/subagent/runtime/runner', () => ({
+vi.mock('@electron/features/subagent/runtime/runner', () => ({
   runSubagent: vi.fn(),
 }));
 
 // Mock the discovery module to return controlled agent configs
-vi.mock('../../../features/subagent/runtime/discovery', () => ({
+vi.mock('@electron/features/subagent/runtime/discovery', () => ({
   discoverAgents: vi.fn(),
 }));
 
-import { SubagentManager } from '../../../features/subagent';
-import { runSubagent } from '../../../features/subagent/runtime/runner';
-import { discoverAgents } from '../../../features/subagent/runtime/discovery';
+import { SubagentManager } from '@electron/features/subagent';
+import { runSubagent } from '@electron/features/subagent/runtime/runner';
+import { discoverAgents } from '@electron/features/subagent/runtime/discovery';
 
 const mockRunSubagent = vi.mocked(runSubagent);
 const mockDiscoverAgents = vi.mocked(discoverAgents);

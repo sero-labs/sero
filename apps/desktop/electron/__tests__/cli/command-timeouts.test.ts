@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Type } from '@sinclair/typebox';
 
-import { bridgeTool, getBridgedToolTimeoutMs } from '../../cli/core/schema-bridge';
-import { CliRegistry } from '../../cli/core/registry';
-import { executeCliBatch } from '../../cli/core/tool';
+import { bridgeTool, getBridgedToolTimeoutMs } from '@electron/cli/core/schema-bridge';
+import { CliRegistry } from '@electron/cli/core/registry';
+import { executeCliBatch } from '@electron/cli/core/tool';
 import {
   buildBatchDeadline,
   DEFAULT_PER_COMMAND_TIMEOUT_MS,
   resolveCommandTimeoutMs,
-} from '../../cli/core/timeouts';
+} from '@electron/cli/core/timeouts';
 
 describe('CLI bridged command timeouts', () => {
   beforeEach(() => {

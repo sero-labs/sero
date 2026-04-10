@@ -11,8 +11,8 @@ import type {
   ChatToolCallMessage,
   AgentStreamEvent,
   ToolResultImage,
-} from '../../../../src/types/ipc';
-import type { ChatCheckpointRef } from '../../../../src/types/checkpoints';
+} from '@/types/ipc';
+import type { ChatCheckpointRef } from '@/types/checkpoints';
 
 import {
   nextId,
@@ -20,8 +20,8 @@ import {
   buildCheckpointMapByTurn,
 } from './agent-helpers';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
-import { logRawEvent, logTurnContext } from '../../editor/debug';
-import { noteCliTurnEnd, noteCliTurnStart } from '../../../cli/bridges';
+import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
+import { noteCliTurnEnd, noteCliTurnStart } from '@electron/cli/bridges';
 
 export interface SubscriptionPoolEntry {
   session: AgentSession;

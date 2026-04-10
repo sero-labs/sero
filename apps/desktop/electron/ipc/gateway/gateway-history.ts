@@ -10,7 +10,7 @@ import type {
   ChatToolCallMessage,
   ChatAssistantMessage,
   ToolResultImage,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
 export interface GatewayHistoryMessage {
   id: string;

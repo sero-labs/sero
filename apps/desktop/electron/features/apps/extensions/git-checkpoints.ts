@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
-import { vcsManager } from '../../../shared/infra/shared-infra';
-import { hasMutatingGit, isLikelyReadOnlyBash } from '../../../platform/security/git-command-filter';
+import { vcsManager } from '@electron/shared/infra/shared-infra';
+import { hasMutatingGit, isLikelyReadOnlyBash } from '@electron/platform/security/git-command-filter';
 
 const WORKSPACE_LINK_ENTRY = 'git-workspace-link';
 const CHECKPOINT_ENTRY = 'git-checkpoint';

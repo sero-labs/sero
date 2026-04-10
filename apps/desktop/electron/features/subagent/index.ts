@@ -19,7 +19,7 @@ import type {
   SubagentUsage,
   TaskOverride,
 } from './core/types';
-import { SERO_AGENT_DIR } from '../../platform/env';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import path from 'path';
 
 export { SubagentTracker } from './core/tracker';

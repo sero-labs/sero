@@ -3,8 +3,8 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
+import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '@/types/ipc';
 
 export const pluginsBridge = {
   install: (source: string): Promise<SeroAppManifest> =>

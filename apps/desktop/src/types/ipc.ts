@@ -241,7 +241,7 @@ export type {
 
 // Re-export the canonical container type from the container subsystem.
 // This avoids duplicating the shape and ensures IPC data stays in sync.
-export type { ContainerState as ContainerInfo } from '../../electron/features/container/core/types';
+export type { ContainerState as ContainerInfo } from '@electron/features/container/core/types';
 
 // ── Dev Servers ────────────────────────────────────────────────
 
@@ -410,8 +410,8 @@ export interface ResponseFeedbackState {
 // ── User Feedback (question / questionnaire tools) ─────────────
 //
 // Source of truth: packages/pi-user-feedback/shared/types.ts
-// These are mirrored here because the electron tsconfig's rootDir constraint
-// prevents cross-package imports. When modifying, update BOTH files.
+// These are mirrored here to keep the renderer/Electron IPC surface stable and
+// decoupled from the plugin package boundary. When modifying, update BOTH files.
 
 export interface UserFeedbackQuestionOption {
   value: string;

@@ -8,23 +8,23 @@
 
 import path from 'path';
 
-import type { Card } from '../../core/types';
+import type { Card } from '@electron/features/kanban/core/types';
 import type { ReviewProgressTracker } from '../state/review-progress';
-import type { ReviewResult } from '../../prompts';
+import type { ReviewResult } from '@electron/features/kanban/prompts';
 import {
   buildReviewPrompt,
   buildReviewRevisionPrompt,
   parseReviewResult,
-} from '../../prompts';
-import type { ReviewPromptOptions } from '../../prompts';
-import { bridgeSubagentLiveOutput } from '../../implementation/live-output-bridge';
+} from '@electron/features/kanban/prompts';
+import type { ReviewPromptOptions } from '@electron/features/kanban/prompts';
+import { bridgeSubagentLiveOutput } from '@electron/features/kanban/implementation/live-output-bridge';
 import {
   detectVerificationCommands,
   runVerificationCommands,
   summarizeVerificationFailure,
-} from '../../quality/verification';
-import { runWorkspaceCommand } from '../../workspace/workspace-command-runner';
-import type { KanbanSettings } from '../../core/types';
+} from '@electron/features/kanban/quality/verification';
+import { runWorkspaceCommand } from '@electron/features/kanban/workspace/workspace-command-runner';
+import type { KanbanSettings } from '@electron/features/kanban/core/types';
 import { shouldUseLightReview } from './light-review';
 import { runLightReviewWorkflow } from './light-review-workflow';
 import {
@@ -34,7 +34,7 @@ import {
   getWorktreeDiffSummary,
   pushWorktreeBranch,
   createPrFromWorktree,
-} from '../../worktree/worktree-git';
+} from '@electron/features/kanban/worktree/worktree-git';
 import {
   deleteCachedReview,
   loadCachedReview,
@@ -49,7 +49,7 @@ import {
 import { recoverWorkspaceRootChanges } from './review-worktree-recovery';
 import { syncReviewBranchWithDefault } from './review-branch-sync';
 import { startCardReviewPreview } from './review-preview';
-import type { SubagentManager } from '../../../subagent';
+import type { SubagentManager } from '@electron/features/subagent';
 
 const MAX_CRITICAL_REVISIONS = 1;
 

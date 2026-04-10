@@ -1,6 +1,6 @@
 // Re-export shared VCS types from the canonical renderer location.
 // Electron-only types (GitResult, CreateCheckpointOptions) are defined below.
-import type { VcsCheckpointSource } from '../../../../src/types/vcs';
+import type { VcsCheckpointSource } from '@/types/vcs';
 
 export type {
   VcsCheckpointSource,
@@ -18,7 +18,7 @@ export type {
   OperationEntry,
   SyncResult,
   PushPreview,
-} from '../../../../src/types/vcs';
+} from '@/types/vcs';
 
 export interface GitResult {
   exitCode: number;

@@ -1,6 +1,6 @@
-import type { DevServer } from '../../../../src/types/ipc';
-import { containerManager } from '../../container/core/singleton';
-import { workspaceManager } from '../../workspace/manager';
+import type { DevServer } from '@/types/ipc';
+import { containerManager } from '@electron/features/container/core/singleton';
+import { workspaceManager } from '@electron/features/workspace/manager';
 import { runWorkspaceCommand } from './workspace-command-runner';
 import { startManagedDevServer } from '../implementation/dev-server-launch';
 import {

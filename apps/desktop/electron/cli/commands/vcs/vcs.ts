@@ -1,7 +1,7 @@
-import { vcsManager, vcsOps } from '../../../shared/infra/shared-infra';
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
-import { fail, ok, parseFlags } from '../../lib/utils';
+import { vcsManager, vcsOps } from '@electron/shared/infra/shared-infra';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext } from '@electron/cli/core/types';
+import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
 
 async function handleVcs(args: string[], ctx: CliCommandContext) {
   const [action, ...rest] = args;

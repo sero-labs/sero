@@ -15,8 +15,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 
-import { inferConventionalType, slugifyBranchLabel } from '../../vcs/support/branch-naming';
-import { ensureBootstrapGitignore } from '../../vcs/support/bootstrap-gitignore';
+import { inferConventionalType, slugifyBranchLabel } from '@electron/features/vcs/support/branch-naming';
+import { ensureBootstrapGitignore } from '@electron/features/vcs/support/bootstrap-gitignore';
 import { resolvePreferredBaseRef } from './worktree-maintenance';
 
 const execFileAsync = promisify(execFile);

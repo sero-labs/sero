@@ -16,11 +16,11 @@ import type {
   SeroSlashCommandInfo,
   SessionModelState,
   ToolResultImage,
-} from '../../../../src/types/ipc';
-import type { ChatCheckpointRef } from '../../../../src/types/checkpoints';
-import { resizeImageForApi } from '../../../shared/media/image-resize';
+} from '@/types/ipc';
+import type { ChatCheckpointRef } from '@/types/checkpoints';
+import { resizeImageForApi } from '@electron/shared/media/image-resize';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
-import { extractOriginalCollaborationQuery } from '../../collaboration/collaboration-message';
+import { extractOriginalCollaborationQuery } from '@electron/ipc/collaboration/collaboration-message';
 import { buildAvailableModelGroups } from './model-groups';
 
 // ── ID generation ────────────────────────────────────────────
@@ -326,7 +326,7 @@ export function attachmentsToImages(attachments?: ChatAttachment[]): ImageConten
 
 // ── Provider metadata ────────────────────────────────────────
 
-import { providerLogo, providerDisplayName } from '../../platform/auth';
+import { providerLogo, providerDisplayName } from '@electron/ipc/platform/auth';
 export { providerLogo, providerDisplayName };
 
 // ── Model state builder ──────────────────────────────────────

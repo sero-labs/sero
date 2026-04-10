@@ -3,15 +3,15 @@
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
+import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '@/types/ipc';
 import {
   installPlugin,
   uninstallPlugin,
   listInstalledPlugins,
   isInstalledPlugin,
-} from '../../features/plugins/manager';
-import { searchPlugins } from '../../features/plugins/discovery';
+} from '@electron/features/plugins/manager';
+import { searchPlugins } from '@electron/features/plugins/discovery';
 import { reloadAllSessionResources } from '../agent';
 import { disposeAppSessionsForApp } from '../agent/handlers/app-agent';
 

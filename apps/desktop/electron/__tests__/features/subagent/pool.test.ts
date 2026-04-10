@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ConcurrencyPool } from '../../../features/subagent/core/pool';
+import { ConcurrencyPool } from '@electron/features/subagent/core/pool';
 
 function makeController() {
   return new AbortController();

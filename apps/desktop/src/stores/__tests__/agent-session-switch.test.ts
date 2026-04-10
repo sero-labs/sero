@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAgentStore } from '../agent';
+import { useAgentStore } from '@/stores/agent';
 
 const initialState = useAgentStore.getState();
 const notifySessionSwitch = vi.fn().mockResolvedValue(undefined);

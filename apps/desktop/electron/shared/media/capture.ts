@@ -12,7 +12,7 @@
  */
 
 import { BrowserWindow, screen } from 'electron';
-import type { AppPanelRect } from '../../../src/types/ipc';
+import type { AppPanelRect } from '@/types/ipc';
 
 /**
  * Capture a region of the window as a PNG base64 string.

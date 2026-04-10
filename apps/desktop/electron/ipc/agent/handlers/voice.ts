@@ -1,16 +1,16 @@
 import { ipcMain } from 'electron';
 import { getEnvApiKey } from '@mariozechner/pi-ai';
 
-import { IpcChannels } from '../../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   VoiceTranscriptionResult,
   VoiceTranscriptionStatus,
-} from '../../../../src/types/ipc';
-import { ensureInfra } from '../../../shared/infra/shared-infra';
+} from '@/types/ipc';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import {
   getVoiceTranscriptionStatus,
   transcribeWithOpenAi,
-} from '../../../features/agent/assistants/voice-transcription';
+} from '@electron/features/agent/assistants/voice-transcription';
 
 export function registerVoiceHandlers(): void {
   ipcMain.handle(

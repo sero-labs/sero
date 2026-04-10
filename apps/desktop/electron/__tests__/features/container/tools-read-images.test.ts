@@ -8,12 +8,12 @@ const mocks = vi.hoisted(() => ({
   prepareToolImage: vi.fn(),
 }));
 
-vi.mock('../../../shared/media/image-resize', () => ({
+vi.mock('@electron/shared/media/image-resize', () => ({
   prepareToolImage: mocks.prepareToolImage,
 }));
 
-import { createHostCodingTools } from '../../../features/container/tools';
-import { createRead } from '../../../features/container/tools/tools-coding';
+import { createHostCodingTools } from '@electron/features/container/tools';
+import { createRead } from '@electron/features/container/tools/tools-coding';
 
 function getTool<T extends { name: string }>(tools: T[], name: string): T {
   const tool = tools.find((entry) => entry.name === name);

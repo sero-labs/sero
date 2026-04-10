@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'events';
 
-import { askConfirm } from '../../../cli/lib/ask-confirm';
-import { getUserFeedbackBus } from '../../../shared/lib/user-feedback-bus';
-import type { UserFeedbackPendingQuestion, UserFeedbackResponse } from '../../../../src/types/ipc';
+import { askConfirm } from '@electron/cli/lib/ask-confirm';
+import { getUserFeedbackBus } from '@electron/shared/lib/user-feedback-bus';
+import type { UserFeedbackPendingQuestion, UserFeedbackResponse } from '@/types/ipc';
 
 describe('askConfirm', () => {
   let bus: EventEmitter;

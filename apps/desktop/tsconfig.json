@@ -24,6 +24,6 @@
       "@sero-ai/ui/*": ["../../packages/ui/src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "e2e/**/*", "playwright.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

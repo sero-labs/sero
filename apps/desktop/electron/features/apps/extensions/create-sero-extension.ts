@@ -15,17 +15,17 @@
 
 import path from 'path';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-import type { WorkspaceManager } from '../../workspace/manager';
-import type { ContainerState } from '../../container';
-import { buildContainerPromptBlock } from '../../container/tools/system-prompt';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import type { ContainerState } from '@electron/features/container';
+import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { registerSeroBuiltinCommands } from './commands';
-import { buildCliPromptBlock } from '../../../cli';
+import { buildCliPromptBlock } from '@electron/cli';
 import { registerGitCheckpointFeatures } from './git-checkpoints';
-import { showNotification, type NotificationType } from '../../../platform/desktop/notifications';
-import { logProviderRequest } from '../../../ipc/editor/debug';
-import { registerSubagentTool, registerCreateAgentTool } from '../../subagent/extensions/tool';
-import { buildSubagentPromptBlock } from '../../subagent/extensions/prompt';
-import type { SubagentManager } from '../../subagent';
+import { showNotification, type NotificationType } from '@electron/platform/desktop/notifications';
+import { logProviderRequest } from '@electron/ipc/editor/debug';
+import { registerSubagentTool, registerCreateAgentTool } from '@electron/features/subagent/extensions/tool';
+import { buildSubagentPromptBlock } from '@electron/features/subagent/extensions/prompt';
+import type { SubagentManager } from '@electron/features/subagent';
 
 /**
  * Creates an extension factory for a specific workspace session.

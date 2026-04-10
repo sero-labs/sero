@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { migrateLegacyProfileRootConfigsSync } from '../../../features/profile/agent-config-migration';
+import { migrateLegacyProfileRootConfigsSync } from '@electron/features/profile/agent-config-migration';
 
 const tempDirs: string[] = [];
 

@@ -7,10 +7,10 @@
  * using Sero-managed Google OAuth tokens (GOG_KEYRING_PASSWORD).
  */
 
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext, CliResult } from '../../core/types';
-import { fail, parseFlags, requireFlagString } from '../../lib/utils';
-import { runGog, gogResultToCliResult, GOG_AUTH_TIMEOUT_MS } from '../../lib/gog-runner';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext, CliResult } from '@electron/cli/core/types';
+import { fail, parseFlags, requireFlagString } from '@electron/cli/lib/utils';
+import { runGog, gogResultToCliResult, GOG_AUTH_TIMEOUT_MS } from '@electron/cli/lib/gog-runner';
 
 // ── Helpers ──────────────────────────────────────────────────
 

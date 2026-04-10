@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveAppTarget } from '../../cli/commands/apps/app-control-target';
+import { resolveAppTarget } from '@electron/cli/commands/apps/app-control-target';
 
 const APPS = [
   { id: 'calc', name: 'Calculator', icon: 'calc', builtin: true, scope: 'global', hasUI: true },

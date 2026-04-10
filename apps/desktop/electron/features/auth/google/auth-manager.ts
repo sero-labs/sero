@@ -13,9 +13,9 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 import path from 'node:path';
 
-import { readPluginConfig } from '../../plugin-config';
-import { readRegistrySync } from '../../profile/manager';
-import { SERO_AGENT_DIR } from '../../../platform/env';
+import { readPluginConfig } from '@electron/features/plugin-config';
+import { readRegistrySync } from '@electron/features/profile/manager';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
   argsWithClient,
   deriveKeyringPassword,

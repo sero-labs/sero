@@ -571,6 +571,7 @@ export default MyApp;
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
     "jsx": "react-jsx",
     "strict": true,
     "esModuleInterop": true,
@@ -586,6 +587,10 @@ export default MyApp;
   "include": ["./**/*", "../shared/**/*"]
 }
 ```
+
+Notes:
+- `baseUrl: "."` makes the `paths` mappings explicit and reliable in standalone plugin TS configs.
+- These mappings are for plugin-local source only. Desktop host code uses its own aliases (`@`, `@electron`, `@plugins`, `@packages`) and those should not be copied into plugin `ui/tsconfig.json` unless the plugin truly depends on host source files.
 
 ---
 

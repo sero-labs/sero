@@ -25,7 +25,7 @@ import {
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useAppStore } from '@/stores/app';
 import type { FileDiffEntry } from '@/types/vcs';
-import { statusCode, statusColor, basename, langFromPath } from '../vcs/vcs-utils';
+import { statusCode, statusColor, basename, langFromPath } from '@/components/apps/explorer/vcs/vcs-utils';
 
 export interface DiffTabState {
   type: 'diff';

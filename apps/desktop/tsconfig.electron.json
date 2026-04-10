@@ -16,6 +16,7 @@
     "lib": ["ES2022"],
     "baseUrl": ".",
     "paths": {
+      "@/*": ["src/*"],
       "@electron/*": ["electron/*"],
       "@plugins/*": ["../../plugins/*"],
       "@packages/*": ["../../packages/*"],

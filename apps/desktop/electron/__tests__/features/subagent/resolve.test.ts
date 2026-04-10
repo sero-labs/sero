@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveConfig } from '../../../features/subagent/core/resolve';
+import { resolveConfig } from '@electron/features/subagent/core/resolve';
 
 describe('resolveConfig', () => {
   it('per-task override wins over all others', () => {

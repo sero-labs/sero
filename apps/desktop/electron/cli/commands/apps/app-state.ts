@@ -1,7 +1,7 @@
-import { appStateManager } from '../../../features/apps/state/manager';
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
-import { fail, ok, parseFlags, requireFlagString, stringifyJson } from '../../lib/utils';
+import { appStateManager } from '@electron/features/apps/state/manager';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext } from '@electron/cli/core/types';
+import { fail, ok, parseFlags, requireFlagString, stringifyJson } from '@electron/cli/lib/utils';
 
 async function handleAppState(args: string[], _ctx: CliCommandContext) {
   const [action, ...rest] = args;

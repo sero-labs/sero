@@ -1,8 +1,8 @@
 import { realpathSync } from 'fs';
 import path from 'path';
 
-import { PRIMARY_ROOT_ID } from '../../features/workspace/roots';
-import type { WorkspaceManager } from '../../features/workspace/manager';
+import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 export const PRIMARY_ROOT_PREFIX = `/${PRIMARY_ROOT_ID}`;
 

@@ -6,7 +6,7 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { JsonRpcParser, encodeMessage } from './json-rpc';
-import { CONTAINER_BIN, containerId } from '../../container/core/types';
+import { CONTAINER_BIN, containerId } from '@electron/features/container/core/types';
 import type {
   LspServerConfig, JsonRpcMessage, JsonRpcRequest,
   JsonRpcResponse, JsonRpcNotification,

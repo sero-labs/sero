@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveSubagentPaths } from '../../../features/subagent/runtime/runner';
+import { resolveSubagentPaths } from '@electron/features/subagent/runtime/runner';
 
 describe('resolveSubagentPaths', () => {
   it('keeps the container root at the workspace while targeting a worktree cwd', () => {

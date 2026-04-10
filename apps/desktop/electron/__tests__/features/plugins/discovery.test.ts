@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InstalledPlugin } from '@sero/common';
 
-vi.mock('../../../features/plugins/manager', () => ({
+vi.mock('@electron/features/plugins/manager', () => ({
   listInstalledPlugins: vi.fn(),
 }));
 
-import { searchPlugins } from '../../../features/plugins/discovery';
-import { listInstalledPlugins } from '../../../features/plugins/manager';
+import { searchPlugins } from '@electron/features/plugins/discovery';
+import { listInstalledPlugins } from '@electron/features/plugins/manager';
 
 const mockListInstalledPlugins = vi.mocked(listInstalledPlugins);
 

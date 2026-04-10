@@ -1,14 +1,14 @@
 import { ipcRenderer } from 'electron';
 
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   ProxyFetchRequest,
   ProxyFetchResponse,
   QrLoginData,
   ResponseFeedbackEntry,
   ResponseFeedbackState,
-} from '../../../src/types/ipc';
-import type { ThemePreset, ThemePresetMeta } from '../../../src/types/theme';
+} from '@/types/ipc';
+import type { ThemePreset, ThemePresetMeta } from '@/types/theme';
 
 export const pluginConfigBridge = {
   read: (pluginId: string): Promise<Record<string, unknown> | null> =>

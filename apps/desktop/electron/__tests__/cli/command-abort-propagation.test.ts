@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { CliRegistry } from '../../cli/core/registry';
-import { executeCliBatch } from '../../cli/core/tool';
+import { CliRegistry } from '@electron/cli/core/registry';
+import { executeCliBatch } from '@electron/cli/core/tool';
 
 function createContext(signal?: AbortSignal) {
   return {

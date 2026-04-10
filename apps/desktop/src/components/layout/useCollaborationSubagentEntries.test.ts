@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SubagentEntry } from '../../types/ipc';
+import type { SubagentEntry } from '@/types/ipc';
 import { buildLatestActiveEntriesByRole } from './useCollaborationSubagentEntries';
 
 function createEntry(

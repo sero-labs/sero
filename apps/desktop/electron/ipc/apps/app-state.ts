@@ -11,12 +11,12 @@
 
 import path from 'path';
 import { ipcMain } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import { appStateManager } from '../../features/apps/state/manager';
-import { SERO_HOME } from '../../platform/env';
-import { gitWorkspaceStateManager } from '../../features/apps/git-app/manager';
-import type { KanbanState } from '../../features/kanban/core/types';
-import { kanbanOrchestrator, ensureInfra, workspaceManager, SERO_CONFIG_PATH, applyRuntimeSettings } from '../../shared/infra/shared-infra';
+import { IpcChannels } from '@/types/ipc';
+import { appStateManager } from '@electron/features/apps/state/manager';
+import { SERO_HOME } from '@electron/platform/env';
+import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
+import type { KanbanState } from '@electron/features/kanban/core/types';
+import { kanbanOrchestrator, ensureInfra, workspaceManager, SERO_CONFIG_PATH, applyRuntimeSettings } from '@electron/shared/infra/shared-infra';
 import { reloadAllSessionResources } from '../agent';
 
 const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';

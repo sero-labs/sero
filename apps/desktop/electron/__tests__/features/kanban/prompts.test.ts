@@ -12,10 +12,10 @@ import {
   buildReviewPrompt,
   buildReviewRevisionPrompt,
   buildSpecReviewPrompt,
-} from '../../../features/kanban/prompts';
-import { buildConflictResolutionPrompt } from '../../../features/kanban/prompts/prompt-conflict-resolution';
-import { buildLightReviewRepairPrompt } from '../../../features/kanban/prompts/prompt-light-review-repair';
-import type { Card } from '../../../features/kanban/core/types';
+} from '@electron/features/kanban/prompts';
+import { buildConflictResolutionPrompt } from '@electron/features/kanban/prompts/prompt-conflict-resolution';
+import { buildLightReviewRepairPrompt } from '@electron/features/kanban/prompts/prompt-light-review-repair';
+import type { Card } from '@electron/features/kanban/core/types';
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {

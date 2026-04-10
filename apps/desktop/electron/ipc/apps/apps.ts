@@ -9,20 +9,27 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { watch, readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { SeroAppManifest } from '../../../src/types/ipc';
-import { discoverApps } from '../../features/apps/discovery';
+import { IpcChannels } from '@/types/ipc';
+import type { SeroAppManifest } from '@/types/ipc';
+import { discoverApps } from '@electron/features/apps/discovery';
+import {
+  resolveBuiltinPackagesDir,
+  resolveBuiltinPluginsDir,
+} from '@electron/platform/protocols/builtin-resources';
 
 const APP_ROOTS = [
   {
-    dir: path.resolve(__dirname, '../../../../packages'),
+    dir: resolveBuiltinPackagesDir(),
     matchesDirName: (dir: string) => dir.startsWith('pi-'),
   },
   {
-    dir: path.resolve(__dirname, '../../../../plugins'),
+    dir: resolveBuiltinPluginsDir(),
     matchesDirName: (dir: string) => dir.startsWith('sero-') && dir.endsWith('-plugin'),
   },
-];
+] satisfies Array<{
+  dir: string | null;
+  matchesDirName: (dir: string) => boolean;
+}>;
 
 export function registerAppsHandlers(): void {
   ipcMain.handle(
@@ -46,11 +53,12 @@ export function watchForNewApps(knownAppIds: Set<string>): void {
   const notified = new Set<string>();
 
   for (const root of APP_ROOTS) {
-    if (!existsSync(root.dir)) continue;
+    const rootDir = root.dir;
+    if (!rootDir || !existsSync(rootDir)) continue;
 
     let debounce: ReturnType<typeof setTimeout> | null = null;
 
-    watch(root.dir, { recursive: true }, (_eventType, filename) => {
+    watch(rootDir, { recursive: true }, (_eventType, filename) => {
       if (!filename || !filename.includes('package.json')) return;
 
       const [topLevelDir] = filename.split(path.sep);
@@ -58,7 +66,7 @@ export function watchForNewApps(knownAppIds: Set<string>): void {
 
       if (debounce) clearTimeout(debounce);
       debounce = setTimeout(() => {
-        checkForNewApps(root.dir, root.matchesDirName, knownAppIds, notified);
+        checkForNewApps(rootDir, root.matchesDirName, knownAppIds, notified);
       }, 2000);
     });
   }

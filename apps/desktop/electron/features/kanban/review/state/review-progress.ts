@@ -4,8 +4,8 @@
  * Thin subclass of BaseProgressTracker. Flushes to `card.reviewProgress`.
  */
 
-import type { Card, ReviewProgress } from '../../core/types';
-import { BaseProgressTracker, type WriteCardFn } from '../../core/base-progress';
+import type { Card, ReviewProgress } from '@electron/features/kanban/core/types';
+import { BaseProgressTracker, type WriteCardFn } from '@electron/features/kanban/core/base-progress';
 
 export class ReviewProgressTracker extends BaseProgressTracker<ReviewProgress> {
   constructor(stateFilePath: string, cardId: string, writeCard: WriteCardFn) {

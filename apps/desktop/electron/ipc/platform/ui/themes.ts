@@ -13,9 +13,9 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { promises as fs } from 'fs';
 import { existsSync, mkdirSync, readdirSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '../../../../src/types/ipc';
-import { SERO_HOME } from '../../../platform/env';
-import type { ThemePreset, ThemePresetMeta } from '../../../../src/types/theme';
+import { IpcChannels } from '@/types/ipc';
+import { SERO_HOME } from '@electron/platform/env';
+import type { ThemePreset, ThemePresetMeta } from '@/types/theme';
 
 const THEMES_DIR = path.join(SERO_HOME, 'themes');
 

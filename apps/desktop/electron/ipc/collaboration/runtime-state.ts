@@ -4,8 +4,8 @@ import type {
   CollaborationStrategy,
   DebateConfig,
   DebateRound,
-} from '../../../src/types/collaboration';
-import { DEFAULT_DEBATE_CONFIG } from '../../../src/types/collaboration';
+} from '@/types/collaboration';
+import { DEFAULT_DEBATE_CONFIG } from '@/types/collaboration';
 
 const runtimeStates = new Map<string, CollaborationStateSnapshot>();
 

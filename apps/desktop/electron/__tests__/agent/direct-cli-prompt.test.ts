@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ChatAttachment, AgentStreamEvent } from '../../../src/types/ipc';
-import type { ChatCheckpointRef } from '../../../src/types/checkpoints';
-import { workspaceManager } from '../../shared/infra/shared-infra';
+import type { ChatAttachment, AgentStreamEvent } from '@/types/ipc';
+import type { ChatCheckpointRef } from '@/types/checkpoints';
+import { workspaceManager } from '@electron/shared/infra/shared-infra';
 import {
   buildDirectCliExtensionContext,
   executeDirectCliPrompt,
   handlePromptInput,
   isDirectSeroCliPrompt,
   type PromptPoolEntry,
-} from '../../ipc/agent/core/agent-prompt';
+} from '@electron/ipc/agent/core/agent-prompt';
 
 describe('direct CLI chat prompts', () => {
   afterEach(() => {

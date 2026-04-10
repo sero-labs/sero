@@ -1,5 +1,5 @@
 import type { AgentToolResult } from '@mariozechner/pi-agent-core';
-import { prepareToolImage } from '../../../shared/media/image-resize';
+import { prepareToolImage } from '@electron/shared/media/image-resize';
 
 interface BrowserTextResponse {
   message?: string;

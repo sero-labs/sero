@@ -15,7 +15,7 @@
 import { safeStorage, shell } from 'electron';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'fs';
 import path from 'path';
-import { SERO_AGENT_DIR, SERO_HOME } from '../../../platform/env';
+import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 
 // ── GitHub OAuth App ─────────────────────────────────────────
 // Client ID for "Sero Desktop" GitHub OAuth App (public, no secret needed for device flow).
@@ -32,6 +32,13 @@ const SCOPES = 'repo read:org';
 const TOKEN_FILE = path.join(SERO_AGENT_DIR, 'github-auth.json');
 const LEGACY_TOKEN_FILE = path.join(SERO_HOME, 'github-auth.json');
 const POLL_INTERVAL_MIN_MS = 5_000;
+
+function canUseSafeStorage(): boolean {
+  return typeof safeStorage?.isEncryptionAvailable === 'function'
+    && typeof safeStorage?.encryptString === 'function'
+    && typeof safeStorage?.decryptString === 'function'
+    && safeStorage.isEncryptionAvailable();
+}
 
 function getExistingTokenFile(): string | null {
   if (existsSync(TOKEN_FILE)) return TOKEN_FILE;
@@ -265,7 +272,7 @@ export class GitHubAuthManager {
       const dir = path.dirname(TOKEN_FILE);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-      const encrypted = safeStorage.isEncryptionAvailable()
+      const encrypted = canUseSafeStorage()
         ? safeStorage.encryptString(token).toString('base64')
         : Buffer.from(token).toString('base64'); // Fallback: base64 only
 
@@ -290,7 +297,7 @@ export class GitHubAuthManager {
       const raw = readFileSync(tokenFile, 'utf8');
       const stored = JSON.parse(raw) as StoredToken;
 
-      const token = safeStorage.isEncryptionAvailable()
+      const token = canUseSafeStorage()
         ? safeStorage.decryptString(Buffer.from(stored.encrypted, 'base64'))
         : Buffer.from(stored.encrypted, 'base64').toString('utf8');
 

@@ -21,7 +21,7 @@ import {
   type PlanningSubmission,
 } from './planning-submission-tool';
 import { bridgeSubagentLiveOutput } from '../implementation/live-output-bridge';
-import type { SubagentManager } from '../../subagent';
+import type { SubagentManager } from '@electron/features/subagent';
 
 export interface PlanningExecutorDeps {
   subagentManager: SubagentManager;

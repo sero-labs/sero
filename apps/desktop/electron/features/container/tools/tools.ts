@@ -10,7 +10,7 @@ import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import type { ContainerManager } from '..';
 import { createBash, createRead, createWrite, createEdit } from './tools-coding';
 import { createBrowser } from './tools-browser';
-import { createWorkspaceCliTool } from '../../../cli';
+import { createWorkspaceCliTool } from '@electron/cli';
 
 /**
  * Build all container tools for a workspace.

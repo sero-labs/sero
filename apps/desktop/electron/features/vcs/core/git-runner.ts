@@ -4,10 +4,10 @@ import { homedir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
-import type { WorkspaceManager } from '../../workspace/manager';
-import type { ContainerManager } from '../../container';
-import { buildWorkspaceContainerConfig } from '../../container/core/workspace-container-config';
-import type { GitHubAuthManager } from '../../auth/github/auth-manager';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import type { ContainerManager } from '@electron/features/container';
+import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import type { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
 import type { GitResult } from '../support/types';
 
 const execFileAsync = promisify(execFile);

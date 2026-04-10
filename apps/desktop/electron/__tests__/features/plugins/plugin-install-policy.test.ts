@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { SeroAppManifest } from '../../../../src/types/ipc';
-import { assertPluginInstallAllowed } from '../../../features/plugins/install-policy';
+import type { SeroAppManifest } from '@/types/ipc';
+import { assertPluginInstallAllowed } from '@electron/features/plugins/install-policy';
 
 function createManifest(
   id: string,

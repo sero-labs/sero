@@ -8,15 +8,15 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { readFile, writeFile, unlink, mkdir, rename } from 'fs/promises';
 import path from 'path';
-import { IpcChannels } from '../../../src/types/ipc';
-import { subagentManager } from '../../shared/infra/shared-infra';
-import { SERO_AGENT_DIR } from '../../platform/env';
-import type { SubagentEntry, SubagentUsage, SubagentToolActivity } from '../../features/subagent/core/types';
+import { IpcChannels } from '@/types/ipc';
+import { subagentManager } from '@electron/shared/infra/shared-infra';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
+import type { SubagentEntry, SubagentUsage, SubagentToolActivity } from '@electron/features/subagent/core/types';
 import type {
   SubagentEvent,
   SubagentAgentSummary,
   SubagentAgentFile,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 

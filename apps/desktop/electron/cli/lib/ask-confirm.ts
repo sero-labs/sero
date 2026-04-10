@@ -18,8 +18,8 @@
  * decide whether to fail safely or fall back to a non-interactive path.
  */
 
-import type { UserFeedbackPendingQuestion, UserFeedbackResponse } from '../../../src/types/ipc';
-import { getUserFeedbackBus } from '../../shared/lib/user-feedback-bus';
+import type { UserFeedbackPendingQuestion, UserFeedbackResponse } from '@/types/ipc';
+import { getUserFeedbackBus } from '@electron/shared/lib/user-feedback-bus';
 
 export interface AskConfirmInput {
   /** Prompt shown to the user above the Yes/No buttons. */

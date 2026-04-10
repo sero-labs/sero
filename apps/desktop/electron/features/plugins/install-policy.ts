@@ -1,4 +1,4 @@
-import type { SeroAppManifest } from '../../../src/types/ipc';
+import type { SeroAppManifest } from '@/types/ipc';
 
 /**
  * Prevent external plugins from shadowing an unrelated app id.

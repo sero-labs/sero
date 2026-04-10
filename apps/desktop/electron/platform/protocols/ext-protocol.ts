@@ -14,7 +14,7 @@
 import { protocol, net } from 'electron';
 import path from 'path';
 import { realpathSync, readFileSync } from 'fs';
-import type { SeroAppManifest } from '../../../src/types/ipc';
+import type { SeroAppManifest } from '@/types/ipc';
 
 // ── App registry (populated by discovery) ────────────────────
 

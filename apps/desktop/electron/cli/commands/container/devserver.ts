@@ -1,7 +1,7 @@
-import { containerManager } from '../../../shared/infra/shared-infra';
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
-import { fail, ok, parseFlags, requireFlagString } from '../../lib/utils';
+import { containerManager } from '@electron/shared/infra/shared-infra';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext } from '@electron/cli/core/types';
+import { fail, ok, parseFlags, requireFlagString } from '@electron/cli/lib/utils';
 
 async function handleDevServer(args: string[], ctx: CliCommandContext) {
   const [action, ...rest] = args;

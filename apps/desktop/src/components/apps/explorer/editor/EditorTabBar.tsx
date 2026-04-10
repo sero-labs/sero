@@ -16,7 +16,7 @@ import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent,
   ContextMenuItem, ContextMenuSeparator,
 } from '@sero-ai/ui/components/ui/context-menu';
-import { FileIcon } from '../file-tree/file-icons';
+import { FileIcon } from '@/components/apps/explorer/file-tree/file-icons';
 
 export interface EditorTab {
   path: string;

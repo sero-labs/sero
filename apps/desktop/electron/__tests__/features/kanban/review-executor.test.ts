@@ -4,25 +4,25 @@ import os from 'os';
 import path from 'path';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
-vi.mock('../../../features/kanban/implementation/live-output-bridge', () => ({
+vi.mock('@electron/features/kanban/implementation/live-output-bridge', () => ({
   bridgeSubagentLiveOutput: vi.fn(() => vi.fn()),
 }));
 
-vi.mock('../../../features/kanban/quality/verification', () => ({
+vi.mock('@electron/features/kanban/quality/verification', () => ({
   detectVerificationCommands: vi.fn().mockResolvedValue([]),
   runVerificationCommands: vi.fn(),
   summarizeVerificationFailure: vi.fn((entry: { command: string }) => entry.command),
 }));
 
-vi.mock('../../../features/kanban/review/workflow/light-review', () => ({
+vi.mock('@electron/features/kanban/review/workflow/light-review', () => ({
   shouldUseLightReview: vi.fn(() => false),
 }));
 
-vi.mock('../../../features/kanban/review/workflow/light-review-workflow', () => ({
+vi.mock('@electron/features/kanban/review/workflow/light-review-workflow', () => ({
   runLightReviewWorkflow: vi.fn(),
 }));
 
-vi.mock('../../../features/kanban/worktree/worktree-git', () => ({
+vi.mock('@electron/features/kanban/worktree/worktree-git', () => ({
   createCheckpointInWorktree: vi.fn().mockResolvedValue('checkpoint-1'),
   ensureRemoteDefaultBranch: vi.fn().mockResolvedValue('main'),
   getWorktreeDiff: vi.fn().mockResolvedValue('diff --git a/src/App.tsx b/src/App.tsx'),
@@ -35,30 +35,30 @@ vi.mock('../../../features/kanban/worktree/worktree-git', () => ({
   }),
 }));
 
-vi.mock('../../../features/kanban/core/contracts', () => ({
+vi.mock('@electron/features/kanban/core/contracts', () => ({
   getContract: vi.fn(() => ({
     qualityGates: [{ type: 'agent-review', agent: 'reviewer', blocking: true }],
   })),
 }));
 
-vi.mock('../../../features/kanban/review/workflow/review-branch-sync', () => ({
+vi.mock('@electron/features/kanban/review/workflow/review-branch-sync', () => ({
   syncReviewBranchWithDefault: vi.fn().mockResolvedValue({
     success: true,
     invalidatedReviewCache: false,
   }),
 }));
 
-vi.mock('../../../features/kanban/review/workflow/review-preview', () => ({
+vi.mock('@electron/features/kanban/review/workflow/review-preview', () => ({
   startCardReviewPreview: vi.fn().mockResolvedValue({
     previewServerId: 'workspace-1:card-preview:1:4173',
     previewUrl: 'http://127.0.0.1:4173',
   }),
 }));
 
-import { executeReview } from '../../../features/kanban/review/workflow/review-executor';
-import { createPrFromWorktree } from '../../../features/kanban/worktree/worktree-git';
-import type { Card, KanbanSettings } from '../../../features/kanban/core/types';
-import type { ReviewProgressTracker } from '../../../features/kanban/review/state/review-progress';
+import { executeReview } from '@electron/features/kanban/review/workflow/review-executor';
+import { createPrFromWorktree } from '@electron/features/kanban/worktree/worktree-git';
+import type { Card, KanbanSettings } from '@electron/features/kanban/core/types';
+import type { ReviewProgressTracker } from '@electron/features/kanban/review/state/review-progress';
 
 let tmpDir: string;
 

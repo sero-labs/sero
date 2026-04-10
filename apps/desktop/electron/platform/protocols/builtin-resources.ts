@@ -75,11 +75,14 @@ export function discoverBuiltinPackagePaths(): string[] {
   }
 }
 
+export function resolveBuiltinPluginsDir(): string | null {
+  const monorepoPlugins = firstExistingPath(MONOREPO_PLUGINS_CANDIDATES);
+  if (monorepoPlugins) return monorepoPlugins;
+  return existsSync(BUNDLED_PLUGINS_DIR) ? BUNDLED_PLUGINS_DIR : null;
+}
+
 export function discoverBuiltinPluginPaths(): string[] {
-  const pluginsDir = firstExistingPath([
-    ...MONOREPO_PLUGINS_CANDIDATES,
-    BUNDLED_PLUGINS_DIR,
-  ]);
+  const pluginsDir = resolveBuiltinPluginsDir();
   if (!pluginsDir) return [];
 
   try {

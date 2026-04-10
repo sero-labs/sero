@@ -6,7 +6,7 @@
  */
 
 import type { Card, KanbanState } from './types';
-import { appStateManager } from '../../apps/state/manager';
+import { appStateManager } from '@electron/features/apps/state/manager';
 
 /** Fallback state used when the file is empty/missing. */
 function fallbackState(): KanbanState {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Card, KanbanState } from '../../../features/kanban/core/types';
+import type { Card, KanbanState } from '@electron/features/kanban/core/types';
 
 const { readMock, updateCardMock, getPullRequestMergeStateMock, getPullRequestMergeErrorMock } = vi.hoisted(() => ({
   readMock: vi.fn(),
@@ -9,22 +9,22 @@ const { readMock, updateCardMock, getPullRequestMergeStateMock, getPullRequestMe
   getPullRequestMergeErrorMock: vi.fn(),
 }));
 
-vi.mock('../../../features/apps/state/manager', () => ({
+vi.mock('@electron/features/apps/state/manager', () => ({
   appStateManager: {
     read: readMock,
   },
 }));
 
-vi.mock('../../../features/kanban/core/state-helpers', () => ({
+vi.mock('@electron/features/kanban/core/state-helpers', () => ({
   updateCard: updateCardMock,
 }));
 
-vi.mock('../../../features/kanban/quality/pr-merge-status', () => ({
+vi.mock('@electron/features/kanban/quality/pr-merge-status', () => ({
   getPullRequestMergeState: getPullRequestMergeStateMock,
   getPullRequestMergeError: getPullRequestMergeErrorMock,
 }));
 
-import { AutoMergeMonitor, buildAutoMergePendingMessage } from '../../../features/kanban/quality/auto-merge-monitor';
+import { AutoMergeMonitor, buildAutoMergePendingMessage } from '@electron/features/kanban/quality/auto-merge-monitor';
 
 function makeState(card: Card): KanbanState {
   return {

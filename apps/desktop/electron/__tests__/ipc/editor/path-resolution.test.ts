@@ -4,7 +4,7 @@ import {
   PRIMARY_ROOT_PREFIX,
   toContainerPath,
   toHostPath,
-} from '../../../ipc/editor/path-resolution';
+} from '@electron/ipc/editor/path-resolution';
 
 function makeManager() {
   const primary = '/Users/dan/workspaces/current';

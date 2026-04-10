@@ -16,8 +16,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { migrateExistingInstall } from '../../features/profile/migration';
-import { readRegistrySync } from '../../features/profile/manager';
+import { migrateExistingInstall } from '@electron/features/profile/migration';
+import { readRegistrySync } from '@electron/features/profile/manager';
 
 // ── Fixed root — always ~/.sero-ui/ ─────────────────────────
 

@@ -16,10 +16,10 @@ import { readFile, writeFile, mkdir, rm, rename, stat } from 'fs/promises';
 import { readdirSync, statSync } from 'fs';
 import path from 'path';
 import { parseFrontmatter } from '@mariozechner/pi-coding-agent';
-import { IpcChannels } from '../../../../src/types/ipc';
-import { SERO_AGENT_DIR } from '../../../platform/env';
+import { IpcChannels } from '@/types/ipc';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { reloadAllSessionResources } from '..';
-import type { PromptTemplateSummary, PromptTemplateFileData } from '../../../../src/types/prompts';
+import type { PromptTemplateSummary, PromptTemplateFileData } from '@/types/prompts';
 
 const PROMPTS_DIR = path.join(SERO_AGENT_DIR, 'prompts');
 

@@ -6,9 +6,9 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import { containerManager } from '../../shared/infra/shared-infra';
-import { workspaceManager } from '../../features/workspace/manager';
+import { IpcChannels } from '@/types/ipc';
+import { containerManager } from '@electron/shared/infra/shared-infra';
+import { workspaceManager } from '@electron/features/workspace/manager';
 
 export function registerTerminalHandlers(): void {
   const tm = containerManager.terminals;

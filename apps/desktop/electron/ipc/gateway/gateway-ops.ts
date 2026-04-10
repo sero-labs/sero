@@ -16,16 +16,16 @@ import path from 'path';
 import os from 'os';
 import { SessionManager } from '@mariozechner/pi-coding-agent';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import { workspaceManager } from '../../features/workspace/manager';
+import { workspaceManager } from '@electron/features/workspace/manager';
 import {
   containerManager,
   artifactRegistry,
   SERO_SESSION_DIR,
-} from '../../shared/infra/shared-infra';
-import { listContainerFiles, readContainerFile } from '../../features/container/filesystem/files';
+} from '@electron/shared/infra/shared-infra';
+import { listContainerFiles, readContainerFile } from '@electron/features/container/filesystem/files';
 import { convertSessionMessages } from '../agent/core/agent-helpers';
 import { convertToGatewayHistory } from './gateway-history';
-import type { GatewayAgentOps } from '../../features/gateway/server/types';
+import type { GatewayAgentOps } from '@electron/features/gateway/server/types';
 
 /**
  * Validate that a resolved path stays within the workspace root.

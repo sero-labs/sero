@@ -9,9 +9,9 @@ import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import { existsSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '../../../../src/types/ipc';
-import type { ResponseFeedbackEntry, ResponseFeedbackState } from '../../../../src/types/ipc';
-import { SERO_AGENT_DIR } from '../../../platform/env';
+import { IpcChannels } from '@/types/ipc';
+import type { ResponseFeedbackEntry, ResponseFeedbackState } from '@/types/ipc';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 const FEEDBACK_FILE = path.join(SERO_AGENT_DIR, 'feedback.json');
 

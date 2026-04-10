@@ -1,8 +1,8 @@
-import { buildModelState } from '../../../ipc/agent/core/agent-helpers';
-import { getCliSessionBridge } from '../../bridges/session-bridge';
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
-import { fail, ok } from '../../lib/utils';
+import { buildModelState } from '@electron/ipc/agent/core/agent-helpers';
+import { getCliSessionBridge } from '@electron/cli/bridges/session-bridge';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext } from '@electron/cli/core/types';
+import { fail, ok } from '@electron/cli/lib/utils';
 
 async function handleSession(args: string[], ctx: CliCommandContext) {
   const [action = 'info'] = args;

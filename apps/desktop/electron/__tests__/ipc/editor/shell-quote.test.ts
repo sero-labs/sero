@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'child_process';
 
-import { shellQuote } from '../../../ipc/editor/shell-quote';
+import { shellQuote } from '@electron/ipc/editor/shell-quote';
 
 describe('shellQuote', () => {
   it('wraps simple values in single quotes', () => {

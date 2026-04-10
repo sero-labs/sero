@@ -12,8 +12,8 @@
 
 import { readdir, copyFile, readFile, writeFile, mkdir, cp } from 'fs/promises';
 import path from 'path';
-import { SERO_AGENT_DIR, SERO_HOME } from '../../platform/env';
-import { resolveBuiltinTemplatesDir } from '../../platform/protocols/builtin-resources';
+import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
+import { resolveBuiltinTemplatesDir } from '@electron/platform/protocols/builtin-resources';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');

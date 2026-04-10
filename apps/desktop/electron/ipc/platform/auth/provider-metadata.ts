@@ -5,7 +5,7 @@
  * Extracted from agent-helpers.ts to keep it under 500 LOC.
  */
 
-import { getPackageProviderManifest } from '../../../shared/providers/package-provider-manifests';
+import { getPackageProviderManifest } from '@electron/shared/providers/package-provider-manifests';
 
 const PROVIDER_NAMES: Record<string, string> = {
   anthropic: 'Anthropic',

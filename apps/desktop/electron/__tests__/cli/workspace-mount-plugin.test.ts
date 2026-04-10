@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 
-import type { CliCommandContext } from '../../cli/core/types';
+import type { CliCommandContext } from '@electron/cli/core/types';
 
 const mocks = vi.hoisted(() => ({
   workspaceManager: {
@@ -20,20 +20,20 @@ const mocks = vi.hoisted(() => ({
   askConfirm: vi.fn(),
 }));
 
-vi.mock('../../shared/infra/shared-infra', () => ({
+vi.mock('@electron/shared/infra/shared-infra', () => ({
   workspaceManager: mocks.workspaceManager,
 }));
-vi.mock('../../features/workspace/container-sync', () => ({
+vi.mock('@electron/features/workspace/container-sync', () => ({
   recreateContainerIfRunning: mocks.recreateContainerIfRunning,
 }));
-vi.mock('../../cli/lib/ask-confirm', () => ({
+vi.mock('@electron/cli/lib/ask-confirm', () => ({
   askConfirm: mocks.askConfirm,
 }));
 
 // Import AFTER the mocks so the mocked modules wire up correctly.
 // Done lazily inside the test setup to avoid top-level await, which the
 // electron tsconfig doesn't permit.
-type WorkspaceCliModule = typeof import('../../cli/commands/workspace/workspace');
+type WorkspaceCliModule = typeof import('@electron/cli/commands/workspace/workspace');
 let registerWorkspaceCliCommands: WorkspaceCliModule['registerWorkspaceCliCommands'];
 
 interface FakeRegistry {
@@ -80,7 +80,7 @@ describe('sero workspace mount-plugin', () => {
   let registry: FakeRegistry;
 
   beforeAll(async () => {
-    const mod = await import('../../cli/commands/workspace/workspace');
+    const mod = await import('@electron/cli/commands/workspace/workspace');
     registerWorkspaceCliCommands = mod.registerWorkspaceCliCommands;
   });
 

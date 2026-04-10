@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { shouldUseLightReview } from '../../../features/kanban/review/workflow/light-review';
-import type { KanbanSettings } from '../../../features/kanban/core/types';
+import { shouldUseLightReview } from '@electron/features/kanban/review/workflow/light-review';
+import type { KanbanSettings } from '@electron/features/kanban/core/types';
 
 function makeSettings(overrides: Partial<KanbanSettings> = {}): KanbanSettings {
   return {

@@ -1,7 +1,7 @@
-import { containerManager } from '../../../shared/infra/shared-infra';
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
-import { fail, ok } from '../../lib/utils';
+import { containerManager } from '@electron/shared/infra/shared-infra';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext } from '@electron/cli/core/types';
+import { fail, ok } from '@electron/cli/lib/utils';
 
 const DEFAULT_LINES = 100;
 const MAX_LINES = 500;

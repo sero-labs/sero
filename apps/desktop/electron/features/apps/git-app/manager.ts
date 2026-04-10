@@ -5,7 +5,7 @@ import type { GitManagerRequest, GitSyncMode } from '@plugins/sero-git-plugin/sh
 import { resolveStatePath } from '@plugins/sero-git-plugin/extension/state-io';
 import { refreshGitState, runGitAction, type GitActionResult } from '@plugins/sero-git-plugin/extension/git-service';
 import { appStateManager } from '../state/manager';
-import { workspaceManager } from '../../workspace/manager';
+import { workspaceManager } from '@electron/features/workspace/manager';
 
 const GIT_STATE_SUFFIX = path.join('.sero', 'apps', 'git', 'state.json');
 const IGNORED_RELATIVE_PREFIX = '.sero/apps/git/';

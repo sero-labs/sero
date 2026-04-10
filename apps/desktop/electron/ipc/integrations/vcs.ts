@@ -1,10 +1,10 @@
 import { BrowserWindow, ipcMain } from 'electron';
 
-import { IpcChannels } from '../../../src/types/ipc';
-import type { CreatePullRequestInput, PullRequestDraft } from '../../../src/types/vcs';
-import { runAdhocAgent } from '../../features/agent/assistants/adhoc-agent';
-import { buildPrDraftPrompt, parseDraft } from '../../features/agent/assistants/pr-draft';
-import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from '../../shared/infra/shared-infra';
+import { IpcChannels } from '@/types/ipc';
+import type { CreatePullRequestInput, PullRequestDraft } from '@/types/vcs';
+import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
+import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
+import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
 
 const Ch = IpcChannels.vcs;
 

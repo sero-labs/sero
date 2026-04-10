@@ -6,7 +6,7 @@
 import { EventEmitter } from 'events';
 import { LspServerProcess } from './lsp-process';
 import { findConfigByLanguageId, type LspServerConfig } from './types';
-import type { ContainerManager } from '../../container';
+import type { ContainerManager } from '@electron/features/container';
 
 export class LspManager extends EventEmitter {
   /** workspaceId → language → LspServerProcess */

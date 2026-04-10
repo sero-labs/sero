@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, writeFile, rm, mkdir } from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { discoverAgents } from '../../../features/subagent/runtime/discovery';
+import { discoverAgents } from '@electron/features/subagent/runtime/discovery';
 
 let tmpDir: string;
 

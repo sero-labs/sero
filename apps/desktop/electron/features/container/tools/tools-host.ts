@@ -34,7 +34,7 @@ import {
   getProtectedMemoryAccessError,
   isProtectedMemoryPath,
 } from './memory-file-guard';
-import { prepareToolImage } from '../../../shared/media/image-resize';
+import { prepareToolImage } from '@electron/shared/media/image-resize';
 
 interface HostCommandResult {
   stdout: string;

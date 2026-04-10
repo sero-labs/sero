@@ -29,7 +29,7 @@ describe('image-resize helpers', () => {
   });
 
   it('keeps images unchanged when already within API limits', async () => {
-    const { resizeImageForApi, formatDimensionNote } = await import('../../../shared/media/image-resize');
+    const { resizeImageForApi, formatDimensionNote } = await import('@electron/shared/media/image-resize');
     const input = Buffer.from('small-image').toString('base64');
     mocks.createFromBuffer.mockReturnValue(makeImage({ width: 800, height: 600 }));
 
@@ -48,7 +48,7 @@ describe('image-resize helpers', () => {
   });
 
   it('adds Pi-style dimension notes for resized tool images', async () => {
-    const { resizeImageForApi, formatDimensionNote, prepareToolImage } = await import('../../../shared/media/image-resize');
+    const { resizeImageForApi, formatDimensionNote, prepareToolImage } = await import('@electron/shared/media/image-resize');
     const input = Buffer.from('large-image').toString('base64');
     const jpeg = Buffer.from('small-jpeg');
     mocks.createFromBuffer.mockReturnValue(

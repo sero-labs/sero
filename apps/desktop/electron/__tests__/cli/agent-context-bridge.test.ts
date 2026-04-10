@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Type } from '@sinclair/typebox';
 
-import { bridgeTool } from '../../cli/core/schema-bridge';
-import type { CliCommandContext, CliInvocation } from '../../cli/core/types';
+import { bridgeTool } from '@electron/cli/core/schema-bridge';
+import type { CliCommandContext, CliInvocation } from '@electron/cli/core/types';
 import type { ExtensionContext, ToolDefinition } from '@mariozechner/pi-coding-agent';
-import type { ContainerManager } from '../../features/container';
-import type { WorkspaceManager } from '../../features/workspace/manager';
+import type { ContainerManager } from '@electron/features/container';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 function createMockToolDef(
   executeFn: ToolDefinition['execute'],

@@ -5,10 +5,10 @@
  * with GitHub auth env vars automatically injected.
  */
 
-import type { GitRunner } from '../../vcs/core/git-runner';
-import type { WorkspaceManager } from '../../workspace/manager';
-import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '../../../../src/types/ipc';
-import { ensureBootstrapGitignore } from '../../vcs/support/bootstrap-gitignore';
+import type { GitRunner } from '@electron/features/vcs/core/git-runner';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '@/types/ipc';
+import { ensureBootstrapGitignore } from '@electron/features/vcs/support/bootstrap-gitignore';
 
 export class GitHubRepoOps {
   constructor(

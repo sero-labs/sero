@@ -9,9 +9,9 @@ import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { LayoutState, LoadedLayoutState } from '../../../src/types/layout';
-import { SERO_AGENT_DIR } from '../../platform/env';
+import { IpcChannels } from '@/types/ipc';
+import type { LayoutState, LoadedLayoutState } from '@/types/layout';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 export type { LayoutState, LoadedLayoutState };
 

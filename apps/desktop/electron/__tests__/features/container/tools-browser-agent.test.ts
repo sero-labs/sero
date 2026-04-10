@@ -24,7 +24,7 @@ function createExecMock(results: ExecResult[]) {
 async function createToolWithExec(results: ExecResult[]) {
   vi.resetModules();
   const exec = createExecMock(results);
-  const { createAgentBrowser } = await import('../../../features/container/tools/tools-browser-agent');
+  const { createAgentBrowser } = await import('@electron/features/container/tools/tools-browser-agent');
   const tool = createAgentBrowser({ exec } as never, 'ws-1');
   return { tool, exec };
 }

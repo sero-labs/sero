@@ -14,8 +14,8 @@ vi.mock('fs', () => ({
   },
 }));
 
-import { IpcChannels } from '../../../../src/types/ipc';
-import { FileWatcherManager } from '../../../features/workspace/watcher';
+import { IpcChannels } from '@/types/ipc';
+import { FileWatcherManager } from '@electron/features/workspace/watcher';
 
 interface WatchInvocation {
   hostDir: string;

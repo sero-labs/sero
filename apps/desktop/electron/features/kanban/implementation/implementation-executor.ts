@@ -11,8 +11,8 @@ import {
   summarizeVerificationFailure,
 } from '../quality/verification';
 import { runWorkspaceCommand } from '../workspace/workspace-command-runner';
-import { appStateManager } from '../../apps/state/manager';
-import type { SubagentManager } from '../../subagent';
+import { appStateManager } from '@electron/features/apps/state/manager';
+import type { SubagentManager } from '@electron/features/subagent';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
 export interface ImplementationExecutorDeps {

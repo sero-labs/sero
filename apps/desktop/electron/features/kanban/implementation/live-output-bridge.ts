@@ -6,8 +6,8 @@
  */
 
 import type { LiveOutputSink } from '../core/base-progress';
-import type { SubagentEntry } from '../../subagent/core/types';
-import type { SubagentManager } from '../../subagent';
+import type { SubagentEntry } from '@electron/features/subagent/core/types';
+import type { SubagentManager } from '@electron/features/subagent';
 
 function matchesRun(
   entry: Pick<SubagentEntry, 'workspaceId' | 'parentSessionId'>,

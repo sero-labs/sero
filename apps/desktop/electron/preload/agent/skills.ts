@@ -6,8 +6,8 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '../../../src/types/skills';
+import { IpcChannels } from '@/types/ipc';
+import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '@/types/skills';
 
 export const skillsBridge = {
   listSkills: (): Promise<SkillSummary[]> =>

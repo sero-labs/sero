@@ -3,7 +3,7 @@
  * to determine the best match. Extracted from WorkspaceManager.
  */
 
-import type { WorkspaceInfo } from '../../../src/types/ipc';
+import type { WorkspaceInfo } from '@/types/ipc';
 
 /**
  * Score a message against a workspace's metadata.

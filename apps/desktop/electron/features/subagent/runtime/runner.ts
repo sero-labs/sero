@@ -15,20 +15,20 @@ import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero/common';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from '../core/types';
-import type { SharedInfra } from '../../../shared/infra/shared-infra';
-import type { WorkspaceManager } from '../../workspace/manager';
-import type { ContainerManager } from '../../container';
-import type { ContainerState } from '../../container/core/types';
-import { buildWorkspaceContainerConfig } from '../../container/core/workspace-container-config';
-import { createContainerTools, createHostCodingTools } from '../../container/tools';
-import { WORKSPACE_DIR } from '../../container/tools/tool-schemas';
-import { createWorkspaceCliTool } from '../../../cli';
+import type { SharedInfra } from '@electron/shared/infra/shared-infra';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import type { ContainerManager } from '@electron/features/container';
+import type { ContainerState } from '@electron/features/container/core/types';
+import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import { createContainerTools, createHostCodingTools } from '@electron/features/container/tools';
+import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
+import { createWorkspaceCliTool } from '@electron/cli';
 import { createSubagentExtensionFactory } from './loader';
-import { SERO_AGENT_DIR } from '../../../platform/env';
-import { logRawEvent, logTurnContext } from '../../../ipc/editor/debug';
-import { createSkillVisibilityOverride } from '../../apps/extensions/skill-visibility';
-import { parseModelField, resolveTierModel } from '../../../shared/settings/resolve-tier-model';
-import { getModelTiers } from '../../../shared/settings/model-tiers';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
+import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
+import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
+import { getModelTiers } from '@electron/shared/settings/model-tiers';
 import path from 'path';
 
 const EMPTY_USAGE: SubagentUsage = {

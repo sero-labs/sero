@@ -20,23 +20,23 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { type Model, type Api } from '@mariozechner/pi-ai';
 
-import { SERO_AGENT_DIR } from '../../platform/env';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { getConfiguredModelFallbackChain } from '../settings/model-fallback-chain';
 import { getModelTiers } from '../settings/model-tiers';
-import type { ContainerConfig } from '../../features/container/core/types';
-import { containerManager } from '../../features/container/core/singleton';
-import { buildWorkspaceContainerConfig } from '../../features/container/core/workspace-container-config';
-import { GatewayServer } from '../../features/gateway';
-import { WebChatServer } from '../../features/gateway/channels/web';
-import { TailscaleIntegration } from '../../features/gateway/bridge/tailscale';
-import { GitHubAuthManager } from '../../features/auth/github/auth-manager';
-import { workspaceManager } from '../../features/workspace/manager';
-import { FileWatcherManager } from '../../features/workspace/watcher';
-import { LspManager } from '../../features/editor/lsp/lsp-manager';
-import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '../../features/vcs';
-import { GitHubRepoOps } from '../../features/auth/github/repo-ops';
-import { ArtifactRegistry } from '../../features/container/registries/artifact-registry';
-import { migrateLegacyProfileRootConfigsSync } from '../../features/profile/agent-config-migration';
+import type { ContainerConfig } from '@electron/features/container/core/types';
+import { containerManager } from '@electron/features/container/core/singleton';
+import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import { GatewayServer } from '@electron/features/gateway';
+import { WebChatServer } from '@electron/features/gateway/channels/web';
+import { TailscaleIntegration } from '@electron/features/gateway/bridge/tailscale';
+import { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { FileWatcherManager } from '@electron/features/workspace/watcher';
+import { LspManager } from '@electron/features/editor/lsp/lsp-manager';
+import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '@electron/features/vcs';
+import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
+import { ArtifactRegistry } from '@electron/features/container/registries/artifact-registry';
+import { migrateLegacyProfileRootConfigsSync } from '@electron/features/profile/agent-config-migration';
 
 if (!process.env.VITEST && process.env.NODE_ENV !== 'test') {
   migrateLegacyProfileRootConfigsSync(
@@ -101,13 +101,13 @@ export const lspManager = new LspManager(containerManager);
 
 // ── Subagent Manager (singleton) ─────────────────────────────
 
-import { SubagentManager } from '../../features/subagent';
+import { SubagentManager } from '@electron/features/subagent';
 
 export const subagentManager = new SubagentManager();
 
 // ── Kanban Orchestrator (singleton) ──────────────────────────
 
-import { KanbanOrchestrator } from '../../features/kanban';
+import { KanbanOrchestrator } from '@electron/features/kanban';
 
 export const kanbanOrchestrator = new KanbanOrchestrator();
 

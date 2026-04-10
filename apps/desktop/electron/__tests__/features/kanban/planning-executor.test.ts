@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
-import { executePlanning } from '../../../features/kanban/planning/planning-executor';
-import type { Card } from '../../../features/kanban/core/types';
-import type { PlanningProgressTracker } from '../../../features/kanban/planning/planning-progress';
+import { executePlanning } from '@electron/features/kanban/planning/planning-executor';
+import type { Card } from '@electron/features/kanban/core/types';
+import type { PlanningProgressTracker } from '@electron/features/kanban/planning/planning-progress';
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {

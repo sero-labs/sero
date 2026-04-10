@@ -4,13 +4,13 @@ import path from 'path';
 // The module under test pulls SERO_AGENT_DIR through `platform/env`, which
 // would otherwise eagerly read the user's profile registry. Stub it with a
 // fixed path so the test stays hermetic.
-vi.mock('../../../platform/env', () => ({
+vi.mock('@electron/platform/env', () => ({
   SERO_AGENT_DIR: '/tmp/sero-agent',
 }));
 
-import { buildWorkspaceContainerConfig } from '../../../features/container/core/workspace-container-config';
-import type { WorkspaceManager } from '../../../features/workspace/manager';
-import type { WorkspaceRoot } from '../../../../src/types/ipc';
+import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import type { WorkspaceRoot } from '@/types/ipc';
 
 interface FakeManagerOptions {
   references?: Array<{ id: string; path: string }>;

@@ -1,9 +1,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { containerManager, workspaceManager } from '../../../shared/infra/shared-infra';
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
-import { fail, ok } from '../../lib/utils';
+import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext } from '@electron/cli/core/types';
+import { fail, ok } from '@electron/cli/lib/utils';
 
 const WORKSPACE_PREFIX = '/workspace';
 

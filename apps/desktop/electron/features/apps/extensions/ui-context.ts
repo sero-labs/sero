@@ -10,7 +10,7 @@
  */
 
 import type { ExtensionUIContext } from '@mariozechner/pi-coding-agent';
-import { showNotification } from '../../../platform/desktop/notifications';
+import { showNotification } from '@electron/platform/desktop/notifications';
 
 /**
  * Create an ExtensionUIContext for Sero sessions.

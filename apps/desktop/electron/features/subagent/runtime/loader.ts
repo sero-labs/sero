@@ -13,12 +13,12 @@
  */
 
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-import type { WorkspaceManager } from '../../workspace/manager';
-import type { ContainerState } from '../../container/core/types';
-import { buildContainerPromptBlock } from '../../container/tools/system-prompt';
-import { buildCliPromptBlock } from '../../../cli';
-import { logProviderRequest } from '../../../ipc/editor/debug';
-import { showNotification, type NotificationType } from '../../../platform/desktop/notifications';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
+import type { ContainerState } from '@electron/features/container/core/types';
+import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
+import { buildCliPromptBlock } from '@electron/cli';
+import { logProviderRequest } from '@electron/ipc/editor/debug';
+import { showNotification, type NotificationType } from '@electron/platform/desktop/notifications';
 
 /**
  * Creates a reduced extension factory for subagent child sessions.

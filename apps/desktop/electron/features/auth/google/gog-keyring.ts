@@ -14,7 +14,7 @@ import {
   SERO_AGENT_DIR,
   SERO_FIXED_ROOT,
   SERO_HOME,
-} from '../../../platform/env';
+} from '@electron/platform/env';
 
 export const GOG_DEFAULT_CLIENT = 'default';
 

@@ -5,13 +5,13 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   CollaborationResult,
   CollaborationStateSnapshot,
   CollaborationEvent,
   CollaborationConfig,
-} from '../../../src/types/collaboration';
+} from '@/types/collaboration';
 
 export const collaborationBridge = {
   prompt: (

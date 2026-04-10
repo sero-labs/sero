@@ -8,7 +8,7 @@ import {
   type SlashCommandInfo,
 } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
-import { IpcChannels } from '../../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   ChatMessage,
   ChatAttachment,
@@ -20,8 +20,8 @@ import type {
   ContextOverrides,
   ContextToolInfo,
   SeroSessionInfo,
-} from '../../../../src/types/ipc';
-import type { ChatCheckpointRef } from '../../../../src/types/checkpoints';
+} from '@/types/ipc';
+import type { ChatCheckpointRef } from '@/types/checkpoints';
 
 import {
   nextId,
@@ -36,10 +36,10 @@ import { emitSessionShutdown, emitSessionBeforeSwitch } from './agent-session-ev
 import { subscribeToSession } from './agent-subscription';
 import { readGlobalAgentsMd } from './global-agents';
 import { registerAgentCheckpointHandlers } from './agent-checkpoint';
-import { workspaceManager } from '../../../features/workspace/manager';
-import { createHostCodingTools } from '../../../features/container/tools';
-import { createSeroExtensionFactory } from '../../../features/apps/extensions/create-sero-extension';
-import { SERO_AGENT_DIR } from '../../../platform/env';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { createHostCodingTools } from '@electron/features/container/tools';
+import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
   ensureInfra,
   containerManager,
@@ -47,21 +47,21 @@ import {
   subagentManager,
   SERO_SESSION_DIR,
   SERO_CONFIG_PATH,
-} from '../../../shared/infra/shared-infra';
-import { createContainerTools } from '../../../features/container/tools';
-import type { ContainerState } from '../../../features/container';
+} from '@electron/shared/infra/shared-infra';
+import { createContainerTools } from '@electron/features/container/tools';
+import type { ContainerState } from '@electron/features/container';
 import { registerAgentModelContextHandlers } from './agent-model-context';
 import { applyContextOverrides, readPersistedContextOverrides } from './agent-context-overrides';
-import { createSeroUIContext } from '../../../features/apps/extensions/ui-context';
-import { installCliAgentBridge, noteCliTurnEnd } from '../../../cli/bridges';
+import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
+import { installCliAgentBridge, noteCliTurnEnd } from '@electron/cli/bridges';
 import {
   createWorkspaceCliTool,
   bridgeExtensionTools,
   clearBridgedExtensionSessionItemsForSession,
-} from '../../../cli';
-import { installGatewayAgentOps, forwardEventToGateway } from '../../../features/gateway/bridge/agent-bridge';
-import { createSkillVisibilityOverride } from '../../../features/apps/extensions/skill-visibility';
-import { buildGatewayOps } from '../../gateway/gateway-ops';
+} from '@electron/cli';
+import { installGatewayAgentOps, forwardEventToGateway } from '@electron/features/gateway/bridge/agent-bridge';
+import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
+import { buildGatewayOps } from '@electron/ipc/gateway/gateway-ops';
 
 interface PoolEntry {
   session: AgentSession;

@@ -1,4 +1,4 @@
-import type { AppControlEntry } from '../../../../src/types/ipc';
+import type { AppControlEntry } from '@/types/ipc';
 
 function normalizeAppQuery(value: string): string {
   return value

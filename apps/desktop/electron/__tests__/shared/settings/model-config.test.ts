@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { AvailableModelGroup } from '../../../../src/types/ipc';
+import type { AvailableModelGroup } from '@/types/ipc';
 import {
   applyLegacyProviderDefaultsMigration,
   buildGlobalModelConfigState,
   deriveTierSelectionsFromLegacyDefaults,
   getGlobalModelConfigTiers,
   setGlobalModelConfig,
-} from '../../../shared/settings/model-config';
+} from '@electron/shared/settings/model-config';
 
 const availableModelGroups: AvailableModelGroup[] = [
   {

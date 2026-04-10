@@ -13,16 +13,16 @@
 
 import { ipcMain, BrowserWindow } from 'electron';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   CollaborationEvent,
   CollaborationConfig,
   DebateConfig,
-} from '../../../src/types/collaboration';
-import { DEFAULT_DEBATE_CONFIG } from '../../../src/types/collaboration';
-import { runCollaboration } from '../../features/collaboration';
-import { runDebateCollaboration } from '../../features/collaboration/debate';
-import { subagentManager } from '../../shared/infra/shared-infra';
+} from '@/types/collaboration';
+import { DEFAULT_DEBATE_CONFIG } from '@/types/collaboration';
+import { runCollaboration } from '@electron/features/collaboration';
+import { runDebateCollaboration } from '@electron/features/collaboration/debate';
+import { subagentManager } from '@electron/shared/infra/shared-infra';
 import { getAgentPoolEntry } from '../agent';
 import { extractOriginalCollaborationQuery } from './collaboration-message';
 import {

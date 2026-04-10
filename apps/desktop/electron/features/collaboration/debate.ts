@@ -16,7 +16,7 @@ import type {
   CollaborationResult,
   DebateConfig,
   DebatePhase,
-} from '../../../src/types/collaboration';
+} from '@/types/collaboration';
 
 export interface DebateCallbacks {
   onDebatePhase?: (phase: DebatePhase) => void;

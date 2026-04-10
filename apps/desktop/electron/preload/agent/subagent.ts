@@ -5,13 +5,13 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   SubagentEvent,
   SubagentAgentSummary,
   SubagentAgentFile,
   SubagentEntry,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
 export const subagentBridge = {
   onEvent: (callback: (event: SubagentEvent) => void): (() => void) => {

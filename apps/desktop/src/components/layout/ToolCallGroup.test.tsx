@@ -9,7 +9,7 @@ vi.mock('@/stores/editor-bridge', () => ({
     selector({ requestOpenFile: vi.fn() }),
 }));
 
-vi.mock('./ImageLightbox', () => ({
+vi.mock('@/components/layout/ImageLightbox', () => ({
   useLightbox: (selector: (state: { show: ReturnType<typeof vi.fn> }) => unknown) =>
     selector({ show: vi.fn() }),
   ImageLightbox: () => null,

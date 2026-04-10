@@ -28,11 +28,11 @@ import {
 import os from 'os';
 import path from 'path';
 
-import { IpcChannels } from '../../../../src/types/ipc';
-import { discoverApps } from '../../../features/apps/discovery';
-import { SERO_AGENT_DIR } from '../../../platform/env';
-import { workspaceManager } from '../../../features/workspace/manager';
-import { ensureInfra } from '../../../shared/infra/shared-infra';
+import { IpcChannels } from '@/types/ipc';
+import { discoverApps } from '@electron/features/apps/discovery';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
 
 // ── App Session Pool ─────────────────────────────────────────
 

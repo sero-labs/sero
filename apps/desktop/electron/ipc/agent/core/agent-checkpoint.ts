@@ -7,15 +7,15 @@
 import { ipcMain } from 'electron';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 
-import { IpcChannels } from '../../../../src/types/ipc';
-import type { ChatMessage, AgentStreamEvent } from '../../../../src/types/ipc';
-import type { ChatCheckpointRef } from '../../../../src/types/checkpoints';
+import { IpcChannels } from '@/types/ipc';
+import type { ChatMessage, AgentStreamEvent } from '@/types/ipc';
+import type { ChatCheckpointRef } from '@/types/checkpoints';
 import {
   convertSessionMessages,
   buildCheckpointMapByTurn,
   findCheckpointEntryId,
 } from './agent-helpers';
-import { vcsManager } from '../../../shared/infra/shared-infra';
+import { vcsManager } from '@electron/shared/infra/shared-infra';
 
 // ── Types ───────────────────────────────────────────────────
 

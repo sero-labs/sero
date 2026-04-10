@@ -2,9 +2,9 @@ import { createAgentSession, SettingsManager, SessionManager } from '@mariozechn
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
 import type { Api, Model } from '@mariozechner/pi-ai';
 
-import { SERO_AGENT_DIR } from '../../../platform/env';
-import { ensureInfra } from '../../../shared/infra/shared-infra';
-import { getModelTiers } from '../../../shared/settings/model-tiers';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { getModelTiers } from '@electron/shared/settings/model-tiers';
 
 /** Provider-neutral fast model preferences, ordered by speed/cost. */
 const FAST_MODEL_PREFERENCES: Array<{ provider: string; modelId: string }> = [

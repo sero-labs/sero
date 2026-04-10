@@ -12,12 +12,12 @@ import path from 'path';
 import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
 
-import { SERO_AGENT_DIR } from '../../platform/env';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { registerAppPath, discoverApps } from '../apps/discovery';
-import { registerExtAssets } from '../../platform/protocols/ext-protocol';
-import { clearAppManifestCache } from '../../ipc/agent/handlers/app-agent';
-import { clearPluginBridgePolicyCache } from '../../cli';
-import type { SeroAppManifest, SettingsPackageSource } from '../../../src/types/ipc';
+import { registerExtAssets } from '@electron/platform/protocols/ext-protocol';
+import { clearAppManifestCache } from '@electron/ipc/agent/handlers/app-agent';
+import { clearPluginBridgePolicyCache } from '@electron/cli';
+import type { SeroAppManifest, SettingsPackageSource } from '@/types/ipc';
 import type { InstalledPlugin } from './types';
 import { assertPluginInstallAllowed } from './install-policy';
 import { ensurePluginPackageReadyForInstall } from './package-build';

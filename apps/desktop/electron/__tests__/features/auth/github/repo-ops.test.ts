@@ -4,9 +4,9 @@ import path from 'path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { GitHubRepoOps } from '../../../../features/auth/github/repo-ops';
-import type { GitRunner } from '../../../../features/vcs/core/git-runner';
-import type { WorkspaceManager } from '../../../../features/workspace/manager';
+import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
+import type { GitRunner } from '@electron/features/vcs/core/git-runner';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 function ok(stdout = '', stderr = '') {
   return { exitCode: 0, stdout, stderr };

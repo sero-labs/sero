@@ -1,6 +1,6 @@
 import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
-import { containerManager, workspaceManager } from '../../shared/infra/shared-infra';
+import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { tokenizeCliInput, splitCommandLines } from './parser';
 import type {
   BridgedAgentContext,
@@ -12,8 +12,8 @@ import type {
 } from './types';
 import type { CliRegistry } from './registry';
 import { getCliSessionBridge } from '../bridges/session-bridge';
-import { tryParseImageJson, summarizeImageJson } from '../../ipc/agent/core/tool-result-images';
-import { prepareToolImage } from '../../shared/media/image-resize';
+import { tryParseImageJson, summarizeImageJson } from '@electron/ipc/agent/core/tool-result-images';
+import { prepareToolImage } from '@electron/shared/media/image-resize';
 import {
   resolveCommandTimeoutMs,
   buildBatchDeadline,

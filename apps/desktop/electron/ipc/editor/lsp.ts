@@ -7,8 +7,8 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import { lspManager } from '../../shared/infra/shared-infra';
+import { IpcChannels } from '@/types/ipc';
+import { lspManager } from '@electron/shared/infra/shared-infra';
 
 export function registerLspHandlers(): void {
   ipcMain.handle(

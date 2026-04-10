@@ -3,10 +3,10 @@
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '../../../src/types/ipc';
-import type { DeviceFlowProgress, GitHubAuthStatus } from '../../features/auth/github/auth-manager';
-import { githubAuth, githubRepoOps } from '../../shared/infra/shared-infra';
+import { IpcChannels } from '@/types/ipc';
+import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '@/types/ipc';
+import type { DeviceFlowProgress, GitHubAuthStatus } from '@electron/features/auth/github/auth-manager';
+import { githubAuth, githubRepoOps } from '@electron/shared/infra/shared-infra';
 
 const Ch = IpcChannels.github;
 

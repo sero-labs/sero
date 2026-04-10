@@ -13,9 +13,9 @@ import type {
   WorkspaceRegistryEntry,
   WorkspaceConfig,
   WorkspaceInfo,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
-import { SERO_HOME, SERO_AGENT_DIR } from '../../platform/env';
+import { SERO_HOME, SERO_AGENT_DIR } from '@electron/platform/env';
 import { inferWorkspaceFromMessage } from './inference';
 import { slugify, ensureUniqueId, prettifyName } from './utils';
 import * as mounts from './mounts';

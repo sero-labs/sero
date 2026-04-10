@@ -1,7 +1,6 @@
 {
   "extends": "../tsconfig.electron.json",
   "compilerOptions": {
-    "rootDir": "..",
     "noEmit": true
   }
 }

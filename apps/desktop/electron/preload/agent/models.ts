@@ -5,8 +5,8 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { AvailableModelGroup } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
+import type { AvailableModelGroup } from '@/types/ipc';
 
 export const modelsBridge = {
   list: (): Promise<AvailableModelGroup[]> =>

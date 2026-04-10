@@ -10,7 +10,7 @@ import {
   clearPluginBridgePolicyCache,
   getCliRegistry,
   resetCliRegistryForTests,
-} from '../../../cli';
+} from '@electron/cli';
 
 function createLoadExtensionsResult(
   extensionPath: string,

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -40,11 +40,11 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('../../features/apps/state/manager', () => ({
+vi.mock('@electron/features/apps/state/manager', () => ({
   appStateManager: mocks.appStateManager,
 }));
 
-vi.mock('../../shared/infra/shared-infra', () => ({
+vi.mock('@electron/shared/infra/shared-infra', () => ({
   SERO_CONFIG_PATH: '/tmp/sero-settings.json',
   ensureInfra: mocks.ensureInfra,
   applyRuntimeSettings: mocks.applyRuntimeSettings,
@@ -57,11 +57,11 @@ vi.mock('../../shared/infra/shared-infra', () => ({
   },
 }));
 
-vi.mock('../../ipc/agent', () => ({
+vi.mock('@electron/ipc/agent', () => ({
   reloadAllSessionResources: mocks.reloadAllSessionResources,
 }));
 
-vi.mock('../../features/apps/git-app/manager', () => ({
+vi.mock('@electron/features/apps/git-app/manager', () => ({
   gitWorkspaceStateManager: {
     isGitStateFile: () => false,
     watchStateFile: mocks.gitWatchStateFile,
@@ -96,7 +96,7 @@ describe('app-state settings reload coalescing', () => {
   });
 
   it('watches settings.json and reloads session resources after the coalescing window', async () => {
-    const { registerAppStateHandlers } = await import('../../ipc/apps/app-state');
+    const { registerAppStateHandlers } = await import('@electron/ipc/apps/app-state');
 
     registerAppStateHandlers();
 
@@ -116,7 +116,7 @@ describe('app-state settings reload coalescing', () => {
   });
 
   it('coalesces duplicate write-path and watcher notifications into one reload', async () => {
-    const { registerAppStateHandlers } = await import('../../ipc/apps/app-state');
+    const { registerAppStateHandlers } = await import('@electron/ipc/apps/app-state');
 
     registerAppStateHandlers();
 
@@ -139,7 +139,7 @@ describe('app-state settings reload coalescing', () => {
   });
 
   it('ignores unrelated file changes', async () => {
-    const { registerAppStateHandlers } = await import('../../ipc/apps/app-state');
+    const { registerAppStateHandlers } = await import('@electron/ipc/apps/app-state');
 
     registerAppStateHandlers();
     mocks.fileChangeListener?.('/tmp/not-settings.json', {});

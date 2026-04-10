@@ -1,7 +1,7 @@
 import path from 'path';
 
-import { SERO_AGENT_DIR } from '../../../platform/env';
-import type { WorkspaceManager } from '../../workspace/manager';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerConfig } from './types';
 
 export async function buildWorkspaceContainerConfig(

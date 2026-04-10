@@ -2,10 +2,10 @@ import { execFile } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
 
-import { WORKSPACE_MOUNT, type ExecResult } from '../../container/core/types';
-import { containerManager } from '../../container/core/singleton';
-import { buildWorkspaceContainerConfig } from '../../container/core/workspace-container-config';
-import { workspaceManager } from '../../workspace/manager';
+import { WORKSPACE_MOUNT, type ExecResult } from '@electron/features/container/core/types';
+import { containerManager } from '@electron/features/container/core/singleton';
+import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import { workspaceManager } from '@electron/features/workspace/manager';
 
 const execFileAsync = promisify(execFile);
 

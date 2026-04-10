@@ -1,6 +1,6 @@
 import path from 'path';
 import { promises as fs } from 'fs';
-import type { ReviewResult } from '../../prompts';
+import type { ReviewResult } from '@electron/features/kanban/prompts';
 import { getBlockingReviewFailure, hasMalformedLegacyIssues } from './review-result-utils';
 
 export async function loadCachedReview(filePath: string): Promise<ReviewResult | null> {

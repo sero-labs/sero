@@ -2,14 +2,14 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ContainerManager } from '../../../features/container';
-import { createBash, createEdit, createRead, createWrite } from '../../../features/container/tools/tools-coding';
+import type { ContainerManager } from '@electron/features/container';
+import { createBash, createEdit, createRead, createWrite } from '@electron/features/container/tools/tools-coding';
 import {
   commandTouchesProtectedMemory,
   getProtectedMemoryRoot,
   getProtectedMemoryAccessError,
   isProtectedMemoryPath,
-} from '../../../features/container/tools/memory-file-guard';
+} from '@electron/features/container/tools/memory-file-guard';
 
 type MockContainerManager = Pick<ContainerManager, 'exec' | 'writeFile'> & {
   portScanner: Pick<ContainerManager['portScanner'], 'getPorts' | 'triggerScan'>;

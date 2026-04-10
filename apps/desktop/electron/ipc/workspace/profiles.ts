@@ -6,19 +6,19 @@
  */
 
 import { app, dialog, ipcMain } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import { profileManager } from '../../features/profile/manager';
+import { IpcChannels } from '@/types/ipc';
+import { profileManager } from '@electron/features/profile/manager';
 import {
   applyLegacyProviderDefaultsMigration,
   buildGlobalModelConfigState,
   setGlobalModelConfig,
-} from '../../shared/settings/model-config';
-import { getProviderHealthSnapshot } from '../../features/onboarding/provider-health';
-import { readSettings, writeSettings } from '../../shared/settings/settings-helpers';
-import { copyProfileDataSync, profileHasTransferableData } from '../../features/profile/copy-profile-data';
+} from '@electron/shared/settings/model-config';
+import { getProviderHealthSnapshot } from '@electron/features/onboarding/provider-health';
+import { readSettings, writeSettings } from '@electron/shared/settings/settings-helpers';
+import { copyProfileDataSync, profileHasTransferableData } from '@electron/features/profile/copy-profile-data';
 
-import type { ProfileInfo } from '../../features/profile/types';
-import type { GlobalModelConfigInput, GlobalModelConfigState } from '../../../src/types/ipc';
+import type { ProfileInfo } from '@electron/features/profile/types';
+import type { GlobalModelConfigInput, GlobalModelConfigState } from '@/types/ipc';
 
 async function loadGlobalModelConfigState(): Promise<GlobalModelConfigState> {
   const migrated = applyLegacyProviderDefaultsMigration(readSettings());

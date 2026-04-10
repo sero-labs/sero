@@ -6,9 +6,9 @@ import path from 'path';
 // roots.ts is plain TS with no Electron imports — it only depends on
 // `WorkspaceManager` as a type, plus its own utils. We can import it
 // directly without stubbing anything.
-import { addRoot, removeRoot, PRIMARY_ROOT_ID } from '../../../features/workspace/roots';
-import type { WorkspaceConfig, WorkspaceRoot } from '../../../../src/types/ipc';
-import type { WorkspaceManager } from '../../../features/workspace/manager';
+import { addRoot, removeRoot, PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
+import type { WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 interface FakeManagerState {
   entryPath: string;

@@ -4,7 +4,7 @@
  */
 
 import type { ColorTokens } from '@/types/theme';
-import { ColorSection } from '../theme-panel/ColorSection';
+import { ColorSection } from '@/components/layout/theme-panel/ColorSection';
 
 interface ColorTabProps {
   colors: ColorTokens;
