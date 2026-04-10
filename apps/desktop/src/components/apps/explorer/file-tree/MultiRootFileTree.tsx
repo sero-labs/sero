@@ -101,46 +101,38 @@ const RootSection = memo(function RootSection({
       )}
       data-root-id={root.id}
     >
-      <button
-        type="button"
-        onClick={toggle}
-        className="group flex h-7 shrink-0 items-center gap-1 px-3 text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-        title={`${root.name} — ${root.virtualPath}`}
-      >
-        <ChevronRight
-          className={cn(
-            'size-3 shrink-0 transition-transform',
-            expanded && 'rotate-90',
-          )}
-        />
-        <span className="flex-1 truncate text-left">{root.name}</span>
+      <div className="group flex h-7 shrink-0 items-center gap-1 pr-2 text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex h-full flex-1 items-center gap-1 truncate pl-3 text-left hover:text-[var(--text-primary)]"
+          title={`${root.name} — ${root.virtualPath}`}
+        >
+          <ChevronRight
+            className={cn(
+              'size-3 shrink-0 transition-transform',
+              expanded && 'rotate-90',
+            )}
+          />
+          <span className="flex-1 truncate text-left">{root.name}</span>
+        </button>
         {isLinked && (
           <span className="rounded bg-[var(--bg-elevated)] px-1 py-px text-[9px] font-normal normal-case tracking-normal text-[var(--text-muted)]">
             linked
           </span>
         )}
         {!isPrimary && onRemoveRoot && (
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemoveRoot(root.id);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                onRemoveRoot(root.id);
-              }
-            }}
-            className="ml-1 rounded px-1 text-[var(--text-muted)] opacity-0 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] group-hover:opacity-100"
+          <button
+            type="button"
+            onClick={() => onRemoveRoot(root.id)}
+            className="ml-1 rounded px-1 text-[var(--text-muted)] opacity-0 hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] group-hover:opacity-100 focus-visible:opacity-100"
             title="Remove root"
+            aria-label={`Remove root ${root.name}`}
           >
             ×
-          </span>
+          </button>
         )}
-      </button>
+      </div>
       {expanded && (
         <div className="min-h-0 flex-1">
           <FileTree

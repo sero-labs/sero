@@ -5,10 +5,12 @@
  * Additional roots are stored on `WorkspaceConfig.roots` and exposed to
  * the renderer via the editor IPC `/<rootId>/...` virtual path scheme.
  *
- * In container mode each root's host path is also added to `config.mounts`
- * so that the bind-mounted directory inside `sero-<workspaceId>` matches
- * the host absolute path. The editor IPC translates `/<rootId>/...` →
- * `<root.path>/...` before any host or container file operation.
+ * Container parity: roots are NOT written into `config.mounts` (which is
+ * reserved for user-managed explicit mounts). Instead, the container build
+ * step (`workspace-container-config.ts`) merges `config.mounts` and the
+ * resolved root paths into the writable bind-mount list. This keeps user
+ * mounts and root mirrors completely independent so removing a root never
+ * deletes a mount the user added explicitly.
  */
 
 import { promises as fs } from 'fs';
@@ -16,7 +18,6 @@ import path from 'path';
 import type { WorkspaceManager } from './manager';
 import type { WorkspaceRoot } from '../../../src/types/ipc';
 import { slugify, ensureUniqueId, prettifyName } from './utils';
-import * as mounts from './mounts';
 
 /** Reserved id for the implicit primary root. */
 export const PRIMARY_ROOT_ID = 'workspace';
@@ -33,7 +34,9 @@ export async function getRoots(mgr: WorkspaceManager, id: string): Promise<Works
  * - Validates that `path` exists and is a directory.
  * - Generates a unique kebab-case id from the supplied name (or basename).
  * - Refuses to attach the workspace's own primary path or duplicate paths.
- * - Mirrors the host path into `config.mounts` so container parity is automatic.
+ *
+ * Container parity is handled at container build time, not here — see the
+ * file header for details.
  */
 export async function addRoot(
   mgr: WorkspaceManager,
@@ -76,19 +79,15 @@ export async function addRoot(
   config.roots = [...existingRoots, newRoot];
   await mgr.persistConfig(id, entry.path, config);
 
-  // Mirror into container mounts so the agent sees the same files
-  await mounts.addMount(mgr, id, resolved).catch((err) => {
-    console.warn(`[workspace:roots] Failed to mirror root into mounts:`, err);
-  });
-
   return newRoot;
 }
 
 /**
  * Remove a root from a workspace.
  *
- * Also removes the mirrored container mount if no other root or explicit
- * mount references the same host path.
+ * Only mutates `config.roots`. `config.mounts` is owned by the user — the
+ * container build step picks up roots independently, so removing a root
+ * never touches a user-added explicit mount even when the paths overlap.
  */
 export async function removeRoot(mgr: WorkspaceManager, id: string, rootId: string): Promise<void> {
   if (rootId === PRIMARY_ROOT_ID) {
@@ -101,21 +100,10 @@ export async function removeRoot(mgr: WorkspaceManager, id: string, rootId: stri
   if (!config) throw new Error(`No config for workspace: ${id}`);
 
   const existingRoots = config.roots ?? [];
-  const target = existingRoots.find((r) => r.id === rootId);
-  if (!target) return;
+  if (!existingRoots.some((r) => r.id === rootId)) return;
 
   config.roots = existingRoots.filter((r) => r.id !== rootId);
   await mgr.persistConfig(id, entry.path, config);
-
-  // Drop the mirrored mount unless another root still uses the same host path
-  const stillReferenced = (config.roots ?? []).some(
-    (r) => path.resolve(r.path) === path.resolve(target.path),
-  );
-  if (!stillReferenced) {
-    await mounts.removeMount(mgr, id, target.path).catch((err) => {
-      console.warn(`[workspace:roots] Failed to remove mirrored mount:`, err);
-    });
-  }
 }
 
 /** Rename the display name of an existing root. The id is immutable. */

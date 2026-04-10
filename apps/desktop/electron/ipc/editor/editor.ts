@@ -39,6 +39,18 @@ const PRIMARY_ROOT_PREFIX = `/${PRIMARY_ROOT_ID}`; // "/workspace"
 const MAX_PATH_LENGTH = 4096;
 
 /**
+ * Quote a string for safe inclusion in a POSIX shell command.
+ *
+ * Wraps the value in single quotes and escapes any embedded single quotes
+ * via the standard `'\''` trick. This is the only way arbitrary file paths
+ * (which can contain apostrophes, spaces, $, backticks, etc.) get pasted
+ * into container `exec` commands without becoming injection vectors.
+ */
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
  * Split a virtual path into `<rootId>` + remainder.
  *
  * - `/workspace/foo`   → `{ rootId: 'workspace', rest: '/foo' }`
@@ -106,6 +118,7 @@ function resolveAgainstRoot(rootHostPath: string, relative: string, originalForE
  *   - `/workspace/foo`     → `<workspace.path>/foo`
  *   - `/sero-source/foo`   → `<root["sero-source"].path>/foo`
  *   - `foo/bar` (no slash) → `<workspace.path>/foo/bar` (legacy fallback)
+ *   - `/unknown-root/x`    → throws (rooted paths must reference a real root)
  *
  * **Security:** Each root has its own sandbox. Cross-root traversal is
  * structurally impossible: after slicing the prefix, the remainder is
@@ -117,19 +130,19 @@ async function toHostPath(workspaceId: string, filePath: string): Promise<string
 
   const { rootId, rest } = splitVirtualPath(filePath);
 
-  // Resolve the target root's host path. Unknown / missing prefixes fall
-  // back to the primary workspace path so legacy callers (and bare
-  // relative paths) keep working.
-  let rootHost: string | null = null;
-  if (rootId) {
-    rootHost = await workspaceManager.resolveRootPath(workspaceId, rootId);
-  }
-  if (!rootHost) {
+  // Bare relative paths fall through to the primary root for legacy callers.
+  if (!rootId) {
     const primary = workspaceManager.getPath(workspaceId);
     if (!primary) throw new Error(`Workspace not found: ${workspaceId}`);
-    rootHost = primary;
-    // Legacy / unprefixed paths join the entire input under the primary root.
-    return resolveAgainstRoot(rootHost, filePath, filePath);
+    return resolveAgainstRoot(primary, filePath, filePath);
+  }
+
+  // Rooted paths must resolve to a known root — never silently fall back to
+  // the primary, since that would mask renderer bugs (and could let a typo
+  // like `/workspac/foo` succeed against `<primary>/workspac/foo`).
+  const rootHost = await workspaceManager.resolveRootPath(workspaceId, rootId);
+  if (!rootHost) {
+    throw new Error(`Unknown workspace root: ${rootId}`);
   }
 
   return resolveAgainstRoot(rootHost, rest, filePath);
@@ -199,7 +212,9 @@ async function hostExec(
  * `sero-<workspaceId>`, so the in-container path equals the host path.
  *
  * Primary-root paths (`/workspace/...`) are passed through unchanged because
- * the container's primary mount point IS `/workspace`.
+ * the container's primary mount point IS `/workspace`. Bare relative paths
+ * resolve under `/workspace` for legacy callers. Unknown root ids throw to
+ * mirror `toHostPath`'s behaviour.
  */
 async function toContainerPath(workspaceId: string, virtualPath: string): Promise<string> {
   // Reuse the same null-byte / length validation as the host path resolver.
@@ -219,8 +234,7 @@ async function toContainerPath(workspaceId: string, virtualPath: string): Promis
 
   const hostRoot = await workspaceManager.resolveRootPath(workspaceId, rootId);
   if (!hostRoot) {
-    // Unknown root id — treat the whole thing as primary-root relative.
-    return virtualPath;
+    throw new Error(`Unknown workspace root: ${rootId}`);
   }
 
   // Container bind-mount preserves the host path, so the container path
@@ -261,7 +275,7 @@ export function registerEditorHandlers(): void {
       ) {
         try {
           const containerPath = await toContainerPath(workspaceId, filePath);
-          const result = await containerManager.exec(workspaceId, `base64 < ${JSON.stringify(containerPath)}`);
+          const result = await containerManager.exec(workspaceId, `base64 < ${shellQuote(containerPath)}`);
           return result.stdout.trim();
         } catch {
           // Fall through to host read
@@ -353,17 +367,19 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.getRoots,
     async (_e, workspaceId: string): Promise<EditorRoot[]> => {
-      // Always return the primary root first, even if the workspace doesn't
-      // exist yet — the renderer falls back to /workspace by convention.
-      const result: EditorRoot[] = [];
-      const info = await workspaceManager.getConfig(workspaceId);
+      // Require a real workspace so callers don't silently work against
+      // a nonexistent id and only fail when they hit an actual file op.
       const entry = workspaceManager.findEntry(workspaceId);
-      result.push({
-        id: PRIMARY_ROOT_ID,
-        name: info?.name ?? entry?.id ?? 'Workspace',
-        virtualPath: PRIMARY_ROOT_PREFIX,
-        kind: 'workspace',
-      });
+      if (!entry) throw new Error(`Workspace not found: ${workspaceId}`);
+      const info = await workspaceManager.getConfig(workspaceId);
+      const result: EditorRoot[] = [
+        {
+          id: PRIMARY_ROOT_ID,
+          name: info?.name ?? entry.id ?? 'Workspace',
+          virtualPath: PRIMARY_ROOT_PREFIX,
+          kind: 'workspace',
+        },
+      ];
       for (const root of info?.roots ?? []) {
         result.push({
           id: root.id,
@@ -392,7 +408,7 @@ export function registerEditorHandlers(): void {
         if (await workspaceManager.isContainerEnabled(workspaceId)) {
           const cOld = await toContainerPath(workspaceId, oldPath);
           const cNew = await toContainerPath(workspaceId, newPath);
-          const result = await containerManager.exec(workspaceId, `mv '${cOld}' '${cNew}'`);
+          const result = await containerManager.exec(workspaceId, `mv ${shellQuote(cOld)} ${shellQuote(cNew)}`);
           return result.exitCode === 0;
         }
         const hostOld = await toHostPath(workspaceId, oldPath);
@@ -412,7 +428,7 @@ export function registerEditorHandlers(): void {
       try {
         if (await workspaceManager.isContainerEnabled(workspaceId)) {
           const cItem = await toContainerPath(workspaceId, itemPath);
-          const result = await containerManager.exec(workspaceId, `rm -rf '${cItem}'`);
+          const result = await containerManager.exec(workspaceId, `rm -rf ${shellQuote(cItem)}`);
           return result.exitCode === 0;
         }
         const hostItem = await toHostPath(workspaceId, itemPath);
@@ -431,7 +447,7 @@ export function registerEditorHandlers(): void {
       try {
         if (await workspaceManager.isContainerEnabled(workspaceId)) {
           const cFile = await toContainerPath(workspaceId, filePath);
-          const result = await containerManager.exec(workspaceId, `touch '${cFile}'`);
+          const result = await containerManager.exec(workspaceId, `touch ${shellQuote(cFile)}`);
           return result.exitCode === 0;
         }
         const hostFile = await toHostPath(workspaceId, filePath);
@@ -453,7 +469,7 @@ export function registerEditorHandlers(): void {
       try {
         if (await workspaceManager.isContainerEnabled(workspaceId)) {
           const cDir = await toContainerPath(workspaceId, dirPath);
-          const result = await containerManager.exec(workspaceId, `mkdir -p '${cDir}'`);
+          const result = await containerManager.exec(workspaceId, `mkdir -p ${shellQuote(cDir)}`);
           return result.exitCode === 0;
         }
         const hostDir = await toHostPath(workspaceId, dirPath);
