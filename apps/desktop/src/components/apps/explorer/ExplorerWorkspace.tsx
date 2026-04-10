@@ -23,6 +23,7 @@ import { useWorkspaceExplorer, useExplorerStore } from '@/stores/explorer';
 import { useVcsStore } from '@/stores/vcs';
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { useWorkspaceFileWatch } from './useWorkspaceFileWatch';
+import { useWorkspaceRootsRefresh } from './useWorkspaceRootsRefresh';
 
 /**
  * ExplorerWorkspace — the full explorer app, mounted into the main area.
@@ -89,6 +90,7 @@ export function ExplorerWorkspace() {
 
   useEffect(() => { void refreshRoots(); }, [refreshRoots]);
   useWorkspaceFileWatch(workspaceId, roots);
+  useWorkspaceRootsRefresh(workspaceId, refreshRoots);
 
   // ── Remove an additional root via the explorer header × button ──
   const handleRemoveRoot = useCallback(async (rootId: string) => {
