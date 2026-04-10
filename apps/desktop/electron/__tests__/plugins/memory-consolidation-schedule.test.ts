@@ -8,7 +8,7 @@ import {
   getAutoConsolidationCommand,
   getAutoConsolidationJobName,
   syncAutoConsolidationCronJobSync,
-} from '../../../../../plugins/sero-memory-plugin/extension/automation-state';
+} from '@plugins/sero-memory-plugin/extension/automation-state';
 
 describe('memory auto-consolidation schedule sync', () => {
   const previousSeroHome = process.env.SERO_HOME;

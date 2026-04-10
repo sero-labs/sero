@@ -8,8 +8,8 @@ import {
   storeTurnResults,
   type CachedRetrieval,
   type TopicFingerprint,
-} from '../../../../../plugins/sero-memory-plugin/extension/prefetch';
-import type { RankedMemoryResult } from '../../../../../plugins/sero-memory-plugin/extension/retrieval';
+} from '@plugins/sero-memory-plugin/extension/prefetch';
+import type { RankedMemoryResult } from '@plugins/sero-memory-plugin/extension/retrieval';
 
 // ── Helper ─────────────────────────────────────────────────────
 

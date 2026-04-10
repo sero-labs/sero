@@ -22,7 +22,7 @@ import { SERO_AGENT_DIR, SERO_HOME } from '../../../platform/env';
 import { appStateManager } from '../../../features/apps/state/manager';
 import { reloadAllSessionResources } from '..';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '../../../shared/infra/shared-infra';
-import { withDisabledModelSkills } from '../../../../../../plugins/sero-admin-plugin/shared/skill-visibility';
+import { withDisabledModelSkills } from '@plugins/sero-admin-plugin/shared/skill-visibility';
 import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '../../../../src/types/skills';
 
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');

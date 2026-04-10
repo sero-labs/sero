@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { entryScore } from '../../../../../plugins/sero-memory-plugin/extension/memory-scoring';
+import { entryScore } from '@plugins/sero-memory-plugin/extension/memory-scoring';
 
 // ── entryScore ─────────────────────────────────────────────────
 

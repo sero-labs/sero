@@ -14,11 +14,11 @@ import path from 'node:path';
 import {
   buildPriorityContext,
   buildPriorityContextSplit,
-} from '../../../../../plugins/sero-memory-plugin/extension/priority-context';
+} from '@plugins/sero-memory-plugin/extension/priority-context';
 import {
   serializeMemoryEntries,
   nowTimestamp,
-} from '../../../../../plugins/sero-memory-plugin/extension/memory-format';
+} from '@plugins/sero-memory-plugin/extension/memory-format';
 
 let root: string;
 const originalSeroHome = process.env.SERO_HOME;

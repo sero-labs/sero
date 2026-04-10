@@ -18,52 +18,52 @@ const mocks = vi.hoisted(() => ({
   errorDetails: vi.fn(() => ({ message: 'boom' })),
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/bootstrap', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/bootstrap', () => ({
   checkBootstrapStatus: mocks.checkBootstrapStatus,
   IDENTITY_QUESTIONS: [],
   MEMORY_QUESTIONS: [],
   USER_QUESTIONS: [],
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/memory-manager', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/memory-manager', () => ({
   resolveMemoryRoot: () => '/tmp/memory-root',
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/memory-config', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/memory-config', () => ({
   getAutoRetrieveModeSync: mocks.getAutoRetrieveModeSync,
   getMemorySnapshotModeSync: mocks.getMemorySnapshotModeSync,
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/priority-context', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/priority-context', () => ({
   buildPriorityContextSplit: mocks.buildPriorityContextSplit,
   clearPriorityContextCache: mocks.clearPriorityContextCache,
   buildPriorityContext: vi.fn(),
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/qmd', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/qmd', () => ({
   isQmdAvailable: mocks.isQmdAvailable,
   runQmdUpdateNow: mocks.runQmdUpdateNow,
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/logger', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/logger', () => ({
   info: mocks.info,
   error: mocks.error,
   errorDetails: mocks.errorDetails,
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/migration', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/migration', () => ({
   runPhase1Migration: mocks.runPhase1Migration,
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/memory-scoring', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/memory-scoring', () => ({
   flushPendingStats: mocks.flushPendingStats,
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/memory-instructions', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/memory-instructions', () => ({
   getMemoryInstructions: mocks.getMemoryInstructions,
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/prompt-debug', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/prompt-debug', () => ({
   clearMemoryPromptDebugState: vi.fn(),
   logMemoryPromptAgentStart: mocks.logMemoryPromptAgentStart,
   logMemoryPromptBeforeAgentStart: mocks.logMemoryPromptBeforeAgentStart,
@@ -72,7 +72,7 @@ vi.mock('../../../../../plugins/sero-memory-plugin/extension/prompt-debug', () =
 import {
   registerContextInjection,
   resetBootstrapCache,
-} from '../../../../../plugins/sero-memory-plugin/extension/context-injector';
+} from '@plugins/sero-memory-plugin/extension/context-injector';
 
 function createFakePi() {
   const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => Promise<unknown> | unknown>>();

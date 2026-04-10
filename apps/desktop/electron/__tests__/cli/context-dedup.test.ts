@@ -14,7 +14,7 @@ import path from 'path';
 
 import { buildCliPromptBlock } from '../../cli';
 import { buildContainerPromptBlock } from '../../features/container/tools/system-prompt';
-import { getMemoryInstructions } from '../../../../../plugins/sero-memory-plugin/extension/memory-instructions';
+import { getMemoryInstructions } from '@plugins/sero-memory-plugin/extension/memory-instructions';
 
 // ── Helpers ─────────────────────────────────────────────────
 

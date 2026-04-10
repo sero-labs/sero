@@ -16,8 +16,8 @@ import type { Card, Column, KanbanState } from './types';
 import {
   validateCardTransition,
   getUnmetDependencies as _getUnmetDeps,
-} from '../../../../../../plugins/sero-kanban-plugin/shared/validation';
-import type { ValidationResult } from '../../../../../../plugins/sero-kanban-plugin/shared/validation';
+} from '@plugins/sero-kanban-plugin/shared/validation';
+import type { ValidationResult } from '@plugins/sero-kanban-plugin/shared/validation';
 
 export type { ValidationResult };
 
