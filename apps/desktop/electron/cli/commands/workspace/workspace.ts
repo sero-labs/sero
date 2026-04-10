@@ -1,7 +1,12 @@
+import path from 'path';
+
 import { workspaceManager } from '../../../shared/infra/shared-infra';
+import { assertIsSeroPluginFolder } from '../../../features/workspace/plugin-validation';
+import { recreateContainerIfRunning } from '../../../features/workspace/container-sync';
 import type { CliRegistry } from '../../core/registry';
 import type { CliCommandContext } from '../../core/types';
-import { fail, ok } from '../../lib/utils';
+import { askConfirm } from '../../lib/ask-confirm';
+import { fail, ok, parseFlags } from '../../lib/utils';
 
 function formatWorkspaceList(currentWorkspaceId: string) {
   return async () => {
@@ -15,6 +20,101 @@ function formatWorkspaceList(currentWorkspaceId: string) {
       })
       .join('\n');
   };
+}
+
+/**
+ * Resolve a user-supplied path against the CLI's working directory.
+ * Absolute paths are passed through; relative paths are joined with cwd
+ * (which the bridged CLI sets to the workspace root for agent calls).
+ */
+function resolvePluginPath(rawPath: string, cwd: string): string {
+  return path.resolve(cwd, rawPath);
+}
+
+async function handleMountPlugin(
+  rest: string[],
+  ctx: CliCommandContext,
+) {
+  const { positionals, flags } = parseFlags(rest);
+  const target = positionals[0];
+  if (!target) {
+    return fail(
+      'Usage: sero workspace mount-plugin <path> [--name <display-name>] [--yes]',
+    );
+  }
+
+  const resolved = resolvePluginPath(target, ctx.cwd);
+
+  // Validate the folder is a real Sero plugin BEFORE prompting the user.
+  // Asking "Mount this folder?" for a folder that will fail validation
+  // wastes the user's attention.
+  try {
+    await assertIsSeroPluginFolder(resolved);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return fail(message);
+  }
+
+  const wsId = ctx.workspaceId;
+  const wsPath = workspaceManager.getPath(wsId);
+  if (!wsPath) return fail(`Workspace not found: ${wsId}`);
+
+  // No-op if the path is already attached as a root — return success
+  // (idempotent) so repeated agent calls don't error out.
+  const existingRoots = await workspaceManager.getRoots(wsId);
+  const already = existingRoots.find(
+    (r) => path.resolve(r.path) === path.resolve(resolved),
+  );
+  if (already) {
+    return ok(
+      `Plugin already mounted as root "${already.id}" (${already.path}).`,
+    );
+  }
+
+  const nameFlag = flags.get('name');
+  const displayName =
+    typeof nameFlag === 'string' && nameFlag.trim()
+      ? nameFlag.trim()
+      : path.basename(resolved);
+
+  // Confirmation gate. The agent invokes this command with the
+  // intention of editing a plugin in-place; the user must approve
+  // exposing that folder to the workspace agent before we proceed.
+  const skipPrompt = flags.get('yes') === true || flags.get('y') === true;
+  if (!skipPrompt) {
+    const confirm = await askConfirm({
+      prompt:
+        `Mount plugin folder "${displayName}" (${resolved}) ` +
+        `into workspace "${wsId}" so the agent can edit it directly?`,
+      yesLabel: 'Mount plugin',
+      noLabel: 'Cancel',
+      signal: ctx.invocation.signal,
+    });
+
+    if (!confirm.bridged) {
+      return fail(
+        'Cannot prompt for confirmation — no UI bridge available. ' +
+          'Re-run with --yes to mount without confirmation.',
+      );
+    }
+    if (confirm.cancelled || !confirm.confirmed) {
+      return ok(`Cancelled — plugin not mounted.`);
+    }
+  }
+
+  const root = await workspaceManager.addRoot(wsId, {
+    name: displayName,
+    path: resolved,
+    kind: 'linked-plugin',
+  });
+
+  // Container parity: roots are merged into bind-mounts at container
+  // build time, so recreate the container to pick up the new mount.
+  await recreateContainerIfRunning(wsId);
+
+  return ok(
+    `Mounted plugin "${root.name}" as root "${root.id}" → ${root.path}`,
+  );
 }
 
 async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
@@ -57,6 +157,9 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
         return ok(`Closed workspace: ${rest[0]} (re-add via addFolder to restore)`);
       }
 
+      case 'mount-plugin':
+        return handleMountPlugin(rest, ctx);
+
       default:
         return fail(`Unknown workspace action: ${action}`);
     }
@@ -69,17 +172,23 @@ async function handleWorkspaceCommand(args: string[], ctx: CliCommandContext) {
 export function registerWorkspaceCliCommands(registry: CliRegistry): void {
   registry.register({
     name: 'workspace',
-    summary: 'Manage workspaces (list, info, open, close)',
+    summary: 'Manage workspaces (list, info, open, close, mount-plugin)',
     help:
       'workspace — Manage workspaces\n\n' +
       'Usage: sero workspace <action> [args]\n\n' +
       'Actions:\n' +
-      '  list                 List workspaces\n' +
-      '  info [id]            Show workspace details (default: current)\n' +
-      '  open <id>            Open a workspace\n' +
-      '  close <id>           Close a workspace\n',
+      '  list                       List workspaces\n' +
+      '  info [id]                  Show workspace details (default: current)\n' +
+      '  open <id>                  Open a workspace\n' +
+      '  close <id>                 Close a workspace\n' +
+      '  mount-plugin <path>        Attach a Sero plugin source folder as a workspace root\n' +
+      '                             (asks the user to confirm before mounting).\n' +
+      '                             Flags: --name <display-name>, --yes (skip confirmation)\n',
     source: 'ipc',
     group: 'Builtin',
+    // Confirmation prompt blocks on user input — disable batch / per-command
+    // timeouts so the user has time to answer.
+    interactive: true,
     execute: handleWorkspaceCommand,
   });
 }
