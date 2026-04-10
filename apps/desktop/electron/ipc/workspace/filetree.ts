@@ -7,6 +7,7 @@
 
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../../src/types/ipc';
+import { PRIMARY_ROOT_ID } from '../../features/workspace/roots';
 import { workspaceManager } from '../../shared/infra/shared-infra';
 import { fileWatcherManager } from '../../shared/infra/shared-infra';
 
@@ -19,7 +20,12 @@ export function registerFileTreeHandlers(): void {
         console.warn(`[filetree] Cannot watch — workspace not found: ${workspaceId}`);
         return;
       }
-      fileWatcherManager.watch(workspaceId, hostDir);
+
+      const roots = await workspaceManager.getRoots(workspaceId);
+      fileWatcherManager.watch(workspaceId, [
+        { hostDir, virtualRoot: `/${PRIMARY_ROOT_ID}` },
+        ...roots.map((root) => ({ hostDir: root.path, virtualRoot: `/${root.id}` })),
+      ]);
     },
   );
 

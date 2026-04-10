@@ -26,10 +26,11 @@ describe('GitHubRepoOps', () => {
     }
   });
 
-  it('bootstraps and pushes main for a fresh workspace before first PRs exist', async () => {
+  it('normalizes a gh-created origin before pushing the bootstrap branch', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'repo-ops-'));
 
     let headChecks = 0;
+    let originChecks = 0;
     const run = vi.fn(async (_workspaceId: string, args: string[], _timeoutMs?: number) => {
       const command = args.join(' ');
 
@@ -37,10 +38,16 @@ describe('GitHubRepoOps', () => {
         headChecks += 1;
         return headChecks === 1 ? fail('fatal: ambiguous argument HEAD') : ok('abc123\n');
       }
-      if (command === 'remote get-url origin') return fail('no origin');
+      if (command === 'remote get-url origin') {
+        originChecks += 1;
+        return originChecks === 1
+          ? fail('no origin')
+          : ok('https://github.com/monobyte/helloworld3.git/\n');
+      }
       if (command === 'symbolic-ref HEAD refs/heads/main') return ok();
       if (command === 'add -- .gitignore') return ok();
       if (command === 'commit --allow-empty -m Initial commit') return ok('[main (root-commit) abc123] Initial commit');
+      if (command === 'remote set-url origin https://github.com/monobyte/helloworld3.git') return ok();
       if (command === 'rev-parse --verify main') return ok('abc123\n');
       if (command === 'push -u origin main') return ok();
       if (command === 'remote set-head origin main') return ok();
@@ -57,9 +64,6 @@ describe('GitHubRepoOps', () => {
       }
       if (args.slice(0, 2).join(' ') === 'repo edit') {
         return ok();
-      }
-      if (args.slice(0, 2).join(' ') === 'repo view') {
-        return ok('https://github.com/monobyte/helloworld3\n');
       }
 
       throw new Error(`Unexpected gh command: ${args.join(' ')}`);
@@ -82,19 +86,80 @@ describe('GitHubRepoOps', () => {
       addRemote: true,
     });
 
-    expect(result.success).toBe(true);
+    expect(result).toMatchObject({
+      success: true,
+      url: 'https://github.com/monobyte/helloworld3',
+    });
     expect(runner.ensureRepoInitialized).toHaveBeenCalledWith('helloworld3');
     expect(run).toHaveBeenCalledWith('helloworld3', ['add', '--', '.gitignore'], 10_000);
-    expect(run).toHaveBeenCalledWith('helloworld3', ['push', '-u', 'origin', 'main'], 60_000);
-    expect(runCommand).toHaveBeenCalledWith(
+    expect(run).toHaveBeenCalledWith(
       'helloworld3',
-      'gh',
-      ['repo', 'edit', '--default-branch', 'main'],
-      30_000,
+      ['remote', 'set-url', 'origin', 'https://github.com/monobyte/helloworld3.git'],
+      10_000,
     );
+    expect(run).toHaveBeenCalledWith('helloworld3', ['push', '-u', 'origin', 'main'], 60_000);
 
     const gitignore = await fs.readFile(path.join(tmpDir, '.gitignore'), 'utf8');
     expect(gitignore).toContain('.sero-workspace.json');
     expect(gitignore).toContain('.sero/');
+  });
+
+  it('updates an existing origin to the newly created repository clone URL', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'repo-ops-existing-origin-'));
+
+    const run = vi.fn(async (_workspaceId: string, args: string[], _timeoutMs?: number) => {
+      const command = args.join(' ');
+
+      if (command === 'rev-parse HEAD') return ok('abc123\n');
+      if (command === 'remote get-url origin') return ok('git@github.com:monobyte/old-repo.git\n');
+      if (command === 'remote set-url origin https://github.com/monobyte/new-repo.git') return ok();
+      if (command === 'rev-parse --verify main') return ok('abc123\n');
+      if (command === 'push -u origin main') return ok();
+      if (command === 'remote set-head origin main') return ok();
+      throw new Error(`Unexpected git command: ${command}`);
+    });
+
+    const runCommand = vi.fn(async (_workspaceId: string, program: string, args: string[]) => {
+      if (program !== 'gh') {
+        throw new Error(`Unexpected command: ${program}`);
+      }
+
+      if (args.slice(0, 2).join(' ') === 'repo create') {
+        return ok('https://github.com/monobyte/new-repo\n');
+      }
+      if (args.slice(0, 2).join(' ') === 'repo edit') {
+        return ok();
+      }
+
+      throw new Error(`Unexpected gh command: ${args.join(' ')}`);
+    });
+
+    const runner = {
+      ensureRepoInitialized: vi.fn().mockResolvedValue(undefined),
+      run,
+      runCommand,
+    } as unknown as GitRunner;
+
+    const workspaceManager = {
+      getPath: vi.fn().mockReturnValue(tmpDir),
+    } as unknown as WorkspaceManager;
+
+    const ops = new GitHubRepoOps(runner, workspaceManager);
+    const result = await ops.createRepo('workspace-1', {
+      name: 'new-repo',
+      visibility: 'private',
+      addRemote: true,
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      url: 'https://github.com/monobyte/new-repo',
+    });
+    expect(run).toHaveBeenCalledWith(
+      'workspace-1',
+      ['remote', 'set-url', 'origin', 'https://github.com/monobyte/new-repo.git'],
+      10_000,
+    );
+    expect(run).toHaveBeenCalledWith('workspace-1', ['push', '-u', 'origin', 'main'], 60_000);
   });
 });

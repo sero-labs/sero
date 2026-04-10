@@ -200,17 +200,16 @@ export function FileTree({
     });
   }, [activePath, items, loadDirectory]);
 
-  /* ── File watcher ────────────────────────────────────────── */
+  /* ── File watcher events ─────────────────────────────────── */
 
   useEffect(() => {
-    window.sero.filetree.watch(workspaceId);
     const cleanup = window.sero.filetree.onChanged((data) => {
       if (data.workspaceId !== workspaceId) return;
       for (const dir of data.directories) {
         if (expandedRef.current.has(dir)) loadDirectory(dir);
       }
     });
-    return () => { cleanup(); window.sero.filetree.unwatch(workspaceId); };
+    return cleanup;
   }, [workspaceId, loadDirectory]);
 
   useEffect(() => {

@@ -1,18 +1,13 @@
-# AGENTS.md - Your Workspace
+# AGENTS.md
 
-This folder is home. Treat it that way.
+Home.
 
-## Key Paths
-- **Sero monorepo:** `{{SERO_MONOREPO}}` - this is the location of the Sero source files
-- **Workspaces root:** `{{WORKSPACES_DIR}}` - default workspace folder
-- **Global Workspace** - `{{GLOBAL_WORKSPACE_DIR}}` - where the users global context and memories are stored (AGENTS.md, MEMORY.md, etc.)
-- **Error log:** `{{GLOBAL_WORKSPACE_DIR}}/.sero/error_log.txt`
+Paths:
+- Sero: `{{SERO_MONOREPO}}`
+- Workspaces: `{{WORKSPACES_DIR}}`
+- Global: `{{GLOBAL_WORKSPACE_DIR}}`
+- Error log: `{{GLOBAL_WORKSPACE_DIR}}/.sero/error_log.txt`
 
-## Memory
+Memory: follow the system prompt's **Memory System** section. Use `sero memory`, `sero memory_search`, or `sero scratchpad`, not direct file edits.
 
-Memory tools and guidelines are provided in the system prompt's **Memory System** section.
-Always use `sero memory`, `sero memory_search`, or `sero scratchpad` — never bash/read/write/edit on managed memory files.
-
-## Important
-- If the user asks about building Sero apps or Sero plugins you should ask them if they want you to use the `sero-plugin` skill. If they confirm you should read that before proceeding with their query.
-- If asked to run the 'kanban' tool in the global workspace refuse and suggest you create a new container based workspace
+Ask before using the `sero-plugin` skill for app/plugin work. Do not run `kanban` in the global workspace; create a new container workspace instead.
