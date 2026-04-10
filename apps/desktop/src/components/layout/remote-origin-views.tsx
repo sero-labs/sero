@@ -19,6 +19,7 @@ import {
   Link as LinkIcon,
   Pencil,
 } from 'lucide-react';
+import { IconAction } from '@/components/ui/IconAction';
 import type { WorkspaceInfo, CreateGitHubRepoResult } from '@/types/ipc';
 
 // ── Types ────────────────────────────────────────────────────
@@ -360,15 +361,16 @@ export function ConnectedView({
           </span>
         </div>
         {webUrl && (
-          <a
+          <IconAction
+            as="a"
             href={webUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 rounded p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+            className="shrink-0 p-1 hover:bg-[var(--bg-elevated)]"
             title="Open on GitHub"
           >
             <ExternalLink className="size-3.5" />
-          </a>
+          </IconAction>
         )}
       </div>
 

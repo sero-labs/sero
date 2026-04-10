@@ -7,6 +7,7 @@
 import { useCallback, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, ChevronRight, Loader2, X } from 'lucide-react';
+import { IconAction } from '@/components/ui/IconAction';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import type { ChatToolCallMessage } from '@/types/ipc';
 
@@ -214,14 +215,14 @@ export function QuestionnaireNotice({ tools, sessionLabel = null }: Props) {
         </div>
 
         {clickable && pending ? (
-          <button
+          <IconAction
             onClick={handleCancel}
             aria-label={`Cancel ${label.toLowerCase()}`}
-            className="rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+            className="hover:bg-[var(--bg-elevated)]"
             title={`Cancel ${label.toLowerCase()}`}
           >
             <X className="size-3.5" />
-          </button>
+          </IconAction>
         ) : null}
       </div>
     </motion.div>

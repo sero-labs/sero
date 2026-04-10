@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from '@sero-ai/ui/components/ui/popover';
 import type { WorkspaceInfo } from '@/types/ipc';
+import { IconAction } from '@/components/ui/IconAction';
 
 /** Extract the last segment of a path (no dependency needed in renderer). */
 function basename(p: string): string {
@@ -47,16 +48,16 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <span
+        <IconAction
+          as="span"
           role="button"
           tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); setOpen(true); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setOpen(true); } }}
-          className="rounded p-0.5 hover:bg-[var(--bg-base)]"
           title="Manage container mounts"
         >
-          <Link className="size-3 text-[var(--text-muted)]" />
-        </span>
+          <Link className="size-3" />
+        </IconAction>
       </PopoverTrigger>
       <PopoverContent
         align="start"
@@ -152,13 +153,13 @@ function MountList({
               <span className="block truncate text-[10px] text-[var(--text-muted)]">{item.sublabel}</span>
             )}
           </div>
-          <button
+          <IconAction
             onClick={() => onRemove(item.key)}
-            className="ml-1 shrink-0 rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
+            className="ml-1 shrink-0"
             title={`Remove ${item.label}`}
           >
             <X className="size-3" />
-          </button>
+          </IconAction>
         </div>
       ))}
     </div>

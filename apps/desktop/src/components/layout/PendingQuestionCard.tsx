@@ -12,6 +12,7 @@ import { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, X, Send, ShieldAlert } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { IconAction } from '@/components/ui/IconAction';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import type { UserFeedbackPendingQuestion, UserFeedbackAnswer } from '@/types/ipc';
@@ -183,14 +184,14 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
         <span className="flex-1 text-xs font-medium text-[var(--text-secondary)]">
           question
         </span>
-        <button
+        <IconAction
           onClick={handleCancel}
           aria-label="Cancel question"
-          className="rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+          className="hover:bg-[var(--bg-elevated)]"
           title="Cancel"
         >
           <X className="size-3.5" />
-        </button>
+        </IconAction>
       </div>
 
       {/* Question content */}

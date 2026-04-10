@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from '@sero-ai/ui/components/ui/popover';
 import type { WorkspaceInfo } from '@/types/ipc';
+import { IconAction } from '@/components/ui/IconAction';
 import { PickView, CreateView } from './AddWorkspaceViews';
 import { RemoteOriginManager } from './RemoteOriginManager';
 
@@ -81,12 +82,12 @@ export function AddWorkspaceMenu() {
       if (!o) reset();
     }}>
       <PopoverTrigger asChild>
-        <button
-          className="rounded-md p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+        <IconAction
+          className="rounded-md hover:bg-[var(--bg-elevated)]"
           title="Add workspace"
         >
           <Plus className="size-3.5" />
-        </button>
+        </IconAction>
       </PopoverTrigger>
       <PopoverContent
         align="end"

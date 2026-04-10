@@ -31,6 +31,7 @@ import {
 
 import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
 import { cn } from '@sero-ai/ui/lib/utils';
+import { IconAction } from '@/components/ui/IconAction';
 import { SessionNode } from './SessionNode';
 import { AddWorkspaceMenu } from './AddWorkspaceMenu';
 import { WorkspaceReferencesMenu } from './WorkspaceReferencesMenu';
@@ -158,13 +159,13 @@ function CollapseAllButton() {
   if (!hasExpanded) return null;
 
   return (
-    <button
+    <IconAction
       onClick={collapseAll}
-      className="rounded-md p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+      className="rounded-md hover:bg-[var(--bg-elevated)]"
       title="Collapse all"
     >
       <ChevronsDownUp className="size-3.5" />
-    </button>
+    </IconAction>
   );
 }
 
@@ -261,18 +262,33 @@ function WorkspaceNode({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={cn(
-          'relative flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-left transition-colors',
+          'group relative flex w-full items-center gap-1 rounded-md mb-1 px-1.5 py-1 text-left transition-colors',
           isActive
             ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
             : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]',
         )}
       >
         {expanded ? (
-          <ChevronDown className="size-3 shrink-0 text-[var(--text-muted)]" />
+          <ChevronDown
+            className={cn(
+              'size-3 shrink-0 transition-colors',
+              isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-primary)]',
+            )}
+          />
         ) : (
-          <ChevronRight className="size-3 shrink-0 text-[var(--text-muted)]" />
+          <ChevronRight
+            className={cn(
+              'size-3 shrink-0 transition-colors',
+              isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-primary)]',
+            )}
+          />
         )}
-        <FolderOpen className="size-3.5 shrink-0 text-[var(--text-muted)]" />
+        <FolderOpen
+          className={cn(
+            'size-3.5 shrink-0 transition-colors',
+            isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-primary)]',
+          )}
+        />
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {workspace.name}
         </span>
@@ -294,22 +310,23 @@ function WorkspaceNode({
               <span className="text-xs font-medium text-[var(--accent-primary)]">
                 {selectedInWorkspace}
               </span>
-              <span
+              <IconAction
+                as="span"
                 role="button"
                 tabIndex={-1}
+                tone="destructive"
                 onClick={(e) => { e.stopPropagation(); setConfirmBulkDelete(true); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setConfirmBulkDelete(true); } }}
-                className="rounded p-0.5 hover:bg-[var(--status-error)]/15"
                 title={`Delete ${selectedInWorkspace} selected session${selectedInWorkspace > 1 ? 's' : ''}`}
               >
-                <Trash2 className="size-3 text-[var(--status-error)]" />
-              </span>
+                <Trash2 className="size-3" />
+              </IconAction>
               <span
                 role="button"
                 tabIndex={-1}
                 onClick={(e) => { e.stopPropagation(); clearSelection(); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); clearSelection(); } }}
-                className="rounded p-0.5 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
+                className="rounded p-0.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
                 title="Clear selection (Esc)"
               >
                 ✕
@@ -317,8 +334,7 @@ function WorkspaceNode({
             </span>
           ) : (
           <AnimatePresence mode="wait" initial={false}>
-            {hovered ? (
-              <motion.span
+            <motion.span
                 key="actions"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -326,75 +342,56 @@ function WorkspaceNode({
                 transition={{ duration: 0.15 }}
                 className="flex items-center gap-0.5"
               >
-                <span
+                <IconAction
+                  as="span"
                   role="button"
                   tabIndex={-1}
                   onClick={handleNewSession}
                   onKeyDown={(e) => { if (e.key === 'Enter') { handleNewSession(e); } }}
-                  className="rounded p-0.5 hover:bg-[var(--bg-base)]"
                   title="New session"
                 >
-                  <Plus className="size-3 text-[var(--text-muted)]" />
-                </span>
-                <span
+                  <Plus className="size-3" />
+                </IconAction>
+                <IconAction
+                  as="span"
                   role="button"
                   tabIndex={-1}
                   onClick={handleToggleContainer}
                   onKeyDown={(e) => { if (e.key === 'Enter') { handleToggleContainer(e); } }}
-                  className="rounded p-0.5 hover:bg-[var(--bg-base)]"
                   title={workspace.container ? 'Disable container (use host)' : 'Enable container'}
                 >
                   {workspace.container ? (
-                    <Box className="size-3 text-[var(--text-muted)]" />
+                    <Box className="size-3" />
                   ) : (
-                    <Monitor className="size-3 text-[var(--text-muted)]" />
+                    <Monitor className="size-3" />
                   )}
-                </span>
+                </IconAction>
                 {workspace.container && (
                   <WorkspaceReferencesMenu workspace={workspace} />
                 )}
-                <span
+                <IconAction
+                  as="span"
                   role="button"
                   tabIndex={-1}
                   onClick={(e) => { e.stopPropagation(); setRemoteManagerOpen(true); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setRemoteManagerOpen(true); } }}
-                  className="rounded p-0.5 hover:bg-[var(--bg-base)]"
                   title="Remote origin"
                 >
-                  <GitBranch className="size-3 text-[var(--text-muted)]" />
-                </span>
+                  <GitBranch className="size-3" />
+                </IconAction>
                 {!isDefault && (
-                  <span
+                  <IconAction
+                    as="span"
                     role="button"
                     tabIndex={-1}
                     onClick={handleClose}
                     onKeyDown={(e) => { if (e.key === 'Enter') { handleClose(e); } }}
-                    className="rounded p-0.5 hover:bg-[var(--bg-base)]"
                     title="Close workspace"
                   >
-                    <Minus className="size-3 text-[var(--text-muted)]" />
-                  </span>
+                    <Minus className="size-3" />
+                  </IconAction>
                 )}
               </motion.span>
-            ) : (
-              <motion.span
-                key="count"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="flex items-center gap-1 pr-0.5"
-              >
-                {hasStreaming && (
-                  <span className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--status-success)]" />
-                )}
-                {sessions.length > 0 && !expanded && (
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {sessions.length}
-                  </span>
-                )}
-              </motion.span>
-            )}
           </AnimatePresence>
           )}
         </span>
@@ -402,7 +399,7 @@ function WorkspaceNode({
 
       {/* Sessions */}
       {expanded && (
-        <div className="ml-2 flex flex-col gap-0.5 pl-2 border-l border-[var(--border-subtle)]">
+        <div className="ml-2 flex flex-col gap-1 pl-2 border-l border-[var(--border-subtle)]">
           {sessions.length === 0 ? (
             <span className="px-2 py-1 text-xs text-[var(--text-muted)]">
               No sessions

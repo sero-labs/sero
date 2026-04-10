@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from '@sero-ai/ui/components/ui/popover';
 import type { SeroSessionInfo } from '@/types/ipc';
+import { IconAction } from '@/components/ui/IconAction';
 import { cn } from '@sero-ai/ui/lib/utils';
 
 // ── Session node ───────────────────────────────────────────────
@@ -153,29 +154,29 @@ export function SessionNode({
         'flex shrink-0 items-center gap-0.5 transition-opacity',
         hasSelection ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100',
       )}>
-        <span
+        <IconAction
+          as="span"
           role="button"
           tabIndex={-1}
           onClick={(e) => { e.stopPropagation(); startRename(); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startRename(); } }}
-          className="rounded p-0.5 hover:bg-[var(--bg-base)]"
           title="Rename session"
         >
-          <Pencil className="size-3 text-[var(--text-muted)]" />
-        </span>
+          <Pencil className="size-3" />
+        </IconAction>
 
         <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
           <PopoverTrigger asChild>
-            <span
+            <IconAction
+              as="span"
               role="button"
               tabIndex={-1}
               onClick={(e) => { e.stopPropagation(); setConfirmOpen(true); }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setConfirmOpen(true); } }}
-              className="rounded p-0.5 hover:bg-[var(--bg-base)]"
               title="Delete session"
             >
-              <Trash2 className="size-3 text-[var(--text-muted)]" />
-            </span>
+              <Trash2 className="size-3" />
+            </IconAction>
           </PopoverTrigger>
           <PopoverContent
             align="start"
