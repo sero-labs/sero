@@ -13,11 +13,11 @@ vi.mock('util', () => ({
   promisify: () => execFileMock,
 }));
 
-vi.mock('../../../features/kanban/quality/pr-merge-status', () => ({
+vi.mock('@electron/features/kanban/quality/pr-merge-status', () => ({
   getPullRequestMergeState: getPullRequestMergeStateMock,
 }));
 
-import { mergePrFromWorktree } from '../../../features/kanban/worktree/worktree-pr';
+import { mergePrFromWorktree } from '@electron/features/kanban/worktree/worktree-pr';
 
 describe('mergePrFromWorktree', () => {
   beforeEach(() => {

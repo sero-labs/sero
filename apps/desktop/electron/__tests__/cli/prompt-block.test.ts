@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { CliRegistry } from '../../cli/core';
-import { buildCliPromptBlock } from '../../cli';
+import { CliRegistry } from '@electron/cli/core';
+import { buildCliPromptBlock } from '@electron/cli';
 
 describe('CLI prompt block', () => {
   it('lists commands with summaries grouped by source', () => {

@@ -6,10 +6,10 @@
  * transitions and under the 500 LOC limit.
  */
 
-import { buildAutoMergePendingMessage } from '../../quality/auto-merge-monitor';
-import { mergePrFromWorktree } from '../../worktree/worktree-pr';
-import { updateCard } from '../../core/state-helpers';
-import type { KanbanSettings } from '../../core/types';
+import { buildAutoMergePendingMessage } from '@electron/features/kanban/quality/auto-merge-monitor';
+import { mergePrFromWorktree } from '@electron/features/kanban/worktree/worktree-pr';
+import { updateCard } from '@electron/features/kanban/core/state-helpers';
+import type { KanbanSettings } from '@electron/features/kanban/core/types';
 
 interface ReviewPrResult {
   prUrl?: string;

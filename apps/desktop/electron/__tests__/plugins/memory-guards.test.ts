@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   checkForDuplicateEntries,
   scanMemoryContent,
-} from '../../../../../plugins/sero-memory-plugin/extension/memory-guards';
-import type { MemoryEntry } from '../../../../../plugins/sero-memory-plugin/extension/memory-format';
+} from '@plugins/sero-memory-plugin/extension/memory-guards';
+import type { MemoryEntry } from '@plugins/sero-memory-plugin/extension/memory-format';
 
 // ── Helper ─────────────────────────────────────────────────────
 

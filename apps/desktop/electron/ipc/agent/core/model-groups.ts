@@ -2,8 +2,8 @@ import {
   getAvailableThinkingLevels,
   inferSupportsXhigh,
 } from '@sero/common';
-import type { AvailableModelGroup } from '../../../../src/types/ipc';
-import { providerDisplayName, providerLogo } from '../../platform/auth';
+import type { AvailableModelGroup } from '@/types/ipc';
+import { providerDisplayName, providerLogo } from '@electron/ipc/platform/auth';
 
 interface RegistryModelLike {
   provider: string;

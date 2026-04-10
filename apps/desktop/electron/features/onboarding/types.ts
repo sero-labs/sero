@@ -7,14 +7,14 @@ import type {
   OnboardingState,
   OnboardingTierSource,
   ProviderHealthInfo,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
 export type {
   OnboardingRecommendation,
   OnboardingState,
   OnboardingTierSource,
   ProviderHealthInfo,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
 export const ONBOARDING_TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;
 

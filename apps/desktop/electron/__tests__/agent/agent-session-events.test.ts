@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   emitSessionShutdown,
   emitSessionBeforeSwitch,
-} from '../../ipc/agent/core/agent-session-events';
+} from '@electron/ipc/agent/core/agent-session-events';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 
 function createMockSession(opts?: {

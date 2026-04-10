@@ -1,16 +1,16 @@
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import type { AvailableModelGroup, ProviderHealthInfo, ProviderHealthStatus } from '../../../src/types/ipc';
-import type { LocalModelsConfig } from '../../../src/types/local-models';
-import { SERO_AGENT_DIR } from '../../platform/env';
-import { ensureInfra } from '../../shared/infra/shared-infra';
+import type { AvailableModelGroup, ProviderHealthInfo, ProviderHealthStatus } from '@/types/ipc';
+import type { LocalModelsConfig } from '@/types/local-models';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import {
   getApiKeyProviderCatalog,
   getOAuthProviderCatalog,
   getProviderEnvApiKey,
-} from '../../shared/auth/provider-catalog';
-import { providerDisplayName } from '../../ipc/platform/auth';
-import { buildAvailableModelGroups } from '../../ipc/agent/core/model-groups';
+} from '@electron/shared/auth/provider-catalog';
+import { providerDisplayName } from '@electron/ipc/platform/auth';
+import { buildAvailableModelGroups } from '@electron/ipc/agent/core/model-groups';
 
 export interface ProviderHealthSnapshot {
   availableModelGroups: AvailableModelGroup[];

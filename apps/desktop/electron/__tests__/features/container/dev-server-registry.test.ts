@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DevServerRegistry } from '../../../features/container/registries/dev-server-registry';
+import { DevServerRegistry } from '@electron/features/container/registries/dev-server-registry';
 
 afterEach(() => {
   vi.useRealTimers();

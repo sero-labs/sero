@@ -9,12 +9,12 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { IpcChannels } from '../../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   UserFeedbackPendingQuestion,
   UserFeedbackResponse,
-} from '../../../../src/types/ipc';
-import { getUserFeedbackBus } from '../../../shared/lib/user-feedback-bus';
+} from '@/types/ipc';
+import { getUserFeedbackBus } from '@electron/shared/lib/user-feedback-bus';
 
 function sendToAllWindows(channel: string, data: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {

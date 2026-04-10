@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Type } from '@sinclair/typebox';
 
-import { CliRegistry } from '../../cli/core/registry';
-import { bridgeTool } from '../../cli/core/schema-bridge';
-import { executeCliBatch } from '../../cli/core/tool';
+import { CliRegistry } from '@electron/cli/core/registry';
+import { bridgeTool } from '@electron/cli/core/schema-bridge';
+import { executeCliBatch } from '@electron/cli/core/tool';
 
 describe('CLI bridge tool updates', () => {
   it('forwards partial tool updates through the bridged CLI command', async () => {

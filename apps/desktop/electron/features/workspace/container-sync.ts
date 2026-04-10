@@ -9,8 +9,8 @@
  * can call the same logic without duplicating it.
  */
 
-import { containerManager, buildContainerConfig, workspaceManager } from '../../shared/infra/shared-infra';
-import { showNotification } from '../../platform/desktop/notifications';
+import { containerManager, buildContainerConfig, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { showNotification } from '@electron/platform/desktop/notifications';
 
 /**
  * Whether the workspace has any active terminal sessions on its

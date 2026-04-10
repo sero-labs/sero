@@ -7,9 +7,9 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '../../../../src/types/ipc';
-import type { AvailableModelGroup } from '../../../../src/types/ipc';
-import { ensureInfra } from '../../../shared/infra/shared-infra';
+import { IpcChannels } from '@/types/ipc';
+import type { AvailableModelGroup } from '@/types/ipc';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { buildAvailableModelGroups } from '../core/model-groups';
 
 export function registerModelsHandlers(): void {

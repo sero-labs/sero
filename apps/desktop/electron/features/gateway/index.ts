@@ -12,7 +12,7 @@ import { CostTracker } from './server/cost-tracker';
 import { RateLimiter } from './security/rate-limiter';
 import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './server/request-handler';
 import { tryServeStaticFile } from './server/static-files';
-import { redactSecrets } from '../../shared/lib/secret-redact';
+import { redactSecrets } from '@electron/shared/lib/secret-redact';
 import {
   validateRequest,
   type GatewayRequest,

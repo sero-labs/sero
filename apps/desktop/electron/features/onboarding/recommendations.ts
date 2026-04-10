@@ -6,7 +6,7 @@ import type {
   ModelTierSettings,
   OnboardingRecommendation,
   OnboardingTierSource,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 import {
   ONBOARDING_TIERS,
   flattenAvailableModels,

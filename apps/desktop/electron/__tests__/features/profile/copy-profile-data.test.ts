@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   copyProfileDataSync,
   profileHasTransferableData,
-} from '../../../features/profile/copy-profile-data';
+} from '@electron/features/profile/copy-profile-data';
 
 const tempDirs: string[] = [];
 

@@ -12,8 +12,8 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '../../../../src/types/ipc';
-import type { ProxyFetchRequest, ProxyFetchResponse } from '../../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
+import type { ProxyFetchRequest, ProxyFetchResponse } from '@/types/ipc';
 import dns from 'dns';
 import { promisify } from 'util';
 

@@ -6,9 +6,9 @@
 import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { ContextPreset } from '../../../src/types/ipc';
-import { SERO_HOME } from '../../platform/env';
+import { IpcChannels } from '@/types/ipc';
+import type { ContextPreset } from '@/types/ipc';
+import { SERO_HOME } from '@electron/platform/env';
 
 const PRESETS_PATH = path.join(SERO_HOME, 'context-presets.json');
 

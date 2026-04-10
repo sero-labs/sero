@@ -5,11 +5,11 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
-import { createHostCodingTools } from '../../../features/container/tools';
+import { createHostCodingTools } from '@electron/features/container/tools';
 import {
   getProtectedMemoryAccessError,
   getProtectedMemoryRoot,
-} from '../../../features/container/tools/memory-file-guard';
+} from '@electron/features/container/tools/memory-file-guard';
 
 function getTool(tools: ToolDefinition[], name: string): ToolDefinition {
   const tool = tools.find((entry) => entry.name === name);

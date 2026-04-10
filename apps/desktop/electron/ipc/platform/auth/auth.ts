@@ -22,17 +22,17 @@ import { ipcMain, BrowserWindow, shell, type WebContents } from 'electron';
 import { getOAuthProviders } from '@mariozechner/pi-ai/oauth';
 import type { OAuthProviderId } from '@mariozechner/pi-ai';
 
-import { IpcChannels } from '../../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   OAuthProviderInfo,
   ApiKeyProviderInfo,
   AuthProvidersResponse,
   OAuthEvent,
-} from '../../../../src/types/ipc';
-import { ensureInfra } from '../../../shared/infra/shared-infra';
-import { getApiKeyProviderCatalog, getProviderEnvApiKey } from '../../../shared/auth/provider-catalog';
-import { AUTH_JSON_PATH } from '../../../platform/env';
-import { cleanupUnavailableModelSelections } from '../../../shared/settings/cleanup-unavailable-model-selections';
+} from '@/types/ipc';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { getApiKeyProviderCatalog, getProviderEnvApiKey } from '@electron/shared/auth/provider-catalog';
+import { AUTH_JSON_PATH } from '@electron/platform/env';
+import { cleanupUnavailableModelSelections } from '@electron/shared/settings/cleanup-unavailable-model-selections';
 
 // ── auth.json permission hardening ───────────────────────────
 // The Pi SDK writes auth.json with default permissions (0o644).

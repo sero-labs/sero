@@ -1,5 +1,5 @@
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import type { ContextOverrides, ContextToolInfo } from '../../../../src/types/ipc';
+import type { ContextOverrides, ContextToolInfo } from '@/types/ipc';
 import { setBaseSystemPrompt, stripDisabledSkills } from './agent-helpers';
 
 const CONTEXT_OVERRIDES_CUSTOM_TYPE = 'sero-context-overrides';

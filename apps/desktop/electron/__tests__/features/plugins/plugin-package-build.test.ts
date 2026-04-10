@@ -8,7 +8,7 @@ import {
   findUnsupportedDependencySpec,
   pluginNeedsBuild,
   stripInstalledOnlyManifestFields,
-} from '../../../features/plugins/package-build';
+} from '@electron/features/plugins/package-build';
 
 async function createTempPluginDir(tempDirs: string[]): Promise<string> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'sero-plugin-build-'));

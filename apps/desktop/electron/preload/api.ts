@@ -1,5 +1,5 @@
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
-import { IpcChannels } from '../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import { userFeedbackBridge } from './platform/user-feedback';
 import {
   feedbackBridge,
@@ -66,7 +66,7 @@ import type {
   AppRecordingResult,
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
-} from '../../src/types/ipc';
+} from '@/types/ipc';
 import type {
   VcsCheckpoint,
   VcsEvent,
@@ -84,7 +84,7 @@ import type {
   PullRequestDraft,
   CreatePullRequestInput,
   CreatePullRequestResult,
-} from '../../src/types/vcs';
+} from '@/types/vcs';
 
 export const seroPreloadApi = {
   platform: process.platform,

@@ -4,9 +4,9 @@ import os from 'os';
 import path from 'path';
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
-import { executeImplementation } from '../../../features/kanban/implementation/implementation-executor';
-import type { Card, KanbanSettings, KanbanState } from '../../../features/kanban/core/types';
-import type { ImplementationProgressTracker } from '../../../features/kanban/implementation/implementation-progress';
+import { executeImplementation } from '@electron/features/kanban/implementation/implementation-executor';
+import type { Card, KanbanSettings, KanbanState } from '@electron/features/kanban/core/types';
+import type { ImplementationProgressTracker } from '@electron/features/kanban/implementation/implementation-progress';
 
 let tmpDir: string;
 

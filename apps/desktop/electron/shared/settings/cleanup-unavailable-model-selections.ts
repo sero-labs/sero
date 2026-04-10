@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import { SERO_AGENT_DIR } from '../../platform/env';
-import type { ModelTierSettings } from '../../../src/types/ipc';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
+import type { ModelTierSettings } from '@/types/ipc';
 import { getModelTiers, setModelTiers } from './model-tiers';
 
 export interface AvailableModelSelectionRef {

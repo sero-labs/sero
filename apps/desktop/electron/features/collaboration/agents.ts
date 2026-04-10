@@ -6,8 +6,8 @@
  * agent names and provides the Coordinator's synthesis prompt builder.
  */
 
-import type { CollaborationRole } from '../../../src/types/collaboration';
-export type { CollaborationRole } from '../../../src/types/collaboration';
+import type { CollaborationRole } from '@/types/collaboration';
+export type { CollaborationRole } from '@/types/collaboration';
 
 /**
  * Map of collaboration role → discovered agent name (from .md frontmatter).

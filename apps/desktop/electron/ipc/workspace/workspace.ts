@@ -6,11 +6,11 @@
 
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 
-import { IpcChannels } from '../../../src/types/ipc';
-import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '../../../src/types/ipc';
-import { workspaceManager } from '../../features/workspace/manager';
-import { assertIsSeroPluginFolder } from '../../features/workspace/plugin-validation';
-import { recreateContainerIfRunning } from '../../features/workspace/container-sync';
+import { IpcChannels } from '@/types/ipc';
+import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
+import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 
 export function registerWorkspaceHandlers(): void {
   // ── List all registered workspaces ─────────────────────────

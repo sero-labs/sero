@@ -7,7 +7,7 @@ import { launchSeroApp } from './helpers';
 import {
   nowTimestamp,
   serializeMemoryEntries,
-} from '../../../plugins/sero-memory-plugin/extension/memory-format';
+} from '@plugins/sero-memory-plugin/extension/memory-format';
 
 interface TestContext {
   app: ElectronApplication;

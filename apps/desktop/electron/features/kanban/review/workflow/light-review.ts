@@ -1,5 +1,5 @@
-import type { ReviewResult } from '../../prompts';
-import type { Card, KanbanSettings } from '../../core/types';
+import type { ReviewResult } from '@electron/features/kanban/prompts';
+import type { Card, KanbanSettings } from '@electron/features/kanban/core/types';
 import type { ReviewProgressTracker } from '../state/review-progress';
 import {
   detectCompileCommands,
@@ -7,8 +7,8 @@ import {
   runDevServerSmokeCheck,
   runVerificationCommands,
   summarizeVerificationFailure,
-} from '../../quality/verification';
-import { runWorkspaceCommand } from '../../workspace/workspace-command-runner';
+} from '@electron/features/kanban/quality/verification';
+import { runWorkspaceCommand } from '@electron/features/kanban/workspace/workspace-command-runner';
 
 interface LightReviewDeps {
   workspaceId: string;

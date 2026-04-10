@@ -8,9 +8,9 @@
 import { BrowserWindow } from 'electron';
 import { copyFile, cp as copyTree, lstat, mkdir as mkdirFs, writeFile } from 'fs/promises';
 import pathMod from 'path';
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext, CliResult } from '../../core/types';
-import { fail, ok, parseFlags, requireFlagString, stringifyJson } from '../../lib/utils';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext, CliResult } from '@electron/cli/core/types';
+import { fail, ok, parseFlags, requireFlagString, stringifyJson } from '@electron/cli/lib/utils';
 import type {
   AppControlEntry,
   AppInteractionParams,
@@ -18,9 +18,9 @@ import type {
   AppPanelRect,
   AppRecordingStatus,
   AppRecordingResult,
-} from '../../../../src/types/ipc';
-import { captureRegion } from '../../../shared/media/capture';
-import { prepareToolImage } from '../../../shared/media/image-resize';
+} from '@/types/ipc';
+import { captureRegion } from '@electron/shared/media/capture';
+import { prepareToolImage } from '@electron/shared/media/image-resize';
 import { resolveAppTarget } from './app-control-target';
 
 // ── Helpers ──────────────────────────────────────────────────

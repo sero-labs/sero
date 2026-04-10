@@ -20,8 +20,8 @@ import {
   ROLE_AGENT_NAMES,
   buildCoordinatorSynthesisPrompt,
 } from './agents';
-import type { CollaborationRole, CollaborationResult } from '../../../src/types/collaboration';
-export type { CollaborationResult } from '../../../src/types/collaboration';
+import type { CollaborationRole, CollaborationResult } from '@/types/collaboration';
+export type { CollaborationResult } from '@/types/collaboration';
 
 export interface CollaborationCallbacks {
   /** Called when each phase starts. */

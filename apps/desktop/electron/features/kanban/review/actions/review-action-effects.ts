@@ -1,8 +1,8 @@
-import { appStateManager } from '../../../apps/state/manager';
-import { updateCard } from '../../core/state-helpers';
+import { appStateManager } from '@electron/features/apps/state/manager';
+import { updateCard } from '@electron/features/kanban/core/state-helpers';
 import { closePullRequest, deleteReviewCache } from './review-artifacts';
-import type { WorktreeManager } from '../../worktree/worktree-manager';
-import type { Card } from '../../core/types';
+import type { WorktreeManager } from '@electron/features/kanban/worktree/worktree-manager';
+import type { Card } from '@electron/features/kanban/core/types';
 
 const ERROR_LOG_FILENAME = 'errors.json';
 const REVISION_REQUEST_PREFIX = '[REVISION REQUEST] ';

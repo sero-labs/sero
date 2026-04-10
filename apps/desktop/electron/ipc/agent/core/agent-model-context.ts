@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import type { AgentSession, DefaultResourceLoader } from '@mariozechner/pi-coding-agent';
 
-import { IpcChannels } from '../../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   AgentStreamEvent,
   ContextOverrides,
@@ -9,7 +9,7 @@ import type {
   ContextToolInfo,
   SessionContext,
   SessionModelState,
-} from '../../../../src/types/ipc';
+} from '@/types/ipc';
 import {
   buildModelState,
   validateProvider,
@@ -20,9 +20,9 @@ import {
   areContextOverridesEqual,
   persistContextOverrides,
 } from './agent-context-overrides';
-import { getConfiguredModelFallbackChain } from '../../../shared/settings/model-fallback-chain';
-import { getModelTiers } from '../../../shared/settings/model-tiers';
-import { cleanupUnavailableModelSelections } from '../../../shared/settings/cleanup-unavailable-model-selections';
+import { getConfiguredModelFallbackChain } from '@electron/shared/settings/model-fallback-chain';
+import { getModelTiers } from '@electron/shared/settings/model-tiers';
+import { cleanupUnavailableModelSelections } from '@electron/shared/settings/cleanup-unavailable-model-selections';
 
 export interface AgentPoolContextEntry {
   session: AgentSession;

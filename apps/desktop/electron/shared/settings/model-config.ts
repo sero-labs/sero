@@ -14,8 +14,8 @@ import type {
   ModelTier,
   ModelTierEntry,
   ModelTierSettings,
-} from '../../../src/types/ipc';
-import { SERO_AGENT_DIR, SERO_HOME } from '../../platform/env';
+} from '@/types/ipc';
+import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { MODEL_TIERS, getModelTiers, setModelTiers } from './model-tiers';
 
 const PROVIDER_DEFAULTS_PATH = path.join(SERO_AGENT_DIR, 'provider-model-defaults.json');

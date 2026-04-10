@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { runLightReviewWorkflow } from '../../../features/kanban/review/workflow/light-review-workflow';
-import type { ReviewResult } from '../../../features/kanban/prompts';
-import type { Card, KanbanSettings } from '../../../features/kanban/core/types';
-import type { ReviewProgressTracker } from '../../../features/kanban/review/state/review-progress';
+import { runLightReviewWorkflow } from '@electron/features/kanban/review/workflow/light-review-workflow';
+import type { ReviewResult } from '@electron/features/kanban/prompts';
+import type { Card, KanbanSettings } from '@electron/features/kanban/core/types';
+import type { ReviewProgressTracker } from '@electron/features/kanban/review/state/review-progress';
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Type } from '@sinclair/typebox';
 
-import { CliRegistry } from '../../cli/core/registry';
-import { bridgeTool } from '../../cli/core/schema-bridge';
-import { createSeroCliTool, executeCliBatch } from '../../cli/core/tool';
-import { installCliSessionBridge } from '../../cli/bridges/session-bridge';
-import { convertSessionMessages } from '../../ipc/agent/core/agent-helpers';
-import { subscribeToSession } from '../../ipc/agent/core/agent-subscription';
-import { workspaceManager } from '../../shared/infra/shared-infra';
+import { CliRegistry } from '@electron/cli/core/registry';
+import { bridgeTool } from '@electron/cli/core/schema-bridge';
+import { createSeroCliTool, executeCliBatch } from '@electron/cli/core/tool';
+import { installCliSessionBridge } from '@electron/cli/bridges/session-bridge';
+import { convertSessionMessages } from '@electron/ipc/agent/core/agent-helpers';
+import { subscribeToSession } from '@electron/ipc/agent/core/agent-subscription';
+import { workspaceManager } from '@electron/shared/infra/shared-infra';
 
 describe('CLI bridge rich output', () => {
   beforeEach(() => {

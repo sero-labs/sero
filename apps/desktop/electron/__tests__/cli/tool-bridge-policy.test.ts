@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Type, type TSchema } from '@sinclair/typebox';
 import type { LoadExtensionsResult, ToolDefinition, RegisteredCommand } from '@mariozechner/pi-coding-agent';
-import { bridgeExtensionTools, getCliRegistry, resetCliRegistryForTests } from '../../cli';
+import { bridgeExtensionTools, getCliRegistry, resetCliRegistryForTests } from '@electron/cli';
 
 // ── Helpers ─────────────────────────────────────────────────
 

@@ -12,12 +12,12 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildPriorityContext } from '../../../../../plugins/sero-memory-plugin/extension/context-injector';
-import { getMemoryInstructions } from '../../../../../plugins/sero-memory-plugin/extension/memory-instructions';
+import { buildPriorityContext } from '@plugins/sero-memory-plugin/extension/context-injector';
+import { getMemoryInstructions } from '@plugins/sero-memory-plugin/extension/memory-instructions';
 import {
   serializeMemoryEntries,
   nowTimestamp,
-} from '../../../../../plugins/sero-memory-plugin/extension/memory-format';
+} from '@plugins/sero-memory-plugin/extension/memory-format';
 
 let root: string;
 const originalSeroHome = process.env.SERO_HOME;

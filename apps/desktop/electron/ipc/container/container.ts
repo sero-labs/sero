@@ -7,8 +7,8 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import { containerManager, workspaceManager, buildContainerConfig } from '../../shared/infra/shared-infra';
+import { IpcChannels } from '@/types/ipc';
+import { containerManager, workspaceManager, buildContainerConfig } from '@electron/shared/infra/shared-infra';
 
 export function registerContainerHandlers(): void {
   // Get container state for a workspace (returns null if no container)

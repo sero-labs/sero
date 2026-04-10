@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { PlanningProgressTracker } from '../../../features/kanban/planning/planning-progress';
+import { PlanningProgressTracker } from '@electron/features/kanban/planning/planning-progress';
 
 function latestPlanningProgress(writeCard: ReturnType<typeof vi.fn>) {
   return writeCard.mock.calls.at(-1)?.[2].planningProgress;

@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentSession, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
 
-import { CliRegistry } from '../../cli/core/registry';
-import { bridgeTool } from '../../cli/core/schema-bridge';
-import { createSeroCliTool } from '../../cli/core/tool';
-import type { CliSessionRuntime } from '../../cli/core/types';
-import { installCliSessionBridge } from '../../cli/bridges/session-bridge';
-import { workspaceManager } from '../../shared/infra/shared-infra';
+import { CliRegistry } from '@electron/cli/core/registry';
+import { bridgeTool } from '@electron/cli/core/schema-bridge';
+import { createSeroCliTool } from '@electron/cli/core/tool';
+import type { CliSessionRuntime } from '@electron/cli/core/types';
+import { installCliSessionBridge } from '@electron/cli/bridges/session-bridge';
+import { workspaceManager } from '@electron/shared/infra/shared-infra';
 
 describe('CLI session runtime bridge', () => {
   beforeEach(() => {

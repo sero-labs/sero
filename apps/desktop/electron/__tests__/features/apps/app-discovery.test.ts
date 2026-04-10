@@ -9,7 +9,7 @@ const originalHomeOverride = process.env.SERO_HOME_OVERRIDE;
 const builtinPluginPath = '/Users/test/dev/sero/plugins/sero-admin-plugin';
 
 async function importAppDiscovery() {
-  return import('../../../features/apps/discovery');
+  return import('@electron/features/apps/discovery');
 }
 
 describe('app discovery devPort handling', () => {

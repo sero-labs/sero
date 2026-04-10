@@ -14,7 +14,7 @@ import {
   runDevServerSmokeCheck,
   runVerificationCommands,
   summarizeVerificationFailure,
-} from '../../../features/kanban/quality/verification';
+} from '@electron/features/kanban/quality/verification';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';

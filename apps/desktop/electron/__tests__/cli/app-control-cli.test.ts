@@ -14,9 +14,9 @@ vi.mock('electron', () => ({
   },
 }));
 
-import { CliRegistry } from '../../cli/core/registry';
-import { registerAppControlCliCommands } from '../../cli/commands/apps/app-control';
-import type { CliCommandContext } from '../../cli/core/types';
+import { CliRegistry } from '@electron/cli/core/registry';
+import { registerAppControlCliCommands } from '@electron/cli/commands/apps/app-control';
+import type { CliCommandContext } from '@electron/cli/core/types';
 
 function createContext(): CliCommandContext {
   return {

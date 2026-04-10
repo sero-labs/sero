@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   SeroAppManifest,
   AuthProvidersResponse,
@@ -18,7 +18,7 @@ import type {
   AppRecordingStatus,
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
 export const appStateBridge = {
   read: (filePath: string): Promise<unknown> =>

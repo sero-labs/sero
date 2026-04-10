@@ -13,7 +13,7 @@ import {
   stripEntryIdComments,
   stripManagedFileMetadata,
   type MemoryEntry,
-} from '../../../../../plugins/sero-memory-plugin/extension/memory-format';
+} from '@plugins/sero-memory-plugin/extension/memory-format';
 
 // ── Helpers ────────────────────────────────────────────────────
 

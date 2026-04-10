@@ -1,4 +1,4 @@
-import { appStateManager } from '../../apps/state/manager';
+import { appStateManager } from '@electron/features/apps/state/manager';
 import type { Card, Column, KanbanState } from '../core/types';
 
 export interface WatchedWorkspaceEntry {

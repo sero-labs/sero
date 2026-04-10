@@ -8,11 +8,11 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   UserFeedbackPendingQuestion,
   UserFeedbackResponse,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
 export const userFeedbackBridge = {
   /** Get all currently pending questions (for mount-time hydration). */

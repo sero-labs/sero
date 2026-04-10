@@ -18,8 +18,8 @@ import { ipcMain, BrowserWindow, shell } from 'electron';
 import { promises as fs, createWriteStream, type WriteStream } from 'fs';
 import path from 'path';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import { SERO_HOME } from '../../platform/env';
-import { IpcChannels } from '../../../src/types/ipc';
+import { SERO_HOME } from '@electron/platform/env';
+import { IpcChannels } from '@/types/ipc';
 import { tryParseImageJson } from '../agent/core/tool-result-images';
 
 /** Resolve debug dir from SERO_DEBUG_DIR env var, falling back to ~/.sero-ui/debug. */

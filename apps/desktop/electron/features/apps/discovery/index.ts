@@ -12,9 +12,9 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { PluginMeta } from '@sero/common';
-import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '../../../../src/types/ipc';
+import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from '@/types/ipc';
 
-import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '../../../platform/env';
+import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '@electron/platform/env';
 
 const SERO_EXTENSIONS_DIR = path.join(SERO_AGENT_DIR, 'extensions');
 const SERO_PACKAGES_DIR = path.join(SERO_AGENT_DIR, 'packages');

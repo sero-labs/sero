@@ -3,8 +3,8 @@ import type {
   ExtensionRuntimeMessage,
   ExtensionSessionRuntime,
 } from '@sero/common';
-import type { ContainerManager } from '../../features/container';
-import type { WorkspaceManager } from '../../features/workspace/manager';
+import type { ContainerManager } from '@electron/features/container';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
 /**
  * Subset of the Pi SDK's ExtensionContext forwarded through the CLI bridge.

@@ -8,8 +8,8 @@ import {
   getContract,
   getUnmetDependencies,
   getNewlyUnblockedCards,
-} from '../../../features/kanban/core/contracts';
-import type { Card, KanbanState } from '../../../features/kanban/core/types';
+} from '@electron/features/kanban/core/contracts';
+import type { Card, KanbanState } from '@electron/features/kanban/core/types';
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {

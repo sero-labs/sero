@@ -3,12 +3,12 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { QrLoginData } from '../../../src/types/ipc';
-import { gatewayServer, tailscale, webChatServer } from '../../shared/infra/shared-infra';
-import { getGatewayAgentOps, setGatewayEventSink, setGatewayCostTracker } from '../../features/gateway/bridge/agent-bridge';
-import { generateQrDataUrl } from '../../features/gateway/bridge/qr-encode';
-import { DiscordAdapter } from '../../features/gateway/channels/discord';
+import { IpcChannels } from '@/types/ipc';
+import type { QrLoginData } from '@/types/ipc';
+import { gatewayServer, tailscale, webChatServer } from '@electron/shared/infra/shared-infra';
+import { getGatewayAgentOps, setGatewayEventSink, setGatewayCostTracker } from '@electron/features/gateway/bridge/agent-bridge';
+import { generateQrDataUrl } from '@electron/features/gateway/bridge/qr-encode';
+import { DiscordAdapter } from '@electron/features/gateway/channels/discord';
 
 export interface GatewayConfig {
   enabled: boolean;

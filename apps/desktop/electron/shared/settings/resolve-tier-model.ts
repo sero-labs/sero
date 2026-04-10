@@ -11,7 +11,7 @@
  *   4. Return null → caller should prompt user to pick
  */
 
-import type { ModelTier, ModelTierSettings } from '../../../src/types/ipc';
+import type { ModelTier, ModelTierSettings } from '@/types/ipc';
 import { MODEL_TIERS } from './model-tiers';
 
 /** The structured model field from agent frontmatter. */

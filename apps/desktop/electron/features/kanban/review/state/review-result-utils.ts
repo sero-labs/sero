@@ -1,5 +1,5 @@
-import { getContract } from '../../core/contracts';
-import type { ReviewIssue, ReviewResult } from '../../prompts';
+import { getContract } from '@electron/features/kanban/core/contracts';
+import type { ReviewIssue, ReviewResult } from '@electron/features/kanban/prompts';
 
 export function hasMalformedLegacyIssues(review: Partial<ReviewResult>): boolean {
   return Array.isArray(review.issues)

@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { OnboardingState } from '../../../src/types/ipc';
-import { getOnboardingState } from '../../features/onboarding';
+import { IpcChannels } from '@/types/ipc';
+import type { OnboardingState } from '@/types/ipc';
+import { getOnboardingState } from '@electron/features/onboarding';
 
 export function registerOnboardingHandlers(): void {
   ipcMain.handle(

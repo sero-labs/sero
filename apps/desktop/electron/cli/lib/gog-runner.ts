@@ -15,12 +15,12 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
-import { containerManager } from '../../shared/infra/shared-infra';
-import { getGoogleAuthManager } from '../../ipc/integrations/google-api';
+import { containerManager } from '@electron/shared/infra/shared-infra';
+import { getGoogleAuthManager } from '@electron/ipc/integrations/google-api';
 import {
   deriveKeyringPassword,
   getGoogleClientName,
-} from '../../features/auth/google/gog-keyring';
+} from '@electron/features/auth/google/gog-keyring';
 import type { CliCommandContext, CliResult } from '../core/types';
 
 // ── Shell helpers ────────────────────────────────────────────

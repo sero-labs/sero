@@ -16,7 +16,7 @@ import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-a
 import type { CliCommand, CliCommandContext, CliContentBlock, CliResult, CliSessionRuntime } from './types';
 import { parseFlags } from '../lib/utils';
 import { getBridgedExtensionCommand, getBridgedExtensionTool } from '../bridges/extension-session-bridge';
-import { createSeroUIContext } from '../../features/apps/extensions/ui-context';
+import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 
 const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
   // Content extraction can invoke Gemini video pipelines and other slow fallbacks.

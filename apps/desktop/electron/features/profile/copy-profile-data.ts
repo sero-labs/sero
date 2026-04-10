@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import path from 'path';
 
-import { getGlobalModelConfigTiers, setGlobalModelConfig } from '../../shared/settings/model-config';
+import { getGlobalModelConfigTiers, setGlobalModelConfig } from '@electron/shared/settings/model-config';
 
 export const TRANSFERABLE_PROFILE_AGENT_FILES = [
   '.env',

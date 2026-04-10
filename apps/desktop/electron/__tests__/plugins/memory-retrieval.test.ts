@@ -5,7 +5,7 @@ import {
   formatRankedResults,
   normalizeSearchScope,
   rankMultiAnchorResults,
-} from '../../../../../plugins/sero-memory-plugin/extension/retrieval';
+} from '@plugins/sero-memory-plugin/extension/retrieval';
 
 describe('memory retrieval helpers', () => {
   it('normalizes unsupported scopes to all', () => {

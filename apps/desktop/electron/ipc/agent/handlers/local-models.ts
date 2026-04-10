@@ -9,15 +9,15 @@ import { execSync } from 'child_process';
 import { ipcMain } from 'electron';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { IpcChannels } from '../../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   LocalModelApi,
   LocalModelsConfig,
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
-} from '../../../../src/types/ipc';
-import { ensureInfra } from '../../../shared/infra/shared-infra';
-import { SERO_AGENT_DIR } from '../../../platform/env';
+} from '@/types/ipc';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 const MODELS_JSON_PATH = path.join(SERO_AGENT_DIR, 'models.json');
 const ANTHROPIC_VERSION = '2023-06-01';

@@ -6,8 +6,8 @@
  */
 
 import { ipcMain, BrowserWindow, shell } from 'electron';
-import { IpcChannels, type DevServerEvent } from '../../../src/types/ipc';
-import { containerManager } from '../../shared/infra/shared-infra';
+import { IpcChannels, type DevServerEvent } from '@/types/ipc';
+import { containerManager } from '@electron/shared/infra/shared-infra';
 
 /** Push a dev server event to all renderer windows. */
 function sendEvent(event: DevServerEvent): void {

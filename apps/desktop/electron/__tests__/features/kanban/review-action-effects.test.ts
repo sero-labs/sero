@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Card } from '../../../features/kanban/core/types';
-import { applyReviewActionEffects } from '../../../features/kanban/review/actions/review-action-effects';
+import type { Card } from '@electron/features/kanban/core/types';
+import { applyReviewActionEffects } from '@electron/features/kanban/review/actions/review-action-effects';
 
 const { updateMock } = vi.hoisted(() => ({
   updateMock: vi.fn(),
@@ -12,18 +12,18 @@ const { closePullRequest, deleteReviewCache, restoreCardMock } = vi.hoisted(() =
   restoreCardMock: vi.fn(),
 }));
 
-vi.mock('../../../features/apps/state/manager', () => ({
+vi.mock('@electron/features/apps/state/manager', () => ({
   appStateManager: {
     update: updateMock,
   },
 }));
 
-vi.mock('../../../features/kanban/review/actions/review-artifacts', () => ({
+vi.mock('@electron/features/kanban/review/actions/review-artifacts', () => ({
   closePullRequest,
   deleteReviewCache,
 }));
 
-vi.mock('../../../features/kanban/core/state-helpers', () => ({
+vi.mock('@electron/features/kanban/core/state-helpers', () => ({
   updateCard: restoreCardMock,
 }));
 

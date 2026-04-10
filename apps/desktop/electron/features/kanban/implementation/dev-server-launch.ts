@@ -1,10 +1,10 @@
 import path from 'path';
 
-import type { DevServer } from '../../../../src/types/ipc';
-import type { DetectedPort } from '../../container/network/port-forward';
-import { containerManager } from '../../container/core/singleton';
-import { buildWorkspaceContainerConfig } from '../../container/core/workspace-container-config';
-import { workspaceManager } from '../../workspace/manager';
+import type { DevServer } from '@/types/ipc';
+import type { DetectedPort } from '@electron/features/container/network/port-forward';
+import { containerManager } from '@electron/features/container/core/singleton';
+import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import { workspaceManager } from '@electron/features/workspace/manager';
 
 const AUTO_START_TIMEOUT_MS = 20_000;
 const AUTO_START_POLL_MS = 500;

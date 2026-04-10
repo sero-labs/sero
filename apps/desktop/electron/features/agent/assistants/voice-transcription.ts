@@ -1,7 +1,7 @@
 import type {
   VoiceTranscriptionResult,
   VoiceTranscriptionStatus,
-} from '../../../../src/types/ipc';
+} from '@/types/ipc';
 
 const OPENAI_TRANSCRIBE_MODEL = 'gpt-4o-mini-transcribe';
 const OPENAI_TRANSCRIBE_URL = 'https://api.openai.com/v1/audio/transcriptions';

@@ -6,7 +6,7 @@
  */
 
 import { normalizeThinkingLevel } from '@sero/common';
-import type { ModelTier, ModelTierEntry, ModelTierSettings } from '../../../src/types/ipc';
+import type { ModelTier, ModelTierEntry, ModelTierSettings } from '@/types/ipc';
 import { getSeroSettings } from './settings-helpers';
 
 export const MODEL_TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;

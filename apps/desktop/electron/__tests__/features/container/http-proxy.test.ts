@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { handleProxyRequestError } from '../../../features/container/network/http-proxy';
+import { handleProxyRequestError } from '@electron/features/container/network/http-proxy';
 
 describe('handleProxyRequestError', () => {
   it('writes a 502 response when headers have not been sent yet', () => {

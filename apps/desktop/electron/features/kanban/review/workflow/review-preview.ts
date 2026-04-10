@@ -1,10 +1,10 @@
-import type { Card } from '../../core/types';
+import type { Card } from '@electron/features/kanban/core/types';
 import type { ReviewProgressTracker } from '../state/review-progress';
-import { startManagedDevServer } from '../../implementation/dev-server-launch';
-import { detectDevServerCommand } from '../../quality/verification';
-import type { DevServer } from '../../../../../src/types/ipc';
-import { containerManager } from '../../../container/core/singleton';
-import { workspaceManager } from '../../../workspace/manager';
+import { startManagedDevServer } from '@electron/features/kanban/implementation/dev-server-launch';
+import { detectDevServerCommand } from '@electron/features/kanban/quality/verification';
+import type { DevServer } from '@/types/ipc';
+import { containerManager } from '@electron/features/container/core/singleton';
+import { workspaceManager } from '@electron/features/workspace/manager';
 
 export interface ReviewPreviewResult {
   previewServerId?: string;

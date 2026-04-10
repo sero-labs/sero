@@ -20,15 +20,15 @@ import {
   handleRemove,
   handleList,
   capacityError,
-} from '../../../../../plugins/sero-memory-plugin/extension/memory-tool';
+} from '@plugins/sero-memory-plugin/extension/memory-tool';
 import {
   parseMemoryEntries,
   serializeMemoryEntries,
   nowTimestamp,
-} from '../../../../../plugins/sero-memory-plugin/extension/memory-format';
+} from '@plugins/sero-memory-plugin/extension/memory-format';
 import {
   getTargetUsage,
-} from '../../../../../plugins/sero-memory-plugin/extension/memory-manager';
+} from '@plugins/sero-memory-plugin/extension/memory-manager';
 
 // ── Test fixture ───────────────────────────────────────────────
 

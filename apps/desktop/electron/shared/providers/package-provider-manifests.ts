@@ -1,11 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import path from 'path';
-import type { ModelTier, SettingsPackageSource } from '../../../src/types/ipc';
-import { SERO_AGENT_DIR } from '../../platform/env';
+import type { ModelTier, SettingsPackageSource } from '@/types/ipc';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
   discoverBuiltinPackagePaths,
   discoverBuiltinPluginPaths,
-} from '../../platform/protocols/builtin-resources';
+} from '@electron/platform/protocols/builtin-resources';
 
 const MODEL_TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;
 const CACHE_TTL_MS = 250;

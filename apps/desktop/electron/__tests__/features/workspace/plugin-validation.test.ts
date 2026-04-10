@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 
-import { assertIsSeroPluginFolder } from '../../../features/workspace/plugin-validation';
+import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 
 async function writePkg(dir: string, body: unknown): Promise<void> {
   await writeFile(path.join(dir, 'package.json'), JSON.stringify(body), 'utf8');

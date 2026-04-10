@@ -6,7 +6,7 @@
 import type { IPty } from 'node-pty';
 import { CONTAINER_BIN } from '../core/types';
 import { TerminalOutputBuffer } from './terminal-buffer';
-import { loadNodePty } from '../../../shared/lib/native-pty';
+import { loadNodePty } from '@electron/shared/lib/native-pty';
 
 /** Callback invoked when a terminal process exits. */
 export type TerminalExitCallback = (terminalId: string) => void;

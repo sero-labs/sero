@@ -13,7 +13,7 @@ import type {
   SubagentMode as _SubagentMode,
   SubagentUsage as _SubagentUsage,
   SubagentModelConfig as _SubagentModelConfig,
-} from '../../../../src/types/subagent';
+} from '@/types/subagent';
 
 // Re-export IPC-shared types as the single source of truth
 export type {
@@ -22,7 +22,7 @@ export type {
   SubagentUsage,
   SubagentEntry,
   SubagentToolActivity,
-} from '../../../../src/types/subagent';
+} from '@/types/subagent';
 
 // Local aliases for use within this file
 type SubagentUsage = _SubagentUsage;

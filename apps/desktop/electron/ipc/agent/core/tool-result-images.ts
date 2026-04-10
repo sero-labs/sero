@@ -1,4 +1,4 @@
-import type { ToolResultImage } from '../../../../src/types/ipc';
+import type { ToolResultImage } from '@/types/ipc';
 
 function looksLikeFilePath(value: string): boolean {
   return value.startsWith('/') || value.startsWith('~/') || /^[A-Za-z]:[\\/]/.test(value);

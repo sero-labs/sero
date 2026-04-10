@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { cleanupCardReviewPreview, startCardReviewPreview } from '../../../features/kanban/review/workflow/review-preview';
+import { cleanupCardReviewPreview, startCardReviewPreview } from '@electron/features/kanban/review/workflow/review-preview';
 
 describe('startCardReviewPreview', () => {
   it('starts a card-scoped preview server from the worktree', async () => {

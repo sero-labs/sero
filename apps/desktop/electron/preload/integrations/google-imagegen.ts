@@ -5,7 +5,7 @@
  */
 
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 
 export const googleBridge = {
   execute: (service: string, subArgs: string[]) =>

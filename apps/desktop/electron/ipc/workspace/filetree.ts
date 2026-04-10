@@ -6,10 +6,10 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import { PRIMARY_ROOT_ID } from '../../features/workspace/roots';
-import { workspaceManager } from '../../shared/infra/shared-infra';
-import { fileWatcherManager } from '../../shared/infra/shared-infra';
+import { IpcChannels } from '@/types/ipc';
+import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
+import { workspaceManager } from '@electron/shared/infra/shared-infra';
+import { fileWatcherManager } from '@electron/shared/infra/shared-infra';
 
 export function registerFileTreeHandlers(): void {
   ipcMain.handle(

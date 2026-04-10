@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { resolveExecutionWaves } from '../../../features/kanban/core/wave-resolver';
-import type { Subtask } from '../../../features/kanban/core/types';
+import { resolveExecutionWaves } from '@electron/features/kanban/core/wave-resolver';
+import type { Subtask } from '@electron/features/kanban/core/types';
 
 function makeSubtask(id: string, dependsOn: string[] = []): Subtask {
   return { id, title: `Task ${id}`, description: '', status: 'pending', dependsOn };

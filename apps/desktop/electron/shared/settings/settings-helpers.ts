@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import { SERO_AGENT_DIR } from '../../platform/env';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 /** Extract the `sero` namespace from a parsed settings object. */
 export function getSeroSettings(settings: Record<string, unknown>): Record<string, unknown> {

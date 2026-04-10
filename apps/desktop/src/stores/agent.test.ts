@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   CollaborationEvent,
   CollaborationStateSnapshot,
-} from '../types/collaboration';
+} from '@/types/collaboration';
 import { useAgentStore } from './agent';
 
 function createDeferred<T>() {

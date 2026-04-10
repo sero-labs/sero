@@ -4,7 +4,7 @@ import {
   assertValidPluginId,
   ensurePathInsideDir,
   resolvePluginInstallDir,
-} from '../../../features/plugins/security';
+} from '@electron/features/plugins/security';
 
 describe('plugin security helpers', () => {
   it('accepts safe kebab-case plugin ids', () => {

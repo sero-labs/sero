@@ -16,7 +16,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { WorkspaceManager } from './manager';
-import type { WorkspaceRoot } from '../../../src/types/ipc';
+import type { WorkspaceRoot } from '@/types/ipc';
 import { slugify, ensureUniqueId, prettifyName } from './utils';
 
 /** Reserved id for the implicit primary root. */

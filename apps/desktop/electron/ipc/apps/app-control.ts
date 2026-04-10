@@ -8,7 +8,7 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   AppControlEntry,
   AppInteractionParams,
@@ -16,9 +16,9 @@ import type {
   AppPanelRect,
   AppRecordingStatus,
   AppRecordingResult,
-} from '../../../src/types/ipc';
-import { captureRegion } from '../../shared/media/capture';
-import { encodeFramesToMp4 } from '../../shared/media/video-encoder';
+} from '@/types/ipc';
+import { captureRegion } from '@electron/shared/media/capture';
+import { encodeFramesToMp4 } from '@electron/shared/media/video-encoder';
 
 // ── Recording State ──────────────────────────────────────────
 

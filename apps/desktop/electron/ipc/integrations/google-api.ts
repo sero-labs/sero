@@ -14,13 +14,13 @@ import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { IpcChannels } from '../../../src/types/ipc';
-import { GoogleAuthManager } from '../../features/auth/google/auth-manager';
+import { IpcChannels } from '@/types/ipc';
+import { GoogleAuthManager } from '@electron/features/auth/google/auth-manager';
 import {
   deriveKeyringPassword,
   getGoogleClientName,
-} from '../../features/auth/google/gog-keyring';
-import { onPluginConfigChange } from '../../features/plugin-config';
+} from '@electron/features/auth/google/gog-keyring';
+import { onPluginConfigChange } from '@electron/features/plugin-config';
 
 // ── Types ────────────────────────────────────────────────────
 

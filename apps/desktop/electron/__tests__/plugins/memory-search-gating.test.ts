@@ -7,12 +7,12 @@ const qmdMocks = vi.hoisted(() => ({
   searchRelevantMemories: vi.fn(),
 }));
 
-vi.mock('../../../../../plugins/sero-memory-plugin/extension/qmd', () => ({
+vi.mock('@plugins/sero-memory-plugin/extension/qmd', () => ({
   isQmdAvailable: () => true,
   searchRelevantMemories: qmdMocks.searchRelevantMemories,
 }));
 
-import { buildPriorityContextSplit } from '../../../../../plugins/sero-memory-plugin/extension/priority-context';
+import { buildPriorityContextSplit } from '@plugins/sero-memory-plugin/extension/priority-context';
 
 let root: string;
 const originalSeroHome = process.env.SERO_HOME;

@@ -6,7 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import type {
   UserFeedbackPendingQuestion,
   UserFeedbackResponse,
-} from '../../../plugins/sero-user-feedback-plugin/ui/types';
+} from '@plugins/sero-user-feedback-plugin/ui/types';
 
 const appRuntimeMocks = vi.hoisted(() => ({
   updateState: vi.fn(),
@@ -16,7 +16,7 @@ vi.mock('@sero-ai/app-runtime', () => ({
   useAppState: () => [{}, appRuntimeMocks.updateState],
 }));
 
-import { UserFeedbackApp } from '../../../plugins/sero-user-feedback-plugin/ui/UserFeedbackApp';
+import { UserFeedbackApp } from '@plugins/sero-user-feedback-plugin/ui/UserFeedbackApp';
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }

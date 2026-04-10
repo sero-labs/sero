@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { Type } from '@sinclair/typebox';
-import { bridgeTool } from '../../cli/core/schema-bridge';
+import { bridgeTool } from '@electron/cli/core/schema-bridge';
 
 // ── Replicate the schemas from sero-user-feedback-plugin ────
 

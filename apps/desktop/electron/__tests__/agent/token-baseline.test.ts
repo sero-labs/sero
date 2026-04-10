@@ -16,15 +16,15 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 
-import { buildContainerPromptBlock } from '../../features/container/tools/system-prompt';
-import { buildCliPromptBlock } from '../../cli';
+import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
+import { buildCliPromptBlock } from '@electron/cli';
 import {
   BashParams,
   ReadParams,
   WriteParams,
   EditParams,
   BrowserParams,
-} from '../../features/container/tools/tool-schemas';
+} from '@electron/features/container/tools/tool-schemas';
 
 // ── Token estimation ────────────────────────────────────────
 

@@ -7,8 +7,8 @@ import {
   filterNovelEntries,
   normalizeCandidateEntries,
   type DailyLogCandidate,
-} from '../../../../../plugins/sero-memory-plugin/extension/consolidation-helpers';
-import type { MemoryEntry } from '../../../../../plugins/sero-memory-plugin/extension/memory-format';
+} from '@plugins/sero-memory-plugin/extension/consolidation-helpers';
+import type { MemoryEntry } from '@plugins/sero-memory-plugin/extension/memory-format';
 
 // ── Helpers ────────────────────────────────────────────────────
 

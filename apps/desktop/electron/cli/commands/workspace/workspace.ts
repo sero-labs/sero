@@ -1,12 +1,12 @@
 import path from 'path';
 
-import { workspaceManager } from '../../../shared/infra/shared-infra';
-import { assertIsSeroPluginFolder } from '../../../features/workspace/plugin-validation';
-import { recreateContainerIfRunning } from '../../../features/workspace/container-sync';
-import type { CliRegistry } from '../../core/registry';
-import type { CliCommandContext } from '../../core/types';
-import { askConfirm } from '../../lib/ask-confirm';
-import { fail, ok, parseFlags } from '../../lib/utils';
+import { workspaceManager } from '@electron/shared/infra/shared-infra';
+import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
+import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
+import type { CliRegistry } from '@electron/cli/core/registry';
+import type { CliCommandContext } from '@electron/cli/core/types';
+import { askConfirm } from '@electron/cli/lib/ask-confirm';
+import { fail, ok, parseFlags } from '@electron/cli/lib/utils';
 
 function formatWorkspaceList(currentWorkspaceId: string) {
   return async () => {

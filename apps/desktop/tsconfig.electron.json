@@ -16,7 +16,10 @@
     "lib": ["ES2022"],
     "baseUrl": ".",
     "paths": {
+      "@/*": ["src/*"],
       "@electron/*": ["electron/*"],
+      "@plugins/*": ["../../plugins/*"],
+      "@packages/*": ["../../packages/*"],
       "@sero/common": ["../../packages/common/src/index.ts"],
       // Subpath export — not resolvable under moduleResolution:node without this mapping
       "@mariozechner/pi-ai/oauth": ["./node_modules/@mariozechner/pi-ai/dist/oauth"]

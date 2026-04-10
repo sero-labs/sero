@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ensureCollectionForRoot,
   resolveQmdDbPath,
-} from '../../../../../plugins/sero-memory-plugin/extension/qmd';
+} from '@plugins/sero-memory-plugin/extension/qmd';
 
 function createStore(collections: Array<{
   name: string;

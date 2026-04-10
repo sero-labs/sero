@@ -24,8 +24,8 @@ import {
   findWatchedWorkspace,
   type WatchedWorkspaceEntry,
 } from '../workspace/workspace-watch';
-import { appStateManager } from '../../apps/state/manager';
-import type { SubagentManager } from '../../subagent';
+import { appStateManager } from '@electron/features/apps/state/manager';
+import type { SubagentManager } from '@electron/features/subagent';
 const RETRYABLE_COLUMNS = new Set<Column>(['planning', 'in-progress', 'review']);
 function isRetryableColumn(column: Column): boolean { return RETRYABLE_COLUMNS.has(column); }
 

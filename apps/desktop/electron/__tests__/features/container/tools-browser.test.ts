@@ -3,7 +3,7 @@ import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 
 const createAgentBrowserMock = vi.fn();
 
-vi.mock('../../../features/container/tools/tools-browser-agent', () => ({
+vi.mock('@electron/features/container/tools/tools-browser-agent', () => ({
   createAgentBrowser: createAgentBrowserMock,
 }));
 
@@ -22,7 +22,7 @@ describe('createBrowser', () => {
       execute,
     } as unknown as ToolDefinition);
 
-    const { createBrowser } = await import('../../../features/container/tools/tools-browser');
+    const { createBrowser } = await import('@electron/features/container/tools/tools-browser');
     const tool = createBrowser({} as never, 'ws-1');
     const result = await tool.execute('id', { action: 'wait' }, undefined, undefined, undefined as never);
 

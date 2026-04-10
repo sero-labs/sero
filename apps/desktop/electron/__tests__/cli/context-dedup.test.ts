@@ -12,9 +12,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import path from 'path';
 
-import { buildCliPromptBlock } from '../../cli';
-import { buildContainerPromptBlock } from '../../features/container/tools/system-prompt';
-import { getMemoryInstructions } from '../../../../../plugins/sero-memory-plugin/extension/memory-instructions';
+import { buildCliPromptBlock } from '@electron/cli';
+import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
+import { getMemoryInstructions } from '@plugins/sero-memory-plugin/extension/memory-instructions';
 
 // ── Helpers ─────────────────────────────────────────────────
 

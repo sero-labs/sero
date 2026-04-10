@@ -3,12 +3,12 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   LocalModelsConfig,
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
-} from '../../../src/types/ipc';
+} from '@/types/ipc';
 
 export const localModelsBridge = {
   getConfig: (): Promise<LocalModelsConfig> =>

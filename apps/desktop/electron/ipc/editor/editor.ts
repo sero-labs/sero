@@ -13,13 +13,13 @@ import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { EditorRoot } from '../../../src/types/ipc';
-import { containerManager, workspaceManager } from '../../shared/infra/shared-infra';
-import { SERO_AGENT_DIR } from '../../platform/env';
+import { IpcChannels } from '@/types/ipc';
+import type { EditorRoot } from '@/types/ipc';
+import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { PRIMARY_ROOT_ID } from '../../features/workspace/roots';
+import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
 import { shellQuote } from './shell-quote';
 import {
   PRIMARY_ROOT_PREFIX,

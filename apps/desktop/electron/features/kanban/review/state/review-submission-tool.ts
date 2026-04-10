@@ -1,6 +1,6 @@
 import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { Type, type Static } from '@sinclair/typebox';
-import type { ReviewIssue, ReviewResult } from '../../prompts';
+import type { ReviewIssue, ReviewResult } from '@electron/features/kanban/prompts';
 
 const ReviewIssueParams = Type.Object({
   description: Type.String({ minLength: 1, description: 'Issue description.' }),

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type {
   AvailableModelGroup,
   ProviderHealthInfo,
-} from '../../../../src/types/ipc';
-import { buildOnboardingRecommendation } from '../../../features/onboarding/recommendations';
+} from '@/types/ipc';
+import { buildOnboardingRecommendation } from '@electron/features/onboarding/recommendations';
 
 function makeProviderHealth(providerId: string): ProviderHealthInfo {
   return {

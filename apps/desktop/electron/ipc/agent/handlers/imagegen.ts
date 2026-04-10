@@ -10,14 +10,14 @@ import { ipcMain } from 'electron';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { IpcChannels } from '../../../../src/types/ipc';
-import { workspaceManager } from '../../../features/workspace/manager';
+import { IpcChannels } from '@/types/ipc';
+import { workspaceManager } from '@electron/features/workspace/manager';
 import {
   generateImages,
   exposeImageAgent,
   type ImageGenParams,
   type ImageGenResult,
-} from '../../../features/agent/assistants/image-agent';
+} from '@electron/features/agent/assistants/image-agent';
 
 // ── State file helpers ──
 

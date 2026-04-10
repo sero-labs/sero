@@ -160,6 +160,7 @@ Critical requirements:
 - Import `cn` from `@sero-ai/ui/lib/utils`
 - Import `./styles.css` for Tailwind theme mapping
 - Use Tailwind semantic colors (`bg-background`, `text-foreground`, etc.)
+- Keep plugin UI aliases/plugin TS config local to the plugin package. Do not copy desktop host aliases like `@electron`, `@plugins`, or `@packages` into plugin UI code unless you intentionally depend on host source.
 
 Also create:
 - `vite.config.ts` at package root (not inside `ui/`)

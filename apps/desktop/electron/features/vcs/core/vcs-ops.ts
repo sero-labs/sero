@@ -20,7 +20,7 @@ import type {
   OperationEntry,
   SyncResult,
   PushPreview,
-} from '../../../../src/types/vcs';
+} from '@/types/vcs';
 
 const DEFAULT_PRIMARY_BRANCH = 'main';
 

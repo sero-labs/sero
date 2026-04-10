@@ -8,7 +8,7 @@
  * The registry emits events so IPC handlers can push updates to the renderer.
  */
 
-import type { DevServer } from '../../../../src/types/ipc';
+import type { DevServer } from '@/types/ipc';
 import type { PortScanner } from '../network/port-forward';
 import type { ContainerManager } from '..';
 import { WORKSPACE_DIR } from '../tools/tool-schemas';

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SubagentTracker } from '../../../features/subagent/core/tracker';
-import type { SubagentEntry, SubagentUsage } from '../../../features/subagent/core/types';
+import { SubagentTracker } from '@electron/features/subagent/core/tracker';
+import type { SubagentEntry, SubagentUsage } from '@electron/features/subagent/core/types';
 
 function makeEntry(overrides: Partial<SubagentEntry> = {}): SubagentEntry {
   return {

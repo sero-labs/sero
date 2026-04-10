@@ -46,7 +46,7 @@ import {
   getProtectedMemoryAccessError,
   isProtectedMemoryPath,
 } from './memory-file-guard';
-import { prepareToolImage } from '../../../shared/media/image-resize';
+import { prepareToolImage } from '@electron/shared/media/image-resize';
 
 function normalizeContainerGuardPath(value: string): string {
   return value.replace(/\\/g, '/');

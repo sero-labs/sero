@@ -15,8 +15,8 @@ import {
   setAutoRetrieveModeSync,
   describeAutoRetrieveMode,
   getMemorySnapshotModeSync,
-} from '../../../../../plugins/sero-memory-plugin/extension/memory-config';
-import { handleMemoryConfig } from '../../../../../plugins/sero-memory-plugin/extension/memory-tool-admin';
+} from '@plugins/sero-memory-plugin/extension/memory-config';
+import { handleMemoryConfig } from '@plugins/sero-memory-plugin/extension/memory-tool-admin';
 
 let tmpDir: string;
 const originalSeroHome = process.env.SERO_HOME;

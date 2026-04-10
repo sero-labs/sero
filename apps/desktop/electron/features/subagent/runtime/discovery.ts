@@ -8,7 +8,7 @@
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
 import type { AgentConfig } from '../core/types';
-import { parseModelField } from '../../../shared/settings/resolve-tier-model';
+import { parseModelField } from '@electron/shared/settings/resolve-tier-model';
 
 /**
  * Parse JSON frontmatter from a markdown file.

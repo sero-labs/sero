@@ -1,10 +1,10 @@
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 import type {
   GlobalModelConfigInput,
   GlobalModelConfigState,
   OnboardingState,
-} from '../../src/types/ipc';
+} from '@/types/ipc';
 
 export const onboardingBridge = {
   getState: (): Promise<OnboardingState> =>

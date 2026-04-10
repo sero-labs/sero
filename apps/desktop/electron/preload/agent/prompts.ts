@@ -5,8 +5,8 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '../../../src/types/ipc';
-import type { PromptTemplateSummary, PromptTemplateFileData } from '../../../src/types/prompts';
+import { IpcChannels } from '@/types/ipc';
+import type { PromptTemplateSummary, PromptTemplateFileData } from '@/types/prompts';
 
 export const promptsBridge = {
   listPrompts: (): Promise<PromptTemplateSummary[]> =>

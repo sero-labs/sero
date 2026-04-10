@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 
-import type { WorkspaceManager } from '../../workspace/manager';
+import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { CreateCheckpointOptions, VcsCheckpoint, VcsCheckpointSource, VcsEvent, VcsWorkspaceState } from '../support/types';
 import { GitRunner } from './git-runner';
 

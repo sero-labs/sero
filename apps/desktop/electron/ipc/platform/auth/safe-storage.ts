@@ -15,7 +15,7 @@
  */
 
 import { ipcMain, safeStorage, BrowserWindow } from 'electron';
-import { IpcChannels } from '../../../../src/types/ipc';
+import { IpcChannels } from '@/types/ipc';
 
 let base64FallbackWarned = false;
 
