@@ -29,14 +29,6 @@ export function useStreamingSessionIds(): string[] {
     .map((a) => a.sessionId);
 }
 
-export function useActiveAgentCount(): number {
-  const agents = useAgentStore((s) => s.agents);
-  return Object.keys(agents).length;
-}
-
-export function useIsSessionActive(sessionId: string): boolean {
-  return useAgentStore((s) => !!s.agents[sessionId]);
-}
 
 export function useFocusedCommands(): SeroSlashCommandInfo[] {
   const agents = useAgentStore((s) => s.agents);

@@ -247,10 +247,6 @@ export function invalidateRemote(appId: string): void {
   clearAppCache(appId);
 }
 
-/** Pin an app so it's never evicted from the cache. */
-export function pinApp(appId: string): void {
-  pinnedApps.add(appId);
-}
 
 /**
  * Eagerly load a federated module at startup.

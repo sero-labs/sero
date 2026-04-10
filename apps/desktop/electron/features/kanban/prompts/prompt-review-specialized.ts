@@ -41,7 +41,7 @@ ${testingNote}${lightModeNote}
 Review for spec compliance. Output valid JSON as specified in your instructions.`;
 }
 
-export function buildQualityReviewPrompt(
+function buildQualityReviewPrompt(
   card: Card,
   diff: string,
   fileSummary: string,

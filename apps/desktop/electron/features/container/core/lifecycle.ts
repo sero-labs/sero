@@ -80,7 +80,7 @@ export async function ensureSystemRunning(): Promise<void> {
 }
 
 /** Poll until the container API server responds, or timeout. */
-export async function waitForSystem(timeoutMs: number): Promise<void> {
+async function waitForSystem(timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -100,7 +100,7 @@ export async function waitForSystem(timeoutMs: number): Promise<void> {
  * Restart the container API server. Nuclear option — only for clearing ghost containers.
  * WARNING: Destroys ALL running containers.
  */
-export async function restartSystem(): Promise<void> {
+async function restartSystem(): Promise<void> {
   console.warn('[container] Restarting API server (nuclear — clears ghosts, kills all containers)');
   try {
     await execFileAsync(CONTAINER_BIN, ['system', 'stop'], { timeout: 15_000 });
@@ -116,7 +116,7 @@ export async function restartSystem(): Promise<void> {
 /* ── Ghost container recovery ─────────────────────────────── */
 
 /** Clear a ghost container by restarting the API server (last resort). */
-export async function clearGhostContainer(cid: string): Promise<void> {
+async function clearGhostContainer(cid: string): Promise<void> {
   console.warn(`[container] Ghost container detected: ${cid}`);
   const storageDir = containerStoragePath(cid);
   if (fs.existsSync(storageDir)) {

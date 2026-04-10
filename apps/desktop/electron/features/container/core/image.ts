@@ -14,7 +14,7 @@ const execFileAsync = promisify(execFile);
 /**
  * Check if the sero-node image is available locally.
  */
-export async function imageExists(imageName = DEFAULT_IMAGE): Promise<boolean> {
+async function imageExists(imageName = DEFAULT_IMAGE): Promise<boolean> {
   try {
     const { stdout } = await execFileAsync(CONTAINER_BIN, ['image', 'list'], {
       timeout: 10_000,
@@ -34,7 +34,7 @@ export async function imageExists(imageName = DEFAULT_IMAGE): Promise<boolean> {
  *
  * @param dockerfilePath - Absolute path to the Dockerfile
  */
-export async function buildImage(
+async function buildImage(
   dockerfilePath: string,
   imageName = DEFAULT_IMAGE,
 ): Promise<void> {

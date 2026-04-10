@@ -82,7 +82,7 @@ function consumeTokenFromUrl(): string | null {
   return token;
 }
 
-export function getDisconnectMessage(event: DisconnectEvent): string {
+function getDisconnectMessage(event: DisconnectEvent): string {
   switch (event.code) {
     case 4008:
       return 'Connection went idle. Reconnecting automatically...';

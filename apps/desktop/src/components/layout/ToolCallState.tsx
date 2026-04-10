@@ -85,7 +85,7 @@ export function toolStatusDot(state: ChatToolCallMessage['state']) {
 
 // ── Shared summary extraction ───────────────────────────────────
 
-export function extractToolSummary(input: Record<string, unknown>): string {
+function extractToolSummary(input: Record<string, unknown>): string {
   if (input.command && typeof input.command === 'string') return input.command;
   if (input.path && typeof input.path === 'string') return input.path;
   if (input.file_path && typeof input.file_path === 'string') return input.file_path as string;

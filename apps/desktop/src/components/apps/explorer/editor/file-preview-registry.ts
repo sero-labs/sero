@@ -100,7 +100,7 @@ const PREVIEW_SPEC_BY_EXTENSION: Record<string, FilePreviewSpec> = {
 };
 
 /** Get the lowercase extension for a file path. */
-export function getFileExtension(filePath: string): string {
+function getFileExtension(filePath: string): string {
   return filePath.split('.').pop()?.toLowerCase() ?? '';
 }
 

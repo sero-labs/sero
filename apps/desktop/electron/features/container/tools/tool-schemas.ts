@@ -44,10 +44,6 @@ export function detectMimeFromMagicHex(hex: string): string | null {
   return null;
 }
 
-/** Check whether a MIME type is in our supported set. */
-export function isSupportedImageMime(mime: string): boolean {
-  return SUPPORTED_IMAGE_MIMES.has(mime);
-}
 
 // ── Parameter schemas ───────────────────────────────────────
 
@@ -79,30 +75,6 @@ export const EditParams = Type.Object({
   newText: Type.String({ description: 'New text to replace the old text with' }),
 });
 
-export const LsParams = Type.Object({
-  path: Type.Optional(
-    Type.String({ description: 'Directory path (default: current directory)' }),
-  ),
-});
-
-export const ReadTerminalParams = Type.Object({
-  lines: Type.Optional(
-    Type.Number({ description: 'Number of recent lines to read (default: 80)' }),
-  ),
-});
-
-export const RegisterDevServerParams = Type.Object({
-  name: Type.String({ description: 'Human-readable name (e.g. "Vite Dev Server")' }),
-  port: Type.Number({ description: 'Port the server is listening on' }),
-  command: Type.String({
-    description:
-      'The full command used to start the server (for restart capability). ' +
-      'E.g. "npx vite --host 0.0.0.0 --port 3000"',
-  }),
-  framework: Type.Optional(
-    Type.String({ description: 'Framework hint (e.g. "vite", "next", "express")' }),
-  ),
-});
 
 export const BrowserParams = Type.Object({
   action: Type.Union(

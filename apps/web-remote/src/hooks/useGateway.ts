@@ -38,7 +38,3 @@ export function useConnectionState() {
   return useConnectionStore((s) => s.state);
 }
 
-/** Hook to check if connected. */
-export function useIsConnected() {
-  return useConnectionStore((s) => s.state === 'connected');
-}

@@ -36,7 +36,7 @@ export interface ReviewSubmissionToolHandlers {
   submitReview: (review: ReviewResult) => Promise<'recorded' | 'updated'>;
 }
 
-export function normalizeReviewSubmission(
+function normalizeReviewSubmission(
   params: SubmittedReviewParams,
   cardTitle?: string,
 ): ReviewResult {

@@ -30,7 +30,7 @@ const execFileAsync = promisify(execFile);
  *
  * @returns true if the repo was bootstrapped (greenfield), false if already existed.
  */
-export async function ensureGitReady(workspacePath: string): Promise<boolean> {
+async function ensureGitReady(workspacePath: string): Promise<boolean> {
   let bootstrapped = false;
 
   // Check if it's a git repo

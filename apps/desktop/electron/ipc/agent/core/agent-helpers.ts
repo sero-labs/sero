@@ -324,11 +324,6 @@ export function attachmentsToImages(attachments?: ChatAttachment[]): ImageConten
   return images.length > 0 ? images : undefined;
 }
 
-// ── Provider metadata ────────────────────────────────────────
-
-import { providerLogo, providerDisplayName } from '@electron/ipc/platform/auth';
-export { providerLogo, providerDisplayName };
-
 // ── Model state builder ──────────────────────────────────────
 
 /** Subset of a pool entry needed by helper functions. */

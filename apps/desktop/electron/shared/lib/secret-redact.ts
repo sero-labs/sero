@@ -47,17 +47,3 @@ export function redactSecrets(input: string): string {
   return result;
 }
 
-/**
- * Create a redacting console wrapper for use in security-sensitive contexts.
- * Wraps console.log/warn/error to redact secrets before output.
- */
-export function createRedactingLogger(prefix: string) {
-  return {
-    log: (...args: unknown[]) =>
-      console.log(prefix, ...args.map((a) => (typeof a === 'string' ? redactSecrets(a) : a))),
-    warn: (...args: unknown[]) =>
-      console.warn(prefix, ...args.map((a) => (typeof a === 'string' ? redactSecrets(a) : a))),
-    error: (...args: unknown[]) =>
-      console.error(prefix, ...args.map((a) => (typeof a === 'string' ? redactSecrets(a) : a))),
-  };
-}

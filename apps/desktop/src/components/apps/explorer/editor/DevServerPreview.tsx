@@ -16,7 +16,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Globe, RefreshCw, ExternalLink } from 'lucide-react';
 
 /** Prefix used to identify dev server preview tabs in the editor. */
-export const DEV_SERVER_PREFIX = 'devserver://';
+const DEV_SERVER_PREFIX = 'devserver://';
 
 /** Check if a tab path represents a dev server preview. */
 export function isDevServerTab(tabPath: string): boolean {
@@ -24,13 +24,8 @@ export function isDevServerTab(tabPath: string): boolean {
 }
 
 /** Extract the URL from a dev server tab path. */
-export function getDevServerUrl(tabPath: string): string {
+function getDevServerUrl(tabPath: string): string {
   return tabPath.slice(DEV_SERVER_PREFIX.length);
-}
-
-/** Create a dev server tab path from a URL. */
-export function makeDevServerTabPath(url: string): string {
-  return `${DEV_SERVER_PREFIX}${url}`;
 }
 
 interface Props {

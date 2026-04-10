@@ -63,7 +63,7 @@ async function writeRegistryAsync(registry: ProfileRegistry): Promise<void> {
 
 // ── ProfileManager ──────────────────────────────────────────
 
-export class ProfileManager {
+class ProfileManager {
   private registry: ProfileRegistry;
 
   constructor() {

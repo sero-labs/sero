@@ -81,7 +81,7 @@ function getPrimaryThinkingLevel(
     ?? normalizeThinkingLevel(fallbackThinkingLevel);
 }
 
-export function readLegacyProviderDefaults(): Record<string, Partial<Record<ModelTier, string>>> {
+function readLegacyProviderDefaults(): Record<string, Partial<Record<ModelTier, string>>> {
   try {
     const sourcePath = existsSync(PROVIDER_DEFAULTS_PATH)
       ? PROVIDER_DEFAULTS_PATH

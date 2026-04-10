@@ -22,7 +22,7 @@ export interface LspServerConfig {
 }
 
 /** Supported language server configurations. */
-export const LANGUAGE_SERVERS: LspServerConfig[] = [
+const LANGUAGE_SERVERS: LspServerConfig[] = [
   {
     language: 'typescript',
     command: 'typescript-language-server --stdio',

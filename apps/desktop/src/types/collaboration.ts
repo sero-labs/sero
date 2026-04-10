@@ -76,13 +76,6 @@ export type DebatePhase =
   | 'debate'
   | 'synthesis';
 
-/** Labels for debate phases (for UI display). */
-export const DEBATE_PHASE_LABELS: Record<DebatePhase, string> = {
-  decomposition: 'Task Decomposition',
-  independent_analysis: 'Independent Analysis',
-  debate: 'Debate & Cross-Checking',
-  synthesis: 'Synthesis & Consensus',
-};
 
 /** Tracks a single debate round during the debate phase. */
 export interface DebateRound {

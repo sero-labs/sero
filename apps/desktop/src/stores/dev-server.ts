@@ -32,7 +32,7 @@ function countRunning(servers: Record<string, DevServer>): number {
   return Object.values(servers).filter((s) => s.status === 'running').length;
 }
 
-export const useDevServerStore = create<DevServerStoreState>((set, get) => ({
+const useDevServerStore = create<DevServerStoreState>((set, get) => ({
   servers: {},
   runningCount: 0,
 
@@ -104,14 +104,6 @@ export function useDevServers(): DevServer[] {
   );
 }
 
-/** Get dev servers for a specific workspace. */
-export function useWorkspaceDevServers(workspaceId: string): DevServer[] {
-  return useDevServerStore(
-    useShallow((s) =>
-      Object.values(s.servers).filter((srv) => srv.workspaceId === workspaceId),
-    ),
-  );
-}
 
 /** Get the count of running dev servers. */
 export function useRunningDevServerCount(): number {

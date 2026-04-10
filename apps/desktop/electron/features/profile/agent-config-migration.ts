@@ -12,7 +12,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync } from 'fs';
 import path from 'path';
 
-export const LEGACY_PROFILE_ROOT_CONFIG_FILES = [
+const LEGACY_PROFILE_ROOT_CONFIG_FILES = [
   'feedback.json',
   'gateway-config.json',
   'gateway-token',

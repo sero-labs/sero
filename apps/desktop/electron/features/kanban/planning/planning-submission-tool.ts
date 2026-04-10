@@ -39,7 +39,7 @@ export interface PlanningSubmissionToolHandlers {
   submitPlan: (submission: PlanningSubmission) => Promise<'recorded' | 'updated'>;
 }
 
-export function normalizePlanningSubmission(params: SubmittedPlanParams): PlanningSubmission {
+function normalizePlanningSubmission(params: SubmittedPlanParams): PlanningSubmission {
   const subtasks: Card['subtasks'] = params.subtasks.map((subtask) => ({
     id: subtask.id,
     title: subtask.title,

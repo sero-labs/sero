@@ -113,7 +113,7 @@ async function retryMainProcessEvaluate<T>(operation: () => Promise<T>): Promise
  * @example
  *   const version = await evaluateInMain(app, () => process.versions.electron);
  */
-export async function evaluateInMain<T>(
+async function evaluateInMain<T>(
   app: ElectronApplication,
   fn: Parameters<ElectronApplication['evaluate']>[0],
 ): Promise<T> {

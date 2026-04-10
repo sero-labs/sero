@@ -72,16 +72,6 @@ export const chat = {
   errorMessage: '[data-testid="chat-error"]',
 } as const;
 
-// ── Model Selector ──────────────────────────────────────────────
-
-export const modelSelector = {
-  /** The trigger button for the model dropdown. */
-  trigger: '[data-testid="model-selector-trigger"]',
-  /** Search/filter input inside the model popover. */
-  searchInput: 'input[data-slot="model-filter"]',
-  /** Thinking level section. */
-  thinkingSection: 'text=THINKING',
-} as const;
 
 // ── VCS / Checkpoints ───────────────────────────────────────────
 
@@ -130,9 +120,3 @@ export const fileTree = {
   itemByName: (name: string) => `[data-testid="file-tree-item-${name}"]`,
 } as const;
 
-// ── Auth ────────────────────────────────────────────────────────
-
-export const auth = {
-  /** Auth login dialog. */
-  loginDialog: '[data-testid="auth-dialog"]',
-} as const;

@@ -182,7 +182,7 @@ function loadProviderManifests(): SeroProviderManifest[] {
   return cachedProviders;
 }
 
-export function getPackageProviderManifests(): SeroProviderManifest[] {
+function getPackageProviderManifests(): SeroProviderManifest[] {
   return loadProviderManifests();
 }
 

@@ -11,7 +11,7 @@ import QRCode from 'qrcode';
  * Generate a QR code as an SVG string.
  * Includes the spec-mandated quiet zone and uses error correction level M.
  */
-export async function generateQrSvg(text: string): Promise<string> {
+async function generateQrSvg(text: string): Promise<string> {
   return QRCode.toString(text, {
     type: 'svg',
     errorCorrectionLevel: 'M',

@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-export const WORKSPACE_BOOTSTRAP_GITIGNORE_PATTERNS = [
+const WORKSPACE_BOOTSTRAP_GITIGNORE_PATTERNS = [
   'node_modules/',
   'dist/',
   'build/',

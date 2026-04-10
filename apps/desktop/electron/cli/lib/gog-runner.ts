@@ -77,7 +77,7 @@ export interface GogOpts {
   noInput?: boolean;
 }
 
-export const GOG_TIMEOUT_MS = 30_000;
+const GOG_TIMEOUT_MS = 30_000;
 export const GOG_AUTH_TIMEOUT_MS = 60_000;
 
 // ── Local execution (non-container workspaces) ───────────────

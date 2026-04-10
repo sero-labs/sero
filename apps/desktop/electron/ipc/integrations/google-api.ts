@@ -41,7 +41,7 @@ const GOG_SEARCH_PATHS = [
 
 let _resolvedGogPath: string | null | undefined;
 
-export function findGogBinary(): string {
+function findGogBinary(): string {
   if (_resolvedGogPath !== undefined) return _resolvedGogPath ?? 'gog';
   for (const p of GOG_SEARCH_PATHS) {
     if (existsSync(p)) { _resolvedGogPath = p; return p; }
@@ -50,7 +50,7 @@ export function findGogBinary(): string {
   return 'gog';
 }
 
-export function buildEnhancedPath(): string {
+function buildEnhancedPath(): string {
   const existing = process.env.PATH || '';
   const extra = ['/opt/homebrew/bin', '/usr/local/bin',
     path.join(homedir(), '.local/bin'), path.join(homedir(), 'go/bin')];

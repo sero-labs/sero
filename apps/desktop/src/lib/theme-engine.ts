@@ -286,7 +286,7 @@ export function validateThemePreset(data: unknown): ThemePreset | null {
 // ── Export / Serialisation ───────────────────────────────────
 
 /** Extract metadata from a full preset. */
-export function presetToMeta(preset: ThemePreset): ThemePresetMeta {
+function presetToMeta(preset: ThemePreset): ThemePresetMeta {
   return {
     id: preset.id,
     name: preset.name,

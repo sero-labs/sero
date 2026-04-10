@@ -228,20 +228,6 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
 
 // ── Selectors ──────────────────────────────────────────────────
 
-/** Sessions filtered by search query. */
-export function useFilteredSessions(): SeroSessionInfo[] {
-  const sessions = useSessionStore((s) => s.sessions);
-  const query = useSessionStore((s) => s.searchQuery);
-
-  if (!query) return sessions;
-
-  const lower = query.toLowerCase();
-  return sessions.filter(
-    (s) =>
-      (s.name?.toLowerCase().includes(lower) ?? false) ||
-      s.firstMessage.toLowerCase().includes(lower),
-  );
-}
 
 /** Sessions grouped by workspace ID. */
 export function useSessionsByWorkspace(): Record<string, SeroSessionInfo[]> {

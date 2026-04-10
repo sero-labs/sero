@@ -5,48 +5,6 @@
  * code editor via the editor-bridge store.
  */
 
-import { useCallback } from 'react';
-import { useEditorBridge } from '@/stores/editor-bridge';
-
-interface ClickableFilePathProps {
-  /** Relative file path to display. */
-  path: string;
-  /** Workspace ID for opening the file. */
-  workspaceId: string;
-  /** Additional CSS classes. */
-  className?: string;
-}
-
-export function ClickableFilePath({
-  path,
-  workspaceId,
-  className,
-}: ClickableFilePathProps) {
-  const requestOpen = useEditorBridge((s) => s.requestOpenFile);
-
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        // Normalize: ensure path starts with / for the editor
-        const filePath = path.startsWith('/') ? path : `/${path}`;
-        requestOpen(workspaceId, filePath);
-      }
-    },
-    [path, workspaceId, requestOpen],
-  );
-
-  return (
-    <span
-      onClick={handleClick}
-      className={`cursor-pointer underline decoration-dotted decoration-[var(--text-muted)]/40 underline-offset-2 hover:decoration-[var(--accent-primary)] ${className ?? ''}`}
-      title="Ctrl+click to open in editor"
-    >
-      {path}
-    </span>
-  );
-}
 
 // ── Utility: detect file paths in tool call inputs/outputs ─────
 

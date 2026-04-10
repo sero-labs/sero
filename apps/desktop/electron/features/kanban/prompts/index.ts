@@ -8,7 +8,7 @@
  */
 
 import type { Card, ReviewMode } from '../core/types';
-export { buildSpecReviewPrompt, buildQualityReviewPrompt } from './prompt-review-specialized';
+export { buildSpecReviewPrompt } from './prompt-review-specialized';
 export {
   buildImplementationPrompt,
   buildSubtaskPrompt,

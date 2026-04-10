@@ -6,7 +6,7 @@ function groupLabel(group?: string): string {
   return (group ?? 'Other').toUpperCase();
 }
 
-export function renderCliHelpList(registry: CliRegistry): string {
+function renderCliHelpList(registry: CliRegistry): string {
   const commands = registry.list().filter((c) => !c.hidden);
   const grouped = new Map<string, typeof commands>();
 
@@ -29,7 +29,7 @@ export function renderCliHelpList(registry: CliRegistry): string {
   return sections.join('\n');
 }
 
-export function renderCliCommandHelp(registry: CliRegistry, query: string): string | null {
+function renderCliCommandHelp(registry: CliRegistry, query: string): string | null {
   const cmd = registry.findHelpTarget(query);
   if (!cmd) return null;
   if (cmd.help?.trim()) return cmd.help.trim();

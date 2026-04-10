@@ -85,7 +85,7 @@ function toRelativePosix(rootHostPath: string, resolvedHostPath: string): string
  * Rooted paths must reference a known root; bare relative paths fall back to
  * the primary root for legacy callers.
  */
-export async function resolveVirtualPath(
+async function resolveVirtualPath(
   workspaceManager: Pick<WorkspaceManager, 'getPath' | 'resolveRootPath'>,
   workspaceId: string,
   filePath: string,

@@ -161,7 +161,6 @@ function shouldBridgeTool(name: string, extensionPath: string): boolean {
 }
 
 export {
-  clearBridgedExtensionSessionItems,
   clearBridgedExtensionSessionItemsForSession,
   clearPluginBridgePolicyCache,
 };

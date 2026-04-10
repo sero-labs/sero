@@ -10,7 +10,7 @@ import path from 'path';
 
 import { getGlobalModelConfigTiers, setGlobalModelConfig } from '@electron/shared/settings/model-config';
 
-export const TRANSFERABLE_PROFILE_AGENT_FILES = [
+const TRANSFERABLE_PROFILE_AGENT_FILES = [
   '.env',
   'auth.json',
   'github-auth.json',

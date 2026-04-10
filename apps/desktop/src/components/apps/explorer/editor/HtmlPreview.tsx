@@ -18,7 +18,7 @@ import { FileCode2, Loader2 } from 'lucide-react';
 const HTML_EXTENSIONS = new Set(['html', 'htm']);
 
 /** Check if a file path is an HTML file based on its extension. */
-export function isHtmlFile(filePath: string): boolean {
+function isHtmlFile(filePath: string): boolean {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   return HTML_EXTENSIONS.has(ext);
 }

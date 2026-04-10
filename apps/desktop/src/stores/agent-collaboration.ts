@@ -16,7 +16,7 @@ export interface CollaborationSessionState extends CollaborationStateSnapshot {}
 
 export type CollaborationSessionMap = Record<string, CollaborationSessionState>;
 
-export function createCollaborationSessionState(): CollaborationSessionState {
+function createCollaborationSessionState(): CollaborationSessionState {
   return {
     mode: false,
     strategy: 'standard',
@@ -37,7 +37,7 @@ function getSessionState(
   return collaborations[sessionId] ?? createCollaborationSessionState();
 }
 
-export function resetCollaborationSession(
+function resetCollaborationSession(
   collaborations: CollaborationSessionMap,
   sessionId: string,
 ): CollaborationSessionMap {

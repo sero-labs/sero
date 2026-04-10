@@ -63,13 +63,3 @@ export function isImageFile(mimeType: string): boolean {
   return mimeType.startsWith('image/');
 }
 
-/** Check if a file is a text/code file by MIME type. */
-export function isTextFile(mimeType: string): boolean {
-  return (
-    mimeType.startsWith('text/') ||
-    mimeType === 'application/json' ||
-    mimeType === 'application/javascript' ||
-    mimeType === 'application/typescript' ||
-    mimeType === 'application/xml'
-  );
-}

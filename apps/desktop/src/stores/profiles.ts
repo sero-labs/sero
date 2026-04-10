@@ -115,29 +115,3 @@ export async function switchProfile(id: string): Promise<void> {
   }
 }
 
-/** Rename a profile. */
-export async function renameProfile(id: string, newName: string): Promise<void> {
-  try {
-    await window.sero.profiles.rename(id, newName);
-    const profiles = await window.sero.profiles.list();
-    const active = await window.sero.profiles.getActive();
-    useProfileStore.setState({ profiles, activeProfile: active });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Failed to rename profile';
-    useProfileStore.setState({ error: msg });
-    throw err;
-  }
-}
-
-/** Delete a profile (unregister only). */
-export async function deleteProfile(id: string): Promise<void> {
-  try {
-    await window.sero.profiles.delete(id);
-    const profiles = await window.sero.profiles.list();
-    useProfileStore.setState({ profiles });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Failed to delete profile';
-    useProfileStore.setState({ error: msg });
-    throw err;
-  }
-}

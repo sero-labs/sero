@@ -31,12 +31,9 @@ import {
 
 // Re-export state helpers so existing imports from this module keep working.
 export {
-  mapToolState,
   deriveGroupStatus,
   groupStatusIcon,
   groupStatusLabel,
-  toolStatusDot,
-  extractToolSummary,
   getCollapsedToolSummary,
   type GroupStatus,
 } from './ToolCallState';

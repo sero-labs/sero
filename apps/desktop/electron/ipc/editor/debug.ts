@@ -68,10 +68,6 @@ async function setEnabled(value: boolean): Promise<boolean> {
   return enabled;
 }
 
-/** Check if debug logging is active. */
-export function isDebugLoggingEnabled(): boolean {
-  return enabled;
-}
 
 // ── Public logging API (called from agent.ts) ────────────────
 

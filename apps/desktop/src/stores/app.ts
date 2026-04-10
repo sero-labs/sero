@@ -146,7 +146,7 @@ export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEn
   return [...builtins, ...favourites];
 }
 
-export function getPriorityPreloadApps(
+function getPriorityPreloadApps(
   manifests: SeroAppManifest[],
   activeApp: string,
   favouriteApps: string[],

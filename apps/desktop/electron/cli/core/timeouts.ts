@@ -1,6 +1,6 @@
 import type { CliSource } from './types';
 
-export const DEFAULT_BATCH_TIMEOUT_SEC = 120;
+const DEFAULT_BATCH_TIMEOUT_SEC = 120;
 export const DEFAULT_PER_COMMAND_TIMEOUT_MS = 30_000;
 
 /**

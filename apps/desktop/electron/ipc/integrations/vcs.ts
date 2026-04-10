@@ -163,4 +163,3 @@ export function registerVcsHandlers(): void {
   );
 }
 
-export { Ch as VcsChannels };

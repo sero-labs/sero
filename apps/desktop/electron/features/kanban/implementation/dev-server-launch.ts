@@ -118,7 +118,7 @@ export async function startManagedDevServer(
   };
 }
 
-export function toContainerWorkspacePath(
+function toContainerWorkspacePath(
   workspacePath: string,
   cwdPath: string,
 ): string | null {
@@ -128,7 +128,7 @@ export function toContainerWorkspacePath(
   return path.posix.join('/workspace', ...rel.split(path.sep));
 }
 
-export function detectFrameworkHint(command: string): string | undefined {
+function detectFrameworkHint(command: string): string | undefined {
   const normalized = command.toLowerCase();
   if (normalized.includes('vite')) return 'vite';
   if (normalized.includes('next')) return 'next';
@@ -139,7 +139,7 @@ export function detectFrameworkHint(command: string): string | undefined {
   return undefined;
 }
 
-export function buildDevServerName(framework?: string): string {
+function buildDevServerName(framework?: string): string {
   switch (framework) {
     case 'vite':
       return 'Vite Dev Server';

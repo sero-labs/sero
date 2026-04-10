@@ -26,7 +26,7 @@ const GOG_KEYRING_DIR = path.join(
   'keyring',
 );
 
-export function findGogBinary(): string {
+function findGogBinary(): string {
   const paths = [
     '/opt/homebrew/bin/gog',
     '/usr/local/bin/gog',

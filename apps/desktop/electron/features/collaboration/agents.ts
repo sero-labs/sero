@@ -28,13 +28,6 @@ export const ROLE_AGENT_NAMES: Record<CollaborationRole, string> = {
 /** Phase 2 specialists that run in parallel after the researcher. */
 export const PARALLEL_SPECIALIST_ROLES: CollaborationRole[] = ['analyst', 'visionary'];
 
-/** Human-readable labels for UI display. */
-export const ROLE_LABELS: Record<CollaborationRole, string> = {
-  coordinator: 'Coordinator',
-  researcher: 'Researcher',
-  analyst: 'Analyst',
-  visionary: 'Visionary',
-};
 
 /** Build the Coordinator's synthesis prompt with the specialists' outputs. */
 export function buildCoordinatorSynthesisPrompt(

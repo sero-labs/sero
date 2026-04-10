@@ -1,3 +1,3 @@
-export { launchSeroApp, evaluateInMain, getWindowTitle, isWindowVisible } from './electron-app';
+export { launchSeroApp, getWindowTitle, isWindowVisible } from './electron-app';
 export type { LaunchOptions } from './electron-app';
-export { layout, sidebar, chat, modelSelector, vcs, workspace, fileTree, auth } from './selectors';
+export { layout, sidebar, chat, vcs, workspace, fileTree } from './selectors';

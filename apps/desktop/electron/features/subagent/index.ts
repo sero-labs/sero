@@ -22,7 +22,6 @@ import type {
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import path from 'path';
 
-export { SubagentTracker } from './core/tracker';
 export type { SubagentTrackerEvents } from './core/tracker';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');

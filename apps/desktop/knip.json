@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "electron/main.ts",
+    "electron/preload.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "electron/**/*.{ts,tsx}",
+    "e2e/**/*.{ts,tsx}",
+    "electron/__tests__/**/*.{ts,tsx}",
+    "scripts/**/*.{js,mjs,ts}",
+    "*.{js,mjs,ts}"
+  ],
+  "ignoreBinaries": [
+    "container"
+  ],
+  "ignoreDependencies": [
+    "@electron/rebuild"
+  ]
+}

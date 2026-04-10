@@ -58,7 +58,7 @@ function appendToBuf(
  * Queue a text delta for the next animation-frame flush.
  * `flushFn` is called with the buffered deltas once per frame.
  */
-export function bufferTextDelta(
+function bufferTextDelta(
   sessionId: string,
   messageId: string,
   delta: string,
@@ -71,7 +71,7 @@ export function bufferTextDelta(
 /**
  * Queue a thinking delta for the next animation-frame flush.
  */
-export function bufferThinkingDelta(
+function bufferThinkingDelta(
   sessionId: string,
   messageId: string,
   delta: string,

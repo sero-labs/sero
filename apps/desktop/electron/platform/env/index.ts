@@ -132,9 +132,6 @@ const _postResolveRegistry = process.env.SERO_HOME_OVERRIDE
 /** The active profile ID (null if no profile yet). */
 export const ACTIVE_PROFILE_ID: string | null = _postResolveRegistry.activeProfileId;
 
-/** Whether the app has a valid active profile. */
-export const HAS_ACTIVE_PROFILE: boolean =
-  _postResolveRegistry.profiles.length > 0 && _postResolveRegistry.activeProfileId !== null;
 
 const ENV_PATH = path.join(SERO_AGENT_DIR, '.env');
 

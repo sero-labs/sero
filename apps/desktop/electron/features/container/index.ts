@@ -35,7 +35,6 @@ import { ContainerHttpProxy } from './network/http-proxy';
 import { DevServerRegistry } from './registries/dev-server-registry';
 
 export type { ContainerConfig, ContainerState, ExecResult };
-export { DevServerRegistry };
 
 const execFileAsync = promisify(execFile);
 

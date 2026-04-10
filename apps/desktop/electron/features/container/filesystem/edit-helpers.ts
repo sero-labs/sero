@@ -47,7 +47,7 @@ export function stripBom(content: string): { bom: string; text: string } {
  *  - Unicode dashes → hyphen-minus
  *  - special Unicode spaces → regular space
  */
-export function normalizeForFuzzyMatch(text: string): string {
+function normalizeForFuzzyMatch(text: string): string {
   return (
     text
       .split('\n')

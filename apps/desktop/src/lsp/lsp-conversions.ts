@@ -87,7 +87,7 @@ export function monacoToLspPos(lineNumber: number, column: number) {
 }
 
 /** Convert LSP range to Monaco IRange. */
-export function lspRangeToMonaco(range: LspRange): IRange {
+function lspRangeToMonaco(range: LspRange): IRange {
   return {
     startLineNumber: range.start.line + 1,
     startColumn: range.start.character + 1,

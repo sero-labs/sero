@@ -61,7 +61,7 @@ export function hasTierEntry(
   );
 }
 
-export function findModelName(
+function findModelName(
   groups: AvailableModelGroup[],
   entry: ModelTierEntry,
 ): string {
@@ -73,7 +73,7 @@ export function findModelName(
   return entry.modelId;
 }
 
-export function buildRecommendation(
+function buildRecommendation(
   tiers: ModelTierSettings,
   sourcesByTier: Partial<Record<ModelTier, OnboardingTierSource>>,
   preferredProvider?: string,

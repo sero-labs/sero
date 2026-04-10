@@ -77,7 +77,7 @@ export interface SubagentSettings {
   blockedExtensions: string[];
 }
 
-export const DEFAULT_SUBAGENT_SETTINGS: SubagentSettings = {
+const DEFAULT_SUBAGENT_SETTINGS: SubagentSettings = {
   maxConcurrent: 4,
   maxTotal: 8,
   timeoutMs: 600_000,

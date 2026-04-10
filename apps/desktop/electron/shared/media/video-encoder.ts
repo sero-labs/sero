@@ -33,7 +33,7 @@ interface EncodeResult {
 const MAX_FALLBACK_NOTE_CHARS = 1_000;
 
 /** Check whether ffmpeg is available on the system. */
-export async function hasFfmpeg(): Promise<boolean> {
+async function hasFfmpeg(): Promise<boolean> {
   return new Promise((resolve) => {
     execFile('ffmpeg', ['-version'], (err: Error | null) => resolve(!err));
   });
