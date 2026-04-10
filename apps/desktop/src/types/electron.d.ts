@@ -25,6 +25,7 @@ import type {
   ProfileInfo,
   WorkspaceInfo,
   WorkspaceConfig,
+  WorkspaceRoot,
   SeroSessionInfo,
   ChatMessage,
   ChatAttachment,
@@ -109,6 +110,17 @@ interface SeroWorkspaceAPI {
   removeMount(id: string, folderPath: string): Promise<void>;
   /** Set expanded/collapsed state for a workspace tree node. */
   setExpanded(id: string, expanded: boolean): Promise<void>;
+  /** List all roots for a workspace (primary + linked). */
+  listRoots(id: string): Promise<WorkspaceRoot[]>;
+  /** Add an additional root (folder or linked plugin) to a workspace. */
+  addRoot(
+    id: string,
+    input: { name: string; path: string; kind?: WorkspaceRoot['kind'] },
+  ): Promise<WorkspaceRoot>;
+  /** Remove an additional root (cannot remove the primary). */
+  removeRoot(id: string, rootId: string): Promise<void>;
+  /** Rename an additional root. */
+  renameRoot(id: string, rootId: string, newName: string): Promise<void>;
 }
 
 interface SeroSessionsAPI {

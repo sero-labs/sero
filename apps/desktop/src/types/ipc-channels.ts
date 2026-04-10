@@ -42,6 +42,14 @@ export const IpcChannels = {
     removeMount: 'sero:workspace:remove-mount',
     /** Set expanded/collapsed state for a workspace tree node. */
     setExpanded: 'sero:workspace:set-expanded',
+    /** List additional roots attached to a workspace. */
+    listRoots: 'sero:workspace:list-roots',
+    /** Add an additional root to a workspace. Args: id, { name, path, kind? }. */
+    addRoot: 'sero:workspace:add-root',
+    /** Remove an additional root from a workspace. Args: id, rootId. */
+    removeRoot: 'sero:workspace:remove-root',
+    /** Rename the display name of a root. Args: id, rootId, newName. */
+    renameRoot: 'sero:workspace:rename-root',
   },
   sessions: {
     list: 'sero:sessions:list',
@@ -254,6 +262,8 @@ export const IpcChannels = {
     loadState: 'sero:editor:load-state',
     /** Get the root path for the file tree. */
     getRootPath: 'sero:editor:get-root-path',
+    /** Get all roots (primary + additional) attached to a workspace. */
+    getRoots: 'sero:editor:get-roots',
     /** Check if a workspace uses containers. */
     isContainer: 'sero:editor:is-container',
     /** Rename/move a file or directory. */

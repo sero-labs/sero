@@ -1,13 +1,13 @@
 /**
- * FileWatcherManager — watches workspace directories on the host filesystem
+ * FileWatcherManager — watches workspace roots on the host filesystem
  * and pushes change events to the renderer via IPC.
  *
  * Uses Node's native `fs.watch` with `recursive: true` which leverages macOS
  * FSEvents under the hood — no polling, no dependencies.
  *
- * For container workspaces, the watched directory is the host-side bind-mount
- * source. For host workspaces, it's the workspace directory itself.
- * In both cases, the renderer receives /workspace-prefixed paths.
+ * Each workspace can expose multiple virtual roots (`/workspace`, `/plugin-x`,
+ * etc.). We watch every host root and translate changes back into the
+ * renderer's virtual path space so the explorer and editor refresh correctly.
  */
 
 import fs from 'fs';
@@ -17,17 +17,22 @@ import { IpcChannels } from '../../../src/types/ipc';
 
 const DEBOUNCE_MS = 150;
 
-interface WorkspaceWatcher {
-  /** The underlying FSWatcher (null when paused). */
-  watcher: fs.FSWatcher | null;
-  workspaceId: string;
+export interface WorkspaceWatchRoot {
   hostDir: string;
-  /** Debounce timer for batching rapid changes. */
+  virtualRoot: string;
+}
+
+interface RootWatcher {
+  hostDir: string;
+  virtualRoot: string;
+  watcher: fs.FSWatcher | null;
+}
+
+interface WorkspaceWatcher {
+  workspaceId: string;
+  roots: RootWatcher[];
   debounceTimer: ReturnType<typeof setTimeout> | null;
-  /** Changed directory paths accumulated during debounce window. */
   pendingDirs: Set<string>;
-  /** Whether this watcher is logically active. */
-  active: boolean;
 }
 
 export class FileWatcherManager {
@@ -38,103 +43,157 @@ export class FileWatcherManager {
     this.window = win;
   }
 
-  /** Start watching a workspace directory. */
-  watch(workspaceId: string, hostDir: string): void {
-    if (this.watchers.has(workspaceId)) return;
+  /** Start or refresh watching all roots for a workspace. */
+  watch(workspaceId: string, roots: WorkspaceWatchRoot[]): void {
+    const nextRoots = normalizeRoots(roots);
+    if (nextRoots.length === 0) return;
 
-    const ww: WorkspaceWatcher = {
-      watcher: null,
+    const existing = this.watchers.get(workspaceId);
+    if (existing) {
+      if (sameRoots(existing.roots, nextRoots)) return;
+      this.stopFSWatch(existing);
+      existing.roots = nextRoots.map((root) => ({ ...root, watcher: null }));
+      this.startFSWatch(existing);
+      return;
+    }
+
+    const watcher: WorkspaceWatcher = {
       workspaceId,
-      hostDir,
+      roots: nextRoots.map((root) => ({ ...root, watcher: null })),
       debounceTimer: null,
       pendingDirs: new Set(),
-      active: false,
     };
 
-    this.watchers.set(workspaceId, ww);
-    this.startFSWatch(ww);
+    this.watchers.set(workspaceId, watcher);
+    this.startFSWatch(watcher);
   }
 
   /** Stop and remove the watcher entirely. */
   unwatch(workspaceId: string): void {
-    const ww = this.watchers.get(workspaceId);
-    if (!ww) return;
-    this.stopFSWatch(ww);
+    const watcher = this.watchers.get(workspaceId);
+    if (!watcher) return;
+    this.stopFSWatch(watcher);
     this.watchers.delete(workspaceId);
   }
 
   /** Clean up everything. */
   disposeAll(): void {
-    for (const ww of this.watchers.values()) {
-      this.stopFSWatch(ww);
+    for (const watcher of this.watchers.values()) {
+      this.stopFSWatch(watcher);
     }
     this.watchers.clear();
   }
 
-  // ── Internal ──────────────────────────────────────────────
+  private startFSWatch(workspace: WorkspaceWatcher): void {
+    for (const root of workspace.roots) {
+      this.startRootWatch(workspace, root);
+    }
+  }
 
-  private startFSWatch(ww: WorkspaceWatcher): void {
-    if (ww.watcher) return;
+  private startRootWatch(workspace: WorkspaceWatcher, root: RootWatcher): void {
+    if (root.watcher) return;
 
     try {
-      if (!fs.existsSync(ww.hostDir)) {
-        fs.mkdirSync(ww.hostDir, { recursive: true });
+      if (!fs.existsSync(root.hostDir)) {
+        if (root.virtualRoot === '/workspace') {
+          fs.mkdirSync(root.hostDir, { recursive: true });
+        } else {
+          console.warn(
+            `[file-watcher] Skipping missing linked root for ${workspace.workspaceId}: ${root.hostDir}`,
+          );
+          return;
+        }
       }
 
-      ww.watcher = fs.watch(ww.hostDir, { recursive: true }, (_eventType, filename) => {
-        if (!filename) return;
-
-        // Map host-relative path → /workspace-prefixed container path
-        const changedRelative = path.dirname(filename);
-        const containerDir = '/workspace' + (changedRelative === '.' ? '' : '/' + changedRelative);
-
-        ww.pendingDirs.add(containerDir);
-        this.scheduleSend(ww);
+      root.watcher = fs.watch(root.hostDir, { recursive: true }, (_eventType, filename) => {
+        const changedDir = toVirtualDirectory(root.virtualRoot, filename);
+        if (!changedDir) return;
+        workspace.pendingDirs.add(changedDir);
+        this.scheduleSend(workspace);
       });
 
-      ww.watcher.on('error', (err) => {
-        console.warn(`[file-watcher] Error for workspace ${ww.workspaceId}:`, err.message);
-        this.stopFSWatch(ww);
+      root.watcher.on('error', (err) => {
+        console.warn(
+          `[file-watcher] Error for workspace ${workspace.workspaceId} (${root.virtualRoot}):`,
+          err.message,
+        );
+        this.stopFSWatch(workspace);
         setTimeout(() => {
-          if (this.watchers.has(ww.workspaceId)) {
-            this.startFSWatch(ww);
-          }
+          const current = this.watchers.get(workspace.workspaceId);
+          if (current) this.startFSWatch(current);
         }, 2000);
       });
-
-      ww.active = true;
     } catch (err: any) {
-      console.warn(`[file-watcher] Failed to start for ${ww.workspaceId}:`, err.message);
+      console.warn(
+        `[file-watcher] Failed to start for ${workspace.workspaceId} (${root.virtualRoot}):`,
+        err.message,
+      );
     }
   }
 
-  private stopFSWatch(ww: WorkspaceWatcher): void {
-    if (ww.watcher) {
-      ww.watcher.close();
-      ww.watcher = null;
+  private stopFSWatch(workspace: WorkspaceWatcher): void {
+    for (const root of workspace.roots) {
+      if (root.watcher) {
+        root.watcher.close();
+        root.watcher = null;
+      }
     }
-    if (ww.debounceTimer) {
-      clearTimeout(ww.debounceTimer);
-      ww.debounceTimer = null;
+    if (workspace.debounceTimer) {
+      clearTimeout(workspace.debounceTimer);
+      workspace.debounceTimer = null;
     }
-    ww.pendingDirs.clear();
-    ww.active = false;
+    workspace.pendingDirs.clear();
   }
 
-  private scheduleSend(ww: WorkspaceWatcher): void {
-    if (ww.debounceTimer) return;
+  private scheduleSend(workspace: WorkspaceWatcher): void {
+    if (workspace.debounceTimer) return;
 
-    ww.debounceTimer = setTimeout(() => {
-      ww.debounceTimer = null;
-      const dirs = Array.from(ww.pendingDirs);
-      ww.pendingDirs.clear();
+    workspace.debounceTimer = setTimeout(() => {
+      workspace.debounceTimer = null;
+      const directories = Array.from(workspace.pendingDirs);
+      workspace.pendingDirs.clear();
 
-      if (dirs.length > 0 && this.window && !this.window.isDestroyed()) {
+      if (directories.length > 0 && this.window && !this.window.isDestroyed()) {
         this.window.webContents.send(IpcChannels.filetree.changed, {
-          workspaceId: ww.workspaceId,
-          directories: dirs,
+          workspaceId: workspace.workspaceId,
+          directories,
         });
       }
     }, DEBOUNCE_MS);
   }
+}
+
+function normalizeRoots(roots: WorkspaceWatchRoot[]): WorkspaceWatchRoot[] {
+  const seen = new Set<string>();
+  const normalized: WorkspaceWatchRoot[] = [];
+
+  for (const root of roots) {
+    const hostDir = path.resolve(root.hostDir);
+    const virtualRoot = root.virtualRoot || '/workspace';
+    const key = `${hostDir}::${virtualRoot}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push({ hostDir, virtualRoot });
+  }
+
+  return normalized;
+}
+
+function sameRoots(current: RootWatcher[], next: WorkspaceWatchRoot[]): boolean {
+  if (current.length !== next.length) return false;
+  return current.every((root, index) =>
+    root.hostDir === next[index]?.hostDir && root.virtualRoot === next[index]?.virtualRoot,
+  );
+}
+
+function toVirtualDirectory(virtualRoot: string, filename: string | Buffer | null): string | null {
+  if (!filename) return null;
+  const raw = typeof filename === 'string' ? filename : filename.toString('utf8');
+  if (!raw) return null;
+
+  const relativeDir = path.dirname(raw);
+  if (relativeDir === '.') return virtualRoot;
+
+  const normalizedDir = relativeDir.split(path.sep).join('/');
+  return path.posix.join(virtualRoot, normalizedDir);
 }

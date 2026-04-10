@@ -1,18 +1,27 @@
-# AGENTS.md - Your Workspace
+# AGENTS.md
 
-This folder is home. Treat it that way.
+This folder is the global workspace for Sero.
 
-## Key Paths
-- **Sero monorepo:** `{{SERO_MONOREPO}}` - this is the location of the Sero source files
-- **Workspaces root:** `{{WORKSPACES_DIR}}` - default workspace folder
-- **Global Workspace** - `{{GLOBAL_WORKSPACE_DIR}}` - where the users global context and memories are stored (AGENTS.md, MEMORY.md, etc.)
-- **Error log:** `{{GLOBAL_WORKSPACE_DIR}}/.sero/error_log.txt`
+Paths:
+- Sero: `{{SERO_MONOREPO}}`
+- Workspaces: `{{WORKSPACES_DIR}}`
+- Global: `{{GLOBAL_WORKSPACE_DIR}}`
+- Error log: `{{GLOBAL_WORKSPACE_DIR}}/.sero/error_log.txt`
+
+## Default Sero App Control
+Use the Sero CLI for Sero-native apps and UI interactions by default.
+
+- Open apps with `sero app open <appId>`
+- Interact with apps via `sero app ...` commands (click, type, scroll, screenshot, record)
+- `sero app record stop` should normally use its default save location: `~/.sero-ui/workspaces/<workspace>/sero-recordings/`. Only pass `--save` if explicitly asks for a custom path.
+- Only use system tools (AppleScript, ffmpeg, shell automation outside Sero) if explicitly asks or Sero cannot do the task
 
 ## Memory
+Use the memory system proactively, but keep entries concise.
 
-Memory tools and guidelines are provided in the system prompt's **Memory System** section.
-Always use `sero memory`, `sero memory_search`, or `sero scratchpad` — never bash/read/write/edit on managed memory files.
+- Save durable preferences, decisions, corrections, and project facts to `memory`
+- Save session-specific progress, blockers, and follow-ups to `daily`
+- Prefer the `write` tool directly for multi-line memory content
 
-## Important
-- If the user asks about building Sero apps or Sero plugins you should ask them if they want you to use the `sero-plugin` skill. If they confirm you should read that before proceeding with their query.
-- If asked to run the 'kanban' tool in the global workspace refuse and suggest you create a new container based workspace
+## General
+Ask before using the `sero-plugin` skill for app/plugin work. Do not run `kanban` in the global workspace; create a new container workspace instead.

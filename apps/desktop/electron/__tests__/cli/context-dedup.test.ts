@@ -54,8 +54,9 @@ describe('System prompt deduplication — memory instructions', () => {
   });
 
   it('AGENTS.md template does NOT duplicate detailed memory instructions', () => {
-    // The template should be a brief pointer, not a duplication
-    expect(agentsTemplate.length).toBeLessThan(500);
+    // The template can include concise workspace guidance, but should remain
+    // much smaller than the canonical memory instructions.
+    expect(agentsTemplate.length).toBeLessThan(2000);
 
     // Must NOT contain detailed tool syntax or full command examples
     expect(agentsTemplate).not.toContain('sero memory write');

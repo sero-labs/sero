@@ -120,7 +120,21 @@ Rules:
 - Include auto-incrementing ID fields for lists
 - If a type/helper stops being app-local, move that neutral contract into `@sero/common` instead of duplicating it
 
-### Step 5: Build the Pi extension
+### Step 5: Mount the Plugin in the Workspace
+
+To make the `plugins/sero-*-plugin/` directory visible within the Sero interface, you must mount its path to your workspace. This creates a **multi-root workspace**, allowing you to view and edit the plugin source code directly inside Sero.
+
+1.  **Identify the full path** to your plugin source. 
+    * *Example:* `/Users/danielcarter/Documents/Dev/projects/sero/sero/plugins/sero-sample-plugin/`
+2.  **Run the mount command** using the `sero-cli`:
+
+```bash
+sero workspace mount-plugin [full-path-to-plugin]
+```
+
+> **Note:** Ensure you use the absolute path to the specific plugin directory so the CLI can resolve the location correctly.
+
+### Step 6: Build the Pi extension
 
 Create `extension/index.ts`. This is a standard Pi extension.
 
@@ -133,7 +147,7 @@ Key patterns:
 
 Read `references/templates.md` for the full extension template.
 
-### Step 6: Build the web UI
+### Step 7: Build the web UI
 
 Create the React component in `ui/<Name>App.tsx`.
 
@@ -155,7 +169,7 @@ Also create:
 
 Read `references/templates.md` for all file templates.
 
-### Step 7: Build and verify
+### Step 8: Build and verify
 
 ```bash
 pnpm install

@@ -4,6 +4,7 @@
  * Split from electron.d.ts to keep each file under 500 LOC.
  */
 
+import type { EditorRoot } from './ipc';
 import type {
   VcsCheckpoint,
   VcsEvent,
@@ -40,6 +41,8 @@ export interface SeroEditorAPI {
   loadState(workspaceId: string): Promise<{ openTabs: string[]; activeTab: string | null } | null>;
   /** Get the root path for the file tree (e.g. /workspace or host path). */
   getRootPath(workspaceId: string): Promise<string>;
+  /** Get the list of editor roots (primary + linked) as virtual paths. */
+  getRoots(workspaceId: string): Promise<EditorRoot[]>;
   /** Check if a workspace uses containers. */
   isContainer(workspaceId: string): Promise<boolean>;
   /** Rename/move a file or directory. Returns true on success. */

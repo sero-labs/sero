@@ -34,7 +34,6 @@ export class GitHubRepoOps {
       return { success: false, message: 'Repository name is required.' };
     }
 
-    // Validate name format (GitHub allows alphanumeric, hyphens, underscores, dots)
     if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
       return {
         success: false,
@@ -58,26 +57,17 @@ export class GitHubRepoOps {
     }
 
     const hasLocalCommits = addRemote ? await this.hasLocalCommits(workspaceId) : false;
-
-    // Check if 'origin' remote already exists
     const existingOrigin = addRemote ? await this.getOriginUrl(workspaceId) : null;
 
-    // Build gh repo create args
     const args = ['repo', 'create', name, `--${input.visibility}`];
-
     if (input.description?.trim()) {
       args.push('--description', input.description.trim());
     }
-
-    // --source=. tells gh to use the current directory as the local repo
-    // and automatically adds the remote. Only use it when there's no
-    // existing origin — otherwise gh fails with "remote origin already exists".
     if (addRemote && !existingOrigin) {
       args.push('--source=.');
     }
 
     const result = await this.runner.runCommand(workspaceId, 'gh', args, 60_000);
-
     if (result.exitCode !== 0) {
       return {
         success: false,
@@ -87,7 +77,18 @@ export class GitHubRepoOps {
 
     const url = await this.resolveCreatedRepoUrl(workspaceId, name, result.stdout, result.stderr);
 
-    if (addRemote && !existingOrigin && hasLocalCommits) {
+    if (addRemote) {
+      const originSync = await this.syncOriginRemote(workspaceId, name, url);
+      if (!originSync.success) {
+        return {
+          success: false,
+          message: `Repository created on GitHub, but failed to configure local origin.\n${originSync.message}`,
+          url,
+        };
+      }
+    }
+
+    if (addRemote && hasLocalCommits) {
       const bootstrap = await this.pushInitialBranch(workspaceId);
       if (!bootstrap.success) {
         return {
@@ -98,23 +99,9 @@ export class GitHubRepoOps {
       }
     }
 
-    // If origin already existed and user wants the remote updated, set-url now.
-    if (addRemote && existingOrigin && url) {
-      const update = await this.runner.run(workspaceId, ['remote', 'set-url', 'origin', url]);
-      if (update.exitCode !== 0) {
-        return {
-          success: false,
-          message: `Repository created on GitHub, but failed to update local origin.\n${update.stderr || update.stdout || 'git remote set-url failed'}`,
-          url,
-        };
-      }
-    }
-
     return {
       success: true,
-      message: url
-        ? `Repository created: ${url}`
-        : 'Repository created successfully.',
+      message: url ? `Repository created: ${url}` : 'Repository created successfully.',
       url,
     };
   }
@@ -172,6 +159,47 @@ export class GitHubRepoOps {
       || setHead.stdout
       || `Failed to set bootstrap branch '${branch}'.`,
     );
+  }
+
+  private async syncOriginRemote(
+    workspaceId: string,
+    repoName: string,
+    repoUrl?: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const currentOrigin = await this.getOriginUrl(workspaceId);
+    const cloneUrl = await this.resolveCreatedRepoCloneUrl(workspaceId, repoName, currentOrigin, repoUrl);
+
+    if (!cloneUrl) {
+      return {
+        success: false,
+        message: 'Could not determine the Git clone URL for the new repository.',
+      };
+    }
+
+    if (!currentOrigin) {
+      const add = await this.runner.run(workspaceId, ['remote', 'add', 'origin', cloneUrl], 10_000);
+      if (add.exitCode !== 0) {
+        return {
+          success: false,
+          message: add.stderr || add.stdout || 'git remote add origin failed',
+        };
+      }
+      return { success: true };
+    }
+
+    if (currentOrigin.trim() === cloneUrl) {
+      return { success: true };
+    }
+
+    const update = await this.runner.run(workspaceId, ['remote', 'set-url', 'origin', cloneUrl], 10_000);
+    if (update.exitCode !== 0) {
+      return {
+        success: false,
+        message: update.stderr || update.stdout || 'git remote set-url origin failed',
+      };
+    }
+
+    return { success: true };
   }
 
   private async pushInitialBranch(
@@ -246,6 +274,23 @@ export class GitHubRepoOps {
     return normalizeGitHubRemoteUrl(origin);
   }
 
+  private async resolveCreatedRepoCloneUrl(
+    workspaceId: string,
+    name: string,
+    currentOrigin: string | null,
+    repoUrl?: string,
+  ): Promise<string | undefined> {
+    const direct = toGitHubCloneUrl(repoUrl);
+    if (direct) return direct;
+
+    if (extractGitHubRepoName(currentOrigin) === name) {
+      const normalizedOrigin = normalizeGitHubCloneUrl(currentOrigin);
+      if (normalizedOrigin) return normalizedOrigin;
+    }
+
+    return toGitHubCloneUrl(await this.resolveCreatedRepoUrl(workspaceId, name, '', ''));
+  }
+
   private formatError(stderr: string, stdout: string): string {
     const message = (stderr || stdout || 'Failed to create repository').trim();
     const lower = message.toLowerCase();
@@ -264,8 +309,6 @@ export class GitHubRepoOps {
 }
 
 function extractRepoUrl(text: string): string | undefined {
-  // Exclude trailing punctuation (periods, commas, parens) that may come from
-  // natural-language output wrapping the URL.
   const match = text.match(/https:\/\/github\.com\/[^\s,.)]+/);
   return match?.[0];
 }
@@ -273,15 +316,31 @@ function extractRepoUrl(text: string): string | undefined {
 function normalizeGitHubRemoteUrl(url: string | null): string | undefined {
   if (!url) return undefined;
 
-  const sshMatch = url.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/);
+  const trimmed = url.trim().replace(/\/+$/, '');
+  const sshMatch = trimmed.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/);
   if (sshMatch) {
     return `https://github.com/${sshMatch[1]}/${sshMatch[2]}`;
   }
 
-  const httpsMatch = url.match(/^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/);
+  const httpsMatch = trimmed.match(/^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/);
   if (httpsMatch) {
     return `https://github.com/${httpsMatch[1]}/${httpsMatch[2]}`;
   }
 
   return undefined;
+}
+
+function normalizeGitHubCloneUrl(url: string | null): string | undefined {
+  const normalized = normalizeGitHubRemoteUrl(url);
+  return toGitHubCloneUrl(normalized);
+}
+
+function toGitHubCloneUrl(url?: string): string | undefined {
+  const normalized = normalizeGitHubRemoteUrl(url ?? null);
+  return normalized ? `${normalized}.git` : undefined;
+}
+
+function extractGitHubRepoName(url: string | null): string | undefined {
+  const normalized = normalizeGitHubRemoteUrl(url);
+  return normalized?.split('/').pop();
 }

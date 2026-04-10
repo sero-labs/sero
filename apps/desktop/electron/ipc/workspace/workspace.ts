@@ -7,11 +7,10 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '../../../src/types/ipc';
-import type { WorkspaceInfo, WorkspaceConfig } from '../../../src/types/ipc';
+import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '../../../src/types/ipc';
 import { workspaceManager } from '../../features/workspace/manager';
-import { showNotification } from '../../platform/desktop/notifications';
-import { containerManager, buildContainerConfig } from '../../shared/infra/shared-infra';
-import { getAgentPoolEntry } from '../agent';
+import { assertIsSeroPluginFolder } from '../../features/workspace/plugin-validation';
+import { recreateContainerIfRunning } from '../../features/workspace/container-sync';
 
 export function registerWorkspaceHandlers(): void {
   // ── List all registered workspaces ─────────────────────────
@@ -136,6 +135,51 @@ export function registerWorkspaceHandlers(): void {
     },
   );
 
+  // ── Multi-root: list / add / remove / rename ───────────────
+  ipcMain.handle(
+    IpcChannels.workspace.listRoots,
+    async (_event, id: string): Promise<WorkspaceRoot[]> => {
+      return workspaceManager.getRoots(id);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.addRoot,
+    async (
+      _event,
+      id: string,
+      input: { name: string; path: string; kind?: WorkspaceRoot['kind'] },
+    ): Promise<WorkspaceRoot> => {
+      // Plugin-folder validation must run in the main process so the IPC
+      // API itself rejects "linked-plugin" payloads pointing at folders
+      // that are not actually Sero plugins.
+      if (input.kind === 'linked-plugin') {
+        await assertIsSeroPluginFolder(input.path);
+      }
+      const root = await workspaceManager.addRoot(id, input);
+      // Container parity: roots are merged into bind-mounts at container
+      // build time, so recreate the container to pick up the new mount.
+      await recreateContainerIfRunning(id);
+      return root;
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.removeRoot,
+    async (_event, id: string, rootId: string): Promise<void> => {
+      await workspaceManager.removeRoot(id, rootId);
+      await recreateContainerIfRunning(id);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.renameRoot,
+    async (_event, id: string, rootId: string, newName: string): Promise<void> => {
+      await workspaceManager.renameRoot(id, rootId, newName);
+      // Rename is metadata-only; no container recreation needed.
+    },
+  );
+
   // ── Native folder picker dialog ────────────────────────────
   ipcMain.handle(
     IpcChannels.workspace.pickFolder,
@@ -155,74 +199,3 @@ export function registerWorkspaceHandlers(): void {
   );
 }
 
-/**
- * Check whether a workspace has any active (streaming) agent sessions.
- * Uses the shared agent pool to look up sessions by workspace ID.
- */
-function hasActiveSessionsForWorkspace(workspaceId: string): boolean {
-  // The pool is keyed by sessionId, so we scan for matching workspaceId
-  // This uses the exported getAgentPoolEntry — but we need to iterate.
-  // Instead, import the listEntries bridge. We check known session IDs
-  // from the workspace's sessions dir, but the simplest approach is to
-  // check the container's terminal count + agent streaming state.
-  //
-  // We rely on the agent pool: if any session for this workspace is
-  // currently streaming, we defer container recreation.
-  try {
-    const sessions = containerManager.terminals.getWorkspaceTerminalIds(workspaceId);
-    if (sessions.length > 0) return true;
-  } catch {
-    // Terminal manager may not track this workspace — that's fine
-  }
-  return false;
-}
-
-/**
- * Recreate a workspace's container if it's currently running so that
- * mount changes (added/removed references) take effect dynamically.
- *
- * If the container has active terminals, the recreation is deferred:
- * the config change is already persisted, so the next container start
- * (on session create or manual restart) will pick up the new mounts.
- * A notification tells the user the change is pending.
- */
-async function recreateContainerIfRunning(workspaceId: string): Promise<void> {
-  if (!containerManager.hasContainer(workspaceId)) return;
-
-  try {
-    const state = await containerManager.inspect(workspaceId);
-    if (state.state !== 'running') return;
-  } catch {
-    return; // No container to recreate
-  }
-
-  const wsPath = workspaceManager.getPath(workspaceId);
-  if (!wsPath) return;
-
-  // If there are active terminals, defer — don't kill running work
-  if (hasActiveSessionsForWorkspace(workspaceId)) {
-    console.log(
-      `[workspace] Deferring container recreation for ${workspaceId} — active sessions present`,
-    );
-    showNotification({
-      message: 'Reference updated. Container will apply changes on next restart (active sessions detected).',
-      source: 'Workspace',
-      type: 'info',
-    });
-    return;
-  }
-
-  try {
-    await containerManager.remove(workspaceId);
-    const config = await buildContainerConfig(workspaceId, wsPath);
-    await containerManager.ensure(config);
-    console.log(`[workspace] Recreated container for ${workspaceId} with updated references`);
-  } catch (err) {
-    console.error(`[workspace] Failed to recreate container for ${workspaceId}:`, err);
-    showNotification({
-      message: 'Failed to recreate container. Changes will apply on next restart.',
-      source: 'Workspace',
-      type: 'warning',
-    });
-  }
-}

@@ -40,6 +40,32 @@ export interface WorkspaceRegistryEntry {
   open: boolean;
 }
 
+/**
+ * An additional root attached to a workspace.
+ *
+ * The workspace's primary path is implicitly root id `"workspace"`. Each
+ * additional root is a host directory that the renderer + agent can browse
+ * and edit alongside the primary root, with its own sandbox.
+ *
+ * In container mode each extra root is bind-mounted into the workspace
+ * container at the same host absolute path so virtual paths translate
+ * directly without coordinate transforms.
+ */
+export interface WorkspaceRoot {
+  /** Stable kebab-case slug, unique within the workspace. Used as virtual path prefix. */
+  id: string;
+  /** Human-readable label shown in the explorer header. */
+  name: string;
+  /** Absolute host path. Resolved + validated when the root is added. */
+  path: string;
+  /**
+   * Marker so the Plugin Manager (and other UI) can distinguish roots
+   * created via "Link plugin" from generic additional roots. Defaults
+   * to `"folder"` when omitted.
+   */
+  kind?: 'folder' | 'linked-plugin';
+}
+
 /** Workspace info surfaced to the renderer. Registry entry + config merged. */
 export interface WorkspaceInfo {
   id: string;
@@ -55,6 +81,24 @@ export interface WorkspaceInfo {
   references: string[];
   /** Arbitrary host folders mounted read-write into this workspace's container. */
   mounts: string[];
+  /** Additional roots attached to this workspace (multi-root explorer). */
+  roots: WorkspaceRoot[];
+}
+
+/**
+ * Root surfaced to the editor IPC. Each entry has the virtual prefix
+ * (e.g. `/workspace`, `/sero-source`) the renderer should use when
+ * issuing file IPC calls.
+ */
+export interface EditorRoot {
+  /** Stable id (`workspace` for the primary root). */
+  id: string;
+  /** Display name. */
+  name: string;
+  /** Virtual path prefix consumed by `editor.*` IPC. */
+  virtualPath: string;
+  /** Marker matching `WorkspaceRoot.kind`. */
+  kind?: 'workspace' | 'folder' | 'linked-plugin';
 }
 
 /** Full workspace config from .sero-workspace.json at workspace root. */
@@ -89,6 +133,12 @@ export interface WorkspaceConfig {
    * workspace IDs.
    */
   mounts?: string[];
+  /**
+   * Additional roots attached to this workspace. Each root is a host
+   * directory exposed to the explorer + editor IPC alongside the primary
+   * workspace path. See {@link WorkspaceRoot}.
+   */
+  roots?: WorkspaceRoot[];
 }
 
 // ── Sessions ───────────────────────────────────────────────────

@@ -11,13 +11,21 @@
 
 import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
-import { existsSync, mkdirSync, realpathSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '../../../src/types/ipc';
+import type { EditorRoot } from '../../../src/types/ipc';
 import { containerManager, workspaceManager } from '../../shared/infra/shared-infra';
 import { SERO_AGENT_DIR } from '../../platform/env';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { PRIMARY_ROOT_ID } from '../../features/workspace/roots';
+import { shellQuote } from './shell-quote';
+import {
+  PRIMARY_ROOT_PREFIX,
+  toContainerPath as resolveContainerPath,
+  toHostPath as resolveHostPath,
+} from './path-resolution';
 
 const execFileAsync = promisify(execFile);
 
@@ -29,87 +37,24 @@ function editorStatePath(workspaceId: string): string {
   return path.join(EDITOR_STATE_DIR, `${workspaceId}.json`);
 }
 
-// ── Path resolution helpers ───────────────────────────────────
-
-const WORKSPACE_PREFIX = '/workspace';
-
-/** Maximum allowed path length (prevents DoS via absurdly long paths). */
-const MAX_PATH_LENGTH = 4096;
-
-/**
- * Translate a /workspace-prefixed path to an absolute host path.
- * If the path doesn't start with /workspace, treat it as relative.
- *
- * **Security:** The resolved path is checked against the workspace root.
- * Throws if the result escapes the workspace (e.g. via `..` traversal,
- * symlink escapes, null bytes, or excessively long paths).
- */
-function toHostPath(workspacePath: string, filePath: string): string {
-  // Reject null bytes (could truncate path in native code)
-  if (filePath.includes('\0')) {
-    throw new Error('Path contains null bytes');
-  }
-
-  // Reject excessively long paths
-  if (filePath.length > MAX_PATH_LENGTH) {
-    throw new Error(`Path too long (max ${MAX_PATH_LENGTH} characters)`);
-  }
-
-  let raw: string;
-  if (filePath.startsWith(WORKSPACE_PREFIX)) {
-    const relative = filePath.slice(WORKSPACE_PREFIX.length);
-    raw = path.join(workspacePath, relative);
-  } else {
-    raw = path.join(workspacePath, filePath);
-  }
-
-  const resolved = path.resolve(raw);
-  const root = path.resolve(workspacePath);
-  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
-    throw new Error(`Path escapes workspace: ${filePath}`);
-  }
-
-  // Resolve symlinks to catch symlink escape attacks
-  // (e.g., a symlink inside workspace pointing to /etc/)
-  try {
-    const realResolved = realpathSync(resolved);
-    const realRoot = realpathSync(root);
-    if (!realResolved.startsWith(realRoot + path.sep) && realResolved !== realRoot) {
-      throw new Error(`Symlink escapes workspace: ${filePath}`);
-    }
-  } catch (err) {
-    // If the file doesn't exist yet (e.g., write to new file), realpathSync
-    // will throw ENOENT. In that case, the resolve() check above is sufficient.
-    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
-      // File doesn't exist yet — the path.resolve check is sufficient
-    } else if (err instanceof Error && err.message.includes('escapes workspace')) {
-      throw err;
-    }
-    // Other errors (permission denied, etc.) — allow the operation to proceed
-    // and let the actual fs operation handle the error
-  }
-
-  return resolved;
-}
-
 // ── Host-mode file operations ─────────────────────────────────
 
-async function hostReadFile(workspacePath: string, filePath: string): Promise<string> {
-  const absPath = toHostPath(workspacePath, filePath);
+async function hostReadFile(workspaceId: string, filePath: string): Promise<string> {
+  const absPath = await resolveHostPath(workspaceManager, workspaceId, filePath);
   return fs.readFile(absPath, 'utf8');
 }
 
-async function hostWriteFile(workspacePath: string, filePath: string, content: string): Promise<void> {
-  const absPath = toHostPath(workspacePath, filePath);
+async function hostWriteFile(workspaceId: string, filePath: string, content: string): Promise<void> {
+  const absPath = await resolveHostPath(workspaceManager, workspaceId, filePath);
   await fs.mkdir(path.dirname(absPath), { recursive: true });
   await fs.writeFile(absPath, content, 'utf8');
 }
 
 async function hostListFiles(
-  workspacePath: string,
+  workspaceId: string,
   dirPath: string,
 ): Promise<Array<{ name: string; type: 'file' | 'directory'; size: number }>> {
-  const absDir = toHostPath(workspacePath, dirPath);
+  const absDir = await resolveHostPath(workspaceManager, workspaceId, dirPath);
   const entries = await fs.readdir(absDir, { withFileTypes: true });
   const results: Array<{ name: string; type: 'file' | 'directory'; size: number }> = [];
 
@@ -159,14 +104,13 @@ export function registerEditorHandlers(): void {
         containerManager.hasContainer(workspaceId)
       ) {
         try {
-          return await containerManager.readFile(workspaceId, filePath);
+          const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
+          return await containerManager.readFile(workspaceId, containerPath);
         } catch {
           // Container exec failed — fall through to host read
         }
       }
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      return hostReadFile(wsPath, filePath);
+      return hostReadFile(workspaceId, filePath);
     },
   );
 
@@ -180,15 +124,14 @@ export function registerEditorHandlers(): void {
         containerManager.hasContainer(workspaceId)
       ) {
         try {
-          const result = await containerManager.exec(workspaceId, `base64 < ${JSON.stringify(filePath)}`);
+          const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
+          const result = await containerManager.exec(workspaceId, `base64 < ${shellQuote(containerPath)}`);
           return result.stdout.trim();
         } catch {
           // Fall through to host read
         }
       }
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      const absPath = toHostPath(wsPath, filePath);
+      const absPath = await resolveHostPath(workspaceManager, workspaceId, filePath);
       const buf = await fs.readFile(absPath);
       return buf.toString('base64');
     },
@@ -198,11 +141,10 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.writeFile,
     async (_e, workspaceId: string, filePath: string, content: string) => {
       if (await workspaceManager.isContainerEnabled(workspaceId)) {
-        return containerManager.writeFile(workspaceId, filePath, content);
+        const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
+        return containerManager.writeFile(workspaceId, containerPath, content);
       }
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      return hostWriteFile(wsPath, filePath, content);
+      return hostWriteFile(workspaceId, filePath, content);
     },
   );
 
@@ -217,14 +159,13 @@ export function registerEditorHandlers(): void {
         containerManager.hasContainer(workspaceId)
       ) {
         try {
-          return await containerManager.listFiles(workspaceId, dirPath);
+          const containerPath = await resolveContainerPath(workspaceManager, workspaceId, dirPath);
+          return await containerManager.listFiles(workspaceId, containerPath);
         } catch {
           // Container exec failed — fall through to host listing
         }
       }
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      return hostListFiles(wsPath, dirPath);
+      return hostListFiles(workspaceId, dirPath);
     },
   );
 
@@ -267,7 +208,37 @@ export function registerEditorHandlers(): void {
     async (_e, _workspaceId: string) => {
       // Always return /workspace — the renderer uses this as a virtual root.
       // The main process translates /workspace/... → actual host path for non-container workspaces.
-      return '/workspace';
+      // New code should call `editor.getRoots` instead, which returns all roots
+      // (primary + additional) for multi-root workspaces.
+      return PRIMARY_ROOT_PREFIX;
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.editor.getRoots,
+    async (_e, workspaceId: string): Promise<EditorRoot[]> => {
+      // Require a real workspace so callers don't silently work against
+      // a nonexistent id and only fail when they hit an actual file op.
+      const entry = workspaceManager.findEntry(workspaceId);
+      if (!entry) throw new Error(`Workspace not found: ${workspaceId}`);
+      const info = await workspaceManager.getConfig(workspaceId);
+      const result: EditorRoot[] = [
+        {
+          id: PRIMARY_ROOT_ID,
+          name: info?.name ?? entry.id ?? 'Workspace',
+          virtualPath: PRIMARY_ROOT_PREFIX,
+          kind: 'workspace',
+        },
+      ];
+      for (const root of info?.roots ?? []) {
+        result.push({
+          id: root.id,
+          name: root.name,
+          virtualPath: `/${root.id}`,
+          kind: root.kind ?? 'folder',
+        });
+      }
+      return result;
     },
   );
 
@@ -285,13 +256,13 @@ export function registerEditorHandlers(): void {
     async (_e, workspaceId: string, oldPath: string, newPath: string): Promise<boolean> => {
       try {
         if (await workspaceManager.isContainerEnabled(workspaceId)) {
-          const result = await containerManager.exec(workspaceId, `mv '${oldPath}' '${newPath}'`);
+          const cOld = await resolveContainerPath(workspaceManager, workspaceId, oldPath);
+          const cNew = await resolveContainerPath(workspaceManager, workspaceId, newPath);
+          const result = await containerManager.exec(workspaceId, `mv ${shellQuote(cOld)} ${shellQuote(cNew)}`);
           return result.exitCode === 0;
         }
-        const wsPath = workspaceManager.getPath(workspaceId);
-        if (!wsPath) return false;
-        const hostOld = toHostPath(wsPath, oldPath);
-        const hostNew = toHostPath(wsPath, newPath);
+        const hostOld = await resolveHostPath(workspaceManager, workspaceId, oldPath);
+        const hostNew = await resolveHostPath(workspaceManager, workspaceId, newPath);
         await fs.rename(hostOld, hostNew);
         return true;
       } catch (err: unknown) {
@@ -306,12 +277,11 @@ export function registerEditorHandlers(): void {
     async (_e, workspaceId: string, itemPath: string): Promise<boolean> => {
       try {
         if (await workspaceManager.isContainerEnabled(workspaceId)) {
-          const result = await containerManager.exec(workspaceId, `rm -rf '${itemPath}'`);
+          const cItem = await resolveContainerPath(workspaceManager, workspaceId, itemPath);
+          const result = await containerManager.exec(workspaceId, `rm -rf ${shellQuote(cItem)}`);
           return result.exitCode === 0;
         }
-        const wsPath = workspaceManager.getPath(workspaceId);
-        if (!wsPath) return false;
-        const hostItem = toHostPath(wsPath, itemPath);
+        const hostItem = await resolveHostPath(workspaceManager, workspaceId, itemPath);
         await fs.rm(hostItem, { recursive: true, force: true });
         return true;
       } catch (err: unknown) {
@@ -326,12 +296,11 @@ export function registerEditorHandlers(): void {
     async (_e, workspaceId: string, filePath: string): Promise<boolean> => {
       try {
         if (await workspaceManager.isContainerEnabled(workspaceId)) {
-          const result = await containerManager.exec(workspaceId, `touch '${filePath}'`);
+          const cFile = await resolveContainerPath(workspaceManager, workspaceId, filePath);
+          const result = await containerManager.exec(workspaceId, `touch ${shellQuote(cFile)}`);
           return result.exitCode === 0;
         }
-        const wsPath = workspaceManager.getPath(workspaceId);
-        if (!wsPath) return false;
-        const hostFile = toHostPath(wsPath, filePath);
+        const hostFile = await resolveHostPath(workspaceManager, workspaceId, filePath);
         await fs.mkdir(path.dirname(hostFile), { recursive: true });
         await fs.writeFile(hostFile, '', { flag: 'wx' }).catch(() =>
           fs.writeFile(hostFile, '', 'utf8'),
@@ -349,12 +318,11 @@ export function registerEditorHandlers(): void {
     async (_e, workspaceId: string, dirPath: string): Promise<boolean> => {
       try {
         if (await workspaceManager.isContainerEnabled(workspaceId)) {
-          const result = await containerManager.exec(workspaceId, `mkdir -p '${dirPath}'`);
+          const cDir = await resolveContainerPath(workspaceManager, workspaceId, dirPath);
+          const result = await containerManager.exec(workspaceId, `mkdir -p ${shellQuote(cDir)}`);
           return result.exitCode === 0;
         }
-        const wsPath = workspaceManager.getPath(workspaceId);
-        if (!wsPath) return false;
-        const hostDir = toHostPath(wsPath, dirPath);
+        const hostDir = await resolveHostPath(workspaceManager, workspaceId, dirPath);
         await fs.mkdir(hostDir, { recursive: true });
         return true;
       } catch (err: unknown) {
@@ -364,3 +332,4 @@ export function registerEditorHandlers(): void {
     },
   );
 }
+

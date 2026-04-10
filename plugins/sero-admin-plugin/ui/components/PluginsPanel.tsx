@@ -1,4 +1,5 @@
 import { memo, useMemo, useState } from 'react';
+import { useAppInfo } from '@sero-ai/app-runtime';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
@@ -6,6 +7,8 @@ import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { InstalledPlugin } from '@sero/common';
 import { usePlugins } from '../hooks/usePlugins';
+import { useLinkedRoots } from '../hooks/useLinkedRoots';
+import type { WorkspaceRootIPC } from '../hooks/useSeroFiles';
 
 const INSTALL_EXAMPLES = [
   {
@@ -23,6 +26,7 @@ const INSTALL_EXAMPLES = [
 ] as const;
 
 export const PluginsPanel = memo(function PluginsPanel() {
+  const { workspaceId } = useAppInfo();
   const {
     plugins,
     loading,
@@ -33,6 +37,7 @@ export const PluginsPanel = memo(function PluginsPanel() {
     uninstall,
     revealInFinder,
   } = usePlugins();
+  const linked = useLinkedRoots(workspaceId);
   const [installSource, setInstallSource] = useState('');
 
   const installedCountLabel = useMemo(() => {
@@ -111,6 +116,15 @@ export const PluginsPanel = memo(function PluginsPanel() {
           </div>
         </div>
       </div>
+
+      <LinkedPluginsSection
+        linkedPlugins={linked.linkedPlugins}
+        busy={linked.busy}
+        error={linked.error}
+        onLink={linked.linkPlugin}
+        onUnlink={linked.unlink}
+        onReveal={linked.revealInFinder}
+      />
 
       {error && (
         <div className="border-b border-destructive/20 bg-destructive/5 px-4 py-2">
@@ -231,6 +245,98 @@ function PluginCard({
         >
           {uninstalling ? 'Removing…' : 'Uninstall'}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function LinkedPluginsSection({
+  linkedPlugins,
+  busy,
+  error,
+  onLink,
+  onUnlink,
+  onReveal,
+}: {
+  linkedPlugins: WorkspaceRootIPC[];
+  busy: boolean;
+  error: string | null;
+  onLink: () => Promise<boolean>;
+  onUnlink: (rootId: string) => Promise<void>;
+  onReveal: (path: string) => Promise<void>;
+}) {
+  return (
+    <div className="border-b border-border/20 bg-background/40 px-4 py-4">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/85">
+              Linked plugin folders
+            </p>
+            <p className="max-w-3xl text-[11px] leading-5 text-muted-foreground/75">
+              Link a local plugin source folder to develop it inside Sero. The folder appears as
+              an extra root in the explorer for this workspace and is bind-mounted into its
+              container so the agent can edit it directly.
+            </p>
+          </div>
+          <Button
+            onClick={() => { void onLink(); }}
+            disabled={busy}
+            variant="outline"
+            className="h-9 min-w-32 text-xs font-medium"
+          >
+            {busy ? 'Working…' : 'Link plugin folder'}
+          </Button>
+        </div>
+
+        {error && (
+          <p className="text-[11px] text-destructive">{error}</p>
+        )}
+
+        {linkedPlugins.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground/65">
+            No linked plugin folders. Click <strong>Link plugin folder</strong> and pick the
+            checkout of a Sero plugin (e.g. <code>~/code/sero/plugins/sero-foo-plugin</code>).
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {linkedPlugins.map((root) => (
+              <li
+                key={root.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-background/60 px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-xs font-medium text-foreground/85">{root.name}</span>
+                    <Badge variant="outline" className="h-5 border-primary/20 bg-primary/5 px-1.5 text-[9px] text-primary">
+                      linked
+                    </Badge>
+                  </div>
+                  <p className="truncate font-mono text-[10px] text-muted-foreground/65">{root.path}</p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[10px]"
+                    onClick={() => { void onReveal(root.path); }}
+                  >
+                    Reveal
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 border-destructive/30 px-2 text-[10px] text-destructive hover:bg-destructive/8"
+                    onClick={() => { void onUnlink(root.id); }}
+                    disabled={busy}
+                  >
+                    Unlink
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
