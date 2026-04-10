@@ -4,55 +4,15 @@
  * Bridges renderer ↔ WorkspaceManager in the main process.
  */
 
-import { promises as fs } from 'fs';
-import path from 'path';
-
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 
 import { IpcChannels } from '../../../src/types/ipc';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '../../../src/types/ipc';
 import { workspaceManager } from '../../features/workspace/manager';
+import { assertIsSeroPluginFolder } from '../../features/workspace/plugin-validation';
 import { showNotification } from '../../platform/desktop/notifications';
 import { containerManager, buildContainerConfig } from '../../shared/infra/shared-infra';
 import { getAgentPoolEntry } from '../agent';
-
-/**
- * Validate that a folder is a Sero plugin source directory.
- *
- * Linked plugins surface external plugin source trees inside the explorer
- * for in-place development. We require a `package.json` with a populated
- * `sero.app.id` + `sero.app.name` field — the same shape the plugin
- * installer enforces — so users can't accidentally tag arbitrary folders
- * as "linked-plugin" and bypass the design contract.
- *
- * Validates in the main process (not just the renderer) so the IPC API
- * itself rejects bogus payloads regardless of how they were constructed.
- */
-async function assertIsSeroPluginFolder(folderPath: string): Promise<void> {
-  const pkgPath = path.join(folderPath, 'package.json');
-  let raw: string;
-  try {
-    raw = await fs.readFile(pkgPath, 'utf8');
-  } catch {
-    throw new Error(
-      `Not a Sero plugin: package.json not found in ${folderPath}`,
-    );
-  }
-
-  let pkg: { sero?: { app?: { id?: unknown; name?: unknown } } };
-  try {
-    pkg = JSON.parse(raw);
-  } catch {
-    throw new Error(`Not a Sero plugin: package.json is not valid JSON`);
-  }
-
-  const app = pkg?.sero?.app;
-  if (!app || typeof app.id !== 'string' || typeof app.name !== 'string' || !app.id || !app.name) {
-    throw new Error(
-      `Not a Sero plugin: package.json must contain sero.app.id and sero.app.name`,
-    );
-  }
-}
 
 export function registerWorkspaceHandlers(): void {
   // ── List all registered workspaces ─────────────────────────
