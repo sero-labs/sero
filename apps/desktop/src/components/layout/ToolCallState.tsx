@@ -60,7 +60,7 @@ export function groupStatusLabel(status: GroupStatus, count: number) {
     case 'completed':
       return `${count} ${noun} completed`;
     case 'error':
-      return `${count} ${noun} (has errors)`;
+      return `${count} ${noun}`;
     case 'cancelled':
       return `${count} ${noun} (cancelled)`;
   }

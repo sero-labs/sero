@@ -25,11 +25,14 @@ export type GroupedChatItem =
  * Groups consecutive tool messages into collapsed blocks.
  * Non-empty text messages (user / assistant with content) break the grouping.
  *
- * Empty assistant messages are dropped — they appear between sequential tool
- * calls (the SDK emits one per tool-use block) and would otherwise break
- * grouping and cause expand/collapse flapping.  The only exception is a
- * streaming empty assistant that is the very last message: it is kept so the
- * UI can show a "thinking" spinner.
+ * Assistant messages that have no visible response text are treated as
+ * ephemeral UI state rather than durable turn boundaries:
+ * - empty assistant placeholders are dropped
+ * - thinking-only assistant messages are only kept while they are the live,
+ *   trailing streaming message
+ *
+ * This lets a single turn reuse one ToolCallGroup even when the model emits
+ * intermediate reasoning-only assistant messages between tool-use blocks.
  */
 export function groupMessages(
   messages: ChatMessage[],
@@ -55,13 +58,12 @@ export function groupMessages(
       continue;
     }
 
-    // Skip empty assistant messages that have no content at all — they appear
-    // between sequential tool calls (SDK emits one per tool-use block).
-    // However, keep messages that have thinking content so the ThinkingBlock
-    // can render while the model is still reasoning (text is empty but
-    // thinking deltas are accumulating).
-    if (msg.type === 'assistant' && !msg.text?.trim() && !msg.thinking) {
-      continue;
+    if (msg.type === 'assistant' && !msg.text?.trim()) {
+      const isLastMessage = i === messages.length - 1;
+      const keepTrailingThinking = Boolean(msg.thinking) && msg.isStreaming && isLastMessage;
+      if (!keepTrailingThinking) {
+        continue;
+      }
     }
 
     flushTools();

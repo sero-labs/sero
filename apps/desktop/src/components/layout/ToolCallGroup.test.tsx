@@ -15,8 +15,8 @@ vi.mock('@/components/layout/ImageLightbox', () => ({
   ImageLightbox: () => null,
 }));
 
-import { ToolCallGroup } from './ToolCallGroup';
-import type { ChatToolCallMessage } from '@/types/ipc';
+import { groupMessages, ToolCallGroup } from './ToolCallGroup';
+import type { ChatAssistantMessage, ChatToolCallMessage } from '@/types/ipc';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -32,6 +32,16 @@ function makeTool(overrides: Partial<ChatToolCallMessage>): ChatToolCallMessage 
     state: 'completed',
     details: null,
     isPartialOutput: false,
+    ...overrides,
+  };
+}
+
+function makeAssistant(overrides: Partial<ChatAssistantMessage>): ChatAssistantMessage {
+  return {
+    type: 'assistant',
+    id: 'assistant-1',
+    text: '',
+    isStreaming: false,
     ...overrides,
   };
 }
@@ -85,5 +95,42 @@ describe('ToolCallGroup image previews', () => {
 
     expect(container.textContent).toContain('/tmp/calc-shot.png');
     expect(container.querySelector('img')).not.toBeNull();
+  });
+});
+
+describe('groupMessages', () => {
+  it('merges tool calls across finalized thinking-only assistant messages', () => {
+    const items = groupMessages([
+      makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+      makeAssistant({ id: 'assistant-thinking-1', thinking: 'Planning next step' }),
+      makeTool({ id: 'tool-b', toolCallId: 'call-b', toolName: 'bash' }),
+      makeAssistant({ id: 'assistant-thinking-2', thinking: 'One more check' }),
+      makeTool({ id: 'tool-c', toolCallId: 'call-c', toolName: 'edit' }),
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.kind).toBe('tool-group');
+    if (items[0]?.kind === 'tool-group') {
+      expect(items[0].tools.map((tool) => tool.toolName)).toEqual(['read', 'bash', 'edit']);
+    }
+  });
+
+  it('keeps a trailing streaming thinking-only assistant message visible', () => {
+    const items = groupMessages([
+      makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
+      makeAssistant({
+        id: 'assistant-thinking-live',
+        thinking: 'Checking one more file',
+        isStreaming: true,
+      }),
+    ]);
+
+    expect(items).toHaveLength(2);
+    expect(items[0]?.kind).toBe('tool-group');
+    expect(items[1]?.kind).toBe('message');
+    if (items[1]?.kind === 'message' && items[1].message.type === 'assistant') {
+      expect(items[1].message.thinking).toBe('Checking one more file');
+      expect(items[1].message.isStreaming).toBe(true);
+    }
   });
 });
