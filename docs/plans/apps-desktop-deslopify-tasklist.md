@@ -67,9 +67,9 @@ Core-first checklist for reviewing and cleaning up `apps/desktop` without losing
 ## Wave C — Deslopify Primary Consumers
 
 ### 4. Main app surfaces
-- [ ] `deslopify apps/desktop/src/components/apps/explorer`
-- [ ] `deslopify apps/desktop/electron/features/editor`
-- [ ] `deslopify apps/desktop/src/lsp`
+- [x] `deslopify apps/desktop/src/components/apps/explorer`
+- [x] `deslopify apps/desktop/electron/features/editor`
+- [x] `deslopify apps/desktop/src/lsp`
 
 ### 5. Shell and app chrome
 - [ ] `deslopify apps/desktop/src/components/layout`
@@ -146,3 +146,4 @@ That keeps us from fixing visible symptoms in the UI before fixing the code that
 - 2026-04-12: Wave A step 3.3 complete for `apps/desktop/src/lib`. Findings + plan documented at `docs/deslopify/apps/desktop/src/lib/{facts.md,plan.md}` (high: federated component load failure can stick as cached null render without retry).
 - 2026-04-12: Wave B synthesis complete. Cross-cutting themes and grouped High-only `fix-slop` batches documented in `docs/deslopify/apps/desktop/plan.md` (B1 IPC contract hardening; B2 settings/discovery safety; B3 runtime lifecycle correctness; B4 security boundary hardening). `apps/desktop/electron/features/workspace`, `apps/desktop/electron/features/agent`, and `apps/desktop/src/hooks` currently have no High items and are deferred to the first Medium wave unless execution uncovers new Highs.
 - 2026-04-12: Wave B High fixes implemented across core contracts/runtime/security. Highlights: `src/types/ipc.ts` reduced below 500 LOC via `src/types/user-feedback.ts`; preload compile-time API conformance guard added; IPC/app-extension `any` escape hatches removed; plugin discovery tag updated to `sero-agent-plugin`; settings parsing made non-destructive/fail-fast in shared + plugin flows; container proxy/scanner lifecycle hardened; production CSP narrowed; destructive store actions now IPC-success gated; federation remote load failure now retryable. Monorepo `pnpm typecheck` passes.
+- 2026-04-12: Wave C step 4 complete for `apps/desktop/src/components/apps/explorer`, `apps/desktop/electron/features/editor`, and `apps/desktop/src/lsp`. Facts + plans added under `docs/deslopify/apps/desktop/**`; index refreshed. Headline findings: explorer runtime ownership is pooling in `ExplorerWorkspace.tsx`/`EditorPanel.tsx`, `LspManager.startServer()` is not concurrency-safe during in-flight startup, and `src/lsp/use-lsp.ts` still uses an inline `import('monaco-editor')` type expression plus duplicated routing metadata.
