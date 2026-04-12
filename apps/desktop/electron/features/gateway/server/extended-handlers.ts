@@ -7,6 +7,16 @@ import { WebSocket } from 'ws';
 import type { GatewayRequest } from './protocol';
 import type { GatewayAgentOps } from '..';
 import type { GatewayAuth } from '../security/auth';
+import {
+  authorizeArtifact,
+  authorizeArtifacts,
+  authorizeSession,
+  authorizeSessions,
+  hasArtifactAccess,
+  hasSessionAccess,
+  hasWorkspaceAccess,
+  type GatewayAccessScope,
+} from './access-control';
 import { sendResponse } from './request-handler';
 
 /**
@@ -29,16 +39,26 @@ export async function routeExtendedRequest(
   ws: WebSocket,
   agentOps: GatewayAgentOps,
   request: GatewayRequest,
+  accessScope: GatewayAccessScope,
   auth: GatewayAuth,
   isMasterAuth: boolean,
 ): Promise<boolean> {
   switch (request.type) {
     case 'create_session': {
+      if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'create_session',
+          message: `Workspace not authorized: ${request.workspaceId}`,
+        });
+        return true;
+      }
       try {
         const session = await agentOps.createSession(
           request.workspaceId,
           request.name,
         );
+        authorizeSession(accessScope, session.id);
         sendResponse(ws, {
           type: 'ok',
           requestType: 'create_session',
@@ -55,6 +75,14 @@ export async function routeExtendedRequest(
     }
 
     case 'list_files': {
+      if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'list_files',
+          message: `Workspace not authorized: ${request.workspaceId}`,
+        });
+        return true;
+      }
       const listPathErr = validateFilePath(request.path);
       if (listPathErr) {
         sendResponse(ws, { type: 'error', requestType: 'list_files', message: listPathErr });
@@ -78,6 +106,14 @@ export async function routeExtendedRequest(
     }
 
     case 'read_file': {
+      if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'read_file',
+          message: `Workspace not authorized: ${request.workspaceId}`,
+        });
+        return true;
+      }
       const readPathErr = validateFilePath(request.path);
       if (readPathErr) {
         sendResponse(ws, { type: 'error', requestType: 'read_file', message: readPathErr });
@@ -101,8 +137,17 @@ export async function routeExtendedRequest(
     }
 
     case 'list_artifacts': {
+      if (!hasSessionAccess(accessScope, request.sessionId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'list_artifacts',
+          message: `Session not authorized: ${request.sessionId}`,
+        });
+        return true;
+      }
       try {
         const artifacts = await agentOps.listArtifacts(request.sessionId);
+        authorizeArtifacts(accessScope, artifacts.map((artifact) => artifact.id));
         sendResponse(ws, {
           type: 'ok',
           requestType: 'list_artifacts',
@@ -119,8 +164,19 @@ export async function routeExtendedRequest(
     }
 
     case 'get_artifact': {
+      if (!hasArtifactAccess(accessScope, request.artifactId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'get_artifact',
+          message: `Artifact not authorized: ${request.artifactId}`,
+        });
+        return true;
+      }
       try {
         const artifact = await agentOps.getArtifact(request.artifactId);
+        if (artifact) {
+          authorizeArtifact(accessScope, request.artifactId);
+        }
         sendResponse(ws, {
           type: 'ok',
           requestType: 'get_artifact',
@@ -137,11 +193,20 @@ export async function routeExtendedRequest(
     }
 
     case 'get_session_history': {
+      if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'get_session_history',
+          message: `Workspace not authorized: ${request.workspaceId}`,
+        });
+        return true;
+      }
       try {
         const messages = await agentOps.getSessionHistory(
           request.workspaceId,
           request.sessionId,
         );
+        authorizeSessions(accessScope, [request.sessionId]);
         sendResponse(ws, {
           type: 'ok',
           requestType: 'get_session_history',
@@ -168,7 +233,27 @@ export async function routeExtendedRequest(
         return true;
       }
       try {
-        const webToken = auth.webTokens.create(request.label, request.expiryDays);
+        const workspaceIds = request.workspaceIds;
+        if (!Array.isArray(workspaceIds) || workspaceIds.length === 0) {
+          sendResponse(ws, {
+            type: 'error',
+            requestType: 'create_web_token',
+            message: 'create_web_token requires one or more workspaceIds',
+          });
+          return true;
+        }
+        const unauthorizedWorkspace = workspaceIds.find(
+          (workspaceId) => typeof workspaceId !== 'string' || !hasWorkspaceAccess(accessScope, workspaceId),
+        );
+        if (unauthorizedWorkspace) {
+          sendResponse(ws, {
+            type: 'error',
+            requestType: 'create_web_token',
+            message: `Workspace not authorized: ${String(unauthorizedWorkspace)}`,
+          });
+          return true;
+        }
+        const webToken = auth.webTokens.create(workspaceIds, request.label, request.expiryDays);
         sendResponse(ws, {
           type: 'ok',
           requestType: 'create_web_token',

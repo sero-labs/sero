@@ -71,7 +71,13 @@ export function buildGatewayOps(
 ): GatewayAgentOps {
   return {
     openSession: async (sessionId, workspaceId) => {
-      if (pool.has(sessionId)) return;
+      const existing = pool.get(sessionId);
+      if (existing) {
+        if (existing.workspaceId !== workspaceId) {
+          throw new Error(`Session ${sessionId} is bound to workspace ${existing.workspaceId}, not ${workspaceId}`);
+        }
+        return;
+      }
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
       const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);

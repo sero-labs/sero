@@ -25,6 +25,7 @@ import {
 import { Button } from '@sero-ai/ui/components/ui/button';
 import type { QrLoginData } from '@/types/ipc';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 interface Props {
   open: boolean;
@@ -34,6 +35,10 @@ interface Props {
 type Phase = 'idle' | 'loading' | 'ready' | 'error';
 
 export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId ?? 'global');
+  const activeWorkspaceName = useWorkspaceStore(
+    (s) => s.workspaces.find((workspace) => workspace.id === (s.activeWorkspaceId ?? 'global'))?.name ?? 'Global',
+  );
   const [phase, setPhase] = useState<Phase>('idle');
   const [data, setData] = useState<QrLoginData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,14 +51,14 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
     setCopied(false);
     setCopyFailed(false);
     try {
-      const result = await window.sero.gateway.getQrLoginData(7);
+      const result = await window.sero.gateway.getQrLoginData(activeWorkspaceId, 7);
       setData(result);
       setPhase('ready');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate QR code');
       setPhase('error');
     }
-  }, []);
+  }, [activeWorkspaceId]);
 
   // Generate QR data when the dialog opens. The parent controls `open`
   // via props, so onOpenChange(true) is never called by radix — we need
@@ -106,6 +111,7 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
           </DialogTitle>
           <DialogDescription>
             Scan this QR code with your phone to open Sero Remote.
+            Access will be limited to the <span className="font-medium text-foreground">{activeWorkspaceName}</span> workspace.
           </DialogDescription>
         </DialogHeader>
 

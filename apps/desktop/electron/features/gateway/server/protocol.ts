@@ -82,6 +82,7 @@ export interface GatewayCreateWebTokenRequest {
   type: 'create_web_token';
   label?: string;
   expiryDays?: number;
+  workspaceIds?: string[];
 }
 
 export interface GatewayListWebTokensRequest {

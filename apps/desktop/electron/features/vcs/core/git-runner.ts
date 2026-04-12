@@ -12,6 +12,29 @@ import type { GitResult } from '../support/types';
 
 const execFileAsync = promisify(execFile);
 
+interface ExecFileFailure {
+  code?: unknown;
+  stdout?: unknown;
+  stderr?: unknown;
+  message?: unknown;
+}
+
+function normalizeExecFileFailure(error: unknown): { code: number; stdout: string; stderr: string } {
+  const failure = typeof error === 'object' && error !== null
+    ? (error as ExecFileFailure)
+    : null;
+
+  return {
+    code: typeof failure?.code === 'number' ? failure.code : 1,
+    stdout: typeof failure?.stdout === 'string' ? failure.stdout : '',
+    stderr: typeof failure?.stderr === 'string'
+      ? failure.stderr
+      : typeof failure?.message === 'string'
+        ? failure.message
+        : 'git command failed',
+  };
+}
+
 /**
  * Check if the host likely has SSH keys that can authenticate with GitHub.
  * Cached after first check for the process lifetime.
@@ -34,9 +57,10 @@ async function isHostSshAvailable(): Promise<boolean> {
   try {
     const { stderr } = await execFileAsync('ssh', ['-T', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=5', 'git@github.com'], {
       timeout: 10_000,
-    }).catch((err: any) => {
+    }).catch((error: unknown) => {
       // ssh -T exits with code 1 on success ("You've successfully authenticated")
-      return { stdout: String(err?.stdout ?? ''), stderr: String(err?.stderr ?? '') };
+      const normalized = normalizeExecFileFailure(error);
+      return { stdout: normalized.stdout, stderr: normalized.stderr };
     });
     _sshAvailable = stderr.includes('successfully authenticated');
   } catch {
@@ -128,12 +152,12 @@ export class GitRunner {
         env,
       });
       return { exitCode: 0, stdout, stderr };
-    } catch (err: any) {
-      const code = typeof err?.code === 'number' ? err.code : 1;
+    } catch (error: unknown) {
+      const normalized = normalizeExecFileFailure(error);
       return {
-        exitCode: code,
-        stdout: String(err?.stdout ?? ''),
-        stderr: String(err?.stderr ?? err?.message ?? 'git command failed'),
+        exitCode: normalized.code,
+        stdout: normalized.stdout,
+        stderr: normalized.stderr,
       };
     }
   }

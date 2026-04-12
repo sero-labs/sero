@@ -241,10 +241,18 @@ export class DiscordAdapter {
 
       case 'abort': {
         const session = this.sessions.get(msg.channel.id);
-        if (session) {
-          await msg.reply('Aborting current task...');
-        } else {
+        if (!session) {
           await msg.reply('No active session in this channel.');
+          break;
+        }
+
+        try {
+          await this.agentOps.abort(session.sessionId);
+          await msg.reply('Aborting current task...');
+        } catch (err) {
+          await msg.reply(
+            `Abort failed: ${err instanceof Error ? err.message : 'Something went wrong'}`,
+          );
         }
         break;
       }

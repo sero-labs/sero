@@ -82,9 +82,9 @@ export function registerGatewayHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.gateway.createWebToken,
-    async (_event, label?: string, expiryDays?: number) => {
+    async (_event, workspaceIds: string[], label?: string, expiryDays?: number) => {
       const auth = gatewayServer.getAuth();
-      return auth.webTokens.create(label, expiryDays);
+      return auth.webTokens.create(workspaceIds, label, expiryDays);
     },
   );
 
@@ -103,13 +103,14 @@ export function registerGatewayHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.gateway.getQrLoginData,
-    async (_event, expiryDays?: number): Promise<QrLoginData> => {
+    async (_event, workspaceId: string, expiryDays?: number): Promise<QrLoginData> => {
       await startGateway();
 
       // Clamp expiry to 1–30 days to prevent bogus values from the renderer.
       const days = Math.max(1, Math.min(expiryDays ?? 7, 30));
       const auth = gatewayServer.getAuth();
       const webToken = auth.webTokens.create(
+        [workspaceId],
         `QR login ${new Date().toLocaleDateString()}`,
         days,
       );

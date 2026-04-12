@@ -5,12 +5,18 @@
 
 import { EventEmitter } from 'events';
 import { LspServerProcess } from './lsp-process';
-import { findConfigByLanguageId, type LspServerConfig } from './types';
+import {
+  findConfigByLanguageId,
+  type JsonRpcNotification,
+  type LspServerConfig,
+} from './types';
 import type { ContainerManager } from '@electron/features/container';
 
 export class LspManager extends EventEmitter {
   /** workspaceId → language → LspServerProcess */
   private servers = new Map<string, Map<string, LspServerProcess>>();
+  /** workspaceId/language → in-flight startup promise */
+  private startupPromises = new Map<string, Promise<{ capabilities: Record<string, unknown>; language: string }>>();
 
   constructor(private containerManager: ContainerManager) {
     super();
@@ -32,43 +38,19 @@ export class LspManager extends EventEmitter {
       return { capabilities: existing.serverCapabilities, language: config.language };
     }
 
-    await this.waitForContainerAndInstall(workspaceId, config);
-
-    const envVars = this.containerManager.getEnvVars?.() ?? {};
-    const server = new LspServerProcess(workspaceId, config, envVars);
-
-    server.on('notification', (notification: any) => {
-      this.emit('notification', { workspaceId, language: config.language, notification });
-    });
-
-    server.on('exit', () => {
-      const wsServers = this.servers.get(workspaceId);
-      if (wsServers) {
-        wsServers.delete(config.language);
-        if (wsServers.size === 0) this.servers.delete(workspaceId);
-      }
-      this.emit('serverStopped', { workspaceId, language: config.language });
-    });
-
-    server.on('error', (err: Error) => {
-      console.error(`[lsp-manager] Error for ${workspaceId}/${config.language}:`, err.message);
-    });
-
-    let wsServers = this.servers.get(workspaceId);
-    if (!wsServers) {
-      wsServers = new Map();
-      this.servers.set(workspaceId, wsServers);
+    const startupKey = this.getStartupKey(workspaceId, config.language);
+    const inFlight = this.startupPromises.get(startupKey);
+    if (inFlight) {
+      return inFlight;
     }
-    wsServers.set(config.language, server);
+
+    const startupPromise = this.createAndStartServer(workspaceId, config);
+    this.startupPromises.set(startupKey, startupPromise);
 
     try {
-      const capabilities = await server.start();
-      console.log(`[lsp-manager] Server ready: ${workspaceId}/${config.language}`);
-      return { capabilities, language: config.language };
-    } catch (err) {
-      wsServers.delete(config.language);
-      if (wsServers.size === 0) this.servers.delete(workspaceId);
-      throw err;
+      return await startupPromise;
+    } finally {
+      this.startupPromises.delete(startupKey);
     }
   }
 
@@ -127,6 +109,55 @@ export class LspManager extends EventEmitter {
     return this.servers.get(workspaceId)?.get(language);
   }
 
+  private getStartupKey(workspaceId: string, language: string): string {
+    return `${workspaceId}:${language}`;
+  }
+
+  private async createAndStartServer(
+    workspaceId: string,
+    config: LspServerConfig,
+  ): Promise<{ capabilities: Record<string, unknown>; language: string }> {
+    await this.waitForContainerAndInstall(workspaceId, config);
+
+    const envVars = this.containerManager.getEnvVars?.() ?? {};
+    const server = new LspServerProcess(workspaceId, config, envVars);
+
+    server.on('notification', (notification: JsonRpcNotification) => {
+      this.emit('notification', { workspaceId, language: config.language, notification });
+    });
+
+    server.on('exit', () => {
+      const wsServers = this.servers.get(workspaceId);
+      if (wsServers) {
+        wsServers.delete(config.language);
+        if (wsServers.size === 0) this.servers.delete(workspaceId);
+      }
+      this.startupPromises.delete(this.getStartupKey(workspaceId, config.language));
+      this.emit('serverStopped', { workspaceId, language: config.language });
+    });
+
+    server.on('error', (err: Error) => {
+      console.error(`[lsp-manager] Error for ${workspaceId}/${config.language}:`, err.message);
+    });
+
+    let wsServers = this.servers.get(workspaceId);
+    if (!wsServers) {
+      wsServers = new Map();
+      this.servers.set(workspaceId, wsServers);
+    }
+    wsServers.set(config.language, server);
+
+    try {
+      const capabilities = await server.start();
+      console.log(`[lsp-manager] Server ready: ${workspaceId}/${config.language}`);
+      return { capabilities, language: config.language };
+    } catch (err) {
+      wsServers.delete(config.language);
+      if (wsServers.size === 0) this.servers.delete(workspaceId);
+      throw err;
+    }
+  }
+
   /**
    * Wait for the container and ensure the LSP binary is installed.
    * Retries up to 5 times for transient container errors.
@@ -147,8 +178,8 @@ export class LspManager extends EventEmitter {
         }
         console.log(`[lsp-manager] Installed ${config.language} server in ${workspaceId}`);
         return;
-      } catch (err: any) {
-        const msg = err?.message ?? '';
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '';
         const isTransient = msg.includes('not running') || msg.includes('not found');
         if (isTransient && attempt < MAX_RETRIES) {
           console.log(`[lsp-manager] Container not ready for ${workspaceId}, retrying (${attempt}/${MAX_RETRIES})...`);

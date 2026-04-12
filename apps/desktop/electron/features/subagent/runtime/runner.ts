@@ -200,7 +200,7 @@ export async function runSubagent(
       sessionManager: SessionManager.inMemory(sessionPath),
       settingsManager: infra.settingsManager,
       systemPromptSuffix: agent.systemPrompt,
-    } as Parameters<typeof createAgentSession>[0]); // systemPromptSuffix is a Sero extension not in the SDK's public type
+    });
     session = result.session;
 
     let effectiveThinking = resolved.thinking;
@@ -269,8 +269,8 @@ export async function runSubagent(
       // Forward all events to the debug log (same file as main sessions)
       logRawEvent(subagentSessionId, event);
 
-      if (event.type === 'turn_start') {
-        logTurnContext(subagentSessionId, session!);
+      if (event.type === 'turn_start' && session) {
+        logTurnContext(subagentSessionId, session);
       }
 
       // Tool execution events → tool activity feed + stall detection

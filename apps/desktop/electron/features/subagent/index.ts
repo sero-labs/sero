@@ -444,6 +444,7 @@ export class SubagentManager {
   // ── Management ─────────────────────────────────────────────
 
   abortAll(parentSessionId: string): void {
+    this.tracker.abortByParentSession(parentSessionId);
     this.pool.abortAll(parentSessionId);
   }
 

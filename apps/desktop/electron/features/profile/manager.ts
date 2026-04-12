@@ -34,17 +34,62 @@ function emptyRegistry(): ProfileRegistry {
   return { version: 1, activeProfileId: null, profiles: [] };
 }
 
-/** Read registry synchronously. Returns empty registry if missing/corrupt. */
-export function readRegistrySync(): ProfileRegistry {
-  try {
-    if (!existsSync(REGISTRY_PATH)) return emptyRegistry();
-    const raw = readFileSync(REGISTRY_PATH, 'utf8');
-    const parsed = JSON.parse(raw) as ProfileRegistry;
-    if (!parsed || !Array.isArray(parsed.profiles)) return emptyRegistry();
-    return { ...emptyRegistry(), ...parsed };
-  } catch {
-    return emptyRegistry();
+export class ProfileRegistryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProfileRegistryError';
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isProfileEntry(value: unknown): value is ProfileEntry {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string'
+    && typeof value.name === 'string'
+    && typeof value.path === 'string'
+    && typeof value.createdAt === 'string'
+    && (value.onboarded === undefined || typeof value.onboarded === 'boolean');
+}
+
+function parseRegistry(raw: string): ProfileRegistry {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown JSON parse failure';
+    throw new ProfileRegistryError(`profiles.json is malformed: ${message}`);
+  }
+
+  if (!isRecord(parsed)) {
+    throw new ProfileRegistryError('profiles.json must contain a JSON object');
+  }
+
+  const { activeProfileId, profiles, version } = parsed;
+  if (version !== undefined && version !== 1) {
+    throw new ProfileRegistryError(`profiles.json has unsupported version: ${String(version)}`);
+  }
+  if (activeProfileId !== null && activeProfileId !== undefined && typeof activeProfileId !== 'string') {
+    throw new ProfileRegistryError('profiles.json activeProfileId must be a string or null');
+  }
+  if (!Array.isArray(profiles) || !profiles.every(isProfileEntry)) {
+    throw new ProfileRegistryError('profiles.json profiles must be an array of valid profile entries');
+  }
+
+  return {
+    version: 1,
+    activeProfileId: activeProfileId ?? null,
+    profiles,
+  };
+}
+
+/** Read registry synchronously. Missing registry = empty; malformed registry = explicit failure. */
+export function readRegistrySync(): ProfileRegistry {
+  if (!existsSync(REGISTRY_PATH)) return emptyRegistry();
+  const raw = readFileSync(REGISTRY_PATH, 'utf8');
+  return parseRegistry(raw);
 }
 
 /** Write registry synchronously. */

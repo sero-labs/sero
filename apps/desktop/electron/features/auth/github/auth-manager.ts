@@ -268,38 +268,36 @@ export class GitHubAuthManager {
   // ── Token Storage ──────────────────────────────────────────
 
   private storeToken(token: string, username: string): void {
-    try {
-      const dir = path.dirname(TOKEN_FILE);
-      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-
-      const encrypted = canUseSafeStorage()
-        ? safeStorage.encryptString(token).toString('base64')
-        : Buffer.from(token).toString('base64'); // Fallback: base64 only
-
-      const stored: StoredToken = {
-        encrypted,
-        username,
-        scopes: SCOPES,
-        createdAt: new Date().toISOString(),
-      };
-
-      writeFileSync(TOKEN_FILE, JSON.stringify(stored, null, 2), 'utf8');
-    } catch (err) {
-      console.warn('[github-auth] Failed to store token:', err);
+    if (!canUseSafeStorage()) {
+      throw new Error('Secure storage is unavailable, so GitHub auth cannot persist your token safely. Please re-enable OS keychain encryption and try again.');
     }
+
+    const dir = path.dirname(TOKEN_FILE);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+    const stored: StoredToken = {
+      encrypted: safeStorage.encryptString(token).toString('base64'),
+      username,
+      scopes: SCOPES,
+      createdAt: new Date().toISOString(),
+    };
+
+    writeFileSync(TOKEN_FILE, JSON.stringify(stored, null, 2), 'utf8');
   }
 
   private loadCachedToken(): void {
     const tokenFile = getExistingTokenFile();
     if (!tokenFile) return;
 
+    if (!canUseSafeStorage()) {
+      console.warn('[github-auth] Secure storage unavailable; cached GitHub token remains on disk but will not be loaded');
+      return;
+    }
+
     try {
       const raw = readFileSync(tokenFile, 'utf8');
       const stored = JSON.parse(raw) as StoredToken;
-
-      const token = canUseSafeStorage()
-        ? safeStorage.decryptString(Buffer.from(stored.encrypted, 'base64'))
-        : Buffer.from(stored.encrypted, 'base64').toString('utf8');
+      const token = safeStorage.decryptString(Buffer.from(stored.encrypted, 'base64'));
 
       this.cachedToken = token;
       this.cachedUsername = stored.username;
