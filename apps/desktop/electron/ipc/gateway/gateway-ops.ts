@@ -182,9 +182,14 @@ export function buildGatewayOps(
       return { base64: a.base64 ?? '', mimeType: a.mimeType, title: a.title };
     },
     getSessionHistory: async (workspaceId, sessionId) => {
-      // If session is already open in the pool, read from live state
+      // If session is already open in the pool, read from live state.
+      // Still enforce the workspace/session binding so a scoped token cannot
+      // claim a foreign session ID under an authorized workspace.
       const existing = pool.get(sessionId);
       if (existing) {
+        if (existing.workspaceId !== workspaceId) {
+          throw new Error(`Session ${sessionId} is bound to workspace ${existing.workspaceId}, not ${workspaceId}`);
+        }
         const chatMsgs = convertSessionMessages(existing.session.messages);
         return convertToGatewayHistory(chatMsgs);
       }

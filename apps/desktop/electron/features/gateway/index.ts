@@ -223,7 +223,11 @@ export class GatewayServer {
       if (!client.authenticated || !client.subscribedSessions.has(sessionId)) {
         continue;
       }
-      if (this.canReceiveSessionEvent(client, sessionId) && ws.readyState === WebSocket.OPEN) {
+      if (!this.canReceiveSessionEvent(client, sessionId)) {
+        continue;
+      }
+      this.authorizeEventArtifacts(client, event);
+      if (ws.readyState === WebSocket.OPEN) {
         ws.send(payload);
       }
     }
@@ -236,6 +240,7 @@ export class GatewayServer {
     for (const [ws, client] of this.clients) {
       if (!client.authenticated) continue;
       if (sessionId && !this.canReceiveSessionEvent(client, sessionId)) continue;
+      this.authorizeEventArtifacts(client, event);
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(payload);
       }
@@ -249,6 +254,12 @@ export class GatewayServer {
 
   private canReceiveSessionEvent(client: ConnectedClient, sessionId: string): boolean {
     return client.isMasterAuth || client.authorizedSessionIds.has(sessionId);
+  }
+
+  private authorizeEventArtifacts(client: ConnectedClient, event: GatewayPushEvent): void {
+    if (event.type === 'artifact_added') {
+      client.authorizedArtifactIds.add(event.artifactId);
+    }
   }
 
   private applyAuthResult(client: ConnectedClient, result: GatewayAuthResult): void {
