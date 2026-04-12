@@ -25,6 +25,7 @@ import {
 import { Button } from '@sero-ai/ui/components/ui/button';
 import type { QrLoginData } from '@/types/ipc';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
+import { useWorkspaceStore } from '@/stores/workspace';
 
 interface Props {
   open: boolean;
@@ -34,6 +35,10 @@ interface Props {
 type Phase = 'idle' | 'loading' | 'ready' | 'error';
 
 export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId ?? 'global');
+  const activeWorkspaceName = useWorkspaceStore(
+    (s) => s.workspaces.find((workspace) => workspace.id === (s.activeWorkspaceId ?? 'global'))?.name ?? 'Global',
+  );
   const [phase, setPhase] = useState<Phase>('idle');
   const [data, setData] = useState<QrLoginData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,14 +51,14 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
     setCopied(false);
     setCopyFailed(false);
     try {
-      const result = await window.sero.gateway.getQrLoginData(7);
+      const result = await window.sero.gateway.getQrLoginData(activeWorkspaceId, 7);
       setData(result);
       setPhase('ready');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate QR code');
       setPhase('error');
     }
-  }, []);
+  }, [activeWorkspaceId]);
 
   // Generate QR data when the dialog opens. The parent controls `open`
   // via props, so onOpenChange(true) is never called by radix — we need
@@ -106,6 +111,8 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
           </DialogTitle>
           <DialogDescription>
             Scan this QR code with your phone to open Sero Remote.
+            This pairing will share only the <span className="font-medium text-foreground">{activeWorkspaceName}</span> workspace,
+            and the paired browser will only be able to open that workspace’s sessions, files, and artifacts.
           </DialogDescription>
         </DialogHeader>
 
@@ -130,10 +137,22 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
                 />
               </div>
 
+              <div className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Shared workspace</span>
+                  <span className="font-medium text-foreground">{activeWorkspaceName}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Access expires</span>
+                  <span className="font-medium text-foreground">
+                    {expiresFormatted}
+                  </span>
+                </div>
+              </div>
+
               <p className="text-xs text-muted-foreground">
-                Valid for {data.expiryDays} day{data.expiryDays === 1 ? '' : 's'}
-                {' — expires '}
-                {expiresFormatted}
+                Valid for {data.expiryDays} day{data.expiryDays === 1 ? '' : 's'}.
+                To share a different workspace later, generate a new code from that workspace in Sero desktop.
               </p>
 
               {/* ── Login URL + copy ─────────────────────────── */}
@@ -192,8 +211,8 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
           <p className="text-center text-[11px] leading-relaxed text-muted-foreground/70">
             Or paste the URL in your phone's browser.
             <br />
-            The token auto-saves on the device and won't need re-entry
-            until it expires.
+            The token auto-saves on the device, but it stays limited to {activeWorkspaceName}
+            until it expires or you create a new pairing.
           </p>
         </div>
       </DialogContent>

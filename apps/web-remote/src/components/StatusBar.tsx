@@ -5,6 +5,7 @@
 
 import { useConnectionStore } from '@/stores/connection';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { describeGatewayScope } from '@/lib/gateway-errors';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Separator } from '@sero-ai/ui/components/ui/separator';
 import { Circle } from 'lucide-react';
@@ -16,6 +17,7 @@ export function StatusBar() {
   const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
+  const scope = describeGatewayScope(workspaces, activeWorkspaceId);
 
   const statusColor = {
     disconnected: 'text-destructive',
@@ -45,6 +47,14 @@ export function StatusBar() {
             <Separator orientation="vertical" className="h-3" />
             <span className="text-foreground/60">
               {activeWorkspace.name}
+            </span>
+          </>
+        )}
+        {scope && (
+          <>
+            <Separator orientation="vertical" className="h-3" />
+            <span className="text-foreground/60">
+              Scope: {scope.shortLabel}
             </span>
           </>
         )}

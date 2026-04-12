@@ -13,7 +13,7 @@
  *     module level — those are not yet initialised when this runs.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { copyFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -24,6 +24,7 @@ import type { ProfileEntry, ProfileRegistry, ProfileInfo } from './types';
 /** Fixed location for the profile registry — never changes. */
 const SERO_ROOT = path.join(os.homedir(), '.sero-ui');
 const REGISTRY_PATH = path.join(SERO_ROOT, 'profiles.json');
+export const PROFILE_REGISTRY_PATH = REGISTRY_PATH;
 
 /** Default SERO_HOME for the auto-created "Default" profile. */
 const DEFAULT_PROFILE_PATH = SERO_ROOT;
@@ -34,16 +35,78 @@ function emptyRegistry(): ProfileRegistry {
   return { version: 1, activeProfileId: null, profiles: [] };
 }
 
-/** Read registry synchronously. Returns empty registry if missing/corrupt. */
-export function readRegistrySync(): ProfileRegistry {
+export class ProfileRegistryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProfileRegistryError';
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isProfileEntry(value: unknown): value is ProfileEntry {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string'
+    && typeof value.name === 'string'
+    && typeof value.path === 'string'
+    && typeof value.createdAt === 'string'
+    && (value.onboarded === undefined || typeof value.onboarded === 'boolean');
+}
+
+function parseRegistry(raw: string): ProfileRegistry {
+  let parsed: unknown;
   try {
-    if (!existsSync(REGISTRY_PATH)) return emptyRegistry();
-    const raw = readFileSync(REGISTRY_PATH, 'utf8');
-    const parsed = JSON.parse(raw) as ProfileRegistry;
-    if (!parsed || !Array.isArray(parsed.profiles)) return emptyRegistry();
-    return { ...emptyRegistry(), ...parsed };
-  } catch {
-    return emptyRegistry();
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown JSON parse failure';
+    throw new ProfileRegistryError(`profiles.json is malformed: ${message}`);
+  }
+
+  if (!isRecord(parsed)) {
+    throw new ProfileRegistryError('profiles.json must contain a JSON object');
+  }
+
+  const { activeProfileId, profiles, version } = parsed;
+  if (version !== undefined && version !== 1) {
+    throw new ProfileRegistryError(`profiles.json has unsupported version: ${String(version)}`);
+  }
+  if (activeProfileId !== null && activeProfileId !== undefined && typeof activeProfileId !== 'string') {
+    throw new ProfileRegistryError('profiles.json activeProfileId must be a string or null');
+  }
+  if (!Array.isArray(profiles) || !profiles.every(isProfileEntry)) {
+    throw new ProfileRegistryError('profiles.json profiles must be an array of valid profile entries');
+  }
+
+  return {
+    version: 1,
+    activeProfileId: activeProfileId ?? null,
+    profiles,
+  };
+}
+
+/** Read registry synchronously. Missing registry = empty; malformed registry = explicit failure. */
+export function readRegistrySync(): ProfileRegistry {
+  if (!existsSync(REGISTRY_PATH)) return emptyRegistry();
+  const raw = readFileSync(REGISTRY_PATH, 'utf8');
+  return parseRegistry(raw);
+}
+
+export interface ProfileRegistryLoadResult {
+  registry: ProfileRegistry;
+  error: ProfileRegistryError | null;
+}
+
+/** Read registry without throwing for malformed JSON. Used by startup recovery flows. */
+export function readRegistryLoadSync(): ProfileRegistryLoadResult {
+  try {
+    return { registry: readRegistrySync(), error: null };
+  } catch (error) {
+    if (error instanceof ProfileRegistryError) {
+      return { registry: emptyRegistry(), error };
+    }
+    throw error;
   }
 }
 
@@ -61,18 +124,49 @@ async function writeRegistryAsync(registry: ProfileRegistry): Promise<void> {
   await fs.rename(tmpFile, REGISTRY_PATH);
 }
 
+export interface ProfileRegistryResetResult {
+  registryPath: string;
+  backupPath: string | null;
+}
+
+/**
+ * Preserve a malformed profiles.json for inspection, then replace it with a
+ * fresh empty registry so the app can recover on next launch.
+ */
+export function backupAndResetRegistrySync(): ProfileRegistryResetResult {
+  mkdirSync(SERO_ROOT, { recursive: true });
+
+  let backupPath: string | null = null;
+  if (existsSync(REGISTRY_PATH)) {
+    const timestamp = new Date().toISOString().replace(/[.:]/g, '-');
+    backupPath = path.join(SERO_ROOT, `profiles.broken-${timestamp}.json`);
+    copyFileSync(REGISTRY_PATH, backupPath);
+  }
+
+  writeRegistrySync(emptyRegistry());
+  return { registryPath: REGISTRY_PATH, backupPath };
+}
+
 // ── ProfileManager ──────────────────────────────────────────
 
 class ProfileManager {
   private registry: ProfileRegistry;
+  private loadError: ProfileRegistryError | null = null;
 
   constructor() {
-    this.registry = readRegistrySync();
+    const result = readRegistryLoadSync();
+    this.registry = result.registry;
+    this.loadError = result.error;
   }
 
   /** Reload registry from disk (e.g. after external modification). */
   reload(): void {
     this.registry = readRegistrySync();
+    this.loadError = null;
+  }
+
+  getLoadError(): ProfileRegistryError | null {
+    return this.loadError;
   }
 
   // ── Queries ─────────────────────────────────────────────

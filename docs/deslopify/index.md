@@ -7,32 +7,56 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
-  — *Wave A reviews complete; Wave B High-only batch plan added 2026-04-12*
-  - [`apps/desktop/src/types/`](./apps/desktop/src/types/plan.md)
-    — *Wave A contracts review complete — plan created 2026-04-12*
-  - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)
-    — *Wave A renderer orchestration review complete — plan created 2026-04-12*
+  — *Wave A–D High-priority batches cleared 2026-04-12; Medium cleanup pending*
+  - [`apps/desktop/src/components/apps/explorer/`](./apps/desktop/src/components/apps/explorer/plan.md)
+    — *Wave C review complete — no High items; Medium cleanup pending*
+  - [`apps/desktop/src/components/layout/`](./apps/desktop/src/components/layout/plan.md)
+    — *Wave C review complete — no High items; Medium cleanup pending*
+  - [`apps/desktop/src/components/profiles/`](./apps/desktop/src/components/profiles/plan.md)
+    — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/src/hooks/`](./apps/desktop/src/hooks/plan.md)
     — *Wave A renderer orchestration review complete — plan created 2026-04-12*
   - [`apps/desktop/src/lib/`](./apps/desktop/src/lib/plan.md)
     — *Wave A renderer orchestration review complete — plan created 2026-04-12*
-  - [`apps/desktop/electron/preload/`](./apps/desktop/electron/preload/plan.md)
+  - [`apps/desktop/src/lsp/`](./apps/desktop/src/lsp/plan.md)
+    — *In progress — High item cleared 2026-04-12; Medium cleanup pending*
+  - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)
+    — *Wave A renderer orchestration review complete — plan created 2026-04-12*
+  - [`apps/desktop/src/types/`](./apps/desktop/src/types/plan.md)
     — *Wave A contracts review complete — plan created 2026-04-12*
-  - [`apps/desktop/electron/ipc/`](./apps/desktop/electron/ipc/plan.md)
-    — *Wave A contracts review complete — plan created 2026-04-12*
-  - [`apps/desktop/electron/features/workspace/`](./apps/desktop/electron/features/workspace/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/agent/`](./apps/desktop/electron/features/agent/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
-  - [`apps/desktop/electron/features/container/`](./apps/desktop/electron/features/container/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
+    — *In progress — High item cleared 2026-04-12; Medium cleanup pending*
+  - [`apps/desktop/electron/features/collaboration/`](./apps/desktop/electron/features/collaboration/plan.md)
+    — *Wave C review complete — no High items; Medium cleanup pending*
+  - [`apps/desktop/electron/features/container/`](./apps/desktop/electron/features/container/plan.md)
+    — *Wave A platform-owner review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/editor/`](./apps/desktop/electron/features/editor/plan.md)
+    — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
+  - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
+    — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
+  - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
+    — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
-  - [`apps/desktop/electron/shared/`](./apps/desktop/electron/shared/plan.md)
+  - [`apps/desktop/electron/features/profile/`](./apps/desktop/electron/features/profile/plan.md)
+    — *In progress — High item cleared 2026-04-12; Medium cleanup pending*
+  - [`apps/desktop/electron/features/subagent/`](./apps/desktop/electron/features/subagent/plan.md)
+    — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
+  - [`apps/desktop/electron/features/vcs/`](./apps/desktop/electron/features/vcs/plan.md)
+    — *In progress — High item cleared 2026-04-12; Medium cleanup pending*
+  - [`apps/desktop/electron/features/workspace/`](./apps/desktop/electron/features/workspace/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/ipc/`](./apps/desktop/electron/ipc/plan.md)
+    — *Wave A contracts review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/platform/`](./apps/desktop/electron/platform/plan.md)
+    — *Wave A platform-owner review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/preload/`](./apps/desktop/electron/preload/plan.md)
+    — *Wave A contracts review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/shared/`](./apps/desktop/electron/shared/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
 
 ## packages/

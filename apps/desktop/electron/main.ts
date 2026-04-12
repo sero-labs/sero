@@ -1,5 +1,11 @@
 // Load .env BEFORE any SDK imports (they read process.env at module level)
-import { loadSeroEnv, SERO_AGENT_DIR, SERO_HOME, ACTIVE_PROFILE_ID } from './platform/env';
+import {
+  loadSeroEnv,
+  SERO_AGENT_DIR,
+  SERO_HOME,
+  ACTIVE_PROFILE_ID,
+  PROFILE_STARTUP_ISSUE,
+} from './platform/env';
 loadSeroEnv();
 
 import { app, components, BrowserWindow, session, shell } from 'electron';
@@ -26,6 +32,7 @@ import { registerExtProtocolScheme, setupExtProtocol, registerAllExtAssets } fro
 import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps';
 import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
+import { handleProfileRegistryRecovery } from './features/profile/recovery';
 import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
@@ -210,6 +217,15 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (PROFILE_STARTUP_ISSUE) {
+    const recoveryAction = await handleProfileRegistryRecovery(PROFILE_STARTUP_ISSUE);
+    if (recoveryAction === 'relaunch') {
+      app.relaunch();
+    }
+    app.exit(0);
+    return;
+  }
+
   // Bootstrap Sero's agent directory (creates settings.json on first run)
   bootstrapAgentDir();
 

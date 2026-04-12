@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useContainerStore } from '@/stores/container';
+import type * as MonacoNamespace from 'monaco-editor';
 import type { editor, languages, IRange } from 'monaco-editor';
 import type { LspCompletionSuggestion } from './lsp-conversions';
 import {
@@ -15,7 +16,7 @@ import {
   LSP_LANGUAGES,
 } from './lsp-conversions';
 
-type Monaco = typeof import('monaco-editor');
+type Monaco = typeof MonacoNamespace;
 
 // Module-level tracking: which language IDs have providers registered.
 // Providers are registered once (Monaco doesn't support un-register), so

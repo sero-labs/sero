@@ -14,11 +14,32 @@ const MAX_TOKENS = 10;
 const DEFAULT_EXPIRY_DAYS = 7;
 const TOKEN_LENGTH = 32;
 
+function normalizeWebToken(value: unknown): WebToken[] {
+  if (typeof value !== 'object' || value === null) {
+    return [];
+  }
+
+  const token = 'token' in value && typeof value.token === 'string' ? value.token : null;
+  const createdAt = 'createdAt' in value && typeof value.createdAt === 'string' ? value.createdAt : null;
+  const expiresAt = 'expiresAt' in value && typeof value.expiresAt === 'string' ? value.expiresAt : null;
+  const label = 'label' in value && typeof value.label === 'string' ? value.label : null;
+  const workspaceIds = 'workspaceIds' in value && Array.isArray(value.workspaceIds)
+    ? value.workspaceIds.filter((workspaceId): workspaceId is string => typeof workspaceId === 'string')
+    : [];
+
+  if (!token || !createdAt || !expiresAt || !label || workspaceIds.length === 0) {
+    return [];
+  }
+
+  return [{ token, createdAt, expiresAt, label, workspaceIds }];
+}
+
 export interface WebToken {
   token: string;
   createdAt: string;
   expiresAt: string;
   label: string;
+  workspaceIds: string[];
 }
 
 export class WebTokenManager {
@@ -32,7 +53,11 @@ export class WebTokenManager {
   }
 
   /** Create a new web token. Returns the token details. */
-  create(label?: string, expiryDays?: number): WebToken {
+  create(workspaceIds: string[], label?: string, expiryDays?: number): WebToken {
+    if (workspaceIds.length === 0) {
+      throw new Error('Web tokens must be scoped to at least one workspace');
+    }
+
     this.pruneExpired();
 
     // Enforce max tokens — remove oldest if at limit
@@ -49,6 +74,7 @@ export class WebTokenManager {
       createdAt: now.toISOString(),
       expiresAt: expires.toISOString(),
       label: label ?? `Web token ${now.toLocaleDateString()}`,
+      workspaceIds: [...new Set(workspaceIds)],
     };
 
     this.tokens.push(webToken);
@@ -67,6 +93,7 @@ export class WebTokenManager {
       createdAt: t.createdAt,
       expiresAt: t.expiresAt,
       label: t.label,
+      workspaceIds: t.workspaceIds,
     }));
   }
 
@@ -82,18 +109,18 @@ export class WebTokenManager {
     return false;
   }
 
-  /** Validate a token. Returns true if the token is valid and not expired. */
-  validate(token: string): boolean {
+  /** Validate a token. Returns the scoped token if valid and not expired. */
+  validate(token: string): WebToken | null {
     const now = Date.now();
     for (const wt of this.tokens) {
       if (new Date(wt.expiresAt).getTime() <= now) continue;
       // Constant-time comparison
       if (token.length !== wt.token.length) continue;
       if (crypto.timingSafeEqual(Buffer.from(token), Buffer.from(wt.token))) {
-        return true;
+        return wt;
       }
     }
-    return false;
+    return null;
   }
 
   /** Remove expired tokens. */
@@ -112,7 +139,10 @@ export class WebTokenManager {
   private load(): void {
     try {
       const data = fs.readFileSync(this.filePath, 'utf-8');
-      this.tokens = JSON.parse(data);
+      const parsed = JSON.parse(data) as unknown;
+      this.tokens = Array.isArray(parsed)
+        ? parsed.flatMap((token) => normalizeWebToken(token))
+        : [];
     } catch {
       this.tokens = [];
     }

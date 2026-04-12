@@ -10,6 +10,13 @@ import type { GatewayRequest, GatewayResponse } from './protocol';
 import type { GatewayAgentOps } from '..';
 import type { CostTracker } from './cost-tracker';
 import type { GatewayAuth } from '../security/auth';
+import {
+  authorizeSessionFromWorkspace,
+  authorizeSessionsFromWorkspace,
+  hasSessionAccess,
+  hasWorkspaceAccess,
+  type GatewayAccessScope,
+} from './access-control';
 import { routeExtendedRequest } from './extended-handlers';
 
 // ── Idempotency store ───────────────────────────────────────
@@ -69,6 +76,7 @@ export async function routeAgentRequest(
   ws: WebSocket,
   agentOps: GatewayAgentOps,
   request: GatewayRequest,
+  accessScope: GatewayAccessScope,
   subscribeToSession: (sessionId: string) => void,
   getStatus: () => { running: boolean; port: number; host: string; clients: number },
   costTracker: CostTracker,
@@ -77,11 +85,27 @@ export async function routeAgentRequest(
 ): Promise<void> {
   // Try extended handlers first (file ops, artifacts, web tokens, sessions)
   if (auth) {
-    const handled = await routeExtendedRequest(ws, agentOps, request, auth, isMasterAuth ?? false);
+    const handled = await routeExtendedRequest(
+      ws,
+      agentOps,
+      request,
+      accessScope,
+      subscribeToSession,
+      auth,
+      isMasterAuth ?? false,
+    );
     if (handled) return;
   }
   switch (request.type) {
     case 'prompt': {
+      if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'prompt',
+          message: `Workspace not authorized: ${request.workspaceId}`,
+        });
+        return;
+      }
       // Idempotency check — prevent duplicate execution from retries
       const idemKey = request.idempotencyKey;
       if (idemKey) {
@@ -116,10 +140,10 @@ export async function routeAgentRequest(
       }
 
       try {
-        // Subscribe client to this session for push events
-        subscribeToSession(request.sessionId);
-        // Ensure session is open
+        // Ensure session is open in an authorized workspace before granting access.
         await agentOps.openSession(request.sessionId, request.workspaceId);
+        subscribeToSession(request.sessionId);
+        authorizeSessionFromWorkspace(accessScope, request.workspaceId, request.sessionId);
         // Track session as active for concurrency limiting
         costTracker.markActive(request.sessionId);
         // Send prompt (with optional images)
@@ -143,6 +167,14 @@ export async function routeAgentRequest(
     }
 
     case 'steer': {
+      if (!hasSessionAccess(accessScope, request.sessionId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'steer',
+          message: `Session not authorized: ${request.sessionId}`,
+        });
+        return;
+      }
       try {
         await agentOps.steer(request.sessionId, request.text);
         sendResponse(ws, { type: 'ok', requestType: 'steer' });
@@ -157,6 +189,14 @@ export async function routeAgentRequest(
     }
 
     case 'abort': {
+      if (!hasSessionAccess(accessScope, request.sessionId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'abort',
+          message: `Session not authorized: ${request.sessionId}`,
+        });
+        return;
+      }
       try {
         await agentOps.abort(request.sessionId);
         sendResponse(ws, { type: 'ok', requestType: 'abort' });
@@ -182,10 +222,11 @@ export async function routeAgentRequest(
     case 'list_workspaces': {
       try {
         const workspaces = await agentOps.listWorkspaces();
+        const filtered = workspaces.filter((workspace) => hasWorkspaceAccess(accessScope, workspace.id));
         sendResponse(ws, {
           type: 'ok',
           requestType: 'list_workspaces',
-          data: workspaces,
+          data: filtered,
         });
       } catch (err) {
         sendResponse(ws, {
@@ -198,8 +239,21 @@ export async function routeAgentRequest(
     }
 
     case 'list_sessions': {
+      if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
+        sendResponse(ws, {
+          type: 'error',
+          requestType: 'list_sessions',
+          message: `Workspace not authorized: ${request.workspaceId}`,
+        });
+        return;
+      }
       try {
         const sessions = await agentOps.listSessions(request.workspaceId);
+        authorizeSessionsFromWorkspace(
+          accessScope,
+          request.workspaceId,
+          sessions.map((session) => session.id),
+        );
         sendResponse(ws, {
           type: 'ok',
           requestType: 'list_sessions',

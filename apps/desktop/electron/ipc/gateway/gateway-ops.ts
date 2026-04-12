@@ -59,6 +59,18 @@ interface SessionPool {
   } | undefined;
 }
 
+async function findSessionInfo(workspaceId: string, sessionId: string): Promise<{
+  id: string;
+  cwd: string;
+  path: string;
+} | null> {
+  const wsPath = workspaceManager.getPath(workspaceId);
+  if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+
+  const allSessions = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
+  return allSessions.find((session) => session.id === sessionId && session.cwd === wsPath) ?? null;
+}
+
 /**
  * Build the full GatewayAgentOps implementation.
  *
@@ -71,7 +83,20 @@ export function buildGatewayOps(
 ): GatewayAgentOps {
   return {
     openSession: async (sessionId, workspaceId) => {
-      if (pool.has(sessionId)) return;
+      const existing = pool.get(sessionId);
+      if (existing) {
+        if (existing.workspaceId !== workspaceId) {
+          throw new Error(`Session ${sessionId} is bound to workspace ${existing.workspaceId}, not ${workspaceId}`);
+        }
+        return;
+      }
+
+      const existingSession = await findSessionInfo(workspaceId, sessionId);
+      if (existingSession) {
+        await openSessionInternal(sessionId, existingSession.path, workspaceId);
+        return;
+      }
+
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
       const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);
@@ -176,17 +201,19 @@ export function buildGatewayOps(
       return { base64: a.base64 ?? '', mimeType: a.mimeType, title: a.title };
     },
     getSessionHistory: async (workspaceId, sessionId) => {
-      // If session is already open in the pool, read from live state
+      // If session is already open in the pool, read from live state.
+      // Still enforce the workspace/session binding so a scoped token cannot
+      // claim a foreign session ID under an authorized workspace.
       const existing = pool.get(sessionId);
       if (existing) {
+        if (existing.workspaceId !== workspaceId) {
+          throw new Error(`Session ${sessionId} is bound to workspace ${existing.workspaceId}, not ${workspaceId}`);
+        }
         const chatMsgs = convertSessionMessages(existing.session.messages);
         return convertToGatewayHistory(chatMsgs);
       }
       // Otherwise, find and read the session file directly
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      const allSessions = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
-      const sessionInfo = allSessions.find((s) => s.id === sessionId && s.cwd === wsPath);
+      const sessionInfo = await findSessionInfo(workspaceId, sessionId);
       if (!sessionInfo) throw new Error(`Session not found: ${sessionId}`);
       const sm = SessionManager.open(sessionInfo.path, SERO_SESSION_DIR);
       const branch = sm.getBranch();

@@ -56,8 +56,8 @@ export const safeStorageBridge = {
 };
 
 export const gatewayBridge = {
-  getQrLoginData: (expiryDays?: number): Promise<QrLoginData> =>
-    ipcRenderer.invoke(IpcChannels.gateway.getQrLoginData, expiryDays),
+  getQrLoginData: (workspaceId: string, expiryDays?: number): Promise<QrLoginData> =>
+    ipcRenderer.invoke(IpcChannels.gateway.getQrLoginData, workspaceId, expiryDays),
 };
 
 export const clipboardBridge = {

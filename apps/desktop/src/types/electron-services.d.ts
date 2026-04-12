@@ -10,10 +10,11 @@ import type {
 export interface SeroGatewayAPI {
   /**
    * Generate a QR code for device pairing.
-   * Creates a time-limited web token and returns the QR data URL + login URL.
+   * Creates a time-limited web token scoped to one workspace and returns the QR data URL + login URL.
+   * @param workspaceId Workspace the remote device is authorized to access.
    * @param expiryDays  Number of days until the token expires (default 7).
    */
-  getQrLoginData(expiryDays?: number): Promise<QrLoginData>;
+  getQrLoginData(workspaceId: string, expiryDays?: number): Promise<QrLoginData>;
 }
 
 export interface SeroLocalModelsAPI {

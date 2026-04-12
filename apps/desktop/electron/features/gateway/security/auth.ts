@@ -1,14 +1,10 @@
 /**
  * Gateway authentication — token generation and validation.
  *
- * A single bearer token is generated on first run and stored on disk.
- * All gateway clients must present this token to connect.
- *
- * TODO(security): Per-workspace token scoping — the current flat access model
- * lets any authenticated client access all workspaces. For a single-user app
- * with a secret token on localhost this is acceptable, but if multi-user or
- * untrusted client scenarios arise, add workspace-scoped tokens.
- * See docs/security/outstanding-hardening.md #1.
+ * A single master bearer token is generated on first run and stored on disk.
+ * All gateway clients must present either that master token or a scoped web
+ * token created from the desktop app. Web tokens are limited to one or more
+ * explicit workspace IDs.
  */
 
 import crypto from 'crypto';
@@ -17,6 +13,11 @@ import path from 'path';
 import { WebTokenManager } from '../bridge/web-tokens';
 
 const TOKEN_LENGTH = 32;
+
+export interface GatewayAuthResult {
+  type: 'master' | 'web';
+  authorizedWorkspaceIds: string[] | null;
+}
 
 export class GatewayAuth {
   private token: string | null = null;
@@ -55,25 +56,30 @@ export class GatewayAuth {
     return this.token;
   }
 
-  /** Validate a token from a client — accepts master token OR valid web token. */
-  validate(token: string): boolean {
+  /** Validate a token from a client — accepts master token OR valid scoped web token. */
+  validate(token: string): GatewayAuthResult | null {
     // Check master token first (constant-time)
     const expected = this.getToken();
     if (token.length === expected.length) {
       if (crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected))) {
-        return true;
+        return {
+          type: 'master',
+          authorizedWorkspaceIds: null,
+        };
       }
     }
-    // Fall through to check web tokens
-    return this.webTokens.validate(token);
+
+    const webToken = this.webTokens.validate(token);
+    if (!webToken) {
+      return null;
+    }
+
+    return {
+      type: 'web',
+      authorizedWorkspaceIds: webToken.workspaceIds,
+    };
   }
 
-  /** Check if the given token is the master token (not a web token). */
-  isMasterToken(token: string): boolean {
-    const expected = this.getToken();
-    if (token.length !== expected.length) return false;
-    return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
-  }
 
   /** Regenerate the token (invalidates all existing connections). */
   regenerate(): string {

@@ -124,6 +124,16 @@ export class SubagentTracker {
     this.endWithStatus(id, 'aborted', 'Aborted by user');
   }
 
+  /** Mark all running entries for a parent session as aborted. */
+  abortByParentSession(parentSessionId: string): void {
+    for (const [id, entry] of this.entries) {
+      if (entry.parentSessionId !== parentSessionId || entry.status !== 'running') {
+        continue;
+      }
+      this.endWithStatus(id, 'aborted', 'Aborted by user');
+    }
+  }
+
   /** Mark a run as timed out. */
   timeout(id: string): void {
     const entry = this.entries.get(id);

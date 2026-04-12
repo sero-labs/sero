@@ -16,6 +16,48 @@ import { isResponse, isRequest, isNotification, fileUri } from './types';
 const WORKSPACE_DIR = '/workspace';
 const REQUEST_TIMEOUT_MS = 30_000;
 
+interface InitializeResult {
+  capabilities?: Record<string, unknown>;
+}
+
+interface WorkspaceConfigurationParams {
+  items?: unknown[];
+}
+
+interface NodeErrorLike {
+  code?: unknown;
+  message?: unknown;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getInitializeResult(value: unknown): InitializeResult | null {
+  if (!isRecord(value)) return null;
+  const capabilities = value.capabilities;
+  if (capabilities === undefined) return {};
+  return isRecord(capabilities) ? { capabilities } : null;
+}
+
+function getWorkspaceConfigurationItems(params: unknown): unknown[] {
+  if (!isRecord(params)) return [];
+  const candidate = params.items;
+  return Array.isArray(candidate) ? candidate : [];
+}
+
+function getNodeErrorCode(err: unknown): string | number | undefined {
+  if (!isRecord(err)) return undefined;
+  const code = err.code;
+  return typeof code === 'string' || typeof code === 'number' ? code : undefined;
+}
+
+function getNodeErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (!isRecord(err)) return '';
+  return typeof err.message === 'string' ? err.message : '';
+}
+
 export class LspServerProcess extends EventEmitter {
   private process: ChildProcess | null = null;
   private parser = new JsonRpcParser();
@@ -182,9 +224,14 @@ export class LspServerProcess extends EventEmitter {
       },
       workspaceFolders: [{ uri: rootUri, name: 'workspace' }],
       initializationOptions: this.config.initOptions ?? {},
-    }) as Record<string, unknown>;
+    });
 
-    this.capabilities = (result as any)?.capabilities ?? {};
+    const initializeResult = getInitializeResult(result);
+    if (!initializeResult) {
+      throw new Error('LSP initialize response did not include a valid capabilities object');
+    }
+
+    this.capabilities = initializeResult.capabilities ?? {};
     this._initialized = true;
     this.sendNotification('initialized', {});
     console.log(`[lsp:${this.config.language}] Initialized for ${this.workspaceId}`);
@@ -218,7 +265,7 @@ export class LspServerProcess extends EventEmitter {
     let result: unknown = null;
     switch (req.method) {
       case 'workspace/configuration':
-        result = ((req.params as any)?.items ?? []).map(() => ({}));
+        result = getWorkspaceConfigurationItems(req.params).map(() => ({}));
         break;
       case 'client/registerCapability':
       case 'window/workDoneProgress/create':
@@ -235,9 +282,9 @@ export class LspServerProcess extends EventEmitter {
     if (!this.process?.stdin?.writable) return;
     try {
       this.process.stdin.write(encodeMessage(msg));
-    } catch (err: any) {
-      if (err.code !== 'EPIPE') {
-        console.warn(`[lsp:${this.config.language}] Write error:`, err.message);
+    } catch (err: unknown) {
+      if (getNodeErrorCode(err) !== 'EPIPE') {
+        console.warn(`[lsp:${this.config.language}] Write error:`, getNodeErrorMessage(err));
       }
     }
   }

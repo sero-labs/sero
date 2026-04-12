@@ -4,6 +4,38 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-04-12
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/desktop/electron/features/editor/lsp/lsp-manager.ts` | Added in-flight startup deduping so repeated `startServer()` calls share one workspace/language boot |
+| `apps/desktop/electron/features/editor/lsp/lsp-process.ts` | Replaced protocol-boundary `any` reads with explicit initialize/configuration/error helpers |
+| `apps/desktop/src/lsp/use-lsp.ts` | Replaced inline Monaco type import with a top-level namespace type import |
+| `apps/desktop/electron/features/profile/manager.ts` | Hardened `profiles.json` parsing — malformed registries now fail closed instead of looking like first run |
+| `apps/desktop/electron/features/auth/github/auth-manager.ts` | Removed base64-only GitHub token persistence fallback; secure storage is now required |
+| `apps/desktop/electron/features/vcs/core/git-runner.ts` | Replaced `any`-typed exec failure handling with a shared typed normalizer |
+| `apps/desktop/electron/features/subagent/core/tracker.ts` | Added parent-session bulk-abort tracker updates |
+| `apps/desktop/electron/features/subagent/index.ts` | `abortAll()` now updates tracker state before aborting pool controllers |
+| `apps/desktop/electron/features/subagent/runtime/runner.ts` | Removed `createAgentSession()` cast and `session!` assertion from the subagent runtime |
+| `apps/desktop/electron/types/pi-coding-agent.d.ts` | New — local Pi SDK module augmentation for typed `systemPromptSuffix` support |
+| `apps/desktop/electron/features/gateway/server/access-control.ts` | New — shared workspace/session/artifact authorization helpers for gateway requests |
+| `apps/desktop/electron/features/gateway/bridge/web-tokens.ts` | Web tokens now carry explicit workspace scopes and validate to token records instead of booleans |
+| `apps/desktop/electron/features/gateway/security/auth.ts` | Gateway auth now returns scoped auth results for master vs web-token clients |
+| `apps/desktop/electron/features/gateway/index.ts` | Enforced scoped client access in connection state and filtered session-scoped push/broadcast events |
+| `apps/desktop/electron/features/gateway/server/request-handler.ts` | Added workspace/session authorization checks for core gateway routes |
+| `apps/desktop/electron/features/gateway/server/extended-handlers.ts` | Added workspace/session/artifact authorization checks for file/history/web-token routes |
+| `apps/desktop/electron/features/gateway/server/protocol.ts` | Extended `create_web_token` request shape with explicit `workspaceIds` |
+| `apps/desktop/electron/ipc/gateway/gateway-ops.ts` | `openSession()` now rejects workspace/session mismatches instead of silently reopening cross-workspace sessions |
+| `apps/desktop/electron/ipc/gateway/gateway.ts` | QR/web-token IPC now creates workspace-scoped tokens |
+| `apps/desktop/electron/preload/platform/host-services.ts` | Updated gateway bridge to require a workspace ID for QR login generation |
+| `apps/desktop/src/types/electron-services.d.ts` | Updated renderer gateway API contract for workspace-scoped QR login generation |
+| `apps/desktop/src/components/layout/ConnectDeviceDialog.tsx` | QR pairing now scopes remote access to the active workspace and surfaces that in the dialog |
+| `apps/desktop/electron/features/gateway/channels/discord.ts` | Fixed `/sero abort` so it actually aborts the active session and reports failures |
+
+---
+
 ## 2026-04-06
 
 ### Files Changed

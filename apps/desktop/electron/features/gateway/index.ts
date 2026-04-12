@@ -7,24 +7,17 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
 
-import { GatewayAuth } from './security/auth';
+import { GatewayAuth, type GatewayAuthResult } from './security/auth';
 import { CostTracker } from './server/cost-tracker';
 import { RateLimiter } from './security/rate-limiter';
 import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './server/request-handler';
 import { tryServeStaticFile } from './server/static-files';
 import { redactSecrets } from '@electron/shared/lib/secret-redact';
-import {
-  validateRequest,
-  type GatewayRequest,
-  type GatewayResponse,
-  type GatewayPushEvent,
-} from './server/protocol';
+import { validateRequest, type GatewayRequest, type GatewayResponse, type GatewayPushEvent } from './server/protocol';
 import type { GatewayConfig, GatewayAgentOps } from './server/types';
+import { authorizeArtifactFromSession, hasSessionAccess, type GatewayAccessScope } from './server/access-control';
 
-// Re-export types so existing importers don't break
 export type { GatewayConfig, GatewayAgentOps, GatewayFileEntry, GatewayFileContent } from './server/types';
-
-// ── Constants ──────────────────────────────────────────────────
 
 /** Maximum WebSocket message payload (1 MB). */
 const MAX_PAYLOAD_BYTES = 1 * 1024 * 1024;
@@ -54,12 +47,9 @@ const STATIC_ALLOWED_ORIGINS = new Set([
   'http://localhost:5176',
 ]);
 
-// ── Types ───────────────────────────────────────────────────
-
-/** Callback that returns the web chat HTML (legacy fallback at /basic). */
 type WebChatHtmlProvider = () => string;
 
-interface ConnectedClient {
+interface ConnectedClient extends GatewayAccessScope {
   ws: WebSocket;
   clientType: string;
   clientId: string;
@@ -74,8 +64,6 @@ interface ConnectedClient {
   lastActivity: number;
 }
 
-// ── Server ──────────────────────────────────────────────────
-
 export class GatewayServer {
   private wss: WebSocketServer | null = null;
   private httpServer: http.Server | null = null;
@@ -86,7 +74,6 @@ export class GatewayServer {
   private webChatHtml: WebChatHtmlProvider | null = null;
   private idleCheckTimer: ReturnType<typeof setInterval> | null = null;
 
-  /** Rate limiter for auth attempts (5 failures / 60s → 5 min block). */
   private authLimiter = new RateLimiter({
     maxAttempts: 5,
     windowMs: 60_000,
@@ -132,14 +119,7 @@ export class GatewayServer {
 
       const pathname = (req.url ?? '/').split('?')[0];
 
-      // ── Server-side routes (must come BEFORE the SPA static fallback,
-      //    which serves index.html for any extensionless path) ──────────
-
-      // QR code pairing is handled in-app via ⌘K → "Connect Device".
-      // The old /qr endpoint (which required the master token in the URL)
-      // has been removed — see ConnectDeviceDialog + gateway IPC handler.
-
-      // Fallback: serve legacy inline HTML at /basic
+      // Server-side routes must come before the SPA static fallback.
       if (pathname === '/basic' && this.webChatHtml) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(this.webChatHtml());
@@ -151,10 +131,6 @@ export class GatewayServer {
         return;
       }
 
-      // ── Static files + SPA fallback (after all server-side routes) ──
-      // This MUST come after /qr, /basic, /health — the SPA fallback
-      // serves index.html for any extensionless path, which would
-      // swallow those routes if checked first.
       if (tryServeStaticFile(pathname, res, __dirname)) return;
 
       res.writeHead(404);
@@ -171,7 +147,6 @@ export class GatewayServer {
       console.error('[gateway] WebSocket server error:', err);
     });
 
-    // Start idle connection checker (every 5 minutes)
     this.idleCheckTimer = setInterval(() => this.checkIdleConnections(), 5 * 60_000);
 
     return new Promise<void>((resolve, reject) => {
@@ -240,20 +215,27 @@ export class GatewayServer {
   pushEvent(sessionId: string, event: GatewayPushEvent): void {
     const payload = JSON.stringify(event);
     for (const [ws, client] of this.clients) {
-      if (!client.authenticated) continue;
-      if (client.subscribedSessions.has(sessionId)) {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(payload);
-        }
+      if (!client.authenticated || !client.subscribedSessions.has(sessionId)) {
+        continue;
+      }
+      if (!this.canReceiveSessionEvent(client, sessionId)) {
+        continue;
+      }
+      this.authorizeEventArtifacts(client, event);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(payload);
       }
     }
   }
 
-  /** Push an event to ALL authenticated clients (e.g. artifact_added). */
+  /** Push an event to authenticated clients that are authorized for its session. */
   broadcastEvent(event: GatewayPushEvent): void {
     const payload = JSON.stringify(event);
+    const sessionId = 'sessionId' in event ? event.sessionId : null;
     for (const [ws, client] of this.clients) {
       if (!client.authenticated) continue;
+      if (sessionId && !this.canReceiveSessionEvent(client, sessionId)) continue;
+      this.authorizeEventArtifacts(client, event);
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(payload);
       }
@@ -263,6 +245,27 @@ export class GatewayServer {
   /** Get the auth manager (for web token operations from the request handler). */
   getAuth(): GatewayAuth {
     return this.auth;
+  }
+
+  private canReceiveSessionEvent(client: ConnectedClient, sessionId: string): boolean {
+    return hasSessionAccess(client, sessionId);
+  }
+
+  private authorizeEventArtifacts(client: ConnectedClient, event: GatewayPushEvent): void {
+    if (event.type === 'artifact_added') {
+      authorizeArtifactFromSession(client, event.sessionId, event.artifactId);
+    }
+  }
+
+  private applyAuthResult(client: ConnectedClient, result: GatewayAuthResult): void {
+    client.authenticated = true;
+    client.isMasterAuth = result.type === 'master';
+    client.authorizedWorkspaceIds = result.authorizedWorkspaceIds
+      ? new Set(result.authorizedWorkspaceIds)
+      : null;
+    client.authorizedSessions.clear();
+    client.authorizedArtifacts.clear();
+    client.subscribedSessions.clear();
   }
 
   // ── Internal ──────────────────────────────────────────────
@@ -355,6 +358,9 @@ export class GatewayServer {
       clientId: `client-${Date.now()}`,
       authenticated: false,
       isMasterAuth: false,
+      authorizedWorkspaceIds: null,
+      authorizedSessions: new Map(),
+      authorizedArtifacts: new Map(),
       subscribedSessions: new Set(),
       remoteIp,
       lastActivity: Date.now(),
@@ -428,7 +434,8 @@ export class GatewayServer {
         return;
       }
 
-      if (!this.auth.validate(request.token)) {
+      const authResult = this.auth.validate(request.token);
+      if (!authResult) {
         console.warn(
           `[gateway] Auth failed: ${client.remoteIp} (client type: ${request.clientType})`,
         );
@@ -444,8 +451,7 @@ export class GatewayServer {
       // Successful auth — reset rate limiter for this IP
       this.authLimiter.reset(client.remoteIp);
 
-      client.authenticated = true;
-      client.isMasterAuth = this.auth.isMasterToken(request.token);
+      this.applyAuthResult(client, authResult);
       client.clientType = request.clientType;
       if (request.clientId) client.clientId = request.clientId;
       console.log(
@@ -478,6 +484,7 @@ export class GatewayServer {
       ws,
       this.agentOps,
       request,
+      client,
       (sessionId) => client.subscribedSessions.add(sessionId),
       () => this.getStatus(),
       this.costTracker,
