@@ -1,0 +1,59 @@
+# Facts — apps/desktop/src/components/layout
+
+_Last reviewed: 2026-04-12_
+
+## What this code does
+`src/components/layout` is the shell-facing UI layer for the desktop app. It renders the always-on chrome (`TitleBar`, `MainSidebar`, `StatusBar`, `ChatPanel`) and also hosts a large set of cross-cutting feature surfaces that hang off the shell: workspace/session management, chat/tool rendering, auth/provider dialogs, theme editing, model selection and local-model management, git publish/PR flows, device pairing, and collaboration activity views.
+
+## Shape & metrics
+- Total files: 88
+- Total LOC: 15,908
+- Largest files:
+  - `apps/desktop/src/components/layout/ContextEditor.tsx` (479 LOC)
+  - `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx` (479 LOC)
+- Files over 500 LOC: None
+- Near-cap files (≥400 LOC):
+  - `apps/desktop/src/components/layout/ContextEditor.tsx` (479)
+  - `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx` (479)
+  - `apps/desktop/src/components/layout/AuthLoginViews.tsx` (464)
+  - `apps/desktop/src/components/layout/WorkspaceTree.tsx` (445)
+  - `apps/desktop/src/components/layout/ModelSelector.tsx` (445)
+  - `apps/desktop/src/components/layout/remote-origin-views.tsx` (438)
+  - `apps/desktop/src/components/layout/ToolCallHelpers.tsx` (412)
+  - `apps/desktop/src/components/layout/model-manager/ModelManagerDialog.tsx` (406)
+  - `apps/desktop/src/components/layout/ThemeEditorSheet.tsx` (400)
+- External dependencies of note: `motion/react`, `lucide-react`, `@sero-ai/ui` ai-elements + Radix wrappers, browser media APIs (`MediaRecorder`, `navigator.mediaDevices`), `zustand`, DOM portals/resizable panels
+- Upstream callers:
+  - `apps/desktop/src/App.tsx`
+  - `apps/desktop/src/components/profiles/OnboardingWizard.tsx`
+  - `apps/desktop/src/hooks/useCheckpointRestore.ts`
+- Downstream dependencies:
+  - Renderer stores: `src/stores/{agent,app,workspace,sessions,theme,feedback,dev-server,vcs,model-preferences,container}`
+  - Hooks: `src/hooks/{useChatPromptInput,useMessageQueue,useCheckpointRestore,useUserFeedbackInit}`
+  - Preload bridge domains: `window.sero.{agent,auth,workspace,plugins,vcs,github,voice,gateway,devServer,appState,localModels,themes,debug,shell,subagent}`
+
+## Architectural notes
+- This directory is no longer just shell chrome. It mixes true shell components (`TitleBar`, `MainSidebar`, `StatusBar`, `ChatPanel`) with several feature islands: auth/provider management, theme editing, model management, git ship/publish/PR flows, device pairing, collaboration visualisation, and workspace remote-origin management.
+- Shell ownership should stay aligned with AD-001 and AD-003: the shell composes global chrome and the global chat panel, but feature-specific workflows should not accumulate as an undifferentiated `layout/` catch-all.
+- Collaboration surfaces in this folder are the shell landing zone for AD-021, while workspace/container affordances (`WorkspaceTree`, mounts, remote origin) are renderer clients of AD-018-backed flows and main-process workspace/VCS state.
+- Memory and thinking UI in chat (`MemoryContextBlock`, `ThinkingBlock`, `ChatMessageItem`) are coupled to the renderer event/stash pipeline described in `docs/features/memory.md`; changes here must stay in sync with the store/hook plans already recorded for `src/stores` and `src/hooks`.
+- Titlebar Git controls consume watched app-state files rather than invoking git directly from the renderer. Watch/unwatch symmetry matters here.
+
+## Runtime-sensitive surfaces
+- Global shell behaviors that must not regress:
+  - `sero:open-session` and `sero:workspace-changed` custom-event handling in `WorkspaceTree`
+  - global chat routing and collaboration tray resize persistence in `ChatPanel`
+  - remote-origin creation/connection and PR creation flows in workspace and titlebar surfaces
+  - auth/provider refresh triggering model-state refresh across open sessions
+  - microphone permission, device enumeration, and transcription lifecycle in `VoiceTranscriptionControl`
+- Production/external assumptions to preserve explicitly:
+  - GitHub auth status and fallback repo URL generation
+  - plugin discovery search/install/uninstall behavior when the registry/network is unavailable
+  - browser support differences for `MediaRecorder`, `requestIdleCallback`, and device labels
+  - font-loading behavior for theme editing (currently tied to Google-font preloading)
+
+## Surprising discoveries
+- `components/layout` contains 88 files and nearly 16k LOC, but only a small subset is actual shell scaffolding.
+- Workspace remote setup (`RemoteOriginManager` + `remote-origin-views`) and titlebar publishing (`titlebar/GitRemotePublishSection`) implement almost the same GitHub/origin workflow separately.
+- Several components still rely on render-phase side effects instead of explicit lifecycle hooks: `ThemeEditorSheet` sets state during render, `useAutoScroll` schedules `requestAnimationFrame` from render, and `FontPicker` preloads fonts during render.
+- The shell directory now houses entire sub-products: model manager/local providers, theme editor, auth dialog, git ship deck, collaboration room, QR device pairing, and plugin discovery.

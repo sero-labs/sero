@@ -10,6 +10,8 @@ entry links to a `facts.md` and `plan.md` pair.
   — *Wave A reviews complete; Wave B High-only batch plan added 2026-04-12*
   - [`apps/desktop/src/components/apps/explorer/`](./apps/desktop/src/components/apps/explorer/plan.md)
     — *Wave C primary-consumer review complete — plan created 2026-04-12*
+  - [`apps/desktop/src/components/layout/`](./apps/desktop/src/components/layout/plan.md)
+    — *Wave C shell/chrome review complete — plan created 2026-04-12*
   - [`apps/desktop/src/hooks/`](./apps/desktop/src/hooks/plan.md)
     — *Wave A renderer orchestration review complete — plan created 2026-04-12*
   - [`apps/desktop/src/lib/`](./apps/desktop/src/lib/plan.md)
