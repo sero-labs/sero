@@ -8,7 +8,7 @@
  * Covers: Tests 1, 2, 3, 4, 5, 6, 10 from the manual guide.
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -282,13 +282,20 @@ describe('Test 6 — Capacity enforcement', () => {
 // ── Test 10: Daily Logs ────────────────────────────────────────
 
 describe('Test 10 — Daily logs', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 3, 12, 12, 34, 56));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('writes to daily log with timestamp', async () => {
     const result = await handleWrite(root, 'daily', 'Completed memory v2 testing');
     expect(resultText(result)).toContain('Appended to');
 
-    // Find today's daily log
-    const today = new Date().toISOString().slice(0, 10);
-    const dailyPath = path.join(root, 'memory', 'daily', `${today}.md`);
+    const dailyPath = path.join(root, 'memory', 'daily', '2026-04-12.md');
     const content = await fs.readFile(dailyPath, 'utf8');
 
     expect(content).toContain('Completed memory v2 testing');
@@ -300,8 +307,7 @@ describe('Test 10 — Daily logs', () => {
     await handleWrite(root, 'daily', 'First entry');
     await handleWrite(root, 'daily', 'Second entry');
 
-    const today = new Date().toISOString().slice(0, 10);
-    const dailyPath = path.join(root, 'memory', 'daily', `${today}.md`);
+    const dailyPath = path.join(root, 'memory', 'daily', '2026-04-12.md');
     const content = await fs.readFile(dailyPath, 'utf8');
 
     expect(content).toContain('First entry');
