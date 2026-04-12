@@ -42,8 +42,13 @@ Core-first checklist for reviewing and cleaning up `apps/desktop` without losing
 
 ## Wave B — Fix Core High-Priority Findings
 
-- [ ] Review all Wave A plans together for cross-cutting themes
-- [ ] Group fixes into coherent `fix-slop` batches
+- [x] Review all Wave A plans together for cross-cutting themes
+- [x] Group fixes into coherent `fix-slop` batches
+  - See `docs/deslopify/apps/desktop/plan.md` (`Wave B synthesis — 2026-04-12`) for the grouped High-only batch order:
+    1. IPC contract hardening
+    2. Settings & discovery safety
+    3. Runtime lifecycle correctness
+    4. Security boundary hardening
 - [ ] `fix-slop` High items for `apps/desktop/src/types`
 - [ ] `fix-slop` High items for `apps/desktop/electron/preload`
 - [ ] `fix-slop` High items for `apps/desktop/electron/ipc`
@@ -139,3 +144,4 @@ That keeps us from fixing visible symptoms in the UI before fixing the code that
 - 2026-04-12: Wave A step 3.1 complete for `apps/desktop/src/stores`. Findings + plan documented at `docs/deslopify/apps/desktop/src/stores/{facts.md,plan.md}` (high: optimistic destructive actions can desync renderer/main state when close IPC fails; medium: near-cap `agent.ts`/`app.ts` orchestration hubs).
 - 2026-04-12: Wave A step 3.2 complete for `apps/desktop/src/hooks`. Findings + plan documented at `docs/deslopify/apps/desktop/src/hooks/{facts.md,plan.md}` (top findings: overloaded `useSessionAgent` orchestration + unbounded workspace file cache map).
 - 2026-04-12: Wave A step 3.3 complete for `apps/desktop/src/lib`. Findings + plan documented at `docs/deslopify/apps/desktop/src/lib/{facts.md,plan.md}` (high: federated component load failure can stick as cached null render without retry).
+- 2026-04-12: Wave B synthesis complete. Cross-cutting themes and grouped High-only `fix-slop` batches documented in `docs/deslopify/apps/desktop/plan.md` (B1 IPC contract hardening; B2 settings/discovery safety; B3 runtime lifecycle correctness; B4 security boundary hardening). `apps/desktop/electron/features/workspace`, `apps/desktop/electron/features/agent`, and `apps/desktop/src/hooks` currently have no High items and are deferred to the first Medium wave unless execution uncovers new Highs.

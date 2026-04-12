@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
-  — *Phase 0 baseline map complete — plan created 2026-04-12*
+  — *Wave A reviews complete; Wave B High-only batch plan added 2026-04-12*
   - [`apps/desktop/src/types/`](./apps/desktop/src/types/plan.md)
     — *Wave A contracts review complete — plan created 2026-04-12*
   - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)
