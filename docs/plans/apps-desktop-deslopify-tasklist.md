@@ -108,7 +108,33 @@ Core-first checklist for reviewing and cleaning up `apps/desktop` without losing
 - Leave Low items for opportunistic cleanup or dedicated polish passes
 
 ### 8. Medium priority fixes
-- [ ] `fix-slop` Items to be defined here
+- [x] **Wave E1 — Preload contract cap relief**
+  - Split `apps/desktop/electron/preload/api.ts` into focused composition modules
+  - Move preload `IpcChannels` imports to `@/types/ipc-channels`
+  - Leave weakly typed preload bridge payload tightening for the next core contract pass
+- [x] **Wave E2 — Renderer agent/session orchestration hygiene**
+  - Split `apps/desktop/src/hooks/useSessionAgent.ts` into focused orchestration hooks
+  - Debounce session-list refresh after agent idle transitions
+  - Add bounded workspace-file cache eviction in `apps/desktop/src/hooks/useWorkspaceFiles.ts`
+  - Deduplicate optimistic user-message enqueue + add explicit session-buffer teardown in `apps/desktop/src/stores/agent{,-utils}.ts`
+- [ ] **Wave E3 — Canonical cross-process type cleanup**
+  - `fix-slop` Medium items for `apps/desktop/src/types`
+  - `fix-slop` Medium items for `apps/desktop/electron/features/profile`
+- [ ] **Wave E4 — Core IPC/runtime cap-pressure relief**
+  - `fix-slop` Medium items for `apps/desktop/electron/ipc`
+  - `fix-slop` Medium items for `apps/desktop/electron/shared`
+  - `fix-slop` Medium items for `apps/desktop/electron/features/workspace`
+- [ ] **Wave E5 — Platform/plugin lifecycle cleanup**
+  - `fix-slop` Medium items for `apps/desktop/electron/platform`
+  - `fix-slop` Medium items for `apps/desktop/electron/features/plugins`
+  - `fix-slop` Medium items for `apps/desktop/electron/features/apps`
+- [ ] **Wave E6 — Feature-level medium cleanup**
+  - `fix-slop` Medium items for `apps/desktop/electron/features/editor`
+  - `fix-slop` Medium items for `apps/desktop/src/lsp`
+  - `fix-slop` Medium items for `apps/desktop/src/components/apps/explorer`
+  - `fix-slop` Medium items for `apps/desktop/src/components/layout`
+  - `fix-slop` Medium items for `apps/desktop/src/components/profiles`
+  - `fix-slop` Medium items for remaining Wave C/D feature folders with Medium findings
 
 ## Wave F — True Periphery Last
 
@@ -155,3 +181,6 @@ That keeps us from fixing visible symptoms in the UI before fixing the code that
 - 2026-04-12: Wave C step 6 complete for `apps/desktop/src/components/profiles`, `apps/desktop/electron/features/onboarding`, `apps/desktop/electron/features/profile`, and `apps/desktop/electron/features/auth`. Facts + plans added under `docs/deslopify/apps/desktop/**`; index refreshed. Headline findings: `OnboardingWizard.tsx` has become a near-cap renderer orchestration hub, onboarding preflight still mutates settings on a state-read path and imports IPC internals, malformed `profiles.json` currently degrades to an empty registry, and GitHub auth still falls back to base64-only token persistence when secure storage is unavailable.
 - 2026-04-12: Wave C step 6 continued for `apps/desktop/electron/features/vcs`, `apps/desktop/electron/features/subagent`, `apps/desktop/electron/features/gateway`, and `apps/desktop/electron/features/collaboration`. Facts + plans added under `docs/deslopify/apps/desktop/electron/features/**`; index refreshed. Headline findings: VCS still relies on `git-runner.ts` type escapes and renderer-owned shared contracts, subagent bulk aborts do not currently update tracker state, gateway auth remains flat-scoped across all workspaces and Discord `/sero abort` is a no-op, and collaboration synthesis prompts are still effectively unbounded while specialist failures are masked as placeholder text.
 - 2026-04-12: Wave D section 7 completed. High-priority fixes landed for `electron/features/editor`, `src/lsp`, `electron/features/profile`, `electron/features/auth`, `electron/features/vcs`, `electron/features/subagent`, and `electron/features/gateway`; the remaining section-7 folders had no High findings and were explicitly deferred to the Medium wave. Monorepo `pnpm typecheck` passes.
+- 2026-04-12: Wave E batches defined in dependency order. Completed E1 preload contract-cap relief (`preload/api.ts` split + preload-wide `IpcChannels` import decoupling) and E2 renderer orchestration cleanup (`useSessionAgent` decomposition, debounced idle refresh, bounded workspace-file cache, agent optimistic-message/buffer cleanup). Monorepo `pnpm typecheck` passes.
+- 2026-04-12: Wave E3 started. Landed canonical `ProfileInfo` ownership, widget-manifest unification, `ipc.ts` ↔ `plugins.ts` cycle break, and profile-path overlap validation with focused tests. Remaining E3 work is the user-feedback contract dedupe plus broader `IpcChannels` import cleanup.
+- 2026-04-12: Wave E4 started. Landed shared default-model cache refresh after auth changes and centralized workspace editor-state cleanup with explicit warning logs for non-ENOENT failures. Remaining E4 work is the bigger `shared-infra` / `WorkspaceManager` cap-relief refactors plus IPC cleanup.

@@ -7,26 +7,7 @@
 
 // ── Profiles ───────────────────────────────────────────────────
 
-/**
- * Profile info surfaced to the renderer via IPC.
- *
- * ⚠️  KEEP IN SYNC with the Electron-side duplicate in electron/profile/types.ts.
- *     Both files define the same shape — if you change one, change the other.
- */
-export interface ProfileInfo {
-  /** Unique identifier. */
-  id: string;
-  /** User-facing display name (editable, independent of folder name). */
-  name: string;
-  /** Absolute path to the profile's root directory (= SERO_HOME). */
-  path: string;
-  /** ISO timestamp of when the profile was created. */
-  createdAt: string;
-  /** True if this is the currently active profile. */
-  isActive: boolean;
-  /** True once onboarding has completed for this profile. */
-  onboarded?: boolean;
-}
+export type { ProfileInfo } from './profile';
 
 // ── Workspaces ─────────────────────────────────────────────────
 

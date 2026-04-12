@@ -5,7 +5,7 @@
  */
 
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 
 export const debugBridge = {
   toggle: (): Promise<boolean> =>

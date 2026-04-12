@@ -42,3 +42,25 @@ auth, collaboration, editor/LSP, plugins, gateway, etc.). `preload.ts` exposes
 - Public preload bridges still expose loose `any`/`unknown` contracts at key boundaries:
   `integrations/google-imagegen.ts:16-17,26`, `editor/debug-lsp.ts:45-51`,
   and `apps/app-domain.ts:95`.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 16 (was 14)
+- Largest file: `apps/desktop/electron/preload/apps/app-domain.ts` (207 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥450 LOC): none (was `api.ts` at 483 LOC)
+- `IpcChannels` imports from `@/types/ipc`: 0 preload files (was 14)
+
+### What changed
+- Split the aggregate preload bridge into focused composition modules:
+  `apps/desktop/electron/preload/api/core.ts` and
+  `apps/desktop/electron/preload/api/workbench.ts`.
+- Reduced `apps/desktop/electron/preload/api.ts` from 485 → 88 LOC so it is now a thin composer.
+- Moved preload-wide channel imports onto `@/types/ipc-channels` to decouple the folder from the
+  `@/types/ipc` mega-barrel for constants-only usage.
+
+### Still outstanding
+- Weakly typed bridge surfaces in `integrations/google-imagegen.ts`, `editor/debug-lsp.ts`, and
+  `apps/app-domain.ts` still need canonical payload/result typing.
+- Low-priority layout bridge shape duplication is still pending.

@@ -29,3 +29,22 @@ _Last reviewed: 2026-04-12_
 - `useSessionAgent.ts` is effectively a mini-orchestrator with three separate effects and intentionally suppressed exhaustive-deps checks.
 - `useWorkspaceFiles.ts` uses a module-global cache map keyed by workspace ID with TTL but no explicit size bound/eviction policy.
 - Chat prompt handling duplicates built-in command handling in both menu-select and free-text submit paths (`/login`, `/logout`).
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 12 (was 9)
+- Largest file: `apps/desktop/src/hooks/useWorkspaceFiles.ts` (214 LOC)
+- Files over 500 LOC: none (was none)
+- Exhaustive-deps suppressions in `useSessionAgent.ts`: 0 (was 2)
+
+### What changed
+- Split `useSessionAgent` into focused orchestration hooks under
+  `apps/desktop/src/hooks/session-agent/` while keeping `useSessionAgent.ts` as the public wrapper.
+- Added debounced idle-triggered session refresh via `useDebouncedCallback(..., 200)`.
+- Reworked `useWorkspaceFiles` cache to keep TTL semantics while adding max-entry eviction and
+  stale-entry clearing on load failure.
+
+### Still outstanding
+- Built-in `/login` / `/logout` command handling is still duplicated in `useChatPromptInput.ts`.
+- GitHub auth copy-status timer duplication in `useGitHubAuthFlow.ts` is still pending.

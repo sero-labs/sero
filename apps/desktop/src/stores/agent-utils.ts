@@ -1,13 +1,13 @@
 import type {
+  AgentStreamEvent,
   ChatAssistantMessage,
+  ChatAttachment,
   ChatMessage,
   ChatToolCallMessage,
-  AgentStreamEvent,
 } from '@/types/ipc';
-import type { AgentInstance } from '@/stores/agent-types';
-import type { AgentState } from '@/stores/agent-types';
-import { useSessionStore } from '@/stores/sessions';
+import type { AgentInstance, AgentState } from '@/stores/agent-types';
 import { useContainerStore } from '@/stores/container';
+import { useSessionStore } from '@/stores/sessions';
 
 export function patchAssistant(
   agents: Record<string, AgentInstance>,
@@ -89,6 +89,15 @@ function scheduleDeltaFlush(flushFn: () => void) {
   });
 }
 
+function clearBufferedSessionDeltas(sessionId: string): void {
+  buf.text.delete(sessionId);
+  buf.thinking.delete(sessionId);
+  if (buf.rafId !== null && buf.text.size === 0 && buf.thinking.size === 0) {
+    cancelAnimationFrame(buf.rafId);
+    buf.rafId = null;
+  }
+}
+
 /**
  * Drain all buffered deltas. Returns `{ text, thinking }` maps
  * (sessionId → messageId → accumulated delta) and clears the buffer.
@@ -107,11 +116,65 @@ export function drainDeltaBuffer() {
 
 const pendingMemoryContext = new Map<string, string>();
 
+export function clearAgentSessionBuffers(sessionId: string): void {
+  pendingMemoryContext.delete(sessionId);
+  clearBufferedSessionDeltas(sessionId);
+}
+
+// ── Shared optimistic user-message helper ───────────────────────
+
+function createOptimisticUserMessageId(): string {
+  return `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+interface OptimisticUserMessageOptions {
+  attachments?: ChatAttachment[];
+  isStreaming?: boolean;
+}
+
+type SetFn = (
+  fn: (state: AgentState) => Partial<AgentState> | AgentState,
+) => void;
+type GetFn = () => AgentState;
+
+export function appendOptimisticUserMessage(
+  set: SetFn,
+  sessionId: string,
+  text: string,
+  options: OptimisticUserMessageOptions = {},
+): string {
+  const messageId = createOptimisticUserMessageId();
+  const message: ChatMessage = {
+    type: 'user',
+    id: messageId,
+    text,
+    ...(options.attachments ? { attachments: options.attachments } : {}),
+  };
+
+  set((state) => {
+    const agent = state.agents[sessionId];
+    if (!agent) return state;
+
+    return {
+      agents: {
+        ...state.agents,
+        [sessionId]: {
+          ...agent,
+          error: null,
+          ...(options.isStreaming !== undefined
+            ? { isStreaming: options.isStreaming }
+            : {}),
+          messages: [...agent.messages, message],
+        },
+      },
+    };
+  });
+
+  return messageId;
+}
+
 // ── Agent stream event handler ─────────────────────────────────
 // Extracted from agent.ts to keep it under 500 LOC.
-
-type SetFn = (fn: (s: AgentState) => Partial<AgentState>) => void;
-type GetFn = () => AgentState;
 
 export function handleAgentStreamEvent(
   event: AgentStreamEvent,
@@ -124,32 +187,38 @@ export function handleAgentStreamEvent(
 
   // Ignore events for sessions we don't track (already closed).
   if (!agents[sid] && event.type !== 'agent_start' && event.type !== 'message_start') {
+    if (event.type === 'agent_end') {
+      clearAgentSessionBuffers(sid);
+    }
     return;
   }
 
   switch (event.type) {
     case 'agent_start':
-      set((s) => ({
-        agents: { ...s.agents, [sid]: { ...s.agents[sid], isStreaming: true } },
+      set((state) => ({
+        agents: { ...state.agents, [sid]: { ...state.agents[sid], isStreaming: true } },
       }));
       break;
 
     case 'agent_end':
-      set((s) => {
-        const agent = s.agents[sid];
-        if (!agent) return s;
-        const messages = agent.messages.map((m) =>
-          m.type === 'tool' && (m.state === 'pending' || m.state === 'running')
-            ? { ...m, state: 'cancelled' as const }
-            : m,
+      clearAgentSessionBuffers(sid);
+      set((state) => {
+        const agent = state.agents[sid];
+        if (!agent) return state;
+        const messages = agent.messages.map((message) =>
+          message.type === 'tool' && (message.state === 'pending' || message.state === 'running')
+            ? { ...message, state: 'cancelled' as const }
+            : message,
         );
-        return { agents: { ...s.agents, [sid]: { ...agent, isStreaming: false, messages } } };
+        return {
+          agents: { ...state.agents, [sid]: { ...agent, isStreaming: false, messages } },
+        };
       });
       break;
 
     case 'messages_loaded':
-      set((s) => ({
-        agents: { ...s.agents, [sid]: { ...s.agents[sid], messages: event.messages } },
+      set((state) => ({
+        agents: { ...state.agents, [sid]: { ...state.agents[sid], messages: event.messages } },
       }));
       break;
 
@@ -162,16 +231,19 @@ export function handleAgentStreamEvent(
       if (event.message.type === 'user') break;
       {
         // Attach any pending memory context to the new assistant message
-        let msg = event.message;
+        let message = event.message;
         const pending = pendingMemoryContext.get(sid);
-        if (pending && msg.type === 'assistant') {
-          msg = { ...msg, memoryContext: pending };
+        if (pending && message.type === 'assistant') {
+          message = { ...message, memoryContext: pending };
           pendingMemoryContext.delete(sid);
         }
-        set((s) => ({
+        set((state) => ({
           agents: {
-            ...s.agents,
-            [sid]: { ...s.agents[sid], messages: [...(s.agents[sid]?.messages ?? []), msg] },
+            ...state.agents,
+            [sid]: {
+              ...state.agents[sid],
+              messages: [...(state.agents[sid]?.messages ?? []), message],
+            },
           },
         }));
       }
@@ -186,62 +258,90 @@ export function handleAgentStreamEvent(
       break;
 
     case 'message_end':
-      set((s) => ({
-        agents: patchAssistant(s.agents, sid, event.messageId, (m) => ({
-          ...m, text: event.text, thinking: event.thinking, isStreaming: false,
+      set((state) => ({
+        agents: patchAssistant(state.agents, sid, event.messageId, (message) => ({
+          ...message,
+          text: event.text,
+          thinking: event.thinking,
+          isStreaming: false,
         })),
       }));
       break;
 
     case 'user_checkpoint': {
-      const { userMessageId, checkpoint } = event;
-      set((s) => ({
-        agents: { ...s.agents, [sid]: { ...s.agents[sid],
-          messages: s.agents[sid].messages.map((m) =>
-            m.type === 'user' && m.id === userMessageId
-              ? ({ ...m, checkpoint } as ChatMessage) : m),
-        } },
+      const { checkpoint, userMessageId } = event;
+      set((state) => ({
+        agents: {
+          ...state.agents,
+          [sid]: {
+            ...state.agents[sid],
+            messages: state.agents[sid].messages.map((message) =>
+              message.type === 'user' && message.id === userMessageId
+                ? ({ ...message, checkpoint } as ChatMessage)
+                : message,
+            ),
+          },
+        },
       }));
       break;
     }
 
     case 'tool_start':
-      set((s) => ({
-        agents: { ...s.agents, [sid]: { ...s.agents[sid],
-          messages: [...s.agents[sid].messages, { ...event.tool, isPartialOutput: false }],
-        } },
+      set((state) => ({
+        agents: {
+          ...state.agents,
+          [sid]: {
+            ...state.agents[sid],
+            messages: [...state.agents[sid].messages, { ...event.tool, isPartialOutput: false }],
+          },
+        },
       }));
       break;
 
     case 'tool_update':
-      set((s) => ({
-        agents: { ...s.agents, [sid]: { ...s.agents[sid],
-          messages: s.agents[sid].messages.map((m) =>
-            m.type === 'tool' && m.toolCallId === event.toolCallId
-              ? {
-                  ...m,
-                  output: event.output,
-                  details: event.details ?? m.details,
-                  state: 'running',
-                  isPartialOutput: true,
-                  images: event.images ?? m.images,
-                } as ChatToolCallMessage
-              : m),
-        } },
+      set((state) => ({
+        agents: {
+          ...state.agents,
+          [sid]: {
+            ...state.agents[sid],
+            messages: state.agents[sid].messages.map((message) =>
+              message.type === 'tool' && message.toolCallId === event.toolCallId
+                ? ({
+                    ...message,
+                    output: event.output,
+                    details: event.details ?? message.details,
+                    state: 'running',
+                    isPartialOutput: true,
+                    images: event.images ?? message.images,
+                  } as ChatToolCallMessage)
+                : message,
+            ),
+          },
+        },
       }));
       break;
 
     case 'tool_end':
-      set((s) => ({
-        agents: { ...s.agents, [sid]: { ...s.agents[sid],
-          messages: s.agents[sid].messages.map((m) =>
-            m.type === 'tool' && m.toolCallId === event.toolCallId
-              ? { ...m, output: event.output, details: event.details ?? m.details, isError: event.isError,
-                  state: event.isError ? 'error' : 'completed',
-                  isPartialOutput: false,
-                  images: event.images } as ChatToolCallMessage
-              : m),
-        } },
+      set((state) => ({
+        agents: {
+          ...state.agents,
+          [sid]: {
+            ...state.agents[sid],
+            messages: state.agents[sid].messages.map((message) =>
+              message.type === 'tool' && message.toolCallId === event.toolCallId
+                ? ({
+                    ...message,
+                    output: event.output,
+                    details: event.details ?? message.details,
+                    isError: event.isError,
+                    state: event.isError ? 'error' : 'completed',
+                    isPartialOutput: false,
+                    images: event.images,
+                  } as ChatToolCallMessage)
+                : message,
+            ),
+          },
+        },
       }));
       break;
 
@@ -250,16 +350,17 @@ export function handleAgentStreamEvent(
       break;
 
     case 'model_change':
-      set((s) => ({
-        agents: { ...s.agents, [sid]: { ...s.agents[sid], modelState: event.state } },
+      set((state) => ({
+        agents: { ...state.agents, [sid]: { ...state.agents[sid], modelState: event.state } },
       }));
       break;
 
     case 'error':
-      set((s) => ({
+      clearAgentSessionBuffers(sid);
+      set((state) => ({
         agents: {
-          ...s.agents,
-          [sid]: { ...s.agents[sid], error: event.error, isStreaming: false },
+          ...state.agents,
+          [sid]: { ...state.agents[sid], error: event.error, isStreaming: false },
         },
       }));
       break;

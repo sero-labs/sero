@@ -22,15 +22,17 @@ reviewable.
   Effort: **S**.
 
 - **Medium** — Manual duplicated cross-process contracts create drift risk in profile and user-feedback APIs —
-  `apps/desktop/src/types/ipc.ts:13-27` duplicates `ProfileInfo` from
+  `apps/desktop/src/types/ipc.ts:13-27` duplicated `ProfileInfo` from
   `apps/desktop/electron/features/profile/types.ts:39-49`; user-feedback shapes are mirrored in
   `apps/desktop/src/types/ipc.ts:410-455` and
-  `plugins/sero-user-feedback-plugin/shared/types.ts:10-72`. This fights the canonical-type rule
-  and increases AD-022/extension drift risk. Effort: **M**.
+  `plugins/sero-user-feedback-plugin/shared/types.ts:10-72`. ProfileInfo was canonicalized into
+  `apps/desktop/src/types/profile.ts` on 2026-04-12, but user-feedback duplication still remains.
+  This fights the canonical-type rule and increases AD-022/extension drift risk. Effort: **M**.
 
-- **Medium** — Type-layer cycle between `ipc.ts` and `plugins.ts` increases coupling and review complexity —
+- **Medium** — ~~Type-layer cycle between `ipc.ts` and `plugins.ts` increases coupling and review complexity —
   `apps/desktop/src/types/plugins.ts:1` imports `SeroAppManifest` from `./ipc`, while
-  `apps/desktop/src/types/ipc.ts:320` re-exports plugin types from `./plugins`. Effort: **S**.
+  `apps/desktop/src/types/ipc.ts:320` re-exports plugin types from `./plugins`.~~ ✅ 2026-04-12 (`plugins.ts` now imports `SeroAppManifest` from `./sero-apps`)
+  Effort: **S**.
 
 - **Medium** — `IpcChannels` consumption is routed through the monolithic `ipc.ts` barrel instead of the
   dedicated channels module — `apps/desktop/src/types/ipc.ts:544` re-exports channels, and 59 files
@@ -38,9 +40,9 @@ reviewable.
   `apps/desktop/electron/preload/api.ts:2`). This widens dependency fanout and slows safe contract edits.
   Effort: **M**.
 
-- **Medium** — Widget manifest contract is duplicated across files —
+- **Medium** — ~~Widget manifest contract is duplicated across files —
   `apps/desktop/src/types/dashboard.ts:15-32` (`WidgetManifest`) and
-  `apps/desktop/src/types/sero-apps.ts:10-25` (`SeroWidgetManifest`) define the same shape.
+  `apps/desktop/src/types/sero-apps.ts:10-25` (`SeroWidgetManifest`) define the same shape.~~ ✅ 2026-04-12 (both now share `src/types/widget-manifest.ts`)
   Effort: **S**.
 
 - **Low** — `any` leak in LSP preload API declaration weakens strict typing —
@@ -99,6 +101,9 @@ reviewable.
 ## Next Steps
 1. Execute High item: split `ipc.ts` below 500 LOC with domain modules + compatibility barrel.
 2. Fix `electron.d.ts` subagent type import gap and run typecheck.
-3. Land cycle break (`plugins.ts` → `sero-apps.ts`) and widget-manifest unification.
-4. Start converting `IpcChannels` imports to `@/types/ipc-channels` in preload/ipc modules.
+3. ~~Land cycle break (`plugins.ts` → `sero-apps.ts`) and widget-manifest unification.~~ ✅ 2026-04-12
+4. Continue converting `IpcChannels` imports to `@/types/ipc-channels` in preload/ipc modules.
 5. Queue follow-up deslopify for `apps/desktop/electron/preload` next (Wave A step 2).
+
+## Execution log
+- 2026-04-12 — Medium Wave E3 (working tree): canonicalized `ProfileInfo` into `src/types/profile.ts`, broke the `ipc.ts` ↔ `plugins.ts` type cycle, and unified widget manifests through `src/types/widget-manifest.ts`.

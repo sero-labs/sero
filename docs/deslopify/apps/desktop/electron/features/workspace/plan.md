@@ -16,15 +16,15 @@ error/type handling before the next feature wave lands.
   and inference plumbing. It is one medium feature away from crossing 500 LOC.
   Effort: **M**.
 
-- **Medium** — Lifecycle cleanup errors are silently swallowed in workspace remove/close paths —
+- **Medium** — ~~Lifecycle cleanup errors are silently swallowed in workspace remove/close paths —
   `apps/desktop/electron/features/workspace/manager.ts:313` and
   `apps/desktop/electron/features/workspace/manager.ts:339` suppress editor-state
-  deletion failures with `.catch(() => {})`, hiding disk/permission regressions.
+  deletion failures with `.catch(() => {})`, hiding disk/permission regressions.~~ ✅ 2026-04-12 (`cleanupEditorState()` now centralizes cleanup with ENOENT-only tolerance and warning logs for real failures.)
   Effort: **S**.
 
-- **Low** — Duplicate editor-state cleanup logic appears in both `remove()` and `close()` —
+- **Low** — ~~Duplicate editor-state cleanup logic appears in both `remove()` and `close()` —
   `apps/desktop/electron/features/workspace/manager.ts:310-313` and
-  `apps/desktop/electron/features/workspace/manager.ts:336-339` repeat the same deletion block.
+  `apps/desktop/electron/features/workspace/manager.ts:336-339` repeat the same deletion block.~~ ✅ 2026-04-12 (`cleanupEditorState()` now owns the shared deletion path.)
   Effort: **S**.
 
 - **Low** — File watcher error path still uses `any` typing —
@@ -62,6 +62,9 @@ error/type handling before the next feature wave lands.
 
 ## Next Steps
 1. Extract `manager.ts` lifecycle submodule(s) to keep the file comfortably below 500 LOC.
-2. Refactor remove/close cleanup into one shared helper with explicit error handling.
+2. ~~Refactor remove/close cleanup into one shared helper with explicit error handling.~~ ✅ 2026-04-12
 3. Replace watcher `any` catch with typed error normalization.
 4. Continue Wave A: `deslopify apps/desktop/electron/features/agent`.
+
+## Execution log
+- 2026-04-12 — Medium Wave E4 (working tree): centralized editor-state cleanup in `cleanupEditorState()` and stopped swallowing non-ENOENT cleanup failures in workspace remove/close paths.

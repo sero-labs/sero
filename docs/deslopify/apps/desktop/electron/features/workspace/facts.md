@@ -40,3 +40,20 @@ watching for workspace roots.
 - Error swallowing exists in critical lifecycle paths (`manager.ts:313`, `manager.ts:339`)
   via `.catch(() => {})`, which can hide disk-permission failures.
 - `watcher.ts` still uses `catch (err: any)` (`watcher.ts:126`) despite strict typing expectations.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 8 (unchanged)
+- Largest file: `apps/desktop/electron/features/workspace/manager.ts` (468 LOC)
+- Files over 500 LOC: none
+- Near-cap files (≥450 LOC): `manager.ts` (468)
+
+### What changed
+- Added a private `cleanupEditorState()` helper so workspace remove/close paths share one cleanup flow.
+- Workspace lifecycle cleanup now tolerates ENOENT but warns on real editor-state deletion failures
+  instead of swallowing them silently.
+
+### Still outstanding
+- `manager.ts` is still near-cap and has not yet been split by responsibility.
+- `watcher.ts` still needs its typed error-normalization cleanup.

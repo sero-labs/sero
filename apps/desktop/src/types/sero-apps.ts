@@ -1,4 +1,5 @@
 import type { PluginMeta } from '@sero/common';
+import type { WidgetManifest } from './widget-manifest';
 
 /**
  * Shape of entries in the `packages` array in settings.json.
@@ -6,23 +7,7 @@ import type { PluginMeta } from '@sero/common';
  */
 export type SettingsPackageSource = string | { source?: string };
 
-/** Widget definition from sero.app.widgets in package.json. */
-export interface SeroWidgetManifest {
-  /** Unique widget identifier within the app (e.g. "board-summary"). */
-  id: string;
-  /** Display name. */
-  name: string;
-  /** Exported component name from the module federation remote. */
-  component: string;
-  /** Default grid size (react-grid-layout units). */
-  defaultSize: { w: number; h: number };
-  /** Minimum grid size. */
-  minSize?: { w: number; h: number };
-  /** Maximum grid size. */
-  maxSize?: { w: number; h: number };
-  /** Optional description for the widget picker. */
-  description?: string;
-}
+export type { WidgetManifest as SeroWidgetManifest } from './widget-manifest';
 
 /** Manifest for a Sero app discovered from a Pi package. */
 export interface SeroAppManifest {
@@ -64,5 +49,5 @@ export interface SeroAppManifest {
   /** Plugin manifest metadata from `sero.plugin` in package.json. */
   plugin?: PluginMeta | null;
   /** Widget definitions declared in the app manifest. */
-  widgets: SeroWidgetManifest[];
+  widgets: WidgetManifest[];
 }

@@ -17,7 +17,7 @@ import { getProviderHealthSnapshot } from '@electron/features/onboarding/provide
 import { readSettings, writeSettings } from '@electron/shared/settings/settings-helpers';
 import { copyProfileDataSync, profileHasTransferableData } from '@electron/features/profile/copy-profile-data';
 
-import type { ProfileInfo } from '@electron/features/profile/types';
+import type { ProfileInfo } from '@/types/profile';
 import type { GlobalModelConfigInput, GlobalModelConfigState } from '@/types/ipc';
 
 async function loadGlobalModelConfigState(): Promise<GlobalModelConfigState> {

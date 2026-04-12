@@ -19,7 +19,8 @@ import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
-import type { ProfileEntry, ProfileRegistry, ProfileInfo } from './types';
+import type { ProfileInfo } from '@/types/profile';
+import type { ProfileEntry, ProfileRegistry } from './types';
 
 /** Fixed location for the profile registry — never changes. */
 const SERO_ROOT = path.join(os.homedir(), '.sero-ui');
@@ -28,6 +29,7 @@ export const PROFILE_REGISTRY_PATH = REGISTRY_PATH;
 
 /** Default SERO_HOME for the auto-created "Default" profile. */
 const DEFAULT_PROFILE_PATH = SERO_ROOT;
+const MANAGED_PROFILES_ROOT = path.join(SERO_ROOT, 'profiles');
 
 // ── Registry I/O ────────────────────────────────────────────
 
@@ -44,6 +46,22 @@ export class ProfileRegistryError extends Error {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function isNestedPath(parentPath: string, candidatePath: string): boolean {
+  const relative = path.relative(parentPath, candidatePath);
+  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function isManagedNestedProfilePath(profilePath: string): boolean {
+  return isNestedPath(MANAGED_PROFILES_ROOT, profilePath);
+}
+
+function isAllowedDefaultProfileContainment(
+  existingPath: string,
+  candidatePath: string,
+): boolean {
+  return existingPath === DEFAULT_PROFILE_PATH && isManagedNestedProfilePath(candidatePath);
 }
 
 function isProfileEntry(value: unknown): value is ProfileEntry {
@@ -222,6 +240,8 @@ class ProfileManager {
       ? path.resolve(profilePath)
       : this.defaultPathForName(name);
 
+    this.validateNewProfilePath(resolvedPath);
+
     // Ensure the profile directory exists
     await fs.mkdir(resolvedPath, { recursive: true });
     await fs.mkdir(path.join(resolvedPath, 'agent'), { recursive: true });
@@ -287,6 +307,35 @@ class ProfileManager {
   }
 
   // ── Helpers ─────────────────────────────────────────────
+
+  private validateNewProfilePath(candidatePath: string): void {
+    if (candidatePath === DEFAULT_PROFILE_PATH && this.registry.profiles.length > 0) {
+      throw new Error(
+        `${DEFAULT_PROFILE_PATH} is reserved for the first default profile and cannot be reused as a custom profile path.`,
+      );
+    }
+
+    for (const existing of this.registry.profiles) {
+      const existingPath = path.resolve(existing.path);
+      if (existingPath === candidatePath) {
+        throw new Error(
+          `Profile path already belongs to profile "${existing.name}": ${candidatePath}`,
+        );
+      }
+
+      const candidateInsideExisting = isNestedPath(existingPath, candidatePath);
+      const existingInsideCandidate = isNestedPath(candidatePath, existingPath);
+      if (!candidateInsideExisting && !existingInsideCandidate) continue;
+
+      if (candidateInsideExisting && isAllowedDefaultProfileContainment(existingPath, candidatePath)) {
+        continue;
+      }
+
+      throw new Error(
+        `Profile path overlaps with existing profile "${existing.name}" at ${existing.path}`,
+      );
+    }
+  }
 
   /** Generate a default path for a new profile. */
   private defaultPathForName(name: string): string {

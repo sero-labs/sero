@@ -6,11 +6,11 @@ _Plan drafted: 2026-04-12_
 `src/hooks` is generally healthy and compact, but a few orchestration hooks are carrying too much coordination logic and hidden lifecycle risk. The priority is to make `useSessionAgent` and `useWorkspaceFiles` more predictable under load (fewer implicit retries/churn, clearer dependency ownership) while preserving current UX behavior.
 
 ## Issues Found (prioritized)
-- **Medium** — `useSessionAgent` combines multiple orchestration responsibilities with suppressed dependency checks — `apps/desktop/src/hooks/useSessionAgent.ts:39-74` and `apps/desktop/src/hooks/useSessionAgent.ts:87-116` handle session open/focus, collaboration hydration, and container ensure with `eslint-disable` comments for exhaustive deps (`useSessionAgent.ts:74`, `useSessionAgent.ts:116`). This increases stale-closure risk and makes lifecycle regressions hard to test. Effort: **M**.
+- **Medium** — ~~`useSessionAgent` combines multiple orchestration responsibilities with suppressed dependency checks — `apps/desktop/src/hooks/useSessionAgent.ts:39-74` and `apps/desktop/src/hooks/useSessionAgent.ts:87-116` handle session open/focus, collaboration hydration, and container ensure with `eslint-disable` comments for exhaustive deps (`useSessionAgent.ts:74`, `useSessionAgent.ts:116`). This increases stale-closure risk and makes lifecycle regressions hard to test.~~ ✅ 2026-04-12 (`useSessionAgent` is now a thin wrapper over focused `session-agent/*` hooks with no exhaustive-deps suppression). Effort: **M**.
 
-- **Medium** — Session refresh trigger can spam IPC on bursty agent completions — `apps/desktop/src/hooks/useSessionAgent.ts:119-138` calls `loadSessions()` whenever any tracked agent transitions streaming→idle, with no debounce/coalescing. Multi-agent/subagent bursts can trigger repeated `sessions.list` calls. Effort: **S**.
+- **Medium** — ~~Session refresh trigger can spam IPC on bursty agent completions — `apps/desktop/src/hooks/useSessionAgent.ts:119-138` calls `loadSessions()` whenever any tracked agent transitions streaming→idle, with no debounce/coalescing. Multi-agent/subagent bursts can trigger repeated `sessions.list` calls.~~ ✅ 2026-04-12 (idle refresh now flows through `useDebouncedCallback(..., 200)`). Effort: **S**.
 
-- **Medium** — Workspace file cache is global and unbounded by workspace count — `apps/desktop/src/hooks/useWorkspaceFiles.ts:34-35` stores arrays of up to 5,000 paths per workspace (`useWorkspaceFiles.ts:23`), and entries only expire by TTL checks during future reads. There is no max-size eviction, so long sessions across many workspaces can retain stale arrays in memory. Effort: **S**.
+- **Medium** — ~~Workspace file cache is global and unbounded by workspace count — `apps/desktop/src/hooks/useWorkspaceFiles.ts:34-35` stores arrays of up to 5,000 paths per workspace (`useWorkspaceFiles.ts:23`), and entries only expire by TTL checks during future reads. There is no max-size eviction, so long sessions across many workspaces can retain stale arrays in memory.~~ ✅ 2026-04-12 (cache now uses TTL + max-entry eviction and clears stale entries on load failure). Effort: **S**.
 
 - **Low** — Built-in command behavior (`/login`, `/logout`) is duplicated across two paths — `apps/desktop/src/hooks/useChatPromptInput.ts:63-76` and `apps/desktop/src/hooks/useChatPromptInput.ts:136-147`. Minor drift risk if command handling changes. Effort: **S**.
 
@@ -49,8 +49,11 @@ _Plan drafted: 2026-04-12_
 - Cache eviction policy must not break path completion immediately after switching workspaces.
 
 ## Next Steps
-1. Extract `useSessionAgent` into three focused hooks with unchanged public behavior.
-2. Debounce session-list refresh after stream completion.
-3. Add capped LRU eviction to `useWorkspaceFiles` cache.
+1. ~~Extract `useSessionAgent` into three focused hooks with unchanged public behavior.~~ ✅ 2026-04-12
+2. ~~Debounce session-list refresh after stream completion.~~ ✅ 2026-04-12
+3. ~~Add capped LRU eviction to `useWorkspaceFiles` cache.~~ ✅ 2026-04-12
 4. Deduplicate built-in command/timer helper code paths.
 5. Re-check `ChatPanel` and explorer prompt UX after these hook changes.
+
+## Execution log
+- 2026-04-12 — Medium Wave E2 (working tree): split `useSessionAgent` into focused `session-agent/*` hooks, debounced idle-triggered session refreshes, and added bounded workspace-file cache eviction.

@@ -33,3 +33,26 @@ _Last reviewed: 2026-04-12_
 - Destructive actions are optimistic in multiple places (`agent.closeSession`, `workspace.closeWorkspace`) and can remove renderer state even if IPC fails.
 - `agent-utils.ts` keeps module-level `pendingMemoryContext` state that is only cleared on `message_start`; session-close/error paths do not explicitly prune leftover entries.
 - A lot of quality work already happened here: no `any`/`@ts-ignore` escapes in production store code, and no source files currently violate the 500 LOC cap.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 29 (was 29)
+- Largest file: `apps/desktop/src/stores/agent.ts` (461 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): `agent.ts` (461), `app.ts` (460) — `agent.ts` dropped from 495 LOC
+
+### What changed
+- Extracted shared optimistic user-message enqueue into `appendOptimisticUserMessage()` so
+  prompt/steer/collaboration flows now share one renderer-side message shape + ID path.
+- Added `clearAgentSessionBuffers()` to clear pending memory context and buffered deltas when
+  sessions close, error, or finish after the store has already forgotten them.
+- Tightened `closeSession()` / failed `openSession()` cleanup so renderer-owned session buffers are
+  pruned alongside the store entry.
+
+### Still outstanding
+- `apps/desktop/src/stores/app.ts` remains a near-cap orchestration hub and still needs its own
+  split pass.
+- `apps/desktop/src/stores/agent.ts` is healthier but still broad; the planned submodule split has
+  not been executed yet.
+- Low-priority selector churn cleanup is still pending.

@@ -33,6 +33,31 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/types/electron-services.d.ts` | Updated renderer gateway API contract for workspace-scoped QR login generation |
 | `apps/desktop/src/components/layout/ConnectDeviceDialog.tsx` | QR pairing now scopes remote access to the active workspace and surfaces that in the dialog |
 | `apps/desktop/electron/features/gateway/channels/discord.ts` | Fixed `/sero abort` so it actually aborts the active session and reports failures |
+| `apps/desktop/electron/preload/api.ts` | Split aggregate preload bridge into a thin composer (485 → 88 lines) |
+| `apps/desktop/electron/preload/api/core.ts` | New — extracted shell/profile/workspace/session/agent/context-preset preload bridges |
+| `apps/desktop/electron/preload/api/workbench.ts` | New — extracted VCS/terminal/editor/filetree preload bridges |
+| `apps/desktop/electron/preload/agent/{local-models,models,prompts,skills,subagent}.ts` | Switched `IpcChannels` imports to `@/types/ipc-channels` |
+| `apps/desktop/electron/preload/{apps/app-domain.ts,collaboration/index.ts,editor/debug-lsp.ts,integrations/google-imagegen.ts,integrations/plugins.ts,onboarding.ts,platform/host-services.ts,platform/user-feedback.ts}` | Switched `IpcChannels` imports to `@/types/ipc-channels` |
+| `apps/desktop/src/hooks/useSessionAgent.ts` | Reduced to a thin composition wrapper over focused session-agent hooks (140 → 23 lines) |
+| `apps/desktop/src/hooks/session-agent/useActiveSessionSync.ts` | New — owns active-session open/focus + collaboration hydration |
+| `apps/desktop/src/hooks/session-agent/useContainerEnsureOnSessionFocus.ts` | New — owns container ensure flow for focused container-backed workspaces |
+| `apps/desktop/src/hooks/session-agent/useSessionListRefreshOnAgentIdle.ts` | New — debounces bursty idle-triggered session-list refreshes |
+| `apps/desktop/src/hooks/useWorkspaceFiles.ts` | Added bounded workspace-file cache eviction and stale-entry clearing on load failure (169 → 214 lines) |
+| `apps/desktop/src/stores/agent.ts` | Deduplicated optimistic user-message enqueue and wired explicit buffer cleanup into open/close failure paths (495 → 461 lines) |
+| `apps/desktop/src/stores/agent-utils.ts` | Added shared `appendOptimisticUserMessage()` + `clearAgentSessionBuffers()` helpers for renderer agent session cleanup (277 → 378 lines) |
+| `apps/desktop/src/types/profile.ts` | New — canonical shared `ProfileInfo` contract for renderer + main-process profile flows |
+| `apps/desktop/src/types/widget-manifest.ts` | New — shared widget manifest contract used by dashboard + app manifests |
+| `apps/desktop/src/types/ipc.ts` | Switched profile contract ownership to `src/types/profile.ts`; kept `ipc.ts` as a thinner compatibility barrel (485 → 466 lines) |
+| `apps/desktop/src/types/plugins.ts` | Broke the `ipc.ts` ↔ `plugins.ts` type-only cycle by importing `SeroAppManifest` directly from `sero-apps.ts` |
+| `apps/desktop/src/types/sero-apps.ts` | Reused shared widget manifest contract instead of duplicating `SeroWidgetManifest` |
+| `apps/desktop/src/types/dashboard.ts` | Reused shared widget manifest contract instead of maintaining a parallel `WidgetManifest` copy |
+| `apps/desktop/electron/features/profile/types.ts` | Re-exported canonical `ProfileInfo` instead of maintaining a duplicated `KEEP IN SYNC` contract |
+| `apps/desktop/electron/features/profile/manager.ts` | Added duplicate/overlap validation for custom profile roots while preserving managed `~/.sero-ui/profiles/*` child profiles (317 → 366 lines) |
+| `apps/desktop/electron/ipc/workspace/profiles.ts` | Switched profile IPC handlers to the canonical shared `ProfileInfo` contract |
+| `apps/desktop/electron/__tests__/features/profile/manager.test.ts` | New — covers allowed managed child profiles plus duplicate/overlap path rejection |
+| `apps/desktop/electron/shared/infra/shared-infra.ts` | Added `refreshInfraModelSelection()` so cached default model selection updates after auth/model refreshes |
+| `apps/desktop/electron/ipc/platform/auth/auth.ts` | Auth mutation paths now refresh both the model registry and cached shared default model |
+| `apps/desktop/electron/features/workspace/manager.ts` | Centralized editor-state cleanup and now warn on non-ENOENT remove/close cleanup failures instead of swallowing them |
 
 ---
 

@@ -16,15 +16,15 @@ contract enforcement and reduced coupling to the `@/types/ipc` mega-barrel.
   This allows declaration/implementation drift to bypass type safety at the process boundary.
   Effort: **S**.
 
-- **Medium** — `api.ts` is near cap and still aggregates too many domains in one object —
+- **Medium** — ~~`api.ts` is near cap and still aggregates too many domains in one object —
   `apps/desktop/electron/preload/api.ts:89-483` bundles profiles, workspaces, agent, VCS,
-  terminal, editor, and integration wiring. One additional domain likely crosses 500 LOC.
+  terminal, editor, and integration wiring. One additional domain likely crosses 500 LOC.~~ ✅ 2026-04-12 (split into `preload/api/core.ts` + `preload/api/workbench.ts`; `api.ts` now 88 LOC)
   Effort: **M**.
 
-- **Medium** — Preload modules are coupled to `@/types/ipc` for channel constants, not the dedicated
+- **Medium** — ~~Preload modules are coupled to `@/types/ipc` for channel constants, not the dedicated
   channels module — all 14 files in this folder import `IpcChannels` from `@/types/ipc`
   (example: `apps/desktop/electron/preload/api.ts:2`). This increases blast radius for
-  `ipc.ts` edits and reinforces mega-barrel coupling. Effort: **S**.
+  `ipc.ts` edits and reinforces mega-barrel coupling.~~ ✅ 2026-04-12 (all preload `IpcChannels` imports now use `@/types/ipc-channels`). Effort: **S**.
 
 - **Medium** — Weak public typings (`any`/`unknown`) leak across preload IPC boundaries —
   `apps/desktop/electron/preload/integrations/google-imagegen.ts:16-17,26`,
@@ -76,6 +76,9 @@ contract enforcement and reduced coupling to the `@/types/ipc` mega-barrel.
 ## Next Steps
 1. Add compile-time conformance check between `seroPreloadApi` and declared Sero API contract.
 2. Fix `any`/`unknown` signatures in `google-imagegen`, `debug-lsp`, and `app-domain` bridges.
-3. Migrate preload imports to `@/types/ipc-channels` for `IpcChannels`.
-4. Split `preload/api.ts` before adding new IPC namespaces.
+3. ~~Migrate preload imports to `@/types/ipc-channels` for `IpcChannels`.~~ ✅ 2026-04-12
+4. ~~Split `preload/api.ts` before adding new IPC namespaces.~~ ✅ 2026-04-12
 5. Proceed to `deslopify apps/desktop/electron/ipc` (Wave A step 3).
+
+## Execution log
+- 2026-04-12 — Medium Wave E1 (working tree): split `preload/api.ts` into `preload/api/core.ts` + `preload/api/workbench.ts` and moved preload-wide `IpcChannels` imports onto `@/types/ipc-channels`.

@@ -5,7 +5,7 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { PromptTemplateSummary, PromptTemplateFileData } from '@/types/prompts';
 
 export const promptsBridge = {

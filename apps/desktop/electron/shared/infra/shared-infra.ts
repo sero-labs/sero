@@ -180,6 +180,12 @@ function pickFirstAvailableModel(
   return available[0] ?? null;
 }
 
+export function refreshInfraModelSelection(): Model<Api> | null {
+  if (!_modelRegistry || !_settingsManager) return _model;
+  _model = pickFirstAvailableModel(_modelRegistry, _settingsManager);
+  return _model;
+}
+
 /** Lazy-init shared infrastructure. Called once, then cached. */
 export async function ensureInfra(): Promise<SharedInfra> {
   if (!_authStorage) {
@@ -193,7 +199,7 @@ export async function ensureInfra(): Promise<SharedInfra> {
     if (!_settingsManager.getDefaultThinkingLevel()) {
       _settingsManager.setDefaultThinkingLevel('high');
     }
-    _model = pickFirstAvailableModel(_modelRegistry, _settingsManager);
+    refreshInfraModelSelection();
   }
 
   const infra = {
