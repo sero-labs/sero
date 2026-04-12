@@ -100,13 +100,17 @@ Core-first checklist for reviewing and cleaning up `apps/desktop` without losing
 - [x] `fix-slop` High items for `apps/desktop/electron/features/gateway`
 - [x] `fix-slop` High items for `apps/desktop/electron/features/collaboration` _(no High findings in Wave C; deferred to Medium wave)_
 
-### 8. Medium-priority cleanup
-- [ ] Schedule Medium batches by dependency order, not folder name
-- [ ] Start with core Medium items still affecting multiple consumers
-- [ ] Then do feature-level Medium items
-- [ ] Leave Low items for opportunistic cleanup or dedicated polish passes
+## Wave E — Medium-priority cleanup
+- Identify all the Medium priority items from Wave A, B, C and D and create tasks
+- Schedule Medium batches by dependency order, not folder name
+- Start with core Medium items still affecting multiple consumers
+- Then do feature-level Medium items
+- Leave Low items for opportunistic cleanup or dedicated polish passes
 
-## Wave E — True Periphery Last
+### 8. Medium priority fixes
+- [ ] `fix-slop` Items to be defined here
+
+## Wave F — True Periphery Last
 
 - [ ] Review whether `apps/desktop/src/components/ui` needs deslopify at all
 - [ ] Review styles/theme-only surfaces if still needed
