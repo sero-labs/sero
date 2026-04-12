@@ -27,8 +27,9 @@ function buildCSP(): string {
   const devConnectSrc = isDev ? ['http://localhost:*', 'ws://localhost:*'] : [];
 
   // -- script-src --
-  // Dev needs 'unsafe-inline' for Vite's injected HMR client script and
-  // the inline <script> in index.html (theme flash prevention).
+  // Dev keeps 'unsafe-inline' for Vite's injected dev runtime.
+  // The theme bootstrap now ships as a same-origin external script so
+  // production no longer needs inline script allowances.
   // 'wasm-unsafe-eval' is required for Shiki's Oniguruma WASM engine
   // (syntax highlighting in the editor). This is narrower than 'unsafe-eval'
   // — it only allows WebAssembly compilation, not arbitrary JS eval().
@@ -99,8 +100,9 @@ function buildCSP(): string {
   const frameSrc = [
     "'self'",
     'blob:',
+    'http:',
+    'https:',
     ...extensionSrc,
-    ...(isDev ? ['http:', 'https:'] : []),
   ];
 
   return [

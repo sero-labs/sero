@@ -30,6 +30,10 @@ export interface GogExecResult {
   exitCode: number;
 }
 
+type ExecFileError = NodeJS.ErrnoException & {
+  status?: number | null;
+};
+
 // ── Binary resolution ────────────────────────────────────────
 
 const GOG_SEARCH_PATHS = [
@@ -70,7 +74,7 @@ function runGog(args: string[], email?: string): Promise<GogExecResult> {
       maxBuffer: 10 * 1024 * 1024,
       env: { ...process.env, PATH: buildEnhancedPath(), GOG_KEYRING_PASSWORD: deriveKeyringPassword() },
     }, (error, stdout, stderr) => {
-      const childError = error as NodeJS.ErrnoException | null;
+      const childError = error as ExecFileError | null;
       if (childError?.code === 'ENOENT') {
         resolve({ stdout: '', stderr: 'gog binary not found', exitCode: 127 });
         return;
@@ -78,7 +82,7 @@ function runGog(args: string[], email?: string): Promise<GogExecResult> {
       resolve({
         stdout: stdout ?? '',
         stderr: stderr ?? '',
-        exitCode: typeof childError?.code === 'number' ? childError.code : 1,
+        exitCode: childError ? (typeof childError.status === 'number' ? childError.status : 1) : 0,
       });
     });
     child.on('error', (err) => {

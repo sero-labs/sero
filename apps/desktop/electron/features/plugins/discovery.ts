@@ -1,16 +1,16 @@
 /**
  * Plugin Discovery — search for public Sero plugins on GitHub and npm.
  *
- * GitHub repos are discovered via the "sero-agent-plugin" topic.
- * npm packages are discovered via the "sero-agent-plugin" keyword.
- * Results are merged by matching GitHub repos referenced in npm metadata.
+ * During the tag migration, we search both the legacy "sero-ai-plugin"
+ * metadata and the newer "sero-agent-plugin" metadata, then dedupe the
+ * combined results.
  */
 
 import type { DiscoveredPlugin } from '@sero/common';
 import { listInstalledPlugins } from './manager';
 
-const GITHUB_TOPIC = 'sero-agent-plugin';
-const NPM_KEYWORD = 'sero-agent-plugin';
+const GITHUB_TOPICS = ['sero-agent-plugin', 'sero-ai-plugin'] as const;
+const NPM_KEYWORDS = ['sero-agent-plugin', 'sero-ai-plugin'] as const;
 
 // ── GitHub types ───────────────────────────────────────────
 
@@ -44,10 +44,24 @@ interface NpmSearchResponse {
 
 // ── Search functions ───────────────────────────────────────
 
-async function searchGitHub(query: string): Promise<GitHubRepo[]> {
+function dedupeByKey<T>(items: T[], getKey: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+
+  for (const item of items) {
+    const key = getKey(item).trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+
+  return result;
+}
+
+async function searchGitHubByTopic(topic: string, query: string): Promise<GitHubRepo[]> {
   const q = query
-    ? `topic:${GITHUB_TOPIC} ${query} in:name,description`
-    : `topic:${GITHUB_TOPIC}`;
+    ? `topic:${topic} ${query} in:name,description`
+    : `topic:${topic}`;
   const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=30`;
 
   const res = await fetch(url, {
@@ -58,7 +72,7 @@ async function searchGitHub(query: string): Promise<GitHubRepo[]> {
   });
 
   if (!res.ok) {
-    console.warn(`[plugin-discovery] GitHub search failed: ${res.status} ${res.statusText}`);
+    console.warn(`[plugin-discovery] GitHub search failed for topic ${topic}: ${res.status} ${res.statusText}`);
     return [];
   }
 
@@ -66,10 +80,15 @@ async function searchGitHub(query: string): Promise<GitHubRepo[]> {
   return data.items ?? [];
 }
 
-async function searchNpm(query: string): Promise<NpmPackage[]> {
+async function searchGitHub(query: string): Promise<GitHubRepo[]> {
+  const results = await Promise.all(GITHUB_TOPICS.map((topic) => searchGitHubByTopic(topic, query)));
+  return dedupeByKey(results.flat(), (repo) => repo.full_name);
+}
+
+async function searchNpmByKeyword(keyword: string, query: string): Promise<NpmPackage[]> {
   const text = query
-    ? `keywords:${NPM_KEYWORD} ${query}`
-    : `keywords:${NPM_KEYWORD}`;
+    ? `keywords:${keyword} ${query}`
+    : `keywords:${keyword}`;
   const url = `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(text)}&size=30`;
 
   const res = await fetch(url, {
@@ -77,12 +96,17 @@ async function searchNpm(query: string): Promise<NpmPackage[]> {
   });
 
   if (!res.ok) {
-    console.warn(`[plugin-discovery] npm search failed: ${res.status} ${res.statusText}`);
+    console.warn(`[plugin-discovery] npm search failed for keyword ${keyword}: ${res.status} ${res.statusText}`);
     return [];
   }
 
   const data = (await res.json()) as NpmSearchResponse;
   return data.objects?.map((o) => o.package) ?? [];
+}
+
+async function searchNpm(query: string): Promise<NpmPackage[]> {
+  const results = await Promise.all(NPM_KEYWORDS.map((keyword) => searchNpmByKeyword(keyword, query)));
+  return dedupeByKey(results.flat(), (pkg) => pkg.name);
 }
 
 // ── Merge & deduplicate ────────────────────────────────────
