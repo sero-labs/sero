@@ -354,12 +354,18 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       if (!agent) return s;
 
       const pendingUserQuery = snapshot.pendingUserQuery?.trim() ?? '';
+      const pendingPlaceholderId = `collab-pending-${sessionId}`;
       const lastMessage = agent.messages[agent.messages.length - 1];
       const hasPendingUserMessage =
         lastMessage?.type === 'user' &&
         lastMessage.text.trim() === pendingUserQuery;
+      const hasPendingPlaceholder = agent.messages.some(
+        (message) => message.type === 'user' && message.id === pendingPlaceholderId,
+      );
       const shouldAppendPendingUser =
-        pendingUserQuery.length > 0 && !hasPendingUserMessage;
+        pendingUserQuery.length > 0 &&
+        !hasPendingUserMessage &&
+        !hasPendingPlaceholder;
       const collaborationBusy =
         snapshot.status !== 'idle' &&
         snapshot.status !== 'complete' &&
@@ -382,7 +388,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                   ...agent.messages,
                   {
                     type: 'user',
-                    id: `collab-pending-${sessionId}`,
+                    id: pendingPlaceholderId,
                     text: pendingUserQuery,
                   },
                 ]

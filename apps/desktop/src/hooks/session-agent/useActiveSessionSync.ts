@@ -4,9 +4,14 @@ import { useSessionStore } from '@/stores/sessions';
 
 export function useActiveSessionSync(): void {
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
-  const activeSession = useSessionStore((state) =>
+  const activeSessionPath = useSessionStore((state) =>
     state.activeSessionId
-      ? state.sessions.find((session) => session.id === state.activeSessionId) ?? null
+      ? state.sessions.find((session) => session.id === state.activeSessionId)?.path ?? null
+      : null,
+  );
+  const activeWorkspaceId = useSessionStore((state) =>
+    state.activeSessionId
+      ? state.sessions.find((session) => session.id === state.activeSessionId)?.workspaceId ?? null
       : null,
   );
   const activeAgentReady = useAgentStore((state) =>
@@ -28,7 +33,7 @@ export function useActiveSessionSync(): void {
         return;
       }
 
-      if (!activeSession) return;
+      if (!activeSessionPath || !activeWorkspaceId) return;
 
       try {
         if (activeAgentReady) {
@@ -36,8 +41,8 @@ export function useActiveSessionSync(): void {
         } else {
           await openSession(
             activeSessionId,
-            activeSession.path,
-            activeSession.workspaceId,
+            activeSessionPath,
+            activeWorkspaceId,
           );
         }
 
@@ -56,8 +61,9 @@ export function useActiveSessionSync(): void {
     };
   }, [
     activeAgentReady,
-    activeSession,
     activeSessionId,
+    activeSessionPath,
+    activeWorkspaceId,
     clearFocus,
     focusSession,
     hydrateCollaborationState,

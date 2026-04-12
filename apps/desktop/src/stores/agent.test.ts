@@ -185,6 +185,47 @@ describe('useAgentStore', () => {
     );
   });
 
+  it('does not append duplicate collaboration placeholders after follow-up assistant messages', () => {
+    useAgentStore.setState((state) => ({
+      ...state,
+      agents: {
+        'session-1': {
+          sessionId: 'session-1',
+          sessionPath: '/tmp/session-1.jsonl',
+          workspaceId: 'workspace-1',
+          messages: [
+            {
+              type: 'user',
+              id: 'collab-pending-session-1',
+              text: 'repeat question',
+            },
+            {
+              type: 'assistant',
+              id: 'assistant-1',
+              text: 'Synthesized answer',
+              isStreaming: false,
+            },
+          ],
+          isStreaming: false,
+          error: null,
+          commands: [],
+          modelState: null,
+        },
+      },
+    }));
+
+    const snapshot = createSnapshot({ status: 'complete' });
+    useAgentStore.getState().hydrateCollaborationState('session-1', snapshot);
+
+    const messages = useAgentStore.getState().agents['session-1']?.messages ?? [];
+    expect(
+      messages.filter(
+        (message) =>
+          message.type === 'user' && message.id === 'collab-pending-session-1',
+      ),
+    ).toHaveLength(1);
+  });
+
   it('restores collaboration errors from snapshots and live events', () => {
     useAgentStore.setState((state) => ({
       ...state,

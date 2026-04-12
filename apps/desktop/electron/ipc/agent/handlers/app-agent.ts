@@ -25,6 +25,7 @@ import {
   SessionManager,
   type AgentSession,
 } from '@mariozechner/pi-coding-agent';
+import type { Api, Model } from '@mariozechner/pi-ai';
 import os from 'os';
 import path from 'path';
 
@@ -55,6 +56,22 @@ const appPool = new Map<string, AppSessionEntry>();
 
 function poolKey(appId: string, workspaceId: string): string {
   return `${appId}:${workspaceId}`;
+}
+
+function appSessionMatchesSharedModel(
+  session: AgentSession,
+  model: Model<Api>,
+): boolean {
+  return session.model?.provider === model.provider && session.model?.id === model.id;
+}
+
+export async function syncAppSessionModel(
+  session: AgentSession,
+  sharedModel: Model<Api> | null,
+): Promise<void> {
+  if (!sharedModel) return;
+  if (appSessionMatchesSharedModel(session, sharedModel)) return;
+  await session.setModel(sharedModel);
 }
 
 // ── App package resource resolution ─────────────────────────
@@ -116,10 +133,12 @@ async function getOrCreateAppSession(
   workspaceId: string,
 ): Promise<AgentSession> {
   const key = poolKey(appId, workspaceId);
-  const existing = appPool.get(key);
-  if (existing) return existing.session;
-
   const infra = await ensureInfra();
+  const existing = appPool.get(key);
+  if (existing) {
+    await syncAppSessionModel(existing.session, infra.model);
+    return existing.session;
+  }
 
   const wsPath = workspaceManager.getPath(workspaceId)
     ?? path.join(os.homedir(), '.sero-ui');
