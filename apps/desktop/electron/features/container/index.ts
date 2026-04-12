@@ -266,10 +266,14 @@ export class ContainerManager {
   }
 
   async stop(workspaceId: string): Promise<void> {
+    this.portScanner.stopScanning(workspaceId);
+    this.containerIps.delete(workspaceId);
     return stopContainer(workspaceId, this.containers);
   }
 
   async remove(workspaceId: string): Promise<void> {
+    this.portScanner.stopScanning(workspaceId);
+    this.containerIps.delete(workspaceId);
     return removeContainer(workspaceId, this.containers);
   }
 

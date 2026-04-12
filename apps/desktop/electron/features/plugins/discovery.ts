@@ -1,16 +1,16 @@
 /**
  * Plugin Discovery — search for public Sero plugins on GitHub and npm.
  *
- * GitHub repos are discovered via the "sero-ai-plugin" topic.
- * npm packages are discovered via the "sero-ai-plugin" keyword.
+ * GitHub repos are discovered via the "sero-agent-plugin" topic.
+ * npm packages are discovered via the "sero-agent-plugin" keyword.
  * Results are merged by matching GitHub repos referenced in npm metadata.
  */
 
 import type { DiscoveredPlugin } from '@sero/common';
 import { listInstalledPlugins } from './manager';
 
-const GITHUB_TOPIC = 'sero-ai-plugin';
-const NPM_KEYWORD = 'sero-ai-plugin';
+const GITHUB_TOPIC = 'sero-agent-plugin';
+const NPM_KEYWORD = 'sero-agent-plugin';
 
 // ── GitHub types ───────────────────────────────────────────
 

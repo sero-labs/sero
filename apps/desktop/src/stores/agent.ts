@@ -135,8 +135,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   closeSession: async (sessionId) => {
     try {
       await window.sero.agent.close(sessionId);
-    } catch {
-      // Ignore close errors
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to close session';
+      set((s) => {
+        const current = s.agents[sessionId];
+        if (!current) return {};
+        return { agents: { ...s.agents, [sessionId]: { ...current, error: message, isStreaming: false } } };
+      });
+      return;
     }
     set((s) => {
       const { [sessionId]: _, ...rest } = s.agents;

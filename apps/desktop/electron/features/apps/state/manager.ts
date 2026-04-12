@@ -21,11 +21,15 @@ import { IpcChannels } from '@/types/ipc';
 // ── Types ────────────────────────────────────────────────────
 
 interface WatcherEntry {
-  watcher: FSWatcher;
+  watcher: FSWatcher | null;
   /** Number of renderer subscriptions for this file. */
   refCount: number;
   /** Debounce timer for change events. */
   debounceTimer: ReturnType<typeof setTimeout> | null;
+  /** True while async watch bootstrap is in progress. */
+  initializing: boolean;
+  /** True when all refs were released before bootstrap completed. */
+  cancelled: boolean;
 }
 
 // ── AppStateManager ──────────────────────────────────────────
@@ -129,12 +133,27 @@ class AppStateManager {
     const existing = this.watchers.get(filePath);
     if (existing) {
       existing.refCount++;
+      existing.cancelled = false;
       return;
     }
+
+    this.watchers.set(filePath, {
+      watcher: null,
+      refCount: 1,
+      debounceTimer: null,
+      initializing: true,
+      cancelled: false,
+    });
 
     // Ensure directory exists before watching
     const dir = path.dirname(filePath);
     fs.mkdir(dir, { recursive: true }).then(async () => {
+      const entry = this.watchers.get(filePath);
+      if (!entry || entry.cancelled || entry.refCount <= 0) {
+        this.watchers.delete(filePath);
+        return;
+      }
+
       // Touch file if missing so fs.watch has something to watch.
       // MUST await — startWatcher needs the file to exist on disk.
       try {
@@ -145,10 +164,17 @@ class AppStateManager {
 
       try {
         this.startWatcher(filePath);
-        const entry = this.watchers.get(filePath)!;
-        entry.refCount = 1;
       } catch (err) {
         console.error(`[AppStateManager] Failed to watch ${filePath}:`, err);
+      } finally {
+        const current = this.watchers.get(filePath);
+        if (!current) return;
+        current.initializing = false;
+        if (current.cancelled || current.refCount <= 0) {
+          current.watcher?.close();
+          if (current.debounceTimer) clearTimeout(current.debounceTimer);
+          this.watchers.delete(filePath);
+        }
       }
     });
   }
@@ -162,9 +188,12 @@ class AppStateManager {
 
     entry.refCount--;
     if (entry.refCount <= 0) {
-      entry.watcher.close();
+      entry.cancelled = true;
+      entry.watcher?.close();
       if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
-      this.watchers.delete(filePath);
+      if (!entry.initializing) {
+        this.watchers.delete(filePath);
+      }
     }
   }
 
@@ -194,7 +223,13 @@ class AppStateManager {
 
     const refCount = existing?.refCount ?? 0;
     const debounceTimer = existing?.debounceTimer ?? null;
-    this.watchers.set(filePath, { watcher, refCount, debounceTimer });
+    this.watchers.set(filePath, {
+      watcher,
+      refCount,
+      debounceTimer,
+      initializing: false,
+      cancelled: existing?.cancelled ?? false,
+    });
   }
 
   /**
@@ -257,7 +292,7 @@ class AppStateManager {
 
   dispose(): void {
     for (const [, entry] of this.watchers) {
-      entry.watcher.close();
+      entry.watcher?.close();
       if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
     }
     this.watchers.clear();

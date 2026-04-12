@@ -13,17 +13,26 @@ type MixedEditCheckpointPolicy = 'merge-working-copy' | 'require-manual-first';
 // create a single turn checkpoint that includes the full resulting workspace state.
 const MIXED_EDIT_CHECKPOINT_POLICY: MixedEditCheckpointPolicy = 'merge-working-copy';
 
+type TextContentBlock = { type: 'text'; text: string };
+
+function isTextContentBlock(block: unknown): block is TextContentBlock {
+  if (!block || typeof block !== 'object') return false;
+  const candidate = block as { type?: unknown; text?: unknown };
+  return candidate.type === 'text' && typeof candidate.text === 'string';
+}
+
 function extractTextContent(content: unknown): string {
   if (!Array.isArray(content)) return '';
   return content
-    .filter((block: any) => block?.type === 'text' && typeof block?.text === 'string')
-    .map((block: any) => block.text)
+    .filter(isTextContentBlock)
+    .map((block) => block.text)
     .join('\n')
     .trim();
 }
 
 function summarizeAssistantMessage(message: unknown): string {
-  const text = extractTextContent((message as any)?.content);
+  const candidate = message as { content?: unknown };
+  const text = extractTextContent(candidate.content);
   if (!text) return 'checkpoint: turn';
   const first = text.split(/\r?\n/).find((line) => line.trim().length > 0) ?? 'checkpoint: turn';
   return `checkpoint: ${first.trim().slice(0, 220)}`;

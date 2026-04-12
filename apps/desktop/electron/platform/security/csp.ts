@@ -34,7 +34,7 @@ function buildCSP(): string {
   // — it only allows WebAssembly compilation, not arbitrary JS eval().
   const scriptSrc = [
     "'self'",
-    "'unsafe-inline'",
+    ...(isDev ? ["'unsafe-inline'"] : []),
     "'wasm-unsafe-eval'",
     'blob:',
     'https://sdk.scdn.co',          // Spotify Web Playback SDK
@@ -96,7 +96,12 @@ function buildCSP(): string {
   // Dev server previews load arbitrary http(s) URLs inside a sandboxed iframe
   // in the editor, so the renderer must explicitly allow framed http(s)
   // content in addition to blob:-backed HTML previews.
-  const frameSrc = ["'self'", 'blob:', 'http:', 'https:'];
+  const frameSrc = [
+    "'self'",
+    'blob:',
+    ...extensionSrc,
+    ...(isDev ? ['http:', 'https:'] : []),
+  ];
 
   return [
     `default-src 'self'`,

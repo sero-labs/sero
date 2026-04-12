@@ -146,7 +146,6 @@ function validatePluginPackage(pkg: PkgJson | null): ValidatedPluginPackage {
 
 function assertPreparedUiExists(packageDir: string, app: ValidatedPluginApp): void {
   if (!app.ui) return;
-
   const distUi = path.join(packageDir, 'dist', 'ui', 'remoteEntry.js');
   if (!existsSync(distUi)) {
     throw new Error('Invalid plugin: declares UI but dist/ui/remoteEntry.js is missing.');
@@ -155,9 +154,17 @@ function assertPreparedUiExists(packageDir: string, app: ValidatedPluginApp): vo
 
 function readSettings(): Record<string, unknown> {
   try {
-    return JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')) as Record<string, unknown>;
-  } catch {
-    return {};
+    const parsed = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('settings.json must contain a JSON object');
+    }
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError?.code === 'ENOENT') {
+      return {};
+    }
+    throw new Error(`Failed to read settings.json. Fix ~/.sero-ui/agent/settings.json and retry plugin operation. (${error instanceof Error ? error.message : 'unknown parse error'})`);
   }
 }
 
@@ -264,7 +271,6 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
   let staged: StagedPluginInstall | null = null;
   let reserved: ReservedInstallPath | null = null;
   let settingsAdded = false;
-
   try {
     let sourceKind: 'npm' | 'git' | 'local' = 'local';
 
