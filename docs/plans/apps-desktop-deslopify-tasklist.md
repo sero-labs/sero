@@ -79,10 +79,10 @@ Core-first checklist for reviewing and cleaning up `apps/desktop` without losing
 - [x] `deslopify apps/desktop/electron/features/onboarding`
 - [x] `deslopify apps/desktop/electron/features/profile`
 - [x] `deslopify apps/desktop/electron/features/auth`
-- [ ] `deslopify apps/desktop/electron/features/vcs`
-- [ ] `deslopify apps/desktop/electron/features/subagent`
-- [ ] `deslopify apps/desktop/electron/features/gateway`
-- [ ] `deslopify apps/desktop/electron/features/collaboration`
+- [x] `deslopify apps/desktop/electron/features/vcs`
+- [x] `deslopify apps/desktop/electron/features/subagent`
+- [x] `deslopify apps/desktop/electron/features/gateway`
+- [x] `deslopify apps/desktop/electron/features/collaboration`
 
 ## Wave D — Fix UI/Feature Findings
 
@@ -149,3 +149,4 @@ That keeps us from fixing visible symptoms in the UI before fixing the code that
 - 2026-04-12: Wave C step 4 complete for `apps/desktop/src/components/apps/explorer`, `apps/desktop/electron/features/editor`, and `apps/desktop/src/lsp`. Facts + plans added under `docs/deslopify/apps/desktop/**`; index refreshed. Headline findings: explorer runtime ownership is pooling in `ExplorerWorkspace.tsx`/`EditorPanel.tsx`, `LspManager.startServer()` is not concurrency-safe during in-flight startup, and `src/lsp/use-lsp.ts` still uses an inline `import('monaco-editor')` type expression plus duplicated routing metadata.
 - 2026-04-12: Wave C step 5 complete for `apps/desktop/src/components/layout`. Facts + plan added at `docs/deslopify/apps/desktop/src/components/layout/{facts.md,plan.md}`; index refreshed. Headline findings: `components/layout` has become a shell catch-all with 88 files / 15.9k LOC, remote-origin publishing is duplicated between workspace and titlebar flows, and several theme/collaboration helpers still perform render-phase side effects.
 - 2026-04-12: Wave C step 6 complete for `apps/desktop/src/components/profiles`, `apps/desktop/electron/features/onboarding`, `apps/desktop/electron/features/profile`, and `apps/desktop/electron/features/auth`. Facts + plans added under `docs/deslopify/apps/desktop/**`; index refreshed. Headline findings: `OnboardingWizard.tsx` has become a near-cap renderer orchestration hub, onboarding preflight still mutates settings on a state-read path and imports IPC internals, malformed `profiles.json` currently degrades to an empty registry, and GitHub auth still falls back to base64-only token persistence when secure storage is unavailable.
+- 2026-04-12: Wave C step 6 continued for `apps/desktop/electron/features/vcs`, `apps/desktop/electron/features/subagent`, `apps/desktop/electron/features/gateway`, and `apps/desktop/electron/features/collaboration`. Facts + plans added under `docs/deslopify/apps/desktop/electron/features/**`; index refreshed. Headline findings: VCS still relies on `git-runner.ts` type escapes and renderer-owned shared contracts, subagent bulk aborts do not currently update tracker state, gateway auth remains flat-scoped across all workspaces and Discord `/sero abort` is a no-op, and collaboration synthesis prompts are still effectively unbounded while specialist failures are masked as placeholder text.

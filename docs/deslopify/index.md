@@ -30,15 +30,23 @@ entry links to a `facts.md` and `plan.md` pair.
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
     — *Wave C secondary-island review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/collaboration/`](./apps/desktop/electron/features/collaboration/plan.md)
+    — *Wave C secondary-island review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/container/`](./apps/desktop/electron/features/container/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/editor/`](./apps/desktop/electron/features/editor/plan.md)
     — *Wave C primary-consumer review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
+    — *Wave C secondary-island review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
     — *Wave C secondary-island review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/profile/`](./apps/desktop/electron/features/profile/plan.md)
+    — *Wave C secondary-island review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/subagent/`](./apps/desktop/electron/features/subagent/plan.md)
+    — *Wave C secondary-island review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/vcs/`](./apps/desktop/electron/features/vcs/plan.md)
     — *Wave C secondary-island review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/workspace/`](./apps/desktop/electron/features/workspace/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*

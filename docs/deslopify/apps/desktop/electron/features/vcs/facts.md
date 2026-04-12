@@ -1,0 +1,32 @@
+# Facts — apps/desktop/electron/features/vcs
+
+_Last reviewed: 2026-04-12_
+
+## What this code does
+This feature is the Electron-side Git/VCS service layer for Sero. It initializes repositories for workspaces, runs git/gh commands on the host or in the workspace container, creates and restores checkpoints, manages branches/remotes/push flows, and builds pull-request previews/context used by higher-level auth, publish, and kanban flows.
+
+## Shape & metrics
+- Total files: 9
+- Largest file: `apps/desktop/electron/features/vcs/core/vcs-ops.ts` (442 LOC)
+- Files over 500 LOC: none
+- Near-cap files (≥400 LOC):
+  - `apps/desktop/electron/features/vcs/core/vcs-ops.ts` (442)
+  - `apps/desktop/electron/features/vcs/core/pr-ops.ts` (438)
+- External dependencies of note: Node `child_process`, workspace/container managers, GitHub auth manager, `git`, `gh`
+- Upstream callers: `apps/desktop/electron/shared/infra/shared-infra.ts`, `apps/desktop/electron/features/auth/github/repo-ops.ts`, `apps/desktop/electron/features/kanban/worktree/worktree-manager.ts`, VCS/auth tests
+- Downstream dependencies: workspace checkpointing, publish/origin flows, PR draft context generation, branch naming for kanban worktrees
+
+## Architectural notes
+- This module sits on an AD-018 runtime boundary: every git/gh operation can execute on the host or through the workspace container, so success-path behavior matters more than stylistic cleanup.
+- Shared VCS contracts currently flow from the renderer alias path (`@/types/vcs`) back into Electron via `support/types.ts`, which is the wrong ownership direction for a cross-process contract.
+- `GitRunner` is the only place that decides whether GitHub auth should use SSH-native transport or injected HTTPS auth env vars on the host, so stale heuristics here leak into every push/PR flow.
+
+## Runtime-sensitive surfaces
+- Host/container transport selection and GitHub auth env injection must preserve current push/pull/gh behavior across both runtimes.
+- Checkpoint restore semantics (`checkout`, `clean`, `add`, `commit`) are behavior-sensitive; cleanup should not silently change what files get restored or committed.
+- PR preview/draft flows depend on branch naming, merge-base selection, and `gh` availability heuristics that are consumed by renderer publish UI.
+
+## Surprising discoveries
+- The feature advertises an `fs` checkpoint source but immediately rewrites it to `manual` when creating a checkpoint.
+- The main-process VCS layer still imports its canonical shared types from a renderer path alias instead of a neutral shared package.
+- The host SSH-availability probe is cached for the entire process lifetime, so adding/fixing SSH after app launch will not change git transport behavior until restart.
