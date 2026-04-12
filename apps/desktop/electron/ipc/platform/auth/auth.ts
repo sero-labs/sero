@@ -29,7 +29,10 @@ import type {
   AuthProvidersResponse,
   OAuthEvent,
 } from '@/types/ipc';
-import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import {
+  ensureInfra,
+  refreshInfraModelSelection,
+} from '@electron/shared/infra/shared-infra';
 import { getApiKeyProviderCatalog, getProviderEnvApiKey } from '@electron/shared/auth/provider-catalog';
 import { AUTH_JSON_PATH } from '@electron/platform/env';
 import { cleanupUnavailableModelSelections } from '@electron/shared/settings/cleanup-unavailable-model-selections';
@@ -114,6 +117,7 @@ async function refreshModelAvailabilityAfterAuthChange(
   infra: Awaited<ReturnType<typeof ensureInfra>>,
 ): Promise<void> {
   infra.modelRegistry.refresh();
+  refreshInfraModelSelection();
 }
 
 // ── Registration ─────────────────────────────────────────────

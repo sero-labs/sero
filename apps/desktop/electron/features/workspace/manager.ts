@@ -165,6 +165,17 @@ export class WorkspaceManager {
     await fs.writeFile(configPath, json, 'utf8');
   }
 
+  private async cleanupEditorState(id: string): Promise<void> {
+    const editorStateFile = path.join(EDITOR_STATE_DIR, `${id}.json`);
+    try {
+      await fs.rm(editorStateFile, { force: true });
+    } catch (error: unknown) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') return;
+      console.warn(`[workspace] Failed to remove editor state for ${id}:`, error);
+    }
+  }
+
   // ── Public API ────────────────────────────────────────────
 
   /** List all registered workspaces with merged config data. */
@@ -308,9 +319,7 @@ export class WorkspaceManager {
     this.configCache.delete(id);
     await this.saveRegistry();
 
-    // Clean up editor state file
-    const editorStateFile = path.join(EDITOR_STATE_DIR, `${id}.json`);
-    await fs.rm(editorStateFile, { force: true }).catch(() => {});
+    await this.cleanupEditorState(id);
   }
 
   // ── Open / Close ────────────────────────────────────────────
@@ -334,9 +343,7 @@ export class WorkspaceManager {
     this.configCache.delete(id);
     await this.saveRegistry();
 
-    // Clean up editor state file
-    const editorStateFile = path.join(EDITOR_STATE_DIR, `${id}.json`);
-    await fs.rm(editorStateFile, { force: true }).catch(() => {});
+    await this.cleanupEditorState(id);
   }
 
   /** Set expanded/collapsed state for a workspace tree node. */
