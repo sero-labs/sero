@@ -2,6 +2,7 @@ import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannels } from '@/types/ipc';
 import { userFeedbackBridge } from './platform/user-feedback';
 import {
+  clipboardBridge,
   feedbackBridge,
   gatewayBridge,
   layoutBridge,
@@ -431,6 +432,7 @@ export const seroPreloadApi = {
   net: netBridge,
   safeStorage: safeStorageBridge,
   gateway: gatewayBridge,
+  clipboard: clipboardBridge,
   feedback: feedbackBridge,
 
   collaboration: collaborationBridge,

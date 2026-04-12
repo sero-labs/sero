@@ -1,4 +1,4 @@
-import { ipcRenderer } from 'electron';
+import { clipboard, ipcRenderer } from 'electron';
 
 import { IpcChannels } from '@/types/ipc';
 import type {
@@ -58,6 +58,17 @@ export const safeStorageBridge = {
 export const gatewayBridge = {
   getQrLoginData: (expiryDays?: number): Promise<QrLoginData> =>
     ipcRenderer.invoke(IpcChannels.gateway.getQrLoginData, expiryDays),
+};
+
+export const clipboardBridge = {
+  writeText: async (text: string): Promise<boolean> => {
+    try {
+      clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };
 
 export const feedbackBridge = {

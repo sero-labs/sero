@@ -307,6 +307,8 @@ interface SeroSafeStorageAPI {
   available(): Promise<boolean>;
 }
 
+interface SeroClipboardAPI { writeText(text: string): Promise<boolean>; }
+
 interface SeroFeedbackAPI {
   /** Load all feedback entries from disk. */
   load(): Promise<ResponseFeedbackState>;
@@ -465,6 +467,7 @@ export interface SeroAPI {
   net: SeroNetAPI;
   safeStorage: SeroSafeStorageAPI;
   gateway: SeroGatewayAPI;
+  clipboard: SeroClipboardAPI;
   feedback: SeroFeedbackAPI;
   userFeedback: SeroUserFeedbackAPI;
   editor: SeroEditorAPI;

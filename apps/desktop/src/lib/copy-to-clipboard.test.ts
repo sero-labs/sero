@@ -5,10 +5,20 @@ import { copyTextToClipboard } from './copy-to-clipboard';
 
 describe('copyTextToClipboard', () => {
   afterEach(() => {
+    window.sero = undefined as unknown as typeof window.sero;
     vi.restoreAllMocks();
   });
 
-  it('uses navigator.clipboard when available', async () => {
+  it('uses the Electron clipboard bridge when available', async () => {
+    window.sero = {
+      clipboard: { writeText: vi.fn().mockResolvedValue(true) },
+    } as unknown as typeof window.sero;
+
+    await expect(copyTextToClipboard('hello')).resolves.toBe(true);
+    expect(window.sero.clipboard.writeText).toHaveBeenCalledWith('hello');
+  });
+
+  it('uses navigator.clipboard when the Electron bridge is unavailable', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -20,6 +30,7 @@ describe('copyTextToClipboard', () => {
   });
 
   it('falls back to execCommand when clipboard.writeText fails', async () => {
+    window.sero = undefined as unknown as typeof window.sero;
     const writeText = vi.fn().mockRejectedValue(new Error('denied'));
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,

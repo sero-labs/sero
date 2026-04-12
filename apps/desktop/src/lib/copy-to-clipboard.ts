@@ -1,4 +1,9 @@
 export async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (typeof window !== 'undefined' && window.sero?.clipboard?.writeText) {
+    const copied = await window.sero.clipboard.writeText(text);
+    if (copied) return true;
+  }
+
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);

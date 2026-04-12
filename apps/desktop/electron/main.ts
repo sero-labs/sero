@@ -184,8 +184,8 @@ function createWindow() {
 
   // ── Security: deny unnecessary permissions ──────────────────
   // Block permission requests for capabilities Sero doesn't need.
-  // Only media (for Spotify) is allowed.
-  const allowedPermissions = new Set(['media']);
+  // Allow media (Spotify) and clipboard-sanitized-write for in-app copy actions.
+  const allowedPermissions = new Set(['media', 'clipboard-sanitized-write']);
   mainWindow.webContents.session.setPermissionRequestHandler(
     (_webContents, permission, callback) => {
       if (allowedPermissions.has(permission)) {
