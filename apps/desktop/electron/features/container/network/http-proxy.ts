@@ -14,6 +14,26 @@ import * as http from 'http';
 import * as net from 'net';
 
 const DEFAULT_PORT = 19800;
+const GATEWAY_IP = '192.168.64.1';
+const FALLBACK_BIND_ADDRESS = '0.0.0.0';
+
+function normalizeClientAddress(address: string | undefined): string {
+  if (!address) return '';
+  return address.startsWith('::ffff:') ? address.slice(7) : address;
+}
+
+function isAllowedProxyClient(address: string | undefined): boolean {
+  const normalized = normalizeClientAddress(address);
+  if (!normalized) return false;
+  if (normalized === '127.0.0.1' || normalized === '::1') return true;
+  return /^192\.168\.64\.\d{1,3}$/.test(normalized);
+}
+
+function getSocketRemoteAddress(socket: NodeJS.ReadWriteStream): string | undefined {
+  return 'remoteAddress' in socket && typeof socket.remoteAddress === 'string'
+    ? socket.remoteAddress
+    : undefined;
+}
 
 function isBlockedProxyTarget(host: string): boolean {
   const normalized = host.trim().toLowerCase();
@@ -51,9 +71,9 @@ export class ContainerHttpProxy {
   private server: http.Server | null = null;
   private port: number;
   /** The gateway IP containers use to reach the host. */
-  private gatewayIp = '192.168.64.1';
-  /** Bind only to the container gateway interface to avoid LAN-wide exposure. */
-  private bindAddress = '192.168.64.1';
+  private gatewayIp = GATEWAY_IP;
+  /** Prefer the gateway IP, but fall back to 0.0.0.0 if macOS does not expose it as a bindable interface. */
+  private bindAddress = GATEWAY_IP;
 
   constructor(port = DEFAULT_PORT) {
     this.port = port;
@@ -70,8 +90,22 @@ export class ContainerHttpProxy {
         res.end('Use CONNECT for HTTPS');
       });
 
+      const listen = () => {
+        server.listen(this.port, this.bindAddress, () => {
+          console.log(`[http-proxy] Container proxy running on ${this.bindAddress}:${this.port}`);
+          this.server = server;
+          resolve(this.getProxyUrl());
+        });
+      };
+
       // Handle CONNECT method (HTTPS tunneling)
       server.on('connect', (req, clientSocket, head) => {
+        if (!isAllowedProxyClient(getSocketRemoteAddress(clientSocket))) {
+          clientSocket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+          clientSocket.destroy();
+          return;
+        }
+
         const [host, portStr] = (req.url ?? '').split(':');
         if (!host || isBlockedProxyTarget(host)) {
           clientSocket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
@@ -97,6 +131,12 @@ export class ContainerHttpProxy {
 
       // Also handle plain HTTP GET/POST (for npm registry HTTP fallback)
       server.on('request', (req, res) => {
+        if (!isAllowedProxyClient(req.socket.remoteAddress)) {
+          res.writeHead(403);
+          res.end('Forbidden client');
+          return;
+        }
+
         if (!req.url || !req.url.startsWith('http://')) {
           res.writeHead(400);
           res.end('Bad request');
@@ -141,17 +181,23 @@ export class ContainerHttpProxy {
         if (err.code === 'EADDRINUSE') {
           console.log(`[http-proxy] Port ${this.port} in use on ${this.bindAddress}, trying ${this.port + 1}`);
           this.port += 1;
-          server.listen(this.port, this.bindAddress);
-        } else {
-          reject(err);
+          listen();
+          return;
         }
+
+        if (err.code === 'EADDRNOTAVAIL' && this.bindAddress !== FALLBACK_BIND_ADDRESS) {
+          console.warn(
+            `[http-proxy] ${this.bindAddress} is not bindable on this host, falling back to ${FALLBACK_BIND_ADDRESS}`,
+          );
+          this.bindAddress = FALLBACK_BIND_ADDRESS;
+          listen();
+          return;
+        }
+
+        reject(err);
       });
 
-      server.listen(this.port, this.bindAddress, () => {
-        console.log(`[http-proxy] Container proxy running on ${this.bindAddress}:${this.port}`);
-        this.server = server;
-        resolve(this.getProxyUrl());
-      });
+      listen();
     });
   }
 

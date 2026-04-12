@@ -290,10 +290,10 @@ export class GitHubAuthManager {
   }
 
   private loadCachedToken(): void {
-    try {
-      const tokenFile = getExistingTokenFile();
-      if (!tokenFile) return;
+    const tokenFile = getExistingTokenFile();
+    if (!tokenFile) return;
 
+    try {
       const raw = readFileSync(tokenFile, 'utf8');
       const stored = JSON.parse(raw) as StoredToken;
 
@@ -304,9 +304,14 @@ export class GitHubAuthManager {
       this.cachedToken = token;
       this.cachedUsername = stored.username;
     } catch (err) {
-      console.warn('[github-auth] Failed to load cached token:', err);
+      console.warn('[github-auth] Failed to load cached token, clearing cached auth file:', err);
       this.cachedToken = null;
       this.cachedUsername = null;
+      try {
+        unlinkSync(tokenFile);
+      } catch (unlinkErr) {
+        console.warn('[github-auth] Failed to remove invalid cached token file:', unlinkErr);
+      }
     }
   }
 }

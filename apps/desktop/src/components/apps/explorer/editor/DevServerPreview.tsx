@@ -12,8 +12,8 @@
  * `allow-forms` / `allow-popups` for full app functionality.
  */
 
-import { useCallback, useRef, useState } from 'react';
-import { Globe, RefreshCw, ExternalLink } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Globe, RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
 
 /** Prefix used to identify dev server preview tabs in the editor. */
 const DEV_SERVER_PREFIX = 'devserver://';
@@ -30,6 +30,28 @@ function getDevServerUrl(tabPath: string): string {
 
 interface Props {
   tabPath: string;
+}
+
+function isPrivateIpv4(hostname: string): boolean {
+  if (hostname.startsWith('10.') || hostname.startsWith('192.168.') || hostname.startsWith('169.254.')) {
+    return true;
+  }
+  return /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+}
+
+function canEmbedDevServerUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
+    if (hostname.endsWith('.local')) return true;
+    if (/^192\.168\.64\.\d{1,3}$/.test(hostname)) return true;
+    return isPrivateIpv4(hostname);
+  } catch {
+    return false;
+  }
 }
 
 export function DevServerPreview({ tabPath }: Props) {
@@ -66,14 +88,16 @@ export function DevServerPreview({ tabPath }: Props) {
     window.open(currentUrl, '_blank');
   }, [currentUrl]);
 
-  const displayHost = (() => {
+  const displayHost = useMemo(() => {
     try {
       const u = new URL(currentUrl);
       return `${u.hostname}:${u.port || (u.protocol === 'https:' ? '443' : '80')}`;
     } catch {
       return currentUrl;
     }
-  })();
+  }, [currentUrl]);
+
+  const canEmbed = useMemo(() => canEmbedDevServerUrl(currentUrl), [currentUrl]);
 
   return (
     <div className="flex h-full flex-col bg-[var(--bg-base)]">
@@ -108,16 +132,36 @@ export function DevServerPreview({ tabPath }: Props) {
         </span>
       </div>
 
-      {/* Sandboxed iframe — allow-scripts + allow-same-origin for HMR,
-          allow-forms + allow-popups for app functionality. */}
-      <iframe
-        ref={iframeRef}
-        src={currentUrl}
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-        referrerPolicy="no-referrer"
-        title={`Dev Server: ${displayHost}`}
-        className="flex-1 w-full border-0"
-      />
+      {canEmbed ? (
+        /* Sandboxed iframe — allow-scripts + allow-same-origin for HMR,
+            allow-forms + allow-popups for app functionality. */
+        <iframe
+          ref={iframeRef}
+          src={currentUrl}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+          referrerPolicy="no-referrer"
+          title={`Dev Server: ${displayHost}`}
+          className="flex-1 w-full border-0"
+        />
+      ) : (
+        <div className="flex flex-1 items-center justify-center p-6">
+          <div className="max-w-lg rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 text-center">
+            <AlertTriangle className="mx-auto mb-3 size-6 text-amber-500" />
+            <h3 className="mb-2 text-sm font-medium text-[var(--text-primary)]">Open this URL in your browser</h3>
+            <p className="mb-4 text-sm text-[var(--text-muted)]">
+              The preview pane only embeds local dev servers such as localhost, .local hosts, and private/container IPs.
+              External URLs like Tailscale links can trigger frame-navigation security errors inside Electron.
+            </p>
+            <button
+              onClick={handleOpenExternal}
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+            >
+              <ExternalLink className="size-4" />
+              Open {displayHost}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
