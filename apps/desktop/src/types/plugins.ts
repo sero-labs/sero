@@ -1,4 +1,4 @@
-import type { SeroAppManifest } from './ipc';
+import type { SeroAppManifest } from './sero-apps';
 
 export type { InstalledPlugin, PluginCategory, PluginMeta, DiscoveredPlugin } from '@sero/common';
 

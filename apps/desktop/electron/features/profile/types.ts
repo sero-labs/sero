@@ -33,22 +33,7 @@ export interface ProfileRegistry {
   profiles: ProfileEntry[];
 }
 
-/**
- * Profile info surfaced to the renderer via IPC.
- *
- * ⚠️  KEEP IN SYNC with the renderer-side duplicate in src/types/ipc.ts.
- *     Both files define the same shape — if you change one, change the other.
- */
-export interface ProfileInfo {
-  id: string;
-  name: string;
-  path: string;
-  createdAt: string;
-  /** True if this is the currently active profile. */
-  isActive: boolean;
-  /** True once onboarding has completed for this profile. */
-  onboarded?: boolean;
-}
+export type { ProfileInfo } from '@/types/profile';
 
 /** Result of a profile switch operation. */
 export interface ProfileSwitchResult {

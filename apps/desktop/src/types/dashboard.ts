@@ -8,26 +8,9 @@
 
 import type { ComponentType } from 'react';
 import type { LayoutItem } from 'react-grid-layout';
+import type { WidgetManifest } from './widget-manifest';
 
-// ── Widget Manifest (declared in package.json sero.app.widgets) ──
-
-/** Widget definition from a package's sero.app manifest. */
-export interface WidgetManifest {
-  /** Unique widget identifier within the app (e.g. "board-summary"). */
-  id: string;
-  /** Display name shown in the widget header and picker. */
-  name: string;
-  /** Exported component name from the module federation remote. */
-  component: string;
-  /** Default grid size (react-grid-layout units). */
-  defaultSize: { w: number; h: number };
-  /** Minimum grid size. */
-  minSize?: { w: number; h: number };
-  /** Maximum grid size. */
-  maxSize?: { w: number; h: number };
-  /** Optional short description for the widget picker. */
-  description?: string;
-}
+export type { WidgetManifest } from './widget-manifest';
 
 export type DashboardWidgetSource = 'manifest' | 'runtime';
 
