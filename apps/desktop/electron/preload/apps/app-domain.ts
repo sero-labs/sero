@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type {
   SeroAppManifest,
   AuthProvidersResponse,

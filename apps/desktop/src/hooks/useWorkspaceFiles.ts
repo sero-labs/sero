@@ -29,10 +29,51 @@ const EXCLUDED_DIRS = [
 
 /** Max files to return (safety cap). */
 const MAX_FILES = 5000;
+const CACHE_TTL_MS = 30_000; // 30 seconds
+const MAX_CACHE_ENTRIES = 10;
+
+interface WorkspaceFileCacheEntry {
+  files: string[];
+  ts: number;
+  lastAccessedAt: number;
+}
 
 /** Simple in-memory cache keyed by workspaceId. */
-const cache = new Map<string, { files: string[]; ts: number }>();
-const CACHE_TTL_MS = 30_000; // 30 seconds
+const cache = new Map<string, WorkspaceFileCacheEntry>();
+
+function getCachedFiles(workspaceId: string): string[] | null {
+  const cached = cache.get(workspaceId);
+  if (!cached) return null;
+  if (Date.now() - cached.ts >= CACHE_TTL_MS) {
+    cache.delete(workspaceId);
+    return null;
+  }
+
+  cached.lastAccessedAt = Date.now();
+  return cached.files;
+}
+
+function evictOldestCacheEntries(): void {
+  while (cache.size > MAX_CACHE_ENTRIES) {
+    const oldestEntry = [...cache.entries()].reduce((oldest, current) =>
+      current[1].lastAccessedAt < oldest[1].lastAccessedAt ? current : oldest,
+    );
+    cache.delete(oldestEntry[0]);
+  }
+}
+
+function setCachedFiles(workspaceId: string, files: string[]): void {
+  cache.set(workspaceId, {
+    files,
+    ts: Date.now(),
+    lastAccessedAt: Date.now(),
+  });
+  evictOldestCacheEntries();
+}
+
+function clearCachedFiles(workspaceId: string): void {
+  cache.delete(workspaceId);
+}
 
 export function useWorkspaceFiles(workspaceId: string | null) {
   const [files, setFiles] = useState<string[]>([]);
@@ -42,44 +83,48 @@ export function useWorkspaceFiles(workspaceId: string | null) {
   const loadFiles = useCallback(async () => {
     if (!workspaceId) {
       setFiles([]);
+      setIsLoading(false);
       return;
     }
 
-    // Check cache
-    const cached = cache.get(workspaceId);
-    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-      setFiles(cached.files);
+    const cachedFiles = getCachedFiles(workspaceId);
+    if (cachedFiles) {
+      setFiles(cachedFiles);
+      setIsLoading(false);
       return;
     }
 
     const gen = ++abortRef.current;
     setIsLoading(true);
     try {
-      const pruneArgs = EXCLUDED_DIRS.map(
-        (d) => `-name '${d}' -prune`
-      ).join(' -o ');
+      const pruneArgs = EXCLUDED_DIRS.map((dir) => `-name '${dir}' -prune`).join(' -o ');
+      const command = `find . \\( ${pruneArgs} \\) -o -type f -print | head -${MAX_FILES} | sort`;
+      const { stdout } = await window.sero.editor.exec(workspaceId, command);
 
-      const cmd = `find . \\( ${pruneArgs} \\) -o -type f -print | head -${MAX_FILES} | sort`;
-      const { stdout } = await window.sero.editor.exec(workspaceId, cmd);
-
-      if (gen !== abortRef.current) return; // stale
+      if (gen !== abortRef.current) return;
 
       const paths = stdout
         .split('\n')
         .filter(Boolean)
-        .map((p) => (p.startsWith('./') ? p.slice(2) : p));
+        .map((path) => (path.startsWith('./') ? path.slice(2) : path));
 
-      cache.set(workspaceId, { files: paths, ts: Date.now() });
+      setCachedFiles(workspaceId, paths);
       setFiles(paths);
     } catch (err) {
       console.warn('[useWorkspaceFiles] Failed to load files:', err);
-      if (gen === abortRef.current) setFiles([]);
+      clearCachedFiles(workspaceId);
+      if (gen === abortRef.current) {
+        setFiles([]);
+      }
     }
-    if (gen === abortRef.current) setIsLoading(false);
+
+    if (gen === abortRef.current) {
+      setIsLoading(false);
+    }
   }, [workspaceId]);
 
   useEffect(() => {
-    loadFiles();
+    void loadFiles();
   }, [loadFiles]);
 
   return { files, isLoading, refresh: loadFiles };

@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 import type {
-  ChatMessage,
-  ChatAttachment,
   AgentStreamEvent,
   SeroSlashCommandInfo,
   SessionModelState,
@@ -24,6 +22,8 @@ import {
 } from '@/stores/agent-collaboration';
 import type { AgentState } from '@/stores/agent-types';
 import {
+  appendOptimisticUserMessage,
+  clearAgentSessionBuffers,
   patchAssistant,
   drainDeltaBuffer,
   handleAgentStreamEvent,
@@ -114,6 +114,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         }));
       } catch (err) {
         console.error('[agent] openSession failed:', err);
+        clearAgentSessionBuffers(sessionId);
         set((s) => {
           const { [sessionId]: _, ...rest } = s.agents;
           return {
@@ -144,6 +145,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       });
       return;
     }
+    clearAgentSessionBuffers(sessionId);
     set((s) => {
       const { [sessionId]: _, ...rest } = s.agents;
       return {
@@ -161,23 +163,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // Optimistically add the user message so it appears immediately.
     // The main process also sends a message_start event for user messages,
     // but we skip those in the event handler to avoid duplicates.
-    const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const userMsg: ChatMessage = {
-      type: 'user',
-      id: userMessageId,
-      text,
+    const userMessageId = appendOptimisticUserMessage(set, sessionId, text, {
       attachments,
-    };
-    set((s) => ({
-      agents: {
-        ...s.agents,
-        [sessionId]: {
-          ...s.agents[sessionId],
-          error: null,
-          messages: [...s.agents[sessionId].messages, userMsg],
-        },
-      },
-    }));
+    });
 
     try {
       await window.sero.agent.prompt(sessionId, text, attachments, userMessageId);
@@ -201,19 +189,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     const agent = get().agents[sessionId];
     if (!agent) return;
 
-    // Optimistically add the user message (same as sendPrompt).
-    const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
-    set((s) => ({
-      agents: {
-        ...s.agents,
-        [sessionId]: {
-          ...s.agents[sessionId],
-          error: null,
-          messages: [...s.agents[sessionId].messages, userMsg],
-        },
-      },
-    }));
+    const userMessageId = appendOptimisticUserMessage(set, sessionId, text);
 
     try {
       await window.sero.agent.steer(sessionId, text, userMessageId);
@@ -341,19 +317,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     const strategy = collabState?.strategy ?? 'standard';
     const debateConfig = collabState?.debateConfig;
 
-    const userMessageId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
+    appendOptimisticUserMessage(set, sessionId, text, { isStreaming: true });
     set((s) => ({
       collaborations: startCollaborationForSession(s.collaborations, sessionId),
-      agents: {
-        ...s.agents,
-        [sessionId]: {
-          ...s.agents[sessionId],
-          error: null,
-          isStreaming: true,
-          messages: [...s.agents[sessionId].messages, userMsg],
-        },
-      },
     }));
 
     try {
