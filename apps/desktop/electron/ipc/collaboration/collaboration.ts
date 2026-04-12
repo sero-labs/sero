@@ -23,7 +23,8 @@ import { DEFAULT_DEBATE_CONFIG } from '@/types/collaboration';
 import { runCollaboration } from '@electron/features/collaboration';
 import { runDebateCollaboration } from '@electron/features/collaboration/debate';
 import { subagentManager } from '@electron/shared/infra/shared-infra';
-import { getAgentPoolEntry } from '../agent';
+import { getAgentPoolEntry, emitAgentEvent } from '../agent';
+import { nextId } from '../agent/core/agent-helpers';
 import { extractOriginalCollaborationQuery } from './collaboration-message';
 import {
   applyCollaborationRuntimeEvent,
@@ -88,6 +89,33 @@ function buildInjectionPrompt(originalQuery: string, synthesis: string): string 
 <collaboration-synthesis>
 ${synthesis}
 </collaboration-synthesis>`;
+}
+
+function emitMainSessionUserMessage(
+  sessionId: string,
+  entry: NonNullable<ReturnType<typeof getAgentPoolEntry>>,
+  query: string,
+): void {
+  const userMessageId = nextId();
+  emitAgentEvent({
+    type: 'message_start',
+    sessionId,
+    message: {
+      type: 'user',
+      id: userMessageId,
+      text: query,
+    },
+  });
+
+  if (entry.lastCompletedCheckpoint) {
+    emitAgentEvent({
+      type: 'user_checkpoint',
+      sessionId,
+      userMessageId,
+      checkpoint: entry.lastCompletedCheckpoint,
+    });
+    entry.lastCompletedCheckpoint = null;
+  }
 }
 
 export function registerCollaborationHandlers(): void {
@@ -179,6 +207,10 @@ export function registerCollaborationHandlers(): void {
               },
             },
           );
+        }
+
+        if (entry) {
+          emitMainSessionUserMessage(sessionId, entry, query);
         }
 
         sendCollabEvent({ type: 'collab_end', sessionId, result });

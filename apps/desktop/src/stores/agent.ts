@@ -11,15 +11,16 @@ import type {
   DebateConfig,
 } from '@/types/collaboration';
 import {
-  applyCollaborationEvent,
-  hydrateCollaborationSessionForRenderer,
   removeCollaborationSession,
-  setCollaborationErrorForSession,
   setCollaborationStrategyForSession,
   setDebateConfigForSession,
-  startCollaborationForSession,
   toggleCollaborationModeForSession,
 } from '@/stores/agent-collaboration';
+import {
+  hydrateCollaborationStateWithSnapshot,
+  reduceCollaborationEventState,
+  sendCollaborationPromptWithState,
+} from '@/stores/agent-collaboration-runtime';
 import type { AgentState } from '@/stores/agent-types';
 import {
   appendOptimisticUserMessage,
@@ -309,94 +310,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }),
 
   sendCollaborationPrompt: async (sessionId, text) => {
-    const agent = get().agents[sessionId];
-    if (!agent) return;
-
-    // Read current strategy + config before resetting state
-    const collabState = get().collaborations[sessionId];
-    const strategy = collabState?.strategy ?? 'standard';
-    const debateConfig = collabState?.debateConfig;
-
-    appendOptimisticUserMessage(set, sessionId, text, { isStreaming: true });
-    set((s) => ({
-      collaborations: startCollaborationForSession(s.collaborations, sessionId),
-    }));
-
-    try {
-      await window.sero.collaboration.prompt(sessionId, agent.workspaceId, text, {
-        strategy,
-        debate: strategy === 'debate' ? debateConfig : undefined,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Collaboration failed';
-      set((s) => ({
-        collaborations: setCollaborationErrorForSession(s.collaborations, sessionId),
-        agents: {
-          ...s.agents,
-          [sessionId]: {
-            ...s.agents[sessionId],
-            error: message,
-            isStreaming: false,
-          },
-        },
-      }));
-    }
+    await sendCollaborationPromptWithState(set, get, sessionId, text);
   },
 
   hydrateCollaborationState: (
     sessionId: string,
     snapshot: CollaborationStateSnapshot | null,
   ) => {
-    if (!snapshot) return;
-
-    set((s) => {
-      const agent = s.agents[sessionId];
-      if (!agent) return s;
-
-      const pendingUserQuery = snapshot.pendingUserQuery?.trim() ?? '';
-      const pendingPlaceholderId = `collab-pending-${sessionId}`;
-      const lastMessage = agent.messages[agent.messages.length - 1];
-      const hasPendingUserMessage =
-        lastMessage?.type === 'user' &&
-        lastMessage.text.trim() === pendingUserQuery;
-      const hasPendingPlaceholder = agent.messages.some(
-        (message) => message.type === 'user' && message.id === pendingPlaceholderId,
-      );
-      const shouldAppendPendingUser =
-        pendingUserQuery.length > 0 &&
-        !hasPendingUserMessage &&
-        !hasPendingPlaceholder;
-      const collaborationBusy =
-        snapshot.status !== 'idle' &&
-        snapshot.status !== 'complete' &&
-        snapshot.status !== 'error';
-
-      return {
-        collaborations: hydrateCollaborationSessionForRenderer(
-          s.collaborations,
-          sessionId,
-          snapshot,
-        ),
-        agents: {
-          ...s.agents,
-          [sessionId]: {
-            ...agent,
-            error: snapshot.error ?? (collaborationBusy ? null : agent.error),
-            isStreaming: agent.isStreaming || collaborationBusy,
-            messages: shouldAppendPendingUser
-              ? [
-                  ...agent.messages,
-                  {
-                    type: 'user',
-                    id: pendingPlaceholderId,
-                    text: pendingUserQuery,
-                  },
-                ]
-              : agent.messages,
-          },
-        },
-      };
-    });
+    hydrateCollaborationStateWithSnapshot(set, sessionId, snapshot);
   },
 
   initEventListener: () => {
@@ -433,35 +354,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   initCollaborationListener: () => {
     return window.sero.collaboration.onEvent((event: CollaborationEvent) => {
-      set((s) => {
-        const agent = s.agents[event.sessionId];
-        let agents = s.agents;
-
-        if (agent && event.type === 'collab_start') {
-          agents = {
-            ...s.agents,
-            [event.sessionId]: {
-              ...agent,
-              error: null,
-              isStreaming: true,
-            },
-          };
-        } else if (agent && event.type === 'collab_error') {
-          agents = {
-            ...s.agents,
-            [event.sessionId]: {
-              ...agent,
-              error: event.error,
-              isStreaming: false,
-            },
-          };
-        }
-
-        return {
-          agents,
-          collaborations: applyCollaborationEvent(s.collaborations, event),
-        };
-      });
+      set((state) => reduceCollaborationEventState(state, event));
     });
   },
 }));

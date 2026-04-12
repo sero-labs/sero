@@ -151,6 +151,7 @@ export function applyCollaborationRuntimeEvent(event: CollaborationEvent): void 
         ...snapshot,
         status: 'complete',
         result: event.result,
+        pendingUserQuery: null,
         error: null,
       }));
       return;

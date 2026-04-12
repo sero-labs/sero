@@ -137,6 +137,7 @@ export function hydrateCollaborationSessionForRenderer(
 export function startCollaborationForSession(
   collaborations: CollaborationSessionMap,
   sessionId: string,
+  pendingUserQuery: string,
 ): CollaborationSessionMap {
   const current = getSessionState(collaborations, sessionId);
   return {
@@ -148,6 +149,7 @@ export function startCollaborationForSession(
       result: null,
       specialists: [],
       error: null,
+      pendingUserQuery: pendingUserQuery.trim() || pendingUserQuery,
       debate: current.strategy === 'debate'
         ? {
             phase: 'decomposition',
@@ -300,6 +302,7 @@ export function applyCollaborationEvent(
           ...current,
           status: 'complete',
           result: event.result,
+          pendingUserQuery: null,
           error: null,
         },
       };

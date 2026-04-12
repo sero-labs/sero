@@ -1,5 +1,4 @@
 import { ipcMain, BrowserWindow } from 'electron';
-
 import {
   createAgentSession,
   SessionManager,
@@ -22,7 +21,6 @@ import type {
   SeroSessionInfo,
 } from '@/types/ipc';
 import type { ChatCheckpointRef } from '@/types/checkpoints';
-
 import {
   nextId,
   convertSessionMessages,
@@ -62,7 +60,6 @@ import {
 import { installGatewayAgentOps, forwardEventToGateway } from '@electron/features/gateway/bridge/agent-bridge';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 import { buildGatewayOps } from '@electron/ipc/gateway/gateway-ops';
-
 interface PoolEntry {
   session: AgentSession;
   loader: DefaultResourceLoader;
@@ -76,36 +73,33 @@ interface PoolEntry {
   baseSystemPrompt: string;
   baseTools: ContextToolInfo[];
 }
-
 const pool = new Map<string, PoolEntry>();
-
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
-
 /** Get a pool entry by session ID (used by collaboration handler). */
 export function getAgentPoolEntry(sessionId: string): PoolEntry | undefined {
   return pool.get(sessionId);
 }
-
+export function getAgentPoolEntries(): Array<[string, PoolEntry]> {
+  return [...pool.entries()];
+}
 if (process.env.NODE_ENV === 'test') {
   (globalThis as Record<string, unknown>).__seroTestGetAgentPoolEntry = getAgentPoolEntry;
 }
-
 /** Reload all active session ResourceLoaders after edits. */
 export async function reloadAllSessionResources(): Promise<void> {
-  await Promise.all(
-    [...pool.values()].map((entry) => entry.loader.reload()),
-  );
+  await Promise.all([...pool.values()].map((entry) => entry.loader.reload()));
 }
-
-function sendEvent(event: AgentStreamEvent): void {
+export function emitAgentEvent(event: AgentStreamEvent): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(IpcChannels.agent.event, event);
   }
   forwardEventToGateway(event as unknown as Record<string, unknown>);
 }
-
+function sendEvent(event: AgentStreamEvent): void {
+  emitAgentEvent(event);
+}
 async function closePoolEntry(sessionId: string): Promise<void> {
   const entry = pool.get(sessionId);
   if (!entry) return;

@@ -67,6 +67,14 @@ export function useFocusedCollaborationStrategy() {
   );
 }
 
+export function useFocusedCollaborationPendingUserQuery() {
+  return useAgentStore((s) =>
+    s.focusedSessionId
+      ? (s.collaborations[s.focusedSessionId]?.pendingUserQuery ?? null)
+      : null,
+  );
+}
+
 export function useFocusedDebateState() {
   return useAgentStore((s) =>
     s.focusedSessionId ? (s.collaborations[s.focusedSessionId]?.debate ?? null) : null,

@@ -228,7 +228,26 @@ export function handleAgentStreamEvent(
       break;
 
     case 'message_start':
-      if (event.message.type === 'user') break;
+      if (event.message.type === 'user') {
+        set((state) => {
+          const agent = state.agents[sid];
+          if (!agent) return state;
+          const alreadyPresent = agent.messages.some(
+            (message) => message.type === 'user' && message.id === event.message.id,
+          );
+          if (alreadyPresent) return state;
+          return {
+            agents: {
+              ...state.agents,
+              [sid]: {
+                ...agent,
+                messages: [...agent.messages, event.message],
+              },
+            },
+          };
+        });
+        break;
+      }
       {
         // Attach any pending memory context to the new assistant message
         let message = event.message;

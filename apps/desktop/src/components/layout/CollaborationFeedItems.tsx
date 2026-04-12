@@ -17,6 +17,28 @@ import {
 import { CollaborationLiveActivity } from './CollaborationLiveActivity';
 import { useFocusedCollaborationStatus } from '@/stores/agent-selectors';
 
+// ── Pending user query bubble ───────────────────────────────────
+
+export function PendingQueryBubble({ text }: { text: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 350, damping: 24 }}
+      className="flex justify-end px-2"
+    >
+      <div className="max-w-[92%] rounded-2xl rounded-tr-md border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2 shadow-sm">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          Your query
+        </div>
+        <p className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-[var(--text-primary)]">
+          {text}
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Typing indicator (bouncing dots) ────────────────────────────
 
 function TypingDots({ colorClass }: { colorClass: string }) {
