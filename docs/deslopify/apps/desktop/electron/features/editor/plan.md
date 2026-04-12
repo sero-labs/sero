@@ -53,8 +53,13 @@ This area is compact, but it carries disproportionate risk because it owns the m
 - Install-policy changes may require container-image rebuild discipline if the team decides to stop doing runtime installs.
 
 ## Next Steps
-1. Add an in-flight startup map to `LspManager` and make `startServer()` idempotent.
-2. Remove the two `as any` casts from `lsp-process.ts` with explicit protocol helpers.
+1. ~~Add an in-flight startup map to `LspManager` and make `startServer()` idempotent.~~ ✅ 2026-04-12 (`4350404d`)
+2. ~~Remove the two `as any` casts from `lsp-process.ts` with explicit protocol helpers.~~ ✅ 2026-04-12 (`4350404d`)
 3. Extract canonical language-routing metadata into a shared renderer-safe contract.
 4. Refactor server-initiated request handling into a documented adapter table.
 5. Decide whether LSP binary versions are pinned at runtime or moved into the container image/toolchain.
+
+## Execution log
+- 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
+  - Made `LspManager.startServer()` share in-flight startup work per workspace/language.
+  - Replaced the remaining protocol-boundary `any` casts in `lsp-process.ts` with explicit parsing helpers.

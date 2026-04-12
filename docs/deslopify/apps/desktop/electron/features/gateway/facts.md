@@ -34,3 +34,21 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 - `/sero abort` in the Discord adapter only sends a reply; it never actually calls `agentOps.abort()`.
 - `validateRequest()` only checks the `type` field and then casts the rest of the untrusted payload wholesale.
 - Malformed `gateway-config.json` currently gets overwritten with defaults on the next load, mirroring the same config-clobber pattern already found elsewhere in the monorepo.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 19 (was 18)
+- Largest file: `apps/desktop/electron/features/gateway/index.ts` (489 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 3 (all outside the High-priority auth/abort paths)
+
+### What changed
+- Added `server/access-control.ts` and threaded workspace/session/artifact authorization through gateway request handling.
+- Web tokens are now scoped to explicit workspace IDs, and QR pairing in the desktop UI creates workspace-scoped tokens through preload + IPC.
+- `gateway-ops` now validates that an existing session belongs to the requested workspace before reopening it.
+- Discord `/sero abort` now calls `agentOps.abort()` and reports failures honestly.
+
+### Still outstanding
+- Request validation is still type-tag-only and needs real per-request schemas.
+- Discord still subscribes via gateway method monkey-patching, and static-file serving is still synchronous on the hot path.

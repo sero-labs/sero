@@ -30,3 +30,19 @@ This feature owns the app-level GitHub and Google auth/runtime integration: GitH
 - `GitHubAuthManager` advertises encrypted token storage but intentionally falls back to base64-only persistence when `safeStorage` is unavailable.
 - `GoogleAuthManager` bundles status caching, buggy-keyring migration, loopback callback-server setup, and gog credential import in one near-cap file.
 - The user-facing “Google OAuth not configured” error still hardcodes the default-root plugin-config path instead of using profile-scoped guidance.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 4 (unchanged)
+- Largest file: `apps/desktop/electron/features/auth/google/auth-manager.ts` (418 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder
+
+### What changed
+- GitHub token persistence now requires Electron `safeStorage`; when secure storage is unavailable, login fails instead of writing a base64-only token file.
+- Cached GitHub auth is no longer decrypted through a plaintext fallback path.
+
+### Still outstanding
+- GitHub device-flow polling still treats most non-2xx responses as indefinite retry conditions.
+- `GoogleAuthManager` remains the near-cap multi-responsibility hotspot in this feature.

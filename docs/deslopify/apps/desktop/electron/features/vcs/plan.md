@@ -54,7 +54,7 @@ _Plan drafted: 2026-04-12_
 - Transport-cache changes must preserve current host/container auth behavior for both `git` and `gh`, especially for SSH-vs-HTTPS remotes.
 
 ## Next Steps
-1. Remove the two `any` catch sites in `git-runner.ts`.
+1. ~~Remove the two `any` catch sites in `git-runner.ts`.~~ ✅ 2026-04-12 (`4350404d`)
 2. Decide whether `fs` checkpoint source still exists; either preserve it honestly or remove it from the contract.
 3. Move shared VCS contracts to a neutral shared module and update Electron/renderer imports together.
 4. Split `vcs-ops.ts` and `pr-ops.ts` before adding more publish/PR behavior.
@@ -62,3 +62,7 @@ _Plan drafted: 2026-04-12_
    - Push from both SSH and HTTPS GitHub remotes on host and container-backed workspaces.
    - Create/list/restore checkpoints and verify source metadata shown to the renderer stays correct.
    - Build PR preview context, create a PR, and confirm `gh` error handling stays unchanged.
+
+## Execution log
+- 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
+  - Replaced the remaining `any`-typed git transport error paths in `git-runner.ts` with a shared typed exec-failure normalizer.

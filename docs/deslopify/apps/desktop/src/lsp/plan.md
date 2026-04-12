@@ -53,8 +53,12 @@ _Plan drafted: 2026-04-12_
 - Diagnostics cleanup must respect Monaco model lifetime so markers are not removed for still-open documents.
 
 ## Next Steps
-1. Replace the inline Monaco type import with a top-level type import.
+1. ~~Replace the inline Monaco type import with a top-level type import.~~ ✅ 2026-04-12 (`4350404d`)
 2. Split `use-lsp.ts` into provider-registry, document-sync, and diagnostics modules.
 3. Extract shared language-routing metadata and remove duplicated maps from explorer/LSP/editor code.
 4. Replace model scanning + `as never[]` with typed diagnostics routing.
 5. Re-review explorer/editor surfaces after the shared routing contract lands.
+
+## Execution log
+- 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
+  - Replaced the inline `typeof import('monaco-editor')` type expression in `use-lsp.ts` with a top-level Monaco namespace type import.

@@ -49,8 +49,8 @@ _Plan drafted: 2026-04-12_
 - Removing unused policy fields is a behavioral/API change if any external agent definitions or settings UIs already expose them.
 
 ## Next Steps
-1. Fix the bulk-abort/tracker desync first.
-2. Remove the `createAgentSession()` cast and `session!` assertion from `runtime/runner.ts`.
+1. ~~Fix the bulk-abort/tracker desync first.~~ ✅ 2026-04-12 (`4350404d`)
+2. ~~Remove the `createAgentSession()` cast and `session!` assertion from `runtime/runner.ts`.~~ ✅ 2026-04-12 (`4350404d`)
 3. Extract shared single-run execution logic so `index.ts` drops well below the LOC cap.
 4. Decide whether policy knobs (`tools`, `extensions`, `blockedExtensions`) are real; enforce or delete them accordingly.
 5. Verification checklist:
@@ -58,3 +58,8 @@ _Plan drafted: 2026-04-12_
    - Run single, parallel, and chain modes and verify token counts/tool activity/live output still flow to the UI.
    - Create an ad-hoc inline subagent and a discovered named agent and confirm both still receive the intended prompt suffix.
    - Confirm child sessions still exclude recursive subagent tools and external extension loading per AD-021.
+
+## Execution log
+- 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
+  - Bulk aborts now mark matching tracker entries aborted before the pool cascade runs.
+  - Added a local Pi SDK module augmentation so subagent session creation no longer needs a cast, and removed the remaining `session!` assertion from debug logging.

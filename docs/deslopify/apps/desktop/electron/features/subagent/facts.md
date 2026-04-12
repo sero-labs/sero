@@ -29,3 +29,19 @@ This feature is Sero's AD-021 subagent runtime. It discovers markdown-defined ag
 - The reduced extension-factory comments still promise `@ws:` path expansion, but the implementation only injects prompt blocks, provider logging, and notifications.
 - The feature stores `tools`, `extensions`, and `blockedExtensions` policy fields, but the runtime never enforces them in the child-session loader.
 - `runtime/runner.ts` still relies on a casted `createAgentSession()` call to smuggle the Sero-only `systemPromptSuffix` field through the SDK type surface.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 10 (unchanged)
+- Largest file: `apps/desktop/electron/features/subagent/index.ts` (492 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 new High-priority escape hatches in the runner/tracker path
+
+### What changed
+- Bulk aborts now mark matching tracker entries aborted before the concurrency pool cancels controllers.
+- Added a local Pi SDK module augmentation so `systemPromptSuffix` is typed without a cast, and removed the remaining `session!` assertion from runner debug logging.
+
+### Still outstanding
+- `index.ts` is still a near-cap façade and needs the shared single-run executor extraction from the Medium plan.
+- Policy knobs (`tools`, `extensions`, `blockedExtensions`) are still stored without runtime enforcement.

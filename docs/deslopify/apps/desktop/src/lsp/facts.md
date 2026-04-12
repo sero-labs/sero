@@ -22,3 +22,18 @@ _Last reviewed: 2026-04-12_
 - `use-lsp.ts` uses module-level registries (`registeredLanguages`, `uriRegistry`) plus five separate effects, so most of the complexity is hidden outside the hook's public API.
 - The renderer redefines supported language IDs and extension mappings even though the main-process LSP config already owns that information.
 - Diagnostics routing still scans all Monaco models on each notification instead of maintaining a direct URI → model lookup.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 2 (unchanged)
+- Largest file: `apps/desktop/src/lsp/use-lsp.ts` (300 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 new High-priority import-rule violations
+
+### What changed
+- `use-lsp.ts` now uses a top-level Monaco namespace type import instead of an inline `typeof import('monaco-editor')` expression.
+
+### Still outstanding
+- `use-lsp.ts` still hides provider registration, document sync, and diagnostics ownership behind one singleton-style hook.
+- Renderer/main language-routing metadata is still duplicated until the shared contract lands.

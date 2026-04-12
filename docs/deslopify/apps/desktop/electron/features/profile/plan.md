@@ -46,7 +46,7 @@ _Plan drafted: 2026-04-12_
 - Path-validation changes are behavior-sensitive: if existing users already have overlapping custom paths, migration/recovery strategy must be explicit.
 
 ## Next Steps
-1. Fix the High issue first: distinguish malformed registry content from “no registry yet.”
+1. ~~Fix the High issue first: distinguish malformed registry content from “no registry yet.”~~ ✅ 2026-04-12 (`4350404d`)
 2. Extract `ProfileInfo` to one canonical contract shared by renderer + main.
 3. Add path-collision / path-overlap validation to `ProfileManager.create()`.
 4. Tighten copy/setup diagnostics and remove dead helper surface.
@@ -56,3 +56,7 @@ _Plan drafted: 2026-04-12_
    - Malformed `profiles.json` no longer routes silently into the first-run path.
    - Creating custom-path profiles rejects duplicate or overlapping roots.
    - Copying credentials/model preferences still works for the happy path and reports partial-copy failure cleanly.
+
+## Execution log
+- 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
+  - Hardened `readRegistrySync()` so malformed `profiles.json` now fails explicitly instead of silently collapsing to an empty registry.

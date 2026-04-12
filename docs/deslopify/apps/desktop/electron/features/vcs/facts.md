@@ -30,3 +30,18 @@ This feature is the Electron-side Git/VCS service layer for Sero. It initializes
 - The feature advertises an `fs` checkpoint source but immediately rewrites it to `manual` when creating a checkpoint.
 - The main-process VCS layer still imports its canonical shared types from a renderer path alias instead of a neutral shared package.
 - The host SSH-availability probe is cached for the entire process lifetime, so adding/fixing SSH after app launch will not change git transport behavior until restart.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 9 (unchanged)
+- Largest file: `apps/desktop/electron/features/vcs/core/vcs-ops.ts` (442 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder
+
+### What changed
+- `git-runner.ts` now normalizes exec failures through one typed helper instead of relying on `any` reads in the SSH probe and host command path.
+
+### Still outstanding
+- Shared VCS contracts still point back into renderer-owned types.
+- Checkpoint-source semantics and SSH transport cache invalidation still need a follow-up behavior pass.

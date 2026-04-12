@@ -28,3 +28,19 @@ This feature owns the profile registry and bootstrap lifecycle behind AD-022: fi
 - A corrupted `profiles.json` currently looks identical to “no profiles exist yet.”
 - The feature still uses a `KEEP IN SYNC` duplicate `ProfileInfo` contract even after the IPC/type cleanup wave.
 - `writeRegistrySync()` remains defined in `manager.ts` but is unused; async writes handle all live mutations while sync writes are only needed conceptually on bootstrap.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 6 (unchanged)
+- Largest file: `apps/desktop/electron/features/profile/setup.ts` (271 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder
+
+### What changed
+- `readRegistrySync()` now distinguishes a missing registry from malformed content and throws an explicit `ProfileRegistryError` for corrupt `profiles.json` data.
+- Startup/profile consumers now fail closed instead of silently routing corruption into the first-run flow.
+
+### Still outstanding
+- `ProfileInfo` is still duplicated across renderer and main-process contracts.
+- `ProfileManager.create()` still needs path-overlap validation for custom profile roots.

@@ -60,8 +60,8 @@ _Plan drafted: 2026-04-12_
 - Static-file serving changes must be tested in dev, packaged builds, and Tailscale-exposed flows because the current relative fallback logic is subtle.
 
 ## Next Steps
-1. Fix `/sero abort` first.
-2. Implement workspace-scoped gateway auth and enforce it across all request routes.
+1. ~~Fix `/sero abort` first.~~ ✅ 2026-04-12 (`4350404d`)
+2. ~~Implement workspace-scoped gateway auth and enforce it across all request routes.~~ ✅ 2026-04-12 (`4350404d`)
 3. Replace cast-based request validation with per-request schemas/guards.
 4. Make cost-config loading non-destructive.
 5. Replace Discord monkey-patching with a formal subscription API.
@@ -71,3 +71,8 @@ _Plan drafted: 2026-04-12_
    - Verify `/sero abort` actually stops an in-flight Discord task.
    - Start the web remote in dev, packaged, and Tailscale-served modes and confirm static assets still load.
    - Corrupt `gateway-config.json` intentionally and verify the app surfaces the error without overwriting the file.
+
+## Execution log
+- 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
+  - Scoped gateway web tokens to explicit workspace IDs, threaded those scopes through connection auth, and enforced them across workspace/session/artifact request routes.
+  - Fixed Discord `/sero abort` so it now calls `agentOps.abort()` and reports failures honestly.

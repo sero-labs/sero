@@ -51,7 +51,7 @@ _Plan drafted: 2026-04-12_
 - Splitting `GoogleAuthManager` must preserve the fragile migration behavior for legacy buggy keyring passwords and per-profile client buckets.
 
 ## Next Steps
-1. Fix the High issue first: stop base64-only GitHub token persistence in production paths.
+1. ~~Fix the High issue first: stop base64-only GitHub token persistence in production paths.~~ ✅ 2026-04-12 (`4350404d`)
 2. Add explicit non-2xx GitHub device-flow error handling.
 3. Split `GoogleAuthManager` into focused modules before it grows further.
 4. Deduplicate gog binary/PATH discovery and GitHub URL-normalization helpers.
@@ -62,3 +62,7 @@ _Plan drafted: 2026-04-12_
    - Repo creation still bootstraps origin/push/default-branch behavior correctly.
    - Google login still imports tokens into the correct per-profile gog client bucket.
    - Existing buggy-keyring migration path still recovers previously stranded tokens.
+
+## Execution log
+- 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
+  - GitHub auth now fails closed when Electron secure storage is unavailable instead of persisting repo-scoped tokens with base64-only encoding.
