@@ -38,6 +38,7 @@ export async function routeExtendedRequest(
   agentOps: GatewayAgentOps,
   request: GatewayRequest,
   accessScope: GatewayAccessScope,
+  subscribeToSession: (sessionId: string) => void,
   auth: GatewayAuth,
   isMasterAuth: boolean,
 ): Promise<boolean> {
@@ -57,6 +58,7 @@ export async function routeExtendedRequest(
           request.name,
         );
         authorizeSessionFromWorkspace(accessScope, request.workspaceId, session.id);
+        subscribeToSession(session.id);
         sendResponse(ws, {
           type: 'ok',
           requestType: 'create_session',
@@ -206,6 +208,7 @@ export async function routeExtendedRequest(
           request.sessionId,
         );
         authorizeSessionFromWorkspace(accessScope, request.workspaceId, request.sessionId);
+        subscribeToSession(request.sessionId);
         sendResponse(ws, {
           type: 'ok',
           requestType: 'get_session_history',

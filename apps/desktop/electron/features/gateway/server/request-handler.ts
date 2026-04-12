@@ -85,7 +85,15 @@ export async function routeAgentRequest(
 ): Promise<void> {
   // Try extended handlers first (file ops, artifacts, web tokens, sessions)
   if (auth) {
-    const handled = await routeExtendedRequest(ws, agentOps, request, accessScope, auth, isMasterAuth ?? false);
+    const handled = await routeExtendedRequest(
+      ws,
+      agentOps,
+      request,
+      accessScope,
+      subscribeToSession,
+      auth,
+      isMasterAuth ?? false,
+    );
     if (handled) return;
   }
   switch (request.type) {

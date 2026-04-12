@@ -258,6 +258,18 @@ describe('GatewayServer scoped authorization flows', () => {
       data: [{ id: 'msg-a', type: 'user', text: 'hello a', timestamp: 1 }],
     });
 
+    const liveEventPromise = waitForMessage<GatewayPushEvent>(ws);
+    harness.server.pushEvent('session-a', {
+      type: 'text_delta',
+      sessionId: 'session-a',
+      delta: 'live update',
+    });
+    expect(await liveEventPromise).toEqual({
+      type: 'text_delta',
+      sessionId: 'session-a',
+      delta: 'live update',
+    });
+
     const artifactEventPromise = waitForMessage<GatewayPushEvent>(ws);
     harness.server.broadcastEvent({
       type: 'artifact_added',

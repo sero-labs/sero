@@ -59,6 +59,18 @@ interface SessionPool {
   } | undefined;
 }
 
+async function findSessionInfo(workspaceId: string, sessionId: string): Promise<{
+  id: string;
+  cwd: string;
+  path: string;
+} | null> {
+  const wsPath = workspaceManager.getPath(workspaceId);
+  if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+
+  const allSessions = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
+  return allSessions.find((session) => session.id === sessionId && session.cwd === wsPath) ?? null;
+}
+
 /**
  * Build the full GatewayAgentOps implementation.
  *
@@ -78,6 +90,13 @@ export function buildGatewayOps(
         }
         return;
       }
+
+      const existingSession = await findSessionInfo(workspaceId, sessionId);
+      if (existingSession) {
+        await openSessionInternal(sessionId, existingSession.path, workspaceId);
+        return;
+      }
+
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
       const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);
@@ -194,10 +213,7 @@ export function buildGatewayOps(
         return convertToGatewayHistory(chatMsgs);
       }
       // Otherwise, find and read the session file directly
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      const allSessions = await SessionManager.list(os.homedir(), SERO_SESSION_DIR);
-      const sessionInfo = allSessions.find((s) => s.id === sessionId && s.cwd === wsPath);
+      const sessionInfo = await findSessionInfo(workspaceId, sessionId);
       if (!sessionInfo) throw new Error(`Session not found: ${sessionId}`);
       const sm = SessionManager.open(sessionInfo.path, SERO_SESSION_DIR);
       const branch = sm.getBranch();
