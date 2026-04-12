@@ -198,6 +198,38 @@ Look for code that will bite the team later.
   auto-generated banners that no longer apply. Keep useful comments,
   delete lies.
 
+#### Behavior Preservation & Runtime Realism
+
+This is the category deslopify must be especially strict about. A cleanup
+that improves types or aesthetics but changes runtime behavior by accident is
+still slop.
+
+- **Happy-path regressions hidden inside cleanup.** Audit wrappers around
+  `execFile`, container exec, IPC invokes, fetch helpers, store actions, and
+  preload bridges for the classic bug where the error path was tightened but
+  the success path changed semantics (`0` → `1`, success now returns `null`,
+  cache entries never clear, etc.).
+- **Prod-path blind spots.** Review behavior under production constraints,
+  not just dev: CSP, preload exposure, static asset loading, external scripts,
+  iframe policies, module federation remotes, relative `base: './'`, castlabs
+  startup ordering, and anything gated on `NODE_ENV`.
+- **Migration safety.** If code renames a topic, keyword, event name,
+  setting key, storage key, manifest field, or protocol, verify whether the
+  ecosystem has actually moved. Recommend dual-read / dual-discovery /
+  compatibility windows when the old identifier still exists in the wild.
+- **External-reality assumptions.** Flag changes that assume GitHub topics,
+  npm keywords, plugin metadata, provider schemas, container network
+  interfaces, or SDK private fields have already changed. If the truth cannot
+  be proven from the repo, call out the assumption explicitly in the plan.
+- **Cleanup that changes semantics.** Be explicit when a recommendation is
+  not just structural. If your proposed fix changes validation strictness,
+  failure behavior, persistence shape, or security policy, mark it as a
+  behavioral change and require targeted verification in the plan.
+- **Type-safe but runtime-risky refactors.** `satisfies`, extracted types,
+  narrowed unions, and helper dedupes can still break runtime wiring. Watch
+  for cases where the compiler is green but production behavior depends on
+  string keys, event ordering, or external metadata.
+
 #### Performance, Security & Scalability (when relevant)
 
 Not every review needs this section, but flag anything the target actually
@@ -258,6 +290,12 @@ One paragraph in plain language.
 Bulleted notes that will matter for future reviews (ownership, invariants,
 AD references, known constraints).
 
+## Runtime-sensitive surfaces
+- Production-only paths that must not regress (CSP, preload exposure,
+  static assets, module federation, container startup, etc).
+- Migrations / external metadata assumptions that future reviewers must
+  preserve or explicitly retire.
+
 ## Surprising discoveries
 Things the next reviewer would waste time rediscovering.
 ```
@@ -303,11 +341,15 @@ etc. Be honest about the costs — churn, review load, potential regressions.
 ## Dependencies & Risks
 Prerequisite work, cross-module touches, migrations, container rebuilds
 (per `CLAUDE.md` any Dockerfile change needs a fresh `sero-node:latest`),
-types that must move to `@sero/common` first, etc.
+types that must move to `@sero/common` first, etc. For any item that changes
+runtime behavior, call out the exact semantic risk (success-path behavior,
+prod-only behavior, migration timing, external assumptions).
 
 ## Next Steps
 Immediate actions (a small ordered checklist) and any follow-up deslopify
-targets the team should queue next.
+targets the team should queue next. For runtime-sensitive work, include a
+small verification checklist (targeted smoke tests or concrete scenarios),
+not just coding steps.
 ```
 
 Priorities are **not** severity — they are a scheduling hint. Use this
@@ -364,6 +406,10 @@ at the bottom). When you update an existing review, bump its status note.
 - Plans must be realistic and prioritized by impact vs. effort. Every
   recommendation must carry enough rationale that any engineer on the team
   can understand *why* it is worth doing.
+- Distinguish **shape problems** from **behavior problems**. If a finding is
+  mainly about maintainability, say so. If a proposed cleanup can break
+  runtime behavior, prod behavior, or migrations, say that explicitly and
+  require targeted verification.
 - Always cite concrete `file:line` locations. "Some components are too
   long" is slop; "`ChatPanel.tsx:214-492` handles five responsibilities
   and is 480 LOC" is useful.
@@ -373,6 +419,9 @@ at the bottom). When you update an existing review, bump its status note.
 - Do not invent issues to fill space. A short, sharp plan is better than a
   bloated one. If the target is genuinely healthy, say so in the executive
   summary and keep the issue list short.
+- Prefer conservative recommendations over aggressive churn when behavior is
+  subtle. A module that is mildly ugly but operationally reliable is often in
+  better shape than a "clean" rewrite with migration risk.
 - Do not propose migrations that Sero has already decided against (check
   `docs/decisions.md` before recommending, for example, moving away from
   Zustand, dropping Module Federation, or switching persistence away from

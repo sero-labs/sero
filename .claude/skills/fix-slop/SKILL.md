@@ -75,6 +75,12 @@ Translate the plan into a concrete ordered work list. Group items so each
 group can land as **one coherent commit** — a commit should have a single
 intent that a reviewer can understand in one sitting.
 
+For each group, also write down a short **semantic guardrail** note:
+- what behavior must stay unchanged,
+- whether the change touches a prod-only path,
+- whether the change depends on an external migration / ecosystem rename,
+- what targeted validation will prove the cleanup did not silently regress it.
+
 Grouping rules of thumb:
 
 - One file split (e.g. 700 LOC component → 3 modules) is its own commit.
@@ -100,6 +106,9 @@ Before editing, post a short preview:
 - The ordered commit list you intend to produce.
 - Anything risky the user should know (container rebuilds, type breaks
   spilling outside the target, AD-touching changes).
+- Any behavior-sensitive surfaces: success-path wrappers, prod-only code
+  paths, CSP/preload/static-asset changes, migrations/renames, or external
+  assumptions you need to preserve.
 
 Wait for a yes on anything **L (large)** or anything that touches shared
 infrastructure (`electron/`, `packages/common/`, `packages/app-runtime/`,
@@ -119,20 +128,40 @@ For each work-list group:
    a failure.
 3. **Do not delete relevant comments.** Per `CLAUDE.md`, preserve
    explanatory comments even when you rearrange the code they annotate.
-4. **Typecheck.** Run `pnpm typecheck` from the monorepo root. This is
+4. **Targeted validation for risky changes.** If the commit touches
+   child-process wrappers, IPC semantics, CSP, preload, static assets,
+   container networking, discovery metadata, or any migration-sensitive
+   path, run the smallest useful targeted check before the full typecheck.
+   Examples: verify success still returns exit code `0`, confirm a prod
+   asset path still resolves, grep for both old/new discovery tags, or run
+   a focused smoke test relevant to the changed surface.
+5. **Typecheck.** Run `pnpm typecheck` from the monorepo root. This is
    non-negotiable — every commit in the batch must leave the tree green
    for both the renderer and the Electron main process (`tsconfig.electron.json`).
-5. **Stage and commit.** Use Conventional Commit format. Prefer
+6. **Stage and commit.** Use Conventional Commit format. Prefer
    `refactor(...)`, `fix(...)`, `perf(...)`, `chore(...)` with the
    relevant scope. Add named files rather than `git add -A`. Create a
    **new** commit if a hook fails — never `--amend` unless the user
    explicitly asks.
-6. **Check file sizes.** After every touched file, verify it sits below
+7. **Check file sizes.** After every touched file, verify it sits below
    the 500-LOC cap. If a fix inadvertently pushes a file over 500 LOC,
    split it in the same commit — do not defer.
 
 Do **not** push to the remote automatically. `CLAUDE.md` is explicit:
 pushing only happens when the user asks for it or asks for a PR.
+
+### Semantic preservation checklist (apply throughout execution)
+
+Before and after each risky edit, ask:
+
+- Did I only improve shape, or did I also change behavior?
+- Does the success path still succeed with the same semantics?
+- Did I change a dev-only allowance that production still depends on?
+- Am I renaming something that must support both old and new values during a migration window?
+- Am I trusting a repo-local assumption about an external system that should be validated first?
+
+If the answer is "I changed behavior" and the plan did not explicitly call
+for that behavior change, stop and tell the user.
 
 ### 5. Update the tracking docs
 
@@ -239,15 +268,17 @@ docs(deslopify): update facts/plan for <source_folder> after fix-slop pass
 Before reporting success:
 
 1. `pnpm typecheck` at the monorepo root — must be clean.
-2. `git status` — must be clean (no stray edits, no untracked files that
+2. Re-run any targeted validation required by the semantic guardrails for
+   this batch. For behavior-sensitive work, do not rely on typecheck alone.
+3. `git status` — must be clean (no stray edits, no untracked files that
    should have been committed).
-3. `git log --oneline` — confirm the commit sequence matches the work list
+4. `git log --oneline` — confirm the commit sequence matches the work list
    you previewed.
-4. If the work touched `apps/desktop/images/Dockerfile.sero-node` or any
+5. If the work touched `apps/desktop/images/Dockerfile.sero-node` or any
    tool installed in the container, warn the user that `sero-node:latest`
    must be rebuilt and affected workspace containers recreated (they do
    **not** pick up Dockerfile changes automatically).
-5. If the work touched native modules (e.g. `node-pty`), remind the user
+6. If the work touched native modules (e.g. `node-pty`), remind the user
    of the rebuild command in `docs/node-pty-setup.md`.
 
 ---
@@ -268,6 +299,10 @@ following the plan blindly.
 - **Four-layer IPC updates land together.** React → Zustand → preload →
   main → Pi SDK. Types in `src/types/ipc.ts` must stay in sync with the
   main-process handler signatures within the same commit.
+- **Preserve runtime semantics unless the plan explicitly changes them.**
+  Cleanup is not permission to alter success-path behavior, prod-only
+  behavior, or migration timing. If a refactor needs a semantic change,
+  make that intent explicit, validate it, and report it to the user.
 - **No `localStorage` / `sessionStorage`.** Persistent renderer state
   goes through `persistLayout()` and `LayoutState` in
   `src/types/layout.ts`. Add new keys there as needed.
@@ -299,6 +334,10 @@ following the plan blindly.
 - **No backwards-compat shims.** If something is truly unused, delete it
   outright. Do not leave `// removed` stubs, unused re-exports, or
   renamed `_vars` behind.
+- **But do preserve intentional migration compatibility.** When renaming
+  discovery tags, storage keys, settings fields, events, or external
+  metadata, support old + new forms until the ecosystem has actually moved.
+  Removing active compatibility is not "deslopifying" — it is a behavior change.
 - **No secret logging.** Never log tokens, session cookies, or API keys.
   Never persist them to `layout.json`.
 
@@ -325,6 +364,11 @@ following the plan blindly.
   fix the plan proposes has already partially landed), stop and ask the
   user whether to replan (run `deslopify` again) or proceed with an
   updated interpretation. Do not silently rewrite the plan in flight.
+- **External-reality drift.** If the plan assumes a migration already
+  happened outside the repo (GitHub topics, npm keywords, provider data,
+  SDK private fields, container interface names, etc.), validate that
+  assumption first. If you cannot validate it, treat the change as risky
+  and ask before landing a breaking rename.
 - **AD impact.** If a fix implicates an AD in `docs/decisions.md`,
   always stop for confirmation before committing the code change,
   not just before the doc change.
