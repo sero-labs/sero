@@ -33,3 +33,20 @@ This folder is the Electron main-process shared foundation layer: singleton infr
 - Shared default model caching is one-shot (`shared/infra/shared-infra.ts:119,196`), while auth flows only refresh `modelRegistry` (`ipc/platform/auth/auth.ts:116`), leaving `infra.model` consumers (notably `ipc/agent/handlers/app-agent.ts:152`) at risk of stale defaults.
 - User-feedback bus singleton key/initialization is duplicated in two modules (`shared/lib/user-feedback-bus.ts:13` and `plugins/sero-user-feedback-plugin/shared/emitter.ts:11`), with manual “must match” comments instead of a shared source.
 - `getPackageProviderManifests()` is currently dead private code (`shared/providers/package-provider-manifests.ts:185`).
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 15 (unchanged)
+- Largest file: `apps/desktop/electron/shared/infra/shared-infra.ts` (264 LOC)
+- Files over 500 LOC: none
+
+### What changed
+- Added `refreshInfraModelSelection()` so shared infra can re-pick the cached default model after
+  auth-driven model-registry refreshes.
+- Wired auth mutation paths to refresh both `modelRegistry` and the cached `infra.model` selection,
+  keeping app-agent consumers aligned with newly available credentials/models.
+
+### Still outstanding
+- `shared-infra.ts` is still a broad composition root and has not yet been split into registrars.
+- Provider-manifest cache cleanup and user-feedback bus deduplication are still pending.

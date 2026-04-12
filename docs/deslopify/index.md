@@ -49,7 +49,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/vcs/`](./apps/desktop/electron/features/vcs/plan.md)
     — *In progress — High item cleared 2026-04-12; Medium cleanup pending*
   - [`apps/desktop/electron/features/workspace/`](./apps/desktop/electron/features/workspace/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
+    — *In progress — selected Medium reliability items cleared 2026-04-12; cap-pressure cleanup pending*
   - [`apps/desktop/electron/ipc/`](./apps/desktop/electron/ipc/plan.md)
     — *Wave A contracts review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/platform/`](./apps/desktop/electron/platform/plan.md)
@@ -57,7 +57,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/preload/`](./apps/desktop/electron/preload/plan.md)
     — *In progress — core Medium items cleared 2026-04-12; typing cleanup pending*
   - [`apps/desktop/electron/shared/`](./apps/desktop/electron/shared/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
+    — *In progress — cached-model Medium item cleared 2026-04-12; modularization cleanup pending*
 
 ## packages/
 - _No reviews yet._

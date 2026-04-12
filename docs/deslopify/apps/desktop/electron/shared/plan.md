@@ -8,7 +8,7 @@ _Plan drafted: 2026-04-12_
 ## Issues Found (prioritized)
 - **High** — Silent settings parse fallback can clobber `settings.json` on subsequent writes — `apps/desktop/electron/shared/settings/settings-helpers.ts:15-20` returns `{}` on any parse/read failure, and callers later persist derived state (`apps/desktop/electron/ipc/workspace/profiles.ts:168-169`, `apps/desktop/electron/features/onboarding/preflight.ts:101-116`). A malformed settings file can be unintentionally overwritten with a partial object. Effort: **S**.
 
-- **Medium** — Shared default model cache can become stale after auth changes — `_model` is initialized once (`apps/desktop/electron/shared/infra/shared-infra.ts:119,196`), but auth mutations only call `modelRegistry.refresh()` (`apps/desktop/electron/ipc/platform/auth/auth.ts:116`). Consumers that rely on `infra.model` (`apps/desktop/electron/ipc/agent/handlers/app-agent.ts:152`) may use outdated defaults. Effort: **S**.
+- **Medium** — ~~Shared default model cache can become stale after auth changes — `_model` is initialized once (`apps/desktop/electron/shared/infra/shared-infra.ts:119,196`), but auth mutations only call `modelRegistry.refresh()` (`apps/desktop/electron/ipc/platform/auth/auth.ts:116`). Consumers that rely on `infra.model` (`apps/desktop/electron/ipc/agent/handlers/app-agent.ts:152`) may use outdated defaults.~~ ✅ 2026-04-12 (`refreshInfraModelSelection()` now re-picks the default model after auth-driven registry refreshes.) Effort: **S**.
 
 - **Medium** — `shared-infra.ts` is a cross-domain singleton hub with import-time side effects — it mixes profile migration side effects (`apps/desktop/electron/shared/infra/shared-infra.ts:42`) and many service singletons (`shared-infra.ts:50-112`) across gateway, VCS, workspace, subagent, and LSP concerns. This increases review/load-bearing blast radius for unrelated changes. Effort: **M**.
 
@@ -51,7 +51,10 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. Land High fix first: make settings parse failures non-destructive.
-2. Add infra model-refresh path and wire auth mutation handlers to it.
+2. ~~Add infra model-refresh path and wire auth mutation handlers to it.~~ ✅ 2026-04-12
 3. Split `shared-infra.ts` into registrars while preserving exported singleton API.
 4. Remove dead manifest helper and switch to mutation-driven cache invalidation.
 5. Queue follow-up deslopify/fix work in `apps/desktop/electron/platform` and then renderer orchestration (`src/stores`, `src/hooks`, `src/lib`).
+
+## Execution log
+- 2026-04-12 — Medium Wave E4 (working tree): added `refreshInfraModelSelection()` in shared infra and wired auth mutation paths to refresh the cached default model after auth/model-registry changes.

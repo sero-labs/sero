@@ -55,6 +55,9 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/features/profile/manager.ts` | Added duplicate/overlap validation for custom profile roots while preserving managed `~/.sero-ui/profiles/*` child profiles (317 → 366 lines) |
 | `apps/desktop/electron/ipc/workspace/profiles.ts` | Switched profile IPC handlers to the canonical shared `ProfileInfo` contract |
 | `apps/desktop/electron/__tests__/features/profile/manager.test.ts` | New — covers allowed managed child profiles plus duplicate/overlap path rejection |
+| `apps/desktop/electron/shared/infra/shared-infra.ts` | Added `refreshInfraModelSelection()` so cached default model selection updates after auth/model refreshes |
+| `apps/desktop/electron/ipc/platform/auth/auth.ts` | Auth mutation paths now refresh both the model registry and cached shared default model |
+| `apps/desktop/electron/features/workspace/manager.ts` | Centralized editor-state cleanup and now warn on non-ENOENT remove/close cleanup failures instead of swallowing them |
 
 ---
 
