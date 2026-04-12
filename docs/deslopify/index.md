@@ -23,7 +23,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)
     — *In progress — selected Medium items cleared 2026-04-12; cap-relief follow-up pending*
   - [`apps/desktop/src/types/`](./apps/desktop/src/types/plan.md)
-    — *Wave A contracts review complete — plan created 2026-04-12*
+    — *In progress — selected Medium contract-cleanup items cleared 2026-04-12; remaining drift pending*
   - [`apps/desktop/electron/features/agent/`](./apps/desktop/electron/features/agent/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
@@ -43,7 +43,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/profile/`](./apps/desktop/electron/features/profile/plan.md)
-    — *In progress — High item cleared 2026-04-12; Medium cleanup pending*
+    — *In progress — High + Medium path/contract items cleared 2026-04-12; Low cleanup pending*
   - [`apps/desktop/electron/features/subagent/`](./apps/desktop/electron/features/subagent/plan.md)
     — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
   - [`apps/desktop/electron/features/vcs/`](./apps/desktop/electron/features/vcs/plan.md)

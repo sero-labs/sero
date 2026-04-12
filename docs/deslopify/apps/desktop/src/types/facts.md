@@ -44,3 +44,27 @@ consumed by both renderer stores/components and Electron preload/main modules.
   re-exports plugin types from `./plugins` (`plugins.ts:1`, `ipc.ts:320`), creating a type-only cycle.
 - Widget manifest shape is duplicated (`dashboard.ts:15` and `sero-apps.ts:10`) instead of sharing
   a single canonical interface.
+
+## Post-fix snapshot — 2026-04-12
+
+### Metrics after fixes
+- Total files: 30 (was 27)
+- Total LOC: 3,318 (was 3,323)
+- Largest file: `apps/desktop/src/types/electron.d.ts` (496 LOC)
+- Files over 500 LOC: none (was `ipc.ts` at 544 before the High pass)
+- Remaining near-cap files (≥450 LOC): `electron.d.ts` (496), `ipc-channels.ts` (483), `ipc.ts` (466)
+
+### What changed
+- Canonicalized `ProfileInfo` into `apps/desktop/src/types/profile.ts` so renderer + main-process
+  profile flows share one contract source.
+- Broke the type-only `ipc.ts` ↔ `plugins.ts` cycle by importing `SeroAppManifest` directly from
+  `apps/desktop/src/types/sero-apps.ts`.
+- Unified dashboard/app widget manifest shapes through
+  `apps/desktop/src/types/widget-manifest.ts`.
+
+### Still outstanding
+- User-feedback transport types are still duplicated between desktop and
+  `plugins/sero-user-feedback-plugin/shared/types.ts`.
+- `ipc.ts` still re-exports `IpcChannels`, and the wider codebase still has remaining consumers that
+  should move to `@/types/ipc-channels`.
+- `electron.d.ts` remains near-cap and still needs the low-priority declaration-hygiene cleanup pass.

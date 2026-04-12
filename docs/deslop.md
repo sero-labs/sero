@@ -45,6 +45,16 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/hooks/useWorkspaceFiles.ts` | Added bounded workspace-file cache eviction and stale-entry clearing on load failure (169 → 214 lines) |
 | `apps/desktop/src/stores/agent.ts` | Deduplicated optimistic user-message enqueue and wired explicit buffer cleanup into open/close failure paths (495 → 461 lines) |
 | `apps/desktop/src/stores/agent-utils.ts` | Added shared `appendOptimisticUserMessage()` + `clearAgentSessionBuffers()` helpers for renderer agent session cleanup (277 → 378 lines) |
+| `apps/desktop/src/types/profile.ts` | New — canonical shared `ProfileInfo` contract for renderer + main-process profile flows |
+| `apps/desktop/src/types/widget-manifest.ts` | New — shared widget manifest contract used by dashboard + app manifests |
+| `apps/desktop/src/types/ipc.ts` | Switched profile contract ownership to `src/types/profile.ts`; kept `ipc.ts` as a thinner compatibility barrel (485 → 466 lines) |
+| `apps/desktop/src/types/plugins.ts` | Broke the `ipc.ts` ↔ `plugins.ts` type-only cycle by importing `SeroAppManifest` directly from `sero-apps.ts` |
+| `apps/desktop/src/types/sero-apps.ts` | Reused shared widget manifest contract instead of duplicating `SeroWidgetManifest` |
+| `apps/desktop/src/types/dashboard.ts` | Reused shared widget manifest contract instead of maintaining a parallel `WidgetManifest` copy |
+| `apps/desktop/electron/features/profile/types.ts` | Re-exported canonical `ProfileInfo` instead of maintaining a duplicated `KEEP IN SYNC` contract |
+| `apps/desktop/electron/features/profile/manager.ts` | Added duplicate/overlap validation for custom profile roots while preserving managed `~/.sero-ui/profiles/*` child profiles (317 → 366 lines) |
+| `apps/desktop/electron/ipc/workspace/profiles.ts` | Switched profile IPC handlers to the canonical shared `ProfileInfo` contract |
+| `apps/desktop/electron/__tests__/features/profile/manager.test.ts` | New — covers allowed managed child profiles plus duplicate/overlap path rejection |
 
 ---
 

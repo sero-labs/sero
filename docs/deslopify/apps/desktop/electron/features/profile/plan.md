@@ -8,9 +8,9 @@ _Plan drafted: 2026-04-12_
 ## Issues Found (prioritized)
 - **High** — Corrupt or malformed `profiles.json` is treated as an empty registry — `apps/desktop/electron/features/profile/manager.ts:38-46` returns `emptyRegistry()` for parse/shape failures. In an AD-022 system where registry content decides whether any profile exists, this makes corruption indistinguishable from “fresh install” and creates a path to accidental clobber on the next write. Effort: **S**.
 
-- **Medium** — `ProfileInfo` is still duplicated with a `KEEP IN SYNC` warning instead of a canonical contract — `apps/desktop/electron/features/profile/types.ts:39-50` mirrors `apps/desktop/src/types/ipc.ts:16-25`. This is exactly the kind of renderer↔main type drift Sero wants to avoid. Effort: **S**.
+- **Medium** — ~~`ProfileInfo` is still duplicated with a `KEEP IN SYNC` warning instead of a canonical contract — `apps/desktop/electron/features/profile/types.ts:39-50` mirrors `apps/desktop/src/types/ipc.ts:16-25`. This is exactly the kind of renderer↔main type drift Sero wants to avoid.~~ ✅ 2026-04-12 (`ProfileInfo` now lives in `src/types/profile.ts` and is imported from both sides.) Effort: **S**.
 
-- **Medium** — `ProfileManager.create()` does not validate custom paths strongly enough for profile isolation — `apps/desktop/electron/features/profile/manager.ts:121-149` accepts an arbitrary resolved path, and the only collision logic in `defaultPathForName()` (`apps/desktop/electron/features/profile/manager.ts:198-213`) applies to generated defaults. A user can point multiple profiles at the same directory or create overlapping profile roots, which undermines AD-022’s “profile = independent SERO_HOME” guarantee. Effort: **M**.
+- **Medium** — ~~`ProfileManager.create()` does not validate custom paths strongly enough for profile isolation — `apps/desktop/electron/features/profile/manager.ts:121-149` accepts an arbitrary resolved path, and the only collision logic in `defaultPathForName()` (`apps/desktop/electron/features/profile/manager.ts:198-213`) applies to generated defaults. A user can point multiple profiles at the same directory or create overlapping profile roots, which undermines AD-022’s “profile = independent SERO_HOME” guarantee.~~ ✅ 2026-04-12 (`validateNewProfilePath()` now rejects duplicate/overlapping roots while preserving the managed `~/.sero-ui/profiles/*` carve-out.) Effort: **M**.
 
 - **Low** — Copy/setup helpers still rely on broad best-effort catches and carry small dead surface — `apps/desktop/electron/features/profile/copy-profile-data.ts:93-123` suppresses model-preference-copy failures entirely, and `apps/desktop/electron/features/profile/manager.ts:51-54` keeps an unused `writeRegistrySync()` helper. Effort: **S**.
 
@@ -47,8 +47,8 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Fix the High issue first: distinguish malformed registry content from “no registry yet.”~~ ✅ 2026-04-12 (`4350404d`)
-2. Extract `ProfileInfo` to one canonical contract shared by renderer + main.
-3. Add path-collision / path-overlap validation to `ProfileManager.create()`.
+2. ~~Extract `ProfileInfo` to one canonical contract shared by renderer + main.~~ ✅ 2026-04-12
+3. ~~Add path-collision / path-overlap validation to `ProfileManager.create()`.~~ ✅ 2026-04-12
 4. Tighten copy/setup diagnostics and remove dead helper surface.
 5. Verification checklist:
    - Fresh install still shows `ProfileSetup` when no registry exists.
@@ -60,3 +60,7 @@ _Plan drafted: 2026-04-12_
 ## Execution log
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
   - Hardened `readRegistrySync()` so malformed `profiles.json` now fails explicitly instead of silently collapsing to an empty registry.
+- 2026-04-12 — Medium Wave E3 (working tree)
+  - Canonicalized `ProfileInfo` to `src/types/profile.ts` and updated main-process profile consumers to import the shared contract.
+  - Added `validateNewProfilePath()` to reject duplicate/overlapping custom profile roots while preserving the managed `~/.sero-ui/profiles/*` default-profile carve-out.
+  - Added focused Vitest coverage in `electron/__tests__/features/profile/manager.test.ts` for the new path-validation rules.

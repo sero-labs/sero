@@ -32,15 +32,18 @@ This feature owns the profile registry and bootstrap lifecycle behind AD-022: fi
 ## Post-fix snapshot — 2026-04-12
 
 ### Metrics after fixes
-- Total files: 6 (unchanged)
-- Largest file: `apps/desktop/electron/features/profile/setup.ts` (271 LOC)
-- Files over 500 LOC: none (unchanged)
+- Total files: 7 (was 6 in the original scan)
+- Largest file: `apps/desktop/electron/features/profile/manager.ts` (366 LOC)
+- Files over 500 LOC: none
 - Type escape hatches remaining: 0 in this folder
 
 ### What changed
 - `readRegistrySync()` now distinguishes a missing registry from malformed content and throws an explicit `ProfileRegistryError` for corrupt `profiles.json` data.
 - Startup/profile consumers now fail closed instead of silently routing corruption into the first-run flow.
+- `ProfileInfo` now comes from the canonical shared contract at `apps/desktop/src/types/profile.ts`.
+- `ProfileManager.create()` now validates duplicate/overlapping custom roots while preserving the
+  managed `~/.sero-ui/profiles/*` carve-out for profiles created beneath the default profile root.
+- Added focused path-validation tests at `apps/desktop/electron/__tests__/features/profile/manager.test.ts`.
 
 ### Still outstanding
-- `ProfileInfo` is still duplicated across renderer and main-process contracts.
-- `ProfileManager.create()` still needs path-overlap validation for custom profile roots.
+- Copy/setup helpers still rely on broad best-effort catches and small dead helper surface.
