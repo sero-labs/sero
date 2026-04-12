@@ -10,9 +10,9 @@ _Plan drafted: 2026-04-12_
 
 - **Medium** — Core orchestration stores are one feature away from the 500-LOC cap — `apps/desktop/src/stores/agent.ts:1-489` and `apps/desktop/src/stores/app.ts:1-460` each mix multiple responsibilities (state, IPC orchestration, hydration/startup utilities, listener wiring), increasing review risk and future refactor cost. Effort: **M**.
 
-- **Medium** — `agent.ts` duplicates optimistic user-message creation and ID generation in three flows — `apps/desktop/src/stores/agent.ts:155-176`, `apps/desktop/src/stores/agent.ts:198-218`, and `apps/desktop/src/stores/agent.ts:338-356`. This duplication already drifted (prompt/steer/collab paths are subtly different) and makes future message-shape changes error-prone. Effort: **S**.
+- **Medium** — ~~`agent.ts` duplicates optimistic user-message creation and ID generation in three flows — `apps/desktop/src/stores/agent.ts:155-176`, `apps/desktop/src/stores/agent.ts:198-218`, and `apps/desktop/src/stores/agent.ts:338-356`. This duplication already drifted (prompt/steer/collab paths are subtly different) and makes future message-shape changes error-prone.~~ ✅ 2026-04-12 (`appendOptimisticUserMessage()` now owns the shared enqueue path). Effort: **S**.
 
-- **Medium** — Module-level pending memory context has no explicit cleanup on session teardown — `apps/desktop/src/stores/agent-utils.ts:108-169` adds per-session entries on `memory_context` and clears only on the next assistant `message_start`. Session close/error paths do not prune stale session keys, so long-lived apps can accumulate dead map entries. Effort: **S**.
+- **Medium** — ~~Module-level pending memory context has no explicit cleanup on session teardown — `apps/desktop/src/stores/agent-utils.ts:108-169` adds per-session entries on `memory_context` and clears only on the next assistant `message_start`. Session close/error paths do not prune stale session keys, so long-lived apps can accumulate dead map entries.~~ ✅ 2026-04-12 (`clearAgentSessionBuffers()` now clears pending context + buffered deltas on close/error/unknown `agent_end`). Effort: **S**.
 
 - **Low** — Selector helpers return fresh arrays/objects each call, creating avoidable render churn in hot UI paths — e.g. `apps/desktop/src/stores/agent-selectors.ts:25-29` (`useStreamingSessionIds`) and `apps/desktop/src/stores/sessions.ts:230-253` (`useSessionsByWorkspace`). Effort: **S**.
 
@@ -57,7 +57,10 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. Land High fix: make `closeSession` and `closeWorkspace` consistent on IPC failure.
-2. Extract optimistic user-message helper and de-duplicate prompt/steer/collab paths.
-3. Add session-buffer teardown for `pendingMemoryContext` in `agent-utils`.
+2. ~~Extract optimistic user-message helper and de-duplicate prompt/steer/collab paths.~~ ✅ 2026-04-12
+3. ~~Add session-buffer teardown for `pendingMemoryContext` in `agent-utils`.~~ ✅ 2026-04-12
 4. Split `agent.ts` and `app.ts` into submodules before either file crosses 500 LOC.
 5. After fixes, re-run deslopify on `components/layout` (Wave C) with updated store ownership boundaries.
+
+## Execution log
+- 2026-04-12 — Medium Wave E2 (working tree): extracted shared optimistic user-message enqueue logic, added explicit agent-session buffer teardown, and trimmed `agent.ts` from 495 → 461 LOC while preserving the existing public store API.

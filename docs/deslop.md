@@ -33,6 +33,18 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/types/electron-services.d.ts` | Updated renderer gateway API contract for workspace-scoped QR login generation |
 | `apps/desktop/src/components/layout/ConnectDeviceDialog.tsx` | QR pairing now scopes remote access to the active workspace and surfaces that in the dialog |
 | `apps/desktop/electron/features/gateway/channels/discord.ts` | Fixed `/sero abort` so it actually aborts the active session and reports failures |
+| `apps/desktop/electron/preload/api.ts` | Split aggregate preload bridge into a thin composer (485 → 88 lines) |
+| `apps/desktop/electron/preload/api/core.ts` | New — extracted shell/profile/workspace/session/agent/context-preset preload bridges |
+| `apps/desktop/electron/preload/api/workbench.ts` | New — extracted VCS/terminal/editor/filetree preload bridges |
+| `apps/desktop/electron/preload/agent/{local-models,models,prompts,skills,subagent}.ts` | Switched `IpcChannels` imports to `@/types/ipc-channels` |
+| `apps/desktop/electron/preload/{apps/app-domain.ts,collaboration/index.ts,editor/debug-lsp.ts,integrations/google-imagegen.ts,integrations/plugins.ts,onboarding.ts,platform/host-services.ts,platform/user-feedback.ts}` | Switched `IpcChannels` imports to `@/types/ipc-channels` |
+| `apps/desktop/src/hooks/useSessionAgent.ts` | Reduced to a thin composition wrapper over focused session-agent hooks (140 → 23 lines) |
+| `apps/desktop/src/hooks/session-agent/useActiveSessionSync.ts` | New — owns active-session open/focus + collaboration hydration |
+| `apps/desktop/src/hooks/session-agent/useContainerEnsureOnSessionFocus.ts` | New — owns container ensure flow for focused container-backed workspaces |
+| `apps/desktop/src/hooks/session-agent/useSessionListRefreshOnAgentIdle.ts` | New — debounces bursty idle-triggered session-list refreshes |
+| `apps/desktop/src/hooks/useWorkspaceFiles.ts` | Added bounded workspace-file cache eviction and stale-entry clearing on load failure (169 → 214 lines) |
+| `apps/desktop/src/stores/agent.ts` | Deduplicated optimistic user-message enqueue and wired explicit buffer cleanup into open/close failure paths (495 → 461 lines) |
+| `apps/desktop/src/stores/agent-utils.ts` | Added shared `appendOptimisticUserMessage()` + `clearAgentSessionBuffers()` helpers for renderer agent session cleanup (277 → 378 lines) |
 
 ---
 
