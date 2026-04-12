@@ -12,6 +12,8 @@ entry links to a `facts.md` and `plan.md` pair.
     — *Wave C primary-consumer review complete — plan created 2026-04-12*
   - [`apps/desktop/src/components/layout/`](./apps/desktop/src/components/layout/plan.md)
     — *Wave C shell/chrome review complete — plan created 2026-04-12*
+  - [`apps/desktop/src/components/profiles/`](./apps/desktop/src/components/profiles/plan.md)
+    — *Wave C secondary-island review complete — plan created 2026-04-12*
   - [`apps/desktop/src/hooks/`](./apps/desktop/src/hooks/plan.md)
     — *Wave A renderer orchestration review complete — plan created 2026-04-12*
   - [`apps/desktop/src/lib/`](./apps/desktop/src/lib/plan.md)
@@ -26,12 +28,18 @@ entry links to a `facts.md` and `plan.md` pair.
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
+    — *Wave C secondary-island review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/container/`](./apps/desktop/electron/features/container/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/editor/`](./apps/desktop/electron/features/editor/plan.md)
     — *Wave C primary-consumer review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
+    — *Wave C secondary-island review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
+  - [`apps/desktop/electron/features/profile/`](./apps/desktop/electron/features/profile/plan.md)
+    — *Wave C secondary-island review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/workspace/`](./apps/desktop/electron/features/workspace/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/ipc/`](./apps/desktop/electron/ipc/plan.md)
