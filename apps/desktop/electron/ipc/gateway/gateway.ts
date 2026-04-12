@@ -104,6 +104,8 @@ export function registerGatewayHandlers(): void {
   ipcMain.handle(
     IpcChannels.gateway.getQrLoginData,
     async (_event, expiryDays?: number): Promise<QrLoginData> => {
+      await startGateway();
+
       // Clamp expiry to 1–30 days to prevent bogus values from the renderer.
       const days = Math.max(1, Math.min(expiryDays ?? 7, 30));
       const auth = gatewayServer.getAuth();
@@ -113,11 +115,14 @@ export function registerGatewayHandlers(): void {
       );
 
       // Determine the best base URL for the login link.
-      // Prefer the Tailscale URL (reachable from other devices on the tailnet),
-      // fall back to localhost (same-machine development).
+      // Only use the tailnet URL after we have explicitly exposed the gateway
+      // via `tailscale serve`; otherwise the hostname can return 502s.
       const status = gatewayServer.getStatus();
       const tsStatus = await tailscale.getStatus();
-      const baseUrl = tsStatus.gatewayUrl ?? `http://127.0.0.1:${status.port}`;
+      const tailnetUrl = tsStatus.running
+        ? await tailscale.serve(status.port)
+        : null;
+      const baseUrl = tailnetUrl ?? `http://127.0.0.1:${status.port}`;
 
       const loginUrl = new URL('/', baseUrl);
       loginUrl.searchParams.set('token', webToken.token);

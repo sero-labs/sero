@@ -55,6 +55,7 @@ import type {
   SubagentEvent,
   SubagentAgentSummary,
   SubagentEntry,
+  SubagentAgentFile,
   InstalledPlugin,
   PluginChangeEvent,
   DiscoveredPlugin,
@@ -439,7 +440,7 @@ interface SeroPluginsAPI {
   onChanged(callback: (event: PluginChangeEvent) => void): () => void;
 }
 
-interface SeroAPI {
+export interface SeroAPI {
   platform: string;
   shell: SeroShellAPI;
   profiles: SeroProfilesAPI;

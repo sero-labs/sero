@@ -285,7 +285,7 @@ export function convertSessionMessages(
         });
       }
     } else if (msg.role === 'custom') {
-      const prefixed = formatCustomMessage(msg as any);
+      const prefixed = formatCustomMessage(msg);
       if (!prefixed) continue;
       result.push({ type: 'assistant', id: nextId(), text: prefixed, isStreaming: false });
     }
@@ -417,27 +417,35 @@ export function buildCommandList(entry: PoolEntryRef, hidden?: Set<string>): Ser
 
 // ── Context override helpers ────────────────────────────────
 
+type SessionPrivatePromptAccessor = { _baseSystemPrompt?: string };
+
+function asSessionWithPrivatePrompt(session: AgentSession): SessionPrivatePromptAccessor {
+  return session as unknown as SessionPrivatePromptAccessor;
+}
+
 /** Safely read _baseSystemPrompt from AgentSession (private SDK field). */
 export function getBaseSystemPrompt(session: AgentSession): string | undefined {
-  if (!('_baseSystemPrompt' in (session as any))) {
+  const privateSession = asSessionWithPrivatePrompt(session);
+  if (typeof privateSession._baseSystemPrompt !== 'string') {
     console.warn(
       '[context-editor] _baseSystemPrompt not found on AgentSession — ' +
         'SDK version mismatch? Tested against pi-coding-agent@0.52.12.',
     );
     return undefined;
   }
-  return (session as any)._baseSystemPrompt;
+  return privateSession._baseSystemPrompt;
 }
 
 /** Safely write _baseSystemPrompt + update the agent's current prompt. */
 export function setBaseSystemPrompt(session: AgentSession, prompt: string): void {
-  if (!('_baseSystemPrompt' in (session as any))) {
+  const privateSession = asSessionWithPrivatePrompt(session);
+  if (typeof privateSession._baseSystemPrompt !== 'string') {
     console.warn(
       '[context-editor] _baseSystemPrompt not found on AgentSession — ' +
         'SDK version mismatch? Tested against pi-coding-agent@0.52.12.',
     );
   }
-  (session as any)._baseSystemPrompt = prompt;
+  privateSession._baseSystemPrompt = prompt;
   session.agent.setSystemPrompt(prompt);
 }
 

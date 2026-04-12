@@ -79,6 +79,10 @@ interface PoolEntry {
 
 const pool = new Map<string, PoolEntry>();
 
+function toErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 /** Get a pool entry by session ID (used by collaboration handler). */
 export function getAgentPoolEntry(sessionId: string): PoolEntry | undefined {
   return pool.get(sessionId);
@@ -153,9 +157,10 @@ async function openSessionInternal(
       containerState = await containerManager.ensure(containerConfig);
       sendEvent({ type: 'container_ready', sessionId, workspaceId, ipAddress: containerState.ipAddress });
     }
-  } catch (containerErr: any) {
-    console.error(`[agent] Container failed for ${workspaceId}:`, containerErr?.message);
-    sendEvent({ type: 'container_error', sessionId, workspaceId, error: containerErr?.message ?? 'Container failed to start' });
+  } catch (containerErr: unknown) {
+    const message = toErrorMessage(containerErr, 'Container failed to start');
+    console.error(`[agent] Container failed for ${workspaceId}:`, message);
+    sendEvent({ type: 'container_error', sessionId, workspaceId, error: message });
   }
 
   const useContainer = !!containerState;
@@ -390,8 +395,8 @@ export function registerAgentHandlers(): void {
       try {
         const result = await entry.session.compact(customInstructions);
         return { success: true, tokensBefore: result.tokensBefore };
-      } catch (err: any) {
-        return { success: false, error: err?.message || 'Compaction failed' };
+      } catch (err: unknown) {
+        return { success: false, error: toErrorMessage(err, 'Compaction failed') };
       }
     },
   );

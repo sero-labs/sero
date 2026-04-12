@@ -65,8 +65,18 @@ function parseListeningPorts(ssOutput: string): ListeningPort[] {
 
 const BRIDGE_OFFSET = 20000;
 
-function bridgeScript(targetPort: number, bridgePort: number): string {
-  return `node -e "require('net').createServer(c=>{const r=require('net').connect(${targetPort},'127.0.0.1');c.pipe(r);r.pipe(c);c.on('error',()=>r.destroy());r.on('error',()=>c.destroy())}).listen(${bridgePort},'0.0.0.0')" &`;
+function bridgeMarker(wsId: string, targetPort: number): string {
+  return `sero-port-bridge-${wsId}-${targetPort}`;
+}
+
+function bridgeScript(wsId: string, targetPort: number, bridgePort: number): string {
+  const marker = bridgeMarker(wsId, targetPort);
+  return `node -e "process.title='${marker}';require('net').createServer(c=>{const r=require('net').connect(${targetPort},'127.0.0.1');c.pipe(r);r.pipe(c);c.on('error',()=>r.destroy());r.on('error',()=>c.destroy())}).listen(${bridgePort},'0.0.0.0')" &`;
+}
+
+function stopBridgeCommand(wsId: string, targetPort: number): string {
+  const marker = bridgeMarker(wsId, targetPort);
+  return `pkill -f '${marker}' >/dev/null 2>&1 || true`;
 }
 
 // ── PortScanner ─────────────────────────────────────────────
@@ -99,6 +109,12 @@ export class PortScanner {
     const state = this.workspaces.get(wsId);
     if (!state) return;
     clearInterval(state.timer);
+    for (const port of state.bridges) {
+      void state.execFn(stopBridgeCommand(wsId, port));
+    }
+    state.bridges.clear();
+    state.detected = [];
+    state.lastPorts.clear();
     this.workspaces.delete(wsId);
   }
 
@@ -129,7 +145,11 @@ export class PortScanner {
 
     try {
       const result = await state.execFn('ss -tlnp 2>/dev/null');
-      if (result.exitCode !== 0) return;
+      if (result.exitCode !== 0) {
+        state.detected = [];
+        state.lastPorts.clear();
+        return;
+      }
 
       const ports = parseListeningPorts(result.stdout);
       const currentSet = new Set<number>();
@@ -152,13 +172,16 @@ export class PortScanner {
       // Clean up bridges for ports that stopped listening
       for (const old of state.lastPorts) {
         if (!currentSet.has(old) && state.bridges.has(old)) {
-          state.bridges.delete(old);
+          await this.stopBridge(state, wsId, old);
         }
       }
 
       state.lastPorts = currentSet;
       state.detected = detected;
-    } catch { /* container may have stopped */ }
+    } catch {
+      state.detected = [];
+      state.lastPorts.clear();
+    }
   }
 
   private async ensureBridge(
@@ -169,11 +192,22 @@ export class PortScanner {
     if (state.bridges.has(port)) return;
     const bridgePort = port + BRIDGE_OFFSET;
     try {
-      await state.execFn(`${bridgeScript(port, bridgePort)} sleep 0.5`);
+      await state.execFn(stopBridgeCommand(wsId, port));
+      await state.execFn(`${bridgeScript(wsId, port, bridgePort)} sleep 0.5`);
       state.bridges.add(port);
       console.log(`[ports] Bridge: 0.0.0.0:${bridgePort} → 127.0.0.1:${port} (${wsId})`);
     } catch {
       console.warn(`[ports] Failed to bridge port ${port} in ${wsId}`);
     }
+  }
+
+  private async stopBridge(state: WorkspaceScanState, wsId: string, port: number): Promise<void> {
+    if (!state.bridges.has(port)) return;
+    try {
+      await state.execFn(stopBridgeCommand(wsId, port));
+    } catch {
+      // best effort
+    }
+    state.bridges.delete(port);
   }
 }

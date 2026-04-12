@@ -48,7 +48,7 @@ export function createSeroUIContext(): ExtensionUIContext {
 
     // ── Custom components (no-op) ────────────────────────
 
-    custom: async () => undefined as never,
+    custom: async <T>(..._args: Parameters<ExtensionUIContext['custom']>) => undefined as unknown as T,
 
     // ── Editor (no-op) ───────────────────────────────────
 
@@ -60,8 +60,8 @@ export function createSeroUIContext(): ExtensionUIContext {
 
     // ── Theme (stubs) ────────────────────────────────────
 
-    get theme(): any {
-      return {};
+    get theme(): ExtensionUIContext['theme'] {
+      return {} as ExtensionUIContext['theme'];
     },
     getAllThemes: () => [],
     getTheme: () => undefined,

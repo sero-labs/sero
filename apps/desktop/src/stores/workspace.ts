@@ -33,7 +33,7 @@ interface WorkspaceState {
   /** Load all workspaces from main process. */
   loadWorkspaces: () => Promise<void>;
   /** Close a workspace — removes it from the registry entirely. */
-  closeWorkspace: (id: string) => void;
+  closeWorkspace: (id: string) => Promise<void>;
   /** Toggle expanded/collapsed state of a workspace tree node. */
   toggleCollapsed: (id: string) => void;
   /** Collapse all workspace tree nodes. */
@@ -81,14 +81,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  closeWorkspace: (id) => {
+  closeWorkspace: async (id) => {
     if (id === 'global') return; // Can't close global
+
+    try {
+      await window.sero.workspace.close(id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to close workspace';
+      console.error('[workspace] closeWorkspace failed:', err);
+      set({ error: message });
+      return;
+    }
+
     set((s) => ({
       workspaces: s.workspaces.filter((w) => w.id !== id),
       activeWorkspaceId: s.activeWorkspaceId === id ? 'global' : s.activeWorkspaceId,
     }));
-    // Remove from registry on disk
-    window.sero.workspace.close(id).catch(console.error);
   },
 
   toggleCollapsed: (id) => {

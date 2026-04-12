@@ -48,7 +48,7 @@ export function registerLspHandlers(): void {
   );
 
   // Forward LSP notifications (diagnostics etc.) to the renderer
-  lspManager.on('notification', (data: { workspaceId: string; language: string; notification: any }) => {
+  lspManager.on('notification', (data: { workspaceId: string; language: string; notification: unknown }) => {
     for (const win of BrowserWindow.getAllWindows()) {
       try {
         if (!win.isDestroyed()) {

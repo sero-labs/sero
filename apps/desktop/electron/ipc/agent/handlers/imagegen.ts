@@ -24,8 +24,18 @@ import {
 const STATE_REL = path.join('.sero', 'apps', 'imagegen', 'state.json');
 const IMAGES_REL = path.join('.sero', 'apps', 'imagegen', 'images');
 
+interface PersistedImageGeneration {
+  id: number;
+  prompt: string;
+  negativePrompt?: string;
+  model: ImageGenParams['model'];
+  aspectRatio: ImageGenParams['aspectRatio'];
+  images: ImageGenResult['images'];
+  createdAt: string;
+}
+
 interface ImageGenState {
-  generations: any[];
+  generations: PersistedImageGeneration[];
   nextId: number;
 }
 
@@ -58,7 +68,7 @@ export function registerImagegenHandlers(): void {
       _event,
       workspaceId: string,
       params: ImageGenParams,
-    ): Promise<{ generation: any; error?: string }> => {
+    ): Promise<{ generation: PersistedImageGeneration | null; error?: string }> => {
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error('No workspace path');
 
@@ -104,14 +114,14 @@ export function registerImagegenHandlers(): void {
       const statePath = path.join(wsPath, STATE_REL);
       const state = await readState(statePath);
 
-      const idx = state.generations.findIndex((g: any) => g.id === generationId);
+      const idx = state.generations.findIndex((g) => g.id === generationId);
       if (idx === -1) return { ok: false, error: 'Image not found' };
 
       const gen = state.generations[idx];
 
       if (singleImageId) {
         // Remove a single image from the generation
-        const imgIdx = gen.images.findIndex((img: any) => img.id === singleImageId);
+        const imgIdx = gen.images.findIndex((img) => img.id === singleImageId);
         if (imgIdx === -1) return { ok: false, error: 'Image not found' };
 
         const [removed] = gen.images.splice(imgIdx, 1);

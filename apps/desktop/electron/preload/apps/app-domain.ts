@@ -19,6 +19,7 @@ import type {
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
 } from '@/types/ipc';
+import type { GitHubDeviceFlowEvent } from '@/types/electron-services';
 
 export const appStateBridge = {
   read: (filePath: string): Promise<unknown> =>
@@ -196,8 +197,8 @@ export const githubBridge = {
     ipcRenderer.invoke(IpcChannels.github.logout),
   cancel: (): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.github.cancel),
-  onEvent: (callback: (event: unknown) => void): (() => void) => {
-    const handler = (_e: Electron.IpcRendererEvent, data: unknown) => callback(data);
+  onEvent: (callback: (event: GitHubDeviceFlowEvent) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, data: GitHubDeviceFlowEvent) => callback(data);
     ipcRenderer.on(IpcChannels.github.event, handler);
     return () => ipcRenderer.removeListener(IpcChannels.github.event, handler);
   },

@@ -297,6 +297,8 @@ export function getFederatedComponent(
     const loaded = await loadRemoteModule(appId, component, devPort);
     if (!loaded) {
       console.error(`[federation] Failed to load remote: ${toRemoteName(appId)}/${component}`);
+      cache.delete(cacheKey);
+      resolvedModules.delete(cacheKey);
       return { default: () => null };
     }
 
