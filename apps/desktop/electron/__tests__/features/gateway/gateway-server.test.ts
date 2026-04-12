@@ -45,8 +45,8 @@ describe('GatewayServer artifact authorization', () => {
       authenticated: true,
       isMasterAuth: false,
       authorizedWorkspaceIds: new Set(['workspace-1']),
-      authorizedSessionIds: new Set(['session-1']),
-      authorizedArtifactIds: new Set<string>(),
+      authorizedSessions: new Map([['session-1', 'workspace-1']]),
+      authorizedArtifacts: new Map<string, string>(),
       subscribedSessions: new Set(['session-1']),
       remoteIp: '127.0.0.1',
       lastActivity: Date.now(),
@@ -59,8 +59,8 @@ describe('GatewayServer artifact authorization', () => {
       authenticated: true,
       isMasterAuth: false,
       authorizedWorkspaceIds: new Set(['workspace-1']),
-      authorizedSessionIds: new Set<string>(),
-      authorizedArtifactIds: new Set<string>(),
+      authorizedSessions: new Map<string, string>(),
+      authorizedArtifacts: new Map<string, string>(),
       subscribedSessions: new Set(['session-1']),
       remoteIp: '127.0.0.1',
       lastActivity: Date.now(),
@@ -77,9 +77,9 @@ describe('GatewayServer artifact authorization', () => {
       title: 'Screenshot',
     });
 
-    expect(authorizedClient.authorizedArtifactIds.has('artifact-1')).toBe(true);
+    expect(authorizedClient.authorizedArtifacts.has('artifact-1')).toBe(true);
     expect(authorizedWs.send).toHaveBeenCalledOnce();
-    expect(unauthorizedClient.authorizedArtifactIds.has('artifact-1')).toBe(false);
+    expect(unauthorizedClient.authorizedArtifacts.has('artifact-1')).toBe(false);
     expect(unauthorizedWs.send).not.toHaveBeenCalled();
   });
 });

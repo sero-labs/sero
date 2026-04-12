@@ -13,7 +13,7 @@
  *     module level — those are not yet initialised when this runs.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { copyFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -24,6 +24,7 @@ import type { ProfileEntry, ProfileRegistry, ProfileInfo } from './types';
 /** Fixed location for the profile registry — never changes. */
 const SERO_ROOT = path.join(os.homedir(), '.sero-ui');
 const REGISTRY_PATH = path.join(SERO_ROOT, 'profiles.json');
+export const PROFILE_REGISTRY_PATH = REGISTRY_PATH;
 
 /** Default SERO_HOME for the auto-created "Default" profile. */
 const DEFAULT_PROFILE_PATH = SERO_ROOT;
@@ -92,6 +93,23 @@ export function readRegistrySync(): ProfileRegistry {
   return parseRegistry(raw);
 }
 
+export interface ProfileRegistryLoadResult {
+  registry: ProfileRegistry;
+  error: ProfileRegistryError | null;
+}
+
+/** Read registry without throwing for malformed JSON. Used by startup recovery flows. */
+export function readRegistryLoadSync(): ProfileRegistryLoadResult {
+  try {
+    return { registry: readRegistrySync(), error: null };
+  } catch (error) {
+    if (error instanceof ProfileRegistryError) {
+      return { registry: emptyRegistry(), error };
+    }
+    throw error;
+  }
+}
+
 /** Write registry synchronously. */
 function writeRegistrySync(registry: ProfileRegistry): void {
   mkdirSync(SERO_ROOT, { recursive: true });
@@ -106,18 +124,49 @@ async function writeRegistryAsync(registry: ProfileRegistry): Promise<void> {
   await fs.rename(tmpFile, REGISTRY_PATH);
 }
 
+export interface ProfileRegistryResetResult {
+  registryPath: string;
+  backupPath: string | null;
+}
+
+/**
+ * Preserve a malformed profiles.json for inspection, then replace it with a
+ * fresh empty registry so the app can recover on next launch.
+ */
+export function backupAndResetRegistrySync(): ProfileRegistryResetResult {
+  mkdirSync(SERO_ROOT, { recursive: true });
+
+  let backupPath: string | null = null;
+  if (existsSync(REGISTRY_PATH)) {
+    const timestamp = new Date().toISOString().replace(/[.:]/g, '-');
+    backupPath = path.join(SERO_ROOT, `profiles.broken-${timestamp}.json`);
+    copyFileSync(REGISTRY_PATH, backupPath);
+  }
+
+  writeRegistrySync(emptyRegistry());
+  return { registryPath: REGISTRY_PATH, backupPath };
+}
+
 // ── ProfileManager ──────────────────────────────────────────
 
 class ProfileManager {
   private registry: ProfileRegistry;
+  private loadError: ProfileRegistryError | null = null;
 
   constructor() {
-    this.registry = readRegistrySync();
+    const result = readRegistryLoadSync();
+    this.registry = result.registry;
+    this.loadError = result.error;
   }
 
   /** Reload registry from disk (e.g. after external modification). */
   reload(): void {
     this.registry = readRegistrySync();
+    this.loadError = null;
+  }
+
+  getLoadError(): ProfileRegistryError | null {
+    return this.loadError;
   }
 
   // ── Queries ─────────────────────────────────────────────

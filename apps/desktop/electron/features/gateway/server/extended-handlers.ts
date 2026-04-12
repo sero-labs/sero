@@ -8,10 +8,8 @@ import type { GatewayRequest } from './protocol';
 import type { GatewayAgentOps } from '..';
 import type { GatewayAuth } from '../security/auth';
 import {
-  authorizeArtifact,
-  authorizeArtifacts,
-  authorizeSession,
-  authorizeSessions,
+  authorizeArtifactsFromSession,
+  authorizeSessionFromWorkspace,
   hasArtifactAccess,
   hasSessionAccess,
   hasWorkspaceAccess,
@@ -58,7 +56,7 @@ export async function routeExtendedRequest(
           request.workspaceId,
           request.name,
         );
-        authorizeSession(accessScope, session.id);
+        authorizeSessionFromWorkspace(accessScope, request.workspaceId, session.id);
         sendResponse(ws, {
           type: 'ok',
           requestType: 'create_session',
@@ -147,7 +145,11 @@ export async function routeExtendedRequest(
       }
       try {
         const artifacts = await agentOps.listArtifacts(request.sessionId);
-        authorizeArtifacts(accessScope, artifacts.map((artifact) => artifact.id));
+        authorizeArtifactsFromSession(
+          accessScope,
+          request.sessionId,
+          artifacts.map((artifact) => artifact.id),
+        );
         sendResponse(ws, {
           type: 'ok',
           requestType: 'list_artifacts',
@@ -174,9 +176,6 @@ export async function routeExtendedRequest(
       }
       try {
         const artifact = await agentOps.getArtifact(request.artifactId);
-        if (artifact) {
-          authorizeArtifact(accessScope, request.artifactId);
-        }
         sendResponse(ws, {
           type: 'ok',
           requestType: 'get_artifact',
@@ -206,7 +205,7 @@ export async function routeExtendedRequest(
           request.workspaceId,
           request.sessionId,
         );
-        authorizeSessions(accessScope, [request.sessionId]);
+        authorizeSessionFromWorkspace(accessScope, request.workspaceId, request.sessionId);
         sendResponse(ws, {
           type: 'ok',
           requestType: 'get_session_history',

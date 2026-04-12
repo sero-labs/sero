@@ -17,7 +17,13 @@ import os from 'os';
 import path from 'path';
 
 import { migrateExistingInstall } from '@electron/features/profile/migration';
-import { readRegistrySync } from '@electron/features/profile/manager';
+import {
+  PROFILE_REGISTRY_PATH,
+  readRegistryLoadSync,
+  readRegistrySync,
+} from '@electron/features/profile/manager';
+import type { ProfileRegistry } from '@electron/features/profile/types';
+import type { ProfileRegistryStartupIssue } from '@electron/features/profile/recovery';
 
 // ── Fixed root — always ~/.sero-ui/ ─────────────────────────
 
@@ -40,6 +46,23 @@ export const SERO_FIXED_ROOT = path.join(os.homedir(), '.sero-ui');
  * inherits env vars from the parent process. If we checked SERO_HOME,
  * profile switching would be silently ignored after a relaunch.
  */
+let profileStartupIssue: ProfileRegistryStartupIssue | null = null;
+
+function loadRegistryForStartup(): ProfileRegistry {
+  const result = readRegistryLoadSync();
+  if (result.error) {
+    if (!profileStartupIssue) {
+      profileStartupIssue = {
+        kind: 'malformed_profile_registry',
+        registryPath: PROFILE_REGISTRY_PATH,
+        message: result.error.message,
+      };
+      console.error('[sero:profile] Malformed profiles.json detected:', result.error.message);
+    }
+  }
+  return result.registry;
+}
+
 function resolveProfileHome(): string {
   // Testing override — uses a SEPARATE env var that Sero never sets itself
   if (process.env.SERO_HOME_OVERRIDE) {
@@ -50,7 +73,7 @@ function resolveProfileHome(): string {
   migrateExistingInstall();
 
   // Read profile registry
-  const registry = readRegistrySync();
+  const registry = loadRegistryForStartup();
 
   if (registry.activeProfileId) {
     const active = registry.profiles.find(
@@ -127,11 +150,13 @@ export const AUTH_JSON_PATH = path.join(SERO_AGENT_DIR, 'auth.json');
 // has run any auto-repair. This avoids 3× synchronous file reads at startup.
 const _postResolveRegistry = process.env.SERO_HOME_OVERRIDE
   ? { activeProfileId: null as string | null, profiles: [] as { id: string }[] }
-  : readRegistrySync();
+  : loadRegistryForStartup();
 
 /** The active profile ID (null if no profile yet). */
 export const ACTIVE_PROFILE_ID: string | null = _postResolveRegistry.activeProfileId;
 
+/** Non-null when startup was forced into recovery mode for a broken profiles.json. */
+export const PROFILE_STARTUP_ISSUE = profileStartupIssue;
 
 const ENV_PATH = path.join(SERO_AGENT_DIR, '.env');
 

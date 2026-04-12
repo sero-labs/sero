@@ -13,14 +13,9 @@ import { RateLimiter } from './security/rate-limiter';
 import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './server/request-handler';
 import { tryServeStaticFile } from './server/static-files';
 import { redactSecrets } from '@electron/shared/lib/secret-redact';
-import {
-  validateRequest,
-  type GatewayRequest,
-  type GatewayResponse,
-  type GatewayPushEvent,
-} from './server/protocol';
+import { validateRequest, type GatewayRequest, type GatewayResponse, type GatewayPushEvent } from './server/protocol';
 import type { GatewayConfig, GatewayAgentOps } from './server/types';
-import type { GatewayAccessScope } from './server/access-control';
+import { authorizeArtifactFromSession, hasSessionAccess, type GatewayAccessScope } from './server/access-control';
 
 export type { GatewayConfig, GatewayAgentOps, GatewayFileEntry, GatewayFileContent } from './server/types';
 
@@ -253,12 +248,12 @@ export class GatewayServer {
   }
 
   private canReceiveSessionEvent(client: ConnectedClient, sessionId: string): boolean {
-    return client.isMasterAuth || client.authorizedSessionIds.has(sessionId);
+    return hasSessionAccess(client, sessionId);
   }
 
   private authorizeEventArtifacts(client: ConnectedClient, event: GatewayPushEvent): void {
     if (event.type === 'artifact_added') {
-      client.authorizedArtifactIds.add(event.artifactId);
+      authorizeArtifactFromSession(client, event.sessionId, event.artifactId);
     }
   }
 
@@ -268,8 +263,8 @@ export class GatewayServer {
     client.authorizedWorkspaceIds = result.authorizedWorkspaceIds
       ? new Set(result.authorizedWorkspaceIds)
       : null;
-    client.authorizedSessionIds.clear();
-    client.authorizedArtifactIds.clear();
+    client.authorizedSessions.clear();
+    client.authorizedArtifacts.clear();
     client.subscribedSessions.clear();
   }
 
@@ -364,8 +359,8 @@ export class GatewayServer {
       authenticated: false,
       isMasterAuth: false,
       authorizedWorkspaceIds: null,
-      authorizedSessionIds: new Set(),
-      authorizedArtifactIds: new Set(),
+      authorizedSessions: new Map(),
+      authorizedArtifacts: new Map(),
       subscribedSessions: new Set(),
       remoteIp,
       lastActivity: Date.now(),

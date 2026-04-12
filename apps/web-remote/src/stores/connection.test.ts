@@ -160,6 +160,7 @@ describe('connection store', () => {
     expect(storage.clear).toHaveBeenCalledTimes(1);
     expect(store.getState().token).toBeNull();
     expect(store.getState().authError).toBe('Invalid authentication token');
+    expect(store.getState().requestError).toBeNull();
   });
 
   it('keeps the saved token when connect fails for a transient reason', () => {
@@ -180,6 +181,7 @@ describe('connection store', () => {
     expect(store.getState().disconnectReason).toBe(
       'Too many authentication attempts. Try again later.',
     );
+    expect(store.getState().requestError).toBeNull();
   });
 
   it('does not restore a stored token after the user switches tokens mid-bootstrap', async () => {
@@ -209,6 +211,31 @@ describe('connection store', () => {
     expect(store.getState().isBootstrapping).toBe(false);
   });
 
+  it('captures non-auth request errors and clears them after a successful retry', () => {
+    const client = new FakeGatewayClient();
+    const storage = createStorage();
+    const store = createConnectionStore(client, storage);
+
+    client.emitMessage({
+      type: 'error',
+      requestType: 'get_session_history',
+      message: 'Session not authorized: session-b',
+    });
+
+    expect(store.getState().requestError).toEqual({
+      requestType: 'get_session_history',
+      message: 'Session not authorized: session-b',
+    });
+
+    client.emitMessage({
+      type: 'ok',
+      requestType: 'get_session_history',
+      data: [],
+    });
+
+    expect(store.getState().requestError).toBeNull();
+  });
+
   it('stays in reconnect mode after transport loss and supports immediate retry', () => {
     const client = new FakeGatewayClient();
     const storage = createStorage();
@@ -228,5 +255,6 @@ describe('connection store', () => {
 
     expect(client.retryCalls).toBe(1);
     expect(store.getState().disconnectReason).toBeNull();
+    expect(store.getState().requestError).toBeNull();
   });
 });

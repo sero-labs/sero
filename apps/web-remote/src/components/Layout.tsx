@@ -13,6 +13,7 @@ import { FileBrowser } from './FileBrowser';
 import { FilePreview } from './FilePreview';
 import { ArtifactGallery } from './ArtifactGallery';
 import { StatusBar } from './StatusBar';
+import { AccessBanner } from './AccessBanner';
 import { useArtifactStore } from '@/stores/artifacts';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
@@ -90,6 +91,8 @@ export function Layout() {
           </Button>
         </div>
       </header>
+
+      <AccessBanner />
 
       {/* Main content row */}
       <div className="flex flex-1 min-h-0 overflow-hidden">

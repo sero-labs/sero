@@ -11,6 +11,7 @@ import {
   type GatewayMessage,
 } from '@/lib/gateway-client';
 import { isInvalidAuthTokenMessage } from '@/lib/connect-errors';
+import type { GatewayRequestErrorInfo } from '@/lib/gateway-errors';
 import { saveToken, loadToken, clearToken } from '@/lib/token-storage';
 
 interface TokenStorageAdapter {
@@ -49,6 +50,7 @@ interface ConnectionStore {
   token: string | null;
   authError: string | null;
   disconnectReason: string | null;
+  requestError: GatewayRequestErrorInfo | null;
   isBootstrapping: boolean;
   isInitialized: boolean;
 
@@ -60,6 +62,8 @@ interface ConnectionStore {
   retry: () => void;
   /** Disconnect and forget the saved pairing token. */
   disconnect: () => void;
+  /** Dismiss the latest non-auth request error banner. */
+  clearRequestError: () => void;
   /** Called internally when a message arrives. */
   handleMessage: (msg: GatewayMessage) => void;
 }
@@ -130,6 +134,7 @@ export function createConnectionStore(
       token: null,
       authError: null,
       disconnectReason: null,
+      requestError: null,
       isBootstrapping: false,
       isInitialized: false,
 
@@ -140,6 +145,7 @@ export function createConnectionStore(
           token: trimmed,
           authError: null,
           disconnectReason: null,
+          requestError: null,
           isBootstrapping: false,
           isInitialized: true,
         });
@@ -153,6 +159,7 @@ export function createConnectionStore(
           isBootstrapping: true,
           authError: null,
           disconnectReason: null,
+          requestError: null,
         });
 
         const finalize = (token: string | null) => {
@@ -163,6 +170,7 @@ export function createConnectionStore(
             token,
             authError: null,
             disconnectReason: null,
+            requestError: null,
             isBootstrapping: false,
             isInitialized: true,
           });
@@ -186,7 +194,7 @@ export function createConnectionStore(
       },
 
       retry: () => {
-        set({ authError: null, disconnectReason: null });
+        set({ authError: null, disconnectReason: null, requestError: null });
         client.retryNow();
       },
 
@@ -197,33 +205,57 @@ export function createConnectionStore(
           token: null,
           authError: null,
           disconnectReason: null,
+          requestError: null,
           isBootstrapping: false,
           isInitialized: true,
         });
       },
 
+      clearRequestError: () => {
+        set({ requestError: null });
+      },
+
       handleMessage: (msg: GatewayMessage) => {
-        if (msg.type === 'ok' && 'requestType' in msg && msg.requestType === 'connect') {
-          const { token } = get();
-          set({ authError: null, disconnectReason: null });
-          if (token) {
-            void tokenStorage.save(token);
+        if (msg.type === 'ok' && 'requestType' in msg) {
+          if (msg.requestType === 'connect') {
+            const { token } = get();
+            set({ authError: null, disconnectReason: null, requestError: null });
+            if (token) {
+              void tokenStorage.save(token);
+            }
+            return;
+          }
+
+          const currentRequestError = get().requestError;
+          if (currentRequestError?.requestType === msg.requestType) {
+            set({ requestError: null });
           }
           return;
         }
 
-        if (msg.type === 'error' && 'requestType' in msg && msg.requestType === 'connect') {
-          const message = (msg as { message: string }).message;
-          const forgetToken = isInvalidAuthTokenMessage(message);
-          if (forgetToken) {
-            void tokenStorage.clear();
+        if (msg.type === 'error' && 'requestType' in msg) {
+          if (msg.requestType === 'connect') {
+            const message = (msg as { message: string }).message;
+            const forgetToken = isInvalidAuthTokenMessage(message);
+            if (forgetToken) {
+              void tokenStorage.clear();
+            }
+            set({
+              token: forgetToken ? null : get().token,
+              authError: forgetToken ? message : null,
+              disconnectReason: forgetToken ? null : message,
+              requestError: null,
+              isBootstrapping: false,
+              isInitialized: true,
+            });
+            return;
           }
+
           set({
-            token: forgetToken ? null : get().token,
-            authError: forgetToken ? message : null,
-            disconnectReason: forgetToken ? null : message,
-            isBootstrapping: false,
-            isInitialized: true,
+            requestError: {
+              requestType: msg.requestType,
+              message: msg.message,
+            },
           });
         }
       },

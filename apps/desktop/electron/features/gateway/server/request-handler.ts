@@ -11,8 +11,8 @@ import type { GatewayAgentOps } from '..';
 import type { CostTracker } from './cost-tracker';
 import type { GatewayAuth } from '../security/auth';
 import {
-  authorizeSession,
-  authorizeSessions,
+  authorizeSessionFromWorkspace,
+  authorizeSessionsFromWorkspace,
   hasSessionAccess,
   hasWorkspaceAccess,
   type GatewayAccessScope,
@@ -135,7 +135,7 @@ export async function routeAgentRequest(
         // Ensure session is open in an authorized workspace before granting access.
         await agentOps.openSession(request.sessionId, request.workspaceId);
         subscribeToSession(request.sessionId);
-        authorizeSession(accessScope, request.sessionId);
+        authorizeSessionFromWorkspace(accessScope, request.workspaceId, request.sessionId);
         // Track session as active for concurrency limiting
         costTracker.markActive(request.sessionId);
         // Send prompt (with optional images)
@@ -241,7 +241,11 @@ export async function routeAgentRequest(
       }
       try {
         const sessions = await agentOps.listSessions(request.workspaceId);
-        authorizeSessions(accessScope, sessions.map((session) => session.id));
+        authorizeSessionsFromWorkspace(
+          accessScope,
+          request.workspaceId,
+          sessions.map((session) => session.id),
+        );
         sendResponse(ws, {
           type: 'ok',
           requestType: 'list_sessions',
