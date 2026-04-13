@@ -26,17 +26,34 @@ describe('syncAppSessionModel', () => {
     expect(setModel).toHaveBeenCalledWith(targetModel);
   });
 
-  it('does not update reused app sessions when they already match the shared model', async () => {
+  it('does not update reused app sessions when they already hold the shared model instance', async () => {
     const targetModel = createModel('openai', 'gpt-5.4-mini');
     const setModel = vi.fn(async () => {});
     const session = {
-      model: createModel('openai', 'gpt-5.4-mini'),
+      model: targetModel,
       setModel,
     } as unknown as AgentSession;
 
     const changed = await syncAppSessionModel(session, targetModel);
 
     expect(changed).toBe(false);
+    expect(setModel).not.toHaveBeenCalled();
+  });
+
+  it('swaps in refreshed shared model objects even when provider and id stay the same', async () => {
+    const targetModel = createModel('openai', 'gpt-5.4-mini');
+    const setModel = vi.fn(async () => {});
+    const runtimeSetModel = vi.fn();
+    const session = {
+      model: createModel('openai', 'gpt-5.4-mini'),
+      agent: { setModel: runtimeSetModel },
+      setModel,
+    } as unknown as AgentSession;
+
+    const changed = await syncAppSessionModel(session, targetModel);
+
+    expect(changed).toBe(true);
+    expect(runtimeSetModel).toHaveBeenCalledWith(targetModel);
     expect(setModel).not.toHaveBeenCalled();
   });
 
@@ -61,7 +78,7 @@ describe('syncAppSessionModel', () => {
     const matchingSetModel = vi.fn(async () => {});
     const staleSetModel = vi.fn(async () => {});
     const matchingSession = {
-      model: createModel('openai', 'gpt-5.4-mini'),
+      model: targetModel,
       setModel: matchingSetModel,
     } as unknown as AgentSession;
     const staleSession = {

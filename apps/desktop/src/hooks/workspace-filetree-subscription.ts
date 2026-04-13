@@ -8,6 +8,10 @@ function releaseWorkspaceWatch(workspaceId: string): void {
   void window.sero.filetree.unwatch(workspaceId);
 }
 
+export function hasWorkspaceFiletreeWatch(workspaceId: string): boolean {
+  return workspaceWatchRefCounts.has(workspaceId);
+}
+
 export function retainWorkspaceFiletreeWatch(workspaceId: string): () => void {
   const nextRefCount = (workspaceWatchRefCounts.get(workspaceId) ?? 0) + 1;
   workspaceWatchRefCounts.set(workspaceId, nextRefCount);

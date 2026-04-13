@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { EditorRoot } from '@/types/ipc';
 import {
+  hasWorkspaceFiletreeWatch,
   refreshWorkspaceFiletreeWatch,
   retainWorkspaceFiletreeWatch,
 } from '@/hooks/workspace-filetree-subscription';
@@ -13,8 +14,9 @@ export function useWorkspaceFileWatch(workspaceId: string, roots: EditorRoot[]):
   const previousRootsSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const hadExistingWatch = hasWorkspaceFiletreeWatch(workspaceId);
     const release = retainWorkspaceFiletreeWatch(workspaceId);
-    if (previousRootsSignatureRef.current !== null) {
+    if (hadExistingWatch || previousRootsSignatureRef.current !== null) {
       refreshWorkspaceFiletreeWatch(workspaceId);
     }
     previousRootsSignatureRef.current = rootsSignature;

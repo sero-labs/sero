@@ -211,15 +211,11 @@ export function registerCollaborationHandlers(): void {
 
         if (entry) {
           emitMainSessionUserMessage(sessionId, entry, query);
-        }
-
-        sendCollabEvent({ type: 'collab_end', sessionId, result });
-
-        if (entry) {
           const injectionPrompt = buildInjectionPrompt(query, result.finalResponse);
           await entry.session.prompt(injectionPrompt);
         }
 
+        sendCollabEvent({ type: 'collab_end', sessionId, result });
         return result;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
