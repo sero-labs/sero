@@ -15,6 +15,7 @@ import {
   writeFile,
 } from './memory-manager';
 import { error, errorDetails, info } from './logger';
+import { resolveSessionStoreDir } from './agent-dir';
 
 const TRANSCRIPT_SECTION_MAX_CHARS = 4_000;
 
@@ -26,14 +27,8 @@ type SessionTranscriptManager = Pick<
   'getBranch' | 'getSessionId' | 'getHeader'
 >;
 
-function resolveAgentDir(): string {
-  if (process.env.PI_CODING_AGENT_DIR?.trim()) return process.env.PI_CODING_AGENT_DIR;
-  const seroHome = process.env.SERO_HOME || path.join(os.homedir(), '.sero-ui');
-  return path.join(seroHome, 'agent');
-}
-
 export function getSessionStoreDir(): string {
-  return path.join(resolveAgentDir(), 'sessions');
+  return resolveSessionStoreDir();
 }
 
 function resolveTranscriptDate(sessionManager: SessionTranscriptManager): string {

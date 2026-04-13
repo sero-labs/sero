@@ -7,7 +7,7 @@ import { activityMonitor } from "./activity.js";
 import type { ExtractedContent } from "./extract.js";
 import type { SearchOptions, SearchResponse } from "./perplexity.js";
 import { searchWithExaMcp } from "./exa-mcp.js";
-import { getExaUsagePath, getWebConfigPath } from "./paths.js";
+import { getExaUsagePath, getExaUsageReadPath, getWebConfigPath } from "./paths.js";
 
 const EXA_ANSWER_URL = "https://api.exa.ai/answer";
 const EXA_SEARCH_URL = "https://api.exa.ai/search";
@@ -79,7 +79,7 @@ function normalizeUsage(raw: unknown): ExaUsage {
 }
 
 function readUsage(): ExaUsage {
-	const usagePath = getExaUsagePath();
+	const usagePath = getExaUsageReadPath();
 	if (!existsSync(usagePath)) return { month: getCurrentMonth(), count: 0 };
 	const raw = readFileSync(usagePath, "utf-8");
 	try { return normalizeUsage(JSON.parse(raw)); }
