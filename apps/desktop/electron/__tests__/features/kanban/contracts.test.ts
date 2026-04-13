@@ -33,9 +33,6 @@ function makeState(cards: Card[]): KanbanState {
     nextId: cards.length + 1,
     settings: {
       autoAdvance: true,
-      maxConcurrentCards: 3,
-      requireApproval: { plan: true, pr: true },
-      reviewLevel: 'per-wave',
       reviewMode: 'full',
       testingEnabled: true,
       yoloMode: false,

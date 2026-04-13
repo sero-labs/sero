@@ -109,9 +109,6 @@ function makeTracker(): ReviewProgressTracker {
 function makeSettings(overrides: Partial<KanbanSettings> = {}): KanbanSettings {
   return {
     autoAdvance: true,
-    maxConcurrentCards: 3,
-    requireApproval: { plan: true, pr: true },
-    reviewLevel: 'per-wave',
     reviewMode: 'full',
     testingEnabled: true,
     yoloMode: false,

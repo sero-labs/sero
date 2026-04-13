@@ -152,8 +152,7 @@ export async function handleSettings(
       `## Board Settings\n- yoloMode: ${s.yoloMode} (auto-start, auto-approve, auto-complete)\n`
       + `- testingEnabled: ${s.testingEnabled} (TDD and test generation)\n`
       + `- reviewMode: ${s.reviewMode ?? 'full'} (full or light; light is prototype-only)\n`
-      + `- reviewLevel: ${s.reviewLevel} (per-wave or per-subtask)\n`
-      + `- autoAdvance: ${s.autoAdvance}\n- maxConcurrentCards: ${s.maxConcurrentCards}`,
+      + `- autoAdvance: ${s.autoAdvance}`,
     );
   }
 
@@ -182,13 +181,7 @@ export async function handleSettings(
         : 'Review mode: Full (diff review + reviewer approval)',
     );
   }
-  if (setting === 'reviewLevel' && (value === 'per-wave' || value === 'per-subtask')) {
-    state.settings.reviewLevel = value;
-    await writeState(statePath, state);
-    return text(`Review level set to: ${value}`);
-  }
-
-  return text(`Unknown setting "${setting}". Available: yoloMode, testingEnabled, reviewMode, reviewLevel`);
+  return text(`Unknown setting "${setting}". Available: yoloMode, testingEnabled, reviewMode`);
 }
 
 // ── Cleanup ──────────────────────────────────────────────────

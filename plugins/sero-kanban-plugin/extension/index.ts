@@ -38,7 +38,7 @@ const KanbanParams = Type.Object({
   description: Type.Optional(Type.String({ description: 'Card description' })),
   blockedBy: Type.Optional(Type.Array(Type.String(), { description: 'IDs of cards that must be done before this card can start' })),
   acceptance: Type.Optional(Type.Array(Type.String(), { description: 'Acceptance criteria' })),
-  setting: Type.Optional(Type.String({ description: 'Setting name for settings action (testingEnabled, reviewMode, reviewLevel)' })),
+  setting: Type.Optional(Type.String({ description: 'Setting name for settings action (yoloMode, testingEnabled, reviewMode)' })),
   value: Type.Optional(Type.String({ description: 'Setting value for settings action' })),
   revisionFeedback: Type.Optional(Type.String({ description: 'Feedback text for request-revisions action' })),
   errorMessage: Type.Optional(Type.String({ description: 'Error message (for report-error)' })),

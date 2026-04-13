@@ -2,22 +2,19 @@
  * Stage contracts — defines input requirements, expected outputs, and quality
  * gates for each kanban column transition.
  *
- * Validation logic is NOT duplicated here — it lives in the shared module:
- *   plugins/sero-kanban-plugin/shared/validation.ts
- * This file re-exports `validateTransition` from there and adds
- * orchestrator-specific helpers (unblocked card scanning, contract metadata).
+ * Validation logic is NOT duplicated here — it now lives in `@sero/common`
+ * alongside the shared Kanban state contract. This file re-exports
+ * `validateTransition` and adds orchestrator-specific helpers
+ * (unblocked card scanning, contract metadata).
  */
 
-import type { Card, Column, KanbanState } from './types';
-
-// ── Single source of truth for validation ────────────────────
-// Uses structural typing — host Card and shared Card have identical shapes.
-
 import {
-  validateCardTransition,
   getUnmetDependencies as _getUnmetDeps,
-} from '@plugins/sero-kanban-plugin/shared/validation';
-import type { ValidationResult } from '@plugins/sero-kanban-plugin/shared/validation';
+  validateCardTransition,
+  type ValidationResult,
+} from '@sero/common';
+
+import type { Card, Column, KanbanState } from './types';
 
 export type { ValidationResult };
 

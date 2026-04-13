@@ -9,7 +9,7 @@ import path from 'node:path';
 
 import type { KanbanState, Card } from '../shared/types';
 import {
-  DEFAULT_KANBAN_STATE,
+  createDefaultKanbanState,
   COLUMNS,
   COLUMN_LABELS,
   PRIORITY_ORDER,
@@ -30,7 +30,7 @@ export async function readState(filePath: string): Promise<KanbanState> {
     const raw = await fs.readFile(filePath, 'utf8');
     return JSON.parse(raw) as KanbanState;
   } catch {
-    return { ...DEFAULT_KANBAN_STATE };
+    return createDefaultKanbanState();
   }
 }
 
