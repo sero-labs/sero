@@ -108,7 +108,7 @@ plugin done when all of its High items are cleared across every batch it joins.
 | **D3 — Truthful UI→extension action ownership** | `sero-kanban`, `sero-web`, `sero-context` | Route side-effectful UI actions through the truthful extension/host path or label prompt-routed/manual behavior honestly |
 | **D4 — Sero-first lifecycle + profile-home semantics** | `sero-cron`, `sero-memory`, `sero-context`, `sero-user-feedback`, `sero-web` | Fix startup/session lifecycle truthfulness, questionnaire/onboarding ownership, dashboard freshness semantics, and `SERO_HOME`/agent-dir path ownership |
 
-- [ ] `fix-slop` High items for `plugins/sero-kanban-plugin`
+- [x] `fix-slop` High items for `plugins/sero-kanban-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-cron-plugin`
 - [x] `fix-slop` High items for `plugins/sero-admin-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-memory-plugin`
@@ -303,3 +303,10 @@ runtime, contract, or desktop-side code that those plugins consume.
   canonical admin/web host bridge subsets, and neutral shared cron persistence
   types consumed by cron + memory. Targeted package typechecks, Git plugin
   tests, and monorepo `pnpm typecheck` passed.
+- 2026-04-13: Wave D batch **D3 — Truthful UI→extension action ownership**
+  landed in `ff4e460a` (`fix(plugins): make web and context actions
+  truthful`). Covered: a canonical `webApp` host action bridge for Web UI
+  mutations, truthful prompt-routed labeling in Context UI/README, and
+  Kanban D3 closeout after validating that host-side review-action effects
+  already fire on UI state transitions. Targeted desktop tests, plugin
+  typechecks, and monorepo `pnpm typecheck` passed.

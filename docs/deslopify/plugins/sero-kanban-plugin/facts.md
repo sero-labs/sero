@@ -69,3 +69,19 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The remaining High item is still the UI→extension workflow ownership drift for review actions.
 - Medium settings-surface alignment, cleanup-failure visibility, and UI file splitting are still pending.
+
+## Post-fix snapshot — 2026-04-13 (D3 closeout)
+
+### Metrics after fixes
+- Largest file: `plugins/sero-kanban-plugin/ui/components/CardDetail.tsx` (466 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged in the Medium UI workflow helper/file-shape work
+
+### What changed
+- Revalidated the review-action ownership seam against current desktop reality instead of adding a redundant bridge.
+- Confirmed that the host already applies review-side effects for UI-triggered state transitions through `apps/desktop/electron/features/kanban/review/actions/review-action-effects.ts`.
+- Existing desktop tests already cover those host-owned effects, so the earlier High finding is now obsolete rather than still actionable.
+
+### Still outstanding
+- High items are cleared for this plan.
+- Medium settings-surface alignment, cleanup-failure visibility, and UI file-splitting/test work remain pending.

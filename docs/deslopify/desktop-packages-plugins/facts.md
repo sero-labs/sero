@@ -182,3 +182,23 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 - **D4** lifecycle/profile-home semantics remain the next High batch for `sero-cron`, `sero-memory`, `sero-context`, `sero-user-feedback`, and `sero-web`.
 - `plugins/sero-web-plugin` still has unresolved High ownership drift because the UI mutation paths themselves are still local even though the bridge typing is now canonical.
 - `plugins/sero-memory-plugin` still has one remaining High item: the QMD `~/.pi/agent` fallback.
+
+## Post-fix snapshot — 2026-04-13 (Wave D / D3)
+
+### Metrics after fixes
+- Wave D High batches landed so far: **D1 + D2 + D3**
+- New cross-layer action bridge added: `webApp`
+- Plugins with direct D3 code work: 2 (`sero-web`, `sero-context`)
+- Plugin validated obsolete during D3: `sero-kanban` (the claimed UI review-action bypass is already covered by host-side state-transition effects)
+
+### What changed
+- Added a canonical `webApp` host action bridge so the Web UI no longer mutates history, bookmarks, or downloads by writing shared state directly.
+- Routed the Web UI through one deterministic host action path that reuses the existing plugin state owner and added desktop tests for clear-history, download deletion, and workspace-boundary validation.
+- Reworded Context refresh/tag/checkout affordances and README copy so prompt-routed actions are labeled honestly instead of looking deterministic.
+- Validated that Kanban review decision side effects already run through desktop host watchers (`applyReviewActionEffects`) when the UI writes the board state, so that earlier D3 High finding is now obsolete rather than needing a new bridge.
+
+### Still outstanding
+- **D4** lifecycle/profile-home semantics are now the next High batch for `sero-cron`, `sero-memory`, `sero-context`, `sero-user-feedback`, and `sero-web`.
+- `plugins/sero-web-plugin` still has one remaining High item: the `SERO_HOME` / `~/.pi` path drift.
+- `plugins/sero-context-plugin` still has one remaining High item: truthful snapshot freshness / lifecycle ownership.
+- `plugins/sero-memory-plugin` still has one remaining High item: the QMD `~/.pi/agent` fallback.

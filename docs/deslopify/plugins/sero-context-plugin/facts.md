@@ -30,3 +30,20 @@ _Last reviewed: 2026-04-13_
 - The README says the UI renders the graph “in real time,” but the extension only writes snapshots after `context_tag`, `context_log`, and `context_checkout` execute.
 - The timeline’s “Checkout here” and “Tag” affordances are not direct actions; they only send natural-language prompts to the agent.
 - There are no files over the repo’s 500-LOC cap, but the package’s behavioral core still lives in one extension file plus a parallel snapshot builder, so drift risk is architectural rather than file-size-driven.
+
+## Post-fix snapshot — 2026-04-13 (D3 partial)
+
+### Metrics after fixes
+- Largest file: `plugins/sero-context-plugin/extension/index.ts` (376 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged outside the still-pending snapshot/projection seams
+
+### What changed
+- Reworded the Context UI so refresh/tag/checkout affordances are explicitly prompt-routed agent requests.
+- Removed the stale README/extension copy that claimed the graph updates “in real time”; the surface now describes the latest saved snapshot instead.
+- Kept the plugin self-contained: no new desktop IPC bridge was introduced for this interim truthfulness fix.
+- Package-local `typecheck` and monorepo `pnpm typecheck` still pass.
+
+### Still outstanding
+- The remaining High item is snapshot freshness / lifecycle truthfulness.
+- Medium projection dedupe, extension typecheck expansion, and failure-surface work remain pending.

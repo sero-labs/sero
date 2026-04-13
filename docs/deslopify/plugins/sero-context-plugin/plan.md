@@ -13,13 +13,13 @@ _Plan drafted: 2026-04-13_
 - **Low** — A few type escape hatches and swallowed snapshot failures are already visible in the hot path — `plugins/sero-context-plugin/extension/index.ts:122-127,305` and `plugins/sero-context-plugin/extension/snapshot.ts:47-58` use `as any` around session message content/tool-call parsing, while `plugins/sero-context-plugin/extension/index.ts:75-85` logs snapshot-write failures to stderr and otherwise fails silent. None are catastrophic today, but they weaken a package whose whole job is introspection. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Make snapshot freshness truthful and explicit.**
+1. **Make snapshot freshness truthful and explicit.** *(partial — 2026-04-13 `ff4e460a` downgraded the misleading “real time” copy to latest-snapshot/manual refresh wording, but the runtime freshness model itself is still pending.)*
    - Decide whether the plugin should truly be live or explicitly manual.
    - Preferred shape: write an initial snapshot on session entry and subscribe to the narrowest available session-history events so the state file stays current even when the model never calls `context_log`.
    - If the Pi SDK cannot provide a safe event for this today, then downgrade the copy instead of pretending: change the README/UI language from “real time” to “manual snapshot / refresh.”
    - This is a behavior-preserving clarity fix if you only change copy; it becomes a runtime change if you add automatic snapshot writes, so verify performance and churn before broadening it.
 
-2. **Replace prompt-shaped UI actions with a truthful execution path, or label them honestly.**
+2. **~~Replace prompt-shaped UI actions with a truthful execution path, or label them honestly.~~ ✅ 2026-04-13 (`ff4e460a`)**
    - Preferred end state: add a small plugin-owned action seam so the UI can request `tag`, `log refresh`, and `checkout` deterministically instead of hoping the model follows a prompt.
    - If that bridge is too much churn for one pass, do the conservative interim fix first:
      - rename buttons to `Ask agent to tag` / `Ask agent to checkout`
@@ -87,3 +87,6 @@ Verification checklist:
 - The same branch/tag sequence produces matching structure in both the TUI `context_log` output and the UI timeline.
 - Package-local typecheck fails on extension typing regressions, not just UI regressions.
 - Snapshot-write failures are visible enough that users are not left with a silently stale dashboard.
+
+## Execution log
+- `ff4e460a` — `fix(plugins): make web and context actions truthful` *(partial for this plan: truthful manual-snapshot copy + prompt-routed action labeling)*

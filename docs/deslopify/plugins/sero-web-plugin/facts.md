@@ -68,3 +68,21 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The remaining High items are still the `SERO_HOME`/`~/.pi` path drift and the UI’s direct mutation paths for history/bookmarks/downloads.
 - Medium package-local test/typecheck expansion and provider-module splitting remain pending.
+
+## Post-fix snapshot — 2026-04-13 (D3)
+
+### Metrics after fixes
+- Total files: 53 in the current TS/JS scan
+- Largest file: `plugins/sero-web-plugin/extension/gemini-web.ts` (483 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: the direct UI mutation seam is gone; the remaining High work is the `SERO_HOME` path owner
+
+### What changed
+- Added a canonical `webApp` host action bridge for `clear-history`, `add-bookmark`, `remove-bookmark`, and `delete-download`.
+- Routed `SearchHistory`, `BookmarkList`, and `DownloadsList` through the deterministic host action path instead of mutating shared state directly with `useAppState()`.
+- Reused the existing plugin state owner (`extension/state-sync.ts`) from the new host bridge and added desktop coverage for clear-history, download deletion, and workspace-boundary validation.
+- Package-local `typecheck`, targeted desktop tests, and monorepo `pnpm typecheck` all still pass.
+
+### Still outstanding
+- The remaining High item is still the `SERO_HOME`/`~/.pi` path drift.
+- Medium package-local extension coverage and provider-module splitting remain pending.

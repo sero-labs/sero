@@ -263,3 +263,4 @@ Verification checklist for the downstream folder reviews:
 - `e09e6fad` — `fix(kanban): centralize shared contract and remove dead settings`
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
+- `ff4e460a` — `fix(plugins): make web and context actions truthful`

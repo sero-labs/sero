@@ -19,7 +19,7 @@ _Plan drafted: 2026-04-13_
 - **Low** — Dead/duplicated UI scaffolding remains in the package — `plugins/sero-kanban-plugin/ui/components/AddCardForm.tsx:1-113` has no importers while `plugins/sero-kanban-plugin/ui/components/ColumnView.tsx:156-210` reimplements the same add-card flow inline, and `plugins/sero-kanban-plugin/ui/components/CardDetailFooter.tsx:17-29` still accepts an unused `onPriorityChange` callback. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Move side-effectful workflow actions behind one canonical host-backed action layer.**
+1. **⊘ obsolete — 2026-04-13 (`ff4e460a`) the desktop host already applies the review-side effects for UI state transitions via `applyReviewActionEffects`, so the claimed High bypass no longer exists.**
    - Keep pure card-shape helpers shared, but stop letting the UI directly “fake” review side effects.
    - Target structure:
      - `plugins/sero-kanban-plugin/shared/actions.ts` (or equivalent) for shared action names / request payloads / result types
@@ -88,3 +88,4 @@ Verification checklist:
 
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`
+- `ff4e460a` — `fix(plugins): make web and context actions truthful` *(validated this plan's remaining High item as obsolete under current host state-transition wiring)*

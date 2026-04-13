@@ -34,7 +34,7 @@ _Plan drafted: 2026-04-13_
      - prefer writing only to the canonical profile-scoped location once migrated
    - This aligns with Sero’s profile model (AD-022) and the repo rule against legacy Pi path drift.
 
-3. **Route UI mutations through explicit extension/host actions instead of raw state writes.** *(D2 partial — the local `ui/lib/host.ts` bridge copy was replaced with canonical shared typing in `d885ff2d`, but the direct UI mutation paths are still pending.)*
+3. **~~Route UI mutations through explicit extension/host actions instead of raw state writes.~~ ✅ 2026-04-13 (`ff4e460a`)**
    - Target structure:
      - UI issues explicit app actions for `clearHistory`, `addBookmark`, `removeBookmark`, `deleteDownload`
      - preload / host bridge exposes those actions with canonical types
@@ -102,3 +102,4 @@ Verification checklist:
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership` *(partial for this plan: canonical host-bridge typing only)*
+- `ff4e460a` — `fix(plugins): make web and context actions truthful`

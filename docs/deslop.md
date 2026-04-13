@@ -43,6 +43,12 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-git-plugin/{shared/types.ts,ui/GitApp.tsx}` | Switched Git UI/shared types to the canonical shared bridge contract and removed the UI-side result cast |
 | `plugins/sero-web-plugin/ui/lib/host.ts` | Replaced the local host bridge subset with canonical shared host-bridge typing |
 | `{packages/app-runtime/tsconfig.json,packages/tsconfig.extension.json,plugins/sero-{kanban,context,cron,git,user-feedback,web}-plugin/ui/tsconfig.json}` | Added `@sero/common` path mappings so packages that compile against workspace source keep the new shared contracts type-safe |
+| `packages/common/src/{web-app.ts,index.ts,admin-bridge.ts}` | New/updated — canonical web app action contract plus shared host-bridge exposure for deterministic web UI mutations |
+| `packages/app-runtime/src/sero-bridge.ts` | Extended the typed preload bridge with the optional `webApp` action surface |
+| `apps/desktop/{src/types/electron-apps.d.ts,src/types/electron.d.ts,src/types/ipc-channels.ts,electron/preload/apps/app-domain.ts,electron/preload/api.ts,electron/ipc/index.ts,electron/ipc/apps/web-app.ts,electron/features/apps/web-app/manager.ts}` | Added the canonical `webApp` bridge so Web UI history/bookmark/download mutations route through one host-owned action layer |
+| `apps/desktop/electron/__tests__/features/apps/web-app-manager.test.ts` | New — covers clear-history, download deletion, and workspace-boundary validation for the new Web action bridge |
+| `plugins/sero-web-plugin/ui/{lib/web-actions.ts,components/SearchHistory.tsx,components/BookmarkList.tsx,components/DownloadsList.tsx}` | Replaced direct `useAppState()` mutations with explicit host-backed Web app actions |
+| `plugins/sero-context-plugin/{README.md,extension/index.ts,ui/ContextApp.tsx,ui/components/ContextTimeline.tsx}` | Reworded Context refresh/tag/checkout affordances as prompt-routed agent requests and removed the stale “real time” claim |
 
 ---
 
