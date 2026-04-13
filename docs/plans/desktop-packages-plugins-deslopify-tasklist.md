@@ -89,9 +89,6 @@ copying.
 - [x] `deslopify plugins/sero-web-plugin`
 - [ ] `deslopify plugins/sero-user-feedback-plugin`
 
-### 5. Smaller / narrower plugins last
-- [ ] `deslopify plugins/sero-alibaba-plugin`
-
 ## Wave D — Fix Plugin High-Priority Findings
 
 - [ ] Review all Wave C plans together for repeated plugin architecture issues
@@ -105,7 +102,6 @@ copying.
 - [ ] `fix-slop` High items for `plugins/sero-context-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-web-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-user-feedback-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-alibaba-plugin`
 - [ ] Run targeted package/plugin tests plus monorepo `pnpm typecheck` after
       each batch
 
@@ -139,7 +135,6 @@ copying.
 - [ ] `fix-slop` Medium items for `plugins/sero-context-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-web-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-user-feedback-plugin`
-- [ ] `fix-slop` Medium items for `plugins/sero-alibaba-plugin`
 
 ## Wave G — Final Periphery / Drift Sweep
 
