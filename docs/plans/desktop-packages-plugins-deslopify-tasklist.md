@@ -79,7 +79,7 @@ copying.
 
 ### 3. Core plugin exemplars
 - [x] `deslopify plugins/sero-kanban-plugin`
-- [ ] `deslopify plugins/sero-cron-plugin`
+- [x] `deslopify plugins/sero-cron-plugin`
 - [ ] `deslopify plugins/sero-admin-plugin`
 - [ ] `deslopify plugins/sero-memory-plugin`
 
@@ -231,3 +231,10 @@ runtime, contract, or desktop-side code that those plugins consume.
   but the top High findings are runtime truthfulness issues — the UI can bypass
   extension-owned review side effects, and board/error-log reads still fail open
   on malformed JSON.
+- 2026-04-13: Wave C step 3.2 complete for `plugins/sero-cron-plugin`.
+  Facts + plan added at
+  `docs/deslopify/plugins/sero-cron-plugin/{facts,plan}.md`; result: the
+  plugin is structurally healthy, but the top High findings are runtime
+  truthfulness defects — startup reminder recovery can double-fire notifications,
+  and fail-open `state.json` reads can silently wipe the global scheduler state
+  on the next successful write.
