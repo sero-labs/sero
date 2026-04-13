@@ -26,6 +26,11 @@ import { StateWatcher } from './state-watcher';
 import { initLogger, setLogPath, info, warn, error as logError } from './logger';
 import { initNotifier, notifyReminder, notifyJobComplete } from './notifier';
 import {
+  formatRuntimeError,
+  readNotificationSettingsOrWarn,
+  toolError,
+} from './runtime-helpers';
+import {
   handleList, handleAdd, handleUpdate, handleRemove,
   handleToggle, handleRun, type ActionDeps,
 } from './actions';
@@ -54,9 +59,7 @@ function getScheduler(): CronScheduler | null { return scheduler; }
 function getCwd(): string { return workspaceCwd; }
 
 function getSchedulerStartOpts(state: CronState): { lastTickMinute?: string } | undefined {
-  return state.lastTickMinute
-    ? { lastTickMinute: state.lastTickMinute }
-    : undefined;
+  return state.lastTickMinute ? { lastTickMinute: state.lastTickMinute } : undefined;
 }
 
 function createAndStartScheduler(state: CronState): void {
@@ -140,12 +143,16 @@ function createScheduler(): CronScheduler {
   return new CronScheduler({
     onJobComplete: async (result) => {
       await appendRunResult(result).catch(() => {});
-      const state = statePath ? await readState(statePath) : null;
-      notifyJobComplete(result.jobName, result.ok, result.durationMs, state?.notificationSettings ?? undefined);
+      const notificationSettings = statePath
+        ? await readNotificationSettingsOrWarn(statePath, warn, 'job')
+        : undefined;
+      notifyJobComplete(result.jobName, result.ok, result.durationMs, notificationSettings);
     },
     onReminderFire: async (reminder) => {
-      const state = statePath ? await readState(statePath) : null;
-      notifyReminder(reminder, state?.notificationSettings ?? undefined);
+      const notificationSettings = statePath
+        ? await readNotificationSettingsOrWarn(statePath, warn, 'reminder')
+        : undefined;
+      notifyReminder(reminder, notificationSettings);
     },
     onReminderUpdate: (updated) => { persistReminderUpdate(updated).catch(() => {}); },
   });
@@ -324,10 +331,17 @@ export default function (pi: ExtensionAPI) {
       stateWatcher = null;
       if (scheduler?.isRunning()) {
         if (statePath) {
-          const state = await readState(statePath);
-          state.lastTickMinute = scheduler.getLastTickMinute();
-          state.lastSchedulerShutdown = new Date().toISOString();
-          await writeState(statePath, state);
+          try {
+            const state = await readState(statePath);
+            state.lastTickMinute = scheduler.getLastTickMinute();
+            state.lastSchedulerShutdown = new Date().toISOString();
+            await writeState(statePath, state);
+          } catch (error) {
+            warn('scheduler:shutdown-state-write-skipped', {
+              path: statePath,
+              error: formatRuntimeError(error),
+            });
+          }
         }
         scheduler.stop();
         scheduler = null;
@@ -342,19 +356,24 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand('cron', {
     description: 'Toggle scheduler: /cron on | /cron off | /cron status',
     handler: async (args, ctx) => {
-      if (ctx.cwd) await ensureInitialized(ctx.cwd);
-      const arg = args?.trim().toLowerCase();
-      if (arg === 'on' || arg === 'start') {
-        const r = await startScheduler();
-        ctx.ui?.notify(r, r.startsWith('✓') ? 'info' : 'error');
-      } else if (arg === 'off' || arg === 'stop') {
-        const r = await stopScheduler();
-        ctx.ui?.notify(r, r.startsWith('✓') ? 'info' : 'error');
-      } else {
-        const active = scheduler?.isRunning() ?? false;
-        const state = await readState(statePath);
-        const remCount = state.reminders.filter((r) => r.status === 'active' || r.status === 'snoozed').length;
-        ctx.ui?.notify(`Scheduler: ${active ? '✅ active' : '⏸ inactive'} · Jobs: ${state.jobs.length} · Reminders: ${remCount}`, 'info');
+      try {
+        if (ctx.cwd) await ensureInitialized(ctx.cwd);
+        const arg = args?.trim().toLowerCase();
+        if (arg === 'on' || arg === 'start') {
+          const r = await startScheduler();
+          ctx.ui?.notify(r, r.startsWith('✓') ? 'info' : 'error');
+        } else if (arg === 'off' || arg === 'stop') {
+          const r = await stopScheduler();
+          ctx.ui?.notify(r, r.startsWith('✓') ? 'info' : 'error');
+        } else {
+          const active = scheduler?.isRunning() ?? false;
+          const state = await readState(statePath);
+          const remCount = state.reminders.filter((r) => r.status === 'active' || r.status === 'snoozed').length;
+          ctx.ui?.notify(`Scheduler: ${active ? '✅ active' : '⏸ inactive'} · Jobs: ${state.jobs.length} · Reminders: ${remCount}`, 'info');
+        }
+      } catch (error) {
+        const message = formatRuntimeError(error);
+        ctx.ui?.notify(message.startsWith('Error:') ? message : `Error: ${message}`, 'error');
       }
     },
   });
@@ -398,24 +417,28 @@ function registerCronTool(pi: ExtensionAPI) {
     description: 'Manage scheduled cron jobs. Actions: list, add, update, remove, enable, disable, run.',
     parameters: CronParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (ctx?.cwd) await ensureInitialized(ctx.cwd);
-      const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : getStatePath();
-      if (!resolvedPath) return { content: [{ type: 'text', text: 'Error: no state path' }], details: {} };
-      const result = await withStateLock(async () => {
-        const state = await readState(resolvedPath);
-        const deps: ActionDeps = { state, statePath: resolvedPath, scheduler: getScheduler(), workspaceCwd: getCwd(), writeState, appendRunResult, ctxCwd: ctx?.cwd };
-        switch (params.action) {
-          case 'list': return handleList(deps);
-          case 'add': return handleAdd(params, deps);
-          case 'update': return handleUpdate(params, deps);
-          case 'remove': return handleRemove(params, deps);
-          case 'enable': return handleToggle(params, deps, false);
-          case 'disable': return handleToggle(params, deps, true);
-          case 'run': return handleRun(params, deps);
-          default: return `Unknown action: ${params.action}`;
-        }
-      });
-      return { content: [{ type: 'text' as const, text: result }], details: {} };
+      try {
+        if (ctx?.cwd) await ensureInitialized(ctx.cwd);
+        const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : getStatePath();
+        if (!resolvedPath) return toolError('no state path');
+        const result = await withStateLock(async () => {
+          const state = await readState(resolvedPath);
+          const deps: ActionDeps = { state, statePath: resolvedPath, scheduler: getScheduler(), workspaceCwd: getCwd(), writeState, appendRunResult, ctxCwd: ctx?.cwd };
+          switch (params.action) {
+            case 'list': return handleList(deps);
+            case 'add': return handleAdd(params, deps);
+            case 'update': return handleUpdate(params, deps);
+            case 'remove': return handleRemove(params, deps);
+            case 'enable': return handleToggle(params, deps, false);
+            case 'disable': return handleToggle(params, deps, true);
+            case 'run': return handleRun(params, deps);
+            default: return `Unknown action: ${params.action}`;
+          }
+        });
+        return { content: [{ type: 'text' as const, text: result }], details: {} };
+      } catch (error) {
+        return toolError(formatRuntimeError(error));
+      }
     },
     renderCall(args, theme) {
       let t = theme.fg('toolTitle', theme.bold('cron ')); t += theme.fg('muted', args.action);
@@ -436,28 +459,32 @@ function registerReminderTool(pi: ExtensionAPI) {
       'IMPORTANT: For relative times, call current_time first to get accurate time, then compute fire_at.',
     parameters: ReminderParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (ctx?.cwd) await ensureInitialized(ctx.cwd);
-      const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : getStatePath();
-      if (!resolvedPath) return { content: [{ type: 'text', text: 'Error: no state path' }], details: {} };
-      const result = await withStateLock(async () => {
-        const state = await readState(resolvedPath);
-        const deps: ReminderActionDeps = { state, statePath: resolvedPath, writeState };
-        let res: string;
-        switch (params.action) {
-          case 'list': res = handleReminderList(deps); break;
-          case 'add': res = await handleReminderAdd(params, deps); break;
-          case 'update': res = await handleReminderUpdate(params, deps); break;
-          case 'remove': res = await handleReminderRemove(params, deps); break;
-          case 'snooze': res = await handleReminderSnooze(params, deps); break;
-          case 'complete': res = await handleReminderComplete(params, deps); break;
-          case 'enable': res = await handleReminderToggle(params, deps, false); break;
-          case 'disable': res = await handleReminderToggle(params, deps, true); break;
-          default: res = `Unknown action: ${params.action}`;
-        }
-        getScheduler()?.updateReminders(state.reminders);
-        return res;
-      });
-      return { content: [{ type: 'text' as const, text: result }], details: {} };
+      try {
+        if (ctx?.cwd) await ensureInitialized(ctx.cwd);
+        const resolvedPath = ctx ? resolveStatePath(ctx.cwd) : getStatePath();
+        if (!resolvedPath) return toolError('no state path');
+        const result = await withStateLock(async () => {
+          const state = await readState(resolvedPath);
+          const deps: ReminderActionDeps = { state, statePath: resolvedPath, writeState };
+          let res: string;
+          switch (params.action) {
+            case 'list': res = handleReminderList(deps); break;
+            case 'add': res = await handleReminderAdd(params, deps); break;
+            case 'update': res = await handleReminderUpdate(params, deps); break;
+            case 'remove': res = await handleReminderRemove(params, deps); break;
+            case 'snooze': res = await handleReminderSnooze(params, deps); break;
+            case 'complete': res = await handleReminderComplete(params, deps); break;
+            case 'enable': res = await handleReminderToggle(params, deps, false); break;
+            case 'disable': res = await handleReminderToggle(params, deps, true); break;
+            default: res = `Unknown action: ${params.action}`;
+          }
+          getScheduler()?.updateReminders(state.reminders);
+          return res;
+        });
+        return { content: [{ type: 'text' as const, text: result }], details: {} };
+      } catch (error) {
+        return toolError(formatRuntimeError(error));
+      }
     },
     renderCall(args, theme) {
       let t = theme.fg('toolTitle', theme.bold('reminder ')); t += theme.fg('muted', args.action);

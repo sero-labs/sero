@@ -32,19 +32,41 @@ export function resolveStatePath(cwd: string): string {
 
 // ── File I/O (atomic) ──────────────────────────────────────
 
+function isMissingFileError(error: unknown): boolean {
+	return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+function createStateReadError(filePath: string, error: unknown): Error {
+	const detail = error instanceof Error ? error.message : String(error);
+	return new Error(
+		`Web state at ${filePath} is unreadable. Repair or remove the malformed file before retrying. Original error: ${detail}`,
+	);
+}
+
+function normalizeState(parsed: Partial<WebAccessState>): WebAccessState {
+	return {
+		...DEFAULT_STATE,
+		...parsed,
+		entries: Array.isArray(parsed.entries) ? parsed.entries : [],
+		bookmarks: Array.isArray(parsed.bookmarks) ? parsed.bookmarks : [],
+		downloads: Array.isArray(parsed.downloads) ? parsed.downloads : [],
+		historyClearedAt:
+			typeof parsed.historyClearedAt === "number" && Number.isFinite(parsed.historyClearedAt)
+				? parsed.historyClearedAt
+				: 0,
+	};
+}
+
 export async function readState(filePath: string): Promise<WebAccessState> {
 	try {
 		const raw = await fs.readFile(filePath, "utf8");
-		const parsed = JSON.parse(raw) as WebAccessState;
-		// Ensure fields exist for older state files
-		if (!Array.isArray(parsed.bookmarks)) parsed.bookmarks = [];
-		if (!Array.isArray(parsed.downloads)) parsed.downloads = [];
-		if (!Array.isArray(parsed.entries)) parsed.entries = [];
-		if (typeof parsed.historyClearedAt !== "number" || !Number.isFinite(parsed.historyClearedAt)) {
-			parsed.historyClearedAt = 0;
+		return normalizeState(JSON.parse(raw) as Partial<WebAccessState>);
+	} catch (error) {
+		if (isMissingFileError(error)) {
+			return normalizeState(DEFAULT_STATE);
 		}
-		return parsed;
-	} catch { return { ...DEFAULT_STATE, bookmarks: [] }; }
+		throw createStateReadError(filePath, error);
+	}
 }
 
 async function writeState(filePath: string, state: WebAccessState): Promise<void> {
@@ -60,7 +82,7 @@ async function updateState<T>(
 	updater: (state: WebAccessState) => T | Promise<T>,
 ): Promise<T> {
 	const previous = stateWriteQueues.get(filePath) ?? Promise.resolve();
-	let resolveDone: (() => void) | null = null;
+	let resolveDone!: () => void;
 	const current = new Promise<void>((resolve) => {
 		resolveDone = resolve;
 	});
@@ -71,7 +93,7 @@ async function updateState<T>(
 		const state = await readState(filePath);
 		return await updater(state);
 	} finally {
-		resolveDone?.();
+		resolveDone();
 		if (stateWriteQueues.get(filePath) === current) {
 			stateWriteQueues.delete(filePath);
 		}

@@ -44,6 +44,10 @@ function resolveCronStatePath(): string {
   return path.join(resolveSeroHome(), 'apps', 'cron', 'state.json');
 }
 
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
 function readJsonFile<T>(filePath: string, fallback: T): T {
   try {
     const raw = readFileSync(filePath, 'utf8');
@@ -51,6 +55,21 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
     return parsed && typeof parsed === 'object' ? parsed : fallback;
   } catch {
     return fallback;
+  }
+}
+
+function readRequiredJsonFile<T>(filePath: string): T | null {
+  try {
+    const raw = readFileSync(filePath, 'utf8');
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Cron state file at ${filePath} is unreadable. Memory auto-consolidation will not rewrite it until the file is repaired. Original error: ${detail}`,
+    );
   }
 }
 
@@ -74,7 +93,15 @@ function writeAutomationStateSync(state: MemoryAutomationState): void {
 }
 
 function readCronStateSync(): CronState {
-  const state = readJsonFile(resolveCronStatePath(), { ...DEFAULT_CRON_STATE });
+  const state = readRequiredJsonFile<Partial<CronState>>(resolveCronStatePath());
+  if (!state) {
+    return {
+      ...DEFAULT_CRON_STATE,
+      jobs: [],
+      reminders: [],
+      lastRunResults: [],
+    };
+  }
   return {
     ...DEFAULT_CRON_STATE,
     ...state,

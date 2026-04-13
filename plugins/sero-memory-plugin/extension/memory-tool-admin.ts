@@ -35,25 +35,30 @@ export async function handleMemoryConsolidate(
   ctx: ExtensionContext,
 ): Promise<ToolTextResult> {
   if (schedule) {
-    const sync = syncAutoConsolidationCronJobSync(schedule);
-    const cadenceLabel = describeAutoConsolidationCadence(sync.cadence);
-    if (sync.cadence === 'off') {
-      if (ctx.hasUI) {
-        ctx.ui.notify('Automatic memory consolidation disabled', 'info');
+    try {
+      const sync = syncAutoConsolidationCronJobSync(schedule);
+      const cadenceLabel = describeAutoConsolidationCadence(sync.cadence);
+      if (sync.cadence === 'off') {
+        if (ctx.hasUI) {
+          ctx.ui.notify('Automatic memory consolidation disabled', 'info');
+        }
+        return text('Automatic memory consolidation disabled.');
       }
-      return text('Automatic memory consolidation disabled.');
-    }
 
-    const message = [
-      `Automatic memory consolidation set to ${cadenceLabel}.`,
-      'Sero will keep older daily logs distilled into MEMORY.md automatically.',
-      'Change it any time with `sero memory consolidate --schedule daily|weekly|off`.',
-    ].join('\n');
+      const message = [
+        `Automatic memory consolidation set to ${cadenceLabel}.`,
+        'Sero will keep older daily logs distilled into MEMORY.md automatically.',
+        'Change it any time with `sero memory consolidate --schedule daily|weekly|off`.',
+      ].join('\n');
 
-    if (ctx.hasUI) {
-      ctx.ui.notify(`Automatic memory consolidation set to ${sync.cadence}`, 'info');
+      if (ctx.hasUI) {
+        ctx.ui.notify(`Automatic memory consolidation set to ${sync.cadence}`, 'info');
+      }
+      return text(message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return text(`Error: ${message}`);
     }
-    return text(message);
   }
 
   const summary = await runMemoryConsolidationSafely(ctx, trigger ?? 'manual');

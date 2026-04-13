@@ -82,10 +82,11 @@ export default function (pi: ExtensionAPI) {
       statePath = resolvedPath;
       const workspacePath = ctx?.cwd ?? resolveWorkspacePathFromStatePath(statePath);
 
-      const state = await readState(statePath);
-      const sessionRuntime = getKanbanSessionRuntime(ctx) ?? extensionRuntime;
+      try {
+        const state = await readState(statePath);
+        const sessionRuntime = getKanbanSessionRuntime(ctx) ?? extensionRuntime;
 
-      switch (params.action) {
+        switch (params.action) {
         case 'list': {
           return {
             content: [{ type: 'text', text: formatBoard(state) }],
@@ -337,6 +338,13 @@ export default function (pi: ExtensionAPI) {
             content: [{ type: 'text', text: `Unknown action: ${params.action}` }],
             details: {},
           };
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          content: [{ type: 'text', text: message.startsWith('Error:') ? message : `Error: ${message}` }],
+          details: {},
+        };
       }
     },
 

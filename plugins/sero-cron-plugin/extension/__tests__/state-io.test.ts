@@ -135,11 +135,9 @@ describe('readState and writeState', () => {
     expect(tmpFiles).toHaveLength(0);
   });
 
-  it('readState handles corrupted JSON gracefully', async () => {
+  it('readState fails loud on corrupted JSON', async () => {
     await fs.writeFile(statePath, 'not json {{{', 'utf8');
-    const state = await readState(statePath);
-    expect(state.jobs).toEqual([]);
-    expect(state.reminders).toEqual([]);
+    await expect(readState(statePath)).rejects.toThrow(/Cron state file/);
   });
 
   it('readState initialises missing reminders array', async () => {

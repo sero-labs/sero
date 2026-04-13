@@ -14,12 +14,26 @@ export function resolveStatePath(cwd: string): string {
   return path.join(cwd, STATE_REL_PATH);
 }
 
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
+function createStateReadError(filePath: string, error: unknown): Error {
+  const detail = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `Git app state at ${filePath} is unreadable. Repair or remove the malformed file before retrying. Original error: ${detail}`,
+  );
+}
+
 export async function readState(filePath: string): Promise<GitAppState> {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     return normalizeGitState(JSON.parse(raw) as Partial<GitAppState>);
-  } catch {
-    return createDefaultGitState();
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return createDefaultGitState();
+    }
+    throw createStateReadError(filePath, error);
   }
 }
 
