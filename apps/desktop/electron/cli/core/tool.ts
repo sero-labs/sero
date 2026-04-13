@@ -5,6 +5,7 @@ import { tokenizeCliInput, splitCommandLines } from './parser';
 import type {
   BridgedAgentContext,
   CliCommandContext,
+  CliCommandUpdate,
   CliContentBlock,
   CliInvocation,
   CliResult,
@@ -398,6 +399,19 @@ function buildSessionRuntime(context: Pick<CliCommandContext, 'workspaceId' | 'i
   };
 }
 
+function bridgeToolUpdate(
+  onUpdate: Parameters<ToolDefinition['execute']>[3] | undefined,
+): ((update: CliCommandUpdate) => void) | undefined {
+  if (!onUpdate) return undefined;
+
+  return (update) => {
+    onUpdate({
+      content: update.content,
+      details: update.details,
+    });
+  };
+}
+
 export function createSeroCliTool(
   registry: CliRegistry,
   workspaceId: string,
@@ -424,11 +438,17 @@ export function createSeroCliTool(
         workspaceManager,
         containerManager,
         // Forward agent context so bridged tools can access model, modelRegistry, etc.
-        agentContext: toolCtx ? extractAgentContext(toolCtx as ExtensionContext) : undefined,
+        agentContext: toolCtx ? extractAgentContext(toolCtx) : undefined,
         sessionRuntime: buildSessionRuntime({ workspaceId, invocation }),
       };
 
-      const batch = await executeCliBatch(registry, cliParams.command, context, cliParams.timeout, onUpdate as any);
+      const batch = await executeCliBatch(
+        registry,
+        cliParams.command,
+        context,
+        cliParams.timeout,
+        bridgeToolUpdate(onUpdate),
+      );
       const lines = splitCommandLines(cliParams.command);
       const isSingleCommand = lines.length === 1;
 

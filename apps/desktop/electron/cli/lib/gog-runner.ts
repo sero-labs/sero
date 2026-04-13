@@ -10,7 +10,7 @@
  * Sero's UI, all workspaces (container or not) can use those credentials.
  */
 
-import { execFile } from 'node:child_process';
+import { execFile, type ExecFileException } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -82,6 +82,15 @@ export const GOG_AUTH_TIMEOUT_MS = 60_000;
 
 // ── Local execution (non-container workspaces) ───────────────
 
+function isExecNotFound(error: ExecFileException | null): boolean {
+  return error?.code === 'ENOENT';
+}
+
+function getExecExitCode(error: ExecFileException | null): number {
+  if (!error) return 0;
+  return typeof error.code === 'number' ? error.code : 1;
+}
+
 /** Run gog locally on the host. Auto-injects Sero account + keyring. */
 async function runGogLocal(gogArgs: string[], opts?: GogOpts): Promise<GogResult> {
   const auth = getGoogleAuthManager();
@@ -107,15 +116,15 @@ async function runGogLocal(gogArgs: string[], opts?: GogOpts): Promise<GogResult
         // during Sero's Google OAuth sign-in flow.
         GOG_KEYRING_PASSWORD: deriveKeyringPassword(),
       },
-    }, (error, stdout, stderr) => {
-      if (error && (error as any).code === 'ENOENT') {
+    }, (error: ExecFileException | null, stdout, stderr) => {
+      if (isExecNotFound(error)) {
         resolve({ stdout: '', stderr: 'gog binary not found', exitCode: 127 });
         return;
       }
       resolve({
         stdout: stdout ?? '',
         stderr: stderr ?? '',
-        exitCode: error ? ((error as any).status ?? 1) : 0,
+        exitCode: getExecExitCode(error),
       });
     });
 
