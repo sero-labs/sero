@@ -1,6 +1,6 @@
 # Apps Desktop Deslopify Tasklist
 
-_Last updated: 2026-04-12_
+_Last updated: 2026-04-13_
 
 Core-first checklist for reviewing and cleaning up `apps/desktop` without losing track of sequencing.
 
@@ -138,10 +138,10 @@ Core-first checklist for reviewing and cleaning up `apps/desktop` without losing
 
 ## Wave F — True Periphery Last
 
-- [ ] Review whether `apps/desktop/src/components/ui` needs deslopify at all
-- [ ] Review styles/theme-only surfaces if still needed
-- [ ] Review tests for drift after major refactors
-- [ ] Do final sweep for stale docs/plans/index entries
+- [x] Review whether `apps/desktop/src/components/ui` needs deslopify at all
+- [x] Review styles/theme-only surfaces if still needed
+- [x] Review tests for drift after major refactors
+- [x] Do final sweep for stale docs/plans/index entries
 
 ## Current Rationale
 
@@ -184,3 +184,6 @@ That keeps us from fixing visible symptoms in the UI before fixing the code that
 - 2026-04-12: Wave E batches defined in dependency order. Completed E1 preload contract-cap relief (`preload/api.ts` split + preload-wide `IpcChannels` import decoupling) and E2 renderer orchestration cleanup (`useSessionAgent` decomposition, debounced idle refresh, bounded workspace-file cache, agent optimistic-message/buffer cleanup). Monorepo `pnpm typecheck` passes.
 - 2026-04-12: Wave E3 started. Landed canonical `ProfileInfo` ownership, widget-manifest unification, `ipc.ts` ↔ `plugins.ts` cycle break, and profile-path overlap validation with focused tests. Remaining E3 work is the user-feedback contract dedupe plus broader `IpcChannels` import cleanup.
 - 2026-04-12: Wave E4 started. Landed shared default-model cache refresh after auth changes and centralized workspace editor-state cleanup with explicit warning logs for non-ENOENT failures. Remaining E4 work is the bigger `shared-infra` / `WorkspaceManager` cap-relief refactors plus IPC cleanup.
+- 2026-04-13: Wave E checkbox state and narrative are now aligned: the tasklist treats Waves E1–E6 as completed batch milestones for this pass, while any remaining Medium/Low follow-ups continue to live in the folder-level `docs/deslopify/**/plan.md` files instead of the wave checklist.
+- 2026-04-13: Wave F periphery closeout landed. `apps/desktop/src/components/apps` now has a dedicated review at `docs/deslopify/apps/desktop/src/components/apps/{facts.md,plan.md}`; `components/ui/IconAction.tsx` was explicitly reviewed and closed as healthy without a standalone deslopify artifact; stale `packages/pi-*` drift was removed from `apps/desktop/src/styles/global.css`, `apps/desktop/vite.config.ts`, and `apps/desktop/src/lib/federation-registry.ts`; focused desktop tests and monorepo `pnpm typecheck` pass.
+- 2026-04-13: Executed the `components/apps` follow-up plan. Shared app/widget mount wiring now lives in `apps/desktop/src/components/apps/useAppRuntimeMount.ts`, `SeroAppMount.tsx` and `dashboard/WidgetMount.tsx` now share the same workspace-hydration semantics, and new `Dashboard.test.tsx` / `WidgetMount.test.tsx` coverage locks in the periphery seam behavior.

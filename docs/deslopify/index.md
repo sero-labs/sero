@@ -1,15 +1,17 @@
 # Deslopify Index
 
-_Last updated: 2026-04-12_
+_Last updated: 2026-04-13_
 
 A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
-  — *Wave A–D High-priority batches cleared 2026-04-12; Wave E started with preload/hooks/stores Medium cleanup*
-  - [`apps/desktop/src/components/apps/explorer/`](./apps/desktop/src/components/apps/explorer/plan.md)
-    — *Wave C review complete — no High items; Medium cleanup pending*
+  — *Wave A–F closeout checklist cleared 2026-04-13; remaining work is tracked only in folder-level follow-up plans outside the Wave F periphery seam*
+  - [`apps/desktop/src/components/apps/`](./apps/desktop/src/components/apps/plan.md)
+    — *Healthy — shared app/widget mount runtime unified and dashboard/widget coverage added 2026-04-13*
+    - [`apps/desktop/src/components/apps/explorer/`](./apps/desktop/src/components/apps/explorer/plan.md)
+      — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/src/components/layout/`](./apps/desktop/src/components/layout/plan.md)
     — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/src/components/profiles/`](./apps/desktop/src/components/profiles/plan.md)

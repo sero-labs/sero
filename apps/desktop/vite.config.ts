@@ -28,7 +28,7 @@ function isPluginInDevMode(appId: string): boolean {
   return devPluginsFilter.has(appId);
 }
 
-// ── Auto-discover Sero app manifests from workspace packages ──────────
+// ── Auto-discover Sero app manifests from plugin remotes ─────────────
 
 interface SeroAppDef {
   id: string;
@@ -38,7 +38,6 @@ interface SeroAppDef {
 }
 
 const APP_PACKAGE_GLOBS = [
-  path.resolve(__dirname, '../../packages/pi-*/package.json'),
   path.resolve(__dirname, '../../plugins/sero-*-plugin/package.json'),
 ];
 
