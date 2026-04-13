@@ -7,9 +7,9 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
-  — *Wave A–E batch checklist cleared; Wave F periphery review/drift sweep closed 2026-04-13 with a small `components/apps` follow-up plan still tracked below*
+  — *Wave A–F closeout checklist cleared 2026-04-13; remaining work is tracked only in folder-level follow-up plans outside the Wave F periphery seam*
   - [`apps/desktop/src/components/apps/`](./apps/desktop/src/components/apps/plan.md)
-    — *Wave F periphery review complete — no High items; shared mount cleanup + dashboard coverage follow-up planned*
+    — *Healthy — shared app/widget mount runtime unified and dashboard/widget coverage added 2026-04-13*
     - [`apps/desktop/src/components/apps/explorer/`](./apps/desktop/src/components/apps/explorer/plan.md)
       — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/src/components/layout/`](./apps/desktop/src/components/layout/plan.md)

@@ -4,6 +4,20 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-04-13
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/desktop/src/components/apps/useAppRuntimeMount.ts` | New — shared app/widget mount helper for session bootstrap, context assembly, and workspace mount-state gating |
+| `apps/desktop/src/components/apps/SeroAppMount.tsx` | Replaced duplicated mount orchestration with the shared runtime helper (170 → 68 lines) |
+| `apps/desktop/src/components/apps/dashboard/WidgetMount.tsx` | Replaced duplicated widget mount orchestration with the shared runtime helper and aligned workspace-loading semantics (161 → 81 lines) |
+| `apps/desktop/src/components/apps/dashboard/Dashboard.test.tsx` | New — covers empty dashboard, mounted grid rendering, and persist-on-interaction-stop behavior |
+| `apps/desktop/src/components/apps/dashboard/WidgetMount.test.tsx` | New — covers hydration, missing-workspace, runtime fallback, and missing-remote fallback states |
+
+---
+
 ## 2026-04-12
 
 ### Files Changed

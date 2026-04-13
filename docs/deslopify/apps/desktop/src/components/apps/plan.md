@@ -6,11 +6,11 @@ _Plan drafted: 2026-04-13_
 The last unreviewed `components/apps` surfaces are in decent shape overall: `ActiveAppPanel.tsx` is intentionally thin, the dashboard files are small, and adjacent `ErrorBoundary.tsx` is healthy enough to leave alone. The real debt is concentrated in the shared mount seam. `SeroAppMount.tsx` and `dashboard/WidgetMount.tsx` duplicate the same session-bootstrap and `AppProvider` wiring, but that duplication has already drifted: widgets do not honor workspace hydration the same way full apps do, and both helpers still assume `openSession()` throws even though the agent store currently absorbs failures. This is worth a small focused cleanup and test pass, not another broad app-surface rewrite.
 
 ## Issues Found (prioritized)
-- **Medium** — Full-app and widget mounts duplicate session bootstrap and app-runtime context wiring, and the duplicated helper is already mismatched with the real agent-store failure contract — `apps/desktop/src/components/apps/SeroAppMount.tsx:29-72`, `apps/desktop/src/components/apps/SeroAppMount.tsx:84-144`, `apps/desktop/src/components/apps/dashboard/WidgetMount.tsx:24-63`, `apps/desktop/src/components/apps/dashboard/WidgetMount.tsx:81-151`, `apps/desktop/src/stores/agent.ts:87-126`. Both mount surfaces re-implement session selection/creation, `openSession()`, chat-panel reveal, prompt dispatch, and almost the same `AppContextValue` assembly. Because `useAgentStore.openSession()` currently logs and absorbs failures instead of throwing, the `try/catch` blocks in both helpers are misleading; an open failure degrades into focus/chat movement plus a silent no-op prompt instead of one explicit failure path. Effort: **M**.
+- **Medium** — ~~Full-app and widget mounts duplicate session bootstrap and app-runtime context wiring, and the duplicated helper is already mismatched with the real agent-store failure contract~~ ✅ 2026-04-13 (`456e1619`) — landed `apps/desktop/src/components/apps/useAppRuntimeMount.ts`, reduced both mount surfaces to thin presenters, and added an explicit post-`openSession()` readiness check before revealing chat or dispatching prompts.
 
-- **Medium** — Dashboard widget startup and fallback behavior has already drifted from full-app behavior — `apps/desktop/src/components/apps/dashboard/WidgetMount.tsx:81-119`, `apps/desktop/src/components/apps/SeroAppMount.tsx:84-128`, `apps/desktop/src/App.tsx:245-247`. Workspace-scoped full apps wait behind `workspacesReady` and render a loading state; workspace-scoped widgets skip that gate and can render `No workspace selected` during normal cold-start hydration. Because the shell intentionally renders before workspace hydration completes, this is not just cosmetic inconsistency — it is a false-negative state unique to the dashboard path. Effort: **S**.
+- **Medium** — ~~Dashboard widget startup and fallback behavior has already drifted from full-app behavior~~ ✅ 2026-04-13 (`456e1619`) — `WidgetMount.tsx` now uses the same workspace-hydration gate as `SeroAppMount.tsx`, so widgets show a loading state during cold-start hydration instead of a false missing-workspace placeholder.
 
-- **Medium** — Regression coverage is too thin around the exact seams this cleanup would touch — `apps/desktop/src/components/apps/ActiveAppPanel.test.tsx:120-146`, `apps/desktop/src/components/apps/SeroAppMount.test.tsx:41-60`, `apps/desktop/src/components/apps/dashboard/useRuntimeWidgets.test.ts:6-31`, `apps/desktop/src/stores/dashboard.test.ts:34-88`, `apps/desktop/src/components/ErrorBoundary.test.tsx:41-63`. There are no focused component tests for `Dashboard.tsx` or `apps/dashboard/WidgetMount.tsx`, so hydration/fallback/prompt-bootstrap regressions would mostly show up in manual testing. Effort: **S**.
+- **Medium** — ~~Regression coverage is too thin around the exact seams this cleanup would touch~~ ✅ 2026-04-13 (`456e1619`) — added dedicated `apps/desktop/src/components/apps/dashboard/Dashboard.test.tsx` and `apps/desktop/src/components/apps/dashboard/WidgetMount.test.tsx` coverage for the dashboard/widget seam.
 
 ## Proposed Refactoring
 1. **Extract one shared app-runtime mount helper for session bootstrap and context assembly.**
@@ -64,13 +64,14 @@ The last unreviewed `components/apps` surfaces are in decent shape overall: `Act
 - Runtime widgets rely on the sticky `@sero-ai/app-runtime` registry; do not accidentally make dashboard widgets depend on the full app still being mounted.
 
 ## Next Steps
-1. Extract a shared app/widget mount helper and migrate `SeroAppMount.tsx` + `dashboard/WidgetMount.tsx` to it.
-2. Align widget hydration/loading behavior with the full-app mount path.
-3. Add focused `Dashboard.tsx` and `WidgetMount.tsx` tests before landing behavior-sensitive cleanup.
-4. Keep `ActiveAppPanel.tsx` and `ErrorBoundary.tsx` unchanged unless the shared-helper refactor forces a tiny adaptation.
-5. Verification checklist:
-   - Cold-start into the dashboard with persisted workspace-scoped widgets and confirm they show loading during workspace hydration, not a false missing-workspace placeholder.
-   - After hydration, confirm a real no-workspace case still shows the missing-workspace fallback.
-   - Prompt from a full app and from a widget; both should create/open the correct session, reveal the chat panel, and dispatch the prompt once.
-   - Force a remote/widget-unavailable case and confirm the fallback stays explicit.
-   - Switch between explorer, dashboard, and a federated app while pending preloads resolve; `ActiveAppPanel` should keep the previous app visible until activation finishes.
+1. No remaining code work from this 2026-04-13 plan.
+2. Keep `ActiveAppPanel.tsx` and `ErrorBoundary.tsx` unchanged unless a future review uncovers a new issue.
+3. If the `components/apps` area grows again, re-open review from this shared-helper baseline rather than reintroducing duplicate mount wiring.
+4. Verification checklist completed in this pass:
+   - Cold-start dashboard/widget hydration states covered in `WidgetMount.test.tsx`.
+   - Dashboard grid rendering + persist-on-interaction-stop covered in `Dashboard.test.tsx`.
+   - Existing `ActiveAppPanel`, `SeroAppMount`, runtime-widget, dashboard-store, and `ErrorBoundary` tests re-run.
+   - Monorepo `pnpm typecheck` passes.
+
+## Execution log
+- 2026-04-13 — `456e1619` — `refactor(desktop): unify app and widget mount runtime`

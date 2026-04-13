@@ -41,3 +41,22 @@ _Last reviewed: 2026-04-13_
 - `WidgetMount` does not honor the `workspacesReady` loading gate that `SeroAppMount` uses, so the dashboard can report `No workspace selected` during ordinary startup hydration.
 - There are no dedicated `Dashboard.tsx` or `WidgetMount.tsx` component tests; current coverage is store/registry-level plus one `SeroAppMount` loading-state check.
 - `ActiveAppPanel.tsx` and `ErrorBoundary.tsx` are not where the debt sits; the risk is concentrated in the full-app/widget mount seam.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total files: 54 (was 51)
+- Largest file: `apps/desktop/src/components/apps/explorer/ExplorerWorkspace.tsx` (480 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 1 test-only `as unknown as` cast in `apps/desktop/src/components/apps/explorer/useWorkspaceFileWatch.test.tsx` (outside this pass)
+- Current non-explorer review slice: 14 files / 1,423 LOC (was 11 files / 1,045 LOC); largest file is now `apps/desktop/src/components/apps/dashboard/Dashboard.test.tsx` (246 LOC)
+
+### What changed
+- Added `apps/desktop/src/components/apps/useAppRuntimeMount.ts` as the shared app/widget runtime helper for session selection/create, session-open readiness checks, chat-panel reveal, and `AppContextValue` assembly.
+- Reduced `SeroAppMount.tsx` and `dashboard/WidgetMount.tsx` to thin presenters over the shared helper, removing the duplicated session-bootstrap logic documented in the original review.
+- Standardized workspace-scoped loading semantics so dashboard widgets now honor the same hydration gate as full apps.
+- Added dedicated `Dashboard.test.tsx` and `WidgetMount.test.tsx` coverage for the previously untested dashboard/widget seam.
+
+### Still outstanding
+- No remaining items from the 2026-04-13 `components/apps` plan.
+- Explorer-specific follow-ups remain tracked separately in `docs/deslopify/apps/desktop/src/components/apps/explorer/plan.md`.
