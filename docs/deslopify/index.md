@@ -62,7 +62,29 @@ entry links to a `facts.md` and `plan.md` pair.
     — *In progress — cached-model Medium item cleared 2026-04-12; modularization cleanup pending*
 
 ## packages/
-- _No reviews yet._
+- `packages/app-runtime/src/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `packages/common/src/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
 
 ## plugins/
-- _No reviews yet._
+- `plugins/sero-admin-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-alibaba-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-context-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-cron-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-git-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-hello-world-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-kanban-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-memory-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-user-feedback-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+- `plugins/sero-web-plugin/`
+  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
