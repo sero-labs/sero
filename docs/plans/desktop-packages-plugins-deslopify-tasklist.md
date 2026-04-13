@@ -81,7 +81,7 @@ copying.
 - [x] `deslopify plugins/sero-kanban-plugin`
 - [x] `deslopify plugins/sero-cron-plugin`
 - [x] `deslopify plugins/sero-admin-plugin`
-- [ ] `deslopify plugins/sero-memory-plugin`
+- [x] `deslopify plugins/sero-memory-plugin`
 
 ### 4. Additional host-integrated plugins
 - [ ] `deslopify plugins/sero-git-plugin`
@@ -242,3 +242,10 @@ runtime, contract, or desktop-side code that those plugins consume.
   truthfulness — `ui/hooks/useSeroFiles.ts` duplicates and narrows the canonical
   `window.sero` contract, and the host still imports admin-owned
   `skill-visibility` helpers that should move to a neutral shared home.
+- 2026-04-13: Wave C step 3.4 complete for `plugins/sero-memory-plugin`.
+  Facts + plan added at
+  `docs/deslopify/plugins/sero-memory-plugin/{facts,plan}.md`; result: the
+  extension is structurally modular, but the top High findings are boundary
+  truthfulness defects — auto-consolidation rewrites cron state through a local
+  mirrored contract, and QMD still has a Sero-incompatible `~/.pi/agent`
+  fallback that can split profile-scoped search/transcript data.
