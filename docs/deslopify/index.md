@@ -84,8 +84,8 @@ entry links to a `facts.md` and `plan.md` pair.
   — *Wave C exemplar review complete — High host-bridge contract duplication and ownership drift documented 2026-04-13*
 - `plugins/sero-alibaba-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
-- `plugins/sero-context-plugin/`
-  — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
+- [`plugins/sero-context-plugin/`](./plugins/sero-context-plugin/plan.md)
+  — *Wave C host-integrated review complete — High snapshot-truthfulness and UI-action determinism findings documented 2026-04-13*
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
   — *Wave C exemplar review complete — High startup-recovery/state-truthfulness findings documented 2026-04-13*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
@@ -98,5 +98,5 @@ entry links to a `facts.md` and `plan.md` pair.
   — *Wave C exemplar review complete — High cross-plugin cron-state ownership and QMD profile-path drift documented 2026-04-13*
 - `plugins/sero-user-feedback-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
-- `plugins/sero-web-plugin/`
-  — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
+- [`plugins/sero-web-plugin/`](./plugins/sero-web-plugin/plan.md)
+  — *Wave C host-integrated review complete — High state-truthfulness, profile-path drift, and UI-mutation ownership findings documented 2026-04-13*

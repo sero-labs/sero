@@ -85,8 +85,8 @@ copying.
 
 ### 4. Additional host-integrated plugins
 - [x] `deslopify plugins/sero-git-plugin`
-- [ ] `deslopify plugins/sero-context-plugin`
-- [ ] `deslopify plugins/sero-web-plugin`
+- [x] `deslopify plugins/sero-context-plugin`
+- [x] `deslopify plugins/sero-web-plugin`
 - [ ] `deslopify plugins/sero-user-feedback-plugin`
 
 ### 5. Smaller / narrower plugins last
@@ -256,3 +256,17 @@ runtime, contract, or desktop-side code that those plugins consume.
   host-boundary truthfulness defects — the canonical Git action contract has
   already drifted across app-runtime/preload/UI layers, and fail-open
   state-file reads can silently replace real snapshots with defaults.
+- 2026-04-13: Wave C step 4.2 complete for `plugins/sero-context-plugin`.
+  Facts + plan added at
+  `docs/deslopify/plugins/sero-context-plugin/{facts,plan}.md`; result: the
+  package is small and coherent, but the top High findings are truthfulness
+  defects — the dashboard is not actually real-time, and the UI's tag/checkout
+  actions are prompt-routed agent requests presented as direct interactions.
+- 2026-04-13: Wave C step 4.3 complete for `plugins/sero-web-plugin`.
+  Facts + plan added at
+  `docs/deslopify/plugins/sero-web-plugin/{facts,plan}.md`; result: the
+  plugin is feature-rich but currently has three top High findings —
+  fail-open `state.json` reads can silently wipe persisted web activity,
+  provider/config paths still drift to a Sero-incompatible `~/.pi` fallback,
+  and the UI bypasses extension-owned mutation paths for bookmarks/history/
+  downloads.
