@@ -91,7 +91,6 @@ copying.
 
 ### 5. Smaller / narrower plugins last
 - [ ] `deslopify plugins/sero-alibaba-plugin`
-- [ ] `deslopify plugins/sero-hello-world-plugin`
 
 ## Wave D — Fix Plugin High-Priority Findings
 
@@ -107,7 +106,6 @@ copying.
 - [ ] `fix-slop` High items for `plugins/sero-web-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-user-feedback-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-alibaba-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-hello-world-plugin`
 - [ ] Run targeted package/plugin tests plus monorepo `pnpm typecheck` after
       each batch
 
@@ -142,7 +140,6 @@ copying.
 - [ ] `fix-slop` Medium items for `plugins/sero-web-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-user-feedback-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-alibaba-plugin`
-- [ ] `fix-slop` Medium items for `plugins/sero-hello-world-plugin`
 
 ## Wave G — Final Periphery / Drift Sweep
 
