@@ -110,9 +110,9 @@ plugin done when all of its High items are cleared across every batch it joins.
 
 - [ ] `fix-slop` High items for `plugins/sero-kanban-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-cron-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-admin-plugin`
+- [x] `fix-slop` High items for `plugins/sero-admin-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-memory-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-git-plugin`
+- [x] `fix-slop` High items for `plugins/sero-git-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-context-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-web-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-user-feedback-plugin`
@@ -297,3 +297,9 @@ runtime, contract, or desktop-side code that those plugins consume.
   fail-closed Kanban board/error-log reads, fail-closed Cron/Git/Web state
   reads, and a fail-closed guard on memory-plugin cron auto-consolidation.
   Targeted plugin tests plus monorepo `pnpm typecheck` passed.
+- 2026-04-13: Wave D batch **D2 — Canonical contract / bridge ownership**
+  landed in `d885ff2d` (`refactor(contracts): centralize plugin bridge
+  ownership`). Covered: neutral shared Git app contracts in `@sero/common`,
+  canonical admin/web host bridge subsets, and neutral shared cron persistence
+  types consumed by cron + memory. Targeted package typechecks, Git plugin
+  tests, and monorepo `pnpm typecheck` passed.

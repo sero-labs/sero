@@ -21,7 +21,7 @@ _Plan drafted: 2026-04-13_
 - **Medium** — Safety nets are too thin for a sensitive admin surface — `plugins/sero-admin-plugin/package.json:9-11` only runs `tsc --noEmit -p ui/tsconfig.json`, and `plugins/sero-admin-plugin/ui/tsconfig.json:19` includes only `ui/**` + `shared/**`, leaving `extension/index.ts` outside the package-local typecheck path. On top of that, the package has no direct test files at all. This is weak coverage for a plugin that reads sensitive config, installs/uninstalls plugins, edits global agents/skills/prompts, and parses raw session/log files. Effort: **M**.
 
 ## Proposed Refactoring
-1. **Move admin-consumed host bridge contracts to a canonical shared home and delete the local copy.**
+1. **~~Move admin-consumed host bridge contracts to a canonical shared home and delete the local copy.~~ ✅ 2026-04-13 (`d885ff2d`)**
    - Create a renderer-safe shared contract module for the admin-consumed `window.sero` subset under `packages/common/src/` (or another neutral shared package if the desktop team prefers), instead of keeping it in `ui/hooks/useSeroFiles.ts`.
    - Replace local bridge/type definitions with imports from that canonical module.
    - Replace the current `window as unknown as { sero: SeroApi }` access with a typed helper built on the canonical bridge interface.
@@ -94,3 +94,6 @@ Verification checklist:
 - Inspect a deliberately malformed session JSONL file and verify the UI reports corruption instead of silently dropping rows.
 - Install/uninstall a plugin and link/unlink a plugin folder to confirm plugin-manager and workspace-root flows still work.
 - Run monorepo `pnpm typecheck` after the shared-contract move so host + plugin consumers fail together if a bridge contract drifts.
+
+## Execution log
+- `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`

@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13; Wave D D1 persisted-state batch landed 2026-04-13; remaining plugin High waves pending*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13; Wave D D1/D2 plugin High batches landed 2026-04-13; D3/D4 still pending*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -81,7 +81,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## plugins/
 - [`plugins/sero-admin-plugin/`](./plugins/sero-admin-plugin/plan.md)
-  — *Wave C exemplar review complete — High host-bridge contract duplication and ownership drift documented 2026-04-13*
+  — *In progress — High host-bridge contract duplication item cleared 2026-04-13; Medium ownership/test cleanup pending*
 - `plugins/sero-alibaba-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
 - [`plugins/sero-context-plugin/`](./plugins/sero-context-plugin/plan.md)
@@ -89,14 +89,14 @@ entry links to a `facts.md` and `plan.md` pair.
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
   — *In progress — D1 state-truthfulness item cleared 2026-04-13; startup-recovery and UI reminder-ownership High items still pending*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
-  — *In progress — D1 state-truthfulness item cleared 2026-04-13; High bridge-contract drift still pending*
+  — *In progress — High contract + state items cleared 2026-04-13; Medium live-query, file-splitting, and UI-coverage work pending*
 - `plugins/sero-hello-world-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *In progress — D1 persisted-state integrity item cleared 2026-04-13; High UI workflow ownership still pending*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
-  — *In progress — D1 fail-closed cron-state safeguard landed 2026-04-13; shared cron-contract ownership and QMD profile-path High items still pending*
+  — *In progress — D1 + shared cron-contract ownership work landed 2026-04-13; QMD profile-path High item still pending*
 - [`plugins/sero-user-feedback-plugin/`](./plugins/sero-user-feedback-plugin/plan.md)
   — *Wave C host-integrated review complete — High questionnaire-parity and onboarding-ownership findings documented 2026-04-13*
 - [`plugins/sero-web-plugin/`](./plugins/sero-web-plugin/plan.md)
-  — *In progress — D1 state-truthfulness item cleared 2026-04-13; profile-path drift and UI-mutation ownership High items still pending*
+  — *In progress — D1 state-truthfulness item cleared and D2 host-bridge typing landed 2026-04-13; profile-path drift and UI-mutation ownership High items still pending*

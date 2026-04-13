@@ -76,3 +76,20 @@ _Last reviewed: 2026-04-13_
 - The mirrored cron persisted contract still lives locally in `extension/cron-types.ts`; D1 cleared the corruption risk but not the ownership drift.
 - The other High item (`~/.pi/agent` fallback in QMD) is still pending.
 - Medium startup-migration, sync I/O, and test-surface work remain pending.
+
+## Post-fix snapshot — 2026-04-13 (D2)
+
+### Metrics after fixes
+- Largest source file: `plugins/sero-memory-plugin/extension/memory-tool.ts` (466 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged outside the still-pending QMD/profile-path seam
+
+### What changed
+- Added a neutral shared cron persistence contract in `@sero/common`.
+- Replaced the memory plugin’s mirrored cron contract copy with imports from the neutral shared owner.
+- Preserved the existing runtime default state locally while moving contract ownership out of the plugin.
+- Package-local `typecheck` and monorepo `pnpm typecheck` still pass after the shared-contract move.
+
+### Still outstanding
+- The remaining High item is still the `~/.pi/agent` fallback in QMD.
+- Medium startup-migration, async persistence/logging, and test-surface work remain pending.

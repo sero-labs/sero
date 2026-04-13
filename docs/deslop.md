@@ -34,6 +34,15 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-memory-plugin/extension/{automation-state.ts,memory-tool-admin.ts}` | Stopped auto-consolidation from rewriting malformed cron state and surfaced a recovery-oriented admin/tool error instead |
 | `plugins/sero-git-plugin/extension/{state-io.ts,__tests__/state-io.test.ts}` | Hardened Git app state reads to fail closed on malformed snapshots and added direct state-I/O coverage |
 | `plugins/sero-web-plugin/extension/state-sync.ts` | Hardened workspace web state reads to fail closed on malformed JSON while preserving missing-file bootstrap behavior |
+| `packages/common/src/{git-app.ts,cron-contract.ts,admin-bridge.ts,index.ts}` | New — neutral shared owners for Git app contracts, cross-plugin cron persistence types, and admin/web host bridge subsets |
+| `packages/app-runtime/src/sero-bridge.ts` | Switched app-runtime’s Git bridge contract to the new canonical `@sero/common` types |
+| `apps/desktop/{src/types/electron-apps.d.ts,electron/preload/apps/app-domain.ts,electron/ipc/apps/git-app.ts,electron/features/apps/git-app/manager.ts}` | Repointed the Git app bridge to one canonical shared contract across renderer, preload, IPC, and host manager |
+| `plugins/sero-admin-plugin/ui/hooks/useSeroFiles.ts` | Replaced the plugin-local `window.sero` contract copy with a canonical `@sero/common` admin bridge subset (473 → 259 lines) |
+| `plugins/sero-cron-plugin/shared/types.ts` | Rebased the cron plugin’s persisted state contract on the new neutral shared cron contract |
+| `plugins/sero-memory-plugin/extension/cron-types.ts` | Replaced the mirrored cron persisted types with canonical `@sero/common` imports |
+| `plugins/sero-git-plugin/{shared/types.ts,ui/GitApp.tsx}` | Switched Git UI/shared types to the canonical shared bridge contract and removed the UI-side result cast |
+| `plugins/sero-web-plugin/ui/lib/host.ts` | Replaced the local host bridge subset with canonical shared host-bridge typing |
+| `{packages/app-runtime/tsconfig.json,packages/tsconfig.extension.json,plugins/sero-{kanban,context,cron,git,user-feedback,web}-plugin/ui/tsconfig.json}` | Added `@sero/common` path mappings so packages that compile against workspace source keep the new shared contracts type-safe |
 
 ---
 

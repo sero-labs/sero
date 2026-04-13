@@ -60,3 +60,21 @@ _Last reviewed: 2026-04-13_
 - Two large UI files are dead weight today: `ui/components/ProviderCard.tsx` (162 LOC) and `ui/components/TierModelPicker.tsx` (324 LOC) are not imported anywhere.
 - `shared/types.ts` still exports unused `SessionMeta`, `SessionMessage`, and `LogFile` interfaces from an older shape of the admin UI.
 - The package has zero direct tests despite touching sensitive file browsing, plugin installation flows, and session/log diagnostics.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Largest source file: `plugins/sero-admin-plugin/ui/components/PluginsPanel.tsx` (372 LOC)
+- `ui/hooks/useSeroFiles.ts`: 473 → 259 LOC
+- Files over 500 LOC: none
+- Type escape hatches remaining: the local `window.sero` cast is gone from the shared-contract seam; broader session/browser truthfulness work is still pending
+
+### What changed
+- Added `@sero/common` host-bridge contracts for the admin-consumed `window.sero` subset.
+- Replaced the plugin-local `SeroApi` copy in `ui/hooks/useSeroFiles.ts` with the canonical shared bridge subset and a typed `getSero()` helper.
+- Kept the admin surface UI-only; no new tool bridging or runtime capability expansion was introduced.
+- Package-local admin typecheck and monorepo `pnpm typecheck` still pass after the shared-contract move.
+
+### Still outstanding
+- The host still imports admin-owned `shared/skill-visibility.ts`; that Medium ownership violation remains pending.
+- Session-browser truthfulness, auth/model refresh dedupe, dead provider-defaults cleanup, and test coverage are still pending.

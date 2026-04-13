@@ -161,3 +161,24 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 - **D3** truthful UI→extension action ownership remains next for `sero-kanban`, `sero-web`, and `sero-context`.
 - **D4** lifecycle/profile-home High items remain next for `sero-cron`, `sero-memory`, `sero-context`, `sero-user-feedback`, and `sero-web`.
 - `plugins/sero-memory-plugin` still carries the mirrored cron persisted contract locally; D1 only cleared the fail-open corruption risk, not the ownership drift.
+
+## Post-fix snapshot — 2026-04-13 (Wave D / D2)
+
+### Metrics after fixes
+- Wave D High batch landed: **D2 — Canonical contract / bridge ownership**
+- Shared/host contracts moved to neutral owners in `@sero/common`
+- Plugins with direct D2 code work: 4 (`sero-admin`, `sero-git`, `sero-memory`, `sero-web`)
+- Cross-layer host files touched: app-runtime + preload + renderer desktop types + host Git manager/IPC
+
+### What changed
+- Added neutral shared owners for Git app action contracts, minimal shared cron persistence contracts, and the admin/web host bridge subset.
+- Removed the admin plugin’s local `window.sero` contract copy and replaced it with a canonical shared bridge subset.
+- Replaced the memory plugin’s mirrored cron persisted types with imports from the new neutral shared cron contract.
+- Repointed the Git bridge across app-runtime, preload, IPC, host manager, desktop declarations, and the remote UI to one canonical shared contract.
+- Replaced the web plugin’s local host-bridge subset with canonical shared host typing.
+
+### Still outstanding
+- **D3** truthful UI→extension action ownership is now the next High batch for `sero-kanban`, `sero-web`, and `sero-context`.
+- **D4** lifecycle/profile-home semantics remain the next High batch for `sero-cron`, `sero-memory`, `sero-context`, `sero-user-feedback`, and `sero-web`.
+- `plugins/sero-web-plugin` still has unresolved High ownership drift because the UI mutation paths themselves are still local even though the bridge typing is now canonical.
+- `plugins/sero-memory-plugin` still has one remaining High item: the QMD `~/.pi/agent` fallback.

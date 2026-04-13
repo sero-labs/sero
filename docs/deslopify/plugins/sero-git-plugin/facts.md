@@ -70,3 +70,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The remaining High item is still the cross-layer Git action contract drift.
 - Medium live-query semantics for `log`/`branches`, file splitting, and UI coverage remain pending.
+
+## Post-fix snapshot — 2026-04-13 (D2)
+
+### Metrics after fixes
+- Largest source file: `plugins/sero-git-plugin/extension/git-service.ts` (457 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: the UI-side `gitApp` result cast is gone; remaining work is now medium-level semantics and coverage
+
+### What changed
+- Added a neutral shared Git app contract in `@sero/common` and re-exported it from the plugin shared layer.
+- Repointed app-runtime, preload, desktop renderer declarations, Electron IPC/host manager, and the remote UI to one canonical request/result contract.
+- Removed the preload `unknown` Git bridge result and the UI-side re-cast in `GitApp.tsx`.
+- Git package tests and monorepo `pnpm typecheck` still pass after the contract move.
+
+### Still outstanding
+- High items are cleared for this plan.
+- Medium repo-truthful `log`/`branches`, file splitting, and UI coverage remain pending.

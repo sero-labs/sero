@@ -14,7 +14,7 @@ _Plan drafted: 2026-04-13_
 - **Low** — Small duplication seams are already appearing in low-level helpers and presentation constants — `plugins/sero-git-plugin/extension/git-default-branch.ts:1-39` bypasses the shared `git-exec.ts` helper with its own silent `execFileSync` wrapper, branch colors are defined in both `plugins/sero-git-plugin/shared/types.ts:214-228` and `plugins/sero-git-plugin/ui/lib/graph-layout.ts:31-35`, and relative-date formatting is duplicated between `plugins/sero-git-plugin/ui/components/BranchPanel.tsx:410-420` and `plugins/sero-git-plugin/ui/components/CommitGraph.tsx:269-287`. None are individually severe, but they are the kind of copy-paste drift that turns a clean plugin into an awkward one. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Make the Git action bridge contract canonical and shared.**
+1. **~~Make the Git action bridge contract canonical and shared.~~ ✅ 2026-04-13 (`d885ff2d`)**
    - Promote the full UI↔host contract into the plugin’s shared layer: export both `GitManagerRequest` and a new shared `GitActionResult` (or similarly named) type from `plugins/sero-git-plugin/shared/types.ts`.
    - Update every consumer to import the same type instead of re-declaring it:
      - `packages/app-runtime/src/sero-bridge.ts`
@@ -106,3 +106,4 @@ Verification checklist:
 
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`
+- `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`

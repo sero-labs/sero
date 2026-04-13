@@ -50,3 +50,21 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The remaining High items are still the `SERO_HOME`/`~/.pi` path drift and UI mutation ownership drift.
 - Medium package-local test/typecheck expansion and provider-module splitting remain pending.
+
+## Post-fix snapshot — 2026-04-13 (D2 partial)
+
+### Metrics after fixes
+- Total files: 52 in the current TS/JS scan
+- Largest file: `plugins/sero-web-plugin/extension/gemini-web.ts` (483 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: the local host bridge subset is gone, but the UI mutation ownership High item is still open
+
+### What changed
+- Added a neutral shared host-bridge subset in `@sero/common`.
+- Replaced `ui/lib/host.ts`’s local `window.sero` subset declaration with the canonical shared bridge type.
+- Added `@sero/common` path wiring so the web UI compiles against the canonical shared bridge contract alongside app-runtime.
+- Package-local web typecheck and monorepo `pnpm typecheck` still pass.
+
+### Still outstanding
+- The remaining High items are still the `SERO_HOME`/`~/.pi` path drift and the UI’s direct mutation paths for history/bookmarks/downloads.
+- Medium package-local test/typecheck expansion and provider-module splitting remain pending.

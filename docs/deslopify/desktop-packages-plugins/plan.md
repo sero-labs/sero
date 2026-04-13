@@ -262,3 +262,4 @@ Verification checklist for the downstream folder reviews:
 - `8d8f7648` — `refactor(cli): harden AD-020 bridge typing`
 - `e09e6fad` — `fix(kanban): centralize shared contract and remove dead settings`
 - `336b790a` — `fix(plugins): harden persisted state integrity`
+- `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
