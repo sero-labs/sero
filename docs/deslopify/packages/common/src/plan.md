@@ -138,3 +138,6 @@ Verification checklist for the future fix pass:
   the dedupe.
 - Monorepo `pnpm typecheck` stays green across desktop, `@sero/common`,
   `@sero-ai/app-runtime`, and the plugin packages that consume these contracts.
+
+## Execution log
+- `e09e6fad` — `fix(kanban): centralize shared contract and remove dead settings` (added `packages/common/src/kanban.ts` as the canonical Kanban contract home while leaving this folder's direct Medium items pending)

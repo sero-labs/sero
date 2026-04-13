@@ -60,15 +60,15 @@ without losing sequencing discipline.
 
 ## Wave B — Fix Shared/Desktop High-Priority Findings
 
-- [ ] Review all Wave A plans together for cross-cutting themes
-- [ ] Group fixes into coherent `fix-slop` batches
-- [ ] `fix-slop` High items for `packages/common/src`
-- [ ] `fix-slop` High items for `packages/app-runtime/src`
-- [ ] `fix-slop` High items for `apps/desktop/electron/types`
-- [ ] `fix-slop` High items for `apps/desktop/electron/cli`
-- [ ] `fix-slop` High items for `apps/desktop/electron/gateway`
-- [ ] `fix-slop` High items for `apps/desktop/electron/features/kanban`
-- [ ] Run `pnpm typecheck` after each batch and keep notes linked from the
+- [x] Review all Wave A plans together for cross-cutting themes
+- [x] Group fixes into coherent `fix-slop` batches
+- [x] `fix-slop` High items for `packages/common/src`
+- [x] `fix-slop` High items for `packages/app-runtime/src`
+- [x] `fix-slop` High items for `apps/desktop/electron/types`
+- [x] `fix-slop` High items for `apps/desktop/electron/cli`
+- [x] `fix-slop` High items for `apps/desktop/electron/gateway`
+- [x] `fix-slop` High items for `apps/desktop/electron/features/kanban`
+- [x] Run `pnpm typecheck` after each batch and keep notes linked from the
       relevant plan
 
 ## Wave C — Deslopify Plugin Platform Exemplars First
@@ -212,3 +212,15 @@ runtime, contract, or desktop-side code that those plugins consume.
 - 2026-04-13: Wave A is now fully deslopified across the shared packages and
   residual desktop seams. Next up: Wave B synthesis and High-only `fix-slop`
   batching across the newly documented plans.
+- 2026-04-13: Wave B synthesis complete. Grouped High-only batches are recorded
+  in `docs/deslopify/desktop-packages-plugins/plan.md` (B1 shared/CLI boundary
+  typing; B2 Kanban contract truthfulness). `packages/common/src`,
+  `apps/desktop/electron/types`, and `apps/desktop/electron/gateway` had no
+  direct High code work and were treated as Wave B closeouts rather than forced
+  churn.
+- 2026-04-13: Wave B High fixes landed. Highlights: app-runtime boundary escape
+  hatches removed; CLI bridge typing hardened via `core/bridge-context.ts`;
+  canonical Kanban card/state/validation ownership moved to
+  `packages/common/src/kanban.ts`; dead Kanban settings surface removed from the
+  host/plugin flows. Targeted desktop/plugin tests plus monorepo
+  `pnpm typecheck` all pass.

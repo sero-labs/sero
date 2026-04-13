@@ -118,3 +118,26 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 - Baseline grep found no active `localStorage` / `sessionStorage` usage under
   these targets, so storage-policy drift is not an immediate blocker in this
   wave.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total files: 342 (was 340)
+- Total LOC: 54,134 (was 53,983)
+- Shared packages: 16 files / 1,539 LOC (was 15 / 1,210)
+- Residual desktop Electron seams: 85 files / 10,637 LOC (was 84 / 10,575)
+- Largest file: `apps/desktop/electron/features/kanban/core/orchestrator.ts` (491 LOC)
+- Files over 500 LOC: none
+
+### What changed
+- Cleared the Wave B High type-safety seam in `@sero-ai/app-runtime` by replacing boundary casts with typed globals/runtime guards.
+- Cleared the Wave B High AD-020 typing seam in `electron/cli` and extracted `core/bridge-context.ts` to keep `schema-bridge.ts` under the 500-LOC cap.
+- Added `packages/common/src/kanban.ts` as the neutral Kanban contract owner, removed the dead Kanban settings surface, and switched the host/plugin shared layers to consume that canonical module.
+- Reconfirmed that `apps/desktop/electron/types` and `apps/desktop/electron/gateway` remain Wave B closeout/no-op targets rather than code-fix targets.
+
+### Still outstanding
+- `packages/common/src`: Medium canonical-contract work around model selection and provider manifests.
+- `packages/app-runtime/src`: Medium `useAppState()` hardening and model-contract dedupe.
+- `apps/desktop/electron/cli/`: Medium app-control dedupe and router splitting.
+- `apps/desktop/electron/features/kanban/`: Medium workflow modularization and cleanup-failure visibility.
+- Plugin exemplar `deslopify` wave is still next; no plugin folders beyond shared Kanban contract support have been reviewed yet.

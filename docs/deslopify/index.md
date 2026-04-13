@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *Phase 0 baseline mapped 2026-04-13; Wave A shared/desktop reviews complete, plugin review waves pending*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13; plugin review waves pending*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -45,7 +45,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
     — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
   - [`apps/desktop/electron/features/kanban/`](./apps/desktop/electron/features/kanban/plan.md)
-    — *Wave A review complete — settings-contract drift + shared-contract ownership cleanup pending*
+    — *In progress — High settings/contract-ownership items cleared 2026-04-13; Medium workflow cleanup pending*
   - [`apps/desktop/electron/gateway/`](./apps/desktop/electron/gateway/plan.md)
     — *Healthy — generated-only closeout confirmed 2026-04-13*
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
@@ -69,15 +69,15 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/shared/`](./apps/desktop/electron/shared/plan.md)
     — *In progress — cached-model Medium item cleared 2026-04-12; modularization cleanup pending*
   - [`apps/desktop/electron/cli/`](./apps/desktop/electron/cli/plan.md)
-    — *Wave A review complete — AD-020 boundary typing + app-control dedupe cleanup pending*
+    — *In progress — High AD-020 boundary typing item cleared 2026-04-13; Medium app-control/router cleanup pending*
   - [`apps/desktop/electron/types/`](./apps/desktop/electron/types/plan.md)
     — *Healthy — narrow Pi SDK augmentation seam reviewed 2026-04-13*
 
 ## packages/
 - [`packages/app-runtime/src/`](./packages/app-runtime/src/plan.md)
-  — *Wave A review complete — High type-safety + runtime-hardening cleanup pending*
+  — *In progress — High boundary typing item cleared 2026-04-13; Medium runtime hardening pending*
 - [`packages/common/src/`](./packages/common/src/plan.md)
-  — *Wave A review complete — no High items; Medium canonical-contract cleanup pending*
+  — *In progress — no direct High items; shared Kanban contract added 2026-04-13; Medium canonical-contract cleanup pending*
 
 ## plugins/
 - `plugins/sero-admin-plugin/`

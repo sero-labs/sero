@@ -77,3 +77,21 @@ used by onboarding, model configuration UIs, and agent model availability flows.
 - There are no High-rule violations in this package right now: no 500+ LOC
   files, no storage-policy drift, and no type escape hatches in the shared code
   itself.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total files: 5 (was 4)
+- Total LOC: 908 (was 590)
+- Largest file: `packages/common/src/model-selection.ts` (396 LOC)
+- Files over 500 LOC: none
+- New canonical contract module: `packages/common/src/kanban.ts` (288 LOC)
+
+### What changed
+- Added `packages/common/src/kanban.ts` as the neutral shared owner of Kanban card/state/validation contracts consumed by the desktop host and Kanban plugin.
+- Expanded `packages/common/src/index.ts` to export the canonical Kanban contract and default-state factory.
+- Host and plugin Kanban layers now import or re-export from `@sero/common` instead of mirroring local copies.
+
+### Still outstanding
+- `model-selection.ts` splitting remains the top package-local Medium item.
+- Provider-manifest typing promotion and app-runtime model-contract dedupe remain pending Medium work.

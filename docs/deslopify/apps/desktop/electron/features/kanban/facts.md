@@ -42,3 +42,22 @@ This folder is the main-process automation engine for the Kanban feature. It wat
 - The host imports plugin-shared validation directly but still duplicates the full shared card/state contract locally.
 - `prompts/prompt-review-specialized.ts` contains an unused `buildQualityReviewPrompt()` helper, and `core/wave-resolver.ts` is currently test-only.
 - Multiple cleanup paths intentionally swallow failures (`review cache`, `worktree prune`, `git reset`), which keeps the happy path moving but hides state-repair problems in one of the most behavior-sensitive subsystems in the repo.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total files: 49 (unchanged)
+- Total LOC: 6,569 (was 6,702)
+- Largest file: `apps/desktop/electron/features/kanban/core/orchestrator.ts` (491 LOC)
+- Files over 500 LOC: none
+- Canonical shared contract owner: `packages/common/src/kanban.ts`
+
+### What changed
+- Moved the shared Kanban state + validation contract into `@sero/common` and converted the host/plugin local files into thin re-export or consumption layers.
+- Removed the dead user-visible settings surface (`maxConcurrentCards`, `requireApproval.*`, `reviewLevel`) while leaving old state files readable through plain JSON parsing and canonical default-state factories.
+- Replaced duplicated host fallback-state builders with `createDefaultKanbanState()` and added focused host/plugin tests for the narrowed settings surface.
+
+### Still outstanding
+- Near-cap workflow hubs (`core/orchestrator.ts`, `prompts/index.ts`, `review/workflow/review-executor.ts`) still need the planned Medium split.
+- Cleanup failure visibility in review/worktree paths remains pending (Medium).
+- Workspace-path helper dedupe and dead specialized-review cleanup remain pending (Medium/Low).

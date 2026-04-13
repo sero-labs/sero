@@ -13,13 +13,15 @@ that keeps the host↔remote API stable while making the shared runtime contract
 more canonical and reliable.
 
 ## Issues Found (prioritized)
-- **High** — Type escape hatches sit directly on the host↔remote boundary —
+- **High** — ~~Type escape hatches sit directly on the host↔remote boundary —
   `packages/app-runtime/src/context.ts:34-41`,
   `packages/app-runtime/src/widget-registry.ts:42-55`, and
   `packages/app-runtime/src/sero-bridge.ts:93-101` use `globalThis as any` or
   `window as unknown as ...` at the exact seams that every federated app uses.
   These violate the monorepo’s no-escape-hatches rule and hide drift in the
-  singleton/bridge contracts. Effort: **M**.
+  singleton/bridge contracts.~~ ✅ 2026-04-13 (`7c5a8456`) — Replaced the
+  boundary casts with typed `globalThis` singletons and runtime-guarded
+  `window.sero` access while preserving the existing shell-only failure mode.
 
 - **Medium** — `sero-bridge.ts` duplicates neutral shared contracts instead of
   importing the canonical ones — `packages/app-runtime/src/sero-bridge.ts:31-82`
@@ -129,3 +131,6 @@ Verification checklist for the future fix pass:
 - Dashboard widgets remain available after the full app view unmounts.
 - Monorepo `pnpm typecheck` stays green across desktop and every plugin UI that
   imports `@sero-ai/app-runtime`.
+
+## Execution log
+- `7c5a8456` — `refactor(app-runtime): remove boundary type escape hatches`

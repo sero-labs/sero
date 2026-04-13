@@ -46,3 +46,22 @@ This folder is the AD-020 bridge that collapses built-in app commands, bridged e
 - The CLI already has unusually strong direct test coverage for a main-process runtime seam, which makes targeted refactors much safer than this file layout suggests.
 - The remaining type escape hatches are concentrated exactly where the bridge crosses boundaries: schema walking, bridged command context assembly, tool-update forwarding, and `gog` exec error handling.
 - `commands/apps/app-control.ts` duplicates a host-side renderer bridge that the IPC layer already implements, so app automation fixes currently have two main-process copies to keep in sync.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total files: 35 (was 34)
+- Total LOC: 4,057 (was 3,862)
+- Largest file: `apps/desktop/electron/cli/core/tool.ts` (494 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining on the High boundary seam: 0 in `core/schema-bridge.ts`, `core/tool.ts`, and `lib/gog-runner.ts`
+
+### What changed
+- Added `core/bridge-context.ts` to own typed live/fallback `ExtensionContext` and `ExtensionCommandContext` assembly for bridged tools and slash commands.
+- Replaced schema `any` walking with typed helpers for `properties`, `required`, `anyOf`, and nested array/object help generation.
+- Replaced tool-update and gog exec-failure casts with typed adapters/normalizers and revalidated the bridge with focused CLI tests.
+
+### Still outstanding
+- `core/tool.ts` is now 494 LOC and still needs the planned runtime-concern split (Medium).
+- `app-control` duplicate host service extraction remains pending (Medium).
+- `google.ts` and `app-control.ts` remain near-cap router files (Medium).

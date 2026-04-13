@@ -15,6 +15,19 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/apps/dashboard/WidgetMount.tsx` | Replaced duplicated widget mount orchestration with the shared runtime helper and aligned workspace-loading semantics (161 → 81 lines) |
 | `apps/desktop/src/components/apps/dashboard/Dashboard.test.tsx` | New — covers empty dashboard, mounted grid rendering, and persist-on-interaction-stop behavior |
 | `apps/desktop/src/components/apps/dashboard/WidgetMount.test.tsx` | New — covers hydration, missing-workspace, runtime fallback, and missing-remote fallback states |
+| `packages/app-runtime/src/{context.ts,widget-registry.ts,sero-bridge.ts}` | Replaced boundary `any`/cast patterns with typed globals and runtime-guarded bridge access |
+| `apps/desktop/electron/cli/core/bridge-context.ts` | New — typed live/fallback ExtensionContext builders for bridged tools and slash commands |
+| `apps/desktop/electron/cli/core/schema-bridge.ts` | Replaced schema/command-context `any` walking with typed helpers and extracted bridge-context support (403 → 427 lines) |
+| `apps/desktop/electron/cli/core/tool.ts` | Replaced the bridged tool-update cast with a typed adapter (474 → 494 lines) |
+| `apps/desktop/electron/cli/lib/gog-runner.ts` | Replaced `execFile` failure `any` casts with typed ENOENT/exit-code helpers |
+| `packages/common/src/kanban.ts` | New — canonical shared Kanban card/state/validation contract for host + plugin |
+| `packages/common/src/index.ts` | Exported the canonical Kanban contract from `@sero/common` |
+| `apps/desktop/electron/features/kanban/core/types.ts` | Replaced duplicated host Kanban model with a thin `@sero/common` barrel (129 → 21 lines) |
+| `apps/desktop/electron/features/kanban/{core/contracts.ts,core/state-helpers.ts,implementation/implementation-executor.ts}` | Switched host Kanban runtime to canonical shared validation/default-state helpers |
+| `plugins/sero-kanban-plugin/shared/{types.ts,validation.ts}` | Replaced duplicated shared contract files with thin `@sero/common` re-exports (217 → 67 lines; 139 → 16 lines) |
+| `plugins/sero-kanban-plugin/extension/{index.ts,state-io.ts,workflow-actions.ts}` | Narrowed the Kanban settings surface to runtime-backed fields and switched fallback state reads to the canonical factory |
+| `apps/desktop/electron/__tests__/features/kanban/{auto-merge-monitor,contracts,implementation-executor,light-review-workflow,light-review,review-executor}.test.ts` | Updated Kanban settings fixtures to the narrowed shared contract |
+| `plugins/sero-kanban-plugin/extension/__tests__/{review-actions,workflow-actions}.test.ts` | Updated Kanban extension tests and added coverage for the narrowed settings surface |
 
 ---
 

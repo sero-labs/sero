@@ -117,6 +117,42 @@ architecture work rather than alphabetical bookkeeping.
    - Re-check downstream plugin plans after those shared High items land, because
      type ownership and host bridge guidance may change.
 
+## Wave B synthesis — 2026-04-13
+
+### Cross-cutting themes across the Wave A plans
+1. **Boundary type escapes clustered on the host↔remote and AD-020 seams.**
+   - `packages/app-runtime/src` and `apps/desktop/electron/cli/` both found the
+     same root problem: the most reused runtime boundaries were the least
+     truthful to the compiler.
+   - Result: clear those typing seams first, before touching higher-risk runtime
+     behavior.
+
+2. **Kanban High work was one truthfulness batch, not two unrelated chores.**
+   - The dead settings surface and the split host/plugin contract were both the
+     same underlying issue: the shared/user-visible contract claimed more than
+     the runtime actually guaranteed.
+   - Result: move the shared contract into `@sero/common` and narrow the exposed
+     settings in the same wave.
+
+3. **Not every reviewed target had direct High code work.**
+   - `packages/common/src` participated as the canonical home for the Kanban
+     contract, but its own reviewed findings remain Medium.
+   - `apps/desktop/electron/types` and `apps/desktop/electron/gateway` remained
+     Wave B closeouts only.
+   - Result: mark them complete in tracking docs instead of inventing churn.
+
+### Recommended High-only `fix-slop` batches
+| Batch | Targets | High items covered | Batch intent |
+| --- | --- | --- | --- |
+| **B1 — Shared/CLI boundary typing** | `packages/app-runtime/src`, `apps/desktop/electron/cli/` | Remove `globalThis` / `window.sero` / schema-walking / tool-update / exec-failure escape hatches | Make the host↔remote and AD-020 seams fail loudly at compile time again. |
+| **B2 — Kanban contract truthfulness** | `packages/common/src`, `apps/desktop/electron/features/kanban/`, `plugins/sero-kanban-plugin/shared` | Move the shared Kanban contract into `@sero/common` and remove the dead settings surface | Align the shared/user-visible Kanban contract with the runtime Sero actually ships. |
+
+### Wave B targets with no direct High items
+- `packages/common/src` — no package-local High findings; participated only as
+  the new shared Kanban contract owner.
+- `apps/desktop/electron/types` — still a healthy narrow SDK augmentation seam.
+- `apps/desktop/electron/gateway` — still generated-only / no reviewable source.
+
 ## Benefits & Trade-offs
 - Benefits: keeps the highest-leverage contract decisions in front, reduces the
   chance of plugin-local duplicate types, prevents the AD-020 CLI bridge and
@@ -166,3 +202,8 @@ Verification checklist for the downstream folder reviews:
 - Distinguish real source from generated output before creating debt findings.
 - For plugin folders, review `package.json`, `extension/`, `shared/`, and `ui/`
   together so host integration issues are not split across multiple future plans.
+
+## Execution log
+- `7c5a8456` — `refactor(app-runtime): remove boundary type escape hatches`
+- `8d8f7648` — `refactor(cli): harden AD-020 bridge typing`
+- `e09e6fad` — `fix(kanban): centralize shared contract and remove dead settings`

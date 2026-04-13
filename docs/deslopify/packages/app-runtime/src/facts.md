@@ -78,3 +78,22 @@ widget registry used by the desktop dashboard and plugin remotes.
 - `sero-bridge.ts` duplicates the model-group contracts that `@sero/common` is
   already supposed to own, which confirms the shared-package review order in the
   broader tasklist.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total files: 11 (unchanged)
+- Total LOC: 631 (was 620)
+- Largest file: `packages/app-runtime/src/sero-bridge.ts` (110 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: 0 (was 3)
+
+### What changed
+- Replaced the `globalThis as any` singleton pattern in `context.ts` and `widget-registry.ts` with typed `globalThis` declarations.
+- Reworked `getSeroApi()` to validate `window.sero` via a runtime guard instead of a boundary cast, preserving the existing shell-only failure message.
+- Re-validated the runtime widget singleton path through `apps/desktop/src/components/apps/dashboard/useRuntimeWidgets.test.ts`.
+
+### Still outstanding
+- `sero-bridge.ts` still duplicates neutral model-group shapes that belong in `@sero/common` (Medium).
+- `useAppState()` still needs explicit write-failure/lifecycle hardening (Medium).
+- Widget registration idempotence for inline size objects is still pending (Low).
