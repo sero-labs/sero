@@ -6,8 +6,8 @@
  * at runtime via registerRemotes() before calling loadRemote().
  *
  * Remote discovery happens at build time in vite.config.ts (auto-scans
- * packages/pi-* and plugins/sero-*-plugin for sero.app manifests). No per-app
- * edits needed here.
+ * plugin remotes under plugins/sero-*-plugin for sero.app manifests). No
+ * per-app edits needed here.
  *
  * ## Preload + LRU eviction strategy
  *

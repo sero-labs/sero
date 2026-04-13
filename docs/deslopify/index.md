@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
-  — *Wave A–D High-priority batches cleared 2026-04-12; Wave E started with preload/hooks/stores Medium cleanup*
+  — *Wave A–E batch checklist cleared; Wave F periphery review/drift sweep closed 2026-04-13 with a small `components/apps` follow-up plan still tracked below*
   - [`apps/desktop/src/components/apps/`](./apps/desktop/src/components/apps/plan.md)
     — *Wave F periphery review complete — no High items; shared mount cleanup + dashboard coverage follow-up planned*
     - [`apps/desktop/src/components/apps/explorer/`](./apps/desktop/src/components/apps/explorer/plan.md)

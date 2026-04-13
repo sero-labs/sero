@@ -2,7 +2,7 @@
 title: Apps Desktop Wave F — Periphery Review and Closeout
 author: OpenAI
 date: 2026-04-13
-status: planned
+status: complete
 related:
   - docs/plans/apps-desktop-deslopify-tasklist.md
   - docs/deslopify/index.md
@@ -82,33 +82,41 @@ Important observations from the current codebase:
 ## Progress checklist
 
 ### Task 1 — Finish the last unreviewed app-surface review
-- [ ] Run `deslopify apps/desktop/src/components/apps`
-- [ ] Include `SeroAppMount.tsx`, `ActiveAppPanel.tsx`, and `apps/dashboard/**`
-- [ ] Capture duplicated session-bootstrap / app-context wiring findings if they hold up under full review
-- [ ] Decide whether `components/ErrorBoundary.tsx` needs any follow-up or can be treated as healthy
+- [x] Run `deslopify apps/desktop/src/components/apps`
+- [x] Include `SeroAppMount.tsx`, `ActiveAppPanel.tsx`, and `apps/dashboard/**`
+- [x] Capture duplicated session-bootstrap / app-context wiring findings if they hold up under full review
+- [x] Decide whether `components/ErrorBoundary.tsx` needs any follow-up or can be treated as healthy
 
 ### Task 2 — Explicitly close `components/ui` without over-reviewing it
-- [ ] Review `apps/desktop/src/components/ui/IconAction.tsx`
-- [ ] Record that no dedicated deslopify pass is needed unless real findings appear
-- [ ] Only add `docs/deslopify/apps/desktop/src/components/ui/*` if the review uncovers non-trivial issues
+- [x] Review `apps/desktop/src/components/ui/IconAction.tsx`
+- [x] Record that no dedicated deslopify pass is needed unless real findings appear
+- [x] Only add `docs/deslopify/apps/desktop/src/components/ui/*` if the review uncovers non-trivial issues
+
+Decision (2026-04-13): `apps/desktop/src/components/ui/IconAction.tsx` is a small, healthy primitive (78 LOC) with no meaningful architectural drift, duplication, or test gap worth a dedicated `deslopify` artifact. Keep `components/ui` out of Wave F unless the folder grows or concrete issues appear.
 
 ### Task 3 — Sweep style/config drift instead of opening a new theme wave
-- [ ] Review `apps/desktop/src/styles/global.css`
-- [ ] Verify whether `packages/pi-*` references in `global.css`, `vite.config.ts`, and `federation-registry.ts` are still intentional
-- [ ] Fix or document any stale discovery / Tailwind source-glob assumptions
-- [ ] Confirm earlier layout/theme/font findings already cover the real theme-heavy work so we do not duplicate Wave C/E effort
+- [x] Review `apps/desktop/src/styles/global.css`
+- [x] Verify whether `packages/pi-*` references in `global.css`, `vite.config.ts`, and `federation-registry.ts` are still intentional
+- [x] Fix or document any stale discovery / Tailwind source-glob assumptions
+- [x] Confirm earlier layout/theme/font findings already cover the real theme-heavy work so we do not duplicate Wave C/E effort
+
+Decision (2026-04-13): the remaining `packages/pi-*` references were stale naming drift, not a live convention. Wave F removed those stale `global.css` / `vite.config.ts` / `federation-registry.ts` references, while the real theme-heavy cleanup remains covered by the earlier `components/layout` review and its theme/font findings.
 
 ### Task 4 — Run targeted regression coverage for periphery seams
-- [ ] Run targeted tests for `ActiveAppPanel`, `SeroAppMount`, and dashboard/runtime-widget flows
-- [ ] Add tests for `Dashboard.tsx` and/or `WidgetMount.tsx` if the review/fix pass changes those files
-- [ ] Run relevant focused desktop tests after any code changes
-- [ ] Run `pnpm typecheck`
+- [x] Run targeted tests for `ActiveAppPanel`, `SeroAppMount`, and dashboard/runtime-widget flows
+- [x] Add tests for `Dashboard.tsx` and/or `WidgetMount.tsx` if the review/fix pass changes those files _(not needed in this pass; those files were reviewed but unchanged)_
+- [x] Run relevant focused desktop tests after any code changes
+- [x] Run `pnpm typecheck`
+
+Decision (2026-04-13): existing focused coverage was sufficient for this closeout because no `Dashboard.tsx` or `WidgetMount.tsx` source changes landed. Ran desktop Vitest coverage including `ActiveAppPanel`, `SeroAppMount`, runtime-widget, dashboard-store, and `ErrorBoundary` seams, then re-ran monorepo `pnpm typecheck`.
 
 ### Task 5 — Close the doc/status loop
-- [ ] Update `docs/plans/apps-desktop-deslopify-tasklist.md` Wave F items as decisions land
-- [ ] Refresh stale Wave E / progress notes so they match the completed checkbox state
-- [ ] Update `docs/deslopify/index.md` with current review/fix status and any new `components/apps` review
-- [ ] Keep `docs/plans/index.md` in sync with this plan and any follow-up artifacts
+- [x] Update `docs/plans/apps-desktop-deslopify-tasklist.md` Wave F items as decisions land
+- [x] Refresh stale Wave E / progress notes so they match the completed checkbox state
+- [x] Update `docs/deslopify/index.md` with current review/fix status and any new `components/apps` review
+- [x] Keep `docs/plans/index.md` in sync with this plan and any follow-up artifacts
+
+Decision (2026-04-13): `docs/plans/index.md` already listed this Wave F plan and required no new follow-up entry. The tasklist and deslopify index were refreshed so their narrative state now matches the completed checkbox state.
 
 ---
 

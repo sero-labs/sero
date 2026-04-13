@@ -3,9 +3,8 @@
 
 @source "../../node_modules/streamdown/dist/*.js";
 
-/* Scan all Sero app packages so the host generates Tailwind utilities
-   (including arbitrary values) used by federated remote UIs. */
-@source "../../../../packages/pi-*/ui/**/*.{ts,tsx,js,jsx}";
+/* Scan federated plugin UIs so the host generates Tailwind utilities
+   (including arbitrary values) used by remote app surfaces. */
 @source "../../../../plugins/sero-*-plugin/ui/**/*.{ts,tsx,js,jsx}";
 
 /* ── Desktop-specific styles ─────────────────────────────────── */
