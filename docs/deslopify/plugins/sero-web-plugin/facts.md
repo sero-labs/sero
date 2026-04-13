@@ -33,3 +33,20 @@ _Last reviewed: 2026-04-13_
 - `ui/components/SearchHistory.tsx`, `BookmarkList.tsx`, and `DownloadsList.tsx` mutate shared state directly instead of calling the extension paths that actually own history/bookmark/download semantics.
 - `state-sync.ts` repeats the same fail-open JSON pattern already identified elsewhere in the codebase: malformed `state.json` is treated as a fresh default state.
 - There are no package-local tests at all, even though this plugin owns native-module access, external provider fallbacks, and user-visible file mutations.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total files: 52 in the current TS/JS scan
+- Largest file: `plugins/sero-web-plugin/extension/gemini-web.ts` (483 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged in the host-bridge/UI mutation seams; D1 only touched persisted-state integrity
+
+### What changed
+- `extension/state-sync.ts` now defaults only on missing workspace state files and throws on malformed/unreadable JSON.
+- Mutation/update paths now fail closed instead of silently recreating empty bookmarks/history/download state.
+- Targeted extension compilation still passes for the touched state-sync module, and monorepo `pnpm typecheck` remains green.
+
+### Still outstanding
+- The remaining High items are still the `SERO_HOME`/`~/.pi` path drift and UI mutation ownership drift.
+- Medium package-local test/typecheck expansion and provider-module splitting remain pending.

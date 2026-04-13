@@ -54,3 +54,21 @@ _Last reviewed: 2026-04-13_
 - The UI and the tool surface disagree about email reminders. The README says the email option falls back to desktop notification, the UI allows selecting it, but `handleReminderAdd()` / `handleReminderUpdate()` reject `email` outright.
 - The extension aggressively fails open on state reads: malformed JSON is treated the same as “first run,” so the next successful write can wipe the whole schedule/history file.
 - The plugin has solid extension/shared test coverage but no UI coverage even though the UI owns direct persistence logic for reminder completion/toggling and notification settings.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total reviewable files: 49 (was 44)
+- Largest source file: `plugins/sero-cron-plugin/extension/index.ts` (500 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged in reminder/session-runtime seams outside the D1 state-integrity scope
+
+### What changed
+- `extension/state-io.ts` now defaults only on missing scheduler state and throws on malformed/unreadable JSON.
+- `extension/index.ts` now surfaces unreadable-state failures to `/cron`, `cron`, and `reminder` callers instead of silently continuing with defaults.
+- Extracted `extension/runtime-helpers.ts` to keep the singleton entrypoint under the repo’s 500-LOC cap while adding the new runtime error/reporting path.
+- Updated state-I/O coverage to assert fail-closed malformed-state behavior; the broader cron test suite still passes.
+
+### Still outstanding
+- The remaining High item is still startup reminder recovery truthfulness / duplicate-fire behavior.
+- Medium UI reminder ownership, logging, and `extension/index.ts` modularization work remain pending.

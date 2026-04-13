@@ -91,9 +91,23 @@ copying.
 
 ## Wave D — Fix Plugin High-Priority Findings
 
-- [ ] Review all Wave C plans together for repeated plugin architecture issues
-- [ ] Group fixes into coherent `fix-slop` batches by shared pattern, not by
+- [x] Review all Wave C plans together for repeated plugin architecture issues
+- [x] Group fixes into coherent `fix-slop` batches by shared pattern, not by
       folder name
+
+### Wave D batch map
+
+Use the shared-pattern batches below as the real execution order. The
+plugin-specific checkboxes that follow are **closeout markers** only — mark a
+plugin done when all of its High items are cleared across every batch it joins.
+
+| Batch | Targets | Shared pattern |
+| --- | --- | --- |
+| **D1 — Persisted state integrity** | `sero-kanban`, `sero-cron`, `sero-memory`, `sero-git`, `sero-web` | Fail-closed reads for board/error/state files and any shared persisted-contract seams so malformed JSON never gets silently rewritten away |
+| **D2 — Canonical contract / bridge ownership** | `sero-admin`, `sero-git`, `sero-memory`, `sero-web` | Remove narrowed/local host-contract copies and converge shared action/persisted contracts on neutral owners |
+| **D3 — Truthful UI→extension action ownership** | `sero-kanban`, `sero-web`, `sero-context` | Route side-effectful UI actions through the truthful extension/host path or label prompt-routed/manual behavior honestly |
+| **D4 — Sero-first lifecycle + profile-home semantics** | `sero-cron`, `sero-memory`, `sero-context`, `sero-user-feedback`, `sero-web` | Fix startup/session lifecycle truthfulness, questionnaire/onboarding ownership, dashboard freshness semantics, and `SERO_HOME`/agent-dir path ownership |
+
 - [ ] `fix-slop` High items for `plugins/sero-kanban-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-cron-plugin`
 - [ ] `fix-slop` High items for `plugins/sero-admin-plugin`
@@ -272,3 +286,14 @@ runtime, contract, or desktop-side code that those plugins consume.
   it now has two clear High-priority truthfulness/ownership findings —
   `questionnaire` completion semantics drift between the Sero UI and Pi CLI TUI,
   and the generic remote UI incorrectly owns profile onboarding lifecycle state.
+- 2026-04-13: Wave D synthesis complete. Cross-plugin High findings are now
+  grouped by shared pattern in `docs/deslopify/desktop-packages-plugins/plan.md`
+  rather than by folder: **D1** persisted state integrity,
+  **D2** canonical contract/bridge ownership,
+  **D3** truthful UI→extension action ownership, and
+  **D4** Sero-first lifecycle/profile-home semantics.
+- 2026-04-13: Wave D batch **D1 — Persisted state integrity** landed in
+  `336b790a` (`fix(plugins): harden persisted state integrity`). Covered:
+  fail-closed Kanban board/error-log reads, fail-closed Cron/Git/Web state
+  reads, and a fail-closed guard on memory-plugin cron auto-consolidation.
+  Targeted plugin tests plus monorepo `pnpm typecheck` passed.

@@ -28,6 +28,12 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-kanban-plugin/extension/{index.ts,state-io.ts,workflow-actions.ts}` | Narrowed the Kanban settings surface to runtime-backed fields and switched fallback state reads to the canonical factory |
 | `apps/desktop/electron/__tests__/features/kanban/{auto-merge-monitor,contracts,implementation-executor,light-review-workflow,light-review,review-executor}.test.ts` | Updated Kanban settings fixtures to the narrowed shared contract |
 | `plugins/sero-kanban-plugin/extension/__tests__/{review-actions,workflow-actions}.test.ts` | Updated Kanban extension tests and added coverage for the narrowed settings surface |
+| `plugins/sero-kanban-plugin/extension/{state-io.ts,error-log.ts,index.ts}` | Hardened board/error-log reads to fail closed on malformed JSON and return recovery-oriented tool errors; added persisted-state tests |
+| `plugins/sero-cron-plugin/extension/{state-io.ts,index.ts,runtime-helpers.ts}` | Hardened scheduler state reads, surfaced unreadable-state errors to tools/commands, and kept `extension/index.ts` at the 500-LOC cap by extracting runtime helpers |
+| `plugins/sero-cron-plugin/extension/__tests__/state-io.test.ts` | Updated state-I/O coverage to assert fail-closed malformed-state behavior |
+| `plugins/sero-memory-plugin/extension/{automation-state.ts,memory-tool-admin.ts}` | Stopped auto-consolidation from rewriting malformed cron state and surfaced a recovery-oriented admin/tool error instead |
+| `plugins/sero-git-plugin/extension/{state-io.ts,__tests__/state-io.test.ts}` | Hardened Git app state reads to fail closed on malformed snapshots and added direct state-I/O coverage |
+| `plugins/sero-web-plugin/extension/state-sync.ts` | Hardened workspace web state reads to fail closed on malformed JSON while preserving missing-file bootstrap behavior |
 
 ---
 

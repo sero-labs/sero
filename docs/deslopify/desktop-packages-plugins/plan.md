@@ -153,6 +153,60 @@ architecture work rather than alphabetical bookkeeping.
 - `apps/desktop/electron/types` — still a healthy narrow SDK augmentation seam.
 - `apps/desktop/electron/gateway` — still generated-only / no reviewable source.
 
+## Wave D synthesis — 2026-04-13
+
+### Repeated plugin architecture issues across the Wave C plans
+1. **Persisted state truthfulness is still the most repeated plugin failure mode.**
+   - `plugins/sero-kanban-plugin`, `plugins/sero-cron-plugin`,
+     `plugins/sero-memory-plugin`, `plugins/sero-git-plugin`, and
+     `plugins/sero-web-plugin` all still treat malformed/unreadable JSON too
+     much like "first run," which means the next successful write can erase
+     real board/scheduler/snapshot/web state.
+   - Result: the first Wave D execution batch should harden read paths and any
+     shared persisted contracts before broader UI or module-shape cleanup.
+
+2. **Remote UIs still too often own behavior that belongs to the extension/host.**
+   - `plugins/sero-kanban-plugin` bypasses extension-owned review/worktree/cache
+     side effects, `plugins/sero-web-plugin` mutates bookmarks/history/downloads
+     directly from React, and `plugins/sero-context-plugin` presents
+     prompt-routed actions as if they were deterministic UI commands.
+   - Result: fix-slop should treat "truthful UI→extension action ownership" as
+     one shared pattern, not three unrelated plugin chores.
+
+3. **Canonical contract ownership is drifting across plugin↔host seams.**
+   - `plugins/sero-admin-plugin` duplicates and narrows `window.sero` types,
+     `plugins/sero-git-plugin` already has action-contract drift across shared
+     types/app-runtime/preload/UI layers, `plugins/sero-memory-plugin` mirrors
+     cron persisted types locally, and `plugins/sero-web-plugin` keeps a local
+     host bridge declaration next to direct state writes.
+   - Result: shared contract/bridge cleanup should land as a coordinated batch
+     so drift becomes a typecheck failure instead of a runtime surprise.
+
+4. **Several High findings are really Sero-first lifecycle/home-semantic issues.**
+   - `plugins/sero-cron-plugin` startup recovery is not the truthful owner of
+     reminder transitions, `plugins/sero-memory-plugin` and
+     `plugins/sero-web-plugin` still drift toward legacy `~/.pi` fallbacks, and
+     `plugins/sero-context-plugin` plus `plugins/sero-user-feedback-plugin`
+     still describe product behavior more optimistically than the runtime
+     actually guarantees.
+   - Result: group the remaining behavior-sensitive fixes around lifecycle and
+     profile-scoped ownership, instead of scattering them as plugin-local edge
+     cases.
+
+### Recommended High-only `fix-slop` batches
+| Batch | Targets | High items covered | Batch intent |
+| --- | --- | --- | --- |
+| **D1 — Persisted state integrity** | `plugins/sero-kanban-plugin`, `plugins/sero-cron-plugin`, `plugins/sero-memory-plugin`, `plugins/sero-git-plugin`, `plugins/sero-web-plugin` | Fail-closed board/error-log/state snapshot reads; stop cross-plugin cron sync from treating corruption as empty/default state | Make malformed persisted state block mutation instead of being silently rewritten away. |
+| **D2 — Canonical contract / bridge ownership** | `plugins/sero-admin-plugin`, `plugins/sero-git-plugin`, `plugins/sero-memory-plugin`, `plugins/sero-web-plugin` | Remove narrowed/local bridge contract copies and converge shared action/persisted contracts on neutral owners | Restore one truthful contract per host/plugin seam so cross-layer drift fails at compile time. |
+| **D3 — Truthful UI→extension action ownership** | `plugins/sero-kanban-plugin`, `plugins/sero-web-plugin`, `plugins/sero-context-plugin` | Stop React-side mutation paths from bypassing extension-owned side effects or implying deterministic actions where only prompt-routed/manual behavior exists | Make the plugin UI surface truthful about who owns side effects and how actions really execute. |
+| **D4 — Sero-first lifecycle + profile-home semantics** | `plugins/sero-cron-plugin`, `plugins/sero-memory-plugin`, `plugins/sero-context-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-web-plugin` | Startup recovery truthfulness, questionnaire/onboarding semantics, dashboard freshness claims, and `SERO_HOME`/agent-dir ownership | Align plugin runtime behavior with Sero’s actual lifecycle and profile-scoped state model. |
+
+### Wave D target mapping note
+- The plugin-specific checklist items in the tasklist should now be treated as
+  **closeout markers**, not the execution order.
+- A plugin is complete for Wave D only after all of its High findings are
+  cleared across whichever of the D1–D4 batches it participates in.
+
 ## Benefits & Trade-offs
 - Benefits: keeps the highest-leverage contract decisions in front, reduces the
   chance of plugin-local duplicate types, prevents the AD-020 CLI bridge and
@@ -207,3 +261,4 @@ Verification checklist for the downstream folder reviews:
 - `7c5a8456` — `refactor(app-runtime): remove boundary type escape hatches`
 - `8d8f7648` — `refactor(cli): harden AD-020 bridge typing`
 - `e09e6fad` — `fix(kanban): centralize shared contract and remove dead settings`
+- `336b790a` — `fix(plugins): harden persisted state integrity`

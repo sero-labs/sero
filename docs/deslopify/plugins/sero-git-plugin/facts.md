@@ -53,3 +53,20 @@ _Last reviewed: 2026-04-13_
 - `runGitAction('log')` and `runGitAction('branches')` do not inspect Git directly; they only read `.sero/apps/git/state.json` (`extension/git-service.ts:216-237`). In the desktop path that may be fresh because of watchers, but in Pi CLI that is only as current as the last refresh.
 - `readState()` treats every failure the same (`extension/state-io.ts:17-23`), so a malformed state file is indistinguishable from “missing file on first run.”
 - The plugin already has a few small duplication seams: branch colors exist in both `shared/types.ts:214-228` and `ui/lib/graph-layout.ts:31-35`, and relative-date formatting is implemented separately in `ui/components/BranchPanel.tsx:410-420` and `ui/components/CommitGraph.tsx:269-287`.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total tracked files: 43 (was 35)
+- Largest source file: `plugins/sero-git-plugin/extension/git-service.ts` (457 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged in the bridge/UI ownership seams; D1 only touched snapshot integrity
+
+### What changed
+- `extension/state-io.ts` now distinguishes missing snapshots from malformed/unreadable snapshots and fails loud on corruption.
+- Added direct state-I/O coverage so malformed `.sero/apps/git/state.json` no longer looks like first run in tests.
+- The existing Git service/action test suite still passes after the state-integrity change.
+
+### Still outstanding
+- The remaining High item is still the cross-layer Git action contract drift.
+- Medium live-query semantics for `log`/`branches`, file splitting, and UI coverage remain pending.

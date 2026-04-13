@@ -14,7 +14,7 @@ _Plan drafted: 2026-04-13_
 - **Low** — Repeated config-loader patterns and local host type declarations are already drifting into copy-paste maintenance — `plugins/sero-web-plugin/extension/exa.ts:42-52`, `plugins/sero-web-plugin/extension/perplexity.ts:38-51`, `plugins/sero-web-plugin/extension/gemini-api.ts:11-24`, `plugins/sero-web-plugin/extension/gemini-web.ts:30-60`, `plugins/sero-web-plugin/extension/github-extract.ts:36-54`, and `plugins/sero-web-plugin/ui/lib/host.ts:1-25` all maintain their own small config/bridge stacks. This is not the top scheduling problem, but it is the sort of duplication that makes later fixes broader than they need to be. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Make `state-sync.ts` fail closed on malformed state.**
+1. **~~Make `state-sync.ts` fail closed on malformed state.~~ ✅ 2026-04-13 (`336b790a`)**
    - Split the current read path into two explicit behaviors:
      - missing file / `ENOENT` → bootstrap with `DEFAULT_STATE`
      - malformed JSON / permission / partial write → throw a descriptive error
@@ -98,3 +98,6 @@ Verification checklist:
 - Clearing history from the UI has the same runtime effect as the extension-owned clear-history path, including background fetch suppression and `get_search_content` visibility rules.
 - Adding/removing bookmarks from the UI goes through the same dedupe/persistence rules as the extension tool path.
 - Download deletion still removes the workspace file when appropriate and leaves persisted state/UI in sync.
+
+## Execution log
+- `336b790a` — `fix(plugins): harden persisted state integrity`

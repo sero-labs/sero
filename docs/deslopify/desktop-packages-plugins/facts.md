@@ -141,3 +141,23 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 - `apps/desktop/electron/cli/`: Medium app-control dedupe and router splitting.
 - `apps/desktop/electron/features/kanban/`: Medium workflow modularization and cleanup-failure visibility.
 - Plugin exemplar `deslopify` wave is still next; no plugin folders beyond shared Kanban contract support have been reviewed yet.
+
+## Post-fix snapshot — 2026-04-13 (Wave D / D1)
+
+### Metrics after fixes
+- Wave D High batch landed: **D1 — Persisted state integrity**
+- Plugins touched in code: 5 (`sero-kanban`, `sero-cron`, `sero-memory`, `sero-git`, `sero-web`)
+- New helper/test files added in this batch: 4
+- Files over 500 LOC in touched source: none (`plugins/sero-cron-plugin/extension/index.ts` sits exactly at the 500-LOC cap after extracting `runtime-helpers.ts`)
+
+### What changed
+- Hardened persisted JSON reads across Kanban, Cron, Git, and Web so malformed state now fails closed instead of looking like first run.
+- Stopped memory auto-consolidation from rewriting malformed cron state and surfaced a recovery-oriented tool/admin error instead.
+- Added targeted persisted-state coverage where test harnesses already existed (`sero-kanban`, `sero-cron`, `sero-git`).
+- Verified the batch with targeted plugin tests, targeted memory/web validation, and monorepo `pnpm typecheck`.
+
+### Still outstanding
+- **D2** canonical contract / bridge ownership remains next for `sero-admin`, `sero-git`, `sero-memory`, and `sero-web`.
+- **D3** truthful UI→extension action ownership remains next for `sero-kanban`, `sero-web`, and `sero-context`.
+- **D4** lifecycle/profile-home High items remain next for `sero-cron`, `sero-memory`, `sero-context`, `sero-user-feedback`, and `sero-web`.
+- `plugins/sero-memory-plugin` still carries the mirrored cron persisted contract locally; D1 only cleared the fail-open corruption risk, not the ownership drift.

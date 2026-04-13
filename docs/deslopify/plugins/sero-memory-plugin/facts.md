@@ -57,3 +57,22 @@ _Last reviewed: 2026-04-13_
 - Phase-1 migration currently runs twice in a normal session lifecycle: once during `session_start` / `session_switch`, then again on the first `before_agent_start`.
 - The auto-consolidation scheduler bridge rewrites `SERO_HOME/apps/cron/state.json` through a local mirrored `CronState` shape, not a canonical shared contract.
 - Despite being one of the most behavior-heavy core plugins in the repo, the package has zero direct tests.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total reviewable files: 29 in the current TS/JS scan
+- Largest source file: `plugins/sero-memory-plugin/extension/memory-tool.ts` (466 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged; D1 only touched the cron auto-consolidation corruption seam
+
+### What changed
+- `extension/automation-state.ts` now treats malformed/unreadable cron state as an explicit failure instead of silently defaulting to an empty scheduler snapshot.
+- Auto-consolidation sync now skips rewriting `SERO_HOME/apps/cron/state.json` when the cron file is corrupted.
+- `extension/memory-tool-admin.ts` now returns a recovery-oriented `Error:` result when cron auto-consolidation sync is blocked by malformed state.
+- Package-local `typecheck` still passes after the guardrail change.
+
+### Still outstanding
+- The mirrored cron persisted contract still lives locally in `extension/cron-types.ts`; D1 cleared the corruption risk but not the ownership drift.
+- The other High item (`~/.pi/agent` fallback in QMD) is still pending.
+- Medium startup-migration, sync I/O, and test-surface work remain pending.

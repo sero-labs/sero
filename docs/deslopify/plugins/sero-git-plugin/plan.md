@@ -24,7 +24,7 @@ _Plan drafted: 2026-04-13_
    - The preload bridge should return typed request/result values, not `unknown`, so the UI can stop casting.
    - This aligns with the repo’s IPC rule and with the “canonical shared contract” guidance used elsewhere in `@sero/common` / app-runtime.
 
-2. **Harden state I/O so malformed files fail loudly and preserve data.**
+2. **~~Harden state I/O so malformed files fail loudly and preserve data.~~ ✅ 2026-04-13 (`336b790a`)**
    - Replace the current `readState()` catch-all with a split path:
      - missing file (`ENOENT`) → return `createDefaultGitState()`
      - malformed JSON / permission / short-read → throw a descriptive error that includes the file path
@@ -103,3 +103,6 @@ Verification checklist:
 - A deliberately malformed `.sero/apps/git/state.json` now surfaces a recoverable error and is not silently replaced with defaults on the next diff/show-commit action.
 - In Pi CLI or a minimal extension-only harness, `git_manager branches` and `git_manager log` reflect repo changes without requiring a manual `refresh` first.
 - Desktop smoke test still covers refresh/fetch/pull/push, stash apply/pop, cherry-pick with auto-stash, and worktree removal on a real workspace.
+
+## Execution log
+- `336b790a` — `fix(plugins): harden persisted state integrity`

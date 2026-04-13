@@ -51,3 +51,21 @@ _Last reviewed: 2026-04-13_
 - The `settings` tool and the settings panel no longer describe the same runtime. The UI exposes `yoloAutoMergePrs`, while the tool schema/help only supports `yoloMode`, `testingEnabled`, and `reviewMode`; meanwhile `autoAdvance` is displayed in tool output but has no matching UI control.
 - The plugin’s Vitest config excludes `ui/**`, so the duplicated UI workflow layer has no direct tests even though the extension layer does.
 - `ui/components/AddCardForm.tsx` is orphaned while `ui/components/ColumnView.tsx` ships a second inline add-card form, and `ui/components/CardDetailFooter.tsx` still accepts an unused `onPriorityChange` prop.
+
+## Post-fix snapshot — 2026-04-13
+
+### Metrics after fixes
+- Total files: 49 (was 46)
+- Largest file: `plugins/sero-kanban-plugin/ui/components/CardDetail.tsx` (466 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged in the still-unfixed UI workflow layer; D1 only touched persisted-state seams
+
+### What changed
+- `extension/state-io.ts` now defaults only on missing board files and fails loud on malformed/unreadable board JSON.
+- `extension/error-log.ts` now defaults only on missing `errors.json` and fails loud on malformed/unreadable retrospective data.
+- `extension/index.ts` now returns recovery-oriented tool errors instead of silently rebuilding empty board/error state.
+- Added direct persisted-state tests for board reads plus malformed error-log coverage.
+
+### Still outstanding
+- The remaining High item is still the UI→extension workflow ownership drift for review actions.
+- Medium settings-surface alignment, cleanup-failure visibility, and UI file splitting are still pending.

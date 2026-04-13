@@ -28,7 +28,7 @@ _Plan drafted: 2026-04-13_
    - UI-local `apply*` reducers should be limited to genuinely local/pure edits, or deleted entirely if the host action path can cover them cleanly.
    - This aligns the plugin with AD-020’s “tool/command semantics live in the bridged extension layer” model instead of teaching future plugin authors to duplicate host behavior in React.
 
-2. **Fail loud on malformed board/error-log files and only default on missing files.**
+2. **~~Fail loud on malformed board/error-log files and only default on missing files.~~ ✅ 2026-04-13 (`336b790a`)**
    - Change `state-io.ts` and `error-log.ts` so `ENOENT`/first-run reads still create a usable empty/default state, but syntax/permission/short-read failures surface an actionable error instead of silently resetting.
    - If the tool path encounters malformed JSON, abort the mutation and return a recovery-oriented message (include file path and backup/repair guidance).
    - Keep atomic writes, but make read failure modes truthful.
@@ -85,3 +85,6 @@ Verification checklist:
 - A malformed `.sero/apps/kanban/state.json` or `errors.json` no longer gets silently replaced with an empty/default file on the next write.
 - `kanban settings` and the Settings panel describe the same runtime-backed settings and constraints.
 - Production/built-in plugin packaging still loads the extension, `KanbanApp`, and `KanbanWidget` after the `@sero/common` runtime import move.
+
+## Execution log
+- `336b790a` — `fix(plugins): harden persisted state integrity`

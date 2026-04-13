@@ -19,7 +19,7 @@ _Plan drafted: 2026-04-13_
 - **Low** — `memory-tool.ts` is becoming the next everything-hub — `plugins/sero-memory-plugin/extension/memory-tool.ts:49-466` owns schema definitions, structured memory normalization, CRUD actions, capacity enforcement, security scanning, config/admin dispatch, and TUI rendering in one near-cap file. It is still under the 500-LOC rule, but it is already the package’s largest operational hub and will keep attracting behavior unless it is split deliberately. Effort: **M**.
 
 ## Proposed Refactoring
-1. **Extract the cron auto-consolidation seam into a truthful shared contract and fail closed on malformed cron state.**
+1. **Extract the cron auto-consolidation seam into a truthful shared contract and fail closed on malformed cron state.** *(D1 partial — fail-closed cron-state reads landed 2026-04-13 in `336b790a`; canonical shared-contract ownership still pending.)*
    - Stop letting the memory plugin own a mirrored copy of cron’s persisted shape.
    - Target structure:
      - move the minimal shared cron state/job contract needed by both plugins to `@sero/common` (or another neutral shared package)
@@ -89,3 +89,6 @@ Verification checklist:
 - A normal session start triggers phase-1 migration once, not again on the first `before_agent_start`.
 - `sero memory write/replace/remove` still preserves entry IDs, duplicate detection, and capacity limits after the `memory-tool.ts` split.
 - Transcript backfill still indexes prior sessions and does not rewrite unchanged transcript exports.
+
+## Execution log
+- `336b790a` — `fix(plugins): harden persisted state integrity` *(partial for this plan: fail-closed cron-state reads only)*

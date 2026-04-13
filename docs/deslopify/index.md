@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13; plugin review waves pending*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13; Wave D D1 persisted-state batch landed 2026-04-13; remaining plugin High waves pending*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -87,16 +87,16 @@ entry links to a `facts.md` and `plan.md` pair.
 - [`plugins/sero-context-plugin/`](./plugins/sero-context-plugin/plan.md)
   — *Wave C host-integrated review complete — High snapshot-truthfulness and UI-action determinism findings documented 2026-04-13*
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
-  — *Wave C exemplar review complete — High startup-recovery/state-truthfulness findings documented 2026-04-13*
+  — *In progress — D1 state-truthfulness item cleared 2026-04-13; startup-recovery and UI reminder-ownership High items still pending*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
-  — *Wave C host-integrated review complete — High bridge-contract drift and state-truthfulness findings documented 2026-04-13*
+  — *In progress — D1 state-truthfulness item cleared 2026-04-13; High bridge-contract drift still pending*
 - `plugins/sero-hello-world-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
-  — *Wave C exemplar review complete — High workflow/runtime alignment findings documented 2026-04-13*
+  — *In progress — D1 persisted-state integrity item cleared 2026-04-13; High UI workflow ownership still pending*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
-  — *Wave C exemplar review complete — High cross-plugin cron-state ownership and QMD profile-path drift documented 2026-04-13*
+  — *In progress — D1 fail-closed cron-state safeguard landed 2026-04-13; shared cron-contract ownership and QMD profile-path High items still pending*
 - [`plugins/sero-user-feedback-plugin/`](./plugins/sero-user-feedback-plugin/plan.md)
   — *Wave C host-integrated review complete — High questionnaire-parity and onboarding-ownership findings documented 2026-04-13*
 - [`plugins/sero-web-plugin/`](./plugins/sero-web-plugin/plan.md)
-  — *Wave C host-integrated review complete — High state-truthfulness, profile-path drift, and UI-mutation ownership findings documented 2026-04-13*
+  — *In progress — D1 state-truthfulness item cleared 2026-04-13; profile-path drift and UI-mutation ownership High items still pending*

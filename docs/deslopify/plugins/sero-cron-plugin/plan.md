@@ -29,7 +29,7 @@ _Plan drafted: 2026-04-13_
    - The easiest safe shape is: detect recovery candidates before or during scheduler boot, feed them through the same transition helper the tick path uses, and persist the resulting reminder updates under the state lock before the scheduler starts processing the same snapshot again.
    - This keeps behavior aligned with the plugin’s core promise: one reminder should generate one truthful post-fire state transition.
 
-2. **Make `readState()` distinguish first-run from malformed/unreadable state.**
+2. **~~Make `readState()` distinguish first-run from malformed/unreadable state.~~ ✅ 2026-04-13 (`336b790a`)**
    - Default state should be returned only for genuine missing-file cases (`ENOENT`).
    - Parse errors, permission problems, and partial-write reads should surface as explicit errors to callers.
    - Add one small normalization helper to fill optional fields like `reminders` / `notificationSettings` without pretending corrupted JSON is valid.
@@ -96,3 +96,6 @@ Verification checklist:
 - Completing reminders from the UI and from the `reminder` tool yields the same pruning/capping behavior.
 - The UI, tool help, notifier behavior, and README all describe the same `email` behavior.
 - The dashboard widget still loads in production after the extension/UI module split, and the plugin keeps its relative `base: './'` MF behavior intact.
+
+## Execution log
+- `336b790a` — `fix(plugins): harden persisted state integrity`
