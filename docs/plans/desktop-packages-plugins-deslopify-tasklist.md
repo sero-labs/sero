@@ -78,7 +78,7 @@ plugin reviews can treat their patterns as either good examples or debt to stop
 copying.
 
 ### 3. Core plugin exemplars
-- [ ] `deslopify plugins/sero-kanban-plugin`
+- [x] `deslopify plugins/sero-kanban-plugin`
 - [ ] `deslopify plugins/sero-cron-plugin`
 - [ ] `deslopify plugins/sero-admin-plugin`
 - [ ] `deslopify plugins/sero-memory-plugin`
@@ -224,3 +224,10 @@ runtime, contract, or desktop-side code that those plugins consume.
   `packages/common/src/kanban.ts`; dead Kanban settings surface removed from the
   host/plugin flows. Targeted desktop/plugin tests plus monorepo
   `pnpm typecheck` all pass.
+- 2026-04-13: Wave C step 3.1 complete for `plugins/sero-kanban-plugin`.
+  Facts + plan added at
+  `docs/deslopify/plugins/sero-kanban-plugin/{facts,plan}.md`; result: the
+  plugin remains a strong exemplar for manifest/build/shared-contract wiring,
+  but the top High findings are runtime truthfulness issues — the UI can bypass
+  extension-owned review side effects, and board/error-log reads still fail open
+  on malformed JSON.

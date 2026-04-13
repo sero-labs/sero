@@ -92,8 +92,8 @@ entry links to a `facts.md` and `plan.md` pair.
   — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
 - `plugins/sero-hello-world-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
-- `plugins/sero-kanban-plugin/`
-  — *Phase 0 baseline mapped 2026-04-13; Wave C exemplar review pending*
+- [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
+  — *Wave C exemplar review complete — High workflow/runtime alignment findings documented 2026-04-13*
 - `plugins/sero-memory-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; Wave C exemplar review pending*
 - `plugins/sero-user-feedback-plugin/`
