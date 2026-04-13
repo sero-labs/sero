@@ -87,7 +87,7 @@ copying.
 - [x] `deslopify plugins/sero-git-plugin`
 - [x] `deslopify plugins/sero-context-plugin`
 - [x] `deslopify plugins/sero-web-plugin`
-- [ ] `deslopify plugins/sero-user-feedback-plugin`
+- [x] `deslopify plugins/sero-user-feedback-plugin`
 
 ## Wave D — Fix Plugin High-Priority Findings
 
@@ -265,3 +265,10 @@ runtime, contract, or desktop-side code that those plugins consume.
   provider/config paths still drift to a Sero-incompatible `~/.pi` fallback,
   and the UI bypasses extension-owned mutation paths for bookmarks/history/
   downloads.
+- 2026-04-13: Wave C step 4.4 complete for
+  `plugins/sero-user-feedback-plugin`. Facts + plan added at
+  `docs/deslopify/plugins/sero-user-feedback-plugin/{facts,plan}.md`; result:
+  this core communication plugin is still small and structurally coherent, but
+  it now has two clear High-priority truthfulness/ownership findings —
+  `questionnaire` completion semantics drift between the Sero UI and Pi CLI TUI,
+  and the generic remote UI incorrectly owns profile onboarding lifecycle state.

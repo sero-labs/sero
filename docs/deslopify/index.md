@@ -96,7 +96,7 @@ entry links to a `facts.md` and `plan.md` pair.
   — *Wave C exemplar review complete — High workflow/runtime alignment findings documented 2026-04-13*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
   — *Wave C exemplar review complete — High cross-plugin cron-state ownership and QMD profile-path drift documented 2026-04-13*
-- `plugins/sero-user-feedback-plugin/`
-  — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
+- [`plugins/sero-user-feedback-plugin/`](./plugins/sero-user-feedback-plugin/plan.md)
+  — *Wave C host-integrated review complete — High questionnaire-parity and onboarding-ownership findings documented 2026-04-13*
 - [`plugins/sero-web-plugin/`](./plugins/sero-web-plugin/plan.md)
   — *Wave C host-integrated review complete — High state-truthfulness, profile-path drift, and UI-mutation ownership findings documented 2026-04-13*
