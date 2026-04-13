@@ -80,8 +80,8 @@ entry links to a `facts.md` and `plan.md` pair.
   — *In progress — no direct High items; shared Kanban contract added 2026-04-13; Medium canonical-contract cleanup pending*
 
 ## plugins/
-- `plugins/sero-admin-plugin/`
-  — *Phase 0 baseline mapped 2026-04-13; Wave C exemplar review pending*
+- [`plugins/sero-admin-plugin/`](./plugins/sero-admin-plugin/plan.md)
+  — *Wave C exemplar review complete — High host-bridge contract duplication and ownership drift documented 2026-04-13*
 - `plugins/sero-alibaba-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
 - `plugins/sero-context-plugin/`

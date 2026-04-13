@@ -80,7 +80,7 @@ copying.
 ### 3. Core plugin exemplars
 - [x] `deslopify plugins/sero-kanban-plugin`
 - [x] `deslopify plugins/sero-cron-plugin`
-- [ ] `deslopify plugins/sero-admin-plugin`
+- [x] `deslopify plugins/sero-admin-plugin`
 - [ ] `deslopify plugins/sero-memory-plugin`
 
 ### 4. Additional host-integrated plugins
@@ -238,3 +238,10 @@ runtime, contract, or desktop-side code that those plugins consume.
   truthfulness defects — startup reminder recovery can double-fire notifications,
   and fail-open `state.json` reads can silently wipe the global scheduler state
   on the next successful write.
+- 2026-04-13: Wave C step 3.3 complete for `plugins/sero-admin-plugin`.
+  Facts + plan added at
+  `docs/deslopify/plugins/sero-admin-plugin/{facts,plan}.md`; result: the
+  admin surface remains correctly UI-only, but the top High finding is boundary
+  truthfulness — `ui/hooks/useSeroFiles.ts` duplicates and narrows the canonical
+  `window.sero` contract, and the host still imports admin-owned
+  `skill-visibility` helpers that should move to a neutral shared home.
