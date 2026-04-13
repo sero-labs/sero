@@ -39,20 +39,23 @@ interface WidgetRegistryState {
   listeners: Set<WidgetChangeListener>;
 }
 
-const REGISTRY_KEY = '__sero_widget_registry__';
+declare global {
+  var __sero_widget_registry__: WidgetRegistryState | undefined;
+}
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const g = globalThis as any;
-if (!g[REGISTRY_KEY]) {
-  g[REGISTRY_KEY] = {
+function createRegistryState(): WidgetRegistryState {
+  return {
     widgets: new Map<string, RuntimeWidget>(),
     snapshot: [],
     listeners: new Set<WidgetChangeListener>(),
-  } satisfies WidgetRegistryState;
+  };
 }
 
 function getRegistry(): WidgetRegistryState {
-  return g[REGISTRY_KEY];
+  if (!globalThis.__sero_widget_registry__) {
+    globalThis.__sero_widget_registry__ = createRegistryState();
+  }
+  return globalThis.__sero_widget_registry__;
 }
 
 function makeKey(appId: string, widgetId: string): string {

@@ -5,9 +5,6 @@
  * module declares only the subset app-runtime hooks need, keeping the
  * package decoupled from the desktop app's types while providing type
  * safety for all IPC calls.
- *
- * The single `(window as ...)` cast lives here — every other module
- * imports the typed getter.
  */
 
 export interface SeroAppStateBridge {
@@ -90,12 +87,23 @@ export interface SeroBridge {
   models?: SeroModelsBridge;
 }
 
+function readWindowSero(value: Window): unknown {
+  return Reflect.get(value, 'sero');
+}
+
+function isSeroBridge(value: unknown): value is SeroBridge {
+  return typeof value === 'object'
+    && value !== null
+    && 'appState' in value
+    && 'appAgent' in value;
+}
+
 /**
  * Get the Sero preload bridge. Throws if not running inside the Sero shell.
  */
 export function getSeroApi(): SeroBridge {
-  const sero = (window as unknown as { sero?: SeroBridge }).sero;
-  if (!sero) {
+  const sero = readWindowSero(window);
+  if (!isSeroBridge(sero)) {
     throw new Error('[app-runtime] window.sero not available — must run inside Sero shell');
   }
   return sero;

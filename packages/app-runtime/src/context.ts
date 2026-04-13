@@ -6,7 +6,7 @@
  * multiple times (which happens in Vite dev mode with MF).
  */
 
-import { createContext } from 'react';
+import { createContext, type Context } from 'react';
 
 export interface AppContextValue {
   /** App identifier (e.g. "todo"). */
@@ -29,15 +29,15 @@ export interface AppContextValue {
   themePresetId?: string;
 }
 
-const CONTEXT_KEY = '__sero_app_context__';
-
-// Ensure a single context instance across all module copies
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const g = globalThis as any;
-if (!g[CONTEXT_KEY]) {
-  g[CONTEXT_KEY] = createContext<AppContextValue | null>(null);
+declare global {
+  var __sero_app_context__: Context<AppContextValue | null> | undefined;
 }
 
-export const AppContext: React.Context<AppContextValue | null> = g[CONTEXT_KEY];
+const appContext = globalThis.__sero_app_context__
+  ?? createContext<AppContextValue | null>(null);
+
+globalThis.__sero_app_context__ = appContext;
+
+export const AppContext: Context<AppContextValue | null> = appContext;
 
 export const AppProvider = AppContext.Provider;
