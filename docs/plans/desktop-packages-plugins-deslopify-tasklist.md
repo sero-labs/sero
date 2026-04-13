@@ -40,11 +40,11 @@ without losing sequencing discipline.
 
 ## Phase 0 — Baseline Map
 
-- [ ] Capture current hotspot inventory for all folders in scope
-- [ ] Note files over the 500 LOC cap
-- [ ] Note likely contract and ownership hotspots across shared packages,
+- [x] Capture current hotspot inventory for all folders in scope
+- [x] Note files over the 500 LOC cap
+- [x] Note likely contract and ownership hotspots across shared packages,
       desktop Electron seams, and plugin extension/UI boundaries
-- [ ] Confirm review order before starting
+- [x] Confirm review order before starting
 
 ## Wave A — Deslopify Shared Contracts and Runtime Foundations
 
@@ -172,3 +172,9 @@ runtime, contract, or desktop-side code that those plugins consume.
   folders (`electron/cli`, `electron/gateway`, `electron/types`,
   `electron/features/kanban`), shared runtime packages (`packages/app-runtime/src`,
   `packages/common/src`), and every plugin under `plugins/sero-*-plugin/`.
+- 2026-04-13: Phase 0 baseline map completed via deslopify. Hotspot inventory +
+  review-order confirmation are documented at
+  `docs/deslopify/desktop-packages-plugins/{facts.md,plan.md}`; the baseline also
+  confirmed that `apps/desktop/electron/gateway/` and
+  `plugins/sero-hello-world-plugin/` are currently generated-only / no-source
+  closeout targets rather than full review surfaces.

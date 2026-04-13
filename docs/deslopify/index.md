@@ -5,6 +5,10 @@ _Last updated: 2026-04-13_
 A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
 
+## cross-cutting baselines/
+- [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
+  — *Phase 0 baseline mapped 2026-04-13; Wave A/C reviews pending*
+
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
   — *Wave A–F closeout checklist cleared 2026-04-13; remaining work is tracked only in folder-level follow-up plans outside the Wave F periphery seam*
@@ -40,6 +44,10 @@ entry links to a `facts.md` and `plan.md` pair.
     — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
   - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
     — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
+  - `apps/desktop/electron/features/kanban/`
+    — *Phase 0 baseline mapped 2026-04-13; Wave A deslopify pending*
+  - `apps/desktop/electron/gateway/`
+    — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
     — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
@@ -60,31 +68,35 @@ entry links to a `facts.md` and `plan.md` pair.
     — *In progress — core Medium items cleared 2026-04-12; typing cleanup pending*
   - [`apps/desktop/electron/shared/`](./apps/desktop/electron/shared/plan.md)
     — *In progress — cached-model Medium item cleared 2026-04-12; modularization cleanup pending*
+  - `apps/desktop/electron/cli/`
+    — *Phase 0 baseline mapped 2026-04-13; Wave A deslopify pending*
+  - `apps/desktop/electron/types/`
+    — *Phase 0 baseline mapped 2026-04-13; tiny augmentation seam review pending*
 
 ## packages/
 - `packages/app-runtime/src/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave A deslopify pending*
 - `packages/common/src/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave A deslopify pending*
 
 ## plugins/
 - `plugins/sero-admin-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave C exemplar review pending*
 - `plugins/sero-alibaba-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
 - `plugins/sero-context-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
 - `plugins/sero-cron-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave C exemplar review pending*
 - `plugins/sero-git-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
 - `plugins/sero-hello-world-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
 - `plugins/sero-kanban-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave C exemplar review pending*
 - `plugins/sero-memory-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave C exemplar review pending*
 - `plugins/sero-user-feedback-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
 - `plugins/sero-web-plugin/`
-  — *Queued for deslopify via `docs/plans/desktop-packages-plugins-deslopify-tasklist.md`*
+  — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
