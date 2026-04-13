@@ -94,8 +94,8 @@ export async function askQuestionnaireTUI(
       return getAnswers(qId).length > 0;
     }
 
-    function allAnswered(): boolean {
-      return questions.every((q) => isAnswered(q.id));
+    function canSubmit(): boolean {
+      return flattenAnswers().length > 0;
     }
 
     function advanceAfterAnswer() {
@@ -228,7 +228,7 @@ export async function askQuestionnaireTUI(
       }
 
       if (hasSubmitTab && currentTab === questions.length) {
-        if (matchesKey(data, Key.enter) && allAnswered()) submit(false);
+        if (matchesKey(data, Key.enter) && canSubmit()) submit(false);
         else if (matchesKey(data, Key.escape)) submit(true);
         return;
       }
@@ -268,7 +268,7 @@ export async function askQuestionnaireTUI(
       add(theme.fg('accent', '─'.repeat(width)));
 
       if (hasSubmitTab) {
-        const tabs = renderTabBar(questions, currentTab, answers, allAnswered(), theme);
+        const tabs = renderTabBar(questions, currentTab, answers, canSubmit(), theme);
         add(` ${tabs}`);
         lines.push('');
       }
@@ -283,7 +283,7 @@ export async function askQuestionnaireTUI(
         lines.push('');
         add(theme.fg('dim', ' Enter to submit • Esc to cancel'));
       } else if (hasSubmitTab && currentTab === questions.length) {
-        renderSubmitTab(questions, answers, allAnswered(), theme, add);
+        renderSubmitTab(questions, answers, canSubmit(), theme, add);
       } else if (q) {
         add(theme.fg('text', ` ${q.prompt}`));
         lines.push('');

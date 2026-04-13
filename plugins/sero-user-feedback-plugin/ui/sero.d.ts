@@ -17,17 +17,10 @@ interface SeroUserFeedbackAPI {
   onCancel(callback: (data: { id: string }) => void): () => void;
 }
 
-/** Subset of the profiles API needed for onboarding state. */
-interface SeroProfilesAPI {
-  needsOnboarding(): Promise<boolean>;
-  markOnboardingDone(): Promise<void>;
-}
-
 declare global {
   interface Window {
     sero: {
       userFeedback: SeroUserFeedbackAPI;
-      profiles: SeroProfilesAPI;
     };
   }
 }

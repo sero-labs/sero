@@ -132,6 +132,10 @@ async function buildUsage(
   const systemRaw = estimateTokens(systemPrompt);
   const toolDefRaw = estimateTokens(JSON.stringify(toolDefs));
   const totalRaw = systemRaw + toolDefRaw + msgRaw + toolUseRaw + toolResultRaw;
+  if (usage.tokens === null || usage.contextWindow === null || usage.percent === null) {
+    return null;
+  }
+
   const ratio = totalRaw > 0 ? usage.tokens / totalRaw : 1;
 
   return {
@@ -161,7 +165,7 @@ export async function buildSnapshot(
   pi: { getActiveTools(): string[]; getAllTools(): any[] },
 ): Promise<ContextState> {
   const branch = sm.getBranch();
-  const leafId = sm.getLeafId();
+  const leafId = sm.getLeafId() ?? undefined;
   const rootId = branch.length > 0 ? branch[0].id : undefined;
 
   // Build sequence (backbone + off-path summaries)
@@ -190,7 +194,7 @@ export async function buildSnapshot(
       id: entry.id,
       role: getEntryRole(entry),
       content: truncate(getEntryContent(entry)),
-      label: sm.getLabel(entry.id) || undefined,
+      label: sm.getLabel(entry.id) ?? undefined,
       isHead: entry.id === leafId,
       isRoot: entry.id === rootId,
       isBranchPoint: sm.getChildren(entry.id).length > 1,

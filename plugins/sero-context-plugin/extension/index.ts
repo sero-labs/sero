@@ -91,11 +91,23 @@ async function updateSnapshot(
 export default function (pi: ExtensionAPI) {
   let statePath = '';
 
+  async function refreshSnapshot(ctx: ExtensionContext): Promise<void> {
+    const resolvedPath = resolveStatePath(ctx.cwd);
+    statePath = resolvedPath;
+    await updateSnapshot(ctx.sessionManager as SessionManager, ctx, pi, resolvedPath);
+  }
+
   pi.on('session_start', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
+    await refreshSnapshot(ctx);
   });
   pi.on('session_switch', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
+    await refreshSnapshot(ctx);
+  });
+  pi.on('agent_end', async (_event, ctx) => {
+    if (!statePath) {
+      statePath = resolveStatePath(ctx.cwd);
+    }
+    await updateSnapshot(ctx.sessionManager as SessionManager, ctx, pi, statePath);
   });
 
   // ── Tool: context_tag ──────────────────────────────────────
@@ -354,7 +366,7 @@ async function buildLogText(
 
   // HUD
   const usage = await ctx.getContextUsage();
-  const usageStr = usage
+  const usageStr = usage && usage.percent !== null && usage.tokens !== null && usage.contextWindow !== null
     ? `${usage.percent.toFixed(1)}% (${formatTokens(usage.tokens)}/${formatTokens(usage.contextWindow)})`
     : 'Unknown';
 

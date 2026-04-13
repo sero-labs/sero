@@ -30,6 +30,7 @@ import {
   readNotificationSettingsOrWarn,
   toolError,
 } from './runtime-helpers';
+import { prepareRecoveryBootstrap } from './recovery-runtime';
 import {
   handleList, handleAdd, handleUpdate, handleRemove,
   handleToggle, handleRun, type ActionDeps,
@@ -39,7 +40,6 @@ import {
   handleReminderRemove, handleReminderSnooze, handleReminderComplete,
   handleReminderToggle, type ReminderActionDeps,
 } from './reminder-actions';
-import { detectMissedItems } from './recovery';
 
 // ── Module-level singleton state ───────────────────────────────
 // Shared across all invocations of the default export (multiple sessions).
@@ -62,40 +62,25 @@ function getSchedulerStartOpts(state: CronState): { lastTickMinute?: string } | 
   return state.lastTickMinute ? { lastTickMinute: state.lastTickMinute } : undefined;
 }
 
-function createAndStartScheduler(state: CronState): void {
+function createAndStartScheduler(state: CronState): CronState {
+  const prepared = prepareRecoveryBootstrap(state, {
+    notifyReminder: notifyMissedReminder,
+  });
+
   scheduler = createScheduler();
   scheduler.start(
-    state.jobs,
+    prepared.state.jobs,
     workspaceCwd,
-    state.reminders,
-    getSchedulerStartOpts(state),
+    prepared.state.reminders,
+    prepared.startOpts ?? getSchedulerStartOpts(prepared.state),
   );
-  // Run missed-job/reminder recovery after scheduler starts
-  runRecovery(state).catch((err) => {
-    console.error('[cron] recovery failed:', err);
-  });
-}
 
-// ── Recovery (missed jobs/reminders on start) ───────────────────
-
-async function runRecovery(state: CronState): Promise<void> {
-  const { missedJobs, missedReminders } = detectMissedItems(state);
-
-  // Fire missed reminders as notifications
-  if (missedReminders.length > 0) {
-    const notifSettings = state.notificationSettings ?? undefined;
-    for (const { reminder, missedAt } of missedReminders) {
-      notifyMissedReminder(reminder, missedAt, notifSettings);
-    }
+  for (const jobName of prepared.missedJobNames) {
+    info('recovery:run-job', { job: jobName });
+    scheduler.runNow(jobName);
   }
 
-  // Run missed cron jobs (fire-and-forget, same as runNow)
-  if (missedJobs.length > 0 && scheduler) {
-    for (const job of missedJobs) {
-      info('recovery:run-job', { job: job.name });
-      scheduler.runNow(job.name);
-    }
-  }
+  return prepared.state;
 }
 
 function notifyMissedReminder(
@@ -181,20 +166,20 @@ async function ensureInitialized(cwd: string): Promise<void> {
     return;
   }
 
-  const state = await readState(statePath);
-  const hasWork = state.jobs.length > 0 || (state.reminders?.length ?? 0) > 0;
+  const initialState = await readState(statePath);
+  const hasWork = initialState.jobs.length > 0 || (initialState.reminders?.length ?? 0) > 0;
 
-  if (state.autostart && hasWork) {
-    info('scheduler:autostart', { jobs: state.jobs.length, reminders: state.reminders.length });
-    createAndStartScheduler(state);
+  if (initialState.autostart && hasWork) {
+    info('scheduler:autostart', { jobs: initialState.jobs.length, reminders: initialState.reminders.length });
+    const state = createAndStartScheduler(initialState);
     state.schedulerActive = true;
     // Write first to ensure the directory exists before arming the watcher
     await writeState(statePath, state);
     startStateWatcher();
-  } else if (state.schedulerActive) {
+  } else if (initialState.schedulerActive) {
     info('scheduler:reset-stale-flag');
-    state.schedulerActive = false;
-    await writeState(statePath, state);
+    initialState.schedulerActive = false;
+    await writeState(statePath, initialState);
   }
 }
 
@@ -207,8 +192,8 @@ async function startScheduler(): Promise<string> {
     logError('scheduler:start-failed', { reason: 'no state path' });
     return 'Error: no state path resolved.';
   }
-  const state = await readState(statePath);
-  createAndStartScheduler(state);
+  const initialState = await readState(statePath);
+  const state = createAndStartScheduler(initialState);
   state.schedulerActive = true;
   // Write first to ensure the directory exists before arming the watcher
   await writeState(statePath, state);
