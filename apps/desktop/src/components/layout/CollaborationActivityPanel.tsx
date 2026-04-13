@@ -21,6 +21,7 @@ import type { CollaborationRole } from '@/types/collaboration';
 import { useChatFeed } from './collaboration-chat-feed';
 import { useCollaborationSubagentEntries } from './useCollaborationSubagentEntries';
 import {
+  PendingQueryBubble,
   TypingBubble,
   MessageBubble,
   DebateRoundBubble,
@@ -92,6 +93,8 @@ export function CollaborationActivityPanel() {
         <AnimatePresence mode="popLayout">
           {feed.map((item) => {
             switch (item.kind) {
+              case 'query':
+                return <PendingQueryBubble key={item.key} text={item.text} />;
               case 'phase':
                 return <PhaseBanner key={item.key} phase={item.phase} />;
               case 'typing':

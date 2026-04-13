@@ -44,6 +44,9 @@ describe('useAgentStore', () => {
   const prompt = vi.fn<
     (sessionId: string, text: string, attachments?: unknown, clientMessageId?: string) => Promise<void>
   >();
+  const collaborationPrompt = vi.fn<
+    (sessionId: string, workspaceId: string, text: string, config?: unknown) => Promise<void>
+  >();
   const onCollaborationEvent = vi.fn<
     (callback: (event: CollaborationEvent) => void) => () => void
   >();
@@ -54,11 +57,13 @@ describe('useAgentStore', () => {
     getCommands.mockReset();
     getModelState.mockReset();
     prompt.mockReset();
+    collaborationPrompt.mockReset();
     onCollaborationEvent.mockReset();
     collaborationListener = null;
 
     getCommands.mockResolvedValue([]);
     getModelState.mockResolvedValue(null);
+    collaborationPrompt.mockResolvedValue();
     onCollaborationEvent.mockImplementation((callback) => {
       collaborationListener = callback;
       return () => {
@@ -74,6 +79,7 @@ describe('useAgentStore', () => {
         prompt,
       },
       collaboration: {
+        prompt: collaborationPrompt,
         onEvent: onCollaborationEvent,
       },
     };
@@ -148,7 +154,48 @@ describe('useAgentStore', () => {
     ]);
   });
 
-  it('rehydrates the active collaboration prompt even if an older turn used the same text', () => {
+  it('keeps pending collaboration queries in collaboration state instead of chat history', async () => {
+    useAgentStore.setState((state) => ({
+      ...state,
+      focusedSessionId: 'session-1',
+      agents: {
+        'session-1': {
+          sessionId: 'session-1',
+          sessionPath: '/tmp/session-1.jsonl',
+          workspaceId: 'workspace-1',
+          messages: [
+            { type: 'user', id: 'old-user', text: 'older question' },
+          ],
+          isStreaming: false,
+          error: null,
+          commands: [],
+          modelState: null,
+        },
+      },
+    }));
+
+    await useAgentStore.getState().sendCollaborationPrompt('session-1', 'repeat question');
+
+    const agent = useAgentStore.getState().agents['session-1'];
+    expect(agent?.messages).toEqual([
+      expect.objectContaining({ type: 'user', text: 'older question' }),
+    ]);
+    expect(agent?.isStreaming).toBe(true);
+    expect(useAgentStore.getState().collaborations['session-1']?.pendingUserQuery).toBe(
+      'repeat question',
+    );
+    expect(collaborationPrompt).toHaveBeenCalledWith(
+      'session-1',
+      'workspace-1',
+      'repeat question',
+      {
+        strategy: 'standard',
+        debate: undefined,
+      },
+    );
+  });
+
+  it('rehydrates collaboration snapshots without synthetic placeholder messages', () => {
     useAgentStore.setState((state) => ({
       ...state,
       focusedSessionId: 'session-1',
@@ -178,35 +225,24 @@ describe('useAgentStore', () => {
     useAgentStore.getState().hydrateCollaborationState('session-1', snapshot);
     useAgentStore.getState().hydrateCollaborationState('session-1', snapshot);
 
-    const messages = useAgentStore.getState().agents['session-1']?.messages ?? [];
-    expect(messages).toHaveLength(3);
-    expect(messages.at(-1)).toEqual(
-      expect.objectContaining({ type: 'user', text: 'repeat question' }),
+    const agent = useAgentStore.getState().agents['session-1'];
+    expect(agent?.messages).toHaveLength(2);
+    expect(useAgentStore.getState().collaborations['session-1']?.pendingUserQuery).toBe(
+      'repeat question',
     );
   });
 
-  it('does not append duplicate collaboration placeholders after follow-up assistant messages', () => {
+  it('drops pending collaboration queries once a completed snapshot arrives', () => {
     useAgentStore.setState((state) => ({
       ...state,
+      focusedSessionId: 'session-1',
       agents: {
         'session-1': {
           sessionId: 'session-1',
           sessionPath: '/tmp/session-1.jsonl',
           workspaceId: 'workspace-1',
-          messages: [
-            {
-              type: 'user',
-              id: 'collab-pending-session-1',
-              text: 'repeat question',
-            },
-            {
-              type: 'assistant',
-              id: 'assistant-1',
-              text: 'Synthesized answer',
-              isStreaming: false,
-            },
-          ],
-          isStreaming: false,
+          messages: [],
+          isStreaming: true,
           error: null,
           commands: [],
           modelState: null,
@@ -214,16 +250,12 @@ describe('useAgentStore', () => {
       },
     }));
 
-    const snapshot = createSnapshot({ status: 'complete' });
-    useAgentStore.getState().hydrateCollaborationState('session-1', snapshot);
+    useAgentStore.getState().hydrateCollaborationState(
+      'session-1',
+      createSnapshot({ status: 'complete', pendingUserQuery: null }),
+    );
 
-    const messages = useAgentStore.getState().agents['session-1']?.messages ?? [];
-    expect(
-      messages.filter(
-        (message) =>
-          message.type === 'user' && message.id === 'collab-pending-session-1',
-      ),
-    ).toHaveLength(1);
+    expect(useAgentStore.getState().collaborations['session-1']?.pendingUserQuery).toBeNull();
   });
 
   it('restores collaboration errors from snapshots and live events', () => {

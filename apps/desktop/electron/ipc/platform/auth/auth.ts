@@ -29,13 +29,10 @@ import type {
   AuthProvidersResponse,
   OAuthEvent,
 } from '@/types/ipc';
-import {
-  ensureInfra,
-  refreshInfraModelSelection,
-} from '@electron/shared/infra/shared-infra';
+import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { getApiKeyProviderCatalog, getProviderEnvApiKey } from '@electron/shared/auth/provider-catalog';
 import { AUTH_JSON_PATH } from '@electron/platform/env';
-import { cleanupUnavailableModelSelections } from '@electron/shared/settings/cleanup-unavailable-model-selections';
+import { refreshModelAvailabilityAfterCredentialChange } from './auth-model-refresh';
 
 // ── auth.json permission hardening ───────────────────────────
 // The Pi SDK writes auth.json with default permissions (0o644).
@@ -111,13 +108,6 @@ function clearPending(): void {
   manualCodeRejecter = null;
   abortController = null;
   loginOriginWebContents = null;
-}
-
-async function refreshModelAvailabilityAfterAuthChange(
-  infra: Awaited<ReturnType<typeof ensureInfra>>,
-): Promise<void> {
-  infra.modelRegistry.refresh();
-  refreshInfraModelSelection();
 }
 
 // ── Registration ─────────────────────────────────────────────
@@ -246,8 +236,10 @@ export function registerAuthHandlers(): void {
           signal: abortController.signal,
         });
 
-        // Success — refresh model registry so new credentials are picked up
-        await refreshModelAvailabilityAfterAuthChange(infra);
+        // Success — refresh model registry so new credentials are picked up.
+        // If an unrelated models.json error blocks reconciliation, keep the
+        // credential change successful and log the refresh failure separately.
+        await refreshModelAvailabilityAfterCredentialChange();
         hardenAuthJsonPermissions();
 
         sendAuthEvent({
@@ -278,7 +270,7 @@ export function registerAuthHandlers(): void {
     async (_event, providerId: string): Promise<void> => {
       const infra = await ensureInfra();
       infra.authStorage.logout(providerId);
-      await refreshModelAvailabilityAfterAuthChange(infra);
+      await refreshModelAvailabilityAfterCredentialChange();
     },
   );
 
@@ -289,7 +281,7 @@ export function registerAuthHandlers(): void {
       const infra = await ensureInfra();
       infra.authStorage.set(providerId, { type: 'api_key', key });
       hardenAuthJsonPermissions();
-      await refreshModelAvailabilityAfterAuthChange(infra);
+      await refreshModelAvailabilityAfterCredentialChange();
     },
   );
 
@@ -299,7 +291,7 @@ export function registerAuthHandlers(): void {
     async (_event, providerId: string): Promise<void> => {
       const infra = await ensureInfra();
       infra.authStorage.remove(providerId);
-      await refreshModelAvailabilityAfterAuthChange(infra);
+      await refreshModelAvailabilityAfterCredentialChange();
     },
   );
 

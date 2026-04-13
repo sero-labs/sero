@@ -17,6 +17,7 @@ import type {
   LocalRemoteModelInfo,
 } from '@/types/ipc';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { refreshModelAvailability } from '@electron/ipc/agent/core/model-availability-refresh';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 const MODELS_JSON_PATH = path.join(SERO_AGENT_DIR, 'models.json');
@@ -248,15 +249,10 @@ async function readModelsConfig(): Promise<LocalModelsConfig> {
   return JSON.parse(raw) as LocalModelsConfig;
 }
 
-/** Write models.json to disk and refresh the model registry. */
+/** Write models.json to disk. The shared refresh flow validates and reloads it. */
 async function writeModelsConfig(config: LocalModelsConfig): Promise<void> {
   await mkdir(path.dirname(MODELS_JSON_PATH), { recursive: true });
   await writeFile(MODELS_JSON_PATH, JSON.stringify(config, null, 2) + '\n', 'utf8');
-
-  const { modelRegistry } = await ensureInfra();
-  modelRegistry.refresh();
-  const loadError = modelRegistry.getError();
-  if (loadError) throw new Error(loadError);
 }
 
 /** Test connectivity using the selected API and auth settings. */
@@ -325,6 +321,7 @@ export function registerLocalModelsHandlers(): void {
     IpcChannels.localModels.saveConfig,
     async (_event, config: LocalModelsConfig): Promise<void> => {
       await writeModelsConfig(config);
+      await refreshModelAvailability();
     },
   );
 

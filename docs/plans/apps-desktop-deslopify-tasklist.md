@@ -117,18 +117,18 @@ Core-first checklist for reviewing and cleaning up `apps/desktop` without losing
   - Debounce session-list refresh after agent idle transitions
   - Add bounded workspace-file cache eviction in `apps/desktop/src/hooks/useWorkspaceFiles.ts`
   - Deduplicate optimistic user-message enqueue + add explicit session-buffer teardown in `apps/desktop/src/stores/agent{,-utils}.ts`
-- [ ] **Wave E3 — Canonical cross-process type cleanup**
+- [x] **Wave E3 — Canonical cross-process type cleanup**
   - `fix-slop` Medium items for `apps/desktop/src/types`
   - `fix-slop` Medium items for `apps/desktop/electron/features/profile`
-- [ ] **Wave E4 — Core IPC/runtime cap-pressure relief**
+- [x] **Wave E4 — Core IPC/runtime cap-pressure relief**
   - `fix-slop` Medium items for `apps/desktop/electron/ipc`
   - `fix-slop` Medium items for `apps/desktop/electron/shared`
   - `fix-slop` Medium items for `apps/desktop/electron/features/workspace`
-- [ ] **Wave E5 — Platform/plugin lifecycle cleanup**
+- [x] **Wave E5 — Platform/plugin lifecycle cleanup**
   - `fix-slop` Medium items for `apps/desktop/electron/platform`
   - `fix-slop` Medium items for `apps/desktop/electron/features/plugins`
   - `fix-slop` Medium items for `apps/desktop/electron/features/apps`
-- [ ] **Wave E6 — Feature-level medium cleanup**
+- [x] **Wave E6 — Feature-level medium cleanup**
   - `fix-slop` Medium items for `apps/desktop/electron/features/editor`
   - `fix-slop` Medium items for `apps/desktop/src/lsp`
   - `fix-slop` Medium items for `apps/desktop/src/components/apps/explorer`

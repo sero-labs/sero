@@ -14,20 +14,35 @@ import {
   Swords,
 } from 'lucide-react';
 import {
-  useFocusedCollaborationStatus,
+  useFocusedCollaborationPendingUserQuery,
   useFocusedCollaborationSpecialists,
+  useFocusedCollaborationStatus,
   useFocusedCollaborationStrategy,
   useFocusedDebateState,
 } from '@/stores/agent-selectors';
-import type { CollaborationRole, CollaborationStatus } from '@/types/collaboration';
+import type {
+  CollaborationRole,
+  CollaborationStatus,
+  CollaborationStrategy,
+  DebateState,
+} from '@/types/collaboration';
 
 // ── Chat message types ──────────────────────────────────────────
 
 export type ChatItem =
+  | { kind: 'query'; key: string; text: string }
   | { kind: 'phase'; key: string; phase: string }
   | { kind: 'typing'; key: string; role: CollaborationRole }
   | { kind: 'message'; key: string; role: CollaborationRole; text: string; durationMs: number; isError?: boolean }
   | { kind: 'debate-round'; key: string; round: number; challenger: CollaborationRole; defender: CollaborationRole; summary: string; durationMs: number };
+
+export interface ChatFeedInput {
+  status: CollaborationStatus;
+  strategy: CollaborationStrategy;
+  specialists: SpecialistEntry[];
+  debate: DebateState | null;
+  pendingUserQuery: string | null;
+}
 
 // ── Phase banner metadata ───────────────────────────────────────
 
@@ -92,21 +107,61 @@ export function useChatFeed(): ChatItem[] {
   const strategy = useFocusedCollaborationStrategy();
   const specialists = useFocusedCollaborationSpecialists();
   const debate = useFocusedDebateState();
+  const pendingUserQuery = useFocusedCollaborationPendingUserQuery();
 
-  return useMemo(() => {
-    const items: ChatItem[] = [];
+  return useMemo(
+    () =>
+      buildChatFeed({
+        status,
+        strategy,
+        specialists,
+        debate,
+        pendingUserQuery,
+      }),
+    [status, strategy, specialists, debate, pendingUserQuery],
+  );
+}
 
-    if (strategy === 'debate' && debate) {
-      return buildDebateFeed(debate, specialists, items);
-    }
+export function buildChatFeed({
+  status,
+  strategy,
+  specialists,
+  debate,
+  pendingUserQuery,
+}: ChatFeedInput): ChatItem[] {
+  const items: ChatItem[] = [];
 
-    return buildStandardFeed(status, specialists, items);
-  }, [status, strategy, specialists, debate]);
+  if (shouldRenderPendingQuery(status, pendingUserQuery)) {
+    items.push({
+      kind: 'query',
+      key: 'pending-query',
+      text: pendingUserQuery!.trim(),
+    });
+  }
+
+  if (strategy === 'debate' && debate) {
+    return buildDebateFeed(debate, specialists, items);
+  }
+
+  return buildStandardFeed(status, specialists, items);
+}
+
+function shouldRenderPendingQuery(
+  status: CollaborationStatus,
+  pendingUserQuery: string | null,
+): boolean {
+  if (!pendingUserQuery?.trim()) return false;
+  return status !== 'idle' && status !== 'complete';
 }
 
 // ── Standard strategy feed builder ──────────────────────────────
 
-type SpecialistEntry = { role: CollaborationRole; response: string; error?: string; durationMs: number };
+type SpecialistEntry = {
+  role: CollaborationRole;
+  response: string;
+  error?: string;
+  durationMs: number;
+};
 
 function buildStandardFeed(
   status: CollaborationStatus,
@@ -117,7 +172,6 @@ function buildStandardFeed(
 
   const completedRoles = new Set(specialists.map((s) => s.role));
 
-  // Researcher
   const researcher = specialists.find((s) => s.role === 'researcher');
   if (researcher) {
     items.push({ kind: 'message', key: 'msg-researcher', role: 'researcher', text: researcher.response, durationMs: researcher.durationMs, isError: !!researcher.error });
@@ -129,7 +183,6 @@ function buildStandardFeed(
     items.push({ kind: 'phase', key: 'phase-specialists', phase: 'specialists' });
   }
 
-  // Analyst & Visionary
   for (const role of ['analyst', 'visionary'] as CollaborationRole[]) {
     const spec = specialists.find((s) => s.role === role);
     if (spec) {
@@ -143,7 +196,6 @@ function buildStandardFeed(
     items.push({ kind: 'phase', key: 'phase-synthesis', phase: 'synthesis' });
   }
 
-  // Coordinator
   const coordinator = specialists.find((s) => s.role === 'coordinator');
   if (coordinator) {
     items.push({ kind: 'message', key: 'msg-coordinator', role: 'coordinator', text: coordinator.response, durationMs: coordinator.durationMs, isError: !!coordinator.error });
@@ -170,7 +222,7 @@ function buildDebateFeed(
     if (phases[i] === 'decomposition') {
       const decomposition = specialists.find((s) => s.role === 'coordinator');
       const coordinatorStatus =
-        debate.agentStatuses['coordinator'] ?? debate.agentStatuses['collab-coordinator'];
+        debate.agentStatuses.coordinator ?? debate.agentStatuses['collab-coordinator'];
       if (decomposition) {
         items.push({
           kind: 'message',
@@ -211,7 +263,7 @@ function buildDebateFeed(
         });
       }
       if (i === currentIdx && debate.currentRound > debate.rounds.length) {
-        const activeAgents = Object.entries(debate.agentStatuses).filter(([, s]) => s === 'running');
+        const activeAgents = Object.entries(debate.agentStatuses).filter(([, status]) => status === 'running');
         for (const [name] of activeAgents) {
           const role = agentNameToRole(name);
           if (role) items.push({ kind: 'typing', key: `typing-debate-${role}`, role });

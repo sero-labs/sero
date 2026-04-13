@@ -25,7 +25,6 @@ import {
   SessionManager,
   type AgentSession,
 } from '@mariozechner/pi-coding-agent';
-import type { Api, Model } from '@mariozechner/pi-ai';
 import os from 'os';
 import path from 'path';
 
@@ -34,6 +33,7 @@ import { discoverApps } from '@electron/features/apps/discovery';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
+import { syncAppSessionModel } from '@electron/ipc/agent/core/app-agent-session-model-sync';
 
 // ── App Session Pool ─────────────────────────────────────────
 
@@ -58,21 +58,6 @@ function poolKey(appId: string, workspaceId: string): string {
   return `${appId}:${workspaceId}`;
 }
 
-function appSessionMatchesSharedModel(
-  session: AgentSession,
-  model: Model<Api>,
-): boolean {
-  return session.model?.provider === model.provider && session.model?.id === model.id;
-}
-
-export async function syncAppSessionModel(
-  session: AgentSession,
-  sharedModel: Model<Api> | null,
-): Promise<void> {
-  if (!sharedModel) return;
-  if (appSessionMatchesSharedModel(session, sharedModel)) return;
-  await session.setModel(sharedModel);
-}
 
 // ── App package resource resolution ─────────────────────────
 
@@ -180,6 +165,10 @@ async function getOrCreateAppSession(
 
   appPool.set(key, { session });
   return session;
+}
+
+export function getAppAgentSessions(): AgentSession[] {
+  return [...appPool.values()].map((entry) => entry.session);
 }
 
 /** Dispose all in-memory app sessions for a specific app id. */
