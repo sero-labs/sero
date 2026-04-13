@@ -40,16 +40,19 @@ describe('syncAppSessionModel', () => {
     expect(setModel).not.toHaveBeenCalled();
   });
 
-  it('skips model updates when there is no shared model to apply', async () => {
+  it('clears reused app sessions when no shared model remains available', async () => {
     const setModel = vi.fn(async () => {});
+    const runtimeSetModel = vi.fn();
     const session = {
       model: createModel('openai', 'gpt-5.4-mini'),
+      agent: { setModel: runtimeSetModel },
       setModel,
     } as unknown as AgentSession;
 
     const changed = await syncAppSessionModel(session, null);
 
-    expect(changed).toBe(false);
+    expect(changed).toBe(true);
+    expect(runtimeSetModel).toHaveBeenCalledWith(undefined);
     expect(setModel).not.toHaveBeenCalled();
   });
 

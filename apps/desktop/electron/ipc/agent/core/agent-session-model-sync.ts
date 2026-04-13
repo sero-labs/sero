@@ -3,6 +3,12 @@ import type { AgentSession } from '@mariozechner/pi-coding-agent';
 import { getConfiguredModelFallbackChain } from '@electron/shared/settings/model-fallback-chain';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
 
+type SessionWithMutableRuntimeModel = AgentSession & {
+  agent: {
+    setModel(model: NonNullable<AgentSession['model']> | undefined): void;
+  };
+};
+
 function findAvailableModelByProviderAndId(
   availableModels: ReturnType<AgentSession['modelRegistry']['getAvailable']>,
   provider: string | undefined,
@@ -74,6 +80,17 @@ function pickFallbackModel(
   return availableModels[0];
 }
 
+export function clearUnavailableSessionModel(session: AgentSession): boolean {
+  if (!session.model) return false;
+
+  // The SDK runtime accepts `undefined` here and `AgentSession.prompt()`
+  // already treats that as “No model selected”. We use the widened cast only
+  // to clear stale live-session selections when availability drops to zero.
+  const runtimeMutableSession = session as unknown as SessionWithMutableRuntimeModel;
+  runtimeMutableSession.agent.setModel(undefined);
+  return true;
+}
+
 export async function ensureSessionHasAvailableModel(
   session: AgentSession,
 ): Promise<boolean> {
@@ -100,7 +117,9 @@ export async function ensureSessionHasAvailableModel(
   if (currentStillAvailable) return false;
 
   const fallbackModel = pickFallbackModel(session, availableModels);
-  if (!fallbackModel) return false;
+  if (!fallbackModel) {
+    return clearUnavailableSessionModel(session);
+  }
 
   await session.setModel(fallbackModel);
   return true;

@@ -1,5 +1,6 @@
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 import type { Api, Model } from '@mariozechner/pi-ai';
+import { clearUnavailableSessionModel } from './agent-session-model-sync';
 
 export function appSessionMatchesSharedModel(
   session: AgentSession,
@@ -12,7 +13,9 @@ export async function syncAppSessionModel(
   session: AgentSession,
   sharedModel: Model<Api> | null,
 ): Promise<boolean> {
-  if (!sharedModel) return false;
+  if (!sharedModel) {
+    return clearUnavailableSessionModel(session);
+  }
   if (appSessionMatchesSharedModel(session, sharedModel)) return false;
   await session.setModel(sharedModel);
   return true;
