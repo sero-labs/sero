@@ -88,8 +88,8 @@ entry links to a `facts.md` and `plan.md` pair.
   — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
   — *Wave C exemplar review complete — High startup-recovery/state-truthfulness findings documented 2026-04-13*
-- `plugins/sero-git-plugin/`
-  — *Phase 0 baseline mapped 2026-04-13; Wave C host-integrated review pending*
+- [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
+  — *Wave C host-integrated review complete — High bridge-contract drift and state-truthfulness findings documented 2026-04-13*
 - `plugins/sero-hello-world-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)

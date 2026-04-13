@@ -84,7 +84,7 @@ copying.
 - [x] `deslopify plugins/sero-memory-plugin`
 
 ### 4. Additional host-integrated plugins
-- [ ] `deslopify plugins/sero-git-plugin`
+- [x] `deslopify plugins/sero-git-plugin`
 - [ ] `deslopify plugins/sero-context-plugin`
 - [ ] `deslopify plugins/sero-web-plugin`
 - [ ] `deslopify plugins/sero-user-feedback-plugin`
@@ -249,3 +249,10 @@ runtime, contract, or desktop-side code that those plugins consume.
   truthfulness defects — auto-consolidation rewrites cron state through a local
   mirrored contract, and QMD still has a Sero-incompatible `~/.pi/agent`
   fallback that can split profile-scoped search/transcript data.
+- 2026-04-13: Wave C step 4.1 complete for `plugins/sero-git-plugin`.
+  Facts + plan added at
+  `docs/deslopify/plugins/sero-git-plugin/{facts,plan}.md`; result: the
+  plugin is structurally healthy and well-tested, but the top High findings are
+  host-boundary truthfulness defects — the canonical Git action contract has
+  already drifted across app-runtime/preload/UI layers, and fail-open
+  state-file reads can silently replace real snapshots with defaults.
