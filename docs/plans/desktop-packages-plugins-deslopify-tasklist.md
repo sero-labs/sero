@@ -49,13 +49,13 @@ without losing sequencing discipline.
 ## Wave A — Deslopify Shared Contracts and Runtime Foundations
 
 ### 1. Shared package foundations
-- [ ] `deslopify packages/common/src`
-- [ ] `deslopify packages/app-runtime/src`
+- [x] `deslopify packages/common/src`
+- [x] `deslopify packages/app-runtime/src`
 
 ### 2. Residual desktop contract / platform seams
-- [ ] `deslopify apps/desktop/electron/types`
+- [x] `deslopify apps/desktop/electron/types`
 - [ ] `deslopify apps/desktop/electron/cli`
-- [ ] `deslopify apps/desktop/electron/gateway`
+- [x] `deslopify apps/desktop/electron/gateway`
 - [ ] `deslopify apps/desktop/electron/features/kanban`
 
 ## Wave B — Fix Shared/Desktop High-Priority Findings
@@ -178,3 +178,19 @@ runtime, contract, or desktop-side code that those plugins consume.
   confirmed that `apps/desktop/electron/gateway/` and
   `plugins/sero-hello-world-plugin/` are currently generated-only / no-source
   closeout targets rather than full review surfaces.
+- 2026-04-13: Wave A step 1 complete for `packages/common/src` and
+  `packages/app-runtime/src`. Facts + plans added under
+  `docs/deslopify/packages/**`; headline findings: `@sero/common` is healthy but
+  still does not fully own shared plugin/provider/model contracts, while
+  `@sero-ai/app-runtime` has three High-priority boundary type escape hatches
+  (`globalThis` singletons + `window.sero` access) plus a reliability follow-up
+  for optimistic `useAppState()` writes.
+- 2026-04-13: Wave A step 2.1 complete for `apps/desktop/electron/types`.
+  Facts + plan added at `docs/deslopify/apps/desktop/electron/types/{facts,plan}.md`;
+  result: healthy narrow Pi SDK augmentation seam, with only a Low follow-up to
+  remove the local `systemPromptSuffix` patch once upstream typings catch up.
+- 2026-04-13: Wave A step 2.2 complete for `apps/desktop/electron/gateway`.
+  Facts + plan added at `docs/deslopify/apps/desktop/electron/gateway/{facts,plan}.md`;
+  result: generated-only closeout confirmed (`web-dist/**` only), so real
+  gateway cleanup continues to live under
+  `apps/desktop/electron/features/gateway/**`.

@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *Phase 0 baseline mapped 2026-04-13; Wave A/C reviews pending*
+  — *Phase 0 baseline mapped 2026-04-13; shared-package reviews landed, remaining Electron/plugin reviews pending*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -46,8 +46,8 @@ entry links to a `facts.md` and `plan.md` pair.
     — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
   - `apps/desktop/electron/features/kanban/`
     — *Phase 0 baseline mapped 2026-04-13; Wave A deslopify pending*
-  - `apps/desktop/electron/gateway/`
-    — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
+  - [`apps/desktop/electron/gateway/`](./apps/desktop/electron/gateway/plan.md)
+    — *Healthy — generated-only closeout confirmed 2026-04-13*
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
     — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
@@ -70,14 +70,14 @@ entry links to a `facts.md` and `plan.md` pair.
     — *In progress — cached-model Medium item cleared 2026-04-12; modularization cleanup pending*
   - `apps/desktop/electron/cli/`
     — *Phase 0 baseline mapped 2026-04-13; Wave A deslopify pending*
-  - `apps/desktop/electron/types/`
-    — *Phase 0 baseline mapped 2026-04-13; tiny augmentation seam review pending*
+  - [`apps/desktop/electron/types/`](./apps/desktop/electron/types/plan.md)
+    — *Healthy — narrow Pi SDK augmentation seam reviewed 2026-04-13*
 
 ## packages/
-- `packages/app-runtime/src/`
-  — *Phase 0 baseline mapped 2026-04-13; Wave A deslopify pending*
-- `packages/common/src/`
-  — *Phase 0 baseline mapped 2026-04-13; Wave A deslopify pending*
+- [`packages/app-runtime/src/`](./packages/app-runtime/src/plan.md)
+  — *Wave A review complete — High type-safety + runtime-hardening cleanup pending*
+- [`packages/common/src/`](./packages/common/src/plan.md)
+  — *Wave A review complete — no High items; Medium canonical-contract cleanup pending*
 
 ## plugins/
 - `plugins/sero-admin-plugin/`
