@@ -14,7 +14,7 @@ _Plan drafted: 2026-04-13_
 - **Low** — The remote UI swallows bridge/profile failures instead of surfacing them — `plugins/sero-user-feedback-plugin/ui/UserFeedbackApp.tsx:49-52`, `plugins/sero-user-feedback-plugin/ui/UserFeedbackApp.tsx:90`, and `plugins/sero-user-feedback-plugin/ui/UserFeedbackApp.tsx:126-128` turn preload/profile failures into silent fallbacks. That keeps the UI calm, but it also removes the debugging signal when the bridge or onboarding flow breaks. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Pick one truthful questionnaire completion contract with Sero as the source of truth.**
+1. **~~Pick one truthful questionnaire completion contract with Sero as the source of truth.~~ ✅ 2026-04-14 (`aa301f95`)**
    - Decide explicitly whether skipped questions are allowed.
    - Based on the current Sero UI (`Skip`, `Review`, `Skipped` labels), the likely canonical rule is: *partial answers are valid, unanswered questions remain omitted, and the result still returns the answered subset*.
    - If Pi CLI cannot match that contract cleanly without harming the Sero UX or overcomplicating the implementation, Sero should still win; Pi CLI compatibility is a nice-to-have, not a hard backwards-compatibility requirement.
@@ -28,7 +28,7 @@ _Plan drafted: 2026-04-13_
    - Have both `ui/QuestionnaireForm.tsx` and `extension/tui-questionnaire.ts` consume that shared model where practical while keeping renderer/TUI presentation separate.
    - The main goal is to remove hand-maintained behavioral drift from the Sero path; matching Pi CLI behavior remains desirable but secondary.
 
-2. **Remove onboarding ownership from the plugin UI and push it back to the host/profile layer.**
+2. **~~Remove onboarding ownership from the plugin UI and push it back to the host/profile layer.~~ ✅ 2026-04-14 (`aa301f95`)**
    - Strip `needsOnboarding()` / `markOnboardingDone()` usage out of `UserFeedbackApp` so the remote depends only on user-feedback APIs.
    - Move any onboarding wait-state or completion side effect into the host code that already owns onboarding orchestration (`OnboardingWizard`, profile setup flows, or the renderer store layer), not the generic plugin remote.
    - Delete the `profiles` surface from `ui/sero.d.ts` once the remote no longer needs it.
@@ -105,3 +105,6 @@ Verification checklist:
 - `UserFeedbackApp` still hydrates pending questionnaires/interviews and clears promptly when `window.sero.userFeedback.answer()` fires the synchronous answered event.
 - Permission prompts still auto-time out after 30 seconds and still auto-allow only workspace-scoped recursive deletes.
 - Desktop host, preload, and plugin all compile against one canonical feedback contract without local mirrored type or bus definitions.
+
+## Execution log
+- `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`

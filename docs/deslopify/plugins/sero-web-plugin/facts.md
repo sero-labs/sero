@@ -86,3 +86,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The remaining High item is still the `SERO_HOME`/`~/.pi` path drift.
 - Medium package-local extension coverage and provider-module splitting remain pending.
+
+## Post-fix snapshot — 2026-04-14 (D4)
+
+### Metrics after fixes
+- Largest file: `plugins/sero-web-plugin/extension/gemini-web.ts` (483 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: unchanged outside the Medium provider/config dedupe work
+
+### What changed
+- Rebased Web config/usage ownership on a Sero-first profile-scoped home (`~/.sero-ui/apps/web` when `SERO_HOME` is absent).
+- Added legacy read fallback so existing `web-search.json` / `exa-usage.json` data under `~/.pi` stays discoverable during migration.
+- Kept usage writes canonical by continuing to write `exa-usage.json` to the profile-scoped Web app directory.
+- Package-local UI `typecheck`, targeted extension compile for `paths.ts`, and monorepo `pnpm typecheck` all still pass.
+
+### Still outstanding
+- High items are cleared for this plan.
+- Medium package-local extension coverage and provider-module splitting remain pending.

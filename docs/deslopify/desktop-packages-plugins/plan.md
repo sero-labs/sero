@@ -264,3 +264,5 @@ Verification checklist for the downstream folder reviews:
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
 - `ff4e460a` — `fix(plugins): make web and context actions truthful`
+- `a3f625be` — `fix(plugins): align profile-scoped path ownership`
+- `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`

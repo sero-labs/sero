@@ -72,3 +72,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The remaining High item is still startup reminder recovery truthfulness / duplicate-fire behavior.
 - Medium UI reminder ownership, logging, and `extension/index.ts` modularization work remain pending.
+
+## Post-fix snapshot — 2026-04-14 (D4)
+
+### Metrics after fixes
+- Largest source file: `plugins/sero-cron-plugin/extension/index.ts` (485 LOC)
+- Files over 500 LOC: none
+- Targeted extension/runtime validation: cron package tests green, including new recovery bootstrap coverage
+
+### What changed
+- Added `extension/recovery-runtime.ts` so missed-item recovery is planned before the scheduler starts ticking.
+- Startup recovery now updates missed reminders through the same post-fire state helper used by live ticks and advances the scheduler minute watermark before normal processing resumes.
+- Missed jobs are now replayed after scheduler startup without re-firing the same minute through the immediate tick path.
+- Added direct recovery bootstrap tests alongside the existing cron extension test suite.
+
+### Still outstanding
+- High items are cleared for this plan.
+- Medium UI reminder ownership, logging, and `extension/index.ts` modularization work remain pending.

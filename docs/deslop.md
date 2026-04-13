@@ -49,6 +49,13 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/apps/web-app-manager.test.ts` | New — covers clear-history, download deletion, and workspace-boundary validation for the new Web action bridge |
 | `plugins/sero-web-plugin/ui/{lib/web-actions.ts,components/SearchHistory.tsx,components/BookmarkList.tsx,components/DownloadsList.tsx}` | Replaced direct `useAppState()` mutations with explicit host-backed Web app actions |
 | `plugins/sero-context-plugin/{README.md,extension/index.ts,ui/ContextApp.tsx,ui/components/ContextTimeline.tsx}` | Reworded Context refresh/tag/checkout affordances as prompt-routed agent requests and removed the stale “real time” claim |
+| `plugins/sero-memory-plugin/extension/{agent-dir.ts,qmd.ts,session-transcripts.ts}` | New/shared agent-dir resolver for profile-scoped transcript + QMD ownership; removed the `~/.pi/agent` fallback drift |
+| `plugins/sero-web-plugin/extension/{paths.ts,exa.ts}` | Switched Web config/usage resolution to a Sero-first profile-scoped home with legacy read fallback |
+| `plugins/sero-cron-plugin/extension/{index.ts,recovery-runtime.ts}` | Moved startup recovery ahead of scheduler ticking so missed jobs/reminders update state once before normal processing |
+| `plugins/sero-cron-plugin/extension/__tests__/recovery-runtime.test.ts` | New — covers pre-start reminder recovery state updates and missed-job bootstrap planning |
+| `plugins/sero-context-plugin/extension/{index.ts,snapshot.ts}` | Added automatic snapshot refresh on session entry + agent end and tightened extension typing around nullable context usage |
+| `plugins/sero-user-feedback-plugin/{ui/UserFeedbackApp.tsx,ui/sero.d.ts,extension/tui-questionnaire.ts}` | Removed onboarding ownership from the plugin UI and aligned Pi TUI questionnaire submission with Sero’s partial-answer contract |
+| `apps/desktop/src/user-feedback-app.test.tsx` | Added coverage that generic questionnaire submission no longer marks onboarding complete |
 
 ---
 

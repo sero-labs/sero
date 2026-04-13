@@ -24,7 +24,7 @@ _Plan drafted: 2026-04-13_
      - `readExistingState()` for mutation/update paths that must not silently erase data
    - This follows the same fail-closed state-file cleanup already documented elsewhere in the deslop log.
 
-2. **Replace the `~/.pi` fallback with a profile-scoped Sero resolver.**
+2. **~~Replace the `~/.pi` fallback with a profile-scoped Sero resolver.~~ ✅ 2026-04-14 (`a3f625be`)**
    - Introduce one canonical helper for the plugin’s config/usage home rooted in `SERO_HOME`.
    - If Pi-CLI compatibility is still required for standalone use, make it explicit instead of accidental:
      - first resolve `SERO_HOME`
@@ -103,3 +103,4 @@ Verification checklist:
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership` *(partial for this plan: canonical host-bridge typing only)*
 - `ff4e460a` — `fix(plugins): make web and context actions truthful`
+- `a3f625be` — `fix(plugins): align profile-scoped path ownership`

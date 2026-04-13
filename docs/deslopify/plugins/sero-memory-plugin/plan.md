@@ -28,7 +28,7 @@ _Plan drafted: 2026-04-13_
    - If the cron file cannot be parsed, the memory plugin should skip sync and surface a clear warning rather than rewriting the scheduler file.
    - This aligns with the plugin guide’s neutral-contract rule and complements the cron plugin’s own deslopify plan.
 
-2. **Unify agent-dir resolution around Sero’s profile-scoped agent home.**
+2. **~~Unify agent-dir resolution around Sero’s profile-scoped agent home.~~ ✅ 2026-04-14 (`a3f625be`)**
    - Introduce one small helper for resolving the active agent dir from `PI_CODING_AGENT_DIR` with a Sero-safe fallback to `SERO_HOME/agent`.
    - Use it from both `qmd.ts` and `session-transcripts.ts` so transcript exports, session discovery, and QMD indexes cannot drift to different roots.
    - Preserve Pi compatibility only if it is explicitly intended; otherwise keep the runtime truthful to Sero’s documented `SERO_AGENT_DIR` ownership.
@@ -93,3 +93,4 @@ Verification checklist:
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
+- `a3f625be` — `fix(plugins): align profile-scoped path ownership`

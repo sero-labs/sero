@@ -33,3 +33,20 @@ _Last reviewed: 2026-04-13_
 - The Sero questionnaire UI allows partial submissions (`Skip` + `Submit All Answers`), while the Pi CLI TUI blocks submission until every question is answered.
 - There are no package-local tests. The only coverage touching this plugin today lives in host-side app tests and only exercises queue ordering plus a small slice of questionnaire submission behavior.
 - The package-local quality gate misses the extension entirely even though the extension owns the permission gate, the IPC bridge, and all Pi CLI behavior.
+
+## Post-fix snapshot — 2026-04-14 (D4)
+
+### Metrics after fixes
+- Largest file: `plugins/sero-user-feedback-plugin/ui/QuestionnaireForm.tsx` (469 LOC)
+- Files over 500 LOC: none
+- Targeted validation: UI typecheck, extension tsconfig compile, desktop app tests, and monorepo `pnpm typecheck` all pass
+
+### What changed
+- Removed profile/onboarding ownership from `UserFeedbackApp`; the remote now depends only on `window.sero.userFeedback` again.
+- Deleted the plugin-local `profiles` bridge subset from `ui/sero.d.ts`.
+- Aligned Pi CLI questionnaire submission with Sero’s partial-answer contract by allowing submit once at least one answer exists.
+- Added desktop test coverage asserting that generic questionnaire submission no longer marks onboarding complete.
+
+### Still outstanding
+- High items are cleared for this plan.
+- Medium canonical transport/bus ownership, package-local test expansion, and questionnaire file-splitting work remain pending.

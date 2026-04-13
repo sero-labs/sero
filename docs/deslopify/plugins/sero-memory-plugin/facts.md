@@ -93,3 +93,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The remaining High item is still the `~/.pi/agent` fallback in QMD.
 - Medium startup-migration, async persistence/logging, and test-surface work remain pending.
+
+## Post-fix snapshot — 2026-04-14 (D4)
+
+### Metrics after fixes
+- Largest source file: `plugins/sero-memory-plugin/extension/memory-tool.ts` (466 LOC)
+- Files over 500 LOC: none
+- Package-local `typecheck`: still green
+
+### What changed
+- Added `extension/agent-dir.ts` as the canonical profile-scoped agent-dir resolver for the package.
+- Rebased both QMD DB resolution and transcript session-store resolution on the same Sero-first agent home.
+- Removed the memory plugin’s last `~/.pi/agent` fallback on the D4 High seam while preserving `PI_CODING_AGENT_DIR` support.
+- Package-local `typecheck` and monorepo `pnpm typecheck` still pass.
+
+### Still outstanding
+- High items are cleared for this plan.
+- Medium startup-migration, async persistence/logging, and test-surface work remain pending.

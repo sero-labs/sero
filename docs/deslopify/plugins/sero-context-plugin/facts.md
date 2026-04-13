@@ -47,3 +47,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The remaining High item is snapshot freshness / lifecycle truthfulness.
 - Medium projection dedupe, extension typecheck expansion, and failure-surface work remain pending.
+
+## Post-fix snapshot — 2026-04-14 (D4)
+
+### Metrics after fixes
+- Largest file: `plugins/sero-context-plugin/extension/index.ts` (388 LOC)
+- Files over 500 LOC: none
+- Targeted extension compile: `extension/index.ts` + `extension/snapshot.ts` + `extension/helpers.ts` now compile cleanly under strict standalone checks
+
+### What changed
+- The extension now writes a snapshot on session entry instead of waiting for `context_log` / `context_tag` / `context_checkout` to run first.
+- Added an `agent_end` snapshot refresh so the UI reflects the latest saved session state after normal turns, not only after explicit context-tool use.
+- Tightened the extension snapshot/log builders around nullable context-usage fields uncovered during targeted compile.
+- Package-local UI `typecheck`, targeted extension compile, and monorepo `pnpm typecheck` still pass.
+
+### Still outstanding
+- High items are cleared for this plan.
+- Medium projection dedupe, package-local extension quality gate, and failure-surface work remain pending.

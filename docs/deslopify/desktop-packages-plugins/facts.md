@@ -202,3 +202,21 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 - `plugins/sero-web-plugin` still has one remaining High item: the `SERO_HOME` / `~/.pi` path drift.
 - `plugins/sero-context-plugin` still has one remaining High item: truthful snapshot freshness / lifecycle ownership.
 - `plugins/sero-memory-plugin` still has one remaining High item: the QMD `~/.pi/agent` fallback.
+
+## Post-fix snapshot — 2026-04-14 (Wave D / D4)
+
+### Metrics after fixes
+- Wave D High batches landed: **D1 + D2 + D3 + D4**
+- New plugin-local shared helper added: `plugins/sero-memory-plugin/extension/agent-dir.ts`
+- New runtime recovery module added: `plugins/sero-cron-plugin/extension/recovery-runtime.ts`
+- All documented plugin High batches are now cleared across the Wave D target set
+
+### What changed
+- Rebased memory/QMD and web-provider path ownership on Sero’s profile-scoped homes instead of legacy `~/.pi` fallbacks, while keeping legacy Web config/usage reads discoverable during migration.
+- Moved cron missed-item recovery ahead of scheduler ticking so missed reminders/jobs update state once before normal processing and no longer double-fire on startup.
+- Made the Context app snapshot lifecycle truthful by writing snapshots on session entry and after each agent run, not only when context tools execute.
+- Removed onboarding ownership from the generic User Feedback remote and aligned Pi TUI questionnaire submission with the Sero UI’s partial-answer contract.
+
+### Still outstanding
+- Wave D High work is complete; the next backlog is **Wave E / Medium cleanup planning**.
+- Notable Medium carryovers: cron reminder mutation ownership/logging, memory startup migration + tests, context projection dedupe + extension quality gate, user-feedback canonical transport ownership, and web package-local extension coverage/module splitting.

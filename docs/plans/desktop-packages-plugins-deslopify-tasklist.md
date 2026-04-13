@@ -109,13 +109,13 @@ plugin done when all of its High items are cleared across every batch it joins.
 | **D4 — Sero-first lifecycle + profile-home semantics** | `sero-cron`, `sero-memory`, `sero-context`, `sero-user-feedback`, `sero-web` | Fix startup/session lifecycle truthfulness, questionnaire/onboarding ownership, dashboard freshness semantics, and `SERO_HOME`/agent-dir path ownership |
 
 - [x] `fix-slop` High items for `plugins/sero-kanban-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-cron-plugin`
+- [x] `fix-slop` High items for `plugins/sero-cron-plugin`
 - [x] `fix-slop` High items for `plugins/sero-admin-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-memory-plugin`
+- [x] `fix-slop` High items for `plugins/sero-memory-plugin`
 - [x] `fix-slop` High items for `plugins/sero-git-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-context-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-web-plugin`
-- [ ] `fix-slop` High items for `plugins/sero-user-feedback-plugin`
+- [x] `fix-slop` High items for `plugins/sero-context-plugin`
+- [x] `fix-slop` High items for `plugins/sero-web-plugin`
+- [x] `fix-slop` High items for `plugins/sero-user-feedback-plugin`
 - [ ] Run targeted package/plugin tests plus monorepo `pnpm typecheck` after
       each batch
 
@@ -310,3 +310,11 @@ runtime, contract, or desktop-side code that those plugins consume.
   Kanban D3 closeout after validating that host-side review-action effects
   already fire on UI state transitions. Targeted desktop tests, plugin
   typechecks, and monorepo `pnpm typecheck` passed.
+- 2026-04-14: Wave D batch **D4 — Sero-first lifecycle + profile-home
+  semantics** landed across `a3f625be` (`fix(plugins): align profile-scoped
+  path ownership`) and `aa301f95` (`fix(plugins): make lifecycle semantics
+  sero-first`). Covered: memory/web profile-home semantics, cron startup
+  recovery truthfulness, Context snapshot freshness, and User Feedback
+  onboarding/questionnaire parity. Targeted cron tests, package typechecks,
+  targeted extension compiles, desktop user-feedback tests, and monorepo
+  `pnpm typecheck` passed.

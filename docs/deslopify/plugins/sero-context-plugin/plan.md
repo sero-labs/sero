@@ -13,7 +13,7 @@ _Plan drafted: 2026-04-13_
 - **Low** — A few type escape hatches and swallowed snapshot failures are already visible in the hot path — `plugins/sero-context-plugin/extension/index.ts:122-127,305` and `plugins/sero-context-plugin/extension/snapshot.ts:47-58` use `as any` around session message content/tool-call parsing, while `plugins/sero-context-plugin/extension/index.ts:75-85` logs snapshot-write failures to stderr and otherwise fails silent. None are catastrophic today, but they weaken a package whose whole job is introspection. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Make snapshot freshness truthful and explicit.** *(partial — 2026-04-13 `ff4e460a` downgraded the misleading “real time” copy to latest-snapshot/manual refresh wording, but the runtime freshness model itself is still pending.)*
+1. **~~Make snapshot freshness truthful and explicit.~~ ✅ 2026-04-14 (`aa301f95`, `ff4e460a`)**
    - Decide whether the plugin should truly be live or explicitly manual.
    - Preferred shape: write an initial snapshot on session entry and subscribe to the narrowest available session-history events so the state file stays current even when the model never calls `context_log`.
    - If the Pi SDK cannot provide a safe event for this today, then downgrade the copy instead of pretending: change the README/UI language from “real time” to “manual snapshot / refresh.”
@@ -90,3 +90,4 @@ Verification checklist:
 
 ## Execution log
 - `ff4e460a` — `fix(plugins): make web and context actions truthful` *(partial for this plan: truthful manual-snapshot copy + prompt-routed action labeling)*
+- `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`

@@ -21,7 +21,7 @@ _Plan drafted: 2026-04-13_
 - **Low** — The dashboard widget is more illustrative than truthful — `plugins/sero-cron-plugin/ui/widgets/CronWidget.tsx:13-26,50-51` labels itself as showing upcoming jobs/reminders but only renders simplified cron labels / relative fire strings, and it assumes `state.reminders` is always present instead of using the same migration guard as `plugins/sero-cron-plugin/ui/CronApp.tsx:35`. It is not broken enough to block other work, but it is the kind of loose edge that spreads when exemplar plugins are copied. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Unify missed-reminder recovery with the scheduler’s real reminder transition path.**
+1. **~~Unify missed-reminder recovery with the scheduler’s real reminder transition path.~~ ✅ 2026-04-14 (`aa301f95`)**
    - Stop treating “startup recovery” as a second notification engine.
    - Target structure:
      - `extension/recovery.ts` should only decide *which* jobs/reminders were missed and return explicit recovery actions.
@@ -99,3 +99,4 @@ Verification checklist:
 
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`
+- `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`
