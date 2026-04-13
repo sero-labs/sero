@@ -54,9 +54,9 @@ without losing sequencing discipline.
 
 ### 2. Residual desktop contract / platform seams
 - [x] `deslopify apps/desktop/electron/types`
-- [ ] `deslopify apps/desktop/electron/cli`
+- [x] `deslopify apps/desktop/electron/cli`
 - [x] `deslopify apps/desktop/electron/gateway`
-- [ ] `deslopify apps/desktop/electron/features/kanban`
+- [x] `deslopify apps/desktop/electron/features/kanban`
 
 ## Wave B — Fix Shared/Desktop High-Priority Findings
 
@@ -194,3 +194,21 @@ runtime, contract, or desktop-side code that those plugins consume.
   result: generated-only closeout confirmed (`web-dist/**` only), so real
   gateway cleanup continues to live under
   `apps/desktop/electron/features/gateway/**`.
+- 2026-04-13: Wave A step 2.3 complete for `apps/desktop/electron/cli`.
+  Facts + plan added at `docs/deslopify/apps/desktop/electron/cli/{facts,plan}.md`;
+  result: the AD-020 bridge is structurally solid and well-tested, but it still
+  has a High-priority type-safety seam in `schema-bridge.ts` / `core/tool.ts` /
+  `gog-runner.ts`, plus Medium follow-ups to dedupe app-control and split the
+  near-cap command/router hubs.
+- 2026-04-13: Wave A step 2.4 complete for
+  `apps/desktop/electron/features/kanban`.
+  Facts + plan added at
+  `docs/deslopify/apps/desktop/electron/features/kanban/{facts,plan}.md`;
+  result: the runtime is broadly modular, but the top High finding is contract
+  truthfulness — several declared/user-visible settings (`maxConcurrentCards`,
+  `requireApproval.*`, `reviewLevel`) are not enforced by the host, and shared
+  Kanban state ownership should move out of duplicated host/plugin types into a
+  neutral shared contract.
+- 2026-04-13: Wave A is now fully deslopified across the shared packages and
+  residual desktop seams. Next up: Wave B synthesis and High-only `fix-slop`
+  batching across the newly documented plans.
