@@ -88,3 +88,57 @@ export type {
   ModelValidationWarningCode,
   ModelValidationWarning,
 } from './model-selection';
+
+export type {
+  GitManagerAction,
+  GitManagerRequest,
+  GitActionResult,
+} from './git-app';
+
+export type {
+  CronJob,
+  CronState,
+} from './cron-contract';
+
+export type {
+  GlobalModelConfigStateIPC,
+  WorkspaceRootIPC,
+  ProfileInfo,
+  SeroSessionInfo,
+  AvailableSkillInfo,
+  StructuredAgentModelIPC,
+  AgentModelIPC,
+  AgentSummaryIPC,
+  AgentFileDataIPC,
+  SkillSummaryIPC,
+  SkillFileDataIPC,
+  PromptTemplateSummaryIPC,
+  PromptTemplateFileDataIPC,
+  ModelInfoIPC,
+  AvailableModelGroupIPC,
+  OAuthProviderInfoIPC,
+  ApiKeyProviderInfoIPC,
+  AuthProvidersResponseIPC,
+  OAuthEventIPC,
+  ProviderHealthStatusIPC,
+  ProviderHealthInfoIPC,
+  OnboardingStateIPC,
+  SeroAppStateBridge,
+  SeroAppsBridge,
+  SeroShellBridge,
+  SeroWorkspaceBridge,
+  SeroPluginsBridge,
+  SeroAuthBridge,
+  SeroSubagentBridge,
+  SeroSkillsBridge,
+  SeroPromptsBridge,
+  SeroModelConfigBridge,
+  SeroModelsBridge,
+  SeroOnboardingBridge,
+  SeroProfilesBridge,
+  SeroSessionsBridge,
+  SeroAdminBridge,
+  SeroAppControlBridge,
+  SeroEditorBridge,
+  SeroWebHostBridge,
+} from './admin-bridge';

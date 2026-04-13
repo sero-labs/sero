@@ -19,6 +19,7 @@ import type {
   CreateGitHubRepoInput,
   CreateGitHubRepoResult,
 } from '@/types/ipc';
+import type { GitActionResult, GitManagerRequest } from '@sero/common';
 import type { GitHubDeviceFlowEvent } from '@/types/electron-services';
 
 export const appStateBridge = {
@@ -93,7 +94,7 @@ export const appAgentBridge = {
 };
 
 export const gitAppBridge = {
-  run: (workspaceId: string, params: unknown): Promise<unknown> =>
+  run: (workspaceId: string, params: GitManagerRequest): Promise<GitActionResult> =>
     ipcRenderer.invoke(IpcChannels.gitApp.run, workspaceId, params),
 };
 

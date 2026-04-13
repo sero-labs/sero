@@ -8,6 +8,9 @@
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["node"],
-    "lib": ["ES2023"]
+    "lib": ["ES2023"],
+    "paths": {
+      "@sero/common": ["./common/src/index.ts"]
+    }
   }
 }

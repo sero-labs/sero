@@ -7,6 +7,8 @@
  * safety for all IPC calls.
  */
 
+import type { GitActionResult, GitManagerRequest } from '@sero/common';
+
 export interface SeroAppStateBridge {
   read(filePath: string): Promise<unknown>;
   write(filePath: string, data: unknown): Promise<void>;
@@ -25,24 +27,8 @@ export interface SeroAppAgentBridge {
   ): Promise<string>;
 }
 
-export interface SeroGitAppActionParams {
-  action: string;
-  file?: string;
-  message?: string;
-  branch?: string;
-  hash?: string;
-  staged?: boolean;
-  all?: boolean;
-  stashIndex?: number;
-}
-
-export interface SeroGitAppActionResult {
-  ok: boolean;
-  message: string;
-}
-
 export interface SeroGitAppBridge {
-  run(workspaceId: string, params: SeroGitAppActionParams): Promise<SeroGitAppActionResult>;
+  run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
 }
 
 export interface SeroEditorExecResult {

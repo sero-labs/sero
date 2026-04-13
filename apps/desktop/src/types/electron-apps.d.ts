@@ -13,6 +13,7 @@ import type {
   AppRecordingResult,
   AppRecordingStatus,
 } from './ipc';
+import type { GitActionResult, GitManagerRequest } from '@sero/common';
 
 interface SeroAppStateAPI {
   /** Read an app state JSON file. */
@@ -88,24 +89,8 @@ interface SeroAppAgentAPI {
   ): Promise<string>;
 }
 
-interface SeroGitAppActionParams {
-  action: string;
-  file?: string;
-  message?: string;
-  branch?: string;
-  hash?: string;
-  staged?: boolean;
-  all?: boolean;
-  stashIndex?: number;
-}
-
-interface SeroGitAppActionResult {
-  ok: boolean;
-  message: string;
-}
-
 interface SeroGitAppAPI {
-  run(workspaceId: string, params: SeroGitAppActionParams): Promise<SeroGitAppActionResult>;
+  run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
 }
 
 interface SeroAppControlAPI {

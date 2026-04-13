@@ -15,257 +15,43 @@ import { formatDate } from '../lib/format';
 // ── Types ──────────────────────────────────────────────────
 
 import type {
-  InstalledPlugin,
-  ModelValidationWarning,
-  ThinkingLevel,
+  AgentSummaryIPC,
+  AvailableModelGroupIPC,
+  AvailableSkillInfo,
+  GlobalModelConfigStateIPC,
+  ProfileInfo,
+  SeroAdminBridge,
+  SeroSessionInfo,
+  WorkspaceRootIPC,
 } from '@sero/common';
 
-export interface GlobalModelConfigStateIPC {
-  tiers: Partial<Record<'LOW' | 'MED' | 'HIGH', {
-    provider: string;
-    modelId: string;
-    thinkingLevel?: ThinkingLevel;
-  }>>;
-  warnings: ModelValidationWarning[];
-  migrationNotice?: string;
-}
-
-export interface WorkspaceRootIPC {
-  id: string;
-  name: string;
-  path: string;
-  kind?: 'folder' | 'linked-plugin';
-}
-
-export interface SeroApi {
-  appState: {
-    read(filePath: string): Promise<unknown>;
-    readText(filePath: string): Promise<string | null>;
-    write(filePath: string, data: unknown): Promise<void>;
-  };
-  profiles: {
-    list(): Promise<ProfileInfo[]>;
-    getActive(): Promise<ProfileInfo | null>;
-  };
-  sessions: {
-    list(): Promise<SeroSessionInfo[]>;
-  };
-  apps: {
-    discover(): Promise<{ id: string; name: string }[]>;
-  };
-  shell: {
-    showItemInFolder(path: string): Promise<void>;
-  };
-  workspace: {
-    pickFolder(): Promise<string | null>;
-    listRoots(workspaceId: string): Promise<WorkspaceRootIPC[]>;
-    addRoot(
-      workspaceId: string,
-      input: { name: string; path: string; kind?: WorkspaceRootIPC['kind'] },
-    ): Promise<WorkspaceRootIPC>;
-    removeRoot(workspaceId: string, rootId: string): Promise<void>;
-    renameRoot(workspaceId: string, rootId: string, newName: string): Promise<void>;
-  };
-  plugins: {
-    list(): Promise<InstalledPlugin[]>;
-    install(source: string): Promise<{ id: string; name: string }>;
-    uninstall(pluginId: string): Promise<void>;
-    /** Callback receives the raw IPC event; hook only uses it as a reload signal. */
-    onChanged(callback: (event: unknown) => void): () => void;
-  };
-  auth: {
-    onEvent(callback: (event: OAuthEventIPC) => void): () => void;
-    getProviders(): Promise<AuthProvidersResponseIPC>;
-    login(providerId: string): Promise<void>;
-  };
-  subagent: {
-    listAgents(): Promise<AgentSummaryIPC[]>;
-    readAgent(name: string): Promise<AgentFileDataIPC>;
-    writeAgent(data: AgentFileDataIPC): Promise<void>;
-    deleteAgent(name: string): Promise<void>;
-  };
-  skills: {
-    listAvailableSkills(): Promise<AvailableSkillInfo[]>;
-    setDisabledModelSkills(skillNames: string[]): Promise<void>;
-    listSkills(): Promise<SkillSummaryIPC[]>;
-    readSkill(filePath: string): Promise<SkillFileDataIPC>;
-    writeSkill(data: SkillFileDataIPC): Promise<string>;
-    deleteSkill(filePath: string): Promise<void>;
-  };
-  prompts: {
-    listPrompts(): Promise<PromptTemplateSummaryIPC[]>;
-    readPrompt(filePath: string): Promise<PromptTemplateFileDataIPC>;
-    writePrompt(data: PromptTemplateFileDataIPC): Promise<string>;
-    deletePrompt(filePath: string): Promise<void>;
-  };
-  modelConfig: {
-    get(): Promise<GlobalModelConfigStateIPC>;
-    set(config: {
-      tiers: Partial<Record<'LOW' | 'MED' | 'HIGH', {
-        provider: string;
-        modelId: string;
-        thinkingLevel?: ThinkingLevel;
-      }>>;
-    }): Promise<GlobalModelConfigStateIPC>;
-  };
-  models: {
-    list(): Promise<AvailableModelGroupIPC[]>;
-  };
-  onboarding: {
-    getState(): Promise<OnboardingStateIPC>;
-  };
-}
-
-interface ProfileInfo {
-  id: string;
-  name: string;
-  path: string;
-  createdAt: string;
-  isActive: boolean;
-}
-
-interface SeroSessionInfo {
-  id: string;
-  path: string;
-  name?: string;
-  created: string;
-  modified: string;
-  workspaceId: string;
-  messageCount: number;
-  firstMessage: string;
-}
-
-export interface AvailableSkillInfo {
-  name: string;
-  description: string;
-  source: string;
-  disableModelInvocation: boolean;
-}
-
-// ── Resource IPC types ────────────────────────────────────
-
-export interface StructuredAgentModelIPC {
-  prefer: string;
-  fallbacks: string[];
-}
-
-export type AgentModelIPC = string | StructuredAgentModelIPC;
-
-export interface AgentSummaryIPC {
-  name: string;
-  description: string;
-  model?: AgentModelIPC;
-  thinking?: string;
-  timeoutMs?: number;
-}
-
-export interface AgentFileDataIPC {
-  name: string;
-  description: string;
-  model?: AgentModelIPC;
-  thinking?: string;
-  timeoutMs?: number;
-  tools?: string[];
-  systemPrompt: string;
-}
-
-export interface SkillSummaryIPC {
-  name: string;
-  description: string;
-  filePath: string;
-  source: 'user' | 'project' | 'path';
-}
-
-export interface SkillFileDataIPC {
-  name: string;
-  description: string;
-  extraFrontmatter: Record<string, unknown>;
-  filePath?: string;
-  body: string;
-}
-
-export interface PromptTemplateSummaryIPC {
-  name: string;
-  description: string;
-  filePath: string;
-  relativePath: string;
-}
-
-export interface PromptTemplateFileDataIPC {
-  name: string;
-  description: string;
-  filePath?: string;
-  body: string;
-}
-
-// ── Model / auth IPC types ────────────────────────────────
-
-export interface ModelInfoIPC {
-  provider: string;
-  modelId: string;
-  name: string;
-  reasoning: boolean;
-  availableThinkingLevels?: ThinkingLevel[];
-  supportsXhigh?: boolean;
-}
-
-export interface AvailableModelGroupIPC {
-  provider: string;
-  displayName: string;
-  logo: string;
-  models: ModelInfoIPC[];
-}
-
-export interface OAuthProviderInfoIPC {
-  id: string;
-  name: string;
-  isLoggedIn: boolean;
-  canRefresh: boolean;
-}
-
-export interface ApiKeyProviderInfoIPC {
-  id: string;
-  name: string;
-  hasKey: boolean;
-  fromEnv: boolean;
-}
-
-export interface AuthProvidersResponseIPC {
-  oauth: OAuthProviderInfoIPC[];
-  apiKey: ApiKeyProviderInfoIPC[];
-}
-
-export interface OAuthEventIPC {
-  type: 'auth' | 'prompt' | 'manual_input' | 'waiting' | 'progress' | 'success' | 'error' | 'cancelled';
-}
-
-export type ProviderHealthStatusIPC =
-  | 'healthy'
-  | 'broken_expired'
-  | 'broken_invalid'
-  | 'env'
-  | 'local'
-  | 'missing'
-  | 'unknown';
-
-export interface ProviderHealthInfoIPC {
-  providerId: string;
-  displayName: string;
-  status: ProviderHealthStatusIPC;
-  message?: string;
-  canReconnect: boolean;
-  hasUsableModels: boolean;
-  usableModelIds: string[];
-}
-
-export interface OnboardingStateIPC {
-  providerHealth: ProviderHealthInfoIPC[];
-  availableModelGroups: AvailableModelGroupIPC[];
-}
+export type {
+  AgentFileDataIPC,
+  AgentModelIPC,
+  AgentSummaryIPC,
+  ApiKeyProviderInfoIPC,
+  AuthProvidersResponseIPC,
+  AvailableModelGroupIPC,
+  AvailableSkillInfo,
+  GlobalModelConfigStateIPC,
+  ModelInfoIPC,
+  OAuthEventIPC,
+  OAuthProviderInfoIPC,
+  OnboardingStateIPC,
+  ProfileInfo,
+  PromptTemplateFileDataIPC,
+  PromptTemplateSummaryIPC,
+  ProviderHealthInfoIPC,
+  ProviderHealthStatusIPC,
+  SkillFileDataIPC,
+  SkillSummaryIPC,
+  StructuredAgentModelIPC,
+  WorkspaceRootIPC,
+} from '@sero/common';
 
 /** Single cast site for the window.sero API. Import this instead of casting inline. */
-export function getSero(): SeroApi {
-  return (window as unknown as { sero: SeroApi }).sero;
+export function getSero(): SeroAdminBridge {
+  return (window as unknown as { sero: SeroAdminBridge }).sero;
 }
 
 // ── useProfiles ────────────────────────────────────────────

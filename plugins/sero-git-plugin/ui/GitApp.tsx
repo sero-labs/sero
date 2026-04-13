@@ -9,6 +9,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { getSeroApi, useAppInfo, useAppState } from '@sero-ai/app-runtime';
 
+import type { GitActionResult } from '@sero/common';
 import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
 import { createDefaultGitState, normalizeGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';
@@ -28,11 +29,6 @@ interface PendingDiffRequest {
 interface GitActionNoticeState {
   id: number;
   title: string;
-  message: string;
-}
-
-interface GitActionResult {
-  ok: boolean;
   message: string;
 }
 
@@ -82,8 +78,7 @@ export function GitApp() {
       return;
     }
 
-    void gitApp.run(workspaceId, params).then((result) => {
-      const actionResult = result as GitActionResult;
+    void gitApp.run(workspaceId, params).then((actionResult: GitActionResult) => {
       if (!actionResult.ok) {
         console.error('[git-app] Action failed:', actionResult.message);
         showNotice(getActionFailureTitle(params.action), actionResult.message);

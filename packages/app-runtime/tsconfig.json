@@ -8,7 +8,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@sero/common": ["../common/src/index.ts"]
+    }
   },
   "include": ["src/**/*"]
 }

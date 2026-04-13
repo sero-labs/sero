@@ -22,6 +22,7 @@
     "react": ">=19.0.0"
   },
   "devDependencies": {
+    "@sero/common": "workspace:*",
     "@types/react": "^19.2.13",
     "typescript": "^5.9.3"
   }
