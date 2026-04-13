@@ -96,6 +96,15 @@ export type {
 } from './git-app';
 
 export type {
+  WebAppAction,
+  WebAppRequest,
+  WebAppActionResult,
+  WebAppActionSuccess,
+  WebAppActionFailure,
+  SeroWebAppBridge,
+} from './web-app';
+
+export type {
   CronJob,
   CronState,
 } from './cron-contract';

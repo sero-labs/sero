@@ -5,7 +5,7 @@
  * the agent manage its own conversation history like a Git repo.
  *
  * In Sero, also writes structured state snapshots so the web UI can visualise
- * the context graph and token usage in real time.
+ * the latest saved context graph and token usage.
  *
  * Based on pi-context by ttttmr (https://github.com/ttttmr/pi-context)
  */

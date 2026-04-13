@@ -13,6 +13,7 @@ import { registerSessionHandlers } from './agent/handlers/sessions';
 import { registerAgentHandlers } from './agent';
 import { registerAppAgentHandlers } from './agent/handlers/app-agent';
 import { registerGitAppHandlers } from './apps/git-app';
+import { registerWebAppHandlers } from './apps/web-app';
 import { registerVoiceHandlers } from './agent/handlers/voice';
 import { registerShellHandlers } from './platform/system';
 import { registerAppStateHandlers } from './apps/app-state';
@@ -55,6 +56,7 @@ export function registerAllIpcHandlers(): void {
   registerAgentHandlers();
   registerAppAgentHandlers();
   registerGitAppHandlers();
+  registerWebAppHandlers();
   registerVoiceHandlers();
   registerShellHandlers();
   registerAppStateHandlers();

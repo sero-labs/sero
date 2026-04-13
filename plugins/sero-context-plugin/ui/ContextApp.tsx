@@ -64,12 +64,12 @@ export function ContextApp() {
           <h1 className="text-base font-semibold text-foreground">Context</h1>
           {lastUpdated && (
             <span className="text-xs text-muted-foreground">
-              Updated {lastUpdated}
+              Snapshot updated {lastUpdated}
             </span>
           )}
         </div>
         <Button size="sm" variant="secondary" onClick={refreshGraph}>
-          Refresh
+          Ask agent to refresh
         </Button>
       </div>
 
@@ -115,13 +115,14 @@ function EmptyState({ onRefresh }: { onRefresh: () => void }) {
           No context data yet
         </h2>
         <p className="mt-1 max-w-[280px] text-xs leading-relaxed text-muted-foreground">
-          Start a conversation with the agent, then click Refresh to visualise the
-          context graph. The agent can also use <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[11px]">context_tag</code>, <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[11px]">context_log</code>, and <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[11px]">context_checkout</code> to
+          Start a conversation with the agent, then ask it to refresh the latest
+          snapshot. The Context app reflects the most recent saved snapshot, and
+          the agent can use <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[11px]">context_tag</code>, <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[11px]">context_log</code>, and <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[11px]">context_checkout</code> to
           manage its own context.
         </p>
       </div>
       <Button size="sm" variant="secondary" onClick={onRefresh}>
-        Refresh
+        Ask agent to refresh
       </Button>
     </div>
   );

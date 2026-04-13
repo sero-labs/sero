@@ -13,7 +13,12 @@ import type {
   AppRecordingResult,
   AppRecordingStatus,
 } from './ipc';
-import type { GitActionResult, GitManagerRequest } from '@sero/common';
+import type {
+  GitActionResult,
+  GitManagerRequest,
+  WebAppActionResult,
+  WebAppRequest,
+} from '@sero/common';
 
 interface SeroAppStateAPI {
   /** Read an app state JSON file. */
@@ -91,6 +96,10 @@ interface SeroAppAgentAPI {
 
 interface SeroGitAppAPI {
   run(workspaceId: string, params: GitManagerRequest): Promise<GitActionResult>;
+}
+
+interface SeroWebAppAPI {
+  run(workspaceId: string, params: WebAppRequest): Promise<WebAppActionResult>;
 }
 
 interface SeroAppControlAPI {

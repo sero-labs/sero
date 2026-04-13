@@ -1,5 +1,6 @@
 import type { ThinkingLevel, ModelValidationWarning } from './model-selection';
 import type { InstalledPlugin } from './plugins';
+import type { SeroWebAppBridge } from './web-app';
 
 export interface GlobalModelConfigStateIPC {
   tiers: Partial<Record<'LOW' | 'MED' | 'HIGH', {
@@ -279,4 +280,5 @@ export interface SeroWebHostBridge {
   appControl?: Partial<SeroAppControlBridge>;
   shell?: Partial<SeroShellBridge>;
   editor?: Partial<SeroEditorBridge>;
+  webApp?: Partial<SeroWebAppBridge>;
 }

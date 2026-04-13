@@ -456,6 +456,7 @@ export interface SeroAPI {
   appControl: SeroAppControlAPI;
   appAgent: SeroAppAgentAPI;
   gitApp: SeroGitAppAPI;
+  webApp: SeroWebAppAPI;
   google: SeroGoogleAPI;
   voice: SeroVoiceAPI;
   auth: SeroAuthAPI;
