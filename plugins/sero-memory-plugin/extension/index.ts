@@ -33,10 +33,10 @@ import { error, errorDetails, getMemoryLogPath, info } from './logger';
 import {
   describeAutoConsolidationCadence,
   getAutoConsolidationCommand,
-  getAutoConsolidationCadence,
-  markAutoConsolidationIntroShown,
-  shouldShowAutoConsolidationIntro,
-  syncAutoConsolidationCronJob,
+  getAutoConsolidationCadenceSync,
+  markAutoConsolidationIntroShownSync,
+  shouldShowAutoConsolidationIntroSync,
+  syncAutoConsolidationCronJobSync,
 } from './automation-state';
 import {
   getTranscriptExportDir,
@@ -50,13 +50,12 @@ export default function memoryExtension(pi: ExtensionAPI): void {
 
   let awaitingBootstrapFollowUp = false;
 
-  void syncAutoConsolidationCronJob()
-    .then((autoConsolidation) => {
-      info('auto_consolidation_sync', { ...autoConsolidation });
-    })
-    .catch((err) => {
-      error('auto_consolidation_sync_failed', errorDetails(err));
-    });
+  try {
+    const autoConsolidation = syncAutoConsolidationCronJobSync();
+    info('auto_consolidation_sync', { ...autoConsolidation });
+  } catch (err) {
+    error('auto_consolidation_sync_failed', errorDetails(err));
+  }
 
   // ── Session start: bootstrap check + QMD init ──────────────
 
@@ -121,7 +120,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
 
     // §3.1 session-start trigger: lightweight non-blocking consolidation
     // Fires concurrently — does NOT block the first turn.
-    const cadence = await getAutoConsolidationCadence();
+    const cadence = getAutoConsolidationCadenceSync();
     if (!status.needsBootstrap && cadence !== 'off') {
       hasPendingStaleLogs(7).then(async (hasStale) => {
         if (!hasStale) {
@@ -167,11 +166,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
       info('transcript_recall_intro_shown', { source, transcriptDir });
     }
 
-    if (
-      !status.needsBootstrap
-      && cadence !== 'off'
-      && await shouldShowAutoConsolidationIntro()
-    ) {
+    if (!status.needsBootstrap && cadence !== 'off' && shouldShowAutoConsolidationIntroSync()) {
       const cadenceLabel = describeAutoConsolidationCadence(cadence);
       const command = getAutoConsolidationCommand();
       pi.sendMessage(
@@ -190,7 +185,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
         { triggerTurn: false },
       );
       ctx.ui?.notify?.(`Automatic memory consolidation enabled (${cadence})`, 'info');
-      await markAutoConsolidationIntroShown();
+      markAutoConsolidationIntroShownSync();
       info('auto_consolidation_intro_shown', { source, cadence });
     }
   }

@@ -2,16 +2,16 @@ import type { ExtensionContext } from '@mariozechner/pi-coding-agent';
 
 import {
   describeAutoConsolidationCadence,
-  syncAutoConsolidationCronJob,
+  syncAutoConsolidationCronJobSync,
   type AutoConsolidationCadence,
 } from './automation-state';
 import {
   describeAutoRetrieveMode,
   describeMemorySnapshotMode,
-  getAutoRetrieveMode,
-  getMemorySnapshotMode,
-  setAutoRetrieveMode,
-  setMemorySnapshotMode,
+  getAutoRetrieveModeSync,
+  getMemorySnapshotModeSync,
+  setAutoRetrieveModeSync,
+  setMemorySnapshotModeSync,
   type AutoRetrieveMode,
   type MemorySnapshotMode,
 } from './memory-config';
@@ -36,7 +36,7 @@ export async function handleMemoryConsolidate(
 ): Promise<ToolTextResult> {
   if (schedule) {
     try {
-      const sync = await syncAutoConsolidationCronJob(schedule);
+      const sync = syncAutoConsolidationCronJobSync(schedule);
       const cadenceLabel = describeAutoConsolidationCadence(sync.cadence);
       if (sync.cadence === 'off') {
         if (ctx.hasUI) {
@@ -73,14 +73,14 @@ export async function handleMemoryConsolidate(
   return text(summary.message);
 }
 
-export async function handleMemoryConfig(
+export function handleMemoryConfig(
   snapshot: MemorySnapshotMode | undefined,
   autoRetrieve: AutoRetrieveMode | undefined,
-): Promise<ToolTextResult> {
+): ToolTextResult {
   const lines: string[] = [];
 
   if (snapshot) {
-    const nextMode = await setMemorySnapshotMode(snapshot);
+    const nextMode = setMemorySnapshotModeSync(snapshot);
     lines.push(
       `Memory snapshot mode set to ${nextMode}.`,
       describeMemorySnapshotMode(nextMode),
@@ -91,7 +91,7 @@ export async function handleMemoryConfig(
   }
 
   if (autoRetrieve) {
-    const nextMode = await setAutoRetrieveMode(autoRetrieve);
+    const nextMode = setAutoRetrieveModeSync(autoRetrieve);
     if (lines.length > 0) lines.push('');
     lines.push(
       `Auto-retrieve set to ${nextMode}.`,
@@ -101,8 +101,8 @@ export async function handleMemoryConfig(
 
   // No arguments — show current config
   if (!snapshot && !autoRetrieve) {
-    const currentSnapshot = await getMemorySnapshotMode();
-    const currentAutoRetrieve = await getAutoRetrieveMode();
+    const currentSnapshot = getMemorySnapshotModeSync();
+    const currentAutoRetrieve = getAutoRetrieveModeSync();
     lines.push(
       `Memory snapshot mode: ${currentSnapshot} — ${describeMemorySnapshotMode(currentSnapshot)}`,
       `Auto-retrieve: ${currentAutoRetrieve} — ${describeAutoRetrieveMode(currentAutoRetrieve)}`,

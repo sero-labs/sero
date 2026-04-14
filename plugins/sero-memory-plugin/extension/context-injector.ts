@@ -25,7 +25,7 @@ import {
 } from './bootstrap';
 import type { BootstrapStatus } from './bootstrap';
 import { resolveMemoryRoot } from './memory-manager';
-import { getAutoRetrieveMode, getMemorySnapshotMode } from './memory-config';
+import { getAutoRetrieveModeSync, getMemorySnapshotModeSync } from './memory-config';
 import type { AutoRetrieveMode } from './memory-config';
 import { buildPriorityContextSplit, clearPriorityContextCache } from './priority-context';
 import { isQmdAvailable, runQmdUpdateNow } from './qmd';
@@ -135,7 +135,7 @@ async function buildTurnContext(
   memoryInstructions: string;
 }> {
   const root = resolveMemoryRoot();
-  const snapshotMode = await getMemorySnapshotMode();
+  const snapshotMode = getMemorySnapshotModeSync();
   const { staticContext, searchContext } = await buildPriorityContextSplit(
     root,
     prompt,
@@ -196,7 +196,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     try {
       const status = await getCachedBootstrapStatus();
       const sessionId = ctx.sessionManager.getSessionId();
-      const autoRetrieveMode = await getAutoRetrieveMode();
+      const autoRetrieveMode = getAutoRetrieveModeSync();
 
       let addition = '';
       let contextBlock = '';
@@ -251,14 +251,14 @@ export function registerContextInjection(pi: ExtensionAPI): void {
         memoryInstructions,
         addition,
         needsBootstrap,
-        snapshotMode: await getMemorySnapshotMode(),
+        snapshotMode: getMemorySnapshotModeSync(),
         qmdAvailable: isQmdAvailable(),
         skipSearch: process.env.SERO_MEMORY_NO_SEARCH === '1',
       });
 
       info('before_agent_start', {
         needsBootstrap,
-        snapshotMode: await getMemorySnapshotMode(),
+        snapshotMode: getMemorySnapshotModeSync(),
         autoRetrieve: autoRetrieveMode,
         promptChars: event.prompt?.length ?? 0,
         contextChars: contextBlock.length,

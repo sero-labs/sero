@@ -1,4 +1,7 @@
-import { readJsonState, writeJsonState } from './json-state';
+import {
+  readJsonStateSync,
+  writeJsonStateSync,
+} from './json-state';
 import { resolveMemoryStatePath } from './state-paths';
 
 export type MemorySnapshotMode = 'frozen' | 'live';
@@ -23,29 +26,37 @@ function normalizeSnapshotMode(value: unknown): MemorySnapshotMode {
     : DEFAULT_SNAPSHOT_MODE;
 }
 
-async function readConfig(): Promise<MemoryConfigState> {
-  return readJsonState(resolveConfigPath(), { ...DEFAULT_CONFIG });
+function readConfigSync(): MemoryConfigState {
+  return readJsonStateSync(resolveConfigPath(), { ...DEFAULT_CONFIG });
 }
 
-async function writeConfig(state: MemoryConfigState): Promise<void> {
-  await writeJsonState(resolveConfigPath(), state);
+function writeConfigSync(state: MemoryConfigState): void {
+  writeJsonStateSync(resolveConfigPath(), state);
 }
 
-export async function getMemorySnapshotMode(): Promise<MemorySnapshotMode> {
+export function getMemorySnapshotModeSync(): MemorySnapshotMode {
   const env = process.env.SERO_MEMORY_SNAPSHOT_MODE?.trim().toLowerCase();
   if (env === 'live' || env === 'frozen') return env;
-  return normalizeSnapshotMode((await readConfig()).snapshotMode);
+  return normalizeSnapshotMode(readConfigSync().snapshotMode);
 }
 
-export async function setMemorySnapshotMode(mode: MemorySnapshotMode): Promise<MemorySnapshotMode> {
+export function setMemorySnapshotModeSync(mode: MemorySnapshotMode): MemorySnapshotMode {
   const nextMode = normalizeSnapshotMode(mode);
-  const state = await readConfig();
+  const state = readConfigSync();
   if (state.snapshotMode === nextMode) return nextMode;
-  await writeConfig({
+  writeConfigSync({
     ...state,
     snapshotMode: nextMode,
   });
   return nextMode;
+}
+
+export async function getMemorySnapshotMode(): Promise<MemorySnapshotMode> {
+  return getMemorySnapshotModeSync();
+}
+
+export async function setMemorySnapshotMode(mode: MemorySnapshotMode): Promise<MemorySnapshotMode> {
+  return setMemorySnapshotModeSync(mode);
 }
 
 export function describeMemorySnapshotMode(mode: MemorySnapshotMode): string {
@@ -61,18 +72,26 @@ function normalizeAutoRetrieve(value: unknown): AutoRetrieveMode {
   return value === 'on' || value === 'off' ? value : DEFAULT_AUTO_RETRIEVE;
 }
 
-export async function getAutoRetrieveMode(): Promise<AutoRetrieveMode> {
+export function getAutoRetrieveModeSync(): AutoRetrieveMode {
   const env = process.env.SERO_MEMORY_AUTO_RETRIEVE?.trim().toLowerCase();
   if (env === 'on' || env === 'off') return env;
-  return normalizeAutoRetrieve((await readConfig()).autoRetrieve);
+  return normalizeAutoRetrieve(readConfigSync().autoRetrieve);
+}
+
+export function setAutoRetrieveModeSync(mode: AutoRetrieveMode): AutoRetrieveMode {
+  const nextMode = normalizeAutoRetrieve(mode);
+  const state = readConfigSync();
+  if (state.autoRetrieve === nextMode) return nextMode;
+  writeConfigSync({ ...state, autoRetrieve: nextMode });
+  return nextMode;
+}
+
+export async function getAutoRetrieveMode(): Promise<AutoRetrieveMode> {
+  return getAutoRetrieveModeSync();
 }
 
 export async function setAutoRetrieveMode(mode: AutoRetrieveMode): Promise<AutoRetrieveMode> {
-  const nextMode = normalizeAutoRetrieve(mode);
-  const state = await readConfig();
-  if (state.autoRetrieve === nextMode) return nextMode;
-  await writeConfig({ ...state, autoRetrieve: nextMode });
-  return nextMode;
+  return setAutoRetrieveModeSync(mode);
 }
 
 export function describeAutoRetrieveMode(mode: AutoRetrieveMode): string {

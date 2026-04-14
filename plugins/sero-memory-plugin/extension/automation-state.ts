@@ -1,8 +1,7 @@
-import { existsSync } from 'node:fs';
-import { promises as fs } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { readJsonState, writeJsonState } from './json-state';
+import { readJsonStateSync, writeJsonStateSync } from './json-state';
 import { resolveMemoryStatePath, resolveSeroHome } from './state-paths';
 import type { CronJob, CronState } from './cron-types';
 import { DEFAULT_CRON_STATE } from './cron-types';
@@ -41,9 +40,9 @@ function isMissingFileError(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
-async function readRequiredJsonFile<T>(filePath: string): Promise<T | null> {
+function readRequiredJsonFileSync<T>(filePath: string): T | null {
   try {
-    const raw = await fs.readFile(filePath, 'utf8');
+    const raw = readFileSync(filePath, 'utf8');
     return JSON.parse(raw) as T;
   } catch (error) {
     if (isMissingFileError(error)) {
@@ -62,16 +61,16 @@ function normalizeCadence(value: unknown): AutoConsolidationCadence {
     : DEFAULT_CADENCE;
 }
 
-async function readAutomationState(): Promise<MemoryAutomationState> {
-  return readJsonState(resolveAutomationStatePath(), { ...DEFAULT_AUTOMATION_STATE });
+function readAutomationStateSync(): MemoryAutomationState {
+  return readJsonStateSync(resolveAutomationStatePath(), { ...DEFAULT_AUTOMATION_STATE });
 }
 
-async function writeAutomationState(state: MemoryAutomationState): Promise<void> {
-  await writeJsonState(resolveAutomationStatePath(), state);
+function writeAutomationStateSync(state: MemoryAutomationState): void {
+  writeJsonStateSync(resolveAutomationStatePath(), state);
 }
 
-async function readCronState(): Promise<CronState> {
-  const state = await readRequiredJsonFile<Partial<CronState>>(resolveCronStatePath());
+function readCronStateSync(): CronState {
+  const state = readRequiredJsonFileSync<Partial<CronState>>(resolveCronStatePath());
   if (!state) {
     return {
       ...DEFAULT_CRON_STATE,
@@ -89,8 +88,8 @@ async function readCronState(): Promise<CronState> {
   };
 }
 
-async function writeCronState(state: CronState): Promise<void> {
-  await writeJsonState(resolveCronStatePath(), state);
+function writeCronStateSync(state: CronState): void {
+  writeJsonStateSync(resolveCronStatePath(), state);
 }
 
 function buildAutoConsolidationJob(cadence: Exclude<AutoConsolidationCadence, 'off'>): CronJob {
@@ -110,30 +109,48 @@ function buildAutoConsolidationJob(cadence: Exclude<AutoConsolidationCadence, 'o
   };
 }
 
+export function getAutoConsolidationCadenceSync(): AutoConsolidationCadence {
+  return normalizeCadence(readAutomationStateSync().autoConsolidationCadence);
+}
+
+export function setAutoConsolidationCadenceSync(
+  cadence: AutoConsolidationCadence,
+): AutoConsolidationCadence {
+  const nextCadence = normalizeCadence(cadence);
+  const state = readAutomationStateSync();
+  if (state.autoConsolidationCadence === nextCadence) return nextCadence;
+  writeAutomationStateSync({ ...state, autoConsolidationCadence: nextCadence });
+  return nextCadence;
+}
+
+export function shouldShowAutoConsolidationIntroSync(): boolean {
+  return !readAutomationStateSync().autoConsolidationIntroShownAt;
+}
+
+export function markAutoConsolidationIntroShownSync(): void {
+  const state = readAutomationStateSync();
+  writeAutomationStateSync({
+    ...state,
+    autoConsolidationIntroShownAt: new Date().toISOString(),
+  });
+}
+
 export async function getAutoConsolidationCadence(): Promise<AutoConsolidationCadence> {
-  return normalizeCadence((await readAutomationState()).autoConsolidationCadence);
+  return getAutoConsolidationCadenceSync();
 }
 
 export async function setAutoConsolidationCadence(
   cadence: AutoConsolidationCadence,
 ): Promise<AutoConsolidationCadence> {
-  const nextCadence = normalizeCadence(cadence);
-  const state = await readAutomationState();
-  if (state.autoConsolidationCadence === nextCadence) return nextCadence;
-  await writeAutomationState({ ...state, autoConsolidationCadence: nextCadence });
-  return nextCadence;
+  return setAutoConsolidationCadenceSync(cadence);
 }
 
 export async function shouldShowAutoConsolidationIntro(): Promise<boolean> {
-  return !(await readAutomationState()).autoConsolidationIntroShownAt;
+  return shouldShowAutoConsolidationIntroSync();
 }
 
 export async function markAutoConsolidationIntroShown(): Promise<void> {
-  const state = await readAutomationState();
-  await writeAutomationState({
-    ...state,
-    autoConsolidationIntroShownAt: new Date().toISOString(),
-  });
+  markAutoConsolidationIntroShownSync();
 }
 
 export function describeAutoConsolidationCadence(
@@ -157,16 +174,16 @@ export function getAutoConsolidationCommand(): string {
   return 'sero memory consolidate --trigger cron';
 }
 
-export async function syncAutoConsolidationCronJob(
+export function syncAutoConsolidationCronJobSync(
   cadenceOverride?: AutoConsolidationCadence,
-): Promise<AutoConsolidationSyncResult> {
-  const previousCadence = await getAutoConsolidationCadence();
+): AutoConsolidationSyncResult {
+  const previousCadence = getAutoConsolidationCadenceSync();
   const cadence = cadenceOverride
-    ? await setAutoConsolidationCadence(cadenceOverride)
+    ? setAutoConsolidationCadenceSync(cadenceOverride)
     : previousCadence;
   const cronStatePath = resolveCronStatePath();
   const hadCronState = existsSync(cronStatePath);
-  const currentState = await readCronState();
+  const currentState = readCronStateSync();
   const previousSerialized = JSON.stringify(currentState);
   const nextState: CronState = {
     ...currentState,
@@ -195,7 +212,7 @@ export async function syncAutoConsolidationCronJob(
   const nextSerialized = JSON.stringify(nextState);
   const cronChanged = nextSerialized !== previousSerialized || !hadCronState;
   if (cronChanged) {
-    await writeCronState(nextState);
+    writeCronStateSync(nextState);
   }
 
   return {
@@ -210,4 +227,10 @@ export async function syncAutoConsolidationCronJob(
     autostart: nextState.autostart,
     cronStatePath,
   };
+}
+
+export async function syncAutoConsolidationCronJob(
+  cadenceOverride?: AutoConsolidationCadence,
+): Promise<AutoConsolidationSyncResult> {
+  return syncAutoConsolidationCronJobSync(cadenceOverride);
 }
