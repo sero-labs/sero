@@ -80,7 +80,7 @@ _Plan drafted: 2026-04-13_
 
 ## Next Steps
 1. Keep the admin plugin on its current UI-only boundary; no further High/Medium deslop items remain from this plan.
-2. Continue Wave F / E5 with the next queued plugin (`plugins/sero-git-plugin`) after the current admin closeout is documented and context is cleared.
+2. Continue Wave F / E5 with the next queued plugin (`plugins/sero-web-plugin`) after the current Git closeout is documented and context is cleared.
 
 Verification checklist:
 - Open Admin and smoke-test every section: agents, skills, prompts, settings, model, plugins, logs, sessions.

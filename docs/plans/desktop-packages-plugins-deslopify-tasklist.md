@@ -165,7 +165,7 @@ across every batch it participates in.
 - [ ] `fix-slop` Medium items for `plugins/sero-cron-plugin`
 - [x] `fix-slop` Medium items for `plugins/sero-admin-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-memory-plugin`
-- [ ] `fix-slop` Medium items for `plugins/sero-git-plugin`
+- [x] `fix-slop` Medium items for `plugins/sero-git-plugin`
 - [x] `fix-slop` Medium items for `plugins/sero-context-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-web-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-user-feedback-plugin`
@@ -400,3 +400,11 @@ runtime, contract, or desktop-side code that those plugins consume.
   targeted admin validation plus monorepo `pnpm typecheck` and
   `apps/desktop pnpm test` all passed. The remaining E5 plugins stay queued in
   the checklist above.
+- 2026-04-14: The third plugin-scoped E5 closeout landed across `ec22f935`
+  (`refactor(git): split service and branch panel seams`) and `5d187d86`
+  (`test(git): add direct ui interaction coverage`): the Git plugin’s shared
+  service/parser/sidebar hotspots were split into focused modules, direct UI and
+  bridge-contract coverage was added for `GitApp` / `BranchPanel` /
+  `CommitDetail` / `StagingArea`, and targeted Git validation plus monorepo
+  `pnpm typecheck` and `apps/desktop pnpm test` all passed. The remaining E5
+  plugins stay queued in the checklist above.

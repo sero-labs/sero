@@ -269,3 +269,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Remaining E5 plugins, in order: `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin`.
 - `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / E5, git complete)
+
+### Metrics after fixes
+- Wave F batches landed: **E1 + E2 + E3 + E4**, plus plugin-scoped **E5** closeouts for `plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`, and `plugins/sero-git-plugin`
+- New focused Git modules added in this pass: `plugins/sero-git-plugin/extension/{git-service-core.ts,git-service-query-actions.ts,git-service-mutation-actions.ts,git-command-support.ts,git-log-queries.ts,git-status-queries.ts,git-diff-queries.ts}`, `plugins/sero-git-plugin/ui/components/{BranchPanelSections.tsx,BranchPanelRows.tsx}`
+- Targeted validation: git package typecheck/tests, monorepo `pnpm typecheck`, and `apps/desktop pnpm test` all pass
+
+### What changed
+- Cleared the Git plugin’s remaining Medium work by splitting the near-cap service/parser/sidebar modules below the hotspot cluster while preserving the existing host-facing entrypoints.
+- Added direct UI coverage for Git bridge notices, branch/worktree destructive-action wiring, cherry-pick confirmation, commit gating, and staged/unstaged diff selection, plus a shared bridge-contract guard for `force` / `worktreePath`.
+- Updated tracking so `plugins/sero-git-plugin` is now closed out while the remaining E5 plugins stay queued explicitly in tasklist order.
+
+### Still outstanding
+- Remaining E5 plugins, in order: `plugins/sero-web-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin`.
+- `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.

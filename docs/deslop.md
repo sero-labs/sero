@@ -58,6 +58,10 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-admin-plugin/ui/components/{AgentEditor.tsx,ModelPanel.tsx}` | Reused one shared auth/focus/visibility refresh hook while preserving editor draft semantics |
 | `plugins/sero-admin-plugin/ui/components/{ProviderCard.tsx,TierModelPicker.tsx}` | Deleted — dead provider-defaults scaffolding no longer ships alongside the global tier-based model panel |
 | `plugins/sero-admin-plugin/shared/types.ts` | Removed stale session/log type leftovers from the pre-model-panel UI |
+| `plugins/sero-git-plugin/extension/{git-service.ts,git-service-core.ts,git-service-query-actions.ts,git-service-mutation-actions.ts}` | Split the shared Git service into focused dispatcher/core/query/mutation modules while keeping the host entrypoints stable (`git-service.ts` 457 → 36 lines) |
+| `plugins/sero-git-plugin/extension/{git-commands.ts,git-command-support.ts,git-log-queries.ts,git-status-queries.ts,git-diff-queries.ts}` | Split Git command parsing into focused query helpers and reduced the public barrel (`git-commands.ts` 457 → 24 lines) |
+| `plugins/sero-git-plugin/ui/components/{BranchPanel.tsx,BranchPanelSections.tsx,BranchPanelRows.tsx}` | Split the near-cap branch/worktree/stash sidebar into focused UI modules (`BranchPanel.tsx` 421 → 190 lines) |
+| `plugins/sero-git-plugin/{vitest.config.ts,shared/__tests__/bridge-contract.test.ts,ui/GitApp.test.tsx,ui/components/{BranchPanel.test.tsx,CommitDetail.test.tsx,StagingArea.test.tsx}}` | Expanded the Git package quality gate with direct UI interaction coverage plus a shared bridge-contract guard |
 
 ---
 

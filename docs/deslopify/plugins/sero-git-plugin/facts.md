@@ -103,3 +103,19 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - Medium file splitting for `git-service.ts` / `git-commands.ts` and direct UI coverage remain pending.
 - Low helper/presentation dedupe remains pending.
+
+## Post-fix snapshot — 2026-04-14 (E5)
+
+### Metrics after fixes
+- Total tracked files: 51 (was 43)
+- Largest source file: `plugins/sero-git-plugin/ui/GitApp.tsx` (372 LOC)
+- Files over 500 LOC: none
+- Targeted validation: Git package typecheck/tests, monorepo `pnpm typecheck`, and `apps/desktop pnpm test` all pass
+
+### What changed
+- Split the Git service into focused dispatcher/core/query/mutation modules and split `git-commands.ts` into focused log/status/diff query helpers while preserving the existing public entrypoints the desktop host imports.
+- Split `ui/components/BranchPanel.tsx` into a thinner shell plus focused section/row modules so the local-branch form, remote groups, and stash confirmation flow no longer live in one near-cap file.
+- Expanded the package-local quality gate with direct jsdom coverage for `GitApp`, `BranchPanel`, `CommitDetail`, and `StagingArea`, plus a shared bridge-contract test that fails compile-time if `force` / `worktreePath` drift again.
+
+### Still outstanding
+- Only the Low helper/presentation dedupe follow-up remains (`git-default-branch.ts`, branch colors, and relative-date formatting).

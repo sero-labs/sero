@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, Wave F batches E1–E4 landed 2026-04-14, and E5 is now executing plugin-by-plugin (`sero-kanban` cleared 2026-04-14; remaining plugins pending)*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, Wave F batches E1–E4 landed 2026-04-14, and E5 is now executing plugin-by-plugin (`sero-kanban`, `sero-admin`, and `sero-git` cleared 2026-04-14; `sero-web`, `sero-user-feedback`, and `sero-cron` remain)*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -89,7 +89,7 @@ entry links to a `facts.md` and `plan.md` pair.
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
   — *In progress — High persisted-state + startup-recovery items plus E4 reminder-ownership cleanup cleared 2026-04-14; logging/modularization/UI coverage work pending*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
-  — *In progress — High contract + state items plus E4 live-query cleanup cleared 2026-04-14; file-splitting and UI-coverage work pending*
+  — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
 - `plugins/sero-hello-world-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)

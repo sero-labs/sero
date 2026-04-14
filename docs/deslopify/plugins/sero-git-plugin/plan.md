@@ -44,7 +44,7 @@ _Plan drafted: 2026-04-13_
      - Pi CLI / extension-only usage where the state file is not being refreshed in the background
    - This is a semantic cleanup, not just a structural one, so keep it conservative.
 
-4. **Split the near-cap modules before more Git features land.**
+4. **~~Split the near-cap modules before more Git features land.~~ ✅ 2026-04-14 (`ec22f935`)**
    - `extension/git-service.ts`
      - extract read/query actions (`status`, `log`, `branches`, `diff`, `show_commit`)
      - extract mutation actions (`stage`, `unstage`, `commit`, `stash`, `stash_apply`, `stash_pop`)
@@ -57,7 +57,7 @@ _Plan drafted: 2026-04-13_
      - extract stash section and confirmation logic
    - Keep public entrypoints stable so the Electron host does not need broad rewiring.
 
-5. **Add direct UI and bridge-ownership tests.**
+5. **~~Add direct UI and bridge-ownership tests.~~ ✅ 2026-04-14 (`5d187d86`)**
    - Extend the test surface beyond `ui/lib/**` so the actual interactive seams are protected.
    - Target coverage:
      - `GitApp` notice/error behavior when `gitApp` is unavailable or returns `{ ok: false }`
@@ -92,11 +92,8 @@ _Plan drafted: 2026-04-13_
 - No Docker/container image rebuild is needed for this plan, but desktop verification should include container-backed workspaces because the host Git action bridge is used there too.
 
 ## Next Steps
-1. Export a canonical shared Git action result type and replace the duplicated `SeroGitAppActionParams` / `SeroGitAppActionResult` copies plus the preload `unknown` bridge.
-2. Harden `state-io.ts` so malformed JSON fails loud while missing files still bootstrap cleanly.
-3. Change `log` and `branches` to refresh/query the repo instead of trusting the persisted snapshot.
-4. Split `git-service.ts` first, then `git-commands.ts`, then `BranchPanel.tsx`.
-5. Add direct UI/bridge tests before expanding the Git feature surface again.
+1. If we do a follow-up polish pass, clear the remaining Low duplication seams around `git-default-branch.ts`, branch colors, and shared relative-date formatting.
+2. Otherwise treat this plugin as Medium-complete and move to the next queued E5 target in the desktop/packages/plugins backlog.
 
 Verification checklist:
 - From the Git UI, force-delete branch and force-remove worktree actions still traverse the typed bridge end-to-end.
@@ -108,3 +105,5 @@ Verification checklist:
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
 - `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(git: `log` and `branches` now refresh against the repo path instead of trusting the last persisted snapshot)*
+- `ec22f935` — `refactor(git): split service and branch panel seams`
+- `5d187d86` — `test(git): add direct ui interaction coverage`
