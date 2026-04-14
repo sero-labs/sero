@@ -243,7 +243,7 @@ const ReminderParams = Type.Object({
   id: Type.Optional(Type.String({ description: 'Reminder ID (required for all except list/add)' })),
   title: Type.Optional(Type.String({ description: 'Reminder title (required for add)' })),
   notes: Type.Optional(Type.String({ description: 'Optional notes or details' })),
-  channel: Type.Optional(Type.String({ description: 'Delivery channel: "notification" (default) or "email"' })),
+  channel: Type.Optional(Type.String({ description: 'Delivery channel. Only "notification" (desktop) is currently supported.' })),
   type: Type.Optional(Type.String({ description: '"once" (default) or "recurring"' })),
   fire_at: Type.Optional(Type.String({
     description: 'ISO datetime for one-time reminders. IMPORTANT: call current_time first to get the accurate current time.',
@@ -441,7 +441,7 @@ function registerReminderTool(pi: ExtensionAPI) {
   pi.registerTool({
     name: 'reminder', label: 'Reminder',
     description: 'Manage reminders with desktop notifications. Actions: list, add, update, remove, snooze, complete, enable, disable. ' +
-      'IMPORTANT: For relative times, call current_time first to get accurate time, then compute fire_at.',
+      'IMPORTANT: For relative times, call current_time first to get accurate time, then compute fire_at. Email delivery is not supported yet.',
     parameters: ReminderParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {

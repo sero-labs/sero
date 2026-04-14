@@ -17,6 +17,10 @@ import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-age
 
 import { checkBootstrapStatus } from './bootstrap';
 import { registerContextInjection, markBootstrapDone } from './context-injector';
+import {
+  clearPhase1MigrationState,
+  setPhase1MigrationState,
+} from './phase1-migration-state';
 import { registerMemoryTool } from './memory-tool';
 import { registerSearchTool } from './search-tool';
 import { registerScratchpadTool } from './scratchpad';
@@ -29,10 +33,10 @@ import { error, errorDetails, getMemoryLogPath, info } from './logger';
 import {
   describeAutoConsolidationCadence,
   getAutoConsolidationCommand,
-  getAutoConsolidationCadenceSync,
-  markAutoConsolidationIntroShownSync,
-  shouldShowAutoConsolidationIntroSync,
-  syncAutoConsolidationCronJobSync,
+  getAutoConsolidationCadence,
+  markAutoConsolidationIntroShown,
+  shouldShowAutoConsolidationIntro,
+  syncAutoConsolidationCronJob,
 } from './automation-state';
 import {
   getTranscriptExportDir,
@@ -46,20 +50,25 @@ export default function memoryExtension(pi: ExtensionAPI): void {
 
   let awaitingBootstrapFollowUp = false;
 
-  try {
-    const autoConsolidation = syncAutoConsolidationCronJobSync();
-    info('auto_consolidation_sync', { ...autoConsolidation });
-  } catch (err) {
-    error('auto_consolidation_sync_failed', errorDetails(err));
-  }
+  void syncAutoConsolidationCronJob()
+    .then((autoConsolidation) => {
+      info('auto_consolidation_sync', { ...autoConsolidation });
+    })
+    .catch((err) => {
+      error('auto_consolidation_sync_failed', errorDetails(err));
+    });
 
   // ── Session start: bootstrap check + QMD init ──────────────
 
   async function handleSessionEnter(source: 'session_start' | 'session_switch', ctx: ExtensionContext): Promise<void> {
+    const sessionId = ctx.sessionManager.getSessionId();
+    clearPhase1MigrationState(sessionId);
+
     info('session_enter', {
       source,
       sessionFile: ctx.sessionManager.getSessionFile?.() ?? null,
       cwd: ctx.cwd,
+      sessionId,
     });
 
     const status = await checkBootstrapStatus();
@@ -86,6 +95,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
     if (!status.needsBootstrap) {
       const migration = await runPhase1Migration(ctx);
       migrationChanged = migration.changed;
+      setPhase1MigrationState(sessionId, migration.changed);
       info('migration_result', {
         source,
         changed: migration.changed,
@@ -111,7 +121,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
 
     // §3.1 session-start trigger: lightweight non-blocking consolidation
     // Fires concurrently — does NOT block the first turn.
-    const cadence = getAutoConsolidationCadenceSync();
+    const cadence = await getAutoConsolidationCadence();
     if (!status.needsBootstrap && cadence !== 'off') {
       hasPendingStaleLogs(7).then(async (hasStale) => {
         if (!hasStale) {
@@ -157,7 +167,11 @@ export default function memoryExtension(pi: ExtensionAPI): void {
       info('transcript_recall_intro_shown', { source, transcriptDir });
     }
 
-    if (!status.needsBootstrap && cadence !== 'off' && shouldShowAutoConsolidationIntroSync()) {
+    if (
+      !status.needsBootstrap
+      && cadence !== 'off'
+      && await shouldShowAutoConsolidationIntro()
+    ) {
       const cadenceLabel = describeAutoConsolidationCadence(cadence);
       const command = getAutoConsolidationCommand();
       pi.sendMessage(
@@ -176,7 +190,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
         { triggerTurn: false },
       );
       ctx.ui?.notify?.(`Automatic memory consolidation enabled (${cadence})`, 'info');
-      markAutoConsolidationIntroShownSync();
+      await markAutoConsolidationIntroShown();
       info('auto_consolidation_intro_shown', { source, cadence });
     }
   }

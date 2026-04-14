@@ -136,4 +136,28 @@ describe('review actions', () => {
       prNumber: 87,
     });
   });
+
+  it('surfaces cleanup warnings in the tool result and error log', async () => {
+    const { handleCancelPR } = await import('../review-actions');
+    const state = makeState(makeCard());
+    removeWorktree.mockResolvedValue(['git worktree prune failed: locked worktree']);
+    deleteReviewCache.mockResolvedValue(['Review cache cleanup failed for cache.json: permission denied']);
+
+    const result = await handleCancelPR('/tmp/state.json', state, '/workspace', '1');
+    const text = result.content[0]?.text ?? '';
+
+    expect(text).toContain('Cleanup warnings');
+    expect(text).toContain('git worktree prune failed');
+    expect(text).toContain('Review cache cleanup failed');
+    expect(appendError).toHaveBeenCalledWith('/tmp/state.json', expect.objectContaining({
+      agentName: 'system',
+      severity: 'warning',
+      message: 'git worktree prune failed: locked worktree',
+    }));
+    expect(appendError).toHaveBeenCalledWith('/tmp/state.json', expect.objectContaining({
+      agentName: 'system',
+      severity: 'warning',
+      message: 'Review cache cleanup failed for cache.json: permission denied',
+    }));
+  });
 });

@@ -1,10 +1,5 @@
-import {
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import { readJsonState, writeJsonState } from './json-state';
+import { resolveMemoryStatePath } from './state-paths';
 
 export type MemorySnapshotMode = 'frozen' | 'live';
 export type AutoRetrieveMode = 'on' | 'off';
@@ -18,27 +13,8 @@ const DEFAULT_CONFIG: MemoryConfigState = {};
 const DEFAULT_SNAPSHOT_MODE: MemorySnapshotMode = 'frozen';
 const DEFAULT_AUTO_RETRIEVE: AutoRetrieveMode = 'on';
 
-function resolveSeroHome(): string {
-  return process.env.SERO_HOME || path.join(os.homedir(), '.sero-ui');
-}
-
 function resolveConfigPath(): string {
-  return path.join(resolveSeroHome(), 'state', 'memory', 'config.json');
-}
-
-function readJsonFile<T>(filePath: string, fallback: T): T {
-  try {
-    const raw = readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(raw) as T;
-    return parsed && typeof parsed === 'object' ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJsonFile(filePath: string, value: unknown): void {
-  mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf8');
+  return resolveMemoryStatePath('config.json');
 }
 
 function normalizeSnapshotMode(value: unknown): MemorySnapshotMode {
@@ -47,25 +23,25 @@ function normalizeSnapshotMode(value: unknown): MemorySnapshotMode {
     : DEFAULT_SNAPSHOT_MODE;
 }
 
-function readConfigSync(): MemoryConfigState {
-  return readJsonFile(resolveConfigPath(), { ...DEFAULT_CONFIG });
+async function readConfig(): Promise<MemoryConfigState> {
+  return readJsonState(resolveConfigPath(), { ...DEFAULT_CONFIG });
 }
 
-function writeConfigSync(state: MemoryConfigState): void {
-  writeJsonFile(resolveConfigPath(), state);
+async function writeConfig(state: MemoryConfigState): Promise<void> {
+  await writeJsonState(resolveConfigPath(), state);
 }
 
-export function getMemorySnapshotModeSync(): MemorySnapshotMode {
+export async function getMemorySnapshotMode(): Promise<MemorySnapshotMode> {
   const env = process.env.SERO_MEMORY_SNAPSHOT_MODE?.trim().toLowerCase();
   if (env === 'live' || env === 'frozen') return env;
-  return normalizeSnapshotMode(readConfigSync().snapshotMode);
+  return normalizeSnapshotMode((await readConfig()).snapshotMode);
 }
 
-export function setMemorySnapshotModeSync(mode: MemorySnapshotMode): MemorySnapshotMode {
+export async function setMemorySnapshotMode(mode: MemorySnapshotMode): Promise<MemorySnapshotMode> {
   const nextMode = normalizeSnapshotMode(mode);
-  const state = readConfigSync();
+  const state = await readConfig();
   if (state.snapshotMode === nextMode) return nextMode;
-  writeConfigSync({
+  await writeConfig({
     ...state,
     snapshotMode: nextMode,
   });
@@ -81,23 +57,21 @@ export function describeMemorySnapshotMode(mode: MemorySnapshotMode): string {
   }
 }
 
-// ── Auto-retrieve ───────────────────────────────────────────
-
 function normalizeAutoRetrieve(value: unknown): AutoRetrieveMode {
   return value === 'on' || value === 'off' ? value : DEFAULT_AUTO_RETRIEVE;
 }
 
-export function getAutoRetrieveModeSync(): AutoRetrieveMode {
+export async function getAutoRetrieveMode(): Promise<AutoRetrieveMode> {
   const env = process.env.SERO_MEMORY_AUTO_RETRIEVE?.trim().toLowerCase();
   if (env === 'on' || env === 'off') return env;
-  return normalizeAutoRetrieve(readConfigSync().autoRetrieve);
+  return normalizeAutoRetrieve((await readConfig()).autoRetrieve);
 }
 
-export function setAutoRetrieveModeSync(mode: AutoRetrieveMode): AutoRetrieveMode {
+export async function setAutoRetrieveMode(mode: AutoRetrieveMode): Promise<AutoRetrieveMode> {
   const nextMode = normalizeAutoRetrieve(mode);
-  const state = readConfigSync();
+  const state = await readConfig();
   if (state.autoRetrieve === nextMode) return nextMode;
-  writeConfigSync({ ...state, autoRetrieve: nextMode });
+  await writeConfig({ ...state, autoRetrieve: nextMode });
   return nextMode;
 }
 

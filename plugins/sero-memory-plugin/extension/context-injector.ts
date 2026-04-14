@@ -25,12 +25,17 @@ import {
 } from './bootstrap';
 import type { BootstrapStatus } from './bootstrap';
 import { resolveMemoryRoot } from './memory-manager';
-import { getAutoRetrieveModeSync, getMemorySnapshotModeSync } from './memory-config';
+import { getAutoRetrieveMode, getMemorySnapshotMode } from './memory-config';
 import type { AutoRetrieveMode } from './memory-config';
 import { buildPriorityContextSplit, clearPriorityContextCache } from './priority-context';
 import { isQmdAvailable, runQmdUpdateNow } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { runPhase1Migration } from './migration';
+import {
+  clearPhase1MigrationState,
+  getPhase1MigrationState,
+  setPhase1MigrationState,
+} from './phase1-migration-state';
 import { flushPendingStats } from './memory-scoring';
 import { getMemoryInstructions } from './memory-instructions';
 import {
@@ -43,7 +48,6 @@ import {
 const SEARCH_CONTEXT_TYPE = 'memory-search-context';
 
 let cachedStatus: BootstrapStatus | null = null;
-let migrationChecked = false;
 
 async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
   if (!cachedStatus) cachedStatus = await checkBootstrapStatus();
@@ -52,7 +56,6 @@ async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
 
 export function resetBootstrapCache(): void {
   cachedStatus = null;
-  migrationChecked = false;
 }
 
 export function markBootstrapDone(): void {
@@ -132,7 +135,7 @@ async function buildTurnContext(
   memoryInstructions: string;
 }> {
   const root = resolveMemoryRoot();
-  const snapshotMode = getMemorySnapshotModeSync();
+  const snapshotMode = await getMemorySnapshotMode();
   const { staticContext, searchContext } = await buildPriorityContextSplit(
     root,
     prompt,
@@ -181,6 +184,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     const sessionId = ctx.sessionManager.getSessionId();
     clearPriorityContextCache(sessionId);
     clearMemoryPromptDebugState(sessionId);
+    clearPhase1MigrationState(sessionId);
     await flushPendingStats();
   });
 
@@ -192,7 +196,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     try {
       const status = await getCachedBootstrapStatus();
       const sessionId = ctx.sessionManager.getSessionId();
-      const autoRetrieveMode = getAutoRetrieveModeSync();
+      const autoRetrieveMode = await getAutoRetrieveMode();
 
       let addition = '';
       let contextBlock = '';
@@ -203,9 +207,10 @@ export function registerContextInjection(pi: ExtensionAPI): void {
       if (needsBootstrap) {
         addition = buildBootstrapInstructions(status.existingUserContent);
       } else {
-        if (!migrationChecked) {
+        const phase1State = getPhase1MigrationState(sessionId);
+        if (!phase1State?.checked) {
           const migration = await runPhase1Migration(ctx);
-          migrationChecked = true;
+          setPhase1MigrationState(sessionId, migration.changed);
           info('before_agent_start_migration', {
             changed: migration.changed,
             notes: migration.notes,
@@ -246,14 +251,14 @@ export function registerContextInjection(pi: ExtensionAPI): void {
         memoryInstructions,
         addition,
         needsBootstrap,
-        snapshotMode: getMemorySnapshotModeSync(),
+        snapshotMode: await getMemorySnapshotMode(),
         qmdAvailable: isQmdAvailable(),
         skipSearch: process.env.SERO_MEMORY_NO_SEARCH === '1',
       });
 
       info('before_agent_start', {
         needsBootstrap,
-        snapshotMode: getMemorySnapshotModeSync(),
+        snapshotMode: await getMemorySnapshotMode(),
         autoRetrieve: autoRetrieveMode,
         promptChars: event.prompt?.length ?? 0,
         contextChars: contextBlock.length,

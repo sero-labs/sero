@@ -44,11 +44,9 @@ React UI is Sero-only.
 - **Global scope** — jobs and reminders are personal, not per-workspace.
   Your schedule persists across all projects.
 
-> **Note — Email notifications:** The reminder channel option includes
-> `email` alongside `notification` (desktop). However, **email delivery is
-> not yet implemented**. Selecting the email channel currently falls back to
-> a desktop notification with a "(email pending)" prefix. Email support
-> will require SMTP or API configuration in a future update.
+> **Note — Reminder delivery:** Reminders currently use the desktop
+> notification channel only. Email delivery is not implemented yet, so the
+> UI no longer offers it and tool calls should stick to `notification`.
 
 ---
 
@@ -87,12 +85,6 @@ Remind me on Tuesday at 11am to wash the car
 Create a reminder every Friday morning to pay the cleaner
 ```
 
-You can also specify a notification channel:
-
-```
-Remind me at 5pm to pick up the parcel, send it by email
-```
-
 **From the UI:**
 
 1. Click **+ Reminder** (top-right, visible when on the Reminders tab).
@@ -105,7 +97,7 @@ Remind me at 5pm to pick up the parcel, send it by email
      Defaults to 1 hour from now.
    - **Schedule** (recurring) — a 5-field cron expression, or click a
      preset pill (e.g. "Every Friday morning", "Weekday mornings").
-   - **Channel** — Desktop notification (default) or Email (coming soon).
+   - **Channel** — Desktop notification. Email delivery is not supported yet.
 3. Click **Set Reminder**.
 
 #### Snoozing a reminder
@@ -353,7 +345,7 @@ the `sero-cli` tool automatically.
 | `id` | 8-character reminder ID (shown in list output) |
 | `title` | What to remind about |
 | `notes` | Optional extra details |
-| `channel` | `"notification"` (desktop, default) or `"email"` (not yet implemented) |
+| `channel` | `"notification"` (desktop, default). Email delivery is not implemented yet. |
 | `type` | `"once"` (default) — fires at `fire_at`; `"recurring"` — fires on `schedule` |
 | `fire_at` | ISO datetime for one-time reminders. Call `current_time` first for accurate values. |
 | `schedule` | Cron expression for recurring (e.g. `"0 9 * * 5"` = Fridays at 9am) |

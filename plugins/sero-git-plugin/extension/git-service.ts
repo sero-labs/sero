@@ -214,14 +214,14 @@ export async function runGitAction(
       }
 
       case 'log': {
-        const state = await readState(statePath);
+        const state = await refresh('auto');
         const recent = state.commits.slice(0, 20);
         if (!recent.length) return ok('No commits found.');
         return ok(recent.map((commit) => `${commit.shortHash} ${commit.subject} (${commit.authorName})`).join('\n'));
       }
 
       case 'branches': {
-        const state = await readState(statePath);
+        const state = await refresh('auto');
         const localBranchLines = state.branches.map((branch) => {
           return `${branch.current ? '* ' : '  '}${branch.name}` +
             `${branch.remote ? ` -> ${branch.remote}` : ''}` +

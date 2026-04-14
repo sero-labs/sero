@@ -72,8 +72,8 @@ export function ReminderCard({
               </Badge>
             )}
             {reminder.channel === 'email' && (
-              <Badge variant="outline" className="border-blue-500/30 text-[10px] text-blue-500">
-                📧 email
+              <Badge variant="outline" className="border-amber-500/30 text-[10px] text-amber-500">
+                📧 legacy email
               </Badge>
             )}
           </div>

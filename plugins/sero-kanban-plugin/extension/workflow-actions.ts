@@ -14,6 +14,7 @@ import {
   generateRetrospectiveSummary, writeErrorLog,
 } from './error-log';
 import { removeWorktree } from './worktree-cleanup';
+import { formatCleanupWarnings } from './cleanup-warnings';
 
 type ToolResult = { content: { type: 'text'; text: string }[]; details: Record<string, never> };
 
@@ -207,15 +208,27 @@ export async function handleCleanup(
 
   // All cards done — remove worktrees
   const cleaned: string[] = [];
+  const warnings: string[] = [];
   for (const card of doneCards) {
     if (!card.worktreePath) continue;
-    await removeWorktree(cwd, card.worktreePath);
+    const cardWarnings = (await removeWorktree(cwd, card.worktreePath)) ?? [];
+    warnings.push(...cardWarnings);
     card.worktreePath = undefined;
     cleaned.push(`#${card.id}`);
+    for (const warning of cardWarnings) {
+      await appendError(statePath, {
+        cardId: card.id,
+        cardTitle: card.title,
+        phase: 'review',
+        agentName: 'system',
+        severity: 'warning',
+        message: warning,
+      });
+    }
   }
 
   await writeState(statePath, state);
-  return text(`Cleaned up ${cleaned.length} worktree(s): ${cleaned.join(', ')}`);
+  return text(`Cleaned up ${cleaned.length} worktree(s): ${cleaned.join(', ')}` + formatCleanupWarnings(warnings));
 }
 
 // ── Report Error ────────────────────────────────────────────

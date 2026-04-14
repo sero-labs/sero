@@ -13,7 +13,13 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
 import type { CronState, CronJob, Reminder, NotificationSettings } from '../shared/types';
 import { DEFAULT_CRON_STATE, DEFAULT_NOTIFICATION_SETTINGS } from '../shared/types';
-import { snoozeReminder } from '../shared/reminder-utils';
+import {
+  completeReminderById,
+  removeReminderById,
+  snoozeReminderById,
+  toggleReminderDisabledState,
+  upsertReminder,
+} from '../shared/reminder-mutations';
 import { SchedulerBar } from './components/SchedulerBar';
 import { JobCard } from './components/JobCard';
 import { JobForm } from './components/JobForm';
@@ -116,51 +122,59 @@ export function CronApp() {
 
   const handleSaveReminder = useCallback((reminder: Reminder) => {
     updateState((prev) => {
-      const list = prev.reminders ?? [];
-      const idx = list.findIndex((r) => r.id === reminder.id);
-      const updated = idx >= 0
-        ? list.map((r) => (r.id === reminder.id ? reminder : r))
-        : [...list, reminder];
-      return { ...prev, reminders: updated };
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      upsertReminder(next, reminder);
+      return next;
     });
   }, [updateState]);
 
   const handleRemoveReminder = useCallback((id: string) => {
-    updateState((prev) => ({
-      ...prev,
-      reminders: (prev.reminders ?? []).filter((r) => r.id !== id),
-    }));
+    updateState((prev) => {
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      removeReminderById(next, id);
+      return next;
+    });
   }, [updateState]);
 
   const handleSnoozeReminder = useCallback((id: string, minutes: number) => {
-    updateState((prev) => ({
-      ...prev,
-      reminders: (prev.reminders ?? []).map((r) =>
-        r.id === id ? snoozeReminder(r, minutes) : r,
-      ),
-    }));
+    updateState((prev) => {
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      snoozeReminderById(next, id, minutes);
+      return next;
+    });
   }, [updateState]);
 
   const handleCompleteReminder = useCallback((id: string) => {
-    updateState((prev) => ({
-      ...prev,
-      reminders: (prev.reminders ?? []).map((r) =>
-        r.id === id
-          ? { ...r, status: 'completed' as const, completedAt: new Date().toISOString(), snoozedUntil: undefined }
-          : r,
-      ),
-    }));
+    updateState((prev) => {
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      completeReminderById(next, id);
+      return next;
+    });
   }, [updateState]);
 
   const handleToggleReminderEnabled = useCallback((id: string) => {
-    updateState((prev) => ({
-      ...prev,
-      reminders: (prev.reminders ?? []).map((r) =>
-        r.id === id
-          ? { ...r, status: r.status === 'disabled' ? 'active' as const : 'disabled' as const, snoozedUntil: undefined }
-          : r,
-      ),
-    }));
+    updateState((prev) => {
+      const target = (prev.reminders ?? []).find((reminder) => reminder.id === id);
+      if (!target) return prev;
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      toggleReminderDisabledState(next, id, target.status !== 'disabled');
+      return next;
+    });
   }, [updateState]);
 
   // ── History ───────────────────────────────────────────────
