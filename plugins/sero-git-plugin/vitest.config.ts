@@ -5,7 +5,8 @@ export default defineConfig({
     include: [
       'extension/__tests__/**/*.test.ts',
       'shared/__tests__/**/*.test.ts',
-      'ui/lib/**/*.test.ts',
+      'ui/**/*.test.ts',
+      'ui/**/*.test.tsx',
     ],
     environment: 'node',
   },
