@@ -43,7 +43,7 @@ _Plan drafted: 2026-04-13_
    - Replace `ui/lib/host.ts`’s local `HostApi` declaration with the canonical shared bridge types so host drift becomes a typecheck failure instead of a runtime surprise.
    - This aligns with Sero’s “all cross-process layers update together” rule and keeps AD-020 tool ownership intact for agent-facing actions.
 
-4. **Add package-local typecheck + tests for the real risk surfaces.** _(2026-04-14 partial: package-local UI+focused-extension typecheck plus state/path tests landed across `56ff5e59` and `cd40bbcb`; the broader full-extension/provider coverage remains pending.)_
+4. **~~Add package-local typecheck + tests for the real risk surfaces.~~ ✅ 2026-04-14 (`43572da8`)** _(2026-04-14 partial: package-local UI+focused-extension typecheck plus state/path tests landed across `56ff5e59` and `cd40bbcb`; this E5 pass expanded the extension gate across the provider/extractor seams and added direct helper coverage for Gemini Web, Gemini Search, YouTube URL detection, and RSC parsing.)_
    - Expand package-local typecheck beyond `ui/` to include `extension/` and `shared/`.
    - Add focused tests around:
      - malformed `state.json` does not get silently replaced with defaults
@@ -53,7 +53,7 @@ _Plan drafted: 2026-04-13_
      - download delete flow removes both the file entry and persisted state correctly
    - Start with pure module tests; do not block this pass on a heavyweight browser/integration harness.
 
-5. **Split the near-cap provider/extractor modules before they cross the hard limit.**
+5. **~~Split the near-cap provider/extractor modules before they cross the hard limit.~~ ✅ 2026-04-14 (`43572da8`)**
    - Suggested first cuts:
      - `gemini-web.ts` → account detection, upload/auth helpers, response parsing
      - `video-extract.ts` → config/path detection, upload/polling, ffmpeg helpers
@@ -86,11 +86,8 @@ _Plan drafted: 2026-04-13_
 - No container image rebuild is required for this plan, but runtime verification should include packaged native dependency behavior (`better-sqlite3`) and real tool availability (`ffmpeg`, `ffprobe`, `yt-dlp`).
 
 ## Next Steps
-1. Harden `state-sync.ts` so malformed state fails closed while missing files still bootstrap cleanly.
-2. Replace `extension/paths.ts` with a profile-scoped resolver and design the legacy-path migration story.
-3. Introduce explicit UI mutation actions for clear-history, bookmark add/remove, and download delete; stop mutating shared state directly from components.
-4. Expand package-local typecheck and add focused tests for state/path/mutation behavior.
-5. Split `gemini-web.ts` first, then `video-extract.ts`, then `gemini-search.ts` / `youtube-extract.ts` as follow-up cap relief.
+1. If we do a follow-up polish pass, clear the remaining Low config-loader dedupe seams across `exa.ts`, `perplexity.ts`, `gemini-api.ts`, `gemini-web.ts`, and `github-extract.ts`.
+2. Otherwise treat this plugin as Medium-complete and move to the next queued E5 target in the desktop/packages/plugins backlog.
 
 Verification checklist:
 - A deliberately malformed `.sero/apps/web/state.json` surfaces a recoverable error and is not silently replaced with defaults on the next mutation.
@@ -106,3 +103,4 @@ Verification checklist:
 - `a3f625be` — `fix(plugins): align profile-scoped path ownership`
 - `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(web: added focused extension compile + package-local tests for path/state/download/bookmark semantics)*
 - `cd40bbcb` — `test(web): cover history clearing and download cleanup`
+- `43572da8` — `refactor(web): split provider extraction seams`

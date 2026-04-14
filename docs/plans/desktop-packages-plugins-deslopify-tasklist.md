@@ -167,7 +167,7 @@ across every batch it participates in.
 - [ ] `fix-slop` Medium items for `plugins/sero-memory-plugin`
 - [x] `fix-slop` Medium items for `plugins/sero-git-plugin`
 - [x] `fix-slop` Medium items for `plugins/sero-context-plugin`
-- [ ] `fix-slop` Medium items for `plugins/sero-web-plugin`
+- [x] `fix-slop` Medium items for `plugins/sero-web-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-user-feedback-plugin`
 
 ## Wave G — Final Periphery / Drift Sweep
@@ -408,3 +408,11 @@ runtime, contract, or desktop-side code that those plugins consume.
   `CommitDetail` / `StagingArea`, and targeted Git validation plus monorepo
   `pnpm typecheck` and `apps/desktop pnpm test` all passed. The remaining E5
   plugins stay queued in the checklist above.
+- 2026-04-14: The fourth plugin-scoped E5 closeout landed in `43572da8`
+  (`refactor(web): split provider extraction seams`): the web plugin’s near-cap
+  Gemini Web / Gemini Search / video / YouTube / RSC extraction hubs were split
+  into focused helper modules, the package-local extension typecheck now covers
+  those provider/extractor seams directly, new extension tests landed for the
+  split helpers, and targeted web validation plus monorepo `pnpm typecheck` and
+  `apps/desktop pnpm test` all passed. The remaining E5 plugins stay queued in
+  the checklist above.

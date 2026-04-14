@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, Wave F batches E1–E4 landed 2026-04-14, and E5 is now executing plugin-by-plugin (`sero-kanban`, `sero-admin`, and `sero-git` cleared 2026-04-14; `sero-web`, `sero-user-feedback`, and `sero-cron` remain)*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, Wave F batches E1–E4 landed 2026-04-14, and E5 is executing plugin-by-plugin (`sero-kanban`, `sero-admin`, `sero-git`, and `sero-web` cleared 2026-04-14; `sero-user-feedback` and `sero-cron` remain)*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -99,4 +99,4 @@ entry links to a `facts.md` and `plan.md` pair.
 - [`plugins/sero-user-feedback-plugin/`](./plugins/sero-user-feedback-plugin/plan.md)
   — *In progress — High questionnaire-parity/onboarding items plus E3 transport ownership work cleared 2026-04-14; broader Medium state-machine coverage and file-splitting still pending*
 - [`plugins/sero-web-plugin/`](./plugins/sero-web-plugin/plan.md)
-  — *In progress — High state + bridge + UI ownership + profile-path work cleared 2026-04-14, and E3 focused extension coverage landed 2026-04-14; broader provider-module cleanup still pending*
+  — *Healthy — High state/path/ownership work plus E3 focused extension coverage and E5 provider/module splitting cleared 2026-04-14; Low config-loader dedupe follow-up pending*

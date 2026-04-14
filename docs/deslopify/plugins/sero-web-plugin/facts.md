@@ -1,6 +1,6 @@
 # Facts — plugins/sero-web-plugin
 
-_Last reviewed: 2026-04-13_
+_Last reviewed: 2026-04-14_
 
 ## What this code does
 `plugins/sero-web-plugin/` is Sero’s broad web-ingestion plugin: it registers search, fetch, code-search, and bookmark/history tools; persists a workspace-scoped web activity state file; and renders both a full app and a dashboard widget for history, bookmarks, downloads, and provider availability. The extension also owns provider-specific fallbacks for Exa, Perplexity, Gemini API/Web, GitHub repository extraction, YouTube/video analysis, PDF extraction, and Chromium cookie access for Gemini Web.
@@ -120,3 +120,21 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - Broader full-extension typecheck coverage across the provider/extractor modules is still pending.
 - Provider-module splitting and config-loader dedupe remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E5)
+
+### Metrics after fixes
+- Total files: 61 in the current TS/JS source scan (excluding `dist/`, `node_modules/`, and build temp folders)
+- Largest file: `plugins/sero-web-plugin/extension/chrome-cookies.ts` (309 LOC)
+- Files over 500 LOC: none
+- Targeted validation: `pnpm --filter @sero-ai/plugin-web typecheck`, `pnpm --filter @sero-ai/plugin-web test`, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Split the near-cap provider/extractor hubs into focused helper modules for Gemini Web config/email/response parsing, Gemini Search config/prompt formatting, video config plus Gemini Files API uploads, YouTube config/media helpers, and RSC chunk parsing.
+- Expanded the package-local extension tsconfig so the provider/extractor seams now compile under the package quality gate instead of remaining outside the earlier focused state/path coverage.
+- Added direct extension tests for Gemini Web email/response helpers, Gemini Search prompt/source formatting, YouTube URL detection, and RSC markdown extraction so the post-split behavior stays pinned down.
+- Added local vendor declarations plus small typing cleanups in `http-extract.ts` and `perplexity.ts` so the broader extension gate typechecks without hiding the runtime boundaries behind implicit `any`.
+
+### Still outstanding
+- Medium items are cleared for this plan.
+- Low config-loader dedupe remains deferred.

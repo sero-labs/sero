@@ -285,3 +285,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Remaining E5 plugins, in order: `plugins/sero-web-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin`.
 - `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / E5, web complete)
+
+### Metrics after fixes
+- Wave F batches landed: **E1 + E2 + E3 + E4**, plus plugin-scoped **E5** closeouts for `plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`, `plugins/sero-git-plugin`, and `plugins/sero-web-plugin`
+- New focused Web modules added in this pass: `plugins/sero-web-plugin/extension/{gemini-web-config.ts,gemini-web-email.ts,gemini-web-response.ts,gemini-search-config.ts,gemini-search-format.ts,video-config.ts,video-gemini-files.ts,youtube-config.ts,youtube-media.ts,rsc-chunks.ts}`
+- Targeted validation: web package typecheck/tests, monorepo `pnpm typecheck`, and `apps/desktop pnpm test` all pass
+
+### What changed
+- Cleared the Web plugin’s remaining Medium work by splitting the near-cap provider/extractor hubs below the hotspot cluster while keeping the existing public entrypoints stable.
+- Expanded the package-local extension quality gate so the provider/extractor seams now compile directly and added focused helper tests for Gemini Web parsing, Gemini Search prompt/source formatting, YouTube URL detection, and RSC markdown extraction.
+- Updated tracking so `plugins/sero-web-plugin` is now closed out while the remaining E5 plugins stay queued explicitly in tasklist order.
+
+### Still outstanding
+- Remaining E5 plugins, in order: `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin`.
+- `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.

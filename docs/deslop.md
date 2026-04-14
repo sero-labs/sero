@@ -62,6 +62,11 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-git-plugin/extension/{git-commands.ts,git-command-support.ts,git-log-queries.ts,git-status-queries.ts,git-diff-queries.ts}` | Split Git command parsing into focused query helpers and reduced the public barrel (`git-commands.ts` 457 → 24 lines) |
 | `plugins/sero-git-plugin/ui/components/{BranchPanel.tsx,BranchPanelSections.tsx,BranchPanelRows.tsx}` | Split the near-cap branch/worktree/stash sidebar into focused UI modules (`BranchPanel.tsx` 421 → 190 lines) |
 | `plugins/sero-git-plugin/{vitest.config.ts,shared/__tests__/bridge-contract.test.ts,ui/GitApp.test.tsx,ui/components/{BranchPanel.test.tsx,CommitDetail.test.tsx,StagingArea.test.tsx}}` | Expanded the Git package quality gate with direct UI interaction coverage plus a shared bridge-contract guard |
+| `plugins/sero-web-plugin/extension/{gemini-web.ts,gemini-web-config.ts,gemini-web-email.ts,gemini-web-response.ts}` | Split Gemini Web config/email/response parsing into focused helpers and slimmed the entrypoint (`483 → 270 lines`) |
+| `plugins/sero-web-plugin/extension/{gemini-search.ts,gemini-search-config.ts,gemini-search-format.ts}` | Split Gemini Search config/prompt formatting from provider orchestration (`361 → 271 lines`) |
+| `plugins/sero-web-plugin/extension/{video-extract.ts,video-config.ts,video-gemini-files.ts}` | Split video file detection and Gemini Files API upload/polling helpers from the extractor shell (`394 → 193 lines`) |
+| `plugins/sero-web-plugin/extension/{youtube-extract.ts,youtube-config.ts,youtube-media.ts}` | Split YouTube config/media helpers from fallback orchestration (`343 → 194 lines`) |
+| `plugins/sero-web-plugin/extension/{rsc-extract.ts,rsc-chunks.ts,http-extract.ts,perplexity.ts,vendor.d.ts,tsconfig.json,__tests__/{gemini-web-email.test.ts,gemini-web-response.test.ts,gemini-search-format.test.ts,youtube-config.test.ts,rsc-extract.test.ts}}` | Split RSC chunk parsing, widened the package-local provider typecheck, and added direct helper coverage plus local vendor typings (`rsc-extract.ts` `338 → 279 lines`) |
 
 ---
 
