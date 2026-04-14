@@ -3,7 +3,15 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DEFAULT_STATE } from '../../shared/types';
-import { addBookmark, readState, removeBookmark } from '../state-sync';
+import {
+  addBookmark,
+  clearHistory,
+  readState,
+  removeBookmark,
+  removeDownload,
+  syncEntryToState,
+  upsertDownload,
+} from '../state-sync';
 
 const tempDirs: string[] = [];
 
@@ -53,6 +61,60 @@ describe('web state sync', () => {
 
     await expect(removeBookmark(statePath, created.id)).resolves.toBe(true);
     await expect(readState(statePath)).resolves.toMatchObject({ bookmarks: [] });
+  });
+
+  it('clears history without disturbing bookmark and download state', async () => {
+    const statePath = await createTempStatePath();
+
+    await syncEntryToState(statePath, {
+      id: 'entry-1',
+      type: 'search',
+      timestamp: Date.now(),
+      queries: [
+        {
+          query: 'sero',
+          answer: 'result',
+          results: [{ title: 'Sero', url: 'https://sero.dev' }],
+          error: null,
+        },
+      ],
+    });
+    await upsertDownload(statePath, {
+      id: 'download-1',
+      sourceUrl: 'https://sero.dev/file.pdf',
+      title: 'Guide',
+      status: 'completed',
+      phase: 'Done',
+      progressPct: 100,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const clearedAt = await clearHistory(statePath);
+    const state = await readState(statePath);
+
+    expect(clearedAt).toBeGreaterThan(0);
+    expect(state.entries).toEqual([]);
+    expect(state.historyClearedAt).toBe(clearedAt);
+    expect(state.downloads).toHaveLength(1);
+  });
+
+  it('removes downloads from persisted state after deletion', async () => {
+    const statePath = await createTempStatePath();
+
+    await upsertDownload(statePath, {
+      id: 'download-1',
+      sourceUrl: 'https://sero.dev/file.pdf',
+      title: 'Guide',
+      status: 'completed',
+      phase: 'Done',
+      progressPct: 100,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    await removeDownload(statePath, 'download-1');
+
+    await expect(readState(statePath)).resolves.toMatchObject({ downloads: [] });
   });
 
   it('fails closed on malformed persisted state instead of overwriting it', async () => {
