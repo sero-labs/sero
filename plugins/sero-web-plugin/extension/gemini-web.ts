@@ -1,7 +1,20 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { type CookieMap, getGoogleCookies } from "./chrome-cookies.js";
-import { getWebConfigPath } from "./paths.js";
+import { getChromeProfileFromConfig, normalizeChromeProfile } from "./gemini-web-config.js";
+import {
+	buildCookieHeader,
+	extractEmailFromGeminiHtml,
+	extractEmailFromListAccounts,
+	findFirstUserEmail,
+} from "./gemini-web-email.js";
+import {
+	buildFReqPayload,
+	isModelUnavailable,
+	parseStreamGenerateResponse,
+	withTimeout,
+	type GeminiWebResult,
+} from "./gemini-web-response.js";
 
 const GEMINI_APP_URL = "https://gemini.google.com/app";
 const GEMINI_STREAM_GENERATE_URL =
@@ -23,51 +36,12 @@ const MODEL_HEADERS: Record<string, string> = {
 
 const REQUIRED_COOKIES = ["__Secure-1PSID", "__Secure-1PSIDTS"];
 
-interface GeminiWebConfig {
-	chromeProfile?: string;
-}
-
-let cachedConfig: GeminiWebConfig | null = null;
-
 export interface GeminiWebOptions {
 	youtubeUrl?: string;
 	model?: string;
 	files?: string[];
 	signal?: AbortSignal;
 	timeoutMs?: number;
-}
-
-function loadConfig(): GeminiWebConfig {
-	if (cachedConfig) return cachedConfig;
-	const configPath = getWebConfigPath();
-	if (!existsSync(configPath)) {
-		cachedConfig = {};
-		return cachedConfig;
-	}
-
-	const rawText = readFileSync(configPath, "utf-8");
-	let raw: { chromeProfile?: unknown };
-	try {
-		raw = JSON.parse(rawText) as { chromeProfile?: unknown };
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to parse ${configPath}: ${message}`);
-	}
-
-	cachedConfig = {
-		chromeProfile: normalizeChromeProfile(raw.chromeProfile),
-	};
-	return cachedConfig;
-}
-
-function normalizeChromeProfile(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const normalized = value.trim();
-	return normalized.length > 0 ? normalized : undefined;
-}
-
-function getChromeProfileFromConfig(): string | undefined {
-	return loadConfig().chromeProfile;
 }
 
 export async function isGeminiWebAvailable(chromeProfile?: string): Promise<CookieMap | null> {
@@ -86,7 +60,6 @@ export async function getActiveGoogleEmail(cookies: CookieMap): Promise<string |
 		return null;
 	}
 
-	// Method 1: extract from Gemini app page HTML
 	try {
 		const html = await fetchWithCookieRedirects(
 			GEMINI_APP_URL,
@@ -96,12 +69,12 @@ export async function getActiveGoogleEmail(cookies: CookieMap): Promise<string |
 		);
 		const email = extractEmailFromGeminiHtml(html);
 		if (email) return email;
-		// Structured patterns didn't match — method 3 will try regex fallback
 	} catch (err) {
-		console.error(`[sero-web] getActiveGoogleEmail: Gemini fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+		console.error(
+			`[sero-web] getActiveGoogleEmail: Gemini fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
-	// Method 2: extract from Google ListAccounts API
 	try {
 		const response = await fetchWithCookieRedirects(
 			GOOGLE_LIST_ACCOUNTS_URL,
@@ -111,13 +84,15 @@ export async function getActiveGoogleEmail(cookies: CookieMap): Promise<string |
 		);
 		const email = extractEmailFromListAccounts(response);
 		if (email) return email;
-		console.error(`[sero-web] getActiveGoogleEmail: ListAccounts (${response.length} chars) — no user email found. Preview: ${response.slice(0, 500)}`);
+		console.error(
+			`[sero-web] getActiveGoogleEmail: ListAccounts (${response.length} chars) — no user email found. Preview: ${response.slice(0, 500)}`,
+		);
 	} catch (err) {
-		console.error(`[sero-web] getActiveGoogleEmail: ListAccounts failed: ${err instanceof Error ? err.message : String(err)}`);
+		console.error(
+			`[sero-web] getActiveGoogleEmail: ListAccounts failed: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
-	// Method 3: last resort — find all emails in the Gemini HTML
-	// and return the first one that isn't a Google-internal address
 	try {
 		const html = await fetchWithCookieRedirects(
 			GEMINI_APP_URL,
@@ -127,7 +102,9 @@ export async function getActiveGoogleEmail(cookies: CookieMap): Promise<string |
 		);
 		const email = findFirstUserEmail(html);
 		if (email) return email;
-	} catch { /* already logged above */ }
+	} catch {
+		// Already logged above.
+	}
 
 	return null;
 }
@@ -139,16 +116,18 @@ export async function queryWithCookies(
 ): Promise<string> {
 	const model = options.model && MODEL_HEADERS[options.model] ? options.model : "gemini-2.5-flash";
 	const timeoutMs = options.timeoutMs ?? 120000;
-
-	let fullPrompt = prompt;
-	if (options.youtubeUrl) {
-		fullPrompt = `${fullPrompt}\n\nYouTube video: ${options.youtubeUrl}`;
-	}
+	const fullPrompt = options.youtubeUrl ? `${prompt}\n\nYouTube video: ${options.youtubeUrl}` : prompt;
 
 	const result = await runGeminiWebOnce(fullPrompt, cookieMap, model, options.files, timeoutMs, options.signal);
-
 	if (isModelUnavailable(result.errorCode) && model !== "gemini-2.5-flash") {
-		const fallback = await runGeminiWebOnce(fullPrompt, cookieMap, "gemini-2.5-flash", options.files, timeoutMs, options.signal);
+		const fallback = await runGeminiWebOnce(
+			fullPrompt,
+			cookieMap,
+			"gemini-2.5-flash",
+			options.files,
+			timeoutMs,
+			options.signal,
+		);
 		if (fallback.errorMessage) throw new Error(fallback.errorMessage);
 		if (!fallback.text) throw new Error("Gemini Web returned empty response (fallback model)");
 		return fallback.text;
@@ -157,12 +136,6 @@ export async function queryWithCookies(
 	if (result.errorMessage) throw new Error(result.errorMessage);
 	if (!result.text) throw new Error("Gemini Web returned empty response");
 	return result.text;
-}
-
-interface GeminiWebResult {
-	text: string;
-	errorCode?: number;
-	errorMessage?: string;
 }
 
 async function runGeminiWebOnce(
@@ -176,18 +149,17 @@ async function runGeminiWebOnce(
 	const effectiveSignal = withTimeout(signal, timeoutMs);
 	const cookieHeader = buildCookieHeader(cookieMap);
 	const accessToken = await fetchAccessToken(cookieHeader, effectiveSignal);
-
 	const uploaded: Array<{ id: string; name: string }> = [];
+
 	if (files) {
 		for (const filePath of files) {
 			uploaded.push(await uploadFile(filePath, cookieHeader, effectiveSignal));
 		}
 	}
 
-	const fReq = buildFReqPayload(prompt, uploaded);
 	const params = new URLSearchParams();
 	params.set("at", accessToken);
-	params.set("f.req", fReq);
+	params.set("f.req", buildFReqPayload(prompt, uploaded));
 
 	const res = await fetch(GEMINI_STREAM_GENERATE_URL, {
 		method: "POST",
@@ -199,14 +171,13 @@ async function runGeminiWebOnce(
 			"x-same-domain": "1",
 			"user-agent": USER_AGENT,
 			cookie: cookieHeader,
-			[MODEL_HEADER_NAME]: MODEL_HEADERS[model],
+			[MODEL_HEADER_NAME]: MODEL_HEADERS[model] ?? MODEL_HEADERS["gemini-2.5-flash"],
 		},
 		body: params.toString(),
 		signal: effectiveSignal,
 	});
 
 	const rawText = await res.text();
-
 	if (!res.ok) {
 		return { text: "", errorMessage: `Gemini request failed: ${res.status}` };
 	}
@@ -214,32 +185,23 @@ async function runGeminiWebOnce(
 	try {
 		return parseStreamGenerateResponse(rawText);
 	} catch (err) {
-		let errorCode: number | undefined;
-		try {
-			const json = JSON.parse(trimJsonEnvelope(rawText));
-			errorCode = extractErrorCode(json);
-		} catch {
-		}
 		return {
 			text: "",
-			errorCode,
 			errorMessage: err instanceof Error ? err.message : String(err),
 		};
 	}
 }
 
-async function fetchAccessToken(
-	cookieHeader: string,
-	signal: AbortSignal,
-): Promise<string> {
+async function fetchAccessToken(cookieHeader: string, signal: AbortSignal): Promise<string> {
 	const html = await fetchWithCookieRedirects(GEMINI_APP_URL, cookieHeader, 10, signal);
-
 	for (const key of ["SNlM0e", "thykhd"]) {
 		const match = html.match(new RegExp(`"${key}":"(.*?)"`));
 		if (match?.[1]) return match[1];
 	}
 
-	throw new Error("Unable to authenticate with Gemini. Make sure you're signed into gemini.google.com in a supported Chromium-based browser.");
+	throw new Error(
+		"Unable to authenticate with Gemini. Make sure you're signed into gemini.google.com in a supported Chromium-based browser.",
+	);
 }
 
 async function fetchWithCookieRedirects(
@@ -249,7 +211,7 @@ async function fetchWithCookieRedirects(
 	signal: AbortSignal,
 ): Promise<string> {
 	let current = url;
-	for (let i = 0; i <= maxRedirects; i++) {
+	for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount++) {
 		const res = await fetch(current, {
 			headers: { "user-agent": USER_AGENT, cookie: cookieHeader },
 			redirect: "manual",
@@ -267,98 +229,6 @@ async function fetchWithCookieRedirects(
 	throw new Error(`Too many redirects (>${maxRedirects})`);
 }
 
-function extractEmailFromGeminiHtml(html: string): string | null {
-	const patterns = [
-		/"email"\s*:\s*"([^"]+)"/,
-		/"displayEmail"\s*:\s*"([^"]+)"/,
-		/"identifier"\s*:\s*"([^"]+)"/,
-		/"defaultEmail"\s*:\s*"([^"]+)"/,
-		/"gaiaIdentifier"\s*:\s*"([^"]+)"/,
-	];
-
-	for (const pattern of patterns) {
-		const match = html.match(pattern);
-		const email = normalizeEmail(match?.[1]);
-		if (email && isUserEmail(email)) return email;
-	}
-
-	// Don't use findFirstEmail on raw HTML — it picks up Google internal
-	// addresses (googlers@google.com, etc.) from embedded scripts/footers.
-	return null;
-}
-
-function extractEmailFromListAccounts(text: string): string | null {
-	const trimmed = text.replace(/^\)\]\}'\s*/, "");
-	try {
-		return findUserEmailInValue(JSON.parse(trimmed));
-	} catch {
-		return null;
-	}
-}
-
-/** Skip Google internal addresses (google.com, googlers, etc.) */
-function isUserEmail(email: string): boolean {
-	const lower = email.toLowerCase();
-	if (lower.endsWith("@google.com")) return false;
-	if (lower.endsWith("@chromium.org")) return false;
-	if (lower.endsWith("@googlers.com")) return false;
-	return true;
-}
-
-function findUserEmailInValue(value: unknown): string | null {
-	if (typeof value === "string") {
-		const email = normalizeEmail(value);
-		return email && isUserEmail(email) ? email : null;
-	}
-	if (Array.isArray(value)) {
-		for (const item of value) {
-			const email = findUserEmailInValue(item);
-			if (email) return email;
-		}
-		return null;
-	}
-	if (value && typeof value === "object") {
-		for (const item of Object.values(value as Record<string, unknown>)) {
-			const email = findUserEmailInValue(item);
-			if (email) return email;
-		}
-	}
-	return null;
-}
-
-function findFirstEmail(text: string): string | null {
-	const normalized = decodeEmailEscapes(text);
-	const match = normalized.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
-	return match?.[0] ?? null;
-}
-
-/** Find the first email in text that isn't a Google-internal address. */
-function findFirstUserEmail(text: string): string | null {
-	const normalized = decodeEmailEscapes(text);
-	const re = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
-	let match: RegExpExecArray | null;
-	while ((match = re.exec(normalized)) !== null) {
-		if (isUserEmail(match[0])) return match[0];
-	}
-	return null;
-}
-
-function normalizeEmail(value: string | undefined): string | null {
-	if (!value) return null;
-	const normalized = decodeEmailEscapes(value.trim());
-	return /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(normalized) ? normalized : null;
-}
-
-function decodeEmailEscapes(value: string): string {
-	return value
-		.replace(/\\u0040/gi, "@")
-		.replace(/\\x40/gi, "@")
-		.replace(/&#64;/gi, "@")
-		.replace(/&commat;/gi, "@")
-		.replace(/\\"/g, "\"")
-		.replace(/\\\\/g, "\\");
-}
-
 async function uploadFile(
 	filePath: string,
 	cookieHeader: string,
@@ -366,8 +236,11 @@ async function uploadFile(
 ): Promise<{ id: string; name: string }> {
 	const data = readFileSync(filePath);
 	const fileName = basename(filePath);
-	const boundary = "----FormBoundary" + Math.random().toString(36).slice(2);
-	const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/octet-stream\r\n\r\n`;
+	const boundary = `----FormBoundary${Math.random().toString(36).slice(2)}`;
+	const header =
+		`--${boundary}\r\n` +
+		`Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+		"Content-Type: application/octet-stream\r\n\r\n";
 	const footer = `\r\n--${boundary}--\r\n`;
 
 	const body = Buffer.concat([
@@ -394,90 +267,4 @@ async function uploadFile(
 	}
 
 	return { id: await res.text(), name: fileName };
-}
-
-function buildFReqPayload(
-	prompt: string,
-	uploaded: Array<{ id: string; name: string }>,
-): string {
-	const promptPayload =
-		uploaded.length > 0
-			? [prompt, 0, null, uploaded.map((file) => [[file.id, 1]])]
-			: [prompt];
-	const innerList = [promptPayload, null, null];
-	return JSON.stringify([null, JSON.stringify(innerList)]);
-}
-
-function withTimeout(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
-	const timeout = AbortSignal.timeout(timeoutMs);
-	return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
-
-function buildCookieHeader(cookieMap: CookieMap): string {
-	return Object.entries(cookieMap)
-		.filter(([, value]) => typeof value === "string" && value.length > 0)
-		.map(([name, value]) => `${name}=${value}`)
-		.join("; ");
-}
-
-function getNestedValue(value: unknown, pathParts: number[]): unknown {
-	let current: unknown = value;
-	for (const part of pathParts) {
-		if (current == null) return undefined;
-		if (!Array.isArray(current)) return undefined;
-		current = (current as unknown[])[part];
-	}
-	return current;
-}
-
-function trimJsonEnvelope(text: string): string {
-	const start = text.indexOf("[");
-	const end = text.lastIndexOf("]");
-	if (start === -1 || end === -1 || end <= start) {
-		throw new Error("Gemini response did not contain a JSON payload.");
-	}
-	return text.slice(start, end + 1);
-}
-
-function extractErrorCode(responseJson: unknown): number | undefined {
-	const code = getNestedValue(responseJson, [0, 5, 2, 0, 1, 0]);
-	return typeof code === "number" && code >= 0 ? code : undefined;
-}
-
-function isModelUnavailable(errorCode: number | undefined): boolean {
-	return errorCode === 1052;
-}
-
-function parseStreamGenerateResponse(rawText: string): GeminiWebResult {
-	const responseJson = JSON.parse(trimJsonEnvelope(rawText));
-	const errorCode = extractErrorCode(responseJson);
-
-	const parts = Array.isArray(responseJson) ? responseJson : [];
-	let body: unknown = null;
-
-	for (let i = 0; i < parts.length; i++) {
-		const partBody = getNestedValue(parts[i], [2]);
-		if (!partBody || typeof partBody !== "string") continue;
-		try {
-			const parsed = JSON.parse(partBody);
-			const candidateList = getNestedValue(parsed, [4]);
-			if (Array.isArray(candidateList) && candidateList.length > 0) {
-				body = parsed;
-				break;
-			}
-		} catch {
-		}
-	}
-
-	const candidateList = getNestedValue(body, [4]);
-	const firstCandidate = Array.isArray(candidateList) ? (candidateList as unknown[])[0] : undefined;
-	const textRaw = getNestedValue(firstCandidate, [1, 0]) as string | undefined;
-
-	let text = textRaw ?? "";
-	if (/^http:\/\/googleusercontent\.com\/card_content\/\d+/.test(text)) {
-		const alt = getNestedValue(firstCandidate, [22, 0]) as string | undefined;
-		if (alt) text = alt;
-	}
-
-	return { text, errorCode };
 }
