@@ -30,3 +30,21 @@ _Last reviewed: 2026-04-12_
 - The “Explorer” app now owns much more than file navigation: source control, terminal lifecycle, live dev-server previews, diff viewing, markdown/media previews, and subagent monitoring all terminate here.
 - Several seemingly small leaf components re-implement transient async UI patterns (`setTimeout`-cleared notices, inline loading/error state, silent catch blocks) instead of sharing helpers, so the slop is spread horizontally rather than concentrated in one obvious file.
 - `WorkingCopySection.tsx` still renders an “Absorb changes into ancestors” button with no handler, which makes the panel look more complete than it actually is.
+
+## Post-fix snapshot — 2026-04-14
+
+### Metrics after fixes
+- Total files: 44 (was 38)
+- Largest file: `apps/desktop/src/components/apps/explorer/editor/EditorPanel.tsx` (473 LOC)
+- Files over 500 LOC: None (was None)
+- Type escape hatches remaining: unchanged in the still-pending `EditorPanel` / `FileTree` seams; no new escape hatches added in the `ExplorerWorkspace` split
+
+### What changed
+- `ExplorerWorkspace.tsx` now stays focused on the resizable layout shell while the extracted hooks own root loading/removal, persisted editor-tab state, bridge-open handling, VCS watcher wiring, and terminal bootstrap.
+- Added `useExplorerEditorState.test.tsx` to lock in the behavior-sensitive editor-state semantics that the split preserved: restored tabs, pending bridge opens, and path remap/delete handling.
+- The largest near-cap pressure in this folder now sits on `editor/EditorPanel.tsx`, not the explorer shell.
+
+### Still outstanding
+- `editor/EditorPanel.tsx` remains the highest-priority Medium follow-up and is still near the 500-LOC cap.
+- `file-tree/FileTree.tsx` still needs the planned model-hook extraction to contain its imperative rebuild lifecycle.
+- Transient notice dedupe, the silent `ChangeDetail` failure path, and the dead `WorkingCopySection` absorb control are still pending exactly as described in the original plan.

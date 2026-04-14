@@ -85,6 +85,11 @@ Changes made during code quality passes. Most recent first.
 | `docs/deslopify/apps/desktop/electron/gateway/{facts,plan}.md` | Recorded the confirmed generated-only no-op closeout for the `apps/desktop/electron/gateway/` tracker item after re-validating the live folder shape |
 | `docs/deslopify/desktop-packages-plugins/{facts,plan}.md` | Closed the final tracked Wave F gateway no-op item and marked the cross-cutting execution map complete apart from deferred Low polish |
 | `docs/deslopify/index.md` | Marked the cross-cutting baseline fully healthy and updated `apps/desktop/electron/gateway/` to its confirmed no-op closeout state |
+| `apps/desktop/src/components/apps/explorer/{useExplorerRoots.ts,useExplorerEditorState.ts,useExplorerRuntimeEffects.ts}` | New — extracted root discovery, editor-state/bridge logic, and runtime wiring out of `ExplorerWorkspace` |
+| `apps/desktop/src/components/apps/explorer/ExplorerWorkspace.tsx` | Reduced to a thin explorer layout shell over the focused controller hooks (480 → 292 lines) |
+| `apps/desktop/src/components/apps/explorer/useExplorerEditorState.test.tsx` | New — covers restored tabs, bridge-open requests, and path remap/delete behavior for the extracted editor-state owner |
+| `docs/deslopify/apps/desktop/src/components/apps/explorer/{facts,plan}.md` | Recorded the ExplorerWorkspace controller split, post-fix metrics, and remaining explorer follow-up items |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/apps/explorer/` in progress with the first Medium item cleared |
 
 ---
 
