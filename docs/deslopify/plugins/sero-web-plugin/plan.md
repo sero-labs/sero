@@ -43,7 +43,7 @@ _Plan drafted: 2026-04-13_
    - Replace `ui/lib/host.ts`’s local `HostApi` declaration with the canonical shared bridge types so host drift becomes a typecheck failure instead of a runtime surprise.
    - This aligns with Sero’s “all cross-process layers update together” rule and keeps AD-020 tool ownership intact for agent-facing actions.
 
-4. **Add package-local typecheck + tests for the real risk surfaces.**
+4. **Add package-local typecheck + tests for the real risk surfaces.** _(2026-04-14 partial: package-local UI+focused-extension typecheck plus state/path tests landed across `56ff5e59` and `cd40bbcb`; the broader full-extension/provider coverage remains pending.)_
    - Expand package-local typecheck beyond `ui/` to include `extension/` and `shared/`.
    - Add focused tests around:
      - malformed `state.json` does not get silently replaced with defaults
@@ -104,3 +104,5 @@ Verification checklist:
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership` *(partial for this plan: canonical host-bridge typing only)*
 - `ff4e460a` — `fix(plugins): make web and context actions truthful`
 - `a3f625be` — `fix(plugins): align profile-scoped path ownership`
+- `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(web: added focused extension compile + package-local tests for path/state/download/bookmark semantics)*
+- `cd40bbcb` — `test(web): cover history clearing and download cleanup`

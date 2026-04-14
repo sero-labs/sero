@@ -64,3 +64,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - High items are cleared for this plan.
 - Medium projection dedupe, package-local extension quality gate, and failure-surface work remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E3)
+
+### Metrics after fixes
+- Total files: 14
+- Largest file: `plugins/sero-context-plugin/extension/index.ts` (388 LOC)
+- Files over 500 LOC: none
+- Targeted validation: package-local UI + extension typecheck, package-local snapshot/helper tests, and monorepo `pnpm typecheck` all pass
+
+### What changed
+- Added a package-local extension tsconfig so `extension/`, `shared/`, and the focused tests now compile under the plugin’s own quality gate.
+- Added focused tests for `resolveTargetId()`, hidden-node accounting, nearest-tag distance, and snapshot usage breakdown math.
+- Kept the runtime behavior unchanged in this E3 batch; the remaining projection-dedupe work still lives in the later runtime batch.
+
+### Still outstanding
+- Shared projection extraction between `extension/index.ts` and `extension/snapshot.ts` is still pending.
+- Failure-surface visibility for repeated snapshot write issues is still pending.

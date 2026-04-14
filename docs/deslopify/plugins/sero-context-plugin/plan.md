@@ -40,7 +40,7 @@ _Plan drafted: 2026-04-13_
    - This removes the current “same algorithm twice” drift surface and gives the package one canonical meaning of “interesting node.”
    - While doing this, replace the local `as any` walkers with narrow helpers over the actual session message/content shapes.
 
-4. **Bring the extension into the package’s own quality gate.**
+4. **~~Bring the extension into the package’s own quality gate.~~ ✅ 2026-04-14 (`56ff5e59`)**
    - Add a package-local tsconfig (or expand the existing one) so `extension/`, `shared/`, and `ui/` all typecheck together.
    - Add focused tests around pure logic first:
      - `resolveTargetId()`
@@ -91,3 +91,4 @@ Verification checklist:
 ## Execution log
 - `ff4e460a` — `fix(plugins): make web and context actions truthful` *(partial for this plan: truthful manual-snapshot copy + prompt-routed action labeling)*
 - `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`
+- `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(context: added package-local extension typecheck plus projection/usage helper coverage)*

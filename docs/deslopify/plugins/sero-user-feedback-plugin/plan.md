@@ -34,7 +34,7 @@ _Plan drafted: 2026-04-13_
    - Delete the `profiles` surface from `ui/sero.d.ts` once the remote no longer needs it.
    - Aligns with AD-001: the shell/profile system owns product workflow; the plugin should remain a reusable communication surface.
 
-3. **Canonicalize user-feedback transport and bus contracts.**
+3. **~~Canonicalize user-feedback transport and bus contracts.~~ ✅ 2026-04-14 (`56ff5e59`)**
    - Promote the question/answer payload types and the event-bus singleton key/factory into one neutral shared contract module (prefer a renderer-safe shared package such as `@sero/common`, or a dedicated shared desktop/plugin contract module if package boundaries make that safer).
    - Update these consumers together:
      - plugin `shared/types.ts` / `ui/types.ts`
@@ -45,7 +45,7 @@ _Plan drafted: 2026-04-13_
    - Replace local “subset bridge” declarations with canonical typed aliases so host drift becomes a typecheck failure.
    - This also closes the Medium drift already documented in `docs/deslopify/apps/desktop/src/types/plan.md` and `docs/deslopify/apps/desktop/electron/shared/plan.md`.
 
-4. **Add package-local typecheck and focused tests for the real risk surfaces.**
+4. **Add package-local typecheck and focused tests for the real risk surfaces.** _(2026-04-14 partial: package-local UI+extension typecheck plus focused IPC-bridge tests landed in `56ff5e59`; broader questionnaire/interview/permission-gate regression coverage is still pending.)_
    - Expand `package.json` scripts so the package locally typechecks both `ui/` and `extension/` (and shared types transitively).
    - Add focused tests for:
      - questionnaire parity between Sero UI rules and TUI rules
@@ -108,3 +108,4 @@ Verification checklist:
 
 ## Execution log
 - `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`
+- `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(user-feedback: canonicalized shared transport/bus ownership and added package-local extension-inclusive checks)*

@@ -33,6 +33,12 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/features/kanban/review/workflow/{review-executor.ts,review-executor-types.ts,review-pr-lifecycle.ts,review-verification.ts}` | Split review execution into focused cache/verification/PR helpers while preserving workflow behavior |
 | `apps/desktop/electron/__tests__/features/apps/app-control-host-service.test.ts` | New — covers shared app-control host readiness and post-interaction screenshot behavior |
 | `apps/desktop/electron/__tests__/features/kanban/container-path.test.ts` | New — covers the canonical Kanban workspace→container path helper |
+| `packages/common/src/{skill-visibility.ts,user-feedback.ts,index.ts,admin-bridge.ts}` | New/updated — centralized admin skill-visibility helpers plus canonical user-feedback transport/bus contracts and bridge typing |
+| `apps/desktop/{src/types/user-feedback.ts,src/types/electron.d.ts,electron/shared/lib/user-feedback-bus.ts,electron/ipc/platform/ui/user-feedback-questions.ts,electron/cli/lib/ask-confirm.ts,electron/__tests__/features/apps/skill-visibility.test.ts}` | Rebased desktop host/renderer user-feedback and skill-visibility seams on the new canonical shared contracts |
+| `plugins/sero-admin-plugin/{package.json,extension/tsconfig.json,ui/hooks/useSkillVisibility.ts,ui/skill-visibility.test.ts}` | Moved admin skill-visibility ownership out of the plugin and added package-local extension-inclusive quality gates |
+| `plugins/sero-user-feedback-plugin/{package.json,shared/types.ts,shared/emitter.ts,extension/ipc-bridge.ts,extension/__tests__/ipc-bridge.test.ts,ui/sero.d.ts}` | Canonicalized user-feedback transport/bus ownership and added package-local extension bridge coverage |
+| `plugins/sero-web-plugin/{package.json,extension/tsconfig.json,extension/__tests__/paths.test.ts,extension/__tests__/state-sync.test.ts}` | Added focused extension compile/test coverage for profile-scoped path ownership plus persisted state/bookmark/download semantics |
+| `plugins/sero-context-plugin/{package.json,extension/tsconfig.json,extension/__tests__/snapshot.test.ts}` | Added package-local extension typecheck coverage plus focused snapshot/projection tests |
 
 ---
 

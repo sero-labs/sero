@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batches E1–E2 landed 2026-04-14; E3–E5 pending*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batches E1–E3 landed 2026-04-14; E4–E5 pending*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -81,11 +81,11 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## plugins/
 - [`plugins/sero-admin-plugin/`](./plugins/sero-admin-plugin/plan.md)
-  — *In progress — High host-bridge contract duplication item cleared 2026-04-13; Medium ownership/test cleanup pending*
+  — *In progress — High bridge duplication plus E3 skill-visibility ownership / quality-gate items cleared 2026-04-14; E5 session/UI cleanup pending*
 - `plugins/sero-alibaba-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
 - [`plugins/sero-context-plugin/`](./plugins/sero-context-plugin/plan.md)
-  — *In progress — High truthfulness items cleared 2026-04-14; Medium projection/typecheck work pending*
+  — *In progress — High truthfulness plus E3 quality-gate work cleared 2026-04-14; E4 projection/failure-surface cleanup pending*
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
   — *In progress — High persisted-state + startup-recovery items cleared 2026-04-14; Medium reminder-ownership/logging/modularization work pending*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
@@ -97,6 +97,6 @@ entry links to a `facts.md` and `plan.md` pair.
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
   — *In progress — High cron-contract + QMD path work cleared 2026-04-14; Medium migration/logging/test work pending*
 - [`plugins/sero-user-feedback-plugin/`](./plugins/sero-user-feedback-plugin/plan.md)
-  — *In progress — High questionnaire-parity and onboarding-ownership items cleared 2026-04-14; Medium contract/test/file-splitting work pending*
+  — *In progress — High questionnaire-parity/onboarding items plus E3 transport ownership work cleared 2026-04-14; broader Medium state-machine coverage and file-splitting still pending*
 - [`plugins/sero-web-plugin/`](./plugins/sero-web-plugin/plan.md)
-  — *In progress — High state + bridge + UI ownership + profile-path work cleared 2026-04-14; Medium extension coverage/module splitting work pending*
+  — *In progress — High state + bridge + UI ownership + profile-path work cleared 2026-04-14, and E3 focused extension coverage landed 2026-04-14; broader provider-module cleanup still pending*

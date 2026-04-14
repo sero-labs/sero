@@ -50,3 +50,21 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - High items are cleared for this plan.
 - Medium canonical transport/bus ownership, package-local test expansion, and questionnaire file-splitting work remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E3)
+
+### Metrics after fixes
+- Total files: 21 source/config files in the current scan
+- Largest file: `plugins/sero-user-feedback-plugin/ui/QuestionnaireForm.tsx` (469 LOC)
+- Files over 500 LOC: none
+- Targeted validation: package-local UI + extension typecheck, package-local IPC-bridge tests, targeted desktop user-feedback tests, and monorepo `pnpm typecheck` all pass
+
+### What changed
+- Promoted the shared user-feedback question/answer payloads, bus key, and event names into `@sero/common` so plugin + host contract drift becomes a typecheck failure.
+- Rebased the plugin’s shared transport aliases, bus singleton wrappers, desktop host types, and Electron bus bridge on those canonical shared contracts.
+- Replaced the plugin-local `window.sero.userFeedback` subset with the canonical shared bridge type and added a package-local extension test for the IPC bridge handshake/cancel flow.
+- Expanded the package-local quality gate so both `ui/` and `extension/` compile inside the plugin package.
+
+### Still outstanding
+- Broader package-local regression coverage for questionnaire/interview state machines and permission-gate behavior is still pending.
+- The larger questionnaire/TUI file split and shared questionnaire-flow extraction are still pending.

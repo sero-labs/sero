@@ -27,7 +27,7 @@ _Plan drafted: 2026-04-13_
    - Replace the current `window as unknown as { sero: SeroApi }` access with a typed helper built on the canonical bridge interface.
    - This aligns with the plugin guide’s “neutral cross-package contracts go to `packages/common/src`” rule and reduces the exact IPC drift risk called out in prior desktop reviews.
 
-2. **Move skill-visibility ownership out of the admin plugin.**
+2. **~~Move skill-visibility ownership out of the admin plugin.~~ ✅ 2026-04-14 (`56ff5e59`)**
    - Relocate `shared/skill-visibility.ts` to `packages/common/src` (or a neutral desktop-shared location if the team wants host-only ownership).
    - Update both the plugin UI hook and host imports to consume that neutral helper.
    - Keep the persisted settings shape unchanged (`sero.skillVisibility.disabledModelSkills`) so runtime behavior and existing user settings remain intact.
@@ -59,7 +59,7 @@ _Plan drafted: 2026-04-13_
    - Remove unused `SessionMeta`, `SessionMessage`, and `LogFile` exports from `shared/types.ts`, plus any now-unused format helpers.
    - If per-provider overrides are still planned, keep the intent in docs/specs rather than shipping orphaned implementation files.
 
-7. **Add a minimal safety net for the sensitive paths.**
+7. **Add a minimal safety net for the sensitive paths.** _(2026-04-14 partial: package-local extension typecheck + focused skill-visibility coverage landed in `56ff5e59`; broader session/parser and plugin-manager coverage is still pending.)_
    - Expand package-local typecheck coverage to include `extension/**`.
    - Add focused tests for:
      - skill-visibility normalization/persistence helpers
@@ -97,3 +97,4 @@ Verification checklist:
 
 ## Execution log
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
+- `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(admin: moved skill-visibility ownership to `@sero/common`, added extension typecheck, added package-local helper coverage)*

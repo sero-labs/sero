@@ -366,3 +366,12 @@ runtime, contract, or desktop-side code that those plugins consume.
   workspace→container path ownership, and the planned prompt/review/orchestrator
   file splits. Targeted CLI/Kanban Vitest suites plus monorepo `pnpm typecheck`
   passed.
+- 2026-04-14: Wave F batch **E3 — Plugin contract / bridge ownership + quality
+  gates** landed across `56ff5e59` (`refactor(plugins): harden E3 bridge
+  ownership and quality gates`) and `cd40bbcb` (`test(web): cover history
+  clearing and download cleanup`). Covered: moved admin skill-visibility
+  ownership into `@sero/common`, canonicalized user-feedback transport/bus
+  ownership plus the shared renderer bridge type, and added package-local
+  extension-inclusive typecheck/tests for admin, user-feedback, web, and
+  context. Targeted plugin tests, focused desktop/user-feedback tests, and
+  monorepo `pnpm typecheck` all passed.

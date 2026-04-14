@@ -78,3 +78,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The host still imports admin-owned `shared/skill-visibility.ts`; that Medium ownership violation remains pending.
 - Session-browser truthfulness, auth/model refresh dedupe, dead provider-defaults cleanup, and test coverage are still pending.
+
+## Post-fix snapshot — 2026-04-14 (E3)
+
+### Metrics after fixes
+- Total reviewable files: 35 (was 36)
+- Largest source file: `plugins/sero-admin-plugin/ui/components/PluginsPanel.tsx` (372 LOC)
+- Files over 500 LOC: none
+- Package-local quality gate: `package.json` now typechecks `ui/` + `extension/`, and `ui/skill-visibility.test.ts` covers the persisted skill-visibility helpers
+
+### What changed
+- Moved skill-visibility ownership into `packages/common/src/skill-visibility.ts` so neither the host nor the admin UI imports admin-plugin internals for global settings behavior.
+- Deleted the plugin-local shared skill-visibility helper and kept the persisted `sero.skillVisibility.disabledModelSkills` shape unchanged.
+- Added an extension tsconfig plus a package-local Vitest entry so the admin package is no longer UI-typecheck-only.
+
+### Still outstanding
+- `useSeroFiles.ts` modularization, session-browser truthfulness, auth/model refresh dedupe, and dead provider-defaults cleanup are still pending.
+- Broader package-local coverage for session parsing and plugin-manager state transitions is still pending.

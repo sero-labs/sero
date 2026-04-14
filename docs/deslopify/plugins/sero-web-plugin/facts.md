@@ -103,3 +103,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - High items are cleared for this plan.
 - Medium package-local extension coverage and provider-module splitting remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E3)
+
+### Metrics after fixes
+- Total files: 48 in the current TS/JS scan
+- Largest file: `plugins/sero-web-plugin/extension/gemini-web.ts` (483 LOC)
+- Files over 500 LOC: none
+- Targeted validation: package-local UI + focused extension typecheck, package-local path/state tests, targeted desktop web/user-feedback tests, and monorepo `pnpm typecheck` all pass
+
+### What changed
+- Added a focused extension tsconfig so the package-local quality gate now covers the non-UI state/path owner modules (`paths.ts`, `state-sync.ts`, `tools-bookmark.ts`) plus their tests.
+- Added package-local tests for profile-scoped path ownership, malformed-state fail-closed behavior, bookmark dedupe/removal, clear-history persistence, and download deletion state cleanup.
+- Kept the provider-heavy extension modules untouched in this E3 batch so quality-gate expansion did not balloon into unrelated provider refactors.
+
+### Still outstanding
+- Broader full-extension typecheck coverage across the provider/extractor modules is still pending.
+- Provider-module splitting and config-loader dedupe remain pending.
