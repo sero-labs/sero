@@ -87,7 +87,7 @@ describe('app control CLI', () => {
     );
 
     expect(executeJavaScript).toHaveBeenCalledWith(
-      'window.sero.appControl.interact({"action":"inspect","captureAfter":false,"x":10,"y":12})',
+      'window.__appControl?.interact({"action":"inspect","captureAfter":false,"x":10,"y":12})',
     );
     expect(result).toEqual({
       output: '{\n  "mode": "point",\n  "point": {\n    "x": 10,\n    "y": 12\n  },\n  "panelRect": {\n    "x": 20,\n    "y": 40,\n    "width": 320,\n    "height": 240\n  }\n}',
