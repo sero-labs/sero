@@ -110,6 +110,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/titlebar/GitRemotePublishSection.tsx` | Rebased the titlebar publish flow on the shared Git remote workflow while preserving ship-deck UI copy (323 → 293 lines) |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the shared Git remote workflow closeout, refreshed layout metrics, and narrowed the remaining layout backlog |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the shared Git remote workflow item cleared |
+| `apps/desktop/src/components/layout/WorkspaceTree.tsx` | Reduced to a thin workspace-tree shell over extracted runtime/node/dialog modules (445 → 77 lines) |
+| `apps/desktop/src/components/layout/workspace-tree/{useWorkspaceTreeRuntime.ts,WorkspaceNode.tsx,WorkspaceBulkDeleteDialog.tsx}` | New — extracted workspace-tree runtime ownership, per-workspace actions/rendering, and bulk-delete confirmation UI |
+| `apps/desktop/src/components/layout/workspace-tree/useWorkspaceTreeRuntime.test.tsx` | New — covers workspace refresh, Escape clear-selection, and federated `sero:open-session` wiring |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the WorkspaceTree split, refreshed layout metrics, and narrowed the remaining near-cap backlog |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the WorkspaceTree split cleared |
 
 ---
 

@@ -8,7 +8,7 @@ _Plan drafted: 2026-04-12_
 ## Issues Found (prioritized)
 - **Medium** — `components/layout` is no longer a shell-only layer; ownership is smeared across unrelated feature islands — `apps/desktop/src/components/layout/WorkspaceTree.tsx:50-445`, `apps/desktop/src/components/layout/ChatPanel.tsx:46-296`, `apps/desktop/src/components/layout/CommandMenu.tsx:19-118`, `apps/desktop/src/components/layout/AuthLoginDialog.tsx:57-334`, `apps/desktop/src/components/layout/ThemeEditorSheet.tsx:59-399`, and `apps/desktop/src/components/layout/titlebar/GitTitleBarControls.tsx:11-160` together show the pattern. This fights the shell/app split from AD-001 and AD-003: the shell should compose global chrome, not become the default home for auth, git publishing, theme tooling, model management, gateway QR login, and collaboration internals. Effort: **L**.
 
-- **Medium** — A large near-cap cluster is one feature away from repeated 500-LOC violations — `apps/desktop/src/components/layout/ContextEditor.tsx:1-479`, `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx:1-479`, `apps/desktop/src/components/layout/AuthLoginViews.tsx:1-464`, `apps/desktop/src/components/layout/WorkspaceTree.tsx:1-445`, `apps/desktop/src/components/layout/ModelSelector.tsx:1-445`, `apps/desktop/src/components/layout/remote-origin-views.tsx:1-438`, `apps/desktop/src/components/layout/ToolCallHelpers.tsx:1-412`, `apps/desktop/src/components/layout/model-manager/ModelManagerDialog.tsx:1-406`, and `apps/desktop/src/components/layout/ThemeEditorSheet.tsx:1-400` are all already in the danger zone. The folder has no High violation today, but the cap pressure is widespread enough that more feature work here will become expensive by default. Effort: **M**.
+- **Medium** — A large near-cap cluster is one feature away from repeated 500-LOC violations — `apps/desktop/src/components/layout/ContextEditor.tsx:1-479`, `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx:1-479`, `apps/desktop/src/components/layout/AuthLoginViews.tsx:1-464`, `apps/desktop/src/components/layout/ModelSelector.tsx:1-445`, `apps/desktop/src/components/layout/ToolCallHelpers.tsx:1-412`, `apps/desktop/src/components/layout/model-manager/ModelManagerDialog.tsx:1-406`, and `apps/desktop/src/components/layout/ThemeEditorSheet.tsx:1-400` remain in the danger zone after `WorkspaceTree.tsx` was split on 2026-04-14 (`c3326a2e`). The folder has no High violation today, but the cap pressure is still widespread enough that more feature work here will become expensive by default. Effort: **M**.
 
 - **Medium** — ~~Git remote publish/origin flows are duplicated across workspace and titlebar surfaces and are already diverging in behavior and error semantics — `apps/desktop/src/components/layout/remote-origin-views.tsx:53-289`, `apps/desktop/src/components/layout/RemoteOriginManager.tsx:45-95`, and `apps/desktop/src/components/layout/titlebar/GitRemotePublishSection.tsx:38-317` each implement their own GitHub status checks, default repo-name generation, origin creation, existing-origin connection, fallback URL handling, and failure messaging. This is classic drift-prone duplication in a runtime-sensitive surface.~~ ✅ 2026-04-14 (`ad8cfc67`) — Added `git-remote/workflow.ts` as the shared runtime owner for GitHub status loading, repo-name defaults, origin parsing, create-repo fallback URL resolution, and add-or-update origin semantics while keeping the workspace dialog and titlebar presenters visually distinct. Effort: **M**.
 
@@ -38,7 +38,7 @@ _Plan drafted: 2026-04-12_
 
 2. **Split the near-cap hubs before they cross the hard 500-LOC line.**
    - Target the highest-pressure files first:
-     - `WorkspaceTree.tsx` → `useWorkspaceTreeRuntime`, `WorkspaceNode`, `WorkspaceBulkDeleteDialog`
+     - ~~`WorkspaceTree.tsx` → `useWorkspaceTreeRuntime`, `WorkspaceNode`, `WorkspaceBulkDeleteDialog`~~ ✅ 2026-04-14 (`c3326a2e`)
      - `ThemeEditorSheet.tsx` → draft-state/preview hook + sectioned presentation shell
      - `ModelSelector.tsx` → trigger, provider list, thinking picker, search/filter hook
      - `ContextEditor.tsx` → top-level dialog shell + separate preset/system/tools/skills modules
@@ -85,7 +85,12 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Extract a shared git-remote workflow and migrate `RemoteOriginManager` + `GitRemotePublishSection` to it.~~ ✅ 2026-04-14 (`ad8cfc67`)
-2. Split `WorkspaceTree.tsx`, `ThemeEditorSheet.tsx`, `ModelSelector.tsx`, `ContextEditor.tsx`, and `LocalProviderForm.tsx` before adding more feature work there.
+2. Continue splitting the near-cap hubs before adding more feature work there.
+   - ~~`WorkspaceTree.tsx` → `useWorkspaceTreeRuntime`, `WorkspaceNode`, `WorkspaceBulkDeleteDialog`~~ ✅ 2026-04-14 (`c3326a2e`)
+   - `ThemeEditorSheet.tsx`
+   - `ModelSelector.tsx`
+   - `ContextEditor.tsx`
+   - `model-manager/local-models/LocalProviderForm.tsx`
 3. Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.
 4. Remove render-phase side effects from theme/collaboration/font helpers.
 5. Verification checklist:
@@ -98,3 +103,4 @@ _Plan drafted: 2026-04-12_
 
 ## Execution log
 - `ad8cfc67` — `refactor(layout): share git remote origin workflow`
+- `c3326a2e` — `refactor(layout): split workspace tree runtime`

@@ -76,3 +76,23 @@ _Last reviewed: 2026-04-12_
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Near-cap cleanup for `WorkspaceTree.tsx`, `ThemeEditorSheet.tsx`, `ModelSelector.tsx`, `ContextEditor.tsx`, and `model-manager/local-models/LocalProviderForm.tsx` remains deferred.
 - Shared autocomplete/listbox primitives, render-phase side-effect cleanup, and shell error-surface normalization remain exactly as described in the original plan.
+
+## Post-fix snapshot — 2026-04-14 (workspace-tree split)
+
+### Metrics after fixes
+- Total files: 95 (was 91)
+- Total LOC: 16,500 (was 15,908 at the original review)
+- Largest file: `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx` (479 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Added `workspace-tree/useWorkspaceTreeRuntime.ts` so mount loading, Escape-clears-selection behavior, `sero:workspace-changed` refreshes, and `sero:open-session` chat routing now live in one focused runtime owner.
+- Added `workspace-tree/WorkspaceNode.tsx` plus `workspace-tree/WorkspaceBulkDeleteDialog.tsx`, reducing `WorkspaceTree.tsx` to a thin shell over the extracted runtime and presentation seams (445 → 77 LOC).
+- Added `workspace-tree/useWorkspaceTreeRuntime.test.tsx` to cover the runtime-sensitive custom-event and selection-clearing behavior called out in the plan.
+- `WorkspaceTree.tsx` is no longer in the near-cap list; the remaining cap-pressure set is now `ContextEditor.tsx`, `LocalProviderForm.tsx`, `AuthLoginViews.tsx`, `ModelSelector.tsx`, `ToolCallHelpers.tsx`, `ModelManagerDialog.tsx`, and `ThemeEditorSheet.tsx`.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Near-cap cleanup for `ThemeEditorSheet.tsx`, `ModelSelector.tsx`, `ContextEditor.tsx`, and `model-manager/local-models/LocalProviderForm.tsx` remains deferred after the `WorkspaceTree.tsx` split.
+- Shared autocomplete/listbox primitives, render-phase side-effect cleanup, and shell error-surface normalization remain exactly as described in the original plan.
