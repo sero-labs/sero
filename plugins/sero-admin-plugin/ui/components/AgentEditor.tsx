@@ -2,7 +2,7 @@
  * AgentEditor — form for editing agent metadata + system prompt.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   THINKING_LABELS,
   findModelByReference,
@@ -15,7 +15,8 @@ import { AvailableModelPicker } from '@sero-ai/ui/components/model-selection/ava
 import { ModelWarningList } from '@sero-ai/ui/components/model-selection/model-warning-list';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { getSero, type AvailableModelGroupIPC, type GlobalModelConfigStateIPC } from '../hooks/useSeroFiles';
+import { getSero, type AvailableModelGroupIPC, type GlobalModelConfigStateIPC } from '../hooks/host';
+import { useBridgeRefresh } from '../hooks/useBridgeRefresh';
 import type { AgentFileData, AgentModelConfig, StructuredAgentModel } from './types';
 
 interface AgentEditorProps {
@@ -85,48 +86,20 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
   const [modelConfig, setModelConfig] = useState<GlobalModelConfigStateIPC | null>(null);
   const [customModeArmed, setCustomModeArmed] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadDependencies = async () => {
-      try {
-        const [modelGroups, config] = await Promise.all([
-          getSero().models.list(),
-          getSero().modelConfig.get(),
-        ]);
-        if (cancelled) return;
-        setGroups(modelGroups);
-        setModelConfig(config);
-      } catch (err) {
-        console.error('[admin] Failed to load model editor dependencies:', err);
-      }
-    };
-
-    void loadDependencies();
-
-    const refresh = () => {
-      void loadDependencies();
-    };
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) refresh();
-    };
-
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    const unsubscribe = getSero().auth.onEvent((event) => {
-      if (event.type === 'success' || event.type === 'error' || event.type === 'cancelled') {
-        refresh();
-      }
+  const refreshDependencies = useCallback(() => {
+    void Promise.all([
+      getSero().models.list().then(setGroups),
+      getSero().modelConfig.get().then(setModelConfig),
+    ]).catch((err) => {
+      console.error('[admin] Failed to refresh model editor dependencies:', err);
     });
-
-    return () => {
-      cancelled = true;
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      unsubscribe();
-    };
   }, []);
+
+  useEffect(() => {
+    refreshDependencies();
+  }, [refreshDependencies]);
+
+  useBridgeRefresh(refreshDependencies);
 
   const update = (partial: Partial<AgentFileData>) => onChange({ ...data, ...partial });
   const derivedModelSelectValue = getModelSelectValue(data.model);

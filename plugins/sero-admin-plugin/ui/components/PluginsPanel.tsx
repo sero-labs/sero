@@ -8,7 +8,7 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import type { InstalledPlugin } from '@sero/common';
 import { usePlugins } from '../hooks/usePlugins';
 import { useLinkedRoots } from '../hooks/useLinkedRoots';
-import type { WorkspaceRootIPC } from '../hooks/useSeroFiles';
+import type { WorkspaceRootIPC } from '../hooks/host';
 
 const INSTALL_EXAMPLES = [
   {

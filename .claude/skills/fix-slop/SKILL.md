@@ -138,12 +138,17 @@ For each work-list group:
 5. **Typecheck.** Run `pnpm typecheck` from the monorepo root. This is
    non-negotiable — every commit in the batch must leave the tree green
    for both the renderer and the Electron main process (`tsconfig.electron.json`).
-6. **Stage and commit.** Use Conventional Commit format. Prefer
+6. **Run relevant unit tests.** If the touched area has unit tests or a
+   package/app-level test script, run the smallest relevant test command
+   before committing. Prefer targeted tests for the changed module over a
+   blind full-suite run, but do not skip existing relevant tests just
+   because typecheck passed.
+7. **Stage and commit.** Use Conventional Commit format. Prefer
    `refactor(...)`, `fix(...)`, `perf(...)`, `chore(...)` with the
    relevant scope. Add named files rather than `git add -A`. Create a
    **new** commit if a hook fails — never `--amend` unless the user
    explicitly asks.
-7. **Check file sizes.** After every touched file, verify it sits below
+8. **Check file sizes.** After every touched file, verify it sits below
    the 500-LOC cap. If a fix inadvertently pushes a file over 500 LOC,
    split it in the same commit — do not defer.
 

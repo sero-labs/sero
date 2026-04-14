@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { getSero, type WorkspaceRootIPC } from './useSeroFiles';
+import { getSero, type WorkspaceRootIPC } from './host';
 
 export function useLinkedRoots(workspaceId: string | null) {
   const [roots, setRoots] = useState<WorkspaceRootIPC[]>([]);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getDisabledModelSkills } from '@sero/common';
-import { getSero, type AvailableSkillInfo } from './useSeroFiles';
+import { getSero, type AvailableSkillInfo } from './host';
 
 interface SkillVisibilityRow extends AvailableSkillInfo {
   hiddenByUser: boolean;

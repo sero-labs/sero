@@ -11,7 +11,7 @@
  */
 
 import { useCallback, memo } from 'react';
-import { useSessionFiles } from '../hooks/useSeroFiles';
+import { useSessionFiles } from '../hooks/useSessionFiles';
 import { SessionList } from './SessionList';
 import { SessionDetail } from './SessionDetail';
 

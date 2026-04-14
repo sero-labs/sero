@@ -12,7 +12,7 @@ import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { CONFIG_FILES } from '../../shared/types';
 import type { ConfigFile } from '../../shared/types';
-import { useConfigFile } from '../hooks/useSeroFiles';
+import { useConfigFile } from '../hooks/useConfigFile';
 
 interface ConfigPanelProps {
   profilePath: string | null;

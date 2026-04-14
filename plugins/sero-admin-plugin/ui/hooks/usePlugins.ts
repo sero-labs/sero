@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { InstalledPlugin } from '@sero/common';
-import { getSero } from './useSeroFiles';
-
-function sortPlugins(plugins: InstalledPlugin[]): InstalledPlugin[] {
-  return [...plugins].sort((a, b) => a.name.localeCompare(b.name));
-}
+import { getSero } from './host';
+import { normalizeInstallSource, sortInstalledPlugins } from '../lib/plugins';
 
 export function usePlugins() {
   const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
@@ -18,7 +15,7 @@ export function usePlugins() {
     setError(null);
     try {
       const installed = await getSero().plugins.list();
-      setPlugins(sortPlugins(installed));
+      setPlugins(sortInstalledPlugins(installed));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load plugins');
     } finally {
@@ -38,7 +35,7 @@ export function usePlugins() {
   }, [reload]);
 
   const install = useCallback(async (source: string) => {
-    const trimmed = source.trim();
+    const trimmed = normalizeInstallSource(source);
     if (!trimmed) {
       setError('Enter an npm:, git:, or absolute local path source.');
       return false;
