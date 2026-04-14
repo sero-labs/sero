@@ -10,16 +10,18 @@
 import type {
   GitActionResult,
   GitManagerRequest,
+  SharedAvailableModelGroup,
+  SharedModelInfo,
   WebAppActionResult,
   WebAppRequest,
 } from '@sero/common';
 
 export interface SeroAppStateBridge {
-  read(filePath: string): Promise<unknown>;
-  write(filePath: string, data: unknown): Promise<void>;
-  watch(filePath: string): Promise<unknown>;
+  read<TData = unknown>(filePath: string): Promise<TData>;
+  write<TData = unknown>(filePath: string, data: TData): Promise<void>;
+  watch<TData = unknown>(filePath: string): Promise<TData>;
   unwatch(filePath: string): Promise<void>;
-  onChange(cb: (filePath: string, data: unknown) => void): () => void;
+  onChange<TData = unknown>(cb: (filePath: string, data: TData) => void): () => void;
 }
 
 export interface SeroAppAgentBridge {
@@ -53,22 +55,10 @@ export interface SeroEditorBridge {
 // ── Model types (subset of desktop's ipc types) ──────────────
 
 /** Serialisable model info for app modules. */
-export interface AppModelInfo {
-  provider: string;
-  modelId: string;
-  name: string;
-  reasoning: boolean;
-  availableThinkingLevels?: string[];
-  supportsXhigh?: boolean;
-}
+export type AppModelInfo = SharedModelInfo;
 
 /** A group of models under a single provider. */
-export interface AppModelGroup {
-  provider: string;
-  displayName: string;
-  logo: string;
-  models: AppModelInfo[];
-}
+export type AppModelGroup = SharedAvailableModelGroup<AppModelInfo>;
 
 export interface SeroModelsBridge {
   list(): Promise<AppModelGroup[]>;

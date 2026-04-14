@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { AppContext } from './context';
-import { getSeroApi } from './sero-bridge';
+import { getSeroApi, type SeroAppStateBridge } from './sero-bridge';
 
 /**
  * File-backed reactive state hook.
@@ -24,55 +24,78 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
 
   const { stateFilePath } = ctx;
   const [state, setState] = useState<T>(defaultState);
+  const defaultStateRef = useRef<T>(defaultState);
   const stateRef = useRef<T>(defaultState);
+  const latestWriteIdRef = useRef(0);
 
-  // Keep ref in sync for the updater closure
+  defaultStateRef.current = defaultState;
   stateRef.current = state;
 
-  // Initial read + start watching
+  const applyState = useCallback((nextState: T) => {
+    stateRef.current = nextState;
+    setState(nextState);
+  }, []);
+
+  const recoverFromWriteFailure = useCallback(
+    async (api: SeroAppStateBridge, writeId: number, fallbackState: T) => {
+      if (writeId !== latestWriteIdRef.current) return;
+
+      try {
+        const current = await api.read<T | null>(stateFilePath);
+        if (writeId !== latestWriteIdRef.current) return;
+        applyState(current ?? fallbackState);
+      } catch {
+        if (writeId !== latestWriteIdRef.current) return;
+        applyState(fallbackState);
+      }
+    },
+    [applyState, stateFilePath],
+  );
+
   useEffect(() => {
     const api = getSeroApi();
-    let unsubChange: (() => void) | null = null;
+    let isActive = true;
 
-    stateRef.current = defaultState;
-    setState(defaultState);
+    const applyIfActive = (nextState: T) => {
+      if (!isActive) return;
+      applyState(nextState);
+    };
 
-    // Subscribe to file changes from main process
-    unsubChange = api.appState.onChange((fp: string, data: unknown) => {
-      if (fp === stateFilePath && data != null) {
-        const parsed = data as T;
-        stateRef.current = parsed;
-        setState(parsed);
-      }
+    applyState(defaultStateRef.current);
+
+    const unsubscribe = api.appState.onChange<T | null>((filePath, data) => {
+      if (filePath !== stateFilePath || data == null) return;
+      applyIfActive(data);
     });
 
-    // Start watching (also returns current state)
-    api.appState.watch(stateFilePath).then((current) => {
-      if (current != null) {
-        const parsed = current as T;
-        stateRef.current = parsed;
-        setState(parsed);
-      }
+    void api.appState.watch<T | null>(stateFilePath).then((current) => {
+      if (current == null) return;
+      applyIfActive(current);
     });
 
     return () => {
-      unsubChange?.();
-      api.appState.unwatch(stateFilePath);
+      isActive = false;
+      unsubscribe();
+      void api.appState.unwatch(stateFilePath);
     };
-  }, [stateFilePath]);
+  }, [applyState, stateFilePath]);
 
-  // Write updater
   const updateState = useCallback(
     (updater: (prev: T) => T) => {
-      const next = updater(stateRef.current);
-      stateRef.current = next;
-      setState(next);
+      const previous = stateRef.current;
+      const next = updater(previous);
+      const writeId = latestWriteIdRef.current + 1;
+      latestWriteIdRef.current = writeId;
+      applyState(next);
 
-      // Persist to disk (async, fire-and-forget — watcher will confirm)
       const api = getSeroApi();
-      api.appState.write(stateFilePath, next);
+      void api.appState.write(stateFilePath, next).catch((error: unknown) => {
+        if (writeId !== latestWriteIdRef.current) return;
+        console.warn(`[app-runtime] Failed to persist app state for ${stateFilePath}`, error);
+        void recoverFromWriteFailure(api.appState, writeId, previous);
+      });
     },
-    [stateFilePath],
+    [applyState, recoverFromWriteFailure, stateFilePath],
   );
 
   return [state, updateState];
