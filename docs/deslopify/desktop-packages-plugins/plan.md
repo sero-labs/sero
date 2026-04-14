@@ -295,23 +295,20 @@ architecture work rather than alphabetical bookkeeping.
   before those items are executed.
 
 ## Next Steps
-1. Execute **E2 — Residual desktop Electron seam relief** for
-   `apps/desktop/electron/cli` and
-   `apps/desktop/electron/features/kanban`.
-2. Execute **E3 — Plugin contract / bridge ownership + quality gates** for
+1. Execute **E3 — Plugin contract / bridge ownership + quality gates** for
    `plugins/sero-admin-plugin`, `plugins/sero-user-feedback-plugin`,
    `plugins/sero-web-plugin`, and `plugins/sero-context-plugin`.
-3. Execute **E4 — Plugin runtime lifecycle + storage semantics** for
+2. Execute **E4 — Plugin runtime lifecycle + storage semantics** for
    `plugins/sero-cron-plugin`, `plugins/sero-memory-plugin`,
    `plugins/sero-git-plugin`, `plugins/sero-context-plugin`, and
    `plugins/sero-kanban-plugin`.
-4. Execute **E5 — Plugin UI composition + cap-pressure relief** for
+3. Execute **E5 — Plugin UI composition + cap-pressure relief** for
    `plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`,
    `plugins/sero-git-plugin`, `plugins/sero-web-plugin`,
    `plugins/sero-user-feedback-plugin`, and `plugins/sero-cron-plugin`.
-5. Treat `apps/desktop/electron/types` and `apps/desktop/electron/gateway` as
+4. Treat `apps/desktop/electron/types` and `apps/desktop/electron/gateway` as
    no-op Medium closeouts unless real source or new findings appear.
-6. Roll docs/help drift into the same commits as the owning behavior batch and
+5. Roll docs/help drift into the same commits as the owning behavior batch and
    run targeted validation plus monorepo `pnpm typecheck` after each batch.
 
 Verification checklist for the Medium execution wave:
@@ -338,3 +335,8 @@ Verification checklist for the Medium execution wave:
 - `ff4e460a` — `fix(plugins): make web and context actions truthful`
 - `a3f625be` — `fix(plugins): align profile-scoped path ownership`
 - `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`
+- `a917905a` — `refactor(cli): split batch runtime and google router`
+- `06b1b653` — `refactor(app-control): centralize host app control service`
+- `8e1f9b7b` — `refactor(kanban): centralize cleanup and workspace path helpers`
+- `e7e2e69c` — `refactor(kanban): split prompt and review workflow helpers`
+- `181bd3cc` — `refactor(kanban): split orchestrator phase runners`

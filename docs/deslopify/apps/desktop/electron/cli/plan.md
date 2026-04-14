@@ -8,11 +8,11 @@ _Plan drafted: 2026-04-13_
 ## Issues Found (prioritized)
 - **High** — ~~Type escape hatches remain on the AD-020 bridge boundary — `apps/desktop/electron/cli/core/schema-bridge.ts:56-67`, `apps/desktop/electron/cli/core/schema-bridge.ts:150-174`, `apps/desktop/electron/cli/core/schema-bridge.ts:231-243`, and `apps/desktop/electron/cli/core/schema-bridge.ts:395` still walk tool schemas and bridged command contexts through `any`; `apps/desktop/electron/cli/core/tool.ts:431` casts the streaming update callback; and `apps/desktop/electron/cli/lib/gog-runner.ts:111-118` still reads exec failures through `error as any`. On Sero's single-tool bridge, that hides upstream SDK/schema drift exactly where the compiler should be loud.~~ ✅ 2026-04-13 (`8d8f7648`) — Replaced schema/command-context `any` walking, tool-update casting, and gog exec-failure casts with typed helpers while preserving session-scoped bridge resolution.
 
-- **Medium** — The core AD-020 runtime is concentrated in two near-cap orchestration files — `apps/desktop/electron/cli/core/tool.ts:1-474` combines batch parsing, timeout control, rate limiting, legacy-image fallback, invocation assembly, and tool creation; `apps/desktop/electron/cli/core/schema-bridge.ts:1-403` combines schema introspection, coercion, help generation, result extraction, tool bridging, and slash-command bridging. Both files are still under the 500-LOC rule, but they are already expensive to review safely. Effort: **M**.
+- **Medium** — ~~The core AD-020 runtime is concentrated in two near-cap orchestration files — `apps/desktop/electron/cli/core/tool.ts:1-474` combines batch parsing, timeout control, rate limiting, legacy-image fallback, invocation assembly, and tool creation; `apps/desktop/electron/cli/core/schema-bridge.ts:1-403` combines schema introspection, coercion, help generation, result extraction, tool bridging, and slash-command bridging. Both files are still under the 500-LOC rule, but they are already expensive to review safely.~~ ✅ 2026-04-14 (`a917905a`) — Extracted batch execution and invocation/session-runtime ownership out of `core/tool.ts`, leaving a thin composition root and one isolated large schema bridge helper under the cap.
 
-- **Medium** — `app-control` duplicates the existing host-side renderer automation bridge and adds timing heuristics on top — `apps/desktop/electron/cli/commands/apps/app-control.ts:28-44` recreates the same `BrowserWindow` + `executeJavaScript()` helper pattern that already exists in `apps/desktop/electron/ipc/apps/app-control.ts:35-99`; `app-control.ts:201-207` then adds a hardcoded 500ms sleep after `openApp()` before screenshot capture. That creates two main-process copies of the same fragile UI automation seam. Effort: **M**.
+- **Medium** — ~~`app-control` duplicates the existing host-side renderer automation bridge and adds timing heuristics on top — `apps/desktop/electron/cli/commands/apps/app-control.ts:28-44` recreates the same `BrowserWindow` + `executeJavaScript()` helper pattern that already exists in `apps/desktop/electron/ipc/apps/app-control.ts:35-99`; `app-control.ts:201-207` then adds a hardcoded 500ms sleep after `openApp()` before screenshot capture. That creates two main-process copies of the same fragile UI automation seam.~~ ✅ 2026-04-14 (`06b1b653`) — Introduced a shared host-owned app-control service, moved CLI + IPC onto it, and replaced the fixed post-open sleep with a shared readiness wait.
 
-- **Medium** — Two built-in command routers are already near cap and organized as nested switch forests — `apps/desktop/electron/cli/commands/integrations/google.ts:34-358` combines auth, Gmail, and Calendar flows in one file, while `apps/desktop/electron/cli/commands/apps/app-control.ts:120-403` mixes navigation, screenshots, interactions, recording, and preview lifecycle. New CLI features here will increase churn faster than the tests can localize it. Effort: **M**.
+- **Medium** — ~~Two built-in command routers are already near cap and organized as nested switch forests — `apps/desktop/electron/cli/commands/integrations/google.ts:34-358` combines auth, Gmail, and Calendar flows in one file, while `apps/desktop/electron/cli/commands/apps/app-control.ts:120-403` mixes navigation, screenshots, interactions, recording, and preview lifecycle. New CLI features here will increase churn faster than the tests can localize it.~~ ✅ 2026-04-14 (`a917905a`, `06b1b653`) — Split the Google and app-control CLI surfaces into focused domain modules while keeping command names/help text unchanged.
 
 - **Low** — Shared CLI flag parsing is narrower than the command surface now expects — `apps/desktop/electron/cli/lib/utils.ts:13-42` only understands `--long` flags, which already forced one local workaround in `apps/desktop/electron/cli/commands/vcs/vcs.ts:46-56` to strip accidental `-m`. That is not breaking the bridge today, but it is already producing command-local parsing hacks. Effort: **S**.
 
@@ -57,16 +57,15 @@ _Plan drafted: 2026-04-13_
 - Google runner hardening must preserve the current host-vs-container routing semantics and Sero-managed credential injection.
 
 ## Next Steps
-1. Remove the `any`/unsafe casts in `schema-bridge.ts`, `core/tool.ts`, and `lib/gog-runner.ts`.
-2. Extract `core/tool.ts` into batch/timeout/context helpers while preserving current public exports.
-3. Introduce a shared app-control host service and switch both IPC and CLI command handlers to it.
-4. Split `google.ts` and `app-control.ts` into smaller domain modules.
-5. Verification checklist:
+1. Decide whether shared CLI parsing should stay long-flags-only or gain scoped short-flag support so command-local cleanup hacks disappear.
+2. Keep the existing verification checklist for any future CLI seam work:
    - Run a bridged extension tool from a normal agent session and from a subagent session, confirming session-local resolution still works.
    - Run a multi-command batch where one command emits rich/image content and confirm `richOutputFallback` behavior is unchanged.
    - Run an interactive bridged command (`question`/`questionnaire`) and confirm timeout exemptions still apply.
-   - Smoke-test `sero app screenshot`, `sero app record start/stop`, and `sero app preview` after the app-control extraction.
+   - Smoke-test `sero app screenshot`, `sero app record start/stop`, and `sero app preview` after app-control changes.
    - Smoke-test `sero google auth list` / Gmail / Calendar on both host and container-backed workspaces.
 
 ## Execution log
 - `8d8f7648` — `refactor(cli): harden AD-020 bridge typing`
+- `a917905a` — `refactor(cli): split batch runtime and google router`
+- `06b1b653` — `refactor(app-control): centralize host app control service`

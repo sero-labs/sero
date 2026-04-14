@@ -156,9 +156,9 @@ across every batch it participates in.
 - [x] `fix-slop` Medium items for `packages/common/src`
 - [x] `fix-slop` Medium items for `packages/app-runtime/src`
 - [x] `fix-slop` Medium items for `apps/desktop/electron/types` _(no Medium findings; closeout only)_
-- [ ] `fix-slop` Medium items for `apps/desktop/electron/cli`
+- [x] `fix-slop` Medium items for `apps/desktop/electron/cli`
 - [x] `fix-slop` Medium items for `apps/desktop/electron/gateway` _(generated-only; no Medium findings)_
-- [ ] `fix-slop` Medium items for `apps/desktop/electron/features/kanban`
+- [x] `fix-slop` Medium items for `apps/desktop/electron/features/kanban`
 
 ### 7. Plugin mediums after shared patterns stabilize
 - [ ] `fix-slop` Medium items for `plugins/sero-kanban-plugin`
@@ -354,4 +354,15 @@ runtime, contract, or desktop-side code that those plugins consume.
   `sero.providers` contracts, plus app-runtime model-contract dedupe,
   `useAppState()` failure recovery, widget-registration idempotence, and focused
   desktop tests. Targeted Vitest coverage plus monorepo `pnpm typecheck`
+  passed.
+- 2026-04-14: Wave F batch **E2 — Residual desktop Electron seam relief**
+  landed across `a917905a` (`refactor(cli): split batch runtime and google
+  router`), `06b1b653` (`refactor(app-control): centralize host app control
+  service`), `8e1f9b7b` (`refactor(kanban): centralize cleanup and workspace
+  path helpers`), `e7e2e69c` (`refactor(kanban): split prompt and review
+  workflow helpers`), and `181bd3cc` (`refactor(kanban): split orchestrator
+  phase runners`). Covered: AD-020 CLI batch/runtime relief, a shared host-owned
+  app-control bridge for CLI + IPC, Kanban cleanup warning visibility, shared
+  workspace→container path ownership, and the planned prompt/review/orchestrator
+  file splits. Targeted CLI/Kanban Vitest suites plus monorepo `pnpm typecheck`
   passed.

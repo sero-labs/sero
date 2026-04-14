@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batch E1 (shared-package Medium cleanup) landed 2026-04-14; E2–E5 pending*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batches E1–E2 landed 2026-04-14; E3–E5 pending*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -45,7 +45,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
     — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
   - [`apps/desktop/electron/features/kanban/`](./apps/desktop/electron/features/kanban/plan.md)
-    — *In progress — High settings/contract-ownership items cleared 2026-04-13; Medium workflow cleanup pending*
+    — *Healthy — High and Medium workflow/runtime-owner cleanup cleared 2026-04-14; Low dead-scaffolding follow-up pending*
   - [`apps/desktop/electron/gateway/`](./apps/desktop/electron/gateway/plan.md)
     — *Healthy — generated-only closeout confirmed 2026-04-13*
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
@@ -69,7 +69,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/shared/`](./apps/desktop/electron/shared/plan.md)
     — *In progress — cached-model Medium item cleared 2026-04-12; modularization cleanup pending*
   - [`apps/desktop/electron/cli/`](./apps/desktop/electron/cli/plan.md)
-    — *In progress — High AD-020 boundary typing item cleared 2026-04-13; Medium app-control/router cleanup pending*
+    — *Healthy — High and Medium AD-020 seam/app-control cleanup cleared 2026-04-14; Low flag-parsing follow-up pending*
   - [`apps/desktop/electron/types/`](./apps/desktop/electron/types/plan.md)
     — *Healthy — narrow Pi SDK augmentation seam reviewed 2026-04-13*
 

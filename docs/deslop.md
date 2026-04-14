@@ -19,6 +19,20 @@ Changes made during code quality passes. Most recent first.
 | `packages/app-runtime/src/use-app-state.ts` | Added optimistic write recovery, watch liveness guards, and explicit persistence-failure warnings |
 | `packages/app-runtime/src/{use-widget-registration.ts,widget-registry.ts}` | Made runtime widget registration idempotent for stable inline definitions while preserving sticky widgets |
 | `apps/desktop/src/lib/{model-selection.test.ts,app-runtime.test.tsx}` | New — focused coverage for shared model-selection semantics and app-runtime write/registry behavior |
+| `apps/desktop/electron/cli/core/{batch-executor.ts,invocation-context.ts}` | New — extracted AD-020 batch execution and invocation/session-runtime helpers from `core/tool.ts` |
+| `apps/desktop/electron/cli/core/tool.ts` | Reduced to a thin Sero CLI composition root (494 → 87 lines) |
+| `apps/desktop/electron/cli/commands/integrations/{google.ts,google-auth.ts,google-gmail.ts,google-calendar.ts,google-helpers.ts}` | Split the Google CLI surface into focused auth/Gmail/Calendar modules (`google.ts` 441 → 96 lines) |
+| `apps/desktop/electron/features/apps/app-control/host-service.ts` | New — canonical main-process app-control owner for CLI + IPC renderer automation |
+| `apps/desktop/electron/cli/commands/apps/{app-control.ts,app-control-navigation.ts,app-control-screenshot.ts,app-control-interactions.ts,app-control-recording.ts,app-control-shared.ts}` | Split the app-control CLI router into focused modules (`app-control.ts` 436 → 87 lines) |
+| `apps/desktop/electron/ipc/apps/app-control.ts` | Rebased IPC app-control handlers onto the shared host service |
+| `apps/desktop/electron/features/kanban/workspace/container-path.ts` | New — canonical workspace→container path helper reused by Kanban runtime helpers |
+| `apps/desktop/electron/features/kanban/core/cleanup-warnings.ts` | New — scoped cleanup warning formatting for best-effort review/worktree cleanup |
+| `apps/desktop/electron/features/kanban/{implementation/dev-server-launch.ts,workspace/workspace-command-runner.ts,review/actions/review-artifacts.ts,review/state/review-cache.ts,worktree/worktree-git.ts,worktree/worktree-manager.ts}` | Centralized container-path ownership and replaced silent cleanup suppression with visible warnings |
+| `apps/desktop/electron/features/kanban/prompts/{index.ts,planning.ts,plan-result.ts,review-types.ts,review-prompt.ts,review-result.ts}` | Split Kanban prompt construction/parsing into focused modules (`index.ts` 423 → 38 lines) |
+| `apps/desktop/electron/features/kanban/core/{orchestrator.ts,orchestrator-phase-runners.ts,orchestrator-types.ts}` | Split the Kanban orchestrator into a thin coordinator plus focused phase runners (`orchestrator.ts` 491 → 220 lines) |
+| `apps/desktop/electron/features/kanban/review/workflow/{review-executor.ts,review-executor-types.ts,review-pr-lifecycle.ts,review-verification.ts}` | Split review execution into focused cache/verification/PR helpers while preserving workflow behavior |
+| `apps/desktop/electron/__tests__/features/apps/app-control-host-service.test.ts` | New — covers shared app-control host readiness and post-interaction screenshot behavior |
+| `apps/desktop/electron/__tests__/features/kanban/container-path.test.ts` | New — covers the canonical Kanban workspace→container path helper |
 
 ---
 

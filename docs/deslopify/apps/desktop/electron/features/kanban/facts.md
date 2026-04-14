@@ -61,3 +61,21 @@ This folder is the main-process automation engine for the Kanban feature. It wat
 - Near-cap workflow hubs (`core/orchestrator.ts`, `prompts/index.ts`, `review/workflow/review-executor.ts`) still need the planned Medium split.
 - Cleanup failure visibility in review/worktree paths remains pending (Medium).
 - Workspace-path helper dedupe and dead specialized-review cleanup remain pending (Medium/Low).
+
+## Post-fix snapshot — 2026-04-14
+
+### Metrics after fixes
+- Total files: 61 (was 49)
+- Total LOC: 6,976 (was 6,569)
+- Largest file: `apps/desktop/electron/features/kanban/core/orchestrator-phase-runners.ts` (464)
+- Files over 500 LOC: none
+- Near-cap hubs remaining: none over 465 LOC on the main workflow path
+
+### What changed
+- Split the host workflow hubs into focused prompt, review, and orchestrator helper modules while preserving the public barrels and runtime call graph.
+- Centralized cleanup warning formatting so review-cache, worktree-prune, reset, and delete failures stay visible instead of disappearing behind best-effort cleanup.
+- Added a canonical workspace→container path helper reused by dev-server startup and workspace command execution.
+- Kept the host runtime’s shared Kanban state ownership in `@sero/common` while further narrowing orchestration files to coordinator/phase-runner roles.
+
+### Still outstanding
+- Low-only follow-up: remove or formally land the dead specialized-review scaffolding (`buildQualityReviewPrompt()`) and the currently test-only `core/wave-resolver.ts` so the production surface matches the shipped runtime.

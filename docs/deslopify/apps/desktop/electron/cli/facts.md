@@ -65,3 +65,21 @@ This folder is the AD-020 bridge that collapses built-in app commands, bridged e
 - `core/tool.ts` is now 494 LOC and still needs the planned runtime-concern split (Medium).
 - `app-control` duplicate host service extraction remains pending (Medium).
 - `google.ts` and `app-control.ts` remain near-cap router files (Medium).
+
+## Post-fix snapshot — 2026-04-14
+
+### Metrics after fixes
+- Total files: 46 (was 35)
+- Total LOC: 4,126 (was 4,057)
+- Largest file: `apps/desktop/electron/cli/core/schema-bridge.ts` (427)
+- Files over 500 LOC: none
+- Remaining type escape hatches on the bridge seam: 0
+
+### What changed
+- Split the AD-020 batch runtime into `core/batch-executor.ts` and `core/invocation-context.ts`, reducing `core/tool.ts` to a thin composition root.
+- Split the Google CLI router into focused auth/Gmail/Calendar modules while preserving the public `google` command surface.
+- Introduced a shared host-owned `features/apps/app-control/host-service.ts` and rebased both CLI and IPC app-control flows onto it.
+- Split the CLI app-control command into focused navigation, screenshot, interaction, recording, and shared helper modules; added direct host-service coverage alongside the existing CLI test suite.
+
+### Still outstanding
+- Low-only follow-up: decide whether shared CLI flag parsing should stay long-flags-only or gain scoped short-flag support so command-local cleanup hacks disappear.
