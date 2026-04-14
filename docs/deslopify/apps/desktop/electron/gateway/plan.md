@@ -15,8 +15,8 @@ item as a scope-closeout checkpoint, not a normal cleanup plan.
   `apps/desktop/electron/features/gateway/**`. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Do not schedule `fix-slop` work for this folder in its current state.**
-   - Close the deslopify item as generated-only.
+1. **~~Do not schedule `fix-slop` work for this folder in its current state.~~ ✅ 2026-04-14 (`0057ec72`)**
+   - Closed the deslopify item as generated-only.
    - Keep actual gateway cleanup work under
      `apps/desktop/electron/features/gateway/**`.
 
@@ -35,12 +35,15 @@ item as a scope-closeout checkpoint, not a normal cleanup plan.
 - If source returns later, this plan becomes obsolete immediately.
 
 ## Next Steps
-1. Mark this target as a generated-only closeout in the tasklist/index.
-2. Continue the Wave A review sequence with `apps/desktop/electron/cli` and
-   `apps/desktop/electron/features/kanban`.
+1. ~~Mark this target as a generated-only closeout in the tasklist/index.~~ ✅ 2026-04-14 (`0057ec72`)
+2. Continue routing actual gateway review/fix work to
+   `apps/desktop/electron/features/gateway/**` unless ownership changes.
 
 Verification checklist for future changes:
 - Confirm the folder still contains only generated assets before treating this
   plan as current.
 - Route all real gateway review/fix work to
   `apps/desktop/electron/features/gateway/**` unless ownership changes.
+
+## Execution log
+- `0057ec72` — `chore(deslopify): confirm electron gateway no-op closeout`

@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and all code-bearing Wave F follow-up (including `sero-memory` Medium test-surface work) is complete as of 2026-04-14; only the documented no-op closeout for `apps/desktop/electron/gateway/` remains*
+  — *Healthy — Wave B shared/desktop High items, Wave D plugin High batches, all code-bearing Wave F follow-up, and the final documented no-op closeouts for `apps/desktop/electron/{types,gateway}` were all cleared by 2026-04-14; only Low polish remains deferred*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -47,7 +47,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/kanban/`](./apps/desktop/electron/features/kanban/plan.md)
     — *Healthy — High and Medium workflow/runtime-owner cleanup cleared 2026-04-14; Low dead-scaffolding follow-up pending*
   - [`apps/desktop/electron/gateway/`](./apps/desktop/electron/gateway/plan.md)
-    — *Healthy — generated-only closeout confirmed 2026-04-13*
+    — *Healthy — generated-only no-op closeout confirmed 2026-04-14*
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
     — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)

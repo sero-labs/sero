@@ -365,3 +365,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Only the documented no-op closeout for `apps/desktop/electron/gateway/` remains in this plan unless real source returns there.
 - Low follow-up remains deferred across the reviewed targets.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / electron gateway closeout)
+
+### Metrics after fixes
+- Wave F execution is now fully closed, including both documented no-op desktop closeouts (`apps/desktop/electron/types` and `apps/desktop/electron/gateway`)
+- `apps/desktop/electron/gateway/` still contains 0 reviewable source files and the same 3 generated `web-dist/` assets
+- Targeted validation: source-shape verification, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Reconfirmed that `apps/desktop/electron/gateway/` still contains only generated `web-dist/` output and no reviewable source.
+- Closed the final remaining tracked Wave F item as a documentation-only no-op; no source changes were needed for this folder.
+- With this closeout, the `desktop-packages-plugins` execution map no longer has any remaining High or Medium tracked items.
+
+### Still outstanding
+- Only deferred Low follow-up remains across the reviewed targets.
+- Re-run Phase 0 for `apps/desktop/electron/gateway/` if maintainable source returns there.

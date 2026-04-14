@@ -296,8 +296,8 @@ architecture work rather than alphabetical bookkeeping.
 
 ## Next Steps
 1. Treat `plugins/sero-memory-plugin` Medium test-surface expansion as complete after `f74a9800` on 2026-04-14.
-2. The only remaining tracked follow-up in this plan is the documented no-op closeout for `apps/desktop/electron/gateway/` unless real source changes.
-3. After that docs-only closeout, consider the Wave F execution map complete and leave Low polish items deferred until a dedicated cleanup pass.
+2. ~~The only remaining tracked follow-up in this plan is the documented no-op closeout for `apps/desktop/electron/gateway/` unless real source changes.~~ ✅ 2026-04-14 (`0057ec72`)
+3. The Wave F execution map is now complete; leave only Low polish items deferred until a dedicated cleanup pass.
 
 Verification checklist for the Medium execution wave:
 - `packages/common/src` and `packages/app-runtime/src` agree on canonical
@@ -341,3 +341,4 @@ Verification checklist for the Medium execution wave:
 - `ba3e6031` — `test(cron): add direct ui and widget coverage`
 - `f74a9800` — `test(memory): add package-local extension coverage`
 - `c7452f4d` — `chore(deslopify): confirm electron types no-op closeout`
+- `0057ec72` — `chore(deslopify): confirm electron gateway no-op closeout`

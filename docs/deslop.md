@@ -82,6 +82,9 @@ Changes made during code quality passes. Most recent first.
 | `docs/deslopify/apps/desktop/electron/types/{facts,plan}.md` | Recorded the confirmed no-op closeout for the narrow Pi SDK augmentation seam after re-validating the live source shape |
 | `docs/deslopify/desktop-packages-plugins/{facts,plan}.md` | Advanced the Wave F tracker after the `apps/desktop/electron/types` no-op closeout; only `apps/desktop/electron/gateway` remains |
 | `docs/deslopify/index.md` | Marked `apps/desktop/electron/types/` as a confirmed healthy closeout and narrowed the cross-cutting backlog to the final gateway no-op item |
+| `docs/deslopify/apps/desktop/electron/gateway/{facts,plan}.md` | Recorded the confirmed generated-only no-op closeout for the `apps/desktop/electron/gateway/` tracker item after re-validating the live folder shape |
+| `docs/deslopify/desktop-packages-plugins/{facts,plan}.md` | Closed the final tracked Wave F gateway no-op item and marked the cross-cutting execution map complete apart from deferred Low polish |
+| `docs/deslopify/index.md` | Marked the cross-cutting baseline fully healthy and updated `apps/desktop/electron/gateway/` to its confirmed no-op closeout state |
 
 ---
 

@@ -36,3 +36,20 @@ web UI bundle.
 - The folder name is easy to confuse with `apps/desktop/electron/features/gateway/`,
   so future reviewers should double-check they are in the right place before
   opening a plan.
+
+## Post-fix snapshot — 2026-04-14
+
+### Metrics after fixes
+- Reviewable source files: 0
+- Files present remain the same 3 generated `web-dist/` assets
+- Files over 500 LOC in reviewable source: none
+- Targeted validation: source-shape verification, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Reconfirmed that `apps/desktop/electron/gateway/` still contains only generated `web-dist/` output and no reviewable source files.
+- Closed the tracked fix-slop item as a documentation-only no-op instead of inventing source churn outside the real gateway implementation surface.
+- Reaffirmed that actual gateway cleanup belongs under `apps/desktop/electron/features/gateway/**` unless maintainable source returns here.
+
+### Still outstanding
+- No active fix-slop work remains for this target.
+- Re-run baseline discovery only if real source returns under this path.
