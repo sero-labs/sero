@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batches E1–E5 are complete for the queued plugin set as of 2026-04-14; remaining non-E5 follow-up is `sero-memory` Medium test-surface work plus documented no-op closeouts for `apps/desktop/electron/{types,gateway}`*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and all code-bearing Wave F follow-up (including `sero-memory` Medium test-surface work) is complete as of 2026-04-14; only documented no-op closeouts for `apps/desktop/electron/{types,gateway}` remain*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -95,7 +95,7 @@ entry links to a `facts.md` and `plan.md` pair.
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
-  — *In progress — High cron-contract + QMD path work plus E4 migration/logging cleanup cleared 2026-04-14; Medium test-surface work pending*
+  — *Healthy — High cron-contract + QMD path work, E4 migration/logging cleanup, and Medium test-surface coverage all cleared 2026-04-14; Low `memory-tool.ts` split remains deferred*
 - [`plugins/sero-user-feedback-plugin/`](./plugins/sero-user-feedback-plugin/plan.md)
   — *Healthy — High questionnaire-parity/onboarding items plus E3 transport ownership and E5 state-machine coverage/file-splitting cleanup cleared 2026-04-14; Low bridge-failure visibility follow-up pending*
 - [`plugins/sero-web-plugin/`](./plugins/sero-web-plugin/plan.md)

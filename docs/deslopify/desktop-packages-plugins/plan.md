@@ -295,9 +295,9 @@ architecture work rather than alphabetical bookkeeping.
   before those items are executed.
 
 ## Next Steps
-1. Treat **Wave F / E5 — Plugin UI composition + cap-pressure relief** as complete for the queued plugin set now that `plugins/sero-cron-plugin` cleared on 2026-04-14.
-2. Keep the remaining Medium follow-up focused on non-E5 work: `plugins/sero-memory-plugin` test-surface expansion plus documented no-op closeouts for `apps/desktop/electron/{types,gateway}` unless real source changes.
-3. Continue rolling docs/help drift into the same commits as the owning behavior batch and run targeted validation plus monorepo `pnpm typecheck` after each batch.
+1. Treat `plugins/sero-memory-plugin` Medium test-surface expansion as complete after `f74a9800` on 2026-04-14.
+2. The only remaining tracked follow-up in this plan is the documented no-op closeout for `apps/desktop/electron/{types,gateway}` unless real source changes.
+3. After those docs-only closeouts, consider the Wave F execution map complete and leave Low polish items deferred until a dedicated cleanup pass.
 
 Verification checklist for the Medium execution wave:
 - `packages/common/src` and `packages/app-runtime/src` agree on canonical
@@ -339,3 +339,4 @@ Verification checklist for the Medium execution wave:
 - `f4da24f0` — `refactor(user-feedback): split questionnaire flow and add direct coverage`
 - `723505db` — `refactor(cron): split runtime composition and async logging`
 - `ba3e6031` — `test(cron): add direct ui and widget coverage`
+- `f74a9800` — `test(memory): add package-local extension coverage`

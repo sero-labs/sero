@@ -77,6 +77,8 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-cron-plugin/ui/components/{CronAppHeader.tsx,CronTabs.tsx,JobsTab.tsx}` | New — focused scheduler header/tab/jobs seams extracted from `CronApp` |
 | `plugins/sero-cron-plugin/ui/widgets/{CronWidget.tsx,CronWidget.test.tsx}` | Hardened widget rendering for legacy state snapshots and added direct coverage |
 | `plugins/sero-cron-plugin/vitest.config.ts` | Expanded the cron package test gate to include direct UI/widget tests |
+| `plugins/sero-memory-plugin/{package.json,vitest.config.ts,extension/tsconfig.json}` | Added a package-local memory test harness while keeping runtime `tsc` focused on shipped extension sources |
+| `plugins/sero-memory-plugin/extension/__tests__/{agent-dir,automation-state,context-injector,memory-tool,session-transcripts}.test.ts` | New — covers profile-scoped agent/QMD paths, malformed cron sync refusal, phase-1 migration state reuse, memory CRUD/capacity semantics, and transcript export stability |
 
 ---
 

@@ -333,3 +333,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Wave F / E5 is complete for the queued plugin set.
 - `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), and `apps/desktop/electron/{types,gateway}` remain documented no-op Medium closeouts unless real source changes.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / memory test surface)
+
+### Metrics after fixes
+- Wave F plugin code batches are now fully landed, including the non-E5 `plugins/sero-memory-plugin` Medium test-surface follow-up
+- New package-local memory test harness files added in this pass: `plugins/sero-memory-plugin/vitest.config.ts` plus 5 focused `extension/__tests__` modules
+- Targeted validation: memory package `test` + `typecheck`, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Cleared the last remaining code-bearing Medium item in this cross-cutting plan by adding focused package-local coverage for the memory plugin’s highest-risk runtime seams without changing shipped behavior.
+- Added direct regression tests for malformed cron sync refusal, profile-scoped agent/QMD/session-store paths, phase-1 migration state reuse, memory CRUD/capacity semantics, and transcript export stability.
+- Left the remaining tracked follow-up as documentation-only no-op closeouts for `apps/desktop/electron/{types,gateway}` rather than inventing churn in healthy/generated-only folders.
+
+### Still outstanding
+- Only the documented no-op Medium closeouts for `apps/desktop/electron/{types,gateway}` remain in this plan unless real source returns there.
+- Low follow-up remains deferred across the reviewed targets.

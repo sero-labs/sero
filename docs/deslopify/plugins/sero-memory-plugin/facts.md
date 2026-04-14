@@ -128,3 +128,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - The foundational Medium test-surface gap is still pending.
 - The Low `memory-tool.ts` split is still pending.
+
+## Post-fix snapshot — 2026-04-14 (Medium test surface)
+
+### Metrics after fixes
+- Total reviewable files: 40
+- Largest source file: `plugins/sero-memory-plugin/extension/memory-tool.ts` (466 LOC)
+- Files over 500 LOC: none
+- Targeted validation: package-local `test` + `typecheck`, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Added `vitest.config.ts` plus package test scripts so the extension-only memory plugin now has a package-local regression harness instead of relying on desktop-host tests alone.
+- Added focused extension tests for malformed cron auto-consolidation guards, profile-scoped agent/QMD/session-store paths, phase-1 migration state reuse, memory CRUD/capacity semantics, and transcript export stability/unchanged-session skips.
+- Kept runtime source unchanged while excluding `extension/__tests__` from the package runtime `tsc` pass so the existing extension typecheck stays truthful to shipped code.
+
+### Still outstanding
+- Medium items are cleared for this plan.
+- The Low `memory-tool.ts` split remains deferred.

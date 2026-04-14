@@ -56,14 +56,14 @@ _Plan drafted: 2026-04-13_
      - `extension/memory-tool.ts` reduced to schema + dispatch composition
    - Keep the external tool API unchanged; this is a maintainability cleanup, not a behavior redesign.
 
-6. **Add targeted tests around the package’s real risk surfaces.**
-   - Priority tests:
-     - malformed cron state does not get silently overwritten by auto-consolidation sync
-     - QMD/session transcript path resolution stays profile-scoped
-     - phase-1 migration runs once per session enter and not again on first turn
-     - `memory` CRUD preserves IDs/capacity/duplicate detection for `MEMORY.md`
-     - transcript export/backfill produces stable markdown and respects unchanged-session skips
-   - Add a package-local Vitest setup or targeted pure-module tests first; full end-to-end coverage can come later.
+6. **~~Add targeted tests around the package’s real risk surfaces.~~ ✅ 2026-04-14 (`f74a9800`)**
+   - Added a package-local Vitest setup plus focused extension tests for:
+     - malformed cron state refusing auto-consolidation rewrites
+     - QMD/session transcript path resolution staying profile-scoped
+     - phase-1 migration state preventing duplicate first-turn maintenance
+     - `memory` CRUD preserving IDs/capacity/duplicate detection for `MEMORY.md`
+     - transcript export producing stable markdown and respecting unchanged-session skips
+   - Kept the first pass on pure/helper layers so the package now has direct coverage without forcing a larger integration harness.
 
 ## Benefits & Trade-offs
 - Benefits: removes a real cross-plugin state-corruption risk, restores truthful profile scoping for search/transcript data, shortens startup latency by eliminating duplicate maintenance work, and gives the most critical memory behaviors actual regression coverage.
@@ -77,11 +77,9 @@ _Plan drafted: 2026-04-13_
 - New tests should focus on pure/helper layers first so the package gains coverage without forcing an oversized integration harness in one pass.
 
 ## Next Steps
-1. Fix the cron-state seam first: canonical shared contract + fail-closed automation-state reads.
-2. Replace the QMD `~/.pi/agent` fallback with the same profile-scoped agent-dir resolver used by session transcript export.
-3. Remove the duplicate `runPhase1Migration()` call from the first-turn path once session-enter ownership is explicit.
-4. Extract shared async state/logging helpers and convert the sync hot-path callers.
-5. Split `memory-tool.ts` and add focused tests for CRUD, transcript export, and automation-state behavior.
+1. Treat the plugin’s High + Medium backlog as complete after the focused test-surface pass.
+2. Keep the remaining Low follow-up scoped to splitting `memory-tool.ts` before it becomes a 500-LOC hotspot.
+3. Revisit broader integration-style coverage only if the memory runtime grows new cross-plugin behavior beyond the helper-layer tests added here.
 
 Verification checklist:
 - With a deliberately malformed `SERO_HOME/apps/cron/state.json`, memory-plugin startup no longer rewrites the scheduler file; it reports a clear failure instead.
@@ -95,3 +93,4 @@ Verification checklist:
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
 - `a3f625be` — `fix(plugins): align profile-scoped path ownership`
 - `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(memory: phase-1 migration is now single-owner per session entrance, and config/log persistence moved onto shared async helpers)*
+- `f74a9800` — `test(memory): add package-local extension coverage`
