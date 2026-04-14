@@ -236,3 +236,20 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Wave F batch **E5** is now the next execution step for the remaining UI-heavy plugin Medium items.
 - Medium carryovers still include cron logging/modularization/UI coverage, memory test-surface work, git file splitting/UI coverage, kanban settings/UI splits, web provider/module cleanup, admin session/UI cleanup, and user-feedback state-machine/file-splitting work.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / E5, plugin-by-plugin start)
+
+### Metrics after fixes
+- Wave F batches landed: **E1 + E2 + E3 + E4**, plus the first plugin-scoped **E5** closeout
+- E5 plugin cleared in this pass: `plugins/sero-kanban-plugin`
+- New focused UI/shared modules added in this pass: `plugins/sero-kanban-plugin/shared/settings-descriptor.ts`, `plugins/sero-kanban-plugin/ui/components/{CardDetailSections.tsx,ActivityPanelFeeds.tsx,useDescriptionEditorState.ts}`
+- Targeted validation: Kanban package tests + package-local typecheck + monorepo `pnpm typecheck` all pass
+
+### What changed
+- Switched Wave F / E5 execution to a **one plugin at a time** cadence to keep context bounded while the remaining UI-heavy plugin cleanups land.
+- Cleared the Kanban plugin’s remaining Medium work by aligning the tool/UI settings surface, splitting the largest remaining UI hubs, deleting dead add-card scaffolding, and adding direct UI coverage.
+- Updated tracking so `plugins/sero-kanban-plugin` is now closed out while the remaining E5 plugins stay queued explicitly in tasklist order.
+
+### Still outstanding
+- Remaining E5 plugins, in order: `plugins/sero-admin-plugin`, `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin`.
+- `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.

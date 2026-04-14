@@ -161,7 +161,7 @@ across every batch it participates in.
 - [x] `fix-slop` Medium items for `apps/desktop/electron/features/kanban`
 
 ### 7. Plugin mediums after shared patterns stabilize
-- [ ] `fix-slop` Medium items for `plugins/sero-kanban-plugin`
+- [x] `fix-slop` Medium items for `plugins/sero-kanban-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-cron-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-admin-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-memory-plugin`
@@ -383,3 +383,12 @@ runtime, contract, or desktop-side code that those plugins consume.
   projection ownership, and visible Kanban cleanup warnings/error-log
   breadcrumbs. Targeted plugin tests, package-local memory typecheck, and
   monorepo `pnpm typecheck` all passed.
+- 2026-04-14: Wave F batch **E5 — Plugin UI composition + cap-pressure relief**
+  is now executing **one plugin at a time** to keep context bounded. The
+  first plugin closeout landed in `1d433349`
+  (`refactor(kanban): align settings and split ui panels`): shared Kanban
+  settings descriptors now drive both the tool/help and the UI, the largest
+  remaining Kanban UI hubs were split below the near-cap cluster, dead add-card
+  scaffolding was removed, direct UI coverage was added, and the Kanban plugin
+  is now marked complete for its remaining Medium items. The remaining E5
+  plugins stay queued in the checklist above.

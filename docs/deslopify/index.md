@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batches E1–E4 landed 2026-04-14; E5 pending*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, Wave F batches E1–E4 landed 2026-04-14, and E5 is now executing plugin-by-plugin (`sero-kanban` cleared 2026-04-14; remaining plugins pending)*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -93,7 +93,7 @@ entry links to a `facts.md` and `plan.md` pair.
 - `plugins/sero-hello-world-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
-  — *In progress — High persisted-state item landed, workflow-ownership finding was validated obsolete/covered 2026-04-13, and E4 cleanup-warning visibility landed 2026-04-14; settings/UI cleanup still pending*
+  — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
   — *In progress — High cron-contract + QMD path work plus E4 migration/logging cleanup cleared 2026-04-14; Medium test-surface work pending*
 - [`plugins/sero-user-feedback-plugin/`](./plugins/sero-user-feedback-plugin/plan.md)

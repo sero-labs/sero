@@ -33,7 +33,7 @@ _Plan drafted: 2026-04-13_
    - If the tool path encounters malformed JSON, abort the mutation and return a recovery-oriented message (include file path and backup/repair guidance).
    - Keep atomic writes, but make read failure modes truthful.
 
-3. **Define one shared settings descriptor and use it in both the tool layer and the UI.**
+3. **~~Define one shared settings descriptor and use it in both the tool layer and the UI.~~ ✅ 2026-04-14 (`1d433349`)**
    - Add a small canonical settings metadata module under `shared/` or `@sero/common` ownership for the keys this plugin intentionally exposes.
    - Use it to drive:
      - tool schema/help text in `extension/index.ts`
@@ -46,7 +46,7 @@ _Plan drafted: 2026-04-13_
    - Feed those warnings into the same review/error-log story instead of burying them in ignored promises.
    - Preserve best-effort cleanup semantics where necessary; just stop making failures invisible.
 
-5. **Split the heavy UI modules before they cross the 500-LOC cap and add direct UI coverage.**
+5. **~~Split the heavy UI modules before they cross the 500-LOC cap and add direct UI coverage.~~ ✅ 2026-04-14 (`1d433349`)**
    - `ui/components/CardDetail.tsx`
      - extract card metadata/version-control rendering
      - extract workflow-action section (planning/review/retry panels)
@@ -57,7 +57,7 @@ _Plan drafted: 2026-04-13_
      - split elapsed timer / tool feed / narrative feed / live output sections into focused subcomponents
    - Add direct tests for the remaining local workflow helpers and UI review controls before changing them again.
 
-6. **Delete the leftover duplicated UI scaffolding.**
+6. **~~Delete the leftover duplicated UI scaffolding.~~ ✅ 2026-04-14 (`1d433349`)**
    - Either wire `AddCardForm` into `ColumnView` or remove it.
    - Remove the unused `onPriorityChange` API from `CardDetailFooter`, or add a real priority control if that behavior is intentionally deferred.
    - Keep the plugin’s exemplar status clean: dead UI code invites copy-paste debt into later plugins.
@@ -90,3 +90,4 @@ Verification checklist:
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `ff4e460a` — `fix(plugins): make web and context actions truthful` *(validated this plan's remaining High item as obsolete under current host state-transition wiring)*
 - `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(kanban: review/worktree cleanup now returns scoped warnings that are surfaced in tool output and the board error log)*
+- `1d433349` — `refactor(kanban): align settings and split ui panels`

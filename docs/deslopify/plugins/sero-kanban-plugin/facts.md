@@ -101,3 +101,26 @@ _Last reviewed: 2026-04-13_
 
 ### Still outstanding
 - Medium settings-surface alignment and UI file-splitting/direct UI coverage remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E5)
+
+### Metrics after fixes
+- Total files: 53 (was 49 after E4)
+- Largest source file: `plugins/sero-kanban-plugin/ui/components/CardDetailSections.tsx` (296 LOC)
+- Former near-cap UI hubs trimmed:
+  - `CardDetail.tsx` — 466 → 196 LOC
+  - `DescriptionEditor.tsx` — 405 → 304 LOC
+  - `ActivityPanel.tsx` — 393 → 189 LOC
+- Files over 500 LOC: none
+- Targeted validation: Kanban package tests, package-local typecheck, and monorepo `pnpm typecheck` all pass
+
+### What changed
+- Added `shared/settings-descriptor.ts` as the single owner of mutable/read-only Kanban settings metadata and update semantics.
+- Rebased `extension/index.ts`, `workflow-actions.ts`, and the UI `SettingsPanel` on that shared settings descriptor so agents and humans now see the same truthful surface (`yoloAutoMergePrs` included; `autoAdvance` explicitly read-only).
+- Split the largest remaining UI hubs: `CardDetail.tsx`, `DescriptionEditor.tsx`, and `ActivityPanel.tsx` now delegate to focused section/feed/state modules.
+- Deleted dead UI scaffolding (`AddCardForm.tsx`) and removed the unused `onPriorityChange` footer API.
+- Expanded package-local coverage to include direct UI tests via `SettingsPanel.test.tsx` and a widened Vitest include list.
+
+### Still outstanding
+- High and Medium items are cleared for this plan.
+- No additional follow-up is tracked here beyond future opportunistic polish.

@@ -44,6 +44,14 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-git-plugin/extension/{git-service.ts,__tests__/git-service.test.ts}` | Made `log` / `branches` repo-backed via the refresh path and added direct freshness coverage |
 | `plugins/sero-context-plugin/extension/{context-projection.ts,index.ts,snapshot.ts}` | Extracted one shared projection owner for `context_log` and snapshot generation and removed the duplicate projection walkers |
 | `plugins/sero-kanban-plugin/extension/{cleanup-warnings.ts,review-artifacts.ts,worktree-cleanup.ts,review-actions.ts,workflow-actions.ts,__tests__/{review-actions.test.ts,workflow-actions.test.ts}}` | Surfaced review/worktree cleanup failures in tool output and the Kanban error log instead of swallowing them |
+| `plugins/sero-kanban-plugin/shared/settings-descriptor.ts` | New — canonical shared descriptor and update helpers for the truthful Kanban settings surface |
+| `plugins/sero-kanban-plugin/extension/{index.ts,workflow-actions.ts,__tests__/workflow-actions.test.ts}` | Rebased tool help and settings mutation semantics on the shared settings descriptor, including runtime-backed `yoloAutoMergePrs` + read-only `autoAdvance` copy |
+| `plugins/sero-kanban-plugin/ui/components/{CardDetail.tsx,CardDetailSections.tsx}` | Split the near-cap card detail panel into a thin shell plus focused content sections (466 → 196 lines) |
+| `plugins/sero-kanban-plugin/ui/components/{DescriptionEditor.tsx,useDescriptionEditorState.ts}` | Extracted AI-enhance/edit state into a focused hook and slimmed the editor shell (405 → 304 lines) |
+| `plugins/sero-kanban-plugin/ui/components/{ActivityPanel.tsx,ActivityPanelFeeds.tsx}` | Split the shared activity feed into a thin panel wrapper plus focused narrative/tool-feed renderers (393 → 189 lines) |
+| `plugins/sero-kanban-plugin/ui/components/{SettingsPanel.tsx,SettingsPanel.test.tsx,CardDetailFooter.tsx}` | Aligned the human settings surface with the runtime descriptor, added direct UI coverage, and removed the stale priority callback API |
+| `plugins/sero-kanban-plugin/ui/components/AddCardForm.tsx` | Deleted — dead duplicate add-card scaffold no longer shipped alongside `ColumnView` |
+| `plugins/sero-kanban-plugin/vitest.config.ts` | Expanded package-local coverage to include direct UI tests |
 
 ---
 
