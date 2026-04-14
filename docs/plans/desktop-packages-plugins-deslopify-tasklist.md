@@ -163,7 +163,7 @@ across every batch it participates in.
 ### 7. Plugin mediums after shared patterns stabilize
 - [x] `fix-slop` Medium items for `plugins/sero-kanban-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-cron-plugin`
-- [ ] `fix-slop` Medium items for `plugins/sero-admin-plugin`
+- [x] `fix-slop` Medium items for `plugins/sero-admin-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-memory-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-git-plugin`
 - [x] `fix-slop` Medium items for `plugins/sero-context-plugin`
@@ -390,5 +390,13 @@ runtime, contract, or desktop-side code that those plugins consume.
   settings descriptors now drive both the tool/help and the UI, the largest
   remaining Kanban UI hubs were split below the near-cap cluster, dead add-card
   scaffolding was removed, direct UI coverage was added, and the Kanban plugin
-  is now marked complete for its remaining Medium items. The remaining E5
-  plugins stay queued in the checklist above.
+  is now marked complete for its remaining Medium items.
+- 2026-04-14: The second plugin-scoped E5 closeout landed in `96b489fb`
+  (`refactor(admin): finish E5 session and settings cleanup`): the admin
+  plugin’s host/session hook hub was split into focused modules, session
+  browsing now reuses cached path metadata and surfaces malformed JSONL lines,
+  auth/model refresh wiring is shared behind one hook, dead provider-defaults
+  scaffolding was deleted, focused package-local admin tests were added, and
+  targeted admin validation plus monorepo `pnpm typecheck` and
+  `apps/desktop pnpm test` all passed. The remaining E5 plugins stay queued in
+  the checklist above.

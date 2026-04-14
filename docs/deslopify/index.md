@@ -81,7 +81,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## plugins/
 - [`plugins/sero-admin-plugin/`](./plugins/sero-admin-plugin/plan.md)
-  — *In progress — High bridge duplication plus E3 skill-visibility ownership / quality-gate items cleared 2026-04-14; E5 session/UI cleanup pending*
+  — *Healthy — High bridge duplication plus E3/E5 session, refresh, dead-code, and coverage cleanup all cleared 2026-04-14*
 - `plugins/sero-alibaba-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
 - [`plugins/sero-context-plugin/`](./plugins/sero-context-plugin/plan.md)

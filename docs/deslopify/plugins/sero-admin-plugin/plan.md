@@ -33,7 +33,7 @@ _Plan drafted: 2026-04-13_
    - Keep the persisted settings shape unchanged (`sero.skillVisibility.disabledModelSkills`) so runtime behavior and existing user settings remain intact.
    - This resolves the current host→plugin import cycle and better matches AD-001 ownership boundaries.
 
-3. **Split `useSeroFiles.ts` into focused modules before it becomes the next 500-LOC file.**
+3. **~~Split `useSeroFiles.ts` into focused modules before it becomes the next 500-LOC file.~~ ✅ 2026-04-14 (`96b489fb`)**
    - Target shape:
      - `ui/hooks/host.ts` — typed `getSero()` helper only
      - `ui/hooks/useProfiles.ts`
@@ -43,23 +43,23 @@ _Plan drafted: 2026-04-13_
    - Keep hook APIs stable for the current UI so this is a shape cleanup, not a UX rewrite.
    - This makes future fixes reviewable and lowers the blast radius of host-bridge changes.
 
-4. **Make the session browser truthful and avoid the redundant re-fetch.**
+4. **~~Make the session browser truthful and avoid the redundant re-fetch.~~ ✅ 2026-04-14 (`96b489fb`)**
    - Keep the canonical session path on the session-list item passed into the UI instead of stripping it from `SessionFileInfo`.
    - Update `SessionDetail` to read the selected session file directly from the already-loaded list.
    - Change the JSONL parser to report malformed lines explicitly (for example, a warning banner with a skipped-line count) instead of silently dropping them.
    - Preserve the current “read raw file, do not call `agent.open()`” behavior, because that no-side-effect diagnostic path is the important runtime invariant.
 
-5. **Extract the shared auth/model refresh lifecycle into one hook.**
+5. **~~Extract the shared auth/model refresh lifecycle into one hook.~~ ✅ 2026-04-14 (`96b489fb`)**
    - Build a small hook that subscribes to `focus`, `visibilitychange`, and `auth.onEvent(...)`, then reuse it in both `AgentEditor` and `ModelPanel`.
    - Keep the current `preserveDraft` behavior in `ModelPanel` and the current “refresh dependencies without resetting editor state” behavior in `AgentEditor`.
    - This reduces duplication without changing user-visible semantics.
 
-6. **Delete the dead provider-defaults layer and stale admin-only leftovers.**
+6. **~~Delete the dead provider-defaults layer and stale admin-only leftovers.~~ ✅ 2026-04-14 (`96b489fb`)**
    - Remove `ui/components/ProviderCard.tsx` and `ui/components/TierModelPicker.tsx` if the current design direction is the global tier-based `ModelPanel`.
    - Remove unused `SessionMeta`, `SessionMessage`, and `LogFile` exports from `shared/types.ts`, plus any now-unused format helpers.
    - If per-provider overrides are still planned, keep the intent in docs/specs rather than shipping orphaned implementation files.
 
-7. **Add a minimal safety net for the sensitive paths.** _(2026-04-14 partial: package-local extension typecheck + focused skill-visibility coverage landed in `56ff5e59`; broader session/parser and plugin-manager coverage is still pending.)_
+7. **~~Add a minimal safety net for the sensitive paths.~~ ✅ 2026-04-14 (`56ff5e59`, `96b489fb`)**
    - Expand package-local typecheck coverage to include `extension/**`.
    - Add focused tests for:
      - skill-visibility normalization/persistence helpers
@@ -79,13 +79,8 @@ _Plan drafted: 2026-04-13_
 - If the team wants extra defense-in-depth for this sensitive plugin, this cleanup pass is also the right time to encode the “UI-only” intent explicitly in manifest policy (for example, `sero.plugin.bridgeTools: false`) rather than relying only on CLI-side exclusions.
 
 ## Next Steps
-1. Extract the admin-consumed host bridge contracts into a neutral shared package and replace the local `useSeroFiles.ts` type copy.
-2. Move `shared/skill-visibility.ts` to a neutral owner and update both host + plugin imports.
-3. Split `useSeroFiles.ts` into focused hooks/modules.
-4. Fix the session browser to retain session paths and surface malformed-line diagnostics.
-5. Deduplicate auth/model refresh subscriptions behind one hook used by `AgentEditor` and `ModelPanel`.
-6. Delete the dead provider-defaults components and stale shared type leftovers.
-7. Add focused tests plus extension typecheck coverage.
+1. Keep the admin plugin on its current UI-only boundary; no further High/Medium deslop items remain from this plan.
+2. Continue Wave F / E5 with the next queued plugin (`plugins/sero-git-plugin`) after the current admin closeout is documented and context is cleared.
 
 Verification checklist:
 - Open Admin and smoke-test every section: agents, skills, prompts, settings, model, plugins, logs, sessions.
@@ -98,3 +93,4 @@ Verification checklist:
 ## Execution log
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
 - `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(admin: moved skill-visibility ownership to `@sero/common`, added extension typecheck, added package-local helper coverage)*
+- `96b489fb` — `refactor(admin): finish E5 session and settings cleanup`

@@ -52,6 +52,12 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-kanban-plugin/ui/components/{SettingsPanel.tsx,SettingsPanel.test.tsx,CardDetailFooter.tsx}` | Aligned the human settings surface with the runtime descriptor, added direct UI coverage, and removed the stale priority callback API |
 | `plugins/sero-kanban-plugin/ui/components/AddCardForm.tsx` | Deleted — dead duplicate add-card scaffold no longer shipped alongside `ColumnView` |
 | `plugins/sero-kanban-plugin/vitest.config.ts` | Expanded package-local coverage to include direct UI tests |
+| `plugins/sero-admin-plugin/ui/hooks/{host.ts,useProfiles.ts,useConfigFile.ts,useSessionFiles.ts,useBridgeRefresh.ts}` | New — split the admin host/config/profile/session/refresh seams into focused hooks and removed the near-cap `useSeroFiles.ts` hub |
+| `plugins/sero-admin-plugin/ui/components/SessionDetail.tsx` | Reads the selected session file directly from cached metadata and surfaces malformed JSONL warnings instead of silently dropping corrupted lines (332 → 276 lines) |
+| `plugins/sero-admin-plugin/ui/lib/{auth-refresh.ts,auth-refresh.test.ts,plugins.ts,plugins.test.ts,session-log.ts,session-log.test.ts}` | New — focused pure helpers/tests for auth refresh events, plugin-manager normalization, and truthful session-log parsing |
+| `plugins/sero-admin-plugin/ui/components/{AgentEditor.tsx,ModelPanel.tsx}` | Reused one shared auth/focus/visibility refresh hook while preserving editor draft semantics |
+| `plugins/sero-admin-plugin/ui/components/{ProviderCard.tsx,TierModelPicker.tsx}` | Deleted — dead provider-defaults scaffolding no longer ships alongside the global tier-based model panel |
+| `plugins/sero-admin-plugin/shared/types.ts` | Removed stale session/log type leftovers from the pre-model-panel UI |
 
 ---
 

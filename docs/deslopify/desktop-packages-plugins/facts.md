@@ -253,3 +253,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Remaining E5 plugins, in order: `plugins/sero-admin-plugin`, `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin`.
 - `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / E5, admin complete)
+
+### Metrics after fixes
+- Wave F batches landed: **E1 + E2 + E3 + E4**, plus plugin-scoped **E5** closeouts for `plugins/sero-kanban-plugin` and `plugins/sero-admin-plugin`
+- New focused admin modules added in this pass: `plugins/sero-admin-plugin/ui/hooks/{host,useProfiles,useConfigFile,useSessionFiles,useBridgeRefresh}.ts`, `plugins/sero-admin-plugin/ui/lib/{auth-refresh,plugins,session-log}.ts`
+- Targeted validation: admin package typecheck/tests, monorepo `pnpm typecheck`, and `apps/desktop pnpm test` all pass
+
+### What changed
+- Cleared the admin plugin’s remaining Medium work by splitting the old host/session hook hub, making the session browser reuse already-loaded session metadata, surfacing malformed JSONL diagnostics, deduplicating auth/model refresh wiring, and deleting dead provider-defaults scaffolding.
+- Added focused package-local coverage for auth refresh filtering, session-log parsing, and plugin-manager normalization so the admin plugin now has direct safety nets beyond the earlier skill-visibility helper coverage.
+- Updated tracking so `plugins/sero-admin-plugin` is now closed out while the remaining E5 plugins stay queued explicitly in tasklist order.
+
+### Still outstanding
+- Remaining E5 plugins, in order: `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin`.
+- `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.

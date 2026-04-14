@@ -1,6 +1,6 @@
 # Facts — plugins/sero-admin-plugin
 
-_Last reviewed: 2026-04-13_
+_Last reviewed: 2026-04-14_
 
 ## What this code does
 `plugins/sero-admin-plugin/` is Sero’s global control-surface plugin. It exposes a UI-only admin app for browsing/editing profile config files, listing sessions, tailing host/remote logs, managing global agents/skills/prompts, configuring global model tiers, installing plugins, and linking plugin source roots into the active workspace for in-place plugin development.
@@ -95,3 +95,24 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - `useSeroFiles.ts` modularization, session-browser truthfulness, auth/model refresh dedupe, and dead provider-defaults cleanup are still pending.
 - Broader package-local coverage for session parsing and plugin-manager state transitions is still pending.
+
+## Post-fix snapshot — 2026-04-14 (E5)
+
+### Metrics after fixes
+- Total reviewable files: 41 (was 35)
+- Total reviewable LOC: 4,825 (was 5,463)
+- Largest source file: `plugins/sero-admin-plugin/ui/components/PluginsPanel.tsx` (372 LOC)
+- Files over 500 LOC: none
+- Focused package-local coverage now includes `ui/{skill-visibility,lib/auth-refresh,lib/plugins,lib/session-log}.test.ts`
+
+### What changed
+- Split the old `ui/hooks/useSeroFiles.ts` hub into focused host/profile/config/session/refresh modules and deleted the monolithic file.
+- Kept canonical session paths on `SessionFileInfo`, so `SessionDetail` now reads the already-selected file directly instead of re-listing sessions through IPC.
+- Moved session JSONL parsing into a shared helper with explicit malformed-line reporting, then surfaced corruption warnings in the admin session browser without changing the raw-file/no-`agent.open()` invariant.
+- Reused one shared auth/focus/visibility refresh hook in `AgentEditor` and `ModelPanel`, preserving the existing draft-preservation semantics.
+- Deleted the dead provider-defaults UI scaffolding, removed stale session/log types, and added focused package-local tests for auth refresh filtering, plugin-manager normalization, and session-log parsing.
+- Targeted admin validation (`pnpm --dir plugins/sero-admin-plugin typecheck`, `pnpm --dir plugins/sero-admin-plugin test`), monorepo `pnpm typecheck`, and `apps/desktop pnpm test` all pass.
+
+### Still outstanding
+- No plan-listed High or Medium items remain for `plugins/sero-admin-plugin`.
+- `PluginsPanel.tsx`, `ConfigPanel.tsx`, and `LogViewer.tsx` remain near-cap but comfortably below the 500-LOC ceiling; revisit only if new product scope lands.
