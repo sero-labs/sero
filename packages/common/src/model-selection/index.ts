@@ -2,7 +2,7 @@ export {
   THINKING_LEVELS,
   THINKING_LABELS,
   MODEL_TIERS,
-} from './model-selection/types';
+} from './types';
 
 export type {
   ThinkingLevel,
@@ -15,7 +15,7 @@ export type {
   AgentModelPreference,
   ModelValidationWarningCode,
   ModelValidationWarning,
-} from './model-selection/types';
+} from './types';
 
 export {
   modelKey,
@@ -34,10 +34,10 @@ export {
   getAvailableThinkingLevels,
   resolveSupportedThinkingLevel,
   supportsThinkingLevel,
-} from './model-selection/lookup';
+} from './lookup';
 
 export {
   formatModelValidationWarning,
   validateGlobalTierSelections,
   validateAgentModelConfig,
-} from './model-selection/validation';
+} from './validation';

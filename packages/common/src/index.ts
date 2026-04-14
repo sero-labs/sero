@@ -11,6 +11,9 @@ export type {
   PluginMeta,
   PluginRegistryEntry,
   DiscoveredPlugin,
+  PluginProviderAuthManifest,
+  PluginProviderManifest,
+  SeroProviderManifest,
 } from './plugins';
 
 export type {
@@ -72,6 +75,7 @@ export {
   resolveSupportedThinkingLevel,
   supportsThinkingLevel,
   getModelTierThinkingLevel,
+  formatModelValidationWarning,
   validateGlobalTierSelections,
   validateAgentModelConfig,
 } from './model-selection';

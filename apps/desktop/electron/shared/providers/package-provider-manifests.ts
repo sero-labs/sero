@@ -1,43 +1,20 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import path from 'path';
-import type { ModelTier, SettingsPackageSource } from '@/types/ipc';
+import type { SettingsPackageSource } from '@/types/ipc';
+import type { ModelTier, PluginProviderManifest, SeroProviderManifest } from '@sero/common';
+import { MODEL_TIERS } from '@sero/common';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
   discoverBuiltinPackagePaths,
   discoverBuiltinPluginPaths,
 } from '@electron/platform/protocols/builtin-resources';
 
-const MODEL_TIERS: readonly ModelTier[] = ['LOW', 'MED', 'HIGH'] as const;
 const CACHE_TTL_MS = 250;
-
-interface PackageProviderAuthManifest {
-  type?: string;
-  envVar?: string;
-}
-
-interface PackageProviderManifest {
-  id?: string;
-  name?: string;
-  logo?: string;
-  auth?: PackageProviderAuthManifest;
-  defaults?: Partial<Record<ModelTier, string>>;
-}
 
 interface PackageJson {
   sero?: {
-    providers?: PackageProviderManifest[];
+    providers?: PluginProviderManifest[];
   };
-}
-
-export interface SeroProviderManifest {
-  id: string;
-  name?: string;
-  logo?: string;
-  auth?: {
-    type: 'apiKey';
-    envVar?: string;
-  };
-  defaults?: Partial<Record<ModelTier, string>>;
 }
 
 let cachedAt = 0;
@@ -63,7 +40,7 @@ function normalizeTierDefaults(value: unknown): Partial<Record<ModelTier, string
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function normalizeProviderManifest(value: PackageProviderManifest): SeroProviderManifest | null {
+function normalizeProviderManifest(value: PluginProviderManifest): SeroProviderManifest | null {
   const id = typeof value.id === 'string' ? value.id.trim() : '';
   if (!id) return null;
 

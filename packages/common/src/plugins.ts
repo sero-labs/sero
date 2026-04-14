@@ -3,6 +3,8 @@
  * app modules. Keep renderer-safe (no Node imports).
  */
 
+import type { ModelTier } from './model-selection';
+
 /** Plugin category for browsing / filtering. */
 export type PluginCategory =
   | 'productivity'
@@ -88,4 +90,31 @@ export interface DiscoveredPlugin {
   installed: boolean;
   /** Installed plugin ID, used for uninstall actions in discovery UI. */
   installedPluginId: string | null;
+}
+
+/** Provider auth metadata from a package's `sero.providers` field. */
+export interface PluginProviderAuthManifest {
+  type?: string;
+  envVar?: string;
+}
+
+/** Provider metadata from a package's `sero.providers` field. */
+export interface PluginProviderManifest {
+  id?: string;
+  name?: string;
+  logo?: string;
+  auth?: PluginProviderAuthManifest;
+  defaults?: Partial<Record<ModelTier, string>>;
+}
+
+/** Normalized provider metadata surfaced by the host. */
+export interface SeroProviderManifest {
+  id: string;
+  name?: string;
+  logo?: string;
+  auth?: {
+    type: 'apiKey';
+    envVar?: string;
+  };
+  defaults?: Partial<Record<ModelTier, string>>;
 }
