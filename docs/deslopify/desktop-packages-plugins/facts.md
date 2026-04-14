@@ -301,3 +301,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Remaining E5 plugins, in order: `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin`.
 - `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / E5, user-feedback complete)
+
+### Metrics after fixes
+- Wave F batches landed: **E1 + E2 + E3 + E4**, plus plugin-scoped **E5** closeouts for `plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`, `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, and `plugins/sero-user-feedback-plugin`
+- New focused user-feedback modules added in this pass: `plugins/sero-user-feedback-plugin/shared/questionnaire-flow.ts`, `plugins/sero-user-feedback-plugin/extension/tui-questionnaire-render.ts`, `plugins/sero-user-feedback-plugin/ui/questionnaire/{QuestionnaireQuestionStep.tsx,QuestionnaireReviewStep.tsx}`
+- Targeted validation: user-feedback package `typecheck` + `test`, monorepo `pnpm typecheck`, and `apps/desktop pnpm test` all pass
+
+### What changed
+- Cleared the user-feedback plugin’s remaining Medium work by extracting one shared questionnaire-flow owner, splitting the near-cap questionnaire UI/TUI hubs into focused modules, and keeping the partial-answer contract aligned across the Sero UI and Pi TUI.
+- Added package-local regression coverage for questionnaire parity, interview result aggregation/cancel behavior, permission-gate timeout plus workspace-delete exemptions, direct `QuestionnaireForm` partial-submit behavior, and `UserFeedbackApp` queue hydration/clear behavior.
+- Updated tracking so `plugins/sero-user-feedback-plugin` is now closed out while only `plugins/sero-cron-plugin` remains in the E5 queue.
+
+### Still outstanding
+- Remaining E5 plugins, in order: `plugins/sero-cron-plugin`.
+- `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.

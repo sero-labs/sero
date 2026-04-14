@@ -45,7 +45,7 @@ _Plan drafted: 2026-04-13_
    - Replace local “subset bridge” declarations with canonical typed aliases so host drift becomes a typecheck failure.
    - This also closes the Medium drift already documented in `docs/deslopify/apps/desktop/src/types/plan.md` and `docs/deslopify/apps/desktop/electron/shared/plan.md`.
 
-4. **Add package-local typecheck and focused tests for the real risk surfaces.** _(2026-04-14 partial: package-local UI+extension typecheck plus focused IPC-bridge tests landed in `56ff5e59`; broader questionnaire/interview/permission-gate regression coverage is still pending.)_
+4. **~~Add package-local typecheck and focused tests for the real risk surfaces.~~ ✅ 2026-04-14 (`f4da24f0`)** _(2026-04-14 partial: package-local UI+extension typecheck plus focused IPC-bridge tests landed in `56ff5e59`; this E5 pass added shared questionnaire-flow parity coverage, interview-result tests, permission-gate timeout/exemption tests, direct `QuestionnaireForm` coverage, and `UserFeedbackApp` queue-hydration coverage.)_
    - Expand `package.json` scripts so the package locally typechecks both `ui/` and `extension/` (and shared types transitively).
    - Add focused tests for:
      - questionnaire parity between Sero UI rules and TUI rules
@@ -55,7 +55,7 @@ _Plan drafted: 2026-04-13_
      - `UserFeedbackApp` queue hydration without onboarding/profile side effects
    - Keep these mostly pure/unit-level; do not require a heavy browser/Electron harness just to protect the core flow logic.
 
-5. **Split the large questionnaire modules after behavior is canonical.**
+5. **~~Split the large questionnaire modules after behavior is canonical.~~ ✅ 2026-04-14 (`f4da24f0`)**
    - Target structure example:
      - `shared/questionnaire-flow.ts` — pure state/update helpers
      - `ui/questionnaire/QuestionnaireForm.tsx` — thin container
@@ -91,12 +91,8 @@ _Plan drafted: 2026-04-13_
 - No container rebuild is required for this plan.
 
 ## Next Steps
-1. Decide the canonical questionnaire rule for Sero: partial answers allowed, or all answers required.
-2. Extract shared questionnaire-state helpers and update the Sero UI first, then the Pi TUI where it remains practical and worthwhile.
-3. Remove `profiles` onboarding reads/writes from `UserFeedbackApp` and move any remaining onboarding wait UI into host-owned code.
-4. Canonicalize the user-feedback payload + bus contracts across plugin, preload, and Electron.
-5. Expand package-local typecheck/tests before doing larger file-splitting cleanup.
-6. Split `QuestionnaireForm.tsx` and `tui-questionnaire.ts` once the shared behavior is stable.
+1. If we do a follow-up polish pass, clear the remaining Low bridge-failure visibility item in `ui/UserFeedbackApp.tsx` so preload failures are diagnosable instead of silently flattening into an empty queue.
+2. Otherwise treat this plugin as Medium-complete and move to the next queued E5 target in the desktop/packages/plugins backlog.
 
 Verification checklist:
 - The Sero remote UI produces the intended submit/cancel behavior for questionnaires with unanswered steps.
@@ -109,3 +105,4 @@ Verification checklist:
 ## Execution log
 - `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`
 - `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(user-feedback: canonicalized shared transport/bus ownership and added package-local extension-inclusive checks)*
+- `f4da24f0` — `refactor(user-feedback): split questionnaire flow and add direct coverage`

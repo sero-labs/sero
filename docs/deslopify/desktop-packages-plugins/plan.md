@@ -296,10 +296,10 @@ architecture work rather than alphabetical bookkeeping.
 
 ## Next Steps
 1. Continue **E5 — Plugin UI composition + cap-pressure relief** one plugin at
-   a time for the remaining targets: `plugins/sero-user-feedback-plugin` and
-   `plugins/sero-cron-plugin` (`plugins/sero-kanban-plugin`,
-   `plugins/sero-admin-plugin`, `plugins/sero-git-plugin`, and
-   `plugins/sero-web-plugin` cleared E5 on 2026-04-14).
+   a time for the remaining target: `plugins/sero-cron-plugin`
+   (`plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`,
+   `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, and
+   `plugins/sero-user-feedback-plugin` cleared E5 on 2026-04-14).
 2. Treat `apps/desktop/electron/types` and `apps/desktop/electron/gateway` as
    no-op Medium closeouts unless real source or new findings appear.
 3. Roll docs/help drift into the same commits as the owning behavior batch and
@@ -342,3 +342,4 @@ Verification checklist for the Medium execution wave:
 - `ec22f935` — `refactor(git): split service and branch panel seams`
 - `5d187d86` — `test(git): add direct ui interaction coverage`
 - `43572da8` — `refactor(web): split provider extraction seams`
+- `f4da24f0` — `refactor(user-feedback): split questionnaire flow and add direct coverage`

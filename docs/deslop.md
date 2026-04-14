@@ -67,6 +67,9 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-web-plugin/extension/{video-extract.ts,video-config.ts,video-gemini-files.ts}` | Split video file detection and Gemini Files API upload/polling helpers from the extractor shell (`394 → 193 lines`) |
 | `plugins/sero-web-plugin/extension/{youtube-extract.ts,youtube-config.ts,youtube-media.ts}` | Split YouTube config/media helpers from fallback orchestration (`343 → 194 lines`) |
 | `plugins/sero-web-plugin/extension/{rsc-extract.ts,rsc-chunks.ts,http-extract.ts,perplexity.ts,vendor.d.ts,tsconfig.json,__tests__/{gemini-web-email.test.ts,gemini-web-response.test.ts,gemini-search-format.test.ts,youtube-config.test.ts,rsc-extract.test.ts}}` | Split RSC chunk parsing, widened the package-local provider typecheck, and added direct helper coverage plus local vendor typings (`rsc-extract.ts` `338 → 279 lines`) |
+| `plugins/sero-user-feedback-plugin/shared/{questionnaire-flow.ts,__tests__/questionnaire-flow.test.ts}` | New — centralized questionnaire answer/review/submit semantics and added focused parity coverage |
+| `plugins/sero-user-feedback-plugin/extension/{tui-questionnaire.ts,tui-questionnaire-render.ts,interview-tool.ts,__tests__/{interview-tool.test.ts,permission-gate.test.ts}}` | Split TUI rendering from questionnaire state and added focused interview-result plus permission-gate coverage (`tui-questionnaire.ts` `416 → 303 lines`) |
+| `plugins/sero-user-feedback-plugin/ui/{QuestionnaireForm.tsx,QuestionnaireForm.test.tsx,UserFeedbackApp.test.tsx,questionnaire/{QuestionnaireQuestionStep.tsx,QuestionnaireReviewStep.tsx},vitest.config.ts}` | Split the questionnaire UI into focused modules and added direct partial-submit + queue-hydration coverage (`QuestionnaireForm.tsx` `469 → 235 lines`) |
 
 ---
 

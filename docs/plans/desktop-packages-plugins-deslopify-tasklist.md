@@ -168,7 +168,7 @@ across every batch it participates in.
 - [x] `fix-slop` Medium items for `plugins/sero-git-plugin`
 - [x] `fix-slop` Medium items for `plugins/sero-context-plugin`
 - [x] `fix-slop` Medium items for `plugins/sero-web-plugin`
-- [ ] `fix-slop` Medium items for `plugins/sero-user-feedback-plugin`
+- [x] `fix-slop` Medium items for `plugins/sero-user-feedback-plugin`
 
 ## Wave G — Final Periphery / Drift Sweep
 
@@ -416,3 +416,12 @@ runtime, contract, or desktop-side code that those plugins consume.
   split helpers, and targeted web validation plus monorepo `pnpm typecheck` and
   `apps/desktop pnpm test` all passed. The remaining E5 plugins stay queued in
   the checklist above.
+- 2026-04-14: The fifth plugin-scoped E5 closeout landed in `f4da24f0`
+  (`refactor(user-feedback): split questionnaire flow and add direct coverage`):
+  the user-feedback plugin now routes questionnaire answer/review/submit logic
+  through one shared pure helper, the near-cap `QuestionnaireForm.tsx` and
+  `tui-questionnaire.ts` hubs were split into focused UI/TUI modules, package-
+  local tests now cover questionnaire parity, interview aggregation, permission-
+  gate timeout/exemption behavior, and queue hydration, and targeted user-
+  feedback validation plus monorepo `pnpm typecheck` and `apps/desktop pnpm
+  test` all passed. Only `plugins/sero-cron-plugin` remains in the E5 queue.

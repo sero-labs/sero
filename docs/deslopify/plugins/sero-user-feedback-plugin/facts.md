@@ -68,3 +68,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - Broader package-local regression coverage for questionnaire/interview state machines and permission-gate behavior is still pending.
 - The larger questionnaire/TUI file split and shared questionnaire-flow extraction are still pending.
+
+## Post-fix snapshot — 2026-04-14 (E5)
+
+### Metrics after fixes
+- Total files: 31 source/config files in the current scan
+- Largest file: `plugins/sero-user-feedback-plugin/extension/index.ts` (339 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: none found via `rg "@ts-ignore|@ts-expect-error|as any|as unknown as" plugins/sero-user-feedback-plugin`
+- Targeted validation: package-local `typecheck` + `test`, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Extracted one shared questionnaire-flow owner for answer insertion/removal, exclusive-option handling, custom-answer merging, review formatting, and submit eligibility so the Sero UI and Pi TUI consume the same core rules.
+- Split the questionnaire UI into a thin container plus focused review/question-step modules and split the Pi TUI renderer into state + render helpers, pulling both previous hotspot files well below the cap.
+- Added package-local regression coverage for questionnaire flow parity, interview result aggregation/cancel behavior, permission-gate timeout plus workspace-delete exemptions, direct `QuestionnaireForm` partial-submit behavior, and `UserFeedbackApp` queue hydration/clear behavior.
+
+### Still outstanding
+- Only the Low bridge-failure visibility item remains for this plugin.
