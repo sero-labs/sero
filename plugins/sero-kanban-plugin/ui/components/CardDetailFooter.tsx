@@ -18,13 +18,11 @@ export function CardDetailFooter({
   card,
   moveTargets,
   onMove,
-  onPriorityChange,
   onDelete,
 }: {
   card: Card;
   moveTargets: Column[];
   onMove: (column: Column) => void;
-  onPriorityChange: (priority: Priority) => void;
   onDelete: () => void;
 }) {
   const priorityColor = PRIORITY_COLORS[card.priority];

@@ -6,9 +6,12 @@
  */
 
 import { AnimatePresence, motion } from 'motion/react';
-import type { KanbanSettings, KanbanState } from '../../shared/types';
 
-// ── Toggle row ─────────────────────────────────────────────
+import type { KanbanSettings, KanbanState, ReviewMode } from '../../shared/types';
+import {
+  KANBAN_SETTING_DESCRIPTORS,
+  type EditableKanbanSettingKey,
+} from '../../shared/settings-descriptor';
 
 function ToggleRow({
   label,
@@ -29,25 +32,20 @@ function ToggleRow({
     <button
       type="button"
       onClick={onToggle}
-      className="flex items-start gap-3 w-full text-left rounded-lg px-3 py-2.5
-        hover:bg-white/[0.03] transition-colors cursor-pointer group"
+      className="flex w-full cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors group hover:bg-white/[0.03]"
     >
-      {/* Toggle indicator */}
       <div
-        className={`mt-0.5 shrink-0 w-[34px] h-[18px] rounded-full relative transition-colors duration-150
-          ${enabled ? TRACK_COLORS[activeColor] : 'bg-zinc-700/60'}`}
+        className={`relative mt-0.5 h-[18px] w-[34px] shrink-0 rounded-full transition-colors duration-150 ${enabled ? TRACK_COLORS[activeColor] : 'bg-zinc-700/60'}`}
       >
         <div
-          className={`absolute top-[2px] w-[14px] h-[14px] rounded-full transition-all duration-150 shadow-sm
-            ${enabled ? `right-[2px] left-auto ${dotColor}` : 'left-[2px] bg-zinc-400'}`}
+          className={`absolute top-[2px] h-[14px] w-[14px] rounded-full shadow-sm transition-all duration-150 ${enabled ? `right-[2px] left-auto ${dotColor}` : 'left-[2px] bg-zinc-400'}`}
         />
       </div>
-      {/* Label + description */}
-      <div className="flex-1 min-w-0">
-        <span className="block text-[13px] font-medium text-[var(--kb-text)] leading-tight">
+      <div className="min-w-0 flex-1">
+        <span className="block text-[13px] font-medium leading-tight text-[var(--kb-text)]">
           {label}
         </span>
-        <span className="block text-[11px] text-[var(--kb-dim)] leading-snug mt-0.5">
+        <span className="mt-0.5 block text-[11px] leading-snug text-[var(--kb-dim)]">
           {description}
         </span>
       </div>
@@ -71,8 +69,6 @@ const TRACK_COLORS: Record<string, string> = {
   sky: 'bg-sky-500/30',
 };
 
-// ── Segmented picker ───────────────────────────────────────
-
 function SegmentedPicker<T extends string>({
   label,
   description,
@@ -88,32 +84,29 @@ function SegmentedPicker<T extends string>({
 }) {
   return (
     <div className="px-3 py-2.5">
-      <span className="block text-[13px] font-medium text-[var(--kb-text)] leading-tight">
+      <span className="block text-[13px] font-medium leading-tight text-[var(--kb-text)]">
         {label}
       </span>
-      <span className="block text-[11px] text-[var(--kb-dim)] leading-snug mt-0.5 mb-2.5">
+      <span className="mt-0.5 mb-2.5 block text-[11px] leading-snug text-[var(--kb-dim)]">
         {description}
       </span>
-      <div className="flex rounded-lg overflow-hidden border border-[var(--kb-border)] bg-[var(--kb-bg)]">
-        {options.map((opt) => (
+      <div className="flex overflow-hidden rounded-lg border border-[var(--kb-border)] bg-[var(--kb-bg)]">
+        {options.map((option) => (
           <button
-            key={opt.value}
+            key={option.value}
             type="button"
-            onClick={() => onChange(opt.value)}
-            className={`flex-1 px-3 py-1.5 text-[11px] font-medium transition-colors cursor-pointer
-              ${value === opt.value
-                ? 'bg-indigo-500/15 text-[var(--kb-accent)]'
-                : 'text-[var(--kb-muted)] hover:text-[var(--kb-text)] hover:bg-white/[0.03]'}`}
+            onClick={() => onChange(option.value)}
+            className={`flex-1 cursor-pointer px-3 py-1.5 text-[11px] font-medium transition-colors ${value === option.value
+              ? 'bg-indigo-500/15 text-[var(--kb-accent)]'
+              : 'text-[var(--kb-muted)] hover:bg-white/[0.03] hover:text-[var(--kb-text)]'}`}
           >
-            {opt.label}
+            {option.label}
           </button>
         ))}
       </div>
     </div>
   );
 }
-
-// ── Section divider ────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -125,7 +118,43 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Main panel ─────────────────────────────────────────────
+function ReadOnlyRow({
+  label,
+  description,
+  value,
+}: {
+  label: string;
+  description: string;
+  value: string;
+}) {
+  return (
+    <div className="px-3 py-2.5">
+      <span className="block text-[13px] font-medium leading-tight text-[var(--kb-text)]">
+        {label}
+      </span>
+      <span className="mt-0.5 block text-[11px] leading-snug text-[var(--kb-dim)]">
+        {description}
+      </span>
+      <div className="mt-2 rounded-lg border border-[var(--kb-border)] bg-[var(--kb-bg)] px-3 py-2 text-[11px] text-[var(--kb-muted)]">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function getDescriptor(key: EditableKanbanSettingKey | 'autoAdvance') {
+  const descriptor = KANBAN_SETTING_DESCRIPTORS.find((candidate) => candidate.key === key);
+  if (!descriptor) {
+    throw new Error(`Missing kanban setting descriptor for ${key}`);
+  }
+  return descriptor;
+}
+
+const YOLO_DESCRIPTOR = getDescriptor('yoloMode');
+const AUTO_MERGE_DESCRIPTOR = getDescriptor('yoloAutoMergePrs');
+const TESTING_DESCRIPTOR = getDescriptor('testingEnabled');
+const REVIEW_DESCRIPTOR = getDescriptor('reviewMode');
+const AUTO_ADVANCE_DESCRIPTOR = getDescriptor('autoAdvance');
 
 export function SettingsPanel({
   open,
@@ -138,18 +167,32 @@ export function SettingsPanel({
   onClose: () => void;
   onUpdate: (updater: (state: KanbanState) => KanbanState) => void;
 }) {
-  const updateSetting = <K extends keyof KanbanSettings>(key: K, value: KanbanSettings[K]) => {
+  const updateSetting = <K extends EditableKanbanSettingKey>(key: K, value: KanbanSettings[K]) => {
     onUpdate((prev) => ({
       ...prev,
       settings: { ...prev.settings, [key]: value },
     }));
   };
 
+  const setMode = (mode: 'production' | 'prototype') => {
+    onUpdate((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        testingEnabled: mode === 'production',
+        reviewMode: mode === 'production' ? 'full' : prev.settings.reviewMode,
+      },
+    }));
+  };
+
+  const setReviewMode = (reviewMode: ReviewMode) => {
+    updateSetting('reviewMode', reviewMode);
+  };
+
   return (
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
           <motion.div
             className="absolute inset-0 z-30"
             style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
@@ -160,7 +203,6 @@ export function SettingsPanel({
             onClick={onClose}
           />
 
-          {/* Panel */}
           <motion.div
             className="absolute top-0 right-0 bottom-0 z-40 flex flex-col"
             style={{
@@ -173,71 +215,58 @@ export function SettingsPanel({
             exit={{ x: 340 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--kb-border)]">
+            <div className="flex items-center justify-between border-b border-[var(--kb-border)] px-5 py-3.5">
               <h2 className="text-sm font-semibold text-[var(--kb-text)]">Settings</h2>
               <button
                 onClick={onClose}
-                className="text-[var(--kb-dim)] hover:text-[var(--kb-text)] transition-colors
-                  w-6 h-6 flex items-center justify-center rounded-md hover:bg-white/[0.05] cursor-pointer"
+                className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[var(--kb-dim)] transition-colors hover:bg-white/[0.05] hover:text-[var(--kb-text)]"
               >
                 ✕
               </button>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto kb-scrollbar px-2 py-1">
-              {/* ── Automation ── */}
+            <div className="flex-1 overflow-y-auto px-2 py-1 kb-scrollbar">
               <SectionLabel>Automation</SectionLabel>
               <ToggleRow
-                label="🔥 YOLO Mode"
-                description="Auto-start, auto-approve, and auto-complete cards with no human gates."
+                label={YOLO_DESCRIPTOR.label}
+                description={YOLO_DESCRIPTOR.description}
                 enabled={settings.yoloMode}
                 onToggle={() => updateSetting('yoloMode', !settings.yoloMode)}
                 activeColor="red"
               />
               {settings.yoloMode && (
                 <ToggleRow
-                  label="PR Auto-Merge"
-                  description="Automatically queue GitHub auto-merge after PR creation."
+                  label={AUTO_MERGE_DESCRIPTOR.label}
+                  description={AUTO_MERGE_DESCRIPTOR.description}
                   enabled={settings.yoloAutoMergePrs}
                   onToggle={() => updateSetting('yoloAutoMergePrs', !settings.yoloAutoMergePrs)}
                   activeColor="amber"
                 />
               )}
+              <ReadOnlyRow
+                label={AUTO_ADVANCE_DESCRIPTOR.label}
+                description={AUTO_ADVANCE_DESCRIPTOR.description}
+                value={settings.autoAdvance ? 'Enabled by the runtime' : 'Disabled by the runtime'}
+              />
 
-              {/* ── Development ── */}
               <SectionLabel>Development</SectionLabel>
               <SegmentedPicker
                 label="Mode"
-                description="Production enables TDD and test generation. Prototype skips tests for fast iteration."
+                description={TESTING_DESCRIPTOR.description}
                 value={settings.testingEnabled ? 'production' : 'prototype'}
                 options={[
                   { value: 'production', label: 'Production' },
                   { value: 'prototype', label: 'Prototype' },
                 ]}
-                onChange={(v) => {
-                  onUpdate((prev) => ({
-                    ...prev,
-                    settings: {
-                      ...prev.settings,
-                      testingEnabled: v === 'production',
-                      // Reset review mode to full when switching to production
-                      reviewMode: v === 'production' ? 'full' : prev.settings.reviewMode,
-                    },
-                  }));
-                }}
+                onChange={setMode}
               />
-              {!settings.testingEnabled && (
+              {!settings.testingEnabled && REVIEW_DESCRIPTOR.kind === 'select' && (
                 <SegmentedPicker
-                  label="Review Level"
-                  description="Light review runs compile/build checks only. Full keeps the standard diff review pass."
+                  label={REVIEW_DESCRIPTOR.label}
+                  description={REVIEW_DESCRIPTOR.description}
                   value={settings.reviewMode}
-                  options={[
-                    { value: 'full', label: 'Full' },
-                    { value: 'light', label: 'Light' },
-                  ]}
-                  onChange={(v) => updateSetting('reviewMode', v)}
+                  options={[...REVIEW_DESCRIPTOR.options]}
+                  onChange={setReviewMode}
                 />
               )}
             </div>

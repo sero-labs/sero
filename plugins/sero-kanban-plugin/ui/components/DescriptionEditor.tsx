@@ -6,18 +6,11 @@
  * without turning it into a full specification.
  */
 
-import { forwardRef, useState, useCallback, useRef, useEffect, useImperativeHandle } from 'react';
+import { forwardRef, useImperativeHandle } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useAI } from '@sero-ai/app-runtime';
-import type { Card, KanbanState } from '../../shared/types';
 
-const ENHANCE_PROMPT_PREFIX =
-  'Improve the following task description for a kanban board card titled';
-const ENHANCE_PROMPT_SUFFIX =
-  'Make it clearer, more specific, and better written. ' +
-  'Keep it concise — a short paragraph at most. ' +
-  "Don't turn it into a full specification, don't add headers or bullet points. " +
-  'Return only the improved description text, nothing else.';
+import type { Card, KanbanState } from '../../shared/types';
+import { useDescriptionEditorState } from './useDescriptionEditorState';
 
 export interface DescriptionEditorHandle {
   commitDraft: () => string;
@@ -30,103 +23,24 @@ export const DescriptionEditor = forwardRef<DescriptionEditorHandle, {
   card,
   onUpdate,
 }, ref) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(card.description);
-  const [enhancing, setEnhancing] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const ai = useAI();
-
-  // Sync draft when card changes externally
-  useEffect(() => {
-    if (!editing) setDraft(card.description);
-  }, [card.description, editing]);
-
-  // Auto-resize textarea to fit content
-  useEffect(() => {
-    if (editing && textareaRef.current) {
-      const el = textareaRef.current;
-      el.style.height = 'auto';
-      el.style.height = `${el.scrollHeight}px`;
-    }
-  }, [editing, draft]);
-
-  const saveDescription = useCallback(
-    (text: string) => {
-      onUpdate((prev) => ({
-        ...prev,
-        cards: prev.cards.map((c) =>
-          c.id === card.id
-            ? { ...c, description: text, updatedAt: new Date().toISOString() }
-            : c,
-        ),
-      }));
-    },
-    [card.id, onUpdate],
-  );
-
-  const handleStartEdit = useCallback(() => {
-    setDraft(card.description);
-    setEditing(true);
-    requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        const len = textareaRef.current.value.length;
-        textareaRef.current.setSelectionRange(len, len);
-      }
-    });
-  }, [card.description]);
-
-  const handleSave = useCallback(() => {
-    saveDescription(draft);
-    setEditing(false);
-  }, [draft, saveDescription]);
-
-  const commitDraft = useCallback(() => {
-    const next = editing ? draft : card.description;
-    if (editing) {
-      saveDescription(next);
-      setEditing(false);
-    }
-    return next;
-  }, [card.description, draft, editing, saveDescription]);
-
-  const handleCancel = useCallback(() => {
-    setDraft(card.description);
-    setEditing(false);
-  }, [card.description]);
+  const {
+    editing,
+    draft,
+    enhancing,
+    textareaRef,
+    setDraft,
+    handleStartEdit,
+    handleSave,
+    handleCancel,
+    handleEnhance,
+    handleKeyDown,
+    commitDraft,
+  } = useDescriptionEditorState({ card, onUpdate });
 
   useImperativeHandle(ref, () => ({ commitDraft }), [commitDraft]);
 
-  const handleEnhance = useCallback(async () => {
-    const text = draft.trim();
-    if (!text) return;
-    setEnhancing(true);
-    try {
-      const enhanced = await ai.prompt(
-        `${ENHANCE_PROMPT_PREFIX} "${card.title}". ${ENHANCE_PROMPT_SUFFIX}\n\n${text}`,
-      );
-      setDraft(enhanced.trim());
-    } catch (err) {
-      console.error('[DescriptionEditor] enhance failed:', err);
-    } finally {
-      setEnhancing(false);
-    }
-  }, [draft, card.title, ai]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') handleCancel();
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        handleSave();
-      }
-    },
-    [handleCancel, handleSave],
-  );
-
   return (
     <div style={{ marginBottom: '20px' }}>
-      {/* Section header */}
       <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
         <h3
           style={{
@@ -176,8 +90,6 @@ export const DescriptionEditor = forwardRef<DescriptionEditorHandle, {
   );
 });
 
-// ── Edit mode ────────────────────────────────────────────────
-
 function EditMode({
   draft,
   enhancing,
@@ -191,8 +103,8 @@ function EditMode({
   draft: string;
   enhancing: boolean;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  onDraftChange: (v: string) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
+  onDraftChange: (value: string) => void;
+  onKeyDown: (event: React.KeyboardEvent) => void;
   onEnhance: () => void;
   onSave: () => void;
   onCancel: () => void;
@@ -207,7 +119,7 @@ function EditMode({
       <textarea
         ref={textareaRef}
         value={draft}
-        onChange={(e) => onDraftChange(e.target.value)}
+        onChange={(event) => onDraftChange(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder="Describe the task…"
         rows={3}
@@ -227,7 +139,6 @@ function EditMode({
         }}
       />
 
-      {/* Actions row */}
       <div className="flex items-center justify-between" style={{ marginTop: '8px' }}>
         <EnhanceButton
           disabled={enhancing || !draft.trim()}
@@ -267,8 +178,6 @@ function EditMode({
   );
 }
 
-// ── Display mode ─────────────────────────────────────────────
-
 function DisplayMode({
   description,
   onStartEdit,
@@ -285,8 +194,8 @@ function DisplayMode({
     >
       {description ? (
         <p
-          className="text-sm leading-relaxed cursor-pointer rounded-md transition-colors hover:bg-white/[0.03]"
-          style={{ color: '#8b8d97', padding: '4px 0' }}
+          className="cursor-pointer rounded-md px-0 py-1 text-sm leading-relaxed transition-colors hover:bg-white/[0.03]"
+          style={{ color: '#8b8d97' }}
           onClick={onStartEdit}
         >
           {description}
@@ -294,7 +203,7 @@ function DisplayMode({
       ) : (
         <button
           onClick={onStartEdit}
-          className="w-full rounded-md border border-dashed transition-colors text-left hover:border-[#818cf8]/30 hover:text-[#8b8d97]"
+          className="w-full rounded-md border border-dashed text-left transition-colors hover:border-[#818cf8]/30 hover:text-[#8b8d97]"
           style={{
             padding: '10px 12px',
             borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -308,8 +217,6 @@ function DisplayMode({
     </motion.div>
   );
 }
-
-// ── Enhance button ───────────────────────────────────────────
 
 function EnhanceButton({
   disabled,
@@ -351,8 +258,6 @@ function EnhanceButton({
   );
 }
 
-// ── Icons ────────────────────────────────────────────────────
-
 function EditIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -384,13 +289,7 @@ function SparkleIcon() {
 
 function Spinner() {
   return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      className="animate-spin"
-    >
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="animate-spin">
       <circle
         cx="12"
         cy="12"

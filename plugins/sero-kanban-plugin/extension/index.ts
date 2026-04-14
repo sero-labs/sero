@@ -17,6 +17,7 @@ import { Type } from '@sinclair/typebox';
 import type { Column, Priority } from '../shared/types';
 import { COLUMNS, COLUMN_LABELS, createCard } from '../shared/types';
 import { resolveWorkspacePathFromStatePath } from '../shared/error-log';
+import { describeEditableKanbanSettings } from '../shared/settings-descriptor';
 import { validateManualMove } from '../shared/validation';
 import { resolveStatePath, readState, writeState, formatCard, formatBoard } from './state-io';
 import {
@@ -38,7 +39,7 @@ const KanbanParams = Type.Object({
   description: Type.Optional(Type.String({ description: 'Card description' })),
   blockedBy: Type.Optional(Type.Array(Type.String(), { description: 'IDs of cards that must be done before this card can start' })),
   acceptance: Type.Optional(Type.Array(Type.String(), { description: 'Acceptance criteria' })),
-  setting: Type.Optional(Type.String({ description: 'Setting name for settings action (yoloMode, testingEnabled, reviewMode)' })),
+  setting: Type.Optional(Type.String({ description: `Setting name for settings action (${describeEditableKanbanSettings()})` })),
   value: Type.Optional(Type.String({ description: 'Setting value for settings action' })),
   revisionFeedback: Type.Optional(Type.String({ description: 'Feedback text for request-revisions action' })),
   errorMessage: Type.Optional(Type.String({ description: 'Error message (for report-error)' })),

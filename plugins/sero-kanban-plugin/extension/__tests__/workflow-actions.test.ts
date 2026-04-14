@@ -63,6 +63,7 @@ describe('workflow actions', () => {
     const text = result.content[0]?.text ?? '';
 
     expect(text).toContain('yoloMode: false');
+    expect(text).toContain('yoloAutoMergePrs: false');
     expect(text).toContain('testingEnabled: true');
     expect(text).toContain('reviewMode: full');
     expect(text).toContain('autoAdvance: true');
@@ -74,7 +75,17 @@ describe('workflow actions', () => {
     const { handleSettings } = await import('../workflow-actions');
     const result = await handleSettings('/tmp/state.json', makeState(), 'reviewLevel', 'per-wave');
 
-    expect(result.content[0]?.text).toBe('Unknown setting "reviewLevel". Available: yoloMode, testingEnabled, reviewMode');
+    expect(result.content[0]?.text).toBe('Unknown setting "reviewLevel". Available: yoloMode, yoloAutoMergePrs, testingEnabled, reviewMode');
+    expect(writeState).not.toHaveBeenCalled();
+  });
+
+  it('rejects auto-merge outside YOLO mode', async () => {
+    const { handleSettings } = await import('../workflow-actions');
+    const state = makeState();
+
+    const result = await handleSettings('/tmp/state.json', state, 'yoloAutoMergePrs', 'true');
+
+    expect(result.content[0]?.text).toBe('PR auto-merge is only available when YOLO mode is enabled.');
     expect(writeState).not.toHaveBeenCalled();
   });
 
