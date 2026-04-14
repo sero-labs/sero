@@ -105,6 +105,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/apps/explorer/vcs/WorkingCopySection.test.tsx` | New — focused coverage that checkpoint creation still works and the dead absorb affordance stays absent |
 | `docs/deslopify/apps/desktop/src/components/apps/explorer/{facts,plan}.md` | Closed the final Low explorer follow-up, refreshed metrics, and marked the folder plan fully executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/apps/explorer/` fully executed |
+| `apps/desktop/src/components/layout/git-remote/{workflow.ts,workflow.test.ts}` | New — shared Git remote runtime workflow plus focused fallback/origin-update/origin-parse coverage |
+| `apps/desktop/src/components/layout/{RemoteOriginManager.tsx,remote-origin-views.tsx}` | Rebased the workspace remote-origin dialog on the shared Git remote workflow and unified repo-name/origin parsing behavior (`remote-origin-views.tsx` 438 → 392 lines) |
+| `apps/desktop/src/components/layout/titlebar/GitRemotePublishSection.tsx` | Rebased the titlebar publish flow on the shared Git remote workflow while preserving ship-deck UI copy (323 → 293 lines) |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the shared Git remote workflow closeout, refreshed layout metrics, and narrowed the remaining layout backlog |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the shared Git remote workflow item cleared |
 
 ---
 

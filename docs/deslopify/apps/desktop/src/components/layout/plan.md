@@ -10,7 +10,7 @@ _Plan drafted: 2026-04-12_
 
 - **Medium** — A large near-cap cluster is one feature away from repeated 500-LOC violations — `apps/desktop/src/components/layout/ContextEditor.tsx:1-479`, `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx:1-479`, `apps/desktop/src/components/layout/AuthLoginViews.tsx:1-464`, `apps/desktop/src/components/layout/WorkspaceTree.tsx:1-445`, `apps/desktop/src/components/layout/ModelSelector.tsx:1-445`, `apps/desktop/src/components/layout/remote-origin-views.tsx:1-438`, `apps/desktop/src/components/layout/ToolCallHelpers.tsx:1-412`, `apps/desktop/src/components/layout/model-manager/ModelManagerDialog.tsx:1-406`, and `apps/desktop/src/components/layout/ThemeEditorSheet.tsx:1-400` are all already in the danger zone. The folder has no High violation today, but the cap pressure is widespread enough that more feature work here will become expensive by default. Effort: **M**.
 
-- **Medium** — Git remote publish/origin flows are duplicated across workspace and titlebar surfaces and are already diverging in behavior and error semantics — `apps/desktop/src/components/layout/remote-origin-views.tsx:53-289`, `apps/desktop/src/components/layout/RemoteOriginManager.tsx:45-95`, and `apps/desktop/src/components/layout/titlebar/GitRemotePublishSection.tsx:38-317` each implement their own GitHub status checks, default repo-name generation, origin creation, existing-origin connection, fallback URL handling, and failure messaging. This is classic drift-prone duplication in a runtime-sensitive surface. Effort: **M**.
+- **Medium** — ~~Git remote publish/origin flows are duplicated across workspace and titlebar surfaces and are already diverging in behavior and error semantics — `apps/desktop/src/components/layout/remote-origin-views.tsx:53-289`, `apps/desktop/src/components/layout/RemoteOriginManager.tsx:45-95`, and `apps/desktop/src/components/layout/titlebar/GitRemotePublishSection.tsx:38-317` each implement their own GitHub status checks, default repo-name generation, origin creation, existing-origin connection, fallback URL handling, and failure messaging. This is classic drift-prone duplication in a runtime-sensitive surface.~~ ✅ 2026-04-14 (`ad8cfc67`) — Added `git-remote/workflow.ts` as the shared runtime owner for GitHub status loading, repo-name defaults, origin parsing, create-repo fallback URL resolution, and add-or-update origin semantics while keeping the workspace dialog and titlebar presenters visually distinct. Effort: **M**.
 
 - **Medium** — Slash-command and file-reference autocompletes duplicate the same document-level keyboard/listbox machinery instead of sharing one primitive — `apps/desktop/src/components/layout/SlashCommandMenu.tsx:53-178` and `apps/desktop/src/components/layout/FileReferenceMenu.tsx:85-212` both maintain selected-index state, `scrollIntoView`, capture-phase `keydown` listeners, and nearly identical listbox rendering. This is small-scale duplication, but it sits in a hot UX path and invites inconsistent keyboard behavior over time. Effort: **S**.
 
@@ -84,7 +84,7 @@ _Plan drafted: 2026-04-12_
 - File moves will touch `apps/desktop/src/App.tsx`, profile/onboarding surfaces, and a few hooks importing layout utilities; keep the migration incremental to avoid unnecessary churn.
 
 ## Next Steps
-1. Extract a shared git-remote workflow and migrate `RemoteOriginManager` + `GitRemotePublishSection` to it.
+1. ~~Extract a shared git-remote workflow and migrate `RemoteOriginManager` + `GitRemotePublishSection` to it.~~ ✅ 2026-04-14 (`ad8cfc67`)
 2. Split `WorkspaceTree.tsx`, `ThemeEditorSheet.tsx`, `ModelSelector.tsx`, `ContextEditor.tsx`, and `LocalProviderForm.tsx` before adding more feature work there.
 3. Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.
 4. Remove render-phase side effects from theme/collaboration/font helpers.
@@ -95,3 +95,6 @@ _Plan drafted: 2026-04-12_
    - Open Theme Editor, preview changes, cancel, reopen, and save a preset.
    - Exercise slash-command and `@file` menus with keyboard navigation (`↑/↓`, `Enter`, `Tab`, `Esc`).
    - Test voice transcription device switching and QR URL copy success/failure states.
+
+## Execution log
+- `ad8cfc67` — `refactor(layout): share git remote origin workflow`

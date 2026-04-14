@@ -57,3 +57,22 @@ _Last reviewed: 2026-04-12_
 - Workspace remote setup (`RemoteOriginManager` + `remote-origin-views`) and titlebar publishing (`titlebar/GitRemotePublishSection`) implement almost the same GitHub/origin workflow separately.
 - Several components still rely on render-phase side effects instead of explicit lifecycle hooks: `ThemeEditorSheet` sets state during render, `useAutoScroll` schedules `requestAnimationFrame` from render, and `FontPicker` preloads fonts during render.
 - The shell directory now houses entire sub-products: model manager/local providers, theme editor, auth dialog, git ship deck, collaboration room, QR device pairing, and plugin discovery.
+
+## Post-fix snapshot — 2026-04-14 (git-remote workflow)
+
+### Metrics after fixes
+- Total files: 91 (was 88)
+- Largest file: `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx` (479 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Added `git-remote/workflow.ts` as the shared runtime owner for GitHub auth status loading, default repo-name generation, origin parsing, create-repo URL fallback, and add-or-update origin semantics.
+- Rebased `RemoteOriginManager.tsx` and `remote-origin-views.tsx` on the shared workflow so the workspace dialog now reuses the same origin parsing and connection/update logic as the titlebar surface.
+- Rebased `titlebar/GitRemotePublishSection.tsx` on the shared workflow and added focused coverage in `git-remote/workflow.test.ts` for fallback URL resolution, existing-origin updates, and origin parsing.
+- `remote-origin-views.tsx` dropped below the near-cap list (438 → 392 LOC) and `titlebar/GitRemotePublishSection.tsx` slimmed from 323 → 293 LOC.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Near-cap cleanup for `WorkspaceTree.tsx`, `ThemeEditorSheet.tsx`, `ModelSelector.tsx`, `ContextEditor.tsx`, and `model-manager/local-models/LocalProviderForm.tsx` remains deferred.
+- Shared autocomplete/listbox primitives, render-phase side-effect cleanup, and shell error-surface normalization remain exactly as described in the original plan.
