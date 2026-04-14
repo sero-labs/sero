@@ -90,6 +90,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/apps/explorer/useExplorerEditorState.test.tsx` | New — covers restored tabs, bridge-open requests, and path remap/delete behavior for the extracted editor-state owner |
 | `docs/deslopify/apps/desktop/src/components/apps/explorer/{facts,plan}.md` | Recorded the ExplorerWorkspace controller split, post-fix metrics, and remaining explorer follow-up items |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/apps/explorer/` in progress with the first Medium item cleared |
+| `apps/desktop/src/components/apps/explorer/editor/{editor-panel-shared.ts,useEditorDocumentState.ts,useEditorMonacoState.ts,useMonacoNavigation.ts,useEditorRuntimeSync.ts}` | New — split editor document ownership, Monaco/view-state wiring, cross-file navigation, and runtime refresh logic out of `EditorPanel` |
+| `apps/desktop/src/components/apps/explorer/editor/EditorPanel.tsx` | Reduced to a thin editor shell over the focused controller hooks (473 → 187 lines) |
+| `apps/desktop/src/components/apps/explorer/editor/{useEditorDocumentState.test.tsx,useEditorRuntimeSync.test.tsx}` | New — covers editor save/navigation behavior plus filetree/VCS runtime reload semantics for the extracted hooks |
+| `docs/deslopify/apps/desktop/src/components/apps/explorer/{facts,plan}.md` | Recorded the EditorPanel split, refreshed explorer metrics, and narrowed the remaining explorer backlog to FileTree/VCS follow-ups |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/apps/explorer/` in progress with the second Medium item cleared |
 
 ---
 

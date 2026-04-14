@@ -48,3 +48,21 @@ _Last reviewed: 2026-04-12_
 - `editor/EditorPanel.tsx` remains the highest-priority Medium follow-up and is still near the 500-LOC cap.
 - `file-tree/FileTree.tsx` still needs the planned model-hook extraction to contain its imperative rebuild lifecycle.
 - Transient notice dedupe, the silent `ChangeDetail` failure path, and the dead `WorkingCopySection` absorb control are still pending exactly as described in the original plan.
+
+## Post-fix snapshot — 2026-04-14 (EditorPanel split)
+
+### Metrics after fixes
+- Total files: 51 (was 44)
+- Largest file: `apps/desktop/src/components/apps/explorer/vcs/PullRequestSection.tsx` (362 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: no new escape hatches added; the remaining cleanup sits in the still-pending `FileTree` / VCS leaf follow-up seams
+
+### What changed
+- `editor/EditorPanel.tsx` now stays focused on the visible editor shell while focused helpers own document loading/saving, Monaco view-state + pending goto behavior, and filetree/VCS-driven buffer refreshes.
+- Added `editor-panel-shared.ts` as the small canonical home for editor-path/language helpers and the extracted hook contracts so the new modules stay type-aligned.
+- Added `useEditorDocumentState.test.tsx` and `useEditorRuntimeSync.test.tsx` to lock in the behavior-sensitive save/navigation and filetree/VCS reload semantics preserved by the split.
+- The largest near-cap pressure in this folder now sits on the VCS/file-tree leaf surfaces rather than the core editor shell.
+
+### Still outstanding
+- `file-tree/FileTree.tsx` is now the highest-priority remaining Medium follow-up and still needs the planned model-hook extraction.
+- Transient notice dedupe, the silent `ChangeDetail` failure path, and the dead `WorkingCopySection` absorb control remain pending exactly as described in the original plan.

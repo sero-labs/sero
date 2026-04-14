@@ -8,7 +8,7 @@ _Plan drafted: 2026-04-12_
 ## Issues Found (prioritized)
 - **Medium** — ~~`ExplorerWorkspace` is a near-cap orchestration hub with too many runtime responsibilities — `apps/desktop/src/components/apps/explorer/ExplorerWorkspace.tsx:39-454` handles root discovery, persisted editor state restore/save, terminal bootstrap, VCS watcher wiring, editor-bridge subscriptions, diff routing, and panel-resize synchronization in one component. This is beyond the “self-contained app shell” intent of AD-001/AD-002 and makes any explorer change high-churn.~~ ✅ 2026-04-14 (`32baeb88`) — Split `ExplorerWorkspace` into a thin layout shell plus focused `useExplorerRoots`, `useExplorerEditorState`, and `useExplorerRuntimeEffects` hooks while preserving root removal, editor-bridge, VCS watcher, and terminal bootstrap semantics.
 
-- **Medium** — `EditorPanel` is another near-cap multi-owner component instead of a focused editor surface — `apps/desktop/src/components/apps/explorer/editor/EditorPanel.tsx:39-444` mixes file loading, unsaved-buffer caching, Monaco view-state persistence, preview-mode switching, custom opener registration, filesystem refresh subscriptions, VCS restore handling, and LSP integration. It is currently the renderer-side choke point for several unrelated behaviors. Effort: **M**.
+- **Medium** — ~~`EditorPanel` is another near-cap multi-owner component instead of a focused editor surface — `apps/desktop/src/components/apps/explorer/editor/EditorPanel.tsx:39-444` mixes file loading, unsaved-buffer caching, Monaco view-state persistence, preview-mode switching, custom opener registration, filesystem refresh subscriptions, VCS restore handling, and LSP integration. It is currently the renderer-side choke point for several unrelated behaviors.~~ ✅ 2026-04-14 (`b78e2419`) — Split `EditorPanel` into a thin render shell plus focused document-state, Monaco-state/navigation, and runtime-sync hooks while preserving save, pending goto, preview-mode, and filetree/VCS reload semantics.
 
 - **Medium** — `FileTree` relies on effect-heavy imperative synchronization that is hard to reason about and hard to extend safely — `apps/desktop/src/components/apps/explorer/file-tree/FileTree.tsx:83-286` resets local data on workspace/root changes, lazily loads directories, reacts to two event buses, applies drag/drop mutations, and then calls `tree.rebuildTree()` as a final reconciliation pass. This works today, but it makes future multi-root or large-tree behavior risky because data ownership is spread across refs, state, and headless-tree internals. Effort: **M**.
 
@@ -60,10 +60,11 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Split `ExplorerWorkspace.tsx` into layout shell + focused controller hooks.~~ ✅ 2026-04-14 (`32baeb88`)
-2. Split `editor/EditorPanel.tsx` into document, Monaco, and runtime-sync modules.
+2. ~~Split `editor/EditorPanel.tsx` into document, Monaco, and runtime-sync modules.~~ ✅ 2026-04-14 (`b78e2419`)
 3. Extract a `useFileTreeModel` hook and contain headless-tree rebuild mechanics there.
 4. Deduplicate transient notice/copy helpers and remove the silent `ChangeDetail` catch.
 5. Remove or implement the dead absorb action before expanding the VCS surface further.
 
 ## Execution log
 - `32baeb88` — `refactor(explorer): split ExplorerWorkspace runtime controllers`
+- `b78e2419` — `refactor(explorer): split editor panel runtime controllers`
