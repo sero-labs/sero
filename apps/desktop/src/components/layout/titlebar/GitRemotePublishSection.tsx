@@ -4,11 +4,13 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Globe, Github, Link2, Loader2, Lock, Rocket } from 'lucide-react';
-
-interface GitHubStatus {
-  authenticated: boolean;
-  username?: string;
-}
+import type { GitHubAuthStatus } from '@/types/electron-services';
+import {
+  connectOrigin,
+  createGitHubOrigin,
+  defaultRepoName,
+  loadGitHubStatus,
+} from '../git-remote/workflow';
 
 interface PublishFeedback {
   tone: 'success' | 'error' | 'info';
@@ -32,7 +34,7 @@ export function GitRemotePublishSection({
   const [visibility, setVisibility] = useState<'public' | 'private'>('private');
   const [remoteUrl, setRemoteUrl] = useState('');
   const [action, setAction] = useState<'github' | 'existing' | null>(null);
-  const [githubStatus, setGitHubStatus] = useState<GitHubStatus | null>(null);
+  const [githubStatus, setGitHubStatus] = useState<GitHubAuthStatus | null>(null);
   const [feedback, setFeedback] = useState<PublishFeedback | null>(null);
 
   useEffect(() => {
@@ -41,18 +43,10 @@ export function GitRemotePublishSection({
     setName(defaultRepoName(workspaceName, workspaceId));
     setRemoteUrl('');
 
-    void window.sero.github.status()
-      .then((status) => {
-        if (!active) return;
-        setGitHubStatus({
-          authenticated: status.authenticated,
-          username: status.username,
-        });
-      })
-      .catch(() => {
-        if (!active) return;
-        setGitHubStatus({ authenticated: false });
-      });
+    void loadGitHubStatus().then((status) => {
+      if (!active) return;
+      setGitHubStatus(status);
+    });
 
     return () => {
       active = false;
@@ -76,24 +70,23 @@ export function GitRemotePublishSection({
     setAction('github');
     setFeedback(null);
     try {
-      const auth = await window.sero.github.status();
-      if (!auth.authenticated) {
-        setFeedback({
-          tone: 'error',
-          message: 'GitHub is not connected. Connect it in the sidebar first, then retry.',
-        });
-        return;
-      }
-
-      const result = await window.sero.github.createRepo(workspaceId, {
+      const result = await createGitHubOrigin({
+        workspaceId,
         name: trimmed,
         visibility,
-        addRemote: true,
       });
-      const url = result.url ?? (auth.username ? `https://github.com/${auth.username}/${trimmed}` : undefined);
 
-      if (!result.success) {
-        setFeedback({ tone: 'error', message: result.message, url });
+      if (!result.ok) {
+        setFeedback({
+          tone: 'error',
+          message:
+            result.reason === 'auth'
+              ? 'GitHub is not connected. Connect it in the sidebar first, then retry.'
+              : result.reason === 'missing-url'
+                ? 'Repository was created, but Sero could not determine its URL. Refresh and reconnect if needed.'
+                : (result.message ?? 'Failed to publish to GitHub'),
+          url: result.url,
+        });
         return;
       }
 
@@ -101,7 +94,7 @@ export function GitRemotePublishSection({
       setFeedback({
         tone: 'success',
         message: 'Repository published and origin connected.',
-        url,
+        url: result.url,
       });
     } catch (error) {
       setFeedback({
@@ -119,24 +112,18 @@ export function GitRemotePublishSection({
 
     setAction('existing');
     setFeedback(null);
-    try {
-      await window.sero.vcs.addRemote(workspaceId, 'origin', trimmed);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to connect remote';
-      if (!message.includes('already exists')) {
-        setFeedback({ tone: 'error', message });
-        setAction(null);
-        return;
-      }
-
-      await window.sero.vcs.setRemoteUrl(workspaceId, 'origin', trimmed);
+    const result = await connectOrigin({ workspaceId, url: trimmed });
+    if (!result.ok) {
+      setFeedback({ tone: 'error', message: result.message });
+      setAction(null);
+      return;
     }
 
     await onPublished();
     setFeedback({
       tone: 'success',
       message: 'Origin connected. Push the current branch to publish it upstream.',
-      url: toWebUrl(trimmed),
+      url: result.webUrl,
     });
     setAction(null);
   };
@@ -304,20 +291,3 @@ function VisibilityButton({
   );
 }
 
-function defaultRepoName(workspaceName: string, workspaceId: string): string {
-  const source = workspaceName.trim() || workspaceId;
-  return source
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    || 'sero-workspace';
-}
-
-function toWebUrl(url: string): string | undefined {
-  const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/\s]+?)(?:\.git)?$/);
-  if (httpsMatch) return `https://github.com/${httpsMatch[1]}/${httpsMatch[2]}`;
-  const sshMatch = url.match(/github\.com:([^/]+)\/([^/\s]+?)(?:\.git)?$/);
-  if (sshMatch) return `https://github.com/${sshMatch[1]}/${sshMatch[2]}`;
-  return undefined;
-}

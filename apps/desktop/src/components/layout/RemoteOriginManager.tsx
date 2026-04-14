@@ -20,15 +20,13 @@ import {
 } from '@sero-ai/ui/components/ui/dialog';
 import type { WorkspaceInfo } from '@/types/ipc';
 import {
-  fetchOrigin,
-  parseGitHubUrl,
   LoadingView,
   ChooseView,
   CreateGitHubView,
   ConnectExistingView,
   ConnectedView,
 } from './remote-origin-views';
-import type { OriginInfo } from './remote-origin-views';
+import { fetchOriginInfo, toOriginInfo, type GitRemoteOriginInfo } from './git-remote/workflow';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -48,7 +46,7 @@ export function RemoteOriginManager({
   workspace,
 }: RemoteOriginManagerProps) {
   const [view, setView] = useState<View>('loading');
-  const [origin, setOrigin] = useState<OriginInfo | null>(null);
+  const [origin, setOrigin] = useState<GitRemoteOriginInfo | null>(null);
   const prevOpenRef = useRef(false);
 
   // Fetch origin when dialog opens (acceptable useEffect: IPC on external state change)
@@ -56,7 +54,7 @@ export function RemoteOriginManager({
     if (open && !prevOpenRef.current) {
       setView('loading');
       setOrigin(null);
-      fetchOrigin(workspace.id).then((info) => {
+      fetchOriginInfo(workspace.id).then((info) => {
         setOrigin(info);
         setView(info ? 'connected' : 'choose');
       });
@@ -65,8 +63,7 @@ export function RemoteOriginManager({
   }, [open, workspace.id]);
 
   const handleOriginSet = (url: string) => {
-    const parsed = parseGitHubUrl(url);
-    setOrigin({ url, owner: parsed?.owner, repo: parsed?.repo });
+    setOrigin(toOriginInfo(url));
     setView('connected');
   };
 

@@ -20,47 +20,21 @@ import {
   Pencil,
 } from 'lucide-react';
 import { IconAction } from '@/components/ui/IconAction';
-import type { WorkspaceInfo, CreateGitHubRepoResult } from '@/types/ipc';
+import type { WorkspaceInfo } from '@/types/ipc';
+import {
+  connectOrigin,
+  createGitHubOrigin,
+  defaultRepoName,
+  displayOriginUrl,
+  toGitHubWebUrl,
+  type GitRemoteOriginInfo,
+  type GitRemoteVisibility,
+} from './git-remote/workflow';
 
 // ── Types ────────────────────────────────────────────────────
 
-export type Visibility = 'public' | 'private';
-
-export interface OriginInfo {
-  url: string;
-  owner?: string;
-  repo?: string;
-}
-
-// ── URL parsing ──────────────────────────────────────────────
-
-export function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
-  const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/\s]+?)(?:\.git)?$/);
-  if (httpsMatch) return { owner: httpsMatch[1], repo: httpsMatch[2] };
-  const sshMatch = url.match(/github\.com:([^/]+)\/([^/\s]+?)(?:\.git)?$/);
-  if (sshMatch) return { owner: sshMatch[1], repo: sshMatch[2] };
-  return null;
-}
-
-function displayUrl(url: string): string {
-  const gh = parseGitHubUrl(url);
-  if (gh) return `${gh.owner}/${gh.repo}`;
-  return url.replace(/^(https?:\/\/|git@)/, '').replace(/\.git$/, '');
-}
-
-// ── Helpers ──────────────────────────────────────────────────
-
-export async function fetchOrigin(workspaceId: string): Promise<OriginInfo | null> {
-  try {
-    const remotes = await window.sero.vcs.remotes(workspaceId);
-    const origin = remotes.find((r) => r.name === 'origin');
-    if (!origin) return null;
-    const parsed = parseGitHubUrl(origin.url);
-    return { url: origin.url, owner: parsed?.owner, repo: parsed?.repo };
-  } catch {
-    return null;
-  }
-}
+export type Visibility = GitRemoteVisibility;
+export type OriginInfo = GitRemoteOriginInfo;
 
 // ── Loading ──────────────────────────────────────────────────
 
@@ -122,9 +96,7 @@ export function CreateGitHubView({
   onBack: () => void;
   onCreated: (url: string) => void;
 }) {
-  // Sanitize workspace ID to a valid GitHub repo name (alphanumeric, hyphens, underscores, dots)
-  const sanitizedDefault = workspace.id.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
-  const [name, setName] = useState(sanitizedDefault);
+  const [name, setName] = useState(() => defaultRepoName(workspace.name, workspace.id));
   const [description, setDescription] = useState(workspace.description ?? '');
   const [visibility, setVisibility] = useState<Visibility>('private');
   const [isCreating, setIsCreating] = useState(false);
@@ -137,30 +109,24 @@ export function CreateGitHubView({
     setIsCreating(true);
     setError(null);
     try {
-      // Pre-check: verify GitHub auth before round-tripping to the container
-      const authStatus = await window.sero.github.status();
-      if (!authStatus.authenticated) {
-        setError('Not authenticated with GitHub. Connect your GitHub account in the sidebar first.');
-        setIsCreating(false);
-        return;
-      }
-      const res: CreateGitHubRepoResult = await window.sero.github.createRepo(workspace.id, {
+      const result = await createGitHubOrigin({
+        workspaceId: workspace.id,
         name: trimmed,
         description: description.trim() || undefined,
         visibility,
-        addRemote: true,
       });
-      const fallbackUrl = authStatus.username
-        ? `https://github.com/${authStatus.username}/${trimmed}`
-        : undefined;
-      const resolvedUrl = res.url ?? fallbackUrl;
 
-      if (res.success && resolvedUrl) {
-        onCreated(resolvedUrl);
-      } else if (res.success) {
+      if (result.ok) {
+        onCreated(result.url);
+        return;
+      }
+
+      if (result.reason === 'auth') {
+        setError('Not authenticated with GitHub. Connect your GitHub account in the sidebar first.');
+      } else if (result.reason === 'missing-url') {
         setError('Repository created, but Sero could not determine its URL. Refresh remotes and reconnect if needed.');
       } else {
-        setError(res.message);
+        setError(result.message ?? 'Failed to create repository');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -266,23 +232,13 @@ export function ConnectExistingView({
     setIsConnecting(true);
     setError(null);
     try {
-      await window.sero.vcs.addRemote(workspace.id, 'origin', trimmed);
-      onConnected(trimmed);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to add remote';
-      // If origin already exists, update the URL instead via proper VCS layer
-      // (routes through GitRunner with auth env injection, no shell injection risk)
-      if (msg.includes('already exists')) {
-        try {
-          await window.sero.vcs.setRemoteUrl(workspace.id, 'origin', trimmed);
-          onConnected(trimmed);
-          return;
-        } catch (setUrlErr) {
-          setError(setUrlErr instanceof Error ? setUrlErr.message : 'Failed to update remote URL');
-          return;
-        }
+      const result = await connectOrigin({ workspaceId: workspace.id, url: trimmed });
+      if (result.ok) {
+        onConnected(result.url);
+        return;
       }
-      setError(msg);
+
+      setError(result.message);
     } finally {
       setIsConnecting(false);
     }
@@ -344,9 +300,7 @@ export function ConnectedView({
   onClose: () => void;
 }) {
   const isGitHub = !!origin.owner;
-  const webUrl = isGitHub
-    ? `https://github.com/${origin.owner}/${origin.repo}`
-    : null;
+  const webUrl = isGitHub ? toGitHubWebUrl(origin.url) ?? null : null;
 
   return (
     <div className="flex flex-col gap-3 pt-1">
@@ -354,7 +308,7 @@ export function ConnectedView({
         <GitBranch className="mt-0.5 size-4 shrink-0 text-[var(--status-success)]" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-sm font-medium text-[var(--text-primary)]">
-            {displayUrl(origin.url)}
+            {displayOriginUrl(origin.url)}
           </span>
           <span className="truncate text-xs text-[var(--text-muted)]" title={origin.url}>
             {origin.url}
