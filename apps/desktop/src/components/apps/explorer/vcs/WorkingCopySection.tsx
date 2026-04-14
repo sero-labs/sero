@@ -4,7 +4,7 @@
 
 import { useCallback, useState } from 'react';
 import { motion } from 'motion/react';
-import { PlusCircle, Sparkles } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
 import type { WorkingCopyStatus } from '@/types/vcs';
@@ -117,18 +117,6 @@ export function WorkingCopySection({ workspaceId, status, currentChangeId, onOpe
             <PlusCircle className="size-3" />
             <span className="hidden sm:inline">Commit</span>
           </button>
-          {hasChanges && (
-            <button
-              title="Absorb changes into ancestors"
-              className={cn(
-                'flex size-6 items-center justify-center rounded',
-                'text-[var(--text-muted)] transition-colors duration-150',
-                'hover:bg-[var(--bg-elevated)] hover:text-[var(--status-warning)]',
-              )}
-            >
-              <Sparkles className="size-3" />
-            </button>
-          )}
         </div>
       </div>
     </VcsSection>
