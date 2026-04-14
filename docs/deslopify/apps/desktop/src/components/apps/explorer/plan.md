@@ -10,9 +10,9 @@ _Plan drafted: 2026-04-12_
 
 - **Medium** — ~~`EditorPanel` is another near-cap multi-owner component instead of a focused editor surface — `apps/desktop/src/components/apps/explorer/editor/EditorPanel.tsx:39-444` mixes file loading, unsaved-buffer caching, Monaco view-state persistence, preview-mode switching, custom opener registration, filesystem refresh subscriptions, VCS restore handling, and LSP integration. It is currently the renderer-side choke point for several unrelated behaviors.~~ ✅ 2026-04-14 (`b78e2419`) — Split `EditorPanel` into a thin render shell plus focused document-state, Monaco-state/navigation, and runtime-sync hooks while preserving save, pending goto, preview-mode, and filetree/VCS reload semantics.
 
-- **Medium** — `FileTree` relies on effect-heavy imperative synchronization that is hard to reason about and hard to extend safely — `apps/desktop/src/components/apps/explorer/file-tree/FileTree.tsx:83-286` resets local data on workspace/root changes, lazily loads directories, reacts to two event buses, applies drag/drop mutations, and then calls `tree.rebuildTree()` as a final reconciliation pass. This works today, but it makes future multi-root or large-tree behavior risky because data ownership is spread across refs, state, and headless-tree internals. Effort: **M**.
+- **Medium** — ~~`FileTree` relies on effect-heavy imperative synchronization that is hard to reason about and hard to extend safely — `apps/desktop/src/components/apps/explorer/file-tree/FileTree.tsx:83-286` resets local data on workspace/root changes, lazily loads directories, reacts to two event buses, applies drag/drop mutations, and then calls `tree.rebuildTree()` as a final reconciliation pass. This works today, but it makes future multi-root or large-tree behavior risky because data ownership is spread across refs, state, and headless-tree internals.~~ ✅ 2026-04-14 (`4a3df3a7`) — Extracted `useFileTreeModel` so directory loading, expansion/watcher refresh, drag-drop mutations, and the contained `tree.rebuildTree()` invariant live outside the render shell, with focused coverage for expanded-directory reload behavior.
 
-- **Medium** — VCS/orchestration leaf components duplicate transient async UI patterns and still hide at least one failure path — `apps/desktop/src/components/apps/explorer/vcs/BookmarksSection.tsx:83-85`, `apps/desktop/src/components/apps/explorer/vcs/PullRequestSection.tsx:80-101`, `apps/desktop/src/components/apps/explorer/vcs/ChangeDetail.tsx:43-63`, and `apps/desktop/src/components/apps/explorer/orchestration/SubagentOutput.tsx:21-27` each hand-roll timer-cleared notices or optimistic async feedback, while `ChangeDetail.tsx:43-49` swallows file-summary load errors entirely. The area reads as many bespoke mini-flows rather than one coherent UI system. Effort: **S**.
+- **Medium** — ~~VCS/orchestration leaf components duplicate transient async UI patterns and still hide at least one failure path — `apps/desktop/src/components/apps/explorer/vcs/BookmarksSection.tsx:83-85`, `apps/desktop/src/components/apps/explorer/vcs/PullRequestSection.tsx:80-101`, `apps/desktop/src/components/apps/explorer/vcs/ChangeDetail.tsx:43-63`, and `apps/desktop/src/components/apps/explorer/orchestration/SubagentOutput.tsx:21-27` each hand-roll timer-cleared notices or optimistic async feedback, while `ChangeDetail.tsx:43-49` swallows file-summary load errors entirely. The area reads as many bespoke mini-flows rather than one coherent UI system.~~ ✅ 2026-04-14 (`33f534b4`) — Added explorer-scoped transient feedback helpers, moved PR preview debouncing onto `useDebouncedCallback`, and replaced the silent `ChangeDetail` summary-load catch with an inline warning + focused test coverage.
 
 - **Low** — `WorkingCopySection` still ships a dead action in the primary source-control workflow — `apps/desktop/src/components/apps/explorer/vcs/WorkingCopySection.tsx:118-128` renders a Sparkles “Absorb changes into ancestors” button with no handler or disabled state. This is small, but dead controls in a primary surface erode trust quickly. Effort: **S**.
 
@@ -61,10 +61,12 @@ _Plan drafted: 2026-04-12_
 ## Next Steps
 1. ~~Split `ExplorerWorkspace.tsx` into layout shell + focused controller hooks.~~ ✅ 2026-04-14 (`32baeb88`)
 2. ~~Split `editor/EditorPanel.tsx` into document, Monaco, and runtime-sync modules.~~ ✅ 2026-04-14 (`b78e2419`)
-3. Extract a `useFileTreeModel` hook and contain headless-tree rebuild mechanics there.
-4. Deduplicate transient notice/copy helpers and remove the silent `ChangeDetail` catch.
+3. ~~Extract a `useFileTreeModel` hook and contain headless-tree rebuild mechanics there.~~ ✅ 2026-04-14 (`4a3df3a7`)
+4. ~~Deduplicate transient notice/copy helpers and remove the silent `ChangeDetail` catch.~~ ✅ 2026-04-14 (`33f534b4`)
 5. Remove or implement the dead absorb action before expanding the VCS surface further.
 
 ## Execution log
 - `32baeb88` — `refactor(explorer): split ExplorerWorkspace runtime controllers`
 - `b78e2419` — `refactor(explorer): split editor panel runtime controllers`
+- `4a3df3a7` — `refactor(explorer): extract file tree model controller`
+- `33f534b4` — `refactor(explorer): dedupe transient async ui feedback`

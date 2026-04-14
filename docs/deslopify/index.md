@@ -15,7 +15,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/components/apps/`](./apps/desktop/src/components/apps/plan.md)
     — *Healthy — shared app/widget mount runtime unified and dashboard/widget coverage added 2026-04-13*
     - [`apps/desktop/src/components/apps/explorer/`](./apps/desktop/src/components/apps/explorer/plan.md)
-      — *In progress — first two Medium items (ExplorerWorkspace + EditorPanel splits) cleared 2026-04-14; FileTree/VCS follow-up pending*
+      — *Healthy — all Medium items cleared 2026-04-14; only the Low `WorkingCopySection` dead-control follow-up remains*
   - [`apps/desktop/src/components/layout/`](./apps/desktop/src/components/layout/plan.md)
     — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/src/components/profiles/`](./apps/desktop/src/components/profiles/plan.md)

@@ -66,3 +66,20 @@ _Last reviewed: 2026-04-12_
 ### Still outstanding
 - `file-tree/FileTree.tsx` is now the highest-priority remaining Medium follow-up and still needs the planned model-hook extraction.
 - Transient notice dedupe, the silent `ChangeDetail` failure path, and the dead `WorkingCopySection` absorb control remain pending exactly as described in the original plan.
+
+## Post-fix snapshot — 2026-04-14 (FileTree + transient UI closeout)
+
+### Metrics after fixes
+- Total files: 56 (was 51)
+- Largest file: `apps/desktop/src/components/apps/explorer/vcs/PullRequestSection.tsx` (376 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: no new escape hatches added; the only folder-level plan item left is the Low `WorkingCopySection` dead control
+
+### What changed
+- `file-tree/FileTree.tsx` is now a thin render shell over `useFileTreeModel.ts`, which owns directory loading, expansion state, watcher/VCS refresh, drag-drop mutations, and the contained `tree.rebuildTree()` invariant.
+- Added `file-tree/useFileTreeModel.test.tsx` to lock in lazy expansion and expanded-directory refresh behavior for the extracted file-tree model owner.
+- Added explorer-scoped `useTransientUiState.ts` and replaced bespoke timer-cleared notice/copy flows in `BookmarksSection.tsx`, `ChangeDetail.tsx`, and `SubagentOutput.tsx`; `PullRequestSection.tsx` now uses `useDebouncedCallback` for PR preview checks instead of a hand-rolled timer.
+- `ChangeDetail.tsx` now surfaces file-summary load failures inline and `vcs/ChangeDetail.test.tsx` covers that once-silent failure path.
+
+### Still outstanding
+- Only the Low `vcs/WorkingCopySection.tsx` absorb-action follow-up remains from this folder plan.

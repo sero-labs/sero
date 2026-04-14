@@ -95,6 +95,12 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/apps/explorer/editor/{useEditorDocumentState.test.tsx,useEditorRuntimeSync.test.tsx}` | New — covers editor save/navigation behavior plus filetree/VCS runtime reload semantics for the extracted hooks |
 | `docs/deslopify/apps/desktop/src/components/apps/explorer/{facts,plan}.md` | Recorded the EditorPanel split, refreshed explorer metrics, and narrowed the remaining explorer backlog to FileTree/VCS follow-ups |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/apps/explorer/` in progress with the second Medium item cleared |
+| `apps/desktop/src/components/apps/explorer/file-tree/{useFileTreeModel.ts,useFileTreeModel.test.tsx}` | New — extracted file-tree model ownership and focused coverage for lazy expansion plus expanded-directory refresh semantics |
+| `apps/desktop/src/components/apps/explorer/file-tree/FileTree.tsx` | Reduced to a thin headless-tree render shell over `useFileTreeModel` (334 → 71 lines) |
+| `apps/desktop/src/components/apps/explorer/{useTransientUiState.ts,useTransientUiState.test.tsx}` | New — shared transient notice/copy helper plus timer-reset coverage for explorer VCS/orchestration leaf feedback |
+| `apps/desktop/src/components/apps/explorer/{orchestration/SubagentOutput.tsx,vcs/BookmarksSection.tsx,vcs/PullRequestSection.tsx,vcs/ChangeDetail.tsx,vcs/ChangeDetail.test.tsx}` | Reused shared transient feedback, moved PR preview onto `useDebouncedCallback`, and surfaced change-detail load failures with focused coverage |
+| `docs/deslopify/apps/desktop/src/components/apps/explorer/{facts,plan}.md` | Recorded the FileTree + transient-UI closeout, refreshed explorer metrics, and left only the Low absorb-control follow-up |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/apps/explorer/` healthy with all Medium items cleared |
 
 ---
 
