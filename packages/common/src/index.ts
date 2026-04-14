@@ -93,6 +93,31 @@ export type {
   ModelValidationWarning,
 } from './model-selection';
 
+export {
+  SERO_SETTINGS_KEY,
+  SKILL_VISIBILITY_SETTINGS_KEY,
+  DISABLED_MODEL_SKILLS_KEY,
+  getDisabledModelSkills,
+  withDisabledModelSkills,
+} from './skill-visibility';
+
+export {
+  USER_FEEDBACK_BUS_KEY,
+  USER_FEEDBACK_QUESTION_REQUEST_EVENT,
+  USER_FEEDBACK_QUESTION_CANCEL_EVENT,
+  getUserFeedbackAnswerEvent,
+} from './user-feedback';
+
+export type {
+  UserFeedbackQuestionType,
+  UserFeedbackQuestionOption,
+  UserFeedbackQuestionItem,
+  UserFeedbackPendingQuestion,
+  UserFeedbackAnswer,
+  UserFeedbackResponse,
+  UserFeedbackCancelPayload,
+} from './user-feedback';
+
 export type {
   GitManagerAction,
   GitManagerRequest,
@@ -148,6 +173,7 @@ export type {
   SeroModelConfigBridge,
   SeroModelsBridge,
   SeroOnboardingBridge,
+  SeroUserFeedbackBridge,
   SeroProfilesBridge,
   SeroSessionsBridge,
   SeroAdminBridge,

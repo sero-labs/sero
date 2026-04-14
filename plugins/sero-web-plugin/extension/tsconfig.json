@@ -1,0 +1,10 @@
+{
+  "extends": "../../../packages/tsconfig.extension.json",
+  "include": [
+    "./paths.ts",
+    "./state-sync.ts",
+    "./tools-bookmark.ts",
+    "./__tests__/**/*",
+    "../shared/**/*"
+  ]
+}

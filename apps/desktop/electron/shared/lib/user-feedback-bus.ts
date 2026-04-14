@@ -1,22 +1,19 @@
 /**
  * Local wrapper for the shared user-feedback EventEmitter singleton.
  *
- * Mirrors plugins/sero-user-feedback-plugin/shared/emitter.ts. The key MUST match.
- * Keep this lightweight wrapper in Electron so preload/main code can depend on a
- * stable local module without pulling the plugin package into this boundary.
- *
- * Source of truth: plugins/sero-user-feedback-plugin/shared/emitter.ts
+ * The singleton key itself is now owned by `@sero/common`; this wrapper keeps
+ * Electron main/preload code on a stable local module without importing plugin
+ * package code into the host boundary.
  */
 
 import { EventEmitter } from 'events';
-
-const EMITTER_KEY = '__seroUserFeedbackBus';
+import { USER_FEEDBACK_BUS_KEY } from '@sero/common';
 
 export function getUserFeedbackBus(): EventEmitter {
   const g = globalThis as Record<string, unknown>;
-  if (!g[EMITTER_KEY]) {
-    g[EMITTER_KEY] = new EventEmitter();
-    (g[EMITTER_KEY] as EventEmitter).setMaxListeners(50);
+  if (!g[USER_FEEDBACK_BUS_KEY]) {
+    g[USER_FEEDBACK_BUS_KEY] = new EventEmitter();
+    (g[USER_FEEDBACK_BUS_KEY] as EventEmitter).setMaxListeners(50);
   }
-  return g[EMITTER_KEY] as EventEmitter;
+  return g[USER_FEEDBACK_BUS_KEY] as EventEmitter;
 }

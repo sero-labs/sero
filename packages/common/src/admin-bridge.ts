@@ -1,5 +1,10 @@
 import type { ThinkingLevel, ModelValidationWarning } from './model-selection';
 import type { InstalledPlugin } from './plugins';
+import type {
+  UserFeedbackPendingQuestion,
+  UserFeedbackResponse,
+  UserFeedbackCancelPayload,
+} from './user-feedback';
 import type { SeroWebAppBridge } from './web-app';
 
 export interface GlobalModelConfigStateIPC {
@@ -240,6 +245,13 @@ export interface SeroModelsBridge {
 
 export interface SeroOnboardingBridge {
   getState(): Promise<OnboardingStateIPC>;
+}
+
+export interface SeroUserFeedbackBridge {
+  getPending(): Promise<UserFeedbackPendingQuestion[]>;
+  answer(response: UserFeedbackResponse): Promise<void>;
+  onQuestion(callback: (data: UserFeedbackPendingQuestion) => void): () => void;
+  onCancel(callback: (data: UserFeedbackCancelPayload) => void): () => void;
 }
 
 export interface SeroProfilesBridge {

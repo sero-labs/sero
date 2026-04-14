@@ -333,6 +333,9 @@ importers:
         specifier: '>=19.0.0'
         version: 19.2.4
     devDependencies:
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../common
       '@types/react':
         specifier: ^19.2.13
         version: 19.2.14
@@ -561,6 +564,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
   plugins/sero-alibaba-plugin:
     dependencies:
@@ -632,6 +638,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
   plugins/sero-cron-plugin:
     dependencies:
@@ -660,6 +669,9 @@ importers:
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.1.18(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -718,6 +730,9 @@ importers:
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.1.18(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -843,6 +858,9 @@ importers:
         specifier: catalog:peer
         version: 4.3.6
     devDependencies:
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.11
@@ -858,6 +876,9 @@ importers:
       '@mariozechner/pi-tui':
         specifier: catalog:peer
         version: 0.61.1
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@sinclair/typebox':
         specifier: 'catalog:'
         version: 0.34.48
@@ -907,6 +928,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
   plugins/sero-web-plugin:
     dependencies:
@@ -953,6 +977,9 @@ importers:
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@sero/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.1.18(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -986,6 +1013,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.31.1)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
 packages:
 

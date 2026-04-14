@@ -1,5 +1,5 @@
 import type { Skill } from '@mariozechner/pi-coding-agent';
-import { getDisabledModelSkills } from '@plugins/sero-admin-plugin/shared/skill-visibility';
+import { getDisabledModelSkills } from '@sero/common';
 
 interface SkillLoadResult {
   skills: Skill[];

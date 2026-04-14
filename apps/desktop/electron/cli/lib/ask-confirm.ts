@@ -19,6 +19,11 @@
  */
 
 import type { UserFeedbackPendingQuestion, UserFeedbackResponse } from '@/types/ipc';
+import {
+  USER_FEEDBACK_QUESTION_REQUEST_EVENT,
+  USER_FEEDBACK_QUESTION_CANCEL_EVENT,
+  getUserFeedbackAnswerEvent,
+} from '@sero/common';
 import { getUserFeedbackBus } from '@electron/shared/lib/user-feedback-bus';
 
 export interface AskConfirmInput {
@@ -58,7 +63,7 @@ function nextConfirmId(): string {
  */
 export async function askConfirm(input: AskConfirmInput): Promise<AskConfirmResult> {
   const bus = getUserFeedbackBus();
-  if (bus.listenerCount('question-request') === 0) {
+  if (bus.listenerCount(USER_FEEDBACK_QUESTION_REQUEST_EVENT) === 0) {
     return { bridged: false, confirmed: false, cancelled: false };
   }
 
@@ -88,7 +93,7 @@ export async function askConfirm(input: AskConfirmInput): Promise<AskConfirmResu
   };
 
   return new Promise<AskConfirmResult>((resolve) => {
-    const answerEvent = `answer:${id}`;
+    const answerEvent = getUserFeedbackAnswerEvent(id);
 
     const cleanup = () => {
       bus.removeListener(answerEvent, onAnswer);
@@ -108,7 +113,7 @@ export async function askConfirm(input: AskConfirmInput): Promise<AskConfirmResu
 
     const onAbort = () => {
       cleanup();
-      bus.emit('question-cancel', { id });
+      bus.emit(USER_FEEDBACK_QUESTION_CANCEL_EVENT, { id });
       resolve({ bridged: true, confirmed: false, cancelled: true });
     };
 
@@ -117,13 +122,13 @@ export async function askConfirm(input: AskConfirmInput): Promise<AskConfirmResu
     if (input.signal) {
       if (input.signal.aborted) {
         cleanup();
-        bus.emit('question-cancel', { id });
+        bus.emit(USER_FEEDBACK_QUESTION_CANCEL_EVENT, { id });
         resolve({ bridged: true, confirmed: false, cancelled: true });
         return;
       }
       input.signal.addEventListener('abort', onAbort, { once: true });
     }
 
-    bus.emit('question-request', pending);
+    bus.emit(USER_FEEDBACK_QUESTION_REQUEST_EVENT, pending);
   });
 }

@@ -14,6 +14,12 @@ import type {
   UserFeedbackPendingQuestion,
   UserFeedbackResponse,
 } from '@/types/ipc';
+import {
+  USER_FEEDBACK_QUESTION_REQUEST_EVENT,
+  USER_FEEDBACK_QUESTION_CANCEL_EVENT,
+  getUserFeedbackAnswerEvent,
+  type UserFeedbackCancelPayload,
+} from '@sero/common';
 import { getUserFeedbackBus } from '@electron/shared/lib/user-feedback-bus';
 
 function sendToAllWindows(channel: string, data: unknown): void {
@@ -50,14 +56,14 @@ export function registerUserFeedbackQuestionHandlers(): void {
 
   // ── Extension → Renderer: forward question requests ──────────
 
-  bus.on('question-request', (data: UserFeedbackPendingQuestion) => {
+  bus.on(USER_FEEDBACK_QUESTION_REQUEST_EVENT, (data: UserFeedbackPendingQuestion) => {
     pendingQuestions.set(data.id, data);
     sendToAllWindows(IpcChannels.userFeedback.question, data);
   });
 
   // ── Extension signals cancellation (e.g. tool aborted) ───────
 
-  bus.on('question-cancel', (data: { id: string }) => {
+  bus.on(USER_FEEDBACK_QUESTION_CANCEL_EVENT, (data: UserFeedbackCancelPayload) => {
     pendingQuestions.delete(data.id);
     sendToAllWindows(IpcChannels.userFeedback.cancel, data);
   });
@@ -68,7 +74,7 @@ export function registerUserFeedbackQuestionHandlers(): void {
     IpcChannels.userFeedback.answer,
     async (_event, response: UserFeedbackResponse): Promise<void> => {
       pendingQuestions.delete(response.id);
-      bus.emit(`answer:${response.id}`, response);
+      bus.emit(getUserFeedbackAnswerEvent(response.id), response);
       sendToAllWindows(IpcChannels.userFeedback.cancel, { id: response.id });
     },
   );
