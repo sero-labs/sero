@@ -1,10 +1,9 @@
-import path from 'path';
-
 import type { DevServer } from '@/types/ipc';
 import type { DetectedPort } from '@electron/features/container/network/port-forward';
 import { containerManager } from '@electron/features/container/core/singleton';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { toWorkspaceContainerPath } from '../workspace/container-path';
 
 const AUTO_START_TIMEOUT_MS = 20_000;
 const AUTO_START_POLL_MS = 500;
@@ -64,7 +63,7 @@ export async function startManagedDevServer(
   const registerServer = deps.registerServer
     ?? ((params) => containerManager.devServers.register(params));
 
-  const containerCwd = toContainerWorkspacePath(options.workspacePath, options.cwdPath);
+  const containerCwd = toWorkspaceContainerPath(options.workspacePath, options.cwdPath);
   if (!containerCwd) {
     return {
       reason: `Cannot start a dev server outside the workspace root: ${options.cwdPath}`,
@@ -116,16 +115,6 @@ export async function startManagedDevServer(
     url: server.url,
     port: startedPort.port,
   };
-}
-
-function toContainerWorkspacePath(
-  workspacePath: string,
-  cwdPath: string,
-): string | null {
-  const rel = path.relative(workspacePath, cwdPath);
-  if (rel.startsWith('..')) return null;
-  if (!rel || rel === '.') return '/workspace';
-  return path.posix.join('/workspace', ...rel.split(path.sep));
 }
 
 function detectFrameworkHint(command: string): string | undefined {

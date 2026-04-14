@@ -1,6 +1,7 @@
 import path from 'path';
 import { promises as fs } from 'fs';
 import type { ReviewResult } from '@electron/features/kanban/prompts';
+import { warnCleanupFailure } from '@electron/features/kanban/core/cleanup-warnings';
 import { getBlockingReviewFailure, hasMalformedLegacyIssues } from './review-result-utils';
 
 export async function loadCachedReview(filePath: string): Promise<ReviewResult | null> {
@@ -23,5 +24,9 @@ export async function saveCachedReview(filePath: string, review: ReviewResult): 
 }
 
 export async function deleteCachedReview(filePath: string): Promise<void> {
-  await fs.rm(filePath, { force: true }).catch(() => {});
+  try {
+    await fs.rm(filePath, { force: true });
+  } catch (error) {
+    warnCleanupFailure(`failed to delete cached review at ${filePath}`, error);
+  }
 }

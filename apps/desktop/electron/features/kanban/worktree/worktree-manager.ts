@@ -18,6 +18,7 @@ import { promisify } from 'util';
 import { inferConventionalType, slugifyBranchLabel } from '@electron/features/vcs/support/branch-naming';
 import { ensureBootstrapGitignore } from '@electron/features/vcs/support/bootstrap-gitignore';
 import { resolvePreferredBaseRef } from './worktree-maintenance';
+import { isMissingPathError, warnCleanupFailure } from '@electron/features/kanban/core/cleanup-warnings';
 
 const execFileAsync = promisify(execFile);
 
@@ -193,20 +194,28 @@ export class WorktreeManager {
         cwd: workspacePath,
         timeout: 15_000,
       });
-      await execFileAsync('git', ['worktree', 'prune'], {
-        cwd: workspacePath,
-        timeout: 10_000,
-      }).catch(() => {});
+      try {
+        await execFileAsync('git', ['worktree', 'prune'], {
+          cwd: workspacePath,
+          timeout: 10_000,
+        });
+      } catch (error) {
+        warnCleanupFailure(`failed to prune worktrees in ${workspacePath}`, error);
+      }
     } catch (err: unknown) {
       const stderr = err && typeof err === 'object' && 'stderr' in err
         ? String((err as { stderr: unknown }).stderr) : '';
       const message = err instanceof Error ? err.message : String(err);
       // If the directory is already gone, prune instead
       if (stderr.includes('is not a working tree')) {
-        await execFileAsync('git', ['worktree', 'prune'], {
-          cwd: workspacePath,
-          timeout: 10_000,
-        });
+        try {
+          await execFileAsync('git', ['worktree', 'prune'], {
+            cwd: workspacePath,
+            timeout: 10_000,
+          });
+        } catch (pruneError) {
+          warnCleanupFailure(`failed to prune missing worktree for card-${cardId} in ${workspacePath}`, pruneError);
+        }
       } else {
         console.warn(`[worktree] Failed to remove card-${cardId}:`, stderr || message);
       }
@@ -215,8 +224,10 @@ export class WorktreeManager {
     // Clean up the directory if it still exists
     try {
       await fs.rm(worktreePath, { recursive: true, force: true });
-    } catch {
-      // Already gone
+    } catch (error) {
+      if (!isMissingPathError(error)) {
+        warnCleanupFailure(`failed to remove worktree directory ${worktreePath}`, error);
+      }
     }
 
     // Delete branch if requested
@@ -226,8 +237,8 @@ export class WorktreeManager {
           cwd: workspacePath,
           timeout: 10_000,
         });
-      } catch {
-        // Branch may not exist or may be checked out elsewhere
+      } catch (error) {
+        warnCleanupFailure(`failed to delete branch ${branchName} for card-${cardId}`, error);
       }
     }
 

@@ -4,6 +4,7 @@ import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import { warnCleanupFailure } from '@electron/features/kanban/core/cleanup-warnings';
 export { ensureRemoteDefaultBranch, createPrFromWorktree } from './worktree-pr';
 
 const execFileAsync = promisify(execFile);
@@ -211,7 +212,11 @@ export async function getWorktreeDiff(worktreePath: string): Promise<string> {
         maxBuffer: DIFF_MAX_BUFFER,
       });
       // Unstage to avoid side effects
-      await execFileAsync('git', ['reset'], { cwd: worktreePath, timeout: 10_000 }).catch(() => {});
+      try {
+        await execFileAsync('git', ['reset'], { cwd: worktreePath, timeout: 10_000 });
+      } catch (error) {
+        warnCleanupFailure(`failed to reset staged diff state in ${worktreePath}`, error);
+      }
       return diff.stdout;
     } catch {
       return '';
