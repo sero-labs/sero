@@ -8,36 +8,36 @@
  * /tmp/sero-electron.log even if the file logger isn't initialised.
  */
 
-import { appendFileSync, statSync, renameSync, mkdirSync } from 'node:fs';
+import { appendFile, mkdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR';
+
+type LoggerEventBus = Pick<ExtensionAPI, 'events'>;
 
 const TAG = '[cron]';
 const CHANNEL = 'cron';
 const MAX_LOG_SIZE = 1_048_576; // 1 MB
 
 let logFilePath: string | null = null;
-let piRef: ExtensionAPI | null = null;
+let piRef: LoggerEventBus | null = null;
+let fileWriteQueue: Promise<void> = Promise.resolve();
+let fileLoggingHealthy = true;
 
 // ── Setup ──────────────────────────────────────────────────────
 
 /** Initialise the logger. Call once from the extension entry point. */
-export function initLogger(pi: ExtensionAPI, statePath: string): void {
+export function initLogger(pi: LoggerEventBus, statePath: string): void {
   piRef = pi;
   logFilePath = path.join(path.dirname(statePath), 'cron.log');
-
-  try {
-    mkdirSync(path.dirname(logFilePath), { recursive: true });
-  } catch {
-    // directory may already exist
-  }
+  fileLoggingHealthy = true;
 }
 
 /** Update the log path (e.g. on session_switch). */
 export function setLogPath(statePath: string): void {
   logFilePath = path.join(path.dirname(statePath), 'cron.log');
+  fileLoggingHealthy = true;
 }
 
 // ── Core ───────────────────────────────────────────────────────
@@ -52,27 +52,61 @@ export function log(
   const payload = data ? ` ${JSON.stringify(data)}` : '';
   const line = `${ts} [${level}] ${event}${payload}`;
 
-  // ── Console (always — shows up in /tmp/sero-electron.log) ─
+  logToConsole(level, line);
+
+  if (logFilePath) {
+    const targetPath = logFilePath;
+    fileWriteQueue = fileWriteQueue
+      .then(async () => {
+        await appendLogLine(targetPath, line);
+        fileLoggingHealthy = true;
+      })
+      .catch((error) => {
+        reportFileLoggingFailure(targetPath, error);
+      });
+  }
+
+  emitLogEvent(event, level, data);
+}
+
+async function appendLogLine(filePath: string, line: string): Promise<void> {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await rotateIfNeeded(filePath);
+  await appendFile(filePath, `${line}\n`, 'utf8');
+}
+
+function logToConsole(level: LogLevel, line: string): void {
   const consoleLine = `${TAG} ${line}`;
   if (level === 'ERROR') {
     console.error(consoleLine);
-  } else if (level === 'WARN') {
+    return;
+  }
+  if (level === 'WARN') {
     console.warn(consoleLine);
-  } else {
-    console.log(consoleLine);
+    return;
   }
+  console.log(consoleLine);
+}
 
-  // ── File ──────────────────────────────────────────────────
-  if (logFilePath) {
-    try {
-      rotateIfNeeded();
-      appendFileSync(logFilePath, line + '\n', 'utf8');
-    } catch {
-      // Swallow — logging must never crash the extension
-    }
+function reportFileLoggingFailure(filePath: string, error: unknown): void {
+  if (!fileLoggingHealthy) {
+    return;
   }
+  fileLoggingHealthy = false;
 
-  // ── Event bus (for host / other extensions) ───────────────
+  const details = {
+    path: filePath,
+    error: formatError(error),
+  };
+  console.warn(`${TAG} file logging unavailable ${JSON.stringify(details)}`);
+  emitLogEvent('logger:file-unavailable', 'WARN', details);
+}
+
+function emitLogEvent(
+  event: string,
+  level: LogLevel,
+  data?: Record<string, unknown>,
+): void {
   try {
     piRef?.events.emit('log', { channel: CHANNEL, event, level, data });
   } catch {
@@ -82,16 +116,35 @@ export function log(
 
 // ── Rotation ───────────────────────────────────────────────────
 
-function rotateIfNeeded(): void {
-  if (!logFilePath) return;
+async function rotateIfNeeded(filePath: string): Promise<void> {
   try {
-    const { size } = statSync(logFilePath);
+    const { size } = await stat(filePath);
     if (size >= MAX_LOG_SIZE) {
-      renameSync(logFilePath, `${logFilePath}.1`);
+      await rename(filePath, `${filePath}.1`);
     }
-  } catch {
-    // File may not exist yet — that's fine
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return;
+    }
+    throw error;
   }
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'ENOENT'
+  );
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export async function flushLoggerWrites(): Promise<void> {
+  await fileWriteQueue;
 }
 
 // ── Convenience helpers ────────────────────────────────────────
