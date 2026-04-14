@@ -116,7 +116,7 @@ plugin done when all of its High items are cleared across every batch it joins.
 - [x] `fix-slop` High items for `plugins/sero-context-plugin`
 - [x] `fix-slop` High items for `plugins/sero-web-plugin`
 - [x] `fix-slop` High items for `plugins/sero-user-feedback-plugin`
-- [ ] Run targeted package/plugin tests plus monorepo `pnpm typecheck` after
+- [x] Run targeted package/plugin tests plus monorepo `pnpm typecheck` after
       each batch
 
 ## Wave E — Medium-Priority Cleanup Planning
