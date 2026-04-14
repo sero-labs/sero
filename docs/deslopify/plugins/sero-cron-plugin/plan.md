@@ -47,29 +47,20 @@ _Plan drafted: 2026-04-13_
      - accept it consistently everywhere as a labeled fallback-to-desktop mode.
    - Whatever choice lands, the tool help, UI form, notifier behavior, and README must all say the same thing.
 
-4. **Move logger file writes off sync filesystem calls and stop suppressing real logging failures.**
-   - Replace `appendFileSync` / `statSync` / `renameSync` with async equivalents or a small serialized append queue.
-   - Keep the “logging must never crash the extension” rule, but emit one explicit console/event-bus warning when file logging is unavailable instead of silently going dark.
-   - Preserve the current structured log format and rotation behavior.
+4. **~~Move logger file writes off sync filesystem calls and stop suppressing real logging failures.~~ ✅ 2026-04-14 (`723505db`)**
+   - Replaced `appendFileSync` / `statSync` / `renameSync` with a serialized async append queue over `node:fs/promises`.
+   - Kept the “logging must never crash the extension” rule while emitting one explicit console/event-bus warning when file logging becomes unavailable.
+   - Preserved the current structured log format and rotation behavior, and added focused logger coverage.
 
-5. **Split `extension/index.ts` by responsibility before more behavior changes land there.**
-   - Suggested modules:
-     - `extension/lifecycle.ts` for singleton init/start/stop/refcount handling
-     - `extension/runtime-callbacks.ts` for append/persist/notifier wiring
-     - `extension/tools.ts` for schema + registration of `current_time`, `cron`, and `reminder`
-   - Keep the default export as a thin composition root.
-   - This aligns with the plugin-exemplar goal: future plugins should copy a small composition entrypoint, not a 473-line singleton kitchen sink.
+5. **~~Split `extension/index.ts` by responsibility before more behavior changes land there.~~ ✅ 2026-04-14 (`723505db`)**
+   - Extracted `extension/runtime.ts` as the singleton lifecycle/runtime owner and `extension/tools.ts` as the command/tool registration surface.
+   - Kept the default export as a thin composition root (`extension/index.ts` 485 → 48 lines).
+   - This leaves future cron behavior changes with a small entrypoint and focused runtime seams instead of one singleton kitchen sink.
 
-6. **Add targeted tests for the real gaps before medium cleanup spreads.**
-   - Extension tests:
-     - missed one-time reminder on startup fires once and becomes completed
-     - missed recurring reminder recovery updates `lastFiredAt` once
-     - malformed `state.json` blocks mutation instead of resetting to defaults
-   - Shared/UI tests:
-     - reminder completion path prunes completed reminders consistently
-     - UI and extension treat `email` the same way
-     - widget handles legacy/missing `reminders` arrays safely
-   - If full remote-component tests feel too heavy, at minimum test the new shared mutation helpers directly so UI and tool paths cannot drift again.
+6. **~~Add targeted tests for the real gaps before medium cleanup spreads.~~ ✅ 2026-04-14 (`ba3e6031`)**
+   - Added direct `CronApp` coverage for reminder completion and prompt-routed scheduler/job actions.
+   - Added direct `CronWidget` coverage, including the legacy/missing `reminders` guard.
+   - Expanded the package-local vitest include set so UI/widget tests run alongside the existing extension/shared suite.
 
 ## Benefits & Trade-offs
 - Benefits: removes a real duplicate-notification bug, stops silent global schedule loss, restores one reminder contract across human + agent paths, and makes the extension easier to review and evolve.
@@ -83,11 +74,8 @@ _Plan drafted: 2026-04-13_
 - Logger changes must preserve the current “never crash the extension” behavior even while making file-I/O failures visible.
 
 ## Next Steps
-1. Fix the reminder recovery pipeline first; it is the only documented active behavior bug in this review.
-2. Harden `state-io.ts` so malformed state cannot silently reset the global scheduler file.
-3. Extract shared reminder mutation helpers and make the UI + extension consume them.
-4. Split `extension/index.ts` once the recovery/state semantics are stable.
-5. Add recovery + shared-mutation tests before any broader Medium cleanup.
+1. If we do a Low polish pass, tighten `ui/widgets/CronWidget.tsx` so its copy/labels do not imply a more truthful next-fire calculation than the widget actually performs.
+2. Otherwise treat this plugin as Medium-complete and move to the remaining non-E5 follow-up tracked outside this plan (`plugins/sero-memory-plugin` test-surface expansion).
 
 Verification checklist:
 - Starting Sero after missing a one-time reminder produces exactly one notification and persists that reminder as completed.
@@ -101,3 +89,5 @@ Verification checklist:
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`
 - `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(cron: shared reminder mutation helpers now own UI/tool reminder semantics; email drift removed from the UI/tool docs surface)*
+- `723505db` — `refactor(cron): split runtime composition and async logging`
+- `ba3e6031` — `test(cron): add direct ui and widget coverage`

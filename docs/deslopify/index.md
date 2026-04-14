@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, Wave F batches E1–E4 landed 2026-04-14, and E5 is executing plugin-by-plugin (`sero-kanban`, `sero-admin`, `sero-git`, `sero-web`, and `sero-user-feedback` cleared 2026-04-14; `sero-cron` remains)*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batches E1–E5 are complete for the queued plugin set as of 2026-04-14; remaining non-E5 follow-up is `sero-memory` Medium test-surface work plus documented no-op closeouts for `apps/desktop/electron/{types,gateway}`*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -87,7 +87,7 @@ entry links to a `facts.md` and `plan.md` pair.
 - [`plugins/sero-context-plugin/`](./plugins/sero-context-plugin/plan.md)
   — *Healthy — High truthfulness plus E3/E4 projection-owner cleanup cleared 2026-04-14; Low snapshot failure-surface follow-up pending*
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
-  — *In progress — High persisted-state + startup-recovery items plus E4 reminder-ownership cleanup cleared 2026-04-14; logging/modularization/UI coverage work pending*
+  — *Healthy — High persisted-state/startup-recovery items plus E4 reminder ownership and E5 logging/modularization/UI coverage cleanup all cleared 2026-04-14; Low widget-fidelity polish remains deferred*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
   — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
 - `plugins/sero-hello-world-plugin/`

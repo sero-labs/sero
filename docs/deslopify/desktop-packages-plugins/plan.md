@@ -295,15 +295,9 @@ architecture work rather than alphabetical bookkeeping.
   before those items are executed.
 
 ## Next Steps
-1. Continue **E5 — Plugin UI composition + cap-pressure relief** one plugin at
-   a time for the remaining target: `plugins/sero-cron-plugin`
-   (`plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`,
-   `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, and
-   `plugins/sero-user-feedback-plugin` cleared E5 on 2026-04-14).
-2. Treat `apps/desktop/electron/types` and `apps/desktop/electron/gateway` as
-   no-op Medium closeouts unless real source or new findings appear.
-3. Roll docs/help drift into the same commits as the owning behavior batch and
-   run targeted validation plus monorepo `pnpm typecheck` after each batch.
+1. Treat **Wave F / E5 — Plugin UI composition + cap-pressure relief** as complete for the queued plugin set now that `plugins/sero-cron-plugin` cleared on 2026-04-14.
+2. Keep the remaining Medium follow-up focused on non-E5 work: `plugins/sero-memory-plugin` test-surface expansion plus documented no-op closeouts for `apps/desktop/electron/{types,gateway}` unless real source changes.
+3. Continue rolling docs/help drift into the same commits as the owning behavior batch and run targeted validation plus monorepo `pnpm typecheck` after each batch.
 
 Verification checklist for the Medium execution wave:
 - `packages/common/src` and `packages/app-runtime/src` agree on canonical
@@ -343,3 +337,5 @@ Verification checklist for the Medium execution wave:
 - `5d187d86` — `test(git): add direct ui interaction coverage`
 - `43572da8` — `refactor(web): split provider extraction seams`
 - `f4da24f0` — `refactor(user-feedback): split questionnaire flow and add direct coverage`
+- `723505db` — `refactor(cron): split runtime composition and async logging`
+- `ba3e6031` — `test(cron): add direct ui and widget coverage`

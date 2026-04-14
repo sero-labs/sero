@@ -70,6 +70,13 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-user-feedback-plugin/shared/{questionnaire-flow.ts,__tests__/questionnaire-flow.test.ts}` | New — centralized questionnaire answer/review/submit semantics and added focused parity coverage |
 | `plugins/sero-user-feedback-plugin/extension/{tui-questionnaire.ts,tui-questionnaire-render.ts,interview-tool.ts,__tests__/{interview-tool.test.ts,permission-gate.test.ts}}` | Split TUI rendering from questionnaire state and added focused interview-result plus permission-gate coverage (`tui-questionnaire.ts` `416 → 303 lines`) |
 | `plugins/sero-user-feedback-plugin/ui/{QuestionnaireForm.tsx,QuestionnaireForm.test.tsx,UserFeedbackApp.test.tsx,questionnaire/{QuestionnaireQuestionStep.tsx,QuestionnaireReviewStep.tsx},vitest.config.ts}` | Split the questionnaire UI into focused modules and added direct partial-submit + queue-hydration coverage (`QuestionnaireForm.tsx` `469 → 235 lines`) |
+| `plugins/sero-cron-plugin/extension/{runtime.ts,tools.ts}` | New — extracted the cron singleton runtime/lifecycle owner plus tool registration surface from the entrypoint |
+| `plugins/sero-cron-plugin/extension/index.ts` | Reduced to a thin cron composition root over the focused runtime/tool modules (485 → 48 lines) |
+| `plugins/sero-cron-plugin/extension/{logger.ts,__tests__/logger.test.ts}` | Moved cron file logging onto a serialized async queue with visible failure warnings and added direct logger coverage |
+| `plugins/sero-cron-plugin/ui/{CronApp.tsx,CronApp.test.tsx}` | Split the scheduler shell and added direct reminder-mutation/prompt coverage (`343 → 271 lines`) |
+| `plugins/sero-cron-plugin/ui/components/{CronAppHeader.tsx,CronTabs.tsx,JobsTab.tsx}` | New — focused scheduler header/tab/jobs seams extracted from `CronApp` |
+| `plugins/sero-cron-plugin/ui/widgets/{CronWidget.tsx,CronWidget.test.tsx}` | Hardened widget rendering for legacy state snapshots and added direct coverage |
+| `plugins/sero-cron-plugin/vitest.config.ts` | Expanded the cron package test gate to include direct UI/widget tests |
 
 ---
 

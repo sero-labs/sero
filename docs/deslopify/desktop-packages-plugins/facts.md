@@ -317,3 +317,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Remaining E5 plugins, in order: `plugins/sero-cron-plugin`.
 - `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), but it is not part of the current UI-composition batch.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / E5, cron complete)
+
+### Metrics after fixes
+- Wave F batches landed: **E1 + E2 + E3 + E4**, plus plugin-scoped **E5** closeouts for `plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`, `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, `plugins/sero-user-feedback-plugin`, and `plugins/sero-cron-plugin`
+- New focused cron modules added in this pass: `plugins/sero-cron-plugin/extension/{runtime.ts,tools.ts}`, `plugins/sero-cron-plugin/ui/components/{CronAppHeader.tsx,CronTabs.tsx,JobsTab.tsx}`
+- Targeted validation: cron package tests, monorepo `pnpm typecheck`, and `apps/desktop pnpm test` all pass
+
+### What changed
+- Cleared the cron plugin’s remaining Medium work by moving logger file writes onto a visible async queue, splitting the old singleton entrypoint into focused runtime/tool modules, and adding direct `CronApp` / `CronWidget` coverage under the package test gate.
+- Updated tracking so the Wave F / E5 plugin-by-plugin queue is now fully empty.
+- Preserved the low-priority widget-fidelity note as deferred polish rather than folding a behavior change into the cap-pressure batch.
+
+### Still outstanding
+- Wave F / E5 is complete for the queued plugin set.
+- `plugins/sero-memory-plugin` still has non-E5 Medium follow-up work (test-surface expansion), and `apps/desktop/electron/{types,gateway}` remain documented no-op Medium closeouts unless real source changes.

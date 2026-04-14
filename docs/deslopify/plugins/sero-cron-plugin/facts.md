@@ -106,3 +106,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - Async logger file writes and visible file-logging failure reporting are still pending.
 - `extension/index.ts` modularization and direct UI/widget coverage remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E5)
+
+### Metrics after fixes
+- Total reviewable TS/JS source + test files: 51
+- Largest source file: `plugins/sero-cron-plugin/extension/runtime.ts` (498 LOC)
+- Files over 500 LOC: none
+- Targeted validation: `pnpm --filter @sero-ai/plugin-cron test`, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Replaced the cron file logger’s sync filesystem calls with a serialized async append queue, preserved rotation semantics, and now emit an explicit console/event-bus warning when file logging becomes unavailable.
+- Split the old singleton entrypoint into `extension/runtime.ts` + `extension/tools.ts`, leaving `extension/index.ts` as a thin composition root while preserving scheduler/refcount/tool behavior.
+- Split the scheduler UI shell into focused header/tab/jobs modules and added direct `CronApp` / `CronWidget` coverage so reminder mutations, prompt wiring, and legacy widget-state guards are exercised under the package test gate.
+
+### Still outstanding
+- Medium items are cleared for this plan.
+- Low widget fidelity follow-up remains deferred: `CronWidget` still shows simplified cron/relative labels rather than a fully truthful next-fire calculation.
