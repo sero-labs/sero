@@ -5,13 +5,29 @@
  * Only used when ctx.hasUI === true.
  */
 
-import { Editor, type EditorTheme, Key, matchesKey, truncateToWidth } from '@mariozechner/pi-tui';
-import type { ExtensionUIContext, Theme } from '@mariozechner/pi-coding-agent';
-import type { QuestionItem, QuestionAnswer, QuestionOption } from '../shared/types';
+import { Editor, type EditorTheme, Key, matchesKey } from '@mariozechner/pi-tui';
+import type { ExtensionUIContext } from '@mariozechner/pi-coding-agent';
 
-interface RenderOption extends QuestionOption {
-  isOther?: boolean;
-}
+import {
+  canSubmitQuestionnaire,
+  flattenQuestionnaireAnswers,
+  getCustomAnswer,
+  getQuestionAnswers,
+  hasQuestionAnswer,
+  selectQuestionOption,
+  submitCustomQuestionAnswer,
+  updateQuestionAnswers,
+  type AnswerMap,
+} from '../shared/questionnaire-flow';
+import type { QuestionAnswer, QuestionItem } from '../shared/types';
+import {
+  addTruncatedLine,
+  buildHelpText,
+  renderOptionsList,
+  renderSubmitTab,
+  renderTabBar,
+  type RenderOption,
+} from './tui-questionnaire-render';
 
 interface QuestionnaireResult {
   answers: QuestionAnswer[];
@@ -22,7 +38,8 @@ export async function askQuestionnaireTUI(
   ui: ExtensionUIContext,
   questions: QuestionItem[],
 ): Promise<QuestionnaireResult> {
-  const hasSubmitTab = questions.length > 1 || questions.some((q) => q.multiSelect === true);
+  const hasSubmitTab =
+    questions.length > 1 || questions.some((question) => question.multiSelect === true);
   const totalTabs = hasSubmitTab ? questions.length + 1 : questions.length;
 
   return ui.custom<QuestionnaireResult>((tui, theme, _kb, done) => {
@@ -31,16 +48,16 @@ export async function askQuestionnaireTUI(
     let inputMode = false;
     let inputQuestionId: string | null = null;
     let cachedLines: string[] | undefined;
-    const answers = new Map<string, QuestionAnswer[]>();
+    let answers: AnswerMap = new Map();
 
     const editorTheme: EditorTheme = {
-      borderColor: (s) => theme.fg('accent', s),
+      borderColor: (style) => theme.fg('accent', style),
       selectList: {
-        selectedPrefix: (t) => theme.fg('accent', t),
-        selectedText: (t) => theme.fg('accent', t),
-        description: (t) => theme.fg('muted', t),
-        scrollInfo: (t) => theme.fg('dim', t),
-        noMatch: (t) => theme.fg('warning', t),
+        selectedPrefix: (text) => theme.fg('accent', text),
+        selectedText: (text) => theme.fg('accent', text),
+        description: (text) => theme.fg('muted', text),
+        scrollInfo: (text) => theme.fg('dim', text),
+        noMatch: (text) => theme.fg('warning', text),
       },
     };
     const editor = new Editor(tui, editorTheme);
@@ -50,52 +67,34 @@ export async function askQuestionnaireTUI(
       tui.requestRender();
     }
 
-    function flattenAnswers(): QuestionAnswer[] {
-      return questions.flatMap((q) => answers.get(q.id) ?? []);
-    }
-
     function submit(cancelled: boolean) {
-      done({ answers: cancelled ? [] : flattenAnswers(), cancelled });
+      done({
+        answers: cancelled ? [] : flattenQuestionnaireAnswers(questions, answers),
+        cancelled,
+      });
     }
 
     function currentQuestion(): QuestionItem | undefined {
       return questions[currentTab];
     }
 
-    function findOption(question: QuestionItem, value: string): QuestionOption | undefined {
-      return question.options.find((opt) => opt.value === value);
-    }
-
-    function getAnswers(qId: string): QuestionAnswer[] {
-      return answers.get(qId) ?? [];
-    }
-
-    function getCustomAnswer(qId: string): QuestionAnswer | undefined {
-      return getAnswers(qId).find((answer) => answer.wasCustom);
-    }
-
-    function setQuestionAnswers(qId: string, nextAnswers: QuestionAnswer[]): void {
-      if (nextAnswers.length === 0) {
-        answers.delete(qId);
-        return;
-      }
-      answers.set(qId, nextAnswers);
+    function setQuestionAnswers(questionId: string, nextAnswers: QuestionAnswer[]): void {
+      answers = updateQuestionAnswers(answers, questionId, nextAnswers);
     }
 
     function currentOptions(): RenderOption[] {
-      const q = currentQuestion();
-      if (!q) return [];
-      const opts: RenderOption[] = [...q.options];
-      if (q.allowOther) opts.push({ value: '__other__', label: 'Type something.', isOther: true });
-      return opts;
-    }
+      const question = currentQuestion();
+      if (!question) return [];
 
-    function isAnswered(qId: string): boolean {
-      return getAnswers(qId).length > 0;
+      const options: RenderOption[] = [...question.options];
+      if (question.allowOther) {
+        options.push({ value: '__other__', label: 'Type something.', isOther: true });
+      }
+      return options;
     }
 
     function canSubmit(): boolean {
-      return flattenAnswers().length > 0;
+      return canSubmitQuestionnaire(questions, answers);
     }
 
     function advanceAfterAnswer() {
@@ -103,8 +102,12 @@ export async function askQuestionnaireTUI(
         submit(false);
         return;
       }
-      if (currentTab < questions.length - 1) currentTab++;
-      else currentTab = questions.length;
+
+      if (currentTab < questions.length - 1) {
+        currentTab++;
+      } else {
+        currentTab = questions.length;
+      }
       optionIndex = 0;
       refresh();
     }
@@ -112,83 +115,47 @@ export async function askQuestionnaireTUI(
     function openCustomInput(question: QuestionItem): void {
       inputMode = true;
       inputQuestionId = question.id;
-      editor.setText(getCustomAnswer(question.id)?.label ?? '');
+      editor.setText(getCustomAnswer(getQuestionAnswers(answers, question.id))?.label ?? '');
       refresh();
     }
 
-    function toggleOption(question: QuestionItem, opt: RenderOption, index: number): void {
-      const nextAnswer: QuestionAnswer = {
-        questionId: question.id,
-        value: opt.value,
-        label: opt.label,
-        wasCustom: false,
-        index: index + 1,
-      };
-
+    function toggleOption(question: QuestionItem, option: RenderOption, index: number): void {
+      const nextAnswers = selectQuestionOption(
+        question,
+        option,
+        index,
+        getQuestionAnswers(answers, question.id),
+      );
+      setQuestionAnswers(question.id, nextAnswers);
       if (question.multiSelect !== true) {
-        setQuestionAnswers(question.id, [nextAnswer]);
         advanceAfterAnswer();
         return;
       }
-
-      const currentAnswers = getAnswers(question.id);
-      const isAlreadySelected = currentAnswers.some(
-        (answer) => !answer.wasCustom && answer.value === opt.value,
-      );
-
-      if (isAlreadySelected) {
-        setQuestionAnswers(
-          question.id,
-          currentAnswers.filter((answer) => answer.wasCustom || answer.value !== opt.value),
-        );
-        refresh();
-        return;
-      }
-
-      if (opt.exclusive) {
-        setQuestionAnswers(question.id, [nextAnswer]);
-        refresh();
-        return;
-      }
-
-      const nextAnswers = currentAnswers.filter((answer) => {
-        if (answer.wasCustom) return true;
-        return !findOption(question, answer.value)?.exclusive;
-      });
-      nextAnswers.push(nextAnswer);
-      setQuestionAnswers(question.id, nextAnswers);
       refresh();
     }
 
     function upsertCustomAnswer(question: QuestionItem, text: string): void {
-      const customAnswer: QuestionAnswer = {
-        questionId: question.id,
-        value: text,
-        label: text,
-        wasCustom: true,
-      };
-
+      const nextAnswers = submitCustomQuestionAnswer(
+        question,
+        getQuestionAnswers(answers, question.id),
+        text,
+      );
+      setQuestionAnswers(question.id, nextAnswers);
       if (question.multiSelect !== true) {
-        setQuestionAnswers(question.id, [customAnswer]);
         advanceAfterAnswer();
         return;
       }
-
-      const nextAnswers = getAnswers(question.id).filter((answer) => {
-        if (answer.wasCustom) return false;
-        return !findOption(question, answer.value)?.exclusive;
-      });
-      nextAnswers.push(customAnswer);
-      setQuestionAnswers(question.id, nextAnswers);
       refresh();
     }
 
     editor.onSubmit = (value) => {
       if (!inputQuestionId) return;
-      const question = questions.find((q) => q.id === inputQuestionId);
+      const question = questions.find((item) => item.id === inputQuestionId);
       if (!question) return;
+
       const trimmed = value.trim();
       if (!trimmed) return;
+
       inputMode = false;
       inputQuestionId = null;
       editor.setText('');
@@ -204,13 +171,14 @@ export async function askQuestionnaireTUI(
           refresh();
           return;
         }
+
         editor.handleInput(data);
         refresh();
         return;
       }
 
-      const q = currentQuestion();
-      const opts = currentOptions();
+      const question = currentQuestion();
+      const options = currentOptions();
 
       if (hasSubmitTab) {
         if (matchesKey(data, Key.tab) || matchesKey(data, Key.right)) {
@@ -228,8 +196,11 @@ export async function askQuestionnaireTUI(
       }
 
       if (hasSubmitTab && currentTab === questions.length) {
-        if (matchesKey(data, Key.enter) && canSubmit()) submit(false);
-        else if (matchesKey(data, Key.escape)) submit(true);
+        if (matchesKey(data, Key.enter) && canSubmit()) {
+          submit(false);
+        } else if (matchesKey(data, Key.escape)) {
+          submit(true);
+        }
         return;
       }
 
@@ -239,178 +210,94 @@ export async function askQuestionnaireTUI(
         return;
       }
       if (matchesKey(data, Key.down)) {
-        optionIndex = Math.min(opts.length - 1, optionIndex + 1);
+        optionIndex = Math.min(options.length - 1, optionIndex + 1);
         refresh();
         return;
       }
 
-      if ((matchesKey(data, Key.enter) || data === ' ') && q) {
-        const opt = opts[optionIndex];
-        if (!opt) return;
-        if (opt.isOther) {
-          openCustomInput(q);
+      if ((matchesKey(data, Key.enter) || data === ' ') && question) {
+        const option = options[optionIndex];
+        if (!option) return;
+        if (option.isOther) {
+          openCustomInput(question);
           return;
         }
-        toggleOption(q, opt, optionIndex);
+
+        toggleOption(question, option, optionIndex);
         return;
       }
 
-      if (matchesKey(data, Key.escape)) submit(true);
+      if (matchesKey(data, Key.escape)) {
+        submit(true);
+      }
     }
 
     function render(width: number): string[] {
       if (cachedLines) return cachedLines;
-      const lines: string[] = [];
-      const add = (s: string) => lines.push(truncateToWidth(s, width));
-      const q = currentQuestion();
-      const opts = currentOptions();
 
-      add(theme.fg('accent', '─'.repeat(width)));
+      const lines: string[] = [];
+      const addLine = (line: string) => addTruncatedLine(lines, line, width);
+      const question = currentQuestion();
+      const options = currentOptions();
+
+      addLine(theme.fg('accent', '─'.repeat(width)));
 
       if (hasSubmitTab) {
-        const tabs = renderTabBar(questions, currentTab, answers, canSubmit(), theme);
-        add(` ${tabs}`);
+        addLine(` ${renderTabBar(questions, currentTab, answers, canSubmit(), theme)}`);
         lines.push('');
       }
 
-      if (inputMode && q) {
-        add(theme.fg('text', ` ${q.prompt}`));
+      if (inputMode && question) {
+        addLine(theme.fg('text', ` ${question.prompt}`));
         lines.push('');
-        renderOptionsList(q, opts, getAnswers(q.id), optionIndex, inputMode, theme, add);
+        renderOptionsList(
+          question,
+          options,
+          getQuestionAnswers(answers, question.id),
+          optionIndex,
+          inputMode,
+          theme,
+          addLine,
+        );
         lines.push('');
-        add(theme.fg('muted', ' Your answer:'));
-        for (const line of editor.render(width - 2)) add(` ${line}`);
+        addLine(theme.fg('muted', ' Your answer:'));
+        for (const line of editor.render(width - 2)) {
+          addLine(` ${line}`);
+        }
         lines.push('');
-        add(theme.fg('dim', ' Enter to submit • Esc to cancel'));
+        addLine(theme.fg('dim', ' Enter to submit • Esc to cancel'));
       } else if (hasSubmitTab && currentTab === questions.length) {
-        renderSubmitTab(questions, answers, canSubmit(), theme, add);
-      } else if (q) {
-        add(theme.fg('text', ` ${q.prompt}`));
+        renderSubmitTab(questions, answers, canSubmit(), theme, addLine);
+      } else if (question) {
+        addLine(theme.fg('text', ` ${question.prompt}`));
         lines.push('');
-        renderOptionsList(q, opts, getAnswers(q.id), optionIndex, false, theme, add);
+        renderOptionsList(
+          question,
+          options,
+          getQuestionAnswers(answers, question.id),
+          optionIndex,
+          false,
+          theme,
+          addLine,
+        );
       }
 
       lines.push('');
       if (!inputMode) {
-        const help = buildHelpText(q, hasSubmitTab);
-        add(theme.fg('dim', help));
+        addLine(theme.fg('dim', buildHelpText(question, hasSubmitTab)));
       }
-      add(theme.fg('accent', '─'.repeat(width)));
+      addLine(theme.fg('accent', '─'.repeat(width)));
 
       cachedLines = lines;
       return lines;
     }
 
-    return { render, invalidate: () => { cachedLines = undefined; }, handleInput };
+    return {
+      render,
+      invalidate: () => {
+        cachedLines = undefined;
+      },
+      handleInput,
+    };
   });
-}
-
-// ── Render helpers ─────────────────────────────────────────────
-
-function buildHelpText(question: QuestionItem | undefined, hasSubmitTab: boolean): string {
-  if (question?.multiSelect) {
-    return hasSubmitTab
-      ? ' Tab/←→ navigate • ↑↓ select • Enter/Space toggle • Esc cancel'
-      : ' ↑↓ navigate • Enter/Space toggle • Esc cancel';
-  }
-  return hasSubmitTab
-    ? ' Tab/←→ navigate • ↑↓ select • Enter confirm • Esc cancel'
-    : ' ↑↓ navigate • Enter select • Esc cancel';
-}
-
-function renderTabBar(
-  questions: QuestionItem[],
-  currentTab: number,
-  answers: Map<string, QuestionAnswer[]>,
-  canSubmit: boolean,
-  theme: Theme,
-): string {
-  const parts: string[] = ['← '];
-  for (let i = 0; i < questions.length; i++) {
-    const isActive = i === currentTab;
-    const isAnswered = (answers.get(questions[i].id)?.length ?? 0) > 0;
-    const lbl = questions[i].label;
-    const box = isAnswered ? '■' : '□';
-    const color = isAnswered ? 'success' : 'muted';
-    const text = ` ${box} ${lbl} `;
-    parts.push(isActive ? theme.bg('selectedBg', theme.fg('text', text)) : theme.fg(color, text));
-    parts.push(' ');
-  }
-  const isSubmitTab = currentTab === questions.length;
-  const submitText = ' ✓ Submit ';
-  const submitStyled = isSubmitTab
-    ? theme.bg('selectedBg', theme.fg('text', submitText))
-    : theme.fg(canSubmit ? 'success' : 'dim', submitText);
-  parts.push(`${submitStyled} →`);
-  return parts.join('');
-}
-
-function renderOptionsList(
-  question: QuestionItem,
-  opts: RenderOption[],
-  answers: QuestionAnswer[],
-  selectedIndex: number,
-  inputMode: boolean,
-  theme: Theme,
-  add: (s: string) => void,
-) {
-  const customAnswer = answers.find((answer) => answer.wasCustom);
-
-  if (question.multiSelect) {
-    add(theme.fg('muted', ' Select one or more options, then move to Submit when ready.'));
-    add('');
-  }
-
-  for (let i = 0; i < opts.length; i++) {
-    const opt = opts[i];
-    const selected = i === selectedIndex;
-    const isChecked = answers.some((answer) => !answer.wasCustom && answer.value === opt.value);
-    const prefix = selected ? theme.fg('accent', '> ') : '  ';
-    const color = selected ? 'accent' : 'text';
-    const marker = question.multiSelect
-      ? `${isChecked ? '☑' : '☐'} ${opt.label}`
-      : `${i + 1}. ${opt.label}`;
-
-    if (opt.isOther && inputMode) {
-      add(prefix + theme.fg('accent', `${marker} ✎`));
-    } else {
-      add(prefix + theme.fg(color, marker));
-    }
-    if (opt.description) add(`     ${theme.fg('muted', opt.description)}`);
-  }
-
-  if (customAnswer) {
-    add('');
-    add(`  ${theme.fg('success', `✎ Custom: ${customAnswer.label}`)}`);
-  }
-}
-
-function renderSubmitTab(
-  questions: QuestionItem[],
-  answers: Map<string, QuestionAnswer[]>,
-  canSubmit: boolean,
-  theme: Theme,
-  add: (s: string) => void,
-) {
-  add(theme.fg('accent', theme.bold(' Ready to submit')));
-  add('');
-  for (const q of questions) {
-    const questionAnswers = answers.get(q.id) ?? [];
-    if (questionAnswers.length > 0) {
-      const formatted = questionAnswers.map((answer) => {
-        if (answer.wasCustom) return `(wrote) ${answer.label}`;
-        return answer.index ? `${answer.index}. ${answer.label}` : answer.label;
-      });
-      add(`${theme.fg('muted', ` ${q.label}: `)}${theme.fg('text', formatted.join(', '))}`);
-      continue;
-    }
-    add(`${theme.fg('muted', ` ${q.label}: `)}${theme.fg('warning', 'Skipped')}`);
-  }
-  add('');
-  if (canSubmit) {
-    add(theme.fg('success', ' Press Enter to submit'));
-  } else {
-    const missing = questions.filter((q) => (answers.get(q.id)?.length ?? 0) === 0).map((q) => q.label).join(', ');
-    add(theme.fg('warning', ` Unanswered: ${missing}`));
-  }
 }
