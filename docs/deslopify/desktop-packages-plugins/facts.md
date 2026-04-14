@@ -349,3 +349,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Only the documented no-op Medium closeouts for `apps/desktop/electron/{types,gateway}` remain in this plan unless real source returns there.
 - Low follow-up remains deferred across the reviewed targets.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / electron types closeout)
+
+### Metrics after fixes
+- Wave F code-bearing work remains fully complete; this pass only closed one documented no-op tracker item
+- `apps/desktop/electron/types/` still contains 1 reviewable source file / 11 LOC and no 500+ LOC hotspots
+- Targeted validation: source-shape verification, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Reconfirmed that `apps/desktop/electron/types/` still contains only the narrow `systemPromptSuffix` Pi SDK augmentation and that its single AD-021 consumer remains truthful.
+- Closed the `apps/desktop/electron/types/` tracker item as a documentation-only no-op instead of manufacturing source churn in a healthy seam.
+- Narrowed the remaining Wave F backlog to the final generated-only `apps/desktop/electron/gateway/` closeout.
+
+### Still outstanding
+- Only the documented no-op closeout for `apps/desktop/electron/gateway/` remains in this plan unless real source returns there.
+- Low follow-up remains deferred across the reviewed targets.

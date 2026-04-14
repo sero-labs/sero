@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and all code-bearing Wave F follow-up (including `sero-memory` Medium test-surface work) is complete as of 2026-04-14; only documented no-op closeouts for `apps/desktop/electron/{types,gateway}` remain*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and all code-bearing Wave F follow-up (including `sero-memory` Medium test-surface work) is complete as of 2026-04-14; only the documented no-op closeout for `apps/desktop/electron/gateway/` remains*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -71,7 +71,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/cli/`](./apps/desktop/electron/cli/plan.md)
     — *Healthy — High and Medium AD-020 seam/app-control cleanup cleared 2026-04-14; Low flag-parsing follow-up pending*
   - [`apps/desktop/electron/types/`](./apps/desktop/electron/types/plan.md)
-    — *Healthy — narrow Pi SDK augmentation seam reviewed 2026-04-13*
+    — *Healthy — narrow Pi SDK augmentation seam reviewed 2026-04-13 and no-op closeout confirmed 2026-04-14*
 
 ## packages/
 - [`packages/app-runtime/src/`](./packages/app-runtime/src/plan.md)

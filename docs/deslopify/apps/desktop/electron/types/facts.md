@@ -37,3 +37,20 @@ subagent runtime uses to append markdown-defined agent instructions.
 - There is effectively no slop here: one file, one augmentation, one consumer.
 - The augmentation is already well-scoped and documented inline, which is rare
   for repo-local SDK patches.
+
+## Post-fix snapshot — 2026-04-14
+
+### Metrics after fixes
+- Total files: 1
+- Largest file: `apps/desktop/electron/types/pi-coding-agent.d.ts` (11 LOC)
+- Files over 500 LOC: none
+- Targeted validation: source-shape verification, monorepo `pnpm typecheck`, and `cd apps/desktop && pnpm test` all pass
+
+### What changed
+- Reconfirmed that the folder still contains exactly one narrow Pi SDK augmentation for `CreateAgentSessionOptions.systemPromptSuffix`.
+- Verified the only downstream consumer remains `apps/desktop/electron/features/subagent/runtime/runner.ts`, so the augmentation is still truthful to the live AD-021 subagent runtime.
+- Closed the tracked fix-slop item as a documentation-only no-op instead of inventing churn in a healthy type seam.
+
+### Still outstanding
+- No active fix-slop work remains for this target.
+- Future Pi SDK upgrades should re-check whether upstream now exposes `systemPromptSuffix` natively.

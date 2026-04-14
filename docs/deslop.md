@@ -79,6 +79,9 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-cron-plugin/vitest.config.ts` | Expanded the cron package test gate to include direct UI/widget tests |
 | `plugins/sero-memory-plugin/{package.json,vitest.config.ts,extension/tsconfig.json}` | Added a package-local memory test harness while keeping runtime `tsc` focused on shipped extension sources |
 | `plugins/sero-memory-plugin/extension/__tests__/{agent-dir,automation-state,context-injector,memory-tool,session-transcripts}.test.ts` | New — covers profile-scoped agent/QMD paths, malformed cron sync refusal, phase-1 migration state reuse, memory CRUD/capacity semantics, and transcript export stability |
+| `docs/deslopify/apps/desktop/electron/types/{facts,plan}.md` | Recorded the confirmed no-op closeout for the narrow Pi SDK augmentation seam after re-validating the live source shape |
+| `docs/deslopify/desktop-packages-plugins/{facts,plan}.md` | Advanced the Wave F tracker after the `apps/desktop/electron/types` no-op closeout; only `apps/desktop/electron/gateway` remains |
+| `docs/deslopify/index.md` | Marked `apps/desktop/electron/types/` as a confirmed healthy closeout and narrowed the cross-cutting backlog to the final gateway no-op item |
 
 ---
 

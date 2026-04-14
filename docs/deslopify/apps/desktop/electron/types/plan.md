@@ -17,7 +17,7 @@ upstream package exposes the option natively.
   the upstream Pi SDK eventually adds the field. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Keep the file exactly as a narrow package augmentation seam.**
+1. **~~Keep the file exactly as a narrow package augmentation seam.~~ ✅ 2026-04-14 (`c7452f4d`)**
    - Do not turn this folder into a second general desktop type tree.
    - Keep future additions package-specific and minimal.
 
@@ -41,7 +41,7 @@ upstream package exposes the option natively.
   itself, but it would remove compile-time protection from the subagent option.
 
 ## Next Steps
-1. Mark this target as reviewed and move on to the heavier Wave A seams.
+1. ~~Mark this target as reviewed and move on to the heavier Wave A seams.~~ ✅ 2026-04-14 (`c7452f4d`)
 2. Revisit it only when upgrading `@mariozechner/pi-coding-agent` or changing
    the subagent session-construction path.
 
@@ -50,3 +50,6 @@ Verification checklist for future changes:
   with `systemPromptSuffix` passed to `createAgentSession()`.
 - No additional desktop-only contract types are quietly accumulating in this
   folder.
+
+## Execution log
+- `c7452f4d` — `chore(deslopify): confirm electron types no-op closeout`
