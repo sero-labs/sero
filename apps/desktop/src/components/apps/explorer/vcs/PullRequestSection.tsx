@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { GitBranch, Sparkles, Loader2, Github } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import type {
   Bookmark,
   PullRequestPreview,
@@ -35,6 +36,7 @@ export function PullRequestSection({
     error: boolean;
     url?: string;
   } | null>(null);
+  const previewRequestIdRef = useRef(0);
 
   const localBookmarks = useMemo(
     () => bookmarks.filter((b) => b.isLocal).map((b) => b.name),
@@ -77,33 +79,45 @@ export function PullRequestSection({
     };
   }, [workspaceId, bookmarkKey, activePushBookmark]);
 
-  useEffect(() => {
-    if (!prState) return;
-    if (!sourceBranch.trim()) return;
+  const requestPreview = useDebouncedCallback(
+    (nextSourceBranch: string, nextTargetBranch: string, requestId: number) => {
+      if (!nextSourceBranch || !nextTargetBranch) {
+        if (previewRequestIdRef.current === requestId) {
+          setCheckingPreview(false);
+        }
+        return;
+      }
 
-    let cancelled = false;
-    const timeout = setTimeout(() => {
       setCheckingPreview(true);
       void window.sero.vcs
-        .prPreview(workspaceId, sourceBranch.trim(), targetBranch.trim() || prState.defaultBaseBranch)
+        .prPreview(workspaceId, nextSourceBranch, nextTargetBranch)
         .then((result) => {
-          if (!cancelled) setPreview(result);
+          if (previewRequestIdRef.current !== requestId) return;
+          setPreview(result);
         })
         .catch((err) => {
-          if (cancelled) return;
+          if (previewRequestIdRef.current !== requestId) return;
           console.warn('[vcs-pr] Failed to preview pull request:', err);
           setPreview(null);
         })
         .finally(() => {
-          if (!cancelled) setCheckingPreview(false);
+          if (previewRequestIdRef.current === requestId) {
+            setCheckingPreview(false);
+          }
         });
-    }, 120);
+    },
+    120,
+  );
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timeout);
-    };
-  }, [workspaceId, prState, sourceBranch, targetBranch]);
+  useEffect(() => {
+    const requestId = previewRequestIdRef.current + 1;
+    previewRequestIdRef.current = requestId;
+    requestPreview(
+      sourceBranch.trim(),
+      prState ? targetBranch.trim() || prState.defaultBaseBranch : '',
+      requestId,
+    );
+  }, [prState, requestPreview, sourceBranch, targetBranch, workspaceId]);
 
   const handleGenerateDraft = useCallback(async () => {
     if (!sourceBranch.trim()) return;
