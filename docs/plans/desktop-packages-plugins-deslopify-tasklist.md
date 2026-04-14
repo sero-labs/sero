@@ -1,6 +1,6 @@
 # Desktop Packages + Plugins Deslopify Tasklist
 
-_Last updated: 2026-04-13_
+_Last updated: 2026-04-14_
 
 Core-first checklist for reviewing and cleaning up the remaining desktop-adjacent
 source areas outside the original `apps/desktop` wave, plus every Sero plugin,
@@ -121,23 +121,43 @@ plugin done when all of its High items are cleared across every batch it joins.
 
 ## Wave E — Medium-Priority Cleanup Planning
 
-- [ ] Identify all Medium findings from Waves A–D and consolidate them into a
+- [x] Identify all Medium findings from Waves A–D and consolidate them into a
       dependency-ordered backlog
-- [ ] Start with shared package Medium items still affecting multiple desktop
+- [x] Start with shared package Medium items still affecting multiple desktop
       areas or multiple plugins
-- [ ] Then do residual desktop Electron Medium items
-- [ ] Then do plugin-level Medium items, grouped by repeated concerns
+- [x] Then do residual desktop Electron Medium items
+- [x] Then do plugin-level Medium items, grouped by repeated concerns
       (contracts, runtime lifecycle, UI composition, storage, docs drift)
-- [ ] Leave Low items for opportunistic cleanup or dedicated polish passes
+- [x] Leave Low items for opportunistic cleanup or dedicated polish passes
+
+### Wave E batch map
+
+Use these batches as the real execution order for Wave F. A target can appear in
+multiple batches; the per-folder checkboxes in Wave F are **closeout markers**
+only. `apps/desktop/electron/types` and `apps/desktop/electron/gateway` are
+Medium no-op closeouts, and docs/help drift should ship inside the owning batch
+instead of as a standalone pass.
+
+| Batch | Targets | Shared concern |
+| --- | --- | --- |
+| **E1 — Shared contract ownership + runtime reliability** | `packages/common/src`, `packages/app-runtime/src` | Canonical model/provider contracts, data-first warning payloads, and a truthful `useAppState()` failure/lifecycle policy before downstream plugin bridge work |
+| **E2 — Residual desktop Electron seam relief** | `apps/desktop/electron/cli`, `apps/desktop/electron/features/kanban` | Cap-relief and ownership cleanup on the AD-020 CLI seam and the host Kanban workflow/runtime helpers |
+| **E3 — Plugin contract / bridge ownership + quality gates** | `sero-admin`, `sero-user-feedback`, `sero-web`, `sero-context` | Neutralize mirrored host/plugin contracts, move shared helpers to neutral owners, and expand package-local typecheck/tests beyond UI-only coverage |
+| **E4 — Plugin runtime lifecycle + storage semantics** | `sero-cron`, `sero-memory`, `sero-git`, `sero-context`, `sero-kanban` | Reminder/state/runtime truthfulness, projection/helper dedupe, fail-visible cleanup/logging, and repo-backed or single-owner runtime behavior |
+| **E5 — Plugin UI composition + cap-pressure relief** | `sero-kanban`, `sero-admin`, `sero-git`, `sero-web`, `sero-user-feedback`, `sero-cron` | Split near-cap UI/entrypoint hubs, add direct component coverage, remove dead scaffolding, and align settings/help surfaces after the contract/runtime batches stabilize |
 
 ## Wave F — Medium Cleanup Execution
 
+Treat the checklist below as **closeout markers**. Execute the Wave E batch map
+in order and only mark a target done after all of its Medium items are cleared
+across every batch it participates in.
+
 ### 6. Shared + desktop mediums first
-- [ ] `fix-slop` Medium items for `packages/common/src`
-- [ ] `fix-slop` Medium items for `packages/app-runtime/src`
-- [ ] `fix-slop` Medium items for `apps/desktop/electron/types`
+- [x] `fix-slop` Medium items for `packages/common/src`
+- [x] `fix-slop` Medium items for `packages/app-runtime/src`
+- [x] `fix-slop` Medium items for `apps/desktop/electron/types` _(no Medium findings; closeout only)_
 - [ ] `fix-slop` Medium items for `apps/desktop/electron/cli`
-- [ ] `fix-slop` Medium items for `apps/desktop/electron/gateway`
+- [x] `fix-slop` Medium items for `apps/desktop/electron/gateway` _(generated-only; no Medium findings)_
 - [ ] `fix-slop` Medium items for `apps/desktop/electron/features/kanban`
 
 ### 7. Plugin mediums after shared patterns stabilize
@@ -318,3 +338,20 @@ runtime, contract, or desktop-side code that those plugins consume.
   onboarding/questionnaire parity. Targeted cron tests, package typechecks,
   targeted extension compiles, desktop user-feedback tests, and monorepo
   `pnpm typecheck` passed.
+- 2026-04-14: Wave E synthesis complete. The remaining Medium findings are now
+  consolidated into dependency-ordered batches in
+  `docs/deslopify/desktop-packages-plugins/plan.md` and mirrored here as the
+  Wave E batch map: shared package contract/runtime owners first, then residual
+  Electron seam relief, then plugin batches grouped by contract ownership,
+  runtime/storage semantics, and UI cap-pressure/coverage. `electron/types` and
+  `electron/gateway` are Medium no-op closeouts; docs/help drift stays attached
+  to the behavior batch that changes it.
+- 2026-04-14: Wave F batch **E1 — Shared contract ownership + runtime
+  reliability** landed across `1486f968` (`refactor(common): split model
+  contracts and provider manifests`) and `b145471f` (`refactor(app-runtime):
+  harden shared state and widget runtime`). Covered: `@sero/common`
+  model-selection split + data-first warning formatting + canonical
+  `sero.providers` contracts, plus app-runtime model-contract dedupe,
+  `useAppState()` failure recovery, widget-registration idempotence, and focused
+  desktop tests. Targeted Vitest coverage plus monorepo `pnpm typecheck`
+  passed.

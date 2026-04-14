@@ -97,3 +97,22 @@ widget registry used by the desktop dashboard and plugin remotes.
 - `sero-bridge.ts` still duplicates neutral model-group shapes that belong in `@sero/common` (Medium).
 - `useAppState()` still needs explicit write-failure/lifecycle hardening (Medium).
 - Widget registration idempotence for inline size objects is still pending (Low).
+
+## Post-fix snapshot — 2026-04-14
+
+### Metrics after fixes
+- Total files: 11 (unchanged)
+- Total LOC: 667 (was 631)
+- Largest file: `packages/app-runtime/src/widget-registry.ts` (124 LOC)
+- Files over 500 LOC: none
+- Focused runtime coverage added in desktop test suite: `apps/desktop/src/lib/app-runtime.test.tsx`
+
+### What changed
+- Rebased `AppModelInfo` / `AppModelGroup` on the canonical shared model contracts from `@sero/common` and made app-state bridge methods generic for typed consumers.
+- Hardened `useAppState()` with watch liveness guards, explicit write-failure warnings, and a re-read/rollback recovery path that preserves optimistic success-path UX.
+- Normalized `useWidgetRegistration()` size dependencies and added a registry equality short-circuit so equivalent inline definitions stop republishing snapshots.
+- Added focused runtime tests for missing-bridge failure, optimistic write recovery, and sticky/idempotent widget registration behavior.
+
+### Still outstanding
+- No package-local High, Medium, or Low findings remain from this plan.
+- Future follow-up should only be driven by new host↔remote bridge surface growth or module-federation runtime changes.

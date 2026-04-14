@@ -13,39 +13,49 @@ keeps `@sero/common` small, canonical, and explicitly responsible for cross-
 package contracts.
 
 ## Issues Found (prioritized)
-- **Medium** — `model-selection.ts` is a near-cap shared chokepoint —
+- **Medium** — ~~`model-selection.ts` is a near-cap shared chokepoint —
   `packages/common/src/model-selection.ts:1-396` now carries constants,
   domain types, lookup helpers, heuristics, and warning generation for every
   desktop/plugin consumer. It is the largest file in the package and already
   has enough fan-out that one more concern will push shared contract work into a
-  hard-to-review hub. Effort: **M**.
+  hard-to-review hub.~~ ✅ 2026-04-14 (`1486f968`) — Split the file into
+  `model-selection/{types,lookup,validation,index}.ts` and reduced the legacy
+  entrypoint to a thin compatibility barrel.
 
-- **Medium** — Shared warning contracts are coupled to UI copy —
+- **Medium** — ~~Shared warning contracts are coupled to UI copy —
   `packages/common/src/model-selection.ts:56-68` defines
   `ModelValidationWarning` with a required `message`, and the warning builders at
   `packages/common/src/model-selection.ts:291-396` hardcode end-user English
   strings. That makes a supposedly neutral contract package responsible for
-  presentation copy instead of just shared semantics. Effort: **M**.
+  presentation copy instead of just shared semantics.~~ ✅ 2026-04-14 (`1486f968`) —
+  Replaced copy-bearing warning payloads with data-first issue unions plus
+  `formatModelValidationWarning()` for renderer-facing text.
 
-- **Medium** — `@sero/common` only partially owns the plugin package schema —
+- **Medium** — ~~`@sero/common` only partially owns the plugin package schema —
   `packages/common/src/plugins.ts:18-79` covers `sero.plugin` and discovery /
   install shapes, but `sero.providers` metadata is still redefined in
   `apps/desktop/electron/shared/providers/package-provider-manifests.ts:18-38`.
   That leaves plugin package typing split across the shared package and a
   desktop-only implementation file, despite the plugin docs treating both as
-  first-class manifest contract. Effort: **M**.
+  first-class manifest contract.~~ ✅ 2026-04-14 (`1486f968`) — Promoted
+  provider-manifest contracts into `packages/common/src/plugins.ts` and pointed
+  the desktop provider scanner at the canonical shared types.
 
-- **Medium** — Adjacent shared packages still duplicate contracts that belong
+- **Medium** — ~~Adjacent shared packages still duplicate contracts that belong
   here — `packages/common/src/model-selection.ts:25-47` already defines the
   neutral model-group shapes, but `packages/app-runtime/src/sero-bridge.ts:64-82`
   redefines `AppModelInfo` / `AppModelGroup`. That undermines the package’s
-  reason to exist and guarantees drift if one side evolves first. Effort: **M**.
+  reason to exist and guarantees drift if one side evolves first.~~ ✅ 2026-04-14
+  (`1486f968`, `b145471f`) — Rebased app-runtime’s exported model bridge types
+  on `SharedModelInfo` / `SharedAvailableModelGroup` so host/remotes now compile
+  against one canonical shared owner.
 
-- **Low** — There is no direct focused test surface for the pure shared logic —
+- **Low** — ~~There is no direct focused test surface for the pure shared logic —
   `packages/common/` contains only source + typecheck files, while high-fan-out
   helpers such as `inferSupportsXhigh()`, `getAvailableThinkingLevels()`, and
-  the validation builders are covered only indirectly from downstream packages.
-  Effort: **S**.
+  the validation builders are covered only indirectly from downstream packages.~~ ✅ 2026-04-14 (`1486f968`) — Added focused desktop Vitest coverage for
+  model-selection heuristics, warning payloads, and formatter semantics in
+  `apps/desktop/src/lib/model-selection.test.ts`.
 
 ## Proposed Refactoring
 1. **Split `model-selection.ts` by responsibility while keeping the public API stable.**
@@ -118,17 +128,14 @@ package contracts.
   and manifest-driven discovery do not drift.
 
 ## Next Steps
-1. `deslopify packages/app-runtime/src` and explicitly compare its bridge types
-   against `@sero/common` ownership.
-2. In the shared-package High/Medium synthesis, group:
-   - shared model-contract dedupe (`common` + `app-runtime`)
-   - plugin manifest contract completion (`common` + desktop provider manifests)
-3. When execution starts, split `model-selection.ts` first before moving any new
-   shared contracts into the package.
-4. Add focused coverage for model-selection heuristics before changing warning
-   payloads or provider-manifest types.
+1. Treat the direct package-local findings in this plan as cleared.
+2. Reuse the canonical provider-manifest and model-warning contracts in the
+   remaining Wave F plugin/desktop batches instead of reintroducing local
+   variants.
+3. If shared model/provider surface area grows again, extend the focused desktop
+   tests before changing heuristics or warning payloads.
 
-Verification checklist for the future fix pass:
+Verification checklist used in this pass:
 - Desktop onboarding and admin model selectors still show the same warnings and
   supported thinking-level options.
 - `apps/desktop/electron/features/apps/discovery` and
@@ -140,4 +147,6 @@ Verification checklist for the future fix pass:
   `@sero-ai/app-runtime`, and the plugin packages that consume these contracts.
 
 ## Execution log
+- `1486f968` — `refactor(common): split model contracts and provider manifests`
+- `b145471f` — `refactor(app-runtime): harden shared state and widget runtime` *(completed this plan's cross-package model-contract dedupe with app-runtime)*
 - `e09e6fad` — `fix(kanban): centralize shared contract and remove dead settings` (added `packages/common/src/kanban.ts` as the canonical Kanban contract home while leaving this folder's direct Medium items pending)

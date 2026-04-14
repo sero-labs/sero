@@ -95,3 +95,22 @@ used by onboarding, model configuration UIs, and agent model availability flows.
 ### Still outstanding
 - `model-selection.ts` splitting remains the top package-local Medium item.
 - Provider-manifest typing promotion and app-runtime model-contract dedupe remain pending Medium work.
+
+## Post-fix snapshot — 2026-04-14
+
+### Metrics after fixes
+- Total files: 13 (was 5)
+- Total LOC: 1,569 (was 908)
+- Largest file: `packages/common/src/kanban.ts` (288 LOC)
+- Files over 500 LOC: none
+- Focused shared-contract coverage added in desktop test suite: `apps/desktop/src/lib/model-selection.test.ts`
+
+### What changed
+- Split `model-selection.ts` into focused `types`, `lookup`, `validation`, and barrel modules while keeping the legacy entrypoint as a compatibility re-export.
+- Replaced copy-bearing `ModelValidationWarning.message` payloads with data-first issue unions plus `formatModelValidationWarning()` for renderer-owned wording.
+- Promoted `sero.providers` package-contract typing into `packages/common/src/plugins.ts` and switched the desktop provider scanner to the shared contract.
+- Rebased app-runtime model bridge aliases on `SharedModelInfo` / `SharedAvailableModelGroup`, so shared model ownership now fails together at typecheck time.
+
+### Still outstanding
+- No package-local High or Medium findings remain from this plan.
+- Future follow-up should only be driven by new cross-package contract drift or additional shared model/provider surface area.

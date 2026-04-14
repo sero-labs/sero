@@ -4,6 +4,24 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-04-14
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `packages/common/src/model-selection/{types,lookup,validation,index}.ts` | New — split shared model contracts, lookup helpers, and formatter-backed validation into focused modules |
+| `packages/common/src/model-selection.ts` | Reduced to a compatibility barrel over the focused model-selection modules (396 → 43 lines) |
+| `packages/common/src/{plugins.ts,index.ts}` | Added canonical `sero.providers` manifest contracts and exported formatter-backed model warning helpers |
+| `apps/desktop/electron/shared/providers/package-provider-manifests.ts` | Switched desktop provider scanning to the canonical shared provider-manifest contracts |
+| `packages/ui/src/components/model-selection/model-warning-list.tsx` | Moved model-warning rendering onto `formatModelValidationWarning()` so UI copy stays outside `@sero/common` |
+| `packages/app-runtime/src/sero-bridge.ts` | Rebased app-runtime model bridge types on `@sero/common` and made app-state bridge methods generic |
+| `packages/app-runtime/src/use-app-state.ts` | Added optimistic write recovery, watch liveness guards, and explicit persistence-failure warnings |
+| `packages/app-runtime/src/{use-widget-registration.ts,widget-registry.ts}` | Made runtime widget registration idempotent for stable inline definitions while preserving sticky widgets |
+| `apps/desktop/src/lib/{model-selection.test.ts,app-runtime.test.tsx}` | New — focused coverage for shared model-selection semantics and app-runtime write/registry behavior |
+
+---
+
 ## 2026-04-13
 
 ### Files Changed

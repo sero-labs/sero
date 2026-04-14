@@ -1,13 +1,13 @@
 # Deslopify Index
 
-_Last updated: 2026-04-13_
+_Last updated: 2026-04-14_
 
 A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13 and Wave D plugin High batches D1–D4 cleared by 2026-04-14; Medium backlog pending*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batch E1 (shared-package Medium cleanup) landed 2026-04-14; E2–E5 pending*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -75,9 +75,9 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## packages/
 - [`packages/app-runtime/src/`](./packages/app-runtime/src/plan.md)
-  — *In progress — High boundary typing item cleared 2026-04-13; Medium runtime hardening pending*
+  — *Healthy — High boundary typing plus Medium runtime hardening/coverage work cleared 2026-04-14*
 - [`packages/common/src/`](./packages/common/src/plan.md)
-  — *In progress — no direct High items; shared Kanban contract added 2026-04-13; Medium canonical-contract cleanup pending*
+  — *Healthy — shared model/provider contract cleanup and focused coverage landed 2026-04-14*
 
 ## plugins/
 - [`plugins/sero-admin-plugin/`](./plugins/sero-admin-plugin/plan.md)

@@ -23,31 +23,39 @@ more canonical and reliable.
   boundary casts with typed `globalThis` singletons and runtime-guarded
   `window.sero` access while preserving the existing shell-only failure mode.
 
-- **Medium** — `sero-bridge.ts` duplicates neutral shared contracts instead of
+- **Medium** — ~~`sero-bridge.ts` duplicates neutral shared contracts instead of
   importing the canonical ones — `packages/app-runtime/src/sero-bridge.ts:31-82`
   redefines model-group and bridge-result shapes that already exist either in
   `packages/common/src/model-selection.ts:25-39` or desktop preload typings.
   That means host and remote contracts can drift independently while both still
-  typecheck locally. Effort: **M**.
+  typecheck locally.~~ ✅ 2026-04-14 (`b145471f`) — Replaced the local
+  `AppModelInfo` / `AppModelGroup` definitions with thin aliases of
+  `SharedModelInfo` / `SharedAvailableModelGroup` from `@sero/common`.
 
-- **Medium** — `useAppState()` can leave remote UI state ahead of disk —
+- **Medium** — ~~`useAppState()` can leave remote UI state ahead of disk —
   `packages/app-runtime/src/use-app-state.ts:33-73` optimistically updates React
   state, starts async watches without cancellation, and fire-and-forgets
   `appState.write()` without awaiting or catching failures. If the IPC write
   fails or the component unmounts during an in-flight read/watch, plugin state
-  can become stale or silently diverge. Effort: **M**.
+  can become stale or silently diverge.~~ ✅ 2026-04-14 (`b145471f`) — Kept the
+  optimistic update path but added watch liveness guards, explicit write-failure
+  logging, and a re-read/rollback recovery path when persistence fails.
 
-- **Low** — Runtime widget registration republishes on ordinary rerenders —
+- **Low** — ~~Runtime widget registration republishes on ordinary rerenders —
   `packages/app-runtime/src/use-widget-registration.ts:7-18,52-80` documents an
   inline-literal usage pattern, but the hook depends on `defaultSize` /
   `minSize` / `maxSize` by object identity and calls `registerWidget()` on every
   identity change. `packages/app-runtime/src/widget-registry.ts:62-77` then
   republishes a fresh snapshot to all listeners even if the widget key is
-  unchanged. Effort: **S**.
+  unchanged.~~ ✅ 2026-04-14 (`b145471f`) — Normalized the hook dependencies to
+  scalar size values and added a registry-level equality short-circuit so
+  equivalent widget definitions no longer republish snapshots.
 
-- **Low** — The package has no direct focused tests for its pure runtime seams —
+- **Low** — ~~The package has no direct focused tests for its pure runtime seams —
   there are no package-local tests for singleton identity, app-state write
-  failure handling, or runtime widget registration semantics. Effort: **S**.
+  failure handling, or runtime widget registration semantics.~~ ✅ 2026-04-14 (`b145471f`) — Added focused desktop Vitest coverage for missing-bridge
+  failure, optimistic write recovery, and sticky/idempotent widget
+  registration behavior in `apps/desktop/src/lib/app-runtime.test.tsx`.
 
 ## Proposed Refactoring
 1. **Replace the boundary `any`/cast patterns with typed globals and ambient window typing.**
@@ -116,14 +124,14 @@ more canonical and reliable.
   guarantee documented in `context.ts` and `widget-registry.ts`.
 
 ## Next Steps
-1. Pair this plan with `docs/deslopify/packages/common/src/plan.md` and treat
-   shared model-contract dedupe as one cross-package batch.
-2. In the first `fix-slop` batch for this package, remove the three boundary
-   type escape hatches before touching behavior.
-3. Then harden `useAppState()` failure/lifecycle behavior with focused tests.
-4. Finish by making widget registration idempotent for unchanged definitions.
+1. Treat the direct package-local findings in this plan as cleared.
+2. Reuse the hardened `useAppState()` and widget-registration seams in the
+   remaining plugin Medium batches instead of rebuilding local persistence or
+   widget glue.
+3. If the host↔remote bridge surface grows, extend the focused runtime tests
+   before changing preload contract semantics.
 
-Verification checklist for the future fix pass:
+Verification checklist used in this pass:
 - Federated app mounts still share one `AppContext` and one widget registry in
   Vite/module-federation dev mode.
 - Plugin UIs still read initial app state, receive watch updates, and persist
@@ -133,4 +141,5 @@ Verification checklist for the future fix pass:
   imports `@sero-ai/app-runtime`.
 
 ## Execution log
+- `b145471f` — `refactor(app-runtime): harden shared state and widget runtime`
 - `7c5a8456` — `refactor(app-runtime): remove boundary type escape hatches`

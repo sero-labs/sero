@@ -207,6 +207,66 @@ architecture work rather than alphabetical bookkeeping.
 - A plugin is complete for Wave D only after all of its High findings are
   cleared across whichever of the D1–D4 batches it participates in.
 
+## Wave E synthesis — 2026-04-14
+
+### Cross-cutting themes across the remaining Medium findings
+1. **Shared contract ownership is still the root dependency for the remaining Medium wave.**
+   - `packages/common/src` and `packages/app-runtime/src` still own the most
+     leverage-heavy Medium items: canonical model/provider contracts,
+     data-first warning semantics, and the runtime truthfulness of
+     `useAppState()`.
+   - Result: do not start plugin-level bridge/type cleanups until the shared
+     package owners are settled, or we will harden the wrong boundaries again.
+
+2. **Residual desktop Electron Mediums are still architecture-setting seams, not leaf cleanup.**
+   - `apps/desktop/electron/cli` and
+     `apps/desktop/electron/features/kanban` both have mostly cap-pressure and
+     ownership debt now, but they still sit on AD-020 bridging and
+     host-side Kanban orchestration.
+   - Result: clear those seam-level Mediums before broader plugin composition
+     cleanup so downstream work inherits smaller, more truthful host patterns.
+
+3. **Plugin Mediums cluster into repeatable concern groups, not package-by-package chores.**
+   - Contract / bridge ownership and quality-gate drift: `sero-admin`,
+     `sero-user-feedback`, plus the remaining extension-inclusive coverage work
+     in `sero-web` and `sero-context`.
+   - Runtime lifecycle / storage semantics: `sero-cron`, `sero-memory`,
+     `sero-git`, `sero-context`, and `sero-kanban` still have single-owner
+     truthfulness or helper-dedupe work after the High corruption/path fixes.
+   - UI composition / cap-pressure relief: `sero-kanban`, `sero-admin`,
+     `sero-git`, `sero-web`, `sero-user-feedback`, and parts of `sero-cron`
+     still need module splits and direct component/runtime coverage.
+   - Result: execute plugin Mediums by repeated concern so shared helper/test
+     patterns can be reused across packages.
+
+4. **Docs/help drift is real, but it should ship inside the owning behavior batch.**
+   - The remaining doc-facing Medium work is attached to semantic cleanup:
+     Kanban settings/help parity, cron `email` wording, user-feedback
+     questionnaire expectations, and similar README/help updates.
+   - Result: there is no standalone docs-only Medium batch; land copy/help
+     updates in the same commits as the behavior or contract change they
+     describe.
+
+### Recommended Medium `fix-slop` batches
+| Batch | Targets | Medium items covered | Batch intent |
+| --- | --- | --- | --- |
+| **E1 — Shared contract ownership + runtime reliability** | `packages/common/src`, `packages/app-runtime/src` | Split `model-selection.ts`, make warning payloads data-first, move provider-manifest typing into `@sero/common`, delete duplicate model contracts from `sero-bridge.ts`, and harden `useAppState()` lifecycle/write-failure behavior | Stabilize neutral shared owners and the core plugin-state hook before downstream bridge/UI cleanup. |
+| **E2 — Residual desktop Electron seam relief** | `apps/desktop/electron/cli`, `apps/desktop/electron/features/kanban` | Split the near-cap AD-020 runtime/router hubs, extract one shared app-control host service, split Kanban workflow hubs, surface cleanup failures, and dedupe fallback/path helpers | Reduce cap pressure and ownership drift on the remaining architecture-setting Electron seams before plugin follow-up work. |
+| **E3 — Plugin contract / bridge ownership + quality gates** | `plugins/sero-admin-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-web-plugin`, `plugins/sero-context-plugin` | Move admin `skill-visibility` ownership to a neutral home, canonicalize user-feedback transport/bus contracts, remove mirrored bridge subsets, and expand package-local typecheck/tests beyond UI-only coverage | Make host↔plugin contract drift fail fast and give the remaining Medium work trustworthy package-local safety nets. |
+| **E4 — Plugin runtime lifecycle + storage semantics** | `plugins/sero-cron-plugin`, `plugins/sero-memory-plugin`, `plugins/sero-git-plugin`, `plugins/sero-context-plugin`, `plugins/sero-kanban-plugin` | Centralize reminder mutation rules, eliminate duplicate memory startup migration, move hot-path persistence/logging toward explicit async helpers, make Git `log`/`branches` repo-backed, dedupe Context projection logic, and surface Kanban cleanup failures | Finish the remaining truthful runtime-owner cleanup now that the High data-loss/home-path issues are closed. |
+| **E5 — Plugin UI composition + cap-pressure relief** | `plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`, `plugins/sero-git-plugin`, `plugins/sero-web-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-cron-plugin` | Split near-cap UI/entrypoint hubs, add direct component coverage, remove dead scaffolding, and align user-facing settings/help surfaces after the contract/runtime batches stabilize | Lower review load on the heaviest plugin files and lock the post-High behavior in with direct tests. |
+
+### Wave E target mapping note
+- The tasklist should now treat the Wave E batch map above as the real Wave F
+  execution order; the folder-level checkboxes are **closeout markers** only.
+- `apps/desktop/electron/types` and `apps/desktop/electron/gateway` have no
+  Medium findings, so they stay as no-op Wave F closeouts rather than forced
+  churn.
+- The same plugin can legitimately participate in multiple Medium batches.
+  Close a plugin only after all of its remaining Medium findings are cleared
+  across every batch it joins.
+- Low items remain deferred to opportunistic cleanup or a dedicated polish pass.
+
 ## Benefits & Trade-offs
 - Benefits: keeps the highest-leverage contract decisions in front, reduces the
   chance of plugin-local duplicate types, prevents the AD-020 CLI bridge and
@@ -235,29 +295,41 @@ architecture work rather than alphabetical bookkeeping.
   before those items are executed.
 
 ## Next Steps
-1. `deslopify packages/common/src`
-2. `deslopify packages/app-runtime/src`
-3. `deslopify apps/desktop/electron/types`
-4. `deslopify apps/desktop/electron/cli`
-5. Re-check `apps/desktop/electron/gateway/` for real source; if none exists,
-   document it as a generated-only closeout and move on.
-6. `deslopify apps/desktop/electron/features/kanban`
-7. Start the plugin exemplar wave with `plugins/sero-kanban-plugin`,
-   `plugins/sero-cron-plugin`, `plugins/sero-admin-plugin`, and
-   `plugins/sero-memory-plugin`.
-8. After Wave A is fully documented, write one shared-desktop synthesis note
-   before any `fix-slop` batch starts.
+1. Execute **E2 — Residual desktop Electron seam relief** for
+   `apps/desktop/electron/cli` and
+   `apps/desktop/electron/features/kanban`.
+2. Execute **E3 — Plugin contract / bridge ownership + quality gates** for
+   `plugins/sero-admin-plugin`, `plugins/sero-user-feedback-plugin`,
+   `plugins/sero-web-plugin`, and `plugins/sero-context-plugin`.
+3. Execute **E4 — Plugin runtime lifecycle + storage semantics** for
+   `plugins/sero-cron-plugin`, `plugins/sero-memory-plugin`,
+   `plugins/sero-git-plugin`, `plugins/sero-context-plugin`, and
+   `plugins/sero-kanban-plugin`.
+4. Execute **E5 — Plugin UI composition + cap-pressure relief** for
+   `plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`,
+   `plugins/sero-git-plugin`, `plugins/sero-web-plugin`,
+   `plugins/sero-user-feedback-plugin`, and `plugins/sero-cron-plugin`.
+5. Treat `apps/desktop/electron/types` and `apps/desktop/electron/gateway` as
+   no-op Medium closeouts unless real source or new findings appear.
+6. Roll docs/help drift into the same commits as the owning behavior batch and
+   run targeted validation plus monorepo `pnpm typecheck` after each batch.
 
-Verification checklist for the downstream folder reviews:
-- Confirm whether the folder owns canonical types or should import them from
-  `@sero/common` / `@sero-ai/app-runtime` instead.
-- Flag every `as any`, `as unknown as`, inline dynamic type import, or
-  host-bridge cast on the folder’s boundary seams.
-- Distinguish real source from generated output before creating debt findings.
-- For plugin folders, review `package.json`, `extension/`, `shared/`, and `ui/`
-  together so host integration issues are not split across multiple future plans.
+Verification checklist for the Medium execution wave:
+- `packages/common/src` and `packages/app-runtime/src` agree on canonical
+  model/provider contracts and plugin-state behavior after E1.
+- AD-020 CLI commands and host Kanban workflows still pass targeted smoke tests
+  after the E2 seam splits/extractions.
+- Plugin packages that expand their local quality gate now typecheck the
+  relevant `extension/`, `shared/`, and `ui/` surfaces together.
+- Cron reminder mutations, memory startup migration, Git read-only query
+  freshness, Context projection output, and Kanban cleanup visibility remain
+  truthful after E4.
+- UI-heavy plugins still render and pass direct component/runtime coverage after
+  E5, and monorepo `pnpm typecheck` stays green after every batch.
 
 ## Execution log
+- `1486f968` — `refactor(common): split model contracts and provider manifests`
+- `b145471f` — `refactor(app-runtime): harden shared state and widget runtime`
 - `7c5a8456` — `refactor(app-runtime): remove boundary type escape hatches`
 - `8d8f7648` — `refactor(cli): harden AD-020 bridge typing`
 - `e09e6fad` — `fix(kanban): centralize shared contract and remove dead settings`

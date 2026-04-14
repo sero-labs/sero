@@ -218,5 +218,5 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 - Removed onboarding ownership from the generic User Feedback remote and aligned Pi TUI questionnaire submission with the Sero UI’s partial-answer contract.
 
 ### Still outstanding
-- Wave D High work is complete; the next backlog is **Wave E / Medium cleanup planning**.
-- Notable Medium carryovers: cron reminder mutation ownership/logging, memory startup migration + tests, context projection dedupe + extension quality gate, user-feedback canonical transport ownership, and web package-local extension coverage/module splitting.
+- Wave F batch **E1** is now complete; the next backlog is **Wave F / E2–E5 Medium execution** using the dependency-ordered batches in `docs/deslopify/desktop-packages-plugins/plan.md`.
+- Notable Medium carryovers remain: residual CLI/Kanban cap relief, cron reminder mutation ownership/logging, memory startup migration + tests, context projection dedupe + extension quality gate, user-feedback canonical transport ownership, and web package-local extension coverage/module splitting.
