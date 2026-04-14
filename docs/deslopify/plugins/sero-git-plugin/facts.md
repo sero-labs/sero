@@ -87,3 +87,19 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - High items are cleared for this plan.
 - Medium repo-truthful `log`/`branches`, file splitting, and UI coverage remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E4)
+
+### Metrics after fixes
+- Largest source file: `plugins/sero-git-plugin/extension/git-service.ts` (457 LOC)
+- Files over 500 LOC: none
+- Targeted validation: Git package tests and monorepo `pnpm typecheck` both pass
+
+### What changed
+- `runGitAction('log')` and `runGitAction('branches')` now go through the repo-backed refresh path instead of reading the last cached snapshot directly.
+- Added focused Git service tests proving that `log` works before any snapshot exists and that `branches` reflects ref changes after the cached state goes stale.
+- Kept the persisted state file as a UI cache, not the authoritative source for read-only tool answers.
+
+### Still outstanding
+- Medium file splitting for `git-service.ts` / `git-commands.ts` and direct UI coverage remain pending.
+- Low helper/presentation dedupe remains pending.

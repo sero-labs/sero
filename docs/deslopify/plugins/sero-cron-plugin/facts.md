@@ -89,3 +89,20 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - High items are cleared for this plan.
 - Medium UI reminder ownership, logging, and `extension/index.ts` modularization work remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E4)
+
+### Metrics after fixes
+- Largest source file: `plugins/sero-cron-plugin/extension/index.ts` (485 LOC)
+- Files over 500 LOC: none
+- Targeted validation: cron package tests, new shared reminder-mutation coverage, and monorepo `pnpm typecheck` all pass
+
+### What changed
+- Added `shared/reminder-mutations.ts` as the canonical pure owner for reminder upsert/remove/complete/toggle/prune/channel policy helpers.
+- Rebased both `extension/reminder-actions.ts` and the UI `CronApp` reminder mutation path on the same helper layer so completion/toggle/prune semantics now match.
+- Removed the unsupported email channel from the UI/help surface and aligned the tool/README copy with the runtime’s desktop-notification-only policy.
+- Added focused shared reminder-mutation tests so the UI/tool reminder contract now fails in one place instead of drifting silently.
+
+### Still outstanding
+- Async logger file writes and visible file-logging failure reporting are still pending.
+- `extension/index.ts` modularization and direct UI/widget coverage remain pending.

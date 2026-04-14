@@ -27,7 +27,7 @@ _Plan drafted: 2026-04-13_
      - remove “Interactive Actions” language from the README
    - Keep the existing AD-020 tool registrations; the change is about UI truthfulness, not about moving agent-facing actions out of tools.
 
-3. **Extract one shared context projection module.**
+3. **~~Extract one shared context projection module.~~ ✅ 2026-04-14 (`86342e2a`)**
    - Target structure:
      - `plugins/sero-context-plugin/extension/context-projection.ts`
        - sequence expansion
@@ -92,3 +92,4 @@ Verification checklist:
 - `ff4e460a` — `fix(plugins): make web and context actions truthful` *(partial for this plan: truthful manual-snapshot copy + prompt-routed action labeling)*
 - `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`
 - `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(context: added package-local extension typecheck plus projection/usage helper coverage)*
+- `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(context: extracted a shared projection owner for `context_log` + snapshot generation and removed the local projection/type-walker duplication)*

@@ -85,3 +85,19 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - High items are cleared for this plan.
 - Medium settings-surface alignment, cleanup-failure visibility, and UI file-splitting/test work remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E4)
+
+### Metrics after fixes
+- Largest source file: `plugins/sero-kanban-plugin/ui/components/CardDetail.tsx` (466 LOC)
+- Files over 500 LOC: none
+- Targeted validation: Kanban package tests and monorepo `pnpm typecheck` both pass
+
+### What changed
+- Added `extension/cleanup-warnings.ts` plus explicit warning-return paths from review-cache deletion and worktree cleanup helpers.
+- `request-revisions`, `cancel-pr`, and board-wide cleanup now surface best-effort cleanup failures in their tool responses instead of swallowing them.
+- Cleanup warnings are also appended into the Kanban error-log story, so future “stuck review/worktree” investigations have durable breadcrumbs.
+- Added direct extension tests covering cleanup-warning propagation for review actions and done-card cleanup.
+
+### Still outstanding
+- Medium settings-surface alignment and UI file-splitting/direct UI coverage remain pending.

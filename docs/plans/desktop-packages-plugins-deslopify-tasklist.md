@@ -166,7 +166,7 @@ across every batch it participates in.
 - [ ] `fix-slop` Medium items for `plugins/sero-admin-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-memory-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-git-plugin`
-- [ ] `fix-slop` Medium items for `plugins/sero-context-plugin`
+- [x] `fix-slop` Medium items for `plugins/sero-context-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-web-plugin`
 - [ ] `fix-slop` Medium items for `plugins/sero-user-feedback-plugin`
 
@@ -374,4 +374,12 @@ runtime, contract, or desktop-side code that those plugins consume.
   ownership plus the shared renderer bridge type, and added package-local
   extension-inclusive typecheck/tests for admin, user-feedback, web, and
   context. Targeted plugin tests, focused desktop/user-feedback tests, and
+  monorepo `pnpm typecheck` all passed.
+- 2026-04-14: Wave F batch **E4 — Plugin runtime lifecycle + storage semantics**
+  landed in `86342e2a` (`refactor(plugins): land E4 runtime semantics batch`).
+  Covered: shared cron reminder mutation ownership + truthful desktop-only
+  channel semantics, memory single-pass phase-1 migration plus async
+  state/logging helpers, repo-backed Git `log`/`branches`, shared Context
+  projection ownership, and visible Kanban cleanup warnings/error-log
+  breadcrumbs. Targeted plugin tests, package-local memory typecheck, and
   monorepo `pnpm typecheck` all passed.

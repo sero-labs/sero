@@ -220,3 +220,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Wave F batch **E1** is now complete; the next backlog is **Wave F / E2–E5 Medium execution** using the dependency-ordered batches in `docs/deslopify/desktop-packages-plugins/plan.md`.
 - Notable Medium carryovers remain: residual CLI/Kanban cap relief, cron reminder mutation ownership/logging, memory startup migration + tests, context projection dedupe + extension quality gate, user-feedback canonical transport ownership, and web package-local extension coverage/module splitting.
+
+## Post-fix snapshot — 2026-04-14 (Wave F / E4)
+
+### Metrics after fixes
+- Wave F batches landed: **E1 + E2 + E3 + E4**
+- New shared runtime-owner modules added in this batch: `plugins/sero-cron-plugin/shared/reminder-mutations.ts`, `plugins/sero-context-plugin/extension/context-projection.ts`, `plugins/sero-memory-plugin/extension/{state-paths.ts,json-state.ts,log-writer.ts,phase1-migration-state.ts}`
+- Targeted validation: cron/git/context/kanban plugin tests, memory package-local typecheck, and monorepo `pnpm typecheck` all pass
+
+### What changed
+- Centralized cron reminder mutation semantics in one shared pure helper layer and removed the stale UI/docs email path so the human and tool reminder contracts match again.
+- Removed the memory plugin’s duplicate phase-1 migration pass and moved its config/debug persistence onto shared async helpers instead of sync hot-path filesystem calls.
+- Rebased Git `log` / `branches` on the repo-backed refresh path, extracted a shared Context projection owner for both `context_log` and snapshots, and made Kanban cleanup failures visible in tool output plus the board error log.
+
+### Still outstanding
+- Wave F batch **E5** is now the next execution step for the remaining UI-heavy plugin Medium items.
+- Medium carryovers still include cron logging/modularization/UI coverage, memory test-surface work, git file splitting/UI coverage, kanban settings/UI splits, web provider/module cleanup, admin session/UI cleanup, and user-feedback state-machine/file-splitting work.

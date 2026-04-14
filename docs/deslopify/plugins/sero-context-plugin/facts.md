@@ -81,3 +81,19 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - Shared projection extraction between `extension/index.ts` and `extension/snapshot.ts` is still pending.
 - Failure-surface visibility for repeated snapshot write issues is still pending.
+
+## Post-fix snapshot — 2026-04-14 (E4)
+
+### Metrics after fixes
+- Total files: 13
+- Largest source file: `plugins/sero-context-plugin/extension/index.ts` (337 LOC)
+- Files over 500 LOC: none
+- Targeted validation: package-local tests, package-local typecheck, and monorepo `pnpm typecheck` all pass
+
+### What changed
+- Added `extension/context-projection.ts` as the single owner for branch-sequence expansion, entry-content extraction, interesting-node filtering, nearest-tag math, and assistant-tool-call parsing.
+- Rebased both `extension/index.ts` and `extension/snapshot.ts` on the shared projection layer so `context_log` and the UI snapshot now interpret the same session graph the same way.
+- Removed the local projection `any` walkers while keeping the current `context_log` / snapshot output shape intact.
+
+### Still outstanding
+- Low snapshot-write failure visibility is still pending.

@@ -41,7 +41,7 @@ _Plan drafted: 2026-04-13_
      - `SettingsPanel` labels, grouping, and read-only vs mutable settings
    - Decide explicitly whether `autoAdvance` is user-editable, read-only, or intentionally hidden. If `yoloAutoMergePrs` is runtime-backed, the tool surface should acknowledge it too.
 
-4. **Replace silent cleanup catches with scoped warning helpers.**
+4. **~~Replace silent cleanup catches with scoped warning helpers.~~ ✅ 2026-04-14 (`86342e2a`)**
    - Create one helper that tolerates expected not-found cases but logs or returns contextual warnings for real cache/worktree cleanup failures.
    - Feed those warnings into the same review/error-log story instead of burying them in ignored promises.
    - Preserve best-effort cleanup semantics where necessary; just stop making failures invisible.
@@ -89,3 +89,4 @@ Verification checklist:
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `ff4e460a` — `fix(plugins): make web and context actions truthful` *(validated this plan's remaining High item as obsolete under current host state-transition wiring)*
+- `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(kanban: review/worktree cleanup now returns scoped warnings that are surfaced in tool output and the board error log)*

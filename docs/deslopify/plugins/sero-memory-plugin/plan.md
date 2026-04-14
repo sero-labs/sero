@@ -34,12 +34,12 @@ _Plan drafted: 2026-04-13_
    - Preserve Pi compatibility only if it is explicitly intended; otherwise keep the runtime truthful to Sero’s documented `SERO_AGENT_DIR` ownership.
    - This directly aligns with the desktop architecture rule for agent-directory ownership.
 
-3. **Run startup migration once per session entrance, not again on first turn.**
+3. **~~Run startup migration once per session entrance, not again on first turn.~~ ✅ 2026-04-14 (`86342e2a`)**
    - Choose one owner for phase-1 migration — either the session-enter path in `index.ts` or the first-turn path in `context-injector.ts`.
    - Preferred shape: run migration during session enter, persist the result in a small in-memory session bootstrap state, and let `before_agent_start` consume that state instead of re-running maintenance.
    - Keep the existing “bootstrap can flip from done to needed” re-check semantics if migration materially changes managed files.
 
-4. **Replace the sync state/logging helpers with a small async persistence layer.**
+4. **~~Replace the sync state/logging helpers with a small async persistence layer.~~ ✅ 2026-04-14 (`86342e2a`)**
    - Target structure:
      - `extension/state-paths.ts` (shared `SERO_HOME` / agent-dir / state-file path helpers)
      - `extension/json-state.ts` (async read/write helpers with explicit `ENOENT` vs parse-error behavior)
@@ -94,3 +94,4 @@ Verification checklist:
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
 - `a3f625be` — `fix(plugins): align profile-scoped path ownership`
+- `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(memory: phase-1 migration is now single-owner per session entrance, and config/log persistence moved onto shared async helpers)*

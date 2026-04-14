@@ -39,6 +39,11 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-user-feedback-plugin/{package.json,shared/types.ts,shared/emitter.ts,extension/ipc-bridge.ts,extension/__tests__/ipc-bridge.test.ts,ui/sero.d.ts}` | Canonicalized user-feedback transport/bus ownership and added package-local extension bridge coverage |
 | `plugins/sero-web-plugin/{package.json,extension/tsconfig.json,extension/__tests__/paths.test.ts,extension/__tests__/state-sync.test.ts}` | Added focused extension compile/test coverage for profile-scoped path ownership plus persisted state/bookmark/download semantics |
 | `plugins/sero-context-plugin/{package.json,extension/tsconfig.json,extension/__tests__/snapshot.test.ts}` | Added package-local extension typecheck coverage plus focused snapshot/projection tests |
+| `plugins/sero-cron-plugin/{shared/reminder-mutations.ts,shared/__tests__/reminder-mutations.test.ts,extension/reminder-actions.ts,extension/index.ts,ui/CronApp.tsx,ui/components/{ReminderForm.tsx,ReminderCard.tsx},README.md}` | Centralized reminder mutation semantics, aligned the UI/tool channel contract on desktop notifications, and added shared coverage for the reminder owner layer |
+| `plugins/sero-memory-plugin/extension/{phase1-migration-state.ts,index.ts,context-injector.ts,state-paths.ts,json-state.ts,log-writer.ts,logger.ts,prompt-debug.ts,memory-config.ts,automation-state.ts,transparency-state.ts,memory-tool-admin.ts}` | Removed duplicate phase-1 migration work and moved memory state/debug persistence onto shared async helpers |
+| `plugins/sero-git-plugin/extension/{git-service.ts,__tests__/git-service.test.ts}` | Made `log` / `branches` repo-backed via the refresh path and added direct freshness coverage |
+| `plugins/sero-context-plugin/extension/{context-projection.ts,index.ts,snapshot.ts}` | Extracted one shared projection owner for `context_log` and snapshot generation and removed the duplicate projection walkers |
+| `plugins/sero-kanban-plugin/extension/{cleanup-warnings.ts,review-artifacts.ts,worktree-cleanup.ts,review-actions.ts,workflow-actions.ts,__tests__/{review-actions.test.ts,workflow-actions.test.ts}}` | Surfaced review/worktree cleanup failures in tool output and the Kanban error log instead of swallowing them |
 
 ---
 

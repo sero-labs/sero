@@ -110,3 +110,21 @@ _Last reviewed: 2026-04-13_
 ### Still outstanding
 - High items are cleared for this plan.
 - Medium startup-migration, async persistence/logging, and test-surface work remain pending.
+
+## Post-fix snapshot — 2026-04-14 (E4)
+
+### Metrics after fixes
+- Total reviewable files: 34
+- Largest source file: `plugins/sero-memory-plugin/extension/memory-tool.ts` (466 LOC)
+- Files over 500 LOC: none
+- Targeted validation: package-local `typecheck` and monorepo `pnpm typecheck` both pass
+
+### What changed
+- Added `phase1-migration-state.ts` so phase-1 migration is now recorded once per session entrance instead of re-running on the first `before_agent_start` after every normal session start.
+- Added `state-paths.ts`, `json-state.ts`, and `log-writer.ts` as shared async owners for profile-scoped state/debug file paths, JSON state persistence, and serialized rotating log writes.
+- Rebased memory config, automation state, transparency state, logger, and prompt-debug persistence onto the new async helpers while keeping non-fatal diagnostics behavior.
+- Kept the bootstrap edge case truthful: if memory setup completes mid-session and no entrance migration ran yet, `before_agent_start` still performs the one required migration pass.
+
+### Still outstanding
+- The foundational Medium test-surface gap is still pending.
+- The Low `memory-tool.ts` split is still pending.

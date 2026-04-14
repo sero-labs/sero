@@ -36,7 +36,7 @@ _Plan drafted: 2026-04-13_
    - Update caller behavior in `extension/index.ts` and `StateWatcher` so malformed state blocks mutation/recovery instead of silently resetting the schedule.
    - This mirrors the broader Sero deslop pattern already applied to other persisted JSON registries: fail closed on corruption, not open.
 
-3. **Centralize reminder mutation rules in a shared pure helper layer used by both the extension and the UI.**
+3. **~~Centralize reminder mutation rules in a shared pure helper layer used by both the extension and the UI.~~ ✅ 2026-04-14 (`86342e2a`)**
    - Do not make the React remote re-implement reminder business rules ad hoc.
    - Target structure:
      - `shared/reminder-mutations.ts` (or equivalent) for pure add/update/complete/toggle/prune/channel policy helpers
@@ -100,3 +100,4 @@ Verification checklist:
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `aa301f95` — `fix(plugins): make lifecycle semantics sero-first`
+- `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(cron: shared reminder mutation helpers now own UI/tool reminder semantics; email drift removed from the UI/tool docs surface)*

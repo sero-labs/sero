@@ -295,17 +295,13 @@ architecture work rather than alphabetical bookkeeping.
   before those items are executed.
 
 ## Next Steps
-1. Execute **E4 — Plugin runtime lifecycle + storage semantics** for
-   `plugins/sero-cron-plugin`, `plugins/sero-memory-plugin`,
-   `plugins/sero-git-plugin`, `plugins/sero-context-plugin`, and
-   `plugins/sero-kanban-plugin`.
-2. Execute **E5 — Plugin UI composition + cap-pressure relief** for
+1. Execute **E5 — Plugin UI composition + cap-pressure relief** for
    `plugins/sero-kanban-plugin`, `plugins/sero-admin-plugin`,
    `plugins/sero-git-plugin`, `plugins/sero-web-plugin`,
    `plugins/sero-user-feedback-plugin`, and `plugins/sero-cron-plugin`.
-3. Treat `apps/desktop/electron/types` and `apps/desktop/electron/gateway` as
+2. Treat `apps/desktop/electron/types` and `apps/desktop/electron/gateway` as
    no-op Medium closeouts unless real source or new findings appear.
-4. Roll docs/help drift into the same commits as the owning behavior batch and
+3. Roll docs/help drift into the same commits as the owning behavior batch and
    run targeted validation plus monorepo `pnpm typecheck` after each batch.
 
 Verification checklist for the Medium execution wave:
@@ -339,3 +335,4 @@ Verification checklist for the Medium execution wave:
 - `181bd3cc` — `refactor(kanban): split orchestrator phase runners`
 - `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates`
 - `cd40bbcb` — `test(web): cover history clearing and download cleanup`
+- `86342e2a` — `refactor(plugins): land E4 runtime semantics batch`

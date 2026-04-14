@@ -34,7 +34,7 @@ _Plan drafted: 2026-04-13_
    - Ensure `diff`/`show_commit` do not overwrite a malformed snapshot with defaults.
    - Keep atomic writes exactly as they are; the fix is about truthful reads, not changing the write path.
 
-3. **Make read-only query actions answer from the repository, not from cached JSON.**
+3. **~~Make read-only query actions answer from the repository, not from cached JSON.~~ ✅ 2026-04-14 (`86342e2a`)**
    - `status` already does the right thing by refreshing first. Apply the same truthfulness rule to `log` and `branches`.
    - Preferred shape:
      - either call `refresh('auto')` and then render from the refreshed state
@@ -107,3 +107,4 @@ Verification checklist:
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
+- `86342e2a` — `refactor(plugins): land E4 runtime semantics batch` *(git: `log` and `branches` now refresh against the repo path instead of trusting the last persisted snapshot)*

@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batches E1–E3 landed 2026-04-14; E4–E5 pending*
+  — *In progress — Wave B shared/desktop High items cleared 2026-04-13, Wave D plugin High batches D1–D4 cleared by 2026-04-14, and Wave F batches E1–E4 landed 2026-04-14; E5 pending*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
@@ -85,17 +85,17 @@ entry links to a `facts.md` and `plan.md` pair.
 - `plugins/sero-alibaba-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
 - [`plugins/sero-context-plugin/`](./plugins/sero-context-plugin/plan.md)
-  — *In progress — High truthfulness plus E3 quality-gate work cleared 2026-04-14; E4 projection/failure-surface cleanup pending*
+  — *Healthy — High truthfulness plus E3/E4 projection-owner cleanup cleared 2026-04-14; Low snapshot failure-surface follow-up pending*
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
-  — *In progress — High persisted-state + startup-recovery items cleared 2026-04-14; Medium reminder-ownership/logging/modularization work pending*
+  — *In progress — High persisted-state + startup-recovery items plus E4 reminder-ownership cleanup cleared 2026-04-14; logging/modularization/UI coverage work pending*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
-  — *In progress — High contract + state items cleared 2026-04-13; Medium live-query, file-splitting, and UI-coverage work pending*
+  — *In progress — High contract + state items plus E4 live-query cleanup cleared 2026-04-14; file-splitting and UI-coverage work pending*
 - `plugins/sero-hello-world-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
-  — *In progress — High persisted-state item landed and workflow-ownership finding was validated obsolete/covered 2026-04-13; Medium settings/UI cleanup still pending*
+  — *In progress — High persisted-state item landed, workflow-ownership finding was validated obsolete/covered 2026-04-13, and E4 cleanup-warning visibility landed 2026-04-14; settings/UI cleanup still pending*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
-  — *In progress — High cron-contract + QMD path work cleared 2026-04-14; Medium migration/logging/test work pending*
+  — *In progress — High cron-contract + QMD path work plus E4 migration/logging cleanup cleared 2026-04-14; Medium test-surface work pending*
 - [`plugins/sero-user-feedback-plugin/`](./plugins/sero-user-feedback-plugin/plan.md)
   — *In progress — High questionnaire-parity/onboarding items plus E3 transport ownership work cleared 2026-04-14; broader Medium state-machine coverage and file-splitting still pending*
 - [`plugins/sero-web-plugin/`](./plugins/sero-web-plugin/plan.md)
