@@ -47,7 +47,10 @@ export function CronWidget() {
   }, []);
 
   const enabledJobs = state.jobs.filter((j) => !j.disabled);
-  const activeReminders = state.reminders.filter((r) => r.status === 'active' || r.status === 'snoozed');
+  const reminders = state.reminders ?? [];
+  const activeReminders = reminders.filter(
+    (r) => r.status === 'active' || r.status === 'snoozed',
+  );
   const recentResults = state.lastRunResults.slice(-3).reverse();
 
   const isEmpty = enabledJobs.length === 0 && activeReminders.length === 0;
