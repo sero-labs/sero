@@ -83,3 +83,19 @@ _Last reviewed: 2026-04-12_
 
 ### Still outstanding
 - Only the Low `vcs/WorkingCopySection.tsx` absorb-action follow-up remains from this folder plan.
+
+## Post-fix snapshot — 2026-04-14 (WorkingCopySection closeout)
+
+### Metrics after fixes
+- Total files: 57 (was 56)
+- Largest file: `apps/desktop/src/components/apps/explorer/vcs/PullRequestSection.tsx` (376 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: unchanged; no new escape hatches added while closing the final explorer plan item
+
+### What changed
+- Removed the dead Sparkles absorb control from `vcs/WorkingCopySection.tsx` so the primary working-copy flow no longer advertises an unimplemented action.
+- Added `vcs/WorkingCopySection.test.tsx` to lock in the preserved checkpoint-create behavior and assert that the dead absorb affordance stays absent.
+- The explorer folder plan is now fully executed; no tracked folder-level cleanup items remain.
+
+### Still outstanding
+- No tracked items remain in this folder plan.

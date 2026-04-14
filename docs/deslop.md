@@ -101,6 +101,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/apps/explorer/{orchestration/SubagentOutput.tsx,vcs/BookmarksSection.tsx,vcs/PullRequestSection.tsx,vcs/ChangeDetail.tsx,vcs/ChangeDetail.test.tsx}` | Reused shared transient feedback, moved PR preview onto `useDebouncedCallback`, and surfaced change-detail load failures with focused coverage |
 | `docs/deslopify/apps/desktop/src/components/apps/explorer/{facts,plan}.md` | Recorded the FileTree + transient-UI closeout, refreshed explorer metrics, and left only the Low absorb-control follow-up |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/apps/explorer/` healthy with all Medium items cleared |
+| `apps/desktop/src/components/apps/explorer/vcs/WorkingCopySection.tsx` | Removed the dead absorb control from the working-copy actions row (136 → 124 lines) |
+| `apps/desktop/src/components/apps/explorer/vcs/WorkingCopySection.test.tsx` | New — focused coverage that checkpoint creation still works and the dead absorb affordance stays absent |
+| `docs/deslopify/apps/desktop/src/components/apps/explorer/{facts,plan}.md` | Closed the final Low explorer follow-up, refreshed metrics, and marked the folder plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/apps/explorer/` fully executed |
 
 ---
 

@@ -14,7 +14,7 @@ _Plan drafted: 2026-04-12_
 
 - **Medium** — ~~VCS/orchestration leaf components duplicate transient async UI patterns and still hide at least one failure path — `apps/desktop/src/components/apps/explorer/vcs/BookmarksSection.tsx:83-85`, `apps/desktop/src/components/apps/explorer/vcs/PullRequestSection.tsx:80-101`, `apps/desktop/src/components/apps/explorer/vcs/ChangeDetail.tsx:43-63`, and `apps/desktop/src/components/apps/explorer/orchestration/SubagentOutput.tsx:21-27` each hand-roll timer-cleared notices or optimistic async feedback, while `ChangeDetail.tsx:43-49` swallows file-summary load errors entirely. The area reads as many bespoke mini-flows rather than one coherent UI system.~~ ✅ 2026-04-14 (`33f534b4`) — Added explorer-scoped transient feedback helpers, moved PR preview debouncing onto `useDebouncedCallback`, and replaced the silent `ChangeDetail` summary-load catch with an inline warning + focused test coverage.
 
-- **Low** — `WorkingCopySection` still ships a dead action in the primary source-control workflow — `apps/desktop/src/components/apps/explorer/vcs/WorkingCopySection.tsx:118-128` renders a Sparkles “Absorb changes into ancestors” button with no handler or disabled state. This is small, but dead controls in a primary surface erode trust quickly. Effort: **S**.
+- **Low** — ~~`WorkingCopySection` still ships a dead action in the primary source-control workflow — `apps/desktop/src/components/apps/explorer/vcs/WorkingCopySection.tsx:118-128` renders a Sparkles “Absorb changes into ancestors” button with no handler or disabled state. This is small, but dead controls in a primary surface erode trust quickly.~~ ✅ 2026-04-14 (`24626814`) — Removed the dead absorb control and added focused coverage that checkpoint creation still works without the placeholder affordance.
 
 ## Proposed Refactoring
 1. **Split `ExplorerWorkspace` into internal controllers plus a thin layout shell.**
@@ -63,10 +63,11 @@ _Plan drafted: 2026-04-12_
 2. ~~Split `editor/EditorPanel.tsx` into document, Monaco, and runtime-sync modules.~~ ✅ 2026-04-14 (`b78e2419`)
 3. ~~Extract a `useFileTreeModel` hook and contain headless-tree rebuild mechanics there.~~ ✅ 2026-04-14 (`4a3df3a7`)
 4. ~~Deduplicate transient notice/copy helpers and remove the silent `ChangeDetail` catch.~~ ✅ 2026-04-14 (`33f534b4`)
-5. Remove or implement the dead absorb action before expanding the VCS surface further.
+5. ~~Remove or implement the dead absorb action before expanding the VCS surface further.~~ ✅ 2026-04-14 (`24626814`)
 
 ## Execution log
 - `32baeb88` — `refactor(explorer): split ExplorerWorkspace runtime controllers`
 - `b78e2419` — `refactor(explorer): split editor panel runtime controllers`
 - `4a3df3a7` — `refactor(explorer): extract file tree model controller`
 - `33f534b4` — `refactor(explorer): dedupe transient async ui feedback`
+- `24626814` — `refactor(explorer): remove dead working copy absorb control`
