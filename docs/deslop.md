@@ -55,6 +55,14 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/titlebar/git/**` | New — dedicated titlebar Git ownership subtree for publish/PR state and presenters |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the ownership repartition closeout, refreshed layout metrics, and left only the Low error-surface follow-up deferred |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` healthy with all Medium items cleared |
+| `apps/desktop/src/components/layout/{ErrorSurface.tsx,error-utils.ts}` | New — shared shell error notice and error-message helper for retryable operational failure states |
+| `apps/desktop/src/components/layout/AppStoreDialog.tsx` | Discover plugin search now surfaces explicit retryable failures instead of falling back to empty results |
+| `apps/desktop/src/components/layout/auth/{AuthLoginDialog.tsx,AuthLoginDialog.test.tsx}` | Auth provider loading now exposes retryable failures in-place instead of rendering empty lists, with focused coverage |
+| `apps/desktop/src/components/layout/git-remote/{workflow.ts,workflow.test.ts}` | Origin lookup now distinguishes VCS load failures from "no origin," with regression coverage for the new error result |
+| `apps/desktop/src/components/layout/workspace/{WorkspaceTree.tsx,RemoteOriginManager.tsx,RemoteOriginManager.test.tsx}` | Surfaced workspace-open and remote-origin lookup failures with observable shell notices and focused coverage |
+| `apps/desktop/src/components/layout/workspace/workspace-tree/{useWorkspaceTreeRuntime.ts,useWorkspaceTreeRuntime.test.tsx}` | Preserved `sero:open-session` routing while surfacing workspace-open failures to the tree UI, with coverage |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Closed the final Low layout follow-up, refreshed post-fix metrics, and marked the folder plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` fully executed after the Low error-surface pass |
 
 ---
 

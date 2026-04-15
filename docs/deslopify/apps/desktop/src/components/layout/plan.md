@@ -16,7 +16,7 @@ _Plan drafted: 2026-04-12_
 
 - **Medium** — ~~Several layout helpers still perform side effects during render, obscuring lifecycle ownership and making behavior harder to reason about — `apps/desktop/src/components/layout/CollaborationFeedItems.tsx:326-338` still schedules `requestAnimationFrame` from render, and `apps/desktop/src/components/layout/theme-editor/FontPicker.tsx:20-24` still preloads fonts during render after the `ThemeEditorSheet` draft initialization was moved into `useThemeEditorState` on 2026-04-15 (`b322b915`). None of these are broken today, but they bypass the normal “external side effects live in effects/callback refs” rule and increase future regression risk.~~ ✅ 2026-04-15 (`cc7d6fab`) — Moved collaboration auto-scroll into an effect-backed hook and `FontPicker` Google-font preloading into a mount effect, with focused tests covering post-commit scroll timing plus one-time preload/selection behavior. Effort: **S**.
 
-- **Low** — A few shell surfaces still collapse operational failures into empty/no-op states, making runtime issues look like “no data” — `apps/desktop/src/components/layout/WorkspaceTree.tsx:95-97` ignores workspace-open failure, `apps/desktop/src/components/layout/remote-origin-views.tsx:53-61` treats VCS lookup errors as “no origin”, `apps/desktop/src/components/layout/AuthLoginDialog.tsx:80-83` replaces provider-load failure with empty lists, and `apps/desktop/src/components/layout/AppStoreDialog.tsx:83-108` turns plugin-search failure into an empty discover result. Effort: **S**.
+- **Low** — ~~A few shell surfaces still collapse operational failures into empty/no-op states, making runtime issues look like “no data” — `apps/desktop/src/components/layout/WorkspaceTree.tsx:95-97` ignores workspace-open failure, `apps/desktop/src/components/layout/remote-origin-views.tsx:53-61` treats VCS lookup errors as “no origin”, `apps/desktop/src/components/layout/AuthLoginDialog.tsx:80-83` replaces provider-load failure with empty lists, and `apps/desktop/src/components/layout/AppStoreDialog.tsx:83-108` turns plugin-search failure into an empty discover result.~~ ✅ 2026-04-15 (`8001aa13`) — Added a shared retryable shell error notice and wired the workspace-open, origin lookup, auth provider load, and plugin search failure paths to surface explicit UI errors instead of empty/no-op fallbacks. Effort: **S**.
 
 ## Proposed Refactoring
 1. ~~**Re-partition `components/layout` by ownership while keeping shell entrypoints stable.**~~ ✅ 2026-04-15 (`44c0f213`)
@@ -72,7 +72,7 @@ _Plan drafted: 2026-04-12_
    - `FontPicker`: preload fonts at module init, on panel open, or in an effect rather than during render.
    - These changes are structural, but they touch subtle UX behavior, so they need targeted verification.
 
-6. **Normalize shell error and transient-feedback behavior.**
+6. ~~**Normalize shell error and transient-feedback behavior.**~~ ✅ 2026-04-15 (`8001aa13`)
    - Surface explicit load/search/origin failures instead of silently showing empty states.
    - Consolidate repeated “flash success/error, then clear” state patterns into a small helper where it materially reduces boilerplate.
    - Make sure shell actions that can fail (open workspace from plugin event, fetch origin, plugin search, auth provider load) leave an observable trace in the UI.
@@ -101,7 +101,7 @@ _Plan drafted: 2026-04-12_
    - ~~`model-manager/ModelManagerDialog.tsx`~~ ✅ 2026-04-15 (`1c46330f`)
 4. ~~Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.~~ ✅ 2026-04-15 (`bcb2d01d`)
 5. ~~Remove render-phase side effects from theme/collaboration/font helpers.~~ ✅ 2026-04-15 (`cc7d6fab`)
-6. Low follow-up still deferred: normalize shell error and transient-feedback behavior.
+6. ~~Low follow-up still deferred: normalize shell error and transient-feedback behavior.~~ ✅ 2026-04-15 (`8001aa13`)
 7. Verification checklist:
    - Open a session via the `sero:open-session` custom event and confirm the chat panel opens/focuses correctly.
    - Create a workspace, then create/connect a remote origin from both the workspace dialog and the titlebar ship panel.
@@ -121,3 +121,4 @@ _Plan drafted: 2026-04-12_
 - `cc7d6fab` — `refactor(layout): move render-time side effects into lifecycle hooks`
 - `1c46330f` — `refactor(layout): split remaining near-cap helper surfaces`
 - `44c0f213` — `refactor(layout): repartition shell feature ownership`
+- `8001aa13` — `fix(layout): surface shell failure states`

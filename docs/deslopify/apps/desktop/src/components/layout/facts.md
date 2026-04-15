@@ -257,3 +257,22 @@ _Last reviewed: 2026-04-12_
 
 ### Still outstanding
 - Only the Low shell error-surface normalization follow-up remains deferred.
+
+## Post-fix snapshot — 2026-04-15 (error-surface normalization)
+
+### Metrics after fixes
+- Total files: 169 (was 165)
+- Total LOC: 19,280 (was 18,861)
+- Largest file: `apps/desktop/src/components/layout/workspace/remote-origin-views.tsx` (392 LOC)
+- Files over 500 LOC: None (unchanged)
+- Near-cap files (≥400 LOC): none (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Added `ErrorSurface.tsx` plus `error-utils.ts` so shell-owned load/search/origin failures now render one consistent retryable error notice instead of collapsing into silent empty states.
+- `useWorkspaceTreeRuntime.ts` and `WorkspaceTree.tsx` now surface `sero:open-session` workspace-open failures while preserving session focus/chat-panel routing semantics, with direct coverage in `useWorkspaceTreeRuntime.test.tsx`.
+- `git-remote/workflow.ts` now distinguishes remote lookup failures from the legitimate “no origin configured” case, and `RemoteOriginManager.tsx` shows retryable load failures instead of assuming the workspace simply has no origin; added focused dialog/workflow coverage.
+- `AuthLoginDialog.tsx` now keeps the provider picker visible while exposing retryable provider-load failures, and `AppStoreDialog.tsx` now surfaces plugin-discovery failures instead of showing an empty discover result.
+
+### Still outstanding
+- None — the `apps/desktop/src/components/layout/` plan is fully executed as of 2026-04-15.
