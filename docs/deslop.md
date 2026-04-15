@@ -34,6 +34,12 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/FileReferenceMenu.tsx` | Rebased file-reference autocomplete on the shared listbox primitive and reduced duplicated keyboard/render code (212 → 133 lines) |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the shared autocomplete/listbox primitive closeout, refreshed layout metrics, and narrowed the remaining backlog to render-side-effect and error-surface follow-up |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the shared autocomplete/listbox item cleared |
+| `apps/desktop/src/components/layout/CollaborationFeedItems.tsx` | Moved collaboration auto-scroll scheduling from render into an effect-backed hook with animation-frame cleanup |
+| `apps/desktop/src/components/layout/CollaborationFeedItems.test.tsx` | New — covers post-commit auto-scroll scheduling and feed-length change guardrails |
+| `apps/desktop/src/components/layout/theme-editor/FontPicker.tsx` | Moved Google-font preloading from render into a mount effect while preserving one-time loading |
+| `apps/desktop/src/components/layout/theme-editor/FontPicker.test.tsx` | New — covers one-time Google-font preloading and preset-selection loading |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the render-side-effect cleanup closeout, refreshed layout metrics, and narrowed the remaining backlog |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the render-side-effect cleanup item cleared |
 
 ---
 

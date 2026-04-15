@@ -197,3 +197,24 @@ _Last reviewed: 2026-04-12_
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Near-cap cleanup still covers `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
 - Remaining Medium/Low follow-up is now limited to render-phase side-effect cleanup in collaboration/font helpers plus shell error-surface normalization.
+
+## Post-fix snapshot — 2026-04-15 (render-side-effect cleanup)
+
+### Metrics after fixes
+- Total files: 127 (was 125)
+- Total LOC: 18,516 (was 18,311)
+- Largest file: `apps/desktop/src/components/layout/AuthLoginViews.tsx` (464 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- `useAutoScroll` in `CollaborationFeedItems.tsx` now schedules `scrollToBottom()` from a `useEffect` keyed by feed length and cancels stale animation frames on cleanup, removing the remaining render-phase `requestAnimationFrame` side effect without changing the chat-panel feed semantics.
+- Added `CollaborationFeedItems.test.tsx` to cover the behavior-sensitive guardrails for the collaboration feed: scroll scheduling happens after commit and only when the feed length changes.
+- `theme-editor/FontPicker.tsx` now preloads Google fonts from a mount effect instead of during render while preserving the existing one-time module guard across multiple picker mounts/reopens.
+- Added `theme-editor/FontPicker.test.tsx` to cover one-time Google-font preloading plus preset-selection loading behavior.
+- The render-phase side-effect cleanup item from the original plan is now fully cleared; remaining `requestAnimationFrame` usage in the folder lives in explicit callbacks/effects rather than in render paths.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Near-cap cleanup still covers `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
+- Remaining Medium/Low follow-up is now limited to ownership repartition, the three-file near-cap cleanup, and shell error-surface normalization.

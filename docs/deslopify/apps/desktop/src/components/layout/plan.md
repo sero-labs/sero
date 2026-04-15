@@ -14,7 +14,7 @@ _Plan drafted: 2026-04-12_
 
 - **Medium** — ~~Slash-command and file-reference autocompletes duplicate the same document-level keyboard/listbox machinery instead of sharing one primitive — `apps/desktop/src/components/layout/SlashCommandMenu.tsx:53-178` and `apps/desktop/src/components/layout/FileReferenceMenu.tsx:85-212` both maintain selected-index state, `scrollIntoView`, capture-phase `keydown` listeners, and nearly identical listbox rendering. This is small-scale duplication, but it sits in a hot UX path and invites inconsistent keyboard behavior over time.~~ ✅ 2026-04-15 (`bcb2d01d`) — Added `AutocompleteListbox.tsx` as the shared capture-phase keyboard/listbox primitive so both menus now only own filtering/grouping and row rendering. Effort: **S**.
 
-- **Medium** — Several layout helpers still perform side effects during render, obscuring lifecycle ownership and making behavior harder to reason about — `apps/desktop/src/components/layout/CollaborationFeedItems.tsx:326-338` still schedules `requestAnimationFrame` from render, and `apps/desktop/src/components/layout/theme-editor/FontPicker.tsx:20-24` still preloads fonts during render after the `ThemeEditorSheet` draft initialization was moved into `useThemeEditorState` on 2026-04-15 (`b322b915`). None of these are broken today, but they bypass the normal “external side effects live in effects/callback refs” rule and increase future regression risk. Effort: **S**.
+- **Medium** — ~~Several layout helpers still perform side effects during render, obscuring lifecycle ownership and making behavior harder to reason about — `apps/desktop/src/components/layout/CollaborationFeedItems.tsx:326-338` still schedules `requestAnimationFrame` from render, and `apps/desktop/src/components/layout/theme-editor/FontPicker.tsx:20-24` still preloads fonts during render after the `ThemeEditorSheet` draft initialization was moved into `useThemeEditorState` on 2026-04-15 (`b322b915`). None of these are broken today, but they bypass the normal “external side effects live in effects/callback refs” rule and increase future regression risk.~~ ✅ 2026-04-15 (`cc7d6fab`) — Moved collaboration auto-scroll into an effect-backed hook and `FontPicker` Google-font preloading into a mount effect, with focused tests covering post-commit scroll timing plus one-time preload/selection behavior. Effort: **S**.
 
 - **Low** — A few shell surfaces still collapse operational failures into empty/no-op states, making runtime issues look like “no data” — `apps/desktop/src/components/layout/WorkspaceTree.tsx:95-97` ignores workspace-open failure, `apps/desktop/src/components/layout/remote-origin-views.tsx:53-61` treats VCS lookup errors as “no origin”, `apps/desktop/src/components/layout/AuthLoginDialog.tsx:80-83` replaces provider-load failure with empty lists, and `apps/desktop/src/components/layout/AppStoreDialog.tsx:83-108` turns plugin-search failure into an empty discover result. Effort: **S**.
 
@@ -62,7 +62,7 @@ _Plan drafted: 2026-04-12_
    - Then let `SlashCommandMenu` and `FileReferenceMenu` provide only their filtering/grouping and row renderers.
    - This reduces duplicated hot-path logic and makes keyboard behavior easier to keep consistent.
 
-5. **Move render-time side effects into explicit lifecycle helpers.**
+5. ~~**Move render-time side effects into explicit lifecycle helpers.**~~ ✅ 2026-04-15 (`cc7d6fab`)
    - `ThemeEditorSheet`: replace render-phase `setDraft`/`setTab` with an explicit open-transition effect or a small controller hook.
    - `useAutoScroll`: move `requestAnimationFrame(scrollToBottom)` into an effect keyed by feed length.
    - `FontPicker`: preload fonts at module init, on panel open, or in an effect rather than during render.
@@ -92,7 +92,7 @@ _Plan drafted: 2026-04-12_
    - ~~`ContextEditor.tsx`~~ ✅ 2026-04-15 (`53f64174`)
    - ~~`model-manager/local-models/LocalProviderForm.tsx`~~ ✅ 2026-04-15 (`a891f56a`)
 3. ~~Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.~~ ✅ 2026-04-15 (`bcb2d01d`)
-4. Remove render-phase side effects from theme/collaboration/font helpers.
+4. ~~Remove render-phase side effects from theme/collaboration/font helpers.~~ ✅ 2026-04-15 (`cc7d6fab`)
 5. Verification checklist:
    - Open a session via the `sero:open-session` custom event and confirm the chat panel opens/focuses correctly.
    - Create a workspace, then create/connect a remote origin from both the workspace dialog and the titlebar ship panel.
@@ -109,3 +109,4 @@ _Plan drafted: 2026-04-12_
 - `53f64174` — `refactor(layout): split context editor dialog`
 - `a891f56a` — `refactor(layout): split local provider form`
 - `bcb2d01d` — `refactor(layout): share autocomplete listbox primitive`
+- `cc7d6fab` — `refactor(layout): move render-time side effects into lifecycle hooks`
