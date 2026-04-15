@@ -1,6 +1,6 @@
 # Facts — apps/desktop/electron/features/auth
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-15_
 
 ## What this code does
 This feature owns the app-level GitHub and Google auth/runtime integration: GitHub device-flow login plus repo-creation helpers for VCS workflows, and Google OAuth + gog keyring integration for Gmail/Calendar-style plugin commands with profile-aware token migration.
@@ -46,3 +46,21 @@ This feature owns the app-level GitHub and Google auth/runtime integration: GitH
 ### Still outstanding
 - GitHub device-flow polling still treats most non-2xx responses as indefinite retry conditions.
 - `GoogleAuthManager` remains the near-cap multi-responsibility hotspot in this feature.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 4 (unchanged)
+- Largest file: `apps/desktop/electron/features/auth/google/auth-manager.ts` (418 LOC, unchanged)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder (unchanged)
+
+### What changed
+- GitHub device-flow polling now parses token endpoint responses even when GitHub returns non-2xx statuses.
+- Only `authorization_pending` and `slow_down` continue polling; transport failures, malformed payloads, and non-2xx responses without OAuth error fields now fail fast with explicit errors.
+- Added focused auth-manager coverage for terminal non-2xx failures, non-2xx `authorization_pending` retries, and transport-failure handling.
+
+### Still outstanding
+- `GoogleAuthManager` remains the near-cap multi-responsibility hotspot in this feature.
+- Auth runtime helper dedupe (`gog` discovery and GitHub URL normalization) is still pending.
+- Google OAuth setup guidance still references the default-root plugin-config path instead of profile-scoped instructions.

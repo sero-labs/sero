@@ -52,7 +52,7 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Fix the High issue first: stop base64-only GitHub token persistence in production paths.~~ ✅ 2026-04-12 (`4350404d`)
-2. Add explicit non-2xx GitHub device-flow error handling.
+2. ~~Add explicit non-2xx GitHub device-flow error handling.~~ ✅ 2026-04-15 (`1fde9d04`)
 3. Split `GoogleAuthManager` into focused modules before it grows further.
 4. Deduplicate gog binary/PATH discovery and GitHub URL-normalization helpers.
 5. Replace hardcoded default-root guidance with profile-scoped instructions.
@@ -66,3 +66,5 @@ _Plan drafted: 2026-04-12_
 ## Execution log
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
   - GitHub auth now fails closed when Electron secure storage is unavailable instead of persisting repo-scoped tokens with base64-only encoding.
+- 2026-04-15 — `1fde9d04` — `fix(auth): surface github device-flow polling failures`
+  - GitHub device-flow polling now treats transport/non-JSON/non-2xx unexpected responses as terminal errors while preserving retry for `authorization_pending` and `slow_down`.

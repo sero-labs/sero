@@ -257,6 +257,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/types/user-feedback.ts` | Clarified ownership comments: desktop keeps response-feedback persistence types while user-feedback transport contracts remain canonical in `@sero/common` |
 | `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the user-feedback duplication revalidation closeout, refreshed type-folder metrics, and marked the follow-up backlog clear |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/types/` healthy after the user-feedback revalidation follow-up |
+| `apps/desktop/electron/features/auth/github/auth-manager.ts` | GitHub device-flow polling now fails fast on transport/non-JSON/unexpected non-2xx token responses while preserving retry for `authorization_pending` and `slow_down` |
+| `apps/desktop/electron/__tests__/features/auth/github/auth-manager.test.ts` | Added focused polling regressions for terminal non-2xx failures, non-2xx `authorization_pending` retry, and transport-failure handling |
+| `docs/deslopify/apps/desktop/electron/features/auth/{facts,plan}.md` | Recorded the GitHub polling Medium-item closeout, refreshed auth-folder post-fix metrics, and narrowed outstanding work to GoogleAuthManager + Low helper/guidance follow-ups |
+| `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/auth/` status to reflect the cleared GitHub polling Medium item |
 
 ---
 
