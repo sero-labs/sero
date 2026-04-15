@@ -5,7 +5,6 @@
  * The renderer only manages transient UI states like launching and recovery.
  */
 
-import { useRef } from 'react';
 import { Dialog, DialogContent } from '@sero-ai/ui/components/ui/dialog';
 import { AuthLoginDialog } from '@/components/layout/AuthLoginDialog';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
@@ -15,6 +14,7 @@ import {
   LaunchingScreen,
   OnboardingSetupScreen,
 } from './onboarding/OnboardingViews';
+import { useLaunchingDialogVisibility } from './onboarding/useLaunchingDialogVisibility';
 import { useOnboardingLaunch } from './onboarding/useOnboardingLaunch';
 
 export function OnboardingWizard() {
@@ -34,12 +34,8 @@ export function OnboardingWizard() {
     handleErrorBack,
     dismissReadyScreen,
   } = useOnboardingLaunch();
-  const hideLaunchingDialogRef = useRef(false);
   const hasPendingUserInput = useUserFeedbackStore((state) => state.pending.size > 0);
-
-  if (uiPhase === 'launching' && hasPendingUserInput) {
-    hideLaunchingDialogRef.current = true;
-  }
+  const isLaunchingDialogVisible = useLaunchingDialogVisibility(uiPhase, hasPendingUserInput);
 
   if (uiPhase === 'checking' || uiPhase === 'done' || !onboardingState) {
     return (
@@ -56,7 +52,7 @@ export function OnboardingWizard() {
 
   return (
     <>
-      <Dialog open={uiPhase === 'launching' && !hideLaunchingDialogRef.current} onOpenChange={() => {}}>
+      <Dialog open={isLaunchingDialogVisible} onOpenChange={() => {}}>
         <DialogContent
           className="max-w-md"
           showCloseButton={false}
