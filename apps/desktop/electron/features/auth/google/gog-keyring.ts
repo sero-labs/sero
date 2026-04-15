@@ -1,7 +1,6 @@
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import {
-  existsSync,
   readFileSync,
   readdirSync,
   unlinkSync,
@@ -15,6 +14,10 @@ import {
   SERO_FIXED_ROOT,
   SERO_HOME,
 } from '@electron/platform/env';
+import {
+  buildGogPath,
+  resolveGogBinaryPath,
+} from './gog-runtime';
 
 export const GOG_DEFAULT_CLIENT = 'default';
 
@@ -26,15 +29,6 @@ const GOG_KEYRING_DIR = path.join(
   'keyring',
 );
 
-function findGogBinary(): string {
-  const paths = [
-    '/opt/homebrew/bin/gog',
-    '/usr/local/bin/gog',
-    path.join(homedir(), '.local/bin/gog'),
-    path.join(homedir(), 'go/bin/gog'),
-  ];
-  return paths.find((p) => existsSync(p)) ?? 'gog';
-}
 
 /** Stable machine/user keyring password used by Sero. */
 export function deriveKeyringPassword(): string {
@@ -82,15 +76,9 @@ export function argsWithClient(clientName: string, args: string[]): string[] {
 }
 
 function gogEnv(password?: string): NodeJS.ProcessEnv {
-  const extra = [
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-    path.join(homedir(), '.local/bin'),
-    path.join(homedir(), 'go/bin'),
-  ];
   return {
     ...process.env,
-    PATH: [...extra, process.env.PATH || ''].join(':'),
+    PATH: buildGogPath(),
     GOG_KEYRING_PASSWORD: password ?? deriveKeyringPassword(),
   };
 }
@@ -102,7 +90,7 @@ export function pipeToGog(
 ): Promise<{ ok: boolean; out: string }> {
   return new Promise((resolve) => {
     const child = execFile(
-      findGogBinary(),
+      resolveGogBinaryPath(),
       args,
       { env: gogEnv(password), timeout: 10_000 },
       (err, stdout, stderr) => {
@@ -126,7 +114,7 @@ export function gogExecWithPassword(
   password: string,
 ): Promise<string | null> {
   return new Promise((resolve) => {
-    execFile(findGogBinary(), args, { env: gogEnv(password), timeout: 10_000 }, (err, stdout, stderr) => {
+    execFile(resolveGogBinaryPath(), args, { env: gogEnv(password), timeout: 10_000 }, (err, stdout, stderr) => {
       if (err) {
         console.warn(`[google-auth] gogExec ${args.join(' ')} failed:`, stderr?.trim() || err.message);
       }

@@ -5,6 +5,12 @@
  * with GitHub auth env vars automatically injected.
  */
 
+import {
+  extractGitHubRepoName,
+  extractGitHubUrl,
+  normalizeGitHubRemoteUrl,
+  toGitHubCloneUrl,
+} from '@sero/common';
 import type { GitRunner } from '@electron/features/vcs/core/git-runner';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '@/types/ipc';
@@ -256,7 +262,7 @@ export class GitHubRepoOps {
     stdout: string,
     stderr: string,
   ): Promise<string | undefined> {
-    const direct = extractRepoUrl(stdout) ?? extractRepoUrl(stderr);
+    const direct = extractGitHubUrl(stdout) ?? extractGitHubUrl(stderr);
     if (direct) return direct;
 
     const ghView = await this.runner.runCommand(
@@ -308,39 +314,6 @@ export class GitHubRepoOps {
   }
 }
 
-function extractRepoUrl(text: string): string | undefined {
-  const match = text.match(/https:\/\/github\.com\/[^\s,.)]+/);
-  return match?.[0];
-}
-
-function normalizeGitHubRemoteUrl(url: string | null): string | undefined {
-  if (!url) return undefined;
-
-  const trimmed = url.trim().replace(/\/+$/, '');
-  const sshMatch = trimmed.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/);
-  if (sshMatch) {
-    return `https://github.com/${sshMatch[1]}/${sshMatch[2]}`;
-  }
-
-  const httpsMatch = trimmed.match(/^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/);
-  if (httpsMatch) {
-    return `https://github.com/${httpsMatch[1]}/${httpsMatch[2]}`;
-  }
-
-  return undefined;
-}
-
 function normalizeGitHubCloneUrl(url: string | null): string | undefined {
-  const normalized = normalizeGitHubRemoteUrl(url);
-  return toGitHubCloneUrl(normalized);
-}
-
-function toGitHubCloneUrl(url?: string): string | undefined {
-  const normalized = normalizeGitHubRemoteUrl(url ?? null);
-  return normalized ? `${normalized}.git` : undefined;
-}
-
-function extractGitHubRepoName(url: string | null): string | undefined {
-  const normalized = normalizeGitHubRemoteUrl(url);
-  return normalized?.split('/').pop();
+  return toGitHubCloneUrl(url);
 }

@@ -1,5 +1,10 @@
 import type { GitHubAuthStatus } from '@/types/electron-services';
 import type { CreateGitHubRepoInput } from '@/types/ipc';
+import {
+  parseGitHubUrl as parseSharedGitHubUrl,
+  toGitHubWebUrl as toSharedGitHubWebUrl,
+  type ParsedGitHubRepo,
+} from '@sero/common';
 import { toErrorMessage } from '../error-utils';
 
 export type GitRemoteVisibility = CreateGitHubRepoInput['visibility'];
@@ -8,11 +13,6 @@ export interface GitRemoteOriginInfo {
   url: string;
   owner?: string;
   repo?: string;
-}
-
-interface ParsedGitHubRepo {
-  owner: string;
-  repo: string;
 }
 
 export type CreateGitHubOriginResult =
@@ -52,13 +52,7 @@ export type FetchOriginInfoResult =
     };
 
 export function parseGitHubUrl(url: string): ParsedGitHubRepo | null {
-  const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/\s]+?)(?:\.git)?$/);
-  if (httpsMatch) return { owner: httpsMatch[1], repo: httpsMatch[2] };
-
-  const sshMatch = url.match(/github\.com:([^/]+)\/([^/\s]+?)(?:\.git)?$/);
-  if (sshMatch) return { owner: sshMatch[1], repo: sshMatch[2] };
-
-  return null;
+  return parseSharedGitHubUrl(url);
 }
 
 export function toOriginInfo(url: string): GitRemoteOriginInfo {
@@ -85,10 +79,7 @@ export function defaultRepoName(workspaceName: string, workspaceId: string): str
 }
 
 export function toGitHubWebUrl(url: string): string | undefined {
-  const githubRepo = parseGitHubUrl(url);
-  if (!githubRepo) return undefined;
-
-  return `https://github.com/${githubRepo.owner}/${githubRepo.repo}`;
+  return toSharedGitHubWebUrl(url);
 }
 
 export async function loadGitHubStatus(): Promise<GitHubAuthStatus> {

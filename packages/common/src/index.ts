@@ -124,6 +124,19 @@ export type {
   GitActionResult,
 } from './git-app';
 
+export {
+  parseGitHubUrl,
+  normalizeGitHubRemoteUrl,
+  toGitHubCloneUrl,
+  extractGitHubRepoName,
+  extractGitHubUrl,
+  toGitHubWebUrl,
+} from './github-url';
+
+export type {
+  ParsedGitHubRepo,
+} from './github-url';
+
 export type {
   WebAppAction,
   WebAppRequest,
