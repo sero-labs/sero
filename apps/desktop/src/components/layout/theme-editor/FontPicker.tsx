@@ -4,7 +4,7 @@
  * CSS font stacks.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { loadGoogleFont, preloadAllGoogleFonts } from '@/lib/google-fonts';
 
 interface FontPickerProps {
@@ -18,10 +18,14 @@ interface FontPickerProps {
 let _fontsPreloaded = false;
 
 export function FontPicker({ label, value, presets, onChange }: FontPickerProps) {
-  if (!_fontsPreloaded) {
+  useEffect(() => {
+    if (_fontsPreloaded) {
+      return;
+    }
+
     _fontsPreloaded = true;
     preloadAllGoogleFonts();
-  }
+  }, []);
 
   const isCustom = !presets.some((p) => p.value === value);
   const [showCustom, setShowCustom] = useState(isCustom);

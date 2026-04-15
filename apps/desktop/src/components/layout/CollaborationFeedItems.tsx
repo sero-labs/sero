@@ -2,7 +2,7 @@
  * Sub-components for CollaborationActivityPanel.
  * Extracted to keep CollaborationActivityPanel.tsx under 500 LOC.
  */
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, Clock3, Swords, XCircle, Zap } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -354,10 +354,20 @@ export function useAutoScroll(feedLen: number) {
   }, []);
 
   const prevLen = useRef(0);
-  if (feedLen !== prevLen.current) {
+  useEffect(() => {
+    if (feedLen === prevLen.current) {
+      return undefined;
+    }
+
     prevLen.current = feedLen;
-    requestAnimationFrame(() => scrollToBottom());
-  }
+    const frame = requestAnimationFrame(() => {
+      scrollToBottom();
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [feedLen, scrollToBottom]);
 
   return scrollRef;
 }
