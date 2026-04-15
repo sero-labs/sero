@@ -43,7 +43,7 @@ _Plan drafted: 2026-04-12_
 - Required-agent validation depends on the team's willingness to treat those names as a supported compatibility contract.
 
 ## Next Steps
-1. Add explicit synthesis prompt budgeting/capping.
+1. ~~Add explicit synthesis prompt budgeting/capping.~~ ✅ 2026-04-15 (`f420d7c8`)
 2. Decide and implement degraded-mode behavior for missing/failed specialists.
 3. Extract the shared single-specialist runner helper used by both collaboration strategies.
 4. Add preflight validation for required collaboration agent names.
@@ -52,3 +52,8 @@ _Plan drafted: 2026-04-12_
    - Force one specialist to fail and confirm the result surfaces degradation explicitly.
    - Run a long-output scenario and verify final synthesis prompt size stays bounded.
    - Remove/rename one required collaboration agent and confirm the feature fails early with a clear error.
+
+## Execution log
+- 2026-04-15 — `f420d7c8` — `refactor(collaboration): cap synthesis prompt inputs`
+  - Added a shared synthesis prompt budgeting helper and explicit per-stage budgets for standard and debate coordinator synthesis prompts.
+  - Added focused coverage to lock truncation behavior so final synthesis prompt inputs stay bounded in long-output scenarios.

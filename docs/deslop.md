@@ -155,6 +155,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/auth/google/config.test.ts` | New — verifies profile-scoped plugin-config path and guidance text generation from `SERO_AGENT_DIR` |
 | `docs/deslopify/apps/desktop/electron/features/auth/{facts,plan}.md` | Closed the final Low profile-scoped guidance item, refreshed auth metrics, and marked the auth plan fully executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/auth/` healthy with all tracked items cleared |
+| `apps/desktop/electron/features/collaboration/{agents.ts,debate.ts,prompt-budget.ts}` | Added bounded synthesis prompt budgets for standard/debate coordinator prompts and shared truncation helper to cap long specialist inputs |
+| `apps/desktop/electron/__tests__/features/collaboration/prompt-budgeting.test.ts` | New — locks prompt-budget truncation behavior for standard and debate synthesis stages |
+| `docs/deslopify/apps/desktop/electron/features/collaboration/{facts,plan}.md` | Recorded the first Medium collaboration item closeout, refreshed folder metrics, and narrowed outstanding work to degraded-mode plus Low follow-ups |
+| `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/collaboration/` status to in-progress with the first Medium item cleared |
 
 ---
 
