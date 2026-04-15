@@ -49,3 +49,21 @@ This folder owns the renderer-side profile UX for `apps/desktop`: first-run prof
 - `OnboardingWizard.tsx` still hides the launching dialog via a render-phase ref mutation when pending user feedback appears.
 - Profile create/switch surfaces still swallow restart-sensitive operational failures instead of showing actionable UI feedback.
 - GitHub onboarding step control still lives across `SetupScreen`, `GitHubConnectCard`, and `useGitHubAuthFlow`.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 13 (was 11)
+- Largest file: `apps/desktop/src/components/profiles/onboarding/onboarding-launch-runtime.ts` (371 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (was none)
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Replaced the render-phase `hideLaunchingDialogRef` mutation in `OnboardingWizard.tsx` with an effect-backed lifecycle hook that keeps pending-input dismissal behavior explicit.
+- Added `onboarding/useLaunchingDialogVisibility.ts` so launch-dialog hiding now resets cleanly when onboarding leaves the launching phase.
+- Added focused hook coverage for initial launch visibility, pending-input dismissal, and the next-launch reset behavior.
+
+### Still outstanding
+- Profile create/switch surfaces still swallow restart-sensitive operational failures instead of showing actionable UI feedback.
+- GitHub onboarding step control still lives across `SetupScreen`, `GitHubConnectCard`, and `useGitHubAuthFlow`.

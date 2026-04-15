@@ -20,7 +20,7 @@ _Plan drafted: 2026-04-12_
    - `OnboardingWizard.tsx` now stays responsible for phase selection and dialog composition only.
    - Keeps the AD-022 restart/onboarding semantics explicit while matching the store/controller ownership direction from the `src/stores` review.
 
-2. **Replace render-phase dialog-hiding mutations with derived lifecycle state.**
+2. ~~**Replace render-phase dialog-hiding mutations with derived lifecycle state.**~~ ✅ 2026-04-15 (`fc36ab2b`)
    - Track “launch dialog should hide because user input is pending” as explicit component state or a small effect keyed on `uiPhase` + `hasPendingUserInput`.
    - Keep the behavior identical (dialog disappears once the memory bootstrap is waiting on user input), but stop mutating refs during render.
 
@@ -45,7 +45,7 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Extract onboarding session runtime helpers out of `OnboardingWizard.tsx` and reduce the component to phase/dialog composition.~~ ✅ 2026-04-15 (`2b94571a`)
-2. Remove the render-phase `hideLaunchingDialogRef` mutation and replace it with explicit derived state.
+2. ~~Remove the render-phase `hideLaunchingDialogRef` mutation and replace it with explicit derived state.~~ ✅ 2026-04-15 (`fc36ab2b`)
 3. Introduce one restart-aware error helper for profile create/switch flows and surface errors in the UI.
 4. Consolidate GitHub onboarding step control into a single hook/helper.
 5. Verification checklist:
@@ -57,3 +57,4 @@ _Plan drafted: 2026-04-12_
 
 ## Execution log
 - 2026-04-15 — `2b94571a` — `refactor(profiles): extract onboarding launch runtime`
+- 2026-04-15 — `fc36ab2b` — `refactor(profiles): derive onboarding launch dialog visibility`

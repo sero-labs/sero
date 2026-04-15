@@ -67,6 +67,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/profiles/onboarding/{onboarding-launch-runtime.ts,useOnboardingLaunch.ts,onboarding-launch-runtime.test.ts}` | New — extracted onboarding session/runtime ownership plus focused sequencing/auth-recovery coverage |
 | `docs/deslopify/apps/desktop/src/components/profiles/{facts,plan}.md` | Recorded the onboarding runtime extraction, refreshed profile-folder metrics, and narrowed the remaining backlog |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/profiles/` in progress with the first Medium onboarding item cleared |
+| `apps/desktop/src/components/profiles/OnboardingWizard.tsx` | Replaced the render-phase launch-dialog ref mutation with an effect-backed visibility hook while preserving pending-input dismissal behavior (132 → 128 lines) |
+| `apps/desktop/src/components/profiles/onboarding/{useLaunchingDialogVisibility.ts,useLaunchingDialogVisibility.test.tsx}` | New — extracted launch-dialog visibility lifecycle ownership and added focused coverage for pending-input dismissal + relaunch reset behavior |
+| `docs/deslopify/apps/desktop/src/components/profiles/{facts,plan}.md` | Recorded the launch-dialog lifecycle cleanup, refreshed profile-folder metrics, and narrowed the remaining backlog to profile-error + GitHub-step follow-ups |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/profiles/` in progress with the first two Medium onboarding items cleared |
 
 ---
 
