@@ -16,6 +16,10 @@ interface ProfileFormProps {
   submitLabel?: string;
   /** Called when the user submits the form. */
   onSubmit: (name: string, customPath?: string, copyAuthFromId?: string) => Promise<void>;
+  /** Shared operational error for restart-sensitive profile actions. */
+  operationError?: string | null;
+  /** Clears the shared operational error when the user edits the form. */
+  onClearOperationError?: () => void;
   /** If true, shows a loading spinner on the submit button. */
   isLoading?: boolean;
   /** If true, the name input is autofocused. */
@@ -25,6 +29,8 @@ interface ProfileFormProps {
 export function ProfileForm({
   submitLabel = 'Create Profile',
   onSubmit,
+  operationError = null,
+  onClearOperationError,
   isLoading = false,
   autoFocus = true,
 }: ProfileFormProps) {
@@ -33,7 +39,7 @@ export function ProfileForm({
   const [copyAuth, setCopyAuth] = useState(false);
   const [hasAuthSource, setHasAuthSource] = useState(false);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Check if the current active profile has transferable profile data to copy
   useEffect(() => {
@@ -56,7 +62,8 @@ export function ProfileForm({
       const picked = await window.sero.profiles.pickFolder();
       if (picked) {
         setCustomPath(picked);
-        setError(null);
+        setValidationError(null);
+        onClearOperationError?.();
       }
     } catch (err) {
       console.error('[ProfileForm] Folder picker error:', err);
@@ -67,16 +74,13 @@ export function ProfileForm({
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Profile name is required');
+      setValidationError('Profile name is required');
       return;
     }
-    setError(null);
-    try {
-      const authSource = (copyAuth && activeProfileId) ? activeProfileId : undefined;
-      await onSubmit(trimmed, customPath ?? undefined, authSource);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create profile');
-    }
+    setValidationError(null);
+    onClearOperationError?.();
+    const authSource = (copyAuth && activeProfileId) ? activeProfileId : undefined;
+    await onSubmit(trimmed, customPath ?? undefined, authSource);
   };
 
   return (
@@ -94,7 +98,11 @@ export function ProfileForm({
           type="text"
           placeholder="e.g. Personal, Work, Research..."
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setValidationError(null);
+            onClearOperationError?.();
+          }}
           autoFocus={autoFocus}
           disabled={isLoading}
           className="bg-[var(--bg-surface)] text-[var(--text-primary)]"
@@ -124,7 +132,10 @@ export function ProfileForm({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setCustomPath(null)}
+              onClick={() => {
+                setCustomPath(null);
+                onClearOperationError?.();
+              }}
               disabled={isLoading}
               className="shrink-0 text-xs text-[var(--text-muted)]"
             >
@@ -143,7 +154,10 @@ export function ProfileForm({
           <input
             type="checkbox"
             checked={copyAuth}
-            onChange={(e) => setCopyAuth(e.target.checked)}
+            onChange={(e) => {
+              setCopyAuth(e.target.checked);
+              onClearOperationError?.();
+            }}
             disabled={isLoading}
             className="size-3.5 accent-[var(--accent-primary)]"
           />
@@ -158,8 +172,8 @@ export function ProfileForm({
         </label>
       )}
 
-      {error && (
-        <p className="text-xs text-[var(--status-error)]">{error}</p>
+      {(validationError ?? operationError) && (
+        <p className="text-xs text-[var(--status-error)]">{validationError ?? operationError}</p>
       )}
 
       <Button

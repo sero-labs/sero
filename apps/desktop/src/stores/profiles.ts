@@ -9,6 +9,23 @@
 import { create } from 'zustand';
 import type { ProfileInfo } from '@/types/ipc';
 
+type ProfileOperation = 'create' | 'switch';
+
+const PROFILE_RESTART_HINT = 'If the action succeeds, Sero restarts automatically.';
+
+function getProfileOperationError(operation: ProfileOperation, err: unknown): string {
+  const defaultMessage = operation === 'create'
+    ? 'Failed to create profile'
+    : 'Failed to switch profile';
+  const detail = err instanceof Error && err.message.trim().length > 0
+    ? err.message.trim()
+    : null;
+
+  return detail
+    ? `${detail} ${PROFILE_RESTART_HINT}`
+    : `${defaultMessage}. ${PROFILE_RESTART_HINT}`;
+}
+
 interface ProfileState {
   /** All registered profiles. */
   profiles: ProfileInfo[];
@@ -74,6 +91,18 @@ export async function loadProfiles(): Promise<void> {
 
 // ── Actions ───────────────────────────────────────────────────
 
+function failProfileOperation(operation: ProfileOperation, err: unknown): never {
+  useProfileStore.setState({
+    isLoading: false,
+    error: getProfileOperationError(operation, err),
+  });
+  throw err;
+}
+
+export function clearProfileError(): void {
+  useProfileStore.setState({ error: null });
+}
+
 /** Create a new profile. If activate=true (default for first profile), triggers restart. */
 export async function createProfile(
   name: string,
@@ -82,24 +111,24 @@ export async function createProfile(
   copyAuthFromId?: string,
 ): Promise<ProfileInfo> {
   useProfileStore.setState({ isLoading: true, error: null });
+
+  let profile: ProfileInfo;
+  let profiles: ProfileInfo[];
   try {
-    const profile = await window.sero.profiles.create(name, profilePath, copyAuthFromId);
-
-    // Refresh the list
-    const profiles = await window.sero.profiles.list();
-    useProfileStore.setState({ profiles, isLoading: false });
-
-    // If this is the first profile or activate requested, switch to it
-    if (activate || profiles.length === 1) {
-      await switchProfile(profile.id);
-    }
-
-    return profile;
+    profile = await window.sero.profiles.create(name, profilePath, copyAuthFromId);
+    profiles = await window.sero.profiles.list();
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Failed to create profile';
-    useProfileStore.setState({ isLoading: false, error: msg });
-    throw err;
+    failProfileOperation('create', err);
   }
+
+  useProfileStore.setState({ profiles, isLoading: false });
+
+  // If this is the first profile or activate requested, switch to it
+  if (activate || profiles.length === 1) {
+    await switchProfile(profile.id);
+  }
+
+  return profile;
 }
 
 /** Switch to a different profile. Triggers app restart. */
@@ -109,9 +138,7 @@ export async function switchProfile(id: string): Promise<void> {
     await window.sero.profiles.switch(id);
     // App will restart — this line may not execute
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Failed to switch profile';
-    useProfileStore.setState({ isLoading: false, error: msg });
-    throw err;
+    failProfileOperation('switch', err);
   }
 }
 
