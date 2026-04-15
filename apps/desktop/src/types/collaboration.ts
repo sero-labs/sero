@@ -47,7 +47,7 @@ export type CollaborationStrategy = 'standard' | 'debate';
 
 /** Configuration for the debate strategy. */
 export interface DebateConfig {
-  /** Maximum number of debate rounds (default: 3). */
+  /** Maximum number of debate rounds (default: 1). */
   maxRounds: number;
   /** Maximum total time in seconds for the debate phase (default: 120). */
   timeLimitSec: number;
