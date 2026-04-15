@@ -96,3 +96,24 @@ _Last reviewed: 2026-04-12_
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Near-cap cleanup for `ThemeEditorSheet.tsx`, `ModelSelector.tsx`, `ContextEditor.tsx`, and `model-manager/local-models/LocalProviderForm.tsx` remains deferred after the `WorkspaceTree.tsx` split.
 - Shared autocomplete/listbox primitives, render-phase side-effect cleanup, and shell error-surface normalization remain exactly as described in the original plan.
+
+## Post-fix snapshot — 2026-04-15 (theme-editor split)
+
+### Metrics after fixes
+- Total files: 101 (was 95)
+- Total LOC: 16,897 (was 16,500)
+- Largest file: `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx` (479 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Added `theme-editor/useThemeEditorState.ts` plus `theme-editor/shared.ts` so draft initialization/teardown, live preview application, preset save/reset flows, and preview reversion now live behind one focused controller seam instead of render-phase state updates inside `ThemeEditorSheet.tsx`.
+- Added `theme-editor/{ThemeEditorDetailsSection.tsx,ThemeEditorTabs.tsx,ThemeEditorFooter.tsx}` and reduced `ThemeEditorSheet.tsx` to a thin presentation shell over the extracted sections and controller (400 → 112 LOC).
+- Added `theme-editor/useThemeEditorState.test.tsx` to cover the behavior-sensitive open/close initialization, live preview revert, save, and built-in preset reset flows.
+- `ThemeEditorSheet.tsx` is no longer in the near-cap list; the remaining cap-pressure set is now `ContextEditor.tsx`, `LocalProviderForm.tsx`, `AuthLoginViews.tsx`, `ModelSelector.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
+- The `ThemeEditorSheet` render-phase state update noted in the original review is now gone; the remaining render-phase side-effect follow-up is limited to `CollaborationFeedItems.tsx` and `theme-editor/FontPicker.tsx`.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Near-cap cleanup for `ModelSelector.tsx`, `ContextEditor.tsx`, and `model-manager/local-models/LocalProviderForm.tsx` remains deferred, along with the still-near-cap `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx` follow-up.
+- Shared autocomplete/listbox primitives, the remaining render-phase side-effect cleanup in collaboration/font helpers, and shell error-surface normalization remain exactly as described in the original plan.

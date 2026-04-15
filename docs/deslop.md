@@ -4,6 +4,20 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-04-15
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/desktop/src/components/layout/ThemeEditorSheet.tsx` | Reduced to a thin theme-editor shell over extracted controller/presentation modules and removed render-phase draft initialization (400 → 112 lines) |
+| `apps/desktop/src/components/layout/theme-editor/{shared.ts,useThemeEditorState.ts,ThemeEditorDetailsSection.tsx,ThemeEditorTabs.tsx,ThemeEditorFooter.tsx}` | New — extracted theme-editor draft/preview controller, shared preset helpers, and focused metadata/tab/footer sections |
+| `apps/desktop/src/components/layout/theme-editor/useThemeEditorState.test.tsx` | New — covers theme-editor open/close initialization, live preview revert, save, and built-in reset behavior |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the ThemeEditorSheet split, refreshed layout metrics, and narrowed the remaining near-cap/render-side-effect backlog |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the ThemeEditorSheet split cleared |
+
+---
+
 ## 2026-04-14
 
 ### Files Changed
