@@ -50,3 +50,26 @@ _Last reviewed: 2026-04-15_
 - `app-control/dom-interactions.ts` is still a 385-LOC multi-responsibility router and remains the next Medium cleanup target.
 - `google-fonts.ts` still preloads every mapped Google font eagerly.
 - `theme-engine.ts` still carries the dead `presetToMeta()` helper.
+
+## Post-fix snapshot — 2026-04-15 (dom-interactions split)
+
+### Metrics after fixes
+- Total files: 21 (was 18)
+- Total LOC: 2,228 (was 1,954)
+- Largest file: `apps/desktop/src/lib/federation-registry.ts` (313 LOC; was `app-control/dom-interactions.ts` at 385 LOC)
+- Files over 500 LOC: none (unchanged)
+- Near-cap files (≥400 LOC): none
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Reduced `app-control/dom-interactions.ts` from a 385-LOC multi-owner engine to a 42-LOC router that preserves the exported `executeAppInteraction` + `getAppPanelRect` API.
+- Added focused interaction modules under `app-control/dom/`:
+  - `geometry.ts` — app-panel lookup and rect math
+  - `targeting.ts` — selector lookup, click-target resolution, and point stack capture
+  - `actions.ts` — click/type/scroll/select/hover/get-text handlers
+  - `inspect.ts` — inspect payload shaping and interactive element summaries
+- Kept the existing `dom-interactions.test.ts` coverage green to validate point-inspection and coordinate click semantics through the extracted module seams.
+
+### Still outstanding
+- `google-fonts.ts` still preloads every mapped Google font eagerly.
+- `theme-engine.ts` still carries the dead `presetToMeta()` helper.
