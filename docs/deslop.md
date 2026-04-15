@@ -137,6 +137,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/types/electron-workspace.d.ts` | Replaced LSP `notification: any` with canonical `LspNotification` typing for stricter preload declaration contracts |
 | `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the Low declaration-hygiene follow-up closeout, refreshed metrics, and left only comment/default drift plus user-feedback revalidation pending |
 | `docs/deslopify/index.md` | Updated `apps/desktop/src/types/` status to in-progress with Medium + Low declaration-hygiene items cleared |
+| `apps/desktop/electron/features/auth/google/auth-manager.ts` | Reduced to a thin Google auth composition root over focused status, OAuth loopback, and credential modules (418 → 182 lines) |
+| `apps/desktop/electron/features/auth/google/{config.ts,credentials.ts,oauth-loopback.ts,status.ts,types.ts}` | New — extracted Google auth config/constants, gog credential provisioning, loopback OAuth exchange, status+migration helpers, and shared auth types |
+| `apps/desktop/electron/__tests__/features/auth/google/{credentials.test.ts,status.test.ts}` | New — focused coverage for extracted credential-import memoization and buggy-keyring migration/status helper behavior |
+| `docs/deslopify/apps/desktop/electron/features/auth/{facts,plan}.md` | Recorded the GoogleAuthManager modularization closeout, refreshed auth-folder metrics, and narrowed remaining backlog to Low helper/guidance follow-ups |
+| `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/auth/` to reflect both Medium items cleared with only Low follow-ups pending |
 
 ---
 

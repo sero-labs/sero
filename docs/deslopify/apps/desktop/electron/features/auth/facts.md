@@ -6,10 +6,10 @@ _Last reviewed: 2026-04-15_
 This feature owns the app-level GitHub and Google auth/runtime integration: GitHub device-flow login plus repo-creation helpers for VCS workflows, and Google OAuth + gog keyring integration for Gmail/Calendar-style plugin commands with profile-aware token migration.
 
 ## Shape & metrics
-- Total files: 4
-- Largest file: `apps/desktop/electron/features/auth/google/auth-manager.ts` (418 LOC)
+- Total files: 9
+- Largest file: `apps/desktop/electron/features/auth/github/auth-manager.ts` (373 LOC)
 - Files over 500 LOC: none
-- Near-cap files (≥400 LOC): `apps/desktop/electron/features/auth/google/auth-manager.ts` (418)
+- Near-cap files (≥400 LOC): none
 - External dependencies of note: Electron `safeStorage`/`shell`, GitHub OAuth endpoints, `gh` CLI, `gog` CLI + file keyring, profile registry, workspace/container-aware `GitRunner`
 - Upstream callers: `apps/desktop/electron/shared/infra/shared-infra.ts`, `apps/desktop/electron/ipc/integrations/github.ts`, `apps/desktop/electron/ipc/integrations/google-api.ts`, `apps/desktop/electron/features/vcs/core/git-runner.ts`, `apps/desktop/electron/cli/lib/gog-runner.ts`, auth tests
 - Downstream dependencies: repo publish/bootstrap flows, host/container git auth injection, Google plugin command execution, per-profile gog client naming and migration
@@ -27,8 +27,8 @@ This feature owns the app-level GitHub and Google auth/runtime integration: GitH
 - Google’s per-profile client naming and migration logic is coupled to AD-022 profile isolation; path or client-name drift would strand credentials.
 
 ## Surprising discoveries
-- `GitHubAuthManager` advertises encrypted token storage but intentionally falls back to base64-only persistence when `safeStorage` is unavailable.
-- `GoogleAuthManager` bundles status caching, buggy-keyring migration, loopback callback-server setup, and gog credential import in one near-cap file.
+- `GitHubAuthManager` still carries the legacy root-file cleanup shim even though active auth persistence is now profile-scoped under `SERO_AGENT_DIR`.
+- Google auth migration behavior depends on both profile-registry scanning and single-token fallback semantics; this is now easier to review after modularization but still easy to regress if moved without tests.
 - The user-facing “Google OAuth not configured” error still hardcodes the default-root plugin-config path instead of using profile-scoped guidance.
 
 ## Post-fix snapshot — 2026-04-12
@@ -62,5 +62,22 @@ This feature owns the app-level GitHub and Google auth/runtime integration: GitH
 
 ### Still outstanding
 - `GoogleAuthManager` remains the near-cap multi-responsibility hotspot in this feature.
+- Auth runtime helper dedupe (`gog` discovery and GitHub URL normalization) is still pending.
+- Google OAuth setup guidance still references the default-root plugin-config path instead of profile-scoped instructions.
+
+## Post-fix snapshot — 2026-04-15 (Google modularization)
+
+### Metrics after fixes
+- Total files: 9 (was 4)
+- Largest file: `apps/desktop/electron/features/auth/github/auth-manager.ts` (373 LOC; was `google/auth-manager.ts` at 418 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder (unchanged)
+
+### What changed
+- Split Google auth runtime ownership into focused modules: `google/{config,credentials,oauth-loopback,status,types}.ts`.
+- Reduced `google/auth-manager.ts` from 418 → 182 lines and kept it as the composition root for status/login/logout orchestration.
+- Added focused helper coverage in `electron/__tests__/features/auth/google/{credentials,status}.test.ts` to lock migration and credential-import semantics.
+
+### Still outstanding
 - Auth runtime helper dedupe (`gog` discovery and GitHub URL normalization) is still pending.
 - Google OAuth setup guidance still references the default-root plugin-config path instead of profile-scoped instructions.
