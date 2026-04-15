@@ -3,259 +3,58 @@
  * and favourites. Opened from the ModelSelector gear icon.
  */
 
-import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
-import { Search, Star, Eye, EyeOff, Layers, X, Server } from 'lucide-react';
+import { Search, Eye, EyeOff, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
-import { useAgentStore } from '@/stores/agent';
-import { useFocusedModelState, useFocusedSessionId } from '@/stores/agent-selectors';
-import { useModelPreferences, modelKey } from '@/stores/model-preferences';
-import type { AvailableModelGroup, ManagerTab } from './types';
-import { ModelManagerProvider } from './ModelManagerProvider';
+import { modelKey } from '@/stores/model-preferences';
 import { ModelManagerItem } from './ModelManagerItem';
-import { LocalModelsPanel, useLocalModels } from './local-models';
-
-/** Filter groups by search query. */
-function filterManagerGroups(
-  groups: AvailableModelGroup[],
-  query: string,
-): AvailableModelGroup[] {
-  if (!query) return groups;
-  const q = query.toLowerCase();
-  const filtered: AvailableModelGroup[] = [];
-  for (const group of groups) {
-    const matches = group.models.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.modelId.toLowerCase().includes(q) ||
-        group.displayName.toLowerCase().includes(q),
-    );
-    if (matches.length) filtered.push({ ...group, models: matches });
-  }
-  return filtered;
-}
-
-const TAB_CONFIG: { id: ManagerTab; label: string; icon: typeof Star }[] = [
-  { id: 'all', label: 'All Models', icon: Layers },
-  { id: 'favourites', label: 'Favourites', icon: Star },
-  { id: 'hidden', label: 'Hidden', icon: EyeOff },
-  { id: 'local', label: 'Local', icon: Server },
-];
+import { ModelManagerProvider } from './ModelManagerProvider';
+import { ModelManagerTabBar } from './ModelManagerTabBar';
+import { LocalModelsPanel } from './local-models';
+import { useModelManagerState } from './useModelManagerState';
 
 interface ModelManagerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-/** Stable tab bar with animated indicator. */
-const TabBar = memo(function TabBar({
-  activeTab,
-  onTabChange,
-  counts,
-}: {
-  activeTab: ManagerTab;
-  onTabChange: (tab: ManagerTab) => void;
-  counts: Record<ManagerTab, number>;
-}) {
-  return (
-    <div className="flex gap-1 rounded-lg bg-[var(--bg-base)] p-1">
-      {TAB_CONFIG.map((tab) => {
-        const Icon = tab.icon;
-        const active = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            className={`relative flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-150 ${
-              active
-                ? 'text-[var(--text-primary)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-            }`}
-          >
-            {active && (
-              <motion.div
-                layoutId="manager-tab-bg"
-                className="absolute inset-0 rounded-md bg-[var(--bg-elevated)]"
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              />
-            )}
-            <span className="relative z-10 flex items-center gap-1.5">
-              <Icon className="size-3.5" />
-              {tab.label}
-              {counts[tab.id] > 0 && (
-                <span className="rounded-full bg-[var(--bg-muted)] px-1.5 py-px text-[10px] font-semibold text-[var(--text-muted)]">
-                  {counts[tab.id]}
-                </span>
-              )}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-});
-
 export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogProps) {
-  const [activeTab, setActiveTab] = useState<ManagerTab>('all');
-  const [filter, setFilter] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const ms = useFocusedModelState();
-  const focusedSessionId = useFocusedSessionId();
-  const fetchModelState = useAgentStore((s) => s.fetchModelState);
-  const groups = ms?.availableModels ?? [];
-
-  const refreshFocusedModels = useCallback(async () => {
-    if (!focusedSessionId) return;
-    await fetchModelState(focusedSessionId);
-  }, [focusedSessionId, fetchModelState]);
-
-  const localModels = useLocalModels({ onSaved: refreshFocusedModels });
-  const localProviderCount = Object.keys(localModels.config?.providers ?? {}).length;
-
-  const prefs = useModelPreferences();
-  const { toggleFavourite, toggleHidden, toggleProviderHidden, hideAll, showAll } = prefs;
-
-  // Stable lookup callbacks for memoized children
-  const isFavourite = useCallback(
-    (key: string) => prefs.favouriteModels.includes(key),
-    [prefs.favouriteModels],
-  );
-  const isHidden = useCallback(
-    (key: string) => prefs.hiddenModels.includes(key),
-    [prefs.hiddenModels],
-  );
-  const isProviderHidden = useCallback(
-    (provider: string) => prefs.hiddenProviders.includes(provider),
-    [prefs.hiddenProviders],
-  );
-
-  // Filtered groups based on search
-  const filteredGroups = useMemo(
-    () => filterManagerGroups(groups, filter),
-    [groups, filter],
-  );
-
-  // Build tab-specific model lists
-  const { favouriteGroups, hiddenGroups } = useMemo(() => {
-    const favKeys = new Set(prefs.favouriteModels);
-    const hidKeys = new Set(prefs.hiddenModels);
-    const hidProviders = new Set(prefs.hiddenProviders);
-
-    const favGroups: AvailableModelGroup[] = [];
-    const hidGroups: AvailableModelGroup[] = [];
-
-    for (const group of filteredGroups) {
-      const favModels = group.models.filter(
-        (m) => favKeys.has(modelKey(m.provider, m.modelId)),
-      );
-      const hidModels = group.models.filter(
-        (m) =>
-          hidKeys.has(modelKey(m.provider, m.modelId)) ||
-          hidProviders.has(m.provider),
-      );
-      if (favModels.length) favGroups.push({ ...group, models: favModels });
-      if (hidModels.length) hidGroups.push({ ...group, models: hidModels });
-    }
-    return { favouriteGroups: favGroups, hiddenGroups: hidGroups };
-  }, [filteredGroups, prefs.favouriteModels, prefs.hiddenModels, prefs.hiddenProviders]);
-
-  const counts: Record<ManagerTab, number> = useMemo(() => {
-    // Deduplicate: a model individually hidden whose provider is also hidden
-    // should only be counted once.
-    const hiddenSet = new Set(prefs.hiddenModels);
-    for (const group of groups) {
-      if (prefs.hiddenProviders.includes(group.provider)) {
-        for (const m of group.models) {
-          hiddenSet.add(modelKey(m.provider, m.modelId));
-        }
-      }
-    }
-    return {
-      all: groups.reduce((n, g) => n + g.models.length, 0),
-      favourites: prefs.favouriteModels.length,
-      hidden: hiddenSet.size,
-      local: localProviderCount,
-    };
-  }, [groups, prefs.favouriteModels, prefs.hiddenModels, prefs.hiddenProviders, localProviderCount]);
-
-  // Bulk actions — "Hide all" skips favourited models, "Hide all incl.
-  // favourites" hides everything. Both respect the search filter.
-  const allVisibleKeys = useMemo(
-    () => filteredGroups.flatMap((g) =>
-      g.models.map((m) => modelKey(m.provider, m.modelId)),
-    ),
-    [filteredGroups],
-  );
-
-  const hasFavouritesInView = useMemo(
-    () => {
-      const favSet = new Set(prefs.favouriteModels);
-      return allVisibleKeys.some((k) => favSet.has(k));
-    },
-    [allVisibleKeys, prefs.favouriteModels],
-  );
-
-  const handleHideAll = useCallback(() => {
-    const favSet = new Set(prefs.favouriteModels);
-    const keys = allVisibleKeys.filter((k) => !favSet.has(k));
-    if (keys.length) hideAll(keys);
-  }, [allVisibleKeys, prefs.favouriteModels, hideAll]);
-
-  const handleHideAllIncludingFavourites = useCallback(() => {
-    if (allVisibleKeys.length) hideAll(allVisibleKeys);
-  }, [allVisibleKeys, hideAll]);
-
-  const handleShowAll = useCallback(() => {
-    showAll();
-  }, [showAll]);
-
-  useEffect(() => {
-    if (!open) return;
-    setFilter('');
-    setActiveTab('all');
-    void localModels.reload();
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, [open, localModels.reload]);
-
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      onOpenChange(nextOpen);
-    },
-    [onOpenChange],
-  );
-
-  const displayGroups =
-    activeTab === 'favourites'
-      ? favouriteGroups
-      : activeTab === 'hidden'
-        ? hiddenGroups
-        : filteredGroups;
-
-  const emptyMessage =
-    activeTab === 'favourites'
-      ? 'No favourite models yet. Click the star icon to add favourites.'
-      : activeTab === 'hidden'
-        ? 'No hidden models. Click the eye icon to hide models from the selector.'
-        : filter
-          ? `No models matching "${filter}"`
-          : 'No models available.';
+  const {
+    activeTab,
+    counts,
+    displayGroups,
+    emptyMessage,
+    favouriteGroups,
+    filter,
+    handleHideAll,
+    handleHideAllIncludingFavourites,
+    handleShowAll,
+    hasFavouritesInView,
+    inputRef,
+    isFavourite,
+    isHidden,
+    isProviderHidden,
+    localModels,
+    setActiveTab,
+    setFilter,
+    toggleFavourite,
+    toggleHidden,
+    toggleProviderHidden,
+  } = useModelManagerState(open);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="!max-w-[520px] !rounded-2xl border-[var(--border-subtle)] !bg-[var(--bg-surface)]
-          !p-0 shadow-2xl shadow-black/50 sm:!max-w-[520px]"
+        className="!max-w-[520px] !rounded-2xl border-[var(--border-subtle)] !bg-[var(--bg-surface)] !p-0 shadow-2xl shadow-black/50 sm:!max-w-[520px]"
       >
         <DialogTitle className="sr-only">Model Manager</DialogTitle>
 
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 pt-4 pb-3">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 pb-3 pt-4">
           <div>
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               Model Manager
@@ -266,86 +65,78 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
           </div>
           <button
             onClick={() => onOpenChange(false)}
-            className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors
-              hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
+            className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
           >
             <X className="size-4" />
           </button>
         </div>
 
-        {/* Tabs + Search */}
         <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
-          <TabBar activeTab={activeTab} onTabChange={setActiveTab} counts={counts} />
-          {activeTab !== 'local' && (
+          <ModelManagerTabBar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            counts={counts}
+          />
+          {activeTab !== 'local' ? (
             <div className="flex items-center gap-2 rounded-lg bg-[var(--bg-base)] px-3">
               <Search className="size-3.5 shrink-0 text-[var(--text-muted)]" />
               <input
                 ref={inputRef}
                 value={filter}
-                onChange={(e) => setFilter(e.target.value)}
+                onChange={(event) => setFilter(event.target.value)}
                 placeholder="Search models, providers…"
-                className="h-8 w-full bg-transparent text-xs text-[var(--text-primary)]
-                  placeholder:text-[var(--text-muted)] outline-none"
+                className="h-8 w-full bg-transparent text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
               />
-              {filter && (
+              {filter ? (
                 <button
                   onClick={() => setFilter('')}
                   className="rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                 >
                   <X className="size-3" />
                 </button>
-              )}
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Local tab: full custom panel, no search/bulk actions */}
         {activeTab === 'local' ? (
           <div className="max-h-[400px] min-h-[200px] overflow-y-auto">
             <LocalModelsPanel localModels={localModels} />
           </div>
         ) : (
           <>
-            {/* Bulk actions bar — context-sensitive per tab */}
-            {activeTab === 'all' && displayGroups.length > 0 && (
+            {activeTab === 'all' && displayGroups.length > 0 ? (
               <div className="flex items-center justify-end gap-1 border-b border-[var(--border-subtle)] px-4 py-1.5">
                 <button
                   onClick={handleHideAll}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
-                    text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
-                    hover:text-[var(--text-secondary)]"
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                 >
                   <EyeOff className="size-3" />
                   {filter ? 'Hide matches' : 'Hide all'}
                 </button>
-                {hasFavouritesInView && (
+                {hasFavouritesInView ? (
                   <button
                     onClick={handleHideAllIncludingFavourites}
-                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
-                      text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
-                      hover:text-[var(--text-secondary)]"
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                   >
                     <EyeOff className="size-3" />
                     {filter ? 'incl. favourites' : 'Hide all incl. favourites'}
                   </button>
-                )}
+                ) : null}
               </div>
-            )}
-            {activeTab === 'hidden' && displayGroups.length > 0 && (
+            ) : null}
+            {activeTab === 'hidden' && displayGroups.length > 0 ? (
               <div className="flex items-center justify-end border-b border-[var(--border-subtle)] px-4 py-1.5">
                 <button
                   onClick={handleShowAll}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium
-                    text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)]
-                    hover:text-[var(--text-secondary)]"
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]"
                 >
                   <Eye className="size-3" />
                   Show all
                 </button>
               </div>
-            )}
+            ) : null}
 
-            {/* Model list */}
             <div className="max-h-[400px] min-h-[200px] overflow-y-auto px-2 py-1">
               <AnimatePresence mode="popLayout">
                 {displayGroups.length === 0 ? (
@@ -359,7 +150,6 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
                     {emptyMessage}
                   </motion.div>
                 ) : activeTab === 'favourites' ? (
-                  // Flat list for favourites tab — no provider grouping
                   favouriteGroups.flatMap((group) =>
                     group.models.map((model) => {
                       const key = modelKey(model.provider, model.modelId);
@@ -379,11 +169,11 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
                     }),
                   )
                 ) : (
-                  displayGroups.map((group, i) => (
+                  displayGroups.map((group, index) => (
                     <div key={group.provider}>
-                      {i > 0 && (
+                      {index > 0 ? (
                         <div className="mx-3 my-1 border-t border-[var(--border-subtle)]" />
-                      )}
+                      ) : null}
                       <ModelManagerProvider
                         group={group}
                         isProviderHidden={isProviderHidden(group.provider)}
