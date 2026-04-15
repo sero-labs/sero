@@ -7,7 +7,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { containerManager, workspaceManager, buildContainerConfig } from '@electron/shared/infra/shared-infra';
 
 export function registerContainerHandlers(): void {

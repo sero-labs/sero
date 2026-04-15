@@ -6,7 +6,7 @@
 import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { ContextPreset } from '@/types/ipc';
 import { SERO_HOME } from '@electron/platform/env';
 

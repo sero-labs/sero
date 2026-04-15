@@ -6,7 +6,7 @@
  */
 
 import { app, dialog, ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { profileManager } from '@electron/features/profile/manager';
 import {
   applyLegacyProviderDefaultsMigration,

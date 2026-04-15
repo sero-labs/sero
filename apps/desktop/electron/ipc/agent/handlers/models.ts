@@ -7,7 +7,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { AvailableModelGroup } from '@/types/ipc';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { buildAvailableModelGroups } from '../core/model-groups';

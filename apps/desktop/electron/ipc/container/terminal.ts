@@ -6,7 +6,7 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { containerManager } from '@electron/shared/infra/shared-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 

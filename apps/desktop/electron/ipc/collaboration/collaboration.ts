@@ -13,7 +13,7 @@
 
 import { ipcMain, BrowserWindow } from 'electron';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type {
   CollaborationEvent,
   CollaborationConfig,

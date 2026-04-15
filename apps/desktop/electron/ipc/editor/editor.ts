@@ -13,7 +13,7 @@ import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { EditorRoot } from '@/types/ipc';
 import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { SERO_AGENT_DIR } from '@electron/platform/env';

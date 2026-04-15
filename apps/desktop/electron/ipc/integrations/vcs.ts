@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { CreatePullRequestInput, PullRequestDraft } from '@/types/vcs';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';

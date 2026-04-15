@@ -3,7 +3,7 @@
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '@/types/ipc';
 import type { DeviceFlowProgress, GitHubAuthStatus } from '@electron/features/auth/github/auth-manager';
 import { githubAuth, githubRepoOps } from '@electron/shared/infra/shared-infra';

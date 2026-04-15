@@ -10,7 +10,7 @@ import { ipcMain } from 'electron';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import {
   generateImages,

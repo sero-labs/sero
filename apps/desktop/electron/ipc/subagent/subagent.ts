@@ -8,7 +8,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { readFile, writeFile, unlink, mkdir, rename } from 'fs/promises';
 import path from 'path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { subagentManager } from '@electron/shared/infra/shared-infra';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import type { SubagentEntry, SubagentUsage, SubagentToolActivity } from '@electron/features/subagent/core/types';

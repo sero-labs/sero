@@ -9,7 +9,7 @@ import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import { existsSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { ResponseFeedbackEntry, ResponseFeedbackState } from '@/types/ipc';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 

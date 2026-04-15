@@ -16,7 +16,7 @@ import { readFile, writeFile, mkdir, rm, rename, stat } from 'fs/promises';
 import { readdirSync, statSync } from 'fs';
 import path from 'path';
 import { parseFrontmatter } from '@mariozechner/pi-coding-agent';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { reloadAllSessionResources } from '..';
 import type { PromptTemplateSummary, PromptTemplateFileData } from '@/types/prompts';

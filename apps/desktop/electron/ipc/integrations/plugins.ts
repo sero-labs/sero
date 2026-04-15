@@ -3,7 +3,7 @@
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '@/types/ipc';
 import {
   installPlugin,

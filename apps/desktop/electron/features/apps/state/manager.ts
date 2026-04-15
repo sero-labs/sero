@@ -16,7 +16,7 @@ import { promises as fs } from 'fs';
 import { watch, type FSWatcher } from 'fs';
 import path from 'path';
 import { BrowserWindow } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 
 // ── Types ────────────────────────────────────────────────────
 

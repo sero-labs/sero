@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { WebAppRequest } from '@sero/common';
 import { webWorkspaceActionManager } from '@electron/features/apps/web-app/manager';
 

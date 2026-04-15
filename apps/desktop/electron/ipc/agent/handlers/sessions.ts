@@ -14,7 +14,7 @@ import { promises as fs, appendFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { SeroSessionInfo } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_SESSION_DIR } from '@electron/shared/infra/shared-infra';

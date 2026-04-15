@@ -12,7 +12,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { ProxyFetchRequest, ProxyFetchResponse } from '@/types/ipc';
 import dns from 'dns';
 import { promisify } from 'util';

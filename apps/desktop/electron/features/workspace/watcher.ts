@@ -13,7 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { BrowserWindow } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 
 const DEBOUNCE_MS = 150;
 

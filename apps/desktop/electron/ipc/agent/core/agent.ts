@@ -7,7 +7,7 @@ import {
   type SlashCommandInfo,
 } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type {
   ChatMessage,
   ChatAttachment,

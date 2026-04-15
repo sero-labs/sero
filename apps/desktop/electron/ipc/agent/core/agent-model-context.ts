@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import type { AgentSession, DefaultResourceLoader } from '@mariozechner/pi-coding-agent';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type {
   AgentStreamEvent,
   ContextOverrides,

@@ -14,7 +14,7 @@ import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { GoogleAuthManager } from '@electron/features/auth/google/auth-manager';
 import {
   deriveKeyringPassword,

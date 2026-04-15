@@ -9,7 +9,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { watch, readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { SeroAppManifest } from '@/types/ipc';
 import { discoverApps } from '@electron/features/apps/discovery';
 import {

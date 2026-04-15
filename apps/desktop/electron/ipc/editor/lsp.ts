@@ -7,7 +7,7 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { lspManager } from '@electron/shared/infra/shared-infra';
 
 export function registerLspHandlers(): void {

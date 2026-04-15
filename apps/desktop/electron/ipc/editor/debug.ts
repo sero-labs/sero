@@ -19,7 +19,7 @@ import { promises as fs, createWriteStream, type WriteStream } from 'fs';
 import path from 'path';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 import { SERO_HOME } from '@electron/platform/env';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { tryParseImageJson } from '../agent/core/tool-result-images';
 
 /** Resolve debug dir from SERO_DEBUG_DIR env var, falling back to ~/.sero-ui/debug. */

@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { OnboardingState } from '@/types/ipc';
 import { getOnboardingState } from '@electron/features/onboarding';
 
