@@ -29,7 +29,7 @@ import {
   toGitHubWebUrl,
   type GitRemoteOriginInfo,
   type GitRemoteVisibility,
-} from './git-remote/workflow';
+} from '../git-remote/workflow';
 
 // ── Types ────────────────────────────────────────────────────
 
