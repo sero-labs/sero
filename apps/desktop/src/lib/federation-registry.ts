@@ -137,15 +137,19 @@ function getCacheAppId(cacheKey: string): string {
   return idx === -1 ? cacheKey : cacheKey.slice(0, idx);
 }
 
+/** Remove one cached wrapper/module entry and any LRU bookkeeping for it. */
+function clearCacheKey(cacheKey: string): void {
+  resolvedModules.delete(cacheKey);
+  cache.delete(cacheKey);
+  const idx = accessOrder.indexOf(cacheKey);
+  if (idx !== -1) accessOrder.splice(idx, 1);
+}
+
 /** Evict least-recently-used entries that exceed MAX_CACHED_MODULES. */
 function evictLRU(): void {
   const nonPinned = accessOrder.filter((key) => !pinnedApps.has(getCacheAppId(key)));
   while (nonPinned.length > MAX_CACHED_MODULES) {
-    const victim = nonPinned.shift()!;
-    resolvedModules.delete(victim);
-    cache.delete(victim);
-    const idx = accessOrder.indexOf(victim);
-    if (idx !== -1) accessOrder.splice(idx, 1);
+    clearCacheKey(nonPinned.shift()!);
   }
 }
 
@@ -154,10 +158,7 @@ function clearAppCache(appId: string): void {
   const keys = new Set([...cache.keys(), ...resolvedModules.keys()]);
   for (const key of keys) {
     if (getCacheAppId(key) !== appId) continue;
-    cache.delete(key);
-    resolvedModules.delete(key);
-    const idx = accessOrder.indexOf(key);
-    if (idx !== -1) accessOrder.splice(idx, 1);
+    clearCacheKey(key);
   }
 }
 
@@ -297,8 +298,7 @@ export function getFederatedComponent(
     const loaded = await loadRemoteModule(appId, component, devPort);
     if (!loaded) {
       console.error(`[federation] Failed to load remote: ${toRemoteName(appId)}/${component}`);
-      cache.delete(cacheKey);
-      resolvedModules.delete(cacheKey);
+      clearCacheKey(cacheKey);
       return { default: () => null };
     }
 
