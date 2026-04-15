@@ -251,6 +251,9 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/workspace-tree/useWorkspaceTreeRuntime.test.tsx` | New — covers workspace refresh, Escape clear-selection, and federated `sero:open-session` wiring |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the WorkspaceTree split, refreshed layout metrics, and narrowed the remaining near-cap backlog |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the WorkspaceTree split cleared |
+| `apps/desktop/src/types/collaboration.ts` | Aligned the debate `maxRounds` inline default comment with `DEFAULT_DEBATE_CONFIG.maxRounds = 1` to close the remaining Low comment/default drift follow-up |
+| `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the Low comment/default drift closeout, refreshed type-folder metrics, and left only user-feedback revalidation outstanding |
+| `docs/deslopify/index.md` | Updated `apps/desktop/src/types/` progress text with the Low comment/default item cleared |
 
 ---
 

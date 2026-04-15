@@ -114,3 +114,21 @@ consumed by both renderer stores/components and Electron preload/main modules.
   (`default: 3` comment vs `DEFAULT_DEBATE_CONFIG.maxRounds = 1`).
 - User-feedback duplication from the original plan should be revalidated against current
   `@sero/common` ownership before marking that item obsolete.
+
+## Post-fix snapshot — 2026-04-15 (comment/default drift follow-up)
+
+### Metrics after fixes
+- Total files: 30 (was 30)
+- Total LOC: 3,278 (was 3,278)
+- Largest file: `apps/desktop/src/types/electron.d.ts` (489 LOC)
+- Files over 500 LOC: none (unchanged)
+- Remaining near-cap files (≥450 LOC): `electron.d.ts` (489), `ipc-channels.ts` (487), `ipc.ts` (465)
+
+### What changed
+- Corrected the `DebateConfig.maxRounds` inline default comment in
+  `apps/desktop/src/types/collaboration.ts` from `default: 3` to `default: 1` so docs now match
+  `DEFAULT_DEBATE_CONFIG.maxRounds = 1`.
+
+### Still outstanding
+- User-feedback duplication from the original plan should be revalidated against current
+  `@sero/common` ownership before marking that item obsolete.

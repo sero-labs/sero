@@ -49,9 +49,10 @@ reviewable.
   `apps/desktop/src/types/electron-workspace.d.ts:79` uses `notification: any`.~~ ✅ 2026-04-15 (`d028234c`) — the callback now uses canonical `LspNotification` typing.
   Effort: **S**.
 
-- **Low** — Comment/default mismatch in collaboration debate config —
+- **Low** — ~~Comment/default mismatch in collaboration debate config —
   `apps/desktop/src/types/collaboration.ts:50` documents `maxRounds` default as 3, while
-  `DEFAULT_DEBATE_CONFIG.maxRounds` is 1 at `collaboration.ts:60`. Effort: **S**.
+  `DEFAULT_DEBATE_CONFIG.maxRounds` is 1 at `collaboration.ts:60`.~~ ✅ 2026-04-15 (`431fdf5e`) — inline `maxRounds` docs now match the runtime default.
+  Effort: **S**.
 
 ## Proposed Refactoring
 1. **Split `ipc.ts` into domain modules and keep `ipc.ts` as a thin compatibility barrel.**
@@ -109,3 +110,4 @@ reviewable.
 - 2026-04-12 — Medium Wave E3 (working tree): canonicalized `ProfileInfo` into `src/types/profile.ts`, broke the `ipc.ts` ↔ `plugins.ts` type cycle, and unified widget manifests through `src/types/widget-manifest.ts`.
 - 2026-04-15 — Medium follow-up (`fc6603eb`): moved all remaining Electron IPC/test `IpcChannels` imports onto `@/types/ipc-channels` and removed the `ipc.ts` re-export to keep channel constants on their dedicated module boundary.
 - 2026-04-15 — Low declaration-hygiene follow-up (`d028234c`): replaced `notification: any` in `electron-workspace.d.ts` with canonical `LspNotification` typing so renderer preload declarations align with the typed LSP protocol contract.
+- 2026-04-15 — Low comment/default drift follow-up (`431fdf5e`): corrected the `DebateConfig.maxRounds` inline default comment in `collaboration.ts` so the documented default now matches `DEFAULT_DEBATE_CONFIG.maxRounds = 1`.

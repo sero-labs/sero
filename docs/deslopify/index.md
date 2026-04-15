@@ -29,7 +29,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)
     — *Healthy — folder plan fully executed 2026-04-15 (Low selector-churn follow-up cleared)*
   - [`apps/desktop/src/types/`](./apps/desktop/src/types/plan.md)
-    — *In progress — Medium IpcChannels + Low declaration-hygiene items cleared 2026-04-15; comment/default drift pending*
+    — *In progress — Medium IpcChannels plus Low declaration-hygiene and comment/default drift items cleared 2026-04-15; user-feedback revalidation pending*
   - [`apps/desktop/electron/features/agent/`](./apps/desktop/electron/features/agent/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
