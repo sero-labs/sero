@@ -1,5 +1,6 @@
-// Source of truth for user feedback contracts used across renderer + Electron IPC.
-// This module is intentionally separate from ipc.ts to keep contract files below size caps.
+// Desktop-owned response feedback persistence contracts plus compatibility re-exports
+// for canonical user-feedback transport types from @sero/common.
+// This module stays separate from ipc.ts to keep contract files below size caps.
 
 /** A single user feedback entry for an agent response. */
 export interface ResponseFeedbackEntry {
