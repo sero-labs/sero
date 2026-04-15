@@ -17,6 +17,7 @@ import {
   LOOPBACK,
   SCOPES,
   getGoogleCredentials,
+  getGoogleOAuthNotConfiguredMessage,
 } from './config';
 import {
   exchangeCodeForTokens,
@@ -109,7 +110,7 @@ export class GoogleAuthManager {
    */
   async login(onProgress: (e: GoogleAuthProgress) => void): Promise<void> {
     if (!this.isConfigured()) {
-      throw new Error('Google OAuth not configured. Use the setup form in the Google plugin or add credentials to ~/.sero-ui/agent/plugin-config/sero-google-plugin.json');
+      throw new Error(getGoogleOAuthNotConfiguredMessage());
     }
 
     const verifier = crypto.randomBytes(32).toString('base64url');
