@@ -63,6 +63,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/workspace/workspace-tree/{useWorkspaceTreeRuntime.ts,useWorkspaceTreeRuntime.test.tsx}` | Preserved `sero:open-session` routing while surfacing workspace-open failures to the tree UI, with coverage |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Closed the final Low layout follow-up, refreshed post-fix metrics, and marked the folder plan fully executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` fully executed after the Low error-surface pass |
+| `apps/desktop/src/components/profiles/OnboardingWizard.tsx` | Reduced to a thin onboarding dialog shell over extracted launch/runtime controllers (486 → 132 lines) |
+| `apps/desktop/src/components/profiles/onboarding/{onboarding-launch-runtime.ts,useOnboardingLaunch.ts,onboarding-launch-runtime.test.ts}` | New — extracted onboarding session/runtime ownership plus focused sequencing/auth-recovery coverage |
+| `docs/deslopify/apps/desktop/src/components/profiles/{facts,plan}.md` | Recorded the onboarding runtime extraction, refreshed profile-folder metrics, and narrowed the remaining backlog |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/profiles/` in progress with the first Medium onboarding item cleared |
 
 ---
 

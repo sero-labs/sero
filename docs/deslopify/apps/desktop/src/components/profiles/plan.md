@@ -15,12 +15,10 @@ _Plan drafted: 2026-04-12_
 - **Low** — GitHub onboarding ownership is split across too many small renderer surfaces — `apps/desktop/src/components/profiles/onboarding/SetupScreen.tsx:91-172` makes its own GitHub status/cancel decisions while `apps/desktop/src/components/profiles/onboarding/GitHubConnectCard.tsx:5-119` and `apps/desktop/src/hooks/useGitHubAuthFlow.ts:20-92` own overlapping pieces of the same flow. The code works, but it invites drift in optional-step behavior and connected-state messaging. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Extract onboarding runtime out of `OnboardingWizard.tsx`.**
-   - Move temp-session lifecycle, model fallback, failure extraction, and onboarding-completion sequencing into a dedicated controller layer such as:
-     - `src/components/profiles/lib/onboarding-session-runtime.ts`
-     - `src/components/profiles/hooks/useOnboardingLaunch.ts`
-   - Keep `OnboardingWizard.tsx` responsible for phase selection and dialog composition only.
-   - Aligns with the store/controller ownership direction from the `src/stores` review and keeps AD-022 profile UX logic explicit.
+1. ~~**Extract onboarding runtime out of `OnboardingWizard.tsx`.**~~ ✅ 2026-04-15 (`2b94571a`)
+   - Moved temp-session lifecycle, model fallback, failure extraction, and onboarding-completion sequencing into `src/components/profiles/onboarding/{onboarding-launch-runtime.ts,useOnboardingLaunch.ts}`.
+   - `OnboardingWizard.tsx` now stays responsible for phase selection and dialog composition only.
+   - Keeps the AD-022 restart/onboarding semantics explicit while matching the store/controller ownership direction from the `src/stores` review.
 
 2. **Replace render-phase dialog-hiding mutations with derived lifecycle state.**
    - Track “launch dialog should hide because user input is pending” as explicit component state or a small effect keyed on `uiPhase` + `hasPendingUserInput`.
@@ -46,7 +44,7 @@ _Plan drafted: 2026-04-12_
 - Centralizing profile-action errors must preserve the current “success means relaunch” semantics from AD-022.
 
 ## Next Steps
-1. Extract onboarding session runtime helpers out of `OnboardingWizard.tsx` and reduce the component to phase/dialog composition.
+1. ~~Extract onboarding session runtime helpers out of `OnboardingWizard.tsx` and reduce the component to phase/dialog composition.~~ ✅ 2026-04-15 (`2b94571a`)
 2. Remove the render-phase `hideLaunchingDialogRef` mutation and replace it with explicit derived state.
 3. Introduce one restart-aware error helper for profile create/switch flows and surface errors in the UI.
 4. Consolidate GitHub onboarding step control into a single hook/helper.
@@ -56,3 +54,6 @@ _Plan drafted: 2026-04-12_
    - Onboarding temp session bootstraps memory, disappears if user feedback is requested, then opens the Welcome session.
    - GitHub optional step still supports connect, cancel, skip, and already-connected flows.
    - Failed profile switch/create paths show actionable UI feedback instead of silently doing nothing.
+
+## Execution log
+- 2026-04-15 — `2b94571a` — `refactor(profiles): extract onboarding launch runtime`
