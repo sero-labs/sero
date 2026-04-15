@@ -42,7 +42,7 @@ _Plan drafted: 2026-04-12_
      - ~~`ThemeEditorSheet.tsx` → draft-state/preview hook + sectioned presentation shell~~ ✅ 2026-04-15 (`b322b915`)
      - ~~`ModelSelector.tsx` → trigger, provider list, thinking picker, search/filter hook~~ ✅ 2026-04-15 (`6df0b02f`)
      - ~~`ContextEditor.tsx` → top-level dialog shell + separate preset/system/tools/skills modules~~ ✅ 2026-04-15 (`53f64174`)
-     - `model-manager/local-models/LocalProviderForm.tsx` → connection section, compat section, model list section, save footer
+     - ~~`model-manager/local-models/LocalProviderForm.tsx` → connection section, compat section, model list section, save footer~~ ✅ 2026-04-15 (`a891f56a`)
    - Align with the existing Wave A/Wave C pattern: stores/hooks own orchestration, layout files should mostly compose focused helpers.
 
 3. **Extract one shared git-remote workflow used by both workspace and titlebar UI.**
@@ -90,7 +90,7 @@ _Plan drafted: 2026-04-12_
    - ~~`ThemeEditorSheet.tsx`~~ ✅ 2026-04-15 (`b322b915`)
    - ~~`ModelSelector.tsx`~~ ✅ 2026-04-15 (`6df0b02f`)
    - ~~`ContextEditor.tsx`~~ ✅ 2026-04-15 (`53f64174`)
-   - `model-manager/local-models/LocalProviderForm.tsx`
+   - ~~`model-manager/local-models/LocalProviderForm.tsx`~~ ✅ 2026-04-15 (`a891f56a`)
 3. Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.
 4. Remove render-phase side effects from theme/collaboration/font helpers.
 5. Verification checklist:
@@ -107,3 +107,4 @@ _Plan drafted: 2026-04-12_
 - `b322b915` — `refactor(layout): split theme editor state`
 - `6df0b02f` — `refactor(layout): split model selector runtime`
 - `53f64174` — `refactor(layout): split context editor dialog`
+- `a891f56a` — `refactor(layout): split local provider form`

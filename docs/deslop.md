@@ -23,6 +23,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/context-editor/{CapabilitySection.tsx,PresetBar.tsx,SkillsSection.tsx,SystemPromptSection.tsx,ToolsSection.tsx,useContextEditorState.ts,useContextEditorState.test.tsx}` | New — extracted context-editor preset/runtime ownership, focused section presenters, and direct state coverage |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the ContextEditor split, refreshed layout metrics, and narrowed the remaining near-cap backlog |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the ContextEditor split cleared |
+| `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx` | Reduced to a thin local-provider shell over extracted form-state and presentation modules (479 → 113 lines) |
+| `apps/desktop/src/components/layout/model-manager/local-models/{shared.ts,LocalProviderField.tsx,LocalProviderPresetSection.tsx,LocalProviderConnectionSection.tsx,LocalProviderCompatSection.tsx,LocalProviderModelsSection.tsx,LocalProviderFooter.tsx,useLocalProviderFormState.ts}` | New — extracted focused helpers, sections, and controller ownership for preset, connection, model, and save flows |
+| `apps/desktop/src/components/layout/model-manager/local-models/useLocalProviderFormState.test.tsx` | New — covers preset application, advanced connection reuse, model dedupe/manual edits, duplicate-name guardrails, and edited-provider save semantics |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the LocalProviderForm split, refreshed layout metrics, and narrowed the remaining near-cap backlog |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the LocalProviderForm split cleared |
 
 ---
 

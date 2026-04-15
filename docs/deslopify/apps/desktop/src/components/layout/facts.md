@@ -157,3 +157,23 @@ _Last reviewed: 2026-04-12_
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Near-cap cleanup for `model-manager/local-models/LocalProviderForm.tsx` remains deferred, along with the still-near-cap `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx` follow-up.
 - Shared autocomplete/listbox primitives, the remaining render-phase side-effect cleanup in collaboration/font helpers, and shell error-surface normalization remain exactly as described in the original plan.
+
+## Post-fix snapshot — 2026-04-15 (local-provider-form split)
+
+### Metrics after fixes
+- Total files: 123 (was 114)
+- Total LOC: 18,131 (was 17,591)
+- Largest file: `apps/desktop/src/components/layout/AuthLoginViews.tsx` (464 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Added `model-manager/local-models/useLocalProviderFormState.ts` so preset application, advanced connection request reuse, model discovery/dedupe, duplicate-name validation, and save payload assembly now live in one focused controller seam.
+- Added `model-manager/local-models/{shared.ts,LocalProviderField.tsx,LocalProviderPresetSection.tsx,LocalProviderConnectionSection.tsx,LocalProviderCompatSection.tsx,LocalProviderModelsSection.tsx,LocalProviderFooter.tsx}` and reduced `LocalProviderForm.tsx` to a thin composition shell (479 → 113 LOC).
+- Added `model-manager/local-models/useLocalProviderFormState.test.tsx` to cover preset application/reset behavior, advanced header/auth reuse for connection tests, model dedupe/manual edits, duplicate provider-name guardrails, and edited-provider save semantics.
+- `LocalProviderForm.tsx` is no longer in the near-cap list; the remaining cap-pressure set is now `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Near-cap cleanup now only covers `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
+- Shared autocomplete/listbox primitives, the remaining render-phase side-effect cleanup in collaboration/font helpers, and shell error-surface normalization remain exactly as described in the original plan.
