@@ -132,3 +132,26 @@ consumed by both renderer stores/components and Electron preload/main modules.
 ### Still outstanding
 - User-feedback duplication from the original plan should be revalidated against current
   `@sero/common` ownership before marking that item obsolete.
+
+## Post-fix snapshot — 2026-04-15 (user-feedback revalidation follow-up)
+
+### Metrics after fixes
+- Total files: 30 (was 30)
+- Total LOC: 3,279 (was 3,278)
+- Largest file: `apps/desktop/src/types/electron.d.ts` (489 LOC)
+- Files over 500 LOC: none (unchanged)
+- Remaining near-cap files (≥450 LOC): `electron.d.ts` (489), `ipc-channels.ts` (487), `ipc.ts` (465)
+
+### What changed
+- Revalidated that user-feedback transport interfaces (`UserFeedbackQuestion*`,
+  `UserFeedbackPendingQuestion`, `UserFeedbackAnswer`, `UserFeedbackResponse`) are owned only by
+  `packages/common/src/user-feedback.ts`.
+- Confirmed both desktop (`apps/desktop/src/types/user-feedback.ts`) and plugin
+  (`plugins/sero-user-feedback-plugin/shared/types.ts`) consume those transport contracts from
+  `@sero/common` instead of maintaining duplicated local copies.
+- Clarified the desktop `src/types/user-feedback.ts` header comment so ownership boundaries are explicit:
+  desktop owns response-feedback persistence contracts, while transport contracts stay canonical in
+  `@sero/common`.
+
+### Still outstanding
+- None for the currently tracked `apps/desktop/src/types` follow-up backlog.

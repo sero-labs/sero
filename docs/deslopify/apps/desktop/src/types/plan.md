@@ -21,13 +21,14 @@ reviewable.
   `apps/desktop/tsconfig.json` using `skipLibCheck`, this can silently degrade API type safety.
   Effort: **S**.
 
-- **Medium** — Manual duplicated cross-process contracts create drift risk in profile and user-feedback APIs —
+- **Medium** — ~~Manual duplicated cross-process contracts create drift risk in profile and user-feedback APIs —
   `apps/desktop/src/types/ipc.ts:13-27` duplicated `ProfileInfo` from
   `apps/desktop/electron/features/profile/types.ts:39-49`; user-feedback shapes are mirrored in
   `apps/desktop/src/types/ipc.ts:410-455` and
   `plugins/sero-user-feedback-plugin/shared/types.ts:10-72`. ProfileInfo was canonicalized into
   `apps/desktop/src/types/profile.ts` on 2026-04-12, but user-feedback duplication still remains.
-  This fights the canonical-type rule and increases AD-022/extension drift risk. Effort: **M**.
+  This fights the canonical-type rule and increases AD-022/extension drift risk.~~ ✅ 2026-04-15 (`83ac609c`) — profile contracts are canonicalized in `src/types/profile.ts`, and user-feedback transport ownership is now confirmed canonical in `@sero/common` (desktop + plugin consumers revalidated).
+  Effort: **M**.
 
 - **Medium** — ~~Type-layer cycle between `ipc.ts` and `plugins.ts` increases coupling and review complexity —
   `apps/desktop/src/types/plugins.ts:1` imports `SeroAppManifest` from `./ipc`, while
@@ -111,3 +112,4 @@ reviewable.
 - 2026-04-15 — Medium follow-up (`fc6603eb`): moved all remaining Electron IPC/test `IpcChannels` imports onto `@/types/ipc-channels` and removed the `ipc.ts` re-export to keep channel constants on their dedicated module boundary.
 - 2026-04-15 — Low declaration-hygiene follow-up (`d028234c`): replaced `notification: any` in `electron-workspace.d.ts` with canonical `LspNotification` typing so renderer preload declarations align with the typed LSP protocol contract.
 - 2026-04-15 — Low comment/default drift follow-up (`431fdf5e`): corrected the `DebateConfig.maxRounds` inline default comment in `collaboration.ts` so the documented default now matches `DEFAULT_DEBATE_CONFIG.maxRounds = 1`.
+- 2026-04-15 — User-feedback duplication revalidation follow-up (`83ac609c`): reconfirmed that user-feedback transport contracts are owned in `@sero/common`, with desktop/plugin types consuming canonical exports instead of local duplicated declarations.

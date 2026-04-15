@@ -254,6 +254,9 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/types/collaboration.ts` | Aligned the debate `maxRounds` inline default comment with `DEFAULT_DEBATE_CONFIG.maxRounds = 1` to close the remaining Low comment/default drift follow-up |
 | `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the Low comment/default drift closeout, refreshed type-folder metrics, and left only user-feedback revalidation outstanding |
 | `docs/deslopify/index.md` | Updated `apps/desktop/src/types/` progress text with the Low comment/default item cleared |
+| `apps/desktop/src/types/user-feedback.ts` | Clarified ownership comments: desktop keeps response-feedback persistence types while user-feedback transport contracts remain canonical in `@sero/common` |
+| `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the user-feedback duplication revalidation closeout, refreshed type-folder metrics, and marked the follow-up backlog clear |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/types/` healthy after the user-feedback revalidation follow-up |
 
 ---
 
