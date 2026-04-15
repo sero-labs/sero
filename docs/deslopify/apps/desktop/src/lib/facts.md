@@ -73,3 +73,21 @@ _Last reviewed: 2026-04-15_
 ### Still outstanding
 - `google-fonts.ts` still preloads every mapped Google font eagerly.
 - `theme-engine.ts` still carries the dead `presetToMeta()` helper.
+
+## Post-fix snapshot — 2026-04-15 (google-font preload strategy)
+
+### Metrics after fixes
+- Total files: 22 (was 21)
+- Total LOC: 2,314 (was 2,228)
+- Largest file: `apps/desktop/src/lib/federation-registry.ts` (313 LOC; unchanged)
+- Files over 500 LOC: none (unchanged)
+- Near-cap files (≥400 LOC): none
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Updated `preloadAllGoogleFonts()` to preload only a curated popular subset (`Inter`, `Geist`, `Roboto`, `Open Sans`, `JetBrains Mono`, `Fira Code`, `Source Code Pro`, `IBM Plex Sans`, `IBM Plex Mono`) instead of eagerly loading every mapped family.
+- Preserved on-demand loading for less-common families through `loadGoogleFont()` so picker choices still resolve as users select them.
+- Added direct `google-fonts.test.ts` coverage for curated preload scope, dedupe behavior, on-demand loading, and no-op handling for non-mapped/system font stacks.
+
+### Still outstanding
+- `theme-engine.ts` still carries the dead `presetToMeta()` helper.

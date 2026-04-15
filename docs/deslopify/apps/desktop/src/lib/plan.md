@@ -49,10 +49,12 @@ _Plan drafted: 2026-04-12_
 1. ~~Land High fix in `federation-registry.ts` (drop failed lazy cache entries and retry on next access).~~ ✅ 2026-04-15 (`e84596a5`)
 2. ~~Add regression tests for transient remote failure → later recovery without restart.~~ ✅ 2026-04-15 (`e84596a5`)
 3. ~~Split `dom-interactions.ts` into focused modules while preserving API.~~ ✅ 2026-04-15 (`5b7dd1d7`)
-4. Optimize `preloadAllGoogleFonts()` strategy.
+4. ~~Optimize `preloadAllGoogleFonts()` strategy.~~ ✅ 2026-04-15 (`73019053`)
 5. Remove dead `presetToMeta` helper or connect it to an actual call site.
 
 ## Execution log
 - 2026-04-15 — `e84596a5` — `fix(lib): retry failed federated remotes on next access`
 - 2026-04-15 — `5b7dd1d7` — `refactor(lib): split app-control dom interactions by concern`
   - Extracted panel geometry, target resolution, interaction action dispatch, and inspection payload builders into focused `app-control/dom/*` modules while keeping the public router API stable.
+- 2026-04-15 — `73019053` — `perf(lib): preload only popular google fonts`
+  - Changed `preloadAllGoogleFonts()` to load a curated popular subset and kept less-common families on-demand via `loadGoogleFont()`, with focused coverage for preload scope + dedupe behavior.
