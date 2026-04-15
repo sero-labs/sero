@@ -24,10 +24,10 @@ _Plan drafted: 2026-04-12_
    - Track “launch dialog should hide because user input is pending” as explicit component state or a small effect keyed on `uiPhase` + `hasPendingUserInput`.
    - Keep the behavior identical (dialog disappears once the memory bootstrap is waiting on user input), but stop mutating refs during render.
 
-3. **Centralize profile operation error handling.**
-   - Move restart-aware error semantics into one helper/store-facing contract so `CreateProfileDialog`, `ProfileSwitcher`, and `ProfileForm` do not each invent their own catch/reset behavior.
-   - Surface explicit error text in the dialog/popover instead of silently staying on the current profile.
-   - Preserve the success-path assumption that a successful switch/create may never resolve in the current process because the app relaunches.
+3. ~~**Centralize profile operation error handling.**~~ ✅ 2026-04-15 (`0cddfe24`)
+   - Moved restart-aware error semantics into one helper/store-facing contract so `CreateProfileDialog`, `ProfileSwitcher`, and `ProfileForm` no longer invent their own catch/reset behavior.
+   - Surfaced explicit error text in the dialog/popover instead of silently staying on the current profile.
+   - Preserved the success-path assumption that a successful switch/create may never resolve in the current process because the app relaunches.
 
 4. **Collapse GitHub onboarding flow control into one controller primitive.**
    - Keep `GitHubConnectCard` as the presenter.
@@ -46,7 +46,7 @@ _Plan drafted: 2026-04-12_
 ## Next Steps
 1. ~~Extract onboarding session runtime helpers out of `OnboardingWizard.tsx` and reduce the component to phase/dialog composition.~~ ✅ 2026-04-15 (`2b94571a`)
 2. ~~Remove the render-phase `hideLaunchingDialogRef` mutation and replace it with explicit derived state.~~ ✅ 2026-04-15 (`fc36ab2b`)
-3. Introduce one restart-aware error helper for profile create/switch flows and surface errors in the UI.
+3. ~~Introduce one restart-aware error helper for profile create/switch flows and surface errors in the UI.~~ ✅ 2026-04-15 (`0cddfe24`)
 4. Consolidate GitHub onboarding step control into a single hook/helper.
 5. Verification checklist:
    - Fresh install with no active profile shows only `ProfileSetup`.
@@ -58,3 +58,4 @@ _Plan drafted: 2026-04-12_
 ## Execution log
 - 2026-04-15 — `2b94571a` — `refactor(profiles): extract onboarding launch runtime`
 - 2026-04-15 — `fc36ab2b` — `refactor(profiles): derive onboarding launch dialog visibility`
+- 2026-04-15 — `0cddfe24` — `refactor(profiles): surface restart-aware profile errors`

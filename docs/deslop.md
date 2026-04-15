@@ -71,6 +71,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/profiles/onboarding/{useLaunchingDialogVisibility.ts,useLaunchingDialogVisibility.test.tsx}` | New — extracted launch-dialog visibility lifecycle ownership and added focused coverage for pending-input dismissal + relaunch reset behavior |
 | `docs/deslopify/apps/desktop/src/components/profiles/{facts,plan}.md` | Recorded the launch-dialog lifecycle cleanup, refreshed profile-folder metrics, and narrowed the remaining backlog to profile-error + GitHub-step follow-ups |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/profiles/` in progress with the first two Medium onboarding items cleared |
+| `apps/desktop/src/components/profiles/{CreateProfileDialog.tsx,ProfileForm.tsx,ProfileSetup.tsx,ProfileSwitcher.tsx,useProfileOperationState.ts}` | Unified restart-aware profile create/switch error handling and surfaced actionable retry copy inline across setup, dialog, and titlebar flows |
+| `apps/desktop/src/components/profiles/ProfileOperations.test.tsx` | New — covers first-run activation failure copy, create-dialog switch failures, and inline switcher error visibility |
+| `apps/desktop/src/stores/profiles.ts` | Centralized restart-aware profile operation errors and preserved correct switch-vs-create failure reporting during activation |
+| `docs/deslopify/apps/desktop/src/components/profiles/{facts,plan}.md` | Recorded the profile-error cleanup, refreshed profile-folder metrics, and left only the Low GitHub-step follow-up pending |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/profiles/` in progress with the third Medium onboarding item cleared |
 
 ---
 

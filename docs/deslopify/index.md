@@ -19,7 +19,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/components/layout/`](./apps/desktop/src/components/layout/plan.md)
     — *Healthy — layout folder plan fully executed 2026-04-15*
   - [`apps/desktop/src/components/profiles/`](./apps/desktop/src/components/profiles/plan.md)
-    — *In progress — first two Medium onboarding items cleared 2026-04-15; remaining Medium + Low cleanup pending*
+    — *In progress — first three Medium onboarding items cleared 2026-04-15; Low GitHub-step cleanup pending*
   - [`apps/desktop/src/hooks/`](./apps/desktop/src/hooks/plan.md)
     — *In progress — core Medium items cleared 2026-04-12; Low cleanup pending*
   - [`apps/desktop/src/lib/`](./apps/desktop/src/lib/plan.md)

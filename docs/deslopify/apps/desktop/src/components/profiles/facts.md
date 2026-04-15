@@ -65,5 +65,21 @@ This folder owns the renderer-side profile UX for `apps/desktop`: first-run prof
 - Added focused hook coverage for initial launch visibility, pending-input dismissal, and the next-launch reset behavior.
 
 ### Still outstanding
-- Profile create/switch surfaces still swallow restart-sensitive operational failures instead of showing actionable UI feedback.
+- GitHub onboarding step control still lives across `SetupScreen`, `GitHubConnectCard`, and `useGitHubAuthFlow`.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 15 (was 13)
+- Largest file: `apps/desktop/src/components/profiles/onboarding/onboarding-launch-runtime.ts` (371 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (was none)
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Added `useProfileOperationState.ts` so `ProfileSetup`, `CreateProfileDialog`, and `ProfileSwitcher` share one runner for restart-sensitive create/switch operations and clear stale errors consistently.
+- Reworked `ProfileForm.tsx` to separate local validation from shared operational failures, so retries keep actionable error copy visible without duplicating catch logic.
+- Centralized restart-aware profile error text in `src/stores/profiles.ts` and added focused failure-surface coverage via `ProfileOperations.test.tsx`.
+
+### Still outstanding
 - GitHub onboarding step control still lives across `SetupScreen`, `GitHubConnectCard`, and `useGitHubAuthFlow`.
