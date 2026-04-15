@@ -11,6 +11,7 @@
 
 import type { SubagentManager } from '../subagent';
 import { ROLE_AGENT_NAMES } from './agents';
+import { budgetPromptText } from './prompt-budget';
 import type {
   CollaborationRole,
   CollaborationResult,
@@ -146,23 +147,33 @@ Critically evaluate the analysis above. Point out:
 Be constructive but rigorous. End with a brief summary of your key critique points.`;
 }
 
-function buildDebateSynthesisPrompt(
+export const DEBATE_SYNTHESIS_PROMPT_BUDGET = {
+  queryMaxChars: 3_000,
+  analysisPerRoleMaxChars: 2_500,
+  roundSummaryMaxChars: 1_500,
+} as const;
+
+export function buildDebateSynthesisPrompt(
   query: string,
   analyses: Map<CollaborationRole, string>,
   debateRounds: Array<{ challengerRole: CollaborationRole; defenderRole: CollaborationRole; summary: string }>,
 ): string {
+  const boundedQuery = budgetPromptText(query, DEBATE_SYNTHESIS_PROMPT_BUDGET.queryMaxChars);
+
   const analysisSection = Array.from(analyses.entries())
-    .map(([role, output]) => `### ${role}\n${output}`)
+    .map(([role, output]) => `### ${role}\n${budgetPromptText(output, DEBATE_SYNTHESIS_PROMPT_BUDGET.analysisPerRoleMaxChars)}`)
     .join('\n\n');
 
   const debateSection = debateRounds
-    .map((r, i) => `### Round ${i + 1}: ${r.challengerRole} challenges ${r.defenderRole}\n${r.summary}`)
+    .map((r, i) =>
+      `### Round ${i + 1}: ${r.challengerRole} challenges ${r.defenderRole}\n${budgetPromptText(r.summary, DEBATE_SYNTHESIS_PROMPT_BUDGET.roundSummaryMaxChars)}`,
+    )
     .join('\n\n');
 
   return `Four specialist agents have independently analyzed the following query, then debated and cross-checked each other's work. Synthesize everything into one cohesive, high-quality response that reflects the consensus and resolves any disagreements.
 
 ## Original Query
-${query}
+${boundedQuery}
 
 ## Independent Analyses
 ${analysisSection}
