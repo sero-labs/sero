@@ -6,7 +6,7 @@ _Plan drafted: 2026-04-12_
 `src/components/layout` is functional and feature-rich, but it has drifted from “shell chrome” into a catch-all bucket for nearly every cross-cutting renderer surface in the app. There are no current High-priority hard-rule violations in this folder, but the ownership blur and near-cap file cluster mean shell work will keep getting slower and riskier unless the directory is re-partitioned, duplicated workflows are consolidated, and a few render-time lifecycle hacks are retired.
 
 ## Issues Found (prioritized)
-- **Medium** — `components/layout` is no longer a shell-only layer; ownership is smeared across unrelated feature islands — `apps/desktop/src/components/layout/WorkspaceTree.tsx:50-445`, `apps/desktop/src/components/layout/ChatPanel.tsx:46-296`, `apps/desktop/src/components/layout/CommandMenu.tsx:19-118`, `apps/desktop/src/components/layout/AuthLoginDialog.tsx:57-334`, `apps/desktop/src/components/layout/ThemeEditorSheet.tsx:59-399`, and `apps/desktop/src/components/layout/titlebar/GitTitleBarControls.tsx:11-160` together show the pattern. This fights the shell/app split from AD-001 and AD-003: the shell should compose global chrome, not become the default home for auth, git publishing, theme tooling, model management, gateway QR login, and collaboration internals. Effort: **L**.
+- **Medium** — ~~`components/layout` is no longer a shell-only layer; ownership is smeared across unrelated feature islands — `apps/desktop/src/components/layout/WorkspaceTree.tsx:50-445`, `apps/desktop/src/components/layout/ChatPanel.tsx:46-296`, `apps/desktop/src/components/layout/CommandMenu.tsx:19-118`, `apps/desktop/src/components/layout/AuthLoginDialog.tsx:57-334`, `apps/desktop/src/components/layout/ThemeEditorSheet.tsx:59-399`, and `apps/desktop/src/components/layout/titlebar/GitTitleBarControls.tsx:11-160` together show the pattern. This fights the shell/app split from AD-001 and AD-003: the shell should compose global chrome, not become the default home for auth, git publishing, theme tooling, model management, gateway QR login, and collaboration internals.~~ ✅ 2026-04-15 (`44c0f213`) — Repartitioned the folder so top-level files are now stable shell/compatibility façades while auth, device pairing, models, theme, workspace, and titlebar Git workflows live under feature-owned subtrees (`auth/`, `device/`, `models/`, `theme/`, `workspace/`, `titlebar/git/`, plus `shell/` for true chrome). Effort: **L**.
 
 - **Medium** — ~~A large near-cap cluster is one feature away from repeated 500-LOC violations — `apps/desktop/src/components/layout/ContextEditor.tsx:1-479`, `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx:1-479`, `apps/desktop/src/components/layout/AuthLoginViews.tsx:1-464`, `apps/desktop/src/components/layout/ModelSelector.tsx:1-445`, `apps/desktop/src/components/layout/ToolCallHelpers.tsx:1-412`, and `apps/desktop/src/components/layout/model-manager/ModelManagerDialog.tsx:1-406` remain in the danger zone after `WorkspaceTree.tsx` and `ThemeEditorSheet.tsx` were split on 2026-04-14/15 (`c3326a2e`, `b322b915`). The folder has no High violation today, but the cap pressure is still widespread enough that more feature work here will become expensive by default.~~ ✅ 2026-04-15 (`1c46330f`) — Completed the remaining `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `model-manager/ModelManagerDialog.tsx` split pass; the folder now has no files at or above 400 LOC and the largest remaining file is `remote-origin-views.tsx` at 392 LOC. Effort: **M**.
 
@@ -19,7 +19,7 @@ _Plan drafted: 2026-04-12_
 - **Low** — A few shell surfaces still collapse operational failures into empty/no-op states, making runtime issues look like “no data” — `apps/desktop/src/components/layout/WorkspaceTree.tsx:95-97` ignores workspace-open failure, `apps/desktop/src/components/layout/remote-origin-views.tsx:53-61` treats VCS lookup errors as “no origin”, `apps/desktop/src/components/layout/AuthLoginDialog.tsx:80-83` replaces provider-load failure with empty lists, and `apps/desktop/src/components/layout/AppStoreDialog.tsx:83-108` turns plugin-search failure into an empty discover result. Effort: **S**.
 
 ## Proposed Refactoring
-1. **Re-partition `components/layout` by ownership while keeping shell entrypoints stable.**
+1. ~~**Re-partition `components/layout` by ownership while keeping shell entrypoints stable.**~~ ✅ 2026-04-15 (`44c0f213`)
    - Keep true shell façades at the top level or under a dedicated `shell/` area:
      - `TitleBar`
      - `MainSidebar`
@@ -34,6 +34,7 @@ _Plan drafted: 2026-04-12_
      - `layout/models/**` — `ModelSelector` + `model-manager/**`
      - `layout/titlebar/git/**` — ship/publish/PR controls
    - Preserve import stability during the migration with thin re-export files if needed.
+   - Landed by moving the real shell implementations under `shell/`, carving feature-owned `auth/`, `device/`, `models/`, `theme/`, `workspace/`, and `titlebar/git/` subtrees, and leaving top-level compatibility façades so existing imports stay stable.
    - Why: restores the AD-001/AD-003 shell boundary without forcing a full UI rewrite.
 
 2. ~~**Split the near-cap hubs before they cross the hard 500-LOC line.**~~ ✅ 2026-04-15 (`1c46330f`)
@@ -87,8 +88,9 @@ _Plan drafted: 2026-04-12_
 - File moves will touch `apps/desktop/src/App.tsx`, profile/onboarding surfaces, and a few hooks importing layout utilities; keep the migration incremental to avoid unnecessary churn.
 
 ## Next Steps
-1. ~~Extract a shared git-remote workflow and migrate `RemoteOriginManager` + `GitRemotePublishSection` to it.~~ ✅ 2026-04-14 (`ad8cfc67`)
-2. ~~Continue splitting the near-cap hubs before adding more feature work there.~~ ✅ 2026-04-15 (`1c46330f`)
+1. ~~Re-partition `components/layout` by ownership while keeping shell entrypoints stable.~~ ✅ 2026-04-15 (`44c0f213`)
+2. ~~Extract a shared git-remote workflow and migrate `RemoteOriginManager` + `GitRemotePublishSection` to it.~~ ✅ 2026-04-14 (`ad8cfc67`)
+3. ~~Continue splitting the near-cap hubs before adding more feature work there.~~ ✅ 2026-04-15 (`1c46330f`)
    - ~~`WorkspaceTree.tsx` → `useWorkspaceTreeRuntime`, `WorkspaceNode`, `WorkspaceBulkDeleteDialog`~~ ✅ 2026-04-14 (`c3326a2e`)
    - ~~`ThemeEditorSheet.tsx`~~ ✅ 2026-04-15 (`b322b915`)
    - ~~`ModelSelector.tsx`~~ ✅ 2026-04-15 (`6df0b02f`)
@@ -97,9 +99,10 @@ _Plan drafted: 2026-04-12_
    - ~~`AuthLoginViews.tsx`~~ ✅ 2026-04-15 (`1c46330f`)
    - ~~`ToolCallHelpers.tsx`~~ ✅ 2026-04-15 (`1c46330f`)
    - ~~`model-manager/ModelManagerDialog.tsx`~~ ✅ 2026-04-15 (`1c46330f`)
-3. ~~Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.~~ ✅ 2026-04-15 (`bcb2d01d`)
-4. ~~Remove render-phase side effects from theme/collaboration/font helpers.~~ ✅ 2026-04-15 (`cc7d6fab`)
-5. Verification checklist:
+4. ~~Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.~~ ✅ 2026-04-15 (`bcb2d01d`)
+5. ~~Remove render-phase side effects from theme/collaboration/font helpers.~~ ✅ 2026-04-15 (`cc7d6fab`)
+6. Low follow-up still deferred: normalize shell error and transient-feedback behavior.
+7. Verification checklist:
    - Open a session via the `sero:open-session` custom event and confirm the chat panel opens/focuses correctly.
    - Create a workspace, then create/connect a remote origin from both the workspace dialog and the titlebar ship panel.
    - Draft and create a PR from the titlebar flow after publishing.
@@ -117,3 +120,4 @@ _Plan drafted: 2026-04-12_
 - `bcb2d01d` — `refactor(layout): share autocomplete listbox primitive`
 - `cc7d6fab` — `refactor(layout): move render-time side effects into lifecycle hooks`
 - `1c46330f` — `refactor(layout): split remaining near-cap helper surfaces`
+- `44c0f213` — `refactor(layout): repartition shell feature ownership`

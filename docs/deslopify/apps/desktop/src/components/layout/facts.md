@@ -238,3 +238,22 @@ _Last reviewed: 2026-04-12_
 ### Still outstanding
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Low shell error-surface normalization remains deferred, including the still-silent auth-provider load failure path in `AuthLoginDialog.tsx`.
+
+## Post-fix snapshot — 2026-04-15 (ownership repartition)
+
+### Metrics after fixes
+- Total files: 165 (was 140)
+- Total LOC: 18,861 (was 18,827)
+- Largest file: `apps/desktop/src/components/layout/workspace/remote-origin-views.tsx` (392 LOC)
+- Files over 500 LOC: None (unchanged)
+- Near-cap files (≥400 LOC): none (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Moved the true shell implementations into `layout/shell/` (`TitleBar`, `MainSidebar`, `StatusBar`, `ChatPanel`, `CommandMenu`, `NewAppBanner`) and left the top-level files as thin compatibility façades so `App.tsx` and other callers kept stable import paths.
+- Repartitioned the auth, device-pairing, model-management, theme, workspace, and titlebar Git surfaces into feature-owned subtrees: `layout/auth/**`, `layout/device/**`, `layout/models/**`, `layout/theme/**`, `layout/workspace/**`, and `layout/titlebar/git/**`.
+- Nested the previously extracted helper folders under their owning features (`auth/auth-login-views`, `models/model-manager`, `models/model-selector`, `theme/theme-editor`, `theme/theme-panel`, `workspace/workspace-tree`) so ownership now matches the runtime seams introduced by the earlier split commits.
+- Kept the runtime-sensitive workspace/titlebar remote-origin, theme-editor, model-selector, and auth flows behaviorally stable by using façade re-exports plus focused regression checks (`relative-import-check`, targeted Vitest runs, root `pnpm typecheck`, and full `apps/desktop` test suite).
+
+### Still outstanding
+- Only the Low shell error-surface normalization follow-up remains deferred.

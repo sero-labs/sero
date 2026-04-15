@@ -48,6 +48,13 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/model-manager/{ModelManagerTabBar.tsx,useModelManagerState.ts,runtime.ts,runtime.test.ts}` | New — extracted model-manager tab chrome, derived-state runtime, and focused favourite/hidden-count coverage |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the remaining near-cap cleanup closeout, refreshed layout metrics, and narrowed remaining work to ownership repartition plus Low error-surface follow-up |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the remaining near-cap cleanup cleared |
+| `apps/desktop/src/components/layout/{TitleBar,MainSidebar,StatusBar,ChatPanel,CommandMenu,NewAppBanner}.tsx` | Reduced the top-level layout shell files to thin compatibility façades over `shell/` ownership modules |
+| `apps/desktop/src/components/layout/shell/{TitleBar,MainSidebar,StatusBar,ChatPanel,CommandMenu,NewAppBanner}.tsx` | New — dedicated shell ownership area for always-on chrome and command surfaces |
+| `apps/desktop/src/components/layout/{auth,device,models,theme,workspace}/**` | Repartitioned auth, device pairing, model, theme, and workspace implementations under feature-owned subtrees while preserving stable façade imports |
+| `apps/desktop/src/components/layout/titlebar/{GitTitleBarControls,GitShipPanel,GitRemotePublishSection,GitPullRequestComposer,GitShipActionPill,git-titlebar-state}.ts*` | Reduced titlebar Git entrypoints to thin compatibility façades over `titlebar/git/` |
+| `apps/desktop/src/components/layout/titlebar/git/**` | New — dedicated titlebar Git ownership subtree for publish/PR state and presenters |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the ownership repartition closeout, refreshed layout metrics, and left only the Low error-surface follow-up deferred |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` healthy with all Medium items cleared |
 
 ---
 
