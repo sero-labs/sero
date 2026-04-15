@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '@/stores/app';
 import { useAgentStore } from '@/stores/agent';
 import { useOpenWorkspaces, useWorkspaceStore } from '@/stores/workspace';
 import { useSessionStore, useSessionsByWorkspace } from '@/stores/sessions';
+import { toErrorMessage } from '../../error-utils';
 
 interface OpenSessionEventDetail {
   sessionId: string | null;
@@ -26,6 +27,7 @@ export function useWorkspaceTreeRuntime() {
   const setActiveSession = useSessionStore((state) => state.setActiveSession);
   const setChatPanelOpen = useAppStore((state) => state.setChatPanelOpen);
   const openSession = useAgentStore((state) => state.openSession);
+  const [openSessionError, setOpenSessionError] = useState<string | null>(null);
 
   useEffect(() => {
     refreshWorkspaceTree(loadWorkspaces, loadSessions);
@@ -55,7 +57,14 @@ export function useWorkspaceTreeRuntime() {
     const handleOpenSession = async (event: Event) => {
       const { sessionId, sessionPath, workspaceId } = (event as CustomEvent<OpenSessionEventDetail>).detail;
 
-      await window.sero.workspace.open(workspaceId).catch(() => {});
+      try {
+        await window.sero.workspace.open(workspaceId);
+        setOpenSessionError(null);
+      } catch (error) {
+        setOpenSessionError(
+          toErrorMessage(error, 'Sero could not open the requested workspace.'),
+        );
+      }
 
       if (sessionId && sessionPath) {
         await openSession(sessionId, sessionPath, workspaceId);
@@ -73,5 +82,7 @@ export function useWorkspaceTreeRuntime() {
     isLoadingWorkspaces,
     openWorkspaces,
     sessionsByWorkspace,
+    openSessionError,
+    clearOpenSessionError: () => setOpenSessionError(null),
   };
 }

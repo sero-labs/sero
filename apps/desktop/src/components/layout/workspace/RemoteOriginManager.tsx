@@ -10,7 +10,7 @@
  * Opened from WorkspaceTree hover actions and after workspace creation.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
   DialogDescription,
 } from '@sero-ai/ui/components/ui/dialog';
 import type { WorkspaceInfo } from '@/types/ipc';
+import { ErrorSurface } from '../ErrorSurface';
 import {
   LoadingView,
   ChooseView,
@@ -36,7 +37,7 @@ interface RemoteOriginManagerProps {
   workspace: WorkspaceInfo;
 }
 
-type View = 'loading' | 'choose' | 'create-github' | 'connect-existing' | 'connected';
+type View = 'loading' | 'load-error' | 'choose' | 'create-github' | 'connect-existing' | 'connected';
 
 // ── Main component ───────────────────────────────────────────
 
@@ -47,20 +48,32 @@ export function RemoteOriginManager({
 }: RemoteOriginManagerProps) {
   const [view, setView] = useState<View>('loading');
   const [origin, setOrigin] = useState<GitRemoteOriginInfo | null>(null);
+  const [originLoadError, setOriginLoadError] = useState<string | null>(null);
   const prevOpenRef = useRef(false);
+
+  const loadOrigin = useCallback(async () => {
+    setView('loading');
+    setOrigin(null);
+    setOriginLoadError(null);
+
+    const result = await fetchOriginInfo(workspace.id);
+    if (!result.ok) {
+      setView('load-error');
+      setOriginLoadError(result.message);
+      return;
+    }
+
+    setOrigin(result.origin);
+    setView(result.origin ? 'connected' : 'choose');
+  }, [workspace.id]);
 
   // Fetch origin when dialog opens (acceptable useEffect: IPC on external state change)
   useEffect(() => {
     if (open && !prevOpenRef.current) {
-      setView('loading');
-      setOrigin(null);
-      fetchOriginInfo(workspace.id).then((info) => {
-        setOrigin(info);
-        setView(info ? 'connected' : 'choose');
-      });
+      void loadOrigin();
     }
     prevOpenRef.current = open;
-  }, [open, workspace.id]);
+  }, [loadOrigin, open]);
 
   const handleOriginSet = (url: string) => {
     setOrigin(toOriginInfo(url));
@@ -82,6 +95,15 @@ export function RemoteOriginManager({
         </DialogHeader>
 
         {view === 'loading' && <LoadingView />}
+        {view === 'load-error' && originLoadError && (
+          <ErrorSurface
+            title="Couldn't load remote origin"
+            message={originLoadError}
+            onRetry={() => {
+              void loadOrigin();
+            }}
+          />
+        )}
         {view === 'choose' && (
           <ChooseView
             onCreateNew={() => setView('create-github')}

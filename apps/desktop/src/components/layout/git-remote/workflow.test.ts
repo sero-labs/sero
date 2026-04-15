@@ -94,9 +94,21 @@ describe('git remote workflow', () => {
     ]);
 
     await expect(fetchOriginInfo('workspace-1')).resolves.toEqual({
-      url: 'https://github.com/octocat/my-workspace.git',
-      owner: 'octocat',
-      repo: 'my-workspace',
+      ok: true,
+      origin: {
+        url: 'https://github.com/octocat/my-workspace.git',
+        owner: 'octocat',
+        repo: 'my-workspace',
+      },
+    });
+  });
+
+  it('surfaces remote lookup failures instead of treating them as no origin', async () => {
+    seroBridge.vcs.remotes.mockRejectedValue(new Error('jj remotes unavailable'));
+
+    await expect(fetchOriginInfo('workspace-1')).resolves.toEqual({
+      ok: false,
+      message: 'jj remotes unavailable',
     });
   });
 });

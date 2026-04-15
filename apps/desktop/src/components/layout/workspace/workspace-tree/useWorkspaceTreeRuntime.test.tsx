@@ -49,8 +49,8 @@ function createSession(overrides: Partial<SeroSessionInfo> = {}): SeroSessionInf
 }
 
 function Harness() {
-  useWorkspaceTreeRuntime();
-  return null;
+  const { openSessionError } = useWorkspaceTreeRuntime();
+  return openSessionError ? <span data-testid="open-session-error">{openSessionError}</span> : null;
 }
 
 describe('useWorkspaceTreeRuntime', () => {
@@ -175,6 +175,36 @@ describe('useWorkspaceTreeRuntime', () => {
 
     await vi.waitFor(() => {
       expect(openWorkspace).toHaveBeenCalledWith('workspace-1');
+      expect(openSession).toHaveBeenCalledWith('session-1', '/tmp/session-1.jsonl', 'workspace-1');
+      expect(setActiveSession).toHaveBeenCalledWith('session-1');
+      expect(setChatPanelOpen).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it('surfaces workspace-open failures while preserving session routing', async () => {
+    openWorkspace.mockRejectedValueOnce(new Error('workspace registry unavailable'));
+
+    await act(async () => {
+      root?.render(<Harness />);
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('sero:open-session', {
+          detail: {
+            sessionId: 'session-1',
+            sessionPath: '/tmp/session-1.jsonl',
+            workspaceId: 'workspace-1',
+          },
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('[data-testid="open-session-error"]')?.textContent).toBe(
+        'workspace registry unavailable',
+      );
       expect(openSession).toHaveBeenCalledWith('session-1', '/tmp/session-1.jsonl', 'workspace-1');
       expect(setActiveSession).toHaveBeenCalledWith('session-1');
       expect(setChatPanelOpen).toHaveBeenCalledWith(true);

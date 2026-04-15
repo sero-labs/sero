@@ -20,6 +20,8 @@ import {
 } from '@sero-ai/ui/components/ui/dialog';
 import type { OAuthProviderInfo, ApiKeyProviderInfo, OAuthEvent } from '@/types/ipc';
 import { useAgentStore } from '@/stores/agent';
+import { ErrorSurface } from '../ErrorSurface';
+import { toErrorMessage } from '../error-utils';
 import {
   ProviderListView,
   AuthenticatingView,
@@ -72,6 +74,7 @@ export function AuthLoginDialog({
   const [inputValue, setInputValue] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [progressMessages, setProgressMessages] = useState<string[]>([]);
+  const [providerLoadError, setProviderLoadError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Load providers ──────────────────────────────────────────
@@ -80,9 +83,13 @@ export function AuthLoginDialog({
       const { oauth, apiKey } = await window.sero.auth.getProviders();
       setOauthProviders(oauth);
       setApiKeyProviders(apiKey);
-    } catch {
+      setProviderLoadError(null);
+    } catch (error) {
       setOauthProviders([]);
       setApiKeyProviders([]);
+      setProviderLoadError(
+        toErrorMessage(error, 'Provider metadata is unavailable right now.'),
+      );
     }
   }, []);
 
@@ -95,6 +102,7 @@ export function AuthLoginDialog({
       setInputValue('');
       setStatusMessage('');
       setProgressMessages([]);
+      setProviderLoadError(null);
       loadProviders();
     }
   }, [open, loadProviders]);
@@ -273,16 +281,27 @@ export function AuthLoginDialog({
 
         <div className="space-y-3">
           {phase === 'providers' && (
-            <ProviderListView
-              oauthProviders={oauthProviders}
-              apiKeyProviders={apiKeyProviders}
-              mode={mode}
-              preferredProviderId={preferredProviderId}
-              onOAuthLogin={handleOAuthLogin}
-              onApiKeyStart={handleApiKeyStart}
-              onApiKeyRemove={handleApiKeyRemove}
-              onLogout={handleLogout}
-            />
+            <>
+              {providerLoadError ? (
+                <ErrorSurface
+                  title="Couldn't load auth providers"
+                  message={providerLoadError}
+                  onRetry={() => {
+                    void loadProviders();
+                  }}
+                />
+              ) : null}
+              <ProviderListView
+                oauthProviders={oauthProviders}
+                apiKeyProviders={apiKeyProviders}
+                mode={mode}
+                preferredProviderId={preferredProviderId}
+                onOAuthLogin={handleOAuthLogin}
+                onApiKeyStart={handleApiKeyStart}
+                onApiKeyRemove={handleApiKeyRemove}
+                onLogout={handleLogout}
+              />
+            </>
           )}
 
           {phase === 'authenticating' && (

@@ -1,5 +1,6 @@
 import type { GitHubAuthStatus } from '@/types/electron-services';
 import type { CreateGitHubRepoInput } from '@/types/ipc';
+import { toErrorMessage } from '../error-utils';
 
 export type GitRemoteVisibility = CreateGitHubRepoInput['visibility'];
 
@@ -34,6 +35,16 @@ export type ConnectOriginResult =
       url: string;
       webUrl?: string;
       updatedExisting: boolean;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+export type FetchOriginInfoResult =
+  | {
+      ok: true;
+      origin: GitRemoteOriginInfo | null;
     }
   | {
       ok: false;
@@ -88,13 +99,16 @@ export async function loadGitHubStatus(): Promise<GitHubAuthStatus> {
   }
 }
 
-export async function fetchOriginInfo(workspaceId: string): Promise<GitRemoteOriginInfo | null> {
+export async function fetchOriginInfo(workspaceId: string): Promise<FetchOriginInfoResult> {
   try {
     const remotes = await window.sero.vcs.remotes(workspaceId);
     const origin = remotes.find((remote) => remote.name === 'origin');
-    return origin ? toOriginInfo(origin.url) : null;
-  } catch {
-    return null;
+    return { ok: true, origin: origin ? toOriginInfo(origin.url) : null };
+  } catch (error) {
+    return {
+      ok: false,
+      message: toErrorMessage(error, 'Failed to load Git remotes for this workspace.'),
+    };
   }
 }
 
@@ -168,6 +182,3 @@ export async function connectOrigin({
   }
 }
 
-function toErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}

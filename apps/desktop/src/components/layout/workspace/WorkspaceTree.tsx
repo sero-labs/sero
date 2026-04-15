@@ -1,6 +1,7 @@
 import { ChevronsDownUp, Loader2 } from 'lucide-react';
 import { IconAction } from '@/components/ui/IconAction';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { ErrorSurface } from '../ErrorSurface';
 import { AddWorkspaceMenu } from './AddWorkspaceMenu';
 import { WorkspaceNode } from './workspace-tree/WorkspaceNode';
 import { useWorkspaceTreeRuntime } from './workspace-tree/useWorkspaceTreeRuntime';
@@ -16,7 +17,13 @@ import { useWorkspaceTreeRuntime } from './workspace-tree/useWorkspaceTreeRuntim
  * ▸ Global
  */
 export function WorkspaceTree() {
-  const { isLoadingWorkspaces, openWorkspaces, sessionsByWorkspace } = useWorkspaceTreeRuntime();
+  const {
+    isLoadingWorkspaces,
+    openWorkspaces,
+    sessionsByWorkspace,
+    openSessionError,
+    clearOpenSessionError,
+  } = useWorkspaceTreeRuntime();
 
   if (isLoadingWorkspaces) {
     return (
@@ -28,6 +35,15 @@ export function WorkspaceTree() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {openSessionError ? (
+        <ErrorSurface
+          className="mx-2 mb-2"
+          title="Couldn't open workspace"
+          message={openSessionError}
+          onDismiss={clearOpenSessionError}
+        />
+      ) : null}
+
       <div className="flex items-center justify-between px-2 pb-1">
         <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           Workspaces
