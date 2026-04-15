@@ -105,6 +105,9 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/lsp/use-lsp.test.tsx` | Added regression coverage that diagnostics updates no longer call `monaco.editor.getModels()` |
 | `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the diagnostics-routing closeout, refreshed LSP metrics, and left only the Low protocol-shape follow-up |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` in progress with diagnostics cleanup cleared |
+| `apps/desktop/src/components/apps/explorer/explorer-language-routing.test.ts` | New — focused re-review guard that explorer editor + diff language inference stay pinned to canonical `src/lsp/language-routing.ts` |
+| `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the explorer/editor shared-routing re-review closeout and refreshed the remaining Low-only follow-up notes |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` in progress with the explorer/editor re-review item cleared |
 
 ---
 

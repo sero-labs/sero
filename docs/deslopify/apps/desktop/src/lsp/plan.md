@@ -57,7 +57,7 @@ _Plan drafted: 2026-04-12_
 2. ~~Split `use-lsp.ts` into provider-registry, document-sync, and diagnostics modules.~~ ✅ 2026-04-15 (`4d41d04e`)
 3. ~~Extract shared language-routing metadata and remove duplicated maps from explorer/LSP/editor code.~~ ✅ 2026-04-15 (`3fba69f2`)
 4. ~~Replace model scanning + `as never[]` with typed diagnostics routing.~~ ✅ 2026-04-15 (`b9232367`)
-5. Re-review explorer/editor surfaces after the shared routing contract lands.
+5. ~~Re-review explorer/editor surfaces after the shared routing contract lands.~~ ✅ 2026-04-15 (`f393a1d4`)
 
 ## Execution log
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
@@ -68,3 +68,5 @@ _Plan drafted: 2026-04-12_
   - Added `language-routing.ts` as the canonical renderer language map, rebased explorer editor/diff helpers and LSP document-sync/provider registration onto it, and added focused routing coverage in `language-routing.test.ts`.
 - 2026-04-15 — `b9232367` — `refactor(lsp): route diagnostics through typed model registry`
   - Added workspace-scoped diagnostics URI→model routing, removed publishDiagnostics model scans/`as never[]`, and locked in the no-scan behavior with a focused `use-lsp.test.tsx` assertion.
+- 2026-04-15 — `f393a1d4` — `test(lsp): lock explorer language-routing contract`
+  - Re-reviewed explorer editor + diff language inference surfaces after the shared routing extraction and added `explorer-language-routing.test.ts` to pin both wrappers to the canonical `getMonacoLanguageIdFromPath()` contract.

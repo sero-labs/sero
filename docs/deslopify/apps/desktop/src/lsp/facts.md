@@ -91,3 +91,19 @@ _Last reviewed: 2026-04-15_
 ### Still outstanding
 - Renderer/main language-routing metadata remains duplicated with `electron/features/editor/lsp/types.ts`; the renderer side is now consolidated and ready for the cross-layer extraction tracked under the electron editor plan.
 - `lsp-conversions.ts` still carries inline local protocol interfaces, which remains the Low follow-up.
+
+## Post-fix snapshot — 2026-04-15 (explorer/editor shared-routing re-review)
+
+### Metrics after fixes
+- Total files: 7 source files (unchanged)
+- Largest file: `apps/desktop/src/lsp/lsp-conversions.ts` (218 LOC; unchanged)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: none in the shared-routing path; only the Low protocol-shape follow-up remains
+
+### What changed
+- Re-reviewed explorer editor + VCS language-inference surfaces (`editor-panel-shared.ts`, `vcs-utils.ts`) after the shared routing extraction; both now remain thin wrappers over `getMonacoLanguageIdFromPath()` with no local extension maps.
+- Added `apps/desktop/src/components/apps/explorer/explorer-language-routing.test.ts` to lock editor + diff language inference onto the canonical renderer routing contract.
+
+### Still outstanding
+- Renderer/main language-routing metadata remains duplicated with `electron/features/editor/lsp/types.ts`; the renderer side is consolidated and ready for the cross-layer extraction tracked under the electron editor plan.
+- `lsp-conversions.ts` still carries inline local protocol interfaces, which remains the Low follow-up.
