@@ -2,62 +2,18 @@
  * Conversion utilities between LSP protocol types and Monaco editor types.
  *
  * Uses type imports from `monaco-editor` for compile-time safety without
- * pulling in Monaco's runtime. LSP protocol types use inline shapes since
- * `vscode-languageserver-types` is not a project dependency.
+ * pulling in Monaco's runtime.
  */
 
 import type { languages, MarkerSeverity as MarkerSeverityEnum, MarkerTag, editor, IRange } from 'monaco-editor';
-
-// ── LSP protocol shapes (inline, no runtime dep) ──────────────
-
-interface LspRange {
-  start: { line: number; character: number };
-  end: { line: number; character: number };
-}
-
-interface LspCompletionItem {
-  label: string | { label: string };
-  kind?: number;
-  detail?: string;
-  documentation?: string | { kind: string; value: string } | { value: string; language?: string };
-  sortText?: string;
-  filterText?: string;
-  insertText?: string;
-  insertTextFormat?: number;
-  textEdit?: { range: LspRange; newText: string } | { newText: string };
-  deprecated?: boolean;
-  tags?: number[];
-}
-
-interface LspCompletionList {
-  isIncomplete: boolean;
-  items: LspCompletionItem[];
-}
-
-interface LspHoverContents {
-  kind?: string;
-  value?: string;
-  language?: string;
-}
-
-interface LspHover {
-  contents: string | LspHoverContents | (string | LspHoverContents)[];
-  range?: LspRange;
-}
-
-interface LspLocation {
-  uri: string;
-  range: LspRange;
-}
-
-interface LspDiagnostic {
-  range: LspRange;
-  severity?: number;
-  code?: string | number;
-  source?: string;
-  message: string;
-  tags?: number[];
-}
+import type {
+  LspCompletionItem,
+  LspCompletionList,
+  LspDiagnostic,
+  LspHover,
+  LspLocation,
+  LspRange,
+} from './lsp-protocol';
 
 // ── LSP → Monaco kind mapping ─────────────────────────────────
 

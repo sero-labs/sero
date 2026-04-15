@@ -4,47 +4,16 @@ import {
   getDiagnosticsModel,
 } from './diagnostics-routing';
 import { convertDiagnostics } from './lsp-conversions';
+import type {
+  LspDiagnostic,
+  LspNotification,
+  LspNotificationEvent,
+  LspPosition,
+  LspRange,
+  PublishDiagnosticsNotification,
+  PublishDiagnosticsParams,
+} from './lsp-protocol';
 import { clearWorkspaceRoutes, type Monaco } from './provider-registry';
-
-interface LspPosition {
-  line: number;
-  character: number;
-}
-
-interface LspRange {
-  start: LspPosition;
-  end: LspPosition;
-}
-
-interface LspDiagnostic {
-  range: LspRange;
-  severity?: number;
-  code?: string | number;
-  source?: string;
-  message: string;
-  tags?: number[];
-}
-
-interface PublishDiagnosticsParams {
-  uri: string;
-  diagnostics: LspDiagnostic[];
-}
-
-interface LspNotification {
-  method: string;
-  params?: unknown;
-}
-
-interface PublishDiagnosticsNotification {
-  method: 'textDocument/publishDiagnostics';
-  params: PublishDiagnosticsParams;
-}
-
-interface LspNotificationEvent {
-  workspaceId: string;
-  language: string;
-  notification: LspNotification;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
