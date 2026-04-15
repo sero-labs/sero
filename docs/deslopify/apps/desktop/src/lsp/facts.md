@@ -55,3 +55,21 @@ _Last reviewed: 2026-04-15_
 - Renderer/main language-routing metadata is still duplicated until the shared contract lands.
 - Diagnostics still scan all Monaco models per notification and retain the existing `as never[]` cast until the next Medium cleanup lands.
 - `lsp-conversions.ts` still carries inline local protocol interfaces, which remains the Low follow-up.
+
+## Post-fix snapshot — 2026-04-15 (shared language-routing extraction)
+
+### Metrics after fixes
+- Total files: 6 source files (was 5)
+- Largest file: `apps/desktop/src/lsp/lsp-conversions.ts` (218 LOC; was 240 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: the pre-existing diagnostics `params.diagnostics as never[]` cast remains pending the next tracked item
+
+### What changed
+- Added `language-routing.ts` as the canonical renderer metadata owner for Monaco language inference, LSP didOpen language IDs, and LSP provider/server routing language IDs.
+- Removed duplicated extension-language maps from `lsp-conversions.ts`, `editor/editor-panel-shared.ts`, and `vcs/vcs-utils.ts` so editor + diff + document-sync now derive from one shared module.
+- Added `language-routing.test.ts` and rebased `use-lsp.test.tsx` assertions onto the canonical routing IDs to lock in shared-map behavior.
+
+### Still outstanding
+- Renderer/main language-routing metadata remains duplicated with `electron/features/editor/lsp/types.ts`; the renderer side is now consolidated and ready for the cross-layer extraction tracked under the electron editor plan.
+- Diagnostics still scan all Monaco models per notification and retain the existing `as never[]` cast until the next Medium cleanup lands.
+- `lsp-conversions.ts` still carries inline local protocol interfaces, which remains the Low follow-up.

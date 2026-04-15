@@ -96,6 +96,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/lsp/use-lsp.test.tsx` | New — covers LSP startup plus didOpen/didChange/didSave/diagnostics/didClose lifecycle across the split modules |
 | `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the renderer LSP modularization pass, refreshed folder metrics, and narrowed the remaining backlog to shared-routing + diagnostics follow-up |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` in progress with the first Medium modularization item cleared |
+| `apps/desktop/src/lsp/{language-routing.ts,document-sync.ts,use-lsp.ts,lsp-conversions.ts,use-lsp.test.tsx,language-routing.test.ts}` | Extracted shared renderer language-routing metadata and rebased LSP startup/document-sync/provider registration plus focused routing coverage on one canonical map |
+| `apps/desktop/src/components/apps/explorer/{editor/editor-panel-shared.ts,vcs/vcs-utils.ts}` | Rebased explorer editor + diff language inference onto the shared LSP language-routing module and removed duplicated extension maps |
+| `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the shared language-routing extraction closeout, refreshed metrics, and narrowed the remaining backlog to diagnostics + protocol-shape follow-up |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` in progress with the shared-routing Medium item cleared |
 
 ---
 

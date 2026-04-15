@@ -25,7 +25,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/lib/`](./apps/desktop/src/lib/plan.md)
     — *In progress — High federation retry item cleared 2026-04-15; Medium/Low cleanup pending*
   - [`apps/desktop/src/lsp/`](./apps/desktop/src/lsp/plan.md)
-    — *In progress — High item cleared 2026-04-12; first Medium modularization item cleared 2026-04-15; shared-routing + diagnostics cleanup pending*
+    — *In progress — High item cleared 2026-04-12; Medium modularization + shared-routing items cleared 2026-04-15; diagnostics cleanup and protocol-shape follow-up pending*
   - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)
     — *In progress — selected Medium items cleared 2026-04-12; cap-relief follow-up pending*
   - [`apps/desktop/src/types/`](./apps/desktop/src/types/plan.md)
