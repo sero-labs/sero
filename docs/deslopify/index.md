@@ -17,7 +17,7 @@ entry links to a `facts.md` and `plan.md` pair.
     - [`apps/desktop/src/components/apps/explorer/`](./apps/desktop/src/components/apps/explorer/plan.md)
       — *Healthy — explorer folder plan fully executed 2026-04-14*
   - [`apps/desktop/src/components/layout/`](./apps/desktop/src/components/layout/plan.md)
-    — *In progress — shared git-remote workflow, WorkspaceTree split, and ThemeEditorSheet split items cleared 2026-04-15; remaining Medium cleanup pending*
+    — *In progress — shared git-remote workflow, WorkspaceTree split, ThemeEditorSheet split, and ModelSelector split items cleared 2026-04-15; remaining Medium cleanup pending*
   - [`apps/desktop/src/components/profiles/`](./apps/desktop/src/components/profiles/plan.md)
     — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/src/hooks/`](./apps/desktop/src/hooks/plan.md)

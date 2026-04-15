@@ -15,6 +15,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/theme-editor/useThemeEditorState.test.tsx` | New — covers theme-editor open/close initialization, live preview revert, save, and built-in reset behavior |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the ThemeEditorSheet split, refreshed layout metrics, and narrowed the remaining near-cap/render-side-effect backlog |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the ThemeEditorSheet split cleared |
+| `apps/desktop/src/components/layout/ModelSelector.tsx` | Reduced to a thin model-selector shell over extracted controller/presentation modules (445 → 108 lines) |
+| `apps/desktop/src/components/layout/model-selector/{filtering.ts,ModelSelectorTrigger.tsx,ModelSelectorList.tsx,ThinkingPicker.tsx,useModelSelectorState.ts,useModelSelectorState.test.tsx}` | New — extracted model-selector filtering/runtime ownership, focused trigger/list/thinking presenters, and direct state coverage |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the ModelSelector split, refreshed layout metrics, and narrowed the remaining near-cap backlog |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the ModelSelector split cleared |
 
 ---
 

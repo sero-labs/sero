@@ -117,3 +117,23 @@ _Last reviewed: 2026-04-12_
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Near-cap cleanup for `ModelSelector.tsx`, `ContextEditor.tsx`, and `model-manager/local-models/LocalProviderForm.tsx` remains deferred, along with the still-near-cap `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx` follow-up.
 - Shared autocomplete/listbox primitives, the remaining render-phase side-effect cleanup in collaboration/font helpers, and shell error-surface normalization remain exactly as described in the original plan.
+
+## Post-fix snapshot — 2026-04-15 (model-selector split)
+
+### Metrics after fixes
+- Total files: 107 (was 101)
+- Total LOC: 17,255 (was 16,897)
+- Largest file: `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx` (479 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Added `model-selector/useModelSelectorState.ts` so focused-session model availability, preference filtering, favourites derivation, idle popover priming, manager open/close, and model/thinking mutation routing now live in one focused controller seam.
+- Added `model-selector/{filtering.ts,ModelSelectorTrigger.tsx,ModelSelectorList.tsx,ThinkingPicker.tsx}` and reduced `ModelSelector.tsx` to a thin shell over extracted filtering, presentation, and thinking-picker helpers (445 → 108 LOC).
+- Added `model-selector/useModelSelectorState.test.tsx` to cover hidden-model/provider filtering, favourites visibility, open-state priming/reset, thinking-badge suppression, and focused-session action routing.
+- `ModelSelector.tsx` is no longer in the near-cap list; the remaining cap-pressure set is now `ContextEditor.tsx`, `LocalProviderForm.tsx`, `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Near-cap cleanup for `ContextEditor.tsx` and `model-manager/local-models/LocalProviderForm.tsx` remains deferred, along with the still-near-cap `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx` follow-up.
+- Shared autocomplete/listbox primitives, the remaining render-phase side-effect cleanup in collaboration/font helpers, and shell error-surface normalization remain exactly as described in the original plan.
