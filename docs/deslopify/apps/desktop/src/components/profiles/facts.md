@@ -83,3 +83,20 @@ This folder owns the renderer-side profile UX for `apps/desktop`: first-run prof
 
 ### Still outstanding
 - GitHub onboarding step control still lives across `SetupScreen`, `GitHubConnectCard`, and `useGitHubAuthFlow`.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 17 (was 15)
+- Largest file: `apps/desktop/src/components/profiles/onboarding/onboarding-launch-runtime.ts` (371 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (was none)
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Added `onboarding/useOnboardingGitHubStep.ts` so `SetupScreen.tsx` owns the optional GitHub step’s status-check, show/back, and skip-to-memory transitions in one controller primitive.
+- Reworked `onboarding/GitHubConnectCard.tsx` into a pure presenter and exposed `refreshStatus()` from `useGitHubAuthFlow.ts` so the onboarding controller can re-check live GitHub auth without duplicating bridge logic.
+- Added focused `useOnboardingGitHubStep.test.tsx` coverage for already-connected bypass plus back/skip cancellation semantics.
+
+### Still outstanding
+- None — the folder plan is fully executed.

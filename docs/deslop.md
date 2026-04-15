@@ -76,6 +76,12 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/stores/profiles.ts` | Centralized restart-aware profile operation errors and preserved correct switch-vs-create failure reporting during activation |
 | `docs/deslopify/apps/desktop/src/components/profiles/{facts,plan}.md` | Recorded the profile-error cleanup, refreshed profile-folder metrics, and left only the Low GitHub-step follow-up pending |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/profiles/` in progress with the third Medium onboarding item cleared |
+| `apps/desktop/src/components/profiles/onboarding/SetupScreen.tsx` | Centralized optional GitHub-step state transitions around a dedicated onboarding controller while preserving check-before-show, back-cancel, and skip semantics |
+| `apps/desktop/src/components/profiles/onboarding/GitHubConnectCard.tsx` | Reduced to a pure presenter over controller-provided GitHub auth/device-flow state |
+| `apps/desktop/src/components/profiles/onboarding/{useOnboardingGitHubStep.ts,useOnboardingGitHubStep.test.tsx}` | New — consolidated onboarding GitHub-step control and added focused coverage for refreshed-status, back, and skip flows |
+| `apps/desktop/src/hooks/useGitHubAuthFlow.ts` | Added reusable GitHub status refresh support so onboarding can re-check auth without duplicating bridge logic |
+| `docs/deslopify/apps/desktop/src/components/profiles/{facts,plan}.md` | Closed the final GitHub-step consolidation item, refreshed profile-folder metrics, and marked the plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/profiles/` fully executed after the Low GitHub-step pass |
 
 ---
 

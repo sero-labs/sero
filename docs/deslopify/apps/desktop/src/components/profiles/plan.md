@@ -29,9 +29,9 @@ _Plan drafted: 2026-04-12_
    - Surfaced explicit error text in the dialog/popover instead of silently staying on the current profile.
    - Preserved the success-path assumption that a successful switch/create may never resolve in the current process because the app relaunches.
 
-4. **Collapse GitHub onboarding flow control into one controller primitive.**
-   - Keep `GitHubConnectCard` as the presenter.
-   - Move “check status first / decide whether to show the GitHub step / cancel when leaving the step” into a small `useOnboardingGitHubStep` hook or onboarding-controller helper used only by `SetupScreen`.
+4. ~~**Collapse GitHub onboarding flow control into one controller primitive.**~~ ✅ 2026-04-15 (`174a6ff1`)
+   - Kept `GitHubConnectCard` as the presenter.
+   - Moved “check status first / decide whether to show the GitHub step / cancel when leaving the step” into `onboarding/useOnboardingGitHubStep.ts`, with `useGitHubAuthFlow()` exposing a reusable `refreshStatus()` helper so the optional step re-checks live auth state instead of duplicating bridge calls.
    - That makes the optional GitHub step easy to reason about without duplicating state transitions.
 
 ## Benefits & Trade-offs
@@ -47,7 +47,7 @@ _Plan drafted: 2026-04-12_
 1. ~~Extract onboarding session runtime helpers out of `OnboardingWizard.tsx` and reduce the component to phase/dialog composition.~~ ✅ 2026-04-15 (`2b94571a`)
 2. ~~Remove the render-phase `hideLaunchingDialogRef` mutation and replace it with explicit derived state.~~ ✅ 2026-04-15 (`fc36ab2b`)
 3. ~~Introduce one restart-aware error helper for profile create/switch flows and surface errors in the UI.~~ ✅ 2026-04-15 (`0cddfe24`)
-4. Consolidate GitHub onboarding step control into a single hook/helper.
+4. ~~Consolidate GitHub onboarding step control into a single hook/helper.~~ ✅ 2026-04-15 (`174a6ff1`)
 5. Verification checklist:
    - Fresh install with no active profile shows only `ProfileSetup`.
    - Creating the first profile still triggers activation/relaunch correctly.
@@ -59,3 +59,4 @@ _Plan drafted: 2026-04-12_
 - 2026-04-15 — `2b94571a` — `refactor(profiles): extract onboarding launch runtime`
 - 2026-04-15 — `fc36ab2b` — `refactor(profiles): derive onboarding launch dialog visibility`
 - 2026-04-15 — `0cddfe24` — `refactor(profiles): surface restart-aware profile errors`
+- 2026-04-15 — `174a6ff1` — `refactor(profiles): centralize onboarding github step control`
