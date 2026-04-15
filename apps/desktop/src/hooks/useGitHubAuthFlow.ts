@@ -21,6 +21,27 @@ export function useGitHubAuthFlow() {
   const [copyFailed, setCopyFailed] = useState(false);
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const clearCopyResetTimer = useCallback(() => {
+    if (copyResetTimerRef.current) {
+      clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = null;
+    }
+  }, []);
+
+  const setTransientCopyState = useCallback(
+    (state: 'copied' | 'failed') => {
+      clearCopyResetTimer();
+      setCopied(state === 'copied');
+      setCopyFailed(state === 'failed');
+      copyResetTimerRef.current = setTimeout(() => {
+        setCopied(false);
+        setCopyFailed(false);
+        copyResetTimerRef.current = null;
+      }, state === 'copied' ? 2000 : 3000);
+    },
+    [clearCopyResetTimer],
+  );
+
   const refreshStatus = useCallback(async (): Promise<GitHubAuthStatus> => {
     try {
       const status = await window.sero.github.status();
@@ -67,13 +88,7 @@ export function useGitHubAuthFlow() {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (copyResetTimerRef.current) {
-        clearTimeout(copyResetTimerRef.current);
-      }
-    };
-  }, []);
+  useEffect(() => clearCopyResetTimer, [clearCopyResetTimer]);
 
   const startLogin = useCallback(() => {
     setFlow({ step: 'idle' });
@@ -94,27 +109,8 @@ export function useGitHubAuthFlow() {
 
   const copyCode = useCallback(async (code: string) => {
     const ok = await copyTextToClipboard(code);
-    if (copyResetTimerRef.current) {
-      clearTimeout(copyResetTimerRef.current);
-    }
-
-    if (ok) {
-      setCopied(true);
-      setCopyFailed(false);
-      copyResetTimerRef.current = setTimeout(() => {
-        setCopied(false);
-        copyResetTimerRef.current = null;
-      }, 2000);
-      return;
-    }
-
-    setCopied(false);
-    setCopyFailed(true);
-    copyResetTimerRef.current = setTimeout(() => {
-      setCopyFailed(false);
-      copyResetTimerRef.current = null;
-    }, 3000);
-  }, []);
+    setTransientCopyState(ok ? 'copied' : 'failed');
+  }, [setTransientCopyState]);
 
   return {
     authStatus,
