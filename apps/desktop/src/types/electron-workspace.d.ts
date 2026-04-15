@@ -5,6 +5,7 @@
  */
 
 import type { EditorRoot } from './ipc';
+import type { LspNotification } from '@/lsp/lsp-protocol';
 import type {
   VcsCheckpoint,
   VcsEvent,
@@ -76,7 +77,7 @@ export interface SeroLspAPI {
   /** Check if a server is running for a workspace/language. */
   hasServer(workspaceId: string, language: string): Promise<boolean>;
   /** Subscribe to LSP notifications (diagnostics etc.). Returns unsubscribe. */
-  onNotification(callback: (data: { workspaceId: string; language: string; notification: any }) => void): () => void;
+  onNotification(callback: (data: { workspaceId: string; language: string; notification: LspNotification }) => void): () => void;
   /** Subscribe to LSP server stopped events. Returns unsubscribe. */
   onServerStopped(callback: (data: { workspaceId: string; language: string }) => void): () => void;
 }
