@@ -99,6 +99,9 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/lib/google-fonts.test.ts` | New — covers curated preload scope, dedupe behavior, on-demand loading of non-preloaded families, and system/unknown no-op handling |
 | `docs/deslopify/apps/desktop/src/lib/{facts,plan}.md` | Recorded the font-preload strategy closeout, refreshed lib-folder metrics, and narrowed the backlog to only the Low theme dead-code follow-up |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/lib/` in progress with High + both Medium items cleared |
+| `apps/desktop/src/lib/theme-engine.ts` | Removed dead `presetToMeta` metadata helper and dropped the unused `ThemePresetMeta` import (297 → 285 lines) |
+| `docs/deslopify/apps/desktop/src/lib/{facts,plan}.md` | Recorded the Low theme dead-code cleanup closeout, refreshed lib-folder metrics, and marked the folder plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/lib/` healthy with all tracked items cleared |
 | `apps/desktop/src/lsp/use-lsp.ts` | Reduced to a thin renderer-LSP composition hook over extracted provider, document-sync, and diagnostics modules (300 → 87 lines) |
 | `apps/desktop/src/lsp/{provider-registry.ts,document-sync.ts,diagnostics.ts}` | New — extracted Monaco provider registration, document lifecycle, and diagnostics/server-stop ownership from `use-lsp.ts` |
 | `apps/desktop/src/lsp/use-lsp.test.tsx` | New — covers LSP startup plus didOpen/didChange/didSave/diagnostics/didClose lifecycle across the split modules |

@@ -23,7 +23,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/hooks/`](./apps/desktop/src/hooks/plan.md)
     — *Healthy — hooks folder plan fully executed 2026-04-15*
   - [`apps/desktop/src/lib/`](./apps/desktop/src/lib/plan.md)
-    — *In progress — High federation retry plus both Medium follow-ups (dom-interactions split + font-preload strategy) cleared 2026-04-15; only Low theme dead-code cleanup remains*
+    — *Healthy — folder plan fully executed 2026-04-15 (High/Medium/Low tracked items cleared)*
   - [`apps/desktop/src/lsp/`](./apps/desktop/src/lsp/plan.md)
     — *Healthy — folder plan fully executed 2026-04-15 (Low protocol-shape follow-up cleared)*
   - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)

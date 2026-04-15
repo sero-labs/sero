@@ -91,3 +91,20 @@ _Last reviewed: 2026-04-15_
 
 ### Still outstanding
 - `theme-engine.ts` still carries the dead `presetToMeta()` helper.
+
+## Post-fix snapshot — 2026-04-15 (theme dead-code cleanup)
+
+### Metrics after fixes
+- Total files: 22 (unchanged)
+- Total LOC: 2,302 (was 2,314)
+- Largest file: `apps/desktop/src/lib/federation-registry.ts` (313 LOC; unchanged)
+- Files over 500 LOC: none (unchanged)
+- Near-cap files (≥400 LOC): none
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Removed the dead `presetToMeta()` helper from `theme-engine.ts` and deleted the now-unused `ThemePresetMeta` import.
+- Kept theme apply/reset/validation behavior unchanged; this pass was strictly a dead-code cleanup.
+
+### Still outstanding
+- No remaining in-folder plan items for `apps/desktop/src/lib/`.
