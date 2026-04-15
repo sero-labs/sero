@@ -29,7 +29,7 @@ This feature owns the app-level GitHub and Google auth/runtime integration: GitH
 ## Surprising discoveries
 - `GitHubAuthManager` still carries the legacy root-file cleanup shim even though active auth persistence is now profile-scoped under `SERO_AGENT_DIR`.
 - Google auth migration behavior depends on both profile-registry scanning and single-token fallback semantics; this is now easier to review after modularization but still easy to regress if moved without tests.
-- The user-facing “Google OAuth not configured” error still hardcodes the default-root plugin-config path instead of using profile-scoped guidance.
+- The user-facing “Google OAuth not configured” guidance was previously hardcoded in `auth-manager.ts`; it now resolves through a profile-scoped helper in `google/config.ts`.
 
 ## Post-fix snapshot — 2026-04-12
 
@@ -97,3 +97,19 @@ This feature owns the app-level GitHub and Google auth/runtime integration: GitH
 
 ### Still outstanding
 - Google OAuth setup guidance still references the default-root plugin-config path instead of profile-scoped instructions.
+
+## Post-fix snapshot — 2026-04-15 (profile-scoped guidance)
+
+### Metrics after fixes
+- Total files: 10 (unchanged)
+- Largest file: `apps/desktop/electron/features/auth/github/auth-manager.ts` (373 LOC; unchanged)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder (unchanged)
+
+### What changed
+- Added canonical Google OAuth setup guidance helpers in `google/config.ts` that derive the plugin-config path from `SERO_AGENT_DIR`.
+- Replaced the hardcoded `~/.sero-ui/agent/...` guidance string in `google/auth-manager.ts` with profile-scoped helper output.
+- Added focused coverage in `electron/__tests__/features/auth/google/config.test.ts` for profile-scoped path/message generation.
+
+### Still outstanding
+- None for this folder-level plan.

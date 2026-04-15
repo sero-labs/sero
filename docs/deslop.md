@@ -150,6 +150,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/git-remote/workflow.ts` | Reused canonical GitHub URL parsing/web-url helpers to keep renderer publish/origin behavior aligned with repo-ops |
 | `docs/deslopify/apps/desktop/electron/features/auth/{facts,plan}.md` | Recorded the Low helper-dedupe closeout, refreshed auth metrics, and narrowed remaining work to profile-scoped guidance text |
 | `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/auth/` status to reflect only the final Low guidance follow-up pending |
+| `apps/desktop/electron/features/auth/google/config.ts` | Added profile-scoped Google OAuth setup guidance helpers derived from `SERO_AGENT_DIR` and shared by auth login errors |
+| `apps/desktop/electron/features/auth/google/auth-manager.ts` | Replaced the hardcoded default-root OAuth guidance string with profile-scoped helper output |
+| `apps/desktop/electron/__tests__/features/auth/google/config.test.ts` | New — verifies profile-scoped plugin-config path and guidance text generation from `SERO_AGENT_DIR` |
+| `docs/deslopify/apps/desktop/electron/features/auth/{facts,plan}.md` | Closed the final Low profile-scoped guidance item, refreshed auth metrics, and marked the auth plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/auth/` healthy with all tracked items cleared |
 
 ---
 

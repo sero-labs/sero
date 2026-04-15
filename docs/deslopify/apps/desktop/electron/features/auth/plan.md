@@ -55,7 +55,7 @@ _Plan drafted: 2026-04-12_
 2. ~~Add explicit non-2xx GitHub device-flow error handling.~~ ✅ 2026-04-15 (`1fde9d04`)
 3. ~~Split `GoogleAuthManager` into focused modules before it grows further.~~ ✅ 2026-04-15 (`3dffc820`)
 4. ~~Deduplicate gog binary/PATH discovery and GitHub URL-normalization helpers.~~ ✅ 2026-04-15 (`e96f4ec8`)
-5. Replace hardcoded default-root guidance with profile-scoped instructions.
+5. ~~Replace hardcoded default-root guidance with profile-scoped instructions.~~ ✅ 2026-04-15 (`969e35fd`)
 6. Verification checklist:
    - GitHub login/logout still works, including cancel + reconnect.
    - GitHub token storage fails safely when secure storage is unavailable.
@@ -74,3 +74,6 @@ _Plan drafted: 2026-04-12_
 - 2026-04-15 — `e96f4ec8` — `refactor(auth): dedupe gog and github url helpers`
   - Added one canonical Google runtime helper (`google/gog-runtime.ts`) for gog binary resolution/PATH expansion and reused it from auth, IPC, and CLI execution surfaces.
   - Moved GitHub remote URL parsing/normalization helpers into `@sero/common` so electron repo-ops and renderer git-remote workflow share one normalization contract.
+- 2026-04-15 — `969e35fd` — `fix(auth): use profile-scoped google oauth guidance`
+  - Replaced the hardcoded default-root Google OAuth setup path with `SERO_AGENT_DIR`-derived guidance so non-default profiles get accurate instructions.
+  - Added focused config guidance coverage under `electron/__tests__/features/auth/google/config.test.ts`.
