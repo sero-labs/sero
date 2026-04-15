@@ -126,6 +126,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/stores/app/{state.ts,shared.ts,layout-hydration.ts,discovery.ts,listeners.ts}` | New — split app store state, helper contracts, layout hydration, discovery/plugin-change reconciliation, and listener wiring into focused modules |
 | `docs/deslopify/apps/desktop/src/stores/{facts,plan}.md` | Recorded the stores cap-relief follow-up closeout, refreshed post-fix metrics, and narrowed remaining backlog to Low selector-churn follow-up |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/stores/` in progress with cap-relief follow-up cleared |
+| `apps/desktop/src/stores/agent-selectors.ts` | Stabilized streaming-ID and focused-command selector outputs so unchanged results reuse cached references instead of emitting fresh arrays |
+| `apps/desktop/src/stores/sessions.ts` | Memoized workspace-grouped session selector output by sessions/query inputs to reduce avoidable object churn in workspace tree consumers |
+| `docs/deslopify/apps/desktop/src/stores/{facts,plan}.md` | Closed the Low selector-churn follow-up, refreshed post-fix store metrics, and marked only optional `agent.ts` split work as deferred |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/stores/` healthy with all tracked items cleared |
 
 ---
 

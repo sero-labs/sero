@@ -27,7 +27,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/lsp/`](./apps/desktop/src/lsp/plan.md)
     — *Healthy — folder plan fully executed 2026-04-15 (Low protocol-shape follow-up cleared)*
   - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)
-    — *In progress — cap-relief follow-up cleared 2026-04-15; Low selector-churn follow-up pending*
+    — *Healthy — folder plan fully executed 2026-04-15 (Low selector-churn follow-up cleared)*
   - [`apps/desktop/src/types/`](./apps/desktop/src/types/plan.md)
     — *In progress — selected Medium contract-cleanup items cleared 2026-04-12; remaining drift pending*
   - [`apps/desktop/electron/features/agent/`](./apps/desktop/electron/features/agent/plan.md)

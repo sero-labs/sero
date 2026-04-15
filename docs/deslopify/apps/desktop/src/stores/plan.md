@@ -14,7 +14,7 @@ _Plan drafted: 2026-04-12_
 
 - **Medium** — ~~Module-level pending memory context has no explicit cleanup on session teardown — `apps/desktop/src/stores/agent-utils.ts:108-169` adds per-session entries on `memory_context` and clears only on the next assistant `message_start`. Session close/error paths do not prune stale session keys, so long-lived apps can accumulate dead map entries.~~ ✅ 2026-04-12 (`clearAgentSessionBuffers()` now clears pending context + buffered deltas on close/error/unknown `agent_end`). Effort: **S**.
 
-- **Low** — Selector helpers return fresh arrays/objects each call, creating avoidable render churn in hot UI paths — e.g. `apps/desktop/src/stores/agent-selectors.ts:25-29` (`useStreamingSessionIds`) and `apps/desktop/src/stores/sessions.ts:230-253` (`useSessionsByWorkspace`). Effort: **S**.
+- **Low** — ~~Selector helpers return fresh arrays/objects each call, creating avoidable render churn in hot UI paths — e.g. `apps/desktop/src/stores/agent-selectors.ts:25-29` (`useStreamingSessionIds`) and `apps/desktop/src/stores/sessions.ts:230-253` (`useSessionsByWorkspace`).~~ ✅ 2026-04-15 (`1894e36c`) — selector outputs now reuse stable references for unchanged streaming IDs, focused commands, and workspace-grouped session maps. Effort: **S**.
 
 ## Proposed Refactoring
 1. **Make destructive actions IPC-result aware before mutating local state.**
@@ -65,3 +65,4 @@ _Plan drafted: 2026-04-12_
 ## Execution log
 - 2026-04-12 — Medium Wave E2 (working tree): extracted shared optimistic user-message enqueue logic, added explicit agent-session buffer teardown, and trimmed `agent.ts` from 495 → 461 LOC while preserving the existing public store API.
 - 2026-04-15 — Medium cap-relief follow-up (`e8653928`): split `app.ts` into dedicated `stores/app/` ownership modules (`state`, `layout-hydration`, `discovery`, `listeners`, `shared`) and kept `stores/app.ts` as a compatibility barrel.
+- 2026-04-15 — Low selector-churn follow-up (`1894e36c`): memoized hot selector outputs in `agent-selectors.ts` and `sessions.ts` so unchanged streaming IDs/commands/workspace-grouped sessions keep stable references across unrelated store updates.

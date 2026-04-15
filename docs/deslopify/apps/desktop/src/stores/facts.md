@@ -75,3 +75,24 @@ _Last reviewed: 2026-04-15_
 - Low-priority selector churn cleanup (`agent-selectors.ts`, `sessions.ts`) remains pending.
 - `agent.ts` no longer has cap pressure, but a deeper split is still optional if future growth
   trends upward.
+
+## Post-fix snapshot — 2026-04-15 (selector-churn follow-up)
+
+### Metrics after fixes
+- Total files: 35 (was 35)
+- Largest file: `apps/desktop/src/stores/agent-utils.ts` (397 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (unchanged)
+- Type escape hatches remaining: none observed in touched files
+
+### What changed
+- Stabilized `useStreamingSessionIds()` so unchanged streaming session ID sets reuse the prior
+  array reference instead of emitting a fresh array every selector run.
+- Stabilized `useFocusedCommands()` so focused-command lookup reuses cached selector results and
+  the shared empty-array fallback when no session is focused.
+- Stabilized `useSessionsByWorkspace()` by caching grouped query results against the latest
+  `sessions` reference + normalized search query and reusing a shared empty map fallback.
+
+### Still outstanding
+- `agent.ts` no longer has cap pressure, but a deeper split is still optional if future growth
+  trends upward.
