@@ -1,6 +1,6 @@
 # Facts — apps/desktop/src/stores
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-15_
 
 ## What this code does
 `src/stores` is the renderer orchestration layer for Sero’s desktop shell. It owns shell layout state, app discovery state, workspace/session selection, active agent message streams, container/VCS/subagent runtime state, and several cross-app UI bridges (dashboard widgets, feedback, editor open requests, context overrides, model preferences).
@@ -51,8 +51,27 @@ _Last reviewed: 2026-04-12_
   pruned alongside the store entry.
 
 ### Still outstanding
-- `apps/desktop/src/stores/app.ts` remains a near-cap orchestration hub and still needs its own
-  split pass.
-- `apps/desktop/src/stores/agent.ts` is healthier but still broad; the planned submodule split has
-  not been executed yet.
+- `apps/desktop/src/stores/agent.ts` is healthier but still broad; a deeper ownership split is
+  optional follow-up if the file starts growing again.
 - Low-priority selector churn cleanup is still pending.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 35 (was 29)
+- Largest file: `apps/desktop/src/stores/agent-utils.ts` (397 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (was `agent.ts` + `app.ts`)
+
+### What changed
+- Split the near-cap `apps/desktop/src/stores/app.ts` ownership seams into
+  `stores/app/{state,layout-hydration,discovery,listeners,shared}.ts`.
+- Kept `stores/app.ts` as a thin compatibility barrel so existing imports and test surfaces
+  continue to work unchanged.
+- Isolated app discovery/plugin-change reconciliation and layout hydration into focused modules,
+  reducing the blast radius for future app-store edits.
+
+### Still outstanding
+- Low-priority selector churn cleanup (`agent-selectors.ts`, `sessions.ts`) remains pending.
+- `agent.ts` no longer has cap pressure, but a deeper split is still optional if future growth
+  trends upward.

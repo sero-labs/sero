@@ -122,6 +122,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/lsp/{lsp-protocol.ts,lsp-conversions.ts,diagnostics.ts}` | Added a canonical renderer LSP protocol-contract module and removed inline protocol interface shadows from conversion/diagnostics runtime code (`lsp-conversions.ts` 218 → 174 lines) |
 | `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the Low protocol-shape extraction closeout, refreshed LSP metrics, and marked the folder plan fully executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` healthy with all tracked items cleared |
+| `apps/desktop/src/stores/app.ts` | Reduced to a thin compatibility barrel over focused app-store ownership modules (460 → 10 lines) |
+| `apps/desktop/src/stores/app/{state.ts,shared.ts,layout-hydration.ts,discovery.ts,listeners.ts}` | New — split app store state, helper contracts, layout hydration, discovery/plugin-change reconciliation, and listener wiring into focused modules |
+| `docs/deslopify/apps/desktop/src/stores/{facts,plan}.md` | Recorded the stores cap-relief follow-up closeout, refreshed post-fix metrics, and narrowed remaining backlog to Low selector-churn follow-up |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/stores/` in progress with cap-relief follow-up cleared |
 
 ---
 

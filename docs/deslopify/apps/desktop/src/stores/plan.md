@@ -8,7 +8,7 @@ _Plan drafted: 2026-04-12_
 ## Issues Found (prioritized)
 - **High** — Optimistic destructive actions can leave renderer/main state out of sync on IPC failure — `apps/desktop/src/stores/agent.ts:135-151` removes the local agent entry even when `window.sero.agent.close()` throws, and `apps/desktop/src/stores/workspace.ts:84-92` removes a workspace locally before `window.sero.workspace.close()` succeeds (failure is only logged). This risks ghost sessions/workspaces that reappear after reload and violates the four-layer consistency expectation. Effort: **S**.
 
-- **Medium** — Core orchestration stores are one feature away from the 500-LOC cap — `apps/desktop/src/stores/agent.ts:1-489` and `apps/desktop/src/stores/app.ts:1-460` each mix multiple responsibilities (state, IPC orchestration, hydration/startup utilities, listener wiring), increasing review risk and future refactor cost. Effort: **M**.
+- **Medium** — ~~Core orchestration stores are one feature away from the 500-LOC cap — `apps/desktop/src/stores/agent.ts:1-489` and `apps/desktop/src/stores/app.ts:1-460` each mix multiple responsibilities (state, IPC orchestration, hydration/startup utilities, listener wiring), increasing review risk and future refactor cost.~~ ✅ 2026-04-15 (`e8653928`) — `app.ts` is now a thin compatibility barrel over `stores/app/{state,layout-hydration,discovery,listeners,shared}.ts`, and the remaining store files are below near-cap pressure. Effort: **M**.
 
 - **Medium** — ~~`agent.ts` duplicates optimistic user-message creation and ID generation in three flows — `apps/desktop/src/stores/agent.ts:155-176`, `apps/desktop/src/stores/agent.ts:198-218`, and `apps/desktop/src/stores/agent.ts:338-356`. This duplication already drifted (prompt/steer/collab paths are subtly different) and makes future message-shape changes error-prone.~~ ✅ 2026-04-12 (`appendOptimisticUserMessage()` now owns the shared enqueue path). Effort: **S**.
 
@@ -59,8 +59,9 @@ _Plan drafted: 2026-04-12_
 1. Land High fix: make `closeSession` and `closeWorkspace` consistent on IPC failure.
 2. ~~Extract optimistic user-message helper and de-duplicate prompt/steer/collab paths.~~ ✅ 2026-04-12
 3. ~~Add session-buffer teardown for `pendingMemoryContext` in `agent-utils`.~~ ✅ 2026-04-12
-4. Split `agent.ts` and `app.ts` into submodules before either file crosses 500 LOC.
+4. ~~Split near-cap app/store ownership into focused submodules while preserving `stores/app.ts` compatibility exports.~~ ✅ 2026-04-15 (`e8653928`)
 5. After fixes, re-run deslopify on `components/layout` (Wave C) with updated store ownership boundaries.
 
 ## Execution log
 - 2026-04-12 — Medium Wave E2 (working tree): extracted shared optimistic user-message enqueue logic, added explicit agent-session buffer teardown, and trimmed `agent.ts` from 495 → 461 LOC while preserving the existing public store API.
+- 2026-04-15 — Medium cap-relief follow-up (`e8653928`): split `app.ts` into dedicated `stores/app/` ownership modules (`state`, `layout-hydration`, `discovery`, `listeners`, `shared`) and kept `stores/app.ts` as a compatibility barrel.
