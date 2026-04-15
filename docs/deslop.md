@@ -19,6 +19,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/model-selector/{filtering.ts,ModelSelectorTrigger.tsx,ModelSelectorList.tsx,ThinkingPicker.tsx,useModelSelectorState.ts,useModelSelectorState.test.tsx}` | New — extracted model-selector filtering/runtime ownership, focused trigger/list/thinking presenters, and direct state coverage |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the ModelSelector split, refreshed layout metrics, and narrowed the remaining near-cap backlog |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the ModelSelector split cleared |
+| `apps/desktop/src/components/layout/ContextEditor.tsx` | Reduced to a thin context-editor shell over extracted preset/system/tools/skills modules (479 → 100 lines) |
+| `apps/desktop/src/components/layout/context-editor/{CapabilitySection.tsx,PresetBar.tsx,SkillsSection.tsx,SystemPromptSection.tsx,ToolsSection.tsx,useContextEditorState.ts,useContextEditorState.test.tsx}` | New — extracted context-editor preset/runtime ownership, focused section presenters, and direct state coverage |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the ContextEditor split, refreshed layout metrics, and narrowed the remaining near-cap backlog |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the ContextEditor split cleared |
 
 ---
 

@@ -41,7 +41,7 @@ _Plan drafted: 2026-04-12_
      - ~~`WorkspaceTree.tsx` → `useWorkspaceTreeRuntime`, `WorkspaceNode`, `WorkspaceBulkDeleteDialog`~~ ✅ 2026-04-14 (`c3326a2e`)
      - ~~`ThemeEditorSheet.tsx` → draft-state/preview hook + sectioned presentation shell~~ ✅ 2026-04-15 (`b322b915`)
      - ~~`ModelSelector.tsx` → trigger, provider list, thinking picker, search/filter hook~~ ✅ 2026-04-15 (`6df0b02f`)
-     - `ContextEditor.tsx` → top-level dialog shell + separate preset/system/tools/skills modules
+     - ~~`ContextEditor.tsx` → top-level dialog shell + separate preset/system/tools/skills modules~~ ✅ 2026-04-15 (`53f64174`)
      - `model-manager/local-models/LocalProviderForm.tsx` → connection section, compat section, model list section, save footer
    - Align with the existing Wave A/Wave C pattern: stores/hooks own orchestration, layout files should mostly compose focused helpers.
 
@@ -89,7 +89,7 @@ _Plan drafted: 2026-04-12_
    - ~~`WorkspaceTree.tsx` → `useWorkspaceTreeRuntime`, `WorkspaceNode`, `WorkspaceBulkDeleteDialog`~~ ✅ 2026-04-14 (`c3326a2e`)
    - ~~`ThemeEditorSheet.tsx`~~ ✅ 2026-04-15 (`b322b915`)
    - ~~`ModelSelector.tsx`~~ ✅ 2026-04-15 (`6df0b02f`)
-   - `ContextEditor.tsx`
+   - ~~`ContextEditor.tsx`~~ ✅ 2026-04-15 (`53f64174`)
    - `model-manager/local-models/LocalProviderForm.tsx`
 3. Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.
 4. Remove render-phase side effects from theme/collaboration/font helpers.
@@ -106,3 +106,4 @@ _Plan drafted: 2026-04-12_
 - `c3326a2e` — `refactor(layout): split workspace tree runtime`
 - `b322b915` — `refactor(layout): split theme editor state`
 - `6df0b02f` — `refactor(layout): split model selector runtime`
+- `53f64174` — `refactor(layout): split context editor dialog`

@@ -137,3 +137,23 @@ _Last reviewed: 2026-04-12_
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Near-cap cleanup for `ContextEditor.tsx` and `model-manager/local-models/LocalProviderForm.tsx` remains deferred, along with the still-near-cap `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx` follow-up.
 - Shared autocomplete/listbox primitives, the remaining render-phase side-effect cleanup in collaboration/font helpers, and shell error-surface normalization remain exactly as described in the original plan.
+
+## Post-fix snapshot — 2026-04-15 (context-editor split)
+
+### Metrics after fixes
+- Total files: 114 (was 107)
+- Total LOC: 17,591 (was 17,255)
+- Largest file: `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx` (479 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Added `context-editor/useContextEditorState.ts` so preset metadata, prompt fallback, enabled-count derivation, save-input visibility, and apply-and-close semantics now live in one focused controller seam instead of the dialog shell.
+- Added `context-editor/{PresetBar.tsx,SystemPromptSection.tsx,CapabilitySection.tsx,ToolsSection.tsx,SkillsSection.tsx}` and reduced `ContextEditor.tsx` to a thin dialog shell over the extracted preset/system/tools/skills presenters (479 → 100 LOC).
+- Added `context-editor/useContextEditorState.test.tsx` to cover prompt fallback, user-preset metadata, save-input toggling, and the “close only after successful apply” guardrail.
+- `ContextEditor.tsx` is no longer in the near-cap list; the remaining cap-pressure set is now `LocalProviderForm.tsx`, `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Near-cap cleanup for `model-manager/local-models/LocalProviderForm.tsx` remains deferred, along with the still-near-cap `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx` follow-up.
+- Shared autocomplete/listbox primitives, the remaining render-phase side-effect cleanup in collaboration/font helpers, and shell error-surface normalization remain exactly as described in the original plan.
