@@ -58,6 +58,7 @@ _Plan drafted: 2026-04-12_
 3. ~~Extract shared language-routing metadata and remove duplicated maps from explorer/LSP/editor code.~~ ✅ 2026-04-15 (`3fba69f2`)
 4. ~~Replace model scanning + `as never[]` with typed diagnostics routing.~~ ✅ 2026-04-15 (`b9232367`)
 5. ~~Re-review explorer/editor surfaces after the shared routing contract lands.~~ ✅ 2026-04-15 (`f393a1d4`)
+6. ~~Move inline renderer LSP protocol interfaces into a focused `lsp-protocol.ts` module and rebase diagnostics/conversion code on that shared contract.~~ ✅ 2026-04-15 (`f10c9cd4`)
 
 ## Execution log
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
@@ -70,3 +71,5 @@ _Plan drafted: 2026-04-12_
   - Added workspace-scoped diagnostics URI→model routing, removed publishDiagnostics model scans/`as never[]`, and locked in the no-scan behavior with a focused `use-lsp.test.tsx` assertion.
 - 2026-04-15 — `f393a1d4` — `test(lsp): lock explorer language-routing contract`
   - Re-reviewed explorer editor + diff language inference surfaces after the shared routing extraction and added `explorer-language-routing.test.ts` to pin both wrappers to the canonical `getMonacoLanguageIdFromPath()` contract.
+- 2026-04-15 — `f10c9cd4` — `refactor(lsp): extract renderer protocol shape contracts`
+  - Added `lsp-protocol.ts` as the canonical renderer protocol-shape owner and rebased `lsp-conversions.ts` + `diagnostics.ts` to remove local inline interface shadow copies.

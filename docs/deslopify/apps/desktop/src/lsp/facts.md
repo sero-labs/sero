@@ -107,3 +107,20 @@ _Last reviewed: 2026-04-15_
 ### Still outstanding
 - Renderer/main language-routing metadata remains duplicated with `electron/features/editor/lsp/types.ts`; the renderer side is consolidated and ready for the cross-layer extraction tracked under the electron editor plan.
 - `lsp-conversions.ts` still carries inline local protocol interfaces, which remains the Low follow-up.
+
+## Post-fix snapshot — 2026-04-15 (protocol-shape extraction)
+
+### Metrics after fixes
+- Total files: 8 source files (was 7)
+- Largest file: `apps/desktop/src/lsp/lsp-conversions.ts` (174 LOC; was 218 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: none in renderer LSP protocol-shape handling
+
+### What changed
+- Added `lsp-protocol.ts` as the canonical renderer-safe LSP protocol contract owner for completion, hover, definition, diagnostics, and notification payloads.
+- Removed inline protocol interface shadows from `lsp-conversions.ts` and `diagnostics.ts`, rebasing both modules onto shared protocol imports.
+- Kept behavior unchanged while reducing protocol-shape duplication so conversion/runtime modules remain focused on logic.
+
+### Still outstanding
+- No remaining in-folder plan items for `apps/desktop/src/lsp/`.
+- Cross-layer renderer/main language-routing contract consolidation remains tracked under `apps/desktop/electron/features/editor/`.

@@ -108,6 +108,9 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/apps/explorer/explorer-language-routing.test.ts` | New — focused re-review guard that explorer editor + diff language inference stay pinned to canonical `src/lsp/language-routing.ts` |
 | `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the explorer/editor shared-routing re-review closeout and refreshed the remaining Low-only follow-up notes |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` in progress with the explorer/editor re-review item cleared |
+| `apps/desktop/src/lsp/{lsp-protocol.ts,lsp-conversions.ts,diagnostics.ts}` | Added a canonical renderer LSP protocol-contract module and removed inline protocol interface shadows from conversion/diagnostics runtime code (`lsp-conversions.ts` 218 → 174 lines) |
+| `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the Low protocol-shape extraction closeout, refreshed LSP metrics, and marked the folder plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` healthy with all tracked items cleared |
 
 ---
 
