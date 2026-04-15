@@ -45,8 +45,8 @@ reviewable.
   `apps/desktop/src/types/sero-apps.ts:10-25` (`SeroWidgetManifest`) define the same shape.~~ ✅ 2026-04-12 (both now share `src/types/widget-manifest.ts`)
   Effort: **S**.
 
-- **Low** — `any` leak in LSP preload API declaration weakens strict typing —
-  `apps/desktop/src/types/electron-workspace.d.ts:79` uses `notification: any`.
+- **Low** — ~~`any` leak in LSP preload API declaration weakens strict typing —
+  `apps/desktop/src/types/electron-workspace.d.ts:79` uses `notification: any`.~~ ✅ 2026-04-15 (`d028234c`) — the callback now uses canonical `LspNotification` typing.
   Effort: **S**.
 
 - **Low** — Comment/default mismatch in collaboration debate config —
@@ -108,3 +108,4 @@ reviewable.
 ## Execution log
 - 2026-04-12 — Medium Wave E3 (working tree): canonicalized `ProfileInfo` into `src/types/profile.ts`, broke the `ipc.ts` ↔ `plugins.ts` type cycle, and unified widget manifests through `src/types/widget-manifest.ts`.
 - 2026-04-15 — Medium follow-up (`fc6603eb`): moved all remaining Electron IPC/test `IpcChannels` imports onto `@/types/ipc-channels` and removed the `ipc.ts` re-export to keep channel constants on their dedicated module boundary.
+- 2026-04-15 — Low declaration-hygiene follow-up (`d028234c`): replaced `notification: any` in `electron-workspace.d.ts` with canonical `LspNotification` typing so renderer preload declarations align with the typed LSP protocol contract.

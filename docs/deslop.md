@@ -134,6 +134,9 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/types/ipc.ts` | Removed the `IpcChannels` re-export so the IPC compatibility barrel no longer owns channel constants (466 → 465 lines) |
 | `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the Medium channel-decoupling follow-up, refreshed type-folder metrics, and narrowed the remaining backlog to Low declaration/comment drift |
 | `docs/deslopify/index.md` | Updated `apps/desktop/src/types/` status to in-progress with the Medium IpcChannels item cleared |
+| `apps/desktop/src/types/electron-workspace.d.ts` | Replaced LSP `notification: any` with canonical `LspNotification` typing for stricter preload declaration contracts |
+| `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the Low declaration-hygiene follow-up closeout, refreshed metrics, and left only comment/default drift plus user-feedback revalidation pending |
+| `docs/deslopify/index.md` | Updated `apps/desktop/src/types/` status to in-progress with Medium + Low declaration-hygiene items cleared |
 
 ---
 
