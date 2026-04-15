@@ -28,6 +28,12 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/model-manager/local-models/useLocalProviderFormState.test.tsx` | New — covers preset application, advanced connection reuse, model dedupe/manual edits, duplicate-name guardrails, and edited-provider save semantics |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the LocalProviderForm split, refreshed layout metrics, and narrowed the remaining near-cap backlog |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the LocalProviderForm split cleared |
+| `apps/desktop/src/components/layout/AutocompleteListbox.tsx` | New — shared capture-phase keyboard/listbox primitive for slash-command and file-reference menus |
+| `apps/desktop/src/components/layout/AutocompleteListbox.test.tsx` | New — covers wraparound navigation, selection/reset, Escape close, and scroll-into-view behavior for the shared autocomplete primitive |
+| `apps/desktop/src/components/layout/SlashCommandMenu.tsx` | Rebased slash-command autocomplete on the shared listbox primitive and reduced duplicated keyboard/render code (197 → 121 lines) |
+| `apps/desktop/src/components/layout/FileReferenceMenu.tsx` | Rebased file-reference autocomplete on the shared listbox primitive and reduced duplicated keyboard/render code (212 → 133 lines) |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the shared autocomplete/listbox primitive closeout, refreshed layout metrics, and narrowed the remaining backlog to render-side-effect and error-surface follow-up |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the shared autocomplete/listbox item cleared |
 
 ---
 

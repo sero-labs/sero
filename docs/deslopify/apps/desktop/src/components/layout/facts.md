@@ -177,3 +177,23 @@ _Last reviewed: 2026-04-12_
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Near-cap cleanup now only covers `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
 - Shared autocomplete/listbox primitives, the remaining render-phase side-effect cleanup in collaboration/font helpers, and shell error-surface normalization remain exactly as described in the original plan.
+
+## Post-fix snapshot — 2026-04-15 (autocomplete/listbox primitive)
+
+### Metrics after fixes
+- Total files: 125 (was 123)
+- Total LOC: 18,311 (was 18,131)
+- Largest file: `apps/desktop/src/components/layout/AuthLoginViews.tsx` (464 LOC)
+- Files over 500 LOC: None (unchanged)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Added `AutocompleteListbox.tsx` as the shared runtime/presentation owner for selected-index state, capture-phase keyboard handling, selection reset/clamping, scroll-into-view, and common listbox shell/option styling.
+- Rebased `SlashCommandMenu.tsx` on the shared primitive so it now owns only slash-command filtering, source grouping, and row content while dropping duplicate document-listener and listbox boilerplate (197 → 121 LOC).
+- Rebased `FileReferenceMenu.tsx` on the shared primitive so it now owns only fuzzy matching, path highlighting, and file-icon rendering while dropping duplicate navigation/listbox code (212 → 133 LOC).
+- Added `AutocompleteListbox.test.tsx` to cover the hot-path keyboard guardrails called out in the plan: wraparound navigation, Enter selection, reset-on-filter-change, Escape close, and scroll-into-view behavior.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Near-cap cleanup still covers `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
+- Remaining Medium/Low follow-up is now limited to render-phase side-effect cleanup in collaboration/font helpers plus shell error-surface normalization.

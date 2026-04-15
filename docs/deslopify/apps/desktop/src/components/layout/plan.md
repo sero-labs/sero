@@ -12,7 +12,7 @@ _Plan drafted: 2026-04-12_
 
 - **Medium** — ~~Git remote publish/origin flows are duplicated across workspace and titlebar surfaces and are already diverging in behavior and error semantics — `apps/desktop/src/components/layout/remote-origin-views.tsx:53-289`, `apps/desktop/src/components/layout/RemoteOriginManager.tsx:45-95`, and `apps/desktop/src/components/layout/titlebar/GitRemotePublishSection.tsx:38-317` each implement their own GitHub status checks, default repo-name generation, origin creation, existing-origin connection, fallback URL handling, and failure messaging. This is classic drift-prone duplication in a runtime-sensitive surface.~~ ✅ 2026-04-14 (`ad8cfc67`) — Added `git-remote/workflow.ts` as the shared runtime owner for GitHub status loading, repo-name defaults, origin parsing, create-repo fallback URL resolution, and add-or-update origin semantics while keeping the workspace dialog and titlebar presenters visually distinct. Effort: **M**.
 
-- **Medium** — Slash-command and file-reference autocompletes duplicate the same document-level keyboard/listbox machinery instead of sharing one primitive — `apps/desktop/src/components/layout/SlashCommandMenu.tsx:53-178` and `apps/desktop/src/components/layout/FileReferenceMenu.tsx:85-212` both maintain selected-index state, `scrollIntoView`, capture-phase `keydown` listeners, and nearly identical listbox rendering. This is small-scale duplication, but it sits in a hot UX path and invites inconsistent keyboard behavior over time. Effort: **S**.
+- **Medium** — ~~Slash-command and file-reference autocompletes duplicate the same document-level keyboard/listbox machinery instead of sharing one primitive — `apps/desktop/src/components/layout/SlashCommandMenu.tsx:53-178` and `apps/desktop/src/components/layout/FileReferenceMenu.tsx:85-212` both maintain selected-index state, `scrollIntoView`, capture-phase `keydown` listeners, and nearly identical listbox rendering. This is small-scale duplication, but it sits in a hot UX path and invites inconsistent keyboard behavior over time.~~ ✅ 2026-04-15 (`bcb2d01d`) — Added `AutocompleteListbox.tsx` as the shared capture-phase keyboard/listbox primitive so both menus now only own filtering/grouping and row rendering. Effort: **S**.
 
 - **Medium** — Several layout helpers still perform side effects during render, obscuring lifecycle ownership and making behavior harder to reason about — `apps/desktop/src/components/layout/CollaborationFeedItems.tsx:326-338` still schedules `requestAnimationFrame` from render, and `apps/desktop/src/components/layout/theme-editor/FontPicker.tsx:20-24` still preloads fonts during render after the `ThemeEditorSheet` draft initialization was moved into `useThemeEditorState` on 2026-04-15 (`b322b915`). None of these are broken today, but they bypass the normal “external side effects live in effects/callback refs” rule and increase future regression risk. Effort: **S**.
 
@@ -91,7 +91,7 @@ _Plan drafted: 2026-04-12_
    - ~~`ModelSelector.tsx`~~ ✅ 2026-04-15 (`6df0b02f`)
    - ~~`ContextEditor.tsx`~~ ✅ 2026-04-15 (`53f64174`)
    - ~~`model-manager/local-models/LocalProviderForm.tsx`~~ ✅ 2026-04-15 (`a891f56a`)
-3. Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.
+3. ~~Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.~~ ✅ 2026-04-15 (`bcb2d01d`)
 4. Remove render-phase side effects from theme/collaboration/font helpers.
 5. Verification checklist:
    - Open a session via the `sero:open-session` custom event and confirm the chat panel opens/focuses correctly.
@@ -108,3 +108,4 @@ _Plan drafted: 2026-04-12_
 - `6df0b02f` — `refactor(layout): split model selector runtime`
 - `53f64174` — `refactor(layout): split context editor dialog`
 - `a891f56a` — `refactor(layout): split local provider form`
+- `bcb2d01d` — `refactor(layout): share autocomplete listbox primitive`
