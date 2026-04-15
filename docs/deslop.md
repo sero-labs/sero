@@ -91,6 +91,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/lib/federation-registry.test.ts` | Added jsdom regression coverage that a failed lazy remote load retries and recovers without restart, alongside the existing transient fallback test |
 | `docs/deslopify/apps/desktop/src/lib/{facts,plan}.md` | Recorded the federation retry closeout, refreshed lib-folder metrics, and narrowed the remaining backlog to Medium/Low follow-ups |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/lib/` in progress with the High federation retry item cleared |
+| `apps/desktop/src/lsp/use-lsp.ts` | Reduced to a thin renderer-LSP composition hook over extracted provider, document-sync, and diagnostics modules (300 → 87 lines) |
+| `apps/desktop/src/lsp/{provider-registry.ts,document-sync.ts,diagnostics.ts}` | New — extracted Monaco provider registration, document lifecycle, and diagnostics/server-stop ownership from `use-lsp.ts` |
+| `apps/desktop/src/lsp/use-lsp.test.tsx` | New — covers LSP startup plus didOpen/didChange/didSave/diagnostics/didClose lifecycle across the split modules |
+| `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the renderer LSP modularization pass, refreshed folder metrics, and narrowed the remaining backlog to shared-routing + diagnostics follow-up |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` in progress with the first Medium modularization item cleared |
 
 ---
 

@@ -1,6 +1,6 @@
 # Facts — apps/desktop/src/lsp
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-15_
 
 ## What this code does
 `src/lsp` is the renderer-side Monaco/LSP bridge. It converts protocol payloads into Monaco-friendly shapes, starts the correct workspace language server through `window.sero.lsp`, opens/closes/syncs documents, and applies diagnostics back onto Monaco models.
@@ -37,3 +37,21 @@ _Last reviewed: 2026-04-12_
 ### Still outstanding
 - `use-lsp.ts` still hides provider registration, document sync, and diagnostics ownership behind one singleton-style hook.
 - Renderer/main language-routing metadata is still duplicated until the shared contract lands.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 5 (was 2)
+- Largest file: `apps/desktop/src/lsp/lsp-conversions.ts` (240 LOC; was `use-lsp.ts` at 300 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: the pre-existing diagnostics `params.diagnostics as never[]` cast remains pending the next tracked item
+
+### What changed
+- Split `use-lsp.ts` into `provider-registry.ts`, `document-sync.ts`, and `diagnostics.ts`, leaving `use-lsp.ts` as an 87-line composition hook over the renderer LSP lifecycle.
+- Narrowed the Monaco/editor surface used by the renderer bridge so the singleton ownership modules depend only on provider registration, model-marker, and model-change APIs they actually consume.
+- Added `use-lsp.test.tsx` coverage for server startup, provider registration, didOpen/didChange/didSave/didClose notifications, and diagnostics marker application across the extracted module seams.
+
+### Still outstanding
+- Renderer/main language-routing metadata is still duplicated until the shared contract lands.
+- Diagnostics still scan all Monaco models per notification and retain the existing `as never[]` cast until the next Medium cleanup lands.
+- `lsp-conversions.ts` still carries inline local protocol interfaces, which remains the Low follow-up.

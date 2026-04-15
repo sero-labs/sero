@@ -54,7 +54,7 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Replace the inline Monaco type import with a top-level type import.~~ ✅ 2026-04-12 (`4350404d`)
-2. Split `use-lsp.ts` into provider-registry, document-sync, and diagnostics modules.
+2. ~~Split `use-lsp.ts` into provider-registry, document-sync, and diagnostics modules.~~ ✅ 2026-04-15 (`4d41d04e`)
 3. Extract shared language-routing metadata and remove duplicated maps from explorer/LSP/editor code.
 4. Replace model scanning + `as never[]` with typed diagnostics routing.
 5. Re-review explorer/editor surfaces after the shared routing contract lands.
@@ -62,3 +62,5 @@ _Plan drafted: 2026-04-12_
 ## Execution log
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
   - Replaced the inline `typeof import('monaco-editor')` type expression in `use-lsp.ts` with a top-level Monaco namespace type import.
+- 2026-04-15 — `4d41d04e` — `refactor(desktop): split renderer lsp runtime ownership`
+  - Split `use-lsp.ts` into `provider-registry.ts`, `document-sync.ts`, and `diagnostics.ts`, narrowed the renderer-facing Monaco/editor seam, and added focused lifecycle coverage in `use-lsp.test.tsx`.
