@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { editor } from 'monaco-editor';
-import { getLspLanguageIdFromPath } from './lsp-conversions';
+import { getLspLanguageIdFromPath } from './language-routing';
 import {
   deleteLspRoute,
   setLspRoute,

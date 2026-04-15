@@ -216,25 +216,3 @@ function convertDocumentation(
   return undefined;
 }
 
-// ── Language helpers ───────────────────────────────────────────
-
-/** Monaco language IDs that map to the TypeScript LSP server. */
-export const LSP_LANGUAGES = ['typescript', 'typescriptreact', 'javascript', 'javascriptreact'];
-
-/** Get the normalized LSP server language key (null if unsupported). */
-export function getLspServerLanguage(languageId: string): string | null {
-  return LSP_LANGUAGES.includes(languageId) ? 'typescript' : null;
-}
-
-/** Get the correct LSP language ID for a file path. */
-const EXT_TO_LSP_LANGUAGE: Record<string, string> = {
-  ts: 'typescript', tsx: 'typescriptreact',
-  js: 'javascript', jsx: 'javascriptreact',
-  mts: 'typescript', cts: 'typescript',
-  mjs: 'javascript', cjs: 'javascript',
-};
-
-export function getLspLanguageIdFromPath(filePath: string): string {
-  const ext = filePath.split('.').pop() ?? '';
-  return EXT_TO_LSP_LANGUAGE[ext] ?? 'plaintext';
-}

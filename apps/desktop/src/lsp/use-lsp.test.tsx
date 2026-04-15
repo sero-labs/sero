@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import type { editor } from 'monaco-editor';
 import { useContainerStore } from '@/stores/container';
-import { LSP_LANGUAGES } from './lsp-conversions';
+import { LSP_PROVIDER_LANGUAGE_IDS } from './language-routing';
 import type { LspEditor } from './document-sync';
 import { useLsp, type UseLspResult } from './use-lsp';
 import type { Monaco } from './provider-registry';
@@ -174,9 +174,9 @@ describe('useLsp', () => {
       expect(latestResult?.serverLanguage).toBe('typescript');
     });
 
-    expect(registerCompletionItemProvider).toHaveBeenCalledTimes(LSP_LANGUAGES.length);
-    expect(registerHoverProvider).toHaveBeenCalledTimes(LSP_LANGUAGES.length);
-    expect(registerDefinitionProvider).toHaveBeenCalledTimes(LSP_LANGUAGES.length);
+    expect(registerCompletionItemProvider).toHaveBeenCalledTimes(LSP_PROVIDER_LANGUAGE_IDS.length);
+    expect(registerHoverProvider).toHaveBeenCalledTimes(LSP_PROVIDER_LANGUAGE_IDS.length);
+    expect(registerDefinitionProvider).toHaveBeenCalledTimes(LSP_PROVIDER_LANGUAGE_IDS.length);
     expect(notify).toHaveBeenCalledWith(workspaceId, 'typescript', 'textDocument/didOpen', {
       textDocument: {
         uri: 'file:///workspace/src/example.ts',

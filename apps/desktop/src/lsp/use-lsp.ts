@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContainerStore } from '@/stores/container';
 import { useLspDiagnostics, useLspServerStopCleanup } from './diagnostics';
 import { useLspDocumentSync, type LspEditor } from './document-sync';
-import { LSP_LANGUAGES, getLspServerLanguage } from './lsp-conversions';
+import { LSP_PROVIDER_LANGUAGE_IDS, getLspServerLanguage } from './language-routing';
 import { ensureProvidersRegistered, type Monaco } from './provider-registry';
 
 export interface UseLspOptions {
@@ -67,7 +67,7 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
         if (cancelled) return;
         serverLanguageRef.current = language;
         setIsReady(true);
-        for (const languageIdEntry of LSP_LANGUAGES) {
+        for (const languageIdEntry of LSP_PROVIDER_LANGUAGE_IDS) {
           ensureProvidersRegistered(monaco, languageIdEntry);
         }
       } catch (err) {

@@ -3,6 +3,7 @@ import type {
   IPosition,
   IRange,
 } from 'monaco-editor';
+import { getMonacoLanguageIdFromPath } from '@/lsp/language-routing';
 
 export interface EditorPanelProps {
   workspaceId: string;
@@ -28,31 +29,6 @@ export type PendingGoto = {
   selection: IRange | IPosition;
 };
 
-const LANG_MAP: Record<string, string> = {
-  ts: 'typescript',
-  tsx: 'typescript',
-  js: 'javascript',
-  jsx: 'javascript',
-  mts: 'typescript',
-  cts: 'typescript',
-  mjs: 'javascript',
-  cjs: 'javascript',
-  py: 'python',
-  rs: 'rust',
-  go: 'go',
-  json: 'json',
-  md: 'markdown',
-  mdx: 'markdown',
-  css: 'css',
-  html: 'html',
-  yml: 'yaml',
-  yaml: 'yaml',
-  sh: 'shell',
-  bash: 'shell',
-  toml: 'toml',
-  sql: 'sql',
-};
-
 /** Navigate editor to a position or selection range (used for go-to-definition). */
 export function applyGoto(
   editor: MonacoEditor.IStandaloneCodeEditor,
@@ -70,6 +46,5 @@ export function applyGoto(
 }
 
 export function getLanguage(filePath: string): string {
-  const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
-  return LANG_MAP[ext] ?? 'plaintext';
+  return getMonacoLanguageIdFromPath(filePath);
 }
