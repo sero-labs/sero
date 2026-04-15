@@ -1,10 +1,81 @@
 import { useEffect } from 'react';
+import {
+  clearWorkspaceDiagnosticsRoutes,
+  getDiagnosticsModel,
+} from './diagnostics-routing';
 import { convertDiagnostics } from './lsp-conversions';
 import { clearWorkspaceRoutes, type Monaco } from './provider-registry';
 
+interface LspPosition {
+  line: number;
+  character: number;
+}
+
+interface LspRange {
+  start: LspPosition;
+  end: LspPosition;
+}
+
+interface LspDiagnostic {
+  range: LspRange;
+  severity?: number;
+  code?: string | number;
+  source?: string;
+  message: string;
+  tags?: number[];
+}
+
 interface PublishDiagnosticsParams {
   uri: string;
-  diagnostics: unknown[];
+  diagnostics: LspDiagnostic[];
+}
+
+interface LspNotification {
+  method: string;
+  params?: unknown;
+}
+
+interface PublishDiagnosticsNotification {
+  method: 'textDocument/publishDiagnostics';
+  params: PublishDiagnosticsParams;
+}
+
+interface LspNotificationEvent {
+  workspaceId: string;
+  language: string;
+  notification: LspNotification;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isLspPosition(value: unknown): value is LspPosition {
+  if (!isRecord(value)) return false;
+  return typeof value.line === 'number' && typeof value.character === 'number';
+}
+
+function isLspRange(value: unknown): value is LspRange {
+  if (!isRecord(value)) return false;
+  return isLspPosition(value.start) && isLspPosition(value.end);
+}
+
+function isLspDiagnostic(value: unknown): value is LspDiagnostic {
+  if (!isRecord(value)) return false;
+  return typeof value.message === 'string' && isLspRange(value.range);
+}
+
+function isPublishDiagnosticsParams(value: unknown): value is PublishDiagnosticsParams {
+  if (!isRecord(value)) return false;
+  if (typeof value.uri !== 'string' || !Array.isArray(value.diagnostics)) return false;
+  return value.diagnostics.every((diagnostic) => isLspDiagnostic(diagnostic));
+}
+
+function isPublishDiagnosticsNotification(
+  value: LspNotification,
+): value is PublishDiagnosticsNotification {
+  return value.method === 'textDocument/publishDiagnostics'
+    && isPublishDiagnosticsParams(value.params);
 }
 
 interface UseLspDiagnosticsOptions {
@@ -15,19 +86,15 @@ interface UseLspDiagnosticsOptions {
 export function useLspDiagnostics({ monaco, workspaceId }: UseLspDiagnosticsOptions): void {
   useEffect(() => {
     if (!monaco) return;
-    const unsub = window.sero.lsp.onNotification((data) => {
+    const unsub = window.sero.lsp.onNotification((data: LspNotificationEvent) => {
       if (data.workspaceId !== workspaceId) return;
       const notification = data.notification;
-      if (notification.method === 'textDocument/publishDiagnostics') {
-        const params = notification.params as PublishDiagnosticsParams;
-        const uri = params.uri;
-        const containerPath = uri.replace('file://', '');
-        const models = monaco.editor.getModels();
-        const model = models.find((entry) => entry.uri.path === containerPath);
-        if (model) {
-          monaco.editor.setModelMarkers(model, 'lsp', convertDiagnostics(params.diagnostics as never[]));
-        }
-      }
+      if (!isPublishDiagnosticsNotification(notification)) return;
+
+      const model = getDiagnosticsModel(workspaceId, notification.params.uri);
+      if (!model) return;
+
+      monaco.editor.setModelMarkers(model, 'lsp', convertDiagnostics(notification.params.diagnostics));
     });
     return unsub;
   }, [monaco, workspaceId]);
@@ -46,6 +113,7 @@ export function useLspServerStopCleanup({
     const unsub = window.sero.lsp.onServerStopped((data) => {
       if (data.workspaceId !== workspaceId) return;
       clearWorkspaceRoutes(workspaceId);
+      clearWorkspaceDiagnosticsRoutes(workspaceId);
       onStopped();
     });
     return unsub;

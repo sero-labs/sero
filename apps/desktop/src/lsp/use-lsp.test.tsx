@@ -126,6 +126,7 @@ describe('useLsp', () => {
       getValue: () => modelValue,
     };
     const model = modelBase as editor.ITextModel;
+    const getModels = vi.fn(() => [model]);
 
     const editorBase: Partial<LspEditor> = {
       getModel: () => model,
@@ -148,7 +149,7 @@ describe('useLsp', () => {
         registerDefinitionProvider,
       } as Monaco['languages'],
       editor: {
-        getModels: () => [model],
+        getModels,
         setModelMarkers,
       } as Monaco['editor'],
     };
@@ -245,6 +246,7 @@ describe('useLsp', () => {
         tags: undefined,
       },
     ]);
+    expect(getModels).not.toHaveBeenCalled();
 
     await act(async () => {
       root?.unmount();

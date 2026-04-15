@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { editor } from 'monaco-editor';
+import { deleteDiagnosticsRoute, setDiagnosticsRoute } from './diagnostics-routing';
 import { getLspLanguageIdFromPath } from './language-routing';
 import {
   deleteLspRoute,
@@ -52,6 +53,7 @@ export function useLspDocumentSync({
     const prevFileUri = openUriRef.current;
     if (prevFileUri && prevFileUri !== fileUriStr) {
       if (prevModelUriRef.current) deleteLspRoute(prevModelUriRef.current);
+      deleteDiagnosticsRoute(workspaceId, prevFileUri);
       window.sero.lsp.notify(workspaceId, serverLanguage, 'textDocument/didClose', {
         textDocument: { uri: prevFileUri },
       });
@@ -63,6 +65,7 @@ export function useLspDocumentSync({
     const version = 1;
     versionRef.current.set(fileUriStr, version);
     openUriRef.current = fileUriStr;
+    setDiagnosticsRoute(workspaceId, fileUriStr, model);
 
     const lspLangId = getLspLanguageIdFromPath(filePath);
     window.sero.lsp.notify(workspaceId, serverLanguage, 'textDocument/didOpen', {
@@ -73,6 +76,7 @@ export function useLspDocumentSync({
       const uri = openUriRef.current;
       if (uri) {
         if (prevModelUriRef.current) deleteLspRoute(prevModelUriRef.current);
+        deleteDiagnosticsRoute(workspaceId, uri);
         try {
           window.sero.lsp.notify(workspaceId, serverLanguage, 'textDocument/didClose', {
             textDocument: { uri },
