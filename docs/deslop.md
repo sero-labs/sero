@@ -82,6 +82,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/hooks/useGitHubAuthFlow.ts` | Added reusable GitHub status refresh support so onboarding can re-check auth without duplicating bridge logic |
 | `docs/deslopify/apps/desktop/src/components/profiles/{facts,plan}.md` | Closed the final GitHub-step consolidation item, refreshed profile-folder metrics, and marked the plan fully executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/profiles/` fully executed after the Low GitHub-step pass |
+| `apps/desktop/src/hooks/useChatPromptInput.ts` | Centralized built-in `/login` and `/logout` routing so slash selection and raw submit paths share one helper |
+| `apps/desktop/src/hooks/useGitHubAuthFlow.ts` | Centralized transient copy feedback timer/reset behavior behind one shared helper while preserving success/failure timings |
+| `apps/desktop/src/hooks/{useChatPromptInput.test.tsx,useGitHubAuthFlow.test.tsx}` | New — focused coverage for built-in prompt command routing plus GitHub auth copy success/failure reset behavior |
+| `docs/deslopify/apps/desktop/src/hooks/{facts,plan}.md` | Closed the remaining Low hook cleanup items, refreshed hook-folder metrics, and marked the plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/hooks/` fully executed after the Low helper-dedupe pass |
 
 ---
 

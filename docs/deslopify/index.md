@@ -21,7 +21,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/components/profiles/`](./apps/desktop/src/components/profiles/plan.md)
     — *Healthy — profile folder plan fully executed 2026-04-15*
   - [`apps/desktop/src/hooks/`](./apps/desktop/src/hooks/plan.md)
-    — *In progress — core Medium items cleared 2026-04-12; Low cleanup pending*
+    — *Healthy — hooks folder plan fully executed 2026-04-15*
   - [`apps/desktop/src/lib/`](./apps/desktop/src/lib/plan.md)
     — *Wave A renderer orchestration review complete — plan created 2026-04-12*
   - [`apps/desktop/src/lsp/`](./apps/desktop/src/lsp/plan.md)
