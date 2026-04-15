@@ -228,26 +228,66 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
 
 // ── Selectors ──────────────────────────────────────────────────
 
+const EMPTY_SESSIONS_BY_WORKSPACE: Record<string, SeroSessionInfo[]> = {};
+
+let groupedSessionsCacheRef: SeroSessionInfo[] | null = null;
+let groupedSessionsCacheQuery = '';
+let groupedSessionsCacheValue: Record<string, SeroSessionInfo[]> = EMPTY_SESSIONS_BY_WORKSPACE;
+
+function matchesSessionSearchQuery(session: SeroSessionInfo, normalizedQuery: string): boolean {
+  if (normalizedQuery.length === 0) return true;
+  return (
+    (session.name?.toLowerCase().includes(normalizedQuery) ?? false) ||
+    session.firstMessage.toLowerCase().includes(normalizedQuery)
+  );
+}
+
+function buildSessionsByWorkspace(
+  sessions: SeroSessionInfo[],
+  normalizedQuery: string,
+): Record<string, SeroSessionInfo[]> {
+  if (sessions.length === 0) {
+    return EMPTY_SESSIONS_BY_WORKSPACE;
+  }
+
+  const grouped: Record<string, SeroSessionInfo[]> = {};
+  let hasSessions = false;
+
+  for (const session of sessions) {
+    if (!matchesSessionSearchQuery(session, normalizedQuery)) {
+      continue;
+    }
+
+    const workspaceId = session.workspaceId;
+    if (!grouped[workspaceId]) {
+      grouped[workspaceId] = [];
+    }
+
+    grouped[workspaceId].push(session);
+    hasSessions = true;
+  }
+
+  return hasSessions ? grouped : EMPTY_SESSIONS_BY_WORKSPACE;
+}
+
+function selectSessionsByWorkspace(
+  state: Pick<SessionsState, 'sessions' | 'searchQuery'>,
+): Record<string, SeroSessionInfo[]> {
+  const normalizedQuery = state.searchQuery.toLowerCase();
+  if (
+    groupedSessionsCacheRef === state.sessions &&
+    groupedSessionsCacheQuery === normalizedQuery
+  ) {
+    return groupedSessionsCacheValue;
+  }
+
+  groupedSessionsCacheRef = state.sessions;
+  groupedSessionsCacheQuery = normalizedQuery;
+  groupedSessionsCacheValue = buildSessionsByWorkspace(state.sessions, normalizedQuery);
+  return groupedSessionsCacheValue;
+}
 
 /** Sessions grouped by workspace ID. */
 export function useSessionsByWorkspace(): Record<string, SeroSessionInfo[]> {
-  const sessions = useSessionStore((s) => s.sessions);
-  const query = useSessionStore((s) => s.searchQuery);
-
-  const filtered = query
-    ? sessions.filter(
-        (s) =>
-          (s.name?.toLowerCase().includes(query.toLowerCase()) ?? false) ||
-          s.firstMessage.toLowerCase().includes(query.toLowerCase()),
-      )
-    : sessions;
-
-  const grouped: Record<string, SeroSessionInfo[]> = {};
-  for (const session of filtered) {
-    const wsId = session.workspaceId;
-    if (!grouped[wsId]) grouped[wsId] = [];
-    grouped[wsId].push(session);
-  }
-
-  return grouped;
+  return useSessionStore(selectSessionsByWorkspace);
 }
