@@ -40,6 +40,14 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/layout/theme-editor/FontPicker.test.tsx` | New — covers one-time Google-font preloading and preset-selection loading |
 | `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the render-side-effect cleanup closeout, refreshed layout metrics, and narrowed the remaining backlog |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the render-side-effect cleanup item cleared |
+| `apps/desktop/src/components/layout/AuthLoginViews.tsx` | Reduced to a thin auth-login barrel over extracted provider-list and auth-flow modules (464 → 14 lines) |
+| `apps/desktop/src/components/layout/auth-login-views/{ProviderListView.tsx,AuthFlowViews.tsx,provider-list-helpers.ts,provider-list-helpers.test.ts}` | New — extracted auth provider-list/auth-flow presenters plus focused preferred-provider and saved-credential coverage |
+| `apps/desktop/src/components/layout/ToolCallHelpers.tsx` | Reduced to a thin tool-call compatibility barrel over extracted presenter modules (412 → 18 lines) |
+| `apps/desktop/src/components/layout/tool-call-helpers/{ToolSummaryText.tsx,ToolLine.tsx,ToolImages.tsx,ToolDetail.tsx,SingleToolCall.tsx}` | New — extracted summary-link, image-preview, detail, and single-call presenters for tool groups |
+| `apps/desktop/src/components/layout/model-manager/ModelManagerDialog.tsx` | Reduced to a thinner model-manager shell over extracted runtime and tab helpers (406 → 196 lines) |
+| `apps/desktop/src/components/layout/model-manager/{ModelManagerTabBar.tsx,useModelManagerState.ts,runtime.ts,runtime.test.ts}` | New — extracted model-manager tab chrome, derived-state runtime, and focused favourite/hidden-count coverage |
+| `docs/deslopify/apps/desktop/src/components/layout/{facts,plan}.md` | Recorded the remaining near-cap cleanup closeout, refreshed layout metrics, and narrowed remaining work to ownership repartition plus Low error-surface follow-up |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/components/layout/` in progress with the remaining near-cap cleanup cleared |
 
 ---
 

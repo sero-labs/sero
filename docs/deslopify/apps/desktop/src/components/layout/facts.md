@@ -218,3 +218,23 @@ _Last reviewed: 2026-04-12_
 - The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
 - Near-cap cleanup still covers `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `ModelManagerDialog.tsx`.
 - Remaining Medium/Low follow-up is now limited to ownership repartition, the three-file near-cap cleanup, and shell error-surface normalization.
+
+## Post-fix snapshot — 2026-04-15 (remaining near-cap cleanup)
+
+### Metrics after fixes
+- Total files: 140 (was 127)
+- Total LOC: 18,827 (was 18,516)
+- Largest file: `apps/desktop/src/components/layout/remote-origin-views.tsx` (392 LOC)
+- Files over 500 LOC: None (unchanged)
+- Near-cap files (≥400 LOC): none (was `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `model-manager/ModelManagerDialog.tsx`)
+- Type escape hatches remaining: none detected by `rg` for `@ts-ignore`, `@ts-expect-error`, `as any`, or `as unknown as` in `apps/desktop/src/components/layout/`
+
+### What changed
+- Replaced `AuthLoginViews.tsx` with a thin compatibility barrel over `auth-login-views/ProviderListView.tsx`, `AuthFlowViews.tsx`, and `provider-list-helpers.ts`, plus focused helper coverage for preferred-provider sorting and saved-credential filtering.
+- Replaced `ToolCallHelpers.tsx` with a thin compatibility barrel over focused `tool-call-helpers/` presenters so summary-link handling, image previews, detail rendering, and the single-tool wrapper now evolve independently while preserving the `ToolCallGroup` import surface.
+- Extracted `model-manager/ModelManagerTabBar.tsx`, `useModelManagerState.ts`, and `runtime.ts` so tab/search/bulk-action orchestration and derived favourite/hidden counts no longer live inside `ModelManagerDialog.tsx`; added `runtime.test.ts` for the derived-state guardrails.
+- The near-cap cleanup item from the original plan is now fully cleared: no file in `src/components/layout/` is at or above 400 LOC, and the largest remaining file is `remote-origin-views.tsx` at 392 LOC.
+
+### Still outstanding
+- The larger ownership repartition of `components/layout` into clearer shell-vs-feature subtrees is still pending.
+- Low shell error-surface normalization remains deferred, including the still-silent auth-provider load failure path in `AuthLoginDialog.tsx`.

@@ -8,7 +8,7 @@ _Plan drafted: 2026-04-12_
 ## Issues Found (prioritized)
 - **Medium** — `components/layout` is no longer a shell-only layer; ownership is smeared across unrelated feature islands — `apps/desktop/src/components/layout/WorkspaceTree.tsx:50-445`, `apps/desktop/src/components/layout/ChatPanel.tsx:46-296`, `apps/desktop/src/components/layout/CommandMenu.tsx:19-118`, `apps/desktop/src/components/layout/AuthLoginDialog.tsx:57-334`, `apps/desktop/src/components/layout/ThemeEditorSheet.tsx:59-399`, and `apps/desktop/src/components/layout/titlebar/GitTitleBarControls.tsx:11-160` together show the pattern. This fights the shell/app split from AD-001 and AD-003: the shell should compose global chrome, not become the default home for auth, git publishing, theme tooling, model management, gateway QR login, and collaboration internals. Effort: **L**.
 
-- **Medium** — A large near-cap cluster is one feature away from repeated 500-LOC violations — `apps/desktop/src/components/layout/ContextEditor.tsx:1-479`, `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx:1-479`, `apps/desktop/src/components/layout/AuthLoginViews.tsx:1-464`, `apps/desktop/src/components/layout/ModelSelector.tsx:1-445`, `apps/desktop/src/components/layout/ToolCallHelpers.tsx:1-412`, and `apps/desktop/src/components/layout/model-manager/ModelManagerDialog.tsx:1-406` remain in the danger zone after `WorkspaceTree.tsx` and `ThemeEditorSheet.tsx` were split on 2026-04-14/15 (`c3326a2e`, `b322b915`). The folder has no High violation today, but the cap pressure is still widespread enough that more feature work here will become expensive by default. Effort: **M**.
+- **Medium** — ~~A large near-cap cluster is one feature away from repeated 500-LOC violations — `apps/desktop/src/components/layout/ContextEditor.tsx:1-479`, `apps/desktop/src/components/layout/model-manager/local-models/LocalProviderForm.tsx:1-479`, `apps/desktop/src/components/layout/AuthLoginViews.tsx:1-464`, `apps/desktop/src/components/layout/ModelSelector.tsx:1-445`, `apps/desktop/src/components/layout/ToolCallHelpers.tsx:1-412`, and `apps/desktop/src/components/layout/model-manager/ModelManagerDialog.tsx:1-406` remain in the danger zone after `WorkspaceTree.tsx` and `ThemeEditorSheet.tsx` were split on 2026-04-14/15 (`c3326a2e`, `b322b915`). The folder has no High violation today, but the cap pressure is still widespread enough that more feature work here will become expensive by default.~~ ✅ 2026-04-15 (`1c46330f`) — Completed the remaining `AuthLoginViews.tsx`, `ToolCallHelpers.tsx`, and `model-manager/ModelManagerDialog.tsx` split pass; the folder now has no files at or above 400 LOC and the largest remaining file is `remote-origin-views.tsx` at 392 LOC. Effort: **M**.
 
 - **Medium** — ~~Git remote publish/origin flows are duplicated across workspace and titlebar surfaces and are already diverging in behavior and error semantics — `apps/desktop/src/components/layout/remote-origin-views.tsx:53-289`, `apps/desktop/src/components/layout/RemoteOriginManager.tsx:45-95`, and `apps/desktop/src/components/layout/titlebar/GitRemotePublishSection.tsx:38-317` each implement their own GitHub status checks, default repo-name generation, origin creation, existing-origin connection, fallback URL handling, and failure messaging. This is classic drift-prone duplication in a runtime-sensitive surface.~~ ✅ 2026-04-14 (`ad8cfc67`) — Added `git-remote/workflow.ts` as the shared runtime owner for GitHub status loading, repo-name defaults, origin parsing, create-repo fallback URL resolution, and add-or-update origin semantics while keeping the workspace dialog and titlebar presenters visually distinct. Effort: **M**.
 
@@ -36,13 +36,16 @@ _Plan drafted: 2026-04-12_
    - Preserve import stability during the migration with thin re-export files if needed.
    - Why: restores the AD-001/AD-003 shell boundary without forcing a full UI rewrite.
 
-2. **Split the near-cap hubs before they cross the hard 500-LOC line.**
+2. ~~**Split the near-cap hubs before they cross the hard 500-LOC line.**~~ ✅ 2026-04-15 (`1c46330f`)
    - Target the highest-pressure files first:
      - ~~`WorkspaceTree.tsx` → `useWorkspaceTreeRuntime`, `WorkspaceNode`, `WorkspaceBulkDeleteDialog`~~ ✅ 2026-04-14 (`c3326a2e`)
      - ~~`ThemeEditorSheet.tsx` → draft-state/preview hook + sectioned presentation shell~~ ✅ 2026-04-15 (`b322b915`)
      - ~~`ModelSelector.tsx` → trigger, provider list, thinking picker, search/filter hook~~ ✅ 2026-04-15 (`6df0b02f`)
      - ~~`ContextEditor.tsx` → top-level dialog shell + separate preset/system/tools/skills modules~~ ✅ 2026-04-15 (`53f64174`)
      - ~~`model-manager/local-models/LocalProviderForm.tsx` → connection section, compat section, model list section, save footer~~ ✅ 2026-04-15 (`a891f56a`)
+     - ~~`AuthLoginViews.tsx` → provider-list helpers plus extracted auth-flow presenters~~ ✅ 2026-04-15 (`1c46330f`)
+     - ~~`ToolCallHelpers.tsx` → extracted summary/detail/image/single-call presenters with a thin compatibility barrel~~ ✅ 2026-04-15 (`1c46330f`)
+     - ~~`model-manager/ModelManagerDialog.tsx` → extracted tab bar, derived-state runtime, and thinner dialog shell~~ ✅ 2026-04-15 (`1c46330f`)
    - Align with the existing Wave A/Wave C pattern: stores/hooks own orchestration, layout files should mostly compose focused helpers.
 
 3. **Extract one shared git-remote workflow used by both workspace and titlebar UI.**
@@ -85,12 +88,15 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Extract a shared git-remote workflow and migrate `RemoteOriginManager` + `GitRemotePublishSection` to it.~~ ✅ 2026-04-14 (`ad8cfc67`)
-2. Continue splitting the near-cap hubs before adding more feature work there.
+2. ~~Continue splitting the near-cap hubs before adding more feature work there.~~ ✅ 2026-04-15 (`1c46330f`)
    - ~~`WorkspaceTree.tsx` → `useWorkspaceTreeRuntime`, `WorkspaceNode`, `WorkspaceBulkDeleteDialog`~~ ✅ 2026-04-14 (`c3326a2e`)
    - ~~`ThemeEditorSheet.tsx`~~ ✅ 2026-04-15 (`b322b915`)
    - ~~`ModelSelector.tsx`~~ ✅ 2026-04-15 (`6df0b02f`)
    - ~~`ContextEditor.tsx`~~ ✅ 2026-04-15 (`53f64174`)
    - ~~`model-manager/local-models/LocalProviderForm.tsx`~~ ✅ 2026-04-15 (`a891f56a`)
+   - ~~`AuthLoginViews.tsx`~~ ✅ 2026-04-15 (`1c46330f`)
+   - ~~`ToolCallHelpers.tsx`~~ ✅ 2026-04-15 (`1c46330f`)
+   - ~~`model-manager/ModelManagerDialog.tsx`~~ ✅ 2026-04-15 (`1c46330f`)
 3. ~~Build a shared autocomplete/listbox primitive and migrate `SlashCommandMenu` + `FileReferenceMenu`.~~ ✅ 2026-04-15 (`bcb2d01d`)
 4. ~~Remove render-phase side effects from theme/collaboration/font helpers.~~ ✅ 2026-04-15 (`cc7d6fab`)
 5. Verification checklist:
@@ -110,3 +116,4 @@ _Plan drafted: 2026-04-12_
 - `a891f56a` — `refactor(layout): split local provider form`
 - `bcb2d01d` — `refactor(layout): share autocomplete listbox primitive`
 - `cc7d6fab` — `refactor(layout): move render-time side effects into lifecycle hooks`
+- `1c46330f` — `refactor(layout): split remaining near-cap helper surfaces`
