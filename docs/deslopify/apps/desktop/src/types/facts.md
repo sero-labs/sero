@@ -1,6 +1,6 @@
 # Facts — apps/desktop/src/types
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-15_
 
 ## What this code does
 `src/types` is the renderer-facing contract layer for desktop: it defines IPC payloads,
@@ -68,3 +68,28 @@ consumed by both renderer stores/components and Electron preload/main modules.
 - `ipc.ts` still re-exports `IpcChannels`, and the wider codebase still has remaining consumers that
   should move to `@/types/ipc-channels`.
 - `electron.d.ts` remains near-cap and still needs the low-priority declaration-hygiene cleanup pass.
+
+## Post-fix snapshot — 2026-04-15 (IpcChannels decoupling follow-up)
+
+### Metrics after fixes
+- Total files: 30 (was 30)
+- Total LOC: 3,277 (was 3,318)
+- Largest file: `apps/desktop/src/types/electron.d.ts` (489 LOC)
+- Files over 500 LOC: none (unchanged)
+- Remaining near-cap files (≥450 LOC): `electron.d.ts` (489), `ipc-channels.ts` (487), `ipc.ts` (465)
+
+### What changed
+- Removed the `IpcChannels` re-export from `apps/desktop/src/types/ipc.ts` so channel constants stay
+  scoped to their dedicated `ipc-channels` owner module.
+- Migrated all remaining Electron IPC + test imports that previously pulled `IpcChannels` from
+  `@/types/ipc` to `@/types/ipc-channels` (64 imports now point directly at the channels module).
+- Kept payload/domain contract imports on `@/types/ipc` while decoupling channel constants, reducing
+  contract fanout from the `ipc.ts` compatibility barrel.
+
+### Still outstanding
+- `apps/desktop/src/types/electron-workspace.d.ts` still has the low-priority `notification: any`
+  declaration-hygiene gap.
+- `apps/desktop/src/types/collaboration.ts` still has the `maxRounds` comment/default mismatch
+  (`default: 3` comment vs `DEFAULT_DEBATE_CONFIG.maxRounds = 1`).
+- User-feedback duplication from the original plan should be revalidated against current
+  `@sero/common` ownership before marking that item obsolete.

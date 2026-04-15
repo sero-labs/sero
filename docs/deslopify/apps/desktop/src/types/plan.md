@@ -34,10 +34,10 @@ reviewable.
   `apps/desktop/src/types/ipc.ts:320` re-exports plugin types from `./plugins`.~~ ✅ 2026-04-12 (`plugins.ts` now imports `SeroAppManifest` from `./sero-apps`)
   Effort: **S**.
 
-- **Medium** — `IpcChannels` consumption is routed through the monolithic `ipc.ts` barrel instead of the
+- **Medium** — ~~`IpcChannels` consumption is routed through the monolithic `ipc.ts` barrel instead of the
   dedicated channels module — `apps/desktop/src/types/ipc.ts:544` re-exports channels, and 59 files
   import `IpcChannels` from `@/types/ipc` rather than `@/types/ipc-channels` (example:
-  `apps/desktop/electron/preload/api.ts:2`). This widens dependency fanout and slows safe contract edits.
+  `apps/desktop/electron/preload/api.ts:2`).~~ ✅ 2026-04-15 (`fc6603eb`) — channel consumers now import from `@/types/ipc-channels`, and `ipc.ts` no longer re-exports `IpcChannels`.
   Effort: **M**.
 
 - **Medium** — ~~Widget manifest contract is duplicated across files —
@@ -102,8 +102,9 @@ reviewable.
 1. Execute High item: split `ipc.ts` below 500 LOC with domain modules + compatibility barrel.
 2. Fix `electron.d.ts` subagent type import gap and run typecheck.
 3. ~~Land cycle break (`plugins.ts` → `sero-apps.ts`) and widget-manifest unification.~~ ✅ 2026-04-12
-4. Continue converting `IpcChannels` imports to `@/types/ipc-channels` in preload/ipc modules.
+4. ~~Continue converting `IpcChannels` imports to `@/types/ipc-channels` in preload/ipc modules.~~ ✅ 2026-04-15 (`fc6603eb`)
 5. Queue follow-up deslopify for `apps/desktop/electron/preload` next (Wave A step 2).
 
 ## Execution log
 - 2026-04-12 — Medium Wave E3 (working tree): canonicalized `ProfileInfo` into `src/types/profile.ts`, broke the `ipc.ts` ↔ `plugins.ts` type cycle, and unified widget manifests through `src/types/widget-manifest.ts`.
+- 2026-04-15 — Medium follow-up (`fc6603eb`): moved all remaining Electron IPC/test `IpcChannels` imports onto `@/types/ipc-channels` and removed the `ipc.ts` re-export to keep channel constants on their dedicated module boundary.

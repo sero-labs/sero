@@ -130,6 +130,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/stores/sessions.ts` | Memoized workspace-grouped session selector output by sessions/query inputs to reduce avoidable object churn in workspace tree consumers |
 | `docs/deslopify/apps/desktop/src/stores/{facts,plan}.md` | Closed the Low selector-churn follow-up, refreshed post-fix store metrics, and marked only optional `agent.ts` split work as deferred |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/stores/` healthy with all tracked items cleared |
+| `apps/desktop/electron/{ipc/**,features/{apps/state/manager,workspace/watcher}.ts,__tests__/{ipc,features/workspace}/**}` | Repointed Electron IPC/test `IpcChannels` imports from `@/types/ipc` to the dedicated `@/types/ipc-channels` module boundary |
+| `apps/desktop/src/types/ipc.ts` | Removed the `IpcChannels` re-export so the IPC compatibility barrel no longer owns channel constants (466 → 465 lines) |
+| `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the Medium channel-decoupling follow-up, refreshed type-folder metrics, and narrowed the remaining backlog to Low declaration/comment drift |
+| `docs/deslopify/index.md` | Updated `apps/desktop/src/types/` status to in-progress with the Medium IpcChannels item cleared |
 
 ---
 
