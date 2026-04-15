@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GitHubAuthStatus, GitHubDeviceFlowEvent } from '@/types/electron-services';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
+function unauthenticatedStatus(): GitHubAuthStatus {
+  return { authenticated: false };
+}
+
 export type GitHubFlowState =
   | { step: 'idle' }
   | { step: 'code'; userCode: string; verificationUri: string }
@@ -17,17 +21,23 @@ export function useGitHubAuthFlow() {
   const [copyFailed, setCopyFailed] = useState(false);
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    void window.sero.github.status()
-      .then((status) => {
-        setAuthStatus(status);
-        setStatusReady(true);
-      })
-      .catch(() => {
-        setAuthStatus({ authenticated: false });
-        setStatusReady(true);
-      });
+  const refreshStatus = useCallback(async (): Promise<GitHubAuthStatus> => {
+    try {
+      const status = await window.sero.github.status();
+      setAuthStatus(status);
+      setStatusReady(true);
+      return status;
+    } catch {
+      const status = unauthenticatedStatus();
+      setAuthStatus(status);
+      setStatusReady(true);
+      return status;
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
 
   useEffect(() => {
     const unsubscribe = window.sero.github.onEvent((event) => {
@@ -72,7 +82,7 @@ export function useGitHubAuthFlow() {
 
   const logout = useCallback(() => {
     void window.sero.github.logout().then(() => {
-      setAuthStatus({ authenticated: false });
+      setAuthStatus(unauthenticatedStatus());
       setFlow({ step: 'idle' });
     });
   }, []);
@@ -116,5 +126,6 @@ export function useGitHubAuthFlow() {
     logout,
     cancel,
     copyCode,
+    refreshStatus,
   };
 }
