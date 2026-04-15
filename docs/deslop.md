@@ -87,6 +87,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/hooks/{useChatPromptInput.test.tsx,useGitHubAuthFlow.test.tsx}` | New — focused coverage for built-in prompt command routing plus GitHub auth copy success/failure reset behavior |
 | `docs/deslopify/apps/desktop/src/hooks/{facts,plan}.md` | Closed the remaining Low hook cleanup items, refreshed hook-folder metrics, and marked the plan fully executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/hooks/` fully executed after the Low helper-dedupe pass |
+| `apps/desktop/src/lib/federation-registry.ts` | Centralized failed federated-load cache cleanup so transient remote outages drop stale lazy/LRU state and retry on the next access |
+| `apps/desktop/src/lib/federation-registry.test.ts` | Added jsdom regression coverage that a failed lazy remote load retries and recovers without restart, alongside the existing transient fallback test |
+| `docs/deslopify/apps/desktop/src/lib/{facts,plan}.md` | Recorded the federation retry closeout, refreshed lib-folder metrics, and narrowed the remaining backlog to Medium/Low follow-ups |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/lib/` in progress with the High federation retry item cleared |
 
 ---
 

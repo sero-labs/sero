@@ -23,7 +23,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/hooks/`](./apps/desktop/src/hooks/plan.md)
     — *Healthy — hooks folder plan fully executed 2026-04-15*
   - [`apps/desktop/src/lib/`](./apps/desktop/src/lib/plan.md)
-    — *Wave A renderer orchestration review complete — plan created 2026-04-12*
+    — *In progress — High federation retry item cleared 2026-04-15; Medium/Low cleanup pending*
   - [`apps/desktop/src/lsp/`](./apps/desktop/src/lsp/plan.md)
     — *In progress — High item cleared 2026-04-12; Medium cleanup pending*
   - [`apps/desktop/src/stores/`](./apps/desktop/src/stores/plan.md)
