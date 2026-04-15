@@ -35,7 +35,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
-    — *In progress — High item plus both Medium follow-ups cleared 2026-04-15; Low helper/guidance cleanup pending*
+    — *In progress — High, both Medium, and the Low helper-dedupe follow-up cleared 2026-04-15; only Low profile-scoped guidance cleanup remains*
   - [`apps/desktop/electron/features/collaboration/`](./apps/desktop/electron/features/collaboration/plan.md)
     — *Wave C review complete — no High items; Medium cleanup pending*
   - [`apps/desktop/electron/features/container/`](./apps/desktop/electron/features/container/plan.md)

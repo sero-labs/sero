@@ -142,6 +142,14 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/auth/google/{credentials.test.ts,status.test.ts}` | New — focused coverage for extracted credential-import memoization and buggy-keyring migration/status helper behavior |
 | `docs/deslopify/apps/desktop/electron/features/auth/{facts,plan}.md` | Recorded the GoogleAuthManager modularization closeout, refreshed auth-folder metrics, and narrowed remaining backlog to Low helper/guidance follow-ups |
 | `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/auth/` to reflect both Medium items cleared with only Low follow-ups pending |
+| `apps/desktop/electron/features/auth/google/gog-runtime.ts` | New — canonical gog binary/PATH runtime helper reused by auth, IPC, and CLI execution surfaces |
+| `apps/desktop/electron/features/auth/google/gog-keyring.ts` | Rebased keyring command execution on shared gog runtime helpers and removed local binary/PATH probing duplication |
+| `apps/desktop/electron/{ipc/integrations/google-api.ts,cli/lib/gog-runner.ts}` | Reused shared gog runtime helpers so IPC and CLI Google command execution no longer maintain parallel path-resolution logic |
+| `packages/common/src/{github-url.ts,index.ts}` | New — shared GitHub URL parsing/normalization helpers exported for electron + renderer consumers |
+| `apps/desktop/electron/features/auth/github/repo-ops.ts` | Replaced local GitHub URL parsing/normalization helpers with canonical `@sero/common` helpers |
+| `apps/desktop/src/components/layout/git-remote/workflow.ts` | Reused canonical GitHub URL parsing/web-url helpers to keep renderer publish/origin behavior aligned with repo-ops |
+| `docs/deslopify/apps/desktop/electron/features/auth/{facts,plan}.md` | Recorded the Low helper-dedupe closeout, refreshed auth metrics, and narrowed remaining work to profile-scoped guidance text |
+| `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/auth/` status to reflect only the final Low guidance follow-up pending |
 
 ---
 
