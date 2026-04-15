@@ -56,7 +56,7 @@ _Plan drafted: 2026-04-12_
 1. ~~Replace the inline Monaco type import with a top-level type import.~~ ✅ 2026-04-12 (`4350404d`)
 2. ~~Split `use-lsp.ts` into provider-registry, document-sync, and diagnostics modules.~~ ✅ 2026-04-15 (`4d41d04e`)
 3. ~~Extract shared language-routing metadata and remove duplicated maps from explorer/LSP/editor code.~~ ✅ 2026-04-15 (`3fba69f2`)
-4. Replace model scanning + `as never[]` with typed diagnostics routing.
+4. ~~Replace model scanning + `as never[]` with typed diagnostics routing.~~ ✅ 2026-04-15 (`b9232367`)
 5. Re-review explorer/editor surfaces after the shared routing contract lands.
 
 ## Execution log
@@ -66,3 +66,5 @@ _Plan drafted: 2026-04-12_
   - Split `use-lsp.ts` into `provider-registry.ts`, `document-sync.ts`, and `diagnostics.ts`, narrowed the renderer-facing Monaco/editor seam, and added focused lifecycle coverage in `use-lsp.test.tsx`.
 - 2026-04-15 — `3fba69f2` — `refactor(lsp): centralize renderer language routing metadata`
   - Added `language-routing.ts` as the canonical renderer language map, rebased explorer editor/diff helpers and LSP document-sync/provider registration onto it, and added focused routing coverage in `language-routing.test.ts`.
+- 2026-04-15 — `b9232367` — `refactor(lsp): route diagnostics through typed model registry`
+  - Added workspace-scoped diagnostics URI→model routing, removed publishDiagnostics model scans/`as never[]`, and locked in the no-scan behavior with a focused `use-lsp.test.tsx` assertion.

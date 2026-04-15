@@ -100,6 +100,11 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/components/apps/explorer/{editor/editor-panel-shared.ts,vcs/vcs-utils.ts}` | Rebased explorer editor + diff language inference onto the shared LSP language-routing module and removed duplicated extension maps |
 | `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the shared language-routing extraction closeout, refreshed metrics, and narrowed the remaining backlog to diagnostics + protocol-shape follow-up |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` in progress with the shared-routing Medium item cleared |
+| `apps/desktop/src/lsp/diagnostics-routing.ts` | New — workspace-scoped URI→model registry for diagnostics marker routing without global Monaco model scans |
+| `apps/desktop/src/lsp/{document-sync.ts,diagnostics.ts}` | Replaced publishDiagnostics model scanning + `as never[]` with typed notification guards and direct route-based marker application |
+| `apps/desktop/src/lsp/use-lsp.test.tsx` | Added regression coverage that diagnostics updates no longer call `monaco.editor.getModels()` |
+| `docs/deslopify/apps/desktop/src/lsp/{facts,plan}.md` | Recorded the diagnostics-routing closeout, refreshed LSP metrics, and left only the Low protocol-shape follow-up |
+| `docs/deslopify/index.md` | Marked `apps/desktop/src/lsp/` in progress with diagnostics cleanup cleared |
 
 ---
 

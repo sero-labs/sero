@@ -73,3 +73,21 @@ _Last reviewed: 2026-04-15_
 - Renderer/main language-routing metadata remains duplicated with `electron/features/editor/lsp/types.ts`; the renderer side is now consolidated and ready for the cross-layer extraction tracked under the electron editor plan.
 - Diagnostics still scan all Monaco models per notification and retain the existing `as never[]` cast until the next Medium cleanup lands.
 - `lsp-conversions.ts` still carries inline local protocol interfaces, which remains the Low follow-up.
+
+## Post-fix snapshot — 2026-04-15 (typed diagnostics routing)
+
+### Metrics after fixes
+- Total files: 7 source files (was 6)
+- Largest file: `apps/desktop/src/lsp/lsp-conversions.ts` (218 LOC; unchanged)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: diagnostics routing no longer uses `params.diagnostics as never[]`; only Low protocol-shape follow-up remains
+
+### What changed
+- Added `diagnostics-routing.ts` as a workspace-scoped URI → Monaco model registry so diagnostics can target the active model directly.
+- Updated `document-sync.ts` to register and remove diagnostics routes alongside didOpen/didClose lifecycle notifications.
+- Updated `diagnostics.ts` to parse publishDiagnostics payloads through typed guards and apply markers via direct route lookup instead of scanning `monaco.editor.getModels()`.
+- Expanded `use-lsp.test.tsx` to assert diagnostics updates no longer call Monaco model scanning APIs.
+
+### Still outstanding
+- Renderer/main language-routing metadata remains duplicated with `electron/features/editor/lsp/types.ts`; the renderer side is now consolidated and ready for the cross-layer extraction tracked under the electron editor plan.
+- `lsp-conversions.ts` still carries inline local protocol interfaces, which remains the Low follow-up.
