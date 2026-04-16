@@ -87,6 +87,12 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/features/vcs/core/pr-ops/{state.ts,preview.ts,create.ts}` | New — separated PR branch-state resolution, diff/preview shaping, and `gh pr create` execution/error formatting |
 | `docs/deslopify/apps/desktop/electron/features/vcs/{facts,plan}.md` | Recorded the VCS modularization Medium closeout, refreshed metrics, and narrowed remaining work to the Low checkpoint-description follow-up |
 | `docs/deslopify/index.md` | Updated VCS status to show all Medium follow-ups cleared with only the Low checkpoint-description item pending |
+| `apps/desktop/electron/features/container/network/{http-proxy,port-forward}.ts` | Hardened proxy client/target filtering and made container port scans/bridge teardown awaitable with stale-state cleanup (`http-proxy.ts` 221 → 232 lines; `port-forward.ts` 213 → 234 lines) |
+| `apps/desktop/electron/features/container/{index.ts,core/lifecycle.ts}` | Awaited scanner cleanup during stop/remove/shutdown and enforced `readOnlyMounts` as `:ro` (`lifecycle.ts` 454 → 454 lines) |
+| `apps/desktop/electron/main.ts` | Graceful shutdown now awaits container port-forward disposal before stopping containers |
+| `apps/desktop/electron/__tests__/features/container/{http-proxy,port-forward,lifecycle}.test.ts` | New/updated — focused regression coverage for proxy subnet/target guards, bridge teardown on scan stop/failure, and read-only mount command wiring |
+| `docs/deslopify/apps/desktop/electron/features/container/{facts,plan}.md` | Recorded the High-item + mount-contract execution pass, noted plan drift, and narrowed remaining work to tool dedupe/near-cap/dead-metrics follow-ups |
+| `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/container/` in progress after clearing both High items plus the mount-contract Medium fix |
 
 ---
 

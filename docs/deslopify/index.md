@@ -39,7 +39,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/collaboration/`](./apps/desktop/electron/features/collaboration/plan.md)
     — *Healthy — both Medium items plus all tracked Low follow-ups (shared runner + required-agent preflight) cleared 2026-04-16*
   - [`apps/desktop/electron/features/container/`](./apps/desktop/electron/features/container/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
+    — *In progress — both High items plus the `readOnlyMounts` Medium contract fix cleared 2026-04-16; tool dedupe / near-cap / dead-metrics follow-ups remain*
   - [`apps/desktop/electron/features/editor/`](./apps/desktop/electron/features/editor/plan.md)
     — *Healthy — High, both Medium, and the Low install-policy follow-up all cleared 2026-04-16*
   - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
