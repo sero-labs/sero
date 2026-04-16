@@ -10,6 +10,13 @@ Changes made during code quality passes. Most recent first.
 
 | File | Change |
 |------|--------|
+| `apps/desktop/electron/features/apps/state/manager.ts` | Hardened app-state watch bootstrap so concurrent watch/unwatch cancels cleanly, failed setup retries correctly, and non-`EEXIST` bootstrap errors no longer leave broken watcher entries behind (305 → 324 lines) |
+| `apps/desktop/electron/__tests__/features/apps/app-state-manager.test.ts` | New — covers cancelled concurrent bootstrap and retry-after-failed-watch behavior |
+| `apps/desktop/electron/features/apps/extensions/git-checkpoints.ts` | Replaced loose checkpoint-summary parsing with record guards plus safer bash/agent-end helpers (295 → 315 lines) |
+| `apps/desktop/electron/features/apps/extensions/ui-context.ts` | Replaced the `theme: any` stub with a concrete Pi `Theme`, documented the unsupported custom-UI no-op seam, and kept notification behavior unchanged (75 → 145 lines) |
+| `apps/desktop/electron/__tests__/features/apps/{git-checkpoints,ui-context}.test.ts` | New — covers checkpoint summary fallback behavior and extension UI notification/no-op contracts |
+| `docs/deslopify/apps/desktop/electron/features/apps/{facts,plan}.md` | Recorded the High-item execution pass, noted the live-folder/plan drift, and narrowed remaining work to Medium/Low follow-ups |
+| `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/apps/` in progress with both High items cleared |
 | `apps/desktop/electron/features/agent/assistants/image-agent.ts` | Replaced loose Gemini content/global typings with SDK-backed parts, a typed legacy `__seroImageGen` bridge, and current ownership comments (189 → 198 lines) |
 | `apps/desktop/electron/__tests__/features/agent/image-agent.test.ts` | New — covers the typed legacy `__seroImageGen` exposure contract |
 | `docs/deslopify/apps/desktop/electron/features/agent/{facts,plan}.md` | Recorded the image-agent typing/bridge/comment cleanup closeout and marked the folder plan fully executed |

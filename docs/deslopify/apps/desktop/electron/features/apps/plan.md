@@ -6,9 +6,9 @@ _Plan drafted: 2026-04-12_
 `electron/features/apps` is functionally important and mostly within size limits, but it carries concentrated boundary debt: watcher lifecycle races in shared state infrastructure, multiple `any` escape hatches in extension helpers, and direct host imports from plugin internals. The plan focuses on hardening reliability and contracts first, then reducing coupling so this layer can evolve without breaking app/plugin boundaries.
 
 ## Issues Found (prioritized)
-- **High** — Watcher bootstrap race can miscount refs and leak state watchers — `apps/desktop/electron/features/apps/state/manager.ts:128-153` starts async setup before a map entry exists, while `unwatch` assumes a registered entry (`state/manager.ts:159-168`). Concurrent watch/unwatch calls can leave orphan watchers or incorrect ref counts in a module used by IPC/kanban/git state flows. Effort: **M**.
+- **High** — ~~Watcher bootstrap race can miscount refs and leak state watchers — `apps/desktop/electron/features/apps/state/manager.ts:128-153` starts async setup before a map entry exists, while `unwatch` assumes a registered entry (`state/manager.ts:159-168`). Concurrent watch/unwatch calls can leave orphan watchers or incorrect ref counts in a module used by IPC/kanban/git state flows.~~ ✅ 2026-04-16 (`a3609c57`) — completed as a deterministic bootstrap/retry pass after the original Wave A race description had already partially drifted: watch bootstrap is now tracked per-entry, canceled before `fs.watch()` starts, and failed setup entries are dropped so later watches retry cleanly. Effort: **M**.
 
-- **High** — Type-safety escape hatches in extension paths — `apps/desktop/electron/features/apps/extensions/git-checkpoints.ts:19-20,26` uses `any` for message content parsing, and `apps/desktop/electron/features/apps/extensions/ui-context.ts:51,63` uses `undefined as never` plus `theme: any`. These bypass strict contracts on agent-extension boundaries. Effort: **S**.
+- **High** — ~~Type-safety escape hatches in extension paths — `apps/desktop/electron/features/apps/extensions/git-checkpoints.ts:19-20,26` uses `any` for message content parsing, and `apps/desktop/electron/features/apps/extensions/ui-context.ts:51,63` uses `undefined as never` plus `theme: any`. These bypass strict contracts on agent-extension boundaries.~~ ✅ 2026-04-16 (`446c1bc6`) — replaced the loose checkpoint parsing + theme stubs with typed guards/tests and a concrete Pi `Theme`; the unsupported `ui.custom()` no-op path still uses one documented `undefined!` generic seam because the SDK’s `custom<T>` contract cannot preserve Sero’s no-TUI behavior without either changing runtime semantics or rendering a real overlay host. Effort: **S**.
 
 - **Medium** — Host code is coupled to plugin-internal modules — `apps/desktop/electron/features/apps/extensions/skill-visibility.ts:2` imports admin-plugin shared helper, and `apps/desktop/electron/features/apps/git-app/manager.ts:4-6` imports git-plugin extension internals. This makes core host behavior depend on plugin package structure and fights AD-001 ownership boundaries. Effort: **M**.
 
@@ -55,8 +55,12 @@ _Plan drafted: 2026-04-12_
 - Discovery classification tweaks may change plugin-manager visibility for malformed packages; include migration notes in release PR if behavior changes.
 
 ## Next Steps
-1. Fix High items first: watcher bootstrap/refcount race and all `any` escape hatches.
-2. Extract plugin-shared helpers to neutral contracts and update imports in host/plugin packages.
-3. Tighten discovery plugin metadata validation and add malformed-manifest tests.
-4. Split `createSeroExtensionFactory` into registrar modules before adding new extension hooks.
+1. Extract the remaining host/plugin boundary in `git-app/manager.ts` onto a host-owned service; the skill-visibility half of the original coupling tracker is already neutralized upstream via `@sero/common`.
+2. Tighten discovery plugin metadata validation and add malformed-manifest tests.
+3. Split `createSeroExtensionFactory` into registrar modules before adding new extension hooks.
+4. Add an unsubscribe path for long-lived `onFileChange()` listeners if repeated test/dev registration becomes observable in practice.
 5. Continue Wave A: `deslopify apps/desktop/electron/features/plugins`.
+
+## Execution log
+- 2026-04-16 — `a3609c57` — `refactor(apps): harden app state watcher bootstrap`
+- 2026-04-16 — `446c1bc6` — `refactor(apps): tighten extension helper typing`

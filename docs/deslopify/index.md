@@ -33,7 +33,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/agent/`](./apps/desktop/electron/features/agent/plan.md)
     — *Healthy — Medium image-agent type hygiene plus Low legacy bridge/comment cleanup cleared 2026-04-16*
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
+    — *In progress — both High items cleared 2026-04-16; Medium/Low follow-ups remain (git-app host boundary, discovery validation, extension-factory split, listener unsubscribe)*
   - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
     — *Healthy — High, both Medium, and all tracked Low follow-ups (helper dedupe + profile-scoped guidance) cleared 2026-04-15*
   - [`apps/desktop/electron/features/collaboration/`](./apps/desktop/electron/features/collaboration/plan.md)
