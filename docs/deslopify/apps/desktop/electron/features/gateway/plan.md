@@ -66,7 +66,7 @@ _Plan drafted: 2026-04-12_
 4. ~~Make cost-config loading non-destructive.~~ ✅ 2026-04-16 (`fc8558ed`)
 5. ~~Replace Discord monkey-patching with a formal subscription API.~~ ✅ 2026-04-16 (`32320672`)
 6. ~~Move static-file resolution off the synchronous hot path.~~ ✅ 2026-04-16 (`32320672`)
-7. Choose one primary remote-web ownership model.
+7. ~~Choose one primary remote-web ownership model.~~ ✅ 2026-04-16 (`766fd45e`)
 8. Verification checklist:
    - Connect via web token and confirm only authorized workspaces/sessions/files are visible.
    - Prompt, steer, abort, list files, and fetch session history from an authorized workspace.
@@ -88,3 +88,7 @@ _Plan drafted: 2026-04-12_
   - Removed Discord adapter non-null/type-escape leftovers touched by that seam (`sendTyping` guard + mention checks).
   - Primed and cached static `web-dist` metadata once at startup, removing request-time `existsSync`/`statSync` checks.
   - Added focused tests for event-listener fan-out and static-file cache fallback behavior.
+- 2026-04-16 — `766fd45e` — `refactor(gateway): make web-dist spa the primary web remote owner`
+  - Chose `web-dist/` SPA as the primary web remote UI owner by making the standalone web-chat port redirect root traffic to the gateway SPA.
+  - Retained `/basic` as an explicit diagnostics fallback surface for no-build recovery scenarios.
+  - Added focused coverage for redirect + fallback behavior in `web-chat-server.test.ts`.

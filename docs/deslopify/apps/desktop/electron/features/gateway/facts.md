@@ -20,7 +20,7 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 ## Architectural notes
 - This feature is an external network boundary, not an internal helper. Type validation, auth scope, and failure semantics are materially more important here than in ordinary in-process modules.
 - The flat gateway token model is still explicitly called out as open security debt in `docs/security/outstanding-hardening.md` and the in-code TODO in `security/auth.ts`.
-- The feature currently ships two remote UI surfaces: an inline minimal web chat (`channels/web.ts`) and a bundled SPA under `web-dist/`, plus a `/basic` fallback route in `index.ts`.
+- The bundled SPA under `web-dist/` is now the primary remote UI owner. The inline web chat is retained only as an explicit `/basic` diagnostics fallback surface.
 - Discord integration now subscribes through a formal gateway event-listener seam in `bridge/agent-bridge.ts` rather than rewriting `GatewayServer` methods at runtime.
 
 ## Runtime-sensitive surfaces
@@ -85,4 +85,20 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 - Added focused regression coverage for the new event-listener bridge and static-file cache/fallback behavior.
 
 ### Still outstanding
-- The feature still carries dual web UI ownership (`channels/web.ts` inline UI + bundled `web-dist/` SPA).
+- None in the tracked gateway folder plan; remaining gateway hardening debt is the separate master-token security follow-up in `docs/security/outstanding-hardening.md`.
+
+## Post-fix snapshot — 2026-04-16 (gateway low ownership closeout)
+
+### Metrics after fixes
+- Total files: 19 (unchanged)
+- Largest file: `apps/desktop/electron/features/gateway/index.ts` (497 LOC, unchanged)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 1 (`chromiumFetch` response compatibility cast in `channels/discord.ts`, unchanged)
+
+### What changed
+- Chose the bundled `web-dist/` SPA as the primary remote web UI owner.
+- Updated `channels/web.ts` so standalone port `18801` root now redirects to the gateway SPA owner (`18800`), while preserving `/basic` as a deliberate diagnostics fallback.
+- Added focused `web-chat-server` regressions that lock redirect and fallback behavior.
+
+### Still outstanding
+- None in the tracked gateway folder plan; remaining gateway hardening debt is the separate master-token security follow-up in `docs/security/outstanding-hardening.md`.

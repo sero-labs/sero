@@ -46,6 +46,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/gateway/{agent-bridge,static-files}.test.ts` | New — regression coverage for event-listener fan-out and cached static-file fallback behavior |
 | `docs/deslopify/apps/desktop/electron/features/gateway/{facts,plan}.md` | Closed stale gateway tracker rows, recorded the Discord-subscription/static-file Medium closeout, and narrowed remaining work to the Low dual-UI ownership decision |
 | `docs/deslopify/index.md` | Updated gateway status after clearing all tracked Medium follow-ups |
+| `apps/desktop/electron/features/gateway/channels/web.ts` | Declared `web-dist/` SPA as primary UI owner by redirecting standalone web-chat root traffic to gateway SPA while preserving `/basic` fallback |
+| `apps/desktop/electron/__tests__/features/gateway/web-chat-server.test.ts` | New — locks standalone redirect-to-SPA behavior and explicit `/basic` fallback routing |
+| `docs/deslopify/apps/desktop/electron/features/gateway/{facts,plan}.md` | Recorded Low ownership closeout, refreshed post-fix gateway snapshot, and marked the folder plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/gateway/` healthy with all tracked items cleared |
 
 ---
 

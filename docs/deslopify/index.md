@@ -43,7 +43,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/editor/`](./apps/desktop/electron/features/editor/plan.md)
     — *Healthy — High, both Medium, and the Low install-policy follow-up all cleared 2026-04-16*
   - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
-    — *In progress — High and all tracked Medium follow-ups (request-validation guards, non-destructive cost-config loading, Discord subscription seam, static-file cache) cleared by 2026-04-16; Low dual-web-UI ownership decision pending*
+    — *Healthy — High plus all tracked Medium/Low follow-ups (request-validation guards, non-destructive cost-config loading, Discord subscription seam, static-file cache, and SPA ownership decision) cleared 2026-04-16*
   - [`apps/desktop/electron/features/kanban/`](./apps/desktop/electron/features/kanban/plan.md)
     — *Healthy — High and Medium workflow/runtime-owner cleanup cleared 2026-04-14; Low dead-scaffolding follow-up pending*
   - [`apps/desktop/electron/gateway/`](./apps/desktop/electron/gateway/plan.md)
