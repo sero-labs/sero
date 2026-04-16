@@ -9,6 +9,7 @@ import { nativeImage, net } from 'electron';
 import type { ResponseLike } from '@discordjs/rest';
 
 import type { GatewayServer, GatewayAgentOps } from '..';
+import { subscribeGatewayEvents } from '../bridge/agent-bridge';
 import type { GatewayPushEvent } from '../server/protocol';
 
 /** Minimal interface for discord.js channels that support sending messages. */
@@ -16,8 +17,16 @@ interface SendableChannel {
   send(options: string | { content?: string; files?: { attachment: Buffer; name: string }[] }): Promise<unknown>;
 }
 
+interface TypingChannel {
+  sendTyping(): Promise<void>;
+}
+
 function isSendable(channel: unknown): channel is SendableChannel {
   return !!channel && typeof channel === 'object' && 'send' in channel;
+}
+
+function supportsTyping(channel: unknown): channel is TypingChannel {
+  return !!channel && typeof channel === 'object' && 'sendTyping' in channel;
 }
 
 // discord.js is dynamically imported to avoid hard dependency at startup
@@ -121,8 +130,10 @@ export class DiscordAdapter {
 
     this.client.on('messageCreate', (msg) => this.handleMessage(msg));
 
-    // Subscribe to gateway push events to relay back to Discord
-    this.unsubscribeEvents = this.subscribeToGatewayEvents();
+    // Subscribe to forwarded gateway events to relay back to Discord.
+    this.unsubscribeEvents = subscribeGatewayEvents((event) => {
+      this.handleGatewayEvent(event);
+    });
 
     await this.client.login(this.config.botToken);
   }
@@ -168,7 +179,8 @@ export class DiscordAdapter {
 
     // Check if it's a DM or a mention
     const isDM = !msg.guild;
-    const isMention = msg.mentions.has(this.client!.user!);
+    const botUser = this.client?.user;
+    const isMention = !isDM && !!botUser && msg.mentions.has(botUser);
 
     if (!isDM && !isMention) return;
 
@@ -197,7 +209,9 @@ export class DiscordAdapter {
 
     // Send typing indicator
     try {
-      await (msg.channel as any).sendTyping?.();
+      if (supportsTyping(msg.channel)) {
+        await msg.channel.sendTyping();
+      }
     } catch {
       // Non-critical
     }
@@ -280,34 +294,6 @@ export class DiscordAdapter {
       this.sessions.set(channelId, session);
     }
     return session;
-  }
-
-  /**
-   * Subscribe to gateway push events and relay to the appropriate Discord channel.
-   * Returns an unsubscribe function.
-   */
-  private subscribeToGatewayEvents(): () => void {
-    // The gateway server will call pushEvent/broadcastEvent.
-    // We monkey-patch the gateway's broadcastEvent to also send to Discord.
-    // This is a lightweight approach that avoids modifying the gateway protocol.
-
-    const originalBroadcast = this.gateway.broadcastEvent.bind(this.gateway);
-    const originalPush = this.gateway.pushEvent.bind(this.gateway);
-
-    this.gateway.broadcastEvent = (event: GatewayPushEvent) => {
-      originalBroadcast(event);
-      this.handleGatewayEvent(event);
-    };
-
-    this.gateway.pushEvent = (sessionId: string, event: GatewayPushEvent) => {
-      originalPush(sessionId, event);
-      this.handleGatewayEvent(event);
-    };
-
-    return () => {
-      this.gateway.broadcastEvent = originalBroadcast;
-      this.gateway.pushEvent = originalPush;
-    };
   }
 
   private handleGatewayEvent(event: GatewayPushEvent): void {

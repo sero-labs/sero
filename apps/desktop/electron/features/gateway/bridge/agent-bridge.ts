@@ -38,8 +38,11 @@ interface EventSink {
   pushEvent(sessionId: string, event: GatewayPushEvent): void;
 }
 
+type GatewayEventListener = (event: GatewayPushEvent) => void;
+
 let _sink: EventSink | null = null;
 let _costTracker: CostTracker | null = null;
+const _listeners = new Set<GatewayEventListener>();
 
 /** Called by gateway.ts once the server is started. */
 export function setGatewayEventSink(sink: EventSink): void {
@@ -49,6 +52,14 @@ export function setGatewayEventSink(sink: EventSink): void {
 /** Called by gateway.ts to enable cost tracking for forwarded events. */
 export function setGatewayCostTracker(tracker: CostTracker): void {
   _costTracker = tracker;
+}
+
+/** Subscribe to gateway push events forwarded from the agent stream. */
+export function subscribeGatewayEvents(listener: GatewayEventListener): () => void {
+  _listeners.add(listener);
+  return () => {
+    _listeners.delete(listener);
+  };
 }
 
 /**
@@ -75,8 +86,15 @@ export function forwardEventToGateway(event: Record<string, unknown>): void {
   }
 
   const mapped = mapAgentEvent(sessionId, event);
-  if (mapped) {
-    _sink.pushEvent(sessionId, mapped);
+  if (!mapped) return;
+
+  _sink.pushEvent(sessionId, mapped);
+  for (const listener of _listeners) {
+    try {
+      listener(mapped);
+    } catch (err) {
+      console.error('[gateway] Event listener error:', err);
+    }
   }
 }
 
