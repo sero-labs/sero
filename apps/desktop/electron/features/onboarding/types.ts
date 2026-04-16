@@ -3,7 +3,6 @@ import type {
   ModelTier,
   ModelTierEntry,
   ModelTierSettings,
-  OnboardingRecommendation,
   OnboardingState,
   OnboardingTierSource,
   ProviderHealthInfo,
@@ -59,30 +58,6 @@ export function hasTierEntry(
     group.provider === entry.provider
     && group.models.some((model) => model.modelId === entry.modelId),
   );
-}
-
-function findModelName(
-  groups: AvailableModelGroup[],
-  entry: ModelTierEntry,
-): string {
-  for (const group of groups) {
-    if (group.provider !== entry.provider) continue;
-    const model = group.models.find((candidate) => candidate.modelId === entry.modelId);
-    if (model) return model.name;
-  }
-  return entry.modelId;
-}
-
-function buildRecommendation(
-  tiers: ModelTierSettings,
-  sourcesByTier: Partial<Record<ModelTier, OnboardingTierSource>>,
-  preferredProvider?: string,
-): OnboardingRecommendation {
-  return {
-    tiers,
-    sourcesByTier,
-    preferredProvider,
-  };
 }
 
 export function emptyOnboardingState(): OnboardingState {

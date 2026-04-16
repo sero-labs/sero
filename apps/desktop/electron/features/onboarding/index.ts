@@ -1,1 +1,5 @@
-export { getOnboardingState } from './preflight';
+export {
+  getOnboardingState,
+  getOnboardingStateWithRepairs,
+  repairOnboardingSettingsState,
+} from './preflight';
