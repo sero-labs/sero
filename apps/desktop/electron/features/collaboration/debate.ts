@@ -12,12 +12,19 @@
 import type { SubagentManager } from '../subagent';
 import { ROLE_AGENT_NAMES } from './agents';
 import { budgetPromptText } from './prompt-budget';
+import {
+  buildDegradedFinalResponse,
+  getMissingRequiredRoles,
+  hasUsableSpecialistOutput,
+} from './degraded-result';
 import type {
   CollaborationRole,
   CollaborationResult,
   DebateConfig,
   DebatePhase,
 } from '@/types/collaboration';
+
+type DebateRunner = Pick<SubagentManager, 'runSingleStructured'>;
 
 export interface DebateCallbacks {
   onDebatePhase?: (phase: DebatePhase) => void;
@@ -51,7 +58,7 @@ async function runAgent(
   task: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: SubagentManager,
+  manager: DebateRunner,
   config: DebateConfig,
   callbacks?: DebateCallbacks,
 ): Promise<AgentOutput> {
@@ -191,7 +198,7 @@ export async function runDebateCollaboration(
   query: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: SubagentManager,
+  manager: DebateRunner,
   config: DebateConfig,
   callbacks?: DebateCallbacks,
 ): Promise<CollaborationResult> {
@@ -214,7 +221,22 @@ export async function runDebateCollaboration(
   );
   specialistOutputs.push(decomposition);
 
-  const decompositionText = decomposition.response || '(Decomposition failed)';
+  const decompositionFailures = getMissingRequiredRoles(specialistOutputs, ['coordinator']);
+  if (decompositionFailures.length > 0) {
+    callbacks?.onDebatePhase?.('synthesis');
+    callbacks?.onUpdate?.(
+      'Debate degraded — required decomposition output missing; skipping coordinator synthesis.',
+    );
+
+    return {
+      finalResponse: buildDegradedFinalResponse('Debate collaboration', decompositionFailures, specialistOutputs),
+      specialistOutputs,
+      totalDurationMs: Date.now() - startTime,
+      hasErrors: true,
+    };
+  }
+
+  const decompositionText = hasUsableSpecialistOutput(decomposition) ? decomposition.response : '';
 
   // ── Phase 2: Independent Analysis ──────────────────────────
   callbacks?.onDebatePhase?.('independent_analysis');
@@ -245,13 +267,32 @@ export async function runDebateCollaboration(
     const result = analysisResults[i];
     if (result.status === 'fulfilled') {
       specialistOutputs.push(result.value);
-      analyses.set(role, result.value.response || '(No output)');
+      if (hasUsableSpecialistOutput(result.value)) {
+        analyses.set(role, result.value.response);
+      }
     } else {
       const agentName = ROLE_AGENT_NAMES[role];
       const errMsg = result.reason?.message ?? 'Unknown error';
       specialistOutputs.push({ role, agentName, response: '', error: errMsg, durationMs: 0 });
-      analyses.set(role, '(Agent failed)');
     }
+  }
+
+  const failedAnalyses = getMissingRequiredRoles(
+    specialistOutputs,
+    ['researcher', 'analyst', 'visionary'],
+  );
+  if (failedAnalyses.length > 0) {
+    callbacks?.onDebatePhase?.('synthesis');
+    callbacks?.onUpdate?.(
+      'Debate degraded — required specialist output missing; skipping debate rounds and synthesis.',
+    );
+
+    return {
+      finalResponse: buildDegradedFinalResponse('Debate collaboration', failedAnalyses, specialistOutputs),
+      specialistOutputs,
+      totalDurationMs: Date.now() - startTime,
+      hasErrors: true,
+    };
   }
 
   // ── Phase 3: Debate & Cross-Checking ───────────────────────

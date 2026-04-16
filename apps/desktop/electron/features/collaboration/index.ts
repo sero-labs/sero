@@ -20,8 +20,15 @@ import {
   ROLE_AGENT_NAMES,
   buildCoordinatorSynthesisPrompt,
 } from './agents';
+import {
+  buildDegradedFinalResponse,
+  getMissingRequiredRoles,
+  hasUsableSpecialistOutput,
+} from './degraded-result';
 import type { CollaborationRole, CollaborationResult } from '@/types/collaboration';
 export type { CollaborationResult } from '@/types/collaboration';
+
+type CollaborationRunner = Pick<SubagentManager, 'runSingleStructured'>;
 
 export interface CollaborationCallbacks {
   /** Called when each phase starts. */
@@ -42,7 +49,7 @@ async function runSpecialist(
   task: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: SubagentManager,
+  manager: CollaborationRunner,
   callbacks?: CollaborationCallbacks,
 ): Promise<CollaborationResult['specialistOutputs'][number]> {
   const agentName = ROLE_AGENT_NAMES[role];
@@ -97,7 +104,7 @@ export async function runCollaboration(
   query: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: SubagentManager,
+  manager: CollaborationRunner,
   callbacks?: CollaborationCallbacks,
 ): Promise<CollaborationResult> {
   const startTime = Date.now();
@@ -124,7 +131,22 @@ export async function runCollaboration(
   }
   specialistOutputs.push(researcherOutput);
 
-  const researchText = researcherOutput.response || '(Researcher failed to produce output)';
+  const failedAfterResearch = getMissingRequiredRoles(specialistOutputs, ['researcher']);
+  if (failedAfterResearch.length > 0) {
+    callbacks?.onPhaseStart?.('synthesis');
+    callbacks?.onUpdate?.(
+      'Collaboration degraded — required specialist output missing; skipping coordinator synthesis.',
+    );
+
+    return {
+      finalResponse: buildDegradedFinalResponse('Standard collaboration', failedAfterResearch, specialistOutputs),
+      specialistOutputs,
+      totalDurationMs: Date.now() - startTime,
+      hasErrors: true,
+    };
+  }
+
+  const researchText = hasUsableSpecialistOutput(researcherOutput) ? researcherOutput.response : '';
 
   // ── Phase 2: Analyst + Visionary in parallel (with research) ─
 
@@ -159,6 +181,24 @@ export async function runCollaboration(
   const analystOutput = specialistOutputs.find((s) => s.role === 'analyst');
   const visionaryOutput = specialistOutputs.find((s) => s.role === 'visionary');
 
+  const failedBeforeSynthesis = getMissingRequiredRoles(
+    specialistOutputs,
+    ['researcher', 'analyst', 'visionary'],
+  );
+  if (failedBeforeSynthesis.length > 0) {
+    callbacks?.onPhaseStart?.('synthesis');
+    callbacks?.onUpdate?.(
+      'Collaboration degraded — required specialist output missing; skipping coordinator synthesis.',
+    );
+
+    return {
+      finalResponse: buildDegradedFinalResponse('Standard collaboration', failedBeforeSynthesis, specialistOutputs),
+      specialistOutputs,
+      totalDurationMs: Date.now() - startTime,
+      hasErrors: true,
+    };
+  }
+
   // ── Phase 3: Coordinator synthesis ───────────────────────────
 
   callbacks?.onPhaseStart?.('synthesis');
@@ -168,8 +208,8 @@ export async function runCollaboration(
   const synthesisPrompt = buildCoordinatorSynthesisPrompt(
     query,
     researchText,
-    analystOutput?.response || '(Analyst failed to produce output)',
-    visionaryOutput?.response || '(Visionary failed to produce output)',
+    analystOutput?.response ?? '',
+    visionaryOutput?.response ?? '',
   );
 
   const synthesisResult = await manager.runSingleStructured({
