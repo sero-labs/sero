@@ -1,6 +1,6 @@
-// Re-export shared VCS types from the canonical renderer location.
+// Re-export shared VCS contracts from the canonical neutral shared module.
 // Electron-only types (GitResult, CreateCheckpointOptions) are defined below.
-import type { VcsCheckpointSource } from '@/types/vcs';
+import type { VcsCheckpointSource } from '@sero/common';
 
 export type {
   VcsCheckpointSource,
@@ -18,7 +18,7 @@ export type {
   OperationEntry,
   SyncResult,
   PushPreview,
-} from '@/types/vcs';
+} from '@sero/common';
 
 export interface GitResult {
   exitCode: number;

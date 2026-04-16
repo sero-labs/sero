@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChangeEntry } from '@/types/vcs';
+import type { ChangeEntry } from '@sero/common';
 import { ChangeDetail } from './ChangeDetail';
 
 (

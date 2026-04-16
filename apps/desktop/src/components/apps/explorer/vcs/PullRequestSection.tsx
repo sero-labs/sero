@@ -6,7 +6,7 @@ import type {
   Bookmark,
   PullRequestPreview,
   PullRequestState,
-} from '@/types/vcs';
+} from '@sero/common';
 import { VcsSection } from './VcsSection';
 
 interface Props {

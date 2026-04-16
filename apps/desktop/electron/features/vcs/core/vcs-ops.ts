@@ -20,7 +20,7 @@ import type {
   OperationEntry,
   SyncResult,
   PushPreview,
-} from '@/types/vcs';
+} from '@sero/common';
 
 const DEFAULT_PRIMARY_BRANCH = 'main';
 

@@ -8,7 +8,7 @@ import type {
   CreatePullRequestResult,
   PullRequestPreview,
   PullRequestState,
-} from '@/types/vcs';
+} from '@sero/common';
 
 interface PullRequestFeedback {
   tone: 'success' | 'error' | 'info';

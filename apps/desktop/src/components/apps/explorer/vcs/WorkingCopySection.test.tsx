@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkingCopyStatus } from '@/types/vcs';
+import type { WorkingCopyStatus } from '@sero/common';
 import { WorkingCopySection } from './WorkingCopySection';
 
 (

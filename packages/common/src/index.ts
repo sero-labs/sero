@@ -124,6 +124,30 @@ export type {
   GitActionResult,
 } from './git-app';
 
+export type {
+  VcsCheckpointSource,
+  VcsCheckpoint,
+  VcsWorkspaceState,
+  ChangeEntry,
+  FileStatus,
+  StatusFile,
+  WorkingCopyStatus,
+  FileDiffEntry,
+  BookmarkRemoteStatus,
+  Bookmark,
+  Remote,
+  OperationEntry,
+  PushPreview,
+  SyncResult,
+  PullRequestRef,
+  PullRequestState,
+  PullRequestPreview,
+  PullRequestDraft,
+  CreatePullRequestInput,
+  CreatePullRequestResult,
+  VcsEvent,
+} from './vcs';
+
 export {
   parseGitHubUrl,
   normalizeGitHubRemoteUrl,

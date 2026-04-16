@@ -17,7 +17,7 @@ import type {
   VcsEvent,
   VcsWorkspaceState,
   WorkingCopyStatus,
-} from '@/types/vcs';
+} from '@sero/common';
 import type { EditorRoot } from '@/types/ipc';
 
 export const vcsBridge = {

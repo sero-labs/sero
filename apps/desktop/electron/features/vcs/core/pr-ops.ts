@@ -8,7 +8,7 @@ import type {
   PullRequestPreview,
   PullRequestRef,
   PullRequestState,
-} from '@/types/vcs';
+} from '@sero/common';
 
 const DEFAULT_BASE_BRANCH = 'main';
 const FALLBACK_BASE_BRANCH = 'master';
