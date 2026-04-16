@@ -54,6 +54,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/features/subagent/index.ts` | Reduced `SubagentManager` single-mode duplication by delegating `runSingle()`/`runSingleStructured()` to the shared executor (492 → 333 lines) |
 | `docs/deslopify/apps/desktop/electron/features/subagent/{facts,plan}.md` | Recorded the Medium single-run extraction closeout and refreshed the post-fix subagent snapshot |
 | `docs/deslopify/index.md` | Updated subagent status to show the first Medium item cleared with policy/comment follow-ups still pending |
+| `apps/desktop/electron/features/subagent/{core/types.ts,index.ts,runtime/discovery.ts}` | Removed non-functional runtime policy knobs (`tools`, `extensions`, `blockedExtensions`) and made discovery emit explicit ignored-field warnings for unsupported frontmatter |
+| `apps/desktop/electron/__tests__/features/subagent/discovery.test.ts` | Added coverage that unsupported `tools`/`extensions` frontmatter is warned and ignored while discovery remains stable |
+| `docs/deslopify/apps/desktop/electron/features/subagent/{facts,plan}.md` | Recorded the Medium policy-surface cleanup closeout and narrowed remaining work to the Low loader-comment fix |
+| `docs/deslopify/index.md` | Updated subagent status to show High + Medium items cleared with only Low cleanup pending |
 
 ---
 

@@ -55,7 +55,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/profile/`](./apps/desktop/electron/features/profile/plan.md)
     — *In progress — High + Medium path/contract items cleared 2026-04-12; Low cleanup pending*
   - [`apps/desktop/electron/features/subagent/`](./apps/desktop/electron/features/subagent/plan.md)
-    — *In progress — High items + first Medium single-run extraction cleared 2026-04-16; policy/comment cleanup pending*
+    — *In progress — High + both Medium items cleared 2026-04-16; Low loader-comment cleanup pending*
   - [`apps/desktop/electron/features/vcs/`](./apps/desktop/electron/features/vcs/plan.md)
     — *In progress — High item cleared 2026-04-12; Medium cleanup pending*
   - [`apps/desktop/electron/features/workspace/`](./apps/desktop/electron/features/workspace/plan.md)

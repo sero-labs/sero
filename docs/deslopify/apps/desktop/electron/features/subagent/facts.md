@@ -63,3 +63,20 @@ This feature is Sero's AD-021 subagent runtime. It discovers markdown-defined ag
 ### Still outstanding
 - Medium: decide whether `tools`/`extensions`/`blockedExtensions` should be enforced in runtime filtering or removed as unsupported knobs.
 - Low: update `runtime/loader.ts` comments so reduced-extension behavior documentation matches the implementation.
+
+## Post-fix snapshot — 2026-04-16 (policy cleanup pass)
+
+### Metrics after fixes
+- Total files: 11 (unchanged)
+- Largest file: `apps/desktop/electron/features/subagent/runtime/runner.ts` (396 LOC)
+- Files over 500 LOC: none (unchanged)
+- Near-cap files (≥400 LOC): none (unchanged)
+- Type escape hatches remaining: unchanged; no new escape hatches introduced
+
+### What changed
+- Deleted non-functional runtime policy fields from subagent core contracts and manager settings (`tools`, `extensions`, `blockedExtensions`).
+- Discovery now warns when agent frontmatter includes unsupported `tools`/`extensions` fields and intentionally ignores them.
+- Added focused discovery coverage to lock the ignored-field warnings and keep runtime contracts truthful.
+
+### Still outstanding
+- Low: `runtime/loader.ts` top-of-file behavior comments still mention `@ws:` path expansion and need to be aligned with the current reduced extension factory.
