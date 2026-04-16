@@ -29,6 +29,10 @@ Changes made during code quality passes. Most recent first.
 | `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/editor/` healthy with all tracked items cleared |
 | `docs/deslopify/desktop-packages-plugins/{facts,plan}.md` | Retired the final deferred Low-polish tracker for the cross-cutting baseline and recorded a docs-only full closeout |
 | `docs/deslopify/index.md` | Marked `desktop-packages-plugins/` fully closed with no remaining tracked follow-ups |
+| `apps/desktop/electron/features/gateway/server/cost-tracker.ts` | Refactored gateway cost-config loading to return a result-shaped read, preserve malformed/unreadable config files, and surface explicit load errors without clobbering operator config |
+| `apps/desktop/electron/__tests__/features/gateway/cost-tracker.test.ts` | New — verifies malformed `gateway-config.json` is preserved with surfaced load errors, while first-run missing config still persists defaults |
+| `docs/deslopify/apps/desktop/electron/features/gateway/{facts,plan}.md` | Closed stale request-validation tracker row, recorded the non-destructive cost-config fix, and narrowed remaining gateway backlog to subscription/static-file/dual-UI follow-ups |
+| `docs/deslopify/index.md` | Updated gateway status after clearing another Medium follow-up and removed deleted `plugins/sero-hello-world-plugin/` from the tracked backlog |
 
 ---
 

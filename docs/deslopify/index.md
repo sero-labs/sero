@@ -43,7 +43,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/editor/`](./apps/desktop/electron/features/editor/plan.md)
     — *Healthy — High, both Medium, and the Low install-policy follow-up all cleared 2026-04-16*
   - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
-    — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
+    — *In progress — High plus two Medium follow-ups (request-validation guards + non-destructive cost-config loading) cleared by 2026-04-16; subscription/static-file cleanup pending*
   - [`apps/desktop/electron/features/kanban/`](./apps/desktop/electron/features/kanban/plan.md)
     — *Healthy — High and Medium workflow/runtime-owner cleanup cleared 2026-04-14; Low dead-scaffolding follow-up pending*
   - [`apps/desktop/electron/gateway/`](./apps/desktop/electron/gateway/plan.md)
@@ -90,8 +90,6 @@ entry links to a `facts.md` and `plan.md` pair.
   — *Healthy — High persisted-state/startup-recovery items plus E4 reminder ownership and E5 logging/modularization/UI coverage cleanup all cleared 2026-04-14; Low widget-fidelity polish remains deferred*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
   — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
-- `plugins/sero-hello-world-plugin/`
-  — *Phase 0 baseline mapped 2026-04-13; generated-only scope check pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)

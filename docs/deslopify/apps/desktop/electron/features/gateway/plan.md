@@ -62,8 +62,8 @@ _Plan drafted: 2026-04-12_
 ## Next Steps
 1. ~~Fix `/sero abort` first.~~ ✅ 2026-04-12 (`4350404d`)
 2. ~~Implement workspace-scoped gateway auth and enforce it across all request routes.~~ ✅ 2026-04-12 (`4350404d`)
-3. Replace cast-based request validation with per-request schemas/guards.
-4. Make cost-config loading non-destructive.
+3. ~~Replace cast-based request validation with per-request schemas/guards.~~ ✅ 2026-04-12 (`19242c02`) — tracker row synced 2026-04-16
+4. ~~Make cost-config loading non-destructive.~~ ✅ 2026-04-16 (`fc8558ed`)
 5. Replace Discord monkey-patching with a formal subscription API.
 6. Verification checklist:
    - Connect via web token and confirm only authorized workspaces/sessions/files are visible.
@@ -76,3 +76,8 @@ _Plan drafted: 2026-04-12_
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
   - Scoped gateway web tokens to explicit workspace IDs, threaded those scopes through connection auth, and enforced them across workspace/session/artifact request routes.
   - Fixed Discord `/sero abort` so it now calls `agentOps.abort()` and reports failures honestly.
+- 2026-04-16 — tracker sync — `19242c02` — `Wave D — Follow-ups — Gateway Scope, Recovery UX, and Coverage (#136)`
+  - Confirmed the request-validation Medium item was already landed: `validateRequest()` now performs per-request payload shaping/guards instead of type-tag-only casting.
+- 2026-04-16 — `fc8558ed` — `fix(gateway): avoid overwriting malformed cost config`
+  - Switched gateway cost-config loading to a result-shaped reader that preserves malformed/unreadable files and falls back to defaults without clobbering operator data.
+  - Added focused gateway cost-tracker coverage for malformed-config preservation and first-run default persistence.
