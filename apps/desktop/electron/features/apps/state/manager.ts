@@ -30,13 +30,15 @@ interface WatcherEntry {
   initializing: boolean;
   /** True when all refs were released before bootstrap completed. */
   cancelled: boolean;
+  /** Tracks the in-flight bootstrap so failure/cleanup is deterministic. */
+  setupPromise: Promise<void> | null;
 }
 
 // ── AppStateManager ──────────────────────────────────────────
 
 type ChangeListener = (filePath: string, data: unknown) => void;
 
-class AppStateManager {
+export class AppStateManager {
   private watchers = new Map<string, WatcherEntry>();
   private writeQueues = new Map<string, Promise<void>>();
   private changeListeners: ChangeListener[] = [];
@@ -132,51 +134,22 @@ class AppStateManager {
   watch(filePath: string): void {
     const existing = this.watchers.get(filePath);
     if (existing) {
-      existing.refCount++;
+      existing.refCount += 1;
       existing.cancelled = false;
       return;
     }
 
-    this.watchers.set(filePath, {
+    const entry: WatcherEntry = {
       watcher: null,
       refCount: 1,
       debounceTimer: null,
       initializing: true,
       cancelled: false,
-    });
+      setupPromise: null,
+    };
 
-    // Ensure directory exists before watching
-    const dir = path.dirname(filePath);
-    fs.mkdir(dir, { recursive: true }).then(async () => {
-      const entry = this.watchers.get(filePath);
-      if (!entry || entry.cancelled || entry.refCount <= 0) {
-        this.watchers.delete(filePath);
-        return;
-      }
-
-      // Touch file if missing so fs.watch has something to watch.
-      // MUST await — startWatcher needs the file to exist on disk.
-      try {
-        await fs.writeFile(filePath, '', { flag: 'wx' });
-      } catch {
-        /* file already exists — fine */
-      }
-
-      try {
-        this.startWatcher(filePath);
-      } catch (err) {
-        console.error(`[AppStateManager] Failed to watch ${filePath}:`, err);
-      } finally {
-        const current = this.watchers.get(filePath);
-        if (!current) return;
-        current.initializing = false;
-        if (current.cancelled || current.refCount <= 0) {
-          current.watcher?.close();
-          if (current.debounceTimer) clearTimeout(current.debounceTimer);
-          this.watchers.delete(filePath);
-        }
-      }
-    });
+    this.watchers.set(filePath, entry);
+    entry.setupPromise = this.initializeWatcher(filePath, entry);
   }
 
   /**
@@ -186,14 +159,12 @@ class AppStateManager {
     const entry = this.watchers.get(filePath);
     if (!entry) return;
 
-    entry.refCount--;
-    if (entry.refCount <= 0) {
-      entry.cancelled = true;
-      entry.watcher?.close();
-      if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
-      if (!entry.initializing) {
-        this.watchers.delete(filePath);
-      }
+    entry.refCount = Math.max(0, entry.refCount - 1);
+    if (entry.refCount > 0) return;
+
+    entry.cancelled = true;
+    if (!entry.initializing) {
+      this.disposeWatcherEntry(filePath, entry);
     }
   }
 
@@ -205,13 +176,53 @@ class AppStateManager {
    * because the inode changes. We detect 'rename' events and
    * re-establish the watcher after a short delay.
    */
-  private startWatcher(filePath: string): void {
-    const existing = this.watchers.get(filePath);
-    if (existing?.watcher) {
-      existing.watcher.close();
-    }
+  private async initializeWatcher(filePath: string, entry: WatcherEntry): Promise<void> {
+    try {
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      if (!this.shouldKeepWatching(filePath, entry)) return;
 
-    const watcher = watch(filePath, { persistent: false }, (eventType) => {
+      // Touch file if missing so fs.watch has something to watch.
+      // MUST await — startWatcher needs the file to exist on disk.
+      await this.ensureFileExists(filePath);
+      if (!this.shouldKeepWatching(filePath, entry)) return;
+
+      this.startWatcher(filePath, entry);
+    } catch (err) {
+      console.error(`[AppStateManager] Failed to watch ${filePath}:`, err);
+      entry.cancelled = true;
+    } finally {
+      const current = this.watchers.get(filePath);
+      if (current !== entry) return;
+
+      current.initializing = false;
+      current.setupPromise = null;
+
+      if (current.cancelled || current.refCount <= 0 || !current.watcher) {
+        this.disposeWatcherEntry(filePath, current);
+      }
+    }
+  }
+
+  private shouldKeepWatching(filePath: string, entry: WatcherEntry): boolean {
+    return this.watchers.get(filePath) === entry && !entry.cancelled && entry.refCount > 0;
+  }
+
+  private async ensureFileExists(filePath: string): Promise<void> {
+    try {
+      await fs.writeFile(filePath, '', { flag: 'wx' });
+    } catch (err) {
+      if (!isAlreadyExistsError(err)) {
+        throw err;
+      }
+    }
+  }
+
+  private startWatcher(filePath: string, entry: WatcherEntry): void {
+    entry.watcher?.close();
+    entry.watcher = watch(filePath, { persistent: false }, (eventType) => {
+      const current = this.watchers.get(filePath);
+      if (current !== entry || current.refCount <= 0) return;
+
       if (eventType === 'rename') {
         // Inode changed (atomic write) — re-establish watcher then notify.
         // Retry up to 3 times in case the file is briefly absent.
@@ -219,16 +230,6 @@ class AppStateManager {
       } else if (eventType === 'change') {
         this.handleFileChange(filePath);
       }
-    });
-
-    const refCount = existing?.refCount ?? 0;
-    const debounceTimer = existing?.debounceTimer ?? null;
-    this.watchers.set(filePath, {
-      watcher,
-      refCount,
-      debounceTimer,
-      initializing: false,
-      cancelled: existing?.cancelled ?? false,
     });
   }
 
@@ -242,8 +243,9 @@ class AppStateManager {
     setTimeout(() => {
       const entry = this.watchers.get(filePath);
       if (!entry || entry.refCount <= 0) return;
+
       try {
-        this.startWatcher(filePath);
+        this.startWatcher(filePath, entry);
         this.handleFileChange(filePath);
       } catch (err) {
         if (attempt < 3) {
@@ -290,14 +292,31 @@ class AppStateManager {
 
   // ── Cleanup ──────────────────────────────────────────────
 
+  private disposeWatcherEntry(filePath: string, entry: WatcherEntry): void {
+    entry.watcher?.close();
+    entry.watcher = null;
+
+    if (entry.debounceTimer) {
+      clearTimeout(entry.debounceTimer);
+      entry.debounceTimer = null;
+    }
+
+    if (this.watchers.get(filePath) === entry) {
+      this.watchers.delete(filePath);
+    }
+  }
+
   dispose(): void {
-    for (const [, entry] of this.watchers) {
-      entry.watcher?.close();
-      if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
+    for (const [filePath, entry] of this.watchers) {
+      this.disposeWatcherEntry(filePath, entry);
     }
     this.watchers.clear();
     this.writeQueues.clear();
   }
+}
+
+function isAlreadyExistsError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error && error.code === 'EEXIST';
 }
 
 // ── Singleton ────────────────────────────────────────────────
