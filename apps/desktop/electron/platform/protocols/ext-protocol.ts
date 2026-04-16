@@ -52,7 +52,11 @@ function rewriteFederationManifest(raw: string, appId: string): string {
     }
 
     return JSON.stringify(manifest);
-  } catch {
+  } catch (error) {
+    console.warn('[sero] Failed to rewrite federation manifest:', {
+      appId,
+      error,
+    });
     return raw;
   }
 }

@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { AppContext } from './context';
-import { getSeroApi, type SeroAppStateBridge } from './sero-bridge';
+import { getSeroApi, type SeroWindowAppStateBridge } from './sero-bridge';
 
 /**
  * File-backed reactive state hook.
@@ -37,7 +37,7 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
   }, []);
 
   const recoverFromWriteFailure = useCallback(
-    async (api: SeroAppStateBridge, writeId: number, fallbackState: T) => {
+    async (api: SeroWindowAppStateBridge, writeId: number, fallbackState: T) => {
       if (writeId !== latestWriteIdRef.current) return;
 
       try {

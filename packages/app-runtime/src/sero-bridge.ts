@@ -16,7 +16,7 @@ import type {
   WebAppRequest,
 } from '@sero/common';
 
-export interface SeroAppStateBridge {
+export interface SeroWindowAppStateBridge {
   read<TData = unknown>(filePath: string): Promise<TData>;
   write<TData = unknown>(filePath: string, data: TData): Promise<void>;
   watch<TData = unknown>(filePath: string): Promise<TData>;
@@ -65,7 +65,7 @@ export interface SeroModelsBridge {
 }
 
 export interface SeroBridge {
-  appState: SeroAppStateBridge;
+  appState: SeroWindowAppStateBridge;
   appAgent: SeroAppAgentBridge;
   gitApp?: SeroGitAppBridge;
   webApp?: SeroWebAppBridge;

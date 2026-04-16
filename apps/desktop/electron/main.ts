@@ -229,6 +229,11 @@ app.whenReady().then(async () => {
   // Bootstrap Sero's agent directory (creates settings.json on first run)
   bootstrapAgentDir();
 
+  // ── Content Security Policy ────────────────────────────────────
+  // Set a strict CSP on all renderer responses to silence Electron's
+  // "Insecure Content-Security-Policy" warning and reduce attack surface.
+  setupContentSecurityPolicy();
+
   // Init workspace registry + default workspaces before anything else
   await workspaceManager.init();
 
@@ -275,11 +280,6 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('[sero] Widevine CDM install failed — DRM playback will be unavailable:', err);
   }
-
-  // ── Content Security Policy ────────────────────────────────────
-  // Set a strict CSP on all renderer responses to silence Electron's
-  // "Insecure Content-Security-Policy" warning and reduce attack surface.
-  setupContentSecurityPolicy();
 
   // ── User-Agent ────────────────────────────────────────────────
   // Strip "Electron/<version>" from the session User-Agent. Services like
