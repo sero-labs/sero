@@ -64,8 +64,10 @@ _Plan drafted: 2026-04-12_
 2. ~~Implement workspace-scoped gateway auth and enforce it across all request routes.~~ ✅ 2026-04-12 (`4350404d`)
 3. ~~Replace cast-based request validation with per-request schemas/guards.~~ ✅ 2026-04-12 (`19242c02`) — tracker row synced 2026-04-16
 4. ~~Make cost-config loading non-destructive.~~ ✅ 2026-04-16 (`fc8558ed`)
-5. Replace Discord monkey-patching with a formal subscription API.
-6. Verification checklist:
+5. ~~Replace Discord monkey-patching with a formal subscription API.~~ ✅ 2026-04-16 (`32320672`)
+6. ~~Move static-file resolution off the synchronous hot path.~~ ✅ 2026-04-16 (`32320672`)
+7. Choose one primary remote-web ownership model.
+8. Verification checklist:
    - Connect via web token and confirm only authorized workspaces/sessions/files are visible.
    - Prompt, steer, abort, list files, and fetch session history from an authorized workspace.
    - Verify `/sero abort` actually stops an in-flight Discord task.
@@ -81,3 +83,8 @@ _Plan drafted: 2026-04-12_
 - 2026-04-16 — `fc8558ed` — `fix(gateway): avoid overwriting malformed cost config`
   - Switched gateway cost-config loading to a result-shaped reader that preserves malformed/unreadable files and falls back to defaults without clobbering operator data.
   - Added focused gateway cost-tracker coverage for malformed-config preservation and first-run default persistence.
+- 2026-04-16 — `32320672` — `refactor(gateway): formalize discord event subscription and static asset cache`
+  - Replaced Discord gateway method monkey-patching with a formal event-listener subscription seam in `bridge/agent-bridge.ts`.
+  - Removed Discord adapter non-null/type-escape leftovers touched by that seam (`sendTyping` guard + mention checks).
+  - Primed and cached static `web-dist` metadata once at startup, removing request-time `existsSync`/`statSync` checks.
+  - Added focused tests for event-listener fan-out and static-file cache fallback behavior.

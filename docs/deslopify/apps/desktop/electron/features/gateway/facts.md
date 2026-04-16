@@ -7,11 +7,11 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 
 ## Shape & metrics
 - Total files: 19
-- Largest file: `apps/desktop/electron/features/gateway/index.ts` (495 LOC)
+- Largest file: `apps/desktop/electron/features/gateway/index.ts` (497 LOC)
 - Files over 500 LOC: none
 - Near-cap files (≥400 LOC):
-  - `apps/desktop/electron/features/gateway/index.ts` (495)
-  - `apps/desktop/electron/features/gateway/channels/discord.ts` (478)
+  - `apps/desktop/electron/features/gateway/index.ts` (497)
+  - `apps/desktop/electron/features/gateway/channels/discord.ts` (464)
 - Generated assets in scope: `apps/desktop/electron/features/gateway/web-dist/index.html` plus bundled `web-dist/assets/*`
 - External dependencies of note: `ws`, `http`, Electron `net`/`nativeImage`, `qrcode`, dynamic `discord.js`, Tailscale CLI, filesystem-backed auth/config stores
 - Upstream callers: `apps/desktop/electron/shared/infra/shared-infra.ts`, `apps/desktop/electron/ipc/gateway/gateway.ts`, `apps/desktop/electron/ipc/gateway/gateway-ops.ts`, `apps/desktop/electron/ipc/agent/core/agent.ts`, build/packaging scripts
@@ -21,7 +21,7 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 - This feature is an external network boundary, not an internal helper. Type validation, auth scope, and failure semantics are materially more important here than in ordinary in-process modules.
 - The flat gateway token model is still explicitly called out as open security debt in `docs/security/outstanding-hardening.md` and the in-code TODO in `security/auth.ts`.
 - The feature currently ships two remote UI surfaces: an inline minimal web chat (`channels/web.ts`) and a bundled SPA under `web-dist/`, plus a `/basic` fallback route in `index.ts`.
-- Discord integration currently subscribes to gateway events by monkey-patching `GatewayServer` methods rather than using a formal event listener contract.
+- Discord integration now subscribes through a formal gateway event-listener seam in `bridge/agent-bridge.ts` rather than rewriting `GatewayServer` methods at runtime.
 
 ## Runtime-sensitive surfaces
 - Auth scope and request validation are security-critical: remote clients can list workspaces, open sessions, read files, and fetch history through this boundary.
@@ -30,10 +30,10 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 - Discord image delivery depends on Electron/Chromium networking and `nativeImage` downscaling; transport changes need real-world verification.
 
 ## Surprising discoveries
-- The gateway still documents and implements a flat access model where any valid token can reach any workspace.
-- `/sero abort` in the Discord adapter only sends a reply; it never actually calls `agentOps.abort()`.
-- `validateRequest()` only checks the `type` field and then casts the rest of the untrusted payload wholesale.
-- Malformed `gateway-config.json` currently gets overwritten with defaults on the next load, mirroring the same config-clobber pattern already found elsewhere in the monorepo.
+- The gateway originally used a flat access model where any valid token reached any workspace; this was replaced with scoped workspace tokens in `4350404d`, while the master-token hardening TODO remains open.
+- `/sero abort` in the Discord adapter only sent a reply and never called `agentOps.abort()` before the 2026-04-12 hardening pass (resolved).
+- `validateRequest()` previously checked only the `type` field before force-casting payloads; this was closed in `19242c02` (tracker synced 2026-04-16).
+- Malformed `gateway-config.json` previously got overwritten with defaults on load; this was fixed in `fc8558ed` (2026-04-16).
 
 ## Post-fix snapshot — 2026-04-12
 
@@ -68,4 +68,21 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 ### Still outstanding
 - Discord still subscribes via gateway method monkey-patching instead of a formal event-listener API.
 - Static-file serving still performs synchronous filesystem checks on request-time paths.
+- The feature still carries dual web UI ownership (`channels/web.ts` inline UI + bundled `web-dist/` SPA).
+
+## Post-fix snapshot — 2026-04-16 (gateway follow-up pass)
+
+### Metrics after fixes
+- Total files: 19 (unchanged)
+- Largest file: `apps/desktop/electron/features/gateway/index.ts` (497 LOC, was 495 in the prior snapshot)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 1 (`chromiumFetch` response compatibility cast in `channels/discord.ts`)
+
+### What changed
+- Added a formal gateway event-listener subscription seam in `bridge/agent-bridge.ts`, and switched the Discord adapter to use that seam instead of monkey-patching `GatewayServer` methods.
+- Removed the Discord adapter's remaining easy type escapes/non-null assertions in message routing (`sendTyping` guard + mention handling).
+- Reworked static-file serving so `web-dist` resolution and file-manifest discovery are primed once at startup, with request-time lookups served from cached metadata instead of repeated `existsSync`/`statSync` checks.
+- Added focused regression coverage for the new event-listener bridge and static-file cache/fallback behavior.
+
+### Still outstanding
 - The feature still carries dual web UI ownership (`channels/web.ts` inline UI + bundled `web-dist/` SPA).

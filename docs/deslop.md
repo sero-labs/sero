@@ -39,6 +39,13 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/onboarding/{preflight,model-groups}.test.ts` | New — covers read-only vs repair-aware onboarding preflight behavior and model-group parity with existing IPC shaping |
 | `docs/deslopify/apps/desktop/electron/features/onboarding/{facts,plan}.md` | Closed stale onboarding tracker rows, recorded post-fix metrics, and marked all Medium/Low items executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/onboarding/` healthy after the full cleanup pass |
+| `apps/desktop/electron/features/gateway/bridge/agent-bridge.ts` | Added formal gateway event-listener subscriptions so adapters consume forwarded events without method monkey-patching |
+| `apps/desktop/electron/features/gateway/channels/discord.ts` | Replaced gateway method monkey-patching with bridge subscriptions and removed easy non-null/type-escape leftovers in mention/typing handling (478 → 464 lines) |
+| `apps/desktop/electron/features/gateway/server/static-files.ts` | Reworked static serving around startup-primed `web-dist` metadata so request paths use cached manifest lookups instead of repeated sync existence/stat checks |
+| `apps/desktop/electron/features/gateway/index.ts` | Primed gateway static-file cache at server startup before request handling (495 → 497 lines) |
+| `apps/desktop/electron/__tests__/features/gateway/{agent-bridge,static-files}.test.ts` | New — regression coverage for event-listener fan-out and cached static-file fallback behavior |
+| `docs/deslopify/apps/desktop/electron/features/gateway/{facts,plan}.md` | Closed stale gateway tracker rows, recorded the Discord-subscription/static-file Medium closeout, and narrowed remaining work to the Low dual-UI ownership decision |
+| `docs/deslopify/index.md` | Updated gateway status after clearing all tracked Medium follow-ups |
 
 ---
 
