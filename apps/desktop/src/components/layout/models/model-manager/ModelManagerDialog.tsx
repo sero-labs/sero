@@ -3,13 +3,14 @@
  * and favourites. Opened from the ModelSelector gear icon.
  */
 
-import { Search, Eye, EyeOff, X } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
+import { SearchInput } from '@sero-ai/ui/components/ui/search-input';
 import { modelKey } from '@/stores/model-preferences';
 import { ModelManagerItem } from './ModelManagerItem';
 import { ModelManagerProvider } from './ModelManagerProvider';
@@ -78,24 +79,25 @@ export function ModelManagerDialog({ open, onOpenChange }: ModelManagerDialogPro
             counts={counts}
           />
           {activeTab !== 'local' ? (
-            <div className="flex items-center gap-2 rounded-lg bg-[var(--bg-base)] px-3">
-              <Search className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-              <input
-                ref={inputRef}
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                placeholder="Search models, providers…"
-                className="h-8 w-full bg-transparent text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
-              />
-              {filter ? (
-                <button
-                  onClick={() => setFilter('')}
-                  className="rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-                >
-                  <X className="size-3" />
-                </button>
-              ) : null}
-            </div>
+            <SearchInput
+              ref={inputRef}
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder="Search models, providers…"
+              containerClassName="rounded-lg bg-[var(--bg-base)]"
+              iconClassName="text-[var(--text-muted)]"
+              className="h-8 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              endAdornment={
+                filter ? (
+                  <button
+                    onClick={() => setFilter('')}
+                    className="rounded p-0.5 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  >
+                    <X className="size-3" />
+                  </button>
+                ) : null
+              }
+            />
           ) : null}
         </div>
 

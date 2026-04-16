@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Search, Sparkles, X } from 'lucide-react';
+import { Check, ChevronDown, Sparkles, X } from 'lucide-react';
 import {
   filterModelGroups,
   findGroup,
@@ -10,6 +10,7 @@ import {
   type SharedModelInfo,
 } from '@sero/common';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { SearchInput } from '../ui/search-input';
 import { cn } from '../../lib/utils';
 
 interface AvailableModelPickerProps<
@@ -158,16 +159,13 @@ export function AvailableModelPicker<
         className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border-border/60 bg-background p-0 shadow-xl"
         onWheel={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b border-border/40 px-3">
-          <Search className="size-3.5 shrink-0 text-muted-foreground" />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={searchPlaceholder}
-            className="h-9 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none"
-          />
-        </div>
+        <SearchInput
+          ref={inputRef}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={searchPlaceholder}
+          containerClassName="border-b border-border/40"
+        />
 
         <div className="max-h-[280px] overflow-y-auto py-1">
           {groups.length === 0 ? (

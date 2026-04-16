@@ -12,6 +12,7 @@ import {
   type AppModelInfo,
   type AppModelGroup,
 } from '@sero-ai/app-runtime';
+import { SearchInput } from '@sero-ai/ui/components/ui/search-input';
 import { cn } from '@sero-ai/ui/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -174,20 +175,14 @@ export function ModelPicker({ value, onChange, className }: ModelPickerProps) {
       {open && (
         <div className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg">
           {/* Search */}
-          <div className="flex items-center gap-2 border-b border-border px-3 py-1">
-            <svg className="size-3.5 shrink-0 text-muted-foreground" viewBox="0 0 16 16" fill="none">
-              <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            <input
-              ref={inputRef}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Search models…"
-              className="h-7 w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground"
-              style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
-            />
-          </div>
+          <SearchInput
+            ref={inputRef}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search models…"
+            containerClassName="border-b border-border py-1"
+            className="h-7"
+          />
 
           {/* Model list */}
           <div className="max-h-[240px] overflow-y-auto py-1">
