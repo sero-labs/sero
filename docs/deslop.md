@@ -10,6 +10,10 @@ Changes made during code quality passes. Most recent first.
 
 | File | Change |
 |------|--------|
+| `apps/desktop/electron/features/agent/assistants/image-agent.ts` | Replaced loose Gemini content/global typings with SDK-backed parts, a typed legacy `__seroImageGen` bridge, and current ownership comments (189 → 198 lines) |
+| `apps/desktop/electron/__tests__/features/agent/image-agent.test.ts` | New — covers the typed legacy `__seroImageGen` exposure contract |
+| `docs/deslopify/apps/desktop/electron/features/agent/{facts,plan}.md` | Recorded the image-agent typing/bridge/comment cleanup closeout and marked the folder plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/agent/` healthy with all tracked items cleared |
 | `apps/desktop/electron/features/collaboration/specialist-runner.ts` | New — shared single-specialist execution helper for standard and debate collaboration runs |
 | `apps/desktop/electron/features/collaboration/{index.ts,debate.ts}` | Rebased both collaboration strategies on the shared specialist runner while preserving phase callbacks, model overrides, and degraded-mode behavior |
 | `apps/desktop/electron/features/collaboration/required-agents.ts` | New — required-role preflight validator shared by standard and debate collaboration strategies |

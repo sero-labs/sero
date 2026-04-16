@@ -31,7 +31,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/src/types/`](./apps/desktop/src/types/plan.md)
     — *Healthy — Medium IpcChannels and all tracked Low follow-ups (declaration-hygiene, comment/default drift, user-feedback revalidation) cleared 2026-04-15*
   - [`apps/desktop/electron/features/agent/`](./apps/desktop/electron/features/agent/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
+    — *Healthy — Medium image-agent type hygiene plus Low legacy bridge/comment cleanup cleared 2026-04-16*
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
