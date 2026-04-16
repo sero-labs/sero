@@ -77,3 +77,19 @@ This feature implements Sero's multi-agent collaboration strategies on top of th
 
 ### Still outstanding
 - **Low** — required agent-name preflight validation remains pending.
+
+## Post-fix snapshot — 2026-04-16 (required-agent preflight)
+
+### Metrics after fixes
+- Total files: 7 (was 6)
+- Largest file: `apps/desktop/electron/features/collaboration/debate.ts` (387 LOC, was 378)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: none in this folder (unchanged)
+
+### What changed
+- Added `required-agents.ts` as a shared preflight validator for required collaboration/debate role mappings.
+- Updated `runCollaboration()` and `runDebateCollaboration()` to fail fast with explicit missing-agent errors before launching specialist runs.
+- Added focused degraded-mode regressions to lock that missing required agents fail before orchestration starts.
+
+### Still outstanding
+- None — all tracked collaboration plan items are now cleared.

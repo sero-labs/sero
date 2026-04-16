@@ -12,8 +12,15 @@ Changes made during code quality passes. Most recent first.
 |------|--------|
 | `apps/desktop/electron/features/collaboration/specialist-runner.ts` | New — shared single-specialist execution helper for standard and debate collaboration runs |
 | `apps/desktop/electron/features/collaboration/{index.ts,debate.ts}` | Rebased both collaboration strategies on the shared specialist runner while preserving phase callbacks, model overrides, and degraded-mode behavior |
-| `docs/deslopify/apps/desktop/electron/features/collaboration/{facts,plan}.md` | Recorded the shared-runner closeout, refreshed collaboration metrics, and left only required-agent preflight validation pending |
-| `docs/deslopify/index.md` | Updated collaboration tracker status after clearing the first Low helper-dedupe item |
+| `apps/desktop/electron/features/collaboration/required-agents.ts` | New — required-role preflight validator shared by standard and debate collaboration strategies |
+| `apps/desktop/electron/features/collaboration/{index.ts,debate.ts}` | Added fail-fast required-agent preflight checks before specialist orchestration and synthesis |
+| `apps/desktop/electron/__tests__/features/collaboration/degraded-mode.test.ts` | Added regressions that missing required collaboration/debate agents fail before orchestration starts |
+| `apps/desktop/src/lsp/language-routing.ts` | Exported canonical LSP routing maps so renderer and main-process editor config share one source of truth |
+| `apps/desktop/electron/features/editor/lsp/types.ts` | Rebased TypeScript server `extensions`/`monacoLanguageIds`/`languageIdMap` on shared routing metadata |
+| `apps/desktop/electron/__tests__/features/editor/lsp-config-routing.test.ts` | New — guards that main-process `findConfigByLanguageId()` stays aligned with shared LSP routing contracts |
+| `docs/deslopify/apps/desktop/electron/features/collaboration/{facts,plan}.md` | Recorded the shared-runner + required-agent preflight closeout and marked the folder plan fully executed |
+| `docs/deslopify/apps/desktop/electron/features/editor/{facts,plan}.md` | Recorded the canonical routing-contract extraction closeout and narrowed remaining editor work to adapter/install follow-ups |
+| `docs/deslopify/index.md` | Marked collaboration healthy and updated editor status after clearing the first Medium follow-up |
 
 ---
 
