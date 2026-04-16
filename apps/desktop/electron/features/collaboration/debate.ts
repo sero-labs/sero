@@ -11,6 +11,10 @@
 
 import { ROLE_AGENT_NAMES } from './agents';
 import {
+  CollaborationDiscoveryRunner,
+  validateRequiredCollaborationAgents,
+} from './required-agents';
+import {
   CollaborationRunner,
   getSpecialistErrorMessage,
   runSingleSpecialist,
@@ -28,7 +32,7 @@ import type {
   DebatePhase,
 } from '@/types/collaboration';
 
-type DebateRunner = CollaborationRunner;
+type DebateRunner = CollaborationRunner & CollaborationDiscoveryRunner;
 
 export interface DebateCallbacks {
   onDebatePhase?: (phase: DebatePhase) => void;
@@ -213,6 +217,11 @@ export async function runDebateCollaboration(
   config: DebateConfig,
   callbacks?: DebateCallbacks,
 ): Promise<CollaborationResult> {
+  await validateRequiredCollaborationAgents(manager, {
+    strategyLabel: 'Debate collaboration',
+    requiredRoles: ALL_ROLES,
+  });
+
   const startTime = Date.now();
   const specialistOutputs: CollaborationResult['specialistOutputs'] = [];
   const debateStartTime = Date.now();

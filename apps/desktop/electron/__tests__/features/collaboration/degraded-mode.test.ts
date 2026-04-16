@@ -6,11 +6,37 @@ import { DEFAULT_DEBATE_CONFIG } from '@/types/collaboration';
 
 type RunSingleParams = Parameters<SubagentManager['runSingleStructured']>[0];
 type RunSingleResult = Awaited<ReturnType<SubagentManager['runSingleStructured']>>;
+type ListedAgents = Awaited<ReturnType<SubagentManager['listAgents']>>;
+
+const REQUIRED_COLLABORATION_AGENT_NAMES = [
+  'researcher',
+  'collab-analyst',
+  'visionary',
+  'coordinator',
+] as const;
+
+function createListedAgent(name: string): ListedAgents[number] {
+  return {
+    name,
+    description: `${name} agent`,
+    systemPrompt: `${name} prompt`,
+    source: 'global',
+    filePath: `/tmp/${name}.md`,
+  };
+}
+
+const DEFAULT_LISTED_AGENTS: ListedAgents = REQUIRED_COLLABORATION_AGENT_NAMES.map(
+  createListedAgent,
+);
 
 function createManager(
   implementation: (args: RunSingleParams) => Promise<RunSingleResult>,
+  options?: { listedAgents?: ListedAgents },
 ) {
+  const listedAgents = options?.listedAgents ?? DEFAULT_LISTED_AGENTS;
+
   return {
+    listAgents: vi.fn(async () => listedAgents),
     runSingleStructured: vi.fn(implementation),
   };
 }
@@ -107,5 +133,59 @@ describe('collaboration degraded-mode handling', () => {
 
     const calledAgents = manager.runSingleStructured.mock.calls.map(([args]) => args.agent);
     expect(calledAgents).toEqual(['coordinator', 'researcher', 'collab-analyst', 'visionary']);
+  });
+
+  it('fails fast in standard mode when a required collaboration agent is missing', async () => {
+    const manager = createManager(
+      async ({ agent }) => {
+        throw new Error(`unexpected agent call: ${agent}`);
+      },
+      {
+        listedAgents: DEFAULT_LISTED_AGENTS.filter((agent) => agent.name !== 'collab-analyst'),
+      },
+    );
+
+    await expect(
+      runCollaboration('Investigate a regression', 'session-3', 'workspace-3', manager),
+    ).rejects.toThrow('Standard collaboration preflight failed');
+    await expect(
+      runCollaboration('Investigate a regression', 'session-3', 'workspace-3', manager),
+    ).rejects.toThrow('analyst (collab-analyst)');
+
+    expect(manager.listAgents).toHaveBeenCalled();
+    expect(manager.runSingleStructured).not.toHaveBeenCalled();
+  });
+
+  it('fails fast in debate mode when a required collaboration agent is missing', async () => {
+    const manager = createManager(
+      async ({ agent }) => {
+        throw new Error(`unexpected agent call: ${agent}`);
+      },
+      {
+        listedAgents: DEFAULT_LISTED_AGENTS.filter((agent) => agent.name !== 'coordinator'),
+      },
+    );
+
+    await expect(
+      runDebateCollaboration(
+        'Debate possible architecture directions',
+        'session-4',
+        'workspace-4',
+        manager,
+        DEFAULT_DEBATE_CONFIG,
+      ),
+    ).rejects.toThrow('Debate collaboration preflight failed');
+    await expect(
+      runDebateCollaboration(
+        'Debate possible architecture directions',
+        'session-4',
+        'workspace-4',
+        manager,
+        DEFAULT_DEBATE_CONFIG,
+      ),
+    ).rejects.toThrow('coordinator (coordinator)');
+
+    expect(manager.listAgents).toHaveBeenCalled();
+    expect(manager.runSingleStructured).not.toHaveBeenCalled();
   });
 });

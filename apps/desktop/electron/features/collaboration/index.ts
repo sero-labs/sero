@@ -25,12 +25,18 @@ import {
   hasUsableSpecialistOutput,
 } from './degraded-result';
 import {
+  CollaborationDiscoveryRunner,
+  validateRequiredCollaborationAgents,
+} from './required-agents';
+import {
   CollaborationRunner,
   getSpecialistErrorMessage,
   runSingleSpecialist,
 } from './specialist-runner';
 import type { CollaborationRole, CollaborationResult } from '@/types/collaboration';
 export type { CollaborationResult } from '@/types/collaboration';
+
+type CollaborationOrchestratorRunner = CollaborationRunner & CollaborationDiscoveryRunner;
 
 export interface CollaborationCallbacks {
   /** Called when each phase starts. */
@@ -103,9 +109,13 @@ export async function runCollaboration(
   query: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: CollaborationRunner,
+  manager: CollaborationOrchestratorRunner,
   callbacks?: CollaborationCallbacks,
 ): Promise<CollaborationResult> {
+  await validateRequiredCollaborationAgents(manager, {
+    strategyLabel: 'Standard collaboration',
+  });
+
   const startTime = Date.now();
   const specialistOutputs: CollaborationResult['specialistOutputs'] = [];
 
