@@ -8,6 +8,7 @@ import type {
   ResponseFeedbackEntry,
   ResponseFeedbackState,
 } from '@/types/ipc';
+import type { LayoutState, LoadedLayoutState } from '@/types/layout';
 import type { ThemePreset, ThemePresetMeta } from '@/types/theme';
 
 export const pluginConfigBridge = {
@@ -18,9 +19,9 @@ export const pluginConfigBridge = {
 };
 
 export const layoutBridge = {
-  save: (state: { mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps: string[] }): Promise<void> =>
+  save: (state: LayoutState): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.layout.save, state),
-  load: (): Promise<{ mainSidebarOpen: boolean; chatPanelOpen: boolean; favouriteApps?: string[] } | null> =>
+  load: (): Promise<LoadedLayoutState | null> =>
     ipcRenderer.invoke(IpcChannels.layout.load),
 };
 
