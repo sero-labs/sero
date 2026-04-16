@@ -2,6 +2,11 @@
  * LSP types, language server configurations, and shared constants.
  */
 
+import {
+  LSP_LANGUAGE_ID_BY_EXTENSION,
+  LSP_SERVER_LANGUAGE_BY_MONACO_ID,
+} from '@/lsp/language-routing';
+
 export interface LspServerConfig {
   /** Unique language key (e.g. 'typescript'). */
   language: string;
@@ -21,6 +26,17 @@ export interface LspServerConfig {
   initOptions?: Record<string, unknown>;
 }
 
+function buildLanguageIdMapForServer(serverLanguage: string): Record<string, string> {
+  const entries = Object.entries(LSP_LANGUAGE_ID_BY_EXTENSION).filter(
+    ([, languageId]) => LSP_SERVER_LANGUAGE_BY_MONACO_ID[languageId] === serverLanguage,
+  );
+  return Object.fromEntries(entries);
+}
+
+const TYPESCRIPT_LANGUAGE_ID_MAP = buildLanguageIdMapForServer('typescript');
+const TYPESCRIPT_MONACO_LANGUAGE_IDS = Array.from(new Set(Object.values(TYPESCRIPT_LANGUAGE_ID_MAP)));
+const TYPESCRIPT_EXTENSIONS = Object.keys(TYPESCRIPT_LANGUAGE_ID_MAP);
+
 /** Supported language server configurations. */
 const LANGUAGE_SERVERS: LspServerConfig[] = [
   {
@@ -28,14 +44,9 @@ const LANGUAGE_SERVERS: LspServerConfig[] = [
     command: 'typescript-language-server --stdio',
     checkCommand: 'which typescript-language-server',
     installCommand: 'npm install -g typescript-language-server typescript',
-    extensions: ['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs'],
-    monacoLanguageIds: ['typescript', 'typescriptreact', 'javascript', 'javascriptreact'],
-    languageIdMap: {
-      ts: 'typescript', tsx: 'typescriptreact',
-      js: 'javascript', jsx: 'javascriptreact',
-      mts: 'typescript', cts: 'typescript',
-      mjs: 'javascript', cjs: 'javascript',
-    },
+    extensions: TYPESCRIPT_EXTENSIONS,
+    monacoLanguageIds: TYPESCRIPT_MONACO_LANGUAGE_IDS,
+    languageIdMap: TYPESCRIPT_LANGUAGE_ID_MAP,
     initOptions: {
       preferences: {
         includeCompletionsForModuleExports: true,

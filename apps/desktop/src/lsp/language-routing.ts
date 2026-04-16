@@ -7,14 +7,14 @@
 
 const DEFAULT_LANGUAGE_ID = 'plaintext';
 
-const LSP_SERVER_LANGUAGE_BY_MONACO_ID: Record<string, string> = {
+export const LSP_SERVER_LANGUAGE_BY_MONACO_ID: Record<string, string> = {
   typescript: 'typescript',
   typescriptreact: 'typescript',
   javascript: 'typescript',
   javascriptreact: 'typescript',
 };
 
-const LSP_LANGUAGE_ID_BY_EXTENSION: Record<string, string> = {
+export const LSP_LANGUAGE_ID_BY_EXTENSION: Record<string, string> = {
   ts: 'typescript',
   tsx: 'typescriptreact',
   js: 'javascript',
