@@ -6,7 +6,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { readPluginConfig, writePluginConfig } from '@electron/features/plugin-config';
 
 export function registerPluginConfigHandlers(): void {

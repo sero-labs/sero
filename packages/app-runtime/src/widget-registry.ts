@@ -39,20 +39,23 @@ interface WidgetRegistryState {
   listeners: Set<WidgetChangeListener>;
 }
 
-const REGISTRY_KEY = '__sero_widget_registry__';
+declare global {
+  var __sero_widget_registry__: WidgetRegistryState | undefined;
+}
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const g = globalThis as any;
-if (!g[REGISTRY_KEY]) {
-  g[REGISTRY_KEY] = {
+function createRegistryState(): WidgetRegistryState {
+  return {
     widgets: new Map<string, RuntimeWidget>(),
     snapshot: [],
     listeners: new Set<WidgetChangeListener>(),
-  } satisfies WidgetRegistryState;
+  };
 }
 
 function getRegistry(): WidgetRegistryState {
-  return g[REGISTRY_KEY];
+  if (!globalThis.__sero_widget_registry__) {
+    globalThis.__sero_widget_registry__ = createRegistryState();
+  }
+  return globalThis.__sero_widget_registry__;
 }
 
 function makeKey(appId: string, widgetId: string): string {
@@ -64,6 +67,27 @@ function publishSnapshot(registry: WidgetRegistryState): void {
   registry.listeners.forEach((fn) => fn());
 }
 
+function sameGridSize(
+  left: RuntimeWidget['defaultSize'] | RuntimeWidget['minSize'] | RuntimeWidget['maxSize'],
+  right: RuntimeWidget['defaultSize'] | RuntimeWidget['minSize'] | RuntimeWidget['maxSize'],
+): boolean {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  return left.w === right.w && left.h === right.h;
+}
+
+function sameWidget(existing: RuntimeWidget | undefined, next: RuntimeWidget): boolean {
+  if (!existing) return false;
+  return existing.appId === next.appId
+    && existing.widgetId === next.widgetId
+    && existing.name === next.name
+    && existing.component === next.component
+    && sameGridSize(existing.defaultSize, next.defaultSize)
+    && sameGridSize(existing.minSize, next.minSize)
+    && sameGridSize(existing.maxSize, next.maxSize)
+    && existing.description === next.description;
+}
+
 /**
  * Register a widget component at runtime. Call from your app's root
  * component or module initialisation.
@@ -73,8 +97,11 @@ function publishSnapshot(registry: WidgetRegistryState): void {
 export function registerWidget(widget: RuntimeWidget): () => void {
   const registry = getRegistry();
   const key = makeKey(widget.appId, widget.widgetId);
-  registry.widgets.set(key, widget);
-  publishSnapshot(registry);
+  const existing = registry.widgets.get(key);
+  if (!sameWidget(existing, widget)) {
+    registry.widgets.set(key, widget);
+    publishSnapshot(registry);
+  }
 
   return () => {
     registry.widgets.delete(key);

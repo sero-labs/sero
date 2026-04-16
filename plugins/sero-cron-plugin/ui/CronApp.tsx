@@ -9,17 +9,24 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
-import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
 import type { CronState, CronJob, Reminder, NotificationSettings } from '../shared/types';
 import { DEFAULT_CRON_STATE, DEFAULT_NOTIFICATION_SETTINGS } from '../shared/types';
-import { snoozeReminder } from '../shared/reminder-utils';
-import { SchedulerBar } from './components/SchedulerBar';
-import { JobCard } from './components/JobCard';
+import {
+  completeReminderById,
+  removeReminderById,
+  snoozeReminderById,
+  toggleReminderDisabledState,
+  upsertReminder,
+} from '../shared/reminder-mutations';
+import { CronAppHeader } from './components/CronAppHeader';
+import { CronTabs } from './components/CronTabs';
 import { JobForm } from './components/JobForm';
-import { RunHistory } from './components/RunHistory';
-import { ReminderList } from './components/ReminderList';
+import { JobsTab } from './components/JobsTab';
 import { ReminderForm } from './components/ReminderForm';
+import { ReminderList } from './components/ReminderList';
+import { RunHistory } from './components/RunHistory';
+import { SchedulerBar } from './components/SchedulerBar';
 import './styles.css';
 
 type Tab = 'jobs' | 'reminders' | 'history';
@@ -116,51 +123,59 @@ export function CronApp() {
 
   const handleSaveReminder = useCallback((reminder: Reminder) => {
     updateState((prev) => {
-      const list = prev.reminders ?? [];
-      const idx = list.findIndex((r) => r.id === reminder.id);
-      const updated = idx >= 0
-        ? list.map((r) => (r.id === reminder.id ? reminder : r))
-        : [...list, reminder];
-      return { ...prev, reminders: updated };
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      upsertReminder(next, reminder);
+      return next;
     });
   }, [updateState]);
 
   const handleRemoveReminder = useCallback((id: string) => {
-    updateState((prev) => ({
-      ...prev,
-      reminders: (prev.reminders ?? []).filter((r) => r.id !== id),
-    }));
+    updateState((prev) => {
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      removeReminderById(next, id);
+      return next;
+    });
   }, [updateState]);
 
   const handleSnoozeReminder = useCallback((id: string, minutes: number) => {
-    updateState((prev) => ({
-      ...prev,
-      reminders: (prev.reminders ?? []).map((r) =>
-        r.id === id ? snoozeReminder(r, minutes) : r,
-      ),
-    }));
+    updateState((prev) => {
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      snoozeReminderById(next, id, minutes);
+      return next;
+    });
   }, [updateState]);
 
   const handleCompleteReminder = useCallback((id: string) => {
-    updateState((prev) => ({
-      ...prev,
-      reminders: (prev.reminders ?? []).map((r) =>
-        r.id === id
-          ? { ...r, status: 'completed' as const, completedAt: new Date().toISOString(), snoozedUntil: undefined }
-          : r,
-      ),
-    }));
+    updateState((prev) => {
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      completeReminderById(next, id);
+      return next;
+    });
   }, [updateState]);
 
   const handleToggleReminderEnabled = useCallback((id: string) => {
-    updateState((prev) => ({
-      ...prev,
-      reminders: (prev.reminders ?? []).map((r) =>
-        r.id === id
-          ? { ...r, status: r.status === 'disabled' ? 'active' as const : 'disabled' as const, snoozedUntil: undefined }
-          : r,
-      ),
-    }));
+    updateState((prev) => {
+      const target = (prev.reminders ?? []).find((reminder) => reminder.id === id);
+      if (!target) return prev;
+      const next = {
+        ...prev,
+        reminders: [...(prev.reminders ?? [])],
+      };
+      toggleReminderDisabledState(next, id, target.status !== 'disabled');
+      return next;
+    });
   }, [updateState]);
 
   // ── History ───────────────────────────────────────────────
@@ -173,30 +188,13 @@ export function CronApp() {
 
   return (
     <div className="flex h-full flex-col bg-background p-4">
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">
-            ⏰ Scheduler
-          </h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Cron jobs, reminders, and notifications
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {activeTab === 'reminders' && (
-            <Button size="sm" onClick={handleAddReminder}>+ Reminder</Button>
-          )}
-          {activeTab === 'jobs' && (
-            <Button size="sm" onClick={handleAddJob}>+ Job</Button>
-          )}
-          {activeTab === 'history' && state.lastRunResults.length > 0 && (
-            <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={handleClearHistory}>
-              Clear
-            </Button>
-          )}
-        </div>
-      </div>
+      <CronAppHeader
+        activeTab={activeTab}
+        historyCount={state.lastRunResults.length}
+        onAddReminder={handleAddReminder}
+        onAddJob={handleAddJob}
+        onClearHistory={handleClearHistory}
+      />
 
       {/* Scheduler status bar */}
       <div className="mb-3">
@@ -214,26 +212,13 @@ export function CronApp() {
         />
       </div>
 
-      {/* Tab bar */}
-      <div className="mb-3 flex gap-1 border-b border-border">
-        {([
-          { key: 'reminders' as const, label: `Reminders (${stats.totalReminders})` },
-          { key: 'jobs' as const, label: `Jobs (${stats.totalJobs})` },
-          { key: 'history' as const, label: `History (${state.lastRunResults.length})` },
-        ]).map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <CronTabs
+        activeTab={activeTab}
+        totalJobs={stats.totalJobs}
+        totalReminders={stats.totalReminders}
+        historyCount={state.lastRunResults.length}
+        onSelect={setActiveTab}
+      />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
@@ -279,49 +264,6 @@ export function CronApp() {
         onSave={handleSaveReminder}
         editingReminder={editingReminder}
       />
-    </div>
-  );
-}
-
-// ── Jobs sub-component ─────────────────────────────────────────
-
-function JobsTab({
-  jobs, schedulerActive, onEdit, onToggleEnabled, onRemove, onRun, onAdd,
-}: {
-  jobs: CronJob[];
-  schedulerActive: boolean;
-  onEdit: (name: string) => void;
-  onToggleEnabled: (name: string) => void;
-  onRemove: (name: string) => void;
-  onRun: (name: string) => void;
-  onAdd: () => void;
-}) {
-  if (jobs.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center animate-cron-fade-in">
-        <div className="mb-4 text-4xl">⏰</div>
-        <h2 className="text-base font-medium text-foreground">No cron jobs yet</h2>
-        <p className="mt-1.5 max-w-[240px] text-xs leading-relaxed text-muted-foreground">
-          Create a job to schedule recurring agent prompts.
-        </p>
-        <Button size="sm" className="mt-4" onClick={onAdd}>+ New Job</Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2 animate-cron-fade-in">
-      {jobs.map((job) => (
-        <JobCard
-          key={job.name}
-          job={job}
-          onEdit={onEdit}
-          onToggleEnabled={onToggleEnabled}
-          onRemove={onRemove}
-          onRun={onRun}
-          schedulerActive={schedulerActive}
-        />
-      ))}
     </div>
   );
 }

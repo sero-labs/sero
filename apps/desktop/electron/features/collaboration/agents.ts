@@ -7,6 +7,7 @@
  */
 
 import type { CollaborationRole } from '@/types/collaboration';
+import { budgetPromptText } from './prompt-budget';
 export type { CollaborationRole } from '@/types/collaboration';
 
 /**
@@ -29,6 +30,11 @@ export const ROLE_AGENT_NAMES: Record<CollaborationRole, string> = {
 export const PARALLEL_SPECIALIST_ROLES: CollaborationRole[] = ['analyst', 'visionary'];
 
 
+export const STANDARD_SYNTHESIS_PROMPT_BUDGET = {
+  queryMaxChars: 3_000,
+  specialistOutputMaxChars: 4_000,
+} as const;
+
 /** Build the Coordinator's synthesis prompt with the specialists' outputs. */
 export function buildCoordinatorSynthesisPrompt(
   originalQuery: string,
@@ -36,21 +42,26 @@ export function buildCoordinatorSynthesisPrompt(
   analystOutput: string,
   visionaryOutput: string,
 ): string {
+  const boundedQuery = budgetPromptText(originalQuery, STANDARD_SYNTHESIS_PROMPT_BUDGET.queryMaxChars);
+  const boundedResearcherOutput = budgetPromptText(researcherOutput, STANDARD_SYNTHESIS_PROMPT_BUDGET.specialistOutputMaxChars);
+  const boundedAnalystOutput = budgetPromptText(analystOutput, STANDARD_SYNTHESIS_PROMPT_BUDGET.specialistOutputMaxChars);
+  const boundedVisionaryOutput = budgetPromptText(visionaryOutput, STANDARD_SYNTHESIS_PROMPT_BUDGET.specialistOutputMaxChars);
+
   return `Three specialist agents have independently analyzed the following user query. Synthesize their outputs into a single, coherent, high-quality response.
 
 ## Original User Query
-${originalQuery}
+${boundedQuery}
 
 ## Specialist Outputs
 
 ### The Researcher (Fact-Checking)
-${researcherOutput}
+${boundedResearcherOutput}
 
 ### The Analyst (Logic / Math / Code)
-${analystOutput}
+${boundedAnalystOutput}
 
 ### The Visionary (Creative / Divergent)
-${visionaryOutput}
+${boundedVisionaryOutput}
 
 Produce ONE cohesive response. Do NOT mention the specialists or internal process.`;
 }

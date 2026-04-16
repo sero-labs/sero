@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from 'react';
 import type { PromptTemplateSummary, PromptTemplateFileData } from '../components/types';
-import { getSero } from './useSeroFiles';
+import { getSero } from './host';
 
 const NEW_PROMPT: PromptTemplateFileData = {
   name: '',

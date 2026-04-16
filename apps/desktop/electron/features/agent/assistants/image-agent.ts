@@ -9,14 +9,19 @@
  * with auth resolved through Pi's AuthStorage.
  */
 
-import { GoogleGenAI } from '@google/genai';
+import {
+  createPartFromBase64,
+  createPartFromText,
+  GoogleGenAI,
+  type Part,
+} from '@google/genai';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 
-// ── Types (mirrored from shared/types.ts to avoid cross-package import) ──
+// ── Local contracts consumed by the image-generation IPC surface ──
 
 export type ImageModel = 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview';
 export type AspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '9:16' | '16:9';
@@ -46,6 +51,15 @@ export interface GeneratedImageResult {
 export interface ImageGenResult {
   images: GeneratedImageResult[];
   error?: string;
+}
+
+export type ImageGenerator = (
+  params: ImageGenParams,
+  imagesDir: string,
+) => Promise<ImageGenResult>;
+
+declare global {
+  var __seroImageGen: ImageGenerator | undefined;
 }
 
 // ── Auth providers to try in order ──
@@ -160,19 +174,14 @@ function stripDataUriPrefix(dataUri: string): string {
  * Build multimodal content parts: attached images first, then the text prompt.
  * Gemini expects image parts before the text instruction for best results.
  */
-function buildContentParts(params: ImageGenParams): Array<Record<string, any>> {
-  const parts: Array<Record<string, any>> = [];
+function buildContentParts(params: ImageGenParams): Part[] {
+  const parts: Part[] = [];
 
   for (const att of params.attachments ?? []) {
-    parts.push({
-      inlineData: {
-        mimeType: att.mimeType,
-        data: stripDataUriPrefix(att.dataUri),
-      },
-    });
+    parts.push(createPartFromBase64(stripDataUriPrefix(att.dataUri), att.mimeType));
   }
 
-  parts.push({ text: buildPromptText(params) });
+  parts.push(createPartFromText(buildPromptText(params)));
   return parts;
 }
 
@@ -182,8 +191,8 @@ function mimeToExt(mime: string): string {
   return 'png';
 }
 
-// ── Expose on globalThis for extension bridge ──
+// ── Expose on globalThis for compatibility with legacy bridge consumers ──
 
 export function exposeImageAgent(): void {
-  (globalThis as any).__seroImageGen = generateImages;
+  globalThis.__seroImageGen = generateImages;
 }

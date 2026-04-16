@@ -17,6 +17,10 @@ import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-age
 
 import { checkBootstrapStatus } from './bootstrap';
 import { registerContextInjection, markBootstrapDone } from './context-injector';
+import {
+  clearPhase1MigrationState,
+  setPhase1MigrationState,
+} from './phase1-migration-state';
 import { registerMemoryTool } from './memory-tool';
 import { registerSearchTool } from './search-tool';
 import { registerScratchpadTool } from './scratchpad';
@@ -56,10 +60,14 @@ export default function memoryExtension(pi: ExtensionAPI): void {
   // ── Session start: bootstrap check + QMD init ──────────────
 
   async function handleSessionEnter(source: 'session_start' | 'session_switch', ctx: ExtensionContext): Promise<void> {
+    const sessionId = ctx.sessionManager.getSessionId();
+    clearPhase1MigrationState(sessionId);
+
     info('session_enter', {
       source,
       sessionFile: ctx.sessionManager.getSessionFile?.() ?? null,
       cwd: ctx.cwd,
+      sessionId,
     });
 
     const status = await checkBootstrapStatus();
@@ -86,6 +94,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
     if (!status.needsBootstrap) {
       const migration = await runPhase1Migration(ctx);
       migrationChanged = migration.changed;
+      setPhase1MigrationState(sessionId, migration.changed);
       info('migration_result', {
         source,
         changed: migration.changed,

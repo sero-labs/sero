@@ -160,7 +160,7 @@ export async function extractViaHttp(
 		}
 
 		const { document } = parseHTML(text);
-		const reader = new Readability(document as unknown as Document);
+		const reader = new Readability(document as ConstructorParameters<typeof Readability>[0]);
 		const article = reader.parse();
 
 		if (!article) {

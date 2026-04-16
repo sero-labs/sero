@@ -157,10 +157,8 @@ async function buildPluginFromSource(
     );
   }
 
-  if (!existsSync(path.join(packageDir, 'node_modules'))) {
-    const installCommand = getInstallCommand(pkg);
-    await runCommand(installCommand.command, installCommand.args, packageDir);
-  }
+  const installCommand = getInstallCommand(pkg);
+  await runCommand(installCommand.command, installCommand.args, packageDir);
 
   const buildCommand = getBuildCommand(pkg);
   await runCommand(buildCommand.command, buildCommand.args, packageDir, {

@@ -2,30 +2,24 @@
 // with a clear-all button.
 
 import { useCallback } from 'react';
-import { useAppState } from '@sero-ai/app-runtime';
+import { useAppInfo } from '@sero-ai/app-runtime';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Trash2 } from 'lucide-react';
-import type { WebAccessState, WebEntry } from '../../shared/types';
-import { DEFAULT_STATE } from '../../shared/types';
+import type { WebEntry } from '../../shared/types';
 import { SearchEntry } from './SearchEntry';
+import { clearHistory as clearHistoryAction } from '../lib/web-actions';
 
 interface SearchHistoryProps {
   entries: WebEntry[];
 }
 
 export function SearchHistory({ entries }: SearchHistoryProps) {
-  const [, updateState] = useAppState<WebAccessState>(DEFAULT_STATE);
+  const { workspaceId } = useAppInfo();
 
-  const clearAll = useCallback(() => {
-    const clearedAt = Date.now();
-    updateState((prev) => ({
-      ...prev,
-      entries: [],
-      historyClearedAt: clearedAt,
-      lastSyncedAt: clearedAt,
-    }));
-  }, [updateState]);
+  const clearAll = useCallback(async () => {
+    await clearHistoryAction(workspaceId);
+  }, [workspaceId]);
 
   if (entries.length === 0) {
     return (

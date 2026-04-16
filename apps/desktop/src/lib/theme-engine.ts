@@ -10,7 +10,6 @@ import { loadGoogleFont } from './google-fonts';
 import type {
   ThemePreset,
   ColorTokens,
-  ThemePresetMeta,
 } from '@/types/theme';
 
 // ── Token → CSS Variable Mapping ─────────────────────────────
@@ -284,14 +283,3 @@ export function validateThemePreset(data: unknown): ThemePreset | null {
 }
 
 // ── Export / Serialisation ───────────────────────────────────
-
-/** Extract metadata from a full preset. */
-function presetToMeta(preset: ThemePreset): ThemePresetMeta {
-  return {
-    id: preset.id,
-    name: preset.name,
-    description: preset.description,
-    author: preset.author,
-    builtin: preset.builtin ?? false,
-  };
-}

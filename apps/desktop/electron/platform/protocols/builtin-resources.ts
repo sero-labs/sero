@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import path from 'path';
+import { isBuiltinPackageDir } from './builtin-package-detection.js';
 
 const MONOREPO_PACKAGES_CANDIDATES = [
   path.resolve(__dirname, '../../../../packages'),
@@ -22,27 +23,6 @@ function firstExistingPath(candidates: string[]): string | null {
     }
   }
   return null;
-}
-
-/**
- * Check if a directory is a Sero extension/app package.
- * Keep in sync with the JS copy in scripts/build-electron.mjs.
- */
-function isBuiltinPackageDir(pkgPath: string): boolean {
-  const pkgJsonPath = path.join(pkgPath, 'package.json');
-  if (!existsSync(pkgJsonPath)) return false;
-
-  try {
-    const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
-    return (
-      pkg.pi?.extensions != null ||
-      pkg.piExtension != null ||
-      pkg.sero?.app != null ||
-      existsSync(path.join(pkgPath, 'extension'))
-    );
-  } catch {
-    return false;
-  }
 }
 
 export function resolveBuiltinPackagesDir(): string | null {

@@ -24,6 +24,13 @@ const MIME_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
+interface StaticFileCacheEntry {
+  webDistDir: string;
+  availableFiles: Set<string>;
+}
+
+const staticFileCache = new Map<string, StaticFileCacheEntry | null>();
+
 /**
  * Resolve the web-dist directory. After esbuild bundling, __dirname is
  * dist/electron/ — check there first (copied by build-electron.mjs),
@@ -42,6 +49,82 @@ function resolveWebDistDir(gatewayDir: string): string | null {
   return null;
 }
 
+function collectFiles(rootDir: string): Set<string> {
+  const files = new Set<string>();
+  const queue = [rootDir];
+
+  while (queue.length > 0) {
+    const current = queue.pop();
+    if (!current) continue;
+
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        queue.push(fullPath);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+
+      const relativePath = path.relative(rootDir, fullPath).split(path.sep).join('/');
+      files.add(relativePath);
+    }
+  }
+
+  return files;
+}
+
+function buildCache(gatewayDir: string): StaticFileCacheEntry | null {
+  const webDistDir = resolveWebDistDir(gatewayDir);
+  if (!webDistDir) return null;
+
+  return {
+    webDistDir,
+    availableFiles: collectFiles(webDistDir),
+  };
+}
+
+function getCache(gatewayDir: string): StaticFileCacheEntry | null {
+  if (!staticFileCache.has(gatewayDir)) {
+    staticFileCache.set(gatewayDir, buildCache(gatewayDir));
+  }
+  return staticFileCache.get(gatewayDir) ?? null;
+}
+
+function normalizeRequestPath(pathname: string): string | null {
+  let decodedPath = pathname;
+  try {
+    decodedPath = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+
+  const strippedPath = decodedPath.replace(/^\/+/, '');
+  const normalized = path.posix.normalize(strippedPath || 'index.html');
+  if (normalized === '..' || normalized.startsWith('../') || path.isAbsolute(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+function resolveAssetPath(requestPath: string, availableFiles: Set<string>): string | null {
+  if (availableFiles.has(requestPath)) {
+    return requestPath;
+  }
+
+  const ext = path.posix.extname(requestPath);
+  if (!ext || ext === '.html') {
+    return availableFiles.has('index.html') ? 'index.html' : null;
+  }
+
+  return null;
+}
+
+/** Prime static-file metadata once at startup so request paths stay non-blocking. */
+export function primeStaticFileCache(gatewayDir: string): void {
+  getCache(gatewayDir);
+}
+
 /**
  * Attempt to serve a static file from the web-dist/ directory.
  * Returns true if the file was served, false otherwise.
@@ -54,32 +137,16 @@ export function tryServeStaticFile(
   res: http.ServerResponse,
   gatewayDir: string,
 ): boolean {
-  const webDistDir = resolveWebDistDir(gatewayDir);
+  const cache = getCache(gatewayDir);
+  if (!cache) return false;
 
-  // Check if web-dist exists
-  if (!webDistDir) return false;
+  const requestPath = normalizeRequestPath(pathname);
+  if (!requestPath) return false;
 
-  // Map pathname to file
-  let filePath = path.join(webDistDir, pathname === '/' ? 'index.html' : pathname);
+  const assetPath = resolveAssetPath(requestPath, cache.availableFiles);
+  if (!assetPath) return false;
 
-  // Prevent path traversal
-  if (!filePath.startsWith(webDistDir)) {
-    return false;
-  }
-
-  // Try exact file first
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    // SPA fallback: serve index.html for non-asset paths
-    const ext = path.extname(pathname);
-    if (!ext || ext === '.html') {
-      filePath = path.join(webDistDir, 'index.html');
-    } else {
-      return false;
-    }
-  }
-
-  if (!fs.existsSync(filePath)) return false;
-
+  const filePath = path.join(cache.webDistDir, assetPath);
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
 
@@ -93,5 +160,6 @@ export function tryServeStaticFile(
     }
     res.end();
   });
+
   return true;
 }

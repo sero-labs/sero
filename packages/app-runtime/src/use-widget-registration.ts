@@ -72,9 +72,12 @@ export function useWidgetRegistration(options: WidgetRegistrationOptions): void 
     options.widgetId,
     options.name,
     options.component,
-    options.defaultSize,
-    options.minSize,
-    options.maxSize,
+    options.defaultSize.w,
+    options.defaultSize.h,
+    options.minSize?.w,
+    options.minSize?.h,
+    options.maxSize?.w,
+    options.maxSize?.h,
     options.description,
   ]);
 }

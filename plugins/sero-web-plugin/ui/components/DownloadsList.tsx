@@ -16,30 +16,23 @@ import type { WebAccessState, WebDownload } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import { relativeTime, truncate } from '../lib/format';
 import { isVisibleDownload } from '../lib/downloads';
-import { deleteWorkspaceFile, openWorkspaceFile, revealInFinder } from '../lib/host';
+import { deleteDownload as deleteDownloadAction } from '../lib/web-actions';
+import { openWorkspaceFile, revealInFinder } from '../lib/host';
 
 export function DownloadsList() {
   const { workspaceId } = useAppInfo();
-  const [state, updateState] = useAppState<WebAccessState>(DEFAULT_STATE);
+  const [state] = useAppState<WebAccessState>(DEFAULT_STATE);
   const downloads = [...(state.downloads ?? [])]
     .filter(isVisibleDownload)
     .sort((a, b) => b.updatedAt - a.updatedAt);
 
-  const removeEntry = useCallback((downloadId: string) => {
-    updateState((prev) => ({
-      ...prev,
-      downloads: (prev.downloads ?? []).filter((entry) => entry.id !== downloadId),
-      lastSyncedAt: Date.now(),
-    }));
-  }, [updateState]);
-
   const deleteDownload = useCallback(async (download: WebDownload) => {
-    if (download.relativePath && download.status === 'completed') {
-      const deleted = await deleteWorkspaceFile(workspaceId, download.relativePath);
-      if (!deleted) return;
-    }
-    removeEntry(download.id);
-  }, [removeEntry, workspaceId]);
+    await deleteDownloadAction(workspaceId, {
+      downloadId: download.id,
+      relativePath: download.relativePath,
+      completed: download.status === 'completed',
+    });
+  }, [workspaceId]);
 
   if (downloads.length === 0) {
     return (

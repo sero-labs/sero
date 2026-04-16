@@ -3,7 +3,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { QrLoginData } from '@/types/ipc';
 import { gatewayServer, tailscale, webChatServer } from '@electron/shared/infra/shared-infra';
 import { getGatewayAgentOps, setGatewayEventSink, setGatewayCostTracker } from '@electron/features/gateway/bridge/agent-bridge';

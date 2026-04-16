@@ -1,63 +1,23 @@
-import { existsSync, readFileSync } from "node:fs";
 import { activityMonitor } from "./activity.js";
+import { extractSourceUrls, buildSearchPrompt } from "./gemini-search-format.js";
+import { getSearchConfig, type SearchProvider } from "./gemini-search-config.js";
 import { getApiKey, API_BASE, DEFAULT_MODEL } from "./gemini-api.js";
 import { isGeminiWebAvailable, queryWithCookies } from "./gemini-web.js";
-import { isPerplexityAvailable, searchWithPerplexity, type SearchResult, type SearchResponse, type SearchOptions } from "./perplexity.js";
 import { hasExaApiKey, isExaAvailable, searchWithExa } from "./exa.js";
+import {
+	isPerplexityAvailable,
+	searchWithPerplexity,
+	type SearchOptions,
+	type SearchResponse,
+	type SearchResult,
+} from "./perplexity.js";
 import { getWebConfigPath } from "./paths.js";
 
-export type SearchProvider = "auto" | "perplexity" | "gemini" | "exa";
+export type { SearchProvider } from "./gemini-search-config.js";
 export type ResolvedSearchProvider = Exclude<SearchProvider, "auto">;
 
 export interface AttributedSearchResponse extends SearchResponse {
 	provider: ResolvedSearchProvider;
-}
-
-let cachedSearchConfig: { searchProvider: SearchProvider; searchModel?: string } | null = null;
-
-function getSearchConfig(): { searchProvider: SearchProvider; searchModel?: string } {
-	if (cachedSearchConfig) return cachedSearchConfig;
-	const configPath = getWebConfigPath();
-	if (!existsSync(configPath)) {
-		cachedSearchConfig = { searchProvider: "auto", searchModel: undefined };
-		return cachedSearchConfig;
-	}
-
-	const rawText = readFileSync(configPath, "utf-8");
-	let raw: {
-		searchProvider?: SearchProvider;
-		provider?: SearchProvider;
-		searchModel?: unknown;
-	};
-	try {
-		raw = JSON.parse(rawText) as {
-			searchProvider?: SearchProvider;
-			provider?: SearchProvider;
-			searchModel?: unknown;
-		};
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to parse ${configPath}: ${message}`);
-	}
-
-	cachedSearchConfig = {
-		searchProvider: normalizeSearchProvider(raw.searchProvider ?? raw.provider),
-		searchModel: normalizeSearchModel(raw.searchModel),
-	};
-	return cachedSearchConfig;
-}
-
-function normalizeSearchModel(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const normalized = value.trim();
-	return normalized.length > 0 ? normalized : undefined;
-}
-
-function normalizeSearchProvider(value: unknown): SearchProvider {
-	const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
-	return normalized === "auto" || normalized === "perplexity" || normalized === "gemini" || normalized === "exa"
-		? normalized
-		: "auto";
 }
 
 export interface FullSearchOptions extends SearchOptions {
@@ -118,8 +78,8 @@ export async function search(query: string, options: FullSearchOptions = {}): Pr
 		const configPath = getWebConfigPath();
 		throw new Error(
 			"Gemini search unavailable. Either:\n" +
-			`  1. Set GEMINI_API_KEY in ${configPath}\n` +
-			"  2. Sign into gemini.google.com in a supported Chromium-based browser"
+				`  1. Set GEMINI_API_KEY in ${configPath}\n` +
+				"  2. Sign into gemini.google.com in a supported Chromium-based browser",
 		);
 	}
 
@@ -130,7 +90,7 @@ export async function search(query: string, options: FullSearchOptions = {}): Pr
 			if (result && "exhausted" in result) {
 				throw new Error(
 					"Exa monthly free tier exhausted (1,000 requests). Resets next month.\n" +
-					"  Use provider: 'perplexity' or 'gemini', or upgrade at exa.ai/pricing"
+						"  Use provider: 'perplexity' or 'gemini', or upgrade at exa.ai/pricing",
 				);
 			}
 			if (result && "answer" in result) return { ...result, provider: "exa" };
@@ -141,12 +101,10 @@ export async function search(query: string, options: FullSearchOptions = {}): Pr
 			const message = err instanceof Error ? err.message : String(err);
 			if (message.toLowerCase().includes("abort")) throw err;
 			if (exaApiKeyConfigured) throw err;
-			// No API key: allow provider fallback.
 		}
 	}
 
 	const fallbackErrors: string[] = [];
-
 	if (provider !== "exa" && isExaAvailable()) {
 		try {
 			const result = await searchWithExa(query, options);
@@ -182,10 +140,10 @@ export async function search(query: string, options: FullSearchOptions = {}): Pr
 	const configPath = getWebConfigPath();
 	throw new Error(
 		"No search provider available. Either:\n" +
-		`  1. Set perplexityApiKey in ${configPath}\n` +
-		`  2. Set EXA_API_KEY (or exaApiKey) in ${configPath}\n` +
-		`  3. Set GEMINI_API_KEY in ${configPath}\n` +
-		"  4. Sign into gemini.google.com in a supported Chromium-based browser"
+			`  1. Set perplexityApiKey in ${configPath}\n` +
+			`  2. Set EXA_API_KEY (or exaApiKey) in ${configPath}\n` +
+			`  3. Set GEMINI_API_KEY in ${configPath}\n` +
+			"  4. Sign into gemini.google.com in a supported Chromium-based browser",
 	);
 }
 
@@ -206,10 +164,7 @@ async function searchWithGeminiApi(query: string, options: SearchOptions = {}): 
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(body),
-			signal: AbortSignal.any([
-				AbortSignal.timeout(60000),
-				...(options.signal ? [options.signal] : []),
-			]),
+			signal: AbortSignal.any([AbortSignal.timeout(60000), ...(options.signal ? [options.signal] : [])]),
 		});
 
 		if (!res.ok) {
@@ -217,12 +172,11 @@ async function searchWithGeminiApi(query: string, options: SearchOptions = {}): 
 			throw new Error(`Gemini API error ${res.status}: ${errorText.slice(0, 300)}`);
 		}
 
-		const data = await res.json() as GeminiSearchResponse;
+		const data = (await res.json()) as GeminiSearchResponse;
 		activityMonitor.logComplete(activityId, res.status);
 
-		const answer = data.candidates?.[0]?.content?.parts
-			?.map(p => p.text).filter(Boolean).join("\n") ?? "";
-
+		const answer =
+			data.candidates?.[0]?.content?.parts?.map((part) => part.text).filter(Boolean).join("\n") ?? "";
 		const metadata = data.candidates?.[0]?.groundingMetadata;
 		const results = await resolveGroundingChunks(metadata?.groundingChunks, options.signal);
 
@@ -243,20 +197,15 @@ async function searchWithGeminiWeb(query: string, options: SearchOptions = {}): 
 	const cookies = await isGeminiWebAvailable();
 	if (!cookies) return null;
 
-	const prompt = buildSearchPrompt(query, options);
 	const activityId = activityMonitor.logStart({ type: "api", query });
-
 	try {
-		const text = await queryWithCookies(prompt, cookies, {
+		const text = await queryWithCookies(buildSearchPrompt(query, options), cookies, {
 			model: "gemini-3-flash-preview",
 			signal: options.signal,
 			timeoutMs: 60000,
 		});
-
 		activityMonitor.logComplete(activityId, 200);
-
-		const results = extractSourceUrls(text);
-		return { answer: text, results };
+		return { answer: text, results: extractSourceUrls(text) };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		if (message.toLowerCase().includes("abort")) {
@@ -266,42 +215,6 @@ async function searchWithGeminiWeb(query: string, options: SearchOptions = {}): 
 		}
 		throw err;
 	}
-}
-
-function buildSearchPrompt(query: string, options: SearchOptions): string {
-	let prompt = `Search the web and answer the following question. Include source URLs for your claims.\nFormat your response as:\n1. A direct answer to the question\n2. Cited sources as markdown links\n\nQuestion: ${query}`;
-
-	if (options.recencyFilter) {
-		const labels: Record<string, string> = {
-			day: "past 24 hours",
-			week: "past week",
-			month: "past month",
-			year: "past year",
-		};
-		prompt += `\n\nOnly include results from the ${labels[options.recencyFilter]}.`;
-	}
-
-	if (options.domainFilter?.length) {
-		const includes = options.domainFilter.filter(d => !d.startsWith("-"));
-		const excludes = options.domainFilter.filter(d => d.startsWith("-")).map(d => d.slice(1));
-		if (includes.length) prompt += `\n\nOnly cite sources from: ${includes.join(", ")}`;
-		if (excludes.length) prompt += `\n\nDo not cite sources from: ${excludes.join(", ")}`;
-	}
-
-	return prompt;
-}
-
-function extractSourceUrls(markdown: string): SearchResult[] {
-	const results: SearchResult[] = [];
-	const seen = new Set<string>();
-	const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
-	for (const match of markdown.matchAll(linkRegex)) {
-		const url = match[2];
-		if (seen.has(url)) continue;
-		seen.add(url);
-		results.push({ title: match[1], url, snippet: "" });
-	}
-	return results;
 }
 
 async function resolveGroundingChunks(
@@ -331,10 +244,7 @@ async function resolveRedirect(proxyUrl: string, signal?: AbortSignal): Promise<
 		const res = await fetch(proxyUrl, {
 			method: "HEAD",
 			redirect: "manual",
-			signal: AbortSignal.any([
-				AbortSignal.timeout(5000),
-				...(signal ? [signal] : []),
-			]),
+			signal: AbortSignal.any([AbortSignal.timeout(5000), ...(signal ? [signal] : [])]),
 		});
 		return res.headers.get("location") || null;
 	} catch {

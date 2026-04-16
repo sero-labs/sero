@@ -22,7 +22,7 @@ import { ipcMain, BrowserWindow, shell, type WebContents } from 'electron';
 import { getOAuthProviders } from '@mariozechner/pi-ai/oauth';
 import type { OAuthProviderId } from '@mariozechner/pi-ai';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type {
   OAuthProviderInfo,
   ApiKeyProviderInfo,

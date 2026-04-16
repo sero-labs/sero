@@ -250,4 +250,50 @@ describe('runGitAction', () => {
       await cleanupPaths([repoPath]);
     }
   });
+
+  it('answers log from the repo even before a snapshot exists', async () => {
+    const repoPath = await createGitRepo();
+
+    try {
+      await writeRepoFile(repoPath, 'notes.txt', 'base\n');
+      commitAll(repoPath, 'initial');
+      await writeRepoFile(repoPath, 'notes.txt', 'base\nsecond\n');
+      commitAll(repoPath, 'second');
+
+      const result = await runGitAction(
+        { action: 'log' },
+        repoPath,
+        statePathFor(repoPath),
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.message).toContain('second');
+      expect(result.message).toContain('initial');
+    } finally {
+      await cleanupPaths([repoPath]);
+    }
+  });
+
+  it('answers branches from the repo after refs change outside the cached snapshot', async () => {
+    const repoPath = await createGitRepo();
+    const statePath = statePathFor(repoPath);
+
+    try {
+      await writeRepoFile(repoPath, 'a.txt', 'base\n');
+      commitAll(repoPath, 'initial');
+      await runGitAction({ action: 'refresh' }, repoPath, statePath);
+      runGit(['branch', 'feature/e4-runtime'], repoPath);
+
+      const result = await runGitAction(
+        { action: 'branches' },
+        repoPath,
+        statePath,
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.message).toContain('feature/e4-runtime');
+    } finally {
+      await cleanupPaths([repoPath]);
+    }
+  });
 });

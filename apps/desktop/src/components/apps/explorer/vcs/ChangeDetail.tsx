@@ -19,8 +19,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore, useWorkspaceVcs } from '@/stores/vcs';
-import type { ChangeEntry, FileDiffEntry } from '@/types/vcs';
-import { statusCode, statusColor, basename } from './vcs-utils';
+import type { ChangeEntry, FileDiffEntry } from '@sero/common';
+import { useTransientValue } from '../useTransientUiState';
+import { statusCode, statusColor } from './vcs-utils';
 
 interface Props {
   workspaceId: string;
@@ -33,22 +34,39 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
   const ws = useWorkspaceVcs(workspaceId);
   const [files, setFiles] = useState<FileDiffEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fileLoadError, setFileLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [descDraft, setDescDraft] = useState(entry.description);
   const [showPushAs, setShowPushAs] = useState(false);
   const [pushBranch, setPushBranch] = useState('');
   const [pushing, setPushing] = useState(false);
-  const [pushNotice, setPushNotice] = useState<{ message: string; error: boolean } | null>(null);
+  const [pushNotice, showPushNotice] = useTransientValue<{ message: string; error: boolean }>(4000);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    window.sero.vcs
+    setFileLoadError(null);
+    void window.sero.vcs
       .fileDiffSummary(workspaceId, entry.changeId)
-      .then((f) => { if (!cancelled) setFiles(f); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((summary) => {
+        if (cancelled) return;
+        setFiles(summary);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.warn('[vcs-change-detail] Failed to load changed files:', error);
+        setFileLoadError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load changed files.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [workspaceId, entry.changeId]);
 
   const handleSaveDesc = useCallback(async () => {
@@ -58,18 +76,19 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
     setEditing(false);
   }, [workspaceId, entry.changeId, descDraft, entry.description, store]);
 
-  const showPushNotice = useCallback((message: string, error = false) => {
-    setPushNotice({ message, error });
-    setTimeout(() => setPushNotice(null), 4000);
-  }, []);
-
   const handlePush = useCallback(async () => {
     setPushing(true);
     try {
       const r = await store.push(workspaceId, ws?.activePushBookmark ?? undefined, entry.changeId);
-      showPushNotice(r.message || (r.success ? 'Push complete' : 'Push failed'), !r.success);
+      showPushNotice({
+        message: r.message || (r.success ? 'Push complete' : 'Push failed'),
+        error: !r.success,
+      });
     } catch (err) {
-      showPushNotice(err instanceof Error ? err.message : 'Push failed', true);
+      showPushNotice({
+        message: err instanceof Error ? err.message : 'Push failed',
+        error: true,
+      });
     } finally {
       setPushing(false);
     }
@@ -91,13 +110,19 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       }
 
       const r = await store.push(workspaceId, branch, entry.changeId);
-      showPushNotice(r.message || (r.success ? 'Push complete' : 'Push failed'), !r.success);
+      showPushNotice({
+        message: r.message || (r.success ? 'Push complete' : 'Push failed'),
+        error: !r.success,
+      });
       if (r.success) {
         setShowPushAs(false);
         setPushBranch('');
       }
     } catch (err) {
-      showPushNotice(err instanceof Error ? err.message : 'Push failed', true);
+      showPushNotice({
+        message: err instanceof Error ? err.message : 'Push failed',
+        error: true,
+      });
     } finally {
       setPushing(false);
     }
@@ -161,6 +186,10 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
       {/* File list */}
       {loading ? (
         <div className="py-1 text-[10px] text-[var(--text-muted)]/40">Loading files…</div>
+      ) : fileLoadError ? (
+        <div className="rounded border border-[var(--status-warning-subtle)] bg-[var(--status-warning-muted)] px-2 py-1 text-[10px] text-[var(--status-warning)]">
+          Failed to load changed files: {fileLoadError}
+        </div>
       ) : files.length === 0 ? (
         <div className="py-1 text-[10px] text-[var(--text-muted)]/40">No file changes</div>
       ) : (

@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
-import type { ModelValidationWarning } from '@sero/common';
+import { formatModelValidationWarning, type ModelValidationWarning } from '@sero/common';
 import { cn } from '../../lib/utils';
 
 interface ModelWarningListProps {
@@ -14,7 +14,7 @@ export function ModelWarningList({ warnings, className }: ModelWarningListProps)
     <div className={cn('space-y-2', className)}>
       {warnings.map((warning, index) => (
         <div
-          key={`${warning.code}:${warning.tier ?? 'none'}:${index}`}
+          key={`${warning.code}:${index}`}
           className={cn(
             'rounded-lg border px-3 py-2 text-xs',
             warning.severity === 'info'
@@ -24,7 +24,7 @@ export function ModelWarningList({ warnings, className }: ModelWarningListProps)
         >
           <div className="flex items-start gap-2">
             <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-            <span>{warning.message}</span>
+            <span>{formatModelValidationWarning(warning)}</span>
           </div>
         </div>
       ))}

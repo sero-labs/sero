@@ -1,6 +1,6 @@
 # Facts — apps/desktop/src/components/profiles
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-15_
 
 ## What this code does
 This folder owns the renderer-side profile UX for `apps/desktop`: first-run profile creation, title-bar profile switching, and the recommendation-first onboarding flow that creates a temporary bootstrap session, seeds memory, then opens the user’s first real welcome chat.
@@ -30,3 +30,73 @@ This folder owns the renderer-side profile UX for `apps/desktop`: first-run prof
 - Memory bootstrap is intentionally performed in a disposable session, not the eventual Welcome conversation.
 - The renderer only offers “copy credentials/model preferences from the current profile,” even though the IPC/store contract is shaped for a more general `copyAuthFromId` flow.
 - Several failure paths currently rely on silent fallback or restart semantics, so observability is scattered across small UI components instead of one controller surface.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 11 (was 8)
+- Largest file: `apps/desktop/src/components/profiles/onboarding/onboarding-launch-runtime.ts` (371 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (was `apps/desktop/src/components/profiles/OnboardingWizard.tsx` at 486 LOC)
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Extracted onboarding session creation, model fallback, failure extraction, temp-session cleanup, and welcome-session sequencing into `onboarding/onboarding-launch-runtime.ts`.
+- Added `onboarding/useOnboardingLaunch.ts` so `OnboardingWizard.tsx` now focuses on phase selection and dialog composition instead of store/runtime orchestration.
+- Added focused onboarding runtime coverage for the temp-session → bootstrap → welcome flow and auth-recovery fallback behavior.
+
+### Still outstanding
+- `OnboardingWizard.tsx` still hides the launching dialog via a render-phase ref mutation when pending user feedback appears.
+- Profile create/switch surfaces still swallow restart-sensitive operational failures instead of showing actionable UI feedback.
+- GitHub onboarding step control still lives across `SetupScreen`, `GitHubConnectCard`, and `useGitHubAuthFlow`.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 13 (was 11)
+- Largest file: `apps/desktop/src/components/profiles/onboarding/onboarding-launch-runtime.ts` (371 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (was none)
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Replaced the render-phase `hideLaunchingDialogRef` mutation in `OnboardingWizard.tsx` with an effect-backed lifecycle hook that keeps pending-input dismissal behavior explicit.
+- Added `onboarding/useLaunchingDialogVisibility.ts` so launch-dialog hiding now resets cleanly when onboarding leaves the launching phase.
+- Added focused hook coverage for initial launch visibility, pending-input dismissal, and the next-launch reset behavior.
+
+### Still outstanding
+- GitHub onboarding step control still lives across `SetupScreen`, `GitHubConnectCard`, and `useGitHubAuthFlow`.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 15 (was 13)
+- Largest file: `apps/desktop/src/components/profiles/onboarding/onboarding-launch-runtime.ts` (371 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (was none)
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Added `useProfileOperationState.ts` so `ProfileSetup`, `CreateProfileDialog`, and `ProfileSwitcher` share one runner for restart-sensitive create/switch operations and clear stale errors consistently.
+- Reworked `ProfileForm.tsx` to separate local validation from shared operational failures, so retries keep actionable error copy visible without duplicating catch logic.
+- Centralized restart-aware profile error text in `src/stores/profiles.ts` and added focused failure-surface coverage via `ProfileOperations.test.tsx`.
+
+### Still outstanding
+- GitHub onboarding step control still lives across `SetupScreen`, `GitHubConnectCard`, and `useGitHubAuthFlow`.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 17 (was 15)
+- Largest file: `apps/desktop/src/components/profiles/onboarding/onboarding-launch-runtime.ts` (371 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none (was none)
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Added `onboarding/useOnboardingGitHubStep.ts` so `SetupScreen.tsx` owns the optional GitHub step’s status-check, show/back, and skip-to-memory transitions in one controller primitive.
+- Reworked `onboarding/GitHubConnectCard.tsx` into a pure presenter and exposed `refreshStatus()` from `useGitHubAuthFlow.ts` so the onboarding controller can re-check live GitHub auth without duplicating bridge logic.
+- Added focused `useOnboardingGitHubStep.test.tsx` coverage for already-connected bypass plus back/skip cancellation semantics.
+
+### Still outstanding
+- None — the folder plan is fully executed.

@@ -18,14 +18,28 @@ import {
 
 const writeQueues = new Map<string, Promise<void>>();
 
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
+function createErrorLogReadError(logPath: string, error: unknown): Error {
+  const detail = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `Kanban error log at ${logPath} is unreadable. Repair or remove the malformed file before retrying. Original error: ${detail}`,
+  );
+}
+
 /** Read the error log (returns empty log if file doesn't exist) */
 export async function readErrorLog(statePath: string): Promise<ErrorLog> {
   const logPath = resolveErrorLogPath(statePath);
   try {
     const raw = await fs.readFile(logPath, 'utf8');
     return normalizeErrorLog(JSON.parse(raw));
-  } catch {
-    return normalizeErrorLog(null);
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return normalizeErrorLog(null);
+    }
+    throw createErrorLogReadError(logPath, error);
   }
 }
 

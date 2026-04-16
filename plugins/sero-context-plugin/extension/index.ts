@@ -5,7 +5,7 @@
  * the agent manage its own conversation history like a Git repo.
  *
  * In Sero, also writes structured state snapshots so the web UI can visualise
- * the context graph and token usage in real time.
+ * the latest saved context graph and token usage.
  *
  * Based on pi-context by ttttmr (https://github.com/ttttmr/pi-context)
  */
@@ -18,10 +18,16 @@ import type {
   SessionEntry,
   ExtensionContext,
 } from '@mariozechner/pi-coding-agent';
-import type { TextContent, ImageContent, ToolCall } from '@mariozechner/pi-ai';
 import { Text } from '@mariozechner/pi-tui';
 
 import { resolveTargetId, formatTokens, isInternal } from './helpers';
+import {
+  buildContextSequence,
+  getContextBranchMeta,
+  getContextEntryContent,
+  getNearestTagInfo,
+  isInterestingContextEntry,
+} from './context-projection';
 import { buildSnapshot, writeSnapshot } from './snapshot';
 
 // ── State file path ────────────────────────────────────────────
@@ -30,6 +36,21 @@ const STATE_REL_PATH = path.join('.sero', 'apps', 'context', 'state.json');
 
 function resolveStatePath(cwd: string): string {
   return path.join(cwd, STATE_REL_PATH);
+}
+
+function assistantHasInternalToolCall(entry: SessionEntry): boolean {
+  if (entry.type !== 'message' || entry.message.role !== 'assistant') return false;
+  if (!Array.isArray(entry.message.content)) return false;
+
+  return entry.message.content.some((part) => {
+    return typeof part === 'object'
+      && part !== null
+      && 'type' in part
+      && part.type === 'toolCall'
+      && 'name' in part
+      && typeof part.name === 'string'
+      && isInternal(part.name);
+  });
 }
 
 // ── Tool parameters ────────────────────────────────────────────
@@ -91,11 +112,23 @@ async function updateSnapshot(
 export default function (pi: ExtensionAPI) {
   let statePath = '';
 
+  async function refreshSnapshot(ctx: ExtensionContext): Promise<void> {
+    const resolvedPath = resolveStatePath(ctx.cwd);
+    statePath = resolvedPath;
+    await updateSnapshot(ctx.sessionManager as SessionManager, ctx, pi, resolvedPath);
+  }
+
   pi.on('session_start', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
+    await refreshSnapshot(ctx);
   });
   pi.on('session_switch', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
+    await refreshSnapshot(ctx);
+  });
+  pi.on('agent_end', async (_event, ctx) => {
+    if (!statePath) {
+      statePath = resolveStatePath(ctx.cwd);
+    }
+    await updateSnapshot(ctx.sessionManager as SessionManager, ctx, pi, statePath);
   });
 
   // ── Tool: context_tag ──────────────────────────────────────
@@ -119,15 +152,15 @@ export default function (pi: ExtensionAPI) {
         for (let i = branch.length - 1; i >= 0; i--) {
           const entry = branch[i];
           if (entry.type === 'message' && entry.message.role === 'toolResult') {
-            if (isInternal((entry.message as any).toolName)) continue;
+            if (isInternal(entry.message.toolName)) continue;
             id = entry.id;
             break;
           }
           if (entry.type === 'message' && entry.message.role === 'assistant') {
-            const hasInternalTool = (entry.message as any).content.some(
-              (c: any) => c.type === 'toolCall' && isInternal(c.name),
-            );
-            if (!hasInternalTool) { id = entry.id; break; }
+            if (!assistantHasInternalToolCall(entry)) {
+              id = entry.id;
+              break;
+            }
           }
           id = entry.id;
           break;
@@ -266,65 +299,12 @@ async function buildLogText(
   limit: number,
 ): Promise<string> {
   const branch = sm.getBranch();
-  const leafId = sm.getLeafId();
-  const backboneIds = new Set(branch.map((e) => e.id));
-  const sequence: SessionEntry[] = [];
+  const sequence = buildContextSequence(sm);
+  const meta = getContextBranchMeta(sm);
 
-  for (const entry of branch) {
-    sequence.push(entry);
-    for (const child of sm.getChildren(entry.id)) {
-      if (
-        (child.type === 'branch_summary' || child.type === 'compaction') &&
-        !backboneIds.has(child.id)
-      ) {
-        sequence.push(child);
-      }
-    }
-  }
-
-  const getContent = (entry: SessionEntry): string => {
-    if (entry.type === 'branch_summary' || entry.type === 'compaction')
-      return entry.summary || '[No summary]';
-    if (entry.type === 'label') return `tag: ${entry.label}`;
-    if (entry.type !== 'message') return '';
-
-    const m = entry.message;
-    if (m.role === 'toolResult') {
-      if (!verbose && isInternal(m.toolName)) return '';
-      const text = m.content.map((p) => (p.type === 'text' ? p.text : '')).join(' ').trim();
-      return `(${m.toolName}) ${text}`;
-    }
-    if (m.role === 'bashExecution') return `[Bash] ${m.command}`;
-    if (m.role === 'user' || m.role === 'assistant') {
-      let text = typeof m.content === 'string'
-        ? m.content
-        : Array.isArray(m.content)
-          ? m.content.map((p: any) => p?.text || '').join(' ').trim()
-          : '';
-      if (m.role === 'assistant') {
-        const calls = (m.content as any[])
-          .filter((c): c is ToolCall => c.type === 'toolCall')
-          .filter((tc) => verbose || !isInternal(tc.name))
-          .map((tc) => `call: ${tc.name}(${JSON.stringify(tc.arguments)})`)
-          .join('; ');
-        text = [text, calls].filter(Boolean).join(' ');
-      }
-      return text;
-    }
-    return '';
-  };
-
-  const isInteresting = (entry: SessionEntry): boolean => {
-    if (entry.id === leafId || (branch.length > 0 && entry.id === branch[0].id)) return true;
-    if (sm.getLabel(entry.id)) return true;
-    if (entry.type === 'label') return false;
-    if (entry.type === 'branch_summary' || entry.type === 'compaction') return true;
-    if (sm.getChildren(entry.id).length > 1) return true;
-    if (entry.type === 'message' && entry.message.role === 'user') return true;
-    return false;
-  };
-
-  let visible = sequence.filter((e) => verbose || isInteresting(e));
+  let visible = sequence.filter(
+    (entry) => verbose || isInterestingContextEntry(entry, sm, meta),
+  );
   if (visible.length > limit) visible = visible.slice(-limit);
   const visibleIds = new Set(visible.map((e) => e.id));
 
@@ -335,36 +315,33 @@ async function buildLogText(
     if (!visibleIds.has(entry.id)) { hidden++; continue; }
     if (hidden > 0) { lines.push(`  :  ... (${hidden} hidden messages) ...`); hidden = 0; }
 
-    const isHead = entry.id === leafId;
+    const isHead = entry.id === meta.leafId;
     const label = sm.getLabel(entry.id);
-    const body = getContent(entry).replace(/\s+/g, ' ');
+    const body = getContextEntryContent(entry, {
+      verbose,
+      includeInternalToolResults: verbose,
+    }).replace(/\s+/g, ' ');
     const role = entry.type !== 'message'
       ? (entry.type === 'branch_summary' || entry.type === 'compaction' ? 'SUMMARY' : entry.type.toUpperCase())
       : entry.message.role === 'assistant' ? 'AI'
       : entry.message.role === 'user' ? 'USER'
       : entry.message.role === 'bashExecution' ? 'BASH' : 'TOOL';
-    const isRoot = branch.length > 0 && entry.id === branch[0].id;
-    const meta = [isRoot ? 'ROOT' : null, isHead ? 'HEAD' : null, label ? `tag: ${label}` : null]
+    const isRoot = entry.id === meta.rootId;
+    const metaText = [isRoot ? 'ROOT' : null, isHead ? 'HEAD' : null, label ? `tag: ${label}` : null]
       .filter(Boolean).join(', ');
     const marker = isHead ? '*' : role === 'USER' ? '•' : '|';
     const trimmed = body.length > 100 ? body.slice(0, 100) + '...' : body;
-    lines.push(`${marker} ${entry.id}${meta ? ` (${meta})` : ''} [${role}] ${trimmed}`);
+    lines.push(`${marker} ${entry.id}${metaText ? ` (${metaText})` : ''} [${role}] ${trimmed}`);
   }
   if (hidden > 0) lines.push(`  :  ... (${hidden} hidden messages) ...`);
 
   // HUD
   const usage = await ctx.getContextUsage();
-  const usageStr = usage
+  const usageStr = usage && usage.percent !== null && usage.tokens !== null && usage.contextWindow !== null
     ? `${usage.percent.toFixed(1)}% (${formatTokens(usage.tokens)}/${formatTokens(usage.contextWindow)})`
     : 'Unknown';
 
-  let stepsSinceTag = 0;
-  let nearestTagName = 'None';
-  for (let i = branch.length - 1; i >= 0; i--) {
-    const l = sm.getLabel(branch[i].id);
-    if (l) { nearestTagName = l; break; }
-    stepsSinceTag++;
-  }
+  const { nearestTag: nearestTagName, stepsSinceTag } = getNearestTagInfo(branch, sm);
 
   return [
     `[Context Dashboard]`,

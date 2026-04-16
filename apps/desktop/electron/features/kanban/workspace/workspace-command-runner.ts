@@ -1,11 +1,11 @@
 import { execFile } from 'child_process';
-import path from 'path';
 import { promisify } from 'util';
 
-import { WORKSPACE_MOUNT, type ExecResult } from '@electron/features/container/core/types';
+import type { ExecResult } from '@electron/features/container/core/types';
 import { containerManager } from '@electron/features/container/core/singleton';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { toWorkspaceContainerPath } from './container-path';
 
 const execFileAsync = promisify(execFile);
 
@@ -39,7 +39,7 @@ export async function runWorkspaceCommand(
         { isolated: options?.isolated },
       );
       await containerManager.ensure(containerConfig);
-      const containerCwd = toContainerPath(workspacePath, cwd);
+      const containerCwd = toWorkspaceContainerPath(workspacePath, cwd);
       if (!containerCwd) {
         return {
           stdout: '',
@@ -74,9 +74,3 @@ export async function runWorkspaceCommand(
   }
 }
 
-function toContainerPath(workspacePath: string, cwd: string): string | null {
-  const rel = path.relative(workspacePath, cwd);
-  if (rel.startsWith('..')) return null;
-  if (!rel || rel === '.') return WORKSPACE_MOUNT;
-  return path.posix.join(WORKSPACE_MOUNT, ...rel.split(path.sep));
-}

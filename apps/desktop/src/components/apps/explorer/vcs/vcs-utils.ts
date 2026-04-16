@@ -2,6 +2,8 @@
  * VCS panel formatting utilities.
  */
 
+import { getMonacoLanguageIdFromPath } from '@/lsp/language-routing';
+
 /** Format an ISO timestamp as a relative age string: "2m", "1h", "3d", etc. */
 export function formatAge(iso: string): string {
   if (!iso) return '';
@@ -59,14 +61,5 @@ export function statusColor(status: string): string {
 
 /** Detect language from file extension for Monaco. */
 export function langFromPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  const map: Record<string, string> = {
-    ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
-    json: 'json', md: 'markdown', css: 'css', html: 'html', py: 'python',
-    rs: 'rust', go: 'go', sh: 'shell', bash: 'shell', yml: 'yaml', yaml: 'yaml',
-    toml: 'toml', sql: 'sql', xml: 'xml', svg: 'xml', java: 'java',
-    c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', rb: 'ruby', swift: 'swift',
-    kt: 'kotlin', scala: 'scala', lua: 'lua', r: 'r',
-  };
-  return map[ext] ?? 'plaintext';
+  return getMonacoLanguageIdFromPath(path);
 }

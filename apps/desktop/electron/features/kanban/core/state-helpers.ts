@@ -5,25 +5,14 @@
  * Uses appStateManager.update() for atomic read-modify-write.
  */
 
-import type { Card, KanbanState } from './types';
+import { createDefaultKanbanState } from '@sero/common';
 import { appStateManager } from '@electron/features/apps/state/manager';
+
+import type { Card, KanbanState } from './types';
 
 /** Fallback state used when the file is empty/missing. */
 function fallbackState(): KanbanState {
-  return {
-    cards: [],
-    nextId: 1,
-    settings: {
-      autoAdvance: true,
-      maxConcurrentCards: 3,
-      requireApproval: { plan: true, pr: true },
-      reviewLevel: 'per-wave',
-      reviewMode: 'full',
-      testingEnabled: true,
-      yoloMode: false,
-      yoloAutoMergePrs: false,
-    },
-  };
+  return createDefaultKanbanState();
 }
 
 /** Atomically update a single card's fields in the state file. */

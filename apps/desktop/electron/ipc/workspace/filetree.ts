@@ -6,7 +6,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
 import { workspaceManager } from '@electron/shared/infra/shared-infra';
 import { fileWatcherManager } from '@electron/shared/infra/shared-infra';

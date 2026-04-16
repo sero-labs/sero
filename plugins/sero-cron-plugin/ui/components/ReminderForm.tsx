@@ -14,7 +14,8 @@ import {
 import { cn } from '@sero-ai/ui/lib/utils';
 import { validateCron, cronToHuman } from '../../shared/cron';
 import { generateId } from '../../shared/reminder-utils';
-import type { Reminder, ReminderChannel, ReminderType } from '../../shared/types';
+import { normalizeReminderChannel } from '../../shared/reminder-mutations';
+import type { Reminder, ReminderType } from '../../shared/types';
 
 interface ReminderFormProps {
   open: boolean;
@@ -43,7 +44,7 @@ export function ReminderForm({
 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
-  const [channel, setChannel] = useState<ReminderChannel>('notification');
+  const [channel, setChannel] = useState<'notification'>('notification');
   const [type, setType] = useState<ReminderType>('once');
   const [fireAt, setFireAt] = useState('');
   const [schedule, setSchedule] = useState('');
@@ -56,7 +57,7 @@ export function ReminderForm({
     if (editingReminder) {
       setTitle(editingReminder.title);
       setNotes(editingReminder.notes ?? '');
-      setChannel(editingReminder.channel);
+      setChannel(normalizeReminderChannel(editingReminder.channel));
       setType(editingReminder.type);
       setFireAt(editingReminder.fireAt ? toLocalDatetime(editingReminder.fireAt) : '');
       setSchedule(editingReminder.schedule ?? '');
@@ -271,33 +272,11 @@ export function ReminderForm({
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
               Notification Channel
             </label>
-            <div className="flex gap-2">
-              {([
-                { value: 'notification' as const, label: '🖥 Desktop', desc: 'System notification' },
-                { value: 'email' as const, label: '📧 Email', desc: 'Coming soon' },
-              ]).map((ch) => (
-                <button
-                  key={ch.value}
-                  type="button"
-                  onClick={() => setChannel(ch.value)}
-                  className={cn(
-                    'flex-1 rounded-md border px-3 py-2 text-left transition-colors',
-                    channel === ch.value
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:bg-secondary',
-                  )}
-                >
-                  <span className={cn(
-                    'block text-xs font-medium',
-                    channel === ch.value ? 'text-primary' : 'text-foreground',
-                  )}>
-                    {ch.label}
-                  </span>
-                  <span className="block text-[10px] text-muted-foreground">
-                    {ch.desc}
-                  </span>
-                </button>
-              ))}
+            <div className="rounded-md border border-border bg-secondary/30 px-3 py-2 text-xs text-foreground">
+              <div className="font-medium">🖥 Desktop notification</div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Email delivery is not supported yet. Saving this reminder will use the desktop notification path.
+              </p>
             </div>
           </div>
         </form>

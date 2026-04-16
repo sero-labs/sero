@@ -13,6 +13,8 @@ import {
 import type { AppEntry } from '@/stores/app';
 import type { DiscoveredPlugin } from '@/types/ipc';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { ErrorSurface } from './ErrorSurface';
+import { toErrorMessage } from './error-utils';
 import { AppStoreCard } from './AppStoreCard';
 import { DiscoverPluginCard } from './DiscoverPluginCard';
 
@@ -61,6 +63,7 @@ export function AppStoreDialog({
   const [discoverResults, setDiscoverResults] = useState<DiscoveredPlugin[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverSearched, setDiscoverSearched] = useState(false);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
 
   const discoverRequestIdRef = useRef(0);
   const discoverSessionRef = useRef(0);
@@ -86,6 +89,7 @@ export function AppStoreDialog({
     const requestId = ++discoverRequestIdRef.current;
     setDiscoverLoading(true);
     setDiscoverSearched(true);
+    setDiscoverError(null);
 
     try {
       const results = await window.sero.plugins.search(q);
@@ -97,6 +101,7 @@ export function AppStoreDialog({
         return;
       }
       setDiscoverResults(results);
+      setDiscoverError(null);
     } catch (err) {
       if (
         requestId !== discoverRequestIdRef.current ||
@@ -107,6 +112,7 @@ export function AppStoreDialog({
       }
       console.error('[AppStore] Plugin search failed:', err);
       setDiscoverResults([]);
+      setDiscoverError(toErrorMessage(err, 'Plugin discovery is unavailable right now.'));
     } finally {
       if (
         requestId === discoverRequestIdRef.current &&
@@ -165,6 +171,7 @@ export function AppStoreDialog({
       setDiscoverResults([]);
       setDiscoverLoading(false);
       setDiscoverSearched(false);
+      setDiscoverError(null);
     }
   };
 
@@ -256,6 +263,12 @@ export function AppStoreDialog({
                   </div>
                 ) : !discoverSearched ? (
                   <EmptyState message="Search for community plugins above." />
+                ) : discoverError ? (
+                  <ErrorSurface
+                    title="Couldn't search plugins"
+                    message={discoverError}
+                    onRetry={() => void runDiscoverSearch(discoverQuery, discoverSessionRef.current)}
+                  />
                 ) : discoverResults.length === 0 ? (
                   <EmptyState message={discoverQuery ? `No plugins found for "${discoverQuery}".` : 'No public plugins found.'} />
                 ) : (

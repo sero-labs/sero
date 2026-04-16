@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { appendFileSync, mkdirSync, renameSync, statSync } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+
+import { appendRotatingLogLine } from './log-writer';
+import { resolveMemoryDebugPath } from './state-paths';
 
 const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10 MB
 const ENABLED_VALUES = new Set(['1', 'true', 'yes', 'on']);
@@ -40,39 +40,18 @@ export interface MemoryPromptDebugEntry {
 }
 
 function resolveLogPath(): string {
-  const seroHome = process.env.SERO_HOME || path.join(os.homedir(), '.sero-ui');
-  return path.join(seroHome, 'debug', 'memory-prompt-debug.jsonl');
-}
-
-function ensureLogDir(): void {
-  try {
-    mkdirSync(path.dirname(resolveLogPath()), { recursive: true });
-  } catch {
-    // directory may already exist
-  }
-}
-
-function rotateIfNeeded(logPath: string): void {
-  try {
-    const { size } = statSync(logPath);
-    if (size >= MAX_LOG_SIZE) {
-      renameSync(logPath, `${logPath}.1`);
-    }
-  } catch {
-    // file may not exist yet
-  }
+  return resolveMemoryDebugPath('memory-prompt-debug.jsonl');
 }
 
 function writeEntry(data: Record<string, unknown>): void {
   if (!isMemoryPromptDebugEnabled()) return;
-  try {
-    const logPath = resolveLogPath();
-    ensureLogDir();
-    rotateIfNeeded(logPath);
-    appendFileSync(logPath, `${JSON.stringify(data)}\n`, 'utf8');
-  } catch {
-    // debug logging must never crash the extension
-  }
+  appendRotatingLogLine({
+    filePath: resolveLogPath(),
+    line: `${JSON.stringify(data)}\n`,
+    maxBytes: MAX_LOG_SIZE,
+    warningKey: 'memory-prompt-debug-log',
+    warningMessage: '[memory] failed to persist memory-prompt-debug.jsonl',
+  });
 }
 
 function nextTurn(sessionId: string): number {

@@ -14,14 +14,29 @@
  * as the kanban planning-executor and review-executor).
  */
 
-import type { SubagentManager } from '../subagent';
 import {
   PARALLEL_SPECIALIST_ROLES,
   ROLE_AGENT_NAMES,
   buildCoordinatorSynthesisPrompt,
 } from './agents';
+import {
+  buildDegradedFinalResponse,
+  getMissingRequiredRoles,
+  hasUsableSpecialistOutput,
+} from './degraded-result';
+import {
+  CollaborationDiscoveryRunner,
+  validateRequiredCollaborationAgents,
+} from './required-agents';
+import {
+  CollaborationRunner,
+  getSpecialistErrorMessage,
+  runSingleSpecialist,
+} from './specialist-runner';
 import type { CollaborationRole, CollaborationResult } from '@/types/collaboration';
 export type { CollaborationResult } from '@/types/collaboration';
+
+type CollaborationOrchestratorRunner = CollaborationRunner & CollaborationDiscoveryRunner;
 
 export interface CollaborationCallbacks {
   /** Called when each phase starts. */
@@ -42,32 +57,29 @@ async function runSpecialist(
   task: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: SubagentManager,
+  manager: CollaborationRunner,
   callbacks?: CollaborationCallbacks,
 ): Promise<CollaborationResult['specialistOutputs'][number]> {
-  const agentName = ROLE_AGENT_NAMES[role];
-  const specStart = Date.now();
-
-  callbacks?.onSpecialistStart?.(role, agentName);
-
-  const result = await manager.runSingleStructured({
-    agent: agentName,
+  return runSingleSpecialist({
+    role,
     task,
     parentSessionId,
     workspaceId,
+    manager,
     onUpdate: callbacks?.onUpdate,
+    onStart: (activeRole, agentName) => {
+      callbacks?.onSpecialistStart?.(activeRole, agentName);
+    },
+    onSuccess: (output) => {
+      callbacks?.onSpecialistEnd?.(
+        output.role,
+        output.agentName,
+        output.response,
+        output.durationMs,
+        output.error,
+      );
+    },
   });
-
-  const durationMs = Date.now() - specStart;
-  callbacks?.onSpecialistEnd?.(role, agentName, result.response, durationMs, result.error);
-
-  return {
-    role,
-    agentName,
-    response: result.response,
-    error: result.error,
-    durationMs,
-  };
 }
 
 /**
@@ -97,9 +109,13 @@ export async function runCollaboration(
   query: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: SubagentManager,
+  manager: CollaborationOrchestratorRunner,
   callbacks?: CollaborationCallbacks,
 ): Promise<CollaborationResult> {
+  await validateRequiredCollaborationAgents(manager, {
+    strategyLabel: 'Standard collaboration',
+  });
+
   const startTime = Date.now();
   const specialistOutputs: CollaborationResult['specialistOutputs'] = [];
 
@@ -118,13 +134,28 @@ export async function runCollaboration(
       role: 'researcher',
       agentName: ROLE_AGENT_NAMES['researcher'],
       response: '',
-      error: err instanceof Error ? err.message : 'Unknown error',
+      error: getSpecialistErrorMessage(err),
       durationMs: 0,
     };
   }
   specialistOutputs.push(researcherOutput);
 
-  const researchText = researcherOutput.response || '(Researcher failed to produce output)';
+  const failedAfterResearch = getMissingRequiredRoles(specialistOutputs, ['researcher']);
+  if (failedAfterResearch.length > 0) {
+    callbacks?.onPhaseStart?.('synthesis');
+    callbacks?.onUpdate?.(
+      'Collaboration degraded — required specialist output missing; skipping coordinator synthesis.',
+    );
+
+    return {
+      finalResponse: buildDegradedFinalResponse('Standard collaboration', failedAfterResearch, specialistOutputs),
+      specialistOutputs,
+      totalDurationMs: Date.now() - startTime,
+      hasErrors: true,
+    };
+  }
+
+  const researchText = hasUsableSpecialistOutput(researcherOutput) ? researcherOutput.response : '';
 
   // ── Phase 2: Analyst + Visionary in parallel (with research) ─
 
@@ -149,7 +180,7 @@ export async function runCollaboration(
         role,
         agentName: ROLE_AGENT_NAMES[role],
         response: '',
-        error: result.reason?.message ?? 'Unknown error',
+        error: getSpecialistErrorMessage(result.reason),
         durationMs: 0,
       });
     }
@@ -158,6 +189,24 @@ export async function runCollaboration(
   // Extract outputs by role
   const analystOutput = specialistOutputs.find((s) => s.role === 'analyst');
   const visionaryOutput = specialistOutputs.find((s) => s.role === 'visionary');
+
+  const failedBeforeSynthesis = getMissingRequiredRoles(
+    specialistOutputs,
+    ['researcher', 'analyst', 'visionary'],
+  );
+  if (failedBeforeSynthesis.length > 0) {
+    callbacks?.onPhaseStart?.('synthesis');
+    callbacks?.onUpdate?.(
+      'Collaboration degraded — required specialist output missing; skipping coordinator synthesis.',
+    );
+
+    return {
+      finalResponse: buildDegradedFinalResponse('Standard collaboration', failedBeforeSynthesis, specialistOutputs),
+      specialistOutputs,
+      totalDurationMs: Date.now() - startTime,
+      hasErrors: true,
+    };
+  }
 
   // ── Phase 3: Coordinator synthesis ───────────────────────────
 
@@ -168,8 +217,8 @@ export async function runCollaboration(
   const synthesisPrompt = buildCoordinatorSynthesisPrompt(
     query,
     researchText,
-    analystOutput?.response || '(Analyst failed to produce output)',
-    visionaryOutput?.response || '(Visionary failed to produce output)',
+    analystOutput?.response ?? '',
+    visionaryOutput?.response ?? '',
   );
 
   const synthesisResult = await manager.runSingleStructured({

@@ -1,6 +1,6 @@
 # Facts — apps/desktop/electron/features/agent
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-16_
 
 ## What this code does
 This module provides small assistant utilities used by IPC handlers: ad-hoc
@@ -33,3 +33,20 @@ PR draft prompt/parsing helpers (`pr-draft.ts`), and OpenAI voice transcription
   (`image-agent.ts:163-164`) and global exposure (`image-agent.ts:188`).
 - `exposeImageAgent()` writes `globalThis.__seroImageGen` (`image-agent.ts:186-188`), but
   there is no in-repo read site for that symbol, suggesting dead bridge scaffolding.
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 4 (was 4)
+- Largest file: `apps/desktop/electron/features/agent/assistants/voice-transcription.ts` (219 LOC)
+- Files over 500 LOC: none (was none)
+- Type escape hatches remaining: 0 within `apps/desktop/electron/features/agent/assistants/` (was 2 `any`-based escape points in `image-agent.ts`)
+
+### What changed
+- Replaced the image-agent multimodal part assembly with canonical `@google/genai` `Part` helpers instead of `Record<string, any>` payloads.
+- Formalized the legacy `globalThis.__seroImageGen` bridge behind a typed global augmentation so the compatibility exposure remains without `globalThis as any`.
+- Removed the stale “mirrored from shared/types.ts” wording and added a focused Electron test that locks the legacy exposure contract.
+
+### Still outstanding
+- No tracked follow-ups remain in this folder plan.
+- External consumers of `globalThis.__seroImageGen` still are not observable in-repo, so the bridge was preserved as a typed compatibility seam rather than deleted.

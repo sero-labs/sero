@@ -28,7 +28,7 @@ import {
 import os from 'os';
 import path from 'path';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { discoverApps } from '@electron/features/apps/discovery';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { workspaceManager } from '@electron/features/workspace/manager';

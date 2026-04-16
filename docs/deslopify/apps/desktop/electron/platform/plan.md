@@ -6,13 +6,13 @@ _Plan drafted: 2026-04-12_
 `electron/platform` is compact and generally well-factored, but it carries one material security debt (overly permissive CSP in production) plus two lifecycle/maintenance drifts around extension-asset registration and duplicated package-detection logic. The plan tightens runtime security first, then reduces drift in platform discovery/protocol contracts.
 
 ## Issues Found (prioritized)
-- **High** — CSP is broader than necessary in production — `apps/desktop/electron/platform/security/csp.ts:37` includes `'unsafe-inline'` for scripts unconditionally, and `frame-src`/`child-src` allow global `http:` + `https:` (`csp.ts:99-111`) across environments. This weakens renderer containment and increases XSS blast radius if an injection path appears. Effort: **M**.
+- **High** — ~~CSP is broader than necessary in production — `apps/desktop/electron/platform/security/csp.ts:37` includes `'unsafe-inline'` for scripts unconditionally, and `frame-src`/`child-src` allow global `http:` + `https:` (`csp.ts:99-111`) across environments. This weakens renderer containment and increases XSS blast radius if an injection path appears.~~ ✅ 2026-04-16 (`3bcc0170`) Effort: **M**.
 
-- **Medium** — Extension protocol registry is add-only with no uninstall symmetry — manifests are inserted via `registerExtAssets`/`registerAllExtAssets` (`apps/desktop/electron/platform/protocols/ext-protocol.ts:24-32`) and consumed in protocol handling (`ext-protocol.ts:89`), but there is no remove API while plugin install currently registers on install (`apps/desktop/electron/features/plugins/manager.ts:311`). This can leave stale entries until restart. Effort: **S**.
+- **Medium** — ~~Extension protocol registry is add-only with no uninstall symmetry — manifests are inserted via `registerExtAssets`/`registerAllExtAssets` (`apps/desktop/electron/platform/protocols/ext-protocol.ts:24-32`) and consumed in protocol handling (`ext-protocol.ts:89`), but there is no remove API while plugin install currently registers on install (`apps/desktop/electron/features/plugins/manager.ts:311`). This can leave stale entries until restart.~~ ✅ 2026-04-16 (`3bcc0170`) Effort: **S**.
 
-- **Medium** — Builtin package detection rules are duplicated between runtime and build scripts — `apps/desktop/electron/platform/protocols/builtin-resources.ts:31-44` and `apps/desktop/scripts/build-electron.mjs:35-48` contain mirrored `isBuiltinPackageDir` logic with manual sync comments. Drift here causes packaged-vs-dev discovery mismatch. Effort: **S**.
+- **Medium** — ~~Builtin package detection rules are duplicated between runtime and build scripts — `apps/desktop/electron/platform/protocols/builtin-resources.ts:31-44` and `apps/desktop/scripts/build-electron.mjs:35-48` contain mirrored `isBuiltinPackageDir` logic with manual sync comments. Drift here causes packaged-vs-dev discovery mismatch.~~ ✅ 2026-04-16 (`3bcc0170`) Effort: **S**.
 
-- **Low** — Environment bootstrap uses synchronous migration/registry IO during module init — `apps/desktop/electron/platform/env/index.ts:43-53,118-130` runs profile resolution and registry reads at import time. It works today, but raises startup coupling and test harness complexity. Effort: **M**.
+- **Low** — ~~Environment bootstrap uses synchronous migration/registry IO during module init — `apps/desktop/electron/platform/env/index.ts:43-53,118-130` runs profile resolution and registry reads at import time. It works today, but raises startup coupling and test harness complexity.~~ ✅ 2026-04-16 (`3bcc0170`) Effort: **M**.
 
 ## Proposed Refactoring
 1. **Tighten CSP by environment and feature need.**
@@ -43,8 +43,7 @@ _Plan drafted: 2026-04-12_
 - Shared detection helper extraction touches build tooling and runtime paths, so both dev and packaged builds must be validated.
 
 ## Next Steps
-1. Patch CSP policy first (prod-focused tightening + regression tests).
-2. Add `unregisterExtAssets` and wire uninstall/rollback paths.
-3. Extract canonical builtin package detection helper and remove duplicate implementations.
-4. Refactor env bootstrap into explicit staged init while preserving pre-SDK ordering.
-5. Continue Wave A into renderer orchestration deslopify targets (`src/stores`, `src/hooks`, `src/lib`).
+1. None — folder plan fully executed 2026-04-16.
+
+## Execution log
+- 2026-04-16 — `3bcc0170` `refactor(desktop-platform): harden CSP and protocol lifecycle`

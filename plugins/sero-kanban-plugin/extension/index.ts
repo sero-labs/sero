@@ -17,6 +17,7 @@ import { Type } from '@sinclair/typebox';
 import type { Column, Priority } from '../shared/types';
 import { COLUMNS, COLUMN_LABELS, createCard } from '../shared/types';
 import { resolveWorkspacePathFromStatePath } from '../shared/error-log';
+import { describeEditableKanbanSettings } from '../shared/settings-descriptor';
 import { validateManualMove } from '../shared/validation';
 import { resolveStatePath, readState, writeState, formatCard, formatBoard } from './state-io';
 import {
@@ -38,7 +39,7 @@ const KanbanParams = Type.Object({
   description: Type.Optional(Type.String({ description: 'Card description' })),
   blockedBy: Type.Optional(Type.Array(Type.String(), { description: 'IDs of cards that must be done before this card can start' })),
   acceptance: Type.Optional(Type.Array(Type.String(), { description: 'Acceptance criteria' })),
-  setting: Type.Optional(Type.String({ description: 'Setting name for settings action (testingEnabled, reviewMode, reviewLevel)' })),
+  setting: Type.Optional(Type.String({ description: `Setting name for settings action (${describeEditableKanbanSettings()})` })),
   value: Type.Optional(Type.String({ description: 'Setting value for settings action' })),
   revisionFeedback: Type.Optional(Type.String({ description: 'Feedback text for request-revisions action' })),
   errorMessage: Type.Optional(Type.String({ description: 'Error message (for report-error)' })),
@@ -82,10 +83,11 @@ export default function (pi: ExtensionAPI) {
       statePath = resolvedPath;
       const workspacePath = ctx?.cwd ?? resolveWorkspacePathFromStatePath(statePath);
 
-      const state = await readState(statePath);
-      const sessionRuntime = getKanbanSessionRuntime(ctx) ?? extensionRuntime;
+      try {
+        const state = await readState(statePath);
+        const sessionRuntime = getKanbanSessionRuntime(ctx) ?? extensionRuntime;
 
-      switch (params.action) {
+        switch (params.action) {
         case 'list': {
           return {
             content: [{ type: 'text', text: formatBoard(state) }],
@@ -337,6 +339,13 @@ export default function (pi: ExtensionAPI) {
             content: [{ type: 'text', text: `Unknown action: ${params.action}` }],
             details: {},
           };
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          content: [{ type: 'text', text: message.startsWith('Error:') ? message : `Error: ${message}` }],
+          details: {},
+        };
       }
     },
 

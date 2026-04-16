@@ -32,14 +32,36 @@ export function withStateLock<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Read / Write ───────────────────────────────────────────────
 
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
+function createStateReadError(filePath: string, error: unknown): Error {
+  const detail = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `Cron state file at ${filePath} is unreadable. Repair or remove the malformed file before retrying. Original error: ${detail}`,
+  );
+}
+
+function normalizeCronState(raw: Partial<CronState>): CronState {
+  return {
+    ...DEFAULT_CRON_STATE,
+    ...raw,
+    jobs: Array.isArray(raw.jobs) ? raw.jobs : [],
+    reminders: Array.isArray(raw.reminders) ? raw.reminders : [],
+    lastRunResults: Array.isArray(raw.lastRunResults) ? raw.lastRunResults : [],
+  };
+}
+
 export async function readState(filePath: string): Promise<CronState> {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
-    const parsed = JSON.parse(raw) as CronState;
-    if (!parsed.reminders) parsed.reminders = [];
-    return parsed;
-  } catch {
-    return { ...DEFAULT_CRON_STATE, jobs: [], reminders: [], lastRunResults: [] };
+    return normalizeCronState(JSON.parse(raw) as Partial<CronState>);
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return normalizeCronState(DEFAULT_CRON_STATE);
+    }
+    throw createStateReadError(filePath, error);
   }
 }
 

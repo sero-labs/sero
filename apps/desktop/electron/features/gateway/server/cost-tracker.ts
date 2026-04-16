@@ -70,6 +70,14 @@ const DEFAULT_LIMITS: CostLimitsConfig = {
   maxConcurrentSessions: 10,
 };
 
+type CostConfigLoadResult =
+  | { ok: true; value: CostLimitsConfig }
+  | { ok: false; reason: 'missing' | 'invalid' | 'unreadable'; error: string };
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 // ── Cost Tracker ────────────────────────────────────────────
 
 interface SessionCost {
@@ -90,6 +98,7 @@ export class CostTracker {
   private activeSessions = new Set<string>();
   private limits: CostLimitsConfig;
   private configPath: string;
+  private configLoadError: string | null = null;
 
   constructor(configDir: string) {
     this.configPath = path.join(configDir, 'gateway-config.json');
@@ -196,13 +205,20 @@ export class CostTracker {
     dailyLimit: number;
     activeSessions: number;
     sessionCount: number;
+    configLoadError: string | null;
   } {
     return {
       dailyCost: this.dailyCost,
       dailyLimit: this.limits.maxCostPerDay,
       activeSessions: this.activeSessions.size,
       sessionCount: this.sessionCosts.size,
+      configLoadError: this.configLoadError,
     };
+  }
+
+  /** Config load warning to surface in diagnostics/status views. */
+  getConfigLoadError(): string | null {
+    return this.configLoadError;
   }
 
   // ── Internal ──────────────────────────────────────────────
@@ -231,25 +247,67 @@ export class CostTracker {
   }
 
   private loadConfig(): CostLimitsConfig {
-    try {
-      const raw = fs.readFileSync(this.configPath, 'utf-8');
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      return {
-        maxCostPerSession: CostTracker.positiveNum(
-          parsed.maxCostPerSession, DEFAULT_LIMITS.maxCostPerSession,
-        ),
-        maxCostPerDay: CostTracker.positiveNum(
-          parsed.maxCostPerDay, DEFAULT_LIMITS.maxCostPerDay,
-        ),
-        maxConcurrentSessions: CostTracker.positiveNum(
-          parsed.maxConcurrentSessions, DEFAULT_LIMITS.maxConcurrentSessions,
-        ),
-      };
-    } catch {
-      // File doesn't exist or is invalid — write defaults
+    const loaded = this.readConfig();
+    if (loaded.ok) {
+      this.configLoadError = null;
+      return loaded.value;
+    }
+
+    if (loaded.reason === 'missing') {
       this.saveConfig(DEFAULT_LIMITS);
+      this.configLoadError = null;
       return { ...DEFAULT_LIMITS };
     }
+
+    this.configLoadError = `${this.configPath}: ${loaded.error}`;
+    console.warn(
+      `[gateway:cost] Failed to load config from ${this.configPath}: ${loaded.error}. ` +
+        'Using defaults without overwriting the existing file.',
+    );
+    return { ...DEFAULT_LIMITS };
+  }
+
+  private readConfig(): CostConfigLoadResult {
+    let raw: string;
+    try {
+      raw = fs.readFileSync(this.configPath, 'utf-8');
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        return { ok: false, reason: 'missing', error: 'Config file does not exist' };
+      }
+      return { ok: false, reason: 'unreadable', error: errorMessage(err) };
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      return { ok: false, reason: 'invalid', error: `Invalid JSON (${errorMessage(err)})` };
+    }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, reason: 'invalid', error: 'Config root must be a JSON object' };
+    }
+
+    const config = parsed as Record<string, unknown>;
+    return {
+      ok: true,
+      value: {
+        maxCostPerSession: CostTracker.positiveNum(
+          config.maxCostPerSession,
+          DEFAULT_LIMITS.maxCostPerSession,
+        ),
+        maxCostPerDay: CostTracker.positiveNum(
+          config.maxCostPerDay,
+          DEFAULT_LIMITS.maxCostPerDay,
+        ),
+        maxConcurrentSessions: CostTracker.positiveNum(
+          config.maxConcurrentSessions,
+          DEFAULT_LIMITS.maxConcurrentSessions,
+        ),
+      },
+    };
   }
 
   private saveConfig(config: CostLimitsConfig): void {

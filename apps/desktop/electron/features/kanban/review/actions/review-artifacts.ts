@@ -2,6 +2,7 @@ import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import { warnCleanupFailure } from '@electron/features/kanban/core/cleanup-warnings';
 
 const execFileAsync = promisify(execFile);
 
@@ -62,5 +63,10 @@ export async function deleteReviewCache(
   const cachePath = reviewFilePath
     ? path.resolve(workspacePath, reviewFilePath)
     : path.join(workspacePath, '.sero', 'apps', 'kanban', 'reviews', `card-${cardId}.json`);
-  await fs.rm(cachePath, { force: true }).catch(() => {});
+
+  try {
+    await fs.rm(cachePath, { force: true });
+  } catch (error) {
+    warnCleanupFailure(`failed to delete review cache for card #${cardId} at ${cachePath}`, error);
+  }
 }

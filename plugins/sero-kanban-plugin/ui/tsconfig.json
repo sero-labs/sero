@@ -10,7 +10,8 @@
     "noEmit": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": {
-      "@sero-ai/app-runtime": ["../../../packages/app-runtime/src/index.ts"]
+      "@sero-ai/app-runtime": ["../../../packages/app-runtime/src/index.ts"],
+      "@sero/common": ["../../../packages/common/src/index.ts"]
     }
   },
   "include": ["./**/*", "../shared/**/*"]

@@ -6,6 +6,12 @@
 
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
+import type { LspNotificationEvent } from '@/lsp/lsp-protocol';
+
+interface LspServerStoppedEvent {
+  workspaceId: string;
+  language: string;
+}
 
 export const debugBridge = {
   toggle: (): Promise<boolean> =>
@@ -42,13 +48,13 @@ export const lspBridge = {
     ipcRenderer.send(IpcChannels.lsp.notify, workspaceId, language, method, params),
   hasServer: (workspaceId: string, language: string): Promise<boolean> =>
     ipcRenderer.invoke(IpcChannels.lsp.hasServer, workspaceId, language),
-  onNotification: (callback: (data: { workspaceId: string; language: string; notification: any }) => void): (() => void) => {
-    const handler = (_e: IpcRendererEvent, data: any) => callback(data);
+  onNotification: (callback: (data: LspNotificationEvent) => void): (() => void) => {
+    const handler = (_e: IpcRendererEvent, data: LspNotificationEvent) => callback(data);
     ipcRenderer.on(IpcChannels.lsp.notification, handler);
     return () => { ipcRenderer.removeListener(IpcChannels.lsp.notification, handler); };
   },
-  onServerStopped: (callback: (data: { workspaceId: string; language: string }) => void): (() => void) => {
-    const handler = (_e: IpcRendererEvent, data: any) => callback(data);
+  onServerStopped: (callback: (data: LspServerStoppedEvent) => void): (() => void) => {
+    const handler = (_e: IpcRendererEvent, data: LspServerStoppedEvent) => callback(data);
     ipcRenderer.on(IpcChannels.lsp.serverStopped, handler);
     return () => { ipcRenderer.removeListener(IpcChannels.lsp.serverStopped, handler); };
   },

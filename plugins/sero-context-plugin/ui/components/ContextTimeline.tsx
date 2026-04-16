@@ -198,7 +198,7 @@ function TimelineNode({
                 onCheckout(target);
               }}
             >
-              Checkout here
+              Ask agent to checkout
             </Button>
 
             {!node.label && (
@@ -227,11 +227,14 @@ function TimelineNode({
                   type="submit"
                   disabled={!tagInput.trim()}
                 >
-                  Tag
+                  Ask agent to tag
                 </Button>
               </form>
             )}
           </div>
+          <span className="text-[10px] text-muted-foreground/60">
+            Prompt-routed via the agent — not a direct UI command.
+          </span>
           <span className="font-mono text-[9px] text-muted-foreground/40">
             ID: {node.id}
           </span>

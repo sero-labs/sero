@@ -84,6 +84,12 @@ function validateFrontmatter(
   if (!fm.description || typeof fm.description !== 'string') {
     warnings.push(`[subagent/discovery] ${filePath}: missing or invalid 'description' in frontmatter`);
   }
+  if (fm.tools !== undefined) {
+    warnings.push(`[subagent/discovery] ${filePath}: frontmatter field 'tools' is ignored in v1`);
+  }
+  if (fm.extensions !== undefined) {
+    warnings.push(`[subagent/discovery] ${filePath}: frontmatter field 'extensions' is ignored in v1`);
+  }
   return warnings;
 }
 
@@ -113,8 +119,6 @@ function toAgentConfig(
     model: parseAgentModelField(fm.model),
     thinking: typeof fm.thinking === 'string' ? fm.thinking : undefined,
     timeoutMs: typeof fm.timeoutMs === 'number' ? fm.timeoutMs : undefined,
-    tools: Array.isArray(fm.tools) ? fm.tools.filter((t): t is string => typeof t === 'string') : undefined,
-    extensions: Array.isArray(fm.extensions) ? fm.extensions.filter((e): e is string => typeof e === 'string') : undefined,
     systemPrompt: body,
     source: 'global',
     filePath: absPath,

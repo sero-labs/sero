@@ -10,10 +10,7 @@
  * Sero's UI, all workspaces (container or not) can use those credentials.
  */
 
-import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import path from 'node:path';
+import { execFile, type ExecFileException } from 'node:child_process';
 
 import { containerManager } from '@electron/shared/infra/shared-infra';
 import { getGoogleAuthManager } from '@electron/ipc/integrations/google-api';
@@ -21,6 +18,10 @@ import {
   deriveKeyringPassword,
   getGoogleClientName,
 } from '@electron/features/auth/google/gog-keyring';
+import {
+  buildGogPath,
+  resolveGogBinaryPath,
+} from '@electron/features/auth/google/gog-runtime';
 import type { CliCommandContext, CliResult } from '../core/types';
 
 // ── Shell helpers ────────────────────────────────────────────
@@ -33,33 +34,6 @@ function shQuote(value: string): string {
 /** Build a shell-safe command string from an array of arguments. */
 function buildCommand(args: string[]): string {
   return args.map(shQuote).join(' ');
-}
-
-// ── Local gog binary resolution ──────────────────────────────
-
-const GOG_SEARCH_PATHS = [
-  '/opt/homebrew/bin/gog',
-  '/usr/local/bin/gog',
-  path.join(homedir(), '.local/bin/gog'),
-  path.join(homedir(), 'go/bin/gog'),
-];
-
-let _gogPath: string | null | undefined;
-
-function findGogBinary(): string {
-  if (_gogPath !== undefined) return _gogPath ?? 'gog';
-  for (const p of GOG_SEARCH_PATHS) {
-    if (existsSync(p)) { _gogPath = p; return p; }
-  }
-  _gogPath = null;
-  return 'gog';
-}
-
-function buildEnhancedPath(): string {
-  const existing = process.env.PATH || '';
-  const extra = ['/opt/homebrew/bin', '/usr/local/bin',
-    path.join(homedir(), '.local/bin'), path.join(homedir(), 'go/bin')];
-  return [...new Set([...extra, ...existing.split(':')])].join(':');
 }
 
 // ── Types ────────────────────────────────────────────────────
@@ -82,6 +56,15 @@ export const GOG_AUTH_TIMEOUT_MS = 60_000;
 
 // ── Local execution (non-container workspaces) ───────────────
 
+function isExecNotFound(error: ExecFileException | null): boolean {
+  return error?.code === 'ENOENT';
+}
+
+function getExecExitCode(error: ExecFileException | null): number {
+  if (!error) return 0;
+  return typeof error.code === 'number' ? error.code : 1;
+}
+
 /** Run gog locally on the host. Auto-injects Sero account + keyring. */
 async function runGogLocal(gogArgs: string[], opts?: GogOpts): Promise<GogResult> {
   const auth = getGoogleAuthManager();
@@ -97,25 +80,25 @@ async function runGogLocal(gogArgs: string[], opts?: GogOpts): Promise<GogResult
     if (opts?.noInput !== false) fullArgs.push('--no-input');
     fullArgs.push(...gogArgs);
 
-    const child = execFile(findGogBinary(), fullArgs, {
+    const child = execFile(resolveGogBinaryPath(), fullArgs, {
       timeout: opts?.timeoutMs ?? GOG_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
       env: {
         ...process.env,
-        PATH: buildEnhancedPath(),
+        PATH: buildGogPath(),
         // Use Sero-managed keyring so gog finds the tokens imported
         // during Sero's Google OAuth sign-in flow.
         GOG_KEYRING_PASSWORD: deriveKeyringPassword(),
       },
-    }, (error, stdout, stderr) => {
-      if (error && (error as any).code === 'ENOENT') {
+    }, (error: ExecFileException | null, stdout, stderr) => {
+      if (isExecNotFound(error)) {
         resolve({ stdout: '', stderr: 'gog binary not found', exitCode: 127 });
         return;
       }
       resolve({
         stdout: stdout ?? '',
         stderr: stderr ?? '',
-        exitCode: error ? ((error as any).status ?? 1) : 0,
+        exitCode: getExecExitCode(error),
       });
     });
 

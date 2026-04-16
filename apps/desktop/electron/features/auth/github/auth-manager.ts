@@ -78,6 +78,14 @@ interface DeviceCodeResponse {
   interval: number;
 }
 
+interface TokenPollResponse {
+  accessToken?: string;
+  error?: string;
+  errorDescription?: string;
+  status: number;
+  statusText: string;
+}
+
 // ── Manager ──────────────────────────────────────────────────
 
 export class GitHubAuthManager {
@@ -219,26 +227,12 @@ export class GitHubAuthManager {
       await sleep(interval);
       signal?.throwIfAborted();
 
-      const body = new URLSearchParams({
-        client_id: GITHUB_CLIENT_ID,
-        device_code: device.device_code,
-        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-      });
+      const data = await this.requestAccessToken(device.device_code);
 
-      const resp = await fetch(ACCESS_TOKEN_URL, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json' },
-        body,
-      });
-
-      if (!resp.ok) continue;
-
-      const data = (await resp.json()) as Record<string, string>;
-
-      if (data.access_token) return data.access_token;
+      if (data.accessToken) return data.accessToken;
       if (data.error === 'authorization_pending') continue;
       if (data.error === 'slow_down') {
-        await sleep(5000);
+        await sleep(interval);
         continue;
       }
       if (data.error === 'expired_token') {
@@ -248,11 +242,61 @@ export class GitHubAuthManager {
         throw new Error('Authorization was denied by the user.');
       }
       if (data.error) {
-        throw new Error(`GitHub OAuth error: ${data.error_description || data.error}`);
+        const reason = data.errorDescription || data.error;
+        throw new Error(`GitHub OAuth error (${data.status} ${data.statusText}): ${reason}`);
       }
+
+      throw new Error(`GitHub OAuth token polling returned an invalid response (${data.status} ${data.statusText}).`);
     }
 
     throw new Error('Device code expired. Please try again.');
+  }
+
+  private async requestAccessToken(deviceCode: string): Promise<TokenPollResponse> {
+    const body = new URLSearchParams({
+      client_id: GITHUB_CLIENT_ID,
+      device_code: deviceCode,
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+    });
+
+    let resp: Response;
+    try {
+      resp = await fetch(ACCESS_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body,
+      });
+    } catch (err) {
+      throw new Error(`GitHub token polling request failed: ${formatError(err)}`);
+    }
+
+    let payload: unknown;
+    try {
+      payload = await resp.json();
+    } catch (err) {
+      throw new Error(`GitHub token polling returned a non-JSON response (${resp.status} ${resp.statusText}).`);
+    }
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new Error(`GitHub token polling returned an invalid JSON payload (${resp.status} ${resp.statusText}).`);
+    }
+
+    const record = payload as Record<string, unknown>;
+    const accessToken = readRecordString(record, 'access_token');
+    const error = readRecordString(record, 'error');
+    const errorDescription = readRecordString(record, 'error_description');
+
+    if (!resp.ok && !error) {
+      throw new Error(`GitHub token polling failed with ${resp.status} ${resp.statusText}.`);
+    }
+
+    return {
+      accessToken,
+      error,
+      errorDescription,
+      status: resp.status,
+      statusText: resp.statusText,
+    };
   }
 
   private async fetchUser(token: string): Promise<{ login: string }> {
@@ -312,6 +356,16 @@ export class GitHubAuthManager {
       }
     }
   }
+}
+
+function readRecordString(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return String(error);
 }
 
 function sleep(ms: number): Promise<void> {

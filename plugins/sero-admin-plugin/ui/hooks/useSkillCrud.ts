@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from 'react';
 import type { SkillSummary, SkillFileData, SkillSource } from '../components/types';
-import { getSero } from './useSeroFiles';
+import { getSero } from './host';
 
 const NEW_SKILL: SkillFileData = {
   name: '',

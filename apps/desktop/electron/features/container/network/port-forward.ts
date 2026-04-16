@@ -32,6 +32,8 @@ interface WorkspaceScanState {
   lastPorts: Set<number>;
   /** Port numbers that have an active bridge. */
   bridges: Set<number>;
+  /** In-flight scan promise so trigger/interval scans coalesce and teardown can await cleanup. */
+  scanPromise: Promise<void> | null;
 }
 
 // ── Port parsing ────────────────────────────────────────────
@@ -92,35 +94,34 @@ export class PortScanner {
     if (this.workspaces.has(wsId)) return;
 
     const state: WorkspaceScanState = {
-      timer: setInterval(() => this.scan(wsId), this.SCAN_INTERVAL),
+      timer: setInterval(() => {
+        void this.runScan(wsId);
+      }, this.SCAN_INTERVAL),
       containerIp,
       execFn,
       detected: [],
       lastPorts: new Set(),
       bridges: new Set(),
+      scanPromise: null,
     };
 
     this.workspaces.set(wsId, state);
-    this.scan(wsId); // immediate first scan
+    void this.runScan(wsId); // immediate first scan
   }
 
   /** Stop scanning a container. */
-  stopScanning(wsId: string): void {
+  async stopScanning(wsId: string): Promise<void> {
     const state = this.workspaces.get(wsId);
     if (!state) return;
     clearInterval(state.timer);
-    for (const port of state.bridges) {
-      void state.execFn(stopBridgeCommand(wsId, port));
-    }
-    state.bridges.clear();
-    state.detected = [];
-    state.lastPorts.clear();
     this.workspaces.delete(wsId);
+    await state.scanPromise?.catch(() => undefined);
+    await this.resetWorkspaceState(state, wsId);
   }
 
   /** Trigger an immediate scan (e.g. after a bash command). Non-blocking. */
   triggerScan(wsId: string): void {
-    this.scan(wsId);
+    void this.runScan(wsId);
   }
 
   /** Get detected ports for a workspace (from the most recent scan). */
@@ -133,21 +134,33 @@ export class PortScanner {
     return this.workspaces.get(wsId)?.containerIp;
   }
 
-  disposeAll(): void {
-    for (const [wsId] of this.workspaces) this.stopScanning(wsId);
+  async disposeAll(): Promise<void> {
+    await Promise.allSettled(
+      Array.from(this.workspaces.keys()).map((wsId) => this.stopScanning(wsId)),
+    );
+  }
+
+  private runScan(wsId: string): Promise<void> | undefined {
+    const state = this.workspaces.get(wsId);
+    if (!state) return undefined;
+    if (state.scanPromise) return state.scanPromise;
+
+    const scanPromise = this.scan(wsId, state).finally(() => {
+      if (state.scanPromise === scanPromise) {
+        state.scanPromise = null;
+      }
+    });
+    state.scanPromise = scanPromise;
+    return scanPromise;
   }
 
   // ── Internal ──────────────────────────────────────────
 
-  private async scan(wsId: string): Promise<void> {
-    const state = this.workspaces.get(wsId);
-    if (!state) return;
-
+  private async scan(wsId: string, state: WorkspaceScanState): Promise<void> {
     try {
       const result = await state.execFn('ss -tlnp 2>/dev/null');
       if (result.exitCode !== 0) {
-        state.detected = [];
-        state.lastPorts.clear();
+        await this.resetWorkspaceState(state, wsId);
         return;
       }
 
@@ -179,9 +192,17 @@ export class PortScanner {
       state.lastPorts = currentSet;
       state.detected = detected;
     } catch {
-      state.detected = [];
-      state.lastPorts.clear();
+      await this.resetWorkspaceState(state, wsId);
     }
+  }
+
+  private async resetWorkspaceState(state: WorkspaceScanState, wsId: string): Promise<void> {
+    await Promise.allSettled(
+      Array.from(state.bridges).map((port) => state.execFn(stopBridgeCommand(wsId, port))),
+    );
+    state.bridges.clear();
+    state.detected = [];
+    state.lastPorts.clear();
   }
 
   private async ensureBridge(

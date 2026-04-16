@@ -15,6 +15,8 @@ vi.mock('electron', () => ({
 
 import { agentBridge } from '@electron/preload/api/core';
 import { filetreeBridge, vcsBridge } from '@electron/preload/api/workbench';
+import { lspBridge } from '@electron/preload/editor/debug-lsp';
+import { googleBridge } from '@electron/preload/integrations/google-imagegen';
 
 describe('preload event bridge subscriptions', () => {
   beforeEach(() => {
@@ -91,6 +93,64 @@ describe('preload event bridge subscriptions', () => {
 
     expect(mocks.ipcRenderer.removeListener).toHaveBeenCalledWith(
       IpcChannels.filetree.changed,
+      handler,
+    );
+  });
+
+  it('unsubscribes LSP notification listeners with typed event payloads', () => {
+    const callback = vi.fn();
+
+    const unsubscribe = lspBridge.onNotification(callback);
+
+    expect(mocks.ipcRenderer.on).toHaveBeenCalledWith(
+      IpcChannels.lsp.notification,
+      expect.any(Function),
+    );
+    const handler = mocks.ipcRenderer.on.mock.calls.at(-1)?.[1];
+    expect(handler).toBeTypeOf('function');
+
+    handler?.({}, {
+      workspaceId: 'ws-1',
+      language: 'typescript',
+      notification: { method: 'textDocument/publishDiagnostics', params: { uri: 'file:///app.ts', diagnostics: [] } },
+    });
+    expect(callback).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      language: 'typescript',
+      notification: { method: 'textDocument/publishDiagnostics', params: { uri: 'file:///app.ts', diagnostics: [] } },
+    });
+
+    unsubscribe();
+
+    expect(mocks.ipcRenderer.removeListener).toHaveBeenCalledWith(
+      IpcChannels.lsp.notification,
+      handler,
+    );
+  });
+
+  it('unsubscribes Google auth listeners with typed progress payloads', () => {
+    const callback = vi.fn();
+
+    const unsubscribe = googleBridge.onAuthEvent(callback);
+
+    expect(mocks.ipcRenderer.on).toHaveBeenCalledWith(
+      IpcChannels.google.authEvent,
+      expect.any(Function),
+    );
+    const handler = mocks.ipcRenderer.on.mock.calls.at(-1)?.[1];
+    expect(handler).toBeTypeOf('function');
+
+    handler?.({}, { type: 'success', message: 'Signed in', email: 'user@example.com' });
+    expect(callback).toHaveBeenCalledWith({
+      type: 'success',
+      message: 'Signed in',
+      email: 'user@example.com',
+    });
+
+    unsubscribe();
+
+    expect(mocks.ipcRenderer.removeListener).toHaveBeenCalledWith(
+      IpcChannels.google.authEvent,
       handler,
     );
   });

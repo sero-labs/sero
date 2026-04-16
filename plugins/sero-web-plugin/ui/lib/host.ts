@@ -1,19 +1,7 @@
-interface HostApi {
-  sero?: {
-    appControl?: {
-      openFile?: (workspaceId: string, filePath: string) => Promise<boolean>;
-    };
-    shell?: {
-      showItemInFolder?: (fullPath: string) => Promise<void>;
-    };
-    editor?: {
-      delete?: (workspaceId: string, itemPath: string) => Promise<boolean>;
-    };
-  };
-}
+import type { SeroWebHostBridge } from '@sero/common';
 
-function getHost(): NonNullable<HostApi['sero']> {
-  const sero = (window as unknown as HostApi).sero;
+function getHost(): SeroWebHostBridge {
+  const sero = (window as unknown as { sero?: SeroWebHostBridge }).sero;
   if (!sero) throw new Error('window.sero is unavailable');
   return sero;
 }

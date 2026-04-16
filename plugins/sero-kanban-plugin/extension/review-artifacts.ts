@@ -58,9 +58,15 @@ export async function deleteReviewCache(
   workspacePath: string,
   cardId: string,
   reviewFilePath?: string,
-): Promise<void> {
+): Promise<string[]> {
   const cachePath = reviewFilePath
     ? path.resolve(workspacePath, reviewFilePath)
     : path.join(workspacePath, '.sero', 'apps', 'kanban', 'reviews', `card-${cardId}.json`);
-  await fs.rm(cachePath, { force: true }).catch(() => {});
+
+  try {
+    await fs.rm(cachePath, { force: true });
+    return [];
+  } catch (err) {
+    return [`Review cache cleanup failed for ${cachePath}: ${extractErrorDetail(err)}`];
+  }
 }

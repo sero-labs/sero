@@ -1,6 +1,6 @@
 # Facts — apps/desktop/src/hooks
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-15_
 
 ## What this code does
 `src/hooks` contains renderer orchestration hooks that glue shell UI to store and IPC behavior: prompt-input command/file completion, session↔agent lifecycle sync, checkpoint restore flow, keyboard shortcuts, GitHub auth device flow, user-feedback listener bootstrapping, debouncing utilities, and workspace file indexing.
@@ -48,3 +48,21 @@ _Last reviewed: 2026-04-12_
 ### Still outstanding
 - Built-in `/login` / `/logout` command handling is still duplicated in `useChatPromptInput.ts`.
 - GitHub auth copy-status timer duplication in `useGitHubAuthFlow.ts` is still pending.
+
+## Post-fix snapshot — 2026-04-15
+
+### Metrics after fixes
+- Total files: 18 (was 12)
+- Total LOC: 1,929 (was 939)
+- Largest file: `apps/desktop/src/hooks/useWorkspaceFiles.ts` (271 LOC)
+- Files over 500 LOC: none (was none)
+- Near-cap files (≥400 LOC): none
+- Type escape hatches remaining: none introduced in this pass
+
+### What changed
+- Added a shared built-in command helper in `useChatPromptInput.ts` so slash-menu selection and raw prompt submit no longer duplicate `/login` / `/logout` routing logic.
+- Added one transient copy-state helper in `useGitHubAuthFlow.ts` so copy success/failure feedback shares timer cleanup and reset behavior.
+- Added focused hook coverage in `useChatPromptInput.test.tsx` and `useGitHubAuthFlow.test.tsx`, and re-ran the onboarding GitHub-step regression tests that exercise `refreshStatus()`.
+
+### Still outstanding
+- None — the folder plan is fully executed.

@@ -8,8 +8,8 @@
 import { useCallback } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { useState } from 'react';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
+import { useTransientFlag } from '../useTransientUiState';
 
 interface SubagentOutputProps {
   response?: string;
@@ -18,14 +18,13 @@ interface SubagentOutputProps {
 }
 
 export function SubagentOutput({ response, error, isFailed }: SubagentOutputProps) {
-  const [copied, setCopied] = useState(false);
+  const [copied, showCopied] = useTransientFlag(2000);
   const text = isFailed ? (error ?? '') : (response ?? '');
 
   const handleCopy = useCallback(async () => {
     if (!(await copyTextToClipboard(text))) return;
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [text]);
+    showCopied();
+  }, [showCopied, text]);
 
   return (
     <div className="mt-1.5 relative">

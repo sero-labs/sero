@@ -20,6 +20,7 @@ import type {
   SeroPluginConfigAPI,
 } from './electron-services';
 import type { ThemePreset, ThemePresetMeta } from './theme';
+import type { SeroUserFeedbackBridge } from '@sero/common';
 
 import type {
   ProfileInfo,
@@ -318,16 +319,7 @@ interface SeroFeedbackAPI {
   remove(messageId: string): Promise<void>;
 }
 
-interface SeroUserFeedbackAPI {
-  /** Get all currently pending questions (for mount-time hydration). */
-  getPending(): Promise<UserFeedbackPendingQuestion[]>;
-  /** Send user's answer to a pending question/questionnaire. */
-  answer(response: UserFeedbackResponse): Promise<void>;
-  /** Listen for incoming question/questionnaire requests from extensions. */
-  onQuestion(callback: (data: UserFeedbackPendingQuestion) => void): () => void;
-  /** Listen for cancellation of a pending question. */
-  onCancel(callback: (data: { id: string }) => void): () => void;
-}
+interface SeroUserFeedbackAPI extends SeroUserFeedbackBridge {}
 
 // Editor, FileTree, LSP, Debug, and VCS interfaces are in electron-workspace.d.ts
 
@@ -456,6 +448,7 @@ export interface SeroAPI {
   appControl: SeroAppControlAPI;
   appAgent: SeroAppAgentAPI;
   gitApp: SeroGitAppAPI;
+  webApp: SeroWebAppAPI;
   google: SeroGoogleAPI;
   voice: SeroVoiceAPI;
   auth: SeroAuthAPI;

@@ -239,7 +239,7 @@ export async function createFreshContainer(
   // at the same absolute path so agent references resolve correctly.
   for (const hostDir of config.readOnlyMounts ?? []) {
     if (fs.existsSync(hostDir)) {
-      args.push('--volume', `${hostDir}:${hostDir}`);
+      args.push('--volume', `${hostDir}:${hostDir}:ro`);
     }
   }
 

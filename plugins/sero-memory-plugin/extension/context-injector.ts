@@ -31,6 +31,11 @@ import { buildPriorityContextSplit, clearPriorityContextCache } from './priority
 import { isQmdAvailable, runQmdUpdateNow } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { runPhase1Migration } from './migration';
+import {
+  clearPhase1MigrationState,
+  getPhase1MigrationState,
+  setPhase1MigrationState,
+} from './phase1-migration-state';
 import { flushPendingStats } from './memory-scoring';
 import { getMemoryInstructions } from './memory-instructions';
 import {
@@ -43,7 +48,6 @@ import {
 const SEARCH_CONTEXT_TYPE = 'memory-search-context';
 
 let cachedStatus: BootstrapStatus | null = null;
-let migrationChecked = false;
 
 async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
   if (!cachedStatus) cachedStatus = await checkBootstrapStatus();
@@ -52,7 +56,6 @@ async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
 
 export function resetBootstrapCache(): void {
   cachedStatus = null;
-  migrationChecked = false;
 }
 
 export function markBootstrapDone(): void {
@@ -181,6 +184,7 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     const sessionId = ctx.sessionManager.getSessionId();
     clearPriorityContextCache(sessionId);
     clearMemoryPromptDebugState(sessionId);
+    clearPhase1MigrationState(sessionId);
     await flushPendingStats();
   });
 
@@ -203,9 +207,10 @@ export function registerContextInjection(pi: ExtensionAPI): void {
       if (needsBootstrap) {
         addition = buildBootstrapInstructions(status.existingUserContent);
       } else {
-        if (!migrationChecked) {
+        const phase1State = getPhase1MigrationState(sessionId);
+        if (!phase1State?.checked) {
           const migration = await runPhase1Migration(ctx);
-          migrationChecked = true;
+          setPhase1MigrationState(sessionId, migration.changed);
           info('before_agent_start_migration', {
             changed: migration.changed,
             notes: migration.notes,

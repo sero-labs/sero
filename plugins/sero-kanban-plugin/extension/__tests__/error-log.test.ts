@@ -12,7 +12,9 @@ vi.mock('node:fs', () => ({
       await delay(5);
       const value = files.get(filePath);
       if (value == null) {
-        throw new Error(`ENOENT: ${filePath}`);
+        const error = new Error(`ENOENT: ${filePath}`) as Error & { code?: string };
+        error.code = 'ENOENT';
+        throw error;
       }
       return value;
     }),
@@ -78,5 +80,13 @@ describe('appendError', () => {
       'second failure',
       'third failure',
     ]);
+  });
+
+  it('fails loud when the persisted error log is malformed', async () => {
+    const { readErrorLog } = await import('../error-log');
+    const statePath = '/workspace/.sero/apps/kanban/state.json';
+    files.set('/workspace/.sero/apps/kanban/errors.json', '{not-json');
+
+    await expect(readErrorLog(statePath)).rejects.toThrow(/Kanban error log/);
   });
 });

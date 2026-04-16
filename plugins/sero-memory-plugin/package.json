@@ -6,6 +6,8 @@
     "pi-package"
   ],
   "scripts": {
+    "test": "../../node_modules/.pnpm/node_modules/.bin/vitest run",
+    "test:watch": "../../node_modules/.pnpm/node_modules/.bin/vitest",
     "typecheck": "tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
@@ -25,8 +27,10 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
+    "@sero/common": "workspace:*",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "sero": {
     "plugin": {

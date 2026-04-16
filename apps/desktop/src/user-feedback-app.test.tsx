@@ -229,6 +229,7 @@ describe('UserFeedbackApp', () => {
       ],
       cancelled: false,
     });
+    expect(markOnboardingDone).not.toHaveBeenCalled();
     expect(container.textContent).toContain('Second prompt');
     expect(container.textContent).not.toContain('First prompt');
   });

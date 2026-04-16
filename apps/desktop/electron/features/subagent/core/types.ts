@@ -42,10 +42,6 @@ export interface AgentConfig {
   thinking?: string;
   /** Default timeout in milliseconds. */
   timeoutMs?: number;
-  /** Parsed tool names (stored, not enforced in v1). */
-  tools?: string[];
-  /** Parsed extension names (stored, not enforced in v1). */
-  extensions?: string[];
   /** .md body content — the agent's system prompt. */
   systemPrompt: string;
   /** Always 'global' in v1 (global user agent directory). */
@@ -73,8 +69,6 @@ export interface SubagentSettings {
   model: string | null;
   /** Default thinking level if agent/call omit one. */
   thinking: string | null;
-  /** Extension package names blocked from child sessions. */
-  blockedExtensions: string[];
 }
 
 const DEFAULT_SUBAGENT_SETTINGS: SubagentSettings = {
@@ -84,7 +78,6 @@ const DEFAULT_SUBAGENT_SETTINGS: SubagentSettings = {
   toolStallTimeoutMs: 120_000,
   model: null,
   thinking: null,
-  blockedExtensions: [],
 };
 
 // ── Run Result (runner output) ───────────────────────────────

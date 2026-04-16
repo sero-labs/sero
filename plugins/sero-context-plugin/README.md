@@ -22,7 +22,7 @@ Based on [pi-context](https://github.com/ttttmr/pi-context) by ttttmr.
 - **Context Graph** — vertical timeline with role-colored nodes, tag
   badges, HEAD indicator, and hidden-message gaps
 - **Quick Reference** — collapsible guide to the context management workflow
-- **Interactive Actions** — click any node to checkout or tag it
+- **Agent Prompt Shortcuts** — ask the agent to checkout or tag a node from the timeline
 
 ### Bundled Skill
 
@@ -47,7 +47,7 @@ SessionManager   useAppState
 ```
 
 The extension writes a structured state snapshot after each tool call.
-The UI watches this file and renders the graph in real time.
+The UI watches this file and renders the latest saved snapshot.
 
 ## Development
 
@@ -62,4 +62,4 @@ SERO_DEV_PLUGINS=context bash scripts/dev.sh
 ```
 
 The Context app appears in the sidebar. Click it to see the dashboard.
-Use "Refresh" or ask the agent to run `context_log` to populate data.
+Use "Ask agent to refresh" or ask the agent to run `context_log` to populate data.

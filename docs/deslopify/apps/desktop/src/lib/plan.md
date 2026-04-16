@@ -6,13 +6,13 @@ _Plan drafted: 2026-04-12_
 `src/lib` is mostly disciplined, but it contains one high-impact reliability bug in federated remote loading and a growing concentration of imperative DOM automation logic. The key outcome is to make app remote loading retry-safe and split dense interaction/runtime modules before they become fragile infrastructure bottlenecks.
 
 ## Issues Found (prioritized)
-- **High** — Federated component load failures can become sticky null renders with no automatic retry — `apps/desktop/src/lib/federation-registry.ts:297-309` returns `{ default: () => null }` on failed remote load while keeping the `LazyComp` cached (`cache.set(cacheKey, LazyComp)`). Subsequent renders reuse the same failed wrapper, so transient outages can leave an app blank until manual invalidation/restart. Effort: **S**.
+- **High** — ~~Federated component load failures can become sticky null renders with no automatic retry — `apps/desktop/src/lib/federation-registry.ts:297-309` returns `{ default: () => null }` on failed remote load while keeping the `LazyComp` cached (`cache.set(cacheKey, LazyComp)`). Subsequent renders reuse the same failed wrapper, so transient outages can leave an app blank until manual invalidation/restart.~~ ✅ 2026-04-15 (`e84596a5`) — failed lazy remote loads now clear the stale lazy wrapper, resolved-module cache, and LRU bookkeeping before returning the fallback component, with regression coverage that the next access retries and recovers without restart. Effort: **S**.
 
-- **Medium** — DOM interaction engine is a near-cap multi-responsibility module — `apps/desktop/src/lib/app-control/dom-interactions.ts:1-385` combines selector/point targeting, synthetic pointer+mouse dispatch, inspect payload building, and action routing in one file. This increases regression risk for app-control tooling changes. Effort: **M**.
+- **Medium** — ~~DOM interaction engine is a near-cap multi-responsibility module — `apps/desktop/src/lib/app-control/dom-interactions.ts:1-385` combines selector/point targeting, synthetic pointer+mouse dispatch, inspect payload building, and action routing in one file. This increases regression risk for app-control tooling changes.~~ ✅ 2026-04-15 (`5b7dd1d7`) — split into focused `app-control/dom/{geometry,targeting,actions,inspect}.ts` modules with `dom-interactions.ts` reduced to a thin router while preserving `executeAppInteraction` / `getAppPanelRect` API and behavior. Effort: **M**.
 
-- **Medium** — Font preloader eagerly injects all Google font links with no prioritization — `apps/desktop/src/lib/google-fonts.ts:84-92` appends stylesheet links for every mapped family on preload. This front-loads network overhead even if most fonts are never used. Effort: **S**.
+- **Medium** — ~~Font preloader eagerly injects all Google font links with no prioritization — `apps/desktop/src/lib/google-fonts.ts:84-92` appends stylesheet links for every mapped family on preload. This front-loads network overhead even if most fonts are never used.~~ ✅ 2026-04-15 (`73019053`) — `preloadAllGoogleFonts()` now preloads a curated subset and keeps other families on-demand. Effort: **S**.
 
-- **Low** — Dead code in theme engine (`presetToMeta`) adds noise — `apps/desktop/src/lib/theme-engine.ts:289-297` defines an unexported helper with no callers. Effort: **S**.
+- **Low** — ~~Dead code in theme engine (`presetToMeta`) adds noise — `apps/desktop/src/lib/theme-engine.ts:289-297` defines an unexported helper with no callers.~~ ✅ 2026-04-15 (`42ab6241`) — removed unused `presetToMeta` helper and its now-unused `ThemePresetMeta` type import from `theme-engine.ts`. Effort: **S**.
 
 ## Proposed Refactoring
 1. **Make federation load failures retryable.**
@@ -46,8 +46,17 @@ _Plan drafted: 2026-04-12_
 - Font preload tuning should be validated against UX expectations in the theme editor (avoid flashing unavailable fonts).
 
 ## Next Steps
-1. Land High fix in `federation-registry.ts` (drop failed lazy cache entries and retry on next access).
-2. Add regression tests for transient remote failure → later recovery without restart.
-3. Split `dom-interactions.ts` into focused modules while preserving API.
-4. Optimize `preloadAllGoogleFonts()` strategy.
-5. Remove dead `presetToMeta` helper or connect it to an actual call site.
+1. ~~Land High fix in `federation-registry.ts` (drop failed lazy cache entries and retry on next access).~~ ✅ 2026-04-15 (`e84596a5`)
+2. ~~Add regression tests for transient remote failure → later recovery without restart.~~ ✅ 2026-04-15 (`e84596a5`)
+3. ~~Split `dom-interactions.ts` into focused modules while preserving API.~~ ✅ 2026-04-15 (`5b7dd1d7`)
+4. ~~Optimize `preloadAllGoogleFonts()` strategy.~~ ✅ 2026-04-15 (`73019053`)
+5. ~~Remove dead `presetToMeta` helper or connect it to an actual call site.~~ ✅ 2026-04-15 (`42ab6241`)
+
+## Execution log
+- 2026-04-15 — `e84596a5` — `fix(lib): retry failed federated remotes on next access`
+- 2026-04-15 — `5b7dd1d7` — `refactor(lib): split app-control dom interactions by concern`
+  - Extracted panel geometry, target resolution, interaction action dispatch, and inspection payload builders into focused `app-control/dom/*` modules while keeping the public router API stable.
+- 2026-04-15 — `73019053` — `perf(lib): preload only popular google fonts`
+  - Changed `preloadAllGoogleFonts()` to load a curated popular subset and kept less-common families on-demand via `loadGoogleFont()`, with focused coverage for preload scope + dedupe behavior.
+- 2026-04-15 — `42ab6241` — `refactor(lib): remove dead theme preset metadata helper`
+  - Removed the unused `presetToMeta` helper and dropped the stale `ThemePresetMeta` import from `theme-engine.ts` without changing theme application/validation behavior.

@@ -12,11 +12,11 @@
  * and re-register them as CLI commands (removing them from agent context).
  */
 
-import type { ToolDefinition, ExtensionContext } from '@mariozechner/pi-coding-agent';
-import type { CliCommand, CliCommandContext, CliContentBlock, CliResult, CliSessionRuntime } from './types';
-import { parseFlags } from '../lib/utils';
+import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
+import { buildCommandContext, buildToolContext } from './bridge-context';
 import { getBridgedExtensionCommand, getBridgedExtensionTool } from '../bridges/extension-session-bridge';
-import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
+import { parseFlags } from '../lib/utils';
 
 const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
   // Content extraction can invoke Gemini video pipelines and other slow fallbacks.
@@ -28,15 +28,26 @@ const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
   memory: 180_000,
 };
 
+const SCHEMA_PROP_TYPES = new Set<SchemaPropType>([
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'array',
+  'object',
+]);
+
 export function getBridgedToolTimeoutMs(toolName: string): number | undefined {
   return TOOL_TIMEOUT_OVERRIDES_MS[toolName];
 }
 
 // ── Schema introspection ────────────────────────────────────
 
+type SchemaPropType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
+
 interface SchemaProp {
   name: string;
-  type: string; // 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object'
+  type: SchemaPropType;
   description: string;
   required: boolean;
   enumValues?: string[];
@@ -44,44 +55,75 @@ interface SchemaProp {
   itemsSchema?: Record<string, unknown>;
 }
 
-function resolveAnyOf(p: Record<string, unknown>): Record<string, unknown> {
-  if (!Array.isArray(p.anyOf)) return p;
-  return (p.anyOf as Record<string, unknown>[]).find(
-    (v) => typeof v === 'object' && v !== null && v.type !== undefined,
-  ) ?? p;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getAnyOfVariants(schema: Record<string, unknown>): Record<string, unknown>[] {
+  const anyOf = schema.anyOf;
+  return Array.isArray(anyOf) ? anyOf.filter(isRecord) : [];
+}
+
+function getSchemaProperties(schema: Record<string, unknown>): Record<string, unknown> {
+  const properties = schema.properties;
+  return isRecord(properties) ? properties : {};
+}
+
+function getRequiredKeys(schema: Record<string, unknown>): Set<string> {
+  const required = schema.required;
+  return new Set(
+    Array.isArray(required)
+      ? required.filter((value): value is string => typeof value === 'string')
+      : [],
+  );
+}
+
+function getSchemaType(schema: Record<string, unknown>): SchemaPropType {
+  const type = schema.type;
+  return typeof type === 'string' && SCHEMA_PROP_TYPES.has(type as SchemaPropType)
+    ? type as SchemaPropType
+    : 'string';
+}
+
+function resolveAnyOf(schema: Record<string, unknown>): Record<string, unknown> {
+  return getAnyOfVariants(schema).find((variant) => 'type' in variant) ?? schema;
 }
 
 function extractEnumValues(resolved: Record<string, unknown>): string[] | undefined {
-  if (Array.isArray(resolved.enum)) return resolved.enum as string[];
-  if (Array.isArray((resolved as any).anyOf)) {
-    const vals = (resolved as any).anyOf
-      .filter((v: any) => v?.const !== undefined)
-      .map((v: any) => String(v.const));
-    return vals.length ? vals : undefined;
+  if (Array.isArray(resolved.enum)) {
+    const enumValues = resolved.enum
+      .filter((value): value is string | number | boolean => ['string', 'number', 'boolean'].includes(typeof value))
+      .map(String);
+    return enumValues.length ? enumValues : undefined;
   }
-  return undefined;
+
+  const anyOfValues = getAnyOfVariants(resolved)
+    .filter((value) => 'const' in value)
+    .map((value) => String(value.const));
+  return anyOfValues.length ? anyOfValues : undefined;
 }
 
 function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
-  const properties = (schema as any)?.properties ?? {};
-  const required = new Set<string>((schema as any)?.required ?? []);
+  const properties = getSchemaProperties(schema);
+  const required = getRequiredKeys(schema);
   const props: SchemaProp[] = [];
 
   for (const [name, prop] of Object.entries(properties)) {
-    const p = prop as Record<string, unknown>;
-    const resolved = resolveAnyOf(p);
-    const type = (resolved.type as string) ?? 'string';
-
-    // Capture items schema for arrays with object items
-    let itemsSchema: Record<string, unknown> | undefined;
-    if (type === 'array' && resolved.items && typeof resolved.items === 'object') {
-      itemsSchema = resolved.items as Record<string, unknown>;
-    }
+    if (!isRecord(prop)) continue;
+    const resolved = resolveAnyOf(prop);
+    const type = getSchemaType(resolved);
+    const itemsSchema = type === 'array' && isRecord(resolved.items)
+      ? resolved.items
+      : undefined;
 
     props.push({
       name,
       type,
-      description: (p.description as string) ?? (resolved.description as string) ?? '',
+      description: typeof prop.description === 'string'
+        ? prop.description
+        : typeof resolved.description === 'string'
+          ? resolved.description
+          : '',
       required: required.has(name),
       enumValues: extractEnumValues(resolved),
       itemsSchema,
@@ -89,6 +131,12 @@ function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[] {
   }
 
   return props;
+}
+
+function getCliParamType(type: SchemaPropType): 'string' | 'number' | 'boolean' {
+  if (type === 'number' || type === 'integer') return 'number';
+  if (type === 'boolean') return 'boolean';
+  return 'string';
 }
 
 // ── Arg parsing (schema-driven) ─────────────────────────────
@@ -120,21 +168,23 @@ function schemaToParams(
 
   // 1. Map --flags to properties by name
   for (const [key, val] of flags) {
-    const prop = props.find((p) => p.name === key);
+    const prop = props.find((entry) => entry.name === key);
     if (prop) {
       result[prop.name] = coerceValue(val, prop);
     }
   }
 
   // 2. Map positionals to unmapped properties (required first, then optional)
-  const unmapped = props.filter((p) => !(p.name in result));
+  const unmapped = props.filter((entry) => !(entry.name in result));
   const ordered = [
-    ...unmapped.filter((p) => p.required),
-    ...unmapped.filter((p) => !p.required),
+    ...unmapped.filter((entry) => entry.required),
+    ...unmapped.filter((entry) => !entry.required),
   ];
 
   for (let i = 0; i < positionals.length && i < ordered.length; i++) {
-    result[ordered[i]!.name] = coerceValue(positionals[i]!, ordered[i]!);
+    const prop = ordered[i];
+    if (!prop) continue;
+    result[prop.name] = coerceValue(positionals[i]!, prop);
   }
 
   return result;
@@ -147,15 +197,19 @@ function schemaToParams(
  * Returns lines like: `  label (required, string) — Display text`
  */
 function describeObjectFields(schema: Record<string, unknown>, indent: string): string[] {
-  const properties = (schema as any)?.properties ?? {};
-  const requiredSet = new Set<string>((schema as any)?.required ?? []);
+  const properties = getSchemaProperties(schema);
+  const requiredSet = getRequiredKeys(schema);
   const lines: string[] = [];
 
   for (const [fieldName, fieldDef] of Object.entries(properties)) {
-    const f = fieldDef as Record<string, unknown>;
-    const resolved = resolveAnyOf(f);
-    const type = (resolved.type as string) ?? 'string';
-    const desc = (f.description as string) ?? (resolved.description as string) ?? '';
+    if (!isRecord(fieldDef)) continue;
+    const resolved = resolveAnyOf(fieldDef);
+    const type = getSchemaType(resolved);
+    const desc = typeof fieldDef.description === 'string'
+      ? fieldDef.description
+      : typeof resolved.description === 'string'
+        ? resolved.description
+        : '';
     const req = requiredSet.has(fieldName) ? 'required' : 'optional';
     const enumVals = extractEnumValues(resolved);
     const enumHint = enumVals ? ` {${enumVals.join(', ')}}` : '';
@@ -170,14 +224,14 @@ function describeObjectFields(schema: Record<string, unknown>, indent: string): 
  * Shows required fields with placeholder values, omits optional fields.
  */
 function buildJsonExample(schema: Record<string, unknown>): Record<string, unknown> {
-  const properties = (schema as any)?.properties ?? {};
-  const requiredSet = new Set<string>((schema as any)?.required ?? []);
+  const properties = getSchemaProperties(schema);
+  const requiredSet = getRequiredKeys(schema);
   const example: Record<string, unknown> = {};
 
   for (const [fieldName, fieldDef] of Object.entries(properties)) {
-    const f = fieldDef as Record<string, unknown>;
-    const resolved = resolveAnyOf(f);
-    const type = (resolved.type as string) ?? 'string';
+    if (!isRecord(fieldDef)) continue;
+    const resolved = resolveAnyOf(fieldDef);
+    const type = getSchemaType(resolved);
     // Only include required fields + first optional for context
     if (!requiredSet.has(fieldName) && Object.keys(example).length >= requiredSet.size) continue;
 
@@ -196,59 +250,59 @@ function generateHelp(
   description: string,
   props: SchemaProp[],
 ): string {
-  const required = props.filter((p) => p.required);
-  const optional = props.filter((p) => !p.required);
+  const required = props.filter((prop) => prop.required);
+  const optional = props.filter((prop) => !prop.required);
 
   // Usage line
   const usageParts = required
-    .map((p) => `<${p.name}>`)
-    .concat(optional.map((p) => `[--${p.name} <value>]`));
+    .map((prop) => `<${prop.name}>`)
+    .concat(optional.map((prop) => `[--${prop.name} <value>]`));
   const usageLine = `sero ${name} ${usageParts.join(' ')}`.trimEnd();
 
   const lines = [`${name} — ${description}`, '', 'Usage:', `  ${usageLine}`];
 
   if (required.length) {
     lines.push('', 'Required:');
-    for (const p of required) {
-      const isComplex = p.type === 'array' || p.type === 'object';
-      const enumHint = p.enumValues ? ` {${p.enumValues.join(', ')}}` : '';
+    for (const prop of required) {
+      const isComplex = prop.type === 'array' || prop.type === 'object';
+      const enumHint = prop.enumValues ? ` {${prop.enumValues.join(', ')}}` : '';
       const typeHint = isComplex ? ' (JSON)' : '';
-      lines.push(`  ${p.name}${enumHint}${typeHint} — ${p.description || p.name}`);
+      lines.push(`  ${prop.name}${enumHint}${typeHint} — ${prop.description || prop.name}`);
     }
   }
 
   if (optional.length) {
     lines.push('', 'Options:');
-    for (const p of optional) {
-      const isComplex = p.type === 'array' || p.type === 'object';
-      const typeHint = isComplex ? ' (JSON)' : p.type !== 'string' ? ` (${p.type})` : '';
-      lines.push(`  --${p.name}${typeHint} — ${p.description || p.name}`);
+    for (const prop of optional) {
+      const isComplex = prop.type === 'array' || prop.type === 'object';
+      const typeHint = isComplex ? ' (JSON)' : prop.type !== 'string' ? ` (${prop.type})` : '';
+      lines.push(`  --${prop.name}${typeHint} — ${prop.description || prop.name}`);
     }
   }
 
   // Document nested JSON shapes for array/object params
   const complexProps = props.filter(
-    (p) => p.type === 'array' && p.itemsSchema && (p.itemsSchema as any).type === 'object',
+    (prop) => prop.type === 'array' && prop.itemsSchema && getSchemaType(prop.itemsSchema) === 'object',
   );
-  for (const p of complexProps) {
-    const itemSchema = p.itemsSchema!;
-    lines.push('', `JSON shape for ${p.name} (array of objects):`);
+  for (const prop of complexProps) {
+    const itemSchema = prop.itemsSchema!;
+    lines.push('', `JSON shape for ${prop.name} (array of objects):`);
     lines.push(...describeObjectFields(itemSchema, '  '));
 
     // Recurse one level into nested array-of-object fields
-    const nestedProps = (itemSchema as any)?.properties ?? {};
+    const nestedProps = getSchemaProperties(itemSchema);
     for (const [nestedName, nestedDef] of Object.entries(nestedProps)) {
-      const nd = nestedDef as Record<string, unknown>;
-      const resolved = resolveAnyOf(nd);
-      if (resolved.type === 'array' && resolved.items && (resolved.items as any).type === 'object') {
+      if (!isRecord(nestedDef)) continue;
+      const resolved = resolveAnyOf(nestedDef);
+      if (getSchemaType(resolved) === 'array' && isRecord(resolved.items) && getSchemaType(resolved.items) === 'object') {
         lines.push('', `  JSON shape for ${nestedName} (nested array of objects):`);
-        lines.push(...describeObjectFields(resolved.items as Record<string, unknown>, '    '));
+        lines.push(...describeObjectFields(resolved.items, '    '));
       }
     }
 
     // Generate a compact example
     const example = buildJsonExample(itemSchema);
-    lines.push('', `Example ${p.name}: '[${JSON.stringify(example)}]'`);
+    lines.push('', `Example ${prop.name}: '[${JSON.stringify(example)}]'`);
   }
 
   return lines.join('\n');
@@ -280,8 +334,8 @@ function extractContent(result: unknown): CliContentBlock[] {
 
 function extractText(content: CliContentBlock[]): string {
   return content
-    .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
-    .map((c) => c.text)
+    .filter((entry): entry is { type: 'text'; text: string } => entry.type === 'text')
+    .map((entry) => entry.text)
     .join('\n');
 }
 
@@ -305,38 +359,26 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
     group: 'Apps',
     interactive: options?.interactive,
     timeoutMs: getBridgedToolTimeoutMs(toolName),
-    params: props.map((p) => ({
-      name: p.name,
-      description: p.description,
-      required: p.required,
-      type: p.type as 'string' | 'number' | 'boolean',
+    params: props.map((prop) => ({
+      name: prop.name,
+      description: prop.description,
+      required: prop.required,
+      type: getCliParamType(prop.type),
     })),
     execute: async (args: string[], ctx: CliCommandContext, onUpdate): Promise<CliResult> => {
       try {
         const params = schemaToParams(props, args);
-        // Forward agent context (model, modelRegistry, etc.) when available
-        // so bridged tools like `memory consolidate` can call LLMs.
-        // We also inject a narrow execution-scoped `sessionRuntime` so bridged
-        // tools can perform current-session side effects without capturing `pi`.
-        // When agentContext exists, recombining with cwd produces a full ExtensionContext.
-        // When it doesn't (standalone CLI), we provide a bare {cwd} — extension tools
-        // must handle missing fields gracefully (e.g. ctx.model === undefined).
         const activeToolDef = getBridgedExtensionTool(toolName, ctx)?.definition ?? toolDef;
-        const toolContext = (ctx.agentContext
-          ? { ...ctx.agentContext, cwd: ctx.cwd, sessionRuntime: ctx.sessionRuntime }
-          : { cwd: ctx.cwd, sessionRuntime: ctx.sessionRuntime }) as ExtensionContext & {
-            sessionRuntime?: CliSessionRuntime;
-          };
         const result = await activeToolDef.execute(
           'cli-bridge',
           params,
           ctx.invocation.signal,
-          onUpdate as Parameters<typeof activeToolDef.execute>[3],
-          toolContext,
+          onUpdate,
+          buildToolContext(ctx),
         );
         const content = extractContent(result);
         const text = extractText(content);
-        const details = (result as { details?: unknown })?.details ?? null;
+        const details = (result as { details?: unknown }).details ?? null;
         const isError = text.startsWith('Error:') || text.startsWith('ERROR:');
         return {
           output: text,
@@ -362,24 +404,6 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
  * execute time, so bridged plugin commands never reuse another session's
  * closure-captured `pi` or extension-local state.
  */
-/**
- * Build a minimal ExtensionCommandContext for bridged commands.
- *
- * Reuses the canonical `createSeroUIContext()` so there's a single
- * source of truth for the UIContext shim across Sero. When agent context
- * is available, we forward it and add `sessionRuntime` for current-session
- * side effects.
- */
-function buildCommandContext(ctx: CliCommandContext): Record<string, unknown> {
-  return {
-    ...(ctx.agentContext ? { ...ctx.agentContext } : {}),
-    cwd: ctx.cwd,
-    hasUI: true,
-    ui: createSeroUIContext(),
-    sessionRuntime: ctx.sessionRuntime,
-  };
-}
-
 export function bridgeCommand(name: string, description?: string): CliCommand {
   return {
     name,
@@ -392,7 +416,7 @@ export function bridgeCommand(name: string, description?: string): CliCommand {
         if (!registered) {
           return { output: 'ERROR: This command requires an active agent session.', exitCode: 1 };
         }
-        await registered.handler(args.join(' '), buildCommandContext(ctx) as any);
+        await registered.handler(args.join(' '), buildCommandContext(registered.name, ctx));
         return { output: `/${name} executed`, exitCode: 0 };
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Command failed';

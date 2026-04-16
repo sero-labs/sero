@@ -7,23 +7,17 @@
  * rows — not true virtualisation, but effective for most session sizes.
  */
 
-import { useState, useEffect, useMemo, memo } from 'react';
+import { useEffect, useMemo, useState, memo } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
-import { getSero } from '../hooks/useSeroFiles';
-import type { SessionFileInfo } from '../hooks/useSeroFiles';
-import { formatTime } from '../lib/format';
-
-// ── Types ──────────────────────────────────────────────────
-
-interface MessageEntry {
-  index: number;
-  role: string;
-  preview: string;
-  timestamp: string;
-  raw: Record<string, unknown>;
-}
+import { getSero } from '../hooks/host';
+import type { SessionFileInfo } from '../hooks/useSessionFiles';
+import {
+  formatMalformedLineSummary,
+  parseSessionJsonl,
+  type SessionMessageEntry,
+} from '../lib/session-log';
 
 // ── SessionDetail ──────────────────────────────────────────
 
@@ -36,12 +30,17 @@ export const SessionDetail = memo(function SessionDetail({
   sessionId,
   sessions,
 }: SessionDetailProps) {
-  const [messages, setMessages] = useState<MessageEntry[]>([]);
+  const [messages, setMessages] = useState<SessionMessageEntry[]>([]);
+  const [malformedLines, setMalformedLines] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
-  const session = sessions.find((s) => s.sessionId === sessionId);
+  const session = sessions.find((candidate) => candidate.sessionId === sessionId) ?? null;
+  const malformedSummary = useMemo(
+    () => formatMalformedLineSummary(malformedLines),
+    [malformedLines],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -49,38 +48,47 @@ export const SessionDetail = memo(function SessionDetail({
     setError(null);
     setExpandedIndex(null);
     setMessages([]);
+    setMalformedLines([]);
 
     const load = async () => {
+      if (!session) {
+        if (!cancelled) {
+          setError('Session not found');
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
-        const sero = getSero();
-        const allSessions = await sero.sessions.list();
-        const target = allSessions.find((s) => s.id === sessionId);
-        if (!target) {
-          if (!cancelled) setError('Session not found');
+        const raw = await getSero().appState.readText(session.path);
+        if (cancelled) {
           return;
         }
-
-        const raw = await sero.appState.readText(target.path);
-        if (cancelled) return;
 
         if (!raw) {
           setError('Session file is empty or missing');
           return;
         }
 
-        setMessages(parseJsonlToEntries(raw));
+        const parsed = parseSessionJsonl(raw);
+        setMessages(parsed.entries);
+        setMalformedLines(parsed.malformedLines);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load session');
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    load();
-    return () => { cancelled = true; };
-  }, [sessionId]);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   if (loading) {
     return (
@@ -100,17 +108,16 @@ export const SessionDetail = memo(function SessionDetail({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-border/30 px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] text-foreground/80">
             {sessionId.slice(0, 8)}…
           </span>
-          {session && (
+          {session ? (
             <span className="text-[10px] text-muted-foreground/50">
               {session.dateLabel}
             </span>
-          )}
+          ) : null}
         </div>
         <Badge
           variant="outline"
@@ -120,27 +127,33 @@ export const SessionDetail = memo(function SessionDetail({
         </Badge>
       </div>
 
-      {/* Message list — CSS content-visibility for off-screen skip */}
+      {malformedSummary ? (
+        <div className="border-b border-amber-500/20 bg-amber-500/6 px-4 py-2">
+          <p className="text-[11px] text-amber-300/90">
+            {malformedSummary} The session file may be partially corrupted.
+          </p>
+        </div>
+      ) : null}
+
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {messages.map((msg) => (
+        {messages.map((message) => (
           <MessageRow
-            key={msg.index}
-            message={msg}
-            isExpanded={msg.index === expandedIndex}
+            key={message.index}
+            message={message}
+            isExpanded={message.index === expandedIndex}
             onToggle={() =>
-              setExpandedIndex(expandedIndex === msg.index ? null : msg.index)
+              setExpandedIndex(expandedIndex === message.index ? null : message.index)
             }
           />
         ))}
       </div>
 
-      {/* Expanded detail overlay */}
-      {expandedIndex !== null && messages[expandedIndex] && (
+      {expandedIndex !== null && messages[expandedIndex] ? (
         <MessageDetailOverlay
           message={messages[expandedIndex]}
           onClose={() => setExpandedIndex(null)}
         />
-      )}
+      ) : null}
     </div>
   );
 });
@@ -152,7 +165,7 @@ const MessageRow = memo(function MessageRow({
   isExpanded,
   onToggle,
 }: {
-  message: MessageEntry;
+  message: SessionMessageEntry;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
@@ -179,11 +192,11 @@ const MessageRow = memo(function MessageRow({
           >
             {message.role}
           </Badge>
-          {message.timestamp && (
+          {message.timestamp ? (
             <span className="text-[10px] text-muted-foreground/30">
               {message.timestamp}
             </span>
-          )}
+          ) : null}
         </div>
         <p className="mt-0.5 text-[11px] leading-[1.5] text-foreground/70">
           {message.preview}
@@ -199,7 +212,7 @@ const MessageDetailOverlay = memo(function MessageDetailOverlay({
   message,
   onClose,
 }: {
-  message: MessageEntry;
+  message: SessionMessageEntry;
   onClose: () => void;
 }) {
   const jsonText = useMemo(
@@ -214,7 +227,7 @@ const MessageDetailOverlay = memo(function MessageDetailOverlay({
     >
       <div
         className="flex max-h-[80vh] w-[700px] max-w-[90vw] flex-col rounded-xl border border-border/50 bg-card shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border/30 px-4 py-2.5">
           <div className="flex items-center gap-2">
@@ -260,73 +273,4 @@ function getRoleColor(role: string): string {
     default:
       return 'border-muted-foreground/20 bg-muted/5 text-muted-foreground';
   }
-}
-
-/** Parse a JSONL string into lightweight message entries. */
-function parseJsonlToEntries(raw: string): MessageEntry[] {
-  const lines = raw.split('\n').filter((l) => l.trim());
-  const entries: MessageEntry[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    try {
-      const data = JSON.parse(lines[i]) as Record<string, unknown>;
-      const msg = data.message as Record<string, unknown> | undefined;
-      const role = (msg?.role as string) || (data.type as string) || 'unknown';
-      const ts = (data.timestamp as string) || (msg?.timestamp as string) || '';
-
-      entries.push({
-        index: i,
-        role,
-        preview: extractPreview(data),
-        timestamp: ts ? formatTime(ts) : '',
-        raw: data,
-      });
-    } catch {
-      // Skip malformed lines
-    }
-  }
-
-  return entries;
-}
-
-function extractPreview(data: Record<string, unknown>): string {
-  const msg = data.message as Record<string, unknown> | undefined;
-  if (!msg) return JSON.stringify(data).slice(0, 300);
-
-  const content = msg.content;
-  if (typeof content === 'string') return content.slice(0, 500);
-
-  if (Array.isArray(content)) {
-    const parts: string[] = [];
-    for (const block of content) {
-      if (block && typeof block === 'object') {
-        if ('text' in block && typeof block.text === 'string') {
-          parts.push(block.text.slice(0, 500));
-        }
-        if ('name' in block && typeof block.name === 'string') {
-          const args = 'arguments' in block && block.arguments
-            ? (typeof block.arguments === 'string'
-              ? block.arguments
-              : JSON.stringify(block.arguments))
-            : '';
-          parts.push(`Tool: ${block.name}${args ? ' — ' + args.slice(0, 200) : ''}`);
-        }
-      }
-    }
-    if (parts.length) return parts.join(' ');
-  }
-
-  if (msg.toolName) {
-    const resultContent = msg.content;
-    if (Array.isArray(resultContent)) {
-      for (const block of resultContent) {
-        if (block && typeof block === 'object' && 'text' in block) {
-          return `${msg.toolName}: ${String(block.text).slice(0, 300)}`;
-        }
-      }
-    }
-    return `Tool result: ${msg.toolName}`;
-  }
-
-  return `[${msg.role || 'message'}]`;
 }

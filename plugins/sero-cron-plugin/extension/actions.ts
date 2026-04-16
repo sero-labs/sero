@@ -22,7 +22,7 @@ export interface ActionDeps {
   ctxCwd?: string;
 }
 
-interface ActionParams {
+export interface ActionParams {
   action: string;
   name?: string;
   schedule?: string;

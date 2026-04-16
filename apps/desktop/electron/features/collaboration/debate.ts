@@ -9,14 +9,30 @@
  * 4. Synthesis & Consensus — Coordinator integrates, resolves discrepancies
  */
 
-import type { SubagentManager } from '../subagent';
 import { ROLE_AGENT_NAMES } from './agents';
+import {
+  CollaborationDiscoveryRunner,
+  validateRequiredCollaborationAgents,
+} from './required-agents';
+import {
+  CollaborationRunner,
+  getSpecialistErrorMessage,
+  runSingleSpecialist,
+} from './specialist-runner';
+import { budgetPromptText } from './prompt-budget';
+import {
+  buildDegradedFinalResponse,
+  getMissingRequiredRoles,
+  hasUsableSpecialistOutput,
+} from './degraded-result';
 import type {
   CollaborationRole,
   CollaborationResult,
   DebateConfig,
   DebatePhase,
 } from '@/types/collaboration';
+
+type DebateRunner = CollaborationRunner & CollaborationDiscoveryRunner;
 
 export interface DebateCallbacks {
   onDebatePhase?: (phase: DebatePhase) => void;
@@ -50,38 +66,45 @@ async function runAgent(
   task: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: SubagentManager,
+  manager: DebateRunner,
   config: DebateConfig,
   callbacks?: DebateCallbacks,
 ): Promise<AgentOutput> {
-  const agentName = ROLE_AGENT_NAMES[role];
-  const start = Date.now();
-
-  callbacks?.onAgentStatus?.(agentName, 'running');
-  callbacks?.onSpecialistStart?.(role, agentName);
-
-  try {
-    const result = await manager.runSingleStructured({
-      agent: agentName,
-      task,
-      parentSessionId,
-      workspaceId,
-      model: config.models?.[role],
-      onUpdate: callbacks?.onUpdate,
-    });
-
-    const durationMs = Date.now() - start;
-    callbacks?.onAgentStatus?.(agentName, result.error ? 'failed' : 'completed');
-    callbacks?.onSpecialistEnd?.(role, agentName, result.response, durationMs, result.error);
-
-    return { role, agentName, response: result.response, error: result.error, durationMs };
-  } catch (err: unknown) {
-    const durationMs = Date.now() - start;
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    callbacks?.onAgentStatus?.(agentName, 'failed');
-    callbacks?.onSpecialistEnd?.(role, agentName, '', durationMs, errMsg);
-    return { role, agentName, response: '', error: errMsg, durationMs };
-  }
+  return runSingleSpecialist({
+    role,
+    task,
+    parentSessionId,
+    workspaceId,
+    manager,
+    model: config.models?.[role],
+    onUpdate: callbacks?.onUpdate,
+    onStart: (activeRole, agentName) => {
+      callbacks?.onAgentStatus?.(agentName, 'running');
+      callbacks?.onSpecialistStart?.(activeRole, agentName);
+    },
+    onSuccess: (output) => {
+      callbacks?.onAgentStatus?.(output.agentName, output.error ? 'failed' : 'completed');
+      callbacks?.onSpecialistEnd?.(
+        output.role,
+        output.agentName,
+        output.response,
+        output.durationMs,
+        output.error,
+      );
+    },
+    onError: ({ role: failedRole, agentName, error, durationMs }) => {
+      const errorMessage = getSpecialistErrorMessage(error);
+      callbacks?.onAgentStatus?.(agentName, 'failed');
+      callbacks?.onSpecialistEnd?.(failedRole, agentName, '', durationMs, errorMessage);
+      return {
+        role: failedRole,
+        agentName,
+        response: '',
+        error: errorMessage,
+        durationMs,
+      };
+    },
+  });
 }
 
 function buildDecompositionPrompt(query: string): string {
@@ -146,23 +169,33 @@ Critically evaluate the analysis above. Point out:
 Be constructive but rigorous. End with a brief summary of your key critique points.`;
 }
 
-function buildDebateSynthesisPrompt(
+export const DEBATE_SYNTHESIS_PROMPT_BUDGET = {
+  queryMaxChars: 3_000,
+  analysisPerRoleMaxChars: 2_500,
+  roundSummaryMaxChars: 1_500,
+} as const;
+
+export function buildDebateSynthesisPrompt(
   query: string,
   analyses: Map<CollaborationRole, string>,
   debateRounds: Array<{ challengerRole: CollaborationRole; defenderRole: CollaborationRole; summary: string }>,
 ): string {
+  const boundedQuery = budgetPromptText(query, DEBATE_SYNTHESIS_PROMPT_BUDGET.queryMaxChars);
+
   const analysisSection = Array.from(analyses.entries())
-    .map(([role, output]) => `### ${role}\n${output}`)
+    .map(([role, output]) => `### ${role}\n${budgetPromptText(output, DEBATE_SYNTHESIS_PROMPT_BUDGET.analysisPerRoleMaxChars)}`)
     .join('\n\n');
 
   const debateSection = debateRounds
-    .map((r, i) => `### Round ${i + 1}: ${r.challengerRole} challenges ${r.defenderRole}\n${r.summary}`)
+    .map((r, i) =>
+      `### Round ${i + 1}: ${r.challengerRole} challenges ${r.defenderRole}\n${budgetPromptText(r.summary, DEBATE_SYNTHESIS_PROMPT_BUDGET.roundSummaryMaxChars)}`,
+    )
     .join('\n\n');
 
   return `Four specialist agents have independently analyzed the following query, then debated and cross-checked each other's work. Synthesize everything into one cohesive, high-quality response that reflects the consensus and resolves any disagreements.
 
 ## Original Query
-${query}
+${boundedQuery}
 
 ## Independent Analyses
 ${analysisSection}
@@ -180,10 +213,15 @@ export async function runDebateCollaboration(
   query: string,
   parentSessionId: string,
   workspaceId: string,
-  manager: SubagentManager,
+  manager: DebateRunner,
   config: DebateConfig,
   callbacks?: DebateCallbacks,
 ): Promise<CollaborationResult> {
+  await validateRequiredCollaborationAgents(manager, {
+    strategyLabel: 'Debate collaboration',
+    requiredRoles: ALL_ROLES,
+  });
+
   const startTime = Date.now();
   const specialistOutputs: CollaborationResult['specialistOutputs'] = [];
   const debateStartTime = Date.now();
@@ -203,7 +241,22 @@ export async function runDebateCollaboration(
   );
   specialistOutputs.push(decomposition);
 
-  const decompositionText = decomposition.response || '(Decomposition failed)';
+  const decompositionFailures = getMissingRequiredRoles(specialistOutputs, ['coordinator']);
+  if (decompositionFailures.length > 0) {
+    callbacks?.onDebatePhase?.('synthesis');
+    callbacks?.onUpdate?.(
+      'Debate degraded — required decomposition output missing; skipping coordinator synthesis.',
+    );
+
+    return {
+      finalResponse: buildDegradedFinalResponse('Debate collaboration', decompositionFailures, specialistOutputs),
+      specialistOutputs,
+      totalDurationMs: Date.now() - startTime,
+      hasErrors: true,
+    };
+  }
+
+  const decompositionText = hasUsableSpecialistOutput(decomposition) ? decomposition.response : '';
 
   // ── Phase 2: Independent Analysis ──────────────────────────
   callbacks?.onDebatePhase?.('independent_analysis');
@@ -234,13 +287,32 @@ export async function runDebateCollaboration(
     const result = analysisResults[i];
     if (result.status === 'fulfilled') {
       specialistOutputs.push(result.value);
-      analyses.set(role, result.value.response || '(No output)');
+      if (hasUsableSpecialistOutput(result.value)) {
+        analyses.set(role, result.value.response);
+      }
     } else {
       const agentName = ROLE_AGENT_NAMES[role];
-      const errMsg = result.reason?.message ?? 'Unknown error';
+      const errMsg = getSpecialistErrorMessage(result.reason);
       specialistOutputs.push({ role, agentName, response: '', error: errMsg, durationMs: 0 });
-      analyses.set(role, '(Agent failed)');
     }
+  }
+
+  const failedAnalyses = getMissingRequiredRoles(
+    specialistOutputs,
+    ['researcher', 'analyst', 'visionary'],
+  );
+  if (failedAnalyses.length > 0) {
+    callbacks?.onDebatePhase?.('synthesis');
+    callbacks?.onUpdate?.(
+      'Debate degraded — required specialist output missing; skipping debate rounds and synthesis.',
+    );
+
+    return {
+      finalResponse: buildDegradedFinalResponse('Debate collaboration', failedAnalyses, specialistOutputs),
+      specialistOutputs,
+      totalDurationMs: Date.now() - startTime,
+      hasErrors: true,
+    };
   }
 
   // ── Phase 3: Debate & Cross-Checking ───────────────────────

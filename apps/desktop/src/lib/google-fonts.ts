@@ -10,6 +10,22 @@
 const loadedFonts = new Set<string>();
 
 /**
+ * Curated subset preloaded for the font picker so common fonts render fast
+ * without eagerly loading every Google family in the catalog.
+ */
+const POPULAR_PRELOAD_FAMILIES = [
+  'Inter',
+  'Geist',
+  'Roboto',
+  'Open Sans',
+  'JetBrains Mono',
+  'Fira Code',
+  'Source Code Pro',
+  'IBM Plex Sans',
+  'IBM Plex Mono',
+] as const;
+
+/**
  * Map of font family names → Google Fonts CSS2 API family strings.
  * Only fonts in this map are loaded from the CDN; others (system fonts)
  * are used as-is without any network request.
@@ -63,31 +79,34 @@ function extractPrimaryFont(stack: string): string | null {
  * Load a Google Font by injecting a <link> into <head>.
  * No-op if already loaded or not in the Google Fonts map.
  */
-export function loadGoogleFont(fontStack: string): void {
-  const primary = extractPrimaryFont(fontStack);
-  if (!primary || loadedFonts.has(primary)) return;
-
-  const googleId = GOOGLE_FONT_MAP[primary];
-  if (!googleId) return;
-
-  loadedFonts.add(primary);
+function appendGoogleFontLink(googleId: string): void {
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = `https://fonts.googleapis.com/css2?family=${googleId}&display=swap`;
   document.head.appendChild(link);
 }
 
+function loadGoogleFamily(family: string): void {
+  if (loadedFonts.has(family)) return;
+  const googleId = GOOGLE_FONT_MAP[family];
+  if (!googleId) return;
+
+  loadedFonts.add(family);
+  appendGoogleFontLink(googleId);
+}
+
+export function loadGoogleFont(fontStack: string): void {
+  const primary = extractPrimaryFont(fontStack);
+  if (!primary) return;
+  loadGoogleFamily(primary);
+}
+
 /**
- * Preload every font in the Google Fonts map so they're available
- * immediately in the font picker dropdown.
+ * Preload a curated subset of popular fonts for the picker. Less common
+ * families continue to load on demand via `loadGoogleFont()`.
  */
 export function preloadAllGoogleFonts(): void {
-  for (const [family, googleId] of Object.entries(GOOGLE_FONT_MAP)) {
-    if (loadedFonts.has(family)) continue;
-    loadedFonts.add(family);
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `https://fonts.googleapis.com/css2?family=${googleId}&display=swap`;
-    document.head.appendChild(link);
+  for (const family of POPULAR_PRELOAD_FAMILIES) {
+    loadGoogleFamily(family);
   }
 }

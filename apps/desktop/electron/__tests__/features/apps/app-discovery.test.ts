@@ -12,6 +12,34 @@ async function importAppDiscovery() {
   return import('@electron/features/apps/discovery');
 }
 
+async function writeManifestPackage(
+  packageDir: string,
+  appId: string,
+  name = 'Admin',
+  plugin: unknown = {
+    category: 'utilities',
+    tags: ['test'],
+  },
+): Promise<void> {
+  await mkdir(packageDir, { recursive: true });
+  await writeFile(
+    path.join(packageDir, 'package.json'),
+    JSON.stringify({
+      name: `${appId}-plugin`,
+      version: '1.0.0',
+      sero: {
+        app: {
+          id: appId,
+          name,
+          icon: 'box',
+          stateFile: `.sero/apps/${appId}/state.json`,
+        },
+        plugin,
+      },
+    }, null, 2),
+  );
+}
+
 describe('app discovery devPort handling', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -100,6 +128,125 @@ describe('app discovery devPort handling', () => {
 
       expect(admin?.devPort).toBe(5193);
     } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('stops discovering manually registered paths once they are unregistered', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-registered-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const packageDir = path.join(tempRoot, 'external-plugin');
+      await writeManifestPackage(packageDir, 'external-plugin', 'External Plugin');
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      expect((await discoverApps()).some((app) => app.id === 'external-plugin')).toBe(true);
+
+      unregisterAppPath(packageDir);
+      expect((await discoverApps()).some((app) => app.id === 'external-plugin')).toBe(false);
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves valid plugin metadata during discovery', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-plugin-valid-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const packageDir = path.join(tempRoot, 'valid-plugin');
+      await writeManifestPackage(packageDir, 'valid-plugin', 'Valid Plugin', {
+        category: 'utilities',
+        tags: ['test', ' utilities '],
+        minSeroVersion: '0.1.0',
+        preBuilt: false,
+        bridgeTools: [' tool_a ', 'tool_b'],
+      });
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      const manifest = (await discoverApps()).find((app) => app.id === 'valid-plugin');
+
+      expect(manifest).toMatchObject({
+        id: 'valid-plugin',
+        isPlugin: true,
+        plugin: {
+          category: 'utilities',
+          tags: ['test', 'utilities'],
+          minSeroVersion: '0.1.0',
+          preBuilt: false,
+          bridgeTools: ['tool_a', 'tool_b'],
+        },
+      });
+
+      unregisterAppPath(packageDir);
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps malformed plugin manifests classified as plugins while dropping invalid metadata', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-plugin-invalid-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const packageDir = path.join(tempRoot, 'invalid-plugin');
+      await writeManifestPackage(packageDir, 'invalid-plugin', 'Invalid Plugin', {
+        category: 'not-a-real-category',
+        tags: ['test'],
+      });
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      const manifest = (await discoverApps()).find((app) => app.id === 'invalid-plugin');
+
+      expect(manifest).toMatchObject({
+        id: 'invalid-plugin',
+        isPlugin: true,
+        plugin: null,
+      });
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Ignoring invalid sero.plugin metadata'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('`sero.plugin.category` must be one of'));
+
+      unregisterAppPath(packageDir);
+    } finally {
+      warnSpy.mockRestore();
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('warns when sero.plugin is malformed but still keeps plugin classification', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-plugin-non-object-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const packageDir = path.join(tempRoot, 'non-object-plugin');
+      await writeManifestPackage(packageDir, 'non-object-plugin', 'Non Object Plugin', 'bad-plugin-meta');
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      const manifest = (await discoverApps()).find((app) => app.id === 'non-object-plugin');
+
+      expect(manifest).toMatchObject({
+        id: 'non-object-plugin',
+        isPlugin: true,
+        plugin: null,
+      });
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('`sero.plugin` must be an object'));
+
+      unregisterAppPath(packageDir);
+    } finally {
+      warnSpy.mockRestore();
       await rm(tempRoot, { recursive: true, force: true });
     }
   });

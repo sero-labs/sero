@@ -11,7 +11,7 @@
 
 import path from 'path';
 import { ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { SERO_HOME } from '@electron/platform/env';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';

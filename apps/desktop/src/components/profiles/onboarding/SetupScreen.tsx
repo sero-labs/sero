@@ -16,12 +16,6 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
-import { GitHubConnectCard } from './GitHubConnectCard';
-
-const GITHUB_STEP_CONFIG = {
-  title: 'Connect GitHub (optional)',
-  description: 'Strongly suggested if you work with repos. You can skip this for now and connect later from Explorer.',
-} as const;
 import type {
   AvailableModelGroup,
   GlobalModelConfigInput,
@@ -32,6 +26,13 @@ import type {
   OnboardingWarning,
   ProviderHealthInfo,
 } from '@/types/ipc';
+import { GitHubConnectCard } from './GitHubConnectCard';
+import { useOnboardingGitHubStep } from './useOnboardingGitHubStep';
+
+const GITHUB_STEP_CONFIG = {
+  title: 'Connect GitHub (optional)',
+  description: 'Strongly suggested if you work with repos. You can skip this for now and connect later from Explorer.',
+} as const;
 
 const TIERS: readonly { key: ModelTier; label: string; description: string }[] = [
   { key: 'LOW', label: 'Low', description: 'Fast and lightweight work' },
@@ -110,8 +111,6 @@ export function OnboardingSetupScreen({
   onReconnectProvider: (providerId: string | null) => void;
 }) {
   const [tiers, setTiers] = useState<ModelTierSettings>(recommendation.tiers);
-  const [step, setStep] = useState<'tiers' | 'github'>('tiers');
-  const [checkingGitHub, setCheckingGitHub] = useState(false);
 
   const modelWarnings = useMemo(
     () => validateGlobalTierSelections(tiers, availableModelGroups),
@@ -119,23 +118,19 @@ export function OnboardingSetupScreen({
   );
 
   const canContinue = TIERS.every(({ key }) => Boolean(tiers[key]));
-
-  const handleTierContinue = async () => {
-    if (!canContinue || continueDisabled || checkingGitHub) return;
-    setCheckingGitHub(true);
-    try {
-      const status = await window.sero.github.status();
-      if (status.authenticated) {
-        onContinue({ tiers });
-        return;
-      }
-      setStep('github');
-    } catch {
-      setStep('github');
-    } finally {
-      setCheckingGitHub(false);
-    }
-  };
+  const {
+    step,
+    checkingGitHub,
+    githubAuth,
+    handleTierContinue,
+    handleBack,
+    handleContinueFromGitHub,
+  } = useOnboardingGitHubStep({
+    tiers,
+    canContinue,
+    continueDisabled,
+    onContinue,
+  });
 
   if (step === 'github') {
     return (
@@ -152,26 +147,32 @@ export function OnboardingSetupScreen({
           </div>
         </div>
 
-        <GitHubConnectCard showConnectedState />
+        <GitHubConnectCard
+          authStatus={githubAuth.authStatus}
+          statusReady={githubAuth.statusReady}
+          flow={githubAuth.flow}
+          copied={githubAuth.copied}
+          copyFailed={githubAuth.copyFailed}
+          onStartLogin={githubAuth.startLogin}
+          onCancel={githubAuth.cancel}
+          onCopyCode={(code) => {
+            void githubAuth.copyCode(code);
+          }}
+          showConnectedState
+        />
 
         <div className="flex justify-between gap-2 pt-1">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              void window.sero.github.cancel();
-              setStep('tiers');
-            }}
+            onClick={handleBack}
             disabled={continueDisabled}
           >
             Back
           </Button>
           <Button
             size="sm"
-            onClick={() => {
-              void window.sero.github.cancel();
-              onContinue({ tiers });
-            }}
+            onClick={handleContinueFromGitHub}
             disabled={continueDisabled}
           >
             Continue to memory setup

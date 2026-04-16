@@ -17,7 +17,8 @@ import {
   type AvailableModelGroupIPC,
   type GlobalModelConfigStateIPC,
   type ModelInfoIPC,
-} from '../hooks/useSeroFiles';
+} from '../hooks/host';
+import { useBridgeRefresh } from '../hooks/useBridgeRefresh';
 
 const TIERS = [
   { key: 'LOW' as const, label: 'Low', description: 'Fast and lightweight work' },
@@ -78,29 +79,11 @@ export function ModelPanel() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    const refresh = () => {
-      void load({ background: true, preserveDraft: true });
-    };
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) refresh();
-    };
-
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    const unsubscribe = getSero().auth.onEvent((event) => {
-      if (event.type === 'success' || event.type === 'error' || event.type === 'cancelled') {
-        refresh();
-      }
-    });
-
-    return () => {
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      unsubscribe();
-    };
+  const refresh = useCallback(() => {
+    void load({ background: true, preserveDraft: true });
   }, [load]);
+
+  useBridgeRefresh(refresh);
 
   const hasChanges = useMemo(() => {
     if (!saved || !draft) return false;

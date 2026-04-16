@@ -4,8 +4,7 @@
 
 import { useState, useCallback } from 'react';
 import type { AgentSummary, AgentFileData } from '../components/types';
-import { getSero } from './useSeroFiles';
-import type { AgentSummaryIPC } from './useSeroFiles';
+import { getSero, type AgentSummaryIPC } from './host';
 
 const NEW_AGENT: AgentFileData = {
   name: '',

@@ -463,4 +463,3 @@ export type {
   AppRecordingResult,
 } from './app-control';
 
-export { IpcChannels } from './ipc-channels';

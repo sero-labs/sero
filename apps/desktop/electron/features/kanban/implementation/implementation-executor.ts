@@ -1,3 +1,5 @@
+import { createDefaultKanbanState } from '@sero/common';
+
 import type { Card, KanbanSettings, KanbanState, Subtask } from '../core/types';
 import type { ImplementationProgressTracker } from './implementation-progress';
 import { createImplementationProgressTool } from './implementation-progress-tool';
@@ -322,20 +324,7 @@ async function runImplementationVerification(
 }
 
 function fallbackState(): KanbanState {
-  return {
-    cards: [],
-    nextId: 1,
-    settings: {
-      autoAdvance: true,
-      maxConcurrentCards: 3,
-      requireApproval: { plan: true, pr: true },
-      reviewLevel: 'per-wave',
-      reviewMode: 'full',
-      testingEnabled: true,
-      yoloMode: false,
-      yoloAutoMergePrs: false,
-    },
-  };
+  return createDefaultKanbanState();
 }
 
 function matchesTrackedRun(

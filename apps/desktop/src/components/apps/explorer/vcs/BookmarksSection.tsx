@@ -18,7 +18,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
-import type { Bookmark, Remote } from '@/types/vcs';
+import type { Bookmark, Remote } from '@sero/common';
+import { useTransientValue } from '../useTransientUiState';
 import { VcsSection } from './VcsSection';
 
 interface Props {
@@ -39,7 +40,7 @@ export function BookmarksSection({
   const [newName, setNewName] = useState('');
   const [fetching, setFetching] = useState(false);
   const [pushing, setPushing] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastMsg, showToast] = useTransientValue<string>(3000);
 
   const hasRemotes = remotes.length > 0;
 
@@ -53,7 +54,7 @@ export function BookmarksSection({
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to create branch');
     }
-  }, [workspaceId, newName, store]);
+  }, [workspaceId, newName, store, showToast]);
 
   const handleFetch = useCallback(async () => {
     setFetching(true);
@@ -63,7 +64,7 @@ export function BookmarksSection({
     } finally {
       setFetching(false);
     }
-  }, [workspaceId, store]);
+  }, [workspaceId, store, showToast]);
 
   const handlePush = useCallback(async (bm: string) => {
     setPushing(true);
@@ -73,17 +74,12 @@ export function BookmarksSection({
     } finally {
       setPushing(false);
     }
-  }, [workspaceId, store]);
+  }, [workspaceId, store, showToast]);
 
   const handleSetActive = useCallback((name: string) => {
     store.setActivePushBookmark(workspaceId, name);
     showToast(`Active push branch: ${name}`);
-  }, [workspaceId, store]);
-
-  function showToast(msg: string) {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
-  }
+  }, [workspaceId, store, showToast]);
 
   return (
     <VcsSection

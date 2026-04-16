@@ -1,20 +1,17 @@
 /**
  * Shared globalThis EventEmitter singleton for the user-feedback IPC bridge.
  *
- * Both the Pi extension (ipc-bridge.ts) and the Electron IPC handler
- * (user-feedback-questions.ts) import from here to guarantee they share
- * the same emitter key and initialization logic.
+ * The bus key itself lives in `@sero/common` so the extension and Electron host
+ * cannot drift on manual string copies.
  */
 
 import { EventEmitter } from 'node:events';
-
-const EMITTER_KEY = '__seroUserFeedbackBus';
+import { getGlobalSingleton, USER_FEEDBACK_BUS_KEY } from '@sero/common';
 
 export function getUserFeedbackBus(): EventEmitter {
-  const g = globalThis as Record<string, unknown>;
-  if (!g[EMITTER_KEY]) {
-    g[EMITTER_KEY] = new EventEmitter();
-    (g[EMITTER_KEY] as EventEmitter).setMaxListeners(50);
-  }
-  return g[EMITTER_KEY] as EventEmitter;
+  return getGlobalSingleton(USER_FEEDBACK_BUS_KEY, () => {
+    const bus = new EventEmitter();
+    bus.setMaxListeners(50);
+    return bus;
+  });
 }

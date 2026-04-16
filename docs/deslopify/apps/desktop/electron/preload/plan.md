@@ -10,11 +10,7 @@ signatures at IPC edges. The target outcome is a stricter, slimmer preload layer
 contract enforcement and reduced coupling to the `@/types/ipc` mega-barrel.
 
 ## Issues Found (prioritized)
-- **High** — No compile-time conformance check for exposed preload API contract —
-  `apps/desktop/electron/preload.ts:4` exposes `seroPreloadApi` directly from
-  `apps/desktop/electron/preload/api.ts:89-483` without a `SeroAPI`-level conformance guard.
-  This allows declaration/implementation drift to bypass type safety at the process boundary.
-  Effort: **S**.
+- **High** — ⊘ obsolete — compile-time preload contract conformance was already present before this pass via `const seroApiContract = seroPreloadApi satisfies SeroAPI` in `apps/desktop/electron/preload.ts` (revalidated 2026-04-16). Effort: **S**.
 
 - **Medium** — ~~`api.ts` is near cap and still aggregates too many domains in one object —
   `apps/desktop/electron/preload/api.ts:89-483` bundles profiles, workspaces, agent, VCS,
@@ -26,16 +22,9 @@ contract enforcement and reduced coupling to the `@/types/ipc` mega-barrel.
   (example: `apps/desktop/electron/preload/api.ts:2`). This increases blast radius for
   `ipc.ts` edits and reinforces mega-barrel coupling.~~ ✅ 2026-04-12 (all preload `IpcChannels` imports now use `@/types/ipc-channels`). Effort: **S**.
 
-- **Medium** — Weak public typings (`any`/`unknown`) leak across preload IPC boundaries —
-  `apps/desktop/electron/preload/integrations/google-imagegen.ts:16-17,26`,
-  `apps/desktop/electron/preload/editor/debug-lsp.ts:45-51`, and
-  `apps/desktop/electron/preload/apps/app-domain.ts:95` expose untyped payloads/results despite
-  existing domain contracts in type declarations. Effort: **M**.
+- **Medium** — ~~Weak public typings (`any`/`unknown`) leak across preload IPC boundaries — `apps/desktop/electron/preload/integrations/google-imagegen.ts:16-17,26`, `apps/desktop/electron/preload/editor/debug-lsp.ts:45-51`, and `apps/desktop/electron/preload/apps/app-domain.ts:95` expose untyped payloads/results despite existing domain contracts in type declarations.~~ ✅ 2026-04-16 (`d6f91eb1`) Effort: **M**.
 
-- **Low** — Layout bridge uses ad-hoc shape instead of canonical layout contracts —
-  `apps/desktop/electron/preload/platform/host-services.ts:21-24` narrows layout save/load to
-  a partial inline object, while declared API expects `LayoutState` / `LoadedLayoutState`
-  (`apps/desktop/src/types/electron.d.ts:264-268`). Effort: **S**.
+- **Low** — ~~Layout bridge uses ad-hoc shape instead of canonical layout contracts — `apps/desktop/electron/preload/platform/host-services.ts:21-24` narrows layout save/load to a partial inline object, while declared API expects `LayoutState` / `LoadedLayoutState` (`apps/desktop/src/types/electron.d.ts:264-268`).~~ ✅ 2026-04-16 (`d6f91eb1`) Effort: **S**.
 
 ## Proposed Refactoring
 1. **Enforce preload API contract conformance at compile time.**
@@ -74,11 +63,8 @@ contract enforcement and reduced coupling to the `@/types/ipc` mega-barrel.
 - API conformance enforcement may fail fast on existing weakly typed methods; budget time for type repair.
 
 ## Next Steps
-1. Add compile-time conformance check between `seroPreloadApi` and declared Sero API contract.
-2. Fix `any`/`unknown` signatures in `google-imagegen`, `debug-lsp`, and `app-domain` bridges.
-3. ~~Migrate preload imports to `@/types/ipc-channels` for `IpcChannels`.~~ ✅ 2026-04-12
-4. ~~Split `preload/api.ts` before adding new IPC namespaces.~~ ✅ 2026-04-12
-5. Proceed to `deslopify apps/desktop/electron/ipc` (Wave A step 3).
+1. None — folder plan fully executed 2026-04-16.
 
 ## Execution log
+- 2026-04-16 — `d6f91eb1` `refactor(desktop-preload): tighten preload bridge types`
 - 2026-04-12 — Medium Wave E1 (working tree): split `preload/api.ts` into `preload/api/core.ts` + `preload/api/workbench.ts` and moved preload-wide `IpcChannels` imports onto `@/types/ipc-channels`.

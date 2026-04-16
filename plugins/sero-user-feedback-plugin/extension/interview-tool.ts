@@ -160,7 +160,7 @@ export function registerInterviewCommand(pi: ExtensionAPI) {
 
 // ── Result builder ─────────────────────────────────────────────
 
-function buildInterviewResult(
+export function buildInterviewResult(
   questions: QuestionItem[],
   answers: QuestionAnswer[],
   cancelled: boolean,

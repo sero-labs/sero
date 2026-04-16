@@ -9,7 +9,7 @@ import path from 'node:path';
 
 import type { KanbanState, Card } from '../shared/types';
 import {
-  DEFAULT_KANBAN_STATE,
+  createDefaultKanbanState,
   COLUMNS,
   COLUMN_LABELS,
   PRIORITY_ORDER,
@@ -25,12 +25,26 @@ export function resolveStatePath(cwd: string): string {
 
 // ── File I/O (atomic writes) ───────────────────────────────────
 
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
+function createStateReadError(filePath: string, error: unknown): Error {
+  const detail = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `Kanban board state at ${filePath} is unreadable. Repair or remove the malformed file before retrying. Original error: ${detail}`,
+  );
+}
+
 export async function readState(filePath: string): Promise<KanbanState> {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     return JSON.parse(raw) as KanbanState;
-  } catch {
-    return { ...DEFAULT_KANBAN_STATE };
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return createDefaultKanbanState();
+    }
+    throw createStateReadError(filePath, error);
   }
 }
 

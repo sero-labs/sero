@@ -16,17 +16,19 @@ import * as net from 'net';
 const DEFAULT_PORT = 19800;
 const GATEWAY_IP = '192.168.64.1';
 const FALLBACK_BIND_ADDRESS = '0.0.0.0';
+const CONTAINER_CLIENT_SUBNET = /^192\.168\.64\.\d{1,3}$/;
 
 function normalizeClientAddress(address: string | undefined): string {
   if (!address) return '';
   return address.startsWith('::ffff:') ? address.slice(7) : address;
 }
 
-function isAllowedProxyClient(address: string | undefined): boolean {
+export function isAllowedProxyClient(address: string | undefined): boolean {
   const normalized = normalizeClientAddress(address);
   if (!normalized) return false;
-  if (normalized === '127.0.0.1' || normalized === '::1') return true;
-  return /^192\.168\.64\.\d{1,3}$/.test(normalized);
+  // Deliberately reject host-loopback clients so the fallback 0.0.0.0 bind
+  // cannot be reused as a general local proxy by arbitrary host processes.
+  return CONTAINER_CLIENT_SUBNET.test(normalized);
 }
 
 function getSocketRemoteAddress(socket: NodeJS.ReadWriteStream): string | undefined {
@@ -35,23 +37,32 @@ function getSocketRemoteAddress(socket: NodeJS.ReadWriteStream): string | undefi
     : undefined;
 }
 
-function isBlockedProxyTarget(host: string): boolean {
+export function isBlockedProxyTarget(host: string): boolean {
   const normalized = host.trim().toLowerCase();
   if (!normalized) return true;
-  if (normalized === 'localhost' || normalized.endsWith('.local') || normalized.endsWith('.localhost')) {
+  if (
+    normalized === 'localhost'
+    || normalized === '0.0.0.0'
+    || normalized === '::'
+    || normalized.endsWith('.local')
+    || normalized.endsWith('.localhost')
+  ) {
     return true;
   }
 
   const ipVersion = net.isIP(normalized);
   if (!ipVersion) return false;
 
-  if (normalized.startsWith('127.') || normalized === '::1') return true;
-  if (normalized.startsWith('10.') || normalized.startsWith('192.168.') || normalized.startsWith('169.254.')) {
-    return true;
+  if (ipVersion === 4) {
+    if (normalized.startsWith('127.')) return true;
+    if (normalized.startsWith('10.') || normalized.startsWith('192.168.') || normalized.startsWith('169.254.')) {
+      return true;
+    }
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(normalized)) return true;
+    return false;
   }
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(normalized)) return true;
 
-  return false;
+  return normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:');
 }
 
 export function handleProxyRequestError(
@@ -187,7 +198,7 @@ export class ContainerHttpProxy {
 
         if (err.code === 'EADDRNOTAVAIL' && this.bindAddress !== FALLBACK_BIND_ADDRESS) {
           console.warn(
-            `[http-proxy] ${this.bindAddress} is not bindable on this host, falling back to ${FALLBACK_BIND_ADDRESS}`,
+            `[http-proxy] ${this.bindAddress} is not bindable on this host, falling back to ${FALLBACK_BIND_ADDRESS} with container-subnet-only client allowlisting`,
           );
           this.bindAddress = FALLBACK_BIND_ADDRESS;
           listen();

@@ -266,13 +266,13 @@ export class ContainerManager {
   }
 
   async stop(workspaceId: string): Promise<void> {
-    this.portScanner.stopScanning(workspaceId);
+    await this.portScanner.stopScanning(workspaceId);
     this.containerIps.delete(workspaceId);
     return stopContainer(workspaceId, this.containers);
   }
 
   async remove(workspaceId: string): Promise<void> {
-    this.portScanner.stopScanning(workspaceId);
+    await this.portScanner.stopScanning(workspaceId);
     this.containerIps.delete(workspaceId);
     return removeContainer(workspaceId, this.containers);
   }
@@ -303,9 +303,9 @@ export class ContainerManager {
   /* ── Port forwarding (convenience) ────────────────────────── */
 
   /** Stop all port scanning, forwarding, the HTTP proxy, and the dev server registry. */
-  disposeAllPortForwards(): void {
-    this.portScanner.disposeAll();
+  async disposeAllPortForwards(): Promise<void> {
     this.devServers.dispose();
+    await this.portScanner.disposeAll();
     this.httpProxy.stop();
   }
 

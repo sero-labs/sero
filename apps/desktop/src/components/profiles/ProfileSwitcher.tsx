@@ -15,11 +15,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/
 import { User, Check, Plus, Loader2 } from 'lucide-react';
 import { useProfileStore, switchProfile } from '@/stores/profiles';
 import { CreateProfileDialog } from './CreateProfileDialog';
+import { useProfileOperationState } from './useProfileOperationState';
 
 export function ProfileSwitcher() {
   const profiles = useProfileStore((s) => s.profiles);
   const activeProfile = useProfileStore((s) => s.activeProfile);
-  const isLoading = useProfileStore((s) => s.isLoading);
+  const {
+    isLoading,
+    error,
+    clearError,
+    runProfileOperation,
+  } = useProfileOperationState();
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -38,17 +44,25 @@ export function ProfileSwitcher() {
   const handleSwitch = async (id: string) => {
     if (id === activeId) return;
     setSwitching(id);
-    try {
-      await switchProfile(id);
-      // App restarts — this won't execute
-    } catch {
-      setSwitching(null);
-    }
+    await runProfileOperation(
+      () => switchProfile(id),
+      () => setSwitching(null),
+    );
+    // App restarts on success.
   };
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            clearError();
+            setSwitching(null);
+          }
+          setOpen(nextOpen);
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
@@ -102,8 +116,13 @@ export function ProfileSwitcher() {
 
             <div className="my-1 h-px bg-[var(--border-default)]" />
 
+            {error && (
+              <p className="px-2 py-1 text-[11px] text-[var(--status-error)]">{error}</p>
+            )}
+
             <button
               onClick={() => {
+                clearError();
                 setOpen(false);
                 setShowCreate(true);
               }}

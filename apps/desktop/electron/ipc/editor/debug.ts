@@ -14,13 +14,14 @@
  *      after extensions have filtered messages or otherwise mutated the request.
  */
 
-import { ipcMain, BrowserWindow, shell } from 'electron';
+import { ipcMain, shell } from 'electron';
 import { promises as fs, createWriteStream, type WriteStream } from 'fs';
 import path from 'path';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 import { SERO_HOME } from '@electron/platform/env';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { tryParseImageJson } from '../agent/core/tool-result-images';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 /** Resolve debug dir from SERO_DEBUG_DIR env var, falling back to ~/.sero-ui/debug. */
 const DEBUG_DIR = process.env.SERO_DEBUG_DIR || path.join(SERO_HOME, 'debug');
@@ -204,9 +205,7 @@ function writeEntry(data: Record<string, unknown>): void {
 
 /** Push current debug state to all renderer windows. */
 function broadcastState(): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(IpcChannels.debug.stateChanged, enabled);
-  }
+  broadcastToWindows(IpcChannels.debug.stateChanged, enabled);
 }
 
 // ── IPC Registration ─────────────────────────────────────────

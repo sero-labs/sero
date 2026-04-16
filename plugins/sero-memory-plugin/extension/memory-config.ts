@@ -1,10 +1,8 @@
 import {
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+  readJsonStateSync,
+  writeJsonStateSync,
+} from './json-state';
+import { resolveMemoryStatePath } from './state-paths';
 
 export type MemorySnapshotMode = 'frozen' | 'live';
 export type AutoRetrieveMode = 'on' | 'off';
@@ -18,27 +16,8 @@ const DEFAULT_CONFIG: MemoryConfigState = {};
 const DEFAULT_SNAPSHOT_MODE: MemorySnapshotMode = 'frozen';
 const DEFAULT_AUTO_RETRIEVE: AutoRetrieveMode = 'on';
 
-function resolveSeroHome(): string {
-  return process.env.SERO_HOME || path.join(os.homedir(), '.sero-ui');
-}
-
 function resolveConfigPath(): string {
-  return path.join(resolveSeroHome(), 'state', 'memory', 'config.json');
-}
-
-function readJsonFile<T>(filePath: string, fallback: T): T {
-  try {
-    const raw = readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(raw) as T;
-    return parsed && typeof parsed === 'object' ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJsonFile(filePath: string, value: unknown): void {
-  mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf8');
+  return resolveMemoryStatePath('config.json');
 }
 
 function normalizeSnapshotMode(value: unknown): MemorySnapshotMode {
@@ -48,11 +27,11 @@ function normalizeSnapshotMode(value: unknown): MemorySnapshotMode {
 }
 
 function readConfigSync(): MemoryConfigState {
-  return readJsonFile(resolveConfigPath(), { ...DEFAULT_CONFIG });
+  return readJsonStateSync(resolveConfigPath(), { ...DEFAULT_CONFIG });
 }
 
 function writeConfigSync(state: MemoryConfigState): void {
-  writeJsonFile(resolveConfigPath(), state);
+  writeJsonStateSync(resolveConfigPath(), state);
 }
 
 export function getMemorySnapshotModeSync(): MemorySnapshotMode {
@@ -72,6 +51,14 @@ export function setMemorySnapshotModeSync(mode: MemorySnapshotMode): MemorySnaps
   return nextMode;
 }
 
+export async function getMemorySnapshotMode(): Promise<MemorySnapshotMode> {
+  return getMemorySnapshotModeSync();
+}
+
+export async function setMemorySnapshotMode(mode: MemorySnapshotMode): Promise<MemorySnapshotMode> {
+  return setMemorySnapshotModeSync(mode);
+}
+
 export function describeMemorySnapshotMode(mode: MemorySnapshotMode): string {
   switch (mode) {
     case 'frozen':
@@ -80,8 +67,6 @@ export function describeMemorySnapshotMode(mode: MemorySnapshotMode): string {
       return 'live — memory context is rebuilt each turn';
   }
 }
-
-// ── Auto-retrieve ───────────────────────────────────────────
 
 function normalizeAutoRetrieve(value: unknown): AutoRetrieveMode {
   return value === 'on' || value === 'off' ? value : DEFAULT_AUTO_RETRIEVE;
@@ -99,6 +84,14 @@ export function setAutoRetrieveModeSync(mode: AutoRetrieveMode): AutoRetrieveMod
   if (state.autoRetrieve === nextMode) return nextMode;
   writeConfigSync({ ...state, autoRetrieve: nextMode });
   return nextMode;
+}
+
+export async function getAutoRetrieveMode(): Promise<AutoRetrieveMode> {
+  return getAutoRetrieveModeSync();
+}
+
+export async function setAutoRetrieveMode(mode: AutoRetrieveMode): Promise<AutoRetrieveMode> {
+  return setAutoRetrieveModeSync(mode);
 }
 
 export function describeAutoRetrieveMode(mode: AutoRetrieveMode): string {

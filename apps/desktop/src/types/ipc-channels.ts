@@ -139,6 +139,10 @@ export const IpcChannels = {
     /** Run a direct Git app action for a workspace. */
     run: 'sero:git-app:run',
   },
+  webApp: {
+    /** Run a direct Web app action for a workspace. */
+    run: 'sero:web-app:run',
+  },
   models: {
     /** List all available models (session-independent). Returns AvailableModelGroup[]. */
     list: 'sero:models:list',

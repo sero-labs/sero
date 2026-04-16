@@ -8,30 +8,11 @@
  * (shared across all workspaces).
  */
 
-// ── Cron Jobs ──────────────────────────────────────────────────
+import type { CronJob, CronState as SharedCronState } from '@sero/common';
 
-export interface CronJob {
-  name: string;
-  /** 5-field cron expression: min hour dom month dow */
-  schedule: string;
-  /** Prompt sent to the agent when the job fires */
-  prompt: string;
-  /** Grouping tag (default: "cron") */
-  channel: string;
-  /** Whether the job is disabled (won't execute on schedule) */
-  disabled: boolean;
-  /**
-   * Model pattern or ID (e.g. "sonnet", "openai/gpt-4o", "gemini:high").
-   * Supports "provider/id" shorthand and optional ":<thinking>" suffix.
-   * When unset, the job uses whatever default is in your Pi settings.
-   */
-  model?: string;
-  /**
-   * If true, the job will run once on scheduler start if it was missed
-   * since midnight (00:00) of the current day. Opt-in, defaults to false.
-   */
-  runIfMissed?: boolean;
-}
+export type { CronJob } from '@sero/common';
+
+// ── Cron Jobs ──────────────────────────────────────────────────
 
 export interface CronRunResult {
   jobName: string;
@@ -116,21 +97,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 
 // ── Combined State ─────────────────────────────────────────────
 
-export interface CronState {
-  jobs: CronJob[];
-  reminders: Reminder[];
-  schedulerActive: boolean;
-  /** Start the scheduler automatically when Sero launches */
-  autostart: boolean;
-  /** Last scheduler tick minute key, used to avoid same-minute re-fires after restart. */
-  lastTickMinute?: string;
-  /** ISO timestamp of when the scheduler was last shut down (used for missed-job recovery). */
-  lastSchedulerShutdown?: string;
-  /** Recent execution results (capped at 50) */
-  lastRunResults: CronRunResult[];
-  /** Notification preferences */
-  notificationSettings?: NotificationSettings;
-}
+export interface CronState extends SharedCronState<Reminder, CronRunResult, NotificationSettings> {}
 
 export const DEFAULT_CRON_STATE: CronState = {
   jobs: [],

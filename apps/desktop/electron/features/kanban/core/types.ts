@@ -1,129 +1,21 @@
 /**
- * Kanban types — host-side state definitions.
+ * Kanban types — local barrel over the canonical shared contract.
  *
- * These types mirror the extension's shared/types.ts but are owned by
- * the host. The extension package should NOT be imported into the host
- * except for pure validation logic in shared/validation.ts (which has
- * no side effects and is the single source of truth for transition rules).
- *
- * If you change the state shape here, update
- * plugins/sero-kanban-plugin/shared/types.ts to match.
+ * The source of truth now lives in `@sero/common` so the host and plugin
+ * consume the same state model and validation helpers.
  */
 
-export type Column = 'backlog' | 'planning' | 'in-progress' | 'review' | 'done';
-export type Priority = 'critical' | 'high' | 'medium' | 'low';
-export type CardStatus = 'idle' | 'agent-working' | 'waiting-input' | 'paused' | 'failed';
-export type ReviewMode = 'full' | 'light';
-
-export interface Subtask {
-  id: string;
-  title: string;
-  description: string;
-  status: 'pending' | 'in-progress' | 'completed' | 'failed';
-  dependsOn: string[];
-  /** TDD scenario designation: 'tdd' = write tests first, 'test-after' = tests after, 'no-test' = skip */
-  tddDesignation?: 'tdd' | 'test-after' | 'no-test';
-  /** File paths this subtask creates or modifies */
-  filePaths?: string[];
-  /** Estimated complexity: low (~15min), medium (~30min), high (~45min+) */
-  complexity?: 'low' | 'medium' | 'high';
-  /** Spec review status (per-subtask review mode) */
-  specReviewStatus?: 'pending' | 'passed' | 'failed';
-  /** Quality review status (per-subtask review mode) */
-  qualityReviewStatus?: 'pending' | 'passed' | 'failed';
-  agentRunId?: string;
-  checkpointId?: string;
-}
-
-export interface PlanningToolEntry {
-  tool: string;
-  args: string;
-  running: boolean;
-}
-
-export interface PlanningProgress {
-  phase: string;
-  startedAt: number;
-  agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
-  recentTools: PlanningToolEntry[];
-  log: string[];
-  liveOutput?: string;
-  liveOutputSource?: string;
-}
-
-export interface ImplementationProgress {
-  phase: string;
-  startedAt: number;
-  currentWave: number; // Optional compatibility field for staged execution UIs
-  totalWaves: number; // Optional compatibility field for staged execution UIs
-  agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
-  recentTools: PlanningToolEntry[];
-  log: string[];
-  liveOutput?: string;
-  liveOutputSource?: string;
-}
-
-export interface ReviewProgress {
-  phase: string;
-  startedAt: number;
-  agents: { name: string; status: 'running' | 'completed' | 'failed' }[];
-  recentTools: PlanningToolEntry[];
-  log: string[];
-  liveOutput?: string;
-  liveOutputSource?: string;
-}
-
-export interface Card {
-  id: string;
-  title: string;
-  description: string;
-  acceptance: string[];
-  priority: Priority;
-  column: Column;
-  status: CardStatus;
-  /** IDs of cards that must be in 'done' before this card can start */
-  blockedBy?: string[];
-  branch?: string;
-  worktreePath?: string;
-  sessionId?: string;
-  subtasks: Subtask[];
-  plan?: string;
-  prUrl?: string;
-  prNumber?: number;
-  previewUrl?: string;
-  previewServerId?: string;
-  reviewFilePath?: string;
-  lastCheckpoint?: string;
-  planningProgress?: PlanningProgress;
-  implementationProgress?: ImplementationProgress;
-  reviewProgress?: ReviewProgress;
-  error?: string;
-  createdAt: string;
-  updatedAt: string;
-  completedAt?: string;
-}
-
-export interface KanbanSettings {
-  autoAdvance: boolean;
-  maxConcurrentCards: number;
-  requireApproval: {
-    plan: boolean;
-    pr: boolean;
-  };
-  /** Review rigour: 'per-wave' (default) or 'per-subtask' (two-stage) */
-  reviewLevel: 'per-wave' | 'per-subtask';
-  /** Review style: full diff review, or light smoke review for prototype work */
-  reviewMode: ReviewMode;
-  /** Whether TDD and testing are enabled (default: true). false = POC mode */
-  testingEnabled: boolean;
-  /** YOLO mode: auto-start, auto-approve, auto-complete — no human gates */
-  yoloMode: boolean;
-  /** When YOLO mode is enabled, automatically request GitHub PR auto-merge. */
-  yoloAutoMergePrs: boolean;
-}
-
-export interface KanbanState {
-  cards: Card[];
-  nextId: number;
-  settings: KanbanSettings;
-}
+export type {
+  Column,
+  Priority,
+  CardStatus,
+  ReviewMode,
+  Subtask,
+  PlanningToolEntry,
+  PlanningProgress,
+  ImplementationProgress,
+  ReviewProgress,
+  Card,
+  KanbanSettings,
+  KanbanState,
+} from '@sero/common';

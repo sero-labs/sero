@@ -17,6 +17,18 @@ const BUILTIN_COMMANDS: SeroSlashCommandInfo[] = [
   { name: 'logout', description: 'Logout from OAuth provider', source: 'extension' },
 ];
 
+type BuiltinCommandMode = 'login' | 'logout';
+
+function getBuiltinCommandMode(nameOrText: string): BuiltinCommandMode | null {
+  if (nameOrText === 'login' || nameOrText === '/login' || nameOrText.startsWith('/login ')) {
+    return 'login';
+  }
+  if (nameOrText === 'logout' || nameOrText === '/logout' || nameOrText.startsWith('/logout ')) {
+    return 'logout';
+  }
+  return null;
+}
+
 interface UseChatPromptInputOptions {
   sessionId: string | null;
   isStreaming: boolean;
@@ -26,7 +38,7 @@ interface UseChatPromptInputOptions {
   collaborationMode: boolean;
   steerAgent: (sessionId: string, text: string) => void;
   messageQueue: { enqueue: (text: string, attachments?: ChatAttachment[]) => void };
-  onLoginRequest: (mode: 'login' | 'logout') => void;
+  onLoginRequest: (mode: BuiltinCommandMode) => void;
 }
 
 export function useChatPromptInput({
@@ -62,21 +74,25 @@ export function useChatPromptInput({
     return input.slice(1);
   }, [input, slashMenuOpen]);
 
+  const handleBuiltinCommand = useCallback(
+    (nameOrText: string) => {
+      const mode = getBuiltinCommandMode(nameOrText);
+      if (!mode) return false;
+      setInput('');
+      onLoginRequest(mode);
+      return true;
+    },
+    [onLoginRequest],
+  );
+
   const handleSlashSelect = useCallback(
     (cmd: SeroSlashCommandInfo) => {
-      if (cmd.name === 'login') {
-        setInput('');
-        onLoginRequest('login');
-        return;
-      }
-      if (cmd.name === 'logout') {
-        setInput('');
-        onLoginRequest('logout');
+      if (handleBuiltinCommand(cmd.name)) {
         return;
       }
       setInput(`/${cmd.name} `);
     },
-    [onLoginRequest],
+    [handleBuiltinCommand],
   );
 
   const handleSlashClose = useCallback(() => setInput(''), []);
@@ -136,14 +152,7 @@ export function useChatPromptInput({
       if ((!text && !message.files?.length) || !sessionId) return;
       if (slashMenuOpen || fileMenuOpen) return;
 
-      if (text === '/login' || text.startsWith('/login ')) {
-        setInput('');
-        onLoginRequest('login');
-        return;
-      }
-      if (text === '/logout' || text.startsWith('/logout ')) {
-        setInput('');
-        onLoginRequest('logout');
+      if (handleBuiltinCommand(text)) {
         return;
       }
 
@@ -178,7 +187,7 @@ export function useChatPromptInput({
         sendPrompt(sessionId, text, attachments);
       }
     },
-    [input, sessionId, slashMenuOpen, fileMenuOpen, isStreaming, sendPrompt, sendCollaborationPrompt, collaborationMode, steerAgent, messageQueue, onLoginRequest],
+    [input, sessionId, slashMenuOpen, fileMenuOpen, isStreaming, sendPrompt, sendCollaborationPrompt, collaborationMode, steerAgent, messageQueue, handleBuiltinCommand],
   );
 
   return {

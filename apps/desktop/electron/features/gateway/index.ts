@@ -11,7 +11,7 @@ import { GatewayAuth, type GatewayAuthResult } from './security/auth';
 import { CostTracker } from './server/cost-tracker';
 import { RateLimiter } from './security/rate-limiter';
 import { sendResponse, routeAgentRequest, disposeIdempotencyStore } from './server/request-handler';
-import { tryServeStaticFile } from './server/static-files';
+import { primeStaticFileCache, tryServeStaticFile } from './server/static-files';
 import { redactSecrets } from '@electron/shared/lib/secret-redact';
 import { validateRequest, type GatewayRequest, type GatewayResponse, type GatewayPushEvent } from './server/protocol';
 import type { GatewayConfig, GatewayAgentOps } from './server/types';
@@ -107,6 +107,8 @@ export class GatewayServer {
   /** Start the gateway server. */
   async start(): Promise<void> {
     if (this.wss) return;
+
+    primeStaticFileCache(__dirname);
 
     this.httpServer = http.createServer((req, res) => {
       // Security headers on all responses

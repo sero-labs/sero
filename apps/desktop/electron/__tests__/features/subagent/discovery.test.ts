@@ -22,7 +22,7 @@ describe('discoverAgents', () => {
   it('parses a valid .md file with full JSON frontmatter', async () => {
     await writeMd('analyst.md', [
       '```json',
-      '{ "name": "analyst", "description": "Codebase analysis", "model": "claude-sonnet-4-6", "thinking": "medium", "timeoutMs": 300000, "tools": ["read", "bash"] }',
+      '{ "name": "analyst", "description": "Codebase analysis", "model": "claude-sonnet-4-6", "thinking": "medium", "timeoutMs": 300000 }',
       '```',
       '',
       'You are a senior analyst.',
@@ -35,7 +35,6 @@ describe('discoverAgents', () => {
     expect(agents[0].model).toBe('claude-sonnet-4-6');
     expect(agents[0].thinking).toBe('medium');
     expect(agents[0].timeoutMs).toBe(300000);
-    expect(agents[0].tools).toEqual(['read', 'bash']);
     expect(agents[0].systemPrompt).toBe('You are a senior analyst.');
     expect(agents[0].source).toBe('global');
     expect(agents[0].filePath).toBe(path.join(tmpDir, 'analyst.md'));
@@ -92,6 +91,30 @@ describe('discoverAgents', () => {
 
     const agents = await discoverAgents(tmpDir);
     expect(agents).toHaveLength(0);
+    warnSpy.mockRestore();
+  });
+
+  it('warns and ignores unsupported tools/extensions frontmatter fields', async () => {
+    await writeMd('ignored-fields.md', [
+      '```json',
+      '{ "name": "ignored-fields", "description": "Unsupported fields", "tools": ["read"], "extensions": ["demo"] }',
+      '```',
+      'Body.',
+    ].join('\n'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const agents = await discoverAgents(tmpDir);
+
+    expect(agents).toHaveLength(1);
+    expect(agents[0].name).toBe('ignored-fields');
+    expect('tools' in agents[0]).toBe(false);
+    expect('extensions' in agents[0]).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("field 'tools' is ignored in v1"),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("field 'extensions' is ignored in v1"),
+    );
     warnSpy.mockRestore();
   });
 

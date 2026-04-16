@@ -1,6 +1,11 @@
 import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { invalidatePackageProviderManifestCache } from '../providers/package-provider-manifests';
+
+export function getSettingsPath(): string {
+  return path.join(SERO_AGENT_DIR, 'settings.json');
+}
 
 /** Extract the `sero` namespace from a parsed settings object. */
 export function getSeroSettings(settings: Record<string, unknown>): Record<string, unknown> {
@@ -15,14 +20,27 @@ export type SettingsReadResult =
   | { ok: true; settings: Record<string, unknown> }
   | { ok: false; error: Error };
 
+function buildSettingsReadError(settingsPath: string, error: unknown): Error {
+  const message = error instanceof Error ? error.message : 'unknown read error';
+  return new Error(
+    `Failed to read ${settingsPath}. Fix the file and retry. (${message})`,
+  );
+}
+
 /** Read and parse settings.json from the active agent directory. */
 export function readSettingsResult(): SettingsReadResult {
-  const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
+  const settingsPath = getSettingsPath();
   try {
     const raw = readFileSync(settingsPath, 'utf8');
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { ok: false, error: new Error('settings.json must contain a JSON object') };
+      return {
+        ok: false,
+        error: buildSettingsReadError(
+          settingsPath,
+          new Error('settings.json must contain a JSON object'),
+        ),
+      };
     }
     return { ok: true, settings: parsed as Record<string, unknown> };
   } catch (error) {
@@ -32,9 +50,7 @@ export function readSettingsResult(): SettingsReadResult {
     }
     return {
       ok: false,
-      error: error instanceof Error
-        ? error
-        : new Error('Failed to read settings.json'),
+      error: buildSettingsReadError(settingsPath, error),
     };
   }
 }
@@ -50,6 +66,6 @@ export function readSettings(): Record<string, unknown> {
 
 /** Persist the active profile's settings.json. */
 export function writeSettings(settings: Record<string, unknown>): void {
-  const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  invalidatePackageProviderManifestCache();
 }

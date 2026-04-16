@@ -9,6 +9,12 @@
  * In Pi CLI mode, the extension uses ctx.ui.custom() instead.
  */
 
+import {
+  USER_FEEDBACK_QUESTION_REQUEST_EVENT,
+  USER_FEEDBACK_QUESTION_CANCEL_EVENT,
+  getUserFeedbackAnswerEvent,
+  type UserFeedbackCancelPayload,
+} from '@sero/common';
 import type { PendingQuestion, QuestionResponse } from '../shared/types';
 import { getUserFeedbackBus } from '../shared/emitter';
 
@@ -21,7 +27,7 @@ import { getUserFeedbackBus } from '../shared/emitter';
  */
 export function hasSeroIPCBridge(): boolean {
   const bus = getUserFeedbackBus();
-  return bus.listenerCount('question-request') > 0;
+  return bus.listenerCount(USER_FEEDBACK_QUESTION_REQUEST_EVENT) > 0;
 }
 
 let questionCounter = 0;
@@ -45,7 +51,7 @@ export async function askQuestion(
   const bus = getUserFeedbackBus();
 
   return new Promise<QuestionResponse>((resolve) => {
-    const answerId = `answer:${pending.id}`;
+    const answerId = getUserFeedbackAnswerEvent(pending.id);
 
     const onAnswer = (response: QuestionResponse) => {
       cleanup();
@@ -55,7 +61,7 @@ export async function askQuestion(
     const onAbort = () => {
       cleanup();
       // Notify renderer that the question was cancelled
-      bus.emit('question-cancel', { id: pending.id });
+      bus.emit(USER_FEEDBACK_QUESTION_CANCEL_EVENT, { id: pending.id } satisfies UserFeedbackCancelPayload);
       resolve({ id: pending.id, answers: [], cancelled: true });
     };
 
@@ -69,7 +75,7 @@ export async function askQuestion(
     if (signal) {
       if (signal.aborted) {
         cleanup();
-        bus.emit('question-cancel', { id: pending.id });
+        bus.emit(USER_FEEDBACK_QUESTION_CANCEL_EVENT, { id: pending.id } satisfies UserFeedbackCancelPayload);
         resolve({ id: pending.id, answers: [], cancelled: true });
         return;
       }
@@ -77,6 +83,6 @@ export async function askQuestion(
     }
 
     // Send the question to the renderer via the IPC bridge
-    bus.emit('question-request', pending);
+    bus.emit(USER_FEEDBACK_QUESTION_REQUEST_EVENT, pending);
   });
 }

@@ -6,9 +6,10 @@
  * server stopped) to all renderer windows.
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { ipcMain } from 'electron';
+import { IpcChannels } from '@/types/ipc-channels';
 import { lspManager } from '@electron/shared/infra/shared-infra';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 export function registerLspHandlers(): void {
   ipcMain.handle(
@@ -49,22 +50,10 @@ export function registerLspHandlers(): void {
 
   // Forward LSP notifications (diagnostics etc.) to the renderer
   lspManager.on('notification', (data: { workspaceId: string; language: string; notification: unknown }) => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      try {
-        if (!win.isDestroyed()) {
-          win.webContents.send(IpcChannels.lsp.notification, data);
-        }
-      } catch { /* window may be closing */ }
-    }
+    broadcastToWindows(IpcChannels.lsp.notification, data);
   });
 
   lspManager.on('serverStopped', (data: { workspaceId: string; language: string }) => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      try {
-        if (!win.isDestroyed()) {
-          win.webContents.send(IpcChannels.lsp.serverStopped, data);
-        }
-      } catch { /* window may be closing */ }
-    }
+    broadcastToWindows(IpcChannels.lsp.serverStopped, data);
   });
 }

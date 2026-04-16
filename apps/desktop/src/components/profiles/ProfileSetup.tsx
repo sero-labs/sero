@@ -5,15 +5,21 @@
  * window with a clean setup flow: enter name → create profile → launch.
  */
 
-import { useProfileStore, createProfile } from '@/stores/profiles';
+import { createProfile } from '@/stores/profiles';
 import { ProfileForm } from './ProfileForm';
+import { useProfileOperationState } from './useProfileOperationState';
 
 export function ProfileSetup() {
-  const isLoading = useProfileStore((s) => s.isLoading);
+  const {
+    isLoading,
+    error,
+    clearError,
+    runProfileOperation,
+  } = useProfileOperationState();
 
   const handleCreate = async (name: string, customPath?: string, copyAuthFromId?: string) => {
     // First profile is always activated (triggers app restart to load it)
-    await createProfile(name, customPath, true, copyAuthFromId);
+    await runProfileOperation(() => createProfile(name, customPath, true, copyAuthFromId));
   };
 
   return (
@@ -37,6 +43,8 @@ export function ProfileSetup() {
         <ProfileForm
           submitLabel="Get Started"
           onSubmit={handleCreate}
+          operationError={error}
+          onClearOperationError={clearError}
           isLoading={isLoading}
           autoFocus
         />

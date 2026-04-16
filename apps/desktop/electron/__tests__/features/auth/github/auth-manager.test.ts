@@ -54,6 +54,8 @@ describe('GitHubAuthManager', () => {
   }
 
   afterEach(async () => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.resetModules();
     vi.unmock('electron');
@@ -128,6 +130,101 @@ describe('GitHubAuthManager', () => {
     );
     expect(manager.getToken()).toBeNull();
     expect(manager.getStatus()).toEqual({ authenticated: false });
+  });
+
+  it('treats non-OK token poll responses without OAuth error fields as terminal failures', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-auth-poll-non-ok-'));
+
+    const { GitHubAuthManager } = await importManager({ available: true });
+    const manager = new GitHubAuthManager() as unknown as {
+      pollForToken: (device: { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number }) => Promise<string>;
+    };
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ message: 'upstream unavailable' }),
+        { status: 502, statusText: 'Bad Gateway', headers: { 'Content-Type': 'application/json' } },
+      ),
+    ));
+
+    vi.useFakeTimers();
+    const pollPromise = manager.pollForToken({
+      device_code: 'device-code',
+      user_code: 'CODE-1234',
+      verification_uri: 'https://github.com/login/device',
+      expires_in: 900,
+      interval: 5,
+    });
+    const assertion = expect(pollPromise).rejects.toThrow('GitHub token polling failed with 502 Bad Gateway.');
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await assertion;
+  });
+
+  it('continues polling when GitHub returns authorization_pending via non-2xx status', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-auth-poll-pending-'));
+
+    const { GitHubAuthManager } = await importManager({ available: true });
+    const manager = new GitHubAuthManager() as unknown as {
+      pollForToken: (device: { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number }) => Promise<string>;
+    };
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: 'authorization_pending' }),
+          { status: 428, statusText: 'Precondition Required', headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ access_token: 'gho_success' }),
+          { status: 200, statusText: 'OK', headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    vi.useFakeTimers();
+    const pollPromise = manager.pollForToken({
+      device_code: 'device-code',
+      user_code: 'CODE-1234',
+      verification_uri: 'https://github.com/login/device',
+      expires_in: 900,
+      interval: 5,
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await expect(pollPromise).resolves.toBe('gho_success');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails fast when token polling cannot reach GitHub', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-auth-poll-network-'));
+
+    const { GitHubAuthManager } = await importManager({ available: true });
+    const manager = new GitHubAuthManager() as unknown as {
+      pollForToken: (device: { device_code: string; user_code: string; verification_uri: string; expires_in: number; interval: number }) => Promise<string>;
+    };
+
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    vi.useFakeTimers();
+    const pollPromise = manager.pollForToken({
+      device_code: 'device-code',
+      user_code: 'CODE-1234',
+      verification_uri: 'https://github.com/login/device',
+      expires_in: 900,
+      interval: 5,
+    });
+    const assertion = expect(pollPromise).rejects.toThrow('GitHub token polling request failed: network down');
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await assertion;
   });
 
   it('removes both current and legacy token files on logout', async () => {

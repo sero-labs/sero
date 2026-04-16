@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { getEnvApiKey } from '@mariozechner/pi-ai';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type {
   VoiceTranscriptionResult,
   VoiceTranscriptionStatus,

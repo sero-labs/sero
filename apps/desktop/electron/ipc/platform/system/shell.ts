@@ -1,5 +1,5 @@
 import { ipcMain, shell } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 
 export function registerShellHandlers(): void {
   ipcMain.handle(IpcChannels.shell.showItemInFolder, async (_event, fullPath: string) => {

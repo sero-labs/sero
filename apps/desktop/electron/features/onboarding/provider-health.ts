@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 import path from 'path';
 import type { AvailableModelGroup, ProviderHealthInfo, ProviderHealthStatus } from '@/types/ipc';
 import type { LocalModelsConfig } from '@/types/local-models';
@@ -9,8 +9,8 @@ import {
   getOAuthProviderCatalog,
   getProviderEnvApiKey,
 } from '@electron/shared/auth/provider-catalog';
-import { providerDisplayName } from '@electron/ipc/platform/auth';
-import { buildAvailableModelGroups } from '@electron/ipc/agent/core/model-groups';
+import { buildOnboardingAvailableModelGroups } from './model-groups';
+import { providerDisplayName } from './provider-metadata';
 
 export interface ProviderHealthSnapshot {
   availableModelGroups: AvailableModelGroup[];
@@ -22,7 +22,7 @@ function buildGroupsFromInfra(
 ): AvailableModelGroup[] {
   const { modelRegistry } = infra;
   modelRegistry.authStorage.reload();
-  return buildAvailableModelGroups(modelRegistry.getAvailable())
+  return buildOnboardingAvailableModelGroups(modelRegistry.getAvailable())
     .sort((a, b) => a.provider.localeCompare(b.provider))
     .map((group) => ({
       ...group,
@@ -30,11 +30,10 @@ function buildGroupsFromInfra(
     }));
 }
 
-function readConfiguredLocalProviderIds(): string[] {
+async function readConfiguredLocalProviderIds(): Promise<string[]> {
   const modelsPath = path.join(SERO_AGENT_DIR, 'models.json');
   try {
-    if (!existsSync(modelsPath)) return [];
-    const raw = JSON.parse(readFileSync(modelsPath, 'utf8')) as LocalModelsConfig;
+    const raw = JSON.parse(await readFile(modelsPath, 'utf8')) as LocalModelsConfig;
     const providers = raw?.providers && typeof raw.providers === 'object'
       ? Object.keys(raw.providers)
       : [];
@@ -148,7 +147,7 @@ export async function getProviderHealthSnapshot(): Promise<ProviderHealthSnapsho
     }));
   }
 
-  const localProviderIds = readConfiguredLocalProviderIds();
+  const localProviderIds = await readConfiguredLocalProviderIds();
   for (const providerId of localProviderIds) {
     if (knownProviders.has(providerId)) continue;
     knownProviders.add(providerId);

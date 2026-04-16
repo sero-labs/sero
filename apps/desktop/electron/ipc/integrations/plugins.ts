@@ -2,8 +2,8 @@
  * Plugin IPC handlers — install, uninstall, list plugins.
  */
 
-import { BrowserWindow, ipcMain } from 'electron';
-import { IpcChannels } from '@/types/ipc';
+import { ipcMain } from 'electron';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { SeroAppManifest, InstalledPlugin, PluginChangeEvent, DiscoveredPlugin } from '@/types/ipc';
 import {
   installPlugin,
@@ -14,11 +14,10 @@ import {
 import { searchPlugins } from '@electron/features/plugins/discovery';
 import { reloadAllSessionResources } from '../agent';
 import { disposeAppSessionsForApp } from '../agent/handlers/app-agent';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 function broadcastPluginEvent(event: PluginChangeEvent): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(IpcChannels.plugins.event, event);
-  }
+  broadcastToWindows(IpcChannels.plugins.event, event);
 }
 
 export function registerPluginHandlers(): void {

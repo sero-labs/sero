@@ -13,7 +13,7 @@ import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { EditorRoot } from '@/types/ipc';
 import { containerManager, workspaceManager } from '@electron/shared/infra/shared-infra';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
@@ -28,6 +28,12 @@ import {
 } from './path-resolution';
 
 const execFileAsync = promisify(execFile);
+
+interface ExecFailure extends Error {
+  code?: number | string;
+  stdout?: string;
+  stderr?: string;
+}
 
 // ── Editor state persistence ──────────────────────────────────
 
@@ -84,11 +90,12 @@ async function hostExec(
       timeout: 30_000,
     });
     return { exitCode: 0, stdout, stderr };
-  } catch (err: any) {
+  } catch (error) {
+    const failure = error as ExecFailure;
     return {
-      exitCode: err.code ?? 1,
-      stdout: err.stdout ?? '',
-      stderr: err.stderr ?? err.message,
+      exitCode: typeof failure.code === 'number' ? failure.code : 1,
+      stdout: failure.stdout ?? '',
+      stderr: failure.stderr ?? failure.message,
     };
   }
 }

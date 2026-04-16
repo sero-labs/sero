@@ -167,6 +167,43 @@ describe('plugin package build helpers', () => {
     ]);
   });
 
+  it.each(['git', 'local'] as const)(
+    'reinstalls dependencies for %s source plugins even when node_modules already exists',
+    async (sourceKind) => {
+      const dir = await createTempPluginDir(tempDirs);
+      await mkdir(path.join(dir, 'node_modules'), { recursive: true });
+      await writeFile(path.join(dir, 'node_modules', '.stale-marker'), 'stale\n', 'utf8');
+      await writePackageJson(dir, {
+        scripts: {
+          build: 'fake-build',
+        },
+        sero: {
+          app: {
+            id: 'todo',
+            name: 'Todo',
+            ui: './dist/ui/remoteEntry.js',
+          },
+        },
+      });
+
+      const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
+      await ensurePluginPackageReadyForInstall(dir, sourceKind, {
+        runCommand: async (command, args, cwd) => {
+          calls.push({ command, args, cwd });
+          if (command === 'npm' && args.join(' ') === 'run build') {
+            await mkdir(path.join(cwd, 'dist', 'ui'), { recursive: true });
+            await writeFile(path.join(cwd, 'dist', 'ui', 'remoteEntry.js'), 'export {}\n', 'utf8');
+          }
+        },
+      });
+
+      expect(calls).toEqual([
+        { command: 'npm', args: ['install'], cwd: dir },
+        { command: 'npm', args: ['run', 'build'], cwd: dir },
+      ]);
+    },
+  );
+
   it('skips rebuilding local pre-built plugin bundles', async () => {
     const dir = await createTempPluginDir(tempDirs);
     await mkdir(path.join(dir, 'dist', 'ui'), { recursive: true });

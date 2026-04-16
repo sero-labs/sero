@@ -8,8 +8,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "pnpm exec vitest run --root .",
     "package-runtime": "npm install --package-lock-only --ignore-scripts --omit=dev && npm install --ignore-scripts --omit=dev",
-    "typecheck": "tsc --noEmit -p ui/tsconfig.json"
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
     "extensions": [
@@ -69,6 +70,7 @@
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/ui": "workspace:*",
+    "@sero/common": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
@@ -79,6 +81,7 @@
     "react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }

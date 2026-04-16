@@ -5,12 +5,12 @@
  * Exposes runSingle(), runParallel(), runChain(), and management methods.
  */
 
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { randomUUID } from 'crypto';
 import { discoverAgents } from './runtime/discovery';
 import { ConcurrencyPool } from './core/pool';
 import { SubagentTracker } from './core/tracker';
 import { resolveConfig } from './core/resolve';
+import { executeSingleRun, type SingleRunParams } from './core/single-run';
 import { runSubagent, type RunnerDeps } from './runtime/runner';
 import type {
   AgentConfig,
@@ -31,24 +31,6 @@ const EMPTY_USAGE: SubagentUsage = {
   cacheReadTokens: 0, cacheWriteTokens: 0,
   totalTokens: 0, cost: 0,
 };
-
-interface RunSingleParams {
-  agent?: string;
-  task: string;
-  model?: string;
-  thinking?: string;
-  timeoutMs?: number;
-  systemPrompt?: string;
-  parentSessionId: string;
-  workspaceId: string;
-  /** Override the working directory (e.g. for git worktree execution). */
-  cwd?: string;
-  /** Restrict to own workspace only — no cross-workspace mounts in container. */
-  isolated?: boolean;
-  /** Extra run-scoped tools to expose only for this subagent session. */
-  customTools?: ToolDefinition[];
-  onUpdate?: (text: string) => void;
-}
 
 interface ParallelTask {
   agent: string;
@@ -80,7 +62,6 @@ export class SubagentManager {
       toolStallTimeoutMs: settings?.toolStallTimeoutMs ?? 120_000,
       model: settings?.model ?? null,
       thinking: settings?.thinking ?? null,
-      blockedExtensions: settings?.blockedExtensions ?? [],
     };
     this.pool = new ConcurrencyPool(this.settings.maxTotal, this.settings.maxConcurrent);
     this.tracker = new SubagentTracker();
@@ -110,90 +91,22 @@ export class SubagentManager {
 
   // ── Single Mode ────────────────────────────────────────────
 
-  async runSingle(params: RunSingleParams): Promise<string> {
+  async runSingle(params: SingleRunParams): Promise<string> {
     if (!this.deps) throw new Error('SubagentManager not initialized — call setDeps()');
 
-    const { task, parentSessionId, workspaceId, onUpdate } = params;
+    const result = await executeSingleRun({
+      params,
+      settings: this.settings,
+      pool: this.pool,
+      tracker: this.tracker,
+      deps: this.deps,
+      resolveAgent: this.resolveAgent.bind(this),
+    });
 
-    let agent: AgentConfig;
-    try {
-      agent = await this.resolveAgent(params.agent, params.systemPrompt);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      onUpdate?.(`❌ ${params.agent ?? 'ad-hoc'} failed — ${msg}`);
-      return `Error: ${msg}`;
+    if (result.error) {
+      return `Error: ${result.error}`;
     }
-
-    const callOverride: TaskOverride = {
-      model: params.model,
-      thinking: params.thinking,
-      timeoutMs: params.timeoutMs,
-    };
-
-    const resolved = resolveConfig(
-      undefined, callOverride, agent, this.settings,
-      { model: undefined, thinking: undefined },
-    );
-
-    const runId = randomUUID();
-    const controller = new AbortController();
-
-    const entry: SubagentEntry = {
-      id: runId,
-      agentName: agent.name,
-      taskPreview: task.slice(0, 200),
-      status: 'running',
-      startedAt: Date.now(),
-      completedAt: null,
-      durationMs: null,
-      parentSessionId,
-      workspaceId,
-      mode: 'single',
-      usage: { ...EMPTY_USAGE },
-      model: resolved.model,
-      toolActivity: [],
-      liveOutput: '',
-    };
-
-    try {
-      await this.pool.acquireSlot(runId, parentSessionId, controller);
-      this.tracker.start(entry);
-      onUpdate?.(`🔄 ${agent.name} started — "${task.slice(0, 80)}"`);
-
-      const result = await runSubagent(
-        {
-          agent, task, resolved, workspaceId, parentSessionId,
-          mode: 'single', signal: controller.signal,
-          cwdOverride: params.cwd,
-          isolated: params.isolated,
-          customTools: params.customTools,
-          onProgress: (usage) => this.tracker.progress(runId, usage),
-          onToolActivity: (name, summary, running) => this.tracker.updateToolActivity(runId, name, summary, running),
-          onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),
-          onUpdate,
-        },
-        this.deps,
-      );
-
-      if (result.error) {
-        this.tracker.fail(runId, result.error, result.usage);
-        onUpdate?.(`❌ ${agent.name} failed — ${result.error}`);
-        return `Error: ${result.error}`;
-      }
-
-      this.tracker.complete(runId, result.response, result.usage);
-      const durationSec = Math.round((Date.now() - entry.startedAt) / 1000);
-      const tokenCount = result.usage.totalTokens;
-      onUpdate?.(`✅ ${agent.name} completed (${durationSec}s, ${tokenCount} tokens)`);
-      return result.response;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.tracker.fail(runId, msg);
-      onUpdate?.(`❌ ${agent.name} failed — ${msg}`);
-      return `Error: ${msg}`;
-    } finally {
-      this.pool.releaseSlot(runId, parentSessionId);
-    }
+    return result.response;
   }
 
   /**
@@ -203,90 +116,17 @@ export class SubagentManager {
    * Use this when the caller needs to distinguish errors from
    * agent responses that happen to start with "Error:".
    */
-  async runSingleStructured(params: RunSingleParams): Promise<{ response: string; error?: string }> {
+  async runSingleStructured(params: SingleRunParams): Promise<{ response: string; error?: string }> {
     if (!this.deps) throw new Error('SubagentManager not initialized — call setDeps()');
 
-    const { task, parentSessionId, workspaceId, onUpdate } = params;
-
-    let agent: AgentConfig;
-    try {
-      agent = await this.resolveAgent(params.agent, params.systemPrompt);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      onUpdate?.(`❌ ${params.agent ?? 'ad-hoc'} failed — ${msg}`);
-      return { response: '', error: msg };
-    }
-
-    const callOverride: TaskOverride = {
-      model: params.model,
-      thinking: params.thinking,
-      timeoutMs: params.timeoutMs,
-    };
-
-    const resolved = resolveConfig(
-      undefined, callOverride, agent, this.settings,
-      { model: undefined, thinking: undefined },
-    );
-
-    const runId = randomUUID();
-    const controller = new AbortController();
-
-    const entry: SubagentEntry = {
-      id: runId,
-      agentName: agent.name,
-      taskPreview: task.slice(0, 200),
-      status: 'running',
-      startedAt: Date.now(),
-      completedAt: null,
-      durationMs: null,
-      parentSessionId,
-      workspaceId,
-      mode: 'single',
-      usage: { ...EMPTY_USAGE },
-      model: resolved.model,
-      toolActivity: [],
-      liveOutput: '',
-    };
-
-    try {
-      await this.pool.acquireSlot(runId, parentSessionId, controller);
-      this.tracker.start(entry);
-      onUpdate?.(`🔄 ${agent.name} started — "${task.slice(0, 80)}"`);
-
-      const result = await runSubagent(
-        {
-          agent, task, resolved, workspaceId, parentSessionId,
-          mode: 'single', signal: controller.signal,
-          cwdOverride: params.cwd,
-          isolated: params.isolated,
-          customTools: params.customTools,
-          onProgress: (usage) => this.tracker.progress(runId, usage),
-          onToolActivity: (name, summary, running) => this.tracker.updateToolActivity(runId, name, summary, running),
-          onTextDelta: (delta) => this.tracker.appendLiveOutput(runId, delta),
-          onUpdate,
-        },
-        this.deps,
-      );
-
-      if (result.error) {
-        this.tracker.fail(runId, result.error, result.usage);
-        onUpdate?.(`❌ ${agent.name} failed — ${result.error}`);
-        return { response: '', error: result.error };
-      }
-
-      this.tracker.complete(runId, result.response, result.usage);
-      const durationSec = Math.round((Date.now() - entry.startedAt) / 1000);
-      const tokenCount = result.usage.totalTokens;
-      onUpdate?.(`✅ ${agent.name} completed (${durationSec}s, ${tokenCount} tokens)`);
-      return { response: result.response };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.tracker.fail(runId, msg);
-      onUpdate?.(`❌ ${agent.name} failed — ${msg}`);
-      return { response: '', error: msg };
-    } finally {
-      this.pool.releaseSlot(runId, parentSessionId);
-    }
+    return executeSingleRun({
+      params,
+      settings: this.settings,
+      pool: this.pool,
+      tracker: this.tracker,
+      deps: this.deps,
+      resolveAgent: this.resolveAgent.bind(this),
+    });
   }
 
   // ── Parallel Mode ──────────────────────────────────────────

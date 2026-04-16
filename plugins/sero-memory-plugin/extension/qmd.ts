@@ -10,20 +10,12 @@
  */
 
 import { mkdir } from 'node:fs/promises';
-import { homedir } from 'os';
 import { dirname, join, resolve as resolvePath } from 'path';
 
 import { createStore } from '@tobilu/qmd';
 import type { QMDStore, SearchResult, HybridQueryResult } from '@tobilu/qmd';
 
-/** Mirror the SDK's agent-dir resolution so QMD state follows the active Sero profile. */
-function resolveAgentDir(): string {
-  const envDir = process.env.PI_CODING_AGENT_DIR?.trim();
-  if (!envDir) return join(homedir(), '.pi', 'agent');
-  if (envDir === '~') return homedir();
-  if (envDir.startsWith('~/')) return join(homedir(), envDir.slice(2));
-  return envDir;
-}
+import { resolveAgentDir } from './agent-dir';
 
 /** Store the QMD index inside the active profile's agent dir, not a global shared cache. */
 export function resolveQmdDbPath(agentDir = resolveAgentDir()): string {

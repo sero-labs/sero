@@ -1,7 +1,7 @@
 // components/BookmarkList.tsx — Bookmark list with add form and delete.
 
 import { useState, useCallback } from 'react';
-import { useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
+import { useAppInfo, useAppState, useAgentPrompt } from '@sero-ai/app-runtime';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
@@ -11,46 +11,40 @@ import {
 import type { WebAccessState, Bookmark } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
 import { relativeTime } from '../lib/format';
+import {
+  addBookmark as addBookmarkAction,
+  removeBookmark as removeBookmarkAction,
+} from '../lib/web-actions';
 
 export function BookmarkList() {
-  const [state, updateState] = useAppState<WebAccessState>(DEFAULT_STATE);
+  const { workspaceId } = useAppInfo();
+  const [state] = useAppState<WebAccessState>(DEFAULT_STATE);
   const [showAdd, setShowAdd] = useState(false);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
 
-  const addDirectly = useCallback(() => {
+  const addDirectly = useCallback(async () => {
     const trimmedUrl = url.trim();
     if (!trimmedUrl) return;
     const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    const bookmark: Bookmark = {
-      id,
+    await addBookmarkAction(workspaceId, {
+      action: 'add-bookmark',
       url: trimmedUrl,
       title: title.trim() || trimmedUrl,
       tags: tagList,
-      createdAt: Date.now(),
-    };
-    updateState((prev) => ({
-      ...prev,
-      bookmarks: [bookmark, ...(prev.bookmarks ?? [])],
-      lastSyncedAt: Date.now(),
-    }));
+    });
     setUrl('');
     setTitle('');
     setTags('');
     setShowAdd(false);
-  }, [url, title, tags, updateState]);
+  }, [url, title, tags, workspaceId]);
 
   const removeBookmark = useCallback(
-    (id: string) => {
-      updateState((prev) => ({
-        ...prev,
-        bookmarks: (prev.bookmarks ?? []).filter((b) => b.id !== id),
-        lastSyncedAt: Date.now(),
-      }));
+    async (id: string) => {
+      await removeBookmarkAction(workspaceId, id);
     },
-    [updateState],
+    [workspaceId],
   );
 
   return (
@@ -112,7 +106,7 @@ interface AddBookmarkFormProps {
   onUrlChange: (v: string) => void;
   onTitleChange: (v: string) => void;
   onTagsChange: (v: string) => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -121,7 +115,7 @@ function AddBookmarkForm(props: AddBookmarkFormProps) {
     'w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); props.onSubmit(); }} className="flex flex-col gap-2">
+    <form onSubmit={(e) => { e.preventDefault(); void props.onSubmit(); }} className="flex flex-col gap-2">
       <input type="text" value={props.url} onChange={(e) => props.onUrlChange(e.target.value)}
         placeholder="URL…" autoFocus className={inputClass} />
       <input type="text" value={props.title} onChange={(e) => props.onTitleChange(e.target.value)}
@@ -140,7 +134,7 @@ function AddBookmarkForm(props: AddBookmarkFormProps) {
 
 interface BookmarkRowProps {
   bookmark: Bookmark;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<void>;
 }
 
 function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
@@ -216,7 +210,7 @@ function BookmarkRow({ bookmark, onRemove }: BookmarkRowProps) {
         variant="ghost"
         size="icon"
         className="h-6 w-6 shrink-0 text-muted-foreground/30 opacity-0 hover:text-destructive group-hover:opacity-100 transition-all"
-        onClick={() => onRemove(bookmark.id)}
+        onClick={() => { void onRemove(bookmark.id); }}
       >
         <Trash2 className="h-3 w-3" />
       </Button>

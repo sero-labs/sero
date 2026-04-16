@@ -3,6 +3,7 @@ import { build } from 'esbuild';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { isBuiltinPackageDir } from '../electron/platform/protocols/builtin-package-detection.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -30,24 +31,6 @@ const __dirname = __dirnameFn(__filename);
 `.trim(),
   },
 };
-
-// Keep in sync with the TS copy in electron/builtin-resources.ts.
-function isBuiltinPackageDir(pkgPath) {
-  const pkgJsonPath = path.join(pkgPath, 'package.json');
-  if (!fs.existsSync(pkgJsonPath)) return false;
-
-  try {
-    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
-    return (
-      pkg.pi?.extensions != null ||
-      pkg.piExtension != null ||
-      pkg.sero?.app != null ||
-      fs.existsSync(path.join(pkgPath, 'extension'))
-    );
-  } catch {
-    return false;
-  }
-}
 
 function copyIfExists(src, dest) {
   if (!fs.existsSync(src)) return;

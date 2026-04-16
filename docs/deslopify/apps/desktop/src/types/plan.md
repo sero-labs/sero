@@ -21,23 +21,24 @@ reviewable.
   `apps/desktop/tsconfig.json` using `skipLibCheck`, this can silently degrade API type safety.
   Effort: **S**.
 
-- **Medium** — Manual duplicated cross-process contracts create drift risk in profile and user-feedback APIs —
+- **Medium** — ~~Manual duplicated cross-process contracts create drift risk in profile and user-feedback APIs —
   `apps/desktop/src/types/ipc.ts:13-27` duplicated `ProfileInfo` from
   `apps/desktop/electron/features/profile/types.ts:39-49`; user-feedback shapes are mirrored in
   `apps/desktop/src/types/ipc.ts:410-455` and
   `plugins/sero-user-feedback-plugin/shared/types.ts:10-72`. ProfileInfo was canonicalized into
   `apps/desktop/src/types/profile.ts` on 2026-04-12, but user-feedback duplication still remains.
-  This fights the canonical-type rule and increases AD-022/extension drift risk. Effort: **M**.
+  This fights the canonical-type rule and increases AD-022/extension drift risk.~~ ✅ 2026-04-15 (`83ac609c`) — profile contracts are canonicalized in `src/types/profile.ts`, and user-feedback transport ownership is now confirmed canonical in `@sero/common` (desktop + plugin consumers revalidated).
+  Effort: **M**.
 
 - **Medium** — ~~Type-layer cycle between `ipc.ts` and `plugins.ts` increases coupling and review complexity —
   `apps/desktop/src/types/plugins.ts:1` imports `SeroAppManifest` from `./ipc`, while
   `apps/desktop/src/types/ipc.ts:320` re-exports plugin types from `./plugins`.~~ ✅ 2026-04-12 (`plugins.ts` now imports `SeroAppManifest` from `./sero-apps`)
   Effort: **S**.
 
-- **Medium** — `IpcChannels` consumption is routed through the monolithic `ipc.ts` barrel instead of the
+- **Medium** — ~~`IpcChannels` consumption is routed through the monolithic `ipc.ts` barrel instead of the
   dedicated channels module — `apps/desktop/src/types/ipc.ts:544` re-exports channels, and 59 files
   import `IpcChannels` from `@/types/ipc` rather than `@/types/ipc-channels` (example:
-  `apps/desktop/electron/preload/api.ts:2`). This widens dependency fanout and slows safe contract edits.
+  `apps/desktop/electron/preload/api.ts:2`).~~ ✅ 2026-04-15 (`fc6603eb`) — channel consumers now import from `@/types/ipc-channels`, and `ipc.ts` no longer re-exports `IpcChannels`.
   Effort: **M**.
 
 - **Medium** — ~~Widget manifest contract is duplicated across files —
@@ -45,13 +46,14 @@ reviewable.
   `apps/desktop/src/types/sero-apps.ts:10-25` (`SeroWidgetManifest`) define the same shape.~~ ✅ 2026-04-12 (both now share `src/types/widget-manifest.ts`)
   Effort: **S**.
 
-- **Low** — `any` leak in LSP preload API declaration weakens strict typing —
-  `apps/desktop/src/types/electron-workspace.d.ts:79` uses `notification: any`.
+- **Low** — ~~`any` leak in LSP preload API declaration weakens strict typing —
+  `apps/desktop/src/types/electron-workspace.d.ts:79` uses `notification: any`.~~ ✅ 2026-04-15 (`d028234c`) — the callback now uses canonical `LspNotification` typing.
   Effort: **S**.
 
-- **Low** — Comment/default mismatch in collaboration debate config —
+- **Low** — ~~Comment/default mismatch in collaboration debate config —
   `apps/desktop/src/types/collaboration.ts:50` documents `maxRounds` default as 3, while
-  `DEFAULT_DEBATE_CONFIG.maxRounds` is 1 at `collaboration.ts:60`. Effort: **S**.
+  `DEFAULT_DEBATE_CONFIG.maxRounds` is 1 at `collaboration.ts:60`.~~ ✅ 2026-04-15 (`431fdf5e`) — inline `maxRounds` docs now match the runtime default.
+  Effort: **S**.
 
 ## Proposed Refactoring
 1. **Split `ipc.ts` into domain modules and keep `ipc.ts` as a thin compatibility barrel.**
@@ -102,8 +104,12 @@ reviewable.
 1. Execute High item: split `ipc.ts` below 500 LOC with domain modules + compatibility barrel.
 2. Fix `electron.d.ts` subagent type import gap and run typecheck.
 3. ~~Land cycle break (`plugins.ts` → `sero-apps.ts`) and widget-manifest unification.~~ ✅ 2026-04-12
-4. Continue converting `IpcChannels` imports to `@/types/ipc-channels` in preload/ipc modules.
+4. ~~Continue converting `IpcChannels` imports to `@/types/ipc-channels` in preload/ipc modules.~~ ✅ 2026-04-15 (`fc6603eb`)
 5. Queue follow-up deslopify for `apps/desktop/electron/preload` next (Wave A step 2).
 
 ## Execution log
 - 2026-04-12 — Medium Wave E3 (working tree): canonicalized `ProfileInfo` into `src/types/profile.ts`, broke the `ipc.ts` ↔ `plugins.ts` type cycle, and unified widget manifests through `src/types/widget-manifest.ts`.
+- 2026-04-15 — Medium follow-up (`fc6603eb`): moved all remaining Electron IPC/test `IpcChannels` imports onto `@/types/ipc-channels` and removed the `ipc.ts` re-export to keep channel constants on their dedicated module boundary.
+- 2026-04-15 — Low declaration-hygiene follow-up (`d028234c`): replaced `notification: any` in `electron-workspace.d.ts` with canonical `LspNotification` typing so renderer preload declarations align with the typed LSP protocol contract.
+- 2026-04-15 — Low comment/default drift follow-up (`431fdf5e`): corrected the `DebateConfig.maxRounds` inline default comment in `collaboration.ts` so the documented default now matches `DEFAULT_DEBATE_CONFIG.maxRounds = 1`.
+- 2026-04-15 — User-feedback duplication revalidation follow-up (`83ac609c`): reconfirmed that user-feedback transport contracts are owned in `@sero/common`, with desktop/plugin types consuming canonical exports instead of local duplicated declarations.

@@ -28,9 +28,13 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   SERO_SESSION_DIR: '/tmp/sero-test-sessions',
 }));
 
-vi.mock('@mariozechner/pi-coding-agent', () => ({
-  SessionManager: mocks.sessionManager,
-}));
+vi.mock('@mariozechner/pi-coding-agent', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@mariozechner/pi-coding-agent')>();
+  return {
+    ...actual,
+    SessionManager: mocks.sessionManager,
+  };
+});
 
 describe('buildGatewayOps', () => {
   beforeEach(() => {

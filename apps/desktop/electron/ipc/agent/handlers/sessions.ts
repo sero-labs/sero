@@ -10,11 +10,11 @@
 
 import { ipcMain } from 'electron';
 import { SessionManager } from '@mariozechner/pi-coding-agent';
-import { promises as fs, appendFileSync } from 'fs';
+import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { SeroSessionInfo } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_SESSION_DIR } from '@electron/shared/infra/shared-infra';
@@ -122,7 +122,7 @@ export function registerSessionHandlers(): void {
       // We need the file on disk immediately so it shows up in list().
       // Write the session header ourselves — matches the SDK's JSONL format.
       const header = JSON.stringify(sm.getHeader());
-      appendFileSync(sessionFile, header + '\n');
+      await fs.appendFile(sessionFile, header + '\n', 'utf8');
 
       return {
         path: sessionFile,

@@ -14,6 +14,11 @@ import {
   generateRetrospectiveSummary, writeErrorLog,
 } from './error-log';
 import { removeWorktree } from './worktree-cleanup';
+import { formatCleanupWarnings } from './cleanup-warnings';
+import {
+  formatKanbanSettingsSummary,
+  updateKanbanSetting,
+} from '../shared/settings-descriptor';
 
 type ToolResult = { content: { type: 'text'; text: string }[]; details: Record<string, never> };
 
@@ -147,48 +152,16 @@ export async function handleSettings(
   value?: string,
 ): Promise<ToolResult> {
   if (!setting) {
-    const s = state.settings;
-    return text(
-      `## Board Settings\n- yoloMode: ${s.yoloMode} (auto-start, auto-approve, auto-complete)\n`
-      + `- testingEnabled: ${s.testingEnabled} (TDD and test generation)\n`
-      + `- reviewMode: ${s.reviewMode ?? 'full'} (full or light; light is prototype-only)\n`
-      + `- reviewLevel: ${s.reviewLevel} (per-wave or per-subtask)\n`
-      + `- autoAdvance: ${s.autoAdvance}\n- maxConcurrentCards: ${s.maxConcurrentCards}`,
-    );
+    return text(formatKanbanSettingsSummary(state.settings));
   }
 
-  if (setting === 'yoloMode') {
-    state.settings.yoloMode = value === 'true';
-    await writeState(statePath, state);
-    return text(`YOLO mode ${state.settings.yoloMode ? 'ON — full auto, no human gates' : 'OFF — human approval required'}`);
-  }
-  if (setting === 'testingEnabled') {
-    state.settings.testingEnabled = value === 'true';
-    if (state.settings.testingEnabled) {
-      state.settings.reviewMode = 'full';
-    }
-    await writeState(statePath, state);
-    return text(`Mode: ${state.settings.testingEnabled ? 'Production (TDD enabled)' : 'Prototype (testing disabled)'}`);
-  }
-  if (setting === 'reviewMode' && (value === 'full' || value === 'light')) {
-    if (value === 'light' && state.settings.testingEnabled) {
-      return text('Light review mode is only available in Prototype mode. Disable testing first.');
-    }
-    state.settings.reviewMode = value;
-    await writeState(statePath, state);
-    return text(
-      value === 'light'
-        ? 'Review mode: Light (compile checks + dev server smoke test only)'
-        : 'Review mode: Full (diff review + reviewer approval)',
-    );
-  }
-  if (setting === 'reviewLevel' && (value === 'per-wave' || value === 'per-subtask')) {
-    state.settings.reviewLevel = value;
-    await writeState(statePath, state);
-    return text(`Review level set to: ${value}`);
+  const result = updateKanbanSetting(state.settings, setting, value);
+  if (!result.ok) {
+    return text(result.message);
   }
 
-  return text(`Unknown setting "${setting}". Available: yoloMode, testingEnabled, reviewMode, reviewLevel`);
+  await writeState(statePath, state);
+  return text(result.message);
 }
 
 // ── Cleanup ──────────────────────────────────────────────────
@@ -214,15 +187,27 @@ export async function handleCleanup(
 
   // All cards done — remove worktrees
   const cleaned: string[] = [];
+  const warnings: string[] = [];
   for (const card of doneCards) {
     if (!card.worktreePath) continue;
-    await removeWorktree(cwd, card.worktreePath);
+    const cardWarnings = (await removeWorktree(cwd, card.worktreePath)) ?? [];
+    warnings.push(...cardWarnings);
     card.worktreePath = undefined;
     cleaned.push(`#${card.id}`);
+    for (const warning of cardWarnings) {
+      await appendError(statePath, {
+        cardId: card.id,
+        cardTitle: card.title,
+        phase: 'review',
+        agentName: 'system',
+        severity: 'warning',
+        message: warning,
+      });
+    }
   }
 
   await writeState(statePath, state);
-  return text(`Cleaned up ${cleaned.length} worktree(s): ${cleaned.join(', ')}`);
+  return text(`Cleaned up ${cleaned.length} worktree(s): ${cleaned.join(', ')}` + formatCleanupWarnings(warnings));
 }
 
 // ── Report Error ────────────────────────────────────────────

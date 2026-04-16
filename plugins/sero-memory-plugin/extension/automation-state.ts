@@ -1,12 +1,8 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
-import os from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { readJsonStateSync, writeJsonStateSync } from './json-state';
+import { resolveMemoryStatePath, resolveSeroHome } from './state-paths';
 import type { CronJob, CronState } from './cron-types';
 import { DEFAULT_CRON_STATE } from './cron-types';
 
@@ -32,31 +28,31 @@ export interface AutoConsolidationSyncResult {
   cronStatePath: string;
 }
 
-function resolveSeroHome(): string {
-  return process.env.SERO_HOME || path.join(os.homedir(), '.sero-ui');
-}
-
 function resolveAutomationStatePath(): string {
-  return path.join(resolveSeroHome(), 'state', 'memory', 'automation.json');
+  return resolveMemoryStatePath('automation.json');
 }
 
 function resolveCronStatePath(): string {
   return path.join(resolveSeroHome(), 'apps', 'cron', 'state.json');
 }
 
-function readJsonFile<T>(filePath: string, fallback: T): T {
-  try {
-    const raw = readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(raw) as T;
-    return parsed && typeof parsed === 'object' ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
+function isMissingFileError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
-function writeJsonFile(filePath: string, value: unknown): void {
-  mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf8');
+function readRequiredJsonFileSync<T>(filePath: string): T | null {
+  try {
+    const raw = readFileSync(filePath, 'utf8');
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Cron state file at ${filePath} is unreadable. Memory auto-consolidation will not rewrite it until the file is repaired. Original error: ${detail}`,
+    );
+  }
 }
 
 function normalizeCadence(value: unknown): AutoConsolidationCadence {
@@ -66,15 +62,23 @@ function normalizeCadence(value: unknown): AutoConsolidationCadence {
 }
 
 function readAutomationStateSync(): MemoryAutomationState {
-  return readJsonFile(resolveAutomationStatePath(), { ...DEFAULT_AUTOMATION_STATE });
+  return readJsonStateSync(resolveAutomationStatePath(), { ...DEFAULT_AUTOMATION_STATE });
 }
 
 function writeAutomationStateSync(state: MemoryAutomationState): void {
-  writeJsonFile(resolveAutomationStatePath(), state);
+  writeJsonStateSync(resolveAutomationStatePath(), state);
 }
 
 function readCronStateSync(): CronState {
-  const state = readJsonFile(resolveCronStatePath(), { ...DEFAULT_CRON_STATE });
+  const state = readRequiredJsonFileSync<Partial<CronState>>(resolveCronStatePath());
+  if (!state) {
+    return {
+      ...DEFAULT_CRON_STATE,
+      jobs: [],
+      reminders: [],
+      lastRunResults: [],
+    };
+  }
   return {
     ...DEFAULT_CRON_STATE,
     ...state,
@@ -85,7 +89,7 @@ function readCronStateSync(): CronState {
 }
 
 function writeCronStateSync(state: CronState): void {
-  writeJsonFile(resolveCronStatePath(), state);
+  writeJsonStateSync(resolveCronStatePath(), state);
 }
 
 function buildAutoConsolidationJob(cadence: Exclude<AutoConsolidationCadence, 'off'>): CronJob {
@@ -131,6 +135,24 @@ export function markAutoConsolidationIntroShownSync(): void {
   });
 }
 
+export async function getAutoConsolidationCadence(): Promise<AutoConsolidationCadence> {
+  return getAutoConsolidationCadenceSync();
+}
+
+export async function setAutoConsolidationCadence(
+  cadence: AutoConsolidationCadence,
+): Promise<AutoConsolidationCadence> {
+  return setAutoConsolidationCadenceSync(cadence);
+}
+
+export async function shouldShowAutoConsolidationIntro(): Promise<boolean> {
+  return shouldShowAutoConsolidationIntroSync();
+}
+
+export async function markAutoConsolidationIntroShown(): Promise<void> {
+  markAutoConsolidationIntroShownSync();
+}
+
 export function describeAutoConsolidationCadence(
   cadence: AutoConsolidationCadence,
 ): string {
@@ -156,7 +178,9 @@ export function syncAutoConsolidationCronJobSync(
   cadenceOverride?: AutoConsolidationCadence,
 ): AutoConsolidationSyncResult {
   const previousCadence = getAutoConsolidationCadenceSync();
-  const cadence = cadenceOverride ? setAutoConsolidationCadenceSync(cadenceOverride) : previousCadence;
+  const cadence = cadenceOverride
+    ? setAutoConsolidationCadenceSync(cadenceOverride)
+    : previousCadence;
   const cronStatePath = resolveCronStatePath();
   const hadCronState = existsSync(cronStatePath);
   const currentState = readCronStateSync();
@@ -203,4 +227,10 @@ export function syncAutoConsolidationCronJobSync(
     autostart: nextState.autostart,
     cronStatePath,
   };
+}
+
+export async function syncAutoConsolidationCronJob(
+  cadenceOverride?: AutoConsolidationCadence,
+): Promise<AutoConsolidationSyncResult> {
+  return syncAutoConsolidationCronJobSync(cadenceOverride);
 }

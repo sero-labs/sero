@@ -3,6 +3,7 @@ import { COLUMN_LABELS } from '../shared/types';
 import { resolveWorkspacePathFromStatePath } from '../shared/error-log';
 import { validateReviewDecision } from '../shared/validation';
 import { appendError } from './error-log';
+import { formatCleanupWarnings } from './cleanup-warnings';
 import { closePullRequest, deleteReviewCache } from './review-artifacts';
 import { writeState } from './state-io';
 import { removeWorktree } from './worktree-cleanup';
@@ -37,6 +38,23 @@ function formatReviewDecisionError(
   );
 }
 
+export async function recordCleanupWarnings(
+  statePath: string,
+  card: KanbanState['cards'][number],
+  warnings: string[],
+): Promise<void> {
+  for (const warning of warnings) {
+    await appendError(statePath, {
+      cardId: card.id,
+      cardTitle: card.title,
+      phase: 'review',
+      agentName: 'system',
+      severity: 'warning',
+      message: warning,
+    });
+  }
+}
+
 export async function handleRequestRevisions(
   statePath: string,
   state: KanbanState,
@@ -60,7 +78,11 @@ export async function handleRequestRevisions(
   card.reviewFilePath = undefined;
   card.reviewProgress = undefined;
   card.updatedAt = new Date().toISOString();
-  await deleteReviewCache(resolveWorkspacePathFromStatePath(statePath), card.id, reviewFilePath);
+  const warnings = (await deleteReviewCache(
+    resolveWorkspacePathFromStatePath(statePath),
+    card.id,
+    reviewFilePath,
+  )) ?? [];
   await writeState(statePath, state);
 
   await appendError(statePath, {
@@ -71,8 +93,12 @@ export async function handleRequestRevisions(
     severity: 'warning',
     message: `Revision requested: ${feedback}`,
   });
+  await recordCleanupWarnings(statePath, card, warnings);
 
-  return text(`Revision requested for #${card.id} "${card.title}" — moved back to In Progress. The orchestrator will address the feedback.`);
+  return text(
+    `Revision requested for #${card.id} "${card.title}" — moved back to In Progress. The orchestrator will address the feedback.`
+    + formatCleanupWarnings(warnings),
+  );
 }
 
 export async function handleCancelPR(
@@ -98,10 +124,11 @@ export async function handleCancelPR(
     }
   }
 
+  const warnings: string[] = [];
   if (card.worktreePath) {
-    await removeWorktree(workspacePath, card.worktreePath);
+    warnings.push(...((await removeWorktree(workspacePath, card.worktreePath)) ?? []));
   }
-  await deleteReviewCache(workspacePath, card.id, card.reviewFilePath);
+  warnings.push(...((await deleteReviewCache(workspacePath, card.id, card.reviewFilePath)) ?? []));
 
   card.column = 'backlog';
   card.status = 'idle';
@@ -129,6 +156,10 @@ export async function handleCancelPR(
     severity: 'warning',
     message: 'PR cancelled by user — card returned to backlog',
   });
+  await recordCleanupWarnings(statePath, card, warnings);
 
-  return text(`Cancelled PR for #${card.id} "${card.title}" — closed on GitHub, moved back to Backlog, and cleaned up locally.`);
+  return text(
+    `Cancelled PR for #${card.id} "${card.title}" — closed on GitHub, moved back to Backlog, and cleaned up locally.`
+    + formatCleanupWarnings(warnings),
+  );
 }

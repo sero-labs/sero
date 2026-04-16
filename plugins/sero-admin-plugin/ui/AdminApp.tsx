@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 import type { AdminSection, AdminState } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/types';
-import { useProfiles } from './hooks/useSeroFiles';
+import { useProfiles } from './hooks/useProfiles';
 import { useAgentCrud } from './hooks/useAgentCrud';
 import { usePromptCrud } from './hooks/usePromptCrud';
 import { useSkillCrud } from './hooks/useSkillCrud';

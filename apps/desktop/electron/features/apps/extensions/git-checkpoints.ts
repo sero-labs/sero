@@ -14,11 +14,30 @@ type MixedEditCheckpointPolicy = 'merge-working-copy' | 'require-manual-first';
 const MIXED_EDIT_CHECKPOINT_POLICY: MixedEditCheckpointPolicy = 'merge-working-copy';
 
 type TextContentBlock = { type: 'text'; text: string };
+type MessageLike = { role?: unknown; content?: unknown };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 function isTextContentBlock(block: unknown): block is TextContentBlock {
-  if (!block || typeof block !== 'object') return false;
-  const candidate = block as { type?: unknown; text?: unknown };
-  return candidate.type === 'text' && typeof candidate.text === 'string';
+  if (!isRecord(block)) return false;
+  return block.type === 'text' && typeof block.text === 'string';
+}
+
+function getMessageLike(value: unknown): MessageLike | null {
+  if (!isRecord(value)) return null;
+  return value;
+}
+
+function getBashCommand(input: unknown): string {
+  if (!isRecord(input)) return '';
+  return typeof input.command === 'string' ? input.command : '';
+}
+
+function getAgentMessages(event: unknown): unknown[] {
+  if (!isRecord(event)) return [];
+  return Array.isArray(event.messages) ? event.messages : [];
 }
 
 function extractTextContent(content: unknown): string {
@@ -31,22 +50,23 @@ function extractTextContent(content: unknown): string {
 }
 
 function summarizeAssistantMessage(message: unknown): string {
-  const candidate = message as { content?: unknown };
-  const text = extractTextContent(candidate.content);
+  const candidate = getMessageLike(message);
+  const text = extractTextContent(candidate?.content);
   if (!text) return 'checkpoint: turn';
   const first = text.split(/\r?\n/).find((line) => line.trim().length > 0) ?? 'checkpoint: turn';
   return `checkpoint: ${first.trim().slice(0, 220)}`;
 }
 
 function summarizeAgentRun(messages: unknown): string {
-  if (Array.isArray(messages)) {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i] as { role?: unknown; content?: unknown };
-      if (msg?.role !== 'assistant') continue;
-      const summary = summarizeAssistantMessage(msg);
-      if (summary !== 'checkpoint: turn') return summary;
-    }
+  if (!Array.isArray(messages)) return 'checkpoint: turn';
+
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = getMessageLike(messages[i]);
+    if (message?.role !== 'assistant') continue;
+    const summary = summarizeAssistantMessage(message);
+    if (summary !== 'checkpoint: turn') return summary;
   }
+
   return 'checkpoint: turn';
 }
 
@@ -115,7 +135,7 @@ export function registerGitCheckpointFeatures(
 
     if (event.toolName !== 'bash') return;
 
-    const command = String((event.input as { command?: string }).command ?? '');
+    const command = getBashCommand(event.input);
     if (!command.trim()) return;
 
     // Block mutating git commands — VCS operations are handled by the sero-cli tool
@@ -144,7 +164,7 @@ export function registerGitCheckpointFeatures(
       return;
     }
 
-    const description = summarizeAgentRun((event as { messages?: unknown[] }).messages);
+    const description = summarizeAgentRun(getAgentMessages(event));
     try {
       const checkpoint = await vcsManager.createCheckpoint(workspaceId, {
         source: 'turn',

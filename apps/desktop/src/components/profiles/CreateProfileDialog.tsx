@@ -16,6 +16,7 @@ import {
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { ProfileForm } from './ProfileForm';
 import { createProfile, switchProfile } from '@/stores/profiles';
+import { useProfileOperationState } from './useProfileOperationState';
 
 interface CreateProfileDialogProps {
   open: boolean;
@@ -23,31 +24,31 @@ interface CreateProfileDialogProps {
 }
 
 export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogProps) {
-  const [isLoading, setIsLoading] = useState(false);
   const [created, setCreated] = useState<{ id: string; name: string } | null>(null);
+  const {
+    isLoading,
+    error,
+    clearError,
+    runProfileOperation,
+  } = useProfileOperationState();
 
   const handleCreate = async (name: string, customPath?: string, copyAuthFromId?: string) => {
-    setIsLoading(true);
-    try {
-      const profile = await createProfile(name, customPath, false, copyAuthFromId);
+    const profile = await runProfileOperation(
+      () => createProfile(name, customPath, false, copyAuthFromId),
+    );
+    if (profile) {
       setCreated({ id: profile.id, name: profile.name });
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleSwitchNow = async () => {
     if (!created) return;
-    setIsLoading(true);
-    try {
-      await switchProfile(created.id);
-      // App restarts
-    } catch {
-      setIsLoading(false);
-    }
+    await runProfileOperation(() => switchProfile(created.id));
+    // App restarts on success.
   };
 
   const handleClose = () => {
+    clearError();
     setCreated(null);
     onOpenChange(false);
   };
@@ -71,6 +72,9 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
             <p className="text-xs text-[var(--text-muted)]">
               Switching profiles will restart the app.
             </p>
+            {error && (
+              <p className="text-xs text-[var(--status-error)]">{error}</p>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={handleClose}>
                 Stay Here
@@ -85,6 +89,8 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
             <ProfileForm
               submitLabel="Create Profile"
               onSubmit={handleCreate}
+              operationError={error}
+              onClearOperationError={clearError}
               isLoading={isLoading}
               autoFocus
             />

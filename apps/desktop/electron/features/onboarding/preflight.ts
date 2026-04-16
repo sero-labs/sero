@@ -1,9 +1,17 @@
-import { existsSync, readFileSync } from 'fs';
+import { access, readFile } from 'fs/promises';
 import path from 'path';
-import type { ModelTier, OnboardingState, OnboardingWarning } from '@/types/ipc';
+import type {
+  AvailableModelGroup,
+  ModelTier,
+  OnboardingState,
+  OnboardingWarning,
+} from '@/types/ipc';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { profileManager } from '../profile/manager';
-import { readSettings, writeSettings } from '@electron/shared/settings/settings-helpers';
+import {
+  readSettingsResult,
+  writeSettings,
+} from '@electron/shared/settings/settings-helpers';
 import {
   applyLegacyProviderDefaultsMigration,
   getGlobalModelConfigTiers,
@@ -13,6 +21,10 @@ import { buildOnboardingRecommendation, validateCurrentTiers } from './recommend
 import { getProviderHealthSnapshot } from './provider-health';
 import { emptyOnboardingState } from './types';
 
+interface BuildOnboardingStateOptions {
+  applyRepairs: boolean;
+}
+
 function readLegacyDefaultProvider(settings: Record<string, unknown>): string | null {
   const sero = settings.sero;
   if (!sero || typeof sero !== 'object' || Array.isArray(sero)) return null;
@@ -20,11 +32,10 @@ function readLegacyDefaultProvider(settings: Record<string, unknown>): string | 
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function hasSavedAuthJson(): boolean {
+async function hasSavedAuthJson(): Promise<boolean> {
   const authPath = path.join(SERO_AGENT_DIR, 'auth.json');
   try {
-    if (!existsSync(authPath)) return false;
-    const content = readFileSync(authPath, 'utf8').trim();
+    const content = (await readFile(authPath, 'utf8')).trim();
     return content.length > 2 && content !== '{}';
   } catch {
     return false;
@@ -37,8 +48,14 @@ function formatTierLabel(tier: ModelTier): string {
   return 'High';
 }
 
-function hasCompletedMemoryBootstrap(profilePath: string): boolean {
-  return existsSync(path.join(profilePath, 'workspaces', 'global', 'MEMORY.md'));
+async function hasCompletedMemoryBootstrap(profilePath: string): Promise<boolean> {
+  const memoryPath = path.join(profilePath, 'workspaces', 'global', 'MEMORY.md');
+  try {
+    await access(memoryPath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function formatProviderNames(providerIds: string[], providerHealth: OnboardingState['providerHealth']): string {
@@ -86,70 +103,114 @@ function buildWarnings(args: {
   return warnings;
 }
 
-export async function getOnboardingState(): Promise<OnboardingState> {
+function toAvailableSelections(availableModelGroups: AvailableModelGroup[]): Array<{ provider: string; modelId: string }> {
+  return availableModelGroups.flatMap((group) =>
+    group.models.map((model) => ({
+      provider: model.provider,
+      modelId: model.modelId,
+    })));
+}
+
+function readSettingsForOnboarding(): Record<string, unknown> {
+  const result = readSettingsResult();
+  if (!result.ok) {
+    throw result.error;
+  }
+  return result.settings;
+}
+
+export function repairOnboardingSettingsState(availableModelGroups: AvailableModelGroup[]): Record<string, unknown> {
+  let settings = readSettingsForOnboarding();
+  const migrated = applyLegacyProviderDefaultsMigration(settings);
+  settings = migrated.settings;
+  if (migrated.changed) {
+    writeSettings(settings);
+  }
+
+  const cleaned = cleanupUnavailableModelSelections(toAvailableSelections(availableModelGroups));
+  if (cleaned) {
+    settings = readSettingsForOnboarding();
+  }
+
+  return settings;
+}
+
+function buildPendingOnboardingState(args: {
+  availableModelGroups: AvailableModelGroup[];
+  providerHealth: OnboardingState['providerHealth'];
+  hasImportedCredentials: boolean;
+  memoryBootstrapComplete: boolean;
+  settings: Record<string, unknown>;
+}): OnboardingState {
+  const {
+    availableModelGroups,
+    providerHealth,
+    hasImportedCredentials,
+    memoryBootstrapComplete,
+    settings,
+  } = args;
+  const hasAnyUsableModels = availableModelGroups.some((group) => group.models.length > 0);
+  const currentTiers = getGlobalModelConfigTiers(settings);
+  const brokenProviderIds = providerHealth
+    .filter((provider) => provider.status === 'broken_expired' || provider.status === 'broken_invalid')
+    .map((provider) => provider.providerId);
+
+  const { recommendation, invalidTiers } = hasAnyUsableModels
+    ? buildOnboardingRecommendation({
+      availableModelGroups,
+      currentTiers,
+      providerHealth,
+      legacyDefaultProvider: readLegacyDefaultProvider(settings),
+    })
+    : {
+      recommendation: null,
+      invalidTiers: validateCurrentTiers(availableModelGroups, currentTiers).invalidTiers,
+    };
+
+  return {
+    needed: true,
+    phase: hasAnyUsableModels ? 'ready' : 'auth',
+    hasAnyUsableModels,
+    hasImportedCredentials,
+    memoryBootstrapComplete,
+    recommendation,
+    providerHealth,
+    availableModelGroups,
+    warnings: buildWarnings({
+      hasAnyUsableModels,
+      invalidTiers,
+      brokenProviderIds,
+      providerHealth,
+    }),
+    invalidTiers,
+  };
+}
+
+async function buildOnboardingState(options: BuildOnboardingStateOptions): Promise<OnboardingState> {
   const activeProfile = profileManager.getActive();
   if (!activeProfile) {
     return emptyOnboardingState();
   }
 
-  const memoryBootstrapComplete = hasCompletedMemoryBootstrap(activeProfile.path);
-  const { availableModelGroups, providerHealth } = await getProviderHealthSnapshot();
+  const [memoryBootstrapComplete, { availableModelGroups, providerHealth }, hasImportedCredentials] = await Promise.all([
+    hasCompletedMemoryBootstrap(activeProfile.path),
+    getProviderHealthSnapshot(),
+    hasSavedAuthJson(),
+  ]);
+
   const hasAnyUsableModels = availableModelGroups.some((group) => group.models.length > 0);
-  const hasImportedCredentials = hasSavedAuthJson();
 
   if (!activeProfile.onboarded) {
-    let settings = readSettings();
-    const migrated = applyLegacyProviderDefaultsMigration(settings);
-    settings = migrated.settings;
-    if (migrated.changed) {
-      writeSettings(settings);
-    }
-
-    const cleaned = cleanupUnavailableModelSelections(
-      availableModelGroups.flatMap((group) =>
-        group.models.map((model) => ({
-          provider: model.provider,
-          modelId: model.modelId,
-        }))),
-    );
-    if (cleaned) {
-      settings = readSettings();
-    }
-
-    const currentTiers = getGlobalModelConfigTiers(settings);
-    const brokenProviderIds = providerHealth
-      .filter((provider) => provider.status === 'broken_expired' || provider.status === 'broken_invalid')
-      .map((provider) => provider.providerId);
-
-    const { recommendation, invalidTiers } = hasAnyUsableModels
-      ? buildOnboardingRecommendation({
-        availableModelGroups,
-        currentTiers,
-        providerHealth,
-        legacyDefaultProvider: readLegacyDefaultProvider(settings),
-      })
-      : {
-        recommendation: null,
-        invalidTiers: validateCurrentTiers(availableModelGroups, currentTiers).invalidTiers,
-      };
-
-    return {
-      needed: true,
-      phase: hasAnyUsableModels ? 'ready' : 'auth',
-      hasAnyUsableModels,
+    const settings = options.applyRepairs
+      ? repairOnboardingSettingsState(availableModelGroups)
+      : readSettingsForOnboarding();
+    return buildPendingOnboardingState({
+      availableModelGroups,
+      providerHealth,
       hasImportedCredentials,
       memoryBootstrapComplete,
-      recommendation,
-      providerHealth,
-      availableModelGroups,
-      warnings: buildWarnings({
-        hasAnyUsableModels,
-        invalidTiers,
-        brokenProviderIds,
-        providerHealth,
-      }),
-      invalidTiers,
-    };
+      settings,
+    });
   }
 
   return {
@@ -160,4 +221,12 @@ export async function getOnboardingState(): Promise<OnboardingState> {
     providerHealth,
     availableModelGroups,
   };
+}
+
+export async function getOnboardingState(): Promise<OnboardingState> {
+  return buildOnboardingState({ applyRepairs: false });
+}
+
+export async function getOnboardingStateWithRepairs(): Promise<OnboardingState> {
+  return buildOnboardingState({ applyRepairs: true });
 }

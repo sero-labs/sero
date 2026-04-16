@@ -1,6 +1,6 @@
 # Facts — apps/desktop/electron/features/onboarding
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-16_
 
 ## What this code does
 This feature computes main-process onboarding state for the active profile. It inspects auth/config files, queries available models from shared infra, derives provider-health status, preserves or repairs saved tier selections, and returns the recommendation/warning payload that drives the renderer onboarding wizard.
@@ -28,3 +28,20 @@ This feature computes main-process onboarding state for the active profile. It i
 - A “getter” path in `preflight.ts` already performs migration/cleanup writes before returning state.
 - `types.ts` still contains dead helper copies (`findModelName`, `buildRecommendation`) even though recommendation construction now lives in `recommendations.ts`.
 - The feature’s provider/model presentation helpers currently live under IPC internals, so onboarding is coupled to transport-layer code for basic display shaping.
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 7 (was 5)
+- Largest file: `apps/desktop/electron/features/onboarding/recommendations.ts` (270 LOC)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: none
+
+### What changed
+- Split onboarding preflight into explicit read-only vs repair-aware entry points: `getOnboardingState()` is now read-only, while `getOnboardingStateWithRepairs()` and `repairOnboardingSettingsState()` own migration/cleanup side effects.
+- Moved onboarding provider/model presentation shaping into feature-owned helpers (`provider-metadata.ts`, `model-groups.ts`) so `provider-health.ts` no longer imports IPC internals.
+- Replaced synchronous onboarding file probes (`auth.json`, `MEMORY.md`, `models.json`) with async `fs/promises` reads/access checks.
+- Removed dead onboarding helper leftovers from `types.ts` and added focused onboarding preflight + model-group parity coverage.
+
+### Still outstanding
+- None in this folder; the tracked Medium/Low plan items are fully executed.

@@ -11,15 +11,16 @@
 
 import { ipcMain, BrowserWindow } from 'electron';
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import path from 'node:path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import { GoogleAuthManager } from '@electron/features/auth/google/auth-manager';
 import {
   deriveKeyringPassword,
   getGoogleClientName,
 } from '@electron/features/auth/google/gog-keyring';
+import {
+  buildGogPath,
+  resolveGogBinaryPath,
+} from '@electron/features/auth/google/gog-runtime';
 import { onPluginConfigChange } from '@electron/features/plugin-config';
 
 // ── Types ────────────────────────────────────────────────────
@@ -34,33 +35,6 @@ type ExecFileError = NodeJS.ErrnoException & {
   status?: number | null;
 };
 
-// ── Binary resolution ────────────────────────────────────────
-
-const GOG_SEARCH_PATHS = [
-  '/opt/homebrew/bin/gog',
-  '/usr/local/bin/gog',
-  path.join(homedir(), '.local/bin/gog'),
-  path.join(homedir(), 'go/bin/gog'),
-];
-
-let _resolvedGogPath: string | null | undefined;
-
-function findGogBinary(): string {
-  if (_resolvedGogPath !== undefined) return _resolvedGogPath ?? 'gog';
-  for (const p of GOG_SEARCH_PATHS) {
-    if (existsSync(p)) { _resolvedGogPath = p; return p; }
-  }
-  _resolvedGogPath = null;
-  return 'gog';
-}
-
-function buildEnhancedPath(): string {
-  const existing = process.env.PATH || '';
-  const extra = ['/opt/homebrew/bin', '/usr/local/bin',
-    path.join(homedir(), '.local/bin'), path.join(homedir(), 'go/bin')];
-  return [...new Set([...extra, ...existing.split(':')])].join(':');
-}
-
 // ── gogcli execution ─────────────────────────────────────────
 
 const GOG_TIMEOUT_MS = 30_000;
@@ -69,10 +43,10 @@ function runGog(args: string[], email?: string): Promise<GogExecResult> {
   return new Promise((resolve) => {
     const accountArgs = email ? ['--account', email] : [];
     const fullArgs = ['--client', getGoogleClientName(), '--json', '--no-input', ...accountArgs, ...args];
-    const child = execFile(findGogBinary(), fullArgs, {
+    const child = execFile(resolveGogBinaryPath(), fullArgs, {
       timeout: GOG_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env, PATH: buildEnhancedPath(), GOG_KEYRING_PASSWORD: deriveKeyringPassword() },
+      env: { ...process.env, PATH: buildGogPath(), GOG_KEYRING_PASSWORD: deriveKeyringPassword() },
     }, (error, stdout, stderr) => {
       const childError = error as ExecFileError | null;
       if (childError?.code === 'ENOENT') {

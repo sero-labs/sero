@@ -2,12 +2,7 @@ import type { AgentSession } from '@mariozechner/pi-coding-agent';
 
 import { getConfiguredModelFallbackChain } from '@electron/shared/settings/model-fallback-chain';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
-
-type SessionWithMutableRuntimeModel = AgentSession & {
-  agent: {
-    setModel(model: NonNullable<AgentSession['model']> | undefined): void;
-  };
-};
+import { setRuntimeSessionModel } from './agent-helpers';
 
 function findAvailableModelByProviderAndId(
   availableModels: ReturnType<AgentSession['modelRegistry']['getAvailable']>,
@@ -84,10 +79,9 @@ export function clearUnavailableSessionModel(session: AgentSession): boolean {
   if (!session.model) return false;
 
   // The SDK runtime accepts `undefined` here and `AgentSession.prompt()`
-  // already treats that as “No model selected”. We use the widened cast only
-  // to clear stale live-session selections when availability drops to zero.
-  const runtimeMutableSession = session as unknown as SessionWithMutableRuntimeModel;
-  runtimeMutableSession.agent.setModel(undefined);
+  // already treats that as “No model selected”. Keep this private-shape access
+  // isolated behind the shared SDK adapter.
+  setRuntimeSessionModel(session, undefined);
   return true;
 }
 

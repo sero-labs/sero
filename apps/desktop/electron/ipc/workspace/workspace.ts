@@ -6,7 +6,7 @@
 
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';

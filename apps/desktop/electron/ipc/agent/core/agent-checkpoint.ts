@@ -7,7 +7,7 @@
 import { ipcMain } from 'electron';
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type { ChatMessage, AgentStreamEvent } from '@/types/ipc';
 import type { ChatCheckpointRef } from '@/types/checkpoints';
 import {

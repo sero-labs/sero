@@ -9,7 +9,7 @@ import { execSync } from 'child_process';
 import { ipcMain } from 'electron';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { IpcChannels } from '@/types/ipc';
+import { IpcChannels } from '@/types/ipc-channels';
 import type {
   LocalModelApi,
   LocalModelsConfig,

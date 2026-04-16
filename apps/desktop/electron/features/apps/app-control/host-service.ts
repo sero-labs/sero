@@ -1,0 +1,216 @@
+import { BrowserWindow } from 'electron';
+import { captureRegion } from '@electron/shared/media/capture';
+import { encodeFramesToMp4 } from '@electron/shared/media/video-encoder';
+import type {
+  AppControlEntry,
+  AppInteractionParams,
+  AppInteractionResult,
+  AppPanelRect,
+  AppRecordingResult,
+  AppRecordingStatus,
+} from '@/types/ipc';
+
+const INTERACTION_SETTLE_MS = 200;
+const RECORDING_FRAME_INTERVAL_MS = 500;
+const APP_OPEN_READY_TIMEOUT_MS = 1_500;
+const APP_OPEN_READY_POLL_MS = 50;
+
+interface RecordingFrame {
+  timestamp: number;
+  base64: string;
+}
+
+interface RecordingState {
+  active: boolean;
+  startedAt: string | null;
+  frames: RecordingFrame[];
+  interval: ReturnType<typeof setInterval> | null;
+}
+
+interface OpenAndWaitOptions {
+  requireVisiblePanel?: boolean;
+  timeoutMs?: number;
+  pollMs?: number;
+}
+
+const recordingState: RecordingState = {
+  active: false,
+  startedAt: null,
+  frames: [],
+  interval: null,
+};
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getMainWindow(): BrowserWindow | null {
+  return BrowserWindow.getAllWindows()[0] ?? null;
+}
+
+async function execRenderer<T>(code: string): Promise<T> {
+  const win = getMainWindow();
+  if (!win) throw new Error('No main window available');
+  return win.webContents.executeJavaScript(code) as Promise<T>;
+}
+
+async function captureRect(rect: AppPanelRect): Promise<string | null> {
+  const win = getMainWindow();
+  if (!win) return null;
+  return captureRegion(win, rect);
+}
+
+function hasVisibleRect(rect: AppPanelRect | null): rect is AppPanelRect {
+  return !!rect && rect.width > 0 && rect.height > 0;
+}
+
+async function captureRecordingFrame(): Promise<void> {
+  try {
+    const rect = await appControlHostService.getAppRect();
+    if (!hasVisibleRect(rect)) return;
+    const screenshot = await captureRect(rect);
+    if (screenshot) recordingState.frames.push({ timestamp: Date.now(), base64: screenshot });
+  } catch {
+    // Skip frame capture failures during recording.
+  }
+}
+
+export const appControlHostService = {
+  async list(): Promise<AppControlEntry[]> {
+    return execRenderer<AppControlEntry[]>('window.__appControl?.getList() ?? []');
+  },
+
+  async active(): Promise<string> {
+    return execRenderer<string>('window.__appControl?.getActive() ?? "explorer"');
+  },
+
+  async open(appId: string): Promise<boolean> {
+    return execRenderer<boolean>(`window.__appControl?.openApp(${JSON.stringify(appId)}) ?? false`);
+  },
+
+  async openAndWait(appId: string, options: OpenAndWaitOptions = {}): Promise<boolean> {
+    const opened = await this.open(appId);
+    if (!opened) return false;
+
+    const timeoutMs = options.timeoutMs ?? APP_OPEN_READY_TIMEOUT_MS;
+    const pollMs = options.pollMs ?? APP_OPEN_READY_POLL_MS;
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const active = await this.active().catch(() => null);
+      if (active === appId) {
+        if (!options.requireVisiblePanel) return true;
+        const rect = await this.getAppRect().catch(() => null);
+        if (hasVisibleRect(rect)) return true;
+      }
+      await sleep(pollMs);
+    }
+
+    return false;
+  },
+
+  async info(appId: string): Promise<AppControlEntry | null> {
+    return execRenderer<AppControlEntry | null>(`window.__appControl?.getInfo(${JSON.stringify(appId)}) ?? null`);
+  },
+
+  async openFile(workspaceId: string, filePath: string): Promise<boolean> {
+    return execRenderer<boolean>(
+      `window.__appControl?.openFile(${JSON.stringify(workspaceId)}, ${JSON.stringify(filePath)}) ?? false`,
+    );
+  },
+
+  async getAppRect(): Promise<AppPanelRect | null> {
+    return execRenderer<AppPanelRect | null>('window.__appControl?.getAppRect() ?? null');
+  },
+
+  async captureVisibleApp(): Promise<{ base64: string; rect: AppPanelRect } | null> {
+    const rect = await this.getAppRect();
+    if (!hasVisibleRect(rect)) return null;
+    const base64 = await captureRect(rect);
+    if (!base64) return null;
+    return { base64, rect };
+  },
+
+  async screenshot(): Promise<string | null> {
+    const capture = await this.captureVisibleApp();
+    return capture?.base64 ?? null;
+  },
+
+  async interact(params: AppInteractionParams): Promise<AppInteractionResult> {
+    try {
+      const result = await execRenderer<AppInteractionResult>(
+        `window.__appControl?.interact(${JSON.stringify(params)})`,
+      );
+
+      if (params.action !== 'inspect' && params.captureAfter !== false && result.success) {
+        await sleep(INTERACTION_SETTLE_MS);
+        const screenshot = await this.screenshot();
+        if (screenshot) result.screenshot = screenshot;
+      }
+      return result;
+    } catch (err) {
+      return { success: false, message: err instanceof Error ? err.message : 'Interaction failed' };
+    }
+  },
+
+  async openDevPreview(url: string): Promise<boolean> {
+    return execRenderer<boolean>(
+      `window.__appControl?.openDevPreview(${JSON.stringify(url)}) ?? false`,
+    );
+  },
+
+  async recordStart(): Promise<boolean> {
+    if (recordingState.active) return false;
+    const started = await execRenderer<boolean>('window.__appControl?.recordStart() ?? false');
+    if (!started) return false;
+
+    recordingState.active = true;
+    recordingState.startedAt = new Date().toISOString();
+    recordingState.frames = [];
+    await captureRecordingFrame();
+    recordingState.interval = setInterval(() => {
+      void captureRecordingFrame();
+    }, RECORDING_FRAME_INTERVAL_MS);
+    return true;
+  },
+
+  async recordStop(): Promise<AppRecordingResult | null> {
+    if (!recordingState.active) return null;
+    if (recordingState.interval) {
+      clearInterval(recordingState.interval);
+      recordingState.interval = null;
+    }
+    await captureRecordingFrame();
+    await execRenderer<boolean>('window.__appControl?.recordStop() ?? false');
+
+    const frames = [...recordingState.frames];
+    recordingState.active = false;
+    recordingState.startedAt = null;
+    recordingState.frames = [];
+    if (frames.length === 0) return null;
+
+    try {
+      const result = await encodeFramesToMp4({ frames, fps: 2 });
+      return {
+        path: result.path,
+        isVideo: result.isVideo,
+        durationMs: result.durationMs,
+        frameCount: result.frameCount,
+      };
+    } catch (err) {
+      console.error('[app-control] Record encode failed:', err);
+      return null;
+    }
+  },
+
+  async recordStatus(): Promise<AppRecordingStatus> {
+    if (!recordingState.active) return { recording: false };
+    return {
+      recording: true,
+      startedAt: recordingState.startedAt ?? undefined,
+      durationMs: recordingState.startedAt
+        ? Date.now() - new Date(recordingState.startedAt).getTime()
+        : undefined,
+    };
+  },
+};

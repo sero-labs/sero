@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
-import { getSero } from '../hooks/useSeroFiles';
+import { getSero } from '../hooks/host';
 
 /** Max lines rendered. Logs beyond this show only the tail. */
 const MAX_DISPLAY_LINES = 5000;

@@ -6,15 +6,15 @@ _Plan drafted: 2026-04-12_
 This module is functionally solid and mostly typed, but it now carries high-impact drift in plugin discovery metadata, fragile settings-file mutation behavior, and a near-cap manager orchestrator that mixes too many responsibilities. The plan prioritizes correctness of marketplace discovery and settings safety first, then splits/clarifies lifecycle orchestration to keep plugin operations maintainable.
 
 ## Issues Found (prioritized)
-- **High** — Plugin discovery topic/keyword drift breaks discoverability contract — `apps/desktop/electron/features/plugins/discovery.ts:12-13` hardcodes `sero-ai-plugin`, but current plugin author docs and discovery guidance use `sero-agent-plugin` (`docs/plugins/guide.md`). This can cause valid community plugins to never appear in search results. Effort: **S**.
+- **High** — ~~Plugin discovery topic/keyword drift breaks discoverability contract — `apps/desktop/electron/features/plugins/discovery.ts:12-13` hardcodes `sero-ai-plugin`, but current plugin author docs and discovery guidance use `sero-agent-plugin` (`docs/plugins/guide.md`). This can cause valid community plugins to never appear in search results.~~ ✅ 2026-04-16 validation pass — `discovery.ts` now searches both `sero-agent-plugin` and legacy `sero-ai-plugin` metadata, dedupes the results, and documents the migration explicitly at the file header. Treat this High item as closed; only optional focused discovery-query coverage remains if we want belt-and-suspenders tests. Effort: **S**.
 
-- **High** — Settings parse fallback can cause destructive rewrites — `apps/desktop/electron/features/plugins/manager.ts:156-165` returns `{}` on any read/parse failure, then `addToSettings`/`removeFromSettings` writes that object back (`manager.ts:467-492`). A malformed/partially-written settings file can be collapsed into a minimal object during plugin operations, losing unrelated settings. Effort: **M**.
+- **High** — ~~Settings parse fallback can cause destructive rewrites — `apps/desktop/electron/features/plugins/manager.ts:156-165` returns `{}` on any read/parse failure, then `addToSettings`/`removeFromSettings` writes that object back (`manager.ts:467-492`). A malformed/partially-written settings file can be collapsed into a minimal object during plugin operations, losing unrelated settings.~~ ✅ 2026-04-16 validation pass — `readSettings()` now only returns `{}` for `ENOENT` and otherwise throws an actionable malformed-settings error before plugin install/uninstall mutations run. The destructive rewrite path is closed. Effort: **M**.
 
 - **Medium** — Plugin manager is one change away from violating file-size policy and mixes concerns — `apps/desktop/electron/features/plugins/manager.ts:1-494` includes install serialization, staging/backups, package source strategies, settings mutation, discovery registration, and metadata shaping in one file. This is high review load and fragile for future changes. Effort: **M**.
 
-- **Medium** — Local source builds are non-deterministic when `node_modules` is present — `apps/desktop/electron/features/plugins/package-build.ts:160-163` skips install if `node_modules` exists, so copied local plugins can build against stale/symlinked workspace dependencies instead of clean install state. Effort: **S**.
+- **Medium** — ~~Local source builds are non-deterministic when `node_modules` is present — `apps/desktop/electron/features/plugins/package-build.ts:160-163` skips install if `node_modules` exists, so copied local plugins can build against stale/symlinked workspace dependencies instead of clean install state.~~ ✅ 2026-04-16 (`593497d0`) — `package-build.ts` now always reruns dependency installation before building git/local source plugins, so staged source installs no longer trust pre-existing `node_modules`; focused regression coverage now locks the behavior down. Effort: **S**.
 
-- **Medium** — Installed-path registration has no uninstall teardown path — install calls `registerAppPath` (`apps/desktop/electron/features/plugins/manager.ts:298`), but uninstall never unregisters (`manager.ts:340-350`), and discovery keeps an in-memory path list (`apps/desktop/electron/features/apps/discovery/index.ts:267-276`). This leaves stale entries until restart. Effort: **S**.
+- **Medium** — ~~Installed-path registration has no uninstall teardown path — install calls `registerAppPath` (`apps/desktop/electron/features/plugins/manager.ts:298`), but uninstall never unregisters (`manager.ts:340-350`), and discovery keeps an in-memory path list (`apps/desktop/electron/features/apps/discovery/index.ts:267-276`). This leaves stale entries until restart.~~ ✅ 2026-04-16 (`2d15e329`) — Added `unregisterAppPath()` in app discovery, wired plugin uninstall + install rollback cleanup through it, and added focused discovery/manager regressions so stale registered paths clear without restart. Effort: **S**.
 
 - **Low** — Bridge policy parse/read failures are fully silent — `apps/desktop/electron/features/plugins/bridge-policy.ts:72-73` collapses errors to `null` with no diagnostics, making plugin tool-bridging failures hard to debug under AD-020. Effort: **S**.
 
@@ -34,14 +34,14 @@ This module is functionally solid and mostly typed, but it now carries high-impa
    - Keep `manager.ts` as thin orchestration API (`installPlugin`, `uninstallPlugin`, `listInstalledPlugins`, `isInstalledPlugin`).
    - This keeps the area under the 500-LOC policy and reduces coupling.
 
-4. **Enforce deterministic build preparation for source installs.**
-   - In `package-build.ts`, do not treat pre-existing `node_modules` as authoritative for git/local staged packages.
-   - Either always reinstall (preferred for correctness) or gate skip-behavior behind explicit validated metadata.
-   - Preserve current `preBuilt` semantics from plugin docs.
+4. ~~Enforce deterministic build preparation for source installs.~~ ✅ 2026-04-16 (`593497d0`)
+   - `package-build.ts` no longer treats pre-existing `node_modules` as authoritative for git/local staged packages.
+   - Source-build prep now always reruns the package-manager install step before `build`, which keeps the staged dependency tree truthful and deterministic.
+   - Preserved current `preBuilt` semantics from plugin docs.
 
-5. **Add uninstall symmetry for discovery path registration.**
-   - Introduce `unregisterAppPath()` in app discovery and call it on plugin uninstall/error rollback paths.
-   - Ensure install/uninstall idempotency and remove stale path accumulation.
+5. ~~**Add uninstall symmetry for discovery path registration.**~~ ✅ 2026-04-16 (`2d15e329`)
+   - `unregisterAppPath()` now lives in app discovery and plugin uninstall/error rollback paths call it.
+   - Focused discovery + plugin-manager regressions now lock in install/uninstall symmetry and stale-state cleanup without restart.
 
 6. **Improve plugin bridge-policy diagnostics.**
    - Log one scoped warning when package.json parsing fails for an extension path (include extension/package path, avoid noisy repeats via cache).
@@ -57,8 +57,17 @@ This module is functionally solid and mostly typed, but it now carries high-impa
 - Build-prep changes can increase install time for local source plugins if always reinstalling dependencies.
 
 ## Next Steps
-1. Patch High items first (`discovery.ts` taxonomy constants; settings parse/write safety in manager).
-2. Add coverage for plugin manager transactional flows (install rollback + uninstall settings/path symmetry).
-3. Split `manager.ts` into transaction/source/settings helpers before adding new plugin lifecycle features.
-4. Tighten source-build determinism in `package-build.ts` and document expected behavior in plugin technical docs.
-5. Continue Wave A: `deslopify apps/desktop/electron/shared`.
+1. Add deeper coverage for plugin manager transactional rollback flows beyond the install/uninstall symmetry regressions landed in this pass.
+2. Split `manager.ts` into transaction/source/settings helpers before adding new plugin lifecycle features.
+3. Continue Wave A: `deslopify apps/desktop/electron/shared`.
+
+## Execution log
+- 2026-04-16 — deterministic source-build closeout (`593497d0`)
+  - Updated `package-build.ts` so git/local source plugin installs always rerun dependency installation before `build`, even when `node_modules` already exists.
+  - Added focused `plugin-package-build.test.ts` coverage for both `git` and `local` staged source installs with pre-existing `node_modules`.
+- 2026-04-16 — validation pass (working tree, no commit recorded in this plan)
+  - Confirmed plugin discovery now dual-searches `sero-agent-plugin` + `sero-ai-plugin`, closing the original taxonomy-drift High item.
+  - Confirmed `readSettings()` now fails closed on malformed `settings.json` instead of returning `{}` for arbitrary parse/read failures, closing the original destructive-rewrite High item.
+- 2026-04-16 — uninstall-path symmetry closeout (`2d15e329`)
+  - Added `unregisterAppPath()` to app discovery and wired plugin uninstall + install rollback cleanup through it.
+  - Added focused `app-discovery.test.ts` and `plugin-manager.test.ts` coverage so registered install paths clear immediately without restart.

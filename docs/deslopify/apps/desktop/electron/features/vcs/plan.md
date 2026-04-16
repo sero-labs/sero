@@ -9,8 +9,8 @@ _Plan drafted: 2026-04-12_
 - **High** — `GitRunner` still uses `any` at the git transport/auth boundary — `apps/desktop/electron/features/vcs/core/git-runner.ts:37` and `apps/desktop/electron/features/vcs/core/git-runner.ts:131` use `err: any` in the SSH probe and host command execution path. This violates the monorepo's no-type-escape rule in the one module that decides how git/gh commands execute for every workspace. Effort: **S**.
 - **Medium** — Canonical VCS contracts live in a renderer-owned path instead of a neutral shared module — `apps/desktop/electron/features/vcs/support/types.ts:1-17` re-exports core VCS shapes from `@/types/vcs`, which makes Electron main-process code depend on renderer-local type ownership. For a cross-process contract used by auth, kanban, and renderer UI, this is the wrong direction of dependency. Effort: **M**.
 - **Medium** — Filesystem checkpoints are silently rewritten to manual checkpoints — `apps/desktop/electron/features/vcs/core/vcs-manager.ts:136-155` still defines filesystem checkpoint descriptions, but `createCheckpoint()` remaps `options.source === 'fs'` to `'manual'`. That is a behavioral mismatch, not just a naming nit: downstream UI/analytics cannot trust the stored source. Effort: **S**.
-- **Medium** — Host SSH transport selection is cached for the entire process lifetime — `apps/desktop/electron/features/vcs/core/git-runner.ts:19-43,102` memoizes `_sshAvailable` after the first probe. If the user adds keys, fixes their SSH agent, or changes network state after launch, VCS flows keep using the old transport decision until restart. Effort: **S**.
-- **Medium** — Two orchestration files are already near the 500-LOC cap — `apps/desktop/electron/features/vcs/core/vcs-ops.ts:27-442` and `apps/desktop/electron/features/vcs/core/pr-ops.ts:28-438` both mix state resolution, command building, error formatting, and user-facing message shaping. This is still below the cap, but more publish/review features will push both files into expensive-to-review territory. Effort: **M**.
+- **Medium** — ~~Host SSH transport selection is cached for the entire process lifetime — `apps/desktop/electron/features/vcs/core/git-runner.ts:19-43,102` memoizes `_sshAvailable` after the first probe. If the user adds keys, fixes their SSH agent, or changes network state after launch, VCS flows keep using the old transport decision until restart.~~ ✅ 2026-04-16 (`1bfdc4fd`) — host SSH detection now refreshes via TTL + SSH key metadata signature invalidation in `git-runner.ts`. Effort: **S**.
+- **Medium** — ~~Two orchestration files are already near the 500-LOC cap — `apps/desktop/electron/features/vcs/core/vcs-ops.ts:27-442` and `apps/desktop/electron/features/vcs/core/pr-ops.ts:28-438` both mix state resolution, command building, error formatting, and user-facing message shaping. This is still below the cap, but more publish/review features will push both files into expensive-to-review territory.~~ ✅ 2026-04-16 (`7d841bcd`) — `vcs-ops.ts` and `pr-ops.ts` are now thin façades over focused helper modules for bookmarks/remotes/push and state/preview/create execution seams. Effort: **M**.
 - **Low** — Default checkpoint messages are locale-dependent and non-deterministic — `apps/desktop/electron/features/vcs/core/vcs-manager.ts:136-142` uses `new Date().toLocaleString()` inside commit subjects. That makes generated checkpoint text vary by machine locale and weakens tests/automation that assume stable formatting. Effort: **S**.
 
 ## Proposed Refactoring
@@ -55,14 +55,24 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Remove the two `any` catch sites in `git-runner.ts`.~~ ✅ 2026-04-12 (`4350404d`)
-2. Decide whether `fs` checkpoint source still exists; either preserve it honestly or remove it from the contract.
-3. Move shared VCS contracts to a neutral shared module and update Electron/renderer imports together.
-4. Split `vcs-ops.ts` and `pr-ops.ts` before adding more publish/PR behavior.
-5. Verification checklist:
+2. ~~Decide whether `fs` checkpoint source still exists; either preserve it honestly or remove it from the contract.~~ ✅ 2026-04-16 (`65ebfe3a`)
+3. ~~Move shared VCS contracts to a neutral shared module and update Electron/renderer imports together.~~ ✅ 2026-04-16 (`1a620e5a`)
+4. ~~Make host SSH transport detection refreshable instead of process-global forever.~~ ✅ 2026-04-16 (`1bfdc4fd`)
+5. ~~Split `vcs-ops.ts` and `pr-ops.ts` before adding more publish/PR behavior.~~ ✅ 2026-04-16 (`7d841bcd`)
+6. Verification checklist:
    - Push from both SSH and HTTPS GitHub remotes on host and container-backed workspaces.
    - Create/list/restore checkpoints and verify source metadata shown to the renderer stays correct.
    - Build PR preview context, create a PR, and confirm `gh` error handling stays unchanged.
 
 ## Execution log
+- 2026-04-16 — `7d841bcd` — `refactor(desktop): modularize vcs and pr operation hubs`
+  - Split `vcs-ops.ts` into focused bookmark/remote/push helper modules and reduced the top-level class to a composition façade (`442 → 325` lines).
+  - Split `pr-ops.ts` into dedicated state/preview/create helpers and reduced the top-level class to orchestration-only flow (`438 → 109` lines) while preserving branch gating and `gh` error formatting behavior.
+- 2026-04-16 — `1bfdc4fd` — `refactor(desktop): refresh vcs host ssh transport probe caching`
+  - Replaced process-lifetime host SSH probing with a TTL + SSH key metadata signature cache and added focused regressions for TTL expiry + key-change invalidation behavior.
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
   - Replaced the remaining `any`-typed git transport error paths in `git-runner.ts` with a shared typed exec-failure normalizer.
+- 2026-04-16 — `65ebfe3a` — `fix(desktop): preserve filesystem vcs checkpoint source`
+  - Stopped rewriting `fs` checkpoint sources to `manual` in `vcs-manager.ts` and added focused VCS manager regressions to lock filesystem source create/list behavior.
+- 2026-04-16 — `1a620e5a` — `refactor(desktop): move shared vcs contracts to @sero/common`
+  - Moved canonical VCS contracts into `packages/common/src/vcs.ts` and repointed Electron/preload/renderer VCS type imports (including `support/types.ts`) to `@sero/common` while keeping `apps/desktop/src/types/vcs.ts` as a compatibility barrel.
