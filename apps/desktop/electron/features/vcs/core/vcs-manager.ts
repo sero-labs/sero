@@ -152,7 +152,7 @@ export class VcsManager extends EventEmitter {
     const hasChanges = await this.hasWorkingCopyChanges(workspaceId);
     if (!hasChanges) return null;
 
-    const source: VcsCheckpointSource = options.source === 'fs' ? 'manual' : options.source;
+    const source: VcsCheckpointSource = options.source;
     const description = (options.description?.trim() || this.buildDefaultDescription(source)).slice(0, 300);
 
     // Stage all changes
