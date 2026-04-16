@@ -51,7 +51,7 @@ _Plan drafted: 2026-04-12_
 ## Next Steps
 1. ~~Fix the bulk-abort/tracker desync first.~~ ✅ 2026-04-12 (`4350404d`)
 2. ~~Remove the `createAgentSession()` cast and `session!` assertion from `runtime/runner.ts`.~~ ✅ 2026-04-12 (`4350404d`)
-3. Extract shared single-run execution logic so `index.ts` drops well below the LOC cap.
+3. ~~Extract shared single-run execution logic so `index.ts` drops well below the LOC cap.~~ ✅ 2026-04-16 (`99ecc6ff`)
 4. Decide whether policy knobs (`tools`, `extensions`, `blockedExtensions`) are real; enforce or delete them accordingly.
 5. Verification checklist:
    - Start several subagents, call `abortAll`, and confirm tracker snapshots/events show all affected runs as aborted.
@@ -63,3 +63,6 @@ _Plan drafted: 2026-04-12_
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
   - Bulk aborts now mark matching tracker entries aborted before the pool cascade runs.
   - Added a local Pi SDK module augmentation so subagent session creation no longer needs a cast, and removed the remaining `session!` assertion from debug logging.
+- 2026-04-16 — `99ecc6ff` — `refactor(desktop): extract shared subagent single-run executor`
+  - Moved the duplicated single-run resolve/configure/track/run/finalize flow into `core/single-run.ts`.
+  - Reduced `SubagentManager` to thin `runSingle()`/`runSingleStructured()` wrappers that preserve existing return contracts.

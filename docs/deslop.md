@@ -50,6 +50,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/gateway/web-chat-server.test.ts` | New — locks standalone redirect-to-SPA behavior and explicit `/basic` fallback routing |
 | `docs/deslopify/apps/desktop/electron/features/gateway/{facts,plan}.md` | Recorded Low ownership closeout, refreshed post-fix gateway snapshot, and marked the folder plan fully executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/gateway/` healthy with all tracked items cleared |
+| `apps/desktop/electron/features/subagent/core/single-run.ts` | New — shared single-run executor for subagent resolve/configure/track/run/finalize flow |
+| `apps/desktop/electron/features/subagent/index.ts` | Reduced `SubagentManager` single-mode duplication by delegating `runSingle()`/`runSingleStructured()` to the shared executor (492 → 333 lines) |
+| `docs/deslopify/apps/desktop/electron/features/subagent/{facts,plan}.md` | Recorded the Medium single-run extraction closeout and refreshed the post-fix subagent snapshot |
+| `docs/deslopify/index.md` | Updated subagent status to show the first Medium item cleared with policy/comment follow-ups still pending |
 
 ---
 

@@ -1,6 +1,6 @@
 # Facts — apps/desktop/electron/features/subagent
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-16_
 
 ## What this code does
 This feature is Sero's AD-021 subagent runtime. It discovers markdown-defined agents from `SERO_AGENT_DIR`, resolves per-run model/thinking/timeout config, enforces concurrency limits, creates transient child `AgentSession`s, tracks live status/tool activity for the renderer, and exposes the `subagent` / `create_agent` tools to parent sessions.
@@ -45,3 +45,21 @@ This feature is Sero's AD-021 subagent runtime. It discovers markdown-defined ag
 ### Still outstanding
 - `index.ts` is still a near-cap façade and needs the shared single-run executor extraction from the Medium plan.
 - Policy knobs (`tools`, `extensions`, `blockedExtensions`) are still stored without runtime enforcement.
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 11 (was 10)
+- Largest file: `apps/desktop/electron/features/subagent/runtime/runner.ts` (396 LOC)
+- Files over 500 LOC: none (unchanged)
+- Near-cap files (≥400 LOC): none (was `index.ts` at 492 LOC)
+- Type escape hatches remaining: unchanged from prior pass; no new escape hatches introduced
+
+### What changed
+- Added `core/single-run.ts` as the shared single-run execution seam for resolve/configure/track/run/finalize flow.
+- Reduced `SubagentManager` single-mode methods to thin wrappers over `executeSingleRun()` while preserving string vs structured return shapes.
+- Dropped `apps/desktop/electron/features/subagent/index.ts` from 492 LOC to 333 LOC.
+
+### Still outstanding
+- Medium: decide whether `tools`/`extensions`/`blockedExtensions` should be enforced in runtime filtering or removed as unsupported knobs.
+- Low: update `runtime/loader.ts` comments so reduced-extension behavior documentation matches the implementation.
