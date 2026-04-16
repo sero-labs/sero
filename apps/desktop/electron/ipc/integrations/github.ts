@@ -2,20 +2,19 @@
  * GitHub auth IPC handlers — device flow login, logout, status.
  */
 
-import { BrowserWindow, ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '@/types/ipc';
 import type { DeviceFlowProgress, GitHubAuthStatus } from '@electron/features/auth/github/auth-manager';
 import { githubAuth, githubRepoOps } from '@electron/shared/infra/shared-infra';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 const Ch = IpcChannels.github;
 
 let loginAbort: AbortController | null = null;
 
 function broadcast(channel: string, data: unknown): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(channel, data);
-  }
+  broadcastToWindows(channel, data);
 }
 
 export function registerGitHubHandlers(): void {

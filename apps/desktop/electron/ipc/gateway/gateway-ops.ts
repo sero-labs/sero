@@ -10,7 +10,6 @@
  * - Host-only workspaces read directly from the filesystem
  */
 
-import { appendFileSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -101,7 +100,7 @@ export function buildGatewayOps(
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
       const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);
       const sessionPath = sm.getSessionFile()!;
-      appendFileSync(sessionPath, JSON.stringify(sm.getHeader()) + '\n');
+      await fs.appendFile(sessionPath, JSON.stringify(sm.getHeader()) + '\n', 'utf8');
       await openSessionInternal(sessionId, sessionPath, workspaceId);
     },
     prompt: async (sessionId, text, images) => {
@@ -141,7 +140,7 @@ export function buildGatewayOps(
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
       const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);
       const sessionPath = sm.getSessionFile()!;
-      appendFileSync(sessionPath, JSON.stringify(sm.getHeader()) + '\n');
+      await fs.appendFile(sessionPath, JSON.stringify(sm.getHeader()) + '\n', 'utf8');
       return { id: sm.getSessionId(), name: name || '' };
     },
     listFiles: async (workspaceId, dirPath) => {

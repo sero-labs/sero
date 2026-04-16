@@ -8,7 +8,7 @@
  * UserFeedbackApp) can hydrate via getPending.
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
   UserFeedbackPendingQuestion,
@@ -21,11 +21,10 @@ import {
   type UserFeedbackCancelPayload,
 } from '@sero/common';
 import { getUserFeedbackBus } from '@electron/shared/lib/user-feedback-bus';
+import { broadcastToWindows } from '../../lib/window-broadcast';
 
 function sendToAllWindows(channel: string, data: unknown): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(channel, data);
-  }
+  broadcastToWindows(channel, data);
 }
 
 // ── Pending question tracking ──────────────────────────────────

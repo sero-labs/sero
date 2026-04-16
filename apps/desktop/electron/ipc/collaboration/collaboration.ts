@@ -11,7 +11,7 @@
  * 3. Feeds the synthesized result back through the MAIN agent session
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain } from 'electron';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
@@ -32,12 +32,11 @@ import {
   getCollaborationRuntimeSnapshot,
   setCollaborationRuntimeSnapshot,
 } from './runtime-state';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 function sendCollabEvent(event: CollaborationEvent): void {
   applyCollaborationRuntimeEvent(event);
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(IpcChannels.collaboration.event, event);
-  }
+  broadcastToWindows(IpcChannels.collaboration.event, event);
 }
 
 /**

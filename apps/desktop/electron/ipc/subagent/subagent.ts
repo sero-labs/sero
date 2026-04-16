@@ -5,7 +5,7 @@
  * and handles list/snapshot/abort requests.
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain } from 'electron';
 import { readFile, writeFile, unlink, mkdir, rename } from 'fs/promises';
 import path from 'path';
 import { IpcChannels } from '@/types/ipc-channels';
@@ -17,6 +17,7 @@ import type {
   SubagentAgentSummary,
   SubagentAgentFile,
 } from '@/types/ipc';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 
@@ -30,9 +31,7 @@ function validateAgentName(name: string): void {
 }
 
 function sendToAllWindows(channel: string, ...args: unknown[]): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(channel, ...args);
-  }
+  broadcastToWindows(channel, ...args);
 }
 
 function sendEvent(event: SubagentEvent): void {

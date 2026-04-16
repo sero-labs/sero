@@ -5,25 +5,18 @@
  * and bridges data between node-pty and the renderer's xterm.js.
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { containerManager } from '@electron/shared/infra/shared-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 export function registerTerminalHandlers(): void {
   const tm = containerManager.terminals;
 
   // Register exit callback once — forwards to all renderer windows
   tm.onTerminalExit((terminalId) => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      try {
-        if (!win.isDestroyed()) {
-          win.webContents.send(IpcChannels.terminal.exit, terminalId);
-        }
-      } catch {
-        /* window may be closing */
-      }
-    }
+    broadcastToWindows(IpcChannels.terminal.exit, terminalId);
   });
 
   // Create a terminal — container-mode or host-mode depending on workspace config
@@ -41,15 +34,7 @@ export function registerTerminalHandlers(): void {
 
       // Forward PTY data to all renderer windows
       pty.onData((data: string) => {
-        for (const win of BrowserWindow.getAllWindows()) {
-          try {
-            if (!win.isDestroyed()) {
-              win.webContents.send(IpcChannels.terminal.data, terminalId, data);
-            }
-          } catch {
-            /* window may be closing */
-          }
-        }
+        broadcastToWindows(IpcChannels.terminal.data, terminalId, data);
       });
     },
   );

@@ -1,6 +1,10 @@
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
 import type { ContextOverrides, ContextToolInfo } from '@/types/ipc';
-import { setBaseSystemPrompt, stripDisabledSkills } from './agent-helpers';
+import {
+  rewriteSessionManagerFile,
+  setBaseSystemPrompt,
+  stripDisabledSkills,
+} from './agent-helpers';
 
 const CONTEXT_OVERRIDES_CUSTOM_TYPE = 'sero-context-overrides';
 
@@ -107,11 +111,7 @@ export function persistContextOverrides(
   overrides: ContextOverrides | null,
 ): void {
   session.sessionManager.appendCustomEntry(CONTEXT_OVERRIDES_CUSTOM_TYPE, overrides);
-
-  const maybeRewriteFile = (session.sessionManager as unknown as { _rewriteFile?: () => void })._rewriteFile;
-  if (typeof maybeRewriteFile === 'function') {
-    maybeRewriteFile.call(session.sessionManager);
-  }
+  rewriteSessionManagerFile(session);
 }
 
 export function applyContextOverrides(

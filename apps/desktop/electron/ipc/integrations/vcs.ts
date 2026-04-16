@@ -1,17 +1,16 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { CreatePullRequestInput, PullRequestDraft } from '@sero/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
 import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 const Ch = IpcChannels.vcs;
 
 function broadcast(event: unknown): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(Ch.event, event);
-  }
+  broadcastToWindows(Ch.event, event);
 }
 
 let subscribed = false;

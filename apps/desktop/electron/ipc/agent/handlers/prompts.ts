@@ -12,8 +12,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { readFile, writeFile, mkdir, rm, rename, stat } from 'fs/promises';
-import { readdirSync, statSync } from 'fs';
+import { readFile, writeFile, mkdir, readdir, rm, rename, stat } from 'fs/promises';
 import path from 'path';
 import { parseFrontmatter } from '@mariozechner/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
@@ -54,21 +53,21 @@ function nameFromPath(filePath: string): string {
  * Recursively collect all .md files under a directory.
  * Returns absolute paths. Silently skips dirs it can't read.
  */
-function collectMdFiles(dir: string): string[] {
+async function collectMdFiles(dir: string): Promise<string[]> {
   const results: string[] = [];
-  let entries: string[];
+  let entries;
   try {
-    entries = readdirSync(dir);
+    entries = await readdir(dir, { withFileTypes: true, encoding: 'utf8' });
   } catch {
     return results;
   }
+
   for (const entry of entries) {
-    const full = path.join(dir, entry);
+    const full = path.join(dir, entry.name);
     try {
-      const s = statSync(full);
-      if (s.isDirectory()) {
-        results.push(...collectMdFiles(full));
-      } else if (s.isFile() && entry.endsWith('.md')) {
+      if (entry.isDirectory()) {
+        results.push(...await collectMdFiles(full));
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
         results.push(full);
       }
     } catch {
@@ -115,7 +114,7 @@ export function registerPromptHandlers(): void {
       // Ensure the directory exists
       await mkdir(PROMPTS_DIR, { recursive: true });
 
-      const files = collectMdFiles(PROMPTS_DIR);
+      const files = await collectMdFiles(PROMPTS_DIR);
       const summaries = await Promise.all(files.map(buildSummary));
       return summaries.sort((a, b) => a.name.localeCompare(b.name));
     },

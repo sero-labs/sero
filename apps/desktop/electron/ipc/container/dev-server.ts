@@ -5,16 +5,15 @@
  * real-time events (registered, unregistered, status_changed) as they occur.
  */
 
-import { ipcMain, BrowserWindow, shell } from 'electron';
+import { ipcMain, shell } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { DevServerEvent } from '@/types/ipc';
 import { containerManager } from '@electron/shared/infra/shared-infra';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 /** Push a dev server event to all renderer windows. */
 function sendEvent(event: DevServerEvent): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(IpcChannels.devServer.event, event);
-  }
+  broadcastToWindows(IpcChannels.devServer.event, event);
 }
 
 export function registerDevServerHandlers(): void {

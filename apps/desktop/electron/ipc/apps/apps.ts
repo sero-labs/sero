@@ -6,8 +6,8 @@
  * a restart banner can be shown.
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
-import { watch, readFileSync, existsSync } from 'fs';
+import { ipcMain } from 'electron';
+import { promises as fs, watch, existsSync } from 'fs';
 import path from 'path';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { SeroAppManifest } from '@/types/ipc';
@@ -16,6 +16,7 @@ import {
   resolveBuiltinPackagesDir,
   resolveBuiltinPluginsDir,
 } from '@electron/platform/protocols/builtin-resources';
+import { broadcastToWindows } from '../lib/window-broadcast';
 
 const APP_ROOTS = [
   {
@@ -66,7 +67,7 @@ export function watchForNewApps(knownAppIds: Set<string>): void {
 
       if (debounce) clearTimeout(debounce);
       debounce = setTimeout(() => {
-        checkForNewApps(rootDir, root.matchesDirName, knownAppIds, notified);
+        void checkForNewApps(rootDir, root.matchesDirName, knownAppIds, notified);
       }, 2000);
     });
   }
@@ -74,15 +75,14 @@ export function watchForNewApps(knownAppIds: Set<string>): void {
   console.log('[app-watcher] Watching for new app packages');
 }
 
-function checkForNewApps(
+async function checkForNewApps(
   rootDir: string,
   matchesDirName: (dir: string) => boolean,
   knownAppIds: Set<string>,
   notified: Set<string>,
-): void {
+): Promise<void> {
   try {
-    const { readdirSync } = require('fs');
-    const dirs: string[] = readdirSync(rootDir);
+    const dirs = await fs.readdir(rootDir);
 
     for (const dir of dirs) {
       if (!matchesDirName(dir)) continue;
@@ -91,7 +91,15 @@ function checkForNewApps(
       if (!existsSync(pkgPath)) continue;
 
       try {
-        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+        const rawPackage = await fs.readFile(pkgPath, 'utf8');
+        const pkg = JSON.parse(rawPackage) as {
+          sero?: {
+            app?: {
+              id?: string;
+              name?: string;
+            };
+          };
+        };
         const app = pkg.sero?.app;
         if (!app?.id || !app?.name) continue;
 
@@ -99,10 +107,7 @@ function checkForNewApps(
 
         notified.add(app.id);
         console.log(`[app-watcher] New app detected: ${app.name} (${app.id})`);
-
-        for (const win of BrowserWindow.getAllWindows()) {
-          win.webContents.send(IpcChannels.apps.newAppDetected, app.name);
-        }
+        broadcastToWindows(IpcChannels.apps.newAppDetected, app.name);
       } catch {
         // package.json not yet valid JSON (still being written)
       }

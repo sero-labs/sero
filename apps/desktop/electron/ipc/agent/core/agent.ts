@@ -1,79 +1,43 @@
-import { ipcMain, BrowserWindow } from 'electron';
-import {
-  createAgentSession,
-  SessionManager,
-  DefaultResourceLoader,
-  type AgentSession,
-  type SlashCommandInfo,
-} from '@mariozechner/pi-coding-agent';
-import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
+import { ipcMain } from 'electron';
+import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
 import type {
-  ChatMessage,
-  ChatAttachment,
   AgentStreamEvent,
+  ChatAttachment,
+  ChatMessage,
+  CompactResult,
+  ContextUsageInfo,
+  SeroSessionInfo,
   SeroSlashCommandInfo,
   SessionUsageStats,
-  ContextUsageInfo,
-  CompactResult,
-  ContextOverrides,
-  ContextToolInfo,
-  SeroSessionInfo,
 } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
 import {
-  nextId,
-  convertSessionMessages,
   buildCheckpointMapByTurn,
-  readHiddenCommands,
   buildCommandList,
-  getBaseSystemPrompt,
+  convertSessionMessages,
+  nextId,
+  readHiddenCommands,
 } from './agent-helpers';
 import { handlePromptInput } from './agent-prompt';
 import { emitSessionShutdown, emitSessionBeforeSwitch } from './agent-session-events';
-import { subscribeToSession } from './agent-subscription';
-import { readGlobalAgentsMd } from './global-agents';
 import { registerAgentCheckpointHandlers } from './agent-checkpoint';
 import { workspaceManager } from '@electron/features/workspace/manager';
-import { createHostCodingTools } from '@electron/features/container/tools';
-import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
-import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
-  ensureInfra,
-  containerManager,
-  buildContainerConfig,
   subagentManager,
-  SERO_SESSION_DIR,
   SERO_CONFIG_PATH,
+  SERO_SESSION_DIR,
 } from '@electron/shared/infra/shared-infra';
-import { createContainerTools } from '@electron/features/container/tools';
-import type { ContainerState } from '@electron/features/container';
 import { registerAgentModelContextHandlers } from './agent-model-context';
-import { applyContextOverrides, readPersistedContextOverrides } from './agent-context-overrides';
-import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import { installCliAgentBridge, noteCliTurnEnd } from '@electron/cli/bridges';
-import {
-  createWorkspaceCliTool,
-  bridgeExtensionTools,
-  clearBridgedExtensionSessionItemsForSession,
-} from '@electron/cli';
-import { installGatewayAgentOps, forwardEventToGateway } from '@electron/features/gateway/bridge/agent-bridge';
-import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
+import { clearBridgedExtensionSessionItemsForSession } from '@electron/cli';
+import { installGatewayAgentOps } from '@electron/features/gateway/bridge/agent-bridge';
 import { buildGatewayOps } from '@electron/ipc/gateway/gateway-ops';
-interface PoolEntry {
-  session: AgentSession;
-  loader: DefaultResourceLoader;
-  unsubscribe: () => void;
-  workspaceId: string;
-  currentAssistantId: string | null;
-  lastSessionName: string | undefined;
-  /** Checkpoint from the most recently completed turn, to attach to the NEXT user message. */
-  lastCompletedCheckpoint: ChatCheckpointRef | null;
-  contextOverrides: ContextOverrides | null;
-  baseSystemPrompt: string;
-  baseTools: ContextToolInfo[];
-}
+import { emitAgentEvent } from './agent-event-broadcast';
+import { openSessionInPool, type PoolEntry } from './agent-session-open';
+
+export { emitAgentEvent } from './agent-event-broadcast';
 const pool = new Map<string, PoolEntry>();
+
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
@@ -90,12 +54,6 @@ if (process.env.NODE_ENV === 'test') {
 /** Reload all active session ResourceLoaders after edits. */
 export async function reloadAllSessionResources(): Promise<void> {
   await Promise.all([...pool.values()].map((entry) => entry.loader.reload()));
-}
-export function emitAgentEvent(event: AgentStreamEvent): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(IpcChannels.agent.event, event);
-  }
-  forwardEventToGateway(event as unknown as Record<string, unknown>);
 }
 function sendEvent(event: AgentStreamEvent): void {
   emitAgentEvent(event);
@@ -125,118 +83,17 @@ export async function disposeAllAgentSessions(): Promise<void> {
 
 /** Open (or return) an agent session — shared by IPC handler and gateway. */
 async function openSessionInternal(
-  sessionId: string, sessionPath: string, workspaceId: string,
+  sessionId: string,
+  sessionPath: string,
+  workspaceId: string,
 ): Promise<ChatMessage[]> {
-  const existing = pool.get(sessionId);
-  if (existing) {
-    return convertSessionMessages(
-      existing.session.messages,
-      buildCheckpointMapByTurn(existing.session, existing.workspaceId),
-    );
-  }
-
-  const infra = await ensureInfra();
-  const wsPath = workspaceManager.getPath(workspaceId);
-  if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-
-  const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
-  let containerState: ContainerState | null = null;
-  if (!containerEnabled) {
-    console.log(`[agent] Container disabled for workspace ${workspaceId}, using host tools`);
-  }
-  try {
-    if (containerEnabled) {
-      sendEvent({ type: 'container_starting', sessionId, workspaceId });
-      const containerConfig = await buildContainerConfig(workspaceId, wsPath);
-      containerState = await containerManager.ensure(containerConfig);
-      sendEvent({ type: 'container_ready', sessionId, workspaceId, ipAddress: containerState.ipAddress });
-    }
-  } catch (containerErr: unknown) {
-    const message = toErrorMessage(containerErr, 'Container failed to start');
-    console.error(`[agent] Container failed for ${workspaceId}:`, message);
-    sendEvent({ type: 'container_error', sessionId, workspaceId, error: message });
-  }
-
-  const useContainer = !!containerState;
-  const platformTools = useContainer
-    ? createContainerTools(containerManager, workspaceId, sessionId)
-    : [...createHostCodingTools(wsPath), createWorkspaceCliTool(workspaceId, sessionId)];
-  const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
-
-  const loader = new DefaultResourceLoader({
-    cwd: wsPath,
-    agentDir: SERO_AGENT_DIR,
-    settingsManager: infra.settingsManager,
-    extensionFactories: [
-      createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, containerState ?? undefined, {
-        subagentManager,
-        enableAgentManagementTools: true,
-      }),
-    ],
-    skillsOverride: createSkillVisibilityOverride(infra.settingsManager),
-    extensionsOverride: (base) => bridgeExtensionTools(base, { sessionId }),
-    ...(globalAgentsFile && {
-      agentsFilesOverride: (discovered: { agentsFiles: Array<{ path: string; content: string }> }) => ({
-        agentsFiles: [
-          globalAgentsFile,
-          ...discovered.agentsFiles.filter((f) => f.path !== globalAgentsFile.path),
-        ],
-      }),
-    }),
-  });
-  await loader.reload();
-
-  const { session } = await createAgentSession({
-    cwd: wsPath,
-    agentDir: SERO_AGENT_DIR,
-    authStorage: infra.authStorage,
-    modelRegistry: infra.modelRegistry,
-    tools: [],
-    customTools: platformTools,
-    resourceLoader: loader,
-    sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
-    settingsManager: infra.settingsManager,
-  });
-
-  // Provide a real UIContext so extensions get working ctx.ui.notify()
-  session.extensionRunner?.setUIContext(createSeroUIContext());
-
-  const baseTools: ContextToolInfo[] = session.agent.state.tools.map((tool) => ({
-    name: tool.name,
-    label: (tool as { label?: string }).label,
-    description: tool.description,
-  }));
-  const baseSystemPrompt = getBaseSystemPrompt(session) ?? session.agent.state.systemPrompt ?? '';
-  const persistedOverrides = readPersistedContextOverrides(
-    session,
-    baseTools.map((tool) => tool.name),
-  );
-
-  const entry: PoolEntry = {
-    session,
-    loader,
-    unsubscribe: subscribeToSession(
-      sessionId,
-      session,
-      () => pool.get(sessionId),
-      sendEvent,
-    ),
+  return openSessionInPool({
+    pool,
+    sessionId,
+    sessionPath,
     workspaceId,
-    currentAssistantId: null,
-    lastSessionName: session.sessionName,
-    lastCompletedCheckpoint: null,
-    contextOverrides: null,
-    baseSystemPrompt,
-    baseTools,
-  };
-
-  if (persistedOverrides) {
-    applyContextOverrides(entry, persistedOverrides);
-  }
-
-  pool.set(sessionId, entry);
-
-  return convertSessionMessages(session.messages, buildCheckpointMapByTurn(session, workspaceId));
+    sendEvent,
+  });
 }
 
 export function registerAgentHandlers(): void {

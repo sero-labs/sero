@@ -97,7 +97,7 @@ export function subscribeToSession(
             break;
           }
 
-          const prefixed = formatCustomMessage(event.message as any);
+          const prefixed = formatCustomMessage(event.message);
           if (!prefixed) break;
 
           const chatMsg: ChatAssistantMessage = {

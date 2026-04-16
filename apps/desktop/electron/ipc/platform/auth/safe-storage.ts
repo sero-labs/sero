@@ -14,8 +14,9 @@
  * warning is logged and broadcast to the renderer via IPC.
  */
 
-import { ipcMain, safeStorage, BrowserWindow } from 'electron';
+import { ipcMain, safeStorage } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
+import { broadcastToWindows } from '../../lib/window-broadcast';
 
 let base64FallbackWarned = false;
 
@@ -31,12 +32,10 @@ function warnBase64Fallback(): void {
   );
 
   // Notify all renderer windows so the UI can show a persistent warning
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send('sero:security-warning', {
-      type: 'encryption-unavailable',
-      message: 'OS keychain encryption is unavailable. Credentials are stored insecurely.',
-    });
-  }
+  broadcastToWindows('sero:security-warning', {
+    type: 'encryption-unavailable',
+    message: 'OS keychain encryption is unavailable. Credentials are stored insecurely.',
+  });
 }
 
 export function registerSafeStorageHandlers(): void {

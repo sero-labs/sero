@@ -29,6 +29,12 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+interface ExecFailure extends Error {
+  code?: number | string;
+  stdout?: string;
+  stderr?: string;
+}
+
 // ── Editor state persistence ──────────────────────────────────
 
 const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
@@ -84,11 +90,12 @@ async function hostExec(
       timeout: 30_000,
     });
     return { exitCode: 0, stdout, stderr };
-  } catch (err: any) {
+  } catch (error) {
+    const failure = error as ExecFailure;
     return {
-      exitCode: err.code ?? 1,
-      stdout: err.stdout ?? '',
-      stderr: err.stderr ?? err.message,
+      exitCode: typeof failure.code === 'number' ? failure.code : 1,
+      stdout: failure.stdout ?? '',
+      stderr: failure.stderr ?? failure.message,
     };
   }
 }

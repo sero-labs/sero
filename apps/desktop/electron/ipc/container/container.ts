@@ -10,6 +10,10 @@ import { ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { containerManager, workspaceManager, buildContainerConfig } from '@electron/shared/infra/shared-infra';
 
+function toErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export function registerContainerHandlers(): void {
   // Get container state for a workspace (returns null if no container)
   ipcMain.handle(
@@ -31,8 +35,8 @@ export function registerContainerHandlers(): void {
     async (_event, workspaceId: string) => {
       try {
         return await containerManager.inspect(workspaceId);
-      } catch (err: any) {
-        throw new Error(`Container inspect failed: ${err.message}`);
+      } catch (error) {
+        throw new Error(`Container inspect failed: ${toErrorMessage(error, 'unknown error')}`);
       }
     },
   );
