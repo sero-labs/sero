@@ -6,9 +6,9 @@ _Plan drafted: 2026-04-12_
 This module is functionally solid and mostly typed, but it now carries high-impact drift in plugin discovery metadata, fragile settings-file mutation behavior, and a near-cap manager orchestrator that mixes too many responsibilities. The plan prioritizes correctness of marketplace discovery and settings safety first, then splits/clarifies lifecycle orchestration to keep plugin operations maintainable.
 
 ## Issues Found (prioritized)
-- **High** — Plugin discovery topic/keyword drift breaks discoverability contract — `apps/desktop/electron/features/plugins/discovery.ts:12-13` hardcodes `sero-ai-plugin`, but current plugin author docs and discovery guidance use `sero-agent-plugin` (`docs/plugins/guide.md`). This can cause valid community plugins to never appear in search results. Effort: **S**.
+- **High** — ~~Plugin discovery topic/keyword drift breaks discoverability contract — `apps/desktop/electron/features/plugins/discovery.ts:12-13` hardcodes `sero-ai-plugin`, but current plugin author docs and discovery guidance use `sero-agent-plugin` (`docs/plugins/guide.md`). This can cause valid community plugins to never appear in search results.~~ ✅ 2026-04-16 validation pass — `discovery.ts` now searches both `sero-agent-plugin` and legacy `sero-ai-plugin` metadata, dedupes the results, and documents the migration explicitly at the file header. Treat this High item as closed; only optional focused discovery-query coverage remains if we want belt-and-suspenders tests. Effort: **S**.
 
-- **High** — Settings parse fallback can cause destructive rewrites — `apps/desktop/electron/features/plugins/manager.ts:156-165` returns `{}` on any read/parse failure, then `addToSettings`/`removeFromSettings` writes that object back (`manager.ts:467-492`). A malformed/partially-written settings file can be collapsed into a minimal object during plugin operations, losing unrelated settings. Effort: **M**.
+- **High** — ~~Settings parse fallback can cause destructive rewrites — `apps/desktop/electron/features/plugins/manager.ts:156-165` returns `{}` on any read/parse failure, then `addToSettings`/`removeFromSettings` writes that object back (`manager.ts:467-492`). A malformed/partially-written settings file can be collapsed into a minimal object during plugin operations, losing unrelated settings.~~ ✅ 2026-04-16 validation pass — `readSettings()` now only returns `{}` for `ENOENT` and otherwise throws an actionable malformed-settings error before plugin install/uninstall mutations run. The destructive rewrite path is closed. Effort: **M**.
 
 - **Medium** — Plugin manager is one change away from violating file-size policy and mixes concerns — `apps/desktop/electron/features/plugins/manager.ts:1-494` includes install serialization, staging/backups, package source strategies, settings mutation, discovery registration, and metadata shaping in one file. This is high review load and fragile for future changes. Effort: **M**.
 
@@ -57,8 +57,12 @@ This module is functionally solid and mostly typed, but it now carries high-impa
 - Build-prep changes can increase install time for local source plugins if always reinstalling dependencies.
 
 ## Next Steps
-1. Patch High items first (`discovery.ts` taxonomy constants; settings parse/write safety in manager).
-2. Add coverage for plugin manager transactional flows (install rollback + uninstall settings/path symmetry).
-3. Split `manager.ts` into transaction/source/settings helpers before adding new plugin lifecycle features.
-4. Tighten source-build determinism in `package-build.ts` and document expected behavior in plugin technical docs.
-5. Continue Wave A: `deslopify apps/desktop/electron/shared`.
+1. Add coverage for plugin manager transactional flows (install rollback + uninstall settings/path symmetry).
+2. Split `manager.ts` into transaction/source/settings helpers before adding new plugin lifecycle features.
+3. Tighten source-build determinism in `package-build.ts` and document expected behavior in plugin technical docs.
+4. Continue Wave A: `deslopify apps/desktop/electron/shared`.
+
+## Execution log
+- 2026-04-16 — validation pass (working tree, no commit recorded in this plan)
+  - Confirmed plugin discovery now dual-searches `sero-agent-plugin` + `sero-ai-plugin`, closing the original taxonomy-drift High item.
+  - Confirmed `readSettings()` now fails closed on malformed `settings.json` instead of returning `{}` for arbitrary parse/read failures, closing the original destructive-rewrite High item.

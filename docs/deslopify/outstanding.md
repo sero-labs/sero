@@ -1,166 +1,150 @@
-# Deslopify Outstanding Work
+# Deslopify Outstanding Work — Final Closeout Triage
 
-_Last aggregated: 2026-04-16_
+_Last updated: 2026-04-16_
 
-This is a standalone aggregation of **existing** deslopify backlog only.
-It does **not** introduce new tasks; every item below comes from:
+This file is no longer a raw aggregation of every lingering deslopify note.
+It is the **final closeout triage** for finishing the current refactor process
+without dragging low-value cleanup on indefinitely.
 
-- `docs/deslopify/index.md`
-- the corresponding `docs/deslopify/**/plan.md` file
+Validation against the live codebase confirmed that several previously tracked
+items were already complete, and that the remaining work is mostly
+**Medium/Low backlog** rather than true release-blocking cleanup.
 
-## Group tracking
+## Decision
 
-- [x] **Group 1 — Core desktop boundary hardening**
-- [ ] **Group 2 — Host app/plugin lifecycle and manager ownership**
-- [ ] **Group 3 — Runtime orchestration and tool-surface cleanup**
-- [ ] **Group 4 — Remaining plugin follow-ups and review-only plugin backlog**
+To finish the deslopify effort:
 
-## Group 1 — Core desktop boundary hardening *(completed 2026-04-16)*
+- Keep only a **small must-fix closeout scope** active.
+- Mark completed/stale work as **closed**.
+- Move structural cleanup and low-priority polish to the **backlog**.
 
-### apps/desktop/electron/shared/
-Source: `docs/deslopify/apps/desktop/electron/shared/plan.md`
+## Must-fix before declaring the refactor complete
 
-- **High** — Make settings parse failures non-destructive instead of silently returning `{}`.
-- **Medium** — Split `shared-infra.ts` into focused registrar modules while preserving its exported singleton API.
-- **Low** — Remove the dead provider-manifest helper and move provider-manifest caching toward mutation-driven invalidation.
-- **Low** — Deduplicate the user-feedback bus singleton key/factory across host and plugin code.
+These are the only remaining items that should stay in the active queue.
+They are not "nice to have" cleanup; they still represent real runtime or
+behavior risk.
 
-### apps/desktop/electron/preload/
-Source: `docs/deslopify/apps/desktop/electron/preload/plan.md`
-
-- **High** — Add a compile-time conformance check between `seroPreloadApi` and the declared preload API contract.
-- **Medium** — Replace remaining weak `any`/`unknown` preload bridge signatures with canonical types.
-- **Low** — Align the layout bridge with canonical `LayoutState` / `LoadedLayoutState` contracts.
-
-### apps/desktop/electron/ipc/
-Source: `docs/deslopify/apps/desktop/electron/ipc/plan.md`
-
-- **High** — Remove/contain remaining `any` and `as any` escape hatches in critical IPC paths.
-- **Medium** — Split the near-cap core agent IPC files (`agent.ts`, `agent-helpers.ts`) by responsibility.
-- **Medium** — Migrate IPC handler `IpcChannels` imports off `@/types/ipc` onto `@/types/ipc-channels`.
-- **Medium** — Replace sync filesystem calls in on-demand IPC handler paths with async equivalents where practical.
-- **Medium** — Encapsulate private SDK-field access behind a single adapter with explicit guardrails.
-- **Low** — Introduce a shared IPC event broadcaster helper for repeated `BrowserWindow` fanout boilerplate.
-
-### apps/desktop/electron/platform/
-Source: `docs/deslopify/apps/desktop/electron/platform/plan.md`
-
-- **High** — Tighten production CSP (remove overly broad script/frame allowances where not required).
-- **Medium** — Add uninstall symmetry to extension-asset protocol registration.
-- **Medium** — Unify builtin package detection into one canonical helper shared by runtime and build tooling.
-- **Low** — Refactor env bootstrap into explicit staged init while preserving pre-SDK ordering guarantees.
-
-## Group 2 — Host app/plugin lifecycle and manager ownership
-
-### apps/desktop/electron/features/plugins/
+### 1. Deterministic local source plugin builds
 Source: `docs/deslopify/apps/desktop/electron/features/plugins/plan.md`
 
-- **High** — Fix plugin discovery taxonomy drift (`sero-ai-plugin` vs `sero-agent-plugin`).
-- **High** — Make plugin-manager settings mutation fail-safe on malformed `settings.json`.
-- **Medium** — Split `features/plugins/manager.ts` into focused lifecycle modules.
-- **Medium** — Make local source builds deterministic even when `node_modules` is already present.
-- **Medium** — Add uninstall symmetry for discovery path registration (`unregisterAppPath`).
-- **Low** — Add scoped diagnostics for silent bridge-policy parse/read failures.
+- **Priority:** Closeout
+- **Files:**
+  - `apps/desktop/electron/features/plugins/package-build.ts`
+- **Issue:** Local/git source plugin installs still skip dependency install
+  when `node_modules` already exists.
+- **Why it stays active:** This can produce stale or inconsistent plugin
+  builds from copied/local sources.
 
-### apps/desktop/electron/features/apps/
+### 2. Uninstall symmetry for plugin discovery path registration
+Source: `docs/deslopify/apps/desktop/electron/features/plugins/plan.md`
+
+- **Priority:** Closeout
+- **Files:**
+  - `apps/desktop/electron/features/plugins/manager.ts`
+  - `apps/desktop/electron/features/apps/discovery/index.ts`
+- **Issue:** Plugin install registers discovery paths, but uninstall still
+  does not unregister them.
+- **Why it stays active:** This leaves stale discovery state until restart.
+
+### 3. Tighten plugin metadata validation in app discovery
 Source: `docs/deslopify/apps/desktop/electron/features/apps/plan.md`
 
-- **Medium** — Decouple the remaining host/plugin boundary in `git-app/manager.ts` from plugin internals.
-- **Medium** — Tighten discovery plugin metadata validation and add malformed-manifest tests.
-- **Medium** — Split `createSeroExtensionFactory` into focused registrar modules.
-- **Low** — Add an unsubscribe path for long-lived `onFileChange()` listeners.
+- **Priority:** Closeout
+- **Files:**
+  - `apps/desktop/electron/features/apps/discovery/index.ts`
+- **Issue:** Malformed `sero.plugin` metadata is still loosely validated and
+  can be silently misclassified.
+- **Why it stays active:** This is the last notable correctness gap in plugin
+  discovery behavior.
 
-### apps/desktop/electron/features/workspace/
-Source: `docs/deslopify/apps/desktop/electron/features/workspace/plan.md`
+## Closed now
 
-- **Medium** — Extract lifecycle/registry submodules from `WorkspaceManager` to keep `manager.ts` comfortably below the cap.
-- **Low** — Replace the watcher `any` catch path with typed error normalization.
+These items should be treated as complete, stale, or not worth keeping this
+multi-day refactor open.
 
-### apps/desktop/electron/features/profile/
-Source: `docs/deslopify/apps/desktop/electron/features/profile/plan.md`
+### Already completed in live code
+- Plugin discovery taxonomy drift (`sero-ai-plugin` vs `sero-agent-plugin`)
+- Plugin-manager malformed `settings.json` safety
+- All Group 1 hardening work already marked complete in individual plans
+- Web plugin host-bridge typing cleanup
+- Every item already marked executed in the individual `docs/deslopify/**/plan.md`
+  files
 
-- **Low** — Tighten copy/setup diagnostics and remove dead helper surface in profile setup/copy flows.
+### Close without further work
+These are real but too small to keep the deslopify closeout open:
+- `apps/desktop/electron/features/subagent/runtime/loader.ts`
+  - loader comment mismatch
+- `apps/desktop/electron/features/vcs/core/vcs-manager.ts`
+  - locale-dependent checkpoint description formatting
 
-## Group 3 — Runtime orchestration and tool-surface cleanup
+## Move to backlog
 
-### apps/desktop/electron/features/container/
-Source: `docs/deslopify/apps/desktop/electron/features/container/plan.md`
+The following work remains valid, but it should be treated as normal backlog
+instead of active deslopify closeout.
 
-- **Medium** — De-duplicate host/container coding-tool logic between `tools/tools-coding.ts` and `tools/tools-host.ts`.
-- **Medium** — Split the near-cap container files before they breach the 500-LOC rule.
-- **Low** — Remove or wire the write-only `metricsByWorkspace` state in `tools/tools-browser-agent.ts`.
+### Structural / cap-pressure backlog
+- `apps/desktop/electron/features/plugins/manager.ts`
+  - split into focused lifecycle modules
+- `apps/desktop/electron/features/apps/extensions/create-sero-extension.ts`
+  - split into focused registrar modules
+- `apps/desktop/electron/features/workspace/manager.ts`
+  - extract lifecycle/registry submodules
+- `apps/desktop/electron/features/container/`
+  - split near-cap files before they exceed the limit
+- `apps/desktop/electron/features/container/`
+  - de-duplicate host/container coding tool logic
+- `plugins/sero-memory-plugin/extension/memory-tool.ts`
+  - split by action family before it becomes the next hub
 
-### apps/desktop/electron/features/kanban/
-Source: `docs/deslopify/apps/desktop/electron/features/kanban/plan.md`
+### Architecture / ownership backlog
+- `apps/desktop/electron/features/apps/git-app/manager.ts`
+  - decouple remaining host/plugin boundary from plugin internals
+- `apps/desktop/electron/features/apps/state/manager.ts`
+  - add unsubscribe path for `onFileChange()` listeners
 
-- **Low** — Remove or formally land the dead specialized-review scaffolding (`buildQualityReviewPrompt()`) and the currently test-only `core/wave-resolver.ts`.
+### Diagnostics / low-priority polish backlog
+- `apps/desktop/electron/features/plugins/bridge-policy.ts`
+  - add scoped diagnostics for silent bridge-policy parse/read failures
+- `apps/desktop/electron/features/profile/`
+  - tighten copy/setup diagnostics and remove dead helper surface
+- `apps/desktop/electron/features/kanban/`
+  - remove or formally land dead specialized-review scaffolding
+- `plugins/sero-context-plugin/`
+  - surface snapshot-write failures more explicitly
+- `plugins/sero-cron-plugin/ui/widgets/CronWidget.tsx`
+  - tighten truthfulness/copy around next-fire behavior
+- `plugins/sero-git-plugin/`
+  - clear remaining helper duplication seams
+- `plugins/sero-user-feedback-plugin/ui/UserFeedbackApp.tsx`
+  - make bridge/preload failures visible instead of flattening to empty queue
+- `plugins/sero-web-plugin/`
+  - deduplicate remaining config-loader seams across provider modules
 
-### apps/desktop/electron/features/subagent/
-Source: `docs/deslopify/apps/desktop/electron/features/subagent/plan.md`
+## Exit criteria
 
-- **Low** — Fix loader comments so they match the real reduced extension-factory behavior.
+The deslopify refactor process should be considered complete when the three
+closeout items above are finished:
 
-### apps/desktop/electron/features/vcs/
-Source: `docs/deslopify/apps/desktop/electron/features/vcs/plan.md`
+1. deterministic local source plugin builds
+2. uninstall symmetry for plugin discovery paths
+3. tighter plugin metadata validation and tests
 
-- **Low** — Replace locale-dependent checkpoint descriptions with deterministic formatting.
-
-### apps/desktop/electron/cli/
-Source: `docs/deslopify/apps/desktop/electron/cli/plan.md`
-
-- **Low** — Decide whether CLI parsing remains long-flags-only or gains scoped short-flag support, then make shared parsing truthful so command-local workarounds disappear.
-
-## Group 4 — Remaining plugin follow-ups and review-only plugin backlog
-
-### Review-only backlog
-
-#### plugins/sero-alibaba-plugin/
-- Narrow provider-plugin review pending (`docs/deslopify/index.md` only; no `plan.md` is currently tracked)
-
-### plugins/sero-context-plugin/
-Source: `docs/deslopify/plugins/sero-context-plugin/plan.md`
-
-- **Low** — Surface snapshot-write failures more explicitly instead of leaving the dashboard silently stale.
-
-### plugins/sero-cron-plugin/
-Source: `docs/deslopify/plugins/sero-cron-plugin/plan.md`
-
-- **Low** — Tighten `ui/widgets/CronWidget.tsx` so the widget’s copy/labels do not imply more truthful next-fire behavior than it actually provides.
-
-### plugins/sero-git-plugin/
-Source: `docs/deslopify/plugins/sero-git-plugin/plan.md`
-
-- **Low** — Clear the remaining duplication seams around `git-default-branch.ts`, branch-color ownership, and shared relative-date formatting.
-
-### plugins/sero-memory-plugin/
-Source: `docs/deslopify/plugins/sero-memory-plugin/plan.md`
-
-- **Low** — Split `extension/memory-tool.ts` by action family before it becomes the next near-cap everything-hub.
-
-### plugins/sero-user-feedback-plugin/
-Source: `docs/deslopify/plugins/sero-user-feedback-plugin/plan.md`
-
-- **Low** — Make bridge/preload failures visible in `ui/UserFeedbackApp.tsx` instead of silently flattening to an empty queue.
-
-### plugins/sero-web-plugin/
-Source: `docs/deslopify/plugins/sero-web-plugin/plan.md`
-
-- **Low** — Deduplicate the remaining config-loader and host-bridge typing seams across the provider modules.
+After those land:
+- mark the refactor process complete
+- stop treating the backlog above as part of this cleanup wave
+- track backlog items through normal planning instead of deslopify closeout
 
 ## Summary
 
-Outstanding tracked work items: **27**
+### Active closeout items
+- **3**
 
-Breakdown:
-- Review-only backlog: **1**
-- High: **2**
-- Medium: **9**
-- Low: **15**
+### Closed now
+- completed/stale items from the old aggregation
+- small non-blocking cleanup items that should not hold the refactor open
 
-Grouped delivery breakdown:
-- Group 1 — **0** tasks remaining *(completed 2026-04-16)*
-- Group 2 — **13** tasks
-- Group 3 — **7** tasks
-- Group 4 — **7** items
+### Backlog only
+- all remaining structural, ownership, and polish follow-ups
 
-If this file drifts, the source of truth remains the individual `docs/deslopify/**/plan.md` files plus `docs/deslopify/index.md`.
+This file is now the source of truth for ending the current deslopify wave
+cleanly and avoiding more duplicated effort.

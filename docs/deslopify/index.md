@@ -5,6 +5,11 @@ _Last updated: 2026-04-16_
 A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
 
+Final closeout mode (2026-04-16): the active deslopify endgame is now tracked
+in [`docs/deslopify/outstanding.md`](./outstanding.md). Only three closeout
+items remain active; all other lingering Medium/Low follow-ups should be
+considered backlog unless they are naturally touched by that final work.
+
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
   — *Healthy — Wave B shared/desktop High items, Wave D plugin High batches, all code-bearing Wave F follow-up, the documented no-op closeouts for `apps/desktop/electron/{types,gateway}`, and the deferred Low-polish tracker closeout were all completed by 2026-04-16*
@@ -33,7 +38,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/agent/`](./apps/desktop/electron/features/agent/plan.md)
     — *Healthy — Medium image-agent type hygiene plus Low legacy bridge/comment cleanup cleared 2026-04-16*
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
-    — *In progress — both High items cleared 2026-04-16; Medium/Low follow-ups remain (git-app host boundary, discovery validation, extension-factory split, listener unsubscribe)*
+    — *Final closeout scope — both High items cleared 2026-04-16; only plugin metadata validation remains in the active deslopify closeout, while the other Medium/Low follow-ups are backlog-only*
   - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
     — *Healthy — High, both Medium, and all tracked Low follow-ups (helper dedupe + profile-scoped guidance) cleared 2026-04-15*
   - [`apps/desktop/electron/features/collaboration/`](./apps/desktop/electron/features/collaboration/plan.md)
@@ -51,7 +56,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
     — *Healthy — Medium/Low onboarding cleanup fully executed 2026-04-16*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
+    — *Final closeout scope — 2026-04-16 validation pass confirmed both original High items are already closed; deterministic source-build prep and uninstall-path symmetry remain active, while split/diagnostic follow-ups are backlog-only*
   - [`apps/desktop/electron/features/profile/`](./apps/desktop/electron/features/profile/plan.md)
     — *In progress — High + Medium path/contract items cleared 2026-04-12; Low cleanup pending*
   - [`apps/desktop/electron/features/subagent/`](./apps/desktop/electron/features/subagent/plan.md)
