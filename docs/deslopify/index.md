@@ -6,8 +6,8 @@ A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
 
 Final closeout mode (2026-04-16): the active deslopify endgame is now tracked
-in [`docs/deslopify/outstanding.md`](./outstanding.md). Only two closeout
-items remain active; all other lingering Medium/Low follow-ups should be
+in [`docs/deslopify/outstanding.md`](./outstanding.md). Only one closeout
+item remains active; all other lingering Medium/Low follow-ups should be
 considered backlog unless they are naturally touched by that final work.
 
 ## cross-cutting baselines/
@@ -56,7 +56,7 @@ considered backlog unless they are naturally touched by that final work.
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
     — *Healthy — Medium/Low onboarding cleanup fully executed 2026-04-16*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
-    — *Final closeout scope — both original High items plus deterministic source-build prep were confirmed/cleared by 2026-04-16; uninstall-path symmetry remains active, while split/diagnostic follow-ups are backlog-only*
+    — *Healthy — both original High items plus deterministic source-build prep and uninstall-path symmetry were cleared by 2026-04-16; split/diagnostic follow-ups are backlog-only*
   - [`apps/desktop/electron/features/profile/`](./apps/desktop/electron/features/profile/plan.md)
     — *In progress — High + Medium path/contract items cleared 2026-04-12; Low cleanup pending*
   - [`apps/desktop/electron/features/subagent/`](./apps/desktop/electron/features/subagent/plan.md)

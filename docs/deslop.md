@@ -10,6 +10,12 @@ Changes made during code quality passes. Most recent first.
 
 | File | Change |
 |------|--------|
+| `apps/desktop/electron/features/plugins/manager.ts` | Added uninstall/rollback `unregisterAppPath()` cleanup so plugin discovery registration stays symmetric without changing install success-path behavior (498 → 498 lines) |
+| `apps/desktop/electron/features/apps/discovery/index.ts` | Added explicit `unregisterAppPath()` lifecycle teardown for manually registered discovery paths (312 → 320 lines) |
+| `apps/desktop/electron/__tests__/features/apps/app-discovery.test.ts` | Added focused register/unregister regression coverage so manual discovery paths disappear immediately without restart |
+| `apps/desktop/electron/__tests__/features/plugins/plugin-manager.test.ts` | New — verifies plugin install/uninstall clears discovery state and settings immediately in-process |
+| `docs/deslopify/apps/desktop/electron/features/plugins/{facts,plan}.md` | Recorded the uninstall-path symmetry closeout, refreshed plugin-folder metrics, and left split/diagnostic follow-ups deferred |
+| `docs/deslopify/{index,outstanding}.md` | Reduced the active final-closeout queue from two items to one after clearing plugin uninstall-path symmetry |
 | `apps/desktop/electron/features/plugins/package-build.ts` | Made git/local source plugin prep deterministic by always reinstalling dependencies before build instead of trusting pre-existing `node_modules` |
 | `apps/desktop/electron/__tests__/features/plugins/plugin-package-build.test.ts` | Added regressions that both git and local staged source installs still run dependency install when `node_modules` already exists |
 | `docs/deslopify/apps/desktop/electron/features/plugins/plan.md` | Marked only the deterministic source-build closeout item complete and left uninstall-symmetry/bridge-policy follow-ups untouched |

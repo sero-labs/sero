@@ -14,7 +14,7 @@ This module is functionally solid and mostly typed, but it now carries high-impa
 
 - **Medium** — ~~Local source builds are non-deterministic when `node_modules` is present — `apps/desktop/electron/features/plugins/package-build.ts:160-163` skips install if `node_modules` exists, so copied local plugins can build against stale/symlinked workspace dependencies instead of clean install state.~~ ✅ 2026-04-16 (`593497d0`) — `package-build.ts` now always reruns dependency installation before building git/local source plugins, so staged source installs no longer trust pre-existing `node_modules`; focused regression coverage now locks the behavior down. Effort: **S**.
 
-- **Medium** — Installed-path registration has no uninstall teardown path — install calls `registerAppPath` (`apps/desktop/electron/features/plugins/manager.ts:298`), but uninstall never unregisters (`manager.ts:340-350`), and discovery keeps an in-memory path list (`apps/desktop/electron/features/apps/discovery/index.ts:267-276`). This leaves stale entries until restart. Effort: **S**.
+- **Medium** — ~~Installed-path registration has no uninstall teardown path — install calls `registerAppPath` (`apps/desktop/electron/features/plugins/manager.ts:298`), but uninstall never unregisters (`manager.ts:340-350`), and discovery keeps an in-memory path list (`apps/desktop/electron/features/apps/discovery/index.ts:267-276`). This leaves stale entries until restart.~~ ✅ 2026-04-16 (`2d15e329`) — Added `unregisterAppPath()` in app discovery, wired plugin uninstall + install rollback cleanup through it, and added focused discovery/manager regressions so stale registered paths clear without restart. Effort: **S**.
 
 - **Low** — Bridge policy parse/read failures are fully silent — `apps/desktop/electron/features/plugins/bridge-policy.ts:72-73` collapses errors to `null` with no diagnostics, making plugin tool-bridging failures hard to debug under AD-020. Effort: **S**.
 
@@ -39,9 +39,9 @@ This module is functionally solid and mostly typed, but it now carries high-impa
    - Source-build prep now always reruns the package-manager install step before `build`, which keeps the staged dependency tree truthful and deterministic.
    - Preserved current `preBuilt` semantics from plugin docs.
 
-5. **Add uninstall symmetry for discovery path registration.**
-   - Introduce `unregisterAppPath()` in app discovery and call it on plugin uninstall/error rollback paths.
-   - Ensure install/uninstall idempotency and remove stale path accumulation.
+5. ~~**Add uninstall symmetry for discovery path registration.**~~ ✅ 2026-04-16 (`2d15e329`)
+   - `unregisterAppPath()` now lives in app discovery and plugin uninstall/error rollback paths call it.
+   - Focused discovery + plugin-manager regressions now lock in install/uninstall symmetry and stale-state cleanup without restart.
 
 6. **Improve plugin bridge-policy diagnostics.**
    - Log one scoped warning when package.json parsing fails for an extension path (include extension/package path, avoid noisy repeats via cache).
@@ -57,7 +57,7 @@ This module is functionally solid and mostly typed, but it now carries high-impa
 - Build-prep changes can increase install time for local source plugins if always reinstalling dependencies.
 
 ## Next Steps
-1. Add coverage for plugin manager transactional flows (install rollback + uninstall settings/path symmetry).
+1. Add deeper coverage for plugin manager transactional rollback flows beyond the install/uninstall symmetry regressions landed in this pass.
 2. Split `manager.ts` into transaction/source/settings helpers before adding new plugin lifecycle features.
 3. Continue Wave A: `deslopify apps/desktop/electron/shared`.
 
@@ -68,3 +68,6 @@ This module is functionally solid and mostly typed, but it now carries high-impa
 - 2026-04-16 — validation pass (working tree, no commit recorded in this plan)
   - Confirmed plugin discovery now dual-searches `sero-agent-plugin` + `sero-ai-plugin`, closing the original taxonomy-drift High item.
   - Confirmed `readSettings()` now fails closed on malformed `settings.json` instead of returning `{}` for arbitrary parse/read failures, closing the original destructive-rewrite High item.
+- 2026-04-16 — uninstall-path symmetry closeout (`2d15e329`)
+  - Added `unregisterAppPath()` to app discovery and wired plugin uninstall + install rollback cleanup through it.
+  - Added focused `app-discovery.test.ts` and `plugin-manager.test.ts` coverage so registered install paths clear immediately without restart.

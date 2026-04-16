@@ -20,22 +20,11 @@ To finish the deslopify effort:
 
 ## Must-fix before declaring the refactor complete
 
-These are the only remaining items that should stay in the active queue.
-They are not "nice to have" cleanup; they still represent real runtime or
+This is the only remaining item that should stay in the active queue.
+It is not "nice to have" cleanup; it still represents real runtime or
 behavior risk.
 
-### 1. Uninstall symmetry for plugin discovery path registration
-Source: `docs/deslopify/apps/desktop/electron/features/plugins/plan.md`
-
-- **Priority:** Closeout
-- **Files:**
-  - `apps/desktop/electron/features/plugins/manager.ts`
-  - `apps/desktop/electron/features/apps/discovery/index.ts`
-- **Issue:** Plugin install registers discovery paths, but uninstall still
-  does not unregister them.
-- **Why it stays active:** This leaves stale discovery state until restart.
-
-### 2. Tighten plugin metadata validation in app discovery
+### 1. Tighten plugin metadata validation in app discovery
 Source: `docs/deslopify/apps/desktop/electron/features/apps/plan.md`
 
 - **Priority:** Closeout
@@ -55,6 +44,7 @@ multi-day refactor open.
 - Plugin discovery taxonomy drift (`sero-ai-plugin` vs `sero-agent-plugin`)
 - Plugin-manager malformed `settings.json` safety
 - Deterministic local/git source plugin build prep (`package-build.ts` now always reinstalls before source builds, even if `node_modules` already exists)
+- Uninstall symmetry for plugin discovery path registration (`2d15e329`)
 - All Group 1 hardening work already marked complete in individual plans
 - Web plugin host-bridge typing cleanup
 - Every item already marked executed in the individual `docs/deslopify/**/plan.md`
@@ -112,11 +102,10 @@ instead of active deslopify closeout.
 
 ## Exit criteria
 
-The deslopify refactor process should be considered complete when the two
-closeout items above are finished:
+The deslopify refactor process should be considered complete when the one
+closeout item above is finished:
 
-1. uninstall symmetry for plugin discovery paths
-2. tighter plugin metadata validation and tests
+1. tighter plugin metadata validation and tests
 
 After those land:
 - mark the refactor process complete
@@ -126,7 +115,7 @@ After those land:
 ## Summary
 
 ### Active closeout items
-- **2**
+- **1**
 
 ### Closed now
 - completed/stale items from the old aggregation
