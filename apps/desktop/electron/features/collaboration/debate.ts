@@ -9,8 +9,12 @@
  * 4. Synthesis & Consensus — Coordinator integrates, resolves discrepancies
  */
 
-import type { SubagentManager } from '../subagent';
 import { ROLE_AGENT_NAMES } from './agents';
+import {
+  CollaborationRunner,
+  getSpecialistErrorMessage,
+  runSingleSpecialist,
+} from './specialist-runner';
 import { budgetPromptText } from './prompt-budget';
 import {
   buildDegradedFinalResponse,
@@ -24,7 +28,7 @@ import type {
   DebatePhase,
 } from '@/types/collaboration';
 
-type DebateRunner = Pick<SubagentManager, 'runSingleStructured'>;
+type DebateRunner = CollaborationRunner;
 
 export interface DebateCallbacks {
   onDebatePhase?: (phase: DebatePhase) => void;
@@ -62,34 +66,41 @@ async function runAgent(
   config: DebateConfig,
   callbacks?: DebateCallbacks,
 ): Promise<AgentOutput> {
-  const agentName = ROLE_AGENT_NAMES[role];
-  const start = Date.now();
-
-  callbacks?.onAgentStatus?.(agentName, 'running');
-  callbacks?.onSpecialistStart?.(role, agentName);
-
-  try {
-    const result = await manager.runSingleStructured({
-      agent: agentName,
-      task,
-      parentSessionId,
-      workspaceId,
-      model: config.models?.[role],
-      onUpdate: callbacks?.onUpdate,
-    });
-
-    const durationMs = Date.now() - start;
-    callbacks?.onAgentStatus?.(agentName, result.error ? 'failed' : 'completed');
-    callbacks?.onSpecialistEnd?.(role, agentName, result.response, durationMs, result.error);
-
-    return { role, agentName, response: result.response, error: result.error, durationMs };
-  } catch (err: unknown) {
-    const durationMs = Date.now() - start;
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    callbacks?.onAgentStatus?.(agentName, 'failed');
-    callbacks?.onSpecialistEnd?.(role, agentName, '', durationMs, errMsg);
-    return { role, agentName, response: '', error: errMsg, durationMs };
-  }
+  return runSingleSpecialist({
+    role,
+    task,
+    parentSessionId,
+    workspaceId,
+    manager,
+    model: config.models?.[role],
+    onUpdate: callbacks?.onUpdate,
+    onStart: (activeRole, agentName) => {
+      callbacks?.onAgentStatus?.(agentName, 'running');
+      callbacks?.onSpecialistStart?.(activeRole, agentName);
+    },
+    onSuccess: (output) => {
+      callbacks?.onAgentStatus?.(output.agentName, output.error ? 'failed' : 'completed');
+      callbacks?.onSpecialistEnd?.(
+        output.role,
+        output.agentName,
+        output.response,
+        output.durationMs,
+        output.error,
+      );
+    },
+    onError: ({ role: failedRole, agentName, error, durationMs }) => {
+      const errorMessage = getSpecialistErrorMessage(error);
+      callbacks?.onAgentStatus?.(agentName, 'failed');
+      callbacks?.onSpecialistEnd?.(failedRole, agentName, '', durationMs, errorMessage);
+      return {
+        role: failedRole,
+        agentName,
+        response: '',
+        error: errorMessage,
+        durationMs,
+      };
+    },
+  });
 }
 
 function buildDecompositionPrompt(query: string): string {
@@ -272,7 +283,7 @@ export async function runDebateCollaboration(
       }
     } else {
       const agentName = ROLE_AGENT_NAMES[role];
-      const errMsg = result.reason?.message ?? 'Unknown error';
+      const errMsg = getSpecialistErrorMessage(result.reason);
       specialistOutputs.push({ role, agentName, response: '', error: errMsg, durationMs: 0 });
     }
   }

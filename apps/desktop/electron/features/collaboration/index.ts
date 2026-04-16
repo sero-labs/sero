@@ -14,7 +14,6 @@
  * as the kanban planning-executor and review-executor).
  */
 
-import type { SubagentManager } from '../subagent';
 import {
   PARALLEL_SPECIALIST_ROLES,
   ROLE_AGENT_NAMES,
@@ -25,10 +24,13 @@ import {
   getMissingRequiredRoles,
   hasUsableSpecialistOutput,
 } from './degraded-result';
+import {
+  CollaborationRunner,
+  getSpecialistErrorMessage,
+  runSingleSpecialist,
+} from './specialist-runner';
 import type { CollaborationRole, CollaborationResult } from '@/types/collaboration';
 export type { CollaborationResult } from '@/types/collaboration';
-
-type CollaborationRunner = Pick<SubagentManager, 'runSingleStructured'>;
 
 export interface CollaborationCallbacks {
   /** Called when each phase starts. */
@@ -52,29 +54,26 @@ async function runSpecialist(
   manager: CollaborationRunner,
   callbacks?: CollaborationCallbacks,
 ): Promise<CollaborationResult['specialistOutputs'][number]> {
-  const agentName = ROLE_AGENT_NAMES[role];
-  const specStart = Date.now();
-
-  callbacks?.onSpecialistStart?.(role, agentName);
-
-  const result = await manager.runSingleStructured({
-    agent: agentName,
+  return runSingleSpecialist({
+    role,
     task,
     parentSessionId,
     workspaceId,
+    manager,
     onUpdate: callbacks?.onUpdate,
+    onStart: (activeRole, agentName) => {
+      callbacks?.onSpecialistStart?.(activeRole, agentName);
+    },
+    onSuccess: (output) => {
+      callbacks?.onSpecialistEnd?.(
+        output.role,
+        output.agentName,
+        output.response,
+        output.durationMs,
+        output.error,
+      );
+    },
   });
-
-  const durationMs = Date.now() - specStart;
-  callbacks?.onSpecialistEnd?.(role, agentName, result.response, durationMs, result.error);
-
-  return {
-    role,
-    agentName,
-    response: result.response,
-    error: result.error,
-    durationMs,
-  };
 }
 
 /**
@@ -125,7 +124,7 @@ export async function runCollaboration(
       role: 'researcher',
       agentName: ROLE_AGENT_NAMES['researcher'],
       response: '',
-      error: err instanceof Error ? err.message : 'Unknown error',
+      error: getSpecialistErrorMessage(err),
       durationMs: 0,
     };
   }
@@ -171,7 +170,7 @@ export async function runCollaboration(
         role,
         agentName: ROLE_AGENT_NAMES[role],
         response: '',
-        error: result.reason?.message ?? 'Unknown error',
+        error: getSpecialistErrorMessage(result.reason),
         durationMs: 0,
       });
     }
