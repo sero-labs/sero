@@ -55,7 +55,7 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Remove the two `any` catch sites in `git-runner.ts`.~~ ✅ 2026-04-12 (`4350404d`)
-2. Decide whether `fs` checkpoint source still exists; either preserve it honestly or remove it from the contract.
+2. ~~Decide whether `fs` checkpoint source still exists; either preserve it honestly or remove it from the contract.~~ ✅ 2026-04-16 (`65ebfe3a`)
 3. Move shared VCS contracts to a neutral shared module and update Electron/renderer imports together.
 4. Split `vcs-ops.ts` and `pr-ops.ts` before adding more publish/PR behavior.
 5. Verification checklist:
@@ -66,3 +66,5 @@ _Plan drafted: 2026-04-12_
 ## Execution log
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
   - Replaced the remaining `any`-typed git transport error paths in `git-runner.ts` with a shared typed exec-failure normalizer.
+- 2026-04-16 — `65ebfe3a` — `fix(desktop): preserve filesystem vcs checkpoint source`
+  - Stopped rewriting `fs` checkpoint sources to `manual` in `vcs-manager.ts` and added focused VCS manager regressions to lock filesystem source create/list behavior.

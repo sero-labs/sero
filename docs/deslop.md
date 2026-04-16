@@ -58,6 +58,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/subagent/discovery.test.ts` | Added coverage that unsupported `tools`/`extensions` frontmatter is warned and ignored while discovery remains stable |
 | `docs/deslopify/apps/desktop/electron/features/subagent/{facts,plan}.md` | Recorded the Medium policy-surface cleanup closeout and narrowed remaining work to the Low loader-comment fix |
 | `docs/deslopify/index.md` | Updated subagent status to show High + Medium items cleared with only Low cleanup pending |
+| `apps/desktop/electron/features/vcs/core/vcs-manager.ts` | Preserved explicit filesystem checkpoint sources instead of rewriting `fs` checkpoints to `manual` |
+| `apps/desktop/electron/__tests__/features/vcs/vcs-manager.test.ts` | New — regression coverage for filesystem checkpoint creation + log parsing source semantics |
+| `docs/deslopify/apps/desktop/electron/features/vcs/{facts,plan}.md` | Recorded the filesystem checkpoint-source Medium closeout and refreshed the VCS post-fix snapshot |
+| `docs/deslopify/index.md` | Updated VCS status after clearing the checkpoint-source Medium item |
 
 ---
 

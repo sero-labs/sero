@@ -1,6 +1,6 @@
 # Facts — apps/desktop/electron/features/vcs
 
-_Last reviewed: 2026-04-12_
+_Last reviewed: 2026-04-16_
 
 ## What this code does
 This feature is the Electron-side Git/VCS service layer for Sero. It initializes repositories for workspaces, runs git/gh commands on the host or in the workspace container, creates and restores checkpoints, manages branches/remotes/push flows, and builds pull-request previews/context used by higher-level auth, publish, and kanban flows.
@@ -45,3 +45,21 @@ This feature is the Electron-side Git/VCS service layer for Sero. It initializes
 ### Still outstanding
 - Shared VCS contracts still point back into renderer-owned types.
 - Checkpoint-source semantics and SSH transport cache invalidation still need a follow-up behavior pass.
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 9 (unchanged)
+- Largest file: `apps/desktop/electron/features/vcs/core/vcs-ops.ts` (442 LOC, unchanged)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder
+
+### What changed
+- `vcs-manager.ts` no longer rewrites `CreateCheckpointOptions.source === 'fs'` to `manual`, so filesystem checkpoints preserve truthful source metadata end-to-end.
+- Added focused regression coverage in `apps/desktop/electron/__tests__/features/vcs/vcs-manager.test.ts` for filesystem checkpoint creation and log parsing behavior.
+
+### Still outstanding
+- Shared VCS contracts still point back into renderer-owned types.
+- SSH transport cache invalidation remains process-lifetime and still needs the dedicated Medium follow-up.
+- `vcs-ops.ts` and `pr-ops.ts` remain near-cap and still need the planned modularization pass.
+- Checkpoint default descriptions still use locale-dependent timestamps (`toLocaleString()`).
