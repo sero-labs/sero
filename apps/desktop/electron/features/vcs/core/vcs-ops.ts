@@ -1,28 +1,40 @@
 import type { GitRunner } from './git-runner';
 import {
   LOG_FORMAT,
-  BRANCH_FORMAT,
   REFLOG_FORMAT,
-  parseLogEntries,
-  parseStatus,
   parseDiffSummary,
-  parseBranches,
-  parseRemotes,
+  parseLogEntries,
   parseReflog,
+  parseStatus,
 } from '../support/parsers';
-import { isAutoPushBookmark, inferConventionalType, slugifyBranchLabel } from '../support/branch-naming';
+import {
+  createBookmark,
+  deleteBookmark,
+  listBookmarks,
+  moveBookmark,
+} from './vcs-ops/bookmark-ops';
+import {
+  addRemote,
+  listRemotes,
+  removeRemote,
+  resolvePushRemote,
+  setRemoteUrl,
+} from './vcs-ops/remote-ops';
+import {
+  ensureBranchAtCommit,
+  resolveCurrentBranch,
+  suggestPushBranchForCommit,
+} from './vcs-ops/push-helpers';
 import type {
-  ChangeEntry,
-  WorkingCopyStatus,
-  FileDiffEntry,
   Bookmark,
-  Remote,
+  ChangeEntry,
+  FileDiffEntry,
   OperationEntry,
-  SyncResult,
   PushPreview,
+  Remote,
+  SyncResult,
+  WorkingCopyStatus,
 } from '@sero/common';
-
-const DEFAULT_PRIMARY_BRANCH = 'main';
 
 export class VcsOps {
   constructor(private readonly runner: GitRunner) {}
@@ -108,16 +120,7 @@ export class VcsOps {
   }
 
   async listBookmarks(workspaceId: string): Promise<Bookmark[]> {
-    const result = await this.runner.run(workspaceId, [
-      'branch',
-      `--format=${BRANCH_FORMAT}`,
-    ]);
-    if (result.exitCode !== 0) {
-      // No branches yet is fine (empty repo)
-      return [];
-    }
-
-    return parseBranches(result.stdout);
+    return listBookmarks(this.runner, workspaceId);
   }
 
   async createBookmark(
@@ -125,25 +128,11 @@ export class VcsOps {
     name: string,
     revision = 'HEAD',
   ): Promise<void> {
-    const result = await this.runner.run(workspaceId, [
-      'branch',
-      name,
-      revision,
-    ]);
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to create branch '${name}'`);
-    }
+    return createBookmark(this.runner, workspaceId, name, revision);
   }
 
   async deleteBookmark(workspaceId: string, name: string): Promise<void> {
-    const result = await this.runner.run(workspaceId, ['branch', '-d', name]);
-    if (result.exitCode !== 0) {
-      // Try force delete
-      const force = await this.runner.run(workspaceId, ['branch', '-D', name]);
-      if (force.exitCode !== 0) {
-        throw new Error(force.stderr || `Failed to delete branch '${name}'`);
-      }
-    }
+    return deleteBookmark(this.runner, workspaceId, name);
   }
 
   async moveBookmark(
@@ -151,24 +140,11 @@ export class VcsOps {
     name: string,
     toRevision: string,
   ): Promise<void> {
-    const result = await this.runner.run(workspaceId, [
-      'branch',
-      '-f',
-      name,
-      toRevision,
-    ]);
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to move branch '${name}'`);
-    }
+    return moveBookmark(this.runner, workspaceId, name, toRevision);
   }
 
   async listRemotes(workspaceId: string): Promise<Remote[]> {
-    const result = await this.runner.run(workspaceId, ['remote', '-v']);
-    if (result.exitCode !== 0) {
-      return [];
-    }
-
-    return parseRemotes(result.stdout);
+    return listRemotes(this.runner, workspaceId);
   }
 
   async addRemote(
@@ -176,98 +152,16 @@ export class VcsOps {
     name: string,
     url: string,
   ): Promise<void> {
-    await this.runner.ensureRepoInitialized(workspaceId);
-    const result = await this.runner.run(workspaceId, ['remote', 'add', name, url]);
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to add remote '${name}'`);
-    }
+    return addRemote(this.runner, workspaceId, name, url);
   }
 
   async removeRemote(workspaceId: string, name: string): Promise<void> {
-    const result = await this.runner.run(workspaceId, ['remote', 'remove', name]);
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to remove remote '${name}'`);
-    }
+    return removeRemote(this.runner, workspaceId, name);
   }
 
   /** Update the URL of an existing remote. */
   async setRemoteUrl(workspaceId: string, name: string, url: string): Promise<void> {
-    const result = await this.runner.run(workspaceId, ['remote', 'set-url', name, url]);
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || `Failed to update remote URL for '${name}'`);
-    }
-  }
-
-  private async getCommitDescription(
-    workspaceId: string,
-    changeId: string,
-  ): Promise<string> {
-    const result = await this.runner.run(workspaceId, [
-      'log',
-      '--format=%s',
-      '-1',
-      changeId,
-    ]);
-
-    if (result.exitCode !== 0) return '';
-    return result.stdout.trim();
-  }
-
-  private async suggestPushBranchForCommit(
-    workspaceId: string,
-    changeId: string,
-    bookmarks: Bookmark[],
-  ): Promise<string> {
-    // 1. Prefer an existing branch already pointing at this exact commit
-    const localAtTarget = bookmarks
-      .filter((bm) => bm.isLocal && bm.changeId === changeId)
-      .map((bm) => bm.name);
-
-    const preferredAtTarget = localAtTarget.find((name) => name === DEFAULT_PRIMARY_BRANCH)
-      ?? localAtTarget.find((name) => !isAutoPushBookmark(name));
-    if (preferredAtTarget) return preferredAtTarget;
-
-    // 2. Generate a descriptive feature branch name
-    const description = await this.getCommitDescription(workspaceId, changeId);
-    const type = inferConventionalType(description);
-    const label = slugifyBranchLabel(description);
-    return `${type}/${label}-${changeId.slice(0, 8)}`;
-  }
-
-  private async ensureBranchAtCommit(
-    workspaceId: string,
-    branch: string,
-    changeId: string,
-  ): Promise<void> {
-    // Try creating the branch
-    const create = await this.runner.run(workspaceId, [
-      'branch',
-      branch,
-      changeId,
-    ]);
-    if (create.exitCode === 0) return;
-
-    // Branch already exists — force move it
-    const move = await this.runner.run(workspaceId, [
-      'branch',
-      '-f',
-      branch,
-      changeId,
-    ]);
-
-    if (move.exitCode !== 0) {
-      throw new Error(move.stderr || `Failed to set branch '${branch}' to ${changeId}`);
-    }
-  }
-
-  private async resolvePushRemote(workspaceId: string): Promise<string | undefined> {
-    try {
-      const remotes = await this.listRemotes(workspaceId);
-      return remotes.find((r) => r.name === 'origin')?.name ?? remotes[0]?.name;
-    } catch (err) {
-      console.warn('[vcs-ops] Failed to resolve push remote:', err);
-      return undefined;
-    }
+    return setRemoteUrl(this.runner, workspaceId, name, url);
   }
 
   async fetch(workspaceId: string, remote?: string): Promise<SyncResult> {
@@ -291,14 +185,14 @@ export class VcsOps {
     let resolvedBranch = bookmark;
     if (!resolvedBranch && changeId) {
       try {
-        const bookmarks = await this.listBookmarks(workspaceId);
-        resolvedBranch = await this.suggestPushBranchForCommit(workspaceId, changeId, bookmarks);
+        const bookmarks = await listBookmarks(this.runner, workspaceId);
+        resolvedBranch = await suggestPushBranchForCommit(this.runner, workspaceId, changeId, bookmarks);
       } catch (err) {
         console.warn('[vcs-ops] Dry-run branch suggestion failed (best-effort):', err);
       }
     }
 
-    const pushRemote = await this.resolvePushRemote(workspaceId);
+    const pushRemote = await resolvePushRemote(this.runner, workspaceId);
     const args = ['push', '--dry-run'];
     if (pushRemote) args.push(pushRemote);
     if (resolvedBranch) args.push(resolvedBranch);
@@ -313,14 +207,6 @@ export class VcsOps {
     };
   }
 
-  /** Resolve the current branch name (e.g. 'master', 'main'). */
-  private async resolveCurrentBranch(workspaceId: string): Promise<string | undefined> {
-    const result = await this.runner.run(workspaceId, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    const branch = result.exitCode === 0 ? result.stdout.trim() : undefined;
-    // HEAD means detached — not a named branch
-    return branch && branch !== 'HEAD' ? branch : undefined;
-  }
-
   async push(
     workspaceId: string,
     bookmark?: string,
@@ -329,7 +215,7 @@ export class VcsOps {
     let resolvedBranch = bookmark;
     if (resolvedBranch && changeId) {
       try {
-        await this.ensureBranchAtCommit(workspaceId, resolvedBranch, changeId);
+        await ensureBranchAtCommit(this.runner, workspaceId, resolvedBranch, changeId);
       } catch (err) {
         return {
           success: false,
@@ -339,9 +225,9 @@ export class VcsOps {
     }
     if (!resolvedBranch && changeId) {
       try {
-        const bookmarks = await this.listBookmarks(workspaceId);
-        resolvedBranch = await this.suggestPushBranchForCommit(workspaceId, changeId, bookmarks);
-        await this.ensureBranchAtCommit(workspaceId, resolvedBranch, changeId);
+        const bookmarks = await listBookmarks(this.runner, workspaceId);
+        resolvedBranch = await suggestPushBranchForCommit(this.runner, workspaceId, changeId, bookmarks);
+        await ensureBranchAtCommit(this.runner, workspaceId, resolvedBranch, changeId);
       } catch (err) {
         return {
           success: false,
@@ -353,18 +239,15 @@ export class VcsOps {
     // When no branch was specified at all, resolve the current branch
     // so `git push -u origin <branch>` works on first push.
     if (!resolvedBranch) {
-      resolvedBranch = await this.resolveCurrentBranch(workspaceId);
+      resolvedBranch = await resolveCurrentBranch(this.runner, workspaceId);
     }
 
-    const pushRemote = await this.resolvePushRemote(workspaceId);
-    const buildPushArgs = (): string[] => {
-      const args = ['push', '-u'];
-      if (pushRemote) args.push(pushRemote);
-      if (resolvedBranch) args.push(resolvedBranch);
-      return args;
-    };
+    const pushRemote = await resolvePushRemote(this.runner, workspaceId);
+    const args = ['push', '-u'];
+    if (pushRemote) args.push(pushRemote);
+    if (resolvedBranch) args.push(resolvedBranch);
 
-    const result = await this.runner.run(workspaceId, buildPushArgs(), 120_000);
+    const result = await this.runner.run(workspaceId, args, 120_000);
     if (result.exitCode !== 0) {
       return { success: false, message: result.stderr || 'Push failed' };
     }
@@ -430,7 +313,7 @@ export class VcsOps {
     const result = await this.runner.run(workspaceId, [
       'reflog',
       `--format=${REFLOG_FORMAT}`,
-      `-n`,
+      '-n',
       String(limit),
     ]);
     if (result.exitCode !== 0) {
