@@ -274,6 +274,14 @@ export function registerAppPath(absPath: string): void {
   }
 }
 
+/** Stop scanning a previously registered app path. */
+export function unregisterAppPath(absPath: string): void {
+  const index = registeredPaths.indexOf(absPath);
+  if (index !== -1) {
+    registeredPaths.splice(index, 1);
+  }
+}
+
 /** Discover all Sero apps from all known locations. Deduplicates by app id. */
 export async function discoverApps(): Promise<SeroAppManifest[]> {
   const all: SeroAppManifest[] = [];

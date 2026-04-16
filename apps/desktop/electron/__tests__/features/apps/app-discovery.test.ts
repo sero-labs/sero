@@ -12,6 +12,29 @@ async function importAppDiscovery() {
   return import('@electron/features/apps/discovery');
 }
 
+async function writeManifestPackage(packageDir: string, appId: string, name = 'Admin'): Promise<void> {
+  await mkdir(packageDir, { recursive: true });
+  await writeFile(
+    path.join(packageDir, 'package.json'),
+    JSON.stringify({
+      name: `${appId}-plugin`,
+      version: '1.0.0',
+      sero: {
+        app: {
+          id: appId,
+          name,
+          icon: 'box',
+          stateFile: `.sero/apps/${appId}/state.json`,
+        },
+        plugin: {
+          category: 'utilities',
+          tags: ['test'],
+        },
+      },
+    }, null, 2),
+  );
+}
+
 describe('app discovery devPort handling', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -99,6 +122,26 @@ describe('app discovery devPort handling', () => {
       const admin = apps.find((app) => app.id === 'admin');
 
       expect(admin?.devPort).toBe(5193);
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('stops discovering manually registered paths once they are unregistered', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-registered-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const packageDir = path.join(tempRoot, 'external-plugin');
+      await writeManifestPackage(packageDir, 'external-plugin', 'External Plugin');
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      expect((await discoverApps()).some((app) => app.id === 'external-plugin')).toBe(true);
+
+      unregisterAppPath(packageDir);
+      expect((await discoverApps()).some((app) => app.id === 'external-plugin')).toBe(false);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
