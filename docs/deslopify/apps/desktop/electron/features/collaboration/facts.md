@@ -1,13 +1,13 @@
 # Facts — apps/desktop/electron/features/collaboration
 
-_Last reviewed: 2026-04-15_
+_Last reviewed: 2026-04-16_
 
 ## What this code does
 This feature implements Sero's multi-agent collaboration strategies on top of the subagent system: a simple researcher → analyst/visionary → coordinator flow and a debate-style strategy with decomposition, cross-checking rounds, and final synthesis. It maps collaboration roles to discovered agent names and returns a summarized collaboration result for IPC consumers.
 
 ## Shape & metrics
-- Total files: 5
-- Largest file: `apps/desktop/electron/features/collaboration/debate.ts` (367 LOC)
+- Total files: 6
+- Largest file: `apps/desktop/electron/features/collaboration/debate.ts` (378 LOC)
 - Files over 500 LOC: none
 - External dependencies of note: no direct external packages; depends entirely on `SubagentManager` and shared collaboration types from `@/types/collaboration`
 - Upstream callers: `apps/desktop/electron/ipc/collaboration/collaboration.ts`
@@ -24,7 +24,7 @@ This feature implements Sero's multi-agent collaboration strategies on top of th
 - Failure semantics now intentionally favor truthfulness over completion: required-role failures skip synthesis and return explicit degraded-mode output.
 
 ## Surprising discoveries
-- The simple collaboration flow and the debate flow both re-implement nearly the same subagent execution/error-timing helper instead of sharing one orchestration primitive.
+- Both strategies now share one single-specialist runner helper, so role→agent lookup, timing, and thrown-error normalization stay aligned without coupling their phase-specific callback behavior.
 - Debate challenge prompts and both synthesis paths now have explicit section caps, but the cap values are static constants that should be revalidated against real collaboration quality.
 - The degraded-mode output path needs to remain concise because it is reinjected into the main session flow through `buildInjectionPrompt`.
 
@@ -60,4 +60,20 @@ This feature implements Sero's multi-agent collaboration strategies on top of th
 
 ### Still outstanding
 - **Low** — single-specialist runner logic is still duplicated between `index.ts` and `debate.ts`.
+- **Low** — required agent-name preflight validation remains pending.
+
+## Post-fix snapshot — 2026-04-16 (shared runner helper)
+
+### Metrics after fixes
+- Total files: 6 (was 5)
+- Largest file: `apps/desktop/electron/features/collaboration/debate.ts` (378 LOC, was 367)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: none in this folder (unchanged)
+
+### What changed
+- Added `specialist-runner.ts` as the shared single-specialist execution helper for both standard and debate collaboration strategies.
+- Rebased `index.ts` and `debate.ts` specialist wrappers onto the shared helper while preserving strategy-specific callbacks, model overrides, and degraded-mode semantics.
+- Centralized unknown-error message normalization through the shared helper so fallback error copy stays consistent across both orchestration paths.
+
+### Still outstanding
 - **Low** — required agent-name preflight validation remains pending.

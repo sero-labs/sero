@@ -4,6 +4,19 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-04-16
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/desktop/electron/features/collaboration/specialist-runner.ts` | New — shared single-specialist execution helper for standard and debate collaboration runs |
+| `apps/desktop/electron/features/collaboration/{index.ts,debate.ts}` | Rebased both collaboration strategies on the shared specialist runner while preserving phase callbacks, model overrides, and degraded-mode behavior |
+| `docs/deslopify/apps/desktop/electron/features/collaboration/{facts,plan}.md` | Recorded the shared-runner closeout, refreshed collaboration metrics, and left only required-agent preflight validation pending |
+| `docs/deslopify/index.md` | Updated collaboration tracker status after clearing the first Low helper-dedupe item |
+
+---
+
 ## 2026-04-15
 
 ### Files Changed

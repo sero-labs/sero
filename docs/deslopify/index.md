@@ -1,6 +1,6 @@
 # Deslopify Index
 
-_Last updated: 2026-04-15_
+_Last updated: 2026-04-16_
 
 A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
@@ -37,7 +37,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
     — *Healthy — High, both Medium, and all tracked Low follow-ups (helper dedupe + profile-scoped guidance) cleared 2026-04-15*
   - [`apps/desktop/electron/features/collaboration/`](./apps/desktop/electron/features/collaboration/plan.md)
-    — *In progress — both Medium items cleared 2026-04-15; Low helper/preflight cleanup pending*
+    — *In progress — both Medium items and the first Low helper-dedupe item cleared 2026-04-16; required-agent preflight validation pending*
   - [`apps/desktop/electron/features/container/`](./apps/desktop/electron/features/container/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/editor/`](./apps/desktop/electron/features/editor/plan.md)

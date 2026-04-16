@@ -45,7 +45,7 @@ _Plan drafted: 2026-04-12_
 ## Next Steps
 1. ~~Add explicit synthesis prompt budgeting/capping.~~ ✅ 2026-04-15 (`f420d7c8`)
 2. ~~Decide and implement degraded-mode behavior for missing/failed specialists.~~ ✅ 2026-04-15 (`344ac099`)
-3. Extract the shared single-specialist runner helper used by both collaboration strategies.
+3. ~~Extract the shared single-specialist runner helper used by both collaboration strategies.~~ ✅ 2026-04-16 (`31460cc7`)
 4. Add preflight validation for required collaboration agent names.
 5. Verification checklist:
    - Run both collaboration modes with healthy specialists and confirm final answer quality stays acceptable.
@@ -60,3 +60,6 @@ _Plan drafted: 2026-04-12_
 - 2026-04-15 — `344ac099` — `fix(collaboration): skip synthesis on missing specialist output`
   - Added explicit degraded-mode handling so required-role failures return truthful degraded results instead of injecting placeholder text into coordinator synthesis.
   - Added focused collaboration/debate regressions to lock that missing specialist outputs skip synthesis and surface role-specific failure reasons.
+- 2026-04-16 — `31460cc7` — `refactor(collaboration): share single-specialist runner`
+  - Added `specialist-runner.ts` as a shared helper for role→agent lookup, duration tracking, callback dispatch, and thrown-error normalization.
+  - Rebased both `runCollaboration()` and `runDebateCollaboration()` specialist wrappers onto the shared helper while preserving strategy-specific callback/model behavior.
