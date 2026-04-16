@@ -105,6 +105,7 @@ export {
   USER_FEEDBACK_BUS_KEY,
   USER_FEEDBACK_QUESTION_REQUEST_EVENT,
   USER_FEEDBACK_QUESTION_CANCEL_EVENT,
+  getGlobalSingleton,
   getUserFeedbackAnswerEvent,
 } from './user-feedback';
 

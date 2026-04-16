@@ -4,12 +4,13 @@ import type { SettingsPackageSource } from '@/types/ipc';
 import type { ModelTier, PluginProviderManifest, SeroProviderManifest } from '@sero/common';
 import { MODEL_TIERS } from '@sero/common';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { readSettingsResult } from '@electron/shared/settings/settings-helpers';
 import {
   discoverBuiltinPackagePaths,
   discoverBuiltinPluginPaths,
 } from '@electron/platform/protocols/builtin-resources';
 
-const CACHE_TTL_MS = 250;
+const CACHE_TTL_MS = 30_000;
 
 interface PackageJson {
   sero?: {
@@ -19,6 +20,7 @@ interface PackageJson {
 
 let cachedAt = 0;
 let cachedProviders: SeroProviderManifest[] = [];
+let cacheDirty = true;
 
 function titleizeProviderId(providerId: string): string {
   return providerId.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -88,34 +90,30 @@ function readProviderManifestsFromPackage(packageDir: string): SeroProviderManif
 }
 
 function readSettingsPackagePaths(): string[] {
-  const settingsPath = path.join(SERO_AGENT_DIR, 'settings.json');
-  if (!existsSync(settingsPath)) return [];
+  const result = readSettingsResult();
+  if (!result.ok) return [];
 
-  try {
-    const raw = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
-      packages?: SettingsPackageSource[];
-      extensions?: string[];
-    };
+  const raw = result.settings as {
+    packages?: SettingsPackageSource[];
+    extensions?: string[];
+  };
 
-    const paths = new Set<string>();
+  const paths = new Set<string>();
 
-    for (const pkgSource of raw.packages ?? []) {
-      const source = typeof pkgSource === 'string' ? pkgSource : pkgSource.source;
-      if (typeof source !== 'string' || !source) continue;
-      if (source.startsWith('npm:') || source.startsWith('git:')) continue;
-      paths.add(path.resolve(source));
-    }
-
-    for (const ext of raw.extensions ?? []) {
-      if (typeof ext !== 'string' || !ext) continue;
-      if (ext.startsWith('npm:') || ext.startsWith('git:')) continue;
-      paths.add(path.resolve(ext));
-    }
-
-    return [...paths];
-  } catch {
-    return [];
+  for (const pkgSource of raw.packages ?? []) {
+    const source = typeof pkgSource === 'string' ? pkgSource : pkgSource.source;
+    if (typeof source !== 'string' || !source) continue;
+    if (source.startsWith('npm:') || source.startsWith('git:')) continue;
+    paths.add(path.resolve(source));
   }
+
+  for (const ext of raw.extensions ?? []) {
+    if (typeof ext !== 'string' || !ext) continue;
+    if (ext.startsWith('npm:') || ext.startsWith('git:')) continue;
+    paths.add(path.resolve(ext));
+  }
+
+  return [...paths];
 }
 
 function scanPackageDir(dir: string): string[] {
@@ -145,7 +143,7 @@ function listCandidatePackageDirs(): string[] {
 
 function loadProviderManifests(): SeroProviderManifest[] {
   const now = Date.now();
-  if (now - cachedAt < CACHE_TTL_MS) return cachedProviders;
+  if (!cacheDirty && now - cachedAt < CACHE_TTL_MS) return cachedProviders;
 
   const byId = new Map<string, SeroProviderManifest>();
   for (const packageDir of listCandidatePackageDirs()) {
@@ -156,11 +154,13 @@ function loadProviderManifests(): SeroProviderManifest[] {
 
   cachedProviders = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
   cachedAt = now;
+  cacheDirty = false;
   return cachedProviders;
 }
 
-function getPackageProviderManifests(): SeroProviderManifest[] {
-  return loadProviderManifests();
+export function invalidatePackageProviderManifestCache(): void {
+  cacheDirty = true;
+  cachedAt = 0;
 }
 
 export function getPackageProviderManifest(providerId: string): SeroProviderManifest | undefined {

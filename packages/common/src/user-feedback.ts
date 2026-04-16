@@ -52,6 +52,18 @@ export const USER_FEEDBACK_BUS_KEY = '__seroUserFeedbackBus';
 export const USER_FEEDBACK_QUESTION_REQUEST_EVENT = 'question-request';
 export const USER_FEEDBACK_QUESTION_CANCEL_EVENT = 'question-cancel';
 
+export function getGlobalSingleton<T>(key: string, create: () => T): T {
+  const globalRecord = globalThis as Record<string, unknown>;
+  const existing = globalRecord[key];
+  if (existing !== undefined) {
+    return existing as T;
+  }
+
+  const value = create();
+  globalRecord[key] = value;
+  return value;
+}
+
 export function getUserFeedbackAnswerEvent(id: string): `answer:${string}` {
   return `answer:${id}`;
 }

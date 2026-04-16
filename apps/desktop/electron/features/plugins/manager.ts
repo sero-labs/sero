@@ -15,6 +15,7 @@ import { promisify } from 'util';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { registerAppPath, discoverApps } from '../apps/discovery';
 import { registerExtAssets } from '@electron/platform/protocols/ext-protocol';
+import { invalidatePackageProviderManifestCache } from '@electron/shared/providers/package-provider-manifests';
 import { clearAppManifestCache } from '@electron/ipc/agent/handlers/app-agent';
 import { clearPluginBridgePolicyCache } from '@electron/cli';
 import type { SeroAppManifest, SettingsPackageSource } from '@/types/ipc';
@@ -22,30 +23,20 @@ import type { InstalledPlugin } from './types';
 import { assertPluginInstallAllowed } from './install-policy';
 import { ensurePluginPackageReadyForInstall } from './package-build';
 import { assertValidPluginId, resolvePluginInstallDir } from './security';
-
 const execFile = promisify(execFileCb);
-
 /** Directory where plugins are installed. */
 const PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'packages');
-
 /** Temporary staging area for installs / backups. Not scanned by app discovery. */
 const PLUGIN_STAGING_DIR = path.join(SERO_AGENT_DIR, '.plugin-staging');
-
 /** Path to the settings.json file. */
 const SETTINGS_PATH = path.join(SERO_AGENT_DIR, 'settings.json');
-
 /** Sidecar filename persisted alongside installed plugins. */
 const PLUGIN_META_FILENAME = '.sero-plugin-meta.json';
-
 // ── Install serialisation ───────────────────────────────────
-// Serialise all installs to prevent races when two installs target
-// the same plugin ID (concurrent reserveInstallPath would corrupt
-// each other's backup). Each call chains onto the previous one.
-
+// Serialise all installs to prevent races when two installs target the same
+// plugin ID. Each call chains onto the previous one.
 let installLock: Promise<void> = Promise.resolve();
-
 // ── Types ───────────────────────────────────────────────────
-
 interface PkgJson {
   name?: string;
   description?: string;
@@ -170,6 +161,7 @@ function readSettings(): Record<string, unknown> {
 
 function writeSettings(settings: Record<string, unknown>): void {
   writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + '\n');
+  invalidatePackageProviderManifestCache();
 }
 
 function getPackagesArray(settings: Record<string, unknown>): SettingsPackageSource[] {
@@ -315,6 +307,7 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
     }
 
     registerExtAssets(manifest);
+    invalidatePackageProviderManifestCache();
     return manifest;
   } catch (err) {
     if (reserved) {
@@ -326,6 +319,7 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
         await fs.rename(reserved.backupDir, reserved.installPath).catch((restoreErr) => {
           console.error('[plugins] Failed to restore previous plugin install:', restoreErr);
         });
+        invalidatePackageProviderManifestCache();
       }
     }
     throw err;
@@ -354,6 +348,7 @@ export async function uninstallPlugin(pluginId: string): Promise<void> {
   removeFromSettings(pluginPath);
   clearAppManifestCache();
   clearPluginBridgePolicyCache();
+  invalidatePackageProviderManifestCache();
 }
 
 /**

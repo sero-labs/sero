@@ -1,0 +1,84 @@
+import path from 'path';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
+import type { ContainerConfig } from '@electron/features/container/core/types';
+import { containerManager } from '@electron/features/container/core/singleton';
+import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import { GatewayServer } from '@electron/features/gateway';
+import { WebChatServer } from '@electron/features/gateway/channels/web';
+import { TailscaleIntegration } from '@electron/features/gateway/bridge/tailscale';
+import { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { FileWatcherManager } from '@electron/features/workspace/watcher';
+import { LspManager } from '@electron/features/editor/lsp/lsp-manager';
+import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '@electron/features/vcs';
+import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
+import { ArtifactRegistry } from '@electron/features/container/registries/artifact-registry';
+import { SubagentManager } from '@electron/features/subagent';
+import { KanbanOrchestrator } from '@electron/features/kanban';
+
+export const githubAuth = new GitHubAuthManager();
+
+export { containerManager };
+
+// Wire GitHub auth env vars into container exec so GH_TOKEN + git
+// credential config are available in every container command.
+containerManager.getExtraEnvVars = () => githubAuth.getAuthEnvVars();
+
+const gitRunner = new GitRunner(workspaceManager, containerManager, githubAuth);
+export const vcsManager = new VcsManager(workspaceManager, gitRunner);
+export const vcsOps = new VcsOps(gitRunner);
+export const vcsPrOps = new VcsPullRequestOps(gitRunner);
+export const githubRepoOps = new GitHubRepoOps(gitRunner, workspaceManager);
+
+export const artifactRegistry = new ArtifactRegistry();
+
+const GATEWAY_PORT = 18800;
+const WEB_CHAT_PORT = 18801;
+const GATEWAY_TOKEN_PATH = path.join(SERO_AGENT_DIR, 'gateway-token');
+
+export const gatewayServer = new GatewayServer({
+  port: GATEWAY_PORT,
+  host: '127.0.0.1',
+  tokenPath: GATEWAY_TOKEN_PATH,
+  configDir: SERO_AGENT_DIR,
+});
+
+export const webChatServer = new WebChatServer({
+  port: WEB_CHAT_PORT,
+  host: '127.0.0.1',
+  gatewayWsUrl: `ws://127.0.0.1:${GATEWAY_PORT}`,
+});
+
+export const tailscale = new TailscaleIntegration();
+
+export { workspaceManager };
+
+export const fileWatcherManager = new FileWatcherManager();
+
+export const lspManager = new LspManager(containerManager);
+
+export const subagentManager = new SubagentManager();
+
+export const kanbanOrchestrator = new KanbanOrchestrator();
+
+/**
+ * Build the standard ContainerConfig for a workspace.
+ *
+ * Centralises mount configuration so every call site (agent sessions,
+ * container IPC, VCS runner) gets the same mounts.
+ *
+ * By default, containers run in **isolated** mode — only the workspace's
+ * own files are mounted. To grant access to another workspace's files,
+ * add it as a reference via `WorkspaceManager.addReference()`. The
+ * referenced workspace's directory is then mounted read-write.
+ *
+ * Pass `opts.isolated` to force full isolation even when references
+ * exist (used by kanban subagents).
+ */
+export async function buildContainerConfig(
+  workspaceId: string,
+  hostPath: string,
+  opts?: { isolated?: boolean },
+): Promise<ContainerConfig> {
+  return buildWorkspaceContainerConfig(workspaceManager, workspaceId, hostPath, opts);
+}

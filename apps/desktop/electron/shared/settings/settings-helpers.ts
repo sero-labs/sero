@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { invalidatePackageProviderManifestCache } from '../providers/package-provider-manifests';
 
 export function getSettingsPath(): string {
   return path.join(SERO_AGENT_DIR, 'settings.json');
@@ -66,4 +67,5 @@ export function readSettings(): Record<string, unknown> {
 /** Persist the active profile's settings.json. */
 export function writeSettings(settings: Record<string, unknown>): void {
   writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  invalidatePackageProviderManifestCache();
 }
