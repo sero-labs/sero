@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, statSync } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
 import { promisify } from 'util';
@@ -35,25 +35,76 @@ function normalizeExecFileFailure(error: unknown): { code: number; stdout: strin
   };
 }
 
+const SSH_KEY_FILES = ['id_ed25519', 'id_rsa', 'id_ecdsa'] as const;
+const SSH_AVAILABILITY_TTL_MS = 60_000;
+
+interface SshAvailabilityCache {
+  available: boolean;
+  keySignature: string;
+  expiresAtMs: number;
+}
+
 /**
  * Check if the host likely has SSH keys that can authenticate with GitHub.
- * Cached after first check for the process lifetime.
+ * The probe result is cached briefly and invalidated when known key metadata changes.
  */
-let _sshAvailable: boolean | null = null;
-async function isHostSshAvailable(): Promise<boolean> {
-  if (_sshAvailable !== null) return _sshAvailable;
+let sshAvailabilityCache: SshAvailabilityCache | null = null;
 
-  // Quick check: do SSH key files exist?
+function getSshKeySignature(): string {
   const sshDir = path.join(homedir(), '.ssh');
-  const hasKeys = ['id_ed25519', 'id_rsa', 'id_ecdsa'].some((k) =>
-    existsSync(path.join(sshDir, k)),
-  );
-  if (!hasKeys) {
-    _sshAvailable = false;
+  const signatures: string[] = [];
+
+  for (const keyFile of SSH_KEY_FILES) {
+    const keyPath = path.join(sshDir, keyFile);
+    if (!existsSync(keyPath)) continue;
+
+    try {
+      const stat = statSync(keyPath);
+      signatures.push(`${keyFile}:${stat.size}:${stat.mtimeMs}`);
+    } catch {
+      signatures.push(`${keyFile}:present`);
+    }
+  }
+
+  return signatures.join('|');
+}
+
+function readCachedSshAvailability(
+  keySignature: string,
+  nowMs: number,
+): boolean | null {
+  if (!sshAvailabilityCache) return null;
+  if (sshAvailabilityCache.keySignature !== keySignature) return null;
+  if (sshAvailabilityCache.expiresAtMs <= nowMs) return null;
+  return sshAvailabilityCache.available;
+}
+
+function writeSshAvailabilityCache(
+  keySignature: string,
+  available: boolean,
+  nowMs: number,
+): void {
+  sshAvailabilityCache = {
+    available,
+    keySignature,
+    expiresAtMs: nowMs + SSH_AVAILABILITY_TTL_MS,
+  };
+}
+
+async function isHostSshAvailable(): Promise<boolean> {
+  const nowMs = Date.now();
+  const keySignature = getSshKeySignature();
+  if (!keySignature) {
+    writeSshAvailabilityCache('', false, nowMs);
     return false;
   }
 
-  // Verify SSH actually authenticates with GitHub
+  const cachedAvailability = readCachedSshAvailability(keySignature, nowMs);
+  if (cachedAvailability !== null) {
+    return cachedAvailability;
+  }
+
+  // Verify SSH actually authenticates with GitHub.
   try {
     const { stderr } = await execFileAsync('ssh', ['-T', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=5', 'git@github.com'], {
       timeout: 10_000,
@@ -62,11 +113,14 @@ async function isHostSshAvailable(): Promise<boolean> {
       const normalized = normalizeExecFileFailure(error);
       return { stdout: normalized.stdout, stderr: normalized.stderr };
     });
-    _sshAvailable = stderr.includes('successfully authenticated');
-  } catch {
-    _sshAvailable = false;
+    const available = stderr.includes('successfully authenticated');
+    writeSshAvailabilityCache(keySignature, available, nowMs);
+    return available;
+  } catch (error) {
+    console.warn('[git-runner] SSH probe failed; falling back to HTTPS-auth transport:', error);
+    writeSshAvailabilityCache(keySignature, false, nowMs);
+    return false;
   }
-  return _sshAvailable;
 }
 
 function shQuote(input: string): string {
