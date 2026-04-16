@@ -81,3 +81,20 @@ This feature is the Electron-side Git/VCS service layer for Sero. It initializes
 - SSH transport cache invalidation remains process-lifetime and still needs the dedicated Medium follow-up.
 - `vcs-ops.ts` and `pr-ops.ts` remain near-cap and still need the planned modularization pass.
 - Checkpoint default descriptions still use locale-dependent timestamps (`toLocaleString()`).
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 9 (unchanged in `electron/features/vcs`)
+- Largest file: `apps/desktop/electron/features/vcs/core/vcs-ops.ts` (442 LOC, unchanged)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder
+
+### What changed
+- `git-runner.ts` now uses a TTL-based host SSH availability cache keyed by SSH key metadata signatures instead of a process-lifetime `_sshAvailable` memo.
+- Added focused regression coverage in `apps/desktop/electron/__tests__/features/vcs/git-runner.test.ts` for TTL expiry re-probing and key-metadata-change invalidation behavior.
+- Host transport selection semantics are preserved: successful SSH probing still keeps native SSH remotes while retaining GH auth headers for HTTPS remotes.
+
+### Still outstanding
+- `vcs-ops.ts` and `pr-ops.ts` remain near-cap and still need the planned modularization pass.
+- Checkpoint default descriptions still use locale-dependent timestamps (`toLocaleString()`).
