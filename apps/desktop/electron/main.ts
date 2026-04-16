@@ -377,7 +377,7 @@ async function performGracefulShutdown(): Promise<void> {
 
   // Dispose terminals and port forwards
   containerManager.terminals.disposeAllTerminals();
-  containerManager.disposeAllPortForwards();
+  await containerManager.disposeAllPortForwards();
 
   // Stop all sero-* containers
   try {
