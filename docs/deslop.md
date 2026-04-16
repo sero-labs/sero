@@ -21,6 +21,12 @@ Changes made during code quality passes. Most recent first.
 | `docs/deslopify/apps/desktop/electron/features/collaboration/{facts,plan}.md` | Recorded the shared-runner + required-agent preflight closeout and marked the folder plan fully executed |
 | `docs/deslopify/apps/desktop/electron/features/editor/{facts,plan}.md` | Recorded the canonical routing-contract extraction closeout and narrowed remaining editor work to adapter/install follow-ups |
 | `docs/deslopify/index.md` | Marked collaboration healthy and updated editor status after clearing the first Medium follow-up |
+| `apps/desktop/electron/features/editor/lsp/server-request-handlers.ts` | New — documented adapter table for supported LSP server-initiated request methods |
+| `apps/desktop/electron/features/editor/lsp/lsp-process.ts` | Rebased server-request handling onto the shared adapter table and rate-limited unhandled-method logs (303 → 285 lines) |
+| `apps/desktop/electron/features/editor/lsp/types.ts` | Pinned runtime container-side TypeScript/LSP install versions for reproducible startup installs |
+| `apps/desktop/electron/__tests__/features/editor/{lsp-server-request-handlers,lsp-config-routing}.test.ts` | Added adapter-table coverage and pinned-install-command guardrails |
+| `docs/deslopify/apps/desktop/electron/features/editor/{facts,plan}.md` | Recorded adapter-table + install-policy closeout and marked the editor folder plan fully executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/editor/` healthy with all tracked items cleared |
 
 ---
 

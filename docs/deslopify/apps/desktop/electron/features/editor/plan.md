@@ -56,8 +56,8 @@ This area is compact, but it carries disproportionate risk because it owns the m
 1. ~~Add an in-flight startup map to `LspManager` and make `startServer()` idempotent.~~ ✅ 2026-04-12 (`4350404d`)
 2. ~~Remove the two `as any` casts from `lsp-process.ts` with explicit protocol helpers.~~ ✅ 2026-04-12 (`4350404d`)
 3. ~~Extract canonical language-routing metadata into a shared renderer-safe contract.~~ ✅ 2026-04-16 (`8dc35831`)
-4. Refactor server-initiated request handling into a documented adapter table.
-5. Decide whether LSP binary versions are pinned at runtime or moved into the container image/toolchain.
+4. ~~Refactor server-initiated request handling into a documented adapter table.~~ ✅ 2026-04-16 (`fecbb80d`)
+5. ~~Decide whether LSP binary versions are pinned at runtime or moved into the container image/toolchain.~~ ✅ 2026-04-16 (`fecbb80d`) — runtime install retained with pinned versions
 
 ## Execution log
 - 2026-04-12 — `4350404d` — `fix(desktop): harden wave d high-priority runtime paths`
@@ -66,3 +66,6 @@ This area is compact, but it carries disproportionate risk because it owns the m
 - 2026-04-16 — `8dc35831` — `refactor(editor): share canonical lsp routing metadata`
   - Rebased main-process LSP server config routing fields onto shared renderer-safe metadata from `src/lsp/language-routing.ts`.
   - Added focused electron coverage to lock `findConfigByLanguageId()` alignment with the shared routing contracts.
+- 2026-04-16 — `fecbb80d` — `refactor(editor): finish lsp process follow-up tasks`
+  - Replaced `lsp-process.ts` server-request `switch` handling with a documented adapter table in `server-request-handlers.ts` plus explicit unhandled-method handling.
+  - Added focused adapter-table coverage and pinned runtime TypeScript/LSP install versions for reproducible container-side setup.

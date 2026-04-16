@@ -6,8 +6,8 @@ _Last reviewed: 2026-04-16_
 `electron/features/editor` is the main-process owner for Sero's language-server runtime. It starts container-backed LSP processes, frames JSON-RPC over stdio, translates process lifecycle events into app-level events, and exposes the server capabilities needed by the renderer-side Monaco integration.
 
 ## Shape & metrics
-- Total files: 4
-- Largest file: `apps/desktop/electron/features/editor/lsp/lsp-process.ts` (303 LOC)
+- Total files: 5
+- Largest file: `apps/desktop/electron/features/editor/lsp/lsp-process.ts` (285 LOC)
 - Files over 500 LOC: None
 - External dependencies of note: Node `child_process`, Node `events`, `@electron/features/container`
 - Upstream callers: `apps/desktop/electron/shared/infra/shared-infra.ts`, `apps/desktop/electron/ipc/editor/lsp.ts`
@@ -55,3 +55,19 @@ _Last reviewed: 2026-04-16_
 ### Still outstanding
 - **Medium** — Server-initiated request handling still uses a `switch` instead of a documented adapter table.
 - **Low** — LSP runtime install policy/version pinning is still undecided.
+
+## Post-fix snapshot — 2026-04-16 (adapter table + install policy)
+
+### Metrics after fixes
+- Total files: 5 (was 4)
+- Largest file: `apps/desktop/electron/features/editor/lsp/lsp-process.ts` (285 LOC, was 303)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder (unchanged)
+
+### What changed
+- Extracted server-initiated request handling into `server-request-handlers.ts` with one explicit adapter table for supported request methods.
+- Updated `lsp-process.ts` to resolve server requests through the adapter table and centralize unhandled-method logging behind a one-time-per-method guard.
+- Chose to retain runtime container-side LSP installs but pinned versions in `types.ts` (`typescript-language-server@4.4.0`, `typescript@5.9.3`) and added focused coverage for the pinned install command.
+
+### Still outstanding
+- None — all tracked plan items for this folder are now cleared.

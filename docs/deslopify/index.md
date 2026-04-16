@@ -41,7 +41,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/container/`](./apps/desktop/electron/features/container/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/editor/`](./apps/desktop/electron/features/editor/plan.md)
-    — *In progress — High items plus the first Medium canonical-routing item cleared 2026-04-16; adapter-table Medium + install-policy Low follow-ups pending*
+    — *Healthy — High, both Medium, and the Low install-policy follow-up all cleared 2026-04-16*
   - [`apps/desktop/electron/features/gateway/`](./apps/desktop/electron/features/gateway/plan.md)
     — *In progress — High items cleared 2026-04-12; Medium cleanup pending*
   - [`apps/desktop/electron/features/kanban/`](./apps/desktop/electron/features/kanban/plan.md)
