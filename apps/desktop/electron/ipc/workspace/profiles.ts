@@ -14,14 +14,25 @@ import {
   setGlobalModelConfig,
 } from '@electron/shared/settings/model-config';
 import { getProviderHealthSnapshot } from '@electron/features/onboarding/provider-health';
-import { readSettings, writeSettings } from '@electron/shared/settings/settings-helpers';
+import {
+  readSettingsResult,
+  writeSettings,
+} from '@electron/shared/settings/settings-helpers';
 import { copyProfileDataSync, profileHasTransferableData } from '@electron/features/profile/copy-profile-data';
 
 import type { ProfileInfo } from '@/types/profile';
 import type { GlobalModelConfigInput, GlobalModelConfigState } from '@/types/ipc';
 
+function readSettingsForModelConfig(): Record<string, unknown> {
+  const result = readSettingsResult();
+  if (!result.ok) {
+    throw result.error;
+  }
+  return result.settings;
+}
+
 async function loadGlobalModelConfigState(): Promise<GlobalModelConfigState> {
-  const migrated = applyLegacyProviderDefaultsMigration(readSettings());
+  const migrated = applyLegacyProviderDefaultsMigration(readSettingsForModelConfig());
   if (migrated.changed) {
     writeSettings(migrated.settings);
   }
@@ -165,7 +176,7 @@ export function registerProfileHandlers(): void {
   ipcMain.handle(
     IpcChannels.modelConfig.set,
     async (_e, config: GlobalModelConfigInput): Promise<GlobalModelConfigState> => {
-      const updated = setGlobalModelConfig(readSettings(), config);
+      const updated = setGlobalModelConfig(readSettingsForModelConfig(), config);
       writeSettings(updated);
       return loadGlobalModelConfigState();
     },

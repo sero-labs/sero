@@ -4,7 +4,7 @@ import type { AvailableModelGroup, ProviderHealthInfo } from '@/types/ipc';
 const mocks = vi.hoisted(() => ({
   profileGetActive: vi.fn(),
   getProviderHealthSnapshot: vi.fn(),
-  readSettings: vi.fn(),
+  readSettingsResult: vi.fn(),
   writeSettings: vi.fn(),
   applyLegacyProviderDefaultsMigration: vi.fn(),
   cleanupUnavailableModelSelections: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('@electron/features/onboarding/provider-health', () => ({
 }));
 
 vi.mock('@electron/shared/settings/settings-helpers', () => ({
-  readSettings: mocks.readSettings,
+  readSettingsResult: mocks.readSettingsResult,
   writeSettings: mocks.writeSettings,
 }));
 
@@ -100,7 +100,7 @@ describe('onboarding preflight', () => {
       availableModelGroups,
       providerHealth,
     });
-    mocks.readSettings.mockReset().mockReturnValue({});
+    mocks.readSettingsResult.mockReset().mockReturnValue({ ok: true, settings: {} });
     mocks.writeSettings.mockReset();
     mocks.applyLegacyProviderDefaultsMigration.mockReset().mockReturnValue({
       settings: {},
@@ -135,10 +135,10 @@ describe('onboarding preflight', () => {
     const migratedSettings = { sero: { defaultProvider: 'openai' } };
     const cleanedSettings = { sero: { modelTiers: { LOW: { provider: 'openai', modelId: 'gpt-5.4' } } } };
 
-    mocks.readSettings
+    mocks.readSettingsResult
       .mockReset()
-      .mockReturnValueOnce({})
-      .mockReturnValueOnce(cleanedSettings);
+      .mockReturnValueOnce({ ok: true, settings: {} })
+      .mockReturnValueOnce({ ok: true, settings: cleanedSettings });
     mocks.applyLegacyProviderDefaultsMigration.mockReset().mockReturnValue({
       settings: migratedSettings,
       changed: true,
@@ -152,6 +152,19 @@ describe('onboarding preflight', () => {
     expect(mocks.cleanupUnavailableModelSelections).toHaveBeenCalledWith([
       { provider: 'openai', modelId: 'gpt-5.4' },
     ]);
-    expect(mocks.readSettings).toHaveBeenCalledTimes(2);
+    expect(mocks.readSettingsResult).toHaveBeenCalledTimes(2);
+  });
+
+  it('surfaces malformed settings errors without rewriting the file', async () => {
+    mocks.readSettingsResult.mockReset().mockReturnValue({
+      ok: false,
+      error: new Error('Failed to read /tmp/profile-1/agent/settings.json. Fix the file and retry. (Unexpected token)'),
+    });
+
+    await expect(getOnboardingState()).rejects.toThrow('Fix the file and retry');
+
+    expect(mocks.applyLegacyProviderDefaultsMigration).not.toHaveBeenCalled();
+    expect(mocks.cleanupUnavailableModelSelections).not.toHaveBeenCalled();
+    expect(mocks.writeSettings).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,10 @@ import type {
 } from '@/types/ipc';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { profileManager } from '../profile/manager';
-import { readSettings, writeSettings } from '@electron/shared/settings/settings-helpers';
+import {
+  readSettingsResult,
+  writeSettings,
+} from '@electron/shared/settings/settings-helpers';
 import {
   applyLegacyProviderDefaultsMigration,
   getGlobalModelConfigTiers,
@@ -108,8 +111,16 @@ function toAvailableSelections(availableModelGroups: AvailableModelGroup[]): Arr
     })));
 }
 
+function readSettingsForOnboarding(): Record<string, unknown> {
+  const result = readSettingsResult();
+  if (!result.ok) {
+    throw result.error;
+  }
+  return result.settings;
+}
+
 export function repairOnboardingSettingsState(availableModelGroups: AvailableModelGroup[]): Record<string, unknown> {
-  let settings = readSettings();
+  let settings = readSettingsForOnboarding();
   const migrated = applyLegacyProviderDefaultsMigration(settings);
   settings = migrated.settings;
   if (migrated.changed) {
@@ -118,7 +129,7 @@ export function repairOnboardingSettingsState(availableModelGroups: AvailableMod
 
   const cleaned = cleanupUnavailableModelSelections(toAvailableSelections(availableModelGroups));
   if (cleaned) {
-    settings = readSettings();
+    settings = readSettingsForOnboarding();
   }
 
   return settings;
@@ -192,7 +203,7 @@ async function buildOnboardingState(options: BuildOnboardingStateOptions): Promi
   if (!activeProfile.onboarded) {
     const settings = options.applyRepairs
       ? repairOnboardingSettingsState(availableModelGroups)
-      : readSettings();
+      : readSettingsForOnboarding();
     return buildPendingOnboardingState({
       availableModelGroups,
       providerHealth,
