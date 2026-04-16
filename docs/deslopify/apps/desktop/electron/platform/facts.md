@@ -32,3 +32,21 @@ This folder is the Electron host platform boundary: profile-aware environment bo
 - Extension asset registry has add-only APIs (`platform/protocols/ext-protocol.ts:24-32`) with no removal counterpart, while plugin install flow registers manifests (`features/plugins/manager.ts:311`), creating stale-memory risk after uninstall/reload.
 - Builtin package detection logic is duplicated in runtime and build pipeline (`platform/protocols/builtin-resources.ts:31-44` and `apps/desktop/scripts/build-electron.mjs:35-48`) with a manual “keep in sync” comment.
 - Environment resolution performs migration/registry work synchronously during module initialization (`platform/env/index.ts:43-53,118-130`), which is acceptable today but concentrates startup coupling in one import side effect.
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 7 (was 6)
+- Total LOC: 835 (was 795)
+- Largest file: `apps/desktop/electron/platform/env/index.ts` (226 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: 0
+
+### What changed
+- Tightened the production CSP so inline scripts and broad framed `http:` / `https:` sources remain dev-only, and added direct policy tests for dev vs prod allowances.
+- Added `unregisterExtAssets()` / `hasRegisteredExtAssets()` so the extension protocol registry has explicit lifecycle symmetry, then wired plugin uninstall to drop stale protocol mappings without waiting for restart.
+- Extracted canonical builtin-package detection into `platform/protocols/builtin-package-detection.js` and reused it from both runtime discovery and `scripts/build-electron.mjs`.
+- Refactored env bootstrap into explicit resolve/apply/load stages (`resolveStartupEnv()`, `applyProcessEnv()`, `loadProfileDotEnv()`) while preserving the pre-SDK ordering guarantee required by `main.ts`.
+
+### Still outstanding
+- None.

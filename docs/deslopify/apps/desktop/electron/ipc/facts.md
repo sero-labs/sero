@@ -45,3 +45,23 @@ VCS, collaboration, and platform UI services.
   `integrations/google-api.ts:73,79`.
 - Main-process broadcast loops (`BrowserWindow.getAllWindows()`) are duplicated
   across many files (16 occurrences), creating repeated event-fanout boilerplate.
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 80 (was 69)
+- Total LOC: 8,846 (was 8,602)
+- Largest file: `apps/desktop/electron/ipc/agent/core/agent-prompt.ts` (371 LOC)
+- Files over 500 LOC: none
+- Near-cap files (≥450 LOC): none
+- Type escape hatches remaining: 3 intentional `as unknown as` casts isolated in `agent/core/sdk-private-adapter.ts`
+
+### What changed
+- Split the former near-cap agent core into focused `agent.ts` + `agent-session-open.ts` + `agent-messages.ts` + `sdk-private-adapter.ts` ownership modules, reducing the two largest files well below the cap while preserving the public IPC surface.
+- Contained all remaining private SDK access (`_baseSystemPrompt`, `_rewriteFile`, runtime-model mutation) inside one guarded adapter with direct tests instead of scattering casts through agent and context-override code.
+- Replaced sync prompt/session/gateway/app-discovery hot-path filesystem operations with async equivalents and kept session-header persistence semantics intact.
+- Introduced `ipc/lib/window-broadcast.ts` and rebased the repeated BrowserWindow fanout sites onto it for terminal, plugins, VCS, safe-storage, collaboration, subagent, debug, and user-feedback events.
+- Revalidated that IPC handler channel imports were already on `@/types/ipc-channels`, closing the stale tracker without extra churn.
+
+### Still outstanding
+- None.

@@ -50,3 +50,21 @@ This folder is the Electron main-process shared foundation layer: singleton infr
 ### Still outstanding
 - `shared-infra.ts` is still a broad composition root and has not yet been split into registrars.
 - Provider-manifest cache cleanup and user-feedback bus deduplication are still pending.
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 17 (was 15)
+- Total LOC: 1,657 (was 1,611)
+- Largest file: `apps/desktop/electron/shared/media/image-resize.ts` (217 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: 0
+
+### What changed
+- Hardened `settings-helpers.ts` into an explicit read-result boundary with actionable malformed-file errors, and updated onboarding/profile mutators to abort instead of rewriting broken `settings.json` files.
+- Split shared infra ownership into `infra/shared-infra.ts` + focused `infra/{singletons,runtime-settings}.ts` registrars while preserving the exported singleton API used by IPC, CLI, and feature code.
+- Removed the dead provider-manifest helper, switched provider-manifest caching to explicit invalidation with a safety TTL, and wired cache invalidation through settings/plugin mutations.
+- Deduplicated the user-feedback bus singleton factory through shared `@sero/common` ownership so host/plugin code no longer maintain mirrored emitter bootstraps.
+
+### Still outstanding
+- None.

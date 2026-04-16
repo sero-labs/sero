@@ -10,12 +10,12 @@ It does **not** introduce new tasks; every item below comes from:
 
 ## Group tracking
 
-- [ ] **Group 1 — Core desktop boundary hardening**
+- [x] **Group 1 — Core desktop boundary hardening**
 - [ ] **Group 2 — Host app/plugin lifecycle and manager ownership**
 - [ ] **Group 3 — Runtime orchestration and tool-surface cleanup**
 - [ ] **Group 4 — Remaining plugin follow-ups and review-only plugin backlog**
 
-## Group 1 — Core desktop boundary hardening
+## Group 1 — Core desktop boundary hardening *(completed 2026-04-16)*
 
 ### apps/desktop/electron/shared/
 Source: `docs/deslopify/apps/desktop/electron/shared/plan.md`
@@ -149,16 +149,16 @@ Source: `docs/deslopify/plugins/sero-web-plugin/plan.md`
 
 ## Summary
 
-Outstanding tracked work items: **44**
+Outstanding tracked work items: **27**
 
 Breakdown:
 - Review-only backlog: **1**
-- High: **6**
-- Medium: **17**
-- Low: **20**
+- High: **2**
+- Medium: **9**
+- Low: **15**
 
 Grouped delivery breakdown:
-- Group 1 — **17** tasks
+- Group 1 — **0** tasks remaining *(completed 2026-04-16)*
 - Group 2 — **13** tasks
 - Group 3 — **7** tasks
 - Group 4 — **7** items

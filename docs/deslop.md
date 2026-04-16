@@ -93,6 +93,20 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/container/{http-proxy,port-forward,lifecycle}.test.ts` | New/updated — focused regression coverage for proxy subnet/target guards, bridge teardown on scan stop/failure, and read-only mount command wiring |
 | `docs/deslopify/apps/desktop/electron/features/container/{facts,plan}.md` | Recorded the High-item + mount-contract execution pass, noted plan drift, and narrowed remaining work to tool dedupe/near-cap/dead-metrics follow-ups |
 | `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/container/` in progress after clearing both High items plus the mount-contract Medium fix |
+| `apps/desktop/electron/shared/settings/settings-helpers.ts` | Hardened settings reads into an explicit malformed-file boundary with actionable errors and provider-manifest cache invalidation on writes |
+| `apps/desktop/electron/{features/onboarding/preflight.ts,ipc/workspace/profiles.ts,__tests__/features/onboarding/preflight.test.ts,__tests__/shared/settings/settings-helpers.test.ts}` | Preserved malformed `settings.json` files by aborting onboarding/model-config mutations instead of rewriting broken state |
+| `apps/desktop/electron/shared/infra/{shared-infra.ts,singletons.ts,runtime-settings.ts}` | Split shared infra into focused registrars while preserving the exported singleton API (`shared-infra.ts` 264 → 151 lines) |
+| `apps/desktop/electron/shared/providers/package-provider-manifests.ts` | Removed the dead provider-manifest helper and switched cache refresh to invalidation-driven reads with a safety TTL |
+| `packages/common/src/{user-feedback.ts,index.ts}`, `apps/desktop/electron/shared/lib/user-feedback-bus.ts`, `plugins/sero-user-feedback-plugin/shared/emitter.ts` | Deduplicated the user-feedback bus singleton factory on one shared global helper |
+| `apps/desktop/electron/preload/{integrations/google-imagegen.ts,editor/debug-lsp.ts,platform/host-services.ts}` | Replaced remaining weak preload bridge signatures with concrete Google/imagegen/LSP/layout contracts |
+| `apps/desktop/electron/__tests__/ipc/preload-api-subscriptions.test.ts` | Added typed Google and LSP subscription teardown coverage |
+| `apps/desktop/electron/ipc/agent/core/{agent.ts,agent-session-open.ts,agent-helpers.ts,agent-messages.ts,sdk-private-adapter.ts,agent-event-broadcast.ts,agent-ids.ts}` | Split near-cap agent IPC ownership, isolated private SDK access, and centralized agent event fanout (`agent.ts` 498 → 354 lines; `agent-helpers.ts` 453 → 158 lines) |
+| `apps/desktop/electron/ipc/{lib/window-broadcast.ts,agent/handlers/{prompts,sessions}.ts,gateway/gateway-ops.ts,apps/apps.ts,integrations/{plugins,github,vcs}.ts,container/{container,dev-server,terminal}.ts,editor/{debug,editor,lsp}.ts,platform/{auth/safe-storage.ts,ui/user-feedback-questions.ts},collaboration/collaboration.ts,subagent/subagent.ts}` | Replaced sync hot-path filesystem calls with async equivalents where practical and removed duplicated BrowserWindow broadcast boilerplate |
+| `apps/desktop/electron/__tests__/ipc/agent-sdk-private-adapter.test.ts` | New — locks the private SDK adapter guardrails used by context overrides and runtime model mutation |
+| `apps/desktop/electron/platform/security/csp.ts` | Tightened production CSP by keeping inline-script and broad framed http(s) allowances dev-only |
+| `apps/desktop/electron/platform/protocols/{ext-protocol.ts,builtin-resources.ts,builtin-package-detection.{js,d.ts}}`, `apps/desktop/scripts/build-electron.mjs`, `apps/desktop/electron/features/plugins/manager.ts` | Added extension-protocol unregister symmetry and unified builtin package detection across runtime + build tooling |
+| `apps/desktop/electron/platform/env/index.ts` | Refactored env bootstrap into explicit resolve/apply/load stages while preserving pre-SDK ordering guarantees |
+| `apps/desktop/electron/__tests__/platform/{builtin-package-detection,csp,env,ext-protocol}.test.ts` | New — targeted regression coverage for Group 1 platform boundary hardening |
 
 ---
 

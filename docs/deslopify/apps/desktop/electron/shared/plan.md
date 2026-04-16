@@ -6,15 +6,15 @@ _Plan drafted: 2026-04-12_
 `electron/shared` is foundational and mostly under control (no file-size or obvious type-escape violations), but it has two correctness risks that should be scheduled early: settings parse failures can cascade into destructive rewrites, and the cached default model in shared infra can drift after auth changes. The plan focuses on hardening those contracts first, then reducing coupling/drift in shared helper surfaces.
 
 ## Issues Found (prioritized)
-- **High** — Silent settings parse fallback can clobber `settings.json` on subsequent writes — `apps/desktop/electron/shared/settings/settings-helpers.ts:15-20` returns `{}` on any parse/read failure, and callers later persist derived state (`apps/desktop/electron/ipc/workspace/profiles.ts:168-169`, `apps/desktop/electron/features/onboarding/preflight.ts:101-116`). A malformed settings file can be unintentionally overwritten with a partial object. Effort: **S**.
+- **High** — ~~Silent settings parse fallback can clobber `settings.json` on subsequent writes — `apps/desktop/electron/shared/settings/settings-helpers.ts:15-20` returns `{}` on any parse/read failure, and callers later persist derived state (`apps/desktop/electron/ipc/workspace/profiles.ts:168-169`, `apps/desktop/electron/features/onboarding/preflight.ts:101-116`). A malformed settings file can be unintentionally overwritten with a partial object.~~ ✅ 2026-04-16 (`01caf8a3`) Effort: **S**.
 
 - **Medium** — ~~Shared default model cache can become stale after auth changes — `_model` is initialized once (`apps/desktop/electron/shared/infra/shared-infra.ts:119,196`), but auth mutations only call `modelRegistry.refresh()` (`apps/desktop/electron/ipc/platform/auth/auth.ts:116`). Consumers that rely on `infra.model` (`apps/desktop/electron/ipc/agent/handlers/app-agent.ts:152`) may use outdated defaults.~~ ✅ 2026-04-12 (`refreshInfraModelSelection()` now re-picks the default model after auth-driven registry refreshes.) Effort: **S**.
 
-- **Medium** — `shared-infra.ts` is a cross-domain singleton hub with import-time side effects — it mixes profile migration side effects (`apps/desktop/electron/shared/infra/shared-infra.ts:42`) and many service singletons (`shared-infra.ts:50-112`) across gateway, VCS, workspace, subagent, and LSP concerns. This increases review/load-bearing blast radius for unrelated changes. Effort: **M**.
+- **Medium** — ~~`shared-infra.ts` is a cross-domain singleton hub with import-time side effects — it mixes profile migration side effects (`apps/desktop/electron/shared/infra/shared-infra.ts:42`) and many service singletons (`shared-infra.ts:50-112`) across gateway, VCS, workspace, subagent, and LSP concerns. This increases review/load-bearing blast radius for unrelated changes.~~ ✅ 2026-04-16 (`8fc946e0`) Effort: **M**.
 
-- **Low** — Provider manifest scanning does repeated sync filesystem traversal with tiny TTL and includes dead helper surface — sync scans/parses run in `apps/desktop/electron/shared/providers/package-provider-manifests.ts:113-179` with `CACHE_TTL_MS = 250` (`:11`), and `getPackageProviderManifests()` is unused (`:185`). Effort: **S**.
+- **Low** — ~~Provider manifest scanning does repeated sync filesystem traversal with tiny TTL and includes dead helper surface — sync scans/parses run in `apps/desktop/electron/shared/providers/package-provider-manifests.ts:113-179` with `CACHE_TTL_MS = 250` (`:11`), and `getPackageProviderManifests()` is unused (`:185`).~~ ✅ 2026-04-16 (`8fc946e0`) Effort: **S**.
 
-- **Low** — User-feedback bus singleton key is duplicated across host/plugin modules — `apps/desktop/electron/shared/lib/user-feedback-bus.ts:13` and `plugins/sero-user-feedback-plugin/shared/emitter.ts:11` must stay manually aligned. Effort: **S**.
+- **Low** — ~~User-feedback bus singleton key is duplicated across host/plugin modules — `apps/desktop/electron/shared/lib/user-feedback-bus.ts:13` and `plugins/sero-user-feedback-plugin/shared/emitter.ts:11` must stay manually aligned.~~ ✅ 2026-04-16 (`8fc946e0`) Effort: **S**.
 
 ## Proposed Refactoring
 1. **Harden shared settings read/write as an explicit boundary contract.**
@@ -50,11 +50,9 @@ _Plan drafted: 2026-04-12_
 - Cache invalidation strategy for provider manifests needs clear mutation hooks from plugin manager and settings writes.
 
 ## Next Steps
-1. Land High fix first: make settings parse failures non-destructive.
-2. ~~Add infra model-refresh path and wire auth mutation handlers to it.~~ ✅ 2026-04-12
-3. Split `shared-infra.ts` into registrars while preserving exported singleton API.
-4. Remove dead manifest helper and switch to mutation-driven cache invalidation.
-5. Queue follow-up deslopify/fix work in `apps/desktop/electron/platform` and then renderer orchestration (`src/stores`, `src/hooks`, `src/lib`).
+1. None — folder plan fully executed 2026-04-16.
 
 ## Execution log
+- 2026-04-16 — `8fc946e0` `refactor(desktop-shared): split infra registrars and cache providers`
+- 2026-04-16 — `01caf8a3` `fix(desktop-shared): preserve malformed settings files`
 - 2026-04-12 — Medium Wave E4 (working tree): added `refreshInfraModelSelection()` in shared infra and wired auth mutation paths to refresh the cached default model after auth/model-registry changes.

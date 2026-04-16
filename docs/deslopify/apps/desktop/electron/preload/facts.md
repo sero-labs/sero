@@ -64,3 +64,22 @@ auth, collaboration, editor/LSP, plugins, gateway, etc.). `preload.ts` exposes
 - Weakly typed bridge surfaces in `integrations/google-imagegen.ts`, `editor/debug-lsp.ts`, and
   `apps/app-domain.ts` still need canonical payload/result typing.
 - Low-priority layout bridge shape duplication is still pending.
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 16 (unchanged from the first preload split pass)
+- Total LOC: 1,144 (was 1,119 at initial review)
+- Largest file: `apps/desktop/electron/preload/apps/app-domain.ts` (218 LOC)
+- Files over 500 LOC: none
+- Near-cap files (≥450 LOC): none
+- Type escape hatches remaining: 0
+
+### What changed
+- Revalidated that `preload.ts` already enforces compile-time `SeroAPI` conformance with `satisfies`, closing the stale High tracker without reopening the boundary.
+- Replaced remaining weak Google/imagegen and LSP subscription payload typing with concrete contracts and kept the existing typed `gitApp` / `webApp` bridge shapes intact.
+- Aligned the layout bridge with canonical `LayoutState` / `LoadedLayoutState` contracts so preload and renderer declarations share one shape.
+- Extended preload subscription coverage to lock the typed Google and LSP listener teardown behavior.
+
+### Still outstanding
+- None.

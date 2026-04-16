@@ -10,40 +10,17 @@ away from violating the 500 LOC rule. The plan focuses on tightening type safety
 decoupling channel imports before this layer becomes brittle.
 
 ## Issues Found (prioritized)
-- **High** — Type-safety escape hatches (`any` / `as any`) remain in critical IPC paths —
-  `apps/desktop/electron/ipc/agent/core/agent-helpers.ts:288,422-440`,
-  `apps/desktop/electron/ipc/agent/core/agent.ts:156,393`,
-  `apps/desktop/electron/ipc/agent/handlers/imagegen.ts:28,61,107,114`,
-  `apps/desktop/electron/ipc/editor/lsp.ts:51`, and
-  `apps/desktop/electron/ipc/integrations/google-api.ts:73,79` bypass strict contracts at
-  core renderer↔main boundaries. Effort: **M**.
+- **High** — ~~Type-safety escape hatches (`any` / `as any`) remain in critical IPC paths — `apps/desktop/electron/ipc/agent/core/agent-helpers.ts:288,422-440`, `apps/desktop/electron/ipc/agent/core/agent.ts:156,393`, `agent/handlers/imagegen.ts:28,61,107,114`, `editor/lsp.ts:51`, and `integrations/google-api.ts:73,79` bypass strict contracts at core renderer↔main boundaries.~~ ✅ 2026-04-16 (`749c2f46`). Effort: **M**.
 
-- **Medium** — Core agent IPC files are near cap and overloaded —
-  `apps/desktop/electron/ipc/agent/core/agent.ts:1-498` and
-  `apps/desktop/electron/ipc/agent/core/agent-helpers.ts:1-453` are close to hard-limit
-  breach and combine many responsibilities (pool lifecycle, context overrides, message
-  conversion, command shaping, private SDK access). Effort: **M**.
+- **Medium** — ~~Core agent IPC files are near cap and overloaded — `apps/desktop/electron/ipc/agent/core/agent.ts:1-498` and `apps/desktop/electron/ipc/agent/core/agent-helpers.ts:1-453` are close to hard-limit breach and combine many responsibilities (pool lifecycle, context overrides, message conversion, command shaping, private SDK access).~~ ✅ 2026-04-16 (`749c2f46`). Effort: **M**.
 
-- **Medium** — IPC modules are tightly coupled to `@/types/ipc` instead of narrow channels/types —
-  48 files import `IpcChannels` from `@/types/ipc` (examples:
-  `agent/core/agent.ts:11`, `workspace/workspace.ts:9`, `platform/system/net.ts:15`) while
-  the dedicated channel module is largely unused. This amplifies blast radius of type-barrel edits.
-  Effort: **M**.
+- **Medium** — ⊘ obsolete — IPC `IpcChannels` imports were already migrated onto `@/types/ipc-channels` before this pass (revalidated 2026-04-16). Effort: **M**.
 
-- **Medium** — Main-process sync filesystem calls appear in handler paths that can run on demand —
-  `agent/handlers/prompts.ts:16,61,68`, `agent/handlers/sessions.ts:13,125`,
-  `gateway/gateway-ops.ts:13,79,119`, and `apps/apps.ts:10,84,94` use sync fs APIs, increasing
-  risk of UI hitching under heavy activity. Effort: **M**.
+- **Medium** — ~~Main-process sync filesystem calls appear in handler paths that can run on demand — `agent/handlers/prompts.ts:16,61,68`, `agent/handlers/sessions.ts:13,125`, `gateway/gateway-ops.ts:13,79,119`, and `apps/apps.ts:10,84,94` use sync fs APIs, increasing risk of UI hitching under heavy activity.~~ ✅ 2026-04-16 (`749c2f46`). Effort: **M**.
 
-- **Medium** — Private SDK internals are mutated directly for context overrides —
-  `agent/core/agent-helpers.ts:420-440` (`_baseSystemPrompt`) and
-  `agent/core/agent-context-overrides.ts:111` (`_rewriteFile`) depend on non-public SDK fields,
-  creating upgrade fragility. Effort: **M**.
+- **Medium** — ~~Private SDK internals are mutated directly for context overrides — `agent/core/agent-helpers.ts:420-440` (`_baseSystemPrompt`) and `agent/core/agent-context-overrides.ts:111` (`_rewriteFile`) depend on non-public SDK fields, creating upgrade fragility.~~ ✅ 2026-04-16 (`749c2f46`). Effort: **M**.
 
-- **Low** — Event fanout boilerplate is duplicated across many modules —
-  repeated `BrowserWindow.getAllWindows()` loops (e.g. `agent/core/agent.ts:99`,
-  `integrations/plugins.ts:19`, `container/terminal.ts:18`, `subagent/subagent.ts:33`) add
-  mechanical noise and inconsistent error handling. Effort: **S**.
+- **Low** — ~~Event fanout boilerplate is duplicated across many modules — repeated `BrowserWindow.getAllWindows()` loops (e.g. `agent/core/agent.ts:99`, `integrations/plugins.ts:19`, `container/terminal.ts:18`, `subagent/subagent.ts:33`) add mechanical noise and inconsistent error handling.~~ ✅ 2026-04-16 (`749c2f46`). Effort: **S**.
 
 ## Proposed Refactoring
 1. **Remove `any`/unsafe casts from high-risk IPC boundaries first.**
@@ -86,8 +63,7 @@ decoupling channel imports before this layer becomes brittle.
 - Refactoring private SDK access requires careful regression checks around context editor + session persistence.
 
 ## Next Steps
-1. Fix High: remove/contain `any` escape hatches in core IPC handlers.
-2. Split `agent/core/agent.ts` and `agent/core/agent-helpers.ts` before they exceed 500 LOC.
-3. Migrate IPC handler channel imports to `@/types/ipc-channels`.
-4. Convert sync fs handler operations to async where practical.
-5. Start Wave A step 4: `deslopify apps/desktop/electron/features/workspace`.
+1. Start Wave A step 4: `deslopify apps/desktop/electron/features/workspace`.
+
+## Execution log
+- 2026-04-16 — `749c2f46` `refactor(desktop-ipc): split agent internals and async hot paths`

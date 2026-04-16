@@ -61,13 +61,13 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/workspace/`](./apps/desktop/electron/features/workspace/plan.md)
     — *In progress — selected Medium reliability items cleared 2026-04-12; cap-pressure cleanup pending*
   - [`apps/desktop/electron/ipc/`](./apps/desktop/electron/ipc/plan.md)
-    — *Wave A contracts review complete — plan created 2026-04-12*
+    — *Healthy — Group 1 IPC contract hardening fully executed 2026-04-16*
   - [`apps/desktop/electron/platform/`](./apps/desktop/electron/platform/plan.md)
-    — *Wave A platform-owner review complete — plan created 2026-04-12*
+    — *Healthy — Group 1 platform boundary hardening fully executed 2026-04-16*
   - [`apps/desktop/electron/preload/`](./apps/desktop/electron/preload/plan.md)
-    — *In progress — core Medium items cleared 2026-04-12; typing cleanup pending*
+    — *Healthy — preload contract and typing cleanup fully executed 2026-04-16*
   - [`apps/desktop/electron/shared/`](./apps/desktop/electron/shared/plan.md)
-    — *In progress — cached-model Medium item cleared 2026-04-12; modularization cleanup pending*
+    — *Healthy — settings hardening and shared-boundary cleanup fully executed 2026-04-16*
   - [`apps/desktop/electron/cli/`](./apps/desktop/electron/cli/plan.md)
     — *Healthy — High and Medium AD-020 seam/app-control cleanup cleared 2026-04-14; Low flag-parsing follow-up pending*
   - [`apps/desktop/electron/types/`](./apps/desktop/electron/types/plan.md)
