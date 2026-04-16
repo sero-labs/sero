@@ -44,7 +44,7 @@ _Plan drafted: 2026-04-12_
 
 ## Next Steps
 1. ~~Add explicit synthesis prompt budgeting/capping.~~ ✅ 2026-04-15 (`f420d7c8`)
-2. Decide and implement degraded-mode behavior for missing/failed specialists.
+2. ~~Decide and implement degraded-mode behavior for missing/failed specialists.~~ ✅ 2026-04-15 (`344ac099`)
 3. Extract the shared single-specialist runner helper used by both collaboration strategies.
 4. Add preflight validation for required collaboration agent names.
 5. Verification checklist:
@@ -57,3 +57,6 @@ _Plan drafted: 2026-04-12_
 - 2026-04-15 — `f420d7c8` — `refactor(collaboration): cap synthesis prompt inputs`
   - Added a shared synthesis prompt budgeting helper and explicit per-stage budgets for standard and debate coordinator synthesis prompts.
   - Added focused coverage to lock truncation behavior so final synthesis prompt inputs stay bounded in long-output scenarios.
+- 2026-04-15 — `344ac099` — `fix(collaboration): skip synthesis on missing specialist output`
+  - Added explicit degraded-mode handling so required-role failures return truthful degraded results instead of injecting placeholder text into coordinator synthesis.
+  - Added focused collaboration/debate regressions to lock that missing specialist outputs skip synthesis and surface role-specific failure reasons.

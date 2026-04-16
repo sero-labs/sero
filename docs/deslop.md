@@ -159,6 +159,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/collaboration/prompt-budgeting.test.ts` | New — locks prompt-budget truncation behavior for standard and debate synthesis stages |
 | `docs/deslopify/apps/desktop/electron/features/collaboration/{facts,plan}.md` | Recorded the first Medium collaboration item closeout, refreshed folder metrics, and narrowed outstanding work to degraded-mode plus Low follow-ups |
 | `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/collaboration/` status to in-progress with the first Medium item cleared |
+| `apps/desktop/electron/features/collaboration/{index.ts,debate.ts,degraded-result.ts}` | Added explicit degraded-mode orchestration so missing required specialist outputs now skip coordinator synthesis and return truthful failure summaries |
+| `apps/desktop/electron/__tests__/features/collaboration/degraded-mode.test.ts` | New — covers standard/debate failure paths to ensure required-role failures skip synthesis and surface degraded-mode details |
+| `docs/deslopify/apps/desktop/electron/features/collaboration/{facts,plan}.md` | Recorded the degraded-mode Medium closeout, refreshed collaboration metrics, and narrowed remaining backlog to Low helper/preflight items |
+| `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/collaboration/` status with both Medium items cleared |
 
 ---
 
