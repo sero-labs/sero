@@ -49,7 +49,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/gateway/`](./apps/desktop/electron/gateway/plan.md)
     — *Healthy — generated-only no-op closeout confirmed 2026-04-14*
   - [`apps/desktop/electron/features/onboarding/`](./apps/desktop/electron/features/onboarding/plan.md)
-    — *Wave C review complete — no High items; Medium cleanup pending*
+    — *Healthy — Medium/Low onboarding cleanup fully executed 2026-04-16*
   - [`apps/desktop/electron/features/plugins/`](./apps/desktop/electron/features/plugins/plan.md)
     — *Wave A platform-owner review complete — plan created 2026-04-12*
   - [`apps/desktop/electron/features/profile/`](./apps/desktop/electron/features/profile/plan.md)

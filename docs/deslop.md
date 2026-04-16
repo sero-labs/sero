@@ -33,6 +33,12 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/gateway/cost-tracker.test.ts` | New — verifies malformed `gateway-config.json` is preserved with surfaced load errors, while first-run missing config still persists defaults |
 | `docs/deslopify/apps/desktop/electron/features/gateway/{facts,plan}.md` | Closed stale request-validation tracker row, recorded the non-destructive cost-config fix, and narrowed remaining gateway backlog to subscription/static-file/dual-UI follow-ups |
 | `docs/deslopify/index.md` | Updated gateway status after clearing another Medium follow-up and removed deleted `plugins/sero-hello-world-plugin/` from the tracked backlog |
+| `apps/desktop/electron/features/onboarding/{preflight.ts,index.ts,types.ts}` | Split onboarding preflight into explicit read-only vs repair-aware entry points, switched auth/memory probes to async fs reads, and removed dead helper leftovers |
+| `apps/desktop/electron/features/onboarding/{provider-health.ts,model-groups.ts,provider-metadata.ts}` | Removed onboarding imports from IPC internals by introducing feature-owned provider metadata/model-group shaping helpers and async local-provider probing |
+| `apps/desktop/electron/ipc/onboarding/onboarding.ts` | Made onboarding IPC state requests call the explicit repair-aware entrypoint (`getOnboardingStateWithRepairs`) |
+| `apps/desktop/electron/__tests__/features/onboarding/{preflight,model-groups}.test.ts` | New — covers read-only vs repair-aware onboarding preflight behavior and model-group parity with existing IPC shaping |
+| `docs/deslopify/apps/desktop/electron/features/onboarding/{facts,plan}.md` | Closed stale onboarding tracker rows, recorded post-fix metrics, and marked all Medium/Low items executed |
+| `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/onboarding/` healthy after the full cleanup pass |
 
 ---
 
