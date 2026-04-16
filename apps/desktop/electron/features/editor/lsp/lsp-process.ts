@@ -12,6 +12,7 @@ import type {
   JsonRpcResponse, JsonRpcNotification,
 } from './types';
 import { isResponse, isRequest, isNotification, fileUri } from './types';
+import { resolveServerRequest } from './server-request-handlers';
 
 const WORKSPACE_DIR = '/workspace';
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -20,14 +21,6 @@ interface InitializeResult {
   capabilities?: Record<string, unknown>;
 }
 
-interface WorkspaceConfigurationParams {
-  items?: unknown[];
-}
-
-interface NodeErrorLike {
-  code?: unknown;
-  message?: unknown;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -38,12 +31,6 @@ function getInitializeResult(value: unknown): InitializeResult | null {
   const capabilities = value.capabilities;
   if (capabilities === undefined) return {};
   return isRecord(capabilities) ? { capabilities } : null;
-}
-
-function getWorkspaceConfigurationItems(params: unknown): unknown[] {
-  if (!isRecord(params)) return [];
-  const candidate = params.items;
-  return Array.isArray(candidate) ? candidate : [];
 }
 
 function getNodeErrorCode(err: unknown): string | number | undefined {
@@ -70,6 +57,7 @@ export class LspServerProcess extends EventEmitter {
   private _initialized = false;
   private _disposed = false;
   private capabilities: Record<string, unknown> = {};
+  private unhandledServerRequestMethods = new Set<string>();
 
   constructor(
     private workspaceId: string,
@@ -262,18 +250,12 @@ export class LspServerProcess extends EventEmitter {
   }
 
   private handleServerRequest(req: JsonRpcRequest): void {
-    let result: unknown = null;
-    switch (req.method) {
-      case 'workspace/configuration':
-        result = getWorkspaceConfigurationItems(req.params).map(() => ({}));
-        break;
-      case 'client/registerCapability':
-      case 'window/workDoneProgress/create':
-        result = null;
-        break;
-      default:
-        console.log(`[lsp:${this.config.language}] Unhandled server request: ${req.method}`);
+    const { handled, result } = resolveServerRequest(req);
+    if (!handled && !this.unhandledServerRequestMethods.has(req.method)) {
+      this.unhandledServerRequestMethods.add(req.method);
+      console.log(`[lsp:${this.config.language}] Unhandled server request: ${req.method}`);
     }
+
     const response: JsonRpcResponse = { jsonrpc: '2.0', id: req.id, result };
     this.write(response);
   }

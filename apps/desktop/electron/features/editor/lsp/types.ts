@@ -33,6 +33,13 @@ function buildLanguageIdMapForServer(serverLanguage: string): Record<string, str
   return Object.fromEntries(entries);
 }
 
+const TYPESCRIPT_LANGUAGE_SERVER_VERSION = '4.4.0';
+const TYPESCRIPT_VERSION = '5.9.3';
+const TYPESCRIPT_INSTALL_COMMAND = [
+  `typescript-language-server@${TYPESCRIPT_LANGUAGE_SERVER_VERSION}`,
+  `typescript@${TYPESCRIPT_VERSION}`,
+].join(' ');
+
 const TYPESCRIPT_LANGUAGE_ID_MAP = buildLanguageIdMapForServer('typescript');
 const TYPESCRIPT_MONACO_LANGUAGE_IDS = Array.from(new Set(Object.values(TYPESCRIPT_LANGUAGE_ID_MAP)));
 const TYPESCRIPT_EXTENSIONS = Object.keys(TYPESCRIPT_LANGUAGE_ID_MAP);
@@ -43,7 +50,8 @@ const LANGUAGE_SERVERS: LspServerConfig[] = [
     language: 'typescript',
     command: 'typescript-language-server --stdio',
     checkCommand: 'which typescript-language-server',
-    installCommand: 'npm install -g typescript-language-server typescript',
+    // Runtime install remains container-side for now; pin versions for reproducible startup.
+    installCommand: `npm install -g ${TYPESCRIPT_INSTALL_COMMAND}`,
     extensions: TYPESCRIPT_EXTENSIONS,
     monacoLanguageIds: TYPESCRIPT_MONACO_LANGUAGE_IDS,
     languageIdMap: TYPESCRIPT_LANGUAGE_ID_MAP,

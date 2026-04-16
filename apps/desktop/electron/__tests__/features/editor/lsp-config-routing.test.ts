@@ -25,6 +25,7 @@ describe('lsp server config routing', () => {
     expect(config?.languageIdMap).toEqual(expectedLanguageIdMap);
     expect(config?.monacoLanguageIds).toEqual(expectedMonacoLanguageIds);
     expect(config?.extensions).toEqual(expectedExtensions);
+    expect(config?.installCommand).toBe('npm install -g typescript-language-server@4.4.0 typescript@5.9.3');
   });
 
   it('resolves each canonical monaco id to the shared typescript server config', () => {
