@@ -27,6 +27,8 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/editor/{lsp-server-request-handlers,lsp-config-routing}.test.ts` | Added adapter-table coverage and pinned-install-command guardrails |
 | `docs/deslopify/apps/desktop/electron/features/editor/{facts,plan}.md` | Recorded adapter-table + install-policy closeout and marked the editor folder plan fully executed |
 | `docs/deslopify/index.md` | Marked `apps/desktop/electron/features/editor/` healthy with all tracked items cleared |
+| `docs/deslopify/desktop-packages-plugins/{facts,plan}.md` | Retired the final deferred Low-polish tracker for the cross-cutting baseline and recorded a docs-only full closeout |
+| `docs/deslopify/index.md` | Marked `desktop-packages-plugins/` fully closed with no remaining tracked follow-ups |
 
 ---
 

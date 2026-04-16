@@ -1,6 +1,6 @@
 # Facts — desktop-packages-plugins
 
-_Last reviewed: 2026-04-13_
+_Last reviewed: 2026-04-16_
 
 ## What this code does
 This Phase 0 scope covers the remaining desktop-adjacent foundations outside the
@@ -381,3 +381,19 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 ### Still outstanding
 - Only deferred Low follow-up remains across the reviewed targets.
 - Re-run Phase 0 for `apps/desktop/electron/gateway/` if maintainable source returns there.
+
+## Post-fix snapshot — 2026-04-16 (cross-cutting low-polish closeout)
+
+### Metrics after fixes
+- Docs-only closeout pass; no source files changed in this baseline
+- High tracked items: none (unchanged)
+- Medium tracked items: none (unchanged)
+- Low tracker status: retired for this cross-cutting baseline
+
+### What changed
+- Retired the deferred Low-polish tracker for `desktop-packages-plugins` so this baseline no longer appears as outstanding backlog.
+- Updated plan/index tracking to mark this cross-cutting baseline fully closed.
+
+### Still outstanding
+- None in this baseline.
+- Re-run Phase 0 only if maintainable source returns in generated-only targets (`apps/desktop/electron/gateway/`, removed `plugins/sero-hello-world-plugin/`) or new drift is discovered.

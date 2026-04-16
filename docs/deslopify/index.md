@@ -7,7 +7,7 @@ entry links to a `facts.md` and `plan.md` pair.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
-  — *Healthy — Wave B shared/desktop High items, Wave D plugin High batches, all code-bearing Wave F follow-up, and the final documented no-op closeouts for `apps/desktop/electron/{types,gateway}` were all cleared by 2026-04-14; only Low polish remains deferred*
+  — *Healthy — Wave B shared/desktop High items, Wave D plugin High batches, all code-bearing Wave F follow-up, the documented no-op closeouts for `apps/desktop/electron/{types,gateway}`, and the deferred Low-polish tracker closeout were all completed by 2026-04-16*
 
 ## apps/
 - [`apps/desktop/`](./apps/desktop/plan.md)
