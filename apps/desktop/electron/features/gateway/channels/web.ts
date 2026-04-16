@@ -1,27 +1,43 @@
 /**
- * Minimal web chat UI for the Sero gateway.
+ * Legacy basic web chat fallback for the Sero gateway.
  *
- * Serves a single HTML file with embedded JS that connects to the
- * gateway WebSocket. No build step required.
+ * The bundled web remote SPA (`web-dist/`) is the primary UI owner.
+ * This server keeps a minimal `/basic` fallback for diagnostics and
+ * redirects `/` to the SPA served by the gateway on port 18800.
  */
 
 import http from 'http';
 
 export interface WebChatConfig {
-  /** Port for the web UI. Default: 18801. */
+  /** Port for the legacy fallback web UI. Default: 18801. */
   port: number;
   /** Bind host. Default: '127.0.0.1'. */
   host: string;
-  /** Gateway WebSocket URL for the client to connect to. */
+  /** Gateway WebSocket URL for fallback clients to connect to. */
   gatewayWsUrl: string;
+}
+
+function toGatewayHttpUrl(gatewayWsUrl: string): string | null {
+  try {
+    const url = new URL(gatewayWsUrl);
+    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+    url.pathname = '/';
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 export class WebChatServer {
   private server: http.Server | null = null;
   private config: WebChatConfig;
+  private gatewayHttpUrl: string | null;
 
   constructor(config: WebChatConfig) {
     this.config = config;
+    this.gatewayHttpUrl = toGatewayHttpUrl(config.gatewayWsUrl);
   }
 
   async start(): Promise<void> {
@@ -33,21 +49,36 @@ export class WebChatServer {
       res.setHeader('X-Content-Type-Options', 'nosniff');
 
       if (req.url === '/' || req.url === '/index.html') {
+        if (this.gatewayHttpUrl) {
+          res.writeHead(307, { Location: this.gatewayHttpUrl });
+          res.end();
+          return;
+        }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(this.buildHtml());
-      } else if (req.url === '/health') {
+        return;
+      }
+
+      if (req.url === '/basic' || req.url === '/basic/') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(this.buildHtml());
+        return;
+      }
+
+      if (req.url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
-      } else {
-        res.writeHead(404);
-        res.end('Not Found');
+        return;
       }
+
+      res.writeHead(404);
+      res.end('Not Found');
     });
 
     return new Promise<void>((resolve, reject) => {
       this.server!.listen(this.config.port, this.config.host, () => {
         console.log(
-          `[web-chat] UI available at http://${this.config.host}:${this.config.port}`,
+          `[web-chat] Fallback UI available at http://${this.config.host}:${this.config.port}/basic (root redirects to gateway SPA)`,
         );
         resolve();
       });
@@ -73,7 +104,7 @@ export class WebChatServer {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sero Remote</title>
+<title>Sero Remote (Basic Fallback)</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -131,7 +162,7 @@ export class WebChatServer {
 </head>
 <body>
 <header>
-  <h1>Sero Remote</h1>
+  <h1>Sero Remote (Basic)</h1>
   <span id="status" class="disconnected">Disconnected</span>
 </header>
 <div id="messages"></div>
@@ -141,8 +172,8 @@ export class WebChatServer {
 </div>
 <div id="auth-overlay">
   <div id="auth-box">
-    <h2>Connect to Sero</h2>
-    <p style="color:#8b949e;font-size:13px">Enter your gateway auth token to connect.</p>
+    <h2>Connect to Sero (Basic Fallback)</h2>
+    <p style="color:#8b949e;font-size:13px">This minimal fallback is kept for diagnostics. The primary UI is the bundled web remote SPA.</p>
     <input id="token-input" type="password" placeholder="Auth token" autofocus>
     <button id="auth-btn">Connect</button>
   </div>
