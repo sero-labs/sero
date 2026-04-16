@@ -24,18 +24,7 @@ These are the only remaining items that should stay in the active queue.
 They are not "nice to have" cleanup; they still represent real runtime or
 behavior risk.
 
-### 1. Deterministic local source plugin builds
-Source: `docs/deslopify/apps/desktop/electron/features/plugins/plan.md`
-
-- **Priority:** Closeout
-- **Files:**
-  - `apps/desktop/electron/features/plugins/package-build.ts`
-- **Issue:** Local/git source plugin installs still skip dependency install
-  when `node_modules` already exists.
-- **Why it stays active:** This can produce stale or inconsistent plugin
-  builds from copied/local sources.
-
-### 2. Uninstall symmetry for plugin discovery path registration
+### 1. Uninstall symmetry for plugin discovery path registration
 Source: `docs/deslopify/apps/desktop/electron/features/plugins/plan.md`
 
 - **Priority:** Closeout
@@ -46,7 +35,7 @@ Source: `docs/deslopify/apps/desktop/electron/features/plugins/plan.md`
   does not unregister them.
 - **Why it stays active:** This leaves stale discovery state until restart.
 
-### 3. Tighten plugin metadata validation in app discovery
+### 2. Tighten plugin metadata validation in app discovery
 Source: `docs/deslopify/apps/desktop/electron/features/apps/plan.md`
 
 - **Priority:** Closeout
@@ -65,6 +54,7 @@ multi-day refactor open.
 ### Already completed in live code
 - Plugin discovery taxonomy drift (`sero-ai-plugin` vs `sero-agent-plugin`)
 - Plugin-manager malformed `settings.json` safety
+- Deterministic local/git source plugin build prep (`package-build.ts` now always reinstalls before source builds, even if `node_modules` already exists)
 - All Group 1 hardening work already marked complete in individual plans
 - Web plugin host-bridge typing cleanup
 - Every item already marked executed in the individual `docs/deslopify/**/plan.md`
@@ -122,12 +112,11 @@ instead of active deslopify closeout.
 
 ## Exit criteria
 
-The deslopify refactor process should be considered complete when the three
+The deslopify refactor process should be considered complete when the two
 closeout items above are finished:
 
-1. deterministic local source plugin builds
-2. uninstall symmetry for plugin discovery paths
-3. tighter plugin metadata validation and tests
+1. uninstall symmetry for plugin discovery paths
+2. tighter plugin metadata validation and tests
 
 After those land:
 - mark the refactor process complete
@@ -137,7 +126,7 @@ After those land:
 ## Summary
 
 ### Active closeout items
-- **3**
+- **2**
 
 ### Closed now
 - completed/stale items from the old aggregation

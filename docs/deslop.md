@@ -10,6 +10,10 @@ Changes made during code quality passes. Most recent first.
 
 | File | Change |
 |------|--------|
+| `apps/desktop/electron/features/plugins/package-build.ts` | Made git/local source plugin prep deterministic by always reinstalling dependencies before build instead of trusting pre-existing `node_modules` |
+| `apps/desktop/electron/__tests__/features/plugins/plugin-package-build.test.ts` | Added regressions that both git and local staged source installs still run dependency install when `node_modules` already exists |
+| `docs/deslopify/apps/desktop/electron/features/plugins/plan.md` | Marked only the deterministic source-build closeout item complete and left uninstall-symmetry/bridge-policy follow-ups untouched |
+| `docs/deslopify/{index,outstanding}.md` | Reduced the active final-closeout queue from three items to two after clearing deterministic plugin source-build prep |
 | `apps/desktop/electron/features/apps/state/manager.ts` | Hardened app-state watch bootstrap so concurrent watch/unwatch cancels cleanly, failed setup retries correctly, and non-`EEXIST` bootstrap errors no longer leave broken watcher entries behind (305 → 324 lines) |
 | `apps/desktop/electron/__tests__/features/apps/app-state-manager.test.ts` | New — covers cancelled concurrent bootstrap and retry-after-failed-watch behavior |
 | `apps/desktop/electron/features/apps/extensions/git-checkpoints.ts` | Replaced loose checkpoint-summary parsing with record guards plus safer bash/agent-end helpers (295 → 315 lines) |
