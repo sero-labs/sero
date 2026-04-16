@@ -62,6 +62,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/vcs/vcs-manager.test.ts` | New — regression coverage for filesystem checkpoint creation + log parsing source semantics |
 | `docs/deslopify/apps/desktop/electron/features/vcs/{facts,plan}.md` | Recorded the filesystem checkpoint-source Medium closeout and refreshed the VCS post-fix snapshot |
 | `docs/deslopify/index.md` | Updated VCS status after clearing the checkpoint-source Medium item |
+| `packages/common/src/{vcs.ts,index.ts}` | New canonical shared VCS contract module and root exports so renderer/main process consume one neutral type owner |
+| `apps/desktop/src/types/vcs.ts` | Reduced desktop VCS types to a compatibility barrel that re-exports canonical `@sero/common` contracts |
+| `apps/desktop/electron/features/vcs/{core/{pr-ops,vcs-ops}.ts,support/{parsers,types}.ts}` | Repointed Electron VCS runtime imports to the shared `@sero/common` contracts instead of renderer-owned type paths |
+| `apps/desktop/{electron/{preload/api/workbench.ts,ipc/integrations/vcs.ts},src/{stores/vcs.ts,types/electron-workspace.d.ts,components/apps/explorer/{editor/DiffTab.tsx,vcs/*},components/layout/{shell/StatusBar.tsx,titlebar/git/GitPullRequestComposer.tsx}}}` | Rebased preload/IPC and renderer VCS consumers onto the canonical shared contracts without runtime behavior changes |
 
 ---
 
