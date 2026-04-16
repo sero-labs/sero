@@ -5,10 +5,10 @@ _Last updated: 2026-04-16_
 A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
 
-Final closeout mode (2026-04-16): the active deslopify endgame is now tracked
-in [`docs/deslopify/outstanding.md`](./outstanding.md). Only one closeout
-item remains active; all other lingering Medium/Low follow-ups should be
-considered backlog unless they are naturally touched by that final work.
+Final closeout mode (2026-04-16): the active deslopify wave is now complete.
+[`docs/deslopify/outstanding.md`](./outstanding.md) records **zero active
+closeout items**; any remaining non-Healthy folder notes below should be read
+as backlog-only follow-ups, not active refactor-wave work.
 
 ## cross-cutting baselines/
 - [`desktop-packages-plugins/`](./desktop-packages-plugins/plan.md)
@@ -38,7 +38,7 @@ considered backlog unless they are naturally touched by that final work.
   - [`apps/desktop/electron/features/agent/`](./apps/desktop/electron/features/agent/plan.md)
     — *Healthy — Medium image-agent type hygiene plus Low legacy bridge/comment cleanup cleared 2026-04-16*
   - [`apps/desktop/electron/features/apps/`](./apps/desktop/electron/features/apps/plan.md)
-    — *Final closeout scope — both High items cleared 2026-04-16; only plugin metadata validation remains in the active deslopify closeout, while the other Medium/Low follow-ups are backlog-only*
+    — *Healthy — final plugin-metadata discovery closeout cleared 2026-04-16; remaining host/plugin boundary, extension-factory split, and listener-unsubscribe follow-ups are backlog-only*
   - [`apps/desktop/electron/features/auth/`](./apps/desktop/electron/features/auth/plan.md)
     — *Healthy — High, both Medium, and all tracked Low follow-ups (helper dedupe + profile-scoped guidance) cleared 2026-04-15*
   - [`apps/desktop/electron/features/collaboration/`](./apps/desktop/electron/features/collaboration/plan.md)

@@ -117,6 +117,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/platform/protocols/{ext-protocol.ts,builtin-resources.ts,builtin-package-detection.{js,d.ts}}`, `apps/desktop/scripts/build-electron.mjs`, `apps/desktop/electron/features/plugins/manager.ts` | Added extension-protocol unregister symmetry and unified builtin package detection across runtime + build tooling |
 | `apps/desktop/electron/platform/env/index.ts` | Refactored env bootstrap into explicit resolve/apply/load stages while preserving pre-SDK ordering guarantees |
 | `apps/desktop/electron/__tests__/platform/{builtin-package-detection,csp,env,ext-protocol}.test.ts` | New — targeted regression coverage for Group 1 platform boundary hardening |
+| `apps/desktop/electron/features/apps/discovery/index.ts` | Tightened `sero.plugin` manifest validation so malformed metadata is warned, `isPlugin` follows explicit declaration, and valid manifests keep their existing discovery behavior (320 → 430 lines) |
+| `apps/desktop/electron/__tests__/features/apps/app-discovery.test.ts` | Added malformed-manifest regressions that preserve valid plugin metadata behavior while covering invalid category and non-object `sero.plugin` cases |
+| `docs/deslopify/apps/desktop/electron/features/apps/plan.md` | Marked the final apps discovery closeout item complete and moved the remaining folder follow-ups to backlog-only status |
+| `docs/deslopify/{index,outstanding}.md` | Marked the deslopify closeout wave complete with zero active items and all remaining follow-ups explicitly backlog-only |
 
 ---
 

@@ -2,62 +2,34 @@
 
 _Last updated: 2026-04-16_
 
-This file is no longer a raw aggregation of every lingering deslopify note.
-It is the **final closeout triage** for finishing the current refactor process
-without dragging low-value cleanup on indefinitely.
+This file is no longer an active must-fix queue for the current deslopify
+wave. The final closeout item has been completed, so the refactor wave should
+now be considered **done**.
 
-Validation against the live codebase confirmed that several previously tracked
-items were already complete, and that the remaining work is mostly
-**Medium/Low backlog** rather than true release-blocking cleanup.
+## Closeout status
+
+### Active closeout items
+- **0**
+
+### Final item cleared in this pass
+- `apps/desktop/electron/features/apps/discovery/index.ts`
+  - Tightened `sero.plugin` metadata validation so malformed plugin metadata is
+    warned and not silently declassified.
+  - Preserved valid manifest behavior.
+  - Added malformed-manifest regressions in
+    `apps/desktop/electron/__tests__/features/apps/app-discovery.test.ts`.
+  - Landed in `7330d6ee` (`fix(apps): validate malformed plugin metadata in discovery`).
 
 ## Decision
 
-To finish the deslopify effort:
+The deslopify refactor wave is complete.
 
-- Keep only a **small must-fix closeout scope** active.
-- Mark completed/stale work as **closed**.
-- Move structural cleanup and low-priority polish to the **backlog**.
+From this point forward:
+- there are **no active closeout items**
+- no remaining Medium/Low cleanup should keep this wave open
+- all remaining work below is **backlog only**
 
-## Must-fix before declaring the refactor complete
-
-This is the only remaining item that should stay in the active queue.
-It is not "nice to have" cleanup; it still represents real runtime or
-behavior risk.
-
-### 1. Tighten plugin metadata validation in app discovery
-Source: `docs/deslopify/apps/desktop/electron/features/apps/plan.md`
-
-- **Priority:** Closeout
-- **Files:**
-  - `apps/desktop/electron/features/apps/discovery/index.ts`
-- **Issue:** Malformed `sero.plugin` metadata is still loosely validated and
-  can be silently misclassified.
-- **Why it stays active:** This is the last notable correctness gap in plugin
-  discovery behavior.
-
-## Closed now
-
-These items should be treated as complete, stale, or not worth keeping this
-multi-day refactor open.
-
-### Already completed in live code
-- Plugin discovery taxonomy drift (`sero-ai-plugin` vs `sero-agent-plugin`)
-- Plugin-manager malformed `settings.json` safety
-- Deterministic local/git source plugin build prep (`package-build.ts` now always reinstalls before source builds, even if `node_modules` already exists)
-- Uninstall symmetry for plugin discovery path registration (`2d15e329`)
-- All Group 1 hardening work already marked complete in individual plans
-- Web plugin host-bridge typing cleanup
-- Every item already marked executed in the individual `docs/deslopify/**/plan.md`
-  files
-
-### Close without further work
-These are real but too small to keep the deslopify closeout open:
-- `apps/desktop/electron/features/subagent/runtime/loader.ts`
-  - loader comment mismatch
-- `apps/desktop/electron/features/vcs/core/vcs-manager.ts`
-  - locale-dependent checkpoint description formatting
-
-## Move to backlog
+## Backlog only
 
 The following work remains valid, but it should be treated as normal backlog
 instead of active deslopify closeout.
@@ -102,27 +74,12 @@ instead of active deslopify closeout.
 
 ## Exit criteria
 
-The deslopify refactor process should be considered complete when the one
-closeout item above is finished:
+The previous exit criteria are now fully met:
 
-1. tighter plugin metadata validation and tests
-
-After those land:
-- mark the refactor process complete
-- stop treating the backlog above as part of this cleanup wave
-- track backlog items through normal planning instead of deslopify closeout
+1. tighter plugin metadata validation and tests ✅
 
 ## Summary
 
-### Active closeout items
-- **1**
-
-### Closed now
-- completed/stale items from the old aggregation
-- small non-blocking cleanup items that should not hold the refactor open
-
-### Backlog only
-- all remaining structural, ownership, and polish follow-ups
-
-This file is now the source of truth for ending the current deslopify wave
-cleanly and avoiding more duplicated effort.
+- **Refactor wave:** complete
+- **Active closeout items:** 0
+- **All remaining items:** backlog only

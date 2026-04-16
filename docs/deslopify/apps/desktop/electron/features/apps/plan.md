@@ -10,13 +10,13 @@ _Plan drafted: 2026-04-12_
 
 - **High** — ~~Type-safety escape hatches in extension paths — `apps/desktop/electron/features/apps/extensions/git-checkpoints.ts:19-20,26` uses `any` for message content parsing, and `apps/desktop/electron/features/apps/extensions/ui-context.ts:51,63` uses `undefined as never` plus `theme: any`. These bypass strict contracts on agent-extension boundaries.~~ ✅ 2026-04-16 (`446c1bc6`) — replaced the loose checkpoint parsing + theme stubs with typed guards/tests and a concrete Pi `Theme`; the unsupported `ui.custom()` no-op path still uses one documented `undefined!` generic seam because the SDK’s `custom<T>` contract cannot preserve Sero’s no-TUI behavior without either changing runtime semantics or rendering a real overlay host. Effort: **S**.
 
-- **Medium** — Host code is coupled to plugin-internal modules — `apps/desktop/electron/features/apps/extensions/skill-visibility.ts:2` imports admin-plugin shared helper, and `apps/desktop/electron/features/apps/git-app/manager.ts:4-6` imports git-plugin extension internals. This makes core host behavior depend on plugin package structure and fights AD-001 ownership boundaries. Effort: **M**.
+- **Medium** — Host code is coupled to plugin-internal modules — `apps/desktop/electron/features/apps/extensions/skill-visibility.ts:2` imports admin-plugin shared helper, and `apps/desktop/electron/features/apps/git-app/manager.ts:4-6` imports git-plugin extension internals. This makes core host behavior depend on plugin package structure and fights AD-001 ownership boundaries. **Backlog only as of 2026-04-16** — the skill-visibility half has already been neutralized upstream via `@sero/common`, and the remaining `git-app/manager.ts` decoupling is no longer part of the closeout wave. Effort: **M**.
 
-- **Medium** — Discovery contract drift around plugin metadata classification — `apps/desktop/electron/features/apps/discovery/index.ts:97-123` casts category strings instead of validating the union, and `discovery/index.ts:181` sets `isPlugin` from parsed meta truthiness rather than explicit `sero.plugin` presence. Malformed manifests can silently degrade plugin behavior/visibility. Effort: **S**.
+- **Medium** — ~~Discovery contract drift around plugin metadata classification — `apps/desktop/electron/features/apps/discovery/index.ts:97-123` casts category strings instead of validating the union, and `discovery/index.ts:181` sets `isPlugin` from parsed meta truthiness rather than explicit `sero.plugin` presence. Malformed manifests can silently degrade plugin behavior/visibility.~~ ✅ 2026-04-16 (`7330d6ee`) — discovery now validates `plugin.category` against canonical `PluginCategory` values, keeps `isPlugin` tied to explicit `sero.plugin` declaration, emits warnings for malformed metadata, and adds focused malformed-manifest regressions without changing valid manifest behavior. Effort: **S**.
 
-- **Medium** — `createSeroExtensionFactory` is an integration hotspot with mixed responsibilities — `apps/desktop/electron/features/apps/extensions/create-sero-extension.ts:52-241` combines prompt wiring, provider logging, notifications, workspace commands, git checkpoint features, and subagent tool registration. This is still under the LOC cap but already hard to reason about and extend safely. Effort: **M**.
+- **Medium** — `createSeroExtensionFactory` is an integration hotspot with mixed responsibilities — `apps/desktop/electron/features/apps/extensions/create-sero-extension.ts:52-241` combines prompt wiring, provider logging, notifications, workspace commands, git checkpoint features, and subagent tool registration. This is still under the LOC cap but already hard to reason about and extend safely. **Backlog only as of 2026-04-16** — explicitly excluded from the final closeout scope for this wave. Effort: **M**.
 
-- **Low** — File-change listener API has no unsubscribe path — `apps/desktop/electron/features/apps/state/manager.ts:45-47` only appends listeners, so repeated handler registration in tests/dev reload scenarios can accumulate callbacks. Effort: **S**.
+- **Low** — File-change listener API has no unsubscribe path — `apps/desktop/electron/features/apps/state/manager.ts:45-47` only appends listeners, so repeated handler registration in tests/dev reload scenarios can accumulate callbacks. **Backlog only as of 2026-04-16** — explicitly excluded from the final closeout scope for this wave. Effort: **S**.
 
 ## Proposed Refactoring
 1. **Make app-state watch registration deterministic and race-safe.**
@@ -54,13 +54,13 @@ _Plan drafted: 2026-04-12_
 - Watcher lifecycle changes touch kanban/git/settings reload paths; regression testing should cover rapid watch/unwatch and atomic write rename events.
 - Discovery classification tweaks may change plugin-manager visibility for malformed packages; include migration notes in release PR if behavior changes.
 
-## Next Steps
+## Remaining backlog only
 1. Extract the remaining host/plugin boundary in `git-app/manager.ts` onto a host-owned service; the skill-visibility half of the original coupling tracker is already neutralized upstream via `@sero/common`.
-2. Tighten discovery plugin metadata validation and add malformed-manifest tests.
-3. Split `createSeroExtensionFactory` into registrar modules before adding new extension hooks.
-4. Add an unsubscribe path for long-lived `onFileChange()` listeners if repeated test/dev registration becomes observable in practice.
-5. Continue Wave A: `deslopify apps/desktop/electron/features/plugins`.
+2. Split `createSeroExtensionFactory` into registrar modules before adding new extension hooks.
+3. Add an unsubscribe path for long-lived `onFileChange()` listeners if repeated test/dev registration becomes observable in practice.
+4. Continue normal backlog planning for adjacent folders such as `apps/desktop/electron/features/plugins/` when they are next prioritized.
 
 ## Execution log
 - 2026-04-16 — `a3609c57` — `refactor(apps): harden app state watcher bootstrap`
 - 2026-04-16 — `446c1bc6` — `refactor(apps): tighten extension helper typing`
+- 2026-04-16 — `7330d6ee` — `fix(apps): validate malformed plugin metadata in discovery`
