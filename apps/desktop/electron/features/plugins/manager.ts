@@ -14,7 +14,10 @@ import { promisify } from 'util';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { registerAppPath, discoverApps } from '../apps/discovery';
-import { registerExtAssets } from '@electron/platform/protocols/ext-protocol';
+import {
+  registerExtAssets,
+  unregisterExtAssets,
+} from '@electron/platform/protocols/ext-protocol';
 import { invalidatePackageProviderManifestCache } from '@electron/shared/providers/package-provider-manifests';
 import { clearAppManifestCache } from '@electron/ipc/agent/handlers/app-agent';
 import { clearPluginBridgePolicyCache } from '@electron/cli';
@@ -345,6 +348,7 @@ export async function uninstallPlugin(pluginId: string): Promise<void> {
   }
 
   await fs.rm(pluginPath, { recursive: true, force: true });
+  unregisterExtAssets(pluginId);
   removeFromSettings(pluginPath);
   clearAppManifestCache();
   clearPluginBridgePolicyCache();

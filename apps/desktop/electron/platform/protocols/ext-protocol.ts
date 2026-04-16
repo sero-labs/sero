@@ -25,11 +25,19 @@ export function registerExtAssets(manifest: SeroAppManifest): void {
   appRegistry.set(manifest.id, manifest);
 }
 
+export function unregisterExtAssets(appId: string): void {
+  appRegistry.delete(appId);
+}
+
+export function hasRegisteredExtAssets(appId: string): boolean {
+  return appRegistry.has(appId);
+}
+
 /** Register multiple discovered apps. */
 export function registerAllExtAssets(manifests: SeroAppManifest[]): void {
-  for (const m of manifests) {
-    if (m.uiEntry) {
-      appRegistry.set(m.id, m);
+  for (const manifest of manifests) {
+    if (manifest.uiEntry) {
+      appRegistry.set(manifest.id, manifest);
     }
   }
 }

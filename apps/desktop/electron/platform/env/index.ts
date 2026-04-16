@@ -12,7 +12,7 @@
  * Call this before any SDK imports that read process.env.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 
@@ -48,6 +48,15 @@ export const SERO_FIXED_ROOT = path.join(os.homedir(), '.sero-ui');
  */
 let profileStartupIssue: ProfileRegistryStartupIssue | null = null;
 
+interface ResolvedSeroEnv {
+  seroHome: string;
+  seroAgentDir: string;
+  authJsonPath: string;
+  activeProfileId: string | null;
+  envPath: string;
+  startupIssue: ProfileRegistryStartupIssue | null;
+}
+
 function loadRegistryForStartup(): ProfileRegistry {
   const result = readRegistryLoadSync();
   if (result.error) {
@@ -63,61 +72,17 @@ function loadRegistryForStartup(): ProfileRegistry {
   return result.registry;
 }
 
-function resolveProfileHome(): string {
-  // Testing override — uses a SEPARATE env var that Sero never sets itself
-  if (process.env.SERO_HOME_OVERRIDE) {
-    return process.env.SERO_HOME_OVERRIDE;
-  }
-
-  // Run migration for existing users (creates profiles.json if needed)
-  migrateExistingInstall();
-
-  // Read profile registry
-  const registry = loadRegistryForStartup();
-
-  if (registry.activeProfileId) {
-    const active = registry.profiles.find(
-      (p) => p.id === registry.activeProfileId,
-    );
-    if (active) {
-      return active.path;
-    }
-    // activeProfileId doesn't match any profile — stale/deleted entry.
-    // Fall through to the default-profile fallback below.
-    console.warn(
-      `[sero:profile] activeProfileId "${registry.activeProfileId}" not found in profiles — falling back to Default`,
-    );
-  }
-
-  // No valid active profile — try to fall back to the Default profile
-  // (the one at ~/.sero-ui, created by migration). If found, auto-repair
-  // the registry so subsequent launches don't hit this path again.
-  const fallback = findDefaultProfile(registry);
-  if (fallback) {
-    repairActiveProfile(registry, fallback.id);
-    return fallback.path;
-  }
-
-  // No profiles at all — fresh install.
-  // The renderer will show the ProfileSetup screen.
-  return SERO_FIXED_ROOT;
-}
-
-// ── Helpers ─────────────────────────────────────────────────
-
 /** Find the Default profile (at SERO_FIXED_ROOT), or the first profile. */
 function findDefaultProfile(
   registry: ReturnType<typeof readRegistrySync>,
 ): { id: string; path: string } | null {
   if (registry.profiles.length === 0) return null;
 
-  // Prefer the profile at the canonical default path
   const defaultProfile = registry.profiles.find(
-    (p) => p.path === SERO_FIXED_ROOT,
+    (profile) => profile.path === SERO_FIXED_ROOT,
   );
   if (defaultProfile) return defaultProfile;
 
-  // Otherwise fall back to the first profile in the list
   return registry.profiles[0];
 }
 
@@ -132,61 +97,91 @@ function repairActiveProfile(
     mkdirSync(SERO_FIXED_ROOT, { recursive: true });
     writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n', 'utf8');
     console.log(`[sero:profile] Repaired activeProfileId → ${id}`);
-  } catch (err) {
-    console.error('[sero:profile] Failed to repair profiles.json:', err);
+  } catch (error) {
+    console.error('[sero:profile] Failed to repair profiles.json:', error);
   }
 }
 
-/** Sero's root config directory for the active profile. */
-export const SERO_HOME = resolveProfileHome();
+function resolveProfileHomeFromRegistry(): string {
+  migrateExistingInstall();
 
-/** Sero's agent directory — replaces ~/.pi/agent for all SDK calls. */
-export const SERO_AGENT_DIR = path.join(SERO_HOME, 'agent');
+  const registry = loadRegistryForStartup();
+  if (registry.activeProfileId) {
+    const active = registry.profiles.find(
+      (profile) => profile.id === registry.activeProfileId,
+    );
+    if (active) {
+      return active.path;
+    }
+    console.warn(
+      `[sero:profile] activeProfileId "${registry.activeProfileId}" not found in profiles — falling back to Default`,
+    );
+  }
 
-/** Path to auth.json (API keys + OAuth tokens). Used for permission hardening. */
-export const AUTH_JSON_PATH = path.join(SERO_AGENT_DIR, 'auth.json');
+  const fallback = findDefaultProfile(registry);
+  if (fallback) {
+    repairActiveProfile(registry, fallback.id);
+    return fallback.path;
+  }
 
-// Re-read the registry ONCE (not per-constant) after resolveProfileHome()
-// has run any auto-repair. This avoids 3× synchronous file reads at startup.
-const _postResolveRegistry = process.env.SERO_HOME_OVERRIDE
-  ? { activeProfileId: null as string | null, profiles: [] as { id: string }[] }
-  : loadRegistryForStartup();
+  return SERO_FIXED_ROOT;
+}
 
-/** The active profile ID (null if no profile yet). */
-export const ACTIVE_PROFILE_ID: string | null = _postResolveRegistry.activeProfileId;
+function resolveSeroHome(): string {
+  if (process.env.SERO_HOME_OVERRIDE) {
+    return process.env.SERO_HOME_OVERRIDE;
+  }
+  return resolveProfileHomeFromRegistry();
+}
 
-/** Non-null when startup was forced into recovery mode for a broken profiles.json. */
-export const PROFILE_STARTUP_ISSUE = profileStartupIssue;
+function readPostResolveRegistry(seroHome: string): {
+  activeProfileId: string | null;
+  profiles: Array<{ id: string }>;
+} {
+  if (process.env.SERO_HOME_OVERRIDE || seroHome === process.env.SERO_HOME_OVERRIDE) {
+    return { activeProfileId: null, profiles: [] };
+  }
+  return loadRegistryForStartup();
+}
 
-const ENV_PATH = path.join(SERO_AGENT_DIR, '.env');
+function resolveStartupEnv(): ResolvedSeroEnv {
+  const seroHome = resolveSeroHome();
+  const seroAgentDir = path.join(seroHome, 'agent');
+  const envPath = path.join(seroAgentDir, '.env');
+  const postResolveRegistry = readPostResolveRegistry(seroHome);
 
-export function loadSeroEnv(): void {
+  return {
+    seroHome,
+    seroAgentDir,
+    authJsonPath: path.join(seroAgentDir, 'auth.json'),
+    activeProfileId: postResolveRegistry.activeProfileId,
+    envPath,
+    startupIssue: profileStartupIssue,
+  };
+}
+
+function applyProcessEnv(seroHome: string, seroAgentDir: string): void {
   // ── Redirect the Pi SDK to Sero's agent directory ──────────
   // This MUST happen before any SDK module is imported. The SDK reads
   // PI_CODING_AGENT_DIR at module-load time via getAgentDir().
-  //
-  // Always overwrite — after app.relaunch() the inherited env may point
-  // to the previous profile's agent directory.
-  process.env.PI_CODING_AGENT_DIR = SERO_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = seroAgentDir;
 
   // ── Expose SERO_HOME for extensions ────────────────────────
   // Global-scoped app extensions use this to resolve their state
   // path (~/.sero-ui/apps/<appId>/state.json) instead of cwd.
-  //
-  // Always overwrite — same relaunch inheritance concern.
-  process.env.SERO_HOME = SERO_HOME;
+  process.env.SERO_HOME = seroHome;
+}
 
-  // ── Load .env file ────────────────────────────────────────
+function loadProfileDotEnv(envPath: string): void {
   let content: string;
   try {
-    content = readFileSync(ENV_PATH, 'utf8');
+    content = readFileSync(envPath, 'utf8');
   } catch {
-    // File doesn't exist yet — that's fine
     return;
   }
 
-  for (const raw of content.split('\n')) {
-    const line = raw.trim();
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
 
     const eqIndex = line.indexOf('=');
@@ -195,7 +190,6 @@ export function loadSeroEnv(): void {
     const key = line.slice(0, eqIndex).trim();
     let value = line.slice(eqIndex + 1).trim();
 
-    // Strip matching quotes
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))
@@ -203,9 +197,30 @@ export function loadSeroEnv(): void {
       value = value.slice(1, -1);
     }
 
-    // Don't override existing env vars
     if (key && !(key in process.env)) {
       process.env[key] = value;
     }
   }
+}
+
+const resolvedEnv = resolveStartupEnv();
+
+/** Sero's root config directory for the active profile. */
+export const SERO_HOME = resolvedEnv.seroHome;
+
+/** Sero's agent directory — replaces ~/.pi/agent for all SDK calls. */
+export const SERO_AGENT_DIR = resolvedEnv.seroAgentDir;
+
+/** Path to auth.json (API keys + OAuth tokens). Used for permission hardening. */
+export const AUTH_JSON_PATH = resolvedEnv.authJsonPath;
+
+/** The active profile ID (null if no profile yet). */
+export const ACTIVE_PROFILE_ID: string | null = resolvedEnv.activeProfileId;
+
+/** Non-null when startup was forced into recovery mode for a broken profiles.json. */
+export const PROFILE_STARTUP_ISSUE = resolvedEnv.startupIssue;
+
+export function loadSeroEnv(): void {
+  applyProcessEnv(resolvedEnv.seroHome, resolvedEnv.seroAgentDir);
+  loadProfileDotEnv(resolvedEnv.envPath);
 }

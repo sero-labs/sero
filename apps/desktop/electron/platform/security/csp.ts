@@ -18,13 +18,18 @@
 
 import { session } from 'electron';
 
-const isDev = process.env.NODE_ENV === 'development';
+interface BuildContentSecurityPolicyOptions {
+  isDevelopment?: boolean;
+}
 
 /** Build the CSP directive string for the current environment. */
-function buildCSP(): string {
+export function buildContentSecurityPolicy(
+  options: BuildContentSecurityPolicyOptions = {},
+): string {
+  const isDevelopment = options.isDevelopment ?? process.env.NODE_ENV === 'development';
   const extensionSrc = ['sero-ext:'];
-  const devHttpSrc = isDev ? ['http://localhost:*'] : [];
-  const devConnectSrc = isDev ? ['http://localhost:*', 'ws://localhost:*'] : [];
+  const devHttpSrc = isDevelopment ? ['http://localhost:*'] : [];
+  const devConnectSrc = isDevelopment ? ['http://localhost:*', 'ws://localhost:*'] : [];
 
   // -- script-src --
   // Dev keeps 'unsafe-inline' for Vite's injected dev runtime.
@@ -35,7 +40,7 @@ function buildCSP(): string {
   // — it only allows WebAssembly compilation, not arbitrary JS eval().
   const scriptSrc = [
     "'self'",
-    ...(isDev ? ["'unsafe-inline'"] : []),
+    ...(isDevelopment ? ["'unsafe-inline'"] : []),
     "'wasm-unsafe-eval'",
     'blob:',
     'https://sdk.scdn.co',          // Spotify Web Playback SDK
@@ -100,8 +105,7 @@ function buildCSP(): string {
   const frameSrc = [
     "'self'",
     'blob:',
-    'http:',
-    'https:',
+    ...(isDevelopment ? ['http:', 'https:'] : []),
     ...extensionSrc,
   ];
 
@@ -126,7 +130,7 @@ function buildCSP(): string {
  * Call once after app.whenReady() and before creating windows.
  */
 export function setupContentSecurityPolicy(): void {
-  const csp = buildCSP();
+  const csp = buildContentSecurityPolicy();
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
