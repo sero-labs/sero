@@ -57,7 +57,7 @@ entry links to a `facts.md` and `plan.md` pair.
   - [`apps/desktop/electron/features/subagent/`](./apps/desktop/electron/features/subagent/plan.md)
     — *In progress — High + both Medium items cleared 2026-04-16; Low loader-comment cleanup pending*
   - [`apps/desktop/electron/features/vcs/`](./apps/desktop/electron/features/vcs/plan.md)
-    — *In progress — High item plus filesystem checkpoint-source/shared-contract/host-transport Medium fixes cleared 2026-04-16; modularization Medium cleanup and Low checkpoint-description follow-up remain*
+    — *In progress — High item plus all Medium follow-ups (filesystem checkpoint-source/shared-contract/host-transport/modularization) cleared 2026-04-16; Low checkpoint-description follow-up remains*
   - [`apps/desktop/electron/features/workspace/`](./apps/desktop/electron/features/workspace/plan.md)
     — *In progress — selected Medium reliability items cleared 2026-04-12; cap-pressure cleanup pending*
   - [`apps/desktop/electron/ipc/`](./apps/desktop/electron/ipc/plan.md)

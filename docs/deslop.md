@@ -70,6 +70,12 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/features/vcs/git-runner.test.ts` | New — focused regressions for host SSH probe cache TTL expiry and key-metadata invalidation behavior |
 | `docs/deslopify/apps/desktop/electron/features/vcs/{facts,plan}.md` | Recorded host-transport Medium closeout and refreshed remaining VCS modularization/timestamp follow-ups |
 | `docs/deslopify/index.md` | Updated VCS status to reflect host transport Medium closeout with modularization + Low follow-ups pending |
+| `apps/desktop/electron/features/vcs/core/vcs-ops.ts` | Reduced to a thinner VCS orchestration façade over extracted bookmark/remote/push helper modules (442 → 325 lines) |
+| `apps/desktop/electron/features/vcs/core/vcs-ops/{bookmark-ops.ts,remote-ops.ts,push-helpers.ts}` | New — focused helper modules for bookmark lifecycle, remote lifecycle, and push-branch resolution/branch-at-commit flows |
+| `apps/desktop/electron/features/vcs/core/pr-ops.ts` | Reduced to a thin PR orchestration façade over extracted state/preview/create helpers (438 → 109 lines) |
+| `apps/desktop/electron/features/vcs/core/pr-ops/{state.ts,preview.ts,create.ts}` | New — separated PR branch-state resolution, diff/preview shaping, and `gh pr create` execution/error formatting |
+| `docs/deslopify/apps/desktop/electron/features/vcs/{facts,plan}.md` | Recorded the VCS modularization Medium closeout, refreshed metrics, and narrowed remaining work to the Low checkpoint-description follow-up |
+| `docs/deslopify/index.md` | Updated VCS status to show all Medium follow-ups cleared with only the Low checkpoint-description item pending |
 
 ---
 

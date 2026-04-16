@@ -98,3 +98,19 @@ This feature is the Electron-side Git/VCS service layer for Sero. It initializes
 ### Still outstanding
 - `vcs-ops.ts` and `pr-ops.ts` remain near-cap and still need the planned modularization pass.
 - Checkpoint default descriptions still use locale-dependent timestamps (`toLocaleString()`).
+
+## Post-fix snapshot — 2026-04-16
+
+### Metrics after fixes
+- Total files: 15 (was 9)
+- Largest file: `apps/desktop/electron/features/vcs/core/vcs-ops.ts` (325 LOC, was 442)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 0 in this folder
+
+### What changed
+- `core/vcs-ops.ts` is now a thin façade that delegates bookmark/remote/push behavior to focused modules in `core/vcs-ops/{bookmark-ops,remote-ops,push-helpers}.ts`.
+- `core/pr-ops.ts` is now a thin façade that delegates branch-state resolution, preview/diff shaping, and `gh pr create` execution/error formatting to `core/pr-ops/{state,preview,create}.ts`.
+- Both former near-cap orchestration files are now well below cap pressure (`vcs-ops.ts` `442 → 325`, `pr-ops.ts` `438 → 109`) without changing public `VcsOps` / `VcsPullRequestOps` entrypoints.
+
+### Still outstanding
+- Checkpoint default descriptions still use locale-dependent timestamps (`toLocaleString()`).
