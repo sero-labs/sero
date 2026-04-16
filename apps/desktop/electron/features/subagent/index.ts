@@ -62,7 +62,6 @@ export class SubagentManager {
       toolStallTimeoutMs: settings?.toolStallTimeoutMs ?? 120_000,
       model: settings?.model ?? null,
       thinking: settings?.thinking ?? null,
-      blockedExtensions: settings?.blockedExtensions ?? [],
     };
     this.pool = new ConcurrencyPool(this.settings.maxTotal, this.settings.maxConcurrent);
     this.tracker = new SubagentTracker();
