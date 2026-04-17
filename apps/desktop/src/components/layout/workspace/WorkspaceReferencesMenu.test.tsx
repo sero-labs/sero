@@ -26,6 +26,17 @@ const workspace: WorkspaceInfo = {
   roots: [],
 };
 
+async function openMountMenu() {
+  const trigger = document.querySelector('[title="Manage container mounts"]');
+  if (!(trigger instanceof HTMLElement)) {
+    throw new Error('Expected mount menu trigger');
+  }
+
+  await act(async () => {
+    trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
 describe('WorkspaceReferencesMenu', () => {
   let containerEl: HTMLDivElement;
   let root: Root | null = null;
@@ -60,21 +71,26 @@ describe('WorkspaceReferencesMenu', () => {
     useContainerStore.setState(initialContainerState, true);
   });
 
-  it('shows an explicit host-mode note for container-only mounts', async () => {
+  it('shows an explicit fallback note when a container workspace is temporarily on the host', async () => {
     await act(async () => {
       root?.render(<WorkspaceReferencesMenu workspace={workspace} />);
     });
 
-    const trigger = document.querySelector('[title="Manage container mounts"]');
-    if (!(trigger instanceof HTMLElement)) {
-      throw new Error('Expected mount menu trigger');
-    }
-
-    await act(async () => {
-      trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
+    await openMountMenu();
 
     expect(document.body.textContent).toContain('Container mounts are a container-only feature.');
     expect(document.body.textContent).toContain('will not take effect until its container is healthy again');
+  });
+
+  it('shows a different note when the workspace is explicitly configured for host mode', async () => {
+    await act(async () => {
+      root?.render(<WorkspaceReferencesMenu workspace={{ ...workspace, container: false }} />);
+    });
+
+    await openMountMenu();
+
+    expect(document.body.textContent).toContain('Container mounts are a container-only feature.');
+    expect(document.body.textContent).toContain('explicitly set to host mode');
+    expect(document.body.textContent).toContain('until container mode is re-enabled');
   });
 });

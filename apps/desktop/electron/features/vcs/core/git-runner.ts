@@ -162,7 +162,6 @@ export class GitRunner {
     const runtime = await resolveWorkspaceRuntimeWithManagers(workspaceId, {
       getPath: this.workspaceManager.getPath.bind(this.workspaceManager),
       isContainerEnabled: this.workspaceManager.isContainerEnabled.bind(this.workspaceManager),
-      hasContainer: this.containerManager.hasContainer.bind(this.containerManager),
       inspect: this.containerManager.inspect.bind(this.containerManager),
     });
     const useContainer = runtime.actualRuntime === 'container';

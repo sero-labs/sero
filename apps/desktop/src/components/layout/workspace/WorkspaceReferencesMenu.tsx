@@ -45,7 +45,11 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
     }
   };
 
-  const totalMounts = workspace.references.length + workspace.mounts.length;
+  const mountAvailabilityNotice = !workspace.container
+    ? 'Container mounts are a container-only feature. This workspace is explicitly set to host mode, so reference and mount changes will not take effect until container mode is re-enabled.'
+    : container.status !== 'running'
+      ? 'Container mounts are a container-only feature. This workspace is currently running on your Mac, so reference and mount changes will not take effect until its container is healthy again.'
+      : null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -68,9 +72,9 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
         onClick={(e) => e.stopPropagation()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {container.status !== 'running' ? (
+        {mountAvailabilityNotice ? (
           <div className="border-b border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] px-2 py-2 text-[11px] text-[var(--status-warning-text)]">
-            Container mounts are a container-only feature. This workspace is currently running on your Mac, so reference and mount changes will not take effect until its container is healthy again.
+            {mountAvailabilityNotice}
           </div>
         ) : null}
 

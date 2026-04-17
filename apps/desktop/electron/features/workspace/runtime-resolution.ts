@@ -29,7 +29,7 @@ export interface WorkspaceRuntimeResolution {
 }
 
 type RuntimeResolutionManagers = Pick<WorkspaceManager, 'getPath' | 'isContainerEnabled'>
-  & Pick<ContainerManager, 'hasContainer' | 'inspect'>;
+  & Pick<ContainerManager, 'inspect'>;
 
 function getContainerFallbackReason(workspaceId: string, detail?: string): string {
   const suffix = detail ? ` ${detail}` : '';
@@ -98,12 +98,8 @@ export function getRuntimeCapabilityEntry(
 
 async function getRunningContainerState(
   workspaceId: string,
-  manager: Pick<ContainerManager, 'hasContainer' | 'inspect'>,
+  manager: Pick<ContainerManager, 'inspect'>,
 ): Promise<ContainerState | null> {
-  if (!manager.hasContainer(workspaceId)) {
-    return null;
-  }
-
   try {
     const state = await manager.inspect(workspaceId);
     return state.state === 'running' ? state : null;
@@ -169,7 +165,6 @@ export async function resolveWorkspaceRuntime(
   return resolveWorkspaceRuntimeWithManagers(workspaceId, {
     getPath: workspaceManager.getPath.bind(workspaceManager),
     isContainerEnabled: workspaceManager.isContainerEnabled.bind(workspaceManager),
-    hasContainer: containerManager.hasContainer.bind(containerManager),
     inspect: containerManager.inspect.bind(containerManager),
   });
 }

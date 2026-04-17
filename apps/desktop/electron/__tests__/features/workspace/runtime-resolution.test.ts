@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
     isContainerEnabled: vi.fn(),
   },
   containerManager: {
-    hasContainer: vi.fn(),
     inspect: vi.fn(),
   },
 }));
@@ -26,7 +25,6 @@ describe('resolveWorkspaceRuntime', () => {
     vi.clearAllMocks();
     mocks.workspaceManager.getPath.mockReturnValue('/tmp/workspace');
     mocks.workspaceManager.isContainerEnabled.mockResolvedValue(true);
-    mocks.containerManager.hasContainer.mockReturnValue(false);
     mocks.containerManager.inspect.mockResolvedValue({ state: 'running' });
   });
 
@@ -46,8 +44,7 @@ describe('resolveWorkspaceRuntime', () => {
     expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerMounts')?.detail).toContain('explicitly set to host mode');
   });
 
-  it('returns container runtime when a running container is available', async () => {
-    mocks.containerManager.hasContainer.mockReturnValue(true);
+  it('returns container runtime when inspect succeeds even without cached container state', async () => {
     mocks.containerManager.inspect.mockResolvedValue({ state: 'running' });
 
     const resolved = await resolveWorkspaceRuntime('ws-1');
@@ -61,6 +58,8 @@ describe('resolveWorkspaceRuntime', () => {
   });
 
   it('returns host fallback details when container mode is enabled but unavailable', async () => {
+    mocks.containerManager.inspect.mockRejectedValue(new Error('not found'));
+
     const resolved = await resolveWorkspaceRuntime('ws-1');
 
     expect(resolved).toMatchObject({
@@ -75,7 +74,6 @@ describe('resolveWorkspaceRuntime', () => {
   });
 
   it('returns host fallback details when the container exists but is stopped', async () => {
-    mocks.containerManager.hasContainer.mockReturnValue(true);
     mocks.containerManager.inspect.mockResolvedValue({ state: 'stopped' });
 
     const resolved = await resolveWorkspaceRuntime('ws-1');
