@@ -113,7 +113,7 @@ describe('registerCollaborationHandlers', () => {
         messages: [],
         prompt: sessionPrompt,
       },
-      lastCompletedCheckpoint: null,
+      lastCompletedTurnUndo: null,
     });
 
     const { registerCollaborationHandlers } = await import('../../ipc/collaboration/collaboration');
@@ -138,7 +138,7 @@ describe('registerCollaborationHandlers', () => {
         messages: [],
         prompt: vi.fn().mockRejectedValue(injectionError),
       },
-      lastCompletedCheckpoint: null,
+      lastCompletedTurnUndo: null,
     });
 
     const { registerCollaborationHandlers } = await import('../../ipc/collaboration/collaboration');

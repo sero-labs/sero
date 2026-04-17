@@ -78,15 +78,15 @@ A phase is only complete when all of the following are true:
 
 ## Tasks
 
-- [ ] Introduce a dedicated renderer/main-process type for **chat turn undo refs** so chat no longer overloads generic checkpoint semantics.
-- [ ] Add dedicated session-scoped **composer prefill** state in the renderer store.
-- [ ] Teach `useChatPromptInput()` / `ChatPromptArea` to accept an external draft, populate the textarea, and focus it when applied.
-- [ ] Add IPC/event plumbing for main-process-driven composer prefill.
-- [ ] Split the current mixed-responsibility checkpoint module into clearer responsibilities:
-  - [ ] manual VCS checkpoint commands / restore / diff
-  - [ ] future auto turn-undo capture logic
-- [ ] Preserve current end-user checkpoint behavior during this phase; this is infrastructure only.
-- [ ] Keep touched files under the LOC cap by splitting instead of expanding existing near-cap files.
+- [x] Introduce a dedicated renderer/main-process type for **chat turn undo refs** so chat no longer overloads generic checkpoint semantics.
+- [x] Add dedicated session-scoped **composer prefill** state in the renderer store.
+- [x] Teach `useChatPromptInput()` / `ChatPromptArea` to accept an external draft, populate the textarea, and focus it when applied.
+- [x] Add IPC/event plumbing for main-process-driven composer prefill.
+- [x] Split the current mixed-responsibility checkpoint module into clearer responsibilities:
+  - [x] manual VCS checkpoint commands / restore / diff
+  - [x] future auto turn-undo capture logic
+- [x] Preserve current end-user checkpoint behavior during this phase; this is infrastructure only.
+- [x] Keep touched files under the LOC cap by splitting instead of expanding existing near-cap files.
 
 ## Likely files
 
@@ -100,15 +100,15 @@ A phase is only complete when all of the following are true:
 
 ## Tests
 
-- [ ] Add/update unit tests for external composer prefill lifecycle.
-- [ ] Add/update store tests for setting/clearing session-scoped composer drafts.
-- [ ] Add regression coverage proving manual `/checkpoint`, `/checkpoints`, `/restore`, and `/diffcp` behavior is unchanged.
+- [x] Add/update unit tests for external composer prefill lifecycle.
+- [x] Add/update store tests for setting/clearing session-scoped composer drafts.
+- [x] Add regression coverage proving manual `/checkpoint`, `/checkpoints`, `/restore`, and `/diffcp` behavior is unchanged.
 
 ## Validation
 
-- [ ] Run focused desktop unit tests for touched files.
-- [ ] Run `pnpm typecheck`.
-- [ ] Commit.
+- [x] Run focused desktop unit tests for touched files.
+- [x] Run `pnpm typecheck`.
+- [x] Commit.
 
 **Suggested commit:** `refactor(desktop): add turn-undo plumbing and composer prefill support`
 

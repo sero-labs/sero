@@ -12,7 +12,7 @@ import type {
   SessionUsageStats,
 } from '@/types/ipc';
 import {
-  buildCheckpointMapByTurn,
+  buildTurnUndoMapByTurn,
   buildCommandList,
   convertSessionMessages,
   nextId,
@@ -267,7 +267,7 @@ export function registerAgentHandlers(): void {
       if (branch.length === 0) {
         return convertSessionMessages(
           entry.session.messages,
-          buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+          buildTurnUndoMapByTurn(entry.session, entry.workspaceId),
         );
       }
 
@@ -280,11 +280,11 @@ export function registerAgentHandlers(): void {
       if (result.cancelled) {
         throw new Error('Clear was cancelled by an extension');
       }
-      entry.lastCompletedCheckpoint = null;
+      entry.lastCompletedTurnUndo = null;
 
       const chatMessages = convertSessionMessages(
         entry.session.messages,
-        buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+        buildTurnUndoMapByTurn(entry.session, entry.workspaceId),
       );
       sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
 

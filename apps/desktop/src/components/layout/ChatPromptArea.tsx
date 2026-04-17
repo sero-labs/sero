@@ -37,17 +37,22 @@ import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
 import { ContextEditorMenuItem, ThinkingBlocksToggle, MemoryBlocksToggle, CollaborationToggle } from './ChatPanelHelpers';
 import { useMessageQueue } from '@/hooks/useMessageQueue';
 import { useChatPromptInput } from '@/hooks/useChatPromptInput';
+import type { ChatComposerPrefill } from '@/types/ipc';
 
 interface ChatPromptAreaProps {
   sessionId: string | null;
   isStreaming: boolean;
   focusedWorkspaceId: string | null;
+  externalDraft?: ChatComposerPrefill | null;
+  onExternalDraftApplied?: (draft: ChatComposerPrefill) => void;
 }
 
 export const ChatPromptArea = memo(function ChatPromptArea({
   sessionId,
   isStreaming,
   focusedWorkspaceId,
+  externalDraft,
+  onExternalDraftApplied,
 }: ChatPromptAreaProps) {
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
   const sendCollaborationPrompt = useAgentStore((s) => s.sendCollaborationPrompt);
@@ -85,6 +90,8 @@ export const ChatPromptArea = memo(function ChatPromptArea({
     steerAgent,
     messageQueue,
     onLoginRequest,
+    externalDraft,
+    onExternalDraftApplied,
   });
 
   const handleTranscript = useCallback((text: string) => {

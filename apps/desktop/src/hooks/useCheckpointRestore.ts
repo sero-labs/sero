@@ -2,11 +2,11 @@ import { useState, useCallback } from 'react';
 
 import { useVcsStore } from '@/stores/vcs';
 import { summarizeDiffFiles, type RestorePreviewFileChange } from '@/components/layout/CheckpointRestoreDialog';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
+import type { ChatTurnUndoRef } from '@/types/ipc';
 
 interface CheckpointRestoreState {
   dialogOpen: boolean;
-  target: ChatCheckpointRef | null;
+  target: ChatTurnUndoRef | null;
   previewFiles: RestorePreviewFileChange[];
   previewLoading: boolean;
   previewError: string | null;
@@ -14,7 +14,7 @@ interface CheckpointRestoreState {
 }
 
 interface CheckpointRestoreActions {
-  requestRestore: (checkpoint: ChatCheckpointRef) => void;
+  requestRestore: (checkpoint: ChatTurnUndoRef) => void;
   confirmRestore: () => void;
   setDialogOpen: (open: boolean) => void;
 }
@@ -38,7 +38,7 @@ export function useCheckpointRestore(
   const fetchCheckpointDiff = useVcsStore((s) => s.fetchDiff);
 
   const [dialogOpen, setDialogOpenRaw] = useState(false);
-  const [target, setTarget] = useState<ChatCheckpointRef | null>(null);
+  const [target, setTarget] = useState<ChatTurnUndoRef | null>(null);
   const [previewFiles, setPreviewFiles] = useState<RestorePreviewFileChange[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export function useCheckpointRestore(
   );
 
   const requestRestore = useCallback(
-    (checkpoint: ChatCheckpointRef) => {
+    (checkpoint: ChatTurnUndoRef) => {
       if (!workspaceId) return;
 
       setTarget(checkpoint);

@@ -12,12 +12,12 @@ import type {
   AgentStreamEvent,
   ToolResultImage,
 } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
+import type { ChatTurnUndoRef } from '@/types/ipc';
 
 import {
   nextId,
   formatCustomMessage,
-  buildCheckpointMapByTurn,
+  buildTurnUndoMapByTurn,
 } from './agent-helpers';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
@@ -27,7 +27,7 @@ export interface SubscriptionPoolEntry {
   session: AgentSession;
   workspaceId: string;
   currentAssistantId: string | null;
-  lastCompletedCheckpoint: ChatCheckpointRef | null;
+  lastCompletedTurnUndo: ChatTurnUndoRef | null;
 }
 
 /**
@@ -65,12 +65,12 @@ export function subscribeToSession(
         noteCliTurnEnd(sessionId);
         sendEvent({ type: 'agent_end', sessionId });
         {
-          const checkpoints = buildCheckpointMapByTurn(entry.session, entry.workspaceId);
+          const turnUndoRefs = buildTurnUndoMapByTurn(entry.session, entry.workspaceId);
           const userCount = entry.session.messages.filter((m) => m.role === 'user').length;
           const lastTurnIdx = userCount - 1;
-          const checkpoint = checkpoints.get(lastTurnIdx);
-          if (checkpoint) {
-            entry.lastCompletedCheckpoint = checkpoint;
+          const turnUndo = turnUndoRefs.get(lastTurnIdx);
+          if (turnUndo) {
+            entry.lastCompletedTurnUndo = turnUndo;
           }
         }
         break;

@@ -5,10 +5,10 @@
  * Extracted to keep ChatPanel under 500 LOC.
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFocusedCommands } from '@/stores/agent-selectors';
 import { useWorkspaceFiles, fuzzyMatchFiles } from '@/hooks/useWorkspaceFiles';
-import type { SeroSlashCommandInfo, ChatAttachment } from '@/types/ipc';
+import type { SeroSlashCommandInfo, ChatAttachment, ChatComposerPrefill } from '@/types/ipc';
 import type { PromptInputMessage } from '@sero-ai/ui/components/ai-elements/prompt-input';
 
 /** Built-in commands handled client-side (not sent to the agent). */
@@ -39,6 +39,8 @@ interface UseChatPromptInputOptions {
   steerAgent: (sessionId: string, text: string) => void;
   messageQueue: { enqueue: (text: string, attachments?: ChatAttachment[]) => void };
   onLoginRequest: (mode: BuiltinCommandMode) => void;
+  externalDraft?: ChatComposerPrefill | null;
+  onExternalDraftApplied?: (draft: ChatComposerPrefill) => void;
 }
 
 export function useChatPromptInput({
@@ -51,12 +53,35 @@ export function useChatPromptInput({
   steerAgent,
   messageQueue,
   onLoginRequest,
+  externalDraft,
+  onExternalDraftApplied,
 }: UseChatPromptInputOptions) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modifierRef = useRef(false);
+  const lastAppliedDraftIdRef = useRef<string | null>(null);
   const commands = useFocusedCommands();
   const { files: workspaceFiles } = useWorkspaceFiles(focusedWorkspaceId);
+
+  useEffect(() => {
+    lastAppliedDraftIdRef.current = null;
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!externalDraft) return;
+    if (lastAppliedDraftIdRef.current === externalDraft.requestId) return;
+
+    lastAppliedDraftIdRef.current = externalDraft.requestId;
+    setInput(externalDraft.text);
+    onExternalDraftApplied?.(externalDraft);
+    requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.focus();
+      const end = externalDraft.text.length;
+      textarea.setSelectionRange(end, end);
+    });
+  }, [externalDraft, onExternalDraftApplied]);
 
   // ── Slash command menu ──────────────────────────────────────
   const allCommands = useMemo(

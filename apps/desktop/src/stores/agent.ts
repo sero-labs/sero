@@ -39,6 +39,7 @@ const pendingSessionOpens = new Map<string, Promise<void>>();
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: {},
+  composerPrefills: {},
   focusedSessionId: null,
   showThinkingBlocks: false,
   showMemoryBlocks: false,
@@ -118,8 +119,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         clearAgentSessionBuffers(sessionId);
         set((s) => {
           const { [sessionId]: _, ...rest } = s.agents;
+          const { [sessionId]: _prefill, ...restPrefills } = s.composerPrefills;
           return {
             agents: rest,
+            composerPrefills: restPrefills,
             focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
             // Note: error is stored per-agent, but since we're removing it, we just log.
             collaborations: removeCollaborationSession(s.collaborations, sessionId),
@@ -149,8 +152,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     clearAgentSessionBuffers(sessionId);
     set((s) => {
       const { [sessionId]: _, ...rest } = s.agents;
+      const { [sessionId]: _prefill, ...restPrefills } = s.composerPrefills;
       return {
         agents: rest,
+        composerPrefills: restPrefills,
         focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
         collaborations: removeCollaborationSession(s.collaborations, sessionId),
       };
@@ -284,6 +289,23 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   toggleThinkingBlocks: () => set((s) => ({ showThinkingBlocks: !s.showThinkingBlocks })),
 
   toggleMemoryBlocks: () => set((s) => ({ showMemoryBlocks: !s.showMemoryBlocks })),
+
+  setComposerPrefill: (sessionId, prefill) =>
+    set((s) => ({
+      composerPrefills: {
+        ...s.composerPrefills,
+        [sessionId]: prefill,
+      },
+    })),
+
+  clearComposerPrefill: (sessionId, requestId) =>
+    set((s) => {
+      const current = s.composerPrefills[sessionId];
+      if (!current) return s;
+      if (requestId && current.requestId !== requestId) return s;
+      const { [sessionId]: _removed, ...restPrefills } = s.composerPrefills;
+      return { composerPrefills: restPrefills };
+    }),
 
   toggleCollaborationMode: () =>
     set((s) => {

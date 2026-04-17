@@ -106,14 +106,14 @@ function emitMainSessionUserMessage(
     },
   });
 
-  if (entry.lastCompletedCheckpoint) {
+  if (entry.lastCompletedTurnUndo) {
     emitAgentEvent({
-      type: 'user_checkpoint',
+      type: 'user_turn_undo',
       sessionId,
       userMessageId,
-      checkpoint: entry.lastCompletedCheckpoint,
+      turnUndo: entry.lastCompletedTurnUndo,
     });
-    entry.lastCompletedCheckpoint = null;
+    entry.lastCompletedTurnUndo = null;
   }
 }
 

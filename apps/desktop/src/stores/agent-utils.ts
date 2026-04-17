@@ -186,7 +186,12 @@ export function handleAgentStreamEvent(
   const sid = event.sessionId;
 
   // Ignore events for sessions we don't track (already closed).
-  if (!agents[sid] && event.type !== 'agent_start' && event.type !== 'message_start') {
+  if (
+    !agents[sid] &&
+    event.type !== 'agent_start' &&
+    event.type !== 'message_start' &&
+    event.type !== 'composer_prefill'
+  ) {
     if (event.type === 'agent_end') {
       clearAgentSessionBuffers(sid);
     }
@@ -287,8 +292,8 @@ export function handleAgentStreamEvent(
       }));
       break;
 
-    case 'user_checkpoint': {
-      const { checkpoint, userMessageId } = event;
+    case 'user_turn_undo': {
+      const { turnUndo, userMessageId } = event;
       set((state) => ({
         agents: {
           ...state.agents,
@@ -296,7 +301,7 @@ export function handleAgentStreamEvent(
             ...state.agents[sid],
             messages: state.agents[sid].messages.map((message) =>
               message.type === 'user' && message.id === userMessageId
-                ? ({ ...message, checkpoint } as ChatMessage)
+                ? ({ ...message, turnUndo } as ChatMessage)
                 : message,
             ),
           },
@@ -304,6 +309,15 @@ export function handleAgentStreamEvent(
       }));
       break;
     }
+
+    case 'composer_prefill':
+      set((state) => ({
+        composerPrefills: {
+          ...state.composerPrefills,
+          [sid]: event.prefill,
+        },
+      }));
+      break;
 
     case 'tool_start':
       set((state) => ({

@@ -21,6 +21,65 @@ vi.mock('@/stores/sessions', () => ({
 }));
 
 describe('handleAgentStreamEvent', () => {
+  it('stores main-process composer prefills even before chat messages change', () => {
+    let state: AgentState = {
+      agents: {},
+      composerPrefills: {},
+      focusedSessionId: null,
+      showThinkingBlocks: true,
+      showMemoryBlocks: true,
+      collaborations: {},
+      openSession: vi.fn(),
+      closeSession: vi.fn(),
+      sendPrompt: vi.fn(),
+      steerAgent: vi.fn(),
+      abort: vi.fn(),
+      focusSession: vi.fn(),
+      clearFocus: vi.fn(),
+      reloadResources: vi.fn(),
+      setModel: vi.fn(),
+      setThinkingLevel: vi.fn(),
+      fetchModelState: vi.fn(),
+      toggleThinkingBlocks: vi.fn(),
+      toggleMemoryBlocks: vi.fn(),
+      setComposerPrefill: vi.fn(),
+      clearComposerPrefill: vi.fn(),
+      toggleCollaborationMode: vi.fn(),
+      setCollaborationStrategy: vi.fn(),
+      setDebateConfig: vi.fn(),
+      sendCollaborationPrompt: vi.fn(),
+      hydrateCollaborationState: vi.fn(),
+      initEventListener: vi.fn(),
+      initCollaborationListener: vi.fn(),
+    };
+
+    const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
+      state = { ...state, ...updater(state) };
+    };
+    const get = () => state;
+
+    handleAgentStreamEvent(
+      {
+        type: 'composer_prefill',
+        sessionId: 'session-1',
+        prefill: {
+          requestId: 'prefill-1',
+          text: 'Try again with more detail',
+          source: 'turn-undo',
+        },
+      },
+      set,
+      get,
+      vi.fn(),
+    );
+
+    expect(state.composerPrefills['session-1']).toEqual({
+      requestId: 'prefill-1',
+      text: 'Try again with more detail',
+      source: 'turn-undo',
+    });
+  });
+
   it('appends a visible assistant message for runtime notices', () => {
     let state: AgentState = {
       agents: {
@@ -35,6 +94,7 @@ describe('handleAgentStreamEvent', () => {
           modelState: null,
         },
       },
+      composerPrefills: {},
       focusedSessionId: 'session-1',
       showThinkingBlocks: true,
       showMemoryBlocks: true,
@@ -52,6 +112,8 @@ describe('handleAgentStreamEvent', () => {
       fetchModelState: vi.fn(),
       toggleThinkingBlocks: vi.fn(),
       toggleMemoryBlocks: vi.fn(),
+      setComposerPrefill: vi.fn(),
+      clearComposerPrefill: vi.fn(),
       toggleCollaborationMode: vi.fn(),
       setCollaborationStrategy: vi.fn(),
       setDebateConfig: vi.fn(),

@@ -1,5 +1,6 @@
 import type {
   ChatAttachment,
+  ChatComposerPrefill,
   ChatMessage,
   SessionModelState,
   SeroSlashCommandInfo,
@@ -28,6 +29,8 @@ export interface AgentInstance {
 export interface AgentState {
   /** All active agent instances, keyed by session ID. */
   agents: Record<string, AgentInstance>;
+  /** Session-scoped composer drafts pushed from the main process. */
+  composerPrefills: Record<string, ChatComposerPrefill | undefined>;
   /** Which session is currently shown in the ChatPanel. */
   focusedSessionId: string | null;
   /** Whether to display thinking/reasoning blocks in the chat. */
@@ -62,6 +65,10 @@ export interface AgentState {
   toggleThinkingBlocks: () => void;
   /** Toggle visibility of memory context blocks. */
   toggleMemoryBlocks: () => void;
+  /** Queue a session-scoped composer prefill. */
+  setComposerPrefill: (sessionId: string, prefill: ChatComposerPrefill) => void;
+  /** Clear a session-scoped composer prefill once the prompt area consumes it. */
+  clearComposerPrefill: (sessionId: string, requestId?: string) => void;
   /** Toggle collaboration mode on/off for the focused session. */
   toggleCollaborationMode: () => void;
   /** Set the collaboration strategy for the focused session. */

@@ -3,7 +3,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SeroSlashCommandInfo } from '@/types/ipc';
+import { useState } from 'react';
+import type { ChatComposerPrefill, SeroSlashCommandInfo } from '@/types/ipc';
 
 vi.mock('@/stores/agent-selectors', () => ({
   useFocusedCommands: () => [],
@@ -52,11 +53,14 @@ describe('useChatPromptInput', () => {
   const steerAgent = vi.fn();
   const enqueue = vi.fn();
   const onLoginRequest = vi.fn();
+  const onExternalDraftApplied = vi.fn();
 
   function Harness() {
+    const [externalDraft, setExternalDraft] = useState<ChatComposerPrefill | null>(null);
     const {
       input,
       setInput,
+      textareaRef,
       handleSlashSelect,
       handleSubmit,
     } = useChatPromptInput({
@@ -69,25 +73,65 @@ describe('useChatPromptInput', () => {
       steerAgent,
       messageQueue: { enqueue },
       onLoginRequest,
+      externalDraft,
+      onExternalDraftApplied,
     });
 
     return (
       <div data-input={input}>
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+        />
         <button onClick={() => handleSlashSelect(BUILTIN_LOGIN_COMMAND)}>Slash login</button>
         <button onClick={() => setInput('/logout ')}>Set logout input</button>
         <button onClick={() => handleSubmit({ text: input, files: [] })}>Submit</button>
+        <button
+          onClick={() => setExternalDraft({
+            requestId: 'prefill-1',
+            text: 'Retry this request',
+            source: 'turn-undo',
+          })}
+        >
+          Apply draft
+        </button>
+        <button
+          onClick={() => setExternalDraft({
+            requestId: 'prefill-1',
+            text: 'Retry this request',
+            source: 'turn-undo',
+          })}
+        >
+          Reapply same request
+        </button>
+        <button
+          onClick={() => setExternalDraft({
+            requestId: 'prefill-2',
+            text: 'Retry this request',
+            source: 'turn-undo',
+          })}
+        >
+          Apply same text new request
+        </button>
+        <button onClick={() => setInput('edited locally')}>Manual edit</button>
       </div>
     );
   }
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
   });
 
   afterEach(async () => {
+    vi.unstubAllGlobals();
     if (root) {
       await act(async () => {
         root?.unmount();
@@ -134,5 +178,51 @@ describe('useChatPromptInput', () => {
     expect(sendCollaborationPrompt).not.toHaveBeenCalled();
     expect(steerAgent).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('applies external drafts once per request id and focuses the textarea', async () => {
+    await act(async () => {
+      root?.render(<Harness />);
+    });
+
+    const textarea = container.querySelector('textarea');
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error('Expected textarea');
+    }
+
+    await act(async () => {
+      findButton('Apply draft').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(readInput(container)).toBe('Retry this request');
+    expect(document.activeElement).toBe(textarea);
+    expect(onExternalDraftApplied).toHaveBeenCalledTimes(1);
+    expect(onExternalDraftApplied).toHaveBeenLastCalledWith({
+      requestId: 'prefill-1',
+      text: 'Retry this request',
+      source: 'turn-undo',
+    });
+
+    await act(async () => {
+      findButton('Manual edit').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(readInput(container)).toBe('edited locally');
+
+    await act(async () => {
+      findButton('Reapply same request').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(readInput(container)).toBe('edited locally');
+    expect(onExternalDraftApplied).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      findButton('Apply same text new request').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(readInput(container)).toBe('Retry this request');
+    expect(onExternalDraftApplied).toHaveBeenCalledTimes(2);
+    expect(onExternalDraftApplied).toHaveBeenLastCalledWith({
+      requestId: 'prefill-2',
+      text: 'Retry this request',
+      source: 'turn-undo',
+    });
   });
 });

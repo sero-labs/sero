@@ -201,10 +201,9 @@ export interface SeroSlashCommandInfo {
   path?: string;
 }
 
-// ── Checkpoints ────────────────────────────────────────────────
+// ── Chat turn undo ─────────────────────────────────────────────
 
-import type { ChatCheckpointRef } from './checkpoints';
-export type { ChatCheckpointRef } from './checkpoints';
+export type { ChatComposerPrefill, ChatTurnUndoRef } from './turn-undo';
 
 // ── Agent (extracted to agent.ts) ──────────────────────────────
 

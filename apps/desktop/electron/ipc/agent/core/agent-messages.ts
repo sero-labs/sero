@@ -7,7 +7,7 @@ import type {
   ChatToolCallMessage,
   ToolResultImage,
 } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
+import type { ChatTurnUndoRef } from '@/types/ipc';
 import { resizeImageForApi } from '@electron/shared/media/image-resize';
 import { extractOriginalCollaborationQuery } from '@electron/ipc/collaboration/collaboration-message';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
@@ -56,7 +56,7 @@ export function formatCustomMessage(message: unknown): string | null {
  *
  * Returns `null` if no matching checkpoint entry exists.
  */
-export function findCheckpointEntryId(
+export function findLegacyTurnUndoEntryId(
   session: AgentSession,
   changeId: string,
 ): string | null {
@@ -72,7 +72,7 @@ export function findCheckpointEntryId(
   return null;
 }
 
-function asCheckpointRef(data: unknown): ChatCheckpointRef | null {
+function asTurnUndoRef(data: unknown): ChatTurnUndoRef | null {
   if (!data || typeof data !== 'object') return null;
 
   const value = data as Record<string, unknown>;
@@ -80,19 +80,19 @@ function asCheckpointRef(data: unknown): ChatCheckpointRef | null {
   if (!changeId) return null;
 
   return {
+    kind: 'checkpoint',
     changeId,
-    description: typeof value.description === 'string' ? value.description : '(no description)',
-    source: typeof value.source === 'string' ? value.source : 'turn',
+    label: typeof value.description === 'string' ? value.description : '(no description)',
     createdAt: typeof value.recordedAt === 'string' ? value.recordedAt : new Date().toISOString(),
   };
 }
 
 /** Build mapping: user turn index -> checkpoint metadata from session custom entries. */
-export function buildCheckpointMapByTurn(
+export function buildTurnUndoMapByTurn(
   session: AgentSession,
   workspaceId?: string,
-): Map<number, ChatCheckpointRef> {
-  const result = new Map<number, ChatCheckpointRef>();
+): Map<number, ChatTurnUndoRef> {
+  const result = new Map<number, ChatTurnUndoRef>();
   const branch = session.sessionManager.getBranch();
   let currentTurn = -1;
 
@@ -104,9 +104,13 @@ export function buildCheckpointMapByTurn(
 
     if (entry.type !== 'custom' || entry.customType !== CHECKPOINT_ENTRY) continue;
 
-    const checkpoint = asCheckpointRef(entry.data);
-    if (!checkpoint) continue;
-    if (checkpoint.source !== 'turn') continue;
+    const turnUndo = asTurnUndoRef(entry.data);
+    if (!turnUndo) continue;
+
+    if (typeof entry.data === 'object' && entry.data) {
+      const source = (entry.data as Record<string, unknown>).source;
+      if (typeof source === 'string' && source !== 'turn') continue;
+    }
 
     if (workspaceId && typeof entry.data === 'object' && entry.data) {
       const entryWorkspaceId = (entry.data as Record<string, unknown>).workspaceId;
@@ -115,7 +119,7 @@ export function buildCheckpointMapByTurn(
       }
     }
 
-    result.set(currentTurn, checkpoint);
+    result.set(currentTurn, turnUndo);
   }
 
   return result;
@@ -123,7 +127,7 @@ export function buildCheckpointMapByTurn(
 
 export function convertSessionMessages(
   messages: ReturnType<AgentSession['agent']['state']['messages']['slice']>,
-  checkpointsByTurn?: Map<number, ChatCheckpointRef>,
+  turnUndoByTurn?: Map<number, ChatTurnUndoRef>,
 ): ChatMessage[] {
   const result: ChatMessage[] = [];
   let userTurn = -1;
@@ -155,13 +159,13 @@ export function convertSessionMessages(
         }
       }
 
-      const checkpoint = checkpointsByTurn?.get(userTurn - 1);
+      const turnUndo = turnUndoByTurn?.get(userTurn - 1);
       result.push({
         type: 'user',
         id: nextId(),
         text,
         attachments,
-        checkpoint,
+        turnUndo,
       } as ChatMessage);
       continue;
     }

@@ -9,7 +9,7 @@ import type {
   UserMessage,
 } from '@mariozechner/pi-ai';
 import type { ChatAttachment, ChatMessage, ChatToolCallMessage, AgentStreamEvent, ToolResultImage } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
+import type { ChatTurnUndoRef } from '@/types/ipc';
 import { getCliRegistry } from '@electron/cli';
 import type { CliContentBlock } from '@electron/cli/core';
 import { createSeroCliTool, splitCommandLines } from '@electron/cli/core';
@@ -35,7 +35,7 @@ const ZERO_USAGE: Usage = {
 export interface PromptPoolEntry {
   session: AgentSession;
   workspaceId: string;
-  lastCompletedCheckpoint: ChatCheckpointRef | null;
+  lastCompletedTurnUndo: ChatTurnUndoRef | null;
 }
 
 interface HandlePromptInputArgs {
@@ -99,14 +99,14 @@ export async function handlePromptInput({
   const userMsg: ChatMessage = { type: 'user', id: userMessageId, text, attachments };
   sendEvent({ type: 'message_start', sessionId, message: userMsg });
 
-  if (entry.lastCompletedCheckpoint) {
+  if (entry.lastCompletedTurnUndo) {
     sendEvent({
-      type: 'user_checkpoint',
+      type: 'user_turn_undo',
       sessionId,
       userMessageId,
-      checkpoint: entry.lastCompletedCheckpoint,
+      turnUndo: entry.lastCompletedTurnUndo,
     });
-    entry.lastCompletedCheckpoint = null;
+    entry.lastCompletedTurnUndo = null;
   }
 
   if (isDirectSeroCliPrompt(text, attachments)) {

@@ -9,11 +9,11 @@ import type { AgentSession } from '@mariozechner/pi-coding-agent';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { ChatMessage, AgentStreamEvent } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
+import type { ChatTurnUndoRef } from '@/types/ipc';
 import {
   convertSessionMessages,
-  buildCheckpointMapByTurn,
-  findCheckpointEntryId,
+  buildTurnUndoMapByTurn,
+  findLegacyTurnUndoEntryId,
 } from './agent-helpers';
 import { vcsManager } from '@electron/shared/infra/shared-infra';
 
@@ -22,7 +22,7 @@ import { vcsManager } from '@electron/shared/infra/shared-infra';
 export interface AgentPoolCheckpointEntry {
   session: AgentSession;
   workspaceId: string;
-  lastCompletedCheckpoint: ChatCheckpointRef | null;
+  lastCompletedTurnUndo: ChatTurnUndoRef | null;
 }
 
 interface RegisterCheckpointHandlersOptions {
@@ -52,7 +52,7 @@ export function registerAgentCheckpointHandlers(
       //    mapping (user message N carries checkpoint from turn N-1),
       //    the checkpoint entry is the last entry of turn N-1. Branching
       //    to it keeps turns 0..N-1 visible and hides turn N onward.
-      const branchTargetId = findCheckpointEntryId(entry.session, changeId);
+      const branchTargetId = findLegacyTurnUndoEntryId(entry.session, changeId);
       if (branchTargetId) {
         entry.session.sessionManager.branch(branchTargetId);
         const ctx = entry.session.sessionManager.buildSessionContext();
@@ -62,12 +62,12 @@ export function registerAgentCheckpointHandlers(
       }
 
       // 3. Clear any stale checkpoint so it isn't attached to the next message
-      entry.lastCompletedCheckpoint = null;
+      entry.lastCompletedTurnUndo = null;
 
       // 4. Rebuild and send updated messages to the renderer
       const chatMessages = convertSessionMessages(
         entry.session.messages,
-        buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+        buildTurnUndoMapByTurn(entry.session, entry.workspaceId),
       );
       opts.sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
 
