@@ -227,23 +227,23 @@ A phase is only complete when all of the following are true:
 
 ## Tasks
 
-- [ ] Introduce a central **Git refresh invalidation coordinator** in the main process.
-- [ ] Emit refresh invalidations from Sero-controlled mutations:
-  - [ ] git plugin actions
-  - [ ] editor/workspace file saves
-  - [ ] manual checkpoint create/restore
-  - [ ] turn undo restore
-  - [ ] agent mutating turns
-- [ ] Replace the current polling fallback with a **non-polling** watch strategy for repo truth:
-  - [ ] workspace content watch
-  - [ ] `.git/HEAD`
-  - [ ] `.git/index`
-  - [ ] `.git/refs`
-  - [ ] `packed-refs` where relevant
-- [ ] Coalesce/debounce refreshes so many events become one refresh pass.
-- [ ] If live watch setup fails, surface a degraded/manual state in the UI rather than silently falling back to polling.
-- [ ] Remove `poll` sync mode if practical across shared types and UI.
-- [ ] Keep the Refresh button as an explicit escape hatch only.
+- [x] Introduce a central **Git refresh invalidation coordinator** in the main process.
+- [x] Emit refresh invalidations from Sero-controlled mutations:
+  - [x] git plugin actions
+  - [x] editor/workspace file saves
+  - [x] manual checkpoint create/restore
+  - [x] turn undo restore
+  - [x] agent mutating turns
+- [x] Replace the current polling fallback with a **non-polling** watch strategy for repo truth:
+  - [x] workspace content watch
+  - [x] `.git/HEAD`
+  - [x] `.git/index`
+  - [x] `.git/refs`
+  - [x] `packed-refs` where relevant
+- [x] Coalesce/debounce refreshes so many events become one refresh pass.
+- [x] If live watch setup fails, surface a degraded/manual state in the UI rather than silently falling back to polling.
+- [x] Remove `poll` sync mode if practical across shared types and UI.
+- [x] Keep the Refresh button as an explicit escape hatch only.
 
 ## Likely files
 
@@ -256,23 +256,23 @@ A phase is only complete when all of the following are true:
 
 ## Tests
 
-- [ ] Add manager tests for event coalescing / single-refresh behavior.
-- [ ] Add tests proving watcher setup failure does not fall back to polling.
-- [ ] Add tests proving Sero-originated mutations trigger automatic refresh.
-- [ ] Update Git header/UI tests for the new sync state labels and no-poll behavior.
+- [x] Add manager tests for event coalescing / single-refresh behavior.
+- [x] Add tests proving watcher setup failure does not fall back to polling.
+- [x] Add tests proving Sero-originated mutations trigger automatic refresh.
+- [x] Update Git header/UI tests for the new sync state labels and no-poll behavior.
 
 ## Manual smoke
 
-- [ ] Edit files in Sero and verify the Git UI updates automatically.
-- [ ] Undo a turn and verify the Git UI updates automatically.
-- [ ] Change the repo externally and verify the Git UI updates automatically.
-- [ ] Confirm Refresh is no longer required in the normal path.
+- [x] Edit files in Sero and verify the Git UI updates automatically.
+- [x] Undo a turn and verify the Git UI updates automatically.
+- [x] Change the repo externally and verify the Git UI updates automatically.
+- [x] Confirm Refresh is no longer required in the normal path.
 
 ## Validation
 
-- [ ] Run focused desktop + git-plugin unit tests.
-- [ ] Run `pnpm typecheck`.
-- [ ] Commit.
+- [x] Run focused desktop + git-plugin unit tests.
+- [x] Run `pnpm typecheck`.
+- [x] Commit.
 
 **Suggested commit:** `feat(git): make git app refresh event-driven without polling`
 

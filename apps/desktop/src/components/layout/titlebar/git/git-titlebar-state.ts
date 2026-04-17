@@ -1,4 +1,4 @@
-export type GitTitleBarSyncMode = 'manual' | 'watch' | 'poll';
+export type GitTitleBarSyncMode = 'manual' | 'watch';
 
 export interface GitTitleBarBranch {
   name: string;
@@ -55,7 +55,7 @@ export function normalizeGitTitleState(
     fileChanges: Array.isArray(value?.fileChanges) ? value.fileChanges as GitTitleBarFileChange[] : [],
     lastRefresh: typeof value?.lastRefresh === 'string' ? value.lastRefresh : '',
     loading: typeof value?.loading === 'boolean' ? value.loading : false,
-    syncMode: value?.syncMode === 'poll' || value?.syncMode === 'watch' ? value.syncMode : 'manual',
+    syncMode: value?.syncMode === 'watch' ? 'watch' : 'manual',
     error: typeof value?.error === 'string' ? value.error : undefined,
   };
 }

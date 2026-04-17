@@ -203,7 +203,7 @@ export function registerGitTurnUndoCapture(
         label: description,
       });
       preTurnSnapshotId = null;
-      void gitWorkspaceStateManager.refreshWorkspace(workspaceId);
+      gitWorkspaceStateManager.invalidateWorkspace(workspaceId, 'agent:mutating-turn');
     } catch (error) {
       console.warn(`[turn-undo] Failed to finalize turn undo for workspace=${workspaceId}:`, error);
       // Transparent-by-default: do not emit chat noise for automatic turn checkpoints.

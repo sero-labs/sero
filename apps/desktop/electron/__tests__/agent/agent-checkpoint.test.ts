@@ -8,6 +8,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   restoreCheckpoint: vi.fn(),
+  invalidateWorkspace: vi.fn(),
 }));
 
 vi.mock('@electron/shared/infra/shared-infra', () => ({
@@ -16,10 +17,17 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   },
 }));
 
+vi.mock('@electron/features/apps/git-app/manager', () => ({
+  gitWorkspaceStateManager: {
+    invalidateWorkspace: mocks.invalidateWorkspace,
+  },
+}));
+
 describe('undoToTurn', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.restoreCheckpoint.mockResolvedValue(undefined);
+    mocks.invalidateWorkspace.mockClear();
   });
 
   it('restores the snapshot, navigates to the target user entry, and prefills the composer', async () => {
@@ -57,6 +65,7 @@ describe('undoToTurn', () => {
     });
 
     expect(mocks.restoreCheckpoint).toHaveBeenCalledWith('ws-1', 'snap-1');
+    expect(mocks.invalidateWorkspace).toHaveBeenCalledWith('ws-1', 'turn-undo:restore', { delayMs: 0 });
     expect(navigateTree).toHaveBeenCalledWith('user-entry-1', { summarize: false });
     expect(messages).toEqual([]);
     expect(sendEvent).toHaveBeenNthCalledWith(1, {

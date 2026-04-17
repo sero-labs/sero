@@ -123,9 +123,8 @@ function ActionIcon({ type }: { type: string }) {
 function getSyncLabel(state: GitAppState): string {
   if (state.loading) return 'Syncing';
   if (state.error) return 'Issue';
-  if (state.syncMode === 'poll') return 'Polling';
   if (state.syncMode === 'watch') return 'Live';
-  return 'Updated';
+  return 'Manual';
 }
 
 function getSyncTone(state: GitAppState): { dot: string; text: string } {
@@ -135,15 +134,15 @@ function getSyncTone(state: GitAppState): { dot: string; text: string } {
       text: 'text-[var(--g-red)]',
     };
   }
-  if (state.syncMode === 'poll') {
+  if (state.syncMode === 'watch') {
     return {
-      dot: 'bg-[var(--g-yellow)]',
-      text: 'text-[var(--g-yellow)]',
+      dot: 'bg-[var(--g-green)]',
+      text: 'text-[var(--g-green)]',
     };
   }
   return {
-    dot: 'bg-[var(--g-green)]',
-    text: 'text-[var(--g-green)]',
+    dot: 'bg-[var(--g-yellow)]',
+    text: 'text-[var(--g-yellow)]',
   };
 }
 

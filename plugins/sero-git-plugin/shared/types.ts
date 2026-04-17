@@ -101,7 +101,7 @@ export type {
 
 // ── App state ───────────────────────────────────────────────
 
-export type GitSyncMode = 'manual' | 'watch' | 'poll';
+export type GitSyncMode = 'manual' | 'watch';
 
 export interface GitAppState {
   repoPath: string;
@@ -172,9 +172,9 @@ export function normalizeGitState(state: Partial<GitAppState> | null | undefined
     commitDiffs: Array.isArray(state.commitDiffs) ? state.commitDiffs : undefined,
     lastRefresh: typeof state.lastRefresh === 'string' ? state.lastRefresh : defaults.lastRefresh,
     loading: typeof state.loading === 'boolean' ? state.loading : defaults.loading,
-    syncMode: state.syncMode === 'watch' || state.syncMode === 'poll' || state.syncMode === 'manual'
-      ? state.syncMode
-      : defaults.syncMode,
+    syncMode: state.syncMode === 'watch'
+      ? 'watch'
+      : 'manual',
     error: typeof state.error === 'string' ? state.error : undefined,
   };
 }

@@ -69,7 +69,7 @@ export async function undoToTurn({
     `[turn-undo] Undo requested for session=${sessionId}, workspace=${entry.workspaceId}, snapshot=${turnUndo.snapshotId}, userEntry=${turnUndo.targetUserEntryId}`,
   );
   await vcsManager.restoreCheckpoint(entry.workspaceId, turnUndo.snapshotId);
-  void gitWorkspaceStateManager.refreshWorkspace(entry.workspaceId);
+  gitWorkspaceStateManager.invalidateWorkspace(entry.workspaceId, 'turn-undo:restore', { delayMs: 0 });
 
   const result = await entry.session.navigateTree(turnUndo.targetUserEntryId, {
     summarize: false,
@@ -110,7 +110,7 @@ async function restoreLegacyCheckpoint(
     `[checkpoint] Legacy restore requested for session=${sessionId}, workspace=${entry.workspaceId}, checkpoint=${changeId}`,
   );
   await vcsManager.restoreCheckpoint(entry.workspaceId, changeId);
-  void gitWorkspaceStateManager.refreshWorkspace(entry.workspaceId);
+  gitWorkspaceStateManager.invalidateWorkspace(entry.workspaceId, 'checkpoint:restore', { delayMs: 0 });
 
   const branchTargetId = findLegacyTurnUndoEntryId(entry.session, changeId);
   if (branchTargetId) {

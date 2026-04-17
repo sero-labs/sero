@@ -21,6 +21,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
+import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 import { shellQuote } from './shell-quote';
 import {
   PRIMARY_ROOT_PREFIX,
@@ -59,6 +60,10 @@ async function hostWriteFile(workspaceId: string, filePath: string, content: str
   const absPath = await resolveHostPath(workspaceManager, workspaceId, filePath);
   await fs.mkdir(path.dirname(absPath), { recursive: true });
   await fs.writeFile(absPath, content, 'utf8');
+}
+
+function invalidateGitWorkspace(workspaceId: string, reason: string): void {
+  gitWorkspaceStateManager.invalidateWorkspace(workspaceId, reason);
 }
 
 async function hostListFiles(
@@ -149,12 +154,15 @@ export function registerEditorHandlers(): void {
       if (await shouldUseContainerRuntime(workspaceId)) {
         try {
           const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
-          return await containerManager.writeFile(workspaceId, containerPath, content);
+          await containerManager.writeFile(workspaceId, containerPath, content);
+          invalidateGitWorkspace(workspaceId, 'editor:write-file');
+          return;
         } catch {
           // Container write failed — fall through to host write
         }
       }
-      return hostWriteFile(workspaceId, filePath, content);
+      await hostWriteFile(workspaceId, filePath, content);
+      invalidateGitWorkspace(workspaceId, 'editor:write-file');
     },
   );
 
@@ -270,6 +278,7 @@ export function registerEditorHandlers(): void {
             const cOld = await resolveContainerPath(workspaceManager, workspaceId, oldPath);
             const cNew = await resolveContainerPath(workspaceManager, workspaceId, newPath);
             const result = await containerManager.exec(workspaceId, `mv ${shellQuote(cOld)} ${shellQuote(cNew)}`);
+            if (result.exitCode === 0) invalidateGitWorkspace(workspaceId, 'editor:rename');
             return result.exitCode === 0;
           } catch {
             // Fall through to host rename
@@ -278,6 +287,7 @@ export function registerEditorHandlers(): void {
         const hostOld = await resolveHostPath(workspaceManager, workspaceId, oldPath);
         const hostNew = await resolveHostPath(workspaceManager, workspaceId, newPath);
         await fs.rename(hostOld, hostNew);
+        invalidateGitWorkspace(workspaceId, 'editor:rename');
         return true;
       } catch (err: unknown) {
         console.warn('[editor:rename]', err);
@@ -294,6 +304,7 @@ export function registerEditorHandlers(): void {
           try {
             const cItem = await resolveContainerPath(workspaceManager, workspaceId, itemPath);
             const result = await containerManager.exec(workspaceId, `rm -rf ${shellQuote(cItem)}`);
+            if (result.exitCode === 0) invalidateGitWorkspace(workspaceId, 'editor:delete');
             return result.exitCode === 0;
           } catch {
             // Fall through to host delete
@@ -301,6 +312,7 @@ export function registerEditorHandlers(): void {
         }
         const hostItem = await resolveHostPath(workspaceManager, workspaceId, itemPath);
         await fs.rm(hostItem, { recursive: true, force: true });
+        invalidateGitWorkspace(workspaceId, 'editor:delete');
         return true;
       } catch (err: unknown) {
         console.warn('[editor:delete]', err);
@@ -317,6 +329,7 @@ export function registerEditorHandlers(): void {
           try {
             const cFile = await resolveContainerPath(workspaceManager, workspaceId, filePath);
             const result = await containerManager.exec(workspaceId, `touch ${shellQuote(cFile)}`);
+            if (result.exitCode === 0) invalidateGitWorkspace(workspaceId, 'editor:create-file');
             return result.exitCode === 0;
           } catch {
             // Fall through to host create
@@ -327,6 +340,7 @@ export function registerEditorHandlers(): void {
         await fs.writeFile(hostFile, '', { flag: 'wx' }).catch(() =>
           fs.writeFile(hostFile, '', 'utf8'),
         );
+        invalidateGitWorkspace(workspaceId, 'editor:create-file');
         return true;
       } catch (err: unknown) {
         console.warn('[editor:createFile]', err);
@@ -343,6 +357,7 @@ export function registerEditorHandlers(): void {
           try {
             const cDir = await resolveContainerPath(workspaceManager, workspaceId, dirPath);
             const result = await containerManager.exec(workspaceId, `mkdir -p ${shellQuote(cDir)}`);
+            if (result.exitCode === 0) invalidateGitWorkspace(workspaceId, 'editor:create-dir');
             return result.exitCode === 0;
           } catch {
             // Fall through to host create
@@ -350,6 +365,7 @@ export function registerEditorHandlers(): void {
         }
         const hostDir = await resolveHostPath(workspaceManager, workspaceId, dirPath);
         await fs.mkdir(hostDir, { recursive: true });
+        invalidateGitWorkspace(workspaceId, 'editor:create-dir');
         return true;
       } catch (err: unknown) {
         console.warn('[editor:createDir]', err);
