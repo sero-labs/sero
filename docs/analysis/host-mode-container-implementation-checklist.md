@@ -53,14 +53,14 @@ It is a **runtime capability state**. Treating it as a first-class runtime signa
 Use this checklist to record implementation progress.
 
 ### Phase 1 — unblock the requested onboarding warning
-- [ ] Add `docs/guides/macos-containers.md`
-- [ ] Add a reusable container availability helper in `apps/desktop/electron/features/container/core/availability.ts`
-- [ ] Extend onboarding types with `containerRuntime`
-- [ ] Populate `containerRuntime` in onboarding preflight
-- [ ] Add shell `openExternal(url)` bridge
-- [ ] Add `ContainerRuntimeNotice.tsx`
-- [ ] Render the notice in `OnboardingWizard` ready/auth flows
-- [ ] Add onboarding warning tests
+- [x] Add `docs/guides/macos-containers.md`
+- [x] Add a reusable container availability helper in `apps/desktop/electron/features/container/core/availability.ts`
+- [x] Extend onboarding types with `containerRuntime`
+- [x] Populate `containerRuntime` in onboarding preflight
+- [x] Add shell `openExternal(url)` bridge
+- [x] Add `ContainerRuntimeNotice.tsx`
+- [x] Render the notice in `OnboardingWizard` ready/auth flows
+- [x] Add onboarding warning tests
 
 ### Phase 2 — make docs/product messaging truthful
 - [ ] Update `docs/sero.md` to say containers are strongly recommended, not required
@@ -74,35 +74,35 @@ Use this checklist to record implementation progress.
 - [ ] Add explicit host-fallback notices when sessions continue without containers
 
 ### Detailed task checklist
-- [ ] Create the dedicated container setup guide
+- [x] Create the dedicated container setup guide
 - [ ] Update product positioning docs
-- [ ] Add reusable container availability detection
+- [x] Add reusable container availability detection
 - [ ] Reuse availability helper in boot logging where appropriate
-- [ ] Extend onboarding state contract with container runtime info
-- [ ] Populate onboarding container runtime in preflight
-- [ ] Add onboarding preflight tests for container status
-- [ ] Add a dedicated onboarding runtime banner component
-- [ ] Show the warning in onboarding ready/auth flows
-- [ ] Keep provider/model warning UI separate from runtime messaging
-- [ ] Add external-link support to the shell API
-- [ ] Decide and wire the canonical instructions URL
-- [ ] Wire the onboarding CTA to open the instructions link
+- [x] Extend onboarding state contract with container runtime info
+- [x] Populate onboarding container runtime in preflight
+- [x] Add onboarding preflight tests for container status
+- [x] Add a dedicated onboarding runtime banner component
+- [x] Show the warning in onboarding ready/auth flows
+- [x] Keep provider/model warning UI separate from runtime messaging
+- [x] Add external-link support to the shell API
+- [x] Decide and wire the canonical instructions URL
+- [x] Wire the onboarding CTA to open the instructions link
 - [ ] Align editor host fallback behavior
 - [ ] Add a shared runtime resolver
 - [ ] Improve terminal fallback UX
 - [ ] Add visible host-fallback notices in sessions
-- [ ] Add renderer tests for the onboarding container warning
-- [ ] Update onboarding launch/runtime tests for the new state shape
+- [x] Add renderer tests for the onboarding container warning
+- [x] Update onboarding launch/runtime tests for the new state shape
 
 ### Acceptance checklist
-- [ ] If Apple containers are unavailable, `OnboardingWizard` shows a non-blocking warning
-- [ ] The warning says containers are recommended, not required
-- [ ] The warning links to a container setup guide
-- [ ] Users can still continue onboarding in host mode
+- [x] If Apple containers are unavailable, `OnboardingWizard` shows a non-blocking warning
+- [x] The warning says containers are recommended, not required
+- [x] The warning links to a container setup guide
+- [x] Users can still continue onboarding in host mode
 - [ ] `docs/sero.md` no longer describes containers as a hard requirement
-- [ ] There is a canonical container setup guide
-- [ ] Host-only limitations are documented clearly
-- [ ] Core host fallback remains non-blocking
+- [x] There is a canonical container setup guide
+- [x] Host-only limitations are documented clearly
+- [x] Core host fallback remains non-blocking
 - [ ] Editor/runtime behavior is more consistent when containers are unavailable
 - [ ] Users get clear messaging when Sero falls back to host mode
 
@@ -446,14 +446,14 @@ Because adding `containerRuntime` to `OnboardingState` will require fixture upda
 
 ## Phase 1 — unblock the requested onboarding warning
 
-1. Add `docs/guides/macos-containers.md`
-2. Add container availability helper
-3. Extend onboarding state with `containerRuntime`
-4. Populate it in onboarding preflight
-5. Add shell `openExternal(url)` bridge
-6. Add `ContainerRuntimeNotice.tsx`
-7. Render it in `OnboardingWizard` ready/auth flows
-8. Add tests
+1. [x] Add `docs/guides/macos-containers.md`
+2. [x] Add container availability helper
+3. [x] Extend onboarding state with `containerRuntime`
+4. [x] Populate it in onboarding preflight
+5. [x] Add shell `openExternal(url)` bridge
+6. [x] Add `ContainerRuntimeNotice.tsx`
+7. [x] Render it in `OnboardingWizard` ready/auth flows
+8. [x] Add tests
 
 This gets the requested user-visible behavior in place quickly.
 
@@ -477,20 +477,20 @@ This gets the requested user-visible behavior in place quickly.
 The work should be considered complete when all of the following are true:
 
 ### Onboarding
-- If Apple containers are unavailable, `OnboardingWizard` shows a non-blocking warning
-- That warning explicitly says containers are recommended, not required
-- The warning links to a container setup guide
-- The user can still continue onboarding in host mode
+- [x] If Apple containers are unavailable, `OnboardingWizard` shows a non-blocking warning
+- [x] That warning explicitly says containers are recommended, not required
+- [x] The warning links to a container setup guide
+- [x] The user can still continue onboarding in host mode
 
 ### Documentation
-- `docs/sero.md` no longer calls containers a hard requirement
-- There is a canonical container setup guide
-- Host-only limitations are documented clearly
+- [ ] `docs/sero.md` no longer calls containers a hard requirement
+- [x] There is a canonical container setup guide
+- [x] Host-only limitations are documented clearly
 
 ### Runtime consistency
-- Core host fallback remains non-blocking
-- Editor/runtime behavior is more consistent when containers are unavailable
-- Users get clear messaging when Sero falls back to host mode
+- [x] Core host fallback remains non-blocking
+- [ ] Editor/runtime behavior is more consistent when containers are unavailable
+- [ ] Users get clear messaging when Sero falls back to host mode
 
 ---
 

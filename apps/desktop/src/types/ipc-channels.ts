@@ -104,6 +104,8 @@ export const IpcChannels = {
   shell: {
     /** Open a path in the native file explorer. */
     showItemInFolder: 'sero:shell:show-item-in-folder',
+    /** Open an external URL in the default browser. */
+    openExternal: 'sero:shell:open-external',
   },
   appState: {
     /** Read an app state JSON file. */

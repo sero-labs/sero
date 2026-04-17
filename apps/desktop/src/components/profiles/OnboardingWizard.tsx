@@ -14,6 +14,7 @@ import {
   LaunchingScreen,
   OnboardingSetupScreen,
 } from './onboarding/OnboardingViews';
+import { ContainerRuntimeNotice } from './onboarding/ContainerRuntimeNotice';
 import { useLaunchingDialogVisibility } from './onboarding/useLaunchingDialogVisibility';
 import { useOnboardingLaunch } from './onboarding/useOnboardingLaunch';
 
@@ -71,20 +72,23 @@ export function OnboardingWizard() {
         }}
       >
         <DialogContent className="max-w-lg" onInteractOutside={(event) => event.preventDefault()}>
-          {readyRecommendation ? (
-            <OnboardingSetupScreen
-              key={`${readyRecommendation.preferredProvider ?? 'provider'}:${JSON.stringify(readyRecommendation.tiers)}`}
-              recommendation={readyRecommendation}
-              availableModelGroups={onboardingState.availableModelGroups}
-              providerHealth={onboardingState.providerHealth}
-              warnings={onboardingState.warnings.filter((warning) => warning.code !== 'no_usable_models')}
-              launchNotice={launchStatusMessage}
-              continueDisabled={isContinuing}
-              onContinue={(config) => void handleContinue(config)}
-              onOpenProviders={() => openProviders()}
-              onReconnectProvider={openProviders}
-            />
-          ) : null}
+          <div className="space-y-4">
+            <ContainerRuntimeNotice runtime={onboardingState.containerRuntime} />
+            {readyRecommendation ? (
+              <OnboardingSetupScreen
+                key={`${readyRecommendation.preferredProvider ?? 'provider'}:${JSON.stringify(readyRecommendation.tiers)}`}
+                recommendation={readyRecommendation}
+                availableModelGroups={onboardingState.availableModelGroups}
+                providerHealth={onboardingState.providerHealth}
+                warnings={onboardingState.warnings.filter((warning) => warning.code !== 'no_usable_models')}
+                launchNotice={launchStatusMessage}
+                continueDisabled={isContinuing}
+                onContinue={(config) => void handleContinue(config)}
+                onOpenProviders={() => openProviders()}
+                onReconnectProvider={openProviders}
+              />
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -94,12 +98,15 @@ export function OnboardingWizard() {
           showCloseButton={false}
           onInteractOutside={(event) => event.preventDefault()}
         >
-          <AuthScreen
-            providerHealth={onboardingState.providerHealth}
-            launchNotice={launchStatusMessage}
-            onOpenProviders={() => openProviders()}
-            onReconnectProvider={openProviders}
-          />
+          <div className="space-y-4">
+            <ContainerRuntimeNotice runtime={onboardingState.containerRuntime} />
+            <AuthScreen
+              providerHealth={onboardingState.providerHealth}
+              launchNotice={launchStatusMessage}
+              onOpenProviders={() => openProviders()}
+              onReconnectProvider={openProviders}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

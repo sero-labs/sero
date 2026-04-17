@@ -22,6 +22,8 @@ import type {
 export const shellBridge = {
   showItemInFolder: (fullPath: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.shell.showItemInFolder, fullPath),
+  openExternal: (url: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.shell.openExternal, url),
 };
 
 export const profilesBridge = {

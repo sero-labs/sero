@@ -192,6 +192,8 @@ interface SeroContextPresetsAPI {
 interface SeroShellAPI {
   /** Reveal a file or folder in the native file explorer. */
   showItemInFolder(fullPath: string): Promise<void>;
+  /** Open an external URL in the default browser. */
+  openExternal(url: string): Promise<void>;
 }
 
 interface SeroAuthAPI {

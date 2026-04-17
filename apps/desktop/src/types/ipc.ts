@@ -346,6 +346,8 @@ export type {
   OnboardingTierSource,
   OnboardingRecommendation,
   OnboardingWarning,
+  OnboardingContainerRuntimeStatus,
+  OnboardingContainerRuntime,
   OnboardingState,
 } from './onboarding';
 

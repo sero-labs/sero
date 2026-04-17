@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   validateCurrentTiers: vi.fn(),
   access: vi.fn(),
   readFile: vi.fn(),
+  getContainerAvailability: vi.fn(),
 }));
 
 vi.mock('@electron/features/profile/manager', async (importOriginal) => {
@@ -28,6 +29,10 @@ vi.mock('@electron/features/profile/manager', async (importOriginal) => {
 
 vi.mock('@electron/features/onboarding/provider-health', () => ({
   getProviderHealthSnapshot: mocks.getProviderHealthSnapshot,
+}));
+
+vi.mock('@electron/features/container/core/availability', () => ({
+  getContainerAvailability: mocks.getContainerAvailability,
 }));
 
 vi.mock('@electron/shared/settings/settings-helpers', () => ({
@@ -118,6 +123,11 @@ describe('onboarding preflight', () => {
     });
     mocks.access.mockReset().mockResolvedValue(undefined);
     mocks.readFile.mockReset().mockResolvedValue('{}');
+    mocks.getContainerAvailability.mockReset().mockResolvedValue({
+      status: 'available',
+      message: 'Apple containers are available.',
+      recommended: true,
+    });
   });
 
   it('keeps getOnboardingState read-only for non-onboarded profiles', async () => {
@@ -129,6 +139,12 @@ describe('onboarding preflight', () => {
     expect(state.needed).toBe(true);
     expect(state.phase).toBe('ready');
     expect(state.availableModelGroups).toEqual(availableModelGroups);
+    expect(state.containerRuntime).toEqual({
+      status: 'available',
+      message: 'Apple containers are available.',
+      recommended: true,
+      docsUrl: undefined,
+    });
   });
 
   it('runs migration and unavailable-tier cleanup only in getOnboardingStateWithRepairs', async () => {
@@ -153,6 +169,40 @@ describe('onboarding preflight', () => {
       { provider: 'openai', modelId: 'gpt-5.4' },
     ]);
     expect(mocks.readSettingsResult).toHaveBeenCalledTimes(2);
+  });
+
+  it('adds a docs-linked runtime warning when the container binary is missing', async () => {
+    mocks.getContainerAvailability.mockResolvedValue({
+      status: 'missing_binary',
+      message: 'Install Apple containers.',
+      recommended: true,
+    });
+
+    const state = await getOnboardingState();
+
+    expect(state.containerRuntime).toEqual({
+      status: 'missing_binary',
+      message: 'Install Apple containers.',
+      recommended: true,
+      docsUrl: 'https://github.com/monobyte/sero/blob/main/docs/guides/macos-containers.md',
+    });
+  });
+
+  it('adds a docs-linked runtime warning when the container system is unavailable', async () => {
+    mocks.getContainerAvailability.mockResolvedValue({
+      status: 'system_unavailable',
+      message: 'Container system is not running.',
+      recommended: true,
+    });
+
+    const state = await getOnboardingState();
+
+    expect(state.containerRuntime).toEqual({
+      status: 'system_unavailable',
+      message: 'Container system is not running.',
+      recommended: true,
+      docsUrl: 'https://github.com/monobyte/sero/blob/main/docs/guides/macos-containers.md',
+    });
   });
 
   it('surfaces malformed settings errors without rewriting the file', async () => {
