@@ -51,6 +51,56 @@ describe('VcsManager checkpoint source handling', () => {
     );
   });
 
+  it('removes tracked files that were added after the restore target', async () => {
+    const run = vi.fn(async (_workspaceId: string, args: string[]) => {
+      const command = args.join(' ');
+
+      if (command === 'diff --name-only --diff-filter=A target123 HEAD -- .') {
+        return ok('joke.txt\nnotes/extra.md\n');
+      }
+      if (command === 'checkout target123 -- .') {
+        return ok();
+      }
+      if (command === 'rm -f -- joke.txt') {
+        return ok();
+      }
+      if (command === 'rm -f -- notes/extra.md') {
+        return ok();
+      }
+      if (command === 'clean -fd') {
+        return ok();
+      }
+      if (command === 'add -A') {
+        return ok();
+      }
+      if (command === 'status --porcelain') {
+        return ok('D  joke.txt\n');
+      }
+      if (command === 'commit -m restore: target123') {
+        return ok('[main 456def] restore');
+      }
+
+      throw new Error(`Unexpected git command: ${command}`);
+    });
+
+    const runner = {
+      ensureRepoInitialized: vi.fn().mockResolvedValue(undefined),
+      run,
+    } as unknown as GitRunner;
+
+    const workspaceManager = {
+      getPath: vi.fn().mockReturnValue('/tmp/ws-1'),
+    } as unknown as WorkspaceManager;
+
+    const manager = new VcsManager(workspaceManager, runner);
+
+    await manager.restoreCheckpoint('ws-1', 'target123');
+
+    expect(run).toHaveBeenCalledWith('ws-1', ['rm', '-f', '--', 'joke.txt']);
+    expect(run).toHaveBeenCalledWith('ws-1', ['rm', '-f', '--', 'notes/extra.md']);
+    expect(run).toHaveBeenCalledWith('ws-1', ['commit', '-m', 'restore: target123']);
+  });
+
   it('parses filesystem checkpoints from git log output', async () => {
     const run = vi.fn(async (_workspaceId: string, args: string[]) => {
       const command = args.join(' ');

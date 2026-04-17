@@ -128,8 +128,12 @@ export function registerGitTurnUndoCapture(
 
     try {
       preTurnSnapshotId = await vcsManager.getCurrentChangeId(workspaceId);
-    } catch {
+      console.log(
+        `[turn-undo] Captured pre-turn snapshot for workspace=${workspaceId}: ${preTurnSnapshotId ?? 'null'}`,
+      );
+    } catch (error) {
       preTurnSnapshotId = null;
+      console.warn(`[turn-undo] Failed to capture pre-turn snapshot for workspace=${workspaceId}:`, error);
     }
   }
 
@@ -177,13 +181,25 @@ export function registerGitTurnUndoCapture(
         description,
       });
 
-      if (!checkpoint) return;
+      if (!checkpoint) {
+        console.warn(`[turn-undo] No auto checkpoint created for workspace=${workspaceId}; working copy may have been clean by agent_end`);
+        return;
+      }
 
       const targetUserEntryId = findLatestUserEntryId(ctx.sessionManager);
-      if (!targetUserEntryId) return;
+      if (!targetUserEntryId) {
+        console.warn(`[turn-undo] Missing target user entry for workspace=${workspaceId}; checkpoint=${checkpoint.changeId}`);
+        return;
+      }
 
-      if (!preTurnSnapshotId) return;
+      if (!preTurnSnapshotId) {
+        console.warn(`[turn-undo] Missing pre-turn snapshot for workspace=${workspaceId}; checkpoint=${checkpoint.changeId}`);
+        return;
+      }
 
+      console.log(
+        `[turn-undo] Recording turn undo for workspace=${workspaceId}: preTurn=${preTurnSnapshotId}, postTurn=${checkpoint.changeId}, userEntry=${targetUserEntryId}`,
+      );
       entries.appendTurnUndoEntry({
         snapshotId: preTurnSnapshotId,
         targetUserEntryId,
@@ -191,7 +207,8 @@ export function registerGitTurnUndoCapture(
       });
       preTurnSnapshotId = null;
       void gitWorkspaceStateManager.refreshWorkspace(workspaceId);
-    } catch {
+    } catch (error) {
+      console.warn(`[turn-undo] Failed to finalize turn undo for workspace=${workspaceId}:`, error);
       // Transparent-by-default: do not emit chat noise for automatic turn checkpoints.
     }
   });

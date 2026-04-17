@@ -65,6 +65,9 @@ export async function undoToTurn({
     throw new Error('Turn undo does not belong to the active workspace');
   }
 
+  console.log(
+    `[turn-undo] Undo requested for session=${sessionId}, workspace=${entry.workspaceId}, snapshot=${turnUndo.snapshotId}, userEntry=${turnUndo.targetUserEntryId}`,
+  );
   await vcsManager.restoreCheckpoint(entry.workspaceId, turnUndo.snapshotId);
   void gitWorkspaceStateManager.refreshWorkspace(entry.workspaceId);
 
@@ -77,6 +80,10 @@ export async function undoToTurn({
 
   entry.pendingTurnUndoUserMessageId = null;
   const chatMessages = rebuildMessages(entry, sessionId, sendEvent);
+
+  console.log(
+    `[turn-undo] Session tree navigated for session=${sessionId}; cancelled=${result.cancelled ? 'yes' : 'no'}, editorText=${typeof result.editorText === 'string' ? 'present' : 'missing'}`,
+  );
 
   if (typeof result.editorText === 'string' && result.editorText.length > 0) {
     sendEvent({
@@ -99,6 +106,9 @@ async function restoreLegacyCheckpoint(
   changeId: string,
   sendEvent: (event: AgentStreamEvent) => void,
 ): Promise<ChatMessage[]> {
+  console.log(
+    `[checkpoint] Legacy restore requested for session=${sessionId}, workspace=${entry.workspaceId}, checkpoint=${changeId}`,
+  );
   await vcsManager.restoreCheckpoint(entry.workspaceId, changeId);
   void gitWorkspaceStateManager.refreshWorkspace(entry.workspaceId);
 
