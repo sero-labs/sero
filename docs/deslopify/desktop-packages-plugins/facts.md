@@ -54,8 +54,6 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
   - `plugins/sero-admin-plugin/` (~5,246 LOC)
 - Generated-only / no-reviewable-source targets at baseline:
   - `apps/desktop/electron/gateway/` — only `web-dist/` assets
-  - `plugins/sero-hello-world-plugin/` — only generated temp/build output; no
-    source `package.json`
 
 ## Architectural notes
 - `packages/common/src` and `packages/app-runtime/src` are the canonical
@@ -75,8 +73,7 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
   - Extension-heavy: `sero-cron-plugin`, `sero-memory-plugin`,
     `sero-web-plugin`
   - Mixed extension/UI seams: `sero-git-plugin`, `sero-context-plugin`
-  - Narrow provider/example packages: `sero-alibaba-plugin`,
-    `sero-hello-world-plugin`
+  - Narrow provider/example packages: `sero-alibaba-plugin`
 - `apps/desktop/electron/types/pi-coding-agent.d.ts` is a tiny augmentation
   seam, not a structural hotspot. It should review quickly once the heavier
   shared/package context is fresh.
@@ -100,7 +97,7 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 - There are no current 500+ LOC violations anywhere in this entire Phase 0
   scope. The debt is a broad near-cap cluster, not a single obvious hard-rule
   breach.
-- `apps/desktop/electron/gateway/` and `plugins/sero-hello-world-plugin/` have
+- `apps/desktop/electron/gateway/` has
   no reviewable source after generated output is ignored, so they should be
   treated as scope-cleanup / no-op closeouts instead of normal deslopify passes.
 - Plugin review load is concentrated in a handful of exemplar packages
@@ -396,4 +393,3 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 
 ### Still outstanding
 - None in this baseline.
-- Re-run Phase 0 only if maintainable source returns in generated-only targets (`apps/desktop/electron/gateway/`, removed `plugins/sero-hello-world-plugin/`) or new drift is discovered.

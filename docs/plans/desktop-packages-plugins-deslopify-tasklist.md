@@ -22,7 +22,6 @@ without losing sequencing discipline.
 - `plugins/sero-context-plugin/`
 - `plugins/sero-cron-plugin/`
 - `plugins/sero-git-plugin/`
-- `plugins/sero-hello-world-plugin/`
 - `plugins/sero-kanban-plugin/`
 - `plugins/sero-memory-plugin/`
 - `plugins/sero-user-feedback-plugin/`
@@ -201,8 +200,7 @@ runtime, contract, or desktop-side code that those plugins consume.
 - 2026-04-13: Phase 0 baseline map completed via deslopify. Hotspot inventory +
   review-order confirmation are documented at
   `docs/deslopify/desktop-packages-plugins/{facts.md,plan.md}`; the baseline also
-  confirmed that `apps/desktop/electron/gateway/` and
-  `plugins/sero-hello-world-plugin/` are currently generated-only / no-source
+  confirmed that `apps/desktop/electron/gateway/` are currently generated-only / no-source
   closeout targets rather than full review surfaces.
 - 2026-04-13: Wave A step 1 complete for `packages/common/src` and
   `packages/app-runtime/src`. Facts + plans added under

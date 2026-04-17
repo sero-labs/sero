@@ -48,8 +48,7 @@ architecture work rather than alphabetical bookkeeping.
 
 - **Medium** — Two queued targets are scope-cleanup items, not real source
   reviews — `apps/desktop/electron/gateway/` currently contains only generated
-  `web-dist/` assets, and `plugins/sero-hello-world-plugin/` currently contains
-  only generated temp/build output with no source `package.json`. Treating them
+  `web-dist/` assets. Treating them
   like ordinary deslopify passes would waste review time and muddy the index.
   Effort: **S**.
 
@@ -85,8 +84,7 @@ architecture work rather than alphabetical bookkeeping.
    - Keep the Wave C order from the tasklist: `sero-kanban-plugin`,
      `sero-cron-plugin`, `sero-admin-plugin`, `sero-memory-plugin` first; then
      `sero-git-plugin`, `sero-context-plugin`, `sero-web-plugin`,
-     `sero-user-feedback-plugin`; then `sero-alibaba-plugin` and the
-     `sero-hello-world-plugin` scope check last.
+     `sero-user-feedback-plugin`; and `sero-alibaba-plugin` scope check last.
    - During each plugin pass, review all four ownership seams together:
      `package.json` metadata, `extension/`, `shared/`, and `ui/`.
    - Why: later plugin plans should inherit conventions from the strongest
@@ -104,8 +102,7 @@ architecture work rather than alphabetical bookkeeping.
      module-federation runtime expectations, and duplicated shared types.
 
 4. **Handle generated-only targets as documentation closeouts unless source is restored.**
-   - For `apps/desktop/electron/gateway/` and `plugins/sero-hello-world-plugin/`,
-     the review step should first confirm that the folder still contains only
+   - For `apps/desktop/electron/gateway/` the review step should first confirm that the folder still contains only
      generated output. If that remains true, the resulting deslopify docs should
      record “no reviewable source” and close the item without inventing debt.
    - If real source appears later, rerun Phase 0 for that target before trying
@@ -290,7 +287,7 @@ architecture work rather than alphabetical bookkeeping.
   review, and subagent behavior. Even “cleanup-only” refactors there are
   runtime-sensitive and should be treated as behavior-risky until proven
   otherwise.
-- If `apps/desktop/electron/gateway/` or `plugins/sero-hello-world-plugin/`
+- If `apps/desktop/electron/gateway/`
   grow real source later, this baseline becomes stale and should be refreshed
   before those items are executed.
 
