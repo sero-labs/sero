@@ -1,6 +1,6 @@
 # Deslopify Index
 
-_Last updated: 2026-04-16_
+_Last updated: 2026-04-17_
 
 A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
@@ -93,6 +93,8 @@ as backlog-only follow-ups, not active refactor-wave work.
   — *Healthy — High persisted-state/startup-recovery items plus E4 reminder ownership and E5 logging/modularization/UI coverage cleanup all cleared 2026-04-14; Low widget-fidelity polish remains deferred*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
   — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
+- [`plugins/sero-google-plugin/`](./plugins/sero-google-plugin/plan.md)
+  — *Architecture review complete 2026-04-17 — full self-containment is feasible only after a generic app-tool execution bridge; current Google auth/preload/CLI ownership still lives in the shell*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
