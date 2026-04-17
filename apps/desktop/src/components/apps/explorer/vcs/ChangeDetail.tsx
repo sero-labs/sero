@@ -229,7 +229,7 @@ export function ChangeDetail({ workspaceId, entry, onOpenDiff }: Props) {
           <>
             <DetailAction
               icon={<RotateCcw className="size-3" />}
-              label="Restore"
+              label="Restore checkpoint"
               onClick={() => void store.restoreCheckpoint(workspaceId, entry.changeId)}
             />
             <DetailAction

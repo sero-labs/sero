@@ -147,15 +147,16 @@ export class VcsManager extends EventEmitter {
   }
 
   private buildDefaultDescription(source: CreateCheckpointOptions['source']): string {
+    const timestamp = nowIso();
     switch (source) {
       case 'turn':
-        return `checkpoint: turn @ ${new Date().toLocaleString()}`;
+        return `checkpoint: turn @ ${timestamp}`;
       case 'fs':
-        return `checkpoint: filesystem change @ ${new Date().toLocaleString()}`;
+        return `checkpoint: filesystem change @ ${timestamp}`;
       case 'restore':
-        return `checkpoint: restore @ ${new Date().toLocaleString()}`;
+        return `checkpoint: restore @ ${timestamp}`;
       default:
-        return `checkpoint: manual @ ${new Date().toLocaleString()}`;
+        return `checkpoint: manual @ ${timestamp}`;
     }
   }
 

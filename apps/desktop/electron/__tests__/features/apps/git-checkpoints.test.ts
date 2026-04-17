@@ -95,13 +95,13 @@ describe('registerGitCheckpointFeatures', () => {
 
     registerGitCheckpointFeatures(pi, 'ws-1');
 
-    await emit('tool_call', { toolName: 'write', input: {} });
+    await emit('tool_call', { toolCallId: 'tool-write-1', toolName: 'write', input: { path: 'joke.txt' } });
+    await emit('tool_execution_end', { toolCallId: 'tool-write-1', toolName: 'write', isError: false });
     await emit(
       'agent_end',
       {
         messages: [
           { role: 'user', content: [{ type: 'text', text: 'Do the thing' }] },
-          { role: 'assistant', content: [{ type: 'image', url: 'ignored' }] },
           {
             role: 'assistant',
             content: [
@@ -131,24 +131,25 @@ describe('registerGitCheckpointFeatures', () => {
       workspaceId: 'ws-1',
       snapshotId: 'turn-undo:1713350400000-aaaa-bbbb',
       targetUserEntryId: 'user-entry-1',
-      label: 'checkpoint: Summarized result',
+      label: 'Update joke.txt',
     }));
   });
 
-  it('captures the pre-turn snapshot before mutating bash commands run', async () => {
+  it('uses mutating tool metadata instead of assistant truncation for bash labels', async () => {
     const { registerGitCheckpointFeatures } = await import('@electron/features/apps/extensions/git-checkpoints');
     const { pi, emit } = createPiStub();
     mocks.isLikelyReadOnlyBash.mockReturnValue(false);
 
     registerGitCheckpointFeatures(pi, 'ws-1');
 
-    await emit('tool_call', { toolName: 'bash', input: { command: 'touch joke.txt' } });
+    await emit('tool_call', { toolCallId: 'tool-bash-1', toolName: 'bash', input: { command: 'touch joke.txt' } });
+    await emit('tool_execution_end', { toolCallId: 'tool-bash-1', toolName: 'bash', isError: false });
     await emit(
       'agent_end',
       {
         messages: [
           { role: 'user', content: [{ type: 'text', text: 'save that to file joke.txt' }] },
-          { role: 'assistant', content: [{ type: 'text', text: 'Saved to joke.txt.' }] },
+          { role: 'assistant', content: [{ type: 'text', text: 'Saved to: joke.txt' }] },
         ],
       },
       {
@@ -169,17 +170,18 @@ describe('registerGitCheckpointFeatures', () => {
       workspaceId: 'ws-1',
       snapshotId: 'turn-undo:1713350400000-aaaa-bbbb',
       targetUserEntryId: 'user-entry-bash',
-      label: 'checkpoint: Saved to joke.txt.',
+      label: 'Update joke.txt',
     }));
   });
 
-  it('falls back to the generic checkpoint description for malformed assistant content', async () => {
+  it('falls back to the user prompt summary when no file metadata was captured', async () => {
     const { registerGitCheckpointFeatures } = await import('@electron/features/apps/extensions/git-checkpoints');
     const { pi, emit } = createPiStub();
 
     registerGitCheckpointFeatures(pi, 'ws-1');
 
-    await emit('tool_call', { toolName: 'edit', input: {} });
+    await emit('tool_call', { toolCallId: 'tool-edit-1', toolName: 'edit', input: {} });
+    await emit('tool_execution_end', { toolCallId: 'tool-edit-1', toolName: 'edit', isError: false });
     await emit(
       'agent_end',
       {
@@ -190,14 +192,25 @@ describe('registerGitCheckpointFeatures', () => {
       },
       {
         sessionManager: {
-          getBranch: () => [],
+          getBranch: () => [
+            {
+              id: 'user-entry-edit',
+              type: 'message',
+              message: { role: 'user', content: 'please update the README intro' },
+            },
+          ],
         },
       },
     );
 
     expect(mocks.createInternalSnapshot).toHaveBeenCalledWith('ws-1');
     expect(mocks.hasSnapshotDiff).toHaveBeenCalledWith('ws-1', 'turn-undo:1713350400000-aaaa-bbbb');
-    expect(pi.appendEntry).not.toHaveBeenCalledWith('turn-undo', expect.anything());
+    expect(pi.appendEntry).toHaveBeenCalledWith('turn-undo', expect.objectContaining({
+      workspaceId: 'ws-1',
+      snapshotId: 'turn-undo:1713350400000-aaaa-bbbb',
+      targetUserEntryId: 'user-entry-edit',
+      label: 'please update the README intro',
+    }));
   });
 
   it('keeps /checkpoint behavior unchanged for manual checkpoints', async () => {

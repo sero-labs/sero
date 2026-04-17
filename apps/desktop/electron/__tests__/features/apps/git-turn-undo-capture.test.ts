@@ -63,20 +63,25 @@ describe('registerGitTurnUndoCapture', () => {
     registerGitTurnUndoCapture(pi as never, 'ws-1', entries as never);
 
     await handlers.get('agent_start')?.();
-    await handlers.get('tool_call')?.({ toolName: 'write' });
+    await handlers.get('tool_call')?.({ toolCallId: 'tool-write-1', toolName: 'write', input: { path: 'story.txt' } });
+    await handlers.get('tool_execution_end')?.({ toolCallId: 'tool-write-1', toolName: 'write', isError: false });
     await handlers.get('agent_end')?.(
       {
         messages: [
           {
             role: 'assistant',
-            content: [{ type: 'text', text: 'Saved to story.txt' }],
+            content: [{ type: 'text', text: 'Saved to: story.txt' }],
           },
         ],
       },
       {
         sessionManager: {
           getBranch: () => [
-            { id: 'user-entry-1', type: 'message', message: { role: 'user' } },
+            {
+              id: 'user-entry-1',
+              type: 'message',
+              message: { role: 'user', content: 'save that to file story.txt' },
+            },
           ],
         },
       },
@@ -87,7 +92,7 @@ describe('registerGitTurnUndoCapture', () => {
     expect(entries.appendTurnUndoEntry).toHaveBeenCalledWith({
       snapshotId: 'snap-1',
       targetUserEntryId: 'user-entry-1',
-      label: 'checkpoint: Saved to story.txt',
+      label: 'Update story.txt',
     });
     expect(mocks.invalidateWorkspace).toHaveBeenCalledWith('ws-1', 'agent:mutating-turn');
   });

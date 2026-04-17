@@ -57,7 +57,7 @@ describe('CheckpointRestoreDialog', () => {
         <CheckpointRestoreDialog
           open
           snapshotId="snap-1"
-          undoLabel="checkpoint: save that to file joke.txt"
+          undoLabel="Update joke.txt"
           files={[]}
           isLoading={false}
           error={null}
@@ -70,6 +70,7 @@ describe('CheckpointRestoreDialog', () => {
 
     expect(container.textContent).toContain('Undo this turn?');
     expect(container.textContent).toContain('puts the prompt text back in the composer');
+    expect(container.textContent).toContain('Undo summary: Update joke.txt');
     expect(container.textContent).toContain('Undo this turn');
     expect(container.textContent).toContain('Undo snapshot: snap-1');
   });

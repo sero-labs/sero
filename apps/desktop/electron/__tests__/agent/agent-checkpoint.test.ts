@@ -53,7 +53,7 @@ describe('undoToTurn', () => {
       workspaceId: 'ws-1',
       snapshotId: 'snap-1',
       targetUserEntryId: 'user-entry-1',
-      label: 'checkpoint: save that to file joke.txt',
+      label: 'Update joke.txt',
       createdAt: '2026-04-17T10:00:00.000Z',
     };
 

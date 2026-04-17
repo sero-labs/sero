@@ -99,6 +99,7 @@ describe('ChangeDetail', () => {
     await vi.waitFor(() => {
       expect(container.textContent).toContain('Failed to load changed files: boom');
     });
+    expect(container.textContent).toContain('Restore checkpoint');
     expect(fileDiffSummary).toHaveBeenCalledWith('ws-1', 'change-1');
     expect(warnSpy).toHaveBeenCalledWith(
       '[vcs-change-detail] Failed to load changed files:',

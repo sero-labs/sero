@@ -109,7 +109,7 @@ export function CheckpointRestoreDialog({
 
           {undoLabel ? (
             <div className="text-xs text-[var(--text-muted)]">
-              Turn: <span className="text-[var(--text-secondary)]">{undoLabel}</span>
+              Undo summary: <span className="text-[var(--text-secondary)]">{undoLabel}</span>
             </div>
           ) : null}
           <div className="text-xs text-[var(--text-muted)]">

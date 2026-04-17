@@ -284,22 +284,22 @@ A phase is only complete when all of the following are true:
 
 ## Tasks
 
-- [ ] Add a `buildTurnUndoLabel()` helper with a priority order such as:
-  - [ ] mutation/tool-aware summary (`Update joke.txt`)
-  - [ ] changed-file summary (`Update 3 files`)
-  - [ ] user prompt summary (`save that to file joke.txt`)
-  - [ ] fallback (`Undo point`)
-- [ ] Capture minimal mutation metadata during the turn so labels are precise.
-- [ ] Remove assistant-first-line-derived labels from the automatic undo path.
-- [ ] Ensure bad labels like `Saved to:` can no longer appear.
-- [ ] Make any remaining manual checkpoint fallback descriptions deterministic/stable where still needed.
-- [ ] Finalize wording split everywhere:
-  - [ ] ChatPanel uses `Undo this turn`
-  - [ ] Source Control / VCS uses `Restore checkpoint`
-- [ ] Update docs to explain the distinction between:
-  - [ ] chat undo
-  - [ ] VCS/manual checkpoints
-  - [ ] session tree branching behavior
+- [x] Add a `buildTurnUndoLabel()` helper with a priority order such as:
+  - [x] mutation/tool-aware summary (`Update joke.txt`)
+  - [x] changed-file summary (`Update 3 files`)
+  - [x] user prompt summary (`save that to file joke.txt`)
+  - [x] fallback (`Undo point`)
+- [x] Capture minimal mutation metadata during the turn so labels are precise.
+- [x] Remove assistant-first-line-derived labels from the automatic undo path.
+- [x] Ensure bad labels like `Saved to:` can no longer appear.
+- [x] Make any remaining manual checkpoint fallback descriptions deterministic/stable where still needed.
+- [x] Finalize wording split everywhere:
+  - [x] ChatPanel uses `Undo this turn`
+  - [x] Source Control / VCS uses `Restore checkpoint`
+- [x] Update docs to explain the distinction between:
+  - [x] chat undo
+  - [x] VCS/manual checkpoints
+  - [x] session tree branching behavior
 
 ## Likely files
 
@@ -311,15 +311,15 @@ A phase is only complete when all of the following are true:
 
 ## Tests
 
-- [ ] Add unit tests for label generation priority/fallbacks.
-- [ ] Add regression tests for current bad truncation examples.
-- [ ] Update UI snapshot/assertion tests for the final copy.
+- [x] Add unit tests for label generation priority/fallbacks.
+- [x] Add regression tests for current bad truncation examples.
+- [x] Update UI snapshot/assertion tests for the final copy.
 
 ## Validation
 
-- [ ] Run focused desktop unit tests.
-- [ ] Run `pnpm typecheck`.
-- [ ] Commit.
+- [x] Run focused desktop unit tests.
+- [x] Run `pnpm typecheck`.
+- [x] Commit.
 
 **Suggested commit:** `feat(desktop): improve turn undo labels and final ux copy`
 
