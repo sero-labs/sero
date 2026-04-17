@@ -115,13 +115,13 @@ without collapsing owner web tokens into master auth.
 - [x] Update any affected gateway protocol / auth / IPC tests
 
 ### Documentation sync
-- [ ] Update `docs/deslopify/apps/desktop/electron/features/gateway/facts.md`
-  - [ ] replace the “QR pairing creates workspace-scoped tokens” statements with the new owner-wide behavior
-  - [ ] note whether scoped tokens still exist for non-QR use cases
-- [ ] Update `docs/deslopify/apps/desktop/electron/features/gateway/plan.md`
-  - [ ] record the product-direction correction from workspace-scoped QR pairing to owner-wide pairing
-  - [ ] note any remaining follow-up work for optional limited-share tokens
-- [ ] Add a brief execution summary to `docs/deslop.md` if this lands as a tracked cleanup/refinement
+- [x] Update `docs/deslopify/apps/desktop/electron/features/gateway/facts.md`
+  - [x] replace the “QR pairing creates workspace-scoped tokens” statements with the new owner-wide behavior
+  - [x] note whether scoped tokens still exist for non-QR use cases
+- [x] Update `docs/deslopify/apps/desktop/electron/features/gateway/plan.md`
+  - [x] record the product-direction correction from workspace-scoped QR pairing to owner-wide pairing
+  - [x] note any remaining follow-up work for optional limited-share tokens
+- [x] Add a brief execution summary to `docs/deslop.md` if this lands as a tracked cleanup/refinement
 
 ### Validation
 - [x] Run targeted gateway tests
