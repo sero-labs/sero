@@ -77,6 +77,7 @@ describe('registerGitCheckpointFeatures', () => {
       description: 'checkpoint: Summarized result',
       source: 'turn',
     });
+    mocks.getCurrentChangeId.mockResolvedValue('preturn123');
     mocks.listCheckpoints.mockResolvedValue([]);
     mocks.restoreCheckpoint.mockResolvedValue(undefined);
     mocks.diff.mockResolvedValue('diff --git a/file.txt b/file.txt');
@@ -123,8 +124,46 @@ describe('registerGitCheckpointFeatures', () => {
     });
     expect(pi.appendEntry).toHaveBeenCalledWith('turn-undo', expect.objectContaining({
       workspaceId: 'ws-1',
-      snapshotId: 'abc123',
+      snapshotId: 'preturn123',
       targetUserEntryId: 'user-entry-1',
+      label: 'checkpoint: Summarized result',
+    }));
+    expect(mocks.getCurrentChangeId).toHaveBeenCalledWith('ws-1');
+  });
+
+  it('captures the pre-turn snapshot before mutating bash commands run', async () => {
+    const { registerGitCheckpointFeatures } = await import('@electron/features/apps/extensions/git-checkpoints');
+    const { pi, emit } = createPiStub();
+    mocks.isLikelyReadOnlyBash.mockReturnValue(false);
+
+    registerGitCheckpointFeatures(pi, 'ws-1');
+
+    await emit('tool_call', { toolName: 'bash', input: { command: 'touch joke.txt' } });
+    await emit(
+      'agent_end',
+      {
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'save that to file joke.txt' }] },
+          { role: 'assistant', content: [{ type: 'text', text: 'Saved to joke.txt.' }] },
+        ],
+      },
+      {
+        sessionManager: {
+          getBranch: () => [
+            {
+              id: 'user-entry-bash',
+              type: 'message',
+              message: { role: 'user', content: 'save that to file joke.txt' },
+            },
+          ],
+        },
+      },
+    );
+
+    expect(pi.appendEntry).toHaveBeenCalledWith('turn-undo', expect.objectContaining({
+      workspaceId: 'ws-1',
+      snapshotId: 'preturn123',
+      targetUserEntryId: 'user-entry-bash',
       label: 'checkpoint: Summarized result',
     }));
   });

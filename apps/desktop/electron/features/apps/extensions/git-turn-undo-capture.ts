@@ -88,6 +88,7 @@ export function registerGitTurnUndoCapture(
 ): void {
   let agentRunHasMutatingToolCalls = false;
   let hadWorkingCopyChangesAtAgentStart = false;
+  let preTurnSnapshotId: string | null = null;
 
   pi.on('session_start', async () => {
     try {
@@ -110,6 +111,7 @@ export function registerGitTurnUndoCapture(
   pi.on('agent_start', async () => {
     agentRunHasMutatingToolCalls = false;
     hadWorkingCopyChangesAtAgentStart = false;
+    preTurnSnapshotId = null;
     if (MIXED_EDIT_CHECKPOINT_POLICY !== 'require-manual-first') return;
 
     try {
@@ -119,9 +121,20 @@ export function registerGitTurnUndoCapture(
     }
   });
 
+  async function markMutatingTurn(): Promise<void> {
+    agentRunHasMutatingToolCalls = true;
+    if (preTurnSnapshotId) return;
+
+    try {
+      preTurnSnapshotId = await vcsManager.getCurrentChangeId(workspaceId);
+    } catch {
+      preTurnSnapshotId = null;
+    }
+  }
+
   pi.on('tool_call', async (event) => {
     if (event.toolName === 'write' || event.toolName === 'edit') {
-      agentRunHasMutatingToolCalls = true;
+      await markMutatingTurn();
       return;
     }
 
@@ -147,7 +160,7 @@ export function registerGitTurnUndoCapture(
       };
     }
 
-    if (!isLikelyReadOnlyBash(command)) agentRunHasMutatingToolCalls = true;
+    if (!isLikelyReadOnlyBash(command)) await markMutatingTurn();
   });
 
   pi.on('agent_end', async (event, ctx) => {
@@ -168,11 +181,14 @@ export function registerGitTurnUndoCapture(
       const targetUserEntryId = findLatestUserEntryId(ctx.sessionManager);
       if (!targetUserEntryId) return;
 
+      if (!preTurnSnapshotId) return;
+
       entries.appendTurnUndoEntry({
-        snapshotId: checkpoint.changeId,
+        snapshotId: preTurnSnapshotId,
         targetUserEntryId,
         label: checkpoint.description,
       });
+      preTurnSnapshotId = null;
     } catch {
       // Transparent-by-default: do not emit chat noise for automatic turn checkpoints.
     }
