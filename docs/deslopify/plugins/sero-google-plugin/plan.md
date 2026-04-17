@@ -99,12 +99,12 @@ A fully self-contained Google plugin is **feasible, but not by simply moving the
 ## Next Steps
 
 ### Execution protocol
-- [ ] Work strictly in phase order. Do not start a later phase until the current phase is complete.
-- [ ] Land each phase in its **own commit**. Do not batch multiple phases into one commit.
-- [ ] Before committing **any** phase, run the relevant tests for the touched code and run `pnpm typecheck` from the monorepo root.
-- [ ] Do not commit if tests or `pnpm typecheck` are failing.
-- [ ] When a phase is fully finished, mark that phase’s `Phase N complete` checkbox as done **in the same change/commit that completes the phase**.
-- [ ] Keep this checklist current as implementation progresses.
+- Work strictly in phase order. Do not start a later phase until the current phase is complete.
+- Land each phase in its **own commit**. Do not batch multiple phases into one commit.
+- Before committing **any** phase, run the relevant tests for the touched code and run `pnpm typecheck` from the monorepo root.
+- Do not commit if tests or `pnpm typecheck` are failing.
+- When a phase is fully finished, mark that phase’s `Phase N complete` checkbox as done **in the same change/commit that completes the phase**.
+- Keep this checklist current as implementation progresses.
 
 ### Phase 0 — Lock scope and migration policy
 - [ ] Phase 0 complete
