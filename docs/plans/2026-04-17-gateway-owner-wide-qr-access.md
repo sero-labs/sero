@@ -89,16 +89,16 @@ without collapsing owner web tokens into master auth.
 ### Gateway auth and authorization
 - [x] Update web-token storage/normalization to support unrestricted owner tokens
 - [x] Update gateway auth validation to return unrestricted workspace access for owner web tokens
-- [ ] Verify request authorization still works correctly for:
-  - [ ] `list_workspaces`
-  - [ ] `list_sessions`
-  - [ ] `create_session`
-  - [ ] `prompt`
-  - [ ] `list_files`
-  - [ ] `read_file`
-  - [ ] `get_session_history`
-  - [ ] session/artifact event fan-out
-- [ ] Ensure future workspaces automatically appear to already-paired owner devices
+- [x] Verify request authorization still works correctly for:
+  - [x] `list_workspaces`
+  - [x] `list_sessions`
+  - [x] `create_session`
+  - [x] `prompt`
+  - [x] `list_files`
+  - [x] `read_file`
+  - [x] `get_session_history`
+  - [x] session/artifact event fan-out
+- [x] Ensure future workspaces automatically appear to already-paired owner devices
 
 ### QR / IPC / desktop UX
 - [ ] Change QR login generation to mint owner-wide web tokens instead of single-workspace tokens
@@ -107,9 +107,9 @@ without collapsing owner web tokens into master auth.
 - [ ] Remove now-misleading single-workspace wording from the pairing flow
 
 ### Regression coverage
-- [ ] Add focused tests for unrestricted owner web tokens
+- [x] Add focused tests for unrestricted owner web tokens
   - [x] owner web token can list all workspaces
-  - [ ] owner web token can access a workspace created after token issuance
+  - [x] owner web token can access a workspace created after token issuance
   - [x] owner web token is still blocked from master-only token management routes
   - [x] existing scoped-token behavior still works if retained
 - [x] Update any affected gateway protocol / auth / IPC tests
@@ -124,9 +124,9 @@ without collapsing owner web tokens into master auth.
 - [ ] Add a brief execution summary to `docs/deslop.md` if this lands as a tracked cleanup/refinement
 
 ### Validation
-- [ ] Run targeted gateway tests
+- [x] Run targeted gateway tests
 - [ ] Run any targeted renderer/web-remote tests touched by the API change
-- [ ] Run `pnpm typecheck`
+- [x] Run `pnpm typecheck`
 
 ## Likely files
 
