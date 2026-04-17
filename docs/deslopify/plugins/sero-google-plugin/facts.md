@@ -50,3 +50,22 @@ _Last reviewed: 2026-04-17_
 - The plugin extension and the renderer produce different state richness from the same gog payloads. For example, the tool path writes thread messages without `bodyHtml` (`plugins/sero-google-plugin/extension/index.ts:144-153`), while the UI path parses full HTML bodies (`plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts:196-204` + `plugins/sero-google-plugin/ui/components/gmail-parser.ts:67-91`). Calendar event shaping diverges similarly (`plugins/sero-google-plugin/extension/index.ts:236-248` vs `plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts:207-225`).
 - The plugin extension’s gog runner does not pass `--client`, does not ensure OAuth credentials are imported, and therefore does not obviously align with the profile-aware host auth/runtime contract (`plugins/sero-google-plugin/extension/gogcli.ts:70-78` vs `apps/desktop/electron/cli/lib/gog-runner.ts:70-92`).
 - The existing app-agent architecture already loads only app-local extensions, which means the shell is missing a generic “invoke my app’s tool directly” capability more than it is missing Google-specific business logic.
+
+## Post-fix snapshot — 2026-04-17
+
+### Metrics after fixes
+- Total files: 24 (unchanged from the 2026-04-17 review; the external plugin package is still not present in this checkout)
+- Largest file: `plugins/sero-google-plugin/extension/index.ts` (335 LOC, unchanged in this docs-only phase)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: not re-audited in this docs-only phase because no source files changed
+
+### What changed
+- Locked Phase 0 on the CLI parity path: Phase 5 must preserve the public `sero google ...` contract by moving it behind a plugin-owned `google` tool/command surface rather than narrowing to `gmail` / `gcal`.
+- Documented the behavior checklist that later phases must preserve: auth event types, `getGoogleClientName()` / `--client` profile isolation semantics, legacy buggy-keyring migration, and current host-versus-container execution expectations.
+- Recorded the shell-owned Google surfaces that stay in place until the final cutover (`window.sero.google`, `IpcChannels.google.*`, `SeroGoogleAPI`, and the built-in Google CLI files).
+- Confirmed a current execution prerequisite: this monorepo checkout contains the shell owners but not the external `plugins/sero-google-plugin/` source package, so later implementation phases require that package to be present before code migration can start.
+
+### Still outstanding
+- Phase 1 remains the next implementation step: add the generic app-tool execution bridge in core without introducing new Google-specific preload or IPC seams.
+- The external `plugins/sero-google-plugin/` source package must be available in the working tree before Phases 2–6 can be executed.
+- Plugin-local regression coverage still does not exist; that remains a later migration requirement from the original plan.

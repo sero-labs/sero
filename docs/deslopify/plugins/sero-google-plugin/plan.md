@@ -99,32 +99,47 @@ A fully self-contained Google plugin is **feasible, but not by simply moving the
 ## Next Steps
 
 ### Execution protocol
-- Work strictly in phase order. Do not start a later phase until the current phase is complete.
-- Land each phase in its **own commit**. Do not batch multiple phases into one commit.
-- Before committing **any** phase, run the relevant tests for the touched code and run `pnpm typecheck` from the monorepo root.
-- Do not commit if tests or `pnpm typecheck` are failing.
-- When a phase is fully finished, mark that phase’s `Phase N complete` checkbox as done **in the same change/commit that completes the phase**.
-- Keep this checklist current as implementation progresses.
+- [x] Work strictly in phase order. Do not start a later phase until the current phase is complete.
+- [x] Land each phase in its **own commit**. Do not batch multiple phases into one commit.
+- [x] Before committing **any** phase, run the relevant tests for the touched code and run `pnpm typecheck` from the monorepo root.
+- [x] Do not commit if tests or `pnpm typecheck` are failing.
+- [x] When a phase is fully finished, mark that phase’s `Phase N complete` checkbox as done **in the same change/commit that completes the phase**.
+- [x] Keep this checklist current as implementation progresses.
 
 ### Phase 0 — Lock scope and migration policy
-- [ ] Phase 0 complete
-- [ ] Decide the public command strategy up front.
-  - [ ] **Preferred:** preserve `sero google ...` by adding a plugin-owned `google` tool/command surface.
-  - [ ] **Alternative:** explicitly narrow the contract to `gmail` / `gcal` only.
-- [ ] Freeze the behavior that must survive the move.
-  - [ ] Auth event types stay `browser` / `waiting` / `success` / `error`.
-  - [ ] Profile-aware gog client selection behavior is documented.
-  - [ ] Legacy buggy-keyring migration behavior is documented.
-  - [ ] Host-vs-container execution expectations are documented.
-- [ ] Record the exact shell-owned Google surfaces to retire only at the end.
-  - [ ] `window.sero.google`
-  - [ ] `IpcChannels.google.*`
-  - [ ] `SeroGoogleAPI`
-  - [ ] built-in `sero google` CLI files
-- [ ] Exit criteria confirmed.
-  - [ ] CLI parity vs narrowing has been chosen.
-  - [ ] A behavior checklist exists for auth, CLI, and UI flows.
-  - [ ] No deletion work starts before this decision is made.
+
+Phase 0 policy lock (2026-04-17):
+- **Chosen CLI strategy:** preserve `sero google ...` via a plugin-owned `google` tool/command surface bridged through AD-020 in Phase 5. Narrowing to `gmail` / `gcal` only is explicitly rejected for this migration because it would retire an existing public shell contract before parity exists.
+- **Behavior checklist to preserve:**
+  - auth progress events remain `browser` / `waiting` / `success` / `error` and continue to drive the same UI states;
+  - profile-aware gog client selection continues to use `getGoogleClientName()` / `--client` semantics so AD-022 profile isolation remains intact;
+  - legacy buggy-keyring migration/recovery remains in place until migrated tokens are revalidated after the cutover;
+  - host-vs-container execution semantics must stay equivalent to today’s shell behavior, so the current host-only plugin runner is not sufficient for the cutover by itself.
+- **Shell-owned Google surfaces slated for end-of-migration removal only:**
+  - `window.sero.google` in `apps/desktop/electron/preload/integrations/google-imagegen.ts` + `apps/desktop/electron/preload/api.ts`
+  - `IpcChannels.google.*` in `apps/desktop/src/types/ipc-channels.ts`
+  - `SeroGoogleAPI` in `apps/desktop/src/types/electron-apps.d.ts`
+  - built-in `sero google` CLI files in `apps/desktop/electron/cli/commands/integrations/google*.ts` and `apps/desktop/electron/cli/lib/gog-runner.ts`
+- **Phase guardrail:** this checkout currently contains the shell-owned Google runtime surfaces but not the external `plugins/sero-google-plugin/` source package itself, so later implementation phases must not start until that package is available in the working tree.
+
+- [x] Phase 0 complete
+- [x] Decide the public command strategy up front.
+  - [x] **Preferred:** preserve `sero google ...` by adding a plugin-owned `google` tool/command surface. Chosen 2026-04-17.
+  - ⊘ **Alternative:** explicitly narrow the contract to `gmail` / `gcal` only. Rejected 2026-04-17 — it would remove the existing public `sero google ...` contract before parity lands.
+- [x] Freeze the behavior that must survive the move.
+  - [x] Auth event types stay `browser` / `waiting` / `success` / `error`.
+  - [x] Profile-aware gog client selection behavior is documented.
+  - [x] Legacy buggy-keyring migration behavior is documented.
+  - [x] Host-vs-container execution expectations are documented.
+- [x] Record the exact shell-owned Google surfaces to retire only at the end.
+  - [x] `window.sero.google`
+  - [x] `IpcChannels.google.*`
+  - [x] `SeroGoogleAPI`
+  - [x] built-in `sero google` CLI files
+- [x] Exit criteria confirmed.
+  - [x] CLI parity vs narrowing has been chosen.
+  - [x] A behavior checklist exists for auth, CLI, and UI flows.
+  - [x] No deletion work starts before this decision is made.
 
 ### Phase 1 — Add the generic app-tool execution bridge in core
 - [ ] Phase 1 complete
@@ -231,3 +246,6 @@ A fully self-contained Google plugin is **feasible, but not by simply moving the
 - [ ] Smoke-test the chosen CLI contract (`sero google ...` parity or documented removal) on both host-mode and container-backed workspaces.
 - [ ] Run the relevant tests for all touched code.
 - [ ] Run `pnpm typecheck` from the monorepo root before calling the migration complete.
+
+## Execution log
+- 2026-04-17 — Completed Phase 0 as a docs-only policy lock: chose the CLI parity path, documented the auth/profile/container behavior that later phases must preserve, recorded the shell-owned Google surfaces that stay until final cutover, and noted that later implementation phases require the external plugin source package to be available in the working tree.

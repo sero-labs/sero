@@ -4,6 +4,18 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-04-17
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `docs/deslopify/plugins/sero-google-plugin/plan.md` | Locked Phase 0 CLI/behavior policy, recorded the shell-owned Google surfaces to retire later, and marked the phase complete |
+| `docs/deslopify/plugins/sero-google-plugin/facts.md` | Added a post-phase snapshot with the chosen CLI parity path and the current external-plugin availability prerequisite |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phase 0 complete and Phase 1 next |
+
+---
+
 ## 2026-04-16
 
 ### Files Changed
