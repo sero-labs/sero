@@ -101,10 +101,10 @@ without collapsing owner web tokens into master auth.
 - [x] Ensure future workspaces automatically appear to already-paired owner devices
 
 ### QR / IPC / desktop UX
-- [ ] Change QR login generation to mint owner-wide web tokens instead of single-workspace tokens
-- [ ] Update renderer/preload/API contract if `workspaceId` is no longer needed for QR generation
-- [ ] Update `ConnectDeviceDialog` copy so it clearly says the paired device can access the whole profile / all workspaces
-- [ ] Remove now-misleading single-workspace wording from the pairing flow
+- [x] Change QR login generation to mint owner-wide web tokens instead of single-workspace tokens
+- [x] Update renderer/preload/API contract if `workspaceId` is no longer needed for QR generation
+- [x] Update `ConnectDeviceDialog` copy so it clearly says the paired device can access the whole profile / all workspaces
+- [x] Remove now-misleading single-workspace wording from the pairing flow
 
 ### Regression coverage
 - [x] Add focused tests for unrestricted owner web tokens
