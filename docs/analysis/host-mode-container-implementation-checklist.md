@@ -63,9 +63,9 @@ Use this checklist to record implementation progress.
 - [x] Add onboarding warning tests
 
 ### Phase 2 — make docs/product messaging truthful
-- [ ] Update `docs/sero.md` to say containers are strongly recommended, not required
-- [ ] Document host-mode limitations clearly
-- [ ] Link to the new macOS containers guide from relevant docs
+- [x] Update `docs/sero.md` to say containers are strongly recommended, not required
+- [x] Document host-mode limitations clearly
+- [x] Link to the new macOS containers guide from relevant docs
 
 ### Phase 3 — make host fallback behavior more coherent
 - [ ] Align editor write/exec fallback with read/list fallback
@@ -75,7 +75,7 @@ Use this checklist to record implementation progress.
 
 ### Detailed task checklist
 - [x] Create the dedicated container setup guide
-- [ ] Update product positioning docs
+- [x] Update product positioning docs
 - [x] Add reusable container availability detection
 - [ ] Reuse availability helper in boot logging where appropriate
 - [x] Extend onboarding state contract with container runtime info
@@ -99,7 +99,7 @@ Use this checklist to record implementation progress.
 - [x] The warning says containers are recommended, not required
 - [x] The warning links to a container setup guide
 - [x] Users can still continue onboarding in host mode
-- [ ] `docs/sero.md` no longer describes containers as a hard requirement
+- [x] `docs/sero.md` no longer describes containers as a hard requirement
 - [x] There is a canonical container setup guide
 - [x] Host-only limitations are documented clearly
 - [x] Core host fallback remains non-blocking
@@ -459,9 +459,9 @@ This gets the requested user-visible behavior in place quickly.
 
 ## Phase 2 — make docs/product messaging truthful
 
-1. Update `docs/sero.md`
-2. Add host-mode limitations section
-3. Link to the new guide from other relevant docs
+1. [x] Update `docs/sero.md`
+2. [x] Add host-mode limitations section
+3. [x] Link to the new guide from other relevant docs
 
 ## Phase 3 — make host fallback behavior actually coherent
 
@@ -483,7 +483,7 @@ The work should be considered complete when all of the following are true:
 - [x] The user can still continue onboarding in host mode
 
 ### Documentation
-- [ ] `docs/sero.md` no longer calls containers a hard requirement
+- [x] `docs/sero.md` no longer calls containers a hard requirement
 - [x] There is a canonical container setup guide
 - [x] Host-only limitations are documented clearly
 
