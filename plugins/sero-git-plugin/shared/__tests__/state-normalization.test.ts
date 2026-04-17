@@ -49,4 +49,12 @@ describe('normalizeGitState', () => {
     expect(state.syncMode).toBe('manual');
     expect(state.loading).toBe(false);
   });
+
+  it('maps legacy polling state to manual refresh mode', () => {
+    const state = normalizeGitState({
+      syncMode: 'poll' as never,
+    });
+
+    expect(state.syncMode).toBe('manual');
+  });
 });

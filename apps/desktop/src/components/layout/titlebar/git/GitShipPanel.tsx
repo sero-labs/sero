@@ -149,7 +149,7 @@ export function GitShipPanel({
               Quick sync
             </h3>
             <span className="text-[10px] text-[var(--text-muted)]">
-              {gitState.syncMode === 'poll' ? 'Polling fallback' : 'Watcher active'}
+              {gitState.syncMode === 'watch' ? 'Live refresh active' : 'Manual refresh only'}
             </span>
           </div>
           <div className="flex items-center gap-2">

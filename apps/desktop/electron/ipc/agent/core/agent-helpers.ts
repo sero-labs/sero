@@ -17,9 +17,9 @@ import { buildAvailableModelGroups } from './model-groups';
 export { nextId } from './agent-ids';
 export {
   attachmentsToImages,
-  buildCheckpointMapByTurn,
+  buildTurnUndoMapByTurn,
   convertSessionMessages,
-  findCheckpointEntryId,
+  findLegacyTurnUndoEntryId,
   formatCustomMessage,
 } from './agent-messages';
 export {

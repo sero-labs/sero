@@ -5,6 +5,7 @@ import type { CreatePullRequestInput, PullRequestDraft } from '@sero/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
 import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';
+import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 import { broadcastToWindows } from '../lib/window-broadcast';
 
 const Ch = IpcChannels.vcs;
@@ -13,12 +14,26 @@ function broadcast(event: unknown): void {
   broadcastToWindows(Ch.event, event);
 }
 
+function invalidateGitFromVcsEvent(event: unknown): void {
+  if (!event || typeof event !== 'object' || !('workspaceId' in event)) return;
+  const workspaceId = typeof event.workspaceId === 'string' ? event.workspaceId : null;
+  if (!workspaceId) return;
+
+  const type = 'type' in event && typeof event.type === 'string' ? event.type : '';
+  if (type === 'checkpoint_created' || type === 'restored') {
+    gitWorkspaceStateManager.invalidateWorkspace(workspaceId, `vcs:${type}`);
+  }
+}
+
 let subscribed = false;
 
 export function registerVcsHandlers(): void {
   if (!subscribed) {
     subscribed = true;
-    vcsManager.on('event', (event) => broadcast(event));
+    vcsManager.on('event', (event) => {
+      invalidateGitFromVcsEvent(event);
+      broadcast(event);
+    });
   }
 
   // ── Existing checkpoint handlers ──────────────────────────

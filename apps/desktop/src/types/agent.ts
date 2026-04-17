@@ -6,7 +6,7 @@
  */
 
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
-import type { ChatCheckpointRef } from './checkpoints';
+import type { ChatComposerPrefill, ChatTurnUndoRef } from './turn-undo';
 
 // ── Chat Messages ──────────────────────────────────────────────
 
@@ -43,6 +43,8 @@ export interface ChatUserMessage {
   text: string;
   /** Optional file attachments included with the message. */
   attachments?: ChatAttachment[];
+  /** Chat-turn undo target attached to this user message. */
+  turnUndo?: ChatTurnUndoRef;
 }
 
 export interface ChatAssistantMessage {
@@ -92,7 +94,8 @@ export type AgentStreamEvent =
   | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
   | { type: 'tool_update'; sessionId: string; toolCallId: string; output: string | null; details?: Record<string, unknown> | null; images?: ToolResultImage[] }
   | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; details?: Record<string, unknown> | null; isError: boolean; images?: ToolResultImage[] }
-  | { type: 'user_checkpoint'; sessionId: string; userMessageId: string; checkpoint: ChatCheckpointRef }
+  | { type: 'user_turn_undo'; sessionId: string; userMessageId: string; turnUndo: ChatTurnUndoRef }
+  | { type: 'composer_prefill'; sessionId: string; prefill: ChatComposerPrefill }
   | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'model_change'; sessionId: string; state: SessionModelState }
   | { type: 'memory_context'; sessionId: string; context: string }

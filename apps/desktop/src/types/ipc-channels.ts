@@ -96,6 +96,8 @@ export const IpcChannels = {
     setContextOverrides: 'sero:agent:set-context-overrides',
     /** Restore a session to a checkpoint: VCS file restore + session branch. */
     restoreToCheckpoint: 'sero:agent:restore-to-checkpoint',
+    /** Undo a user turn: restore files, rewind the session tree, and prefill the composer. */
+    undoToTurn: 'sero:agent:undo-to-turn',
   },
   contextPresets: {
     /** Load all user-saved context editor presets from disk. */

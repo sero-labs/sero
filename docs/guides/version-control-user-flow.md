@@ -28,7 +28,10 @@ Sero Source Control is JJ-backed and organized into these sections:
 4. Optional: add a description and click `Commit` to create a manual checkpoint.
 
 Notes:
-- Automatic checkpoints are driven by agent turn policy, not filesystem save events.
+- Chat undo and Source Control checkpoints are different tools.
+- `Undo this turn` lives in chat, restores the workspace to the pre-turn snapshot, rewinds the Pi session tree to before that user prompt, and puts the old prompt back in the composer so you can retry or edit it.
+- Manual checkpoints stay in Source Control as explicit VCS history you create on purpose.
+- Automatic undo snapshots are internal and do not appear as normal visible checkpoint commits.
 - Manual edits can stay grouped in working copy until you explicitly checkpoint.
 
 ## 3. Manage Branches with Bookmarks
@@ -85,9 +88,13 @@ inside the same workspace runtime (typically the Sero container for container wo
 2. Expand a change to view files and actions.
 3. Use:
    - `Diff` to inspect content changes.
-   - `Restore` to return files to that checkpoint snapshot.
+   - `Restore checkpoint` to return files to that checkpoint snapshot.
    - `Push` / `Push as...` to publish a specific change.
-4. Use inline chat “revert to this point” controls when restoring from conversation history.
+4. Use chat `Undo this turn` when you want to back out one agent turn from the conversation itself.
+
+Important distinction:
+- `Undo this turn` branches the active chat session back to before the selected user prompt. The abandoned branch is left in the Pi session tree rather than hard-deleted.
+- `Restore checkpoint` is a Source Control action on manual VCS history. It restores files from a checkpoint snapshot and does not mean “undo the current chat turn.”
 
 ## Typical Daily Workflow
 

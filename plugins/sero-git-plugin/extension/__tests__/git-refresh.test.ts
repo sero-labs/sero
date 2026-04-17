@@ -52,4 +52,33 @@ describe('refreshGitState', () => {
       await cleanupPaths([repoPath]);
     }
   });
+
+  it('excludes internal turn-undo refs from visible commit history and counts', async () => {
+    const repoPath = await createGitRepo();
+    const statePath = statePathFor(repoPath);
+
+    try {
+      await writeRepoFile(repoPath, 'a.txt', 'base\n');
+      commitAll(repoPath, 'initial');
+
+      const headTree = runGit(['rev-parse', 'HEAD^{tree}'], repoPath);
+      const hiddenCommit = runGit([
+        'commit-tree',
+        headTree,
+        '-p',
+        'HEAD',
+        '-m',
+        'turn-undo snapshot 1776459831589-test-hidden-ref',
+      ], repoPath);
+      runGit(['update-ref', 'refs/sero/turn-undo/1776459831589-test-hidden-ref', hiddenCommit], repoPath);
+
+      const refreshedState = await refreshGitState(repoPath, statePath, { scope: 'full' });
+
+      expect(refreshedState.commitCount).toBe(1);
+      expect(refreshedState.commits).toHaveLength(1);
+      expect(refreshedState.commits[0]?.subject).toBe('initial');
+    } finally {
+      await cleanupPaths([repoPath]);
+    }
+  });
 });

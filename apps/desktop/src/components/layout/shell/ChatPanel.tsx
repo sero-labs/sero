@@ -69,6 +69,10 @@ export function ChatPanel() {
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
   const focusedWorkspaceId = focused?.workspaceId ?? null;
+  const composerPrefill = useAgentStore((s) =>
+    sessionId ? (s.composerPrefills[sessionId] ?? null) : null,
+  );
+  const clearComposerPrefill = useAgentStore((s) => s.clearComposerPrefill);
   const checkpoint = useCheckpointRestore(focusedWorkspaceId, sessionId);
 
   const persistCollaborationSize = useDebouncedCallback((pct: number) => {
@@ -89,6 +93,14 @@ export function ChatPanel() {
   const stableRestoreHandler = useMemo(
     () => (focusedWorkspaceId ? checkpoint.requestRestore : undefined),
     [focusedWorkspaceId, checkpoint.requestRestore],
+  );
+
+  const handleComposerDraftApplied = useCallback(
+    (draft: { requestId: string }) => {
+      if (!sessionId) return;
+      clearComposerPrefill(sessionId, draft.requestId);
+    },
+    [clearComposerPrefill, sessionId],
   );
 
   // ── Ctrl+click file paths in conversation ──────────────────
@@ -200,7 +212,7 @@ export function ChatPanel() {
                   message={item.message}
                   showThinking={showThinkingBlocks}
                   showMemory={showMemoryBlocks}
-                  onRestoreCheckpoint={stableRestoreHandler}
+                  onRestoreTurnUndo={stableRestoreHandler}
                   sessionId={sessionId ?? undefined}
                   previousUserText={previousUserTextMap.get(index)}
                 />
@@ -274,11 +286,14 @@ export function ChatPanel() {
         sessionId={sessionId}
         isStreaming={isStreaming}
         focusedWorkspaceId={focusedWorkspaceId}
+        externalDraft={composerPrefill}
+        onExternalDraftApplied={handleComposerDraftApplied}
       />
 
       <CheckpointRestoreDialog
         open={checkpoint.dialogOpen}
-        checkpointId={checkpoint.target?.changeId ?? ''}
+        snapshotId={checkpoint.target?.snapshotId ?? ''}
+        undoLabel={checkpoint.target?.label}
         files={checkpoint.previewFiles}
         isLoading={checkpoint.previewLoading}
         error={checkpoint.previewError}

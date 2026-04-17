@@ -150,6 +150,16 @@ export class GitRunner {
     args: string[],
     timeoutMs = 30_000,
   ): Promise<GitResult> {
+    return this.runCommandWithEnv(workspaceId, program, args, {}, timeoutMs);
+  }
+
+  async runCommandWithEnv(
+    workspaceId: string,
+    program: string,
+    args: string[],
+    extraEnv: NodeJS.ProcessEnv,
+    timeoutMs = 30_000,
+  ): Promise<GitResult> {
     const workspacePath = this.workspaceManager.getPath(workspaceId);
     if (!workspacePath) {
       return {
@@ -172,9 +182,12 @@ export class GitRunner {
 
     if (useContainer) {
       await this.ensureContainer(workspaceId, workspacePath);
-      // GitHub auth env vars (GH_TOKEN, URL rewrites, HTTP auth header) are injected
-      // by ContainerManager.exec() via its getExtraEnvVars callback.
-      const command = `${shQuote(program)} ${args.map(shQuote).join(' ')}`;
+      const command = Object.keys(extraEnv).length > 0
+        ? `env ${Object.entries(extraEnv)
+            .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+            .map(([key, value]) => `${key}=${shQuote(value)}`)
+            .join(' ')} ${shQuote(program)} ${args.map(shQuote).join(' ')}`
+        : `${shQuote(program)} ${args.map(shQuote).join(' ')}`;
       return this.containerManager.exec(workspaceId, command, '/workspace', timeoutMs, {
         injectGitAuth: program === 'git' || program === 'gh',
       });
@@ -207,6 +220,7 @@ export class GitRunner {
         Object.assign(env, authVars);
       }
     }
+    Object.assign(env, extraEnv);
 
     try {
       const { stdout, stderr } = await execFileAsync(program, args, {
@@ -228,6 +242,15 @@ export class GitRunner {
 
   async run(workspaceId: string, args: string[], timeoutMs = 30_000): Promise<GitResult> {
     return this.runCommand(workspaceId, 'git', args, timeoutMs);
+  }
+
+  async runWithEnv(
+    workspaceId: string,
+    args: string[],
+    extraEnv: NodeJS.ProcessEnv,
+    timeoutMs = 30_000,
+  ): Promise<GitResult> {
+    return this.runCommandWithEnv(workspaceId, 'git', args, extraEnv, timeoutMs);
   }
 
   async ensureRepoInitialized(workspaceId: string): Promise<void> {

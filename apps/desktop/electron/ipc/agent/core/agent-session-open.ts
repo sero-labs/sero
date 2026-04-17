@@ -10,7 +10,6 @@ import type {
   ContextOverrides,
   ContextToolInfo,
 } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { createHostCodingTools } from '@electron/features/container/tools';
@@ -33,7 +32,7 @@ import {
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 import { readGlobalAgentsMd } from './global-agents';
 import {
-  buildCheckpointMapByTurn,
+  buildTurnUndoMapByTurn,
   convertSessionMessages,
   getBaseSystemPrompt,
 } from './agent-helpers';
@@ -47,8 +46,8 @@ export interface PoolEntry {
   workspaceId: string;
   currentAssistantId: string | null;
   lastSessionName: string | undefined;
-  /** Checkpoint from the most recently completed turn, to attach to the NEXT user message. */
-  lastCompletedCheckpoint: ChatCheckpointRef | null;
+  /** Renderer user-message id awaiting same-turn undo metadata after the active turn ends. */
+  pendingTurnUndoUserMessageId: string | null;
   contextOverrides: ContextOverrides | null;
   baseSystemPrompt: string;
   baseTools: ContextToolInfo[];
@@ -77,7 +76,7 @@ export async function openSessionInPool({
   if (existing) {
     return convertSessionMessages(
       existing.session.messages,
-      buildCheckpointMapByTurn(existing.session, existing.workspaceId),
+      buildTurnUndoMapByTurn(existing.session, existing.workspaceId),
     );
   }
 
@@ -182,7 +181,7 @@ export async function openSessionInPool({
     workspaceId,
     currentAssistantId: null,
     lastSessionName: session.sessionName,
-    lastCompletedCheckpoint: null,
+    pendingTurnUndoUserMessageId: null,
     contextOverrides: null,
     baseSystemPrompt,
     baseTools,
@@ -193,5 +192,5 @@ export async function openSessionInPool({
   }
 
   pool.set(sessionId, entry);
-  return convertSessionMessages(session.messages, buildCheckpointMapByTurn(session, workspaceId));
+  return convertSessionMessages(session.messages, buildTurnUndoMapByTurn(session, workspaceId));
 }

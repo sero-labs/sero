@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { CreateCheckpointOptions, VcsCheckpoint, VcsCheckpointSource, VcsEvent, VcsWorkspaceState } from '../support/types';
 import { GitRunner } from './git-runner';
+import { InternalSnapshotManager } from './internal-snapshot-manager';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -20,12 +21,15 @@ function parseSourceFromDescription(description: string): VcsCheckpointSource {
 export class VcsManager extends EventEmitter {
   private readonly runner: GitRunner;
 
+  private readonly snapshots: InternalSnapshotManager;
+
   constructor(
     private readonly workspaceManager: WorkspaceManager,
     runner: GitRunner,
   ) {
     super();
     this.runner = runner;
+    this.snapshots = new InternalSnapshotManager(runner);
   }
 
   private emitEvent(event: VcsEvent): void {
@@ -34,6 +38,18 @@ export class VcsManager extends EventEmitter {
 
   private async ensureRepoInitialized(workspaceId: string): Promise<void> {
     await this.runner.ensureRepoInitialized(workspaceId);
+  }
+
+  async createInternalSnapshot(workspaceId: string): Promise<string> {
+    return this.snapshots.createSnapshot(workspaceId);
+  }
+
+  async cleanupInternalSnapshots(workspaceId: string): Promise<void> {
+    await this.snapshots.cleanupSnapshots(workspaceId);
+  }
+
+  async hasSnapshotDiff(workspaceId: string, snapshotId: string): Promise<boolean> {
+    return this.snapshots.hasWorkingTreeChangesSinceSnapshot(workspaceId, snapshotId);
   }
 
   async getCurrentChangeId(workspaceId: string): Promise<string | null> {
@@ -131,15 +147,16 @@ export class VcsManager extends EventEmitter {
   }
 
   private buildDefaultDescription(source: CreateCheckpointOptions['source']): string {
+    const timestamp = nowIso();
     switch (source) {
       case 'turn':
-        return `checkpoint: turn @ ${new Date().toLocaleString()}`;
+        return `checkpoint: turn @ ${timestamp}`;
       case 'fs':
-        return `checkpoint: filesystem change @ ${new Date().toLocaleString()}`;
+        return `checkpoint: filesystem change @ ${timestamp}`;
       case 'restore':
-        return `checkpoint: restore @ ${new Date().toLocaleString()}`;
+        return `checkpoint: restore @ ${timestamp}`;
       default:
-        return `checkpoint: manual @ ${new Date().toLocaleString()}`;
+        return `checkpoint: manual @ ${timestamp}`;
     }
   }
 
@@ -190,13 +207,48 @@ export class VcsManager extends EventEmitter {
   /**
    * Restore workspace files to the state at the given checkpoint.
    *
-   * Uses `git checkout <sha> -- .` to restore all files to the checkpoint
-   * state, then stages and commits as a restore point to keep history linear.
+   * Uses `git checkout <sha> -- .` to restore tracked paths that exist in the
+   * target snapshot, explicitly removes tracked files added after that snapshot,
+   * then stages and commits the restore to keep history linear.
    */
   async restoreCheckpoint(workspaceId: string, changeId: string): Promise<void> {
     await this.ensureRepoInitialized(workspaceId);
 
-    // Restore all files to the checkpoint state
+    if (this.snapshots.isInternalSnapshotId(changeId)) {
+      console.log(`[vcs] Restoring workspace=${workspaceId} to internal snapshot=${changeId}`);
+      await this.snapshots.restoreSnapshot(workspaceId, changeId);
+      console.log(`[vcs] Internal snapshot restore finished for workspace=${workspaceId}, snapshot=${changeId}`);
+      this.emitEvent({
+        type: 'restored',
+        workspaceId,
+        checkpointId: changeId,
+      });
+      return;
+    }
+
+    console.log(`[vcs] Restoring workspace=${workspaceId} to checkpoint=${changeId}`);
+    const addedSinceTarget = await this.runner.run(workspaceId, [
+      'diff',
+      '--name-only',
+      '--diff-filter=A',
+      changeId,
+      'HEAD',
+      '--',
+      '.',
+    ]);
+    if (addedSinceTarget.exitCode !== 0) {
+      throw new Error(addedSinceTarget.stderr || `Failed to compare checkpoint ${changeId}`);
+    }
+
+    const addedPaths = addedSinceTarget.stdout
+      .split(/\r?\n/)
+      .map((rawPath) => rawPath.trim())
+      .filter(Boolean);
+    console.log(
+      `[vcs] Files added after checkpoint ${changeId} in workspace=${workspaceId}: ${addedPaths.length > 0 ? addedPaths.join(', ') : '(none)'}`,
+    );
+
+    // Restore all files that exist in the target checkpoint state.
     const checkout = await this.runner.run(workspaceId, [
       'checkout',
       changeId,
@@ -208,21 +260,40 @@ export class VcsManager extends EventEmitter {
       throw new Error(checkout.stderr || `Failed to restore checkpoint ${changeId}`);
     }
 
-    // Also clean untracked files that didn't exist at the checkpoint
-    await this.runner.run(workspaceId, ['clean', '-fd']);
+    // Remove tracked files that were added after the target checkpoint.
+    for (const filePath of addedPaths) {
+      console.log(`[vcs] Removing file added after target checkpoint: ${filePath}`);
+      const remove = await this.runner.run(workspaceId, ['rm', '-f', '--', filePath]);
+      if (remove.exitCode !== 0) {
+        throw new Error(remove.stderr || `Failed to remove ${filePath} during restore`);
+      }
+    }
 
-    // Stage everything and commit the restore
-    await this.runner.run(workspaceId, ['add', '-A']);
+    // Also clean untracked files that didn't exist at the checkpoint.
+    const clean = await this.runner.run(workspaceId, ['clean', '-fd']);
+    if (clean.exitCode !== 0) {
+      throw new Error(clean.stderr || `Failed to clean workspace for checkpoint ${changeId}`);
+    }
+
+    // Stage everything and commit the restore.
+    const add = await this.runner.run(workspaceId, ['add', '-A']);
+    if (add.exitCode !== 0) {
+      throw new Error(add.stderr || 'Failed to stage restored files');
+    }
 
     const hasChanges = await this.hasWorkingCopyChanges(workspaceId);
     if (hasChanges) {
-      await this.runner.run(workspaceId, [
+      const commit = await this.runner.run(workspaceId, [
         'commit',
         '-m',
         `restore: ${changeId}`,
       ]);
+      if (commit.exitCode !== 0) {
+        throw new Error(commit.stderr || `Failed to commit restore for ${changeId}`);
+      }
     }
 
+    console.log(`[vcs] Restore finished for workspace=${workspaceId}, checkpoint=${changeId}`);
     this.emitEvent({
       type: 'restored',
       workspaceId,
@@ -233,12 +304,25 @@ export class VcsManager extends EventEmitter {
   async diff(workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string> {
     await this.ensureRepoInitialized(workspaceId);
 
+    if (!toChangeId?.trim() && this.snapshots.isInternalSnapshotId(fromChangeId)) {
+      return this.snapshots.diffSnapshotToWorkingTree(workspaceId, fromChangeId);
+    }
+
+    const fromRevision = this.snapshots.isInternalSnapshotId(fromChangeId)
+      ? this.snapshots.resolveRevision(fromChangeId)
+      : fromChangeId;
+    const toRevision = toChangeId?.trim()
+      ? this.snapshots.isInternalSnapshotId(toChangeId.trim())
+        ? this.snapshots.resolveRevision(toChangeId.trim())
+        : toChangeId.trim()
+      : null;
+
     const args = ['diff'];
-    if (toChangeId?.trim()) {
-      args.push(`${fromChangeId}..${toChangeId.trim()}`);
+    if (toRevision) {
+      args.push(`${fromRevision}..${toRevision}`);
     } else {
       // Diff from the given commit to the current working tree
-      args.push(fromChangeId);
+      args.push(fromRevision);
     }
 
     const diff = await this.runner.run(workspaceId, args, 60_000);

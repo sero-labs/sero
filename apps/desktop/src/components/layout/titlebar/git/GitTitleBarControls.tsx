@@ -252,11 +252,11 @@ function getButtonTitle({
   disabled: boolean;
   error?: string;
   refreshedAt: string;
-  syncMode: 'manual' | 'watch' | 'poll';
+  syncMode: 'manual' | 'watch';
 }): string {
   if (disabled) return 'Git actions are unavailable for this workspace.';
   if (error) return error;
-  const mode = syncMode === 'poll' ? 'Polling fallback enabled' : 'Watching repository changes';
+  const mode = syncMode === 'watch' ? 'Watching repository changes' : 'Manual refresh only';
   const refreshed = refreshedAt ? `Last update: ${formatGitRefreshTime(refreshedAt)}` : 'Waiting for Git state';
   return `${mode}. ${refreshed}`;
 }

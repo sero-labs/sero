@@ -106,15 +106,7 @@ function emitMainSessionUserMessage(
     },
   });
 
-  if (entry.lastCompletedCheckpoint) {
-    emitAgentEvent({
-      type: 'user_checkpoint',
-      sessionId,
-      userMessageId,
-      checkpoint: entry.lastCompletedCheckpoint,
-    });
-    entry.lastCompletedCheckpoint = null;
-  }
+  entry.pendingTurnUndoUserMessageId = userMessageId;
 }
 
 export function registerCollaborationHandlers(): void {

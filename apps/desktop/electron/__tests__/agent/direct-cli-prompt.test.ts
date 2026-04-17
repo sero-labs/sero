@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChatAttachment, AgentStreamEvent } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
 import { workspaceManager } from '@electron/shared/infra/shared-infra';
 import {
   buildDirectCliExtensionContext,
   executeDirectCliPrompt,
   handlePromptInput,
+  handleSteerInput,
   isDirectSeroCliPrompt,
   type PromptPoolEntry,
 } from '@electron/ipc/agent/core/agent-prompt';
@@ -40,7 +40,7 @@ describe('direct CLI chat prompts', () => {
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
-      lastCompletedCheckpoint: null,
+      pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
         prompt,
@@ -110,7 +110,7 @@ describe('direct CLI chat prompts', () => {
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
-      lastCompletedCheckpoint: null,
+      pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
         agent: { appendMessage: vi.fn() },
@@ -148,7 +148,7 @@ describe('direct CLI chat prompts', () => {
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
-      lastCompletedCheckpoint: null,
+      pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
         modelRegistry,
@@ -177,19 +177,13 @@ describe('direct CLI chat prompts', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('uses the normal agent prompt path for non-sero text and preserves checkpoints', async () => {
+  it('uses the normal agent prompt path for non-sero text and records the pending user message id', async () => {
     const prompt = vi.fn();
     const sendEvent = vi.fn<(event: AgentStreamEvent) => void>();
-    const checkpoint: ChatCheckpointRef = {
-      changeId: 'cp-1',
-      description: 'checkpoint',
-      source: 'turn',
-      createdAt: '2026-04-01T10:00:00.000Z',
-    };
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
-      lastCompletedCheckpoint: checkpoint,
+      pendingTurnUndoUserMessageId: null,
       session: {
         prompt,
       } as never,
@@ -204,10 +198,56 @@ describe('direct CLI chat prompts', () => {
     });
 
     expect(prompt).toHaveBeenCalledWith('Please summarize this memory change.', undefined);
-    expect(sendEvent.mock.calls.map(([event]) => event.type)).toEqual([
-      'message_start',
-      'user_checkpoint',
-    ]);
-    expect(entry.lastCompletedCheckpoint).toBeNull();
+    expect(sendEvent.mock.calls.map(([event]) => event.type)).toEqual(['message_start']);
+    expect(entry.pendingTurnUndoUserMessageId).toBe('msg-user-1');
+  });
+
+  it('tracks successful steer messages as the pending turn-undo target', async () => {
+    const steer = vi.fn().mockResolvedValue(undefined);
+    const sendEvent = vi.fn<(event: AgentStreamEvent) => void>();
+
+    const entry: PromptPoolEntry = {
+      workspaceId: 'ws-1',
+      pendingTurnUndoUserMessageId: 'msg-user-1',
+      session: {
+        steer,
+      } as never,
+    };
+
+    await handleSteerInput({
+      entry,
+      sessionId: 'session-1',
+      text: 'Actually focus on the failing test.',
+      clientMessageId: 'msg-user-2',
+      sendEvent,
+    });
+
+    expect(steer).toHaveBeenCalledWith('Actually focus on the failing test.');
+    expect(sendEvent.mock.calls.map(([event]) => event.type)).toEqual(['message_start']);
+    expect(entry.pendingTurnUndoUserMessageId).toBe('msg-user-2');
+  });
+
+  it('keeps the prior turn-undo target when steer delivery fails', async () => {
+    const steer = vi.fn().mockRejectedValue(new Error('steer rejected'));
+    const sendEvent = vi.fn<(event: AgentStreamEvent) => void>();
+
+    const entry: PromptPoolEntry = {
+      workspaceId: 'ws-1',
+      pendingTurnUndoUserMessageId: 'msg-user-1',
+      session: {
+        steer,
+      } as never,
+    };
+
+    await expect(handleSteerInput({
+      entry,
+      sessionId: 'session-1',
+      text: 'Actually focus on the failing test.',
+      clientMessageId: 'msg-user-2',
+      sendEvent,
+    })).rejects.toThrow('steer rejected');
+
+    expect(sendEvent.mock.calls.map(([event]) => event.type)).toEqual(['message_start']);
+    expect(entry.pendingTurnUndoUserMessageId).toBe('msg-user-1');
   });
 });

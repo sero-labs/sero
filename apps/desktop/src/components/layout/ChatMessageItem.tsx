@@ -13,8 +13,7 @@ import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';
 import { MemoryContextBlock } from './MemoryContextBlock';
 import { ResponseFeedback } from './ResponseFeedback';
-import type { ChatMessage } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
+import type { ChatMessage, ChatTurnUndoRef } from '@/types/ipc';
 
 function ChatAvatar({ kind }: { kind: 'user' | 'assistant' }) {
   const Icon = kind === 'user' ? User : Bot;
@@ -41,7 +40,7 @@ interface ChatMessageItemProps {
   showThinking?: boolean;
   /** Whether to display memory context blocks. */
   showMemory?: boolean;
-  onRestoreCheckpoint?: (checkpoint: ChatCheckpointRef) => void;
+  onRestoreTurnUndo?: (turnUndo: ChatTurnUndoRef) => void;
   /** Session ID for feedback attribution. */
   sessionId?: string;
   /** The user message text that preceded this assistant response. */
@@ -52,14 +51,14 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   message,
   showThinking,
   showMemory,
-  onRestoreCheckpoint,
+  onRestoreTurnUndo,
   sessionId,
   previousUserText,
 }: ChatMessageItemProps) {
   switch (message.type) {
     case 'user': {
-      const checkpoint = (message as { checkpoint?: ChatCheckpointRef }).checkpoint;
-      const canRestore = !!checkpoint && !!onRestoreCheckpoint;
+      const turnUndo = message.turnUndo;
+      const canRestore = !!turnUndo && !!onRestoreTurnUndo;
 
       return (
         <Message from="user">
@@ -77,13 +76,13 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                 ) : null}
               </MessageContent>
 
-              {canRestore && checkpoint && onRestoreCheckpoint ? (
+              {canRestore && turnUndo && onRestoreTurnUndo ? (
                 <MessageActions className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2">
                   <MessageAction
-                    tooltip="Revert to this point"
-                    label="Revert to this point"
+                    tooltip="Undo this turn"
+                    label="Undo this turn"
                     className="h-7 w-7 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)]"
-                    onClick={() => onRestoreCheckpoint(checkpoint)}
+                    onClick={() => onRestoreTurnUndo(turnUndo)}
                   >
                     <RotateCcw className="size-3.5" />
                   </MessageAction>

@@ -12,13 +12,12 @@ import type {
   SessionUsageStats,
 } from '@/types/ipc';
 import {
-  buildCheckpointMapByTurn,
+  buildTurnUndoMapByTurn,
   buildCommandList,
   convertSessionMessages,
-  nextId,
   readHiddenCommands,
 } from './agent-helpers';
-import { handlePromptInput } from './agent-prompt';
+import { handlePromptInput, handleSteerInput } from './agent-prompt';
 import { emitSessionShutdown, emitSessionBeforeSwitch } from './agent-session-events';
 import { registerAgentCheckpointHandlers } from './agent-checkpoint';
 import { workspaceManager } from '@electron/features/workspace/manager';
@@ -144,12 +143,13 @@ export function registerAgentHandlers(): void {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
-      // Emit the user message so the renderer can show it immediately
-      const userMessageId = clientMessageId?.trim() || nextId();
-      const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
-      sendEvent({ type: 'message_start', sessionId, message: userMsg });
-
-      await entry.session.steer(text);
+      await handleSteerInput({
+        entry,
+        sessionId,
+        text,
+        clientMessageId,
+        sendEvent,
+      });
     },
   );
   ipcMain.handle(
@@ -267,7 +267,7 @@ export function registerAgentHandlers(): void {
       if (branch.length === 0) {
         return convertSessionMessages(
           entry.session.messages,
-          buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+          buildTurnUndoMapByTurn(entry.session, entry.workspaceId),
         );
       }
 
@@ -280,11 +280,11 @@ export function registerAgentHandlers(): void {
       if (result.cancelled) {
         throw new Error('Clear was cancelled by an extension');
       }
-      entry.lastCompletedCheckpoint = null;
+      entry.pendingTurnUndoUserMessageId = null;
 
       const chatMessages = convertSessionMessages(
         entry.session.messages,
-        buildCheckpointMapByTurn(entry.session, entry.workspaceId),
+        buildTurnUndoMapByTurn(entry.session, entry.workspaceId),
       );
       sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
 

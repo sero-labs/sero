@@ -9,7 +9,6 @@ import type {
   UserMessage,
 } from '@mariozechner/pi-ai';
 import type { ChatAttachment, ChatMessage, ChatToolCallMessage, AgentStreamEvent, ToolResultImage } from '@/types/ipc';
-import type { ChatCheckpointRef } from '@/types/checkpoints';
 import { getCliRegistry } from '@electron/cli';
 import type { CliContentBlock } from '@electron/cli/core';
 import { createSeroCliTool, splitCommandLines } from '@electron/cli/core';
@@ -35,7 +34,7 @@ const ZERO_USAGE: Usage = {
 export interface PromptPoolEntry {
   session: AgentSession;
   workspaceId: string;
-  lastCompletedCheckpoint: ChatCheckpointRef | null;
+  pendingTurnUndoUserMessageId: string | null;
 }
 
 interface HandlePromptInputArgs {
@@ -43,6 +42,14 @@ interface HandlePromptInputArgs {
   sessionId: string;
   text: string;
   attachments?: ChatAttachment[];
+  clientMessageId?: string;
+  sendEvent: (event: AgentStreamEvent) => void;
+}
+
+interface HandleSteerInputArgs {
+  entry: PromptPoolEntry;
+  sessionId: string;
+  text: string;
   clientMessageId?: string;
   sendEvent: (event: AgentStreamEvent) => void;
 }
@@ -99,17 +106,8 @@ export async function handlePromptInput({
   const userMsg: ChatMessage = { type: 'user', id: userMessageId, text, attachments };
   sendEvent({ type: 'message_start', sessionId, message: userMsg });
 
-  if (entry.lastCompletedCheckpoint) {
-    sendEvent({
-      type: 'user_checkpoint',
-      sessionId,
-      userMessageId,
-      checkpoint: entry.lastCompletedCheckpoint,
-    });
-    entry.lastCompletedCheckpoint = null;
-  }
-
   if (isDirectSeroCliPrompt(text, attachments)) {
+    entry.pendingTurnUndoUserMessageId = null;
     await executeDirectCliPrompt({
       entry,
       sessionId,
@@ -119,8 +117,25 @@ export async function handlePromptInput({
     return;
   }
 
+  entry.pendingTurnUndoUserMessageId = userMessageId;
+
   const images = attachmentsToImages(attachments);
   await entry.session.prompt(text, images ? { images } : undefined);
+}
+
+export async function handleSteerInput({
+  entry,
+  sessionId,
+  text,
+  clientMessageId,
+  sendEvent,
+}: HandleSteerInputArgs): Promise<void> {
+  const userMessageId = clientMessageId?.trim() || nextId();
+  const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
+  sendEvent({ type: 'message_start', sessionId, message: userMsg });
+
+  await entry.session.steer(text);
+  entry.pendingTurnUndoUserMessageId = userMessageId;
 }
 
 function handleDirectCliCompactResult(

@@ -134,7 +134,7 @@ describe('CLI bridge rich output', () => {
         session: { messages: [] } as never,
         workspaceId: 'ws-1',
         currentAssistantId: null,
-        lastCompletedCheckpoint: null,
+        pendingTurnUndoUserMessageId: null,
       }),
       sendEvent,
     );
@@ -250,7 +250,7 @@ describe('CLI bridge rich output', () => {
         session: { messages: [] } as never,
         workspaceId: 'ws-1',
         currentAssistantId: null,
-        lastCompletedCheckpoint: null,
+        pendingTurnUndoUserMessageId: null,
       }),
       sendEvent,
     );
