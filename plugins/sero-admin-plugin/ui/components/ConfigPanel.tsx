@@ -13,6 +13,7 @@ import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { CONFIG_FILES } from '../../shared/types';
 import type { ConfigFile } from '../../shared/types';
 import { useConfigFile } from '../hooks/useConfigFile';
+import { MemoryLoggingSettingsCard } from './MemoryLoggingSettingsCard';
 
 interface ConfigPanelProps {
   profilePath: string | null;
@@ -325,19 +326,29 @@ function ConfigEditor({
             <p className="text-xs text-muted-foreground/50">File not found</p>
           </div>
         ) : (
-          <textarea
-            value={displayContent ?? ''}
-            onChange={(e) => handleEdit(e.target.value)}
-            readOnly={isReadOnly}
-            spellCheck={false}
-            className={cn(
-              'admin-editor w-full min-h-full resize-none bg-transparent',
-              'px-4 py-3 text-[12px] leading-[1.6] text-foreground/90',
-              isReadOnly && 'opacity-60 cursor-default',
-            )}
-            // fieldSizing: 'content' is Chromium-only (Chrome 123+), fine for Electron
-            style={{ fieldSizing: 'content' } as React.CSSProperties}
-          />
+          <>
+            {configKey === 'settings' && displayContent !== null ? (
+              <MemoryLoggingSettingsCard
+                rawSettings={displayContent}
+                profilePath={profilePath}
+                onChange={handleEdit}
+                disabled={isReadOnly}
+              />
+            ) : null}
+            <textarea
+              value={displayContent ?? ''}
+              onChange={(e) => handleEdit(e.target.value)}
+              readOnly={isReadOnly}
+              spellCheck={false}
+              className={cn(
+                'admin-editor w-full min-h-full resize-none bg-transparent',
+                'px-4 py-3 text-[12px] leading-[1.6] text-foreground/90',
+                isReadOnly && 'opacity-60 cursor-default',
+              )}
+              // fieldSizing: 'content' is Chromium-only (Chrome 123+), fine for Electron
+              style={{ fieldSizing: 'content' } as React.CSSProperties}
+            />
+          </>
         )}
       </ScrollArea>
     </div>

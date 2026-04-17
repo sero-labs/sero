@@ -11,11 +11,33 @@ function warnOnce(key: string, message: string, error: unknown): void {
   console.warn(`${message}: ${detail}`);
 }
 
-async function rotateIfNeeded(filePath: string, maxBytes: number): Promise<void> {
+async function rotateFiles(filePath: string, maxFiles: number): Promise<void> {
+  if (maxFiles <= 0) {
+    await fs.rm(filePath, { force: true });
+    return;
+  }
+
+  await fs.rm(`${filePath}.${maxFiles}`, { force: true });
+  for (let index = maxFiles - 1; index >= 1; index -= 1) {
+    const source = `${filePath}.${index}`;
+    const target = `${filePath}.${index + 1}`;
+    try {
+      await fs.rename(source, target);
+    } catch (error) {
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
+
+  await fs.rename(filePath, `${filePath}.1`);
+}
+
+async function rotateIfNeeded(filePath: string, maxBytes: number, maxFiles: number): Promise<void> {
   try {
     const { size } = await fs.stat(filePath);
     if (size >= maxBytes) {
-      await fs.rename(filePath, `${filePath}.1`);
+      await rotateFiles(filePath, maxFiles);
     }
   } catch (error) {
     if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') {
@@ -28,20 +50,28 @@ export function appendRotatingLogLine(options: {
   filePath: string;
   line: string;
   maxBytes: number;
+  maxFiles?: number;
   warningKey: string;
   warningMessage: string;
+  beforeAppend?: () => Promise<void>;
 }): void {
   const previous = writeQueues.get(options.filePath) ?? Promise.resolve();
   const next = previous
     .catch(() => undefined)
     .then(async () => {
       await fs.mkdir(path.dirname(options.filePath), { recursive: true });
-      await rotateIfNeeded(options.filePath, options.maxBytes);
+      await options.beforeAppend?.();
+      await rotateIfNeeded(options.filePath, options.maxBytes, options.maxFiles ?? 1);
       await fs.appendFile(options.filePath, options.line, 'utf8');
     })
     .catch((error) => {
       warnOnce(options.warningKey, options.warningMessage, error);
     });
+  const tracked = next.finally(() => {
+    if (writeQueues.get(options.filePath) === tracked) {
+      writeQueues.delete(options.filePath);
+    }
+  });
 
-  writeQueues.set(options.filePath, next);
+  writeQueues.set(options.filePath, tracked);
 }

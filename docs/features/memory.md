@@ -213,10 +213,45 @@ QMD provides semantic search via the `@tobilu/qmd` SDK (not CLI).
 
 ## Configuration
 
+### Environment
+
 | Env var | Default | Description |
 |---------|---------|-------------|
 | `SERO_HOME` | `~/.sero-ui` | Base directory for all Sero state |
 | `SERO_MEMORY_NO_SEARCH` | unset | Set to `1` to disable QMD selective injection |
+
+### `settings.json`
+
+Memory debug logs now live in `~/.sero-ui/debug/memory/` as daily files:
+
+- `YYYY-MM-DD.log`
+- `YYYY-MM-DD.log.1`
+- `YYYY-MM-DD.log.2`
+- `YYYY-MM-DD.log.3`
+
+Default policy:
+
+- `maxBytesPerFile`: `2097152` (2 MB)
+- `maxFilesPerDay`: `3`
+- `retentionDays`: `14`
+- `maxPayloadChars`: `4096`
+
+Configure it in `~/.sero-ui/agent/settings.json` under `sero.memory.logging`:
+
+```json
+{
+  "sero": {
+    "memory": {
+      "logging": {
+        "maxBytesPerFile": 2097152,
+        "maxFilesPerDay": 3,
+        "retentionDays": 14,
+        "maxPayloadChars": 4096
+      }
+    }
+  }
+}
+```
 
 ## CLI bridge registration
 

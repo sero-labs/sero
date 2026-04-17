@@ -29,7 +29,7 @@ import { registerActivityObserver } from './activity-observer';
 import { initQmd, runQmdUpdateNow } from './qmd';
 import { runPhase1Migration } from './migration';
 import { hasPendingStaleLogs, runMemoryConsolidationSafely } from './consolidation';
-import { error, errorDetails, getMemoryLogPath, info } from './logger';
+import { error, errorDetails, getMemoryLogDirPath, getMemoryLogPath, info } from './logger';
 import {
   describeAutoConsolidationCadence,
   getAutoConsolidationCommand,
@@ -285,7 +285,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
       pi.sendMessage(
         {
           customType: 'memory-debug-log',
-          content: `Memory debug log: \`${getMemoryLogPath()}\``,
+          content: `Memory debug logs: \`${getMemoryLogDirPath()}\` (today: \`${getMemoryLogPath()}\`)`,
           display: true,
         },
         { triggerTurn: false },

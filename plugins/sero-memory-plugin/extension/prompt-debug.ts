@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { appendRotatingLogLine } from './log-writer';
+import { formatLocalTimestamp } from './local-time';
 import { resolveMemoryDebugPath } from './state-paths';
 
 const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -120,7 +121,7 @@ export function logMemoryPromptBeforeAgentStart(entry: MemoryPromptDebugEntry): 
 
   writeEntry({
     _type: 'memory_prompt_before_agent_start',
-    timestamp: new Date().toISOString(),
+    timestamp: formatLocalTimestamp(new Date()),
     sessionId: entry.sessionId,
     turn,
     needsBootstrap: entry.needsBootstrap,
@@ -148,7 +149,7 @@ export function logMemoryPromptAgentStart(sessionId: string, effectiveSystemProm
   const pending = pendingTurns.get(sessionId) ?? null;
   writeEntry({
     _type: 'memory_prompt_agent_start',
-    timestamp: new Date().toISOString(),
+    timestamp: formatLocalTimestamp(new Date()),
     sessionId,
     turn: pending?.turn ?? null,
     prompt: pending?.prompt ?? null,

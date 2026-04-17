@@ -41,6 +41,7 @@ import {
   ensureConfiguredModelFallbackChain,
   getDefaultModelFallbackChain,
 } from './shared/settings/model-fallback-chain';
+import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -77,6 +78,9 @@ function bootstrapAgentDir(): void {
       sero: {
         modelFallbackChain: getDefaultModelFallbackChain(),
         modelTiers: {},
+        memory: {
+          logging: getDefaultMemoryLoggingSettings(),
+        },
       },
     };
     writeFileSync(settingsPath, JSON.stringify(defaults, null, 2) + '\n');
@@ -109,6 +113,10 @@ function ensureBuiltinPackages(): void {
   const fallbackSettings = ensureConfiguredModelFallbackChain(settings);
   settings = fallbackSettings.settings;
   if (fallbackSettings.changed) changed = true;
+
+  const memoryLoggingSettings = ensureConfiguredMemoryLoggingSettings(settings);
+  settings = memoryLoggingSettings.settings;
+  if (memoryLoggingSettings.changed) changed = true;
   for (const p of workspacePackages) {
     const hasPackagePath = packages.some((entry) =>
       (typeof entry === 'string' ? entry : entry.source) === p,
