@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ChatAttachment, AgentStreamEvent, ChatTurnUndoRef } from '@/types/ipc';
+import type { ChatAttachment, AgentStreamEvent } from '@/types/ipc';
 import { workspaceManager } from '@electron/shared/infra/shared-infra';
 import {
   buildDirectCliExtensionContext,
@@ -39,7 +39,7 @@ describe('direct CLI chat prompts', () => {
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
-      lastCompletedTurnUndo: null,
+      pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
         prompt,
@@ -109,7 +109,7 @@ describe('direct CLI chat prompts', () => {
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
-      lastCompletedTurnUndo: null,
+      pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
         agent: { appendMessage: vi.fn() },
@@ -147,7 +147,7 @@ describe('direct CLI chat prompts', () => {
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
-      lastCompletedTurnUndo: null,
+      pendingTurnUndoUserMessageId: null,
       session: {
         model: { api: 'anthropic-messages', provider: 'anthropic', id: 'claude-sonnet' },
         modelRegistry,
@@ -176,19 +176,13 @@ describe('direct CLI chat prompts', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('uses the normal agent prompt path for non-sero text and preserves turn-undo refs', async () => {
+  it('uses the normal agent prompt path for non-sero text and records the pending user message id', async () => {
     const prompt = vi.fn();
     const sendEvent = vi.fn<(event: AgentStreamEvent) => void>();
-    const turnUndo: ChatTurnUndoRef = {
-      kind: 'checkpoint',
-      changeId: 'cp-1',
-      label: 'checkpoint',
-      createdAt: '2026-04-01T10:00:00.000Z',
-    };
 
     const entry: PromptPoolEntry = {
       workspaceId: 'ws-1',
-      lastCompletedTurnUndo: turnUndo,
+      pendingTurnUndoUserMessageId: null,
       session: {
         prompt,
       } as never,
@@ -203,10 +197,7 @@ describe('direct CLI chat prompts', () => {
     });
 
     expect(prompt).toHaveBeenCalledWith('Please summarize this memory change.', undefined);
-    expect(sendEvent.mock.calls.map(([event]) => event.type)).toEqual([
-      'message_start',
-      'user_turn_undo',
-    ]);
-    expect(entry.lastCompletedTurnUndo).toBeNull();
+    expect(sendEvent.mock.calls.map(([event]) => event.type)).toEqual(['message_start']);
+    expect(entry.pendingTurnUndoUserMessageId).toBe('msg-user-1');
   });
 });

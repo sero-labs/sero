@@ -120,27 +120,27 @@ A phase is only complete when all of the following are true:
 
 ## Tasks
 
-- [ ] Replace the shifted “next prompt gets previous checkpoint” mapping with **same-turn undo attachment**.
-- [ ] Stop using `lastCompletedCheckpoint` / `user_checkpoint` for ChatPanel undo.
-- [ ] Introduce a dedicated session custom entry for turn undo metadata, e.g. `turn-undo`, carrying:
-  - [ ] `workspaceId`
-  - [ ] internal snapshot id
-  - [ ] target user entry id
-  - [ ] user-facing label
-  - [ ] timestamp
-- [ ] Update session-to-chat mapping so the undo ref attaches to the **same user message** that will be undone.
-- [ ] Add a new main-process IPC handler, e.g. `undoToTurn(sessionId, undoRef)` that:
-  - [ ] restores the workspace to the stored pre-turn snapshot
-  - [ ] calls `session.navigateTree(userEntryId, { summarize: false })`
-  - [ ] rebuilds messages and sends `messages_loaded`
-  - [ ] uses returned `editorText` to prefill the composer
-- [ ] Update ChatPanel copy:
-  - [ ] button tooltip/label becomes `Undo this turn`
-  - [ ] dialog title/body becomes undo-focused rather than checkpoint-focused
-- [ ] Reuse the existing diff-preview pattern, but make it preview the files that will be undone.
-- [ ] Define legacy behavior explicitly:
-  - [ ] old `git-checkpoint` turn entries are not reinterpreted as new-style same-turn undo entries
-  - [ ] inline ChatPanel undo appears only for new `turn-undo` entries
+- [x] Replace the shifted “next prompt gets previous checkpoint” mapping with **same-turn undo attachment**.
+- [x] Stop using `lastCompletedCheckpoint` / `user_checkpoint` for ChatPanel undo.
+- [x] Introduce a dedicated session custom entry for turn undo metadata, e.g. `turn-undo`, carrying:
+  - [x] `workspaceId`
+  - [x] internal snapshot id
+  - [x] target user entry id
+  - [x] user-facing label
+  - [x] timestamp
+- [x] Update session-to-chat mapping so the undo ref attaches to the **same user message** that will be undone.
+- [x] Add a new main-process IPC handler, e.g. `undoToTurn(sessionId, undoRef)` that:
+  - [x] restores the workspace to the stored pre-turn snapshot
+  - [x] calls `session.navigateTree(userEntryId, { summarize: false })`
+  - [x] rebuilds messages and sends `messages_loaded`
+  - [x] uses returned `editorText` to prefill the composer
+- [x] Update ChatPanel copy:
+  - [x] button tooltip/label becomes `Undo this turn`
+  - [x] dialog title/body becomes undo-focused rather than checkpoint-focused
+- [x] Reuse the existing diff-preview pattern, but make it preview the files that will be undone.
+- [x] Define legacy behavior explicitly:
+  - [x] old `git-checkpoint` turn entries are not reinterpreted as new-style same-turn undo entries
+  - [x] inline ChatPanel undo appears only for new `turn-undo` entries
 
 ## Likely files
 
@@ -153,11 +153,11 @@ A phase is only complete when all of the following are true:
 
 ## Tests
 
-- [ ] Add unit tests for same-turn attachment mapping.
-- [ ] Add IPC tests proving `undoToTurn()` calls `navigateTree()` with the user entry id.
-- [ ] Add tests proving composer prefill comes from returned `editorText`.
-- [ ] Add renderer tests for button visibility, wording, and dialog flow.
-- [ ] Add regression coverage ensuring legacy checkpoint entries do not produce misleading same-turn undo UI.
+- [x] Add unit tests for same-turn attachment mapping.
+- [x] Add IPC tests proving `undoToTurn()` calls `navigateTree()` with the user entry id.
+- [x] Add tests proving composer prefill comes from returned `editorText`.
+- [x] Add renderer tests for button visibility, wording, and dialog flow.
+- [x] Add regression coverage ensuring legacy checkpoint entries do not produce misleading same-turn undo UI.
 
 ## Manual smoke
 
@@ -168,9 +168,9 @@ A phase is only complete when all of the following are true:
 
 ## Validation
 
-- [ ] Run focused desktop unit tests for touched files.
-- [ ] Run `pnpm typecheck`.
-- [ ] Commit.
+- [x] Run focused desktop unit tests for touched files.
+- [x] Run `pnpm typecheck`.
+- [x] Commit.
 
 **Suggested commit:** `feat(desktop): add same-turn chat undo with tree navigation`
 

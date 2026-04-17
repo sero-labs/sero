@@ -9,7 +9,6 @@ import type {
   UserMessage,
 } from '@mariozechner/pi-ai';
 import type { ChatAttachment, ChatMessage, ChatToolCallMessage, AgentStreamEvent, ToolResultImage } from '@/types/ipc';
-import type { ChatTurnUndoRef } from '@/types/ipc';
 import { getCliRegistry } from '@electron/cli';
 import type { CliContentBlock } from '@electron/cli/core';
 import { createSeroCliTool, splitCommandLines } from '@electron/cli/core';
@@ -35,7 +34,7 @@ const ZERO_USAGE: Usage = {
 export interface PromptPoolEntry {
   session: AgentSession;
   workspaceId: string;
-  lastCompletedTurnUndo: ChatTurnUndoRef | null;
+  pendingTurnUndoUserMessageId: string | null;
 }
 
 interface HandlePromptInputArgs {
@@ -99,17 +98,8 @@ export async function handlePromptInput({
   const userMsg: ChatMessage = { type: 'user', id: userMessageId, text, attachments };
   sendEvent({ type: 'message_start', sessionId, message: userMsg });
 
-  if (entry.lastCompletedTurnUndo) {
-    sendEvent({
-      type: 'user_turn_undo',
-      sessionId,
-      userMessageId,
-      turnUndo: entry.lastCompletedTurnUndo,
-    });
-    entry.lastCompletedTurnUndo = null;
-  }
-
   if (isDirectSeroCliPrompt(text, attachments)) {
+    entry.pendingTurnUndoUserMessageId = null;
     await executeDirectCliPrompt({
       entry,
       sessionId,
@@ -118,6 +108,8 @@ export async function handlePromptInput({
     });
     return;
   }
+
+  entry.pendingTurnUndoUserMessageId = userMessageId;
 
   const images = attachmentsToImages(attachments);
   await entry.session.prompt(text, images ? { images } : undefined);

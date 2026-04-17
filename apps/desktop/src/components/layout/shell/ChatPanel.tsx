@@ -292,7 +292,8 @@ export function ChatPanel() {
 
       <CheckpointRestoreDialog
         open={checkpoint.dialogOpen}
-        checkpointId={checkpoint.target?.changeId ?? ''}
+        snapshotId={checkpoint.target?.snapshotId ?? ''}
+        undoLabel={checkpoint.target?.label}
         files={checkpoint.previewFiles}
         isLoading={checkpoint.previewLoading}
         error={checkpoint.previewError}

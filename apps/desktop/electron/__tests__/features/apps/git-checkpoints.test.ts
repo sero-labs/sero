@@ -51,9 +51,9 @@ function createPiStub() {
     },
   } as unknown as ExtensionAPI;
 
-  async function emit(event: string, payload: unknown): Promise<void> {
+  async function emit(event: string, payload: unknown, ctx?: unknown): Promise<void> {
     for (const registration of handlers.filter((entry) => entry.event === event)) {
-      await registration.handler(payload);
+      await registration.handler(payload, ctx);
     }
   }
 
@@ -89,27 +89,43 @@ describe('registerGitCheckpointFeatures', () => {
     registerGitCheckpointFeatures(pi, 'ws-1');
 
     await emit('tool_call', { toolName: 'write', input: {} });
-    await emit('agent_end', {
-      messages: [
-        { role: 'user', content: [{ type: 'text', text: 'Do the thing' }] },
-        { role: 'assistant', content: [{ type: 'image', url: 'ignored' }] },
-        {
-          role: 'assistant',
-          content: [
-            { type: 'text', text: 'Summarized result\nMore detail follows.' },
-            { type: 'image', url: 'ignored' },
+    await emit(
+      'agent_end',
+      {
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'Do the thing' }] },
+          { role: 'assistant', content: [{ type: 'image', url: 'ignored' }] },
+          {
+            role: 'assistant',
+            content: [
+              { type: 'text', text: 'Summarized result\nMore detail follows.' },
+              { type: 'image', url: 'ignored' },
+            ],
+          },
+        ],
+      },
+      {
+        sessionManager: {
+          getBranch: () => [
+            {
+              id: 'user-entry-1',
+              type: 'message',
+              message: { role: 'user', content: 'Do the thing' },
+            },
           ],
         },
-      ],
-    });
+      },
+    );
 
     expect(mocks.createCheckpoint).toHaveBeenCalledWith('ws-1', {
       source: 'turn',
       description: 'checkpoint: Summarized result',
     });
-    expect(pi.appendEntry).toHaveBeenCalledWith('git-checkpoint', expect.objectContaining({
+    expect(pi.appendEntry).toHaveBeenCalledWith('turn-undo', expect.objectContaining({
       workspaceId: 'ws-1',
-      changeId: 'abc123',
+      snapshotId: 'abc123',
+      targetUserEntryId: 'user-entry-1',
+      label: 'checkpoint: Summarized result',
     }));
   });
 
@@ -120,12 +136,20 @@ describe('registerGitCheckpointFeatures', () => {
     registerGitCheckpointFeatures(pi, 'ws-1');
 
     await emit('tool_call', { toolName: 'edit', input: {} });
-    await emit('agent_end', {
-      messages: [
-        { role: 'assistant', content: 'not-an-array' },
-        { role: 'assistant', content: [{ type: 'image', url: 'only-image' }] },
-      ],
-    });
+    await emit(
+      'agent_end',
+      {
+        messages: [
+          { role: 'assistant', content: 'not-an-array' },
+          { role: 'assistant', content: [{ type: 'image', url: 'only-image' }] },
+        ],
+      },
+      {
+        sessionManager: {
+          getBranch: () => [],
+        },
+      },
+    );
 
     expect(mocks.createCheckpoint).toHaveBeenCalledWith('ws-1', {
       source: 'turn',

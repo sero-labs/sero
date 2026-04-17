@@ -41,7 +41,8 @@ export function summarizeDiffFiles(diff: string): RestorePreviewFileChange[] {
 
 interface CheckpointRestoreDialogProps {
   open: boolean;
-  checkpointId: string;
+  snapshotId: string;
+  undoLabel?: string;
   files: RestorePreviewFileChange[];
   isLoading: boolean;
   error: string | null;
@@ -52,7 +53,8 @@ interface CheckpointRestoreDialogProps {
 
 export function CheckpointRestoreDialog({
   open,
-  checkpointId,
+  snapshotId,
+  undoLabel,
   files,
   isLoading,
   error,
@@ -64,13 +66,17 @@ export function CheckpointRestoreDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Confirm Revert</DialogTitle>
+          <DialogTitle>Undo this turn?</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
+          <p className="text-sm text-[var(--text-muted)]">
+            This restores the workspace to the state before this prompt and puts the prompt text back in the composer.
+          </p>
+
           <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
             <Checkbox checked disabled />
-            <span>Reverting the following changes:</span>
+            <span>Files that will be undone:</span>
           </div>
 
           {isLoading ? (
@@ -84,7 +90,7 @@ export function CheckpointRestoreDialog({
             </div>
           ) : files.length === 0 ? (
             <div className="rounded border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
-              No file changes detected between this checkpoint and current workspace.
+              No file changes detected between this undo snapshot and the current workspace.
             </div>
           ) : (
             <div className="max-h-52 space-y-2 overflow-y-auto rounded border border-[var(--border-subtle)] p-2">
@@ -101,8 +107,13 @@ export function CheckpointRestoreDialog({
             </div>
           )}
 
+          {undoLabel ? (
+            <div className="text-xs text-[var(--text-muted)]">
+              Turn: <span className="text-[var(--text-secondary)]">{undoLabel}</span>
+            </div>
+          ) : null}
           <div className="text-xs text-[var(--text-muted)]">
-            Target checkpoint: <span className="font-mono">{checkpointId}</span>
+            Undo snapshot: <span className="font-mono">{snapshotId}</span>
           </div>
         </div>
 
@@ -111,7 +122,7 @@ export function CheckpointRestoreDialog({
             Cancel (esc)
           </Button>
           <Button onClick={onConfirm} disabled={isLoading || isRestoring}>
-            {isRestoring ? 'Restoring…' : 'Confirm'}
+            {isRestoring ? 'Undoing…' : 'Undo this turn'}
           </Button>
         </DialogFooter>
       </DialogContent>

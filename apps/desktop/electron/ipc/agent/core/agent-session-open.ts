@@ -10,7 +10,6 @@ import type {
   ContextOverrides,
   ContextToolInfo,
 } from '@/types/ipc';
-import type { ChatTurnUndoRef } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { createHostCodingTools } from '@electron/features/container/tools';
@@ -47,8 +46,8 @@ export interface PoolEntry {
   workspaceId: string;
   currentAssistantId: string | null;
   lastSessionName: string | undefined;
-  /** Checkpoint from the most recently completed turn, to attach to the NEXT user message. */
-  lastCompletedTurnUndo: ChatTurnUndoRef | null;
+  /** Renderer user-message id awaiting same-turn undo metadata after the active turn ends. */
+  pendingTurnUndoUserMessageId: string | null;
   contextOverrides: ContextOverrides | null;
   baseSystemPrompt: string;
   baseTools: ContextToolInfo[];
@@ -182,7 +181,7 @@ export async function openSessionInPool({
     workspaceId,
     currentAssistantId: null,
     lastSessionName: session.sessionName,
-    lastCompletedTurnUndo: null,
+    pendingTurnUndoUserMessageId: null,
     contextOverrides: null,
     baseSystemPrompt,
     baseTools,

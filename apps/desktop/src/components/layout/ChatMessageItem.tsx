@@ -79,8 +79,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               {canRestore && turnUndo && onRestoreTurnUndo ? (
                 <MessageActions className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2">
                   <MessageAction
-                    tooltip="Revert to this point"
-                    label="Revert to this point"
+                    tooltip="Undo this turn"
+                    label="Undo this turn"
                     className="h-7 w-7 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)]"
                     onClick={() => onRestoreTurnUndo(turnUndo)}
                   >

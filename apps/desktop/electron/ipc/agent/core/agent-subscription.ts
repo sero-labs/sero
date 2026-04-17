@@ -12,7 +12,6 @@ import type {
   AgentStreamEvent,
   ToolResultImage,
 } from '@/types/ipc';
-import type { ChatTurnUndoRef } from '@/types/ipc';
 
 import {
   nextId,
@@ -27,7 +26,7 @@ export interface SubscriptionPoolEntry {
   session: AgentSession;
   workspaceId: string;
   currentAssistantId: string | null;
-  lastCompletedTurnUndo: ChatTurnUndoRef | null;
+  pendingTurnUndoUserMessageId: string | null;
 }
 
 /**
@@ -65,12 +64,21 @@ export function subscribeToSession(
         noteCliTurnEnd(sessionId);
         sendEvent({ type: 'agent_end', sessionId });
         {
+          const pendingUserMessageId = entry.pendingTurnUndoUserMessageId;
+          entry.pendingTurnUndoUserMessageId = null;
+          if (!pendingUserMessageId) break;
+
           const turnUndoRefs = buildTurnUndoMapByTurn(entry.session, entry.workspaceId);
           const userCount = entry.session.messages.filter((m) => m.role === 'user').length;
           const lastTurnIdx = userCount - 1;
           const turnUndo = turnUndoRefs.get(lastTurnIdx);
           if (turnUndo) {
-            entry.lastCompletedTurnUndo = turnUndo;
+            sendEvent({
+              type: 'user_turn_undo',
+              sessionId,
+              userMessageId: pendingUserMessageId,
+              turnUndo,
+            });
           }
         }
         break;

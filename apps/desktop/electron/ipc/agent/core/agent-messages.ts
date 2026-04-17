@@ -14,6 +14,7 @@ import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
 import { nextId } from './agent-ids';
 
 const CHECKPOINT_ENTRY = 'git-checkpoint';
+const TURN_UNDO_ENTRY = 'turn-undo';
 
 interface DisplayableCustomMessage {
   display?: boolean;
@@ -76,50 +77,48 @@ function asTurnUndoRef(data: unknown): ChatTurnUndoRef | null {
   if (!data || typeof data !== 'object') return null;
 
   const value = data as Record<string, unknown>;
-  const changeId = typeof value.changeId === 'string' ? value.changeId.trim() : '';
-  if (!changeId) return null;
+  const workspaceId = typeof value.workspaceId === 'string' ? value.workspaceId.trim() : '';
+  const snapshotId = typeof value.snapshotId === 'string' ? value.snapshotId.trim() : '';
+  const targetUserEntryId =
+    typeof value.targetUserEntryId === 'string' ? value.targetUserEntryId.trim() : '';
+  if (!workspaceId || !snapshotId || !targetUserEntryId) return null;
 
   return {
-    kind: 'checkpoint',
-    changeId,
-    label: typeof value.description === 'string' ? value.description : '(no description)',
+    kind: 'turn-undo',
+    workspaceId,
+    snapshotId,
+    targetUserEntryId,
+    label: typeof value.label === 'string' ? value.label : 'Undo point',
     createdAt: typeof value.recordedAt === 'string' ? value.recordedAt : new Date().toISOString(),
   };
 }
 
-/** Build mapping: user turn index -> checkpoint metadata from session custom entries. */
+/** Build mapping: user turn index -> turn-undo metadata from session custom entries. */
 export function buildTurnUndoMapByTurn(
   session: AgentSession,
   workspaceId?: string,
 ): Map<number, ChatTurnUndoRef> {
   const result = new Map<number, ChatTurnUndoRef>();
   const branch = session.sessionManager.getBranch();
+  const userTurnIndexByEntryId = new Map<string, number>();
   let currentTurn = -1;
 
   for (const entry of branch) {
     if (entry.type === 'message' && entry.message.role === 'user') {
       currentTurn += 1;
+      userTurnIndexByEntryId.set(entry.id, currentTurn);
       continue;
     }
 
-    if (entry.type !== 'custom' || entry.customType !== CHECKPOINT_ENTRY) continue;
+    if (entry.type !== 'custom' || entry.customType !== TURN_UNDO_ENTRY) continue;
 
     const turnUndo = asTurnUndoRef(entry.data);
     if (!turnUndo) continue;
+    if (workspaceId && turnUndo.workspaceId !== workspaceId) continue;
 
-    if (typeof entry.data === 'object' && entry.data) {
-      const source = (entry.data as Record<string, unknown>).source;
-      if (typeof source === 'string' && source !== 'turn') continue;
-    }
-
-    if (workspaceId && typeof entry.data === 'object' && entry.data) {
-      const entryWorkspaceId = (entry.data as Record<string, unknown>).workspaceId;
-      if (typeof entryWorkspaceId === 'string' && entryWorkspaceId && entryWorkspaceId !== workspaceId) {
-        continue;
-      }
-    }
-
-    result.set(currentTurn, turnUndo);
+    const targetTurn = userTurnIndexByEntryId.get(turnUndo.targetUserEntryId);
+    if (typeof targetTurn !== 'number') continue;
+    result.set(targetTurn, turnUndo);
   }
 
   return result;
@@ -159,7 +158,7 @@ export function convertSessionMessages(
         }
       }
 
-      const turnUndo = turnUndoByTurn?.get(userTurn - 1);
+      const turnUndo = turnUndoByTurn?.get(userTurn);
       result.push({
         type: 'user',
         id: nextId(),

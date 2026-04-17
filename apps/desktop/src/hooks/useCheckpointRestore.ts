@@ -69,7 +69,7 @@ export function useCheckpointRestore(
       setPreviewLoading(true);
       setDialogOpenRaw(true);
 
-      void fetchCheckpointDiff(workspaceId, checkpoint.changeId)
+      void fetchCheckpointDiff(workspaceId, checkpoint.snapshotId)
         .then((diff) => {
           setPreviewFiles(summarizeDiffFiles(diff));
           setPreviewLoading(false);
@@ -88,10 +88,10 @@ export function useCheckpointRestore(
     setRestoring(true);
 
     const doRestore = sessionId
-      ? window.sero.agent.restoreToCheckpoint(sessionId, target.changeId)
+      ? window.sero.agent.undoToTurn(sessionId, target)
           // After session restore, also refresh VCS state so the timeline updates
           .then(() => useVcsStore.getState().loadWorkspace(workspaceId))
-      : restoreCheckpointVcs(workspaceId, target.changeId);
+      : restoreCheckpointVcs(workspaceId, target.snapshotId);
 
     void doRestore
       .then(() => {

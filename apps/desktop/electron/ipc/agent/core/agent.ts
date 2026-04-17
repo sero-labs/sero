@@ -280,7 +280,7 @@ export function registerAgentHandlers(): void {
       if (result.cancelled) {
         throw new Error('Clear was cancelled by an extension');
       }
-      entry.lastCompletedTurnUndo = null;
+      entry.pendingTurnUndoUserMessageId = null;
 
       const chatMessages = convertSessionMessages(
         entry.session.messages,

@@ -1,8 +1,11 @@
 export interface ChatTurnUndoRef {
-  /** Legacy restore target. Phase 2 will swap this to internal turn-undo snapshots. */
-  kind: 'checkpoint';
-  changeId: string;
-  /** User-facing summary shown in chat restore affordances. */
+  kind: 'turn-undo';
+  workspaceId: string;
+  /** Backing snapshot identifier. In Phase 2 this is still the VCS checkpoint SHA. */
+  snapshotId: string;
+  /** Pi session entry id for the user prompt this undo rewinds. */
+  targetUserEntryId: string;
+  /** User-facing summary shown in chat undo affordances. */
   label: string;
   createdAt: string;
 }

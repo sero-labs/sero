@@ -4,6 +4,7 @@ import type {
   AgentStreamEvent,
   ChatAttachment,
   ChatMessage,
+  ChatTurnUndoRef,
   CompactResult,
   ContextOverrides,
   ContextPreset,
@@ -148,6 +149,8 @@ export const agentBridge = {
     ipcRenderer.invoke(IpcChannels.agent.setContextOverrides, sessionId, overrides),
   restoreToCheckpoint: (sessionId: string, changeId: string): Promise<ChatMessage[]> =>
     ipcRenderer.invoke(IpcChannels.agent.restoreToCheckpoint, sessionId, changeId),
+  undoToTurn: (sessionId: string, turnUndo: ChatTurnUndoRef): Promise<ChatMessage[]> =>
+    ipcRenderer.invoke(IpcChannels.agent.undoToTurn, sessionId, turnUndo),
   onEvent: (callback: (event: AgentStreamEvent) => void): (() => void) => {
     const handler = (_event: IpcRendererEvent, data: AgentStreamEvent) => {
       callback(data);

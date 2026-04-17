@@ -43,7 +43,7 @@ export interface ChatUserMessage {
   text: string;
   /** Optional file attachments included with the message. */
   attachments?: ChatAttachment[];
-  /** Legacy chat-turn undo target attached to this user message. */
+  /** Chat-turn undo target attached to this user message. */
   turnUndo?: ChatTurnUndoRef;
 }
 

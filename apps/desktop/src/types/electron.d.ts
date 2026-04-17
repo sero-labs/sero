@@ -31,6 +31,7 @@ import type {
   ChatMessage,
   ChatAttachment,
   AgentStreamEvent,
+  ChatTurnUndoRef,
   SeroSlashCommandInfo,
   SeroAppManifest,
   SessionUsageStats,
@@ -181,6 +182,8 @@ interface SeroAgentAPI {
    * agent's in-memory messages, and pushes a `messages_loaded` event.
    */
   restoreToCheckpoint(sessionId: string, changeId: string): Promise<ChatMessage[]>;
+  /** Undo a user turn: restore files, rewind the session tree, and prefill the composer. */
+  undoToTurn(sessionId: string, turnUndo: ChatTurnUndoRef): Promise<ChatMessage[]>;
   /** Subscribe to streaming events pushed from main process. Returns unsubscribe. */
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
 }

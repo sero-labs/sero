@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
 
 import { vcsManager } from '@electron/shared/infra/shared-infra';
 import { hasMutatingGit, isLikelyReadOnlyBash } from '@electron/platform/security/git-command-filter';
@@ -66,6 +66,19 @@ function summarizeAgentRun(messages: unknown): string {
   }
 
   return 'checkpoint: turn';
+}
+
+function findLatestUserEntryId(
+  sessionManager: ExtensionContext['sessionManager'],
+): string | null {
+  const branch = sessionManager.getBranch();
+  for (let i = branch.length - 1; i >= 0; i -= 1) {
+    const entry = branch[i];
+    if (entry?.type === 'message' && entry.message.role === 'user') {
+      return entry.id;
+    }
+  }
+  return null;
 }
 
 export function registerGitTurnUndoCapture(
@@ -137,7 +150,7 @@ export function registerGitTurnUndoCapture(
     if (!isLikelyReadOnlyBash(command)) agentRunHasMutatingToolCalls = true;
   });
 
-  pi.on('agent_end', async (event) => {
+  pi.on('agent_end', async (event, ctx) => {
     if (!agentRunHasMutatingToolCalls) return;
     if (MIXED_EDIT_CHECKPOINT_POLICY === 'require-manual-first' && hadWorkingCopyChangesAtAgentStart) {
       return;
@@ -150,9 +163,16 @@ export function registerGitTurnUndoCapture(
         description,
       });
 
-      if (checkpoint) {
-        entries.appendCheckpointEntry(checkpoint);
-      }
+      if (!checkpoint) return;
+
+      const targetUserEntryId = findLatestUserEntryId(ctx.sessionManager);
+      if (!targetUserEntryId) return;
+
+      entries.appendTurnUndoEntry({
+        snapshotId: checkpoint.changeId,
+        targetUserEntryId,
+        label: checkpoint.description,
+      });
     } catch {
       // Transparent-by-default: do not emit chat noise for automatic turn checkpoints.
     }

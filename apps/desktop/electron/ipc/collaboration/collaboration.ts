@@ -106,15 +106,7 @@ function emitMainSessionUserMessage(
     },
   });
 
-  if (entry.lastCompletedTurnUndo) {
-    emitAgentEvent({
-      type: 'user_turn_undo',
-      sessionId,
-      userMessageId,
-      turnUndo: entry.lastCompletedTurnUndo,
-    });
-    entry.lastCompletedTurnUndo = null;
-  }
+  entry.pendingTurnUndoUserMessageId = userMessageId;
 }
 
 export function registerCollaborationHandlers(): void {
