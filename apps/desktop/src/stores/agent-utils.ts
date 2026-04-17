@@ -393,5 +393,28 @@ export function handleAgentStreamEvent(
     case 'container_error':
       useContainerStore.getState().setError(event.workspaceId, event.error);
       break;
+    case 'runtime_notice':
+      set((state) => {
+        const agent = state.agents[sid];
+        if (!agent) return state;
+        return {
+          agents: {
+            ...state.agents,
+            [sid]: {
+              ...agent,
+              messages: [
+                ...agent.messages,
+                {
+                  type: 'assistant' as const,
+                  id: `runtime-notice-${sid}-${agent.messages.length + 1}`,
+                  text: `System notice: ${event.message}`,
+                  isStreaming: false,
+                },
+              ],
+            },
+          },
+        };
+      });
+      break;
   }
 }

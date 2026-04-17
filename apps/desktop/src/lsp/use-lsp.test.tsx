@@ -173,6 +173,7 @@ describe('useLsp', () => {
       expect(start).toHaveBeenCalledWith(workspaceId, 'typescript');
       expect(latestResult?.isReady).toBe(true);
       expect(latestResult?.serverLanguage).toBe('typescript');
+      expect(latestResult?.statusNotice).toBeNull();
     });
 
     expect(registerCompletionItemProvider).toHaveBeenCalledTimes(LSP_PROVIDER_LANGUAGE_IDS.length);
@@ -257,5 +258,50 @@ describe('useLsp', () => {
         uri: 'file:///workspace/src/example.ts',
       },
     });
+  });
+
+  it('surfaces an explicit host-mode notice instead of starting LSP without containers', async () => {
+    useContainerStore.setState({
+      containers: {
+        [workspaceId]: { status: 'stopped' },
+      },
+    });
+
+    const editor = {
+      getModel: () => null,
+      onDidChangeModelContent: () => ({ dispose: vi.fn() }),
+    } as unknown as LspEditor;
+    const monaco = {
+      Uri: { parse: (value: string) => ({ path: value }) },
+      languages: {
+        registerCompletionItemProvider: vi.fn(),
+        registerHoverProvider: vi.fn(),
+        registerDefinitionProvider: vi.fn(),
+      },
+      editor: {
+        getModels: vi.fn(() => []),
+        setModelMarkers: vi.fn(),
+      },
+    } as unknown as Monaco;
+
+    let latestResult: UseLspResult | null = null;
+
+    await act(async () => {
+      root?.render(
+        <Harness
+          monaco={monaco}
+          editor={editor}
+          onResult={(result) => {
+            latestResult = result;
+          }}
+        />,
+      );
+    });
+
+    expect(start).not.toHaveBeenCalled();
+    expect(latestResult).not.toBeNull();
+    const resolvedResult = latestResult!;
+    expect(resolvedResult.isReady).toBe(false);
+    expect(resolvedResult.statusNotice).toContain('Containerized language servers are unavailable');
   });
 });

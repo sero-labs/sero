@@ -9,6 +9,7 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { WorkspaceInfo, WorkspaceConfig, WorkspaceRoot } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 
@@ -87,6 +88,17 @@ export function registerWorkspaceHandlers(): void {
     IpcChannels.workspace.infer,
     async (_event, message: string): Promise<string> => {
       return workspaceManager.inferWorkspace(message);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.workspace.runtimeDiagnostics,
+    async (_event, workspaceId?: string) => {
+      if (workspaceId) {
+        return [await resolveWorkspaceRuntime(workspaceId)];
+      }
+      const workspaces = await workspaceManager.list();
+      return Promise.all(workspaces.map((workspace) => resolveWorkspaceRuntime(workspace.id)));
     },
   );
 

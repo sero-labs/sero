@@ -14,6 +14,7 @@ import { CONFIG_FILES } from '../../shared/types';
 import type { ConfigFile } from '../../shared/types';
 import { useConfigFile } from '../hooks/useConfigFile';
 import { MemoryLoggingSettingsCard } from './MemoryLoggingSettingsCard';
+import { RuntimeStateSettingsCard } from './RuntimeStateSettingsCard';
 
 interface ConfigPanelProps {
   profilePath: string | null;
@@ -327,13 +328,18 @@ function ConfigEditor({
           </div>
         ) : (
           <>
-            {configKey === 'settings' && displayContent !== null ? (
-              <MemoryLoggingSettingsCard
-                rawSettings={displayContent}
-                profilePath={profilePath}
-                onChange={handleEdit}
-                disabled={isReadOnly}
-              />
+            {configKey === 'settings' ? (
+              <>
+                <RuntimeStateSettingsCard disabled={isReadOnly} />
+                {displayContent !== null ? (
+                  <MemoryLoggingSettingsCard
+                    rawSettings={displayContent}
+                    profilePath={profilePath}
+                    onChange={handleEdit}
+                    disabled={isReadOnly}
+                  />
+                ) : null}
+              </>
             ) : null}
             <textarea
               value={displayContent ?? ''}

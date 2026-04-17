@@ -72,5 +72,10 @@ export function emptyOnboardingState(): OnboardingState {
     availableModelGroups: [],
     warnings: [],
     invalidTiers: [],
+    containerRuntime: {
+      status: 'available',
+      message: 'Apple containers are available.',
+      recommended: true,
+    },
   };
 }

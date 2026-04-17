@@ -5,6 +5,7 @@ import type { ExecResult } from '@electron/features/container/core/types';
 import { containerManager } from '@electron/features/container/core/singleton';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { toWorkspaceContainerPath } from './container-path';
 
 const execFileAsync = promisify(execFile);
@@ -29,8 +30,8 @@ export async function runWorkspaceCommand(
     };
   }
 
-  const useContainer = await workspaceManager.isContainerEnabled(workspaceId);
-  if (useContainer) {
+  const runtime = await resolveWorkspaceRuntime(workspaceId);
+  if (runtime.actualRuntime === 'container') {
     try {
       const containerConfig = await buildWorkspaceContainerConfig(
         workspaceManager,
@@ -55,6 +56,10 @@ export async function runWorkspaceCommand(
         exitCode: 1,
       };
     }
+  }
+
+  if (runtime.desiredRuntime === 'container' && runtime.fallbackReason) {
+    console.warn(`[workspace-command-runner] ${runtime.fallbackReason}`);
   }
 
   try {

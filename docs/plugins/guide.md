@@ -29,6 +29,12 @@ Plugins are identical to built-in Sero apps — they have an optional web UI
 (React, loaded via Module Federation) and an optional Pi extension (agent
 tools, commands, hooks). The only difference is where they're stored:
 
+> Runtime note: plugin UIs and tools load in both container-backed workspaces
+> and host-mode workspaces, but some platform capabilities remain container-only
+> today (for example browser automation, containerized LSP, and some managed
+> preview flows). See [`docs/sero.md`](../sero.md) and
+> [`docs/guides/macos-containers.md`](../guides/macos-containers.md).
+
 | | Core app | Plugin |
 |---|----------|--------|
 | **Location** | `plugins/sero-*-plugin/` in the monorepo | `~/.sero-ui/agent/packages/<id>/` |

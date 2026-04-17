@@ -43,6 +43,19 @@ export interface OnboardingWarning {
   providerIds?: string[];
 }
 
+export type OnboardingContainerRuntimeStatus =
+  | 'available'
+  | 'missing_binary'
+  | 'system_unavailable'
+  | 'startup_failed';
+
+export interface OnboardingContainerRuntime {
+  status: OnboardingContainerRuntimeStatus;
+  message: string;
+  recommended: boolean;
+  docsUrl?: string;
+}
+
 export interface OnboardingState {
   needed: boolean;
   phase: OnboardingStatePhase;
@@ -55,4 +68,5 @@ export interface OnboardingState {
   availableModelGroups: AvailableModelGroup[];
   warnings: OnboardingWarning[];
   invalidTiers: ModelTier[];
+  containerRuntime: OnboardingContainerRuntime;
 }

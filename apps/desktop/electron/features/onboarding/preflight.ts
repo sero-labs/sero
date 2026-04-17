@@ -8,6 +8,7 @@ import type {
 } from '@/types/ipc';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { profileManager } from '../profile/manager';
+import { getContainerAvailability } from '../container/core/availability';
 import {
   readSettingsResult,
   writeSettings,
@@ -24,6 +25,8 @@ import { emptyOnboardingState } from './types';
 interface BuildOnboardingStateOptions {
   applyRepairs: boolean;
 }
+
+const MACOS_CONTAINERS_DOC_URL = 'https://github.com/monobyte/sero/blob/main/docs/guides/macos-containers.md';
 
 function readLegacyDefaultProvider(settings: Record<string, unknown>): string | null {
   const sero = settings.sero;
@@ -141,6 +144,7 @@ function buildPendingOnboardingState(args: {
   hasImportedCredentials: boolean;
   memoryBootstrapComplete: boolean;
   settings: Record<string, unknown>;
+  containerRuntime: OnboardingState['containerRuntime'];
 }): OnboardingState {
   const {
     availableModelGroups,
@@ -148,6 +152,7 @@ function buildPendingOnboardingState(args: {
     hasImportedCredentials,
     memoryBootstrapComplete,
     settings,
+    containerRuntime,
   } = args;
   const hasAnyUsableModels = availableModelGroups.some((group) => group.models.length > 0);
   const currentTiers = getGlobalModelConfigTiers(settings);
@@ -183,6 +188,7 @@ function buildPendingOnboardingState(args: {
       providerHealth,
     }),
     invalidTiers,
+    containerRuntime,
   };
 }
 
@@ -192,11 +198,24 @@ async function buildOnboardingState(options: BuildOnboardingStateOptions): Promi
     return emptyOnboardingState();
   }
 
-  const [memoryBootstrapComplete, { availableModelGroups, providerHealth }, hasImportedCredentials] = await Promise.all([
+  const [
+    memoryBootstrapComplete,
+    { availableModelGroups, providerHealth },
+    hasImportedCredentials,
+    containerAvailability,
+  ] = await Promise.all([
     hasCompletedMemoryBootstrap(activeProfile.path),
     getProviderHealthSnapshot(),
     hasSavedAuthJson(),
+    getContainerAvailability(),
   ]);
+
+  const containerRuntime: OnboardingState['containerRuntime'] = {
+    ...containerAvailability,
+    docsUrl: containerAvailability.status === 'available'
+      ? undefined
+      : MACOS_CONTAINERS_DOC_URL,
+  };
 
   const hasAnyUsableModels = availableModelGroups.some((group) => group.models.length > 0);
 
@@ -210,6 +229,7 @@ async function buildOnboardingState(options: BuildOnboardingStateOptions): Promi
       hasImportedCredentials,
       memoryBootstrapComplete,
       settings,
+      containerRuntime,
     });
   }
 
@@ -220,6 +240,7 @@ async function buildOnboardingState(options: BuildOnboardingStateOptions): Promi
     memoryBootstrapComplete,
     providerHealth,
     availableModelGroups,
+    containerRuntime,
   };
 }
 

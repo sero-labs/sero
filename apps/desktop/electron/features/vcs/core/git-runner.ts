@@ -8,6 +8,7 @@ import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerManager } from '@electron/features/container';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import type { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
+import { resolveWorkspaceRuntimeWithManagers } from '@electron/features/workspace/runtime-resolution';
 import type { GitResult } from '../support/types';
 
 const execFileAsync = promisify(execFile);
@@ -158,7 +159,16 @@ export class GitRunner {
       };
     }
 
-    const useContainer = await this.workspaceManager.isContainerEnabled(workspaceId);
+    const runtime = await resolveWorkspaceRuntimeWithManagers(workspaceId, {
+      getPath: this.workspaceManager.getPath.bind(this.workspaceManager),
+      isContainerEnabled: this.workspaceManager.isContainerEnabled.bind(this.workspaceManager),
+      inspect: this.containerManager.inspect.bind(this.containerManager),
+    });
+    const useContainer = runtime.actualRuntime === 'container';
+
+    if (runtime.desiredRuntime === 'container' && runtime.actualRuntime === 'host' && runtime.fallbackReason) {
+      console.warn(`[git-runner] ${runtime.fallbackReason}`);
+    }
 
     if (useContainer) {
       await this.ensureContainer(workspaceId, workspacePath);

@@ -20,7 +20,7 @@ import type {
   SeroPluginConfigAPI,
 } from './electron-services';
 import type { ThemePreset, ThemePresetMeta } from './theme';
-import type { SeroUserFeedbackBridge } from '@sero/common';
+import type { SeroUserFeedbackBridge, WorkspaceRuntimeDiagnosticsIPC } from '@sero/common';
 
 import type {
   ProfileInfo,
@@ -79,6 +79,7 @@ import type {
   AppRecordingStatus,
   AppRecordingResult,
   OnboardingState,
+  TerminalCreateResult,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -100,6 +101,8 @@ interface SeroWorkspaceAPI {
   pickFolder(): Promise<string | null>;
   /** Infer best workspace for a message. Returns workspace ID. */
   infer(message: string): Promise<string>;
+  /** Inspect desired vs actual runtime state for one workspace or all workspaces. */
+  getRuntimeDiagnostics(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
   /** Enable or disable container mode for a workspace. */
   setContainer(id: string, enabled: boolean): Promise<void>;
   /** Add a workspace reference (mount another workspace into this one's container). */
@@ -192,6 +195,8 @@ interface SeroContextPresetsAPI {
 interface SeroShellAPI {
   /** Reveal a file or folder in the native file explorer. */
   showItemInFolder(fullPath: string): Promise<void>;
+  /** Open an external URL in the default browser. */
+  openExternal(url: string): Promise<void>;
 }
 
 interface SeroAuthAPI {
@@ -247,8 +252,8 @@ interface SeroDevServerAPI {
 }
 
 interface SeroTerminalAPI {
-  /** Create a terminal session in a workspace container. */
-  create(workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<void>;
+  /** Create a terminal session in a workspace container or host fallback. */
+  create(workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<TerminalCreateResult>;
   /** Send input data to a terminal. */
   write(terminalId: string, data: string): Promise<void>;
   /** Resize a terminal. */

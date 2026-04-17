@@ -84,6 +84,11 @@ function createOnboardingState(overrides: Partial<OnboardingState> = {}): Onboar
     availableModelGroups: [],
     warnings: [],
     invalidTiers: [],
+    containerRuntime: {
+      status: 'available',
+      message: 'Apple containers are available.',
+      recommended: true,
+    },
     ...overrides,
   };
 }

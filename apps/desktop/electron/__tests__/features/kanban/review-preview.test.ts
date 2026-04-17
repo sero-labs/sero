@@ -22,7 +22,14 @@ describe('startCardReviewPreview', () => {
       tracker,
       {
         detectDevCommand: vi.fn().mockResolvedValue('pnpm run dev'),
-        isContainerEnabled: vi.fn().mockResolvedValue(true),
+        resolveRuntime: vi.fn().mockResolvedValue({
+          workspaceId: 'workspace-1',
+          workspacePath: '/tmp/workspace',
+          desiredRuntime: 'container',
+          actualRuntime: 'container',
+          containerEnabled: true,
+          capabilityAudit: [],
+        }),
         startDevServer,
         listServers: vi.fn().mockReturnValue([]),
         stopServer: vi.fn(),
@@ -44,6 +51,45 @@ describe('startCardReviewPreview', () => {
     expect(result).toEqual({
       previewServerId: 'workspace-1:card-preview:9:4173',
       previewUrl: 'http://127.0.0.1:4173',
+    });
+  });
+
+  it('returns an explicit host-mode reason when managed previews are unavailable', async () => {
+    const result = await startCardReviewPreview(
+      'workspace-1',
+      '/tmp/workspace',
+      { id: '9', title: 'Preview card' },
+      '/tmp/workspace/.sero/worktrees/card-9',
+      undefined,
+      {
+        detectDevCommand: vi.fn().mockResolvedValue('pnpm run dev'),
+        resolveRuntime: vi.fn().mockResolvedValue({
+          workspaceId: 'workspace-1',
+          workspacePath: '/tmp/workspace',
+          desiredRuntime: 'container',
+          actualRuntime: 'host',
+          containerEnabled: true,
+          fallbackCode: 'container_unavailable',
+          fallbackReason: 'falling back to host mode',
+          capabilityAudit: [
+            {
+              key: 'managedDevServers',
+              label: 'Managed preview/dev servers',
+              available: false,
+              containerOnly: true,
+              detail: 'Managed preview/dev-server automation remains container-only while this workspace is running on the host.',
+            },
+          ],
+        }),
+        startDevServer: vi.fn(),
+        listServers: vi.fn().mockReturnValue([]),
+        stopServer: vi.fn(),
+        unregisterServer: vi.fn(),
+      },
+    );
+
+    expect(result).toEqual({
+      reason: 'Managed preview/dev-server automation remains container-only while this workspace is running on the host.',
     });
   });
 });

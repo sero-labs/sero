@@ -162,9 +162,17 @@ export interface ProviderHealthInfoIPC {
   usableModelIds: string[];
 }
 
+export interface OnboardingContainerRuntimeIPC {
+  status: 'available' | 'missing_binary' | 'system_unavailable' | 'startup_failed';
+  message: string;
+  recommended: boolean;
+  docsUrl?: string;
+}
+
 export interface OnboardingStateIPC {
   providerHealth: ProviderHealthInfoIPC[];
   availableModelGroups: AvailableModelGroupIPC[];
+  containerRuntime: OnboardingContainerRuntimeIPC;
 }
 
 export interface SeroAppStateBridge {
@@ -179,9 +187,50 @@ export interface SeroAppsBridge {
 
 export interface SeroShellBridge {
   showItemInFolder(path: string): Promise<void>;
+  openExternal?(url: string): Promise<void>;
+}
+
+export interface WorkspaceInfoIPC {
+  id: string;
+  name: string;
+  path: string;
+  container: boolean;
+  references: string[];
+  mounts: string[];
+  roots: WorkspaceRootIPC[];
+}
+
+export interface WorkspaceRuntimeCapabilityIPC {
+  key: 'browserAutomation' | 'containerizedLanguageServers' | 'managedDevServers' | 'containerMounts';
+  label: string;
+  available: boolean;
+  containerOnly: boolean;
+  detail: string;
+}
+
+export interface WorkspaceRuntimeDiagnosticsIPC {
+  workspaceId: string;
+  workspacePath: string;
+  desiredRuntime: 'container' | 'host';
+  actualRuntime: 'container' | 'host';
+  containerEnabled: boolean;
+  fallbackCode?: 'container_unavailable';
+  fallbackReason?: string;
+  capabilityAudit: WorkspaceRuntimeCapabilityIPC[];
+}
+
+export interface ContainerInfoIPC {
+  id: string;
+  image: string;
+  state: 'running' | 'stopped';
+  ipAddress?: string;
+  cpus: number;
+  memoryBytes: number;
 }
 
 export interface SeroWorkspaceBridge {
+  list?(): Promise<WorkspaceInfoIPC[]>;
+  getRuntimeDiagnostics?(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
   pickFolder(): Promise<string | null>;
   listRoots(workspaceId: string): Promise<WorkspaceRootIPC[]>;
   addRoot(
@@ -247,6 +296,10 @@ export interface SeroOnboardingBridge {
   getState(): Promise<OnboardingStateIPC>;
 }
 
+export interface SeroContainerBridge {
+  status(workspaceId: string): Promise<ContainerInfoIPC | null>;
+}
+
 export interface SeroUserFeedbackBridge {
   getPending(): Promise<UserFeedbackPendingQuestion[]>;
   answer(response: UserFeedbackResponse): Promise<void>;
@@ -278,6 +331,7 @@ export interface SeroAdminBridge {
   modelConfig: SeroModelConfigBridge;
   models: SeroModelsBridge;
   onboarding: SeroOnboardingBridge;
+  container?: SeroContainerBridge;
 }
 
 export interface SeroAppControlBridge {

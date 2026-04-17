@@ -31,10 +31,46 @@ The container is the body. The Electron UI is the face. Pi is the mind.
 
 - **macOS 26 Tahoe+**, Apple Silicon exclusive
 - **Electron 33** (TypeScript + React)
-- **Apple Container CLI** (`container` v0.8.0+) for per-project Linux VM
-  sandboxes
+- **Apple Container CLI** (`container` v0.8.0+) is **strongly recommended** for per-project Linux VM sandboxes and the full Sero feature set
 - **Pi SDK** (`@mariozechner/pi-coding-agent`) as the AI agent core
-- **Hard requirement:** Every agent session is sandboxed inside a container
+- **Supported fallback:** Sero can continue in a reduced host mode when containers are unavailable or intentionally disabled for a workspace
+
+## Runtime modes
+
+### Preferred: container runtime
+
+Sero works best when a workspace runs with Apple containers enabled. That gives
+Sero its intended Linux sandbox, containerized tooling, browser automation, and
+managed preview / dev-server behavior.
+
+See [macOS Containers Setup](guides/macos-containers.md) for installation,
+verification, and recovery steps.
+
+### Supported fallback: host mode
+
+If containers are unavailable, unhealthy, or turned off for a workspace, Sero
+can continue in host mode instead of blocking the product entirely.
+
+Host mode still supports core workflows such as:
+- onboarding and provider setup
+- core agent chat and coding tasks
+- file browsing / editing
+- normal host-shell development workflows
+
+Host mode is intentionally a reduced experience. Current limitations include:
+- **no browser automation tool**
+- **no containerized language servers**
+- **reduced managed preview / dev-server automation**
+- **no Linux image parity or container networking semantics**
+
+### Opting a workspace into host mode
+
+Workspace runtime is configured per workspace:
+- use the workspace tree runtime toggle in the app UI, or
+- set `"container": false` in `.sero-workspace.json`
+
+That means containers are the default for new workspaces, but they are **not a
+hard requirement** for using Sero at all.
 
 ## Future (Not Yet Implemented)
 

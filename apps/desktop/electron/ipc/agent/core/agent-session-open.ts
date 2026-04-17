@@ -12,6 +12,7 @@ import type {
 } from '@/types/ipc';
 import type { ChatCheckpointRef } from '@/types/checkpoints';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { createHostCodingTools } from '@electron/features/container/tools';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
@@ -84,7 +85,8 @@ export async function openSessionInPool({
   const workspacePath = workspaceManager.getPath(workspaceId);
   if (!workspacePath) throw new Error(`Workspace not found: ${workspaceId}`);
 
-  const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
+  const initialRuntime = await resolveWorkspaceRuntime(workspaceId);
+  const containerEnabled = initialRuntime.containerEnabled;
   let containerState: ContainerState | null = null;
   if (!containerEnabled) {
     console.log(`[agent] Container disabled for workspace ${workspaceId}, using host tools`);
@@ -101,9 +103,20 @@ export async function openSessionInPool({
     const message = toErrorMessage(containerError, 'Container failed to start');
     console.error(`[agent] Container failed for ${workspaceId}:`, message);
     sendEvent({ type: 'container_error', sessionId, workspaceId, error: message });
+    sendEvent({
+      type: 'runtime_notice',
+      sessionId,
+      workspaceId,
+      runtime: 'host',
+      message:
+        'This session is continuing in host mode because the workspace container could not be started. Browser automation, containerized language servers, and managed dev-server automation will stay unavailable until containers are healthy again.',
+    });
   }
 
   const useContainer = !!containerState;
+  if (!useContainer && containerEnabled && initialRuntime.actualRuntime === 'host' && initialRuntime.fallbackReason) {
+    console.warn(`[agent] ${initialRuntime.fallbackReason}`);
+  }
   const platformTools = useContainer
     ? createContainerTools(containerManager, workspaceId, sessionId)
     : [...createHostCodingTools(workspacePath), createWorkspaceCliTool(workspaceId, sessionId)];

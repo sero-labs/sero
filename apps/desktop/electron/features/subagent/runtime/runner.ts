@@ -27,6 +27,7 @@ import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
+import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
 import path from 'path';
@@ -132,10 +133,10 @@ export async function runSubagent(
   // Generate a unique session ID for this subagent run
   const subagentSessionId = `subagent-${config.parentSessionId}-${Date.now()}`;
 
-  // Resolve container state (reuse workspace's existing container)
+  // Resolve container state (reuse workspace's existing container when available)
   let containerState: ContainerState | null = null;
-  const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
-  if (containerEnabled) {
+  const runtime = await resolveWorkspaceRuntime(workspaceId);
+  if (runtime.actualRuntime === 'container') {
     try {
       const containerConfig = await buildWorkspaceContainerConfig(
         workspaceManager,
@@ -145,8 +146,11 @@ export async function runSubagent(
       );
       containerState = await containerManager.ensure(containerConfig);
     } catch (err: unknown) {
-      console.warn('[subagent/runner] Container not available, using host tools:', (err as Error)?.message);
+      console.warn('[subagent/runner] Container became unavailable, using host tools:', (err as Error)?.message);
     }
+  } else if (runtime.desiredRuntime === 'container' && runtime.fallbackReason) {
+    console.warn(`[subagent/runner] ${runtime.fallbackReason}`);
+    config.onUpdate?.(`⚠️ ${runtime.fallbackReason}`);
   }
 
   const useContainer = !!containerState;

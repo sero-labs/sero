@@ -12,6 +12,8 @@ export interface TerminalTab {
   id: string;
   workspaceId: string;
   title: string;
+  runtime: 'container' | 'host';
+  fallbackReason?: string;
   /** Whether the terminal process has exited. */
   exited: boolean;
 }
@@ -53,6 +55,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       id: terminalId,
       workspaceId,
       title: `Terminal ${tabNumber}`,
+      runtime: 'container',
       exited: false,
     };
 
@@ -63,7 +66,21 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
     // Create the PTY in the main process
     try {
-      await window.sero.terminal.create(workspaceId, terminalId);
+      const result = await window.sero.terminal.create(workspaceId, terminalId);
+      set((s) => {
+        const existing = s.tabs[terminalId];
+        if (!existing) return s;
+        return {
+          tabs: {
+            ...s.tabs,
+            [terminalId]: {
+              ...existing,
+              runtime: result.runtime,
+              fallbackReason: result.fallbackReason,
+            },
+          },
+        };
+      });
     } catch (err) {
       console.error('[terminal] Failed to create terminal:', err);
       // Remove the tab on failure

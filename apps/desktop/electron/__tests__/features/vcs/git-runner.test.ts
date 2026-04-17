@@ -66,6 +66,8 @@ async function createRunner() {
   const containerManager = {
     ensure: vi.fn(async () => undefined),
     exec: vi.fn(),
+    hasContainer: vi.fn(() => false),
+    inspect: vi.fn(async () => ({ state: 'running' })),
   } as unknown as ContainerManager;
 
   const githubAuth = {

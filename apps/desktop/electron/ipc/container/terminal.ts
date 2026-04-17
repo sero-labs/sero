@@ -8,7 +8,7 @@
 import { ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { containerManager } from '@electron/shared/infra/shared-infra';
-import { workspaceManager } from '@electron/features/workspace/manager';
+import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { broadcastToWindows } from '../lib/window-broadcast';
 
 export function registerTerminalHandlers(): void {
@@ -23,19 +23,20 @@ export function registerTerminalHandlers(): void {
   ipcMain.handle(
     IpcChannels.terminal.create,
     async (_event, workspaceId: string, terminalId: string, cols?: number, rows?: number) => {
-      const containerEnabled = await workspaceManager.isContainerEnabled(workspaceId);
-      const wsPath = workspaceManager.getPath(workspaceId) ?? process.cwd();
-
-      // Use container terminal only if container mode is on AND the container is running
-      const useContainer = containerEnabled && containerManager.hasContainer(workspaceId);
-      const pty = useContainer
+      const runtime = await resolveWorkspaceRuntime(workspaceId);
+      const pty = runtime.actualRuntime === 'container'
         ? tm.createTerminal(workspaceId, terminalId, cols, rows)
-        : tm.createHostTerminal(workspaceId, terminalId, wsPath, cols, rows);
+        : tm.createHostTerminal(workspaceId, terminalId, runtime.workspacePath, cols, rows);
 
       // Forward PTY data to all renderer windows
       pty.onData((data: string) => {
         broadcastToWindows(IpcChannels.terminal.data, terminalId, data);
       });
+
+      return {
+        runtime: runtime.actualRuntime,
+        fallbackReason: runtime.fallbackReason,
+      };
     },
   );
 

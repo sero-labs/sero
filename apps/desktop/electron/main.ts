@@ -42,6 +42,7 @@ import {
   getDefaultModelFallbackChain,
 } from './shared/settings/model-fallback-chain';
 import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
+import { getContainerAvailability } from './features/container/core/availability';
 
 // Register custom protocol BEFORE app.whenReady()
 registerExtProtocolScheme();
@@ -303,6 +304,17 @@ app.whenReady().then(async () => {
   console.log('[sero] User-Agent:', cleanUA);
 
   // ── Container system bootstrap ───────────────────────────────
+  try {
+    const availability = await getContainerAvailability();
+    if (availability.status === 'available') {
+      console.log('[sero] Container runtime available:', availability.message);
+    } else {
+      console.warn('[sero] Container runtime degraded:', availability.message);
+    }
+  } catch (err) {
+    console.warn('[sero] Failed to read container runtime availability during boot:', err);
+  }
+
   // Ensure the container API server is running (non-blocking on failure)
   try {
     await containerManager.ensureSystemRunning();

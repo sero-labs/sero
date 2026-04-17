@@ -1,6 +1,10 @@
 import type { DevServer } from '@/types/ipc';
 import { containerManager } from '@electron/features/container/core/singleton';
-import { workspaceManager } from '@electron/features/workspace/manager';
+import {
+  getRuntimeCapabilityEntry,
+  resolveWorkspaceRuntime,
+  type WorkspaceRuntimeResolution,
+} from '@electron/features/workspace/runtime-resolution';
 import { runWorkspaceCommand } from './workspace-command-runner';
 import { startManagedDevServer } from '../implementation/dev-server-launch';
 import {
@@ -34,7 +38,7 @@ interface RuntimeRefreshDeps {
   listDevServers?: (workspaceId: string) => DevServer[];
   restartDevServer?: (serverId: string) => Promise<boolean>;
   autoStartDevServer?: (workspaceId: string, workspacePath: string, command: string) => Promise<AutoStartResult>;
-  isContainerEnabled?: (workspaceId: string) => Promise<boolean>;
+  resolveRuntime?: (workspaceId: string) => Promise<WorkspaceRuntimeResolution>;
 }
 
 export async function refreshWorkspaceRuntimeAfterSync(
@@ -48,7 +52,7 @@ export async function refreshWorkspaceRuntimeAfterSync(
   const listDevServers = deps.listDevServers ?? ((id: string) => containerManager.devServers.list(id));
   const restartDevServer = deps.restartDevServer ?? ((serverId: string) => containerManager.devServers.restart(serverId));
   const autoStartDevServer = deps.autoStartDevServer ?? autoStartDetectedDevServer;
-  const isContainerEnabled = deps.isContainerEnabled ?? ((id: string) => workspaceManager.isContainerEnabled(id));
+  const resolveRuntime = deps.resolveRuntime ?? resolveWorkspaceRuntime;
 
   const result: WorkspaceRuntimeRefreshResult = {
     refreshed: false,
@@ -102,10 +106,11 @@ export async function refreshWorkspaceRuntimeAfterSync(
     return result;
   }
 
-  if (!(await isContainerEnabled(workspaceId))) {
+  const runtime = await resolveRuntime(workspaceId);
+  if (runtime.actualRuntime !== 'container') {
     return {
       ...result,
-      reason: 'Workspace is not container-enabled; skipped auto-starting a dev server.',
+      reason: getRuntimeCapabilityEntry(runtime, 'managedDevServers').detail,
     };
   }
 

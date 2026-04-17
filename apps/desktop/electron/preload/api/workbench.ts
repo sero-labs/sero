@@ -18,7 +18,7 @@ import type {
   VcsWorkspaceState,
   WorkingCopyStatus,
 } from '@sero/common';
-import type { EditorRoot } from '@/types/ipc';
+import type { EditorRoot, TerminalCreateResult } from '@/types/ipc';
 
 export const vcsBridge = {
   listCheckpoints: (workspaceId: string, limit?: number): Promise<VcsCheckpoint[]> =>
@@ -121,7 +121,7 @@ export const terminalBridge = {
     terminalId: string,
     cols?: number,
     rows?: number,
-  ): Promise<void> =>
+  ): Promise<TerminalCreateResult> =>
     ipcRenderer.invoke(IpcChannels.terminal.create, workspaceId, terminalId, cols, rows),
   write: (terminalId: string, data: string): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.terminal.write, terminalId, data),

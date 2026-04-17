@@ -21,6 +21,7 @@ import {
   type ContainerState,
   type ExecResult,
 } from './types';
+import { getContainerAvailability } from './availability';
 
 const execFileAsync = promisify(execFile);
 
@@ -74,8 +75,12 @@ export async function ensureSystemRunning(): Promise<void> {
     await waitForSystem(15_000);
     console.log('[container] API server started successfully');
   } catch (err: unknown) {
-    console.error('[container] Failed to start API server:', errorMessage(err));
-    throw new Error(`Container system failed to start: ${errorMessage(err)}`);
+    const availability = await getContainerAvailability().catch(() => null);
+    const detail = availability && availability.status !== 'available'
+      ? ` ${availability.message}`
+      : '';
+    console.error('[container] Failed to start API server:', errorMessage(err), detail);
+    throw new Error(`Container system failed to start: ${errorMessage(err)}${detail}`.trim());
   }
 }
 

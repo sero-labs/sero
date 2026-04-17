@@ -30,6 +30,8 @@ export const IpcChannels = {
     pickFolder: 'sero:workspace:pick-folder',
     /** Infer best workspace for a given message. Returns workspace ID. */
     infer: 'sero:workspace:infer',
+    /** Inspect desired vs actual runtime state for one workspace or all workspaces. */
+    runtimeDiagnostics: 'sero:workspace:runtime-diagnostics',
     /** Toggle container mode for a workspace. Args: id, enabled. */
     setContainer: 'sero:workspace:set-container',
     /** Add a workspace reference (mount another workspace). Args: id, refId. */
@@ -104,6 +106,8 @@ export const IpcChannels = {
   shell: {
     /** Open a path in the native file explorer. */
     showItemInFolder: 'sero:shell:show-item-in-folder',
+    /** Open an external URL in the default browser. */
+    openExternal: 'sero:shell:open-external',
   },
   appState: {
     /** Read an app state JSON file. */

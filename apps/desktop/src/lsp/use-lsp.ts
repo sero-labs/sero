@@ -23,11 +23,13 @@ export interface UseLspOptions {
 export interface UseLspResult {
   isReady: boolean;
   serverLanguage: string | null;
+  statusNotice: string | null;
   sendDidSave: () => void;
 }
 
 export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: UseLspOptions): UseLspResult {
   const [isReady, setIsReady] = useState(false);
+  const [startupError, setStartupError] = useState<string | null>(null);
   const serverLanguageRef = useRef<string | null>(null);
   const startingRef = useRef(false);
 
@@ -40,6 +42,12 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
     serverLanguageRef.current = null;
     setIsReady(false);
   }, []);
+
+  const statusNotice = serverLanguage
+    ? startupError ?? (containerStatus !== 'running'
+      ? 'Containerized language servers are unavailable while this workspace is running in host mode.'
+      : null)
+    : null;
 
   useLspServerStopCleanup({ workspaceId, onStopped: handleServerStopped });
 
@@ -66,13 +74,17 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
         const { language } = await window.sero.lsp.start(workspaceId, languageId);
         if (cancelled) return;
         serverLanguageRef.current = language;
+        setStartupError(null);
         setIsReady(true);
         for (const languageIdEntry of LSP_PROVIDER_LANGUAGE_IDS) {
           ensureProvidersRegistered(monaco, languageIdEntry);
         }
       } catch (err) {
         console.warn('[lsp] Failed to start server:', err);
-        if (!cancelled) setIsReady(false);
+        if (!cancelled) {
+          setStartupError(err instanceof Error ? err.message : 'Failed to start the language server');
+          setIsReady(false);
+        }
       } finally {
         startingRef.current = false;
       }
@@ -83,5 +95,10 @@ export function useLsp({ workspaceId, filePath, languageId, monaco, editor }: Us
     };
   }, [workspaceId, languageId, monaco, serverLanguage, containerStatus]);
 
-  return { isReady, serverLanguage: serverLanguageRef.current, sendDidSave };
+  return {
+    isReady,
+    serverLanguage: serverLanguageRef.current,
+    statusNotice,
+    sendDidSave,
+  };
 }
