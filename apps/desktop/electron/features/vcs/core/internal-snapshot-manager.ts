@@ -7,12 +7,14 @@ import type { GitRunner } from './git-runner';
 
 const SNAPSHOT_ID_PREFIX = 'turn-undo:';
 const SNAPSHOT_REF_PREFIX = 'refs/sero/turn-undo/';
+const SNAPSHOT_INDEX_REF_PREFIX = 'refs/sero/turn-undo-index/';
 const MAX_SNAPSHOT_COUNT = 40;
 const MAX_SNAPSHOT_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
 
 interface WorkingTreeSnapshot {
   headId: string | null;
   treeId: string;
+  indexTreeId: string;
 }
 
 interface InternalSnapshotRef {
@@ -44,6 +46,10 @@ function stripSnapshotIdPrefix(snapshotId: string): string {
 
 function buildSnapshotRefName(snapshotId: string): string {
   return `${SNAPSHOT_REF_PREFIX}${stripSnapshotIdPrefix(snapshotId)}`;
+}
+
+function buildSnapshotIndexRefName(snapshotId: string): string {
+  return `${SNAPSHOT_INDEX_REF_PREFIX}${stripSnapshotIdPrefix(snapshotId)}`;
 }
 
 function parseSnapshotRef(refName: string): InternalSnapshotRef | null {
@@ -95,6 +101,7 @@ export class InternalSnapshotManager {
     const snapshotState = await this.captureWorkingTreeSnapshot(workspaceId);
     const snapshotKey = `${Date.now()}-${randomUUID()}`;
     const refName = `${SNAPSHOT_REF_PREFIX}${snapshotKey}`;
+    const indexRefName = `${SNAPSHOT_INDEX_REF_PREFIX}${snapshotKey}`;
 
     const commitArgs = ['commit-tree', snapshotState.treeId];
     if (snapshotState.headId) {
@@ -115,6 +122,16 @@ export class InternalSnapshotManager {
     const updateRef = await this.runner.run(workspaceId, ['update-ref', refName, commitId]);
     if (updateRef.exitCode !== 0) {
       throw new Error(updateRef.stderr || 'Failed to store internal turn-undo snapshot ref');
+    }
+
+    const updateIndexRef = await this.runner.run(workspaceId, [
+      'update-ref',
+      indexRefName,
+      snapshotState.indexTreeId,
+    ]);
+    if (updateIndexRef.exitCode !== 0) {
+      await this.runner.run(workspaceId, ['update-ref', '-d', refName]);
+      throw new Error(updateIndexRef.stderr || 'Failed to store internal turn-undo snapshot index ref');
     }
 
     await this.cleanupSnapshots(workspaceId);
@@ -140,10 +157,7 @@ export class InternalSnapshotManager {
     }
 
     for (const refName of toDelete) {
-      const remove = await this.runner.run(workspaceId, ['update-ref', '-d', refName]);
-      if (remove.exitCode !== 0) {
-        throw new Error(remove.stderr || `Failed to delete stale snapshot ref ${refName}`);
-      }
+      await this.deleteSnapshotRefs(workspaceId, refName);
     }
   }
 
@@ -197,6 +211,21 @@ export class InternalSnapshotManager {
       throw new Error(clean.stderr || `Failed to clean workspace for internal snapshot ${snapshotId}`);
     }
 
+    const indexSnapshotRef = buildSnapshotIndexRefName(snapshotId);
+    if (await this.hasRef(workspaceId, indexSnapshotRef)) {
+      const restoreIndex = await this.runner.run(workspaceId, [
+        'read-tree',
+        '--reset',
+        indexSnapshotRef,
+      ]);
+      if (restoreIndex.exitCode !== 0) {
+        throw new Error(
+          restoreIndex.stderr || `Failed to restore staged state for internal snapshot ${snapshotId}`,
+        );
+      }
+      return;
+    }
+
     const head = await this.resolveHeadId(workspaceId);
     if (head) {
       const reset = await this.runner.run(workspaceId, ['reset', '--mixed', 'HEAD']);
@@ -218,6 +247,8 @@ export class InternalSnapshotManager {
   }
 
   private async captureWorkingTreeSnapshot(workspaceId: string): Promise<WorkingTreeSnapshot> {
+    const indexTreeId = await this.captureIndexTreeId(workspaceId);
+
     return withTempIndex(this.runner, workspaceId, async (env) => {
       const headId = await this.resolveHeadId(workspaceId);
       if (headId) {
@@ -245,8 +276,23 @@ export class InternalSnapshotManager {
       return {
         headId,
         treeId,
+        indexTreeId,
       };
     });
+  }
+
+  private async captureIndexTreeId(workspaceId: string): Promise<string> {
+    const writeTree = await this.runner.run(workspaceId, ['write-tree']);
+    if (writeTree.exitCode !== 0) {
+      throw new Error(writeTree.stderr || 'Failed to write internal snapshot index tree');
+    }
+
+    const treeId = writeTree.stdout.trim();
+    if (!treeId) {
+      throw new Error('Internal snapshot index tree id was empty');
+    }
+
+    return treeId;
   }
 
   private async resolveHeadId(workspaceId: string): Promise<string | null> {
@@ -255,6 +301,31 @@ export class InternalSnapshotManager {
 
     const headId = head.stdout.trim();
     return headId || null;
+  }
+
+  private async hasRef(workspaceId: string, refName: string): Promise<boolean> {
+    const result = await this.runner.run(workspaceId, ['rev-parse', '--verify', refName]);
+    return result.exitCode === 0;
+  }
+
+  private async deleteSnapshotRefs(workspaceId: string, refName: string): Promise<void> {
+    const ref = parseSnapshotRef(refName);
+    if (!ref) return;
+
+    const remove = await this.runner.run(workspaceId, ['update-ref', '-d', ref.refName]);
+    if (remove.exitCode !== 0) {
+      throw new Error(remove.stderr || `Failed to delete stale snapshot ref ${ref.refName}`);
+    }
+
+    const indexRefName = `${SNAPSHOT_INDEX_REF_PREFIX}${ref.id}`;
+    if (!(await this.hasRef(workspaceId, indexRefName))) {
+      return;
+    }
+
+    const removeIndex = await this.runner.run(workspaceId, ['update-ref', '-d', indexRefName]);
+    if (removeIndex.exitCode !== 0) {
+      throw new Error(removeIndex.stderr || `Failed to delete stale snapshot ref ${indexRefName}`);
+    }
   }
 
   private async listSnapshotRefs(workspaceId: string): Promise<InternalSnapshotRef[]> {

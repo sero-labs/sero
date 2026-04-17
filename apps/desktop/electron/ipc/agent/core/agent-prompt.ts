@@ -46,6 +46,14 @@ interface HandlePromptInputArgs {
   sendEvent: (event: AgentStreamEvent) => void;
 }
 
+interface HandleSteerInputArgs {
+  entry: PromptPoolEntry;
+  sessionId: string;
+  text: string;
+  clientMessageId?: string;
+  sendEvent: (event: AgentStreamEvent) => void;
+}
+
 interface ExecuteDirectCliPromptArgs {
   entry: PromptPoolEntry;
   sessionId: string;
@@ -113,6 +121,21 @@ export async function handlePromptInput({
 
   const images = attachmentsToImages(attachments);
   await entry.session.prompt(text, images ? { images } : undefined);
+}
+
+export async function handleSteerInput({
+  entry,
+  sessionId,
+  text,
+  clientMessageId,
+  sendEvent,
+}: HandleSteerInputArgs): Promise<void> {
+  const userMessageId = clientMessageId?.trim() || nextId();
+  const userMsg: ChatMessage = { type: 'user', id: userMessageId, text };
+  sendEvent({ type: 'message_start', sessionId, message: userMsg });
+
+  await entry.session.steer(text);
+  entry.pendingTurnUndoUserMessageId = userMessageId;
 }
 
 function handleDirectCliCompactResult(

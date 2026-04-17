@@ -30,7 +30,7 @@ describe('undoToTurn', () => {
     mocks.invalidateWorkspace.mockClear();
   });
 
-  it('restores the snapshot, navigates to the target user entry, and prefills the composer', async () => {
+  it('navigates before restoring the snapshot and prefills the composer after both steps succeed', async () => {
     const navigateTree = vi.fn().mockResolvedValue({
       cancelled: false,
       editorText: 'save that to file joke.txt',
@@ -44,6 +44,7 @@ describe('undoToTurn', () => {
         navigateTree,
         sessionManager: {
           getBranch: () => [],
+          getLeafId: () => 'leaf-before-undo',
         },
         messages: [],
       } as never,
@@ -64,9 +65,12 @@ describe('undoToTurn', () => {
       sendEvent,
     });
 
-    expect(mocks.restoreCheckpoint).toHaveBeenCalledWith('ws-1', 'snap-1');
-    expect(mocks.invalidateWorkspace).toHaveBeenCalledWith('ws-1', 'turn-undo:restore', { delayMs: 0 });
     expect(navigateTree).toHaveBeenCalledWith('user-entry-1', { summarize: false });
+    expect(mocks.restoreCheckpoint).toHaveBeenCalledWith('ws-1', 'snap-1');
+    expect(navigateTree.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.restoreCheckpoint.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(mocks.invalidateWorkspace).toHaveBeenCalledWith('ws-1', 'turn-undo:restore', { delayMs: 0 });
     expect(messages).toEqual([]);
     expect(sendEvent).toHaveBeenNthCalledWith(1, {
       type: 'messages_loaded',
@@ -82,5 +86,91 @@ describe('undoToTurn', () => {
       }),
     });
     expect(entry.pendingTurnUndoUserMessageId).toBeNull();
+  });
+
+  it('does not restore the filesystem when tree navigation is cancelled', async () => {
+    const navigateTree = vi.fn().mockResolvedValue({
+      cancelled: true,
+      editorText: '',
+    });
+    const sendEvent = vi.fn();
+    const entry: AgentPoolCheckpointEntry = {
+      workspaceId: 'ws-1',
+      pendingTurnUndoUserMessageId: 'msg-user-1',
+      session: {
+        agent: { state: { isStreaming: false } },
+        navigateTree,
+        sessionManager: {
+          getBranch: () => [],
+          getLeafId: () => 'leaf-before-undo',
+        },
+        messages: [],
+      } as never,
+    };
+
+    await expect(undoToTurn({
+      entry,
+      sessionId: 'session-1',
+      turnUndo: {
+        kind: 'turn-undo',
+        workspaceId: 'ws-1',
+        snapshotId: 'snap-1',
+        targetUserEntryId: 'user-entry-1',
+        label: 'Update joke.txt',
+        createdAt: '2026-04-17T10:00:00.000Z',
+      },
+      sendEvent,
+    })).rejects.toThrow('Turn undo was cancelled');
+
+    expect(mocks.restoreCheckpoint).not.toHaveBeenCalled();
+    expect(mocks.invalidateWorkspace).not.toHaveBeenCalled();
+    expect(sendEvent).not.toHaveBeenCalled();
+  });
+
+  it('rolls the session tree back if filesystem restore fails after navigation succeeds', async () => {
+    const navigateTree = vi
+      .fn()
+      .mockResolvedValueOnce({
+        cancelled: false,
+        editorText: 'save that to file joke.txt',
+      })
+      .mockResolvedValueOnce({
+        cancelled: false,
+        editorText: '',
+      });
+    const sendEvent = vi.fn();
+    const entry: AgentPoolCheckpointEntry = {
+      workspaceId: 'ws-1',
+      pendingTurnUndoUserMessageId: 'msg-user-1',
+      session: {
+        agent: { state: { isStreaming: false } },
+        navigateTree,
+        sessionManager: {
+          getBranch: () => [],
+          getLeafId: () => 'leaf-before-undo',
+        },
+        messages: [],
+      } as never,
+    };
+    mocks.restoreCheckpoint.mockRejectedValueOnce(new Error('restore failed'));
+
+    await expect(undoToTurn({
+      entry,
+      sessionId: 'session-1',
+      turnUndo: {
+        kind: 'turn-undo',
+        workspaceId: 'ws-1',
+        snapshotId: 'snap-1',
+        targetUserEntryId: 'user-entry-1',
+        label: 'Update joke.txt',
+        createdAt: '2026-04-17T10:00:00.000Z',
+      },
+      sendEvent,
+    })).rejects.toThrow('restore failed');
+
+    expect(navigateTree).toHaveBeenNthCalledWith(1, 'user-entry-1', { summarize: false });
+    expect(navigateTree).toHaveBeenNthCalledWith(2, 'leaf-before-undo', { summarize: false });
+    expect(mocks.invalidateWorkspace).not.toHaveBeenCalled();
+    expect(sendEvent).not.toHaveBeenCalled();
   });
 });

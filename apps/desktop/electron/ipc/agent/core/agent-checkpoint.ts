@@ -55,6 +55,30 @@ function assertCanRestore(entry: AgentPoolCheckpointEntry | undefined, sessionId
   return entry;
 }
 
+async function rollbackTreeNavigation(
+  entry: AgentPoolCheckpointEntry,
+  previousLeafId: string | null,
+  targetUserEntryId: string,
+): Promise<void> {
+  if (!previousLeafId || previousLeafId === targetUserEntryId) return;
+
+  try {
+    const rollback = await entry.session.navigateTree(previousLeafId, {
+      summarize: false,
+    });
+    if (rollback.cancelled) {
+      console.warn(
+        `[turn-undo] Failed to roll back cancelled restore navigation for workspace=${entry.workspaceId}: rollback navigation was cancelled`,
+      );
+    }
+  } catch (error) {
+    console.warn(
+      `[turn-undo] Failed to roll back restore navigation for workspace=${entry.workspaceId}:`,
+      error,
+    );
+  }
+}
+
 export async function undoToTurn({
   entry,
   sessionId,
@@ -68,15 +92,22 @@ export async function undoToTurn({
   console.log(
     `[turn-undo] Undo requested for session=${sessionId}, workspace=${entry.workspaceId}, snapshot=${turnUndo.snapshotId}, userEntry=${turnUndo.targetUserEntryId}`,
   );
-  await vcsManager.restoreCheckpoint(entry.workspaceId, turnUndo.snapshotId);
-  gitWorkspaceStateManager.invalidateWorkspace(entry.workspaceId, 'turn-undo:restore', { delayMs: 0 });
 
+  const previousLeafId = entry.session.sessionManager.getLeafId?.() ?? null;
   const result = await entry.session.navigateTree(turnUndo.targetUserEntryId, {
     summarize: false,
   });
   if (result.cancelled) {
     throw new Error('Turn undo was cancelled');
   }
+
+  try {
+    await vcsManager.restoreCheckpoint(entry.workspaceId, turnUndo.snapshotId);
+  } catch (error) {
+    await rollbackTreeNavigation(entry, previousLeafId, turnUndo.targetUserEntryId);
+    throw error;
+  }
+  gitWorkspaceStateManager.invalidateWorkspace(entry.workspaceId, 'turn-undo:restore', { delayMs: 0 });
 
   entry.pendingTurnUndoUserMessageId = null;
   const chatMessages = rebuildMessages(entry, sessionId, sendEvent);

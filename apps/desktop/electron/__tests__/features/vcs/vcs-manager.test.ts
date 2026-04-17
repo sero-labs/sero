@@ -230,13 +230,48 @@ describe('VcsManager checkpoint source handling', () => {
     expect(status).toContain('?? notes.md');
   });
 
+  it('preserves staged changes when restoring an internal snapshot', async () => {
+    const repoDir = createTempRepo();
+    const manager = createRealManager(repoDir);
+    initRepo(repoDir);
+
+    writeFileSync(path.join(repoDir, 'story.txt'), 'manual staged draft\n');
+    runGit(repoDir, ['add', 'story.txt']);
+    writeFileSync(path.join(repoDir, 'notes.md'), 'remember this\n');
+
+    const snapshotId = await manager.createInternalSnapshot('ws-1');
+
+    expect(
+      runGit(repoDir, ['for-each-ref', '--format=%(refname)', 'refs/sero/turn-undo-index']).trim(),
+    ).not.toBe('');
+
+    writeFileSync(path.join(repoDir, 'story.txt'), 'agent rewrite\n');
+    writeFileSync(path.join(repoDir, 'joke.txt'), 'ha\n');
+
+    await manager.restoreCheckpoint('ws-1', snapshotId);
+
+    expect(readFileSync(path.join(repoDir, 'story.txt'), 'utf8')).toBe('manual staged draft\n');
+    expect(readFileSync(path.join(repoDir, 'notes.md'), 'utf8')).toBe('remember this\n');
+    expect(existsSync(path.join(repoDir, 'joke.txt'))).toBe(false);
+
+    const status = runGit(repoDir, ['status', '--short']);
+    expect(status).toContain('M  story.txt');
+    expect(status).toContain('?? notes.md');
+  });
+
   it('cleans up stale internal snapshots by age and retention count', async () => {
     const now = Date.now();
     const staleRef = `refs/sero/turn-undo/${now - 8 * 24 * 60 * 60 * 1_000}-aaaa-bbbb`;
+    const staleIndexRef = staleRef.replace('refs/sero/turn-undo/', 'refs/sero/turn-undo-index/');
     const freshRefs = Array.from({ length: 41 }, (_unused, index) => {
       const timestamp = now - index;
       return `refs/sero/turn-undo/${timestamp}-aaaa-${index.toString(16).padStart(4, '0')}`;
     });
+    const oldestFreshRef = freshRefs[freshRefs.length - 1] ?? '';
+    const oldestFreshIndexRef = oldestFreshRef.replace(
+      'refs/sero/turn-undo/',
+      'refs/sero/turn-undo-index/',
+    );
     const allRefs = [staleRef, ...freshRefs].join('\n');
 
     const run = vi.fn(async (_workspaceId: string, args: string[]) => {
@@ -245,8 +280,17 @@ describe('VcsManager checkpoint source handling', () => {
       if (command === 'for-each-ref --format=%(refname) refs/sero/turn-undo/') {
         return ok(allRefs);
       }
+      if (command === `rev-parse --verify ${staleIndexRef}`) {
+        return ok(`${staleIndexRef}\n`);
+      }
+      if (command === `rev-parse --verify ${oldestFreshIndexRef}`) {
+        return ok(`${oldestFreshIndexRef}\n`);
+      }
       if (args[0] === 'update-ref' && args[1] === '-d') {
         return ok();
+      }
+      if (args[0] === 'rev-parse' && args[1] === '--verify') {
+        return { exitCode: 1, stdout: '', stderr: 'missing ref' };
       }
 
       throw new Error(`Unexpected git command: ${command}`);
@@ -261,11 +305,13 @@ describe('VcsManager checkpoint source handling', () => {
     await manager.cleanupInternalSnapshots('ws-1');
 
     const deleteCalls = run.mock.calls.filter(([, args]) => args[0] === 'update-ref' && args[1] === '-d');
-    expect(deleteCalls).toHaveLength(2);
+    expect(deleteCalls).toHaveLength(4);
     expect(deleteCalls).toEqual(
       expect.arrayContaining([
         ['ws-1', ['update-ref', '-d', staleRef]],
-        ['ws-1', ['update-ref', '-d', freshRefs[freshRefs.length - 1] ?? '']],
+        ['ws-1', ['update-ref', '-d', staleIndexRef]],
+        ['ws-1', ['update-ref', '-d', oldestFreshRef]],
+        ['ws-1', ['update-ref', '-d', oldestFreshIndexRef]],
       ]),
     );
   });
