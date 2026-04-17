@@ -79,6 +79,7 @@ import type {
   AppRecordingStatus,
   AppRecordingResult,
   OnboardingState,
+  TerminalCreateResult,
 } from './ipc';
 
 interface SeroWorkspaceAPI {
@@ -249,8 +250,8 @@ interface SeroDevServerAPI {
 }
 
 interface SeroTerminalAPI {
-  /** Create a terminal session in a workspace container. */
-  create(workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<void>;
+  /** Create a terminal session in a workspace container or host fallback. */
+  create(workspaceId: string, terminalId: string, cols?: number, rows?: number): Promise<TerminalCreateResult>;
   /** Send input data to a terminal. */
   write(terminalId: string, data: string): Promise<void>;
   /** Resize a terminal. */

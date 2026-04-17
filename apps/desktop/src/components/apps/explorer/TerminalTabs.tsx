@@ -5,7 +5,7 @@
  * Connected to the terminal store for state management.
  */
 
-import { Plus, X, Terminal as TerminalIcon } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import {
   useWorkspaceTerminals,
   useActiveTerminalId,
@@ -29,15 +29,9 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
   const isContainerWorkspace = useWorkspaceStore(
     (s) => s.workspaces.find((w) => w.id === workspaceId)?.container ?? true,
   );
-
-  // Non-container workspaces can always create terminals;
-  // container workspaces require the container to be running.
-  const canCreateTerminal = isContainerWorkspace
-    ? container.status === 'running'
-    : true;
+  const showHostFallbackNotice = isContainerWorkspace && container.status !== 'running';
 
   const handleNewTerminal = async () => {
-    if (!canCreateTerminal) return;
     try {
       await createTab(workspaceId);
     } catch (err) {
@@ -46,62 +40,74 @@ export function TerminalTabs({ workspaceId }: TerminalTabsProps) {
   };
 
   return (
-    <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-1">
-      {/* Tabs */}
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => setActive(workspaceId, tab.id)}
-          className={cn(
-            'group flex h-6 items-center gap-1 rounded px-2 text-xs transition-colors',
-            activeId === tab.id
-              ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
-              : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
-            tab.exited && 'opacity-50',
-          )}
-        >
-          <span className="max-w-[100px] truncate">{tab.title}</span>
-          <span
-            role="button"
-            tabIndex={-1}
-            onClick={(e) => {
-              e.stopPropagation();
-              closeTab(tab.id);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+    <div className="flex min-h-8 shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
+      {showHostFallbackNotice && (
+        <div className="border-b border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] px-2 py-1 text-[11px] text-[var(--status-warning-text)]">
+          Containers are unavailable for this workspace right now. New terminals will open on your Mac until the workspace container is back.
+        </div>
+      )}
+      <div className="flex h-8 items-center gap-0.5 px-1">
+        {/* Tabs */}
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActive(workspaceId, tab.id)}
+            className={cn(
+              'group flex h-6 items-center gap-1 rounded px-2 text-xs transition-colors',
+              activeId === tab.id
+                ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                : 'text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+              tab.exited && 'opacity-50',
+            )}
+          >
+            <span className="max-w-[100px] truncate">{tab.title}</span>
+            {tab.runtime === 'host' && (
+              <span
+                title={tab.fallbackReason}
+                className="rounded bg-[var(--status-warning-faint)] px-1 py-0.5 text-[10px] font-medium text-[var(--status-warning-text)]"
+              >
+                Host
+              </span>
+            )}
+            <span
+              role="button"
+              tabIndex={-1}
+              onClick={(e) => {
                 e.stopPropagation();
                 closeTab(tab.id);
-              }
-            }}
-            className="rounded p-0.5 opacity-0 transition-opacity hover:bg-[var(--bg-base)] group-hover:opacity-100"
-          >
-            <X className="size-2.5" />
-          </span>
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.stopPropagation();
+                  closeTab(tab.id);
+                }
+              }}
+              className="rounded p-0.5 opacity-0 transition-opacity hover:bg-[var(--bg-base)] group-hover:opacity-100"
+            >
+              <X className="size-2.5" />
+            </span>
+          </button>
+        ))}
+
+        {/* New terminal button */}
+        <button
+          onClick={handleNewTerminal}
+          className={cn(
+            'flex h-6 items-center rounded px-1.5 text-[var(--text-muted)] transition-colors',
+            'hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]',
+          )}
+          title={showHostFallbackNotice ? 'New host terminal' : 'New terminal'}
+        >
+          <Plus className="size-3" />
         </button>
-      ))}
 
-      {/* New terminal button */}
-      <button
-        onClick={handleNewTerminal}
-        disabled={!canCreateTerminal}
-        className={cn(
-          'flex h-6 items-center rounded px-1.5 text-[var(--text-muted)] transition-colors',
-          canCreateTerminal
-            ? 'hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)]'
-            : 'cursor-not-allowed opacity-30',
+        {/* Container IP indicator */}
+        {container.status === 'running' && container.ipAddress && (
+          <span className="ml-auto px-2 text-xs text-[var(--text-muted)]">
+            {container.ipAddress}
+          </span>
         )}
-        title={canCreateTerminal ? 'New terminal' : 'Container not running'}
-      >
-        <Plus className="size-3" />
-      </button>
-
-      {/* Container IP indicator */}
-      {container.status === 'running' && container.ipAddress && (
-        <span className="ml-auto px-2 text-xs text-[var(--text-muted)]">
-          {container.ipAddress}
-        </span>
-      )}
+      </div>
     </div>
   );
 }

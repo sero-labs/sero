@@ -68,10 +68,10 @@ Use this checklist to record implementation progress.
 - [x] Link to the new macOS containers guide from relevant docs
 
 ### Phase 3 — make host fallback behavior more coherent
-- [ ] Align editor write/exec fallback with read/list fallback
-- [ ] Add a shared workspace/container runtime resolver
-- [ ] Improve terminal fallback UX
-- [ ] Add explicit host-fallback notices when sessions continue without containers
+- [x] Align editor write/exec fallback with read/list fallback
+- [x] Add a shared workspace/container runtime resolver
+- [x] Improve terminal fallback UX
+- [x] Add explicit host-fallback notices when sessions continue without containers
 
 ### Detailed task checklist
 - [x] Create the dedicated container setup guide
@@ -87,10 +87,10 @@ Use this checklist to record implementation progress.
 - [x] Add external-link support to the shell API
 - [x] Decide and wire the canonical instructions URL
 - [x] Wire the onboarding CTA to open the instructions link
-- [ ] Align editor host fallback behavior
-- [ ] Add a shared runtime resolver
-- [ ] Improve terminal fallback UX
-- [ ] Add visible host-fallback notices in sessions
+- [x] Align editor host fallback behavior
+- [x] Add a shared runtime resolver
+- [x] Improve terminal fallback UX
+- [x] Add visible host-fallback notices in sessions
 - [x] Add renderer tests for the onboarding container warning
 - [x] Update onboarding launch/runtime tests for the new state shape
 
@@ -103,8 +103,8 @@ Use this checklist to record implementation progress.
 - [x] There is a canonical container setup guide
 - [x] Host-only limitations are documented clearly
 - [x] Core host fallback remains non-blocking
-- [ ] Editor/runtime behavior is more consistent when containers are unavailable
-- [ ] Users get clear messaging when Sero falls back to host mode
+- [x] Editor/runtime behavior is more consistent when containers are unavailable
+- [x] Users get clear messaging when Sero falls back to host mode
 
 ## A. Docs and canonical instructions link
 
@@ -465,10 +465,10 @@ This gets the requested user-visible behavior in place quickly.
 
 ## Phase 3 — make host fallback behavior actually coherent
 
-1. Align editor write/exec fallback
-2. Add runtime resolver
-3. Improve terminal fallback UX
-4. Add explicit host-fallback notices in sessions
+1. [x] Align editor write/exec fallback
+2. [x] Add runtime resolver
+3. [x] Improve terminal fallback UX
+4. [x] Add explicit host-fallback notices in sessions
 
 ---
 
@@ -489,8 +489,8 @@ The work should be considered complete when all of the following are true:
 
 ### Runtime consistency
 - [x] Core host fallback remains non-blocking
-- [ ] Editor/runtime behavior is more consistent when containers are unavailable
-- [ ] Users get clear messaging when Sero falls back to host mode
+- [x] Editor/runtime behavior is more consistent when containers are unavailable
+- [x] Users get clear messaging when Sero falls back to host mode
 
 ---
 

@@ -20,6 +20,7 @@ import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { PRIMARY_ROOT_ID } from '@electron/features/workspace/roots';
+import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { shellQuote } from './shell-quote';
 import {
   PRIMARY_ROOT_PREFIX,
@@ -41,6 +42,10 @@ const EDITOR_STATE_DIR = path.join(SERO_AGENT_DIR, 'editor-state');
 
 function editorStatePath(workspaceId: string): string {
   return path.join(EDITOR_STATE_DIR, `${workspaceId}.json`);
+}
+
+async function shouldUseContainerRuntime(workspaceId: string): Promise<boolean> {
+  return (await resolveWorkspaceRuntime(workspaceId)).actualRuntime === 'container';
 }
 
 // ── Host-mode file operations ─────────────────────────────────
@@ -106,10 +111,7 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.readFile,
     async (_e, workspaceId: string, filePath: string) => {
-      if (
-        await workspaceManager.isContainerEnabled(workspaceId) &&
-        containerManager.hasContainer(workspaceId)
-      ) {
+      if (await shouldUseContainerRuntime(workspaceId)) {
         try {
           const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
           return await containerManager.readFile(workspaceId, containerPath);
@@ -126,10 +128,7 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.readBinaryFile,
     async (_e, workspaceId: string, filePath: string): Promise<string> => {
       // For containers, use container exec to base64-encode the file
-      if (
-        await workspaceManager.isContainerEnabled(workspaceId) &&
-        containerManager.hasContainer(workspaceId)
-      ) {
+      if (await shouldUseContainerRuntime(workspaceId)) {
         try {
           const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
           const result = await containerManager.exec(workspaceId, `base64 < ${shellQuote(containerPath)}`);
@@ -147,9 +146,13 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.writeFile,
     async (_e, workspaceId: string, filePath: string, content: string) => {
-      if (await workspaceManager.isContainerEnabled(workspaceId)) {
-        const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
-        return containerManager.writeFile(workspaceId, containerPath, content);
+      if (await shouldUseContainerRuntime(workspaceId)) {
+        try {
+          const containerPath = await resolveContainerPath(workspaceManager, workspaceId, filePath);
+          return await containerManager.writeFile(workspaceId, containerPath, content);
+        } catch {
+          // Container write failed — fall through to host write
+        }
       }
       return hostWriteFile(workspaceId, filePath, content);
     },
@@ -161,10 +164,7 @@ export function registerEditorHandlers(): void {
       // Use container listing only when the container is registered and running.
       // Otherwise fall back to host listing so the file tree works before the
       // container has been started (e.g. when clicking a workspace header).
-      if (
-        await workspaceManager.isContainerEnabled(workspaceId) &&
-        containerManager.hasContainer(workspaceId)
-      ) {
+      if (await shouldUseContainerRuntime(workspaceId)) {
         try {
           const containerPath = await resolveContainerPath(workspaceManager, workspaceId, dirPath);
           return await containerManager.listFiles(workspaceId, containerPath);
@@ -179,12 +179,15 @@ export function registerEditorHandlers(): void {
   ipcMain.handle(
     IpcChannels.editor.exec,
     async (_e, workspaceId: string, command: string) => {
-      if (await workspaceManager.isContainerEnabled(workspaceId)) {
-        return containerManager.exec(workspaceId, command);
+      const runtime = await resolveWorkspaceRuntime(workspaceId);
+      if (runtime.actualRuntime === 'container') {
+        try {
+          return await containerManager.exec(workspaceId, command);
+        } catch {
+          // Container exec failed — fall through to host exec
+        }
       }
-      const wsPath = workspaceManager.getPath(workspaceId);
-      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      return hostExec(wsPath, command);
+      return hostExec(runtime.workspacePath, command);
     },
   );
 
@@ -262,11 +265,15 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.rename,
     async (_e, workspaceId: string, oldPath: string, newPath: string): Promise<boolean> => {
       try {
-        if (await workspaceManager.isContainerEnabled(workspaceId)) {
-          const cOld = await resolveContainerPath(workspaceManager, workspaceId, oldPath);
-          const cNew = await resolveContainerPath(workspaceManager, workspaceId, newPath);
-          const result = await containerManager.exec(workspaceId, `mv ${shellQuote(cOld)} ${shellQuote(cNew)}`);
-          return result.exitCode === 0;
+        if (await shouldUseContainerRuntime(workspaceId)) {
+          try {
+            const cOld = await resolveContainerPath(workspaceManager, workspaceId, oldPath);
+            const cNew = await resolveContainerPath(workspaceManager, workspaceId, newPath);
+            const result = await containerManager.exec(workspaceId, `mv ${shellQuote(cOld)} ${shellQuote(cNew)}`);
+            return result.exitCode === 0;
+          } catch {
+            // Fall through to host rename
+          }
         }
         const hostOld = await resolveHostPath(workspaceManager, workspaceId, oldPath);
         const hostNew = await resolveHostPath(workspaceManager, workspaceId, newPath);
@@ -283,10 +290,14 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.delete,
     async (_e, workspaceId: string, itemPath: string): Promise<boolean> => {
       try {
-        if (await workspaceManager.isContainerEnabled(workspaceId)) {
-          const cItem = await resolveContainerPath(workspaceManager, workspaceId, itemPath);
-          const result = await containerManager.exec(workspaceId, `rm -rf ${shellQuote(cItem)}`);
-          return result.exitCode === 0;
+        if (await shouldUseContainerRuntime(workspaceId)) {
+          try {
+            const cItem = await resolveContainerPath(workspaceManager, workspaceId, itemPath);
+            const result = await containerManager.exec(workspaceId, `rm -rf ${shellQuote(cItem)}`);
+            return result.exitCode === 0;
+          } catch {
+            // Fall through to host delete
+          }
         }
         const hostItem = await resolveHostPath(workspaceManager, workspaceId, itemPath);
         await fs.rm(hostItem, { recursive: true, force: true });
@@ -302,10 +313,14 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.createFile,
     async (_e, workspaceId: string, filePath: string): Promise<boolean> => {
       try {
-        if (await workspaceManager.isContainerEnabled(workspaceId)) {
-          const cFile = await resolveContainerPath(workspaceManager, workspaceId, filePath);
-          const result = await containerManager.exec(workspaceId, `touch ${shellQuote(cFile)}`);
-          return result.exitCode === 0;
+        if (await shouldUseContainerRuntime(workspaceId)) {
+          try {
+            const cFile = await resolveContainerPath(workspaceManager, workspaceId, filePath);
+            const result = await containerManager.exec(workspaceId, `touch ${shellQuote(cFile)}`);
+            return result.exitCode === 0;
+          } catch {
+            // Fall through to host create
+          }
         }
         const hostFile = await resolveHostPath(workspaceManager, workspaceId, filePath);
         await fs.mkdir(path.dirname(hostFile), { recursive: true });
@@ -324,10 +339,14 @@ export function registerEditorHandlers(): void {
     IpcChannels.editor.createDir,
     async (_e, workspaceId: string, dirPath: string): Promise<boolean> => {
       try {
-        if (await workspaceManager.isContainerEnabled(workspaceId)) {
-          const cDir = await resolveContainerPath(workspaceManager, workspaceId, dirPath);
-          const result = await containerManager.exec(workspaceId, `mkdir -p ${shellQuote(cDir)}`);
-          return result.exitCode === 0;
+        if (await shouldUseContainerRuntime(workspaceId)) {
+          try {
+            const cDir = await resolveContainerPath(workspaceManager, workspaceId, dirPath);
+            const result = await containerManager.exec(workspaceId, `mkdir -p ${shellQuote(cDir)}`);
+            return result.exitCode === 0;
+          } catch {
+            // Fall through to host create
+          }
         }
         const hostDir = await resolveHostPath(workspaceManager, workspaceId, dirPath);
         await fs.mkdir(hostDir, { recursive: true });

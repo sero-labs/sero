@@ -99,7 +99,8 @@ export type AgentStreamEvent =
   | { type: 'error'; sessionId: string; error: string }
   | { type: 'container_starting'; sessionId: string; workspaceId: string }
   | { type: 'container_ready'; sessionId: string; workspaceId: string; ipAddress?: string }
-  | { type: 'container_error'; sessionId: string; workspaceId: string; error: string };
+  | { type: 'container_error'; sessionId: string; workspaceId: string; error: string }
+  | { type: 'runtime_notice'; sessionId: string; workspaceId: string; runtime: 'host' | 'container'; message: string };
 
 // ── Model Info ─────────────────────────────────────────────────
 
