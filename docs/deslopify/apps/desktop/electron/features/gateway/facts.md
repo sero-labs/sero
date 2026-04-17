@@ -1,6 +1,6 @@
 # Facts — apps/desktop/electron/features/gateway
 
-_Last reviewed: 2026-04-16_
+_Last reviewed: 2026-04-17_
 
 ## What this code does
 This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server, gateway auth token handling, request validation/routing, per-session cost tracking, Discord and web chat adapters, Tailscale exposure, QR-code generation, and the bridge that forwards agent-pool events back to remote clients.
@@ -19,7 +19,7 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 
 ## Architectural notes
 - This feature is an external network boundary, not an internal helper. Type validation, auth scope, and failure semantics are materially more important here than in ordinary in-process modules.
-- The flat gateway token model is still explicitly called out as open security debt in `docs/security/outstanding-hardening.md` and the in-code TODO in `security/auth.ts`.
+- The flat master-token model is still explicitly called out as open security debt in `docs/security/outstanding-hardening.md` and the in-code TODO in `security/auth.ts`, even though web tokens now support both explicit workspace scopes and unrestricted owner-wide profile access.
 - The bundled SPA under `web-dist/` is now the primary remote UI owner. The inline web chat is retained only as an explicit `/basic` diagnostics fallback surface.
 - Discord integration now subscribes through a formal gateway event-listener seam in `bridge/agent-bridge.ts` rather than rewriting `GatewayServer` methods at runtime.
 
@@ -30,7 +30,7 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 - Discord image delivery depends on Electron/Chromium networking and `nativeImage` downscaling; transport changes need real-world verification.
 
 ## Surprising discoveries
-- The gateway originally used a flat access model where any valid token reached any workspace; this was replaced with scoped workspace tokens in `4350404d`, while the master-token hardening TODO remains open.
+- The gateway originally used a flat access model where any valid token reached any workspace; `4350404d` replaced that with scope-aware web tokens, and `980b61ea` later corrected the default QR/device-pairing product flow from workspace-scoped sharing to owner-wide profile access. The master-token hardening TODO remains open.
 - `/sero abort` in the Discord adapter only sent a reply and never called `agentOps.abort()` before the 2026-04-12 hardening pass (resolved).
 - `validateRequest()` previously checked only the `type` field before force-casting payloads; this was closed in `19242c02` (tracker synced 2026-04-16).
 - Malformed `gateway-config.json` previously got overwritten with defaults on load; this was fixed in `fc8558ed` (2026-04-16).
@@ -45,7 +45,7 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 
 ### What changed
 - Added `server/access-control.ts` and threaded workspace/session/artifact authorization through gateway request handling.
-- Web tokens are now scoped to explicit workspace IDs, and QR pairing in the desktop UI creates workspace-scoped tokens through preload + IPC.
+- Web tokens are now scoped to explicit workspace IDs, and QR pairing in the desktop UI initially created workspace-scoped tokens through preload + IPC (later corrected to owner-wide profile pairing in the 2026-04-17 follow-up pass).
 - `gateway-ops` now validates that an existing session belongs to the requested workspace before reopening it.
 - Discord `/sero abort` now calls `agentOps.abort()` and reports failures honestly.
 
@@ -83,6 +83,23 @@ This feature is Sero's remote-access gateway. It owns the WebSocket/HTTP server,
 - Removed the Discord adapter's remaining easy type escapes/non-null assertions in message routing (`sendTyping` guard + mention handling).
 - Reworked static-file serving so `web-dist` resolution and file-manifest discovery are primed once at startup, with request-time lookups served from cached metadata instead of repeated `existsSync`/`statSync` checks.
 - Added focused regression coverage for the new event-listener bridge and static-file cache/fallback behavior.
+
+### Still outstanding
+- None in the tracked gateway folder plan; remaining gateway hardening debt is the separate master-token security follow-up in `docs/security/outstanding-hardening.md`.
+
+## Post-fix snapshot — 2026-04-17 (owner-wide QR pairing correction)
+
+### Metrics after fixes
+- Total files: 19 (unchanged)
+- Largest file: `apps/desktop/electron/features/gateway/index.ts` (497 LOC, unchanged)
+- Files over 500 LOC: none (unchanged)
+- Type escape hatches remaining: 1 (`chromiumFetch` response compatibility cast in `channels/discord.ts`, unchanged)
+
+### What changed
+- Extended web-token storage/protocol handling so web tokens can be either explicitly scoped (`workspaceIds: string[]`) or unrestricted owner tokens (`workspaceIds: null`), while preserving compatibility with older tokens that omitted the field entirely.
+- Added focused owner-token regression coverage that locks in all-workspaces access, future-workspace visibility after issuance, and the rule that owner web tokens still cannot perform master-only token management.
+- Corrected the desktop QR/device-pairing product flow: `Connect Device` now creates an expiring, revocable owner web token for the whole profile instead of forcing one workspace per QR code.
+- Updated the desktop pairing copy and API contract so the flow now clearly describes profile-wide remote access across current and future workspaces.
 
 ### Still outstanding
 - None in the tracked gateway folder plan; remaining gateway hardening debt is the separate master-token security follow-up in `docs/security/outstanding-hardening.md`.

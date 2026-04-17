@@ -39,6 +39,19 @@ describe('gateway protocol request validation', () => {
       label: 'Shared access',
       expiryDays: 3,
     });
+
+    expect(
+      validateRequest({
+        type: 'create_web_token',
+        workspaceIds: null,
+        label: 'Owner device',
+      }),
+    ).toEqual({
+      type: 'create_web_token',
+      workspaceIds: null,
+      label: 'Owner device',
+      expiryDays: undefined,
+    });
   });
 
   it.each([
@@ -56,6 +69,7 @@ describe('gateway protocol request validation', () => {
     ['create_web_token without workspaceIds', { type: 'create_web_token', label: 'Shared access' }],
     ['create_web_token with empty workspaceIds', { type: 'create_web_token', workspaceIds: [] }],
     ['create_web_token with invalid workspaceIds', { type: 'create_web_token', workspaceIds: ['workspace-a', 3] }],
+    ['create_web_token with invalid null-like workspaceIds', { type: 'create_web_token', workspaceIds: 'all' }],
     ['create_web_token with invalid expiryDays', {
       type: 'create_web_token',
       workspaceIds: ['workspace-a'],

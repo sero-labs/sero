@@ -1,4 +1,4 @@
-/** Data returned when generating a QR code for device pairing. */
+/** Data returned when generating a QR code for profile-wide device pairing. */
 export interface QrLoginData {
   /** Data URL (SVG, base64) for rendering the QR code in an <img> tag. */
   qrDataUrl: string;

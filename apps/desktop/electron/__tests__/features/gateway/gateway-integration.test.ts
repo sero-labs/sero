@@ -329,6 +329,51 @@ describe('GatewayServer scoped authorization flows', () => {
     });
   });
 
+  it('allows unrestricted owner web tokens across workspaces without granting master-only token management', async () => {
+    const harness = await createHarness();
+    harnesses.push(harness);
+
+    const ownerToken = harness.server.getAuth().webTokens.create(null, 'Owner device').token;
+    const ws = await connectClient(harness.port, ownerToken);
+    sockets.push(ws);
+
+    const workspaces = await sendRequest<GatewayResponse>(ws, { type: 'list_workspaces' });
+    expect(workspaces).toEqual({
+      type: 'ok',
+      requestType: 'list_workspaces',
+      data: [
+        { id: 'workspace-a', name: 'Workspace A', path: '/workspace-a' },
+        { id: 'workspace-b', name: 'Workspace B', path: '/workspace-b' },
+      ],
+    });
+
+    const sessions = await sendRequest<GatewayResponse>(ws, {
+      type: 'list_sessions',
+      workspaceId: 'workspace-b',
+    });
+    expect(sessions).toEqual({
+      type: 'ok',
+      requestType: 'list_sessions',
+      data: [{ id: 'session-b', name: 'Session B', firstMessage: 'hello from B' }],
+    });
+
+    expect(await sendRequest<GatewayResponse>(ws, { type: 'list_web_tokens' })).toEqual({
+      type: 'error',
+      requestType: 'list_web_tokens',
+      message: 'Only master token can list web tokens',
+    });
+    expect(await sendRequest<GatewayResponse>(ws, { type: 'create_web_token', workspaceIds: null })).toEqual({
+      type: 'error',
+      requestType: 'create_web_token',
+      message: 'Only master token can create web tokens',
+    });
+    expect(await sendRequest<GatewayResponse>(ws, { type: 'revoke_web_token', tokenId: 'deadbeef' })).toEqual({
+      type: 'error',
+      requestType: 'revoke_web_token',
+      message: 'Only master token can revoke web tokens',
+    });
+  });
+
   it('allows master tokens to authorize and access sessions across workspaces', async () => {
     const harness = await createHarness();
     harnesses.push(harness);

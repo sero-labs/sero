@@ -53,11 +53,22 @@ _Plan drafted: 2026-04-12_
 - Benefits: materially better remote-access safety, a fixed Discord control path, stronger validation on an untrusted boundary, and lower coupling between the Discord adapter and the core server.
 - Trade-offs: workspace-scoped auth is not a cosmetic refactor; it changes how tokens are issued, stored, and validated, and it will touch IPC/UI tooling that displays gateway credentials.
 
+## Product-direction correction — 2026-04-17
+- The original hardening pass treated desktop QR/device pairing like a delegated sharing flow and therefore made QR tokens workspace-scoped.
+- That turned out to be the wrong product fit for Sero's default gateway model: in a profile there is typically one owner who needs reliable remote access to all current and future workspaces.
+- The follow-up correction kept the stronger security model but split the semantics more cleanly:
+  - **master token** — unrestricted + token-management authority
+  - **owner web token** — unrestricted workspace access, but still not allowed to manage tokens
+  - **scoped web token** — still available for explicit limited-access/share scenarios
+- As a result, the gateway keeps scope-aware auth, but `Connect Device` now issues owner-wide profile tokens instead of one-workspace QR pairings.
+
 ## Dependencies & Risks
 - Workspace-scoped auth must land together with token management/UI changes or remote clients will be stranded between formats.
 - Tightening request validation can reject payloads that older clients currently send; include compatibility notes if external clients exist beyond the repo.
 - Refactoring Discord subscriptions must preserve current gateway event delivery order for streamed text and image attachments.
 - Static-file serving changes must be tested in dev, packaged builds, and Tailscale-exposed flows because the current relative fallback logic is subtle.
+- Owner-wide QR tokens must remain distinct from master tokens so device pairing does not accidentally acquire token-management authority.
+- Optional limited-share UX is still a separate product surface; the follow-up pass intentionally fixed owner remote access first rather than exposing a new sharing UI.
 
 ## Next Steps
 1. ~~Fix `/sero abort` first.~~ ✅ 2026-04-12 (`4350404d`)
@@ -67,7 +78,8 @@ _Plan drafted: 2026-04-12_
 5. ~~Replace Discord monkey-patching with a formal subscription API.~~ ✅ 2026-04-16 (`32320672`)
 6. ~~Move static-file resolution off the synchronous hot path.~~ ✅ 2026-04-16 (`32320672`)
 7. ~~Choose one primary remote-web ownership model.~~ ✅ 2026-04-16 (`766fd45e`)
-8. Verification checklist:
+8. ~~Correct QR/device pairing from workspace-scoped sharing to owner-wide profile access while preserving scoped-token support for non-QR flows.~~ ✅ 2026-04-17 (`12df5e7c`, `02a0d3c4`, `980b61ea`)
+9. Verification checklist:
    - Connect via web token and confirm only authorized workspaces/sessions/files are visible.
    - Prompt, steer, abort, list files, and fetch session history from an authorized workspace.
    - Verify `/sero abort` actually stops an in-flight Discord task.
@@ -92,3 +104,13 @@ _Plan drafted: 2026-04-12_
   - Chose `web-dist/` SPA as the primary web remote UI owner by making the standalone web-chat port redirect root traffic to the gateway SPA.
   - Retained `/basic` as an explicit diagnostics fallback surface for no-build recovery scenarios.
   - Added focused coverage for redirect + fallback behavior in `web-chat-server.test.ts`.
+- 2026-04-17 — `12df5e7c` — `refactor(gateway): add owner-wide web token scope model`
+  - Extended web-token storage/protocol semantics so web tokens can represent either explicit workspace scopes or unrestricted owner-wide access via `workspaceIds: null`.
+  - Preserved compatibility with existing scoped tokens and legacy tokens that omitted `workspaceIds`.
+  - Kept master-only token-management routes (`create/list/revoke_web_token`) reserved for the master token.
+- 2026-04-17 — `02a0d3c4` — `test(gateway): cover owner-wide authorization flows`
+  - Added focused owner-token coverage for all-workspaces access, future-workspace visibility after token issuance, and session/file/history/artifact access across the unrestricted web-token path.
+  - Locked in the rule that owner web tokens still cannot use master-only token-management operations.
+- 2026-04-17 — `980b61ea` — `feat(desktop): make QR pairing profile-wide`
+  - Corrected `Connect Device` / QR login generation to mint owner-wide profile tokens instead of single-workspace QR tokens.
+  - Updated preload + renderer API contracts and the desktop pairing copy to describe whole-profile remote access across current and future workspaces.

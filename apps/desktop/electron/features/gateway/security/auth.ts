@@ -3,8 +3,8 @@
  *
  * A single master bearer token is generated on first run and stored on disk.
  * All gateway clients must present either that master token or a scoped web
- * token created from the desktop app. Web tokens are limited to one or more
- * explicit workspace IDs.
+ * token created from the desktop app. Web tokens can either be limited to one
+ * or more explicit workspace IDs or grant owner-wide access across the profile.
  */
 
 import crypto from 'crypto';

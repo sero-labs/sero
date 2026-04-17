@@ -145,4 +145,33 @@ describe('GatewayClient', () => {
 
     expect(MockWebSocket.instances).toHaveLength(1);
   });
+
+  it('sends explicit workspace scope when creating web tokens', () => {
+    const client = new GatewayClient('ws://gateway.test');
+    client.connect('master-token');
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket).toBeDefined();
+
+    socket!.emitOpen();
+    socket!.sent = [];
+
+    client.createWebToken(null, 'Owner device', 7);
+    client.createWebToken(['workspace-a'], 'Workspace A only', 3);
+
+    expect(socket!.sent.map((payload) => JSON.parse(payload))).toEqual([
+      {
+        type: 'create_web_token',
+        workspaceIds: null,
+        label: 'Owner device',
+        expiryDays: 7,
+      },
+      {
+        type: 'create_web_token',
+        workspaceIds: ['workspace-a'],
+        label: 'Workspace A only',
+        expiryDays: 3,
+      },
+    ]);
+  });
 });
