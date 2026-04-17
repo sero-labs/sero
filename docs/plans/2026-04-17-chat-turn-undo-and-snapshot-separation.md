@@ -161,10 +161,10 @@ A phase is only complete when all of the following are true:
 
 ## Manual smoke
 
-- [ ] Reproduce: `tell me a joke` → `save that to file joke.txt` → `write a story` → undo the save prompt.
-- [ ] Confirm `joke.txt` is removed/restored correctly.
-- [ ] Confirm the active chat rewinds to before the undone prompt.
-- [ ] Confirm the composer is prefilled with the undone prompt text.
+- [x] Reproduce: `tell me a joke` → `save that to file joke.txt` → `write a story` → undo the save prompt.
+- [x] Confirm `joke.txt` is removed/restored correctly.
+- [x] Confirm the active chat rewinds to before the undone prompt.
+- [x] Confirm the composer is prefilled with the undone prompt text.
 
 ## Validation
 
