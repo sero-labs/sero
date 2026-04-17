@@ -16,6 +16,14 @@ async function createTempSeroHome(): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), 'sero-memory-logger-'));
 }
 
+function getLocalDayStamp(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 describe('memory logger', () => {
   let seroHome = '';
 
@@ -35,13 +43,15 @@ describe('memory logger', () => {
     await rm(seroHome, { recursive: true, force: true });
   });
 
-  it('writes daily logs under ~/.sero-ui/debug/memory', async () => {
+  it('writes daily logs under ~/.sero-ui/debug/memory using the local day and offset timestamp', async () => {
     info('daily_log_test', { ok: true });
     await vi.waitFor(async () => {
       const content = await readFile(getMemoryLogPath(), 'utf8');
       expect(getMemoryLogDirPath()).toBe(path.join(seroHome, 'debug', 'memory'));
+      expect(path.basename(getMemoryLogPath())).toBe(`${getLocalDayStamp(new Date())}.log`);
       expect(content).toContain('daily_log_test');
       expect(content).toContain('{"ok":true}');
+      expect(content).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2} \[INFO\] daily_log_test/m);
     });
   });
 

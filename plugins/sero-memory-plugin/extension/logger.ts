@@ -2,6 +2,7 @@ import { readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { appendRotatingLogLine } from './log-writer';
+import { getLocalDayRetentionCutoff, getLocalDayStamp, formatLocalTimestamp, parseLocalDayStamp } from './local-time';
 import { getMemoryLoggingSettingsSync } from './logger-settings';
 import { resolveMemoryDebugPath } from './state-paths';
 
@@ -11,12 +12,8 @@ const TAG = '[memory]';
 const DAILY_LOG_FILE_RE = /^\d{4}-\d{2}-\d{2}\.log(?:\.\d+)?$/;
 let lastRetentionSweepKey: string | null = null;
 
-function getUtcDayStamp(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function resolveLogPath(date = new Date()): string {
-  return resolveMemoryDebugPath(`${getUtcDayStamp(date)}.log`);
+  return resolveMemoryDebugPath(`${getLocalDayStamp(date)}.log`);
 }
 
 function resolveLogDir(): string {
@@ -60,27 +57,29 @@ export function getMemoryLogDirPath(): string {
 async function pruneOldDailyLogs(retentionDays: number): Promise<void> {
   if (retentionDays <= 0) return;
 
-  const sweepDay = getUtcDayStamp(new Date());
+  const now = new Date();
+  const sweepDay = getLocalDayStamp(now);
   const logDir = resolveLogDir();
   const sweepKey = `${logDir}:${sweepDay}`;
   if (lastRetentionSweepKey === sweepKey) return;
   lastRetentionSweepKey = sweepKey;
   const entries = await readdir(logDir, { withFileTypes: true }).catch(() => []);
-  const cutoff = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+  const cutoff = getLocalDayRetentionCutoff(retentionDays, now);
 
   await Promise.all(entries.map(async (entry) => {
     if (!entry.isFile() || !DAILY_LOG_FILE_RE.test(entry.name)) return;
 
     const day = entry.name.slice(0, 10);
-    const parsed = Date.parse(`${day}T00:00:00.000Z`);
-    if (!Number.isFinite(parsed) || parsed >= cutoff) return;
+    const parsed = parseLocalDayStamp(day);
+    if (!parsed || parsed >= cutoff) return;
 
     await rm(path.join(logDir, entry.name), { force: true });
   }));
 }
 
 export function log(level: MemoryLogLevel, event: string, data?: Record<string, unknown>): void {
-  const ts = new Date().toISOString();
+  const now = new Date();
+  const ts = formatLocalTimestamp(now);
   const settings = getMemoryLoggingSettingsSync();
   const line = `${ts} [${level}] ${event}${serializeData(data, settings.maxPayloadChars)}`;
   const consoleLine = `${TAG} ${line}`;
@@ -94,7 +93,7 @@ export function log(level: MemoryLogLevel, event: string, data?: Record<string, 
   }
 
   appendRotatingLogLine({
-    filePath: resolveLogPath(),
+    filePath: resolveLogPath(now),
     line: `${line}\n`,
     maxBytes: settings.maxBytesPerFile,
     maxFiles: settings.maxFilesPerDay,

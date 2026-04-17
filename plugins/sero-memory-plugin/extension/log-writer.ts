@@ -67,6 +67,11 @@ export function appendRotatingLogLine(options: {
     .catch((error) => {
       warnOnce(options.warningKey, options.warningMessage, error);
     });
+  const tracked = next.finally(() => {
+    if (writeQueues.get(options.filePath) === tracked) {
+      writeQueues.delete(options.filePath);
+    }
+  });
 
-  writeQueues.set(options.filePath, next);
+  writeQueues.set(options.filePath, tracked);
 }
