@@ -89,8 +89,6 @@ as backlog-only follow-ups, not active refactor-wave work.
   — *Healthy — High bridge duplication plus E3/E5 session, refresh, dead-code, and coverage cleanup all cleared 2026-04-14*
 - `plugins/sero-alibaba-plugin/`
   — *Phase 0 baseline mapped 2026-04-13; narrow provider-plugin review pending*
-- [`plugins/sero-context-plugin/`](./plugins/sero-context-plugin/plan.md)
-  — *Healthy — High truthfulness plus E3/E4 projection-owner cleanup cleared 2026-04-14; Low snapshot failure-surface follow-up pending*
 - [`plugins/sero-cron-plugin/`](./plugins/sero-cron-plugin/plan.md)
   — *Healthy — High persisted-state/startup-recovery items plus E4 reminder ownership and E5 logging/modularization/UI coverage cleanup all cleared 2026-04-14; Low widget-fidelity polish remains deferred*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)

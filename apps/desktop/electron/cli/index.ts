@@ -110,8 +110,6 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   'git_manager',
   // NOT bridged — private, kept away from agent by design:
   // 'admin' — Sero Admin reads sensitive config (auth, .env); must not be agent-accessible
-  // NOT bridged — these depend on ctx.sessionManager (SDK internals):
-  // 'context_tag', 'context_log', 'context_checkout'
   // NOT bridged — deliberate standalone exception for nested structured params:
   // 'subagent'
 ]);

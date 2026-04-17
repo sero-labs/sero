@@ -494,7 +494,6 @@ These packages are essential to Sero's functionality:
 | `templates` | Workspace scaffolding |
 | `sero-memory-plugin` | Foundational to agent learning |
 | `sero-cron-plugin` | Scheduler, used by other extensions |
-| `sero-context-plugin` | Agent context debugging |
 | `sero-kanban-plugin` | Reference implementation + deep workflow |
 | `pi-research-extension` | Subagent orchestration pattern |
 | `pi-plan-mode-extension` | Structured planning safeguard |

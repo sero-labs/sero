@@ -102,7 +102,6 @@ function buildSkillsListing(): string {
   const skills = [
     { name: 'ai-elements', desc: 'Create new AI chat interface components.' },
     { name: 'browser-tools', desc: 'Interactive browser automation for testing and visible web workflows.' },
-    { name: 'context-management', desc: 'Strategies for efficient context management using context tools.' },
     { name: 'context7', desc: 'Retrieve up-to-date documentation for software libraries.' },
     { name: 'crawl', desc: 'Crawl websites and save pages as local markdown files.' },
     { name: 'extract', desc: 'Extract clean markdown or text from specific URLs.' },
@@ -146,10 +145,6 @@ const CORE_TOOLS = [
   { name: 'edit', description: 'Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.', parameters: EditParams },
   { name: 'browser', description: 'Control a headless Chromium browser inside the container for testing web UIs. Actions: launch, navigate, click, type, press_key, screenshot, scroll, evaluate, get_text, wait, close.', parameters: BrowserParams },
   { name: 'sero-cli', description: 'Execute Sero platform commands. Run `sero help` for commands. Supports multi-line input to chain commands.', parameters: { type: 'object', properties: { command: { type: 'string' }, timeout: { type: 'number' } }, required: ['command'] } },
-  // Context tools — depend on ctx.sessionManager, can't be bridged
-  { name: 'context_tag', description: "Creates a 'Save Point' (Bookmark) in the history. Use before risky changes or when a feature is stable.", parameters: { type: 'object', properties: { name: { type: 'string' }, target: { type: 'string' } }, required: ['name'] } },
-  { name: 'context_log', description: 'Show the entire history structure. Analogous to git log --graph --oneline --decorate.', parameters: { type: 'object', properties: { limit: { type: 'number' }, verbose: { type: 'boolean' } } } },
-  { name: 'context_checkout', description: 'Navigate to ANY point in the conversation history.', parameters: { type: 'object', properties: { target: { type: 'string' }, message: { type: 'string' }, backupTag: { type: 'string' } }, required: ['target', 'message'] } },
 ];
 
 // ── The test ────────────────────────────────────────────────
@@ -217,10 +212,9 @@ describe('Token Baseline Benchmark', () => {
     components['tool_schemas'] = { chars: 0, tokens: totalTokens };
     components['tool_schemas_breakdown'] = { chars: 0, tokens: 0, ...perTool } as any;
 
-    // 9 tools should cost less than 4,000 tokens
+    // 6 tools should cost less than 4,000 tokens
     expect(totalTokens).toBeLessThan(4_000);
-    // 6 coding tools + 3 context tools (depend on ctx.sessionManager)
-    expect(CORE_TOOLS).toHaveLength(9);
+    expect(CORE_TOOLS).toHaveLength(6);
   });
 
   it('TOTAL stays within budget', () => {

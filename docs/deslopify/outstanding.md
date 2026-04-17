@@ -61,8 +61,6 @@ instead of active deslopify closeout.
   - tighten copy/setup diagnostics and remove dead helper surface
 - `apps/desktop/electron/features/kanban/`
   - remove or formally land dead specialized-review scaffolding
-- `plugins/sero-context-plugin/`
-  - surface snapshot-write failures more explicitly
 - `plugins/sero-cron-plugin/ui/widgets/CronWidget.tsx`
   - tighten truthfulness/copy around next-fire behavior
 - `plugins/sero-git-plugin/`
