@@ -30,6 +30,8 @@ export const IpcChannels = {
     pickFolder: 'sero:workspace:pick-folder',
     /** Infer best workspace for a given message. Returns workspace ID. */
     infer: 'sero:workspace:infer',
+    /** Inspect desired vs actual runtime state for one workspace or all workspaces. */
+    runtimeDiagnostics: 'sero:workspace:runtime-diagnostics',
     /** Toggle container mode for a workspace. Args: id, enabled. */
     setContainer: 'sero:workspace:set-container',
     /** Add a workspace reference (mount another workspace). Args: id, refId. */

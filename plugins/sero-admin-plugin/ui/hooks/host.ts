@@ -27,6 +27,8 @@ export type {
   ProviderHealthInfoIPC,
   ContainerInfoIPC,
   WorkspaceInfoIPC,
+  WorkspaceRuntimeCapabilityIPC,
+  WorkspaceRuntimeDiagnosticsIPC,
   ProviderHealthStatusIPC,
   SeroSessionInfo,
   SkillFileDataIPC,

@@ -20,7 +20,7 @@ import type {
   SeroPluginConfigAPI,
 } from './electron-services';
 import type { ThemePreset, ThemePresetMeta } from './theme';
-import type { SeroUserFeedbackBridge } from '@sero/common';
+import type { SeroUserFeedbackBridge, WorkspaceRuntimeDiagnosticsIPC } from '@sero/common';
 
 import type {
   ProfileInfo,
@@ -101,6 +101,8 @@ interface SeroWorkspaceAPI {
   pickFolder(): Promise<string | null>;
   /** Infer best workspace for a message. Returns workspace ID. */
   infer(message: string): Promise<string>;
+  /** Inspect desired vs actual runtime state for one workspace or all workspaces. */
+  getRuntimeDiagnostics(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
   /** Enable or disable container mode for a workspace. */
   setContainer(id: string, enabled: boolean): Promise<void>;
   /** Add a workspace reference (mount another workspace into this one's container). */

@@ -77,7 +77,7 @@ export function EditorPanel({
     monacoBridge,
   });
 
-  const { sendDidSave } = useLsp({
+  const { sendDidSave, statusNotice } = useLsp({
     workspaceId,
     filePath: activeTab,
     languageId: documentState.language,
@@ -140,6 +140,11 @@ export function EditorPanel({
           ) : undefined
         }
       />
+      {statusNotice ? (
+        <div className="border-b border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] px-3 py-2 text-[11px] text-[var(--status-warning-text)]">
+          {statusNotice}
+        </div>
+      ) : null}
       <div className="flex-1 overflow-hidden min-h-0">
         {activeTab ? (
           isDevServer ? (

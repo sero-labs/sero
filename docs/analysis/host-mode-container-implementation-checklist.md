@@ -80,6 +80,12 @@ Use this checklist to record implementation progress.
 - [x] Propagate runtime resolution to kanban workspace command runner
 - [x] Surface host-vs-container runtime state in settings/diagnostics UI
 
+### Phase 5 — add capability-aware gating and auditing
+- [x] Extend runtime resolution with capability-audit details for container-only features
+- [x] Surface deeper capability auditing in settings/diagnostics UI
+- [x] Add explicit host-mode UX for remaining container-only features (LSP, managed previews, container mounts)
+- [x] Extend diagnostics/tests for the new gating paths
+
 ### Detailed task checklist
 - [x] Create the dedicated container setup guide
 - [x] Update product positioning docs
@@ -102,6 +108,11 @@ Use this checklist to record implementation progress.
 - [x] Improve terminal fallback UX
 - [x] Add visible host-fallback notices in sessions
 - [x] Surface runtime state in settings/diagnostics UI
+- [x] Add deeper capability-audit details to runtime diagnostics
+- [x] Add explicit host-mode UX for containerized LSP
+- [x] Add explicit host-mode UX for managed preview/dev-server automation
+- [x] Add explicit host-mode UX for container mounts/references
+- [x] Add renderer/electron tests for runtime capability gating
 - [x] Add renderer tests for the onboarding container warning
 - [x] Update onboarding launch/runtime tests for the new state shape
 
@@ -116,6 +127,8 @@ Use this checklist to record implementation progress.
 - [x] Core host fallback remains non-blocking
 - [x] Editor/runtime behavior is more consistent when containers are unavailable
 - [x] Users get clear messaging when Sero falls back to host mode
+- [x] Container-only features expose explicit host-mode reasons instead of failing silently
+- [x] Settings/admin diagnostics show a capability audit for host-vs-container runtime drift
 
 ## A. Docs and canonical instructions link
 
@@ -489,6 +502,15 @@ This gets the requested user-visible behavior in place quickly.
 4. [x] Propagate runtime resolution to kanban workspace command runner
 5. [x] Surface host-vs-container runtime state in settings/diagnostics UI
 
+## Phase 5 — add capability-aware gating and auditing
+
+1. [x] Extend runtime resolution with capability-audit details for container-only features
+2. [x] Surface deeper capability auditing in settings/admin diagnostics UI
+3. [x] Add explicit host-mode UX for containerized LSP
+4. [x] Add explicit host-mode UX for managed preview/dev-server automation
+5. [x] Add explicit host-mode UX for container mounts/references
+6. [x] Extend tests for the new gating/auditing paths
+
 ---
 
 ## 4. Concrete acceptance criteria
@@ -510,6 +532,8 @@ The work should be considered complete when all of the following are true:
 - [x] Core host fallback remains non-blocking
 - [x] Editor/runtime behavior is more consistent when containers are unavailable
 - [x] Users get clear messaging when Sero falls back to host mode
+- [x] Container-only capabilities expose explicit host-mode reasons instead of silent no-ops
+- [x] Runtime diagnostics include a capability audit for container-only features
 
 ---
 

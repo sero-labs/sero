@@ -47,7 +47,7 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
         ]),
         restartDevServer,
         autoStartDevServer: vi.fn(),
-        isContainerEnabled: vi.fn().mockResolvedValue(true),
+        resolveRuntime: vi.fn(),
       },
     );
 
@@ -80,7 +80,14 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
         listDevServers: vi.fn().mockReturnValue([]),
         restartDevServer: vi.fn(),
         autoStartDevServer,
-        isContainerEnabled: vi.fn().mockResolvedValue(true),
+        resolveRuntime: vi.fn().mockResolvedValue({
+          workspaceId: 'workspace-1',
+          workspacePath: '/tmp/workspace',
+          desiredRuntime: 'container',
+          actualRuntime: 'container',
+          containerEnabled: true,
+          capabilityAudit: [],
+        }),
       },
     );
 
@@ -126,12 +133,50 @@ describe('refreshWorkspaceRuntimeAfterSync', () => {
         ]),
         restartDevServer,
         autoStartDevServer: vi.fn(),
-        isContainerEnabled: vi.fn().mockResolvedValue(true),
+        resolveRuntime: vi.fn(),
       },
     );
 
     expect(restartDevServer).not.toHaveBeenCalled();
     expect(result.refreshed).toBe(false);
     expect(result.reason).toContain('Dependency install failed');
+  });
+
+  it('returns an explicit host-mode reason when auto-starting managed dev servers is unavailable', async () => {
+    const result = await refreshWorkspaceRuntimeAfterSync(
+      'workspace-1',
+      '/tmp/workspace',
+      {
+        detectInstallCommand: vi.fn().mockResolvedValue(null),
+        detectDevCommand: vi.fn().mockResolvedValue('pnpm run dev'),
+        runCommand: vi.fn(),
+        listDevServers: vi.fn().mockReturnValue([]),
+        restartDevServer: vi.fn(),
+        autoStartDevServer: vi.fn(),
+        resolveRuntime: vi.fn().mockResolvedValue({
+          workspaceId: 'workspace-1',
+          workspacePath: '/tmp/workspace',
+          desiredRuntime: 'container',
+          actualRuntime: 'host',
+          containerEnabled: true,
+          fallbackCode: 'container_unavailable',
+          fallbackReason: 'falling back to host mode',
+          capabilityAudit: [
+            {
+              key: 'managedDevServers',
+              label: 'Managed preview/dev servers',
+              available: false,
+              containerOnly: true,
+              detail: 'Managed preview/dev-server automation remains container-only while this workspace is running on the host.',
+            },
+          ],
+        }),
+      },
+    );
+
+    expect(result).toMatchObject({
+      refreshed: false,
+      reason: 'Managed preview/dev-server automation remains container-only while this workspace is running on the host.',
+    });
   });
 });

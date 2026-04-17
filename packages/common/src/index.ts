@@ -201,6 +201,8 @@ export type {
   OnboardingContainerRuntimeIPC,
   OnboardingStateIPC,
   WorkspaceInfoIPC,
+  WorkspaceRuntimeCapabilityIPC,
+  WorkspaceRuntimeDiagnosticsIPC,
   ContainerInfoIPC,
   SeroAppStateBridge,
   SeroAppsBridge,

@@ -4,27 +4,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import {
   getSero,
-  type ContainerInfoIPC,
   type OnboardingContainerRuntimeIPC,
   type WorkspaceInfoIPC,
+  type WorkspaceRuntimeDiagnosticsIPC,
 } from '../hooks/host';
 
 interface RuntimeStateSettingsCardProps {
   disabled?: boolean;
 }
 
-interface WorkspaceRuntimeRow {
-  workspace: WorkspaceInfoIPC;
-  container: ContainerInfoIPC | null;
-}
-
-function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeRow): {
+function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeDiagnosticsIPC): {
   desired: 'container' | 'host';
   actual: 'container' | 'host';
   tone: 'default' | 'secondary' | 'outline';
   detail: string;
 } {
-  if (!row.workspace.container) {
+  if (row.desiredRuntime === 'host') {
     return {
       desired: 'host',
       actual: 'host',
@@ -33,23 +28,12 @@ function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeRow): {
     };
   }
 
-  if (row.container?.state === 'running') {
+  if (row.actualRuntime === 'container') {
     return {
       desired: 'container',
       actual: 'container',
       tone: 'default',
-      detail: row.container.ipAddress
-        ? `Container running at ${row.container.ipAddress}.`
-        : 'Container runtime is active for this workspace.',
-    };
-  }
-
-  if (row.container?.state === 'stopped') {
-    return {
-      desired: 'container',
-      actual: 'host',
-      tone: 'outline',
-      detail: 'Container exists but is stopped, so commands currently fall back to host mode.',
+      detail: 'Container runtime is active for this workspace.',
     };
   }
 
@@ -57,7 +41,7 @@ function getWorkspaceRuntimeLabel(row: WorkspaceRuntimeRow): {
     desired: 'container',
     actual: 'host',
     tone: 'outline',
-    detail: 'Container mode is preferred, but no running container is currently available.',
+    detail: row.fallbackReason ?? 'Container mode is preferred, but no running container is currently available.',
   };
 }
 
@@ -66,7 +50,8 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<OnboardingContainerRuntimeIPC | null>(null);
-  const [rows, setRows] = useState<WorkspaceRuntimeRow[]>([]);
+  const [rows, setRows] = useState<WorkspaceRuntimeDiagnosticsIPC[]>([]);
+  const [workspaceNames, setWorkspaceNames] = useState<Record<string, string>>({});
 
   const load = async (background = false) => {
     if (background) {
@@ -79,18 +64,16 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
     try {
       const sero = getSero();
       const onboarding = await sero.onboarding.getState();
-      const workspaces = await sero.workspace.list?.();
-      const workspaceList = workspaces ?? [];
-      const containerApi = sero.container;
-      const statuses = containerApi
-        ? await Promise.all(workspaceList.map(async (workspace) => ({
-          workspace,
-          container: await containerApi.status(workspace.id),
-        })))
-        : workspaceList.map((workspace) => ({ workspace, container: null }));
+      const [diagnostics, workspaces] = await Promise.all([
+        sero.workspace.getRuntimeDiagnostics?.(),
+        sero.workspace.list?.(),
+      ]);
 
       setRuntime(onboarding.containerRuntime);
-      setRows(statuses);
+      setRows(diagnostics ?? []);
+      setWorkspaceNames(
+        Object.fromEntries((workspaces ?? []).map((workspace: WorkspaceInfoIPC) => [workspace.id, workspace.name])),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load runtime diagnostics');
     } finally {
@@ -104,7 +87,7 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
   }, []);
 
   const sortedRows = useMemo(
-    () => [...rows].sort((left, right) => left.workspace.name.localeCompare(right.workspace.name)),
+    () => [...rows].sort((left, right) => left.workspaceId.localeCompare(right.workspaceId)),
     [rows],
   );
 
@@ -180,18 +163,36 @@ export function RuntimeStateSettingsCard({ disabled = false }: RuntimeStateSetti
             <div className="space-y-2">
               {sortedRows.map((row) => {
                 const state = getWorkspaceRuntimeLabel(row);
+                const unavailable = row.capabilityAudit.filter((entry) => !entry.available);
                 return (
                   <div
-                    key={row.workspace.id}
+                    key={row.workspaceId}
                     className="rounded-lg border border-border/40 bg-secondary/20 px-3 py-2"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-medium text-foreground/85">{row.workspace.name}</span>
+                      <span className="text-xs font-medium text-foreground/85">
+                        {workspaceNames[row.workspaceId] ?? row.workspaceId}
+                      </span>
                       <Badge variant={state.tone}>{state.desired}</Badge>
                       <span className="text-[11px] text-muted-foreground/60">→</span>
                       <Badge variant={state.actual === 'container' ? 'default' : 'secondary'}>{state.actual}</Badge>
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground/75">{state.detail}</p>
+                    {unavailable.length > 0 ? (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                          Container-only features currently unavailable
+                        </p>
+                        <ul className="space-y-1 text-[11px] text-muted-foreground/75">
+                          {unavailable.map((entry) => (
+                            <li key={entry.key}>
+                              <span className="font-medium text-foreground/80">{entry.label}:</span>{' '}
+                              {entry.detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FolderOpen, Link, Plus, X } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useWorkspaceContainer } from '@/stores/container';
 import {
   Popover,
   PopoverContent,
@@ -21,6 +22,7 @@ function basename(p: string): string {
 export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInfo }) {
   const [open, setOpen] = useState(false);
   const allWorkspaces = useWorkspaceStore((s) => s.workspaces);
+  const container = useWorkspaceContainer(workspace.id);
   const addReference = useWorkspaceStore((s) => s.addReference);
   const removeReference = useWorkspaceStore((s) => s.removeReference);
   const addMount = useWorkspaceStore((s) => s.addMount);
@@ -66,6 +68,12 @@ export function WorkspaceReferencesMenu({ workspace }: { workspace: WorkspaceInf
         onClick={(e) => e.stopPropagation()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
+        {container.status !== 'running' ? (
+          <div className="border-b border-[var(--status-warning-border)] bg-[var(--status-warning-faint)] px-2 py-2 text-[11px] text-[var(--status-warning-text)]">
+            Container mounts are a container-only feature. This workspace is currently running on your Mac, so reference and mount changes will not take effect until its container is healthy again.
+          </div>
+        ) : null}
+
         {/* ── Workspace references ──────────────────────────── */}
         <div className="p-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">

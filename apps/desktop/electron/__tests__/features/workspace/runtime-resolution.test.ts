@@ -33,24 +33,31 @@ describe('resolveWorkspaceRuntime', () => {
   it('returns host runtime when the workspace disables containers', async () => {
     mocks.workspaceManager.isContainerEnabled.mockResolvedValue(false);
 
-    await expect(resolveWorkspaceRuntime('ws-1')).resolves.toMatchObject({
+    const resolved = await resolveWorkspaceRuntime('ws-1');
+
+    expect(resolved).toMatchObject({
       workspaceId: 'ws-1',
       workspacePath: '/tmp/workspace',
       desiredRuntime: 'host',
       actualRuntime: 'host',
       containerEnabled: false,
     });
+    expect(resolved.capabilityAudit.every((entry) => !entry.available)).toBe(true);
+    expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerMounts')?.detail).toContain('explicitly set to host mode');
   });
 
   it('returns container runtime when a running container is available', async () => {
     mocks.containerManager.hasContainer.mockReturnValue(true);
     mocks.containerManager.inspect.mockResolvedValue({ state: 'running' });
 
-    await expect(resolveWorkspaceRuntime('ws-1')).resolves.toMatchObject({
+    const resolved = await resolveWorkspaceRuntime('ws-1');
+
+    expect(resolved).toMatchObject({
       desiredRuntime: 'container',
       actualRuntime: 'container',
       containerEnabled: true,
     });
+    expect(resolved.capabilityAudit.every((entry) => entry.available)).toBe(true);
   });
 
   it('returns host fallback details when container mode is enabled but unavailable', async () => {
@@ -62,6 +69,9 @@ describe('resolveWorkspaceRuntime', () => {
       fallbackCode: 'container_unavailable',
     });
     expect(resolved.fallbackReason).toContain('falling back to host mode');
+    expect(resolved.capabilityAudit.find((entry) => entry.key === 'managedDevServers')).toMatchObject({
+      available: false,
+    });
   });
 
   it('returns host fallback details when the container exists but is stopped', async () => {
@@ -76,6 +86,7 @@ describe('resolveWorkspaceRuntime', () => {
       fallbackCode: 'container_unavailable',
     });
     expect(resolved.fallbackReason).toContain('falling back to host mode');
+    expect(resolved.capabilityAudit.find((entry) => entry.key === 'containerizedLanguageServers')?.detail).toContain('Containerized LSP remains unavailable');
   });
 
   it('throws when the workspace path cannot be resolved', async () => {

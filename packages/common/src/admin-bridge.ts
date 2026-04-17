@@ -200,6 +200,25 @@ export interface WorkspaceInfoIPC {
   roots: WorkspaceRootIPC[];
 }
 
+export interface WorkspaceRuntimeCapabilityIPC {
+  key: 'browserAutomation' | 'containerizedLanguageServers' | 'managedDevServers' | 'containerMounts';
+  label: string;
+  available: boolean;
+  containerOnly: boolean;
+  detail: string;
+}
+
+export interface WorkspaceRuntimeDiagnosticsIPC {
+  workspaceId: string;
+  workspacePath: string;
+  desiredRuntime: 'container' | 'host';
+  actualRuntime: 'container' | 'host';
+  containerEnabled: boolean;
+  fallbackCode?: 'container_unavailable';
+  fallbackReason?: string;
+  capabilityAudit: WorkspaceRuntimeCapabilityIPC[];
+}
+
 export interface ContainerInfoIPC {
   id: string;
   image: string;
@@ -211,6 +230,7 @@ export interface ContainerInfoIPC {
 
 export interface SeroWorkspaceBridge {
   list?(): Promise<WorkspaceInfoIPC[]>;
+  getRuntimeDiagnostics?(workspaceId?: string): Promise<WorkspaceRuntimeDiagnosticsIPC[]>;
   pickFolder(): Promise<string | null>;
   listRoots(workspaceId: string): Promise<WorkspaceRootIPC[]>;
   addRoot(

@@ -4,7 +4,11 @@ import { startManagedDevServer } from '@electron/features/kanban/implementation/
 import { detectDevServerCommand } from '@electron/features/kanban/quality/verification';
 import type { DevServer } from '@/types/ipc';
 import { containerManager } from '@electron/features/container/core/singleton';
-import { workspaceManager } from '@electron/features/workspace/manager';
+import {
+  getRuntimeCapabilityEntry,
+  resolveWorkspaceRuntime,
+  type WorkspaceRuntimeResolution,
+} from '@electron/features/workspace/runtime-resolution';
 
 export interface ReviewPreviewResult {
   previewServerId?: string;
@@ -19,7 +23,7 @@ export interface ReviewPreviewCleanupResult {
 
 interface ReviewPreviewDeps {
   detectDevCommand?: (worktreePath: string) => Promise<string | null>;
-  isContainerEnabled?: (workspaceId: string) => Promise<boolean>;
+  resolveRuntime?: (workspaceId: string) => Promise<WorkspaceRuntimeResolution>;
   startDevServer?: (options: {
     workspaceId: string;
     workspacePath: string;
@@ -44,7 +48,7 @@ export async function startCardReviewPreview(
   deps: ReviewPreviewDeps = {},
 ): Promise<ReviewPreviewResult> {
   const detectDevCommand = deps.detectDevCommand ?? detectDevServerCommand;
-  const isContainerEnabled = deps.isContainerEnabled ?? ((id: string) => workspaceManager.isContainerEnabled(id));
+  const resolveRuntime = deps.resolveRuntime ?? resolveWorkspaceRuntime;
   const startDevServer = deps.startDevServer ?? startManagedDevServer;
 
   const cleaned = await cleanupCardReviewPreview(workspaceId, card.id, deps);
@@ -57,8 +61,9 @@ export async function startCardReviewPreview(
     return { reason: 'No dev server command detected for preview.' };
   }
 
-  if (!(await isContainerEnabled(workspaceId))) {
-    return { reason: 'Workspace is not container-enabled; skipped preview startup.' };
+  const runtime = await resolveRuntime(workspaceId);
+  if (runtime.actualRuntime !== 'container') {
+    return { reason: getRuntimeCapabilityEntry(runtime, 'managedDevServers').detail };
   }
 
   tracker?.setPhase('Starting preview server');

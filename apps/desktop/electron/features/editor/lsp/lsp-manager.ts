@@ -11,6 +11,7 @@ import {
   type LspServerConfig,
 } from './types';
 import type { ContainerManager } from '@electron/features/container';
+import { getRuntimeCapabilityEntry, resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 
 export class LspManager extends EventEmitter {
   /** workspaceId → language → LspServerProcess */
@@ -30,6 +31,11 @@ export class LspManager extends EventEmitter {
     workspaceId: string,
     languageId: string,
   ): Promise<{ capabilities: Record<string, unknown>; language: string }> {
+    const runtime = await resolveWorkspaceRuntime(workspaceId);
+    if (runtime.actualRuntime !== 'container') {
+      throw new Error(getRuntimeCapabilityEntry(runtime, 'containerizedLanguageServers').detail);
+    }
+
     const config = findConfigByLanguageId(languageId);
     if (!config) throw new Error(`No LSP server configured for language: ${languageId}`);
 

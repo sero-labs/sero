@@ -66,6 +66,8 @@ export const workspaceBridge = {
     ipcRenderer.invoke(IpcChannels.workspace.pickFolder),
   infer: (message: string): Promise<string> =>
     ipcRenderer.invoke(IpcChannels.workspace.infer, message),
+  getRuntimeDiagnostics: (workspaceId?: string) =>
+    ipcRenderer.invoke(IpcChannels.workspace.runtimeDiagnostics, workspaceId),
   setContainer: (id: string, enabled: boolean): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.workspace.setContainer, id, enabled),
   addReference: (id: string, refId: string): Promise<void> =>
