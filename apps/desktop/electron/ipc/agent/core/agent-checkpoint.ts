@@ -14,6 +14,7 @@ import {
   nextId,
 } from './agent-helpers';
 import { vcsManager } from '@electron/shared/infra/shared-infra';
+import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 
 export interface AgentPoolCheckpointEntry {
   session: AgentSession;
@@ -65,6 +66,7 @@ export async function undoToTurn({
   }
 
   await vcsManager.restoreCheckpoint(entry.workspaceId, turnUndo.snapshotId);
+  void gitWorkspaceStateManager.refreshWorkspace(entry.workspaceId);
 
   const result = await entry.session.navigateTree(turnUndo.targetUserEntryId, {
     summarize: false,
@@ -98,6 +100,7 @@ async function restoreLegacyCheckpoint(
   sendEvent: (event: AgentStreamEvent) => void,
 ): Promise<ChatMessage[]> {
   await vcsManager.restoreCheckpoint(entry.workspaceId, changeId);
+  void gitWorkspaceStateManager.refreshWorkspace(entry.workspaceId);
 
   const branchTargetId = findLegacyTurnUndoEntryId(entry.session, changeId);
   if (branchTargetId) {

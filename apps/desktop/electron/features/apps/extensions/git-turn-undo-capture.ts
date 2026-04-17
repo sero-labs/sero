@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
 
 import { vcsManager } from '@electron/shared/infra/shared-infra';
+import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 import { hasMutatingGit, isLikelyReadOnlyBash } from '@electron/platform/security/git-command-filter';
 import type { GitCheckpointSessionEntries } from './git-checkpoint-session-entries';
 
@@ -189,6 +190,7 @@ export function registerGitTurnUndoCapture(
         label: checkpoint.description,
       });
       preTurnSnapshotId = null;
+      void gitWorkspaceStateManager.refreshWorkspace(workspaceId);
     } catch {
       // Transparent-by-default: do not emit chat noise for automatic turn checkpoints.
     }
