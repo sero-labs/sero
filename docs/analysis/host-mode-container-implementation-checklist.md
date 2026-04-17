@@ -73,11 +73,18 @@ Use this checklist to record implementation progress.
 - [x] Improve terminal fallback UX
 - [x] Add explicit host-fallback notices when sessions continue without containers
 
+### Phase 4 — propagate runtime diagnostics and remaining fallback consumers
+- [x] Reuse availability helper in boot logging where appropriate
+- [x] Propagate runtime resolution to subagent runner
+- [x] Propagate runtime resolution to VCS/git runner
+- [x] Propagate runtime resolution to kanban workspace command runner
+- [x] Surface host-vs-container runtime state in settings/diagnostics UI
+
 ### Detailed task checklist
 - [x] Create the dedicated container setup guide
 - [x] Update product positioning docs
 - [x] Add reusable container availability detection
-- [ ] Reuse availability helper in boot logging where appropriate
+- [x] Reuse availability helper in boot logging where appropriate
 - [x] Extend onboarding state contract with container runtime info
 - [x] Populate onboarding container runtime in preflight
 - [x] Add onboarding preflight tests for container status
@@ -89,8 +96,12 @@ Use this checklist to record implementation progress.
 - [x] Wire the onboarding CTA to open the instructions link
 - [x] Align editor host fallback behavior
 - [x] Add a shared runtime resolver
+- [x] Propagate runtime resolution to subagent runner
+- [x] Propagate runtime resolution to VCS/git runner
+- [x] Propagate runtime resolution to kanban workspace command runner
 - [x] Improve terminal fallback UX
 - [x] Add visible host-fallback notices in sessions
+- [x] Surface runtime state in settings/diagnostics UI
 - [x] Add renderer tests for the onboarding container warning
 - [x] Update onboarding launch/runtime tests for the new state shape
 
@@ -469,6 +480,14 @@ This gets the requested user-visible behavior in place quickly.
 2. [x] Add runtime resolver
 3. [x] Improve terminal fallback UX
 4. [x] Add explicit host-fallback notices in sessions
+
+## Phase 4 — propagate runtime diagnostics and remaining fallback consumers
+
+1. [x] Reuse availability helper in boot logging
+2. [x] Propagate runtime resolution to subagent runner
+3. [x] Propagate runtime resolution to VCS/git runner
+4. [x] Propagate runtime resolution to kanban workspace command runner
+5. [x] Surface host-vs-container runtime state in settings/diagnostics UI
 
 ---
 
