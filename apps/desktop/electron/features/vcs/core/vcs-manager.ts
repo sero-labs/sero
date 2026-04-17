@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { CreateCheckpointOptions, VcsCheckpoint, VcsCheckpointSource, VcsEvent, VcsWorkspaceState } from '../support/types';
 import { GitRunner } from './git-runner';
+import { InternalSnapshotManager } from './internal-snapshot-manager';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -20,12 +21,15 @@ function parseSourceFromDescription(description: string): VcsCheckpointSource {
 export class VcsManager extends EventEmitter {
   private readonly runner: GitRunner;
 
+  private readonly snapshots: InternalSnapshotManager;
+
   constructor(
     private readonly workspaceManager: WorkspaceManager,
     runner: GitRunner,
   ) {
     super();
     this.runner = runner;
+    this.snapshots = new InternalSnapshotManager(runner);
   }
 
   private emitEvent(event: VcsEvent): void {
@@ -34,6 +38,18 @@ export class VcsManager extends EventEmitter {
 
   private async ensureRepoInitialized(workspaceId: string): Promise<void> {
     await this.runner.ensureRepoInitialized(workspaceId);
+  }
+
+  async createInternalSnapshot(workspaceId: string): Promise<string> {
+    return this.snapshots.createSnapshot(workspaceId);
+  }
+
+  async cleanupInternalSnapshots(workspaceId: string): Promise<void> {
+    await this.snapshots.cleanupSnapshots(workspaceId);
+  }
+
+  async hasSnapshotDiff(workspaceId: string, snapshotId: string): Promise<boolean> {
+    return this.snapshots.hasWorkingTreeChangesSinceSnapshot(workspaceId, snapshotId);
   }
 
   async getCurrentChangeId(workspaceId: string): Promise<string | null> {
@@ -197,6 +213,18 @@ export class VcsManager extends EventEmitter {
   async restoreCheckpoint(workspaceId: string, changeId: string): Promise<void> {
     await this.ensureRepoInitialized(workspaceId);
 
+    if (this.snapshots.isInternalSnapshotId(changeId)) {
+      console.log(`[vcs] Restoring workspace=${workspaceId} to internal snapshot=${changeId}`);
+      await this.snapshots.restoreSnapshot(workspaceId, changeId);
+      console.log(`[vcs] Internal snapshot restore finished for workspace=${workspaceId}, snapshot=${changeId}`);
+      this.emitEvent({
+        type: 'restored',
+        workspaceId,
+        checkpointId: changeId,
+      });
+      return;
+    }
+
     console.log(`[vcs] Restoring workspace=${workspaceId} to checkpoint=${changeId}`);
     const addedSinceTarget = await this.runner.run(workspaceId, [
       'diff',
@@ -275,12 +303,25 @@ export class VcsManager extends EventEmitter {
   async diff(workspaceId: string, fromChangeId: string, toChangeId?: string): Promise<string> {
     await this.ensureRepoInitialized(workspaceId);
 
+    if (!toChangeId?.trim() && this.snapshots.isInternalSnapshotId(fromChangeId)) {
+      return this.snapshots.diffSnapshotToWorkingTree(workspaceId, fromChangeId);
+    }
+
+    const fromRevision = this.snapshots.isInternalSnapshotId(fromChangeId)
+      ? this.snapshots.resolveRevision(fromChangeId)
+      : fromChangeId;
+    const toRevision = toChangeId?.trim()
+      ? this.snapshots.isInternalSnapshotId(toChangeId.trim())
+        ? this.snapshots.resolveRevision(toChangeId.trim())
+        : toChangeId.trim()
+      : null;
+
     const args = ['diff'];
-    if (toChangeId?.trim()) {
-      args.push(`${fromChangeId}..${toChangeId.trim()}`);
+    if (toRevision) {
+      args.push(`${fromRevision}..${toRevision}`);
     } else {
       // Diff from the given commit to the current working tree
-      args.push(fromChangeId);
+      args.push(fromRevision);
     }
 
     const diff = await this.runner.run(workspaceId, args, 60_000);

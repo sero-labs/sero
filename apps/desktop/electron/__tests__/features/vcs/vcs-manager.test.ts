@@ -1,11 +1,76 @@
-import { describe, expect, it, vi } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
-import type { GitRunner } from '@electron/features/vcs/core/git-runner';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { GitRunner } from '@electron/features/vcs/core/git-runner';
+import type { GitResult } from '@electron/features/vcs/support/types';
 import { VcsManager } from '@electron/features/vcs/core/vcs-manager';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 
-function ok(stdout = '', stderr = '') {
+function ok(stdout = '', stderr = ''): GitResult {
   return { exitCode: 0, stdout, stderr };
+}
+
+const tempDirs: string[] = [];
+
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function createWorkspaceManager(workspacePath: string): WorkspaceManager {
+  return {
+    getPath: vi.fn().mockReturnValue(workspacePath),
+    isContainerEnabled: vi.fn().mockResolvedValue(false),
+  } as unknown as WorkspaceManager;
+}
+
+function createRealManager(workspacePath: string): VcsManager {
+  const workspaceManager = createWorkspaceManager(workspacePath);
+  const runner = new GitRunner(
+    workspaceManager,
+    {
+      ensure: vi.fn(),
+      exec: vi.fn(),
+      inspect: vi.fn(),
+    } as never,
+  );
+
+  return new VcsManager(workspaceManager, runner);
+}
+
+function createTempRepo(): string {
+  const repoDir = mkdtempSync(path.join(tmpdir(), 'sero-vcs-manager-'));
+  tempDirs.push(repoDir);
+  return repoDir;
+}
+
+function runGit(cwd: string, args: string[]): string {
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'Sero Test',
+      GIT_AUTHOR_EMAIL: 'sero-test@example.com',
+      GIT_COMMITTER_NAME: 'Sero Test',
+      GIT_COMMITTER_EMAIL: 'sero-test@example.com',
+    },
+  });
+}
+
+function initRepo(cwd: string): string {
+  runGit(cwd, ['init', '-b', 'main']);
+  runGit(cwd, ['config', 'user.name', 'Sero Test']);
+  runGit(cwd, ['config', 'user.email', 'sero-test@example.com']);
+  writeFileSync(path.join(cwd, 'story.txt'), 'base story\n');
+  runGit(cwd, ['add', 'story.txt']);
+  runGit(cwd, ['commit', '-m', 'initial']);
+  return runGit(cwd, ['rev-parse', 'HEAD']).trim();
 }
 
 describe('VcsManager checkpoint source handling', () => {
@@ -130,5 +195,78 @@ describe('VcsManager checkpoint source handling', () => {
 
     expect(checkpoints).toHaveLength(1);
     expect(checkpoints[0]?.source).toBe('fs');
+  });
+
+  it('stores auto turn snapshots in hidden refs and restores mixed working-copy edits without new visible commits', async () => {
+    const repoDir = createTempRepo();
+    const manager = createRealManager(repoDir);
+    const initialHead = initRepo(repoDir);
+
+    writeFileSync(path.join(repoDir, 'story.txt'), 'manual draft\n');
+    writeFileSync(path.join(repoDir, 'notes.md'), 'remember this\n');
+
+    const snapshotId = await manager.createInternalSnapshot('ws-1');
+
+    expect(snapshotId.startsWith('turn-undo:')).toBe(true);
+    expect(runGit(repoDir, ['log', '--format=%s']).trim()).toBe('initial');
+    expect(runGit(repoDir, ['for-each-ref', '--format=%(refname)', 'refs/sero/turn-undo']).trim()).not.toBe('');
+
+    writeFileSync(path.join(repoDir, 'story.txt'), 'agent rewrite\n');
+    writeFileSync(path.join(repoDir, 'joke.txt'), 'ha\n');
+
+    const diff = await manager.diff('ws-1', snapshotId);
+    expect(diff).toContain('diff --git a/joke.txt b/joke.txt');
+    expect(diff).toContain('agent rewrite');
+
+    await manager.restoreCheckpoint('ws-1', snapshotId);
+
+    expect(readFileSync(path.join(repoDir, 'story.txt'), 'utf8')).toBe('manual draft\n');
+    expect(readFileSync(path.join(repoDir, 'notes.md'), 'utf8')).toBe('remember this\n');
+    expect(existsSync(path.join(repoDir, 'joke.txt'))).toBe(false);
+    expect(runGit(repoDir, ['rev-parse', 'HEAD']).trim()).toBe(initialHead);
+
+    const status = runGit(repoDir, ['status', '--short']);
+    expect(status).toContain(' M story.txt');
+    expect(status).toContain('?? notes.md');
+  });
+
+  it('cleans up stale internal snapshots by age and retention count', async () => {
+    const now = Date.now();
+    const staleRef = `refs/sero/turn-undo/${now - 8 * 24 * 60 * 60 * 1_000}-aaaa-bbbb`;
+    const freshRefs = Array.from({ length: 41 }, (_unused, index) => {
+      const timestamp = now - index;
+      return `refs/sero/turn-undo/${timestamp}-aaaa-${index.toString(16).padStart(4, '0')}`;
+    });
+    const allRefs = [staleRef, ...freshRefs].join('\n');
+
+    const run = vi.fn(async (_workspaceId: string, args: string[]) => {
+      const command = args.join(' ');
+
+      if (command === 'for-each-ref --format=%(refname) refs/sero/turn-undo/') {
+        return ok(allRefs);
+      }
+      if (args[0] === 'update-ref' && args[1] === '-d') {
+        return ok();
+      }
+
+      throw new Error(`Unexpected git command: ${command}`);
+    });
+
+    const runner = {
+      ensureRepoInitialized: vi.fn().mockResolvedValue(undefined),
+      run,
+    } as unknown as GitRunner;
+    const manager = new VcsManager(createWorkspaceManager('/tmp/ws-1'), runner);
+
+    await manager.cleanupInternalSnapshots('ws-1');
+
+    const deleteCalls = run.mock.calls.filter(([, args]) => args[0] === 'update-ref' && args[1] === '-d');
+    expect(deleteCalls).toHaveLength(2);
+    expect(deleteCalls).toEqual(
+      expect.arrayContaining([
+        ['ws-1', ['update-ref', '-d', staleRef]],
+        ['ws-1', ['update-ref', '-d', freshRefs[freshRefs.length - 1] ?? '']],
+      ]),
+    );
   });
 });

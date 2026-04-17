@@ -127,7 +127,7 @@ export function registerGitTurnUndoCapture(
     if (preTurnSnapshotId) return;
 
     try {
-      preTurnSnapshotId = await vcsManager.getCurrentChangeId(workspaceId);
+      preTurnSnapshotId = await vcsManager.createInternalSnapshot(workspaceId);
       console.log(
         `[turn-undo] Captured pre-turn snapshot for workspace=${workspaceId}: ${preTurnSnapshotId ?? 'null'}`,
       );
@@ -176,34 +176,31 @@ export function registerGitTurnUndoCapture(
 
     const description = summarizeAgentRun(getAgentMessages(event));
     try {
-      const checkpoint = await vcsManager.createCheckpoint(workspaceId, {
-        source: 'turn',
-        description,
-      });
+      if (!preTurnSnapshotId) {
+        console.warn(`[turn-undo] Missing pre-turn snapshot for workspace=${workspaceId}`);
+        return;
+      }
 
-      if (!checkpoint) {
-        console.warn(`[turn-undo] No auto checkpoint created for workspace=${workspaceId}; working copy may have been clean by agent_end`);
+      const hasSnapshotDiff = await vcsManager.hasSnapshotDiff(workspaceId, preTurnSnapshotId);
+      if (!hasSnapshotDiff) {
+        console.log(`[turn-undo] Skipping no-op undo snapshot for workspace=${workspaceId}: ${preTurnSnapshotId}`);
+        preTurnSnapshotId = null;
         return;
       }
 
       const targetUserEntryId = findLatestUserEntryId(ctx.sessionManager);
       if (!targetUserEntryId) {
-        console.warn(`[turn-undo] Missing target user entry for workspace=${workspaceId}; checkpoint=${checkpoint.changeId}`);
-        return;
-      }
-
-      if (!preTurnSnapshotId) {
-        console.warn(`[turn-undo] Missing pre-turn snapshot for workspace=${workspaceId}; checkpoint=${checkpoint.changeId}`);
+        console.warn(`[turn-undo] Missing target user entry for workspace=${workspaceId}; snapshot=${preTurnSnapshotId}`);
         return;
       }
 
       console.log(
-        `[turn-undo] Recording turn undo for workspace=${workspaceId}: preTurn=${preTurnSnapshotId}, postTurn=${checkpoint.changeId}, userEntry=${targetUserEntryId}`,
+        `[turn-undo] Recording turn undo for workspace=${workspaceId}: preTurn=${preTurnSnapshotId}, userEntry=${targetUserEntryId}`,
       );
       entries.appendTurnUndoEntry({
         snapshotId: preTurnSnapshotId,
         targetUserEntryId,
-        label: checkpoint.description,
+        label: description,
       });
       preTurnSnapshotId = null;
       void gitWorkspaceStateManager.refreshWorkspace(workspaceId);

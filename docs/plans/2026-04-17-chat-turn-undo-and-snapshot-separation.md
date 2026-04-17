@@ -182,18 +182,18 @@ A phase is only complete when all of the following are true:
 
 ## Tasks
 
-- [ ] Implement an internal **pre-turn snapshot manager** for automatic undo points.
-- [ ] Snapshot capture should happen on the **first mutating tool call**, before mutation occurs, so pre-turn manual working-copy edits are preserved in the undo point.
-- [ ] Store automatic turn undo snapshots in an **internal hidden mechanism**, not normal branch history.
-  - [ ] Prefer a Git-native hidden mechanism such as hidden refs / internal snapshot objects if feasible.
-  - [ ] Do not add normal visible commits for automatic turn undo.
-- [ ] Keep **manual checkpoints** as visible VCS objects in existing VCS flows.
-- [ ] Remove old auto-turn visible checkpoint creation from the current extension flow.
-- [ ] Add retention/cleanup rules for stale internal snapshots.
-- [ ] Ensure undo/restore continues to trigger:
-  - [ ] editor reloads
-  - [ ] VCS state refresh
-  - [ ] chat message reload
+- [x] Implement an internal **pre-turn snapshot manager** for automatic undo points.
+- [x] Snapshot capture should happen on the **first mutating tool call**, before mutation occurs, so pre-turn manual working-copy edits are preserved in the undo point.
+- [x] Store automatic turn undo snapshots in an **internal hidden mechanism**, not normal branch history.
+  - [x] Prefer a Git-native hidden mechanism such as hidden refs / internal snapshot objects if feasible.
+  - [x] Do not add normal visible commits for automatic turn undo.
+- [x] Keep **manual checkpoints** as visible VCS objects in existing VCS flows.
+- [x] Remove old auto-turn visible checkpoint creation from the current extension flow.
+- [x] Add retention/cleanup rules for stale internal snapshots.
+- [x] Ensure undo/restore continues to trigger:
+  - [x] editor reloads
+  - [x] VCS state refresh
+  - [x] chat message reload
 
 ## Likely files
 
@@ -206,16 +206,16 @@ A phase is only complete when all of the following are true:
 
 ## Tests
 
-- [ ] Add tests proving mutating turns create internal undo snapshots without visible `source: 'turn'` checkpoint commits.
-- [ ] Add tests proving manual VCS checkpoints still behave exactly as before.
-- [ ] Add tests for snapshot cleanup/retention behavior.
-- [ ] Add regression coverage for mixed-edit cases: manual working copy + agent mutation.
+- [x] Add tests proving mutating turns create internal undo snapshots without visible `source: 'turn'` checkpoint commits.
+- [x] Add tests proving manual VCS checkpoints still behave exactly as before.
+- [x] Add tests for snapshot cleanup/retention behavior.
+- [x] Add regression coverage for mixed-edit cases: manual working copy + agent mutation.
 
 ## Validation
 
-- [ ] Run focused desktop unit tests for touched files.
-- [ ] Run `pnpm typecheck`.
-- [ ] Commit.
+- [x] Run focused desktop unit tests for touched files.
+- [x] Run `pnpm typecheck`.
+- [x] Commit.
 
 **Suggested commit:** `feat(vcs): store auto turn undo snapshots outside visible git history`
 

@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createCheckpoint: vi.fn(),
+  createInternalSnapshot: vi.fn(),
   getCurrentChangeId: vi.fn(),
+  hasSnapshotDiff: vi.fn(),
   hasWorkingCopyChanges: vi.fn(),
   listCheckpoints: vi.fn(),
   restoreCheckpoint: vi.fn(),
@@ -15,7 +17,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@electron/shared/infra/shared-infra', () => ({
   vcsManager: {
     createCheckpoint: mocks.createCheckpoint,
+    createInternalSnapshot: mocks.createInternalSnapshot,
     getCurrentChangeId: mocks.getCurrentChangeId,
+    hasSnapshotDiff: mocks.hasSnapshotDiff,
     hasWorkingCopyChanges: mocks.hasWorkingCopyChanges,
     listCheckpoints: mocks.listCheckpoints,
     restoreCheckpoint: mocks.restoreCheckpoint,
@@ -77,13 +81,15 @@ describe('registerGitCheckpointFeatures', () => {
       description: 'checkpoint: Summarized result',
       source: 'turn',
     });
+    mocks.createInternalSnapshot.mockResolvedValue('turn-undo:1713350400000-aaaa-bbbb');
     mocks.getCurrentChangeId.mockResolvedValue('preturn123');
+    mocks.hasSnapshotDiff.mockResolvedValue(true);
     mocks.listCheckpoints.mockResolvedValue([]);
     mocks.restoreCheckpoint.mockResolvedValue(undefined);
     mocks.diff.mockResolvedValue('diff --git a/file.txt b/file.txt');
   });
 
-  it('summarizes the latest assistant text block when auto-checkpointing a mutating run', async () => {
+  it('captures internal turn-undo snapshots without creating visible turn checkpoints', async () => {
     const { registerGitCheckpointFeatures } = await import('@electron/features/apps/extensions/git-checkpoints');
     const { pi, emit } = createPiStub();
 
@@ -118,17 +124,15 @@ describe('registerGitCheckpointFeatures', () => {
       },
     );
 
-    expect(mocks.createCheckpoint).toHaveBeenCalledWith('ws-1', {
-      source: 'turn',
-      description: 'checkpoint: Summarized result',
-    });
+    expect(mocks.createInternalSnapshot).toHaveBeenCalledWith('ws-1');
+    expect(mocks.hasSnapshotDiff).toHaveBeenCalledWith('ws-1', 'turn-undo:1713350400000-aaaa-bbbb');
+    expect(mocks.createCheckpoint).not.toHaveBeenCalledWith('ws-1', expect.objectContaining({ source: 'turn' }));
     expect(pi.appendEntry).toHaveBeenCalledWith('turn-undo', expect.objectContaining({
       workspaceId: 'ws-1',
-      snapshotId: 'preturn123',
+      snapshotId: 'turn-undo:1713350400000-aaaa-bbbb',
       targetUserEntryId: 'user-entry-1',
       label: 'checkpoint: Summarized result',
     }));
-    expect(mocks.getCurrentChangeId).toHaveBeenCalledWith('ws-1');
   });
 
   it('captures the pre-turn snapshot before mutating bash commands run', async () => {
@@ -160,11 +164,12 @@ describe('registerGitCheckpointFeatures', () => {
       },
     );
 
+    expect(mocks.createInternalSnapshot).toHaveBeenCalledWith('ws-1');
     expect(pi.appendEntry).toHaveBeenCalledWith('turn-undo', expect.objectContaining({
       workspaceId: 'ws-1',
-      snapshotId: 'preturn123',
+      snapshotId: 'turn-undo:1713350400000-aaaa-bbbb',
       targetUserEntryId: 'user-entry-bash',
-      label: 'checkpoint: Summarized result',
+      label: 'checkpoint: Saved to joke.txt.',
     }));
   });
 
@@ -190,10 +195,9 @@ describe('registerGitCheckpointFeatures', () => {
       },
     );
 
-    expect(mocks.createCheckpoint).toHaveBeenCalledWith('ws-1', {
-      source: 'turn',
-      description: 'checkpoint: turn',
-    });
+    expect(mocks.createInternalSnapshot).toHaveBeenCalledWith('ws-1');
+    expect(mocks.hasSnapshotDiff).toHaveBeenCalledWith('ws-1', 'turn-undo:1713350400000-aaaa-bbbb');
+    expect(pi.appendEntry).not.toHaveBeenCalledWith('turn-undo', expect.anything());
   });
 
   it('keeps /checkpoint behavior unchanged for manual checkpoints', async () => {

@@ -1,7 +1,7 @@
 export interface ChatTurnUndoRef {
   kind: 'turn-undo';
   workspaceId: string;
-  /** Backing snapshot identifier. In Phase 2 this is still the VCS checkpoint SHA. */
+  /** Backing snapshot identifier. Can reference an internal hidden pre-turn snapshot. */
   snapshotId: string;
   /** Pi session entry id for the user prompt this undo rewinds. */
   targetUserEntryId: string;
