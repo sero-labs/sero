@@ -53,7 +53,7 @@ export const CONFIG_FILES: ConfigFile[] = [
     key: 'settings',
     label: 'Settings',
     relativePath: 'agent/settings.json',
-    description: 'Default model, provider, thinking level, packages, and Sero skill visibility',
+    description: 'Default model, provider, thinking level, packages, skill visibility, and memory logging policy',
   },
   {
     key: 'auth',

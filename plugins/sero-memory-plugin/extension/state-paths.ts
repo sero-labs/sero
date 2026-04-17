@@ -14,7 +14,7 @@ export function resolveMemoryStatePath(fileName: string): string {
 }
 
 export function resolveMemoryDebugPath(fileName: string): string {
-  return path.join(resolveSeroHome(), 'debug', fileName);
+  return path.join(resolveSeroHome(), 'debug', 'memory', fileName);
 }
 
 export function getTranscriptExportDirPath(): string {
