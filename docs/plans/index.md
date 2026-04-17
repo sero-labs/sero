@@ -2,6 +2,7 @@
 
 Ad-hoc planning documents and implementation backlogs.
 
+- [2026-04-17 — Gateway Owner-Wide QR Access Plan](./2026-04-17-gateway-owner-wide-qr-access.md)
 - [2026-04-13 — Apps Desktop Wave F — Periphery Review and Closeout](./2026-04-13-apps-desktop-wave-f-periphery-closeout.md)
 - [2026-04-12 — PR 137 Follow-ups — Model Refresh, Collaboration State, and Desktop Hardening](./2026-04-12-pr-137-followups.md)
 - [2026-04-12 — PR 136 Follow-ups — Gateway Scope, Recovery UX, and Coverage](./2026-04-12-pr-136-followups.md)
