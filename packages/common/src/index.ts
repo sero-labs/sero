@@ -126,6 +126,13 @@ export type {
 } from './git-app';
 
 export type {
+  AppToolTextContent,
+  AppToolImageContent,
+  AppToolContentBlock,
+  AppToolResult,
+} from './app-tools';
+
+export type {
   VcsCheckpointSource,
   VcsCheckpoint,
   VcsWorkspaceState,

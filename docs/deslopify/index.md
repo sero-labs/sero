@@ -94,7 +94,7 @@ as backlog-only follow-ups, not active refactor-wave work.
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
   — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
 - [`plugins/sero-google-plugin/`](./plugins/sero-google-plugin/plan.md)
-  — *In progress — Phase 0 policy lock completed 2026-04-17; Phase 1 generic app-tool execution bridge is next, and later phases require the external plugin package to be present in the working tree*
+  — *In progress — Phases 0–1 completed 2026-04-17; the generic app-tool execution bridge is now in core, while Google-specific auth/runtime migration and UI rebase phases remain pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)

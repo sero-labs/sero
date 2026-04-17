@@ -10,6 +10,7 @@ import {
   onWidgetRegistryChange,
   registerWidget,
   useAppState,
+  useAppTools,
   useWidgetRegistration,
 } from '@sero-ai/app-runtime';
 
@@ -26,6 +27,12 @@ function installSeroBridge(appState: AppStateApiMock) {
     appState,
     appAgent: {
       prompt: vi.fn(async () => ''),
+      invokeTool: vi.fn(async () => ({
+        text: '',
+        content: [],
+        details: null,
+        isError: false,
+      })),
     },
   });
 }
@@ -115,6 +122,52 @@ describe('app-runtime shared seams', () => {
     expect(latestState).toBe(0);
 
     warnSpy.mockRestore();
+  });
+
+  it('invokes app-local tools through the generic appAgent bridge', async () => {
+    let runTool: ((toolName: string, params?: Record<string, unknown>) => Promise<unknown>) | null = null;
+    const invokeTool = vi.fn(async () => ({
+      text: '{"ok":true}',
+      content: [{ type: 'text', text: '{"ok":true}' }],
+      details: { ok: true },
+      isError: false,
+    }));
+
+    const appState = {
+      read: vi.fn(async () => null),
+      write: vi.fn(async () => undefined),
+      watch: vi.fn(async () => null),
+      unwatch: vi.fn(async () => undefined),
+      onChange: vi.fn(() => () => undefined),
+    };
+    installSeroBridge(appState);
+    const sero = Reflect.get(window, 'sero') as { appAgent: { invokeTool: typeof invokeTool } };
+    sero.appAgent.invokeTool = invokeTool;
+
+    function Probe() {
+      const appTools = useAppTools();
+      runTool = appTools.run;
+      return null;
+    }
+
+    await act(async () => {
+      root?.render(
+        <AppProvider value={{ appId: 'runtime-tools', workspaceId: 'global', workspacePath: '/tmp', stateFilePath: '/tmp/tools-state.json' }}>
+          <Probe />
+        </AppProvider>,
+      );
+    });
+
+    expect(runTool).not.toBeNull();
+    const result = await runTool!('plugin_ping', { value: 42 });
+
+    expect(invokeTool).toHaveBeenCalledWith('runtime-tools', 'global', 'plugin_ping', { value: 42 });
+    expect(result).toEqual({
+      text: '{"ok":true}',
+      content: [{ type: 'text', text: '{"ok":true}' }],
+      details: { ok: true },
+      isError: false,
+    });
   });
 
   it('does not republish runtime widgets for equivalent inline size objects and keeps them sticky after unmount', async () => {

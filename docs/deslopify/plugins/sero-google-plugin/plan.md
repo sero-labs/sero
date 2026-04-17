@@ -142,19 +142,19 @@ Phase 0 policy lock (2026-04-17):
   - [x] No deletion work starts before this decision is made.
 
 ### Phase 1 — Add the generic app-tool execution bridge in core
-- [ ] Phase 1 complete
-- [ ] Extend the app-agent/app-runtime seam with a generic tool invocation API, e.g. `appTools.run(...)` or `appAgent.invokeTool(...)`.
-- [ ] Resolve invoked tools against the app’s dedicated session/resource loader in `apps/desktop/electron/ipc/agent/handlers/app-agent.ts:116-149`.
-- [ ] Add the four-layer plumbing together.
-  - [ ] renderer/app-runtime contract
-  - [ ] preload bridge
-  - [ ] IPC handler
-  - [ ] main-process app-session execution path
-- [ ] Add focused regression coverage proving a plugin UI can invoke one of its own extension tools without a bespoke preload namespace.
-- [ ] Exit criteria confirmed.
-  - [ ] A plugin UI can call an app-local tool directly.
-  - [ ] No Google-specific preload or IPC additions were needed.
-  - [ ] Type contracts are shared and compile cleanly.
+- [x] Phase 1 complete
+- [x] Extend the app-agent/app-runtime seam with a generic tool invocation API, e.g. `appTools.run(...)` or `appAgent.invokeTool(...)`.
+- [x] Resolve invoked tools against the app’s dedicated session/resource loader in `apps/desktop/electron/ipc/agent/handlers/app-agent.ts:116-149`.
+- [x] Add the four-layer plumbing together.
+  - [x] renderer/app-runtime contract
+  - [x] preload bridge
+  - [x] IPC handler
+  - [x] main-process app-session execution path
+- [x] Add focused regression coverage proving a plugin UI can invoke one of its own extension tools without a bespoke preload namespace.
+- [x] Exit criteria confirmed.
+  - [x] A plugin UI can call an app-local tool directly.
+  - [x] No Google-specific preload or IPC additions were needed.
+  - [x] Type contracts are shared and compile cleanly.
 
 ### Phase 2 — Port Google auth/runtime into plugin-local modules
 - [ ] Phase 2 complete
@@ -249,3 +249,4 @@ Phase 0 policy lock (2026-04-17):
 
 ## Execution log
 - 2026-04-17 — Completed Phase 0 as a docs-only policy lock: chose the CLI parity path, documented the auth/profile/container behavior that later phases must preserve, recorded the shell-owned Google surfaces that stay until final cutover, and noted that later implementation phases require the external plugin source package to be available in the working tree.
+- 2026-04-17 — Completed Phase 1 in core only: added a generic `appAgent.invokeTool(...)` / `useAppTools().run(...)` seam, normalized app-tool result typing in shared contracts, wired preload + IPC + app-session execution together, and added focused regressions proving a federated UI can call an app-local extension tool without a bespoke preload namespace.

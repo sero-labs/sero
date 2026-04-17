@@ -69,3 +69,23 @@ _Last reviewed: 2026-04-17_
 - Phase 1 remains the next implementation step: add the generic app-tool execution bridge in core without introducing new Google-specific preload or IPC seams.
 - The external `plugins/sero-google-plugin/` source package must be available in the working tree before Phases 2–6 can be executed.
 - Plugin-local regression coverage still does not exist; that remains a later migration requirement from the original plan.
+
+## Post-fix snapshot — 2026-04-17 (Phase 1)
+
+### Metrics after fixes
+- Total plugin files: 24 (unchanged; Phase 1 landed entirely in core)
+- Largest plugin file: `plugins/sero-google-plugin/extension/index.ts` (335 LOC, unchanged)
+- Files over 500 LOC in the touched core surface: none
+- Shared contract additions: new neutral `@sero/common` app-tool result types plus new `@sero-ai/app-runtime` `useAppTools()` hook
+
+### What changed
+- Added a generic app-local tool execution seam in core: `window.sero.appAgent.invokeTool(appId, workspaceId, toolName, params)` plus `useAppTools().run(toolName, params)` for federated UIs.
+- Routed tool resolution through the app’s isolated session/extension loader in `apps/desktop/electron/ipc/agent/handlers/app-agent.ts`, so direct UI tool calls reuse the same app-scoped session that already powers `useAI()`.
+- Normalized tool outputs into a shared `AppToolResult` contract (`text`, `content`, `details`, `isError`) so plugins can consume deterministic results without inventing plugin-specific preload types.
+- Added focused regression coverage in `apps/desktop/src/lib/app-runtime.test.tsx` and `apps/desktop/electron/__tests__/ipc/app-agent-tool-execution.test.ts` proving a federated UI can call an app-local extension tool without a bespoke preload namespace.
+- Kept the change generic: no new Google-specific preload objects, IPC channels, or desktop-only Google bridge types were introduced.
+
+### Still outstanding
+- Phase 2 still requires the external Google plugin source package to be available for real auth/runtime migration work; this phase only added the core bridge prerequisite.
+- The Google UI still depends on `window.sero.google` today; that rebase stays in Phase 4.
+- Plugin-local migration tests for Google auth/state parity still do not exist and remain required before later cutover phases.

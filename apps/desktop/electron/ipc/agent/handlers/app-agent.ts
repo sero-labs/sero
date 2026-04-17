@@ -30,10 +30,12 @@ import path from 'path';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import { discoverApps } from '@electron/features/apps/discovery';
+import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { syncAppSessionModel } from '@electron/ipc/agent/core/app-agent-session-model-sync';
+import { invokeAppSessionTool } from './app-agent-tools';
 
 // ── App Session Pool ─────────────────────────────────────────
 
@@ -163,6 +165,8 @@ async function getOrCreateAppSession(
     settingsManager: infra.settingsManager,
   });
 
+  session.extensionRunner?.setUIContext(createSeroUIContext());
+
   appPool.set(key, { session });
   return session;
 }
@@ -274,6 +278,20 @@ export function registerAppAgentHandlers(): void {
       }
 
       return responseText;
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.appAgent.invokeTool,
+    async (
+      _event,
+      appId: string,
+      workspaceId: string,
+      toolName: string,
+      params: Record<string, unknown> = {},
+    ) => {
+      const session = await getOrCreateAppSession(appId, workspaceId);
+      return invokeAppSessionTool(session, toolName, params);
     },
   );
 

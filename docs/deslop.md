@@ -13,6 +13,12 @@ Changes made during code quality passes. Most recent first.
 | `docs/deslopify/plugins/sero-google-plugin/plan.md` | Locked Phase 0 CLI/behavior policy, recorded the shell-owned Google surfaces to retire later, and marked the phase complete |
 | `docs/deslopify/plugins/sero-google-plugin/facts.md` | Added a post-phase snapshot with the chosen CLI parity path and the current external-plugin availability prerequisite |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phase 0 complete and Phase 1 next |
+| `packages/common/src/{app-tools.ts,index.ts}` | New shared app-tool result contract and root exports so preload/app-runtime share one neutral type owner |
+| `packages/app-runtime/src/{sero-bridge.ts,use-app-tools.ts,index.ts}` | Added the generic app-local tool runtime contract plus `useAppTools().run(...)` for federated UIs |
+| `apps/desktop/src/types/{ipc-channels-app-agent.ts,ipc-channels.ts,electron-apps.d.ts}` | Added a generic `appAgent.invokeTool` IPC/API contract without introducing Google-specific bridge surface |
+| `apps/desktop/electron/preload/apps/app-domain.ts` | Exposed the generic app-tool invoke bridge to renderer/app-runtime consumers |
+| `apps/desktop/electron/ipc/agent/handlers/{app-agent.ts,app-agent-tools.ts}` | Reused the isolated app-session loader to execute app-local extension tools directly and normalized tool results; also attached the standard extension UI context to app sessions |
+| `apps/desktop/{src/lib/app-runtime.test.tsx,electron/__tests__/ipc/app-agent-tool-execution.test.ts}` | Added focused regressions proving a federated UI can invoke one of its own extension tools without a bespoke preload namespace |
 
 ---
 
