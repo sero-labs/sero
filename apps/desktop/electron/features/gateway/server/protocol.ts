@@ -82,7 +82,8 @@ export interface GatewayCreateWebTokenRequest {
   type: 'create_web_token';
   label?: string;
   expiryDays?: number;
-  workspaceIds?: string[];
+  /** Null means unrestricted owner access; string[] means explicitly scoped access. */
+  workspaceIds: string[] | null;
 }
 
 export interface GatewayListWebTokensRequest {
@@ -253,18 +254,25 @@ function readPromptImages(value: unknown): GatewayPromptRequest['images'] | unde
   return images;
 }
 
-function readWorkspaceIds(obj: Record<string, unknown>): string[] | null {
+function readWorkspaceIds(
+  obj: Record<string, unknown>,
+): { ok: true; workspaceIds: string[] | null } | { ok: false } {
   const value = obj.workspaceIds;
-  if (!Array.isArray(value) || value.length === 0) return null;
+  if (value === null) {
+    return { ok: true, workspaceIds: null };
+  }
+  if (!Array.isArray(value) || value.length === 0) {
+    return { ok: false };
+  }
 
   const workspaceIds: string[] = [];
   for (const workspaceId of value) {
     if (typeof workspaceId !== 'string' || workspaceId.length === 0) {
-      return null;
+      return { ok: false };
     }
     workspaceIds.push(workspaceId);
   }
-  return workspaceIds;
+  return { ok: true, workspaceIds };
 }
 
 export function validateRequest(data: unknown): GatewayRequest | null {
@@ -356,14 +364,14 @@ export function validateRequest(data: unknown): GatewayRequest | null {
     }
 
     case 'create_web_token': {
-      const workspaceIds = readWorkspaceIds(data);
+      const workspaceScope = readWorkspaceIds(data);
       const label = readOptionalString(data, 'label');
       const expiryDays = readOptionalFiniteNumber(data, 'expiryDays');
-      if (!workspaceIds || label === null || expiryDays === null) return null;
+      if (!workspaceScope.ok || label === null || expiryDays === null) return null;
       if (expiryDays !== undefined && (!Number.isInteger(expiryDays) || expiryDays <= 0)) {
         return null;
       }
-      return { type: 'create_web_token', workspaceIds, label, expiryDays };
+      return { type: 'create_web_token', workspaceIds: workspaceScope.workspaceIds, label, expiryDays };
     }
 
     case 'list_web_tokens':

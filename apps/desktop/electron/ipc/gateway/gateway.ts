@@ -82,7 +82,7 @@ export function registerGatewayHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.gateway.createWebToken,
-    async (_event, workspaceIds: string[], label?: string, expiryDays?: number) => {
+    async (_event, workspaceIds: string[] | null, label?: string, expiryDays?: number) => {
       const auth = gatewayServer.getAuth();
       return auth.webTokens.create(workspaceIds, label, expiryDays);
     },

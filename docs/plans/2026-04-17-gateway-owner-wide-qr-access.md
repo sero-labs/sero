@@ -78,17 +78,17 @@ without collapsing owner web tokens into master auth.
 ## Progress checklist
 
 ### Design and scope model
-- [ ] Confirm the wire/storage representation for unrestricted web-token scope
-  - [ ] Decide between `workspaceIds: null`, omitted field, or explicit `scope: 'all'`
-  - [ ] Preserve backward compatibility for existing scoped tokens if practical
-- [ ] Keep master-only operations master-only
-  - [ ] `create_web_token`
-  - [ ] `list_web_tokens`
-  - [ ] `revoke_web_token`
+- [x] Confirm the wire/storage representation for unrestricted web-token scope
+  - [x] Decide on `workspaceIds: null` for unrestricted owner-wide web tokens
+  - [x] Preserve backward compatibility for existing scoped tokens and legacy no-`workspaceIds` tokens where practical
+- [x] Keep master-only operations master-only
+  - [x] `create_web_token`
+  - [x] `list_web_tokens`
+  - [x] `revoke_web_token`
 
 ### Gateway auth and authorization
-- [ ] Update web-token storage/normalization to support unrestricted owner tokens
-- [ ] Update gateway auth validation to return unrestricted workspace access for owner web tokens
+- [x] Update web-token storage/normalization to support unrestricted owner tokens
+- [x] Update gateway auth validation to return unrestricted workspace access for owner web tokens
 - [ ] Verify request authorization still works correctly for:
   - [ ] `list_workspaces`
   - [ ] `list_sessions`
@@ -108,11 +108,11 @@ without collapsing owner web tokens into master auth.
 
 ### Regression coverage
 - [ ] Add focused tests for unrestricted owner web tokens
-  - [ ] owner web token can list all workspaces
+  - [x] owner web token can list all workspaces
   - [ ] owner web token can access a workspace created after token issuance
-  - [ ] owner web token is still blocked from master-only token management routes
-  - [ ] existing scoped-token behavior still works if retained
-- [ ] Update any affected gateway protocol / auth / IPC tests
+  - [x] owner web token is still blocked from master-only token management routes
+  - [x] existing scoped-token behavior still works if retained
+- [x] Update any affected gateway protocol / auth / IPC tests
 
 ### Documentation sync
 - [ ] Update `docs/deslopify/apps/desktop/electron/features/gateway/facts.md`

@@ -236,24 +236,18 @@ export async function routeExtendedRequest(
       }
       try {
         const workspaceIds = request.workspaceIds;
-        if (!Array.isArray(workspaceIds) || workspaceIds.length === 0) {
-          sendResponse(ws, {
-            type: 'error',
-            requestType: 'create_web_token',
-            message: 'create_web_token requires one or more workspaceIds',
-          });
-          return true;
-        }
-        const unauthorizedWorkspace = workspaceIds.find(
-          (workspaceId) => typeof workspaceId !== 'string' || !hasWorkspaceAccess(accessScope, workspaceId),
-        );
-        if (unauthorizedWorkspace) {
-          sendResponse(ws, {
-            type: 'error',
-            requestType: 'create_web_token',
-            message: `Workspace not authorized: ${String(unauthorizedWorkspace)}`,
-          });
-          return true;
+        if (workspaceIds !== null) {
+          const unauthorizedWorkspace = workspaceIds.find(
+            (workspaceId) => typeof workspaceId !== 'string' || !hasWorkspaceAccess(accessScope, workspaceId),
+          );
+          if (unauthorizedWorkspace) {
+            sendResponse(ws, {
+              type: 'error',
+              requestType: 'create_web_token',
+              message: `Workspace not authorized: ${String(unauthorizedWorkspace)}`,
+            });
+            return true;
+          }
         }
         const webToken = auth.webTokens.create(workspaceIds, request.label, request.expiryDays);
         sendResponse(ws, {

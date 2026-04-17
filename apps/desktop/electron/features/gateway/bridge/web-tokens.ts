@@ -14,6 +14,24 @@ const MAX_TOKENS = 10;
 const DEFAULT_EXPIRY_DAYS = 7;
 const TOKEN_LENGTH = 32;
 
+function normalizeWorkspaceScope(value: unknown): { ok: true; workspaceIds: string[] | null } | { ok: false } {
+  if (value === undefined || value === null) {
+    return { ok: true, workspaceIds: null };
+  }
+  if (!Array.isArray(value) || value.length === 0) {
+    return { ok: false };
+  }
+
+  const workspaceIds = value.filter(
+    (workspaceId): workspaceId is string => typeof workspaceId === 'string' && workspaceId.length > 0,
+  );
+  if (workspaceIds.length !== value.length) {
+    return { ok: false };
+  }
+
+  return { ok: true, workspaceIds: [...new Set(workspaceIds)] };
+}
+
 function normalizeWebToken(value: unknown): WebToken[] {
   if (typeof value !== 'object' || value === null) {
     return [];
@@ -23,15 +41,13 @@ function normalizeWebToken(value: unknown): WebToken[] {
   const createdAt = 'createdAt' in value && typeof value.createdAt === 'string' ? value.createdAt : null;
   const expiresAt = 'expiresAt' in value && typeof value.expiresAt === 'string' ? value.expiresAt : null;
   const label = 'label' in value && typeof value.label === 'string' ? value.label : null;
-  const workspaceIds = 'workspaceIds' in value && Array.isArray(value.workspaceIds)
-    ? value.workspaceIds.filter((workspaceId): workspaceId is string => typeof workspaceId === 'string')
-    : [];
+  const workspaceScope = normalizeWorkspaceScope('workspaceIds' in value ? value.workspaceIds : undefined);
 
-  if (!token || !createdAt || !expiresAt || !label || workspaceIds.length === 0) {
+  if (!token || !createdAt || !expiresAt || !label || !workspaceScope.ok) {
     return [];
   }
 
-  return [{ token, createdAt, expiresAt, label, workspaceIds }];
+  return [{ token, createdAt, expiresAt, label, workspaceIds: workspaceScope.workspaceIds }];
 }
 
 export interface WebToken {
@@ -39,7 +55,8 @@ export interface WebToken {
   createdAt: string;
   expiresAt: string;
   label: string;
-  workspaceIds: string[];
+  /** Null means unrestricted owner access across current and future workspaces. */
+  workspaceIds: string[] | null;
 }
 
 export class WebTokenManager {
@@ -53,8 +70,8 @@ export class WebTokenManager {
   }
 
   /** Create a new web token. Returns the token details. */
-  create(workspaceIds: string[], label?: string, expiryDays?: number): WebToken {
-    if (workspaceIds.length === 0) {
+  create(workspaceIds: string[] | null, label?: string, expiryDays?: number): WebToken {
+    if (workspaceIds !== null && workspaceIds.length === 0) {
       throw new Error('Web tokens must be scoped to at least one workspace');
     }
 
@@ -74,7 +91,7 @@ export class WebTokenManager {
       createdAt: now.toISOString(),
       expiresAt: expires.toISOString(),
       label: label ?? `Web token ${now.toLocaleDateString()}`,
-      workspaceIds: [...new Set(workspaceIds)],
+      workspaceIds: workspaceIds ? [...new Set(workspaceIds)] : null,
     };
 
     this.tokens.push(webToken);
