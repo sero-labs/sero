@@ -245,8 +245,8 @@ export class GatewayClient {
   }
 
   /** Create a web token (requires master token auth). */
-  createWebToken(label?: string, expiryDays?: number): void {
-    this.send({ type: 'create_web_token', label, expiryDays });
+  createWebToken(workspaceIds: string[] | null = null, label?: string, expiryDays?: number): void {
+    this.send({ type: 'create_web_token', workspaceIds, label, expiryDays });
   }
 
   /** List web tokens. */
