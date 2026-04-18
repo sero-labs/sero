@@ -265,6 +265,10 @@ with the current host build, the install fails closed (or an already-installed
 plugin is kept out of the active package list) until the host becomes
 compatible.
 
+For a downstream-friendly migration checklist covering host capabilities,
+bridged CLI behavior, and manifest examples, see
+[`docs/plugins/host-compatibility.md`](./host-compatibility.md).
+
 ## Plugin Manifest Reference
 
 ### `sero.app` (required)
@@ -273,6 +277,9 @@ The standard Sero app manifest used by all Sero apps and plugins. For a
 step-by-step guide to building a new app, use the `sero-plugin` skill.
 
 ### `sero.plugin` (required for plugins)
+
+See also: [`docs/plugins/host-compatibility.md`](./host-compatibility.md) for
+when to declare `requiredHostCapabilities` and how the host enforces them.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|

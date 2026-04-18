@@ -1,0 +1,269 @@
+# Plugin host compatibility and bridged CLI migration
+
+This guide explains the host-side contract that Sero now enforces for external
+plugins, plus what plugin authors need to change downstream.
+
+## What changed
+
+Sero now treats plugin compatibility as a real runtime contract instead of
+best-effort metadata.
+
+Two platform seams are now explicit and enforced:
+
+- **Host version compatibility** via `sero.plugin.minSeroVersion`
+- **Host capability compatibility** via `sero.plugin.requiredHostCapabilities`
+
+Sero also hardened plugin CLI bridging so hot updates are truthful:
+
+- bridged app/plugin CLI commands are now replaced when a plugin session reloads
+- custom `tool.cli.execute` handlers are resolved from the **live** tool
+  definition at execution time
+- uninstalling or tearing down a session removes its bridged commands cleanly
+
+## Why this matters
+
+Before this change, a plugin could:
+
+- install on an older host that did not actually provide the APIs it needed
+- appear to hot-update while still serving stale CLI help or execution logic
+- remain partially active after its host assumptions stopped being true
+
+Now Sero fails closed:
+
+- **new incompatible installs are rejected**
+- **already-installed incompatible plugins stay on disk but are removed from the
+  active package list**
+- **discovery/App Store UI can still show the plugin and explain why it is
+  unsupported**
+
+## New manifest contract
+
+Plugin manifests still declare metadata under `package.json -> sero.plugin`.
+
+### Supported fields
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "category": "integrations",
+      "tags": ["google", "mail"],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli"],
+      "bridgeTools": ["google"]
+    }
+  }
+}
+```
+
+### Supported host capabilities today
+
+These values are currently recognized by the host:
+
+- `appAgent.invokeTool`
+- `tool.cli`
+
+Unknown capability strings are ignored during manifest parsing, so downstream
+plugins should only use the canonical values above.
+
+## When to declare each capability
+
+### `appAgent.invokeTool`
+
+Declare this when your federated UI or app-runtime code depends on the host's
+app-agent tool bridge, for example when you call:
+
+- `window.sero.appAgent.invokeTool(...)`
+- `useAppTools().run(...)`
+
+### `tool.cli`
+
+Declare this when your extension depends on tool-level CLI bridging, including:
+
+- manifest-driven `bridgeTools`
+- custom `definition.cli` metadata
+- custom raw-args handlers via `definition.cli.execute`
+- builtin override behavior such as replacing `sero google ...`
+
+## Compatibility behavior
+
+### Install time
+
+If a plugin's host contract is not satisfied, install fails with an actionable
+error.
+
+Examples:
+
+- `Requires Sero 0.2.0 or newer (current host: 0.1.0).`
+- `Requires host capability \`tool.cli\`, which this Sero build does not provide.`
+
+### Startup / reload time
+
+Sero reconciles installed plugin activation against the current host build.
+
+That means an incompatible plugin can remain installed under:
+
+```text
+~/.sero-ui/agent/packages/<plugin-id>
+```
+
+but it will be removed from the active `settings.json` package list until the
+host becomes compatible again.
+
+### UI behavior
+
+Unsupported plugins remain discoverable/browseable in the App Store, but they
+show an unsupported-host state and are not activatable.
+
+## Downstream migration checklist
+
+Use this checklist when updating an external plugin.
+
+### 1. Audit host dependencies
+
+Identify whether the plugin depends on:
+
+- app-agent tool execution from UI/runtime code
+- bridged CLI commands
+- custom `tool.cli` help/summary/group/execute behavior
+- builtin command override behavior
+
+### 2. Update `package.json`
+
+Add or tighten the host contract in `sero.plugin`:
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "category": "integrations",
+      "tags": ["google", "mail"],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli"]
+    }
+  }
+}
+```
+
+Only declare capabilities your plugin actually needs.
+
+### 3. Move UI tool calls onto the generic host seam
+
+If your UI still relies on a bespoke preload bridge, migrate it to the generic
+app-agent bridge:
+
+```ts
+import { useAppTools } from '@sero-ai/app-runtime';
+
+const { run } = useAppTools();
+const result = await run('my_tool', { ...input });
+```
+
+or:
+
+```ts
+await window.sero.appAgent.invokeTool('my_tool', { ...input });
+```
+
+### 4. Keep CLI behavior plugin-owned
+
+If the plugin exposes CLI parity through bridged tools:
+
+- keep the command metadata on the tool definition
+- prefer `definition.cli` for custom summary/help/group/execute behavior
+- keep `bridgeTools` aligned with the tool names you expect Sero to bridge
+
+### 5. Test update/reinstall behavior
+
+Confirm that reinstalling the plugin or reloading the active session updates:
+
+- `sero help <command>`
+- command summary/help text
+- raw command execution behavior
+
+without restarting Sero.
+
+## Recommended manifest patterns
+
+### UI tool bridge only
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "category": "utilities",
+      "tags": ["example"],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": ["appAgent.invokeTool"]
+    }
+  }
+}
+```
+
+### CLI bridge only
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "category": "developer-tools",
+      "tags": ["cli"],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": ["tool.cli"],
+      "bridgeTools": ["my_command"]
+    }
+  }
+}
+```
+
+### UI + CLI bridge
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "category": "integrations",
+      "tags": ["mail"],
+      "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli"],
+      "bridgeTools": ["google"]
+    }
+  }
+}
+```
+
+## Manual downstream verification checklist
+
+After updating a plugin, verify all of the following against a host build that
+contains this PR:
+
+1. Fresh install succeeds when the host satisfies the plugin contract.
+2. Fresh install fails with a clear error when `minSeroVersion` is too high.
+3. Fresh install fails with a clear error when a required capability is missing.
+4. Already-installed incompatible plugins remain on disk but are not activated.
+5. App Store UI shows incompatible plugins as unsupported instead of loading
+   them normally.
+6. Reinstalling/updating a bridged CLI plugin refreshes help/summary/execution
+   without restarting Sero.
+7. Uninstalling the plugin removes its bridged CLI commands cleanly.
+
+## Troubleshooting
+
+### My plugin installs but does not show in the active app list
+
+Check the plugin's `hostCompatibility` status in discovery/App Store UI or
+inspect the install/load error. The plugin is likely installed on disk but not
+active because its host contract is unsatisfied.
+
+### My custom CLI handler still seems stale
+
+Make sure the command is coming from a bridged tool definition and that the
+session/plugin was actually reloaded. The host now refreshes session-owned app
+commands on reload, so stale behavior usually means the updated tool definition
+never reached the session.
+
+### Which version should I put in `minSeroVersion`?
+
+Use the first Sero release that includes the host seam your plugin now depends
+on. If your plugin depends on both the generic app-tool bridge and tool-level
+CLI bridging, set the minimum version to the first release that contains both.

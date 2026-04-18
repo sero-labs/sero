@@ -21,7 +21,7 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/features/plugins/{activation.ts,compatibility.ts,manager.ts,settings.ts}` | Added runtime host-version/capability enforcement plus startup activation reconciliation while reducing `manager.ts` below the cap again (498 → 448 lines) |
 | `apps/desktop/electron/ipc/integrations/plugins.ts`, `apps/desktop/electron/__tests__/features/plugins/{plugin-manager.test.ts,plugin-compatibility.test.ts}` | Reconciled installed plugin activation at startup and added focused install/load compatibility regressions |
 | `apps/desktop/src/stores/app/{shared.ts,discovery.ts,state.ts}`, `apps/desktop/src/stores/app.test.ts`, `apps/desktop/src/components/layout/{AppStoreCard.tsx,AppStoreDialog.tsx}` | Kept unsupported plugins browseable in the App Store while hiding them from active sidebar/preload paths and surfacing compatibility errors inline |
-| `docs/plugins/{technical.md,guide.md}` | Updated plugin docs for `requiredHostCapabilities`, enforced compatibility checks, and truthful hot-load behavior |
+| `docs/plugins/{technical.md,guide.md,host-compatibility.md}` | Updated plugin docs for `requiredHostCapabilities`, enforced compatibility checks, truthful hot-load behavior, and a downstream migration guide for plugin authors |
 | `docs/deslopify/apps/desktop/electron/cli/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the platform-hardening execution pass, marked the CLI plan healthy, and left the Google integration/re-review follow-up tracked separately |
 
 ---

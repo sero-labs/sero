@@ -185,6 +185,9 @@ provider-specific auth and model UI without hardcoded app-level logic:
 
 ### `sero.plugin` Fields
 
+See also: [`docs/plugins/host-compatibility.md`](./host-compatibility.md) for
+the downstream migration guide and capability-selection rules.
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `category` | `PluginCategory` | Browsing category. One of: `productivity`, `developer-tools`, `entertainment`, `integrations`, `finance`, `health`, `creative`, `utilities`. |
@@ -363,6 +366,9 @@ plugin activation against the current host contract. Plugins that fail
 `minSeroVersion` or `requiredHostCapabilities` checks stay installed on disk
 and visible to discovery/UI, but they are removed from the active package list
 until the host build becomes compatible.
+
+For plugin authors, the practical migration guidance lives in
+[`docs/plugins/host-compatibility.md`](./host-compatibility.md).
 
 Additionally, `electron/ipc/apps/app-state.ts` watches the active profile's
 `settings.json`. If package paths are added or removed outside the install IPC
