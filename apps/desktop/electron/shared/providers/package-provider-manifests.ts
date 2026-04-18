@@ -4,6 +4,7 @@ import type { SettingsPackageSource } from '@/types/ipc';
 import type { ModelTier, PluginProviderManifest, SeroProviderManifest } from '@sero/common';
 import { MODEL_TIERS } from '@sero/common';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { isCompatiblePluginResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { readSettingsResult } from '@electron/shared/settings/settings-helpers';
 import {
   discoverBuiltinPackagePaths,
@@ -147,6 +148,8 @@ function loadProviderManifests(): SeroProviderManifest[] {
 
   const byId = new Map<string, SeroProviderManifest>();
   for (const packageDir of listCandidatePackageDirs()) {
+    if (!isCompatiblePluginResourcePath(packageDir)) continue;
+
     for (const provider of readProviderManifestsFromPackage(packageDir)) {
       byId.set(provider.id, provider);
     }

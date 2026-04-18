@@ -26,6 +26,7 @@ import {
 } from '../apps/discovery/plugin-meta';
 import { reconcileInstalledPluginActivation } from './activation';
 import { assertPluginCompatible } from './compatibility';
+import { clearPackageCompatibilityCache } from './resource-compatibility';
 import { assertPluginInstallAllowed } from './install-policy';
 import { ensurePluginPackageReadyForInstall } from './package-build';
 import { assertValidPluginId, resolvePluginInstallDir } from './security';
@@ -282,6 +283,7 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
     registerAppPath(installPath);
     clearAppManifestCache();
     clearPluginBridgePolicyCache();
+    clearPackageCompatibilityCache();
 
     const apps = await discoverApps();
     const manifest = apps.find(
@@ -313,6 +315,7 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
   } finally {
     clearAppManifestCache();
     clearPluginBridgePolicyCache();
+    clearPackageCompatibilityCache();
     await cleanupDir(staged?.tempRoot ?? null);
     await cleanupDir(reserved?.backupRoot ?? null);
   }
@@ -338,6 +341,7 @@ export async function uninstallPlugin(pluginId: string): Promise<void> {
   unregisterAppPath(pluginPath);
   clearAppManifestCache();
   clearPluginBridgePolicyCache();
+  clearPackageCompatibilityCache();
 }
 
 /**

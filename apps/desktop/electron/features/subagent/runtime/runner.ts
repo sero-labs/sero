@@ -27,6 +27,13 @@ import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
+import {
+  filterCompatiblePluginAgentsFiles,
+  filterCompatiblePluginExtensions,
+  filterCompatiblePluginPrompts,
+  filterCompatiblePluginSkills,
+  filterCompatiblePluginThemes,
+} from '@electron/features/plugins/resource-compatibility';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
@@ -161,6 +168,7 @@ export async function runSubagent(
   const customTools = [...platformTools, ...(config.customTools ?? [])];
 
   // Build a reduced extension factory for the child session
+  const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
   const loader = new DefaultResourceLoader({
     cwd: sessionPath,
     agentDir: SERO_AGENT_DIR,
@@ -174,7 +182,11 @@ export async function runSubagent(
         containerCwd,
       ),
     ],
-    skillsOverride: createSkillVisibilityOverride(infra.settingsManager),
+    skillsOverride: (base) => filterCompatiblePluginSkills(skillVisibilityOverride(base)),
+    promptsOverride: filterCompatiblePluginPrompts,
+    themesOverride: filterCompatiblePluginThemes,
+    extensionsOverride: filterCompatiblePluginExtensions,
+    agentsFilesOverride: filterCompatiblePluginAgentsFiles,
   });
   await loader.reload();
 

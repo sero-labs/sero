@@ -30,6 +30,13 @@ import {
   createWorkspaceCliTool,
 } from '@electron/cli';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
+import {
+  filterCompatiblePluginAgentsFiles,
+  filterCompatiblePluginExtensions,
+  filterCompatiblePluginPrompts,
+  filterCompatiblePluginSkills,
+  filterCompatiblePluginThemes,
+} from '@electron/features/plugins/resource-compatibility';
 import { readGlobalAgentsMd } from './global-agents';
 import {
   buildTurnUndoMapByTurn,
@@ -121,6 +128,7 @@ export async function openSessionInPool({
     : [...createHostCodingTools(workspacePath), createWorkspaceCliTool(workspaceId, sessionId)];
   const globalAgentsFile = await readGlobalAgentsMd(workspaceId);
 
+  const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
   const loader = new DefaultResourceLoader({
     cwd: workspacePath,
     agentDir: SERO_AGENT_DIR,
@@ -131,16 +139,22 @@ export async function openSessionInPool({
         enableAgentManagementTools: true,
       }),
     ],
-    skillsOverride: createSkillVisibilityOverride(infra.settingsManager),
-    extensionsOverride: (base) => bridgeExtensionTools(base, { sessionId }),
-    ...(globalAgentsFile && {
-      agentsFilesOverride: (discovered: { agentsFiles: Array<{ path: string; content: string }> }) => ({
-        agentsFiles: [
-          globalAgentsFile,
-          ...discovered.agentsFiles.filter((file) => file.path !== globalAgentsFile.path),
-        ],
-      }),
-    }),
+    skillsOverride: (base) => filterCompatiblePluginSkills(skillVisibilityOverride(base)),
+    promptsOverride: filterCompatiblePluginPrompts,
+    themesOverride: filterCompatiblePluginThemes,
+    extensionsOverride: (base) => bridgeExtensionTools(filterCompatiblePluginExtensions(base), { sessionId }),
+    agentsFilesOverride: (discovered: { agentsFiles: Array<{ path: string; content: string }> }) => {
+      const withGlobalAgents = globalAgentsFile
+        ? {
+            agentsFiles: [
+              globalAgentsFile,
+              ...discovered.agentsFiles.filter((file) => file.path !== globalAgentsFile.path),
+            ],
+          }
+        : discovered;
+
+      return filterCompatiblePluginAgentsFiles(withGlobalAgents);
+    },
   });
   await loader.reload();
 

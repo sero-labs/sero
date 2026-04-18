@@ -164,7 +164,7 @@ const result = await run('my_tool', { ...input });
 or:
 
 ```ts
-await window.sero.appAgent.invokeTool('my_tool', { ...input });
+await window.sero.appAgent.invokeTool(appId, workspaceId, 'my_tool', { ...input });
 ```
 
 ### 4. Keep CLI behavior plugin-owned

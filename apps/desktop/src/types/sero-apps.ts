@@ -1,3 +1,4 @@
+import type { PackageSource } from '@mariozechner/pi-coding-agent';
 import type {
   PluginCompatibilityStatus,
   PluginMeta,
@@ -5,10 +6,10 @@ import type {
 import type { WidgetManifest } from './widget-manifest';
 
 /**
- * Shape of entries in the `packages` array in settings.json.
- * Can be a plain path string or an object with a `source` field.
+ * Canonical Pi package source shape from settings.json.
+ * Supports plain sources plus filtered package objects.
  */
-export type SettingsPackageSource = string | { source?: string };
+export type SettingsPackageSource = PackageSource;
 
 export type { WidgetManifest as SeroWidgetManifest } from './widget-manifest';
 
