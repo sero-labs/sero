@@ -257,6 +257,8 @@ _Last reviewed: 2026-04-18_
 - Updated `../plugins/sero-google-plugin/package.json` to declare the final host contract explicitly with `requiredHostCapabilities: ["appAgent.invokeTool", "tool.cli"]` alongside the existing `minSeroVersion` and `bridgeTools` manifest fields.
 - Added a short README note in `../plugins/sero-google-plugin/README.md` explaining that older Sero hosts should now reject the plugin cleanly when they do not provide the generic app-tool bridge or plugin-owned CLI bridging.
 - Revalidated the integration by rerunning the focused desktop hot-load/compatibility regressions plus the external plugin CLI/UI tests and both monorepo + plugin typechecks.
+- Manual smoke on the integrated branches also confirmed the live hot-update path end to end: editing the plugin-owned Google CLI summary, reinstalling the plugin from the renderer console, and rerunning `sero help google` showed the updated text immediately without a Sero restart.
 
 ### Still outstanding
 - Broader migration-level manual verification is still pending where it was already unchecked before Phase 9: default/non-default profile sign-in parity, legacy token rediscovery, and explicit UI-vs-agent Gmail/Calendar parity were not all re-run in this integration pass.
+- The specific Phase 9 hot-update validation task is now closed: live reinstall/update of the plugin-owned `google` command was manually confirmed on the integrated branches.

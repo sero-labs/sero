@@ -94,7 +94,7 @@ as backlog-only follow-ups, not active refactor-wave work.
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
   — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
 - [`plugins/sero-google-plugin/`](./plugins/sero-google-plugin/plan.md)
-  — *In progress — Phases 0–9 code/integration work completed 2026-04-18 after integrating the landed core-platform hardening from PR #146; broader migration-level final verification still remains pending*
+  — *In progress — Phases 0–9 code/integration work completed 2026-04-18, including manual live hot-update confirmation after integrating PR #146; broader migration-level final verification still remains pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)

@@ -326,7 +326,7 @@ PR review follow-up blockers (2026-04-18):
 - [ ] Validate that previously migrated/legacy gog tokens are still discovered after the move.
 - [ ] Trigger Gmail thread fetches from both the UI and the agent and confirm the resulting state includes HTML bodies and identical thread metadata.
 - [ ] Trigger Calendar fetches from both the UI and the agent and confirm attendees/reminders/links stay identical.
-- [x] Verify a fresh install/update of the Google plugin refreshes `sero google` help + execution without restarting Sero after the core app-command lifecycle fix lands.
+- [x] Verify a fresh install/update of the Google plugin refreshes `sero google` help + execution without restarting Sero after the core app-command lifecycle fix lands. Confirmed 2026-04-18 by editing the plugin CLI summary, reinstalling the local plugin via the renderer console, and observing the updated `sero help google` output without restarting Sero.
 - [x] Verify the plugin declares and passes the final host compatibility gate on supported Sero builds and is blocked cleanly on unsupported ones.
 - [x] Smoke-test the chosen CLI contract (`sero google ...` parity or documented removal) on both host-mode and container-backed workspaces.
 - [x] Run the relevant tests for all touched code.
@@ -351,3 +351,4 @@ PR review follow-up blockers (2026-04-18):
 - 2026-04-18 — README polish follow-up: rewrote the same Phase 8 README again in a more public-facing end-user voice, leading with install/setup/everyday usage and moving runtime details into short Profiles, Container-backed workspaces, Troubleshooting, and Pi-specific sections so it reads like a user guide instead of migration notes.
 - 2026-04-18 — Related PR review uncovered two host-owned platform blockers outside the Google plugin itself: custom bridged plugin commands are still sticky across hot updates, and host/plugin compatibility metadata is not yet enforced. Added Phase 9 to defer merge/re-review until the separate core follow-up in `docs/deslopify/apps/desktop/electron/cli/plan.md` lands and the Google PR pair can be rebased onto the final host contract.
 - 2026-04-18 — Completed Phase 9 after integrating `origin/main` commit `c97d6199` / PR #146 into the desktop-shell branch, updating the external plugin manifest with `requiredHostCapabilities` (`appAgent.invokeTool`, `tool.cli`), and rerunning the focused desktop/plugin regression suites plus monorepo/plugin typechecks.
+- 2026-04-18 — Manual integration smoke confirmed the live hot-update contract on the integrated branches: after editing the plugin-owned Google CLI summary and reinstalling the local plugin from the renderer console, `sero help google` reflected the new text immediately without restarting Sero.
