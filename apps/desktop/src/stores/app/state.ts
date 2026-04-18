@@ -10,6 +10,7 @@ import {
   BUILTIN_APP_IDS,
   BUILTIN_APPS,
   DEFAULT_FAVOURITE_APP_IDS,
+  isManifestHostSupported,
   type AppEntry,
   type Theme,
 } from './shared';
@@ -170,6 +171,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const entry = apps.find((candidate) => candidate.id === app);
     if (!entry) {
       console.warn(`[app-store] Ignoring unknown app: ${app}`);
+      return;
+    }
+
+    if (!entry.builtin && !isManifestHostSupported(entry.manifest)) {
+      console.warn(`[app-store] Ignoring unsupported plugin app: ${app}`);
       return;
     }
 

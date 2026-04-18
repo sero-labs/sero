@@ -1,4 +1,7 @@
-import type { PluginMeta } from '@sero/common';
+import type {
+  PluginCompatibilityStatus,
+  PluginMeta,
+} from '@sero/common';
 import type { WidgetManifest } from './widget-manifest';
 
 /**
@@ -48,6 +51,8 @@ export interface SeroAppManifest {
   isPlugin: boolean;
   /** Plugin manifest metadata from `sero.plugin` in package.json. */
   plugin?: PluginMeta | null;
+  /** Host/plugin compatibility status derived from the current Sero runtime. */
+  hostCompatibility?: PluginCompatibilityStatus | null;
   /** Widget definitions declared in the app manifest. */
   widgets: WidgetManifest[];
 }

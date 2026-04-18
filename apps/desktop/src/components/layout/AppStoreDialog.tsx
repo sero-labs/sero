@@ -40,6 +40,8 @@ function buildSearchText(app: AppEntry): string {
     plugin?.category ?? '',
     plugin?.tags?.join(' ') ?? '',
     plugin?.minSeroVersion ?? '',
+    plugin?.requiredHostCapabilities?.join(' ') ?? '',
+    manifest?.hostCompatibility?.issues.map((issue) => issue.message).join(' ') ?? '',
     plugin ? (plugin.preBuilt ? 'pre-built' : 'source') : '',
   ]
     .join('\n')

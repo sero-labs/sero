@@ -162,6 +162,7 @@ describe('app discovery devPort handling', () => {
         category: 'utilities',
         tags: ['test', ' utilities '],
         minSeroVersion: '0.1.0',
+        requiredHostCapabilities: [' appAgent.invokeTool ', 'tool.cli'],
         preBuilt: false,
         bridgeTools: [' tool_a ', 'tool_b'],
       });
@@ -178,8 +179,14 @@ describe('app discovery devPort handling', () => {
           category: 'utilities',
           tags: ['test', 'utilities'],
           minSeroVersion: '0.1.0',
+          requiredHostCapabilities: ['appAgent.invokeTool', 'tool.cli'],
           preBuilt: false,
           bridgeTools: ['tool_a', 'tool_b'],
+        },
+        hostCompatibility: {
+          supported: true,
+          hostVersion: '0.1.0',
+          issues: [],
         },
       });
 
@@ -218,6 +225,33 @@ describe('app discovery devPort handling', () => {
       unregisterAppPath(packageDir);
     } finally {
       warnSpy.mockRestore();
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('marks plugins unsupported when their host requirements are not satisfied', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-plugin-compat-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    try {
+      const packageDir = path.join(tempRoot, 'incompatible-plugin');
+      await writeManifestPackage(packageDir, 'incompatible-plugin', 'Incompatible Plugin', {
+        category: 'utilities',
+        tags: ['test'],
+        minSeroVersion: '9.9.9',
+      });
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      const manifest = (await discoverApps()).find((app) => app.id === 'incompatible-plugin');
+
+      expect(manifest?.hostCompatibility?.supported).toBe(false);
+      expect(manifest?.hostCompatibility?.issues[0]?.kind).toBe('minSeroVersion');
+      expect(manifest?.hostCompatibility?.issues[0]?.message).toContain('Requires Sero 9.9.9 or newer');
+
+      unregisterAppPath(packageDir);
+    } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
   });

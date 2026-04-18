@@ -16,11 +16,33 @@ export type PluginCategory =
   | 'creative'
   | 'utilities';
 
+export const SERO_HOST_CAPABILITIES = [
+  'appAgent.invokeTool',
+  'tool.cli',
+] as const;
+
+export type SeroHostCapability = (typeof SERO_HOST_CAPABILITIES)[number];
+
+export interface PluginCompatibilityIssue {
+  kind: 'minSeroVersion' | 'requiredHostCapability';
+  message: string;
+  expected?: string;
+  actual?: string;
+  capability?: SeroHostCapability;
+}
+
+export interface PluginCompatibilityStatus {
+  supported: boolean;
+  hostVersion: string;
+  issues: PluginCompatibilityIssue[];
+}
+
 /** Plugin metadata from a package's `sero.plugin` field. */
 export interface PluginMeta {
   category: PluginCategory;
   tags: string[];
   minSeroVersion?: string;
+  requiredHostCapabilities?: SeroHostCapability[];
   /** true for pre-built npm bundles; false/undefined for source repos built on install */
   preBuilt?: boolean;
   /** true/undefined = bridge all tools, false = none, string[] = listed tools only */

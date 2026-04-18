@@ -10,6 +10,10 @@ export interface AppEntry {
   manifest: SeroAppManifest | null;
 }
 
+export function isManifestHostSupported(manifest: SeroAppManifest | null): boolean {
+  return manifest?.hostCompatibility?.supported !== false;
+}
+
 export type Theme = 'dark' | 'light';
 
 export const BUILTIN_APPS: AppEntry[] = [
@@ -57,7 +61,7 @@ export function getSidebarApps(apps: AppEntry[], favouriteApps: string[]): AppEn
   const discoveredById = new Map<string, AppEntry>();
 
   for (const app of apps) {
-    if (app.builtin) continue;
+    if (app.builtin || !isManifestHostSupported(app.manifest)) continue;
     discoveredById.set(app.id, app);
   }
 
@@ -76,7 +80,11 @@ export function getPriorityPreloadApps(
   favouriteApps: string[],
 ): SeroAppManifest[] {
   const priorityIds = new Set([activeApp, ...favouriteApps]);
-  return manifests.filter((manifest) => manifest.component && priorityIds.has(manifest.id));
+  return manifests.filter((manifest) => (
+    manifest.component
+    && priorityIds.has(manifest.id)
+    && isManifestHostSupported(manifest)
+  ));
 }
 
 export function areStringArraysEqual(a: string[], b: string[]): boolean {

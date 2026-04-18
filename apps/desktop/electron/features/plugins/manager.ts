@@ -18,18 +18,26 @@ import { registerExtAssets, unregisterExtAssets } from '@electron/platform/proto
 import { invalidatePackageProviderManifestCache } from '@electron/shared/providers/package-provider-manifests';
 import { clearAppManifestCache } from '@electron/ipc/agent/handlers/app-agent';
 import { clearPluginBridgePolicyCache } from '@electron/cli';
-import type { SeroAppManifest, SettingsPackageSource } from '@/types/ipc';
+import type { SeroAppManifest } from '@/types/ipc';
 import type { InstalledPlugin } from './types';
+import { hasPluginDeclaration, parsePluginMeta } from '../apps/discovery/plugin-meta';
+import { reconcileInstalledPluginActivation } from './activation';
+import { assertPluginCompatible } from './compatibility';
 import { assertPluginInstallAllowed } from './install-policy';
 import { ensurePluginPackageReadyForInstall } from './package-build';
 import { assertValidPluginId, resolvePluginInstallDir } from './security';
+import {
+  addPackageToSettings,
+  removePackageFromSettings,
+} from './settings';
 const execFile = promisify(execFileCb);
+
+export { reconcileInstalledPluginActivation } from './activation';
+
 /** Directory where plugins are installed. */
 const PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'packages');
 /** Temporary staging area for installs / backups. Not scanned by app discovery. */
 const PLUGIN_STAGING_DIR = path.join(SERO_AGENT_DIR, '.plugin-staging');
-/** Path to the settings.json file. */
-const SETTINGS_PATH = path.join(SERO_AGENT_DIR, 'settings.json');
 /** Sidecar filename persisted alongside installed plugins. */
 const PLUGIN_META_FILENAME = '.sero-plugin-meta.json';
 // ── Install serialisation ───────────────────────────────────
@@ -49,10 +57,7 @@ interface PkgJson {
       ui?: string;
       component?: string;
     };
-    plugin?: {
-      category?: InstalledPlugin['category'];
-      tags?: string[];
-    };
+    plugin?: unknown;
   };
 }
 
@@ -143,40 +148,13 @@ function assertPreparedUiExists(packageDir: string, app: ValidatedPluginApp): vo
   }
 }
 
-function readSettings(): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('settings.json must contain a JSON object');
-    }
-    return parsed as Record<string, unknown>;
-  } catch (error) {
-    const nodeError = error as NodeJS.ErrnoException;
-    if (nodeError?.code === 'ENOENT') {
-      return {};
-    }
-    throw new Error(`Failed to read settings.json. Fix ~/.sero-ui/agent/settings.json and retry plugin operation. (${error instanceof Error ? error.message : 'unknown parse error'})`);
-  }
-}
-
-function writeSettings(settings: Record<string, unknown>): void {
-  writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + '\n');
-  invalidatePackageProviderManifestCache();
-}
-
-function getPackagesArray(settings: Record<string, unknown>): SettingsPackageSource[] {
-  return Array.isArray(settings.packages)
-    ? (settings.packages as SettingsPackageSource[])
-    : [];
-}
-
 function manifestToInstalledPlugin(
   pkg: PkgJson,
   packagePath: string,
   meta: PluginInstallMeta | null,
 ): InstalledPlugin {
   const app = pkg.sero?.app;
-  const plugin = pkg.sero?.plugin;
+  const plugin = parsePluginMeta(pkg.sero?.plugin).meta;
   return {
     id: app?.id ?? path.basename(packagePath),
     name: app?.name ?? pkg.name ?? path.basename(packagePath),
@@ -279,6 +257,10 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
     await ensurePluginPackageReadyForInstall(staged.stageDir, sourceKind);
 
     const validated = validatePluginPackage(readPkgJsonSync(staged.stageDir));
+    const parsedPlugin = hasPluginDeclaration(validated.pkg)
+      ? parsePluginMeta(validated.pkg.sero?.plugin)
+      : { meta: null, warnings: [] };
+    assertPluginCompatible(parsedPlugin.meta);
     assertPreparedUiExists(staged.stageDir, validated.app);
     const installPath = resolvePluginInstallDir(PLUGINS_DIR, validated.app.id);
     assertPluginInstallAllowed(await discoverApps(), validated.app.id, installPath);
@@ -292,7 +274,8 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
     reserved = await reserveInstallPath(validated.app.id);
     await fs.rename(staged.stageDir, installPath);
 
-    settingsAdded = addToSettings(installPath);
+    settingsAdded = addPackageToSettings(installPath);
+    await reconcileInstalledPluginActivation();
     registerAppPath(installPath);
     clearAppManifestCache();
     clearPluginBridgePolicyCache();
@@ -312,7 +295,7 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
   } catch (err) {
     if (reserved) {
       if (settingsAdded) {
-        removeFromSettings(reserved.installPath);
+        removePackageFromSettings(reserved.installPath);
       }
       unregisterAppPath(reserved.installPath);
       await cleanupDir(reserved.installPath);
@@ -347,11 +330,11 @@ export async function uninstallPlugin(pluginId: string): Promise<void> {
 
   await fs.rm(pluginPath, { recursive: true, force: true });
   unregisterExtAssets(pluginId);
-  removeFromSettings(pluginPath);
+  removePackageFromSettings(pluginPath);
+  await reconcileInstalledPluginActivation();
   unregisterAppPath(pluginPath);
   clearAppManifestCache();
   clearPluginBridgePolicyCache();
-  invalidatePackageProviderManifestCache();
 }
 
 /**
@@ -466,33 +449,3 @@ async function installFromLocal(source: string): Promise<StagedPluginInstall> {
   }
 }
 
-// ── Settings.json management ────────────────────────────────
-
-function addToSettings(packagePath: string): boolean {
-  const settings = readSettings();
-  const packages = getPackagesArray(settings);
-
-  const exists = packages.some((entry) => {
-    const src = typeof entry === 'string' ? entry : entry.source;
-    return src === packagePath;
-  });
-
-  if (exists) return false;
-
-  packages.push(packagePath);
-  settings.packages = packages;
-  writeSettings(settings);
-  return true;
-}
-
-function removeFromSettings(packagePath: string): void {
-  const settings = readSettings();
-  const packages = getPackagesArray(settings);
-
-  settings.packages = packages.filter((entry) => {
-    const src = typeof entry === 'string' ? entry : entry.source;
-    return src !== packagePath;
-  });
-
-  writeSettings(settings);
-}

@@ -5,6 +5,10 @@
  * Must remain renderer-safe (no Node imports).
  */
 
+export {
+  SERO_HOST_CAPABILITIES,
+} from './plugins';
+
 export type {
   InstalledPlugin,
   PluginCategory,
@@ -14,6 +18,9 @@ export type {
   PluginProviderAuthManifest,
   PluginProviderManifest,
   SeroProviderManifest,
+  SeroHostCapability,
+  PluginCompatibilityIssue,
+  PluginCompatibilityStatus,
 } from './plugins';
 
 export type {
