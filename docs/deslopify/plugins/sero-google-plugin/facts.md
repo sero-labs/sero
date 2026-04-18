@@ -227,3 +227,20 @@ _Last reviewed: 2026-04-18_
 
 ### Still outstanding
 - The broader migration-level final verification checklist remains partially unchecked: default/non-default profile sign-in smoke, legacy-token rediscovery, and explicit UI-vs-agent Gmail/Calendar parity were not re-run as part of this docs-only phase.
+
+## Post-review snapshot — 2026-04-18 (core platform blockers)
+
+### Metrics after review
+- Total plugin files: 59 (unchanged; this was a docs/planning follow-up, not a code pass)
+- Largest plugin source file: `plugins/sero-google-plugin/extension/google/cli-handlers.ts` (456 LOC, unchanged)
+- Files over 500 LOC: none
+
+### What changed
+- Related PR review uncovered two host-owned platform blockers that are broader than the Google plugin itself:
+  - custom bridged plugin commands are not truly hot-swappable after install/update because the host CLI registry keeps the first captured custom bridge handler instead of rebuilding app-source command registrations deterministically;
+  - host/plugin compatibility metadata is still parse-only and unenforced in the Sero shell, so this migration currently depends on branch coordination rather than a fail-closed version/capability gate.
+- Added a separate core follow-up under `docs/deslopify/apps/desktop/electron/cli/` and reopened the Google plan for a Phase 9 integration/re-review pass instead of burying those platform fixes inside the Google migration PRs.
+
+### Still outstanding
+- Land the separate core/platform hardening pass first, then rebase the Google branches onto it.
+- Re-review the Google PR pair after that rebase and integrate the final host compatibility declaration plus hot-update verification into the plugin plan’s final checklist.

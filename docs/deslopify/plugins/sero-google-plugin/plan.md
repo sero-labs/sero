@@ -299,12 +299,35 @@ Manual QA follow-up findings (2026-04-18):
   - [x] The README no longer contradicts the post-cutover CLI/runtime/auth behavior.
   - [x] Operator-only vs agent-facing guidance is explicit and accurate.
 
+### Phase 9 — Integrate core plugin-platform hardening and re-review
+
+PR review follow-up blockers (2026-04-18):
+- custom bridged plugin commands are not truly hot-swappable after plugin install/update because the host CLI registry keeps the first captured `cli.execute` closure and does not rebuild app-source command registrations deterministically;
+- host/plugin compatibility metadata is still parse-only and unenforced in the Sero shell, so this migration currently depends on reviewer coordination instead of a real fail-closed version/capability gate.
+
+- [ ] Phase 9 complete
+- [ ] Land the separate core/platform follow-up tracked in `docs/deslopify/apps/desktop/electron/cli/plan.md` before merging the Google PR pair.
+- [ ] Rebase the desktop-shell branch and the external Google plugin branch onto that core change.
+- [ ] Integrate the final host contract into the Google plugin.
+  - [ ] Confirm plugin reinstall/update refreshes `sero google ...` help text and execution behavior without restarting Sero.
+  - [ ] Declare and satisfy the final host compatibility contract in the plugin manifest/docs (`minSeroVersion` and/or required host capabilities, depending on the core implementation).
+- [ ] Re-review both related PRs after the rebase/integration pass.
+  - [ ] Re-run targeted desktop CLI/plugin hot-load regressions.
+  - [ ] Re-run external-plugin Google CLI/UI tests plus monorepo/plugin typechecks.
+  - [ ] Refresh README or migration notes only if the final core contract changes user-facing setup/install behavior.
+- [ ] Exit criteria confirmed.
+  - [ ] The Google PR pair no longer depends on unstated platform assumptions.
+  - [ ] Plugin install/update refreshes the bridged `google` command truthfully on the live host.
+  - [ ] Unsupported Sero hosts are blocked cleanly by the final compatibility contract instead of failing at runtime.
+
 ### Final verification checklist
 - [ ] Sign in from the Google UI on the default profile, then run plugin tools and confirm they use the same account.
 - [ ] Repeat on a non-default profile and confirm the account stays isolated to that profile.
 - [ ] Validate that previously migrated/legacy gog tokens are still discovered after the move.
 - [ ] Trigger Gmail thread fetches from both the UI and the agent and confirm the resulting state includes HTML bodies and identical thread metadata.
 - [ ] Trigger Calendar fetches from both the UI and the agent and confirm attendees/reminders/links stay identical.
+- [ ] Verify a fresh install/update of the Google plugin refreshes `sero google` help + execution without restarting Sero after the core app-command lifecycle fix lands.
+- [ ] Verify the plugin declares and passes the final host compatibility gate on supported Sero builds and is blocked cleanly on unsupported ones.
 - [x] Smoke-test the chosen CLI contract (`sero google ...` parity or documented removal) on both host-mode and container-backed workspaces.
 - [x] Run the relevant tests for all touched code.
 - [x] Run `pnpm typecheck` from the monorepo root before calling the migration complete.
@@ -326,3 +349,4 @@ Manual QA follow-up findings (2026-04-18):
 - 2026-04-18 — Added Phase 8 as a docs-focused follow-up to refresh `sero-google-plugin/README.md` for the post-cutover plugin reality: current gogcli install expectations, container fallback behavior, authentication guidance, operator-vs-agent boundaries, and the preserved `sero google ...` contract all need one final README-specific pass.
 - 2026-04-18 — Completed Phase 8 in the external plugin repo by rewriting `../plugins/sero-google-plugin/README.md` around the post-cutover reality: host `gog` install + lookup paths, plugin-config/env OAuth setup, the recommended in-app sign-in flow, profile-scoped account behavior, container-first then host-fallback CLI execution, preserved `sero google ...` parity, follow-up chat summaries for agent-facing Gmail/Calendar commands, and explicit operator-only guidance for `sero google auth ...`. Revalidated with `../plugins/sero-google-plugin` `pnpm test`, `../plugins/sero-google-plugin` `pnpm typecheck`, and monorepo `pnpm typecheck`.
 - 2026-04-18 — README polish follow-up: rewrote the same Phase 8 README again in a more public-facing end-user voice, leading with install/setup/everyday usage and moving runtime details into short Profiles, Container-backed workspaces, Troubleshooting, and Pi-specific sections so it reads like a user guide instead of migration notes.
+- 2026-04-18 — Related PR review uncovered two host-owned platform blockers outside the Google plugin itself: custom bridged plugin commands are still sticky across hot updates, and host/plugin compatibility metadata is not yet enforced. Added Phase 9 to defer merge/re-review until the separate core follow-up in `docs/deslopify/apps/desktop/electron/cli/plan.md` lands and the Google PR pair can be rebased onto the final host contract.

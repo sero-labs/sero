@@ -1,51 +1,55 @@
 # Facts — apps/desktop/electron/cli
 
-_Last reviewed: 2026-04-13_
+_Last reviewed: 2026-04-18_
 
 ## What this code does
-This folder is the AD-020 bridge that collapses built-in app commands, bridged extension tools, and bridged slash commands into the single `sero-cli` tool. It builds the CLI prompt block, resolves session-scoped tool/command bindings at execute time, enforces per-turn command budgets, and provides the built-in desktop control surfaces (`app`, `workspace`, `vcs`, `editor`, `devserver`, `google`, etc.) that agent sessions, subagents, and container-backed sessions all rely on.
+This folder is the AD-020 bridge that collapses built-in platform commands plus manifest-driven app/plugin tools and bridged slash commands into the single `sero-cli` tool. It owns schema-to-CLI translation, per-command batching/timeout behavior, session-scoped runtime forwarding, and the process-global app-command registry that active sessions reload after plugin install/update.
 
 ## Shape & metrics
-- Total files: 34
-- Total LOC: 3,862
-- Largest file: `apps/desktop/electron/cli/core/tool.ts` (474 LOC)
+- Total files: 39
+- Total LOC: 3,518
+- Largest file: `apps/desktop/electron/cli/core/schema-bridge.ts` (459 LOC)
 - Files over 500 LOC: none
 - Near-cap files:
-  - `apps/desktop/electron/cli/core/tool.ts` (474)
-  - `apps/desktop/electron/cli/commands/integrations/google.ts` (441)
-  - `apps/desktop/electron/cli/commands/apps/app-control.ts` (436)
-  - `apps/desktop/electron/cli/core/schema-bridge.ts` (403)
+  - `apps/desktop/electron/cli/core/schema-bridge.ts` (459)
 - External dependencies of note:
   - Pi SDK `ToolDefinition` / `ExtensionContext`
-  - Electron `BrowserWindow` / `webContents.executeJavaScript()`
-  - shared infra singletons (`workspaceManager`, `containerManager`, VCS/artifact managers)
-  - plugin bridge policy in `electron/features/plugins/bridge-policy`
-  - host/container `gog` execution for Google auth/Gmail/Calendar flows
-- Upstream callers: 26 importers outside this folder. Runtime-critical callers are `apps/desktop/electron/ipc/agent/core/agent.ts`, `apps/desktop/electron/features/apps/extensions/create-sero-extension.ts`, `apps/desktop/electron/features/subagent/runtime/{runner,loader}.ts`, and `apps/desktop/electron/features/container/tools/tools.ts`.
-- Downstream dependencies: every bridged extension tool/command, session-scoped `sessionRuntime` side effects, CLI prompt generation, and per-turn command budgeting.
+  - shared infra singletons (`workspaceManager`, `containerManager`)
+  - session bridge/runtime hooks in `apps/desktop/electron/cli/bridges/*.ts`
+  - plugin lifecycle + discovery metadata in `apps/desktop/electron/features/{plugins,apps/discovery}/**`
+  - plugin contract types in `packages/common/src/plugins.ts`
+- Upstream callers of note:
+  - `apps/desktop/electron/ipc/agent/core/{agent.ts,agent-prompt.ts,agent-session-open.ts}`
+  - `apps/desktop/electron/features/apps/extensions/create-sero-extension.ts`
+  - `apps/desktop/electron/features/subagent/runtime/{loader,runner}.ts`
+  - `apps/desktop/electron/features/container/tools/tools.ts`
+- Downstream dependencies:
+  - every bridged app/plugin tool and slash command
+  - CLI prompt generation and help output
+  - execution-scoped `sessionRuntime` side effects (`sendUserMessage`, `sendMessage`)
+  - plugin install/update hot-load expectations for bridged commands
 - Test coverage note: 17 focused test files live under `apps/desktop/electron/__tests__/cli/**`.
 
 ## Architectural notes
-- This is the practical center of AD-020. `bridgeExtensionTools()` mutates loaded extension tool/command maps, caches session-local copies in `bridges/extension-session-bridge.ts`, and relies on execute-time resolution instead of registration-time closure capture.
-- `core/tool.ts` owns the behavior-sensitive runtime rules: multi-command batching, timeout budgets, rate limiting, legacy image fallback, and the narrow `sessionRuntime` capability used by bridged tools.
-- `core/schema-bridge.ts` is the generic tool-to-CLI adapter. It performs schema introspection, arg coercion, help generation, tool execution, and bridged slash-command wrapping in one place.
-- `commands/apps/app-control.ts` reimplements the same renderer-control path that already exists in `apps/desktop/electron/ipc/apps/app-control.ts`: both call renderer globals through `webContents.executeJavaScript()` and depend on `window.__appControl` / `window.sero.appControl` being present.
-- `commands/integrations/google.ts` is the only built-in CLI surface that dynamically switches between host execution and container execution based on workspace/container state.
-- Turn budgets are keyed by workspace + turn id in `bridges/agent-bridge.ts`, not by command name.
+- `bridgeExtensionTools()` in `apps/desktop/electron/cli/index.ts:187-225` still mutates extension tool maps during resource loading, caches session-local copies in `bridges/extension-session-bridge.ts:1-109`, and registers app/plugin commands into one process-global `CliRegistry`.
+- The bridge now supports custom tool-level CLI metadata (`definition.cli`) in `core/schema-bridge.ts:344-427`, which lets plugins override builtin command names/help/summary and provide raw-args execution paths.
+- Normal bridged tool execution already re-resolves the live session tool definition at execute time (`core/schema-bridge.ts:402-410`), but the custom CLI bridge path still executes the handler captured when the command was first registered (`core/schema-bridge.ts:392-399`).
+- Plugin install/uninstall currently reloads active session resource loaders (`apps/desktop/electron/ipc/integrations/plugins.ts:23-45`, `apps/desktop/electron/ipc/agent/core/agent.ts:54-56`) and clears plugin-policy caches (`apps/desktop/electron/features/plugins/manager.ts:295-330`), but there is no symmetrical rebuild/removal step for process-global app-source CLI registrations.
+- Plugin compatibility metadata is shared and parsed (`packages/common/src/plugins.ts:19-28`, `apps/desktop/electron/features/apps/discovery/index.ts:175-223`) but still not enforced during install/load.
 
 ## Runtime-sensitive surfaces
-- Multi-command batches intentionally degrade to text-only output when any command emits rich/image content; future cleanup must preserve `details.richOutputFallback` and the user-facing fallback notice.
+- Multi-command batches intentionally degrade to text-only output when any command emits rich/image content; cleanup must preserve `details.richOutputFallback` and the existing fallback notice.
 - Interactive commands (`question`, `questionnaire`, `interview`, and CLI confirmation prompts) intentionally bypass per-command and batch timeouts.
-- Session-local tool/command resolution must stay scoped to the active session; cleanup here must not accidentally reuse another session's extension closures.
-- `app-control` and `gog-runner` are especially behavior-sensitive:
-  - `app-control` depends on renderer globals, timing, screenshots, and recording state.
-  - `gog-runner` depends on Sero-managed Google credentials and the host-vs-container execution split.
+- Session-local tool/command resolution must stay scoped to the active session; cleanup here must not reintroduce first-session closure capture.
+- Plugin install/update promises immediate hot-loading of bridged CLI commands in docs (`docs/plugins/technical.md:354-357`), so command-registration freshness is now a user-visible contract, not just an internal convenience.
+- Plugin-owned commands that emit follow-up chat messages rely on execution-scoped `sessionRuntime`; any registry/lifecycle refactor must preserve that narrow runtime path.
+- External-plugin compatibility is now more sensitive after the Google cutover because some old shell-specific bridges are gone; unsupported hosts need a fail-closed path instead of relying on reviewer coordination.
 
 ## Surprising discoveries
-- There are no 500+ LOC violations, but four separate modules above 400 LOC all sit directly on the AD-020 runtime path.
-- The CLI already has unusually strong direct test coverage for a main-process runtime seam, which makes targeted refactors much safer than this file layout suggests.
-- The remaining type escape hatches are concentrated exactly where the bridge crosses boundaries: schema walking, bridged command context assembly, tool-update forwarding, and `gog` exec error handling.
-- `commands/apps/app-control.ts` duplicates a host-side renderer bridge that the IPC layer already implements, so app automation fixes currently have two main-process copies to keep in sync.
+- The generic AD-020 bridge is only half-dynamic today: plain bridged tools resolve live session definitions at execute time, but custom `tool.cli.execute` handlers remain sticky after first registration.
+- `docs/plugins/technical.md:354-357` and `docs/plugins/guide.md:465-466` currently overstate plugin hot-update behavior: resource reloads happen, but process-global custom app commands can still serve stale help/execution after plugin reinstall/update.
+- `minSeroVersion` is parsed and surfaced for search/display, but install/load paths do not enforce it, and the desktop host version is still `0.1.0` in `apps/desktop/package.json:3`, which makes cross-repo migrations difficult to gate safely.
+- The global CLI registry stores app commands in a flat namespace keyed only by command name, so plugin-origin commands need explicit provenance/ownership semantics if they are going to become truly upsertable/removable.
 
 ## Post-fix snapshot — 2026-04-13
 
@@ -83,3 +87,22 @@ This folder is the AD-020 bridge that collapses built-in app commands, bridged e
 
 ### Still outstanding
 - Low-only follow-up: decide whether shared CLI flag parsing should stay long-flags-only or gain scoped short-flag support so command-local cleanup hacks disappear.
+
+## Post-review snapshot — 2026-04-18 (Google migration follow-up planning)
+
+### Metrics after review
+- Total files: 39
+- Total LOC: 3,518
+- Largest file: `apps/desktop/electron/cli/core/schema-bridge.ts` (459 LOC)
+- Files over 500 LOC: none
+
+### What changed
+- Re-reviewed the AD-020 bridge after the Google external-plugin cutover and found two host-owned platform follow-ups that are broader than the Google plugin itself.
+- Confirmed that custom bridged plugin commands are not truly hot-swappable after install/update because the registry keeps the first captured `cli.execute` closure even though normal bridged tools already re-resolve live definitions.
+- Confirmed that host/plugin compatibility metadata (`minSeroVersion`) is still declarative only, with no enforced version/capability gate during install/load.
+- Reopened the CLI deslopify plan as the home for a separate platform hardening pass before the Google PR pair is re-reviewed for merge.
+
+### Still outstanding
+- Add provenance-aware app-command lifecycle management so process-global app/plugin CLI registrations can be updated or removed safely after session/plugin reloads.
+- Add a real host/plugin compatibility contract (runtime host version + enforced capability/version checks) before relying on external plugin migrations that remove old shell-owned seams.
+- Re-review the Google migration PRs after those core fixes land and integrate the final compatibility declaration there.
