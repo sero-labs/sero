@@ -91,6 +91,126 @@ at `extension/tsconfig.json`).
 - For extension-only plugins, remove the Vite `dev` / `build` scripts and keep an extension-only `typecheck`
 - `devPort` must be unique — check existing plugins first
 - Omit `bridgeTools` in `sero.plugin` to bridge all tools by default
+- Add `requiredHostCapabilities` only for seams the plugin actually needs:
+  - `appAgent.invokeTool` for `useAppTools()` / `window.sero.appAgent.invokeTool(...)`
+  - `tool.cli` for manifest-driven CLI bridging, custom tool `cli` metadata, or builtin override behavior
+
+### Quick do / don't guide
+
+| Situation | Do | Don't |
+|-----------|----|-------|
+| UI button needs to sign in, refresh, sync, or fetch data | Register a normal plugin tool and call it with `useAppTools().run(...)` | Ask the host for a custom API like `window.sero.myPlugin.signIn()` |
+| Plugin tool should also work as `sero mytool ...` | Use `sero.plugin.bridgeTools` | Add special host-side command wiring for that plugin |
+| Plugin CLI needs custom subcommands/help/raw args | Put that logic on the tool's `cli` field | Build a second parallel CLI implementation in the host |
+| Plugin needs host support for direct UI->tool calls | Declare `requiredHostCapabilities: ["appAgent.invokeTool"]` | Assume every host supports it without declaring it |
+| Plugin needs bridged CLI behavior | Declare `requiredHostCapabilities: ["tool.cli"]` | Rely on unstated host behavior |
+| Extracting a built-in plugin to external | Move plugin-specific logic into the plugin | Leave plugin-specific preload/IPC/types in the Sero host |
+
+### Mini examples
+
+#### Example 1: UI button triggers plugin auth
+
+Use this when a React button should start a plugin-owned action.
+
+```tsx
+import { useAppTools } from '@sero-ai/app-runtime';
+
+export function MyApp() {
+  const { run } = useAppTools();
+
+  async function handleSignIn() {
+    await run('myapp_auth', { action: 'login' });
+  }
+
+  return <button onClick={handleSignIn}>Sign in</button>;
+}
+```
+
+Manifest requirement:
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "requiredHostCapabilities": ["appAgent.invokeTool"]
+    }
+  }
+}
+```
+
+#### Example 2: Plugin exposes `sero myapp ...`
+
+Use this when a plugin tool should be available as a normal Sero CLI command.
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "bridgeTools": ["myapp"]
+    }
+  }
+}
+```
+
+```ts
+pi.registerTool({
+  name: 'myapp',
+  label: 'My App',
+  description: 'Manage My App data',
+  parameters: Params,
+  async execute() {
+    return {
+      content: [{ type: 'text', text: 'Done' }],
+      details: {},
+    };
+  },
+});
+```
+
+Result: users and the agent can invoke the bridged command as `sero myapp ...`.
+
+#### Example 3: Plugin replaces a builtin command intentionally
+
+Use this only when the plugin is deliberately taking over an existing command name.
+
+```ts
+pi.registerTool({
+  name: 'google',
+  label: 'Google',
+  description: 'Google integration',
+  parameters: Params,
+  async execute() {
+    return {
+      content: [{ type: 'text', text: 'Done' }],
+      details: {},
+    };
+  },
+  cli: {
+    summary: 'Google tools',
+    help: 'sero google <subcommand>',
+    overrideBuiltin: true,
+    async execute(args, ctx) {
+      return {
+        output: `Handled: ${args.join(' ')}`,
+        exitCode: 0,
+      };
+    },
+  },
+});
+```
+
+Manifest requirement:
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "bridgeTools": ["google"],
+      "requiredHostCapabilities": ["tool.cli"]
+    }
+  }
+}
+```
 
 ---
 
@@ -300,6 +420,34 @@ export default function (pi: ExtensionAPI) {
 - Handle both `session_start` and `session_switch`
 - If a bridged tool needs current-session side effects, depend on the execution context instead of capturing a registration-scoped `pi` object inside tool logic
 
+**Optional: custom bridged CLI metadata**
+
+When a plugin tool should expose a richer `sero <command> ...` surface, keep that CLI behavior on the tool definition itself:
+
+```typescript
+pi.registerTool({
+  name: 'myapp',
+  // ...normal tool fields...
+  cli: {
+    summary: 'Manage My App data',
+    help: 'sero myapp <subcommand> [options]',
+    group: 'Apps',
+    async execute(args, context, onUpdate) {
+      return {
+        output: `Handled args: ${args.join(' ')}`,
+        exitCode: 0,
+      };
+    },
+  },
+});
+```
+
+Notes:
+- Keep `sero.plugin.bridgeTools` aligned with the tool names you want Sero to bridge
+- Declare `requiredHostCapabilities: ["tool.cli"]` when depending on custom tool `cli` behavior
+- Use `overrideBuiltin: true` only when the plugin intentionally replaces an existing builtin command
+- Custom CLI help/summary/execute behavior is refreshed from the live session tool definition on reload/reinstall
+
 **Profile-aware config/cache paths:**
 - App-specific config/caches outside the workspace state file should resolve from `process.env.SERO_HOME`
 - Pi SDK / agent resources (`settings.json`, `auth.json`, `skills/`, `extensions/`) should resolve from `process.env.PI_CODING_AGENT_DIR`
@@ -352,6 +500,7 @@ import { federation } from '@module-federation/vite';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+  base: process.env.NODE_ENV === 'production' ? './' : '/',
   root: 'ui',                          // Vite serves from ui/
   plugins: [
     react(),
@@ -391,6 +540,7 @@ export default defineConfig({
 ```
 
 **Key points:**
+- `base: './'` in production is required so installed plugin remotes resolve correctly via `sero-ext://`
 - `root: 'ui'` — Vite HTML entry is in `ui/`
 - `exposes` paths relative to **config file** (package root), not `root`
 - `outDir: '../dist/ui'` relative to `root`
@@ -514,6 +664,35 @@ export default MyApp;
 - Import components from `@sero-ai/ui/components/ui/*`
 - Use Tailwind semantic colors (`bg-background`, `text-foreground`, etc.)
 - Use `@sero-ai/ui` components (Button, Card) over raw HTML elements
+- If the UI needs to invoke extension-owned behavior, prefer `useAppTools().run(...)` over adding a plugin-specific preload/IPC bridge
+
+**Mini example — UI button calls a plugin-owned tool**
+
+```tsx
+import { useAppTools } from '@sero-ai/app-runtime';
+
+export function MyApp() {
+  const { run } = useAppTools();
+
+  return (
+    <Button onClick={() => run('myapp_auth', { action: 'login' })}>
+      Sign in
+    </Button>
+  );
+}
+```
+
+If you do this, declare:
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "requiredHostCapabilities": ["appAgent.invokeTool"]
+    }
+  }
+}
+```
 
 ---
 

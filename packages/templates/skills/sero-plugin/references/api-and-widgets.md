@@ -45,6 +45,24 @@ Read-only context about the current app and workspace.
 const { appId, workspacePath } = useAppInfo();
 ```
 
+### useAppTools()
+
+Run one of the current app's own extension tools directly from the UI.
+Prefer this over adding a plugin-specific preload bridge.
+
+```typescript
+import { useAppTools } from '@sero-ai/app-runtime';
+
+const { run } = useAppTools();
+const result = await run('my_tool', { action: 'refresh' });
+```
+
+Properties:
+- Resolves against the current app ID + workspace automatically
+- Uses the same app-scoped extension/session loader as the app agent runtime
+- Returns a shared `AppToolResult` shape (`text`, `content`, `details`, `isError`)
+- Requires the host capability `appAgent.invokeTool`; declare that in `sero.plugin.requiredHostCapabilities` when you depend on this hook
+
 ### useAgentPrompt()
 
 Send a message to the active agent session from your app UI.
@@ -274,8 +292,13 @@ Widget runtime API:
 | `category` | Plugin category (e.g. `"productivity"`) |
 | `tags` | Array of searchable tags |
 | `minSeroVersion` | Minimum compatible Sero version |
+| `requiredHostCapabilities` | Explicit host seams the plugin depends on, such as `appAgent.invokeTool` or `tool.cli` |
 | `preBuilt` | Whether plugin ships pre-built |
 | `bridgeTools` | `true` (default/omit), `false`, or `string[]` of tool names |
+
+Common capability rules:
+- Declare `appAgent.invokeTool` when UI/runtime code uses `useAppTools()` or `window.sero.appAgent.invokeTool(...)`
+- Declare `tool.cli` when the plugin depends on bridged CLI behavior such as `bridgeTools`, custom tool `cli` metadata, or builtin override behavior
 
 ### State scope
 

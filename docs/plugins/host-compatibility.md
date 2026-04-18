@@ -117,6 +117,122 @@ host becomes compatible again.
 Unsupported plugins remain discoverable/browseable in the App Store, but they
 show an unsupported-host state and are not activatable.
 
+## Quick do / don't guide
+
+| Situation | Do | Don't |
+|-----------|----|-------|
+| UI button needs to sign in, refresh, sync, or fetch data | Register a normal plugin tool and call it with `useAppTools().run(...)` | Ask the host for a custom API like `window.sero.myPlugin.signIn()` |
+| Plugin tool should also work as `sero mytool ...` | Use `sero.plugin.bridgeTools` | Add special host-side command wiring for that plugin |
+| Plugin CLI needs custom subcommands/help/raw args | Put that logic on the tool's `cli` field | Build a second parallel CLI implementation in the host |
+| Plugin needs host support for direct UI->tool calls | Declare `requiredHostCapabilities: ["appAgent.invokeTool"]` | Assume every host supports it without declaring it |
+| Plugin needs bridged CLI behavior | Declare `requiredHostCapabilities: ["tool.cli"]` | Rely on unstated host behavior |
+| Extracting a built-in plugin to external | Move plugin-specific logic into the plugin | Leave plugin-specific preload/IPC/types in the Sero host |
+
+## Mini examples
+
+### Example 1: UI button triggers plugin auth
+
+Use this when a React button should start a plugin-owned action.
+
+```tsx
+import { useAppTools } from '@sero-ai/app-runtime';
+
+export function MyApp() {
+  const { run } = useAppTools();
+
+  async function handleSignIn() {
+    await run('myapp_auth', { action: 'login' });
+  }
+
+  return <button onClick={handleSignIn}>Sign in</button>;
+}
+```
+
+Manifest requirement:
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "requiredHostCapabilities": ["appAgent.invokeTool"]
+    }
+  }
+}
+```
+
+### Example 2: Plugin exposes `sero myapp ...`
+
+Use this when a plugin tool should be available as a normal Sero CLI command.
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "bridgeTools": ["myapp"]
+    }
+  }
+}
+```
+
+```ts
+pi.registerTool({
+  name: 'myapp',
+  label: 'My App',
+  description: 'Manage My App data',
+  parameters: Params,
+  async execute() {
+    return {
+      content: [{ type: 'text', text: 'Done' }],
+      details: {},
+    };
+  },
+});
+```
+
+Result: users and the agent can invoke the bridged command as `sero myapp ...`.
+
+### Example 3: Plugin replaces a builtin command intentionally
+
+Use this only when the plugin is deliberately taking over an existing command name.
+
+```ts
+pi.registerTool({
+  name: 'google',
+  label: 'Google',
+  description: 'Google integration',
+  parameters: Params,
+  async execute() {
+    return {
+      content: [{ type: 'text', text: 'Done' }],
+      details: {},
+    };
+  },
+  cli: {
+    summary: 'Google tools',
+    help: 'sero google <subcommand>',
+    overrideBuiltin: true,
+    async execute(args, ctx) {
+      return {
+        output: `Handled: ${args.join(' ')}`,
+        exitCode: 0,
+      };
+    },
+  },
+});
+```
+
+Manifest requirement:
+
+```json
+{
+  "sero": {
+    "plugin": {
+      "bridgeTools": ["google"],
+      "requiredHostCapabilities": ["tool.cli"]
+    }
+  }
+}
+```
 ## Downstream migration checklist
 
 Use this checklist when updating an external plugin.

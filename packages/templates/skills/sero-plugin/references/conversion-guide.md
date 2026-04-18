@@ -78,6 +78,12 @@ Create a `state-sync.ts` module that handles:
 - Pi SDK resources: `process.env.PI_CODING_AGENT_DIR`
 - Fall back to `~/.pi` only when env vars are unset (Pi CLI mode)
 
+**Do not preserve bespoke host bridges:** If the original Sero-integrated UI
+called a dedicated preload/IPC API (for example `window.sero.<something>`),
+rebase that interaction onto plugin-owned tools via `useAppTools()` or
+`window.sero.appAgent.invokeTool(...)` instead. When you depend on that seam,
+declare `sero.plugin.requiredHostCapabilities: ["appAgent.invokeTool"]`.
+
 **Pattern — sync on session start:**
 
 ```typescript
