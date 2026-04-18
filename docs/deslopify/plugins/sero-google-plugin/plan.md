@@ -100,6 +100,7 @@ A fully self-contained Google plugin is **feasible, but not by simply moving the
 
 ### Execution protocol
 - [x] Work strictly in phase order. Do not start a later phase until the current phase is complete.
+- [x] Use subagents (if available) for tasks that are independent and parallelizable
 - [x] Land each phase in its **own commit**. Do not batch multiple phases into one commit.
 - [x] Before committing **any** phase, run the relevant tests for the touched code and run `pnpm typecheck` from the monorepo root.
 - [x] Do not commit if tests or `pnpm typecheck` are failing.
