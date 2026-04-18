@@ -53,6 +53,10 @@ Changes made during code quality passes. Most recent first.
 | `../plugins/sero-google-plugin/README.md` | Documented operator-only auth-management flows plus host-fallback/manual-smoke expectations for container-backed `sero google ...` parity |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 7 code pass, checked off completed checklist items, and left final manual smoke/CSP revalidation explicitly pending |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker to show the Phase 7 code pass landed while final host/container smoke and in-app CSP revalidation remain pending |
+| `../plugins/sero-google-plugin/extension/google/{cli-handlers,cli-output}.ts` | Added agent-readable Gmail/Calendar CLI summaries in normal tool output while preserving raw gog JSON in details for drill-down |
+| `../plugins/sero-google-plugin/extension/__tests__/google-cli-output.test.ts` | New — locks the human-readable CLI summary contract for Gmail search and Calendar event listings |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the follow-up Phase 7 CLI summary polish pass and refreshed the plugin metrics/log |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the follow-up agent-readable CLI summary pass |
 
 ---
 

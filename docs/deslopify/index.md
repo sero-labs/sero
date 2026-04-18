@@ -94,7 +94,7 @@ as backlog-only follow-ups, not active refactor-wave work.
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
   — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
 - [`plugins/sero-google-plugin/`](./plugins/sero-google-plugin/plan.md)
-  — *In progress — Phases 0–6 completed 2026-04-18, and the Phase 7 code pass landed via `16c53ac`; final host/container smoke plus in-app Gmail CSP revalidation still remain pending*
+  — *In progress — Phases 0–6 completed 2026-04-18, the Phase 7 code pass landed via `16c53ac`, and follow-up CLI summary polish landed via `e81bac9`; final host/container smoke plus in-app Gmail CSP revalidation still remain pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)
