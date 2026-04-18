@@ -192,23 +192,23 @@ Phase 0 policy lock (2026-04-17):
   - [x] The UI no longer contains a second Gmail/Calendar mapping implementation.
 
 ### Phase 4 — Rebase the UI onto generic plugin-owned execution
-- [ ] Phase 4 complete
-- [ ] Replace `window.sero.google` usage in `plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts:30-34` with the generic app-tool bridge plus generic plugin-config access if still needed.
-- [ ] Make UI actions call plugin-owned tools/auth handlers instead of shell-owned Google IPC handlers.
-- [ ] Keep the federated UI surface unchanged for users.
-  - [ ] sign-in
-  - [ ] refresh
-  - [ ] mail
-  - [ ] calendar
-  - [ ] widgets
-- [ ] Add focused UI regression coverage for:
-  - [ ] sign-in state transitions
-  - [ ] expired-session recovery
-  - [ ] inbox/thread fetch flows
-  - [ ] calendar fetch/detail flows
-- [ ] Exit criteria confirmed.
-  - [ ] The plugin UI no longer imports or assumes `window.sero.google`.
-  - [ ] The Google plugin still works when installed externally.
+- [x] Phase 4 complete
+- [x] Replace `window.sero.google` usage in `plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts:30-34` with the generic app-tool bridge plus generic plugin-config access if still needed.
+- [x] Make UI actions call plugin-owned tools/auth handlers instead of shell-owned Google IPC handlers.
+- [x] Keep the federated UI surface unchanged for users.
+  - [x] sign-in
+  - [x] refresh
+  - [x] mail
+  - [x] calendar
+  - [x] widgets
+- [x] Add focused UI regression coverage for:
+  - [x] sign-in state transitions
+  - [x] expired-session recovery
+  - [x] inbox/thread fetch flows
+  - [x] calendar fetch/detail flows
+- [x] Exit criteria confirmed.
+  - [x] The plugin UI no longer imports or assumes `window.sero.google`.
+  - [x] The Google plugin still works when installed externally.
 
 ### Phase 5 — Land the CLI migration
 - [ ] Phase 5 complete
@@ -253,3 +253,4 @@ Phase 0 policy lock (2026-04-17):
 - 2026-04-17 — Completed Phase 1 in core only: added a generic `appAgent.invokeTool(...)` / `useAppTools().run(...)` seam, normalized app-tool result typing in shared contracts, wired preload + IPC + app-session execution together, and added focused regressions proving a federated UI can call an app-local extension tool without a bespoke preload namespace.
 - 2026-04-18 — Completed Phase 2 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `9ccc9fa`: ported the shell Google auth/runtime stack into plugin-owned `extension/google/` modules, rebased `extension/gogcli.ts` on the new profile-aware client/keyring helpers, and added focused regressions for loopback login, credential import, client-bucket resolution, and buggy-keyring migration.
 - 2026-04-18 — Completed Phase 3 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `704425f`: extracted canonical Gmail/Calendar state mappers into `shared/google-state.ts`, rebased both the extension and `ui/hooks/useGoogleApi.ts` onto those helpers so UI-triggered and agent-triggered fetches write the same `GoogleAppState` shape, and deleted the old renderer-only `ui/components/gmail-parser.ts` duplication.
+- 2026-04-18 — Completed Phase 4 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `f6de64b`: replaced `window.sero.google` with generic `appAgent.invokeTool(...)` calls in `ui/hooks/useGoogleApi.ts`, added a plugin-owned internal `google_auth` tool plus a date-range `gcal` action so sign-in/refresh/mail/calendar flows all execute through plugin-owned handlers, and added focused UI regressions for auth transitions, expired-session recovery, inbox/thread fetches, and calendar detail behavior.

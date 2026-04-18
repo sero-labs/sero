@@ -94,7 +94,7 @@ as backlog-only follow-ups, not active refactor-wave work.
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
   — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
 - [`plugins/sero-google-plugin/`](./plugins/sero-google-plugin/plan.md)
-  — *In progress — Phases 0–3 completed 2026-04-18; canonical Gmail/Calendar state shaping is now shared between the extension and UI, while the execution-path rebase, CLI parity, and final shell-glue deletion remain pending*
+  — *In progress — Phases 0–4 completed 2026-04-18; the federated UI now runs through generic app-agent tool invocation, while CLI parity and final shell-glue deletion remain pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)

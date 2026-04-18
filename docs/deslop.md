@@ -23,6 +23,14 @@ Changes made during code quality passes. Most recent first.
 | `../plugins/sero-google-plugin/extension/__tests__/google-state.test.ts` | New — regression coverage for canonical Gmail HTML-body mapping and Calendar attendee/reminder/link metadata shaping |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 3 canonical-state pass, refreshed plugin metrics, and marked the phase complete |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–3 complete with Phase 4 next |
+| `../plugins/sero-google-plugin/extension/{app-state.ts,tool-results.ts}` | New — shared state I/O and consistent text/error tool result helpers for UI-driven plugin tool execution |
+| `../plugins/sero-google-plugin/extension/google/auth-tool.ts` | New — plugin-owned internal auth/config tool for UI status, login, logout, and credential save flows |
+| `../plugins/sero-google-plugin/extension/index.ts` | Added the UI-facing `gcal` range action, consistent error-prefixed tool results, and auth-tool registration for generic app-tool invocation |
+| `../plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts` | Rebased the Google UI off `window.sero.google` onto generic `appAgent.invokeTool(...)` execution while keeping the federated surface unchanged |
+| `../plugins/sero-google-plugin/ui/{hooks/useGoogleApi.test.tsx,components/CalendarView.test.tsx}` | New — focused UI regressions for auth transitions, expired-session recovery, inbox/thread fetches, and calendar detail behavior |
+| `../plugins/sero-google-plugin/{README.md,vite.config.ts,package.json,package-lock.json}` | Updated docs + test/build tooling for the bridge rebase, internal-tool bridge policy, and Vitest-safe Module Federation handling |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 4 UI-bridge rebase, refreshed plugin metrics, and marked the phase complete |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–4 complete with Phase 5 next |
 
 ---
 

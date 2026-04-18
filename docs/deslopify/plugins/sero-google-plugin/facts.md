@@ -129,3 +129,24 @@ _Last reviewed: 2026-04-18_
 - Phase 4 still needs to replace `window.sero.google` usage with the generic app-tool bridge; Phase 3 only unified the shaping contract, not the execution path.
 - Phase 5 still needs to preserve the public `sero google ...` CLI contract from the plugin side.
 - Phase 6 still owns deletion of the remaining Google-specific shell preload/IPC/runtime glue after the plugin path is fully green.
+
+## Post-fix snapshot — 2026-04-18 (Phase 4)
+
+### Metrics after fixes
+- Total plugin files: 44 (was 39; added internal auth/state helper modules plus focused UI regression coverage in the external plugin repo)
+- Largest plugin file: `plugins/sero-google-plugin/ui/hooks/useGoogleApi.test.tsx` (333 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: none found in the Phase 4 surface; no `@ts-ignore`, `@ts-expect-error`, `as any`, or double-cast escapes were added
+
+### What changed
+- Rebased `plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts` off `window.sero.google` and onto the generic app-agent tool bridge by resolving `appAgent.invokeTool(...)` from app context instead of assuming a Google-specific preload namespace.
+- Added plugin-owned state/auth helpers in `plugins/sero-google-plugin/extension/{app-state.ts,tool-results.ts}` and a new internal `plugins/sero-google-plugin/extension/google/auth-tool.ts` so the UI now uses plugin-owned auth/config handlers for status, login, logout, and credential saving.
+- Extended `plugins/sero-google-plugin/extension/index.ts` with consistent error-prefixed tool results plus a new `gcal` `range` action, letting refresh/mail/calendar UI flows execute entirely through plugin tools while leaving the public CLI-migration work for Phase 5.
+- Restricted manifest-driven CLI bridging to `gmail` / `gcal` in `plugins/sero-google-plugin/package.json`, keeping the new `google_auth` tool UI-internal until the Phase 5 parity tool lands.
+- Added focused UI regression coverage in `plugins/sero-google-plugin/ui/hooks/useGoogleApi.test.tsx` and `plugins/sero-google-plugin/ui/components/CalendarView.test.tsx`, and disabled Module Federation only during Vitest runs in `vite.config.ts` so external-plugin UI tests can execute without HTTP remote imports.
+- Updated the plugin README to document the generic app-tool bridge runtime and the new calendar date-range action.
+- Executed the phase as a cross-repo pass: implementation landed in `../plugins/sero-google-plugin`, while tracking docs stayed in this monorepo.
+
+### Still outstanding
+- Phase 5 still needs to land the plugin-owned `google` tool/command surface that preserves the public `sero google ...` CLI contract chosen in Phase 0.
+- Phase 6 still needs to delete the remaining Google-specific shell preload/IPC/runtime glue after the plugin path is fully green.
