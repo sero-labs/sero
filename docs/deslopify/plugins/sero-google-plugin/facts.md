@@ -1,6 +1,6 @@
 # Facts — plugins/sero-google-plugin
 
-_Last reviewed: 2026-04-17_
+_Last reviewed: 2026-04-18_
 
 ## What this code does
 `plugins/sero-google-plugin/` is an external Sero integrations plugin that exposes Gmail and Google Calendar to both the agent and the federated React UI. The package already owns the app manifest, widgets, shared state shape, and the `gmail` / `gcal` extension tools, but the desktop shell still owns the plugin’s OAuth flow, gog credential provisioning, direct UI execution bridge, and the richer built-in `sero google ...` CLI surface.
@@ -89,3 +89,23 @@ _Last reviewed: 2026-04-17_
 - Phase 2 still requires the external Google plugin source package to be available for real auth/runtime migration work; this phase only added the core bridge prerequisite.
 - The Google UI still depends on `window.sero.google` today; that rebase stays in Phase 4.
 - Plugin-local migration tests for Google auth/state parity still do not exist and remain required before later cutover phases.
+
+## Post-fix snapshot — 2026-04-18 (Phase 2)
+
+### Metrics after fixes
+- Total plugin files: 38 (was 24; added 9 plugin-owned auth/runtime modules and 5 focused regression tests in the external plugin repo)
+- Largest plugin file: `plugins/sero-google-plugin/extension/index.ts` (335 LOC, unchanged)
+- Files over 500 LOC: none
+- Type escape hatches remaining: untouched gog JSON mapping still uses `any` in `extension/index.ts` and `ui/hooks/useGoogleApi.ts`; Phase 2 added no new escape hatches
+
+### What changed
+- Added plugin-owned Google auth/runtime modules under `plugins/sero-google-plugin/extension/google/` for environment/profile discovery, OAuth config, loopback callback handling, gog path/runtime execution, keyring/client buckets, credential import, migration/status helpers, and a reusable `GoogleAuthManager`.
+- Rebased `plugins/sero-google-plugin/extension/gogcli.ts` on the new modules so Gmail/Calendar tool execution now honors profile-aware `--client` selection, stable keyring password derivation, credential import, and legacy buggy-keyring migration before gog runs.
+- Added plugin-local auth/runtime regression coverage in `plugins/sero-google-plugin/extension/__tests__/google-{auth,config,credentials,keyring,status}.test.ts`, including focused validation for default/non-default profile client buckets, loopback login flow wiring, and legacy token migration discoverability.
+- Kept the shell-owned Google auth/runtime code in place in the monorepo; this phase only moved ownership into the external plugin repo and did not start the UI or shell cutover yet.
+- Executed the phase as a cross-repo pass: implementation landed in `../plugins/sero-google-plugin`, while tracking docs stayed in this monorepo.
+
+### Still outstanding
+- Phase 3 still needs to make the plugin’s Gmail/Calendar state shaping canonical; `extension/index.ts` and `ui/hooks/useGoogleApi.ts` still maintain separate mapping logic today.
+- Phase 4 still needs to rebase the UI off `window.sero.google` and onto the generic app-tool bridge.
+- CLI parity (`sero google ...`) and final shell-glue deletion remain later migration phases.

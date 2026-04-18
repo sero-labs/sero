@@ -4,6 +4,21 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-04-18
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `../plugins/sero-google-plugin/extension/google/{auth,config,credentials,env,keyring,oauth-loopback,runtime,status,types}.ts` | New — plugin-owned Google auth/runtime modules ported from the shell with profile-aware client buckets, loopback OAuth support, credential import, and legacy-keyring migration helpers |
+| `../plugins/sero-google-plugin/extension/gogcli.ts` | Rebased plugin gog execution on the new auth/runtime helpers so Gmail/Calendar tools honor `--client`, stable keyring passwords, credential import, and migration-aware token discovery |
+| `../plugins/sero-google-plugin/extension/__tests__/google-{auth,config,credentials,keyring,status}.test.ts` | New — focused regressions for default/non-default profile auth behavior, loopback login wiring, credential import, and buggy-keyring migration discoverability |
+| `../plugins/sero-google-plugin/{package.json,package-lock.json}` | Added plugin-local Vitest coverage support for the migrated auth/runtime surface |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 2 cross-repo auth/runtime migration, refreshed metrics, and marked the phase complete |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–2 complete with Phase 3 next |
+
+---
+
 ## 2026-04-17
 
 ### Files Changed

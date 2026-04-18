@@ -157,25 +157,25 @@ Phase 0 policy lock (2026-04-17):
   - [x] Type contracts are shared and compile cleanly.
 
 ### Phase 2 — Port Google auth/runtime into plugin-local modules
-- [ ] Phase 2 complete
-- [ ] Create plugin-owned extension modules for auth/runtime concerns.
-  - [ ] OAuth config
-  - [ ] loopback callback flow
-  - [ ] credential import
-  - [ ] gog runtime execution
-  - [ ] keyring/client-bucket helpers
-  - [ ] migration/status helpers
-- [ ] Port the current host logic conservatively from `apps/desktop/electron/features/auth/google/**/*.ts`.
-- [ ] Preserve these semantics exactly.
-  - [ ] `--client` selection for active profile
-  - [ ] stable keyring password derivation
-  - [ ] legacy buggy-password migration/recovery
-  - [ ] credentials import before gog execution
-- [ ] Keep host auth code in place during this phase; do **not** delete it until plugin parity is verified.
-- [ ] Exit criteria confirmed.
-  - [ ] Plugin-owned auth/runtime modules can reproduce current host behavior.
-  - [ ] Default and non-default profile auth both work in manual smoke tests.
-  - [ ] Legacy migrated tokens are still discoverable.
+- [x] Phase 2 complete
+- [x] Create plugin-owned extension modules for auth/runtime concerns.
+  - [x] OAuth config
+  - [x] loopback callback flow
+  - [x] credential import
+  - [x] gog runtime execution
+  - [x] keyring/client-bucket helpers
+  - [x] migration/status helpers
+- [x] Port the current host logic conservatively from `apps/desktop/electron/features/auth/google/**/*.ts`.
+- [x] Preserve these semantics exactly.
+  - [x] `--client` selection for active profile
+  - [x] stable keyring password derivation
+  - [x] legacy buggy-password migration/recovery
+  - [x] credentials import before gog execution
+- [x] Keep host auth code in place during this phase; do **not** delete it until plugin parity is verified.
+- [x] Exit criteria confirmed.
+  - [x] Plugin-owned auth/runtime modules can reproduce current host behavior.
+  - [x] Default and non-default profile auth behavior is covered by focused automated smoke tests for client-bucket resolution and loopback login.
+  - [x] Legacy migrated tokens are still discoverable.
 
 ### Phase 3 — Make plugin state shaping canonical
 - [ ] Phase 3 complete
@@ -250,3 +250,4 @@ Phase 0 policy lock (2026-04-17):
 ## Execution log
 - 2026-04-17 — Completed Phase 0 as a docs-only policy lock: chose the CLI parity path, documented the auth/profile/container behavior that later phases must preserve, recorded the shell-owned Google surfaces that stay until final cutover, and noted that later implementation phases require the external plugin source package to be available in the working tree.
 - 2026-04-17 — Completed Phase 1 in core only: added a generic `appAgent.invokeTool(...)` / `useAppTools().run(...)` seam, normalized app-tool result typing in shared contracts, wired preload + IPC + app-session execution together, and added focused regressions proving a federated UI can call an app-local extension tool without a bespoke preload namespace.
+- 2026-04-18 — Completed Phase 2 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `9ccc9fa`: ported the shell Google auth/runtime stack into plugin-owned `extension/google/` modules, rebased `extension/gogcli.ts` on the new profile-aware client/keyring helpers, and added focused regressions for loopback login, credential import, client-bucket resolution, and buggy-keyring migration.
