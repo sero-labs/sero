@@ -229,6 +229,40 @@ describe('app discovery devPort handling', () => {
     }
   });
 
+  it('still enforces compatibility requirements when unrelated plugin metadata is malformed', async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-plugin-invalid-compat-'));
+    process.env.SERO_HOME_OVERRIDE = tempRoot;
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      const packageDir = path.join(tempRoot, 'invalid-compatible-plugin');
+      await writeManifestPackage(packageDir, 'invalid-compatible-plugin', 'Invalid Compatible Plugin', {
+        category: 'not-a-real-category',
+        tags: ['test'],
+        minSeroVersion: '9.9.9',
+      });
+
+      const { discoverApps, registerAppPath, unregisterAppPath } = await importAppDiscovery();
+
+      registerAppPath(packageDir);
+      const manifest = (await discoverApps()).find((app) => app.id === 'invalid-compatible-plugin');
+
+      expect(manifest).toMatchObject({
+        id: 'invalid-compatible-plugin',
+        isPlugin: true,
+        plugin: null,
+      });
+      expect(manifest?.hostCompatibility?.supported).toBe(false);
+      expect(manifest?.hostCompatibility?.issues[0]?.kind).toBe('minSeroVersion');
+
+      unregisterAppPath(packageDir);
+    } finally {
+      warnSpy.mockRestore();
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('marks plugins unsupported when their host requirements are not satisfied', async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-app-discovery-plugin-compat-'));
     process.env.SERO_HOME_OVERRIDE = tempRoot;

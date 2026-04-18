@@ -20,7 +20,10 @@ import { clearAppManifestCache } from '@electron/ipc/agent/handlers/app-agent';
 import { clearPluginBridgePolicyCache } from '@electron/cli';
 import type { SeroAppManifest } from '@/types/ipc';
 import type { InstalledPlugin } from './types';
-import { hasPluginDeclaration, parsePluginMeta } from '../apps/discovery/plugin-meta';
+import {
+  extractPluginCompatibilityRequirements,
+  parsePluginMeta,
+} from '../apps/discovery/plugin-meta';
 import { reconcileInstalledPluginActivation } from './activation';
 import { assertPluginCompatible } from './compatibility';
 import { assertPluginInstallAllowed } from './install-policy';
@@ -257,10 +260,10 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
     await ensurePluginPackageReadyForInstall(staged.stageDir, sourceKind);
 
     const validated = validatePluginPackage(readPkgJsonSync(staged.stageDir));
-    const parsedPlugin = hasPluginDeclaration(validated.pkg)
-      ? parsePluginMeta(validated.pkg.sero?.plugin)
-      : { meta: null, warnings: [] };
-    assertPluginCompatible(parsedPlugin.meta);
+    const compatibilityRequirements = extractPluginCompatibilityRequirements(
+      validated.pkg.sero?.plugin,
+    );
+    assertPluginCompatible(compatibilityRequirements);
     assertPreparedUiExists(staged.stageDir, validated.app);
     const installPath = resolvePluginInstallDir(PLUGINS_DIR, validated.app.id);
     assertPluginInstallAllowed(await discoverApps(), validated.app.id, installPath);

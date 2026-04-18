@@ -64,4 +64,20 @@ describe('plugin compatibility', () => {
       capability: 'tool.cli',
     }));
   });
+
+  it('fails closed for forward host capabilities the current build does not recognize', () => {
+    const compatibility = evaluatePluginCompatibility(
+      {
+        minSeroVersion: '0.1.0',
+        requiredHostCapabilities: ['future.host.capability'],
+      },
+      makeContext(),
+    );
+
+    expect(compatibility?.supported).toBe(false);
+    expect(compatibility?.issues).toContainEqual(expect.objectContaining({
+      kind: 'requiredHostCapability',
+      capability: 'future.host.capability',
+    }));
+  });
 });

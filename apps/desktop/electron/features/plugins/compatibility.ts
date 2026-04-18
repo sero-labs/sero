@@ -4,8 +4,6 @@ import path from 'path';
 import type {
   PluginCompatibilityIssue,
   PluginCompatibilityStatus,
-  PluginMeta,
-  SeroHostCapability,
 } from '@sero/common';
 import { SERO_HOST_CAPABILITIES } from '@sero/common';
 
@@ -15,7 +13,12 @@ interface DesktopPackageJson {
 
 export interface SeroHostCompatibilityContext {
   hostVersion: string;
-  capabilities: ReadonlySet<SeroHostCapability>;
+  capabilities: ReadonlySet<string>;
+}
+
+interface PluginCompatibilityRequirements {
+  minSeroVersion?: string;
+  requiredHostCapabilities?: readonly string[];
 }
 
 let desktopPackageVersion: string | null = null;
@@ -50,7 +53,7 @@ function getRuntimeElectronVersion(): string | null {
 export function getSeroHostCompatibilityContext(): SeroHostCompatibilityContext {
   return {
     hostVersion: getRuntimeElectronVersion() ?? getDesktopPackageVersion(),
-    capabilities: new Set<SeroHostCapability>(SERO_HOST_CAPABILITIES),
+    capabilities: new Set<string>(SERO_HOST_CAPABILITIES),
   };
 }
 
@@ -91,7 +94,7 @@ function minVersionIssue(minSeroVersion: string, hostVersion: string): PluginCom
   };
 }
 
-function missingCapabilityIssue(capability: SeroHostCapability): PluginCompatibilityIssue {
+function missingCapabilityIssue(capability: string): PluginCompatibilityIssue {
   return {
     kind: 'requiredHostCapability',
     capability,
@@ -101,7 +104,7 @@ function missingCapabilityIssue(capability: SeroHostCapability): PluginCompatibi
 }
 
 export function evaluatePluginCompatibility(
-  plugin: PluginMeta | null | undefined,
+  plugin: PluginCompatibilityRequirements | null | undefined,
   context: SeroHostCompatibilityContext = getSeroHostCompatibilityContext(),
 ): PluginCompatibilityStatus | null {
   if (!plugin) return null;
@@ -130,7 +133,7 @@ export function evaluatePluginCompatibility(
 }
 
 export function assertPluginCompatible(
-  plugin: PluginMeta | null | undefined,
+  plugin: PluginCompatibilityRequirements | null | undefined,
   context: SeroHostCompatibilityContext = getSeroHostCompatibilityContext(),
 ): void {
   const compatibility = evaluatePluginCompatibility(plugin, context);

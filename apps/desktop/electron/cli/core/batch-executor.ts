@@ -235,7 +235,10 @@ export async function executeCliBatch(
 
     try {
       const tokens = tokenizeCliInput(line);
-      const resolved = registry.resolveTokens(tokens);
+      const resolved = registry.resolveTokens(tokens, {
+        workspaceId: context.workspaceId,
+        sessionId: context.invocation.sessionId,
+      });
 
       const turnId = context.invocation.turnId;
       if (

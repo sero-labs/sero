@@ -107,6 +107,19 @@ describe('plugin manager discovery registration', () => {
     await expect(fs.stat(path.join(agentDir, 'packages', 'future-plugin'))).rejects.toThrow();
   });
 
+  it('still blocks installs when compatibility requirements are present alongside invalid plugin metadata', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-invalid-compat-'));
+    const sourceDir = await createPluginSource('invalid-future-plugin', {
+      category: 'not-a-real-category',
+      tags: ['test'],
+      minSeroVersion: '9.9.9',
+    });
+    const { installPlugin, agentDir } = await importModules();
+
+    await expect(installPlugin(sourceDir)).rejects.toThrow('Requires Sero 9.9.9 or newer');
+    await expect(fs.stat(path.join(agentDir, 'packages', 'invalid-future-plugin'))).rejects.toThrow();
+  });
+
   it('reconciles installed plugin activation so unsupported plugins stay on disk but out of settings', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-reconcile-'));
     const { reconcileInstalledPluginActivation, agentDir } = await importModules();

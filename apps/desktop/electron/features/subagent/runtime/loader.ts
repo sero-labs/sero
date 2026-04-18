@@ -37,7 +37,10 @@ export function createSubagentExtensionFactory(
     // ── System prompt injection (CLI + container) ─────────────
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
-      systemPrompt += buildCliPromptBlock();
+      systemPrompt += buildCliPromptBlock(undefined, {
+        workspaceId: currentWorkspaceId,
+        sessionId: _sessionId,
+      });
 
       if (containerState) {
         systemPrompt += buildContainerPromptBlock(

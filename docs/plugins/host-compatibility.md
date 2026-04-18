@@ -63,8 +63,10 @@ These values are currently recognized by the host:
 - `appAgent.invokeTool`
 - `tool.cli`
 
-Unknown capability strings are ignored during manifest parsing, so downstream
-plugins should only use the canonical values above.
+Unknown capability strings are treated as unmet host requirements, so older
+hosts fail closed instead of partially loading the plugin. Downstream plugins
+should still prefer the canonical values above unless they intentionally depend
+on a newer host seam.
 
 ## When to declare each capability
 

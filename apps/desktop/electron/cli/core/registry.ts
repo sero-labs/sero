@@ -1,3 +1,4 @@
+import { getCliSessionBridge } from '../bridges/session-bridge';
 import type {
   CliAppCommandOwner,
   CliCommand,
@@ -34,6 +35,23 @@ function assertAllowedCommandName(name: string): void {
 interface AppOwnerCommands {
   owner: CliAppCommandOwner;
   commands: Map<string, CliCommand>;
+}
+
+export interface CliRegistryScope {
+  workspaceId?: string;
+  sessionId?: string | null;
+}
+
+function resolveScopedSessionId(scope?: CliRegistryScope): string | null | undefined {
+  if (!scope) return undefined;
+  if (scope.sessionId) return scope.sessionId;
+  if (!scope.workspaceId) return null;
+
+  try {
+    return getCliSessionBridge().getActiveSessionForWorkspace(scope.workspaceId)?.sessionId ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export class CliRegistry {
@@ -75,9 +93,15 @@ export class CliRegistry {
     }
   }
 
-  private buildVisibleCommands(): Map<string, CliCommand> {
+  private buildVisibleCommands(scope?: CliRegistryScope): Map<string, CliCommand> {
     const visible = new Map(this.commands);
+    const scopedSessionId = resolveScopedSessionId(scope);
+
     for (const ownerCommands of this.appOwnerCommands.values()) {
+      if (scope && ownerCommands.owner.sessionId !== scopedSessionId) {
+        continue;
+      }
+
       for (const [name, command] of ownerCommands.commands) {
         visible.set(name, command);
       }
@@ -85,38 +109,38 @@ export class CliRegistry {
     return visible;
   }
 
-  get(name: string): CliCommand | undefined {
-    return this.buildVisibleCommands().get(normalizeName(name));
+  get(name: string, scope?: CliRegistryScope): CliCommand | undefined {
+    return this.buildVisibleCommands(scope).get(normalizeName(name));
   }
 
-  list(): CliCommand[] {
-    return [...this.buildVisibleCommands().values()].sort((a, b) => a.name.localeCompare(b.name));
+  list(scope?: CliRegistryScope): CliCommand[] {
+    return [...this.buildVisibleCommands(scope).values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  findHelpTarget(query: string): CliCommand | undefined {
+  findHelpTarget(query: string, scope?: CliRegistryScope): CliCommand | undefined {
     const normalized = normalizeName(query);
     if (!normalized) return undefined;
-    const exact = this.get(normalized);
+    const exact = this.get(normalized, scope);
     if (exact) return exact;
 
     const tokens = normalized.split(' ');
     for (let len = tokens.length - 1; len >= 1; len--) {
       const candidate = tokens.slice(0, len).join(' ');
-      const hit = this.get(candidate);
+      const hit = this.get(candidate, scope);
       if (hit) return hit;
     }
 
     return undefined;
   }
 
-  resolveTokens(tokens: string[]): CliResolvedCommand {
+  resolveTokens(tokens: string[], scope?: CliRegistryScope): CliResolvedCommand {
     const normalizedTokens = [...tokens];
     if (normalizedTokens[0] === 'sero') normalizedTokens.shift();
     if (normalizedTokens.length === 0) {
       throw new Error('No command provided');
     }
 
-    const visibleCommands = this.buildVisibleCommands();
+    const visibleCommands = this.buildVisibleCommands(scope);
     for (let len = normalizedTokens.length; len >= 1; len--) {
       const name = normalizedTokens.slice(0, len).join(' ');
       const command = visibleCommands.get(name);

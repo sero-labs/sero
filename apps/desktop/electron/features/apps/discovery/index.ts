@@ -16,6 +16,7 @@ import type { SeroAppManifest, SeroWidgetManifest, SettingsPackageSource } from 
 import { SERO_AGENT_DIR, SERO_FIXED_ROOT, SERO_HOME } from '@electron/platform/env';
 import { evaluatePluginCompatibility } from '@electron/features/plugins/compatibility';
 import {
+  extractPluginCompatibilityRequirements,
   hasPluginDeclaration,
   parsePluginMeta,
   warnInvalidPluginMeta,
@@ -113,14 +114,17 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
 
   const pluginDeclared = hasPluginDeclaration(pkgJson);
   const parsedPlugin = parsePluginMeta(pkgJson.sero?.plugin);
+  const compatibilityRequirements = pluginDeclared
+    ? extractPluginCompatibilityRequirements(pkgJson.sero?.plugin)
+    : null;
   if (pluginDeclared) {
     warnInvalidPluginMeta(packagePath, parsedPlugin.warnings);
   }
 
   // Parse widget definitions
   const plugin = parsedPlugin.meta;
-  const hostCompatibility = pluginDeclared
-    ? evaluatePluginCompatibility(plugin)
+  const hostCompatibility = compatibilityRequirements
+    ? evaluatePluginCompatibility(compatibilityRequirements)
     : null;
 
   const widgets: SeroWidgetManifest[] = [];

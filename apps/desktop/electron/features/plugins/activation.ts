@@ -3,7 +3,10 @@ import { readFileSync } from 'fs';
 import path from 'path';
 
 import { SERO_AGENT_DIR } from '@electron/platform/env';
-import { hasPluginDeclaration, parsePluginMeta } from '../apps/discovery/plugin-meta';
+import {
+  extractPluginCompatibilityRequirements,
+  hasPluginDeclaration,
+} from '../apps/discovery/plugin-meta';
 import { evaluatePluginCompatibility } from './compatibility';
 import { getPackagesArray, readSettings, writeSettings } from './settings';
 
@@ -42,7 +45,7 @@ async function collectCompatibleInstalledPluginPaths(): Promise<string[]> {
       if (!pkg?.sero?.app) continue;
 
       const plugin = hasPluginDeclaration(pkg)
-        ? parsePluginMeta(pkg.sero?.plugin).meta
+        ? extractPluginCompatibilityRequirements(pkg.sero?.plugin)
         : null;
       const compatibility = evaluatePluginCompatibility(plugin);
       if (compatibility?.supported === false) continue;

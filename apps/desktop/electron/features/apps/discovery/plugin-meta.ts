@@ -1,8 +1,4 @@
-import type {
-  PluginMeta,
-  SeroHostCapability,
-} from '@sero/common';
-import { SERO_HOST_CAPABILITIES } from '@sero/common';
+import type { PluginMeta } from '@sero/common';
 
 const PLUGIN_CATEGORIES = [
   'productivity',
@@ -32,8 +28,41 @@ function isPluginCategory(value: string): value is PluginMeta['category'] {
   return PLUGIN_CATEGORIES.includes(value as PluginMeta['category']);
 }
 
-function isHostCapability(value: string): value is SeroHostCapability {
-  return SERO_HOST_CAPABILITIES.includes(value as SeroHostCapability);
+export interface PluginCompatibilityRequirements {
+  minSeroVersion?: string;
+  requiredHostCapabilities?: string[];
+}
+
+export function extractPluginCompatibilityRequirements(
+  plugin: unknown,
+): PluginCompatibilityRequirements | null {
+  if (!isRecord(plugin)) {
+    return null;
+  }
+
+  const requirements: PluginCompatibilityRequirements = {};
+
+  if (typeof plugin.minSeroVersion === 'string') {
+    const minSeroVersion = plugin.minSeroVersion.trim();
+    if (minSeroVersion) {
+      requirements.minSeroVersion = minSeroVersion;
+    }
+  }
+
+  if (Array.isArray(plugin.requiredHostCapabilities)) {
+    const requiredHostCapabilities = plugin.requiredHostCapabilities
+      .filter((capability): capability is string => typeof capability === 'string')
+      .map((capability) => capability.trim())
+      .filter(Boolean);
+
+    if (requiredHostCapabilities.length > 0) {
+      requirements.requiredHostCapabilities = requiredHostCapabilities;
+    }
+  }
+
+  return requirements.minSeroVersion || requirements.requiredHostCapabilities?.length
+    ? requirements
+    : null;
 }
 
 export function parsePluginMeta(plugin: unknown): ParsedPluginMetaResult {
@@ -105,7 +134,7 @@ export function parsePluginMeta(plugin: unknown): ParsedPluginMetaResult {
   }
 
   if (Array.isArray(plugin.requiredHostCapabilities)) {
-    const requiredHostCapabilities: SeroHostCapability[] = [];
+    const requiredHostCapabilities: string[] = [];
     plugin.requiredHostCapabilities.forEach((capability, index) => {
       if (typeof capability !== 'string') {
         warnings.push(`ignored non-string \`sero.plugin.requiredHostCapabilities[${index}]\``);
@@ -114,12 +143,6 @@ export function parsePluginMeta(plugin: unknown): ParsedPluginMetaResult {
       const trimmed = capability.trim();
       if (!trimmed) {
         warnings.push(`ignored empty \`sero.plugin.requiredHostCapabilities[${index}]\``);
-        return;
-      }
-      if (!isHostCapability(trimmed)) {
-        warnings.push(
-          `ignored unknown \`sero.plugin.requiredHostCapabilities[${index}]\`: ${trimmed}`,
-        );
         return;
       }
       requiredHostCapabilities.push(trimmed);

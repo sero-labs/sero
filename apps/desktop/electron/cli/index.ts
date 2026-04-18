@@ -216,7 +216,7 @@ export function bridgeExtensionTools(
     for (const [name, registered] of [...ext.tools]) {
       if (!shouldBridgeTool(name, ext.resolvedPath)) continue;
 
-      const existing = reg.get(name);
+      const existing = reg.get(name, owner ? { sessionId: options?.sessionId } : undefined);
       const cliBridge = getCustomToolCliBridge(registered.definition);
       const canOverrideBuiltin = existing?.source === 'builtin' && cliBridge?.overrideBuiltin === true;
 
@@ -239,7 +239,7 @@ export function bridgeExtensionTools(
     // Bridge commands → CLI (keeps in extension for user slash commands)
     for (const [name, registered] of ext.commands) {
       if (BUILTIN_COMMANDS.has(name)) continue;
-      const existing = reg.get(name);
+      const existing = reg.get(name, owner ? { sessionId: options?.sessionId } : undefined);
       if (existing && existing.source !== 'app') continue;
 
       const command = bridgeCommand(name, registered.description);
@@ -266,8 +266,11 @@ export function bridgeExtensionTools(
  * Groups commands by source and lists them all, so the agent discovers
  * every bridged app tool automatically — no manual prompt updates needed.
  */
-export function buildCliPromptBlock(reg: CliRegistry = getCliRegistry()): string {
-  const commands = reg.list().filter((c) => !c.hidden && c.name !== 'help');
+export function buildCliPromptBlock(
+  reg: CliRegistry = getCliRegistry(),
+  scope?: { workspaceId?: string; sessionId?: string | null },
+): string {
+  const commands = reg.list(scope).filter((c) => !c.hidden && c.name !== 'help');
 
   // Group commands and include per-command summaries
   const grouped = new Map<string, Array<{ name: string; summary: string }>>();
