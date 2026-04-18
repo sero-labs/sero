@@ -31,6 +31,14 @@ Changes made during code quality passes. Most recent first.
 | `../plugins/sero-google-plugin/{README.md,vite.config.ts,package.json,package-lock.json}` | Updated docs + test/build tooling for the bridge rebase, internal-tool bridge policy, and Vitest-safe Module Federation handling |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 4 UI-bridge rebase, refreshed plugin metrics, and marked the phase complete |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–4 complete with Phase 5 next |
+| `apps/desktop/electron/cli/{core/schema-bridge.ts,index.ts,commands/integrations/google.ts}` | Added custom tool-level CLI bridge metadata plus opt-in builtin override support, and kept the legacy shell Google CLI registered as hidden `google-builtin` fallback while the plugin-owned `google` tool takes the public command name |
+| `apps/desktop/electron/__tests__/cli/custom-tool-cli-bridge.test.ts` | New — regression coverage for plugin tools that replace builtin CLI commands with custom help and raw-args execution |
+| `../plugins/sero-google-plugin/extension/google/{cli-types,cli-helpers,cli-runtime,cli-handlers,cli-tool}.ts` | New — plugin-owned Google CLI parity surface with container-aware gog execution, shell-compatible auth/Gmail/Calendar parsing, and custom bridge metadata for `sero google ...` |
+| `../plugins/sero-google-plugin/extension/index.ts` | Registered the new plugin-owned `google` CLI parity tool alongside the existing UI-facing Google tools |
+| `../plugins/sero-google-plugin/extension/__tests__/google-cli-{handlers,runtime,tool}.test.ts` | New — focused regressions for auth/Gmail/Calendar forwarding, host-vs-container gog routing, and structured Pi-tool execution |
+| `../plugins/sero-google-plugin/{package.json,README.md}` | Bridged the new `google` tool into Sero CLI and documented the preserved `sero google auth|gmail|calendar ...` contract |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 5 CLI migration, refreshed plugin metrics, and marked the phase complete |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–5 complete with Phase 6 next |
 
 ---
 

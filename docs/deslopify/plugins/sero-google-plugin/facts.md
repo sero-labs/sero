@@ -150,3 +150,23 @@ _Last reviewed: 2026-04-18_
 ### Still outstanding
 - Phase 5 still needs to land the plugin-owned `google` tool/command surface that preserves the public `sero google ...` CLI contract chosen in Phase 0.
 - Phase 6 still needs to delete the remaining Google-specific shell preload/IPC/runtime glue after the plugin path is fully green.
+
+## Post-fix snapshot — 2026-04-18 (Phase 5)
+
+### Metrics after fixes
+- Total plugin files: 52 (was 44; added a dedicated plugin-owned Google CLI parity surface, container-aware CLI runtime helpers, focused CLI regressions, and README coverage in the external plugin repo)
+- Largest plugin file: `plugins/sero-google-plugin/extension/google/cli-handlers.ts` (450 LOC)
+- Files over 500 LOC: none
+- Type escape hatches remaining: none found in the Phase 5 surface; the new shell bridge and plugin CLI modules landed without `@ts-ignore`, `@ts-expect-error`, `as any`, or double-cast escapes
+
+### What changed
+- Added a plugin-owned `google` tool in `plugins/sero-google-plugin/extension/google/cli-tool.ts` with custom CLI bridge metadata so AD-020 now exposes the plugin as the public `sero google ...` command while still allowing plain Pi tool execution through structured params.
+- Added plugin-owned Google CLI parity modules in `plugins/sero-google-plugin/extension/google/{cli-types,cli-helpers,cli-runtime,cli-handlers}.ts`, conservatively porting the shell auth/Gmail/Calendar command parsing and keeping container-vs-host gog execution semantics aligned with the existing shell behavior.
+- Updated `plugins/sero-google-plugin/package.json` and `README.md` so the plugin manifest now bridges `google` alongside `gmail` / `gcal`, and the docs explicitly describe the preserved `sero google auth|gmail|calendar ...` contract.
+- Extended the desktop CLI bridge in `apps/desktop/electron/cli/core/schema-bridge.ts` and `apps/desktop/electron/cli/index.ts` with custom tool-level CLI metadata plus opt-in builtin override support, then kept the legacy shell Google command registered as a hidden `google-builtin` fallback in `apps/desktop/electron/cli/commands/integrations/google.ts` for validation while the plugin-owned command takes over the public name.
+- Added focused regressions in `apps/desktop/electron/__tests__/cli/custom-tool-cli-bridge.test.ts` and `plugins/sero-google-plugin/extension/__tests__/google-cli-{handlers,runtime,tool}.test.ts` covering builtin override behavior, auth/Gmail/Calendar forwarding, structured tool execution, and host-vs-container CLI runtime routing.
+- Executed the phase as a cross-repo pass: implementation landed in `../plugins/sero-google-plugin` (`0617efd`) plus the desktop shell CLI bridge (`287835c7`), while tracking docs stayed in this monorepo.
+
+### Still outstanding
+- Phase 6 still needs to delete the remaining Google-specific shell preload/IPC/runtime glue after the plugin path is fully green.
+- The legacy shell Google CLI files remain intentionally present as a hidden validation fallback (`google-builtin`) until the final shell-glue deletion phase retires them outright.

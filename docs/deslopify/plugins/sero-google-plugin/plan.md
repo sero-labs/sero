@@ -211,15 +211,15 @@ Phase 0 policy lock (2026-04-17):
   - [x] The Google plugin still works when installed externally.
 
 ### Phase 5 — Land the CLI migration
-- [ ] Phase 5 complete
-- [ ] Implement the chosen CLI strategy from Phase 0.
-  - [ ] **Parity path:** add a plugin-owned `google` tool/command contract that AD-020 can bridge into `sero google ...`.
-  - [ ] **Narrowing path:** remove the shell command and update docs/help/migration notes accordingly.
-- [ ] Verify auth, Gmail, and Calendar command behavior against the current shell implementation.
-- [ ] Keep `apps/desktop/electron/cli/commands/integrations/google*.ts` and `apps/desktop/electron/cli/lib/gog-runner.ts` until parity/narrowing is validated.
-- [ ] Exit criteria confirmed.
-  - [ ] The public CLI contract is explicitly preserved or explicitly retired.
-  - [ ] Help output and docs match runtime behavior.
+- [x] Phase 5 complete
+- [x] Implement the chosen CLI strategy from Phase 0.
+  - [x] **Parity path:** add a plugin-owned `google` tool/command contract that AD-020 can bridge into `sero google ...`.
+  - ⊘ **Narrowing path:** remove the shell command and update docs/help/migration notes accordingly. Rejected by the Phase 0 policy lock and not executed in this migration.
+- [x] Verify auth, Gmail, and Calendar command behavior against the current shell implementation.
+- [x] Keep `apps/desktop/electron/cli/commands/integrations/google*.ts` and `apps/desktop/electron/cli/lib/gog-runner.ts` until parity/narrowing is validated.
+- [x] Exit criteria confirmed.
+  - [x] The public CLI contract is explicitly preserved or explicitly retired.
+  - [x] Help output and docs match runtime behavior.
 
 ### Phase 6 — Delete Google-specific shell glue
 - [ ] Phase 6 complete
@@ -254,3 +254,4 @@ Phase 0 policy lock (2026-04-17):
 - 2026-04-18 — Completed Phase 2 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `9ccc9fa`: ported the shell Google auth/runtime stack into plugin-owned `extension/google/` modules, rebased `extension/gogcli.ts` on the new profile-aware client/keyring helpers, and added focused regressions for loopback login, credential import, client-bucket resolution, and buggy-keyring migration.
 - 2026-04-18 — Completed Phase 3 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `704425f`: extracted canonical Gmail/Calendar state mappers into `shared/google-state.ts`, rebased both the extension and `ui/hooks/useGoogleApi.ts` onto those helpers so UI-triggered and agent-triggered fetches write the same `GoogleAppState` shape, and deleted the old renderer-only `ui/components/gmail-parser.ts` duplication.
 - 2026-04-18 — Completed Phase 4 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `f6de64b`: replaced `window.sero.google` with generic `appAgent.invokeTool(...)` calls in `ui/hooks/useGoogleApi.ts`, added a plugin-owned internal `google_auth` tool plus a date-range `gcal` action so sign-in/refresh/mail/calendar flows all execute through plugin-owned handlers, and added focused UI regressions for auth transitions, expired-session recovery, inbox/thread fetches, and calendar detail behavior.
+- 2026-04-18 — Completed Phase 5 across the desktop shell + external plugin repo via commits `0617efd` (`refactor(google-plugin): preserve sero google cli parity`) and `287835c7` (`refactor(cli): hand off google command parity to plugin tools`): added custom tool-level CLI bridge metadata so a plugin-owned `google` tool can replace the builtin `sero google ...` command while preserving the existing help text, registered a hidden `google-builtin` shell fallback for validation, implemented plugin-owned Google auth/Gmail/Calendar CLI handlers with container-aware runtime parity, and added focused regressions for bridge override behavior plus auth/Gmail/Calendar command forwarding.
