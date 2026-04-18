@@ -1,4 +1,9 @@
-import type { CliCommand, CliCommandContext, CliResolvedCommand } from './types';
+import type {
+  CliAppCommandOwner,
+  CliCommand,
+  CliCommandContext,
+  CliResolvedCommand,
+} from './types';
 
 const BLACKLISTED_ROOTS = new Set([
   'auth',
@@ -13,27 +18,79 @@ function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, ' ');
 }
 
+function ownerKey(owner: CliAppCommandOwner): string {
+  return `${owner.sessionId}:${owner.extensionPath}`;
+}
+
+function assertAllowedCommandName(name: string): void {
+  if (!name) throw new Error('CLI command name is required');
+
+  const root = name.split(' ')[0];
+  if (root && BLACKLISTED_ROOTS.has(root)) {
+    throw new Error(`CLI command root is blacklisted: ${root}`);
+  }
+}
+
+interface AppOwnerCommands {
+  owner: CliAppCommandOwner;
+  commands: Map<string, CliCommand>;
+}
+
 export class CliRegistry {
   private commands = new Map<string, CliCommand>();
+  private appOwnerCommands = new Map<string, AppOwnerCommands>();
 
   register(command: CliCommand): void {
     const name = normalizeName(command.name);
-    if (!name) throw new Error('CLI command name is required');
-
-    const root = name.split(' ')[0];
-    if (root && BLACKLISTED_ROOTS.has(root)) {
-      throw new Error(`CLI command root is blacklisted: ${root}`);
-    }
-
+    assertAllowedCommandName(name);
     this.commands.set(name, { ...command, name });
   }
 
+  replaceAppCommandsForSession(sessionId: string, commands: CliCommand[]): void {
+    this.removeAppCommandsForSession(sessionId);
+
+    for (const command of commands) {
+      const owner = command.owner;
+      if (!owner || owner.sessionId !== sessionId) {
+        throw new Error(`CLI app command missing owner metadata for session ${sessionId}`);
+      }
+
+      const key = ownerKey(owner);
+      const existing = this.appOwnerCommands.get(key) ?? {
+        owner,
+        commands: new Map<string, CliCommand>(),
+      };
+      const name = normalizeName(command.name);
+      assertAllowedCommandName(name);
+      existing.commands.set(name, { ...command, name });
+      this.appOwnerCommands.set(key, existing);
+    }
+  }
+
+  removeAppCommandsForSession(sessionId: string): void {
+    for (const [key, value] of [...this.appOwnerCommands.entries()]) {
+      if (value.owner.sessionId === sessionId) {
+        this.appOwnerCommands.delete(key);
+      }
+    }
+  }
+
+  private buildVisibleCommands(): Map<string, CliCommand> {
+    const visible = new Map(this.commands);
+    for (const ownerCommands of this.appOwnerCommands.values()) {
+      for (const [name, command] of ownerCommands.commands) {
+        visible.set(name, command);
+      }
+    }
+    return visible;
+  }
+
   get(name: string): CliCommand | undefined {
-    return this.commands.get(normalizeName(name));
+    return this.buildVisibleCommands().get(normalizeName(name));
   }
 
   list(): CliCommand[] {
-    return [...this.commands.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return [...this.buildVisibleCommands().values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   findHelpTarget(query: string): CliCommand | undefined {
@@ -59,9 +116,10 @@ export class CliRegistry {
       throw new Error('No command provided');
     }
 
+    const visibleCommands = this.buildVisibleCommands();
     for (let len = normalizedTokens.length; len >= 1; len--) {
       const name = normalizedTokens.slice(0, len).join(' ');
-      const command = this.commands.get(name);
+      const command = visibleCommands.get(name);
       if (command) {
         return {
           command,

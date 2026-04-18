@@ -341,6 +341,44 @@ function extractText(content: CliContentBlock[]): string {
 
 // ── Bridge a ToolDefinition into a CliCommand ───────────────
 
+export interface CustomToolCliBridge {
+  summary?: string;
+  help?: string;
+  group?: string;
+  overrideBuiltin?: boolean;
+  execute: (
+    args: string[],
+    context: CliCommandContext,
+    onUpdate?: (update: { content: CliContentBlock[]; details?: unknown }) => void,
+  ) => Promise<CliResult>;
+}
+
+interface CliBridgeAwareToolDefinition extends ToolDefinition {
+  cli?: CustomToolCliBridge;
+}
+
+export function getCustomToolCliBridge(toolDef: ToolDefinition): CustomToolCliBridge | undefined {
+  const cli = (toolDef as CliBridgeAwareToolDefinition).cli;
+  return cli && typeof cli.execute === 'function' ? cli : undefined;
+}
+
+function normalizeCliResult(result: CliResult): CliResult {
+  return {
+    output: typeof result.output === 'string' ? result.output : String(result.output ?? ''),
+    content: Array.isArray(result.content) ? result.content : undefined,
+    details: result.details,
+    exitCode: result.exitCode ?? 0,
+  };
+}
+
+function getLiveToolCliBridge(
+  toolName: string,
+  context: CliCommandContext,
+): CustomToolCliBridge | undefined {
+  const activeToolDef = getBridgedExtensionTool(toolName, context)?.definition;
+  return activeToolDef ? getCustomToolCliBridge(activeToolDef) : undefined;
+}
+
 export interface BridgeToolOptions {
   /** Mark this command as interactive (disables per-command timeout). */
   interactive?: boolean;
@@ -350,13 +388,14 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
   const props = extractSchemaProps(toolDef.parameters as Record<string, unknown>);
   const summary = (toolDef.description ?? '').split(/\.\s/)[0]?.slice(0, 80) ?? toolName;
   const help = generateHelp(toolName, toolDef.description ?? toolName, props);
+  const cliBridge = getCustomToolCliBridge(toolDef);
 
   return {
     name: toolName,
-    summary,
-    help,
+    summary: cliBridge?.summary ?? summary,
+    help: cliBridge?.help ?? help,
     source: 'app',
-    group: 'Apps',
+    group: cliBridge?.group ?? 'Apps',
     interactive: options?.interactive,
     timeoutMs: getBridgedToolTimeoutMs(toolName),
     params: props.map((prop) => ({
@@ -367,6 +406,11 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
     })),
     execute: async (args: string[], ctx: CliCommandContext, onUpdate): Promise<CliResult> => {
       try {
+        const activeCliBridge = getLiveToolCliBridge(toolName, ctx) ?? cliBridge;
+        if (activeCliBridge) {
+          return normalizeCliResult(await activeCliBridge.execute(args, ctx, onUpdate));
+        }
+
         const params = schemaToParams(props, args);
         const activeToolDef = getBridgedExtensionTool(toolName, ctx)?.definition ?? toolDef;
         const result = await activeToolDef.execute(

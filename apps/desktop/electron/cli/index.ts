@@ -19,6 +19,9 @@ import {
   bridgeCommand,
   bridgeTool,
   createSeroCliTool,
+  getCustomToolCliBridge,
+  type CliCommand,
+  type CliAppCommandOwner,
 } from './core';
 import {
   clearBridgedExtensionSessionItems,
@@ -158,8 +161,12 @@ function shouldBridgeTool(name: string, extensionPath: string): boolean {
   return pluginPolicy.bridgeAll || pluginPolicy.toolNames.has(name);
 }
 
+export function clearBridgedExtensionSessionStateForSession(sessionId: string): void {
+  clearBridgedExtensionSessionItemsForSession(sessionId);
+  registry?.removeAppCommandsForSession(sessionId);
+}
+
 export {
-  clearBridgedExtensionSessionItemsForSession,
   clearPluginBridgePolicyCache,
 };
 
@@ -190,32 +197,62 @@ export function bridgeExtensionTools(
   options?: { sessionId?: string },
 ): LoadExtensionsResult {
   const reg = getCliRegistry();
+  const sessionCommands: CliCommand[] = [];
 
   if (options?.sessionId) {
     replaceBridgedExtensionSessionItems(options.sessionId, base.extensions);
   }
 
   for (const ext of base.extensions) {
+    const owner: CliAppCommandOwner | null = options?.sessionId
+      ? {
+          kind: 'session-extension',
+          sessionId: options.sessionId,
+          extensionPath: ext.resolvedPath,
+        }
+      : null;
+
     // Bridge tools → CLI (removes from agent tool list)
     for (const [name, registered] of [...ext.tools]) {
       if (!shouldBridgeTool(name, ext.resolvedPath)) continue;
-      if (reg.get(name)) {
+
+      const existing = reg.get(name);
+      const cliBridge = getCustomToolCliBridge(registered.definition);
+      const canOverrideBuiltin = existing?.source === 'builtin' && cliBridge?.overrideBuiltin === true;
+
+      if (existing && existing.source !== 'app' && !canOverrideBuiltin) {
         ext.tools.delete(name);
         continue;
       }
+
       const command = bridgeTool(name, registered.definition, {
         interactive: INTERACTIVE_TOOLS.has(name),
       });
-      reg.register(command);
+      if (owner) {
+        sessionCommands.push({ ...command, owner });
+      } else {
+        reg.register(command);
+      }
       ext.tools.delete(name);
     }
 
     // Bridge commands → CLI (keeps in extension for user slash commands)
     for (const [name, registered] of ext.commands) {
       if (BUILTIN_COMMANDS.has(name)) continue;
-      if (reg.get(name)) continue;
-      reg.register(bridgeCommand(name, registered.description));
+      const existing = reg.get(name);
+      if (existing && existing.source !== 'app') continue;
+
+      const command = bridgeCommand(name, registered.description);
+      if (owner) {
+        sessionCommands.push({ ...command, owner });
+      } else {
+        reg.register(command);
+      }
     }
+  }
+
+  if (options?.sessionId) {
+    reg.replaceAppCommandsForSession(options.sessionId, sessionCommands);
   }
 
   return base;
