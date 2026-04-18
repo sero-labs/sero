@@ -14,6 +14,7 @@ import type {
   AppRecordingStatus,
 } from './ipc';
 import type {
+  AppToolResult,
   GitActionResult,
   GitManagerRequest,
   WebAppActionResult,
@@ -92,6 +93,17 @@ interface SeroAppAgentAPI {
     text: string,
     onDelta: (delta: string) => void,
   ): Promise<string>;
+
+  /**
+   * Execute an app-local extension tool directly against the app's isolated session.
+   * Returns normalized tool output blocks plus flattened text/details metadata.
+   */
+  invokeTool(
+    appId: string,
+    workspaceId: string,
+    toolName: string,
+    params: Record<string, unknown>,
+  ): Promise<AppToolResult>;
 }
 
 interface SeroGitAppAPI {

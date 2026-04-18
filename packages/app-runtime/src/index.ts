@@ -10,6 +10,7 @@ export { useAppState } from './use-app-state';
 export { useAppInfo } from './use-app-info';
 export { useAgentPrompt } from './use-agent-prompt';
 export { useAI, type AppAI } from './use-ai';
+export { useAppTools, type AppTools } from './use-app-tools';
 export { useAvailableModels, type UseAvailableModelsResult } from './use-available-models';
 export { useTheme, type UseThemeResult } from './use-theme';
 export { getSeroApi } from './sero-bridge';

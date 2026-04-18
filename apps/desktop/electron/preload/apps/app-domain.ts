@@ -20,6 +20,7 @@ import type {
   CreateGitHubRepoResult,
 } from '@/types/ipc';
 import type {
+  AppToolResult,
   GitActionResult,
   GitManagerRequest,
   WebAppActionResult,
@@ -96,6 +97,14 @@ export const appAgentBridge = {
         ipcRenderer.removeListener(IpcChannels.appAgent.streamEvent, handler);
       });
   },
+
+  invokeTool: (
+    appId: string,
+    workspaceId: string,
+    toolName: string,
+    params: Record<string, unknown>,
+  ): Promise<AppToolResult> =>
+    ipcRenderer.invoke(IpcChannels.appAgent.invokeTool, appId, workspaceId, toolName, params),
 };
 
 export const gitAppBridge = {

@@ -5,6 +5,7 @@
  * Extracted from ipc.ts to keep that file under 500 LOC.
  */
 
+import { appAgentIpcChannels } from './ipc-channels-app-agent';
 import { localModelsIpcChannels } from './ipc-channels-local-models';
 import {
   feedbackIpcChannels,
@@ -133,14 +134,7 @@ export const IpcChannels = {
     /** Main → renderer push: new app package detected in packages/. */
     newAppDetected: 'sero:apps:new-app-detected',
   },
-  appAgent: {
-    /** Send a prompt to an app's dedicated agent session. Returns text response. */
-    prompt: 'sero:app-agent:prompt',
-    /** Send a prompt and stream text deltas back. Returns final text. */
-    promptStream: 'sero:app-agent:prompt-stream',
-    /** Push channel for text deltas during streaming. */
-    streamEvent: 'sero:app-agent:stream-event',
-  },
+  appAgent: appAgentIpcChannels,
   gitApp: {
     /** Run a direct Git app action for a workspace. */
     run: 'sero:git-app:run',

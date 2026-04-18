@@ -17,6 +17,13 @@ export type {
 } from './plugins';
 
 export type {
+  AppToolTextContent,
+  AppToolImageContent,
+  AppToolContentBlock,
+  AppToolResult,
+} from './app-tools';
+
+export type {
   ExtensionRuntimeTextContent,
   ExtensionRuntimeImageContent,
   ExtensionRuntimeContentBlock,
