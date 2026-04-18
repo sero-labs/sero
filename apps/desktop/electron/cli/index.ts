@@ -19,6 +19,7 @@ import {
   bridgeCommand,
   bridgeTool,
   createSeroCliTool,
+  getCustomToolCliBridge,
 } from './core';
 import {
   clearBridgedExtensionSessionItems,
@@ -199,10 +200,16 @@ export function bridgeExtensionTools(
     // Bridge tools → CLI (removes from agent tool list)
     for (const [name, registered] of [...ext.tools]) {
       if (!shouldBridgeTool(name, ext.resolvedPath)) continue;
-      if (reg.get(name)) {
+
+      const existing = reg.get(name);
+      const cliBridge = getCustomToolCliBridge(registered.definition);
+      const canOverrideBuiltin = existing?.source === 'builtin' && cliBridge?.overrideBuiltin === true;
+
+      if (existing && !canOverrideBuiltin) {
         ext.tools.delete(name);
         continue;
       }
+
       const command = bridgeTool(name, registered.definition, {
         interactive: INTERACTIVE_TOOLS.has(name),
       });
