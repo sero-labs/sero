@@ -68,6 +68,9 @@ Changes made during code quality passes. Most recent first.
 | `docs/deslopify/index.md` | Updated the Google plugin tracker note to show Phases 0–7 complete with only migration-level final verification remaining |
 | `docs/deslopify/plugins/sero-google-plugin/plan.md` | Added Phase 8 — a docs-only README refresh phase covering gogcli install, auth/setup, container fallback, and operator-vs-agent guidance |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker note to show the new Phase 8 README refresh backlog after the Phase 7 closeout |
+| `../plugins/sero-google-plugin/README.md` | Rewritten twice — first for post-cutover accuracy, then polished into a friendlier end-user guide with linear setup, everyday usage, short advanced notes, and troubleshooting |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Marked Phase 8 complete, recorded the README refresh outcomes, and logged validation reruns for the docs-only pass |
+| `docs/deslopify/index.md` | Marked the Google plugin plan healthy with Phase 8 complete; only the broader migration-level final verification checklist remains |
 
 ---
 

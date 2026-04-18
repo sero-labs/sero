@@ -208,3 +208,22 @@ _Last reviewed: 2026-04-18_
 
 ### Still outstanding
 - Phase 7 is complete. Remaining broader migration verification is now limited to the unchecked items in the final verification checklist (default/non-default profile sign-in parity, legacy-token rediscovery, and UI-vs-agent Gmail/Calendar parity that were not all explicitly re-run in this pass).
+
+## Post-fix snapshot — 2026-04-18 (Phase 8)
+
+### Metrics after fixes
+- Total plugin files: 59 (unchanged; Phase 8 was a docs-only README refresh in the external plugin repo)
+- Largest plugin source file: `plugins/sero-google-plugin/extension/google/cli-handlers.ts` (456 LOC, unchanged)
+- Files over 500 LOC: none
+- Validation rerun for this phase: `../plugins/sero-google-plugin` `pnpm test`, `../plugins/sero-google-plugin` `pnpm typecheck`, and monorepo `pnpm typecheck` all passed
+
+### What changed
+- Rewrote `../plugins/sero-google-plugin/README.md` so it now matches the post-cutover plugin reality instead of earlier shell-owned or pre-polish behavior.
+- Followed up with a second README pass to make it read like a public end-user guide: linear install/setup flow first, everyday usage next, and only then shorter advanced/troubleshooting notes for profiles, container fallback, Pi CLI, and auth recovery.
+- Documented the current gogcli requirement clearly: host installation, supported binary lookup paths, and the current container-backed contract of container-first execution with automatic host fallback when the shipped container image does not include `gog`.
+- Clarified supported OAuth setup paths: the recommended in-app setup/sign-in flow plus the plugin-config and environment-variable alternatives.
+- Made the operator/user guidance explicit: `sero google auth ...` remains available for terminal operators, while agent-facing usage is centered on Gmail/Calendar flows and follow-up chat summaries.
+- Updated usage examples and tool tables to match the preserved `sero google ...` contract, the plugin-owned `google` / `gmail` / `gcal` surfaces, and the current federated UI behavior.
+
+### Still outstanding
+- The broader migration-level final verification checklist remains partially unchecked: default/non-default profile sign-in smoke, legacy-token rediscovery, and explicit UI-vs-agent Gmail/Calendar parity were not re-run as part of this docs-only phase.

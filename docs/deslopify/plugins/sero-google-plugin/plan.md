@@ -274,30 +274,30 @@ Manual QA follow-up findings (2026-04-18):
 
 ### Phase 8 — Refresh plugin README for the post-cutover reality
 
-- [ ] Phase 8 complete
-- [ ] Audit the current README against the shipped plugin behavior and Phase 0–7 migration outcomes.
-  - [ ] Remove stale wording that still reflects pre-cutover shell-owned Google behavior or incomplete CLI/chat-output semantics.
-  - [ ] Confirm the README matches the current external-plugin install path and package layout.
-- [ ] Refresh install + prerequisite instructions.
-  - [ ] Document gogcli host installation clearly, including the expected `gog` binary requirement and the supported lookup paths.
-  - [ ] Document the current container-backed contract accurately: CLI attempts container parity first, then falls back to host gog execution when gogcli is unavailable in the shipped container image.
-  - [ ] Confirm whether any explicit rebuild/recreate guidance is still needed for container-backed workspaces and only include it if it reflects the current production contract.
-- [ ] Refresh authentication/setup instructions.
-  - [ ] Document the supported OAuth setup path(s) clearly: plugin config / env expectations plus the recommended in-app Google sign-in flow.
-  - [ ] Explain the operator-only boundary for `sero google auth ...` management commands vs agent-facing Gmail/Calendar flows.
-  - [ ] Make the profile-scoped/authenticated-account behavior understandable for users without leaking low-level keyring implementation detail into the README.
-- [ ] Refresh usage documentation.
-  - [ ] Update the Sero CLI examples so they reflect the current preserved `sero google ...` contract and the new human-readable/follow-up chat behavior.
-  - [ ] Ensure the tool/action tables still match the shipped `gmail`, `gcal`, and `google` behaviors after Phase 7 follow-up fixes.
-  - [ ] Call out any important runtime distinctions between operator terminal usage, agent usage, and the federated UI.
-- [ ] Validate the README update.
-  - [ ] Re-read the final README against the live installed plugin behavior after Phase 7.
-  - [ ] Keep the README concise and user-facing; move implementation-only detail out unless it materially helps setup/recovery.
-  - [ ] If README examples or setup steps changed materially, add a short note in the execution log/facts snapshot when the phase lands.
-- [ ] Exit criteria confirmed.
-  - [ ] A fresh user can install gogcli, configure/authenticate Google, and use the plugin by following the README alone.
-  - [ ] The README no longer contradicts the post-cutover CLI/runtime/auth behavior.
-  - [ ] Operator-only vs agent-facing guidance is explicit and accurate.
+- [x] Phase 8 complete
+- [x] Audit the current README against the shipped plugin behavior and Phase 0–7 migration outcomes.
+  - [x] Remove stale wording that still reflects pre-cutover shell-owned Google behavior or incomplete CLI/chat-output semantics.
+  - [x] Confirm the README matches the current external-plugin install path and package layout.
+- [x] Refresh install + prerequisite instructions.
+  - [x] Document gogcli host installation clearly, including the expected `gog` binary requirement and the supported lookup paths.
+  - [x] Document the current container-backed contract accurately: CLI attempts container parity first, then falls back to host gog execution when gogcli is unavailable in the shipped container image.
+  - [x] Confirm whether any explicit rebuild/recreate guidance is still needed for container-backed workspaces and only include it if it reflects the current production contract.
+- [x] Refresh authentication/setup instructions.
+  - [x] Document the supported OAuth setup path(s) clearly: plugin config / env expectations plus the recommended in-app Google sign-in flow.
+  - [x] Explain the operator-only boundary for `sero google auth ...` management commands vs agent-facing Gmail/Calendar flows.
+  - [x] Make the profile-scoped/authenticated-account behavior understandable for users without leaking low-level keyring implementation detail into the README.
+- [x] Refresh usage documentation.
+  - [x] Update the Sero CLI examples so they reflect the current preserved `sero google ...` contract and the new human-readable/follow-up chat behavior.
+  - [x] Ensure the tool/action tables still match the shipped `gmail`, `gcal`, and `google` behaviors after Phase 7 follow-up fixes.
+  - [x] Call out any important runtime distinctions between operator terminal usage, agent usage, and the federated UI.
+- [x] Validate the README update.
+  - [x] Re-read the final README against the live installed plugin behavior after Phase 7.
+  - [x] Keep the README concise and user-facing; move implementation-only detail out unless it materially helps setup/recovery.
+  - [x] If README examples or setup steps changed materially, add a short note in the execution log/facts snapshot when the phase lands.
+- [x] Exit criteria confirmed.
+  - [x] A fresh user can install gogcli, configure/authenticate Google, and use the plugin by following the README alone.
+  - [x] The README no longer contradicts the post-cutover CLI/runtime/auth behavior.
+  - [x] Operator-only vs agent-facing guidance is explicit and accurate.
 
 ### Final verification checklist
 - [ ] Sign in from the Google UI on the default profile, then run plugin tools and confirm they use the same account.
@@ -324,3 +324,5 @@ Manual QA follow-up findings (2026-04-18):
 - 2026-04-18 — Landed a third Phase 7 CLI polish pass in the external plugin repo (`../plugins/sero-google-plugin`) via commit `f340786` (`fix(google-plugin): emit cli summaries as follow-up messages`): checked the live chat behavior and found the summary text was still trapped inside the tool card UI, then wired successful agent-facing `sero google ...` executions to send the same summary as a follow-up assistant message through the bridged session runtime.
 - 2026-04-18 — Final Phase 7 manual validation confirmed: host/container CLI smoke passed after the follow-up-message fix, and in-app Gmail rendering no longer emits CSP console noise. Marked Phase 7 complete while leaving the broader migration-level final verification checklist unchanged where it was not explicitly re-run in this pass.
 - 2026-04-18 — Added Phase 8 as a docs-focused follow-up to refresh `sero-google-plugin/README.md` for the post-cutover plugin reality: current gogcli install expectations, container fallback behavior, authentication guidance, operator-vs-agent boundaries, and the preserved `sero google ...` contract all need one final README-specific pass.
+- 2026-04-18 — Completed Phase 8 in the external plugin repo by rewriting `../plugins/sero-google-plugin/README.md` around the post-cutover reality: host `gog` install + lookup paths, plugin-config/env OAuth setup, the recommended in-app sign-in flow, profile-scoped account behavior, container-first then host-fallback CLI execution, preserved `sero google ...` parity, follow-up chat summaries for agent-facing Gmail/Calendar commands, and explicit operator-only guidance for `sero google auth ...`. Revalidated with `../plugins/sero-google-plugin` `pnpm test`, `../plugins/sero-google-plugin` `pnpm typecheck`, and monorepo `pnpm typecheck`.
+- 2026-04-18 — README polish follow-up: rewrote the same Phase 8 README again in a more public-facing end-user voice, leading with install/setup/everyday usage and moving runtime details into short Profiles, Container-backed workspaces, Troubleshooting, and Pi-specific sections so it reads like a user guide instead of migration notes.
