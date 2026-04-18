@@ -27,6 +27,9 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-google-plugin/extension/google/{auth-tool.ts,auth.ts}` | Restored secure OAuth config writes (0700 dir / 0600 file) and ensured failed browser launch closes the Google OAuth loopback server |
 | `plugins/sero-google-plugin/extension/google/cli-followup.ts`, `plugins/sero-google-plugin/extension/__tests__/google-cli-handlers.test.ts` | Made follow-up summary delivery best-effort so successful Google CLI actions are not misreported as failures when session messaging is unavailable |
 | `plugins/sero-google-plugin/extension/__tests__/{google-auth.test.ts,google-auth-tool.test.ts}` | Added focused regressions for loopback-server cleanup on opener failure and locked-down OAuth config file permissions |
+| `apps/desktop/electron/cli/index.ts` | Removed stale Google static bridge allowlist entries so `gmail` / `gcal` are owned solely by the plugin manifest again (308 → 305 lines) |
+| `apps/desktop/electron/features/profile/{agent-config-migration.ts,copy-profile-data.ts}` | Repointed legacy Google profile migration/copy behavior from dead `google-auth.json` host files to the plugin-owned `agent/plugin-config/sero-google-plugin.json` path |
+| `apps/desktop/electron/__tests__/features/profile/{agent-config-migration.test.ts,copy-profile-data.test.ts}` | Added focused regressions for plugin-owned Google config migration/copy behavior |
 
 ---
 

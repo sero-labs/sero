@@ -278,3 +278,20 @@ _Last reviewed: 2026-04-18_
 
 ### Still outstanding
 - The broader migration-level final verification checklist is still partially unchecked: default/non-default profile sign-in smoke, legacy-token rediscovery, and explicit UI-vs-agent Gmail/Calendar parity were not re-run in this post-review hardening pass.
+
+## Post-fix snapshot — 2026-04-18 (host cleanup follow-up)
+
+### Metrics after fixes
+- Touched host source files: 3 (`apps/desktop/electron/cli/index.ts`, `apps/desktop/electron/features/profile/agent-config-migration.ts`, `apps/desktop/electron/features/profile/copy-profile-data.ts`)
+- Largest touched host source file: `apps/desktop/electron/cli/index.ts` (305 LOC, down from 308)
+- Files over 500 LOC in this follow-up: none
+- Focused validation rerun for this follow-up: profile migration/copy Vitest coverage plus monorepo `pnpm typecheck` all passed
+
+### What changed
+- Removed stale static Google bridge ownership from `apps/desktop/electron/cli/index.ts`; `gmail` / `gcal` now rely solely on the plugin manifest’s `bridgeTools` declaration instead of also living in the host core allowlist.
+- Rebased legacy profile-root migration so old `google-auth.json` now lands in the plugin-owned `agent/plugin-config/sero-google-plugin.json` path instead of a dead top-level agent file the extracted plugin no longer reads.
+- Rebased new-profile credential copying onto that same plugin-owned config path, preserving Google OAuth credential transfer during profile creation without keeping a host-owned `google-auth.json` contract alive.
+- Added focused profile regression coverage for both the legacy-root migration path and the profile-to-profile copy path so this ownership boundary stays pinned.
+
+### Still outstanding
+- The broader migration-level final verification checklist is still partially unchecked: default/non-default profile sign-in smoke, legacy-token rediscovery, and explicit UI-vs-agent Gmail/Calendar parity were not re-run in this host cleanup follow-up.
