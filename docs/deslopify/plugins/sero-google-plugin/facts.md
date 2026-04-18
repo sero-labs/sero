@@ -170,3 +170,20 @@ _Last reviewed: 2026-04-18_
 ### Still outstanding
 - Phase 6 still needs to delete the remaining Google-specific shell preload/IPC/runtime glue after the plugin path is fully green.
 - The legacy shell Google CLI files remain intentionally present as a hidden validation fallback (`google-builtin`) until the final shell-glue deletion phase retires them outright.
+
+## Post-fix snapshot — 2026-04-18 (Phase 6)
+
+### Metrics after fixes
+- Total plugin files: 52 (unchanged from Phase 5; Phase 6 landed entirely in the desktop shell)
+- Largest plugin file: `plugins/sero-google-plugin/extension/google/cli-handlers.ts` (450 LOC, unchanged)
+- Files over 500 LOC: none
+- Dedicated shell-owned Google runtime owners in the monorepo: 0 remaining (Phase 6 deleted the last preload, IPC, auth-runtime, and shell-CLI Google files)
+
+### What changed
+- Deleted the remaining shell-owned Google runtime surfaces in `apps/desktop/`: the bespoke preload bridge, `IpcChannels.google.*`, `SeroGoogleAPI` declarations, the Google IPC handler, the host auth/runtime modules under `electron/features/auth/google/`, and the legacy shell Google CLI files plus `google-builtin` fallback.
+- Split the surviving image-generation preload bridge into `apps/desktop/electron/preload/integrations/imagegen.ts`, keeping imagegen functional after removing the old mixed `google-imagegen.ts` owner.
+- Updated focused shell regressions so the imagegen preload path is still covered and custom CLI override coverage no longer depends on a deleted Google builtin command.
+- Revalidated the cutover with desktop plugin/discovery/preload/CLI regressions, external-plugin Google CLI + UI tests, monorepo `pnpm typecheck`, and `../plugins/sero-google-plugin` `pnpm typecheck`.
+
+### Still outstanding
+- The plan’s final manual verification checklist is still pending: default/non-default profile sign-in smoke tests, legacy token discovery revalidation, and UI-vs-agent Gmail/Calendar parity checks were not re-run in this Phase 6 shell-only pass.

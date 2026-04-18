@@ -114,8 +114,16 @@ describe('custom tool CLI bridge metadata', () => {
       },
     };
 
+    getCliRegistry().register({
+      name: 'google',
+      summary: 'Legacy builtin Google command',
+      help: 'legacy google help',
+      source: 'builtin',
+      group: 'Google',
+      execute: async () => ({ output: 'builtin google', exitCode: 0 }),
+    });
+
     expect(getCliRegistry().get('google')?.source).toBe('builtin');
-    expect(getCliRegistry().get('google-builtin')?.hidden).toBe(true);
 
     bridgeExtensionTools(makeLoadExtensionsResult(extensionPath, tool));
 
@@ -147,6 +155,5 @@ describe('custom tool CLI bridge metadata', () => {
       undefined,
     );
     expect(result).toEqual({ output: 'plugin:auth list --check', exitCode: 0, content: undefined, details: undefined });
-    expect(getCliRegistry().get('google-builtin')?.source).toBe('builtin');
   });
 });

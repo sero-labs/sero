@@ -36,7 +36,6 @@ import { registerNetHandlers } from './platform/system';
 import { registerSafeStorageHandlers } from './platform/auth';
 import { registerUserFeedbackQuestionHandlers } from './platform/ui';
 import { registerGatewayHandlers } from './gateway';
-import { registerGoogleApiHandlers } from './integrations/google-api';
 import { registerModelsHandlers } from './agent/handlers/models';
 import { registerLocalModelsHandlers } from './agent/handlers/local-models';
 import { registerSubagentHandlers } from './subagent';
@@ -79,7 +78,6 @@ export function registerAllIpcHandlers(): void {
   registerSafeStorageHandlers();
   registerUserFeedbackQuestionHandlers();
   registerGatewayHandlers();
-  registerGoogleApiHandlers();
   registerModelsHandlers();
   registerLocalModelsHandlers();
   registerSubagentHandlers();

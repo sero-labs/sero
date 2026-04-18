@@ -222,21 +222,21 @@ Phase 0 policy lock (2026-04-17):
   - [x] Help output and docs match runtime behavior.
 
 ### Phase 6 — Delete Google-specific shell glue
-- [ ] Phase 6 complete
-- [ ] Remove Google-specific preload wiring from:
-  - [ ] `apps/desktop/electron/preload/integrations/google-imagegen.ts`
-  - [ ] `apps/desktop/electron/preload/api.ts`
-- [ ] Remove Google-specific type and channel declarations from:
-  - [ ] `apps/desktop/src/types/ipc-channels.ts`
-  - [ ] `apps/desktop/src/types/electron-apps.d.ts`
-- [ ] Delete runtime owners only after the plugin path is green.
-  - [ ] `apps/desktop/electron/ipc/integrations/google-api.ts`
-  - [ ] `apps/desktop/electron/features/auth/google/**/*.ts`
-  - [ ] shell Google CLI files, if Phase 5 makes them obsolete
-- [ ] Revalidate that the remaining imagegen preload path still works after the Google split.
-- [ ] Exit criteria confirmed.
-  - [ ] The shell contains no Google-specific runtime surface beyond generic plugin infrastructure.
-  - [ ] The plugin remains fully functional after a fresh install.
+- [x] Phase 6 complete
+- [x] Remove Google-specific preload wiring from:
+  - [x] `apps/desktop/electron/preload/integrations/google-imagegen.ts`
+  - [x] `apps/desktop/electron/preload/api.ts`
+- [x] Remove Google-specific type and channel declarations from:
+  - [x] `apps/desktop/src/types/ipc-channels.ts`
+  - [x] `apps/desktop/src/types/electron-apps.d.ts`
+- [x] Delete runtime owners only after the plugin path is green.
+  - [x] `apps/desktop/electron/ipc/integrations/google-api.ts`
+  - [x] `apps/desktop/electron/features/auth/google/**/*.ts`
+  - [x] shell Google CLI files, if Phase 5 makes them obsolete
+- [x] Revalidate that the remaining imagegen preload path still works after the Google split.
+- [x] Exit criteria confirmed.
+  - [x] The shell contains no Google-specific runtime surface beyond generic plugin infrastructure.
+  - [x] The plugin remains fully functional after a fresh install.
 
 ### Final verification checklist
 - [ ] Sign in from the Google UI on the default profile, then run plugin tools and confirm they use the same account.
@@ -245,8 +245,8 @@ Phase 0 policy lock (2026-04-17):
 - [ ] Trigger Gmail thread fetches from both the UI and the agent and confirm the resulting state includes HTML bodies and identical thread metadata.
 - [ ] Trigger Calendar fetches from both the UI and the agent and confirm attendees/reminders/links stay identical.
 - [ ] Smoke-test the chosen CLI contract (`sero google ...` parity or documented removal) on both host-mode and container-backed workspaces.
-- [ ] Run the relevant tests for all touched code.
-- [ ] Run `pnpm typecheck` from the monorepo root before calling the migration complete.
+- [x] Run the relevant tests for all touched code.
+- [x] Run `pnpm typecheck` from the monorepo root before calling the migration complete.
 
 ## Execution log
 - 2026-04-17 — Completed Phase 0 as a docs-only policy lock: chose the CLI parity path, documented the auth/profile/container behavior that later phases must preserve, recorded the shell-owned Google surfaces that stay until final cutover, and noted that later implementation phases require the external plugin source package to be available in the working tree.
@@ -255,3 +255,4 @@ Phase 0 policy lock (2026-04-17):
 - 2026-04-18 — Completed Phase 3 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `704425f`: extracted canonical Gmail/Calendar state mappers into `shared/google-state.ts`, rebased both the extension and `ui/hooks/useGoogleApi.ts` onto those helpers so UI-triggered and agent-triggered fetches write the same `GoogleAppState` shape, and deleted the old renderer-only `ui/components/gmail-parser.ts` duplication.
 - 2026-04-18 — Completed Phase 4 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `f6de64b`: replaced `window.sero.google` with generic `appAgent.invokeTool(...)` calls in `ui/hooks/useGoogleApi.ts`, added a plugin-owned internal `google_auth` tool plus a date-range `gcal` action so sign-in/refresh/mail/calendar flows all execute through plugin-owned handlers, and added focused UI regressions for auth transitions, expired-session recovery, inbox/thread fetches, and calendar detail behavior.
 - 2026-04-18 — Completed Phase 5 across the desktop shell + external plugin repo via commits `0617efd` (`refactor(google-plugin): preserve sero google cli parity`) and `287835c7` (`refactor(cli): hand off google command parity to plugin tools`): added custom tool-level CLI bridge metadata so a plugin-owned `google` tool can replace the builtin `sero google ...` command while preserving the existing help text, registered a hidden `google-builtin` shell fallback for validation, implemented plugin-owned Google auth/Gmail/Calendar CLI handlers with container-aware runtime parity, and added focused regressions for bridge override behavior plus auth/Gmail/Calendar command forwarding.
+- 2026-04-18 — Completed Phase 6 in the desktop shell: deleted the last Google-specific preload, IPC, auth-runtime, and shell-CLI owners; split the surviving image-generation preload bridge into `apps/desktop/electron/preload/integrations/imagegen.ts`; removed the legacy `google-builtin` fallback now that plugin CLI parity is live; and revalidated the cutover with desktop preload/CLI/plugin-discovery regressions, external-plugin Google CLI/UI tests, and clean typechecks in both the monorepo and `../plugins/sero-google-plugin`.

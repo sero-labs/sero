@@ -39,6 +39,13 @@ Changes made during code quality passes. Most recent first.
 | `../plugins/sero-google-plugin/{package.json,README.md}` | Bridged the new `google` tool into Sero CLI and documented the preserved `sero google auth|gmail|calendar ...` contract |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 5 CLI migration, refreshed plugin metrics, and marked the phase complete |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–5 complete with Phase 6 next |
+| `apps/desktop/electron/preload/{api.ts,integrations/imagegen.ts}` | Removed the bespoke Google preload bridge, extracted a focused imagegen preload owner, and kept the surviving imagegen IPC surface covered |
+| `apps/desktop/src/types/{ipc-channels.ts,electron-apps.d.ts,electron.d.ts}` | Deleted the last Google-specific IPC/type declarations from the shell preload contract |
+| `apps/desktop/electron/{ipc/index.ts,cli/index.ts}` | Stopped registering the deleted Google IPC handlers and legacy shell Google CLI surface |
+| `apps/desktop/electron/{ipc/integrations/google-api.ts,features/auth/google/**,cli/lib/gog-runner.ts,cli/commands/integrations/google*.ts}` | Deleted — the shell no longer owns Google auth/runtime/CLI behavior now that the plugin path is live |
+| `apps/desktop/electron/__tests__/{ipc/preload-api-subscriptions.test.ts,cli/custom-tool-cli-bridge.test.ts}` | Revalidated the surviving imagegen preload path and decoupled CLI override coverage from the removed `google-builtin` fallback |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 6 shell-glue deletion pass, refreshed the post-fix snapshot, and marked the phase complete |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–6 complete with only final manual verification pending |
 
 ---
 

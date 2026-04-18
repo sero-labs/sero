@@ -9,7 +9,6 @@ import {
   registerTerminalCliCommands,
 } from './commands/container';
 import { registerEditorCliCommands } from './commands/editor';
-import { registerGoogleCliCommands } from './commands/integrations';
 import { registerSessionCliCommands } from './commands/agent';
 import { registerVcsCliCommands } from './commands/vcs';
 import { registerWorkspaceCliCommands } from './commands/workspace';
@@ -47,7 +46,6 @@ function registerCoreCommands(target: CliRegistry): void {
   registerEditorCliCommands(target);
   registerAppStateCliCommands(target);
   registerTerminalCliCommands(target);
-  registerGoogleCliCommands(target);
   registerHelpCliCommand(target);
 }
 
