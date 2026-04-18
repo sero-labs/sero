@@ -1,6 +1,6 @@
 # Deslopify Index
 
-_Last updated: 2026-04-16_
+_Last updated: 2026-04-18_
 
 A living map of senior-architect reviews across the Sero codebase. Each
 entry links to a `facts.md` and `plan.md` pair.
@@ -74,7 +74,7 @@ as backlog-only follow-ups, not active refactor-wave work.
   - [`apps/desktop/electron/shared/`](./apps/desktop/electron/shared/plan.md)
     — *Healthy — settings hardening and shared-boundary cleanup fully executed 2026-04-16*
   - [`apps/desktop/electron/cli/`](./apps/desktop/electron/cli/plan.md)
-    — *Healthy — High and Medium AD-020 seam/app-control cleanup cleared 2026-04-14; Low flag-parsing follow-up pending*
+    — *Healthy — 2026-04-18 platform hardening landed for app/plugin command hot-update truthfulness plus enforced host/plugin compatibility; the remaining Google integration/re-review work is tracked separately in `plugins/sero-google-plugin/`*
   - [`apps/desktop/electron/types/`](./apps/desktop/electron/types/plan.md)
     — *Healthy — narrow Pi SDK augmentation seam reviewed 2026-04-13 and no-op closeout confirmed 2026-04-14*
 
@@ -93,6 +93,8 @@ as backlog-only follow-ups, not active refactor-wave work.
   — *Healthy — High persisted-state/startup-recovery items plus E4 reminder ownership and E5 logging/modularization/UI coverage cleanup all cleared 2026-04-14; Low widget-fidelity polish remains deferred*
 - [`plugins/sero-git-plugin/`](./plugins/sero-git-plugin/plan.md)
   — *Healthy — High contract + state items plus E4/E5 live-query, file-splitting, and UI-coverage cleanup cleared 2026-04-14; Low helper dedupe follow-up pending*
+- [`plugins/sero-google-plugin/`](./plugins/sero-google-plugin/plan.md)
+  — *In progress — Phases 0–8 completed 2026-04-18, but Phase 9 now tracks the required core-platform integration/re-review pass after the separate CLI/plugin-compatibility hardening lands; broader migration final verification also remains pending*
 - [`plugins/sero-kanban-plugin/`](./plugins/sero-kanban-plugin/plan.md)
   — *Healthy — High persisted-state/truthfulness items plus E4 cleanup-warning visibility and E5 settings/UI cleanup cleared 2026-04-14*
 - [`plugins/sero-memory-plugin/`](./plugins/sero-memory-plugin/plan.md)

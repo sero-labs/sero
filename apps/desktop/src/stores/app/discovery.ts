@@ -10,6 +10,7 @@ import {
   BUILTIN_APPS,
   BUILTIN_APP_IDS,
   getPriorityPreloadApps,
+  isManifestHostSupported,
   manifestToEntry,
   type AppEntry,
 } from './shared';
@@ -18,7 +19,11 @@ import { useAppStore } from './state';
 function reconcileDiscoveredApps(discovered: AppEntry[]): void {
   const nextApps = [...BUILTIN_APPS, ...discovered];
   const { activeApp, pendingApp, favouriteApps } = useAppStore.getState();
-  const validIds = new Set(nextApps.map((app) => app.id));
+  const validIds = new Set(
+    nextApps
+      .filter((app) => app.builtin || isManifestHostSupported(app.manifest))
+      .map((app) => app.id),
+  );
 
   const nextActiveApp = validIds.has(activeApp) ? activeApp : 'dashboard';
   const nextPendingApp = pendingApp && validIds.has(pendingApp) ? pendingApp : null;

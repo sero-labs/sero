@@ -4,6 +4,28 @@ Changes made during code quality passes. Most recent first.
 
 ---
 
+## 2026-04-18
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `packages/common/src/{app-tools.ts,plugins.ts,index.ts}` | Added canonical app-tool result types plus the shared host-capability / compatibility contract used by discovery, preload, and plugin manifests |
+| `packages/app-runtime/src/{sero-bridge.ts,use-app-tools.ts,index.ts}` | Added the generic federated-app tool hook so plugin UIs can call app-local extension tools through `appAgent.invokeTool(...)` |
+| `apps/desktop/electron/ipc/agent/handlers/{app-agent.ts,app-agent-tools.ts}` | Added app-agent tool execution IPC and normalized app-tool result shaping for isolated app sessions |
+| `apps/desktop/electron/preload/apps/app-domain.ts`, `apps/desktop/src/types/{electron-apps.d.ts,ipc-channels.ts,ipc-channels-app-agent.ts,sero-apps.ts}` | Extended the preload/type surface for app-tool invocation and host-compatibility metadata without breaking the 500-LOC cap |
+| `apps/desktop/src/lib/app-runtime.test.tsx`, `apps/desktop/electron/__tests__/ipc/app-agent-tool-execution.test.ts` | Added focused coverage for the generic app-tool bridge in both renderer and main-process seams |
+| `apps/desktop/electron/cli/core/{types.ts,registry.ts,schema-bridge.ts}`, `apps/desktop/electron/cli/index.ts`, `apps/desktop/electron/ipc/agent/core/agent.ts` | Reworked bridged app commands into provenance-aware session-owned registry state, refreshed custom `tool.cli` handlers from live session definitions, and removed session-owned commands on teardown |
+| `apps/desktop/electron/__tests__/cli/{custom-tool-cli-bridge.test.ts,extension-session-bridge.test.ts,tool-bridge-policy.test.ts}` | Added/kept focused regressions for builtin override, hot-update refresh, uninstall cleanup, and live session tool resolution |
+| `apps/desktop/electron/features/apps/discovery/{index.ts,plugin-meta.ts}` | Split plugin metadata parsing out of discovery and added runtime compatibility evaluation to discovered manifests (305 lines after split) |
+| `apps/desktop/electron/features/plugins/{activation.ts,compatibility.ts,manager.ts,settings.ts}` | Added runtime host-version/capability enforcement plus startup activation reconciliation while reducing `manager.ts` below the cap again (498 → 448 lines) |
+| `apps/desktop/electron/ipc/integrations/plugins.ts`, `apps/desktop/electron/__tests__/features/plugins/{plugin-manager.test.ts,plugin-compatibility.test.ts}` | Reconciled installed plugin activation at startup and added focused install/load compatibility regressions |
+| `apps/desktop/src/stores/app/{shared.ts,discovery.ts,state.ts}`, `apps/desktop/src/stores/app.test.ts`, `apps/desktop/src/components/layout/{AppStoreCard.tsx,AppStoreDialog.tsx}` | Kept unsupported plugins browseable in the App Store while hiding them from active sidebar/preload paths and surfacing compatibility errors inline |
+| `docs/plugins/{technical.md,guide.md,host-compatibility.md}` | Updated plugin docs for `requiredHostCapabilities`, enforced compatibility checks, truthful hot-load behavior, and a downstream migration guide for plugin authors |
+| `docs/deslopify/apps/desktop/electron/cli/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the platform-hardening execution pass, marked the CLI plan healthy, and left the Google integration/re-review follow-up tracked separately |
+
+---
+
 ## 2026-04-16
 
 ### Files Changed

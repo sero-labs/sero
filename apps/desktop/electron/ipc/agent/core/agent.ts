@@ -28,7 +28,7 @@ import {
 } from '@electron/shared/infra/shared-infra';
 import { registerAgentModelContextHandlers } from './agent-model-context';
 import { installCliAgentBridge, noteCliTurnEnd } from '@electron/cli/bridges';
-import { clearBridgedExtensionSessionItemsForSession } from '@electron/cli';
+import { clearBridgedExtensionSessionStateForSession } from '@electron/cli';
 import { installGatewayAgentOps } from '@electron/features/gateway/bridge/agent-bridge';
 import { buildGatewayOps } from '@electron/ipc/gateway/gateway-ops';
 import { emitAgentEvent } from './agent-event-broadcast';
@@ -73,7 +73,7 @@ async function closePoolEntry(sessionId: string): Promise<void> {
   entry.unsubscribe();
   entry.session.dispose();
   pool.delete(sessionId);
-  clearBridgedExtensionSessionItemsForSession(sessionId);
+  clearBridgedExtensionSessionStateForSession(sessionId);
 }
 
 export async function disposeAllAgentSessions(): Promise<void> {

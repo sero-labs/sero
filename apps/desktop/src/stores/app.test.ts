@@ -25,6 +25,7 @@ function createManifest(
   id: string,
   component: string | null,
   devPort?: number,
+  overrides?: Partial<SeroAppManifest>,
 ): SeroAppManifest {
   return {
     id,
@@ -42,6 +43,7 @@ function createManifest(
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets: [],
+    ...overrides,
   };
 }
 
@@ -99,6 +101,36 @@ describe('discoverAndRegisterApps', () => {
       federationMocks.preloadFederatedModule.mock.calls.map(([appId]) => appId).sort(),
     ).toEqual(['notes', 'research', 'todo']);
     expect(useAppStore.getState().appsReady).toBe(true);
+  });
+
+  it('falls back to dashboard and drops unsupported favourites when discovered apps change', async () => {
+    discover.mockResolvedValue([
+      createManifest('notes', 'NotesApp', 4102),
+      createManifest('future-plugin', 'FuturePluginApp', 4103, {
+        isPlugin: true,
+        hostCompatibility: {
+          supported: false,
+          hostVersion: '0.1.0',
+          issues: [{
+            kind: 'minSeroVersion',
+            message: 'Requires Sero 9.9.9 or newer.',
+            expected: '9.9.9',
+            actual: '0.1.0',
+          }],
+        },
+      }),
+    ]);
+
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'future-plugin',
+      favouriteApps: ['notes', 'future-plugin'],
+    });
+
+    await discoverAndRegisterApps();
+
+    expect(useAppStore.getState().activeApp).toBe('dashboard');
+    expect(useAppStore.getState().favouriteApps).toEqual(['notes']);
   });
 
   it('falls back to dashboard and drops missing favourites when discovered apps change', async () => {

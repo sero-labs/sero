@@ -8,6 +8,7 @@
  */
 
 import type {
+  AppToolResult,
   GitActionResult,
   GitManagerRequest,
   SharedAvailableModelGroup,
@@ -32,6 +33,12 @@ export interface SeroAppAgentBridge {
     text: string,
     onDelta: (delta: string) => void,
   ): Promise<string>;
+  invokeTool?(
+    appId: string,
+    workspaceId: string,
+    toolName: string,
+    params: Record<string, unknown>,
+  ): Promise<AppToolResult>;
 }
 
 export interface SeroGitAppBridge {
