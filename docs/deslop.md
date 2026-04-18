@@ -24,6 +24,9 @@ Changes made during code quality passes. Most recent first.
 | `docs/plugins/{technical.md,guide.md,host-compatibility.md}` | Updated plugin docs for `requiredHostCapabilities`, enforced compatibility checks, truthful hot-load behavior, and a downstream migration guide for plugin authors |
 | `docs/deslopify/apps/desktop/electron/cli/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the platform-hardening execution pass, marked the CLI plan healthy, and left the Google integration/re-review follow-up tracked separately |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the post-PR-146 Google integration pass, marked Phase 9 complete, and narrowed the remaining Google migration work to the still-unchecked manual verification items |
+| `plugins/sero-google-plugin/extension/google/{auth-tool.ts,auth.ts}` | Restored secure OAuth config writes (0700 dir / 0600 file) and ensured failed browser launch closes the Google OAuth loopback server |
+| `plugins/sero-google-plugin/extension/google/cli-followup.ts`, `plugins/sero-google-plugin/extension/__tests__/google-cli-handlers.test.ts` | Made follow-up summary delivery best-effort so successful Google CLI actions are not misreported as failures when session messaging is unavailable |
+| `plugins/sero-google-plugin/extension/__tests__/{google-auth.test.ts,google-auth-tool.test.ts}` | Added focused regressions for loopback-server cleanup on opener failure and locked-down OAuth config file permissions |
 
 ---
 

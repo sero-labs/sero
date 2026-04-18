@@ -262,3 +262,19 @@ _Last reviewed: 2026-04-18_
 ### Still outstanding
 - Broader migration-level manual verification is still pending where it was already unchecked before Phase 9: default/non-default profile sign-in parity, legacy token rediscovery, and explicit UI-vs-agent Gmail/Calendar parity were not all re-run in this integration pass.
 - The specific Phase 9 hot-update validation task is now closed: live reinstall/update of the plugin-owned `google` command was manually confirmed on the integrated branches.
+
+## Post-fix snapshot — 2026-04-18 (post-review hardening)
+
+### Metrics after fixes
+- Total plugin files: 59 (no material footprint change from the Phase 9 snapshot; this pass added one focused auth-tool regression while keeping every touched source file well under the 500-LOC cap)
+- Largest plugin source file: `plugins/sero-google-plugin/extension/google/cli-handlers.ts` (462 LOC)
+- Files over 500 LOC: none
+
+### What changed
+- Restored secure OAuth config persistence in `../plugins/sero-google-plugin/extension/google/auth-tool.ts`: `save_config` now recreates the host-side plugin-config permissions contract by creating the config directory with `0700`, rewriting the JSON with a trailing newline, and forcing the saved credentials file to `0600`.
+- Hardened `../plugins/sero-google-plugin/extension/google/auth.ts` so the Google OAuth loopback server always closes if browser launch fails before the callback arrives, preventing a leaked localhost listener during failed sign-in attempts.
+- Hardened `../plugins/sero-google-plugin/extension/google/cli-followup.ts` so follow-up summary delivery is best-effort: successful Gmail/Calendar commands now keep their real success result even when `sessionRuntime.sendMessage()` rejects because the session has already gone away.
+- Added focused regression coverage in `../plugins/sero-google-plugin/extension/__tests__/{google-auth.test.ts,google-auth-tool.test.ts,google-cli-handlers.test.ts}` for secure config permissions, opener-failure loopback cleanup, and non-fatal follow-up delivery.
+
+### Still outstanding
+- The broader migration-level final verification checklist is still partially unchecked: default/non-default profile sign-in smoke, legacy-token rediscovery, and explicit UI-vs-agent Gmail/Calendar parity were not re-run in this post-review hardening pass.
