@@ -178,17 +178,17 @@ Phase 0 policy lock (2026-04-17):
   - [x] Legacy migrated tokens are still discoverable.
 
 ### Phase 3 — Make plugin state shaping canonical
-- [ ] Phase 3 complete
-- [ ] Extract canonical Gmail/Calendar mappers into plugin-owned helpers.
-- [ ] Upgrade plugin tool writes so `GoogleAppState` includes the richer fields the UI currently synthesizes.
-  - [ ] Gmail HTML body support
-  - [ ] richer attendee/status display data
-  - [ ] reminders, links, visibility, source metadata
-- [ ] Remove duplicated raw gog JSON shaping from `plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts:178-250`.
-- [ ] Keep `useAppState()` as the single reactive data contract for the UI.
-- [ ] Exit criteria confirmed.
-  - [ ] Agent-triggered and UI-triggered fetches produce the same state shape.
-  - [ ] The UI no longer contains a second Gmail/Calendar mapping implementation.
+- [x] Phase 3 complete
+- [x] Extract canonical Gmail/Calendar mappers into plugin-owned helpers.
+- [x] Upgrade plugin tool writes so `GoogleAppState` includes the richer fields the UI currently synthesizes.
+  - [x] Gmail HTML body support
+  - [x] richer attendee/status display data
+  - [x] reminders, links, visibility, source metadata
+- [x] Remove duplicated raw gog JSON shaping from `plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts:178-250`.
+- [x] Keep `useAppState()` as the single reactive data contract for the UI.
+- [x] Exit criteria confirmed.
+  - [x] Agent-triggered and UI-triggered fetches produce the same state shape.
+  - [x] The UI no longer contains a second Gmail/Calendar mapping implementation.
 
 ### Phase 4 — Rebase the UI onto generic plugin-owned execution
 - [ ] Phase 4 complete
@@ -251,3 +251,4 @@ Phase 0 policy lock (2026-04-17):
 - 2026-04-17 — Completed Phase 0 as a docs-only policy lock: chose the CLI parity path, documented the auth/profile/container behavior that later phases must preserve, recorded the shell-owned Google surfaces that stay until final cutover, and noted that later implementation phases require the external plugin source package to be available in the working tree.
 - 2026-04-17 — Completed Phase 1 in core only: added a generic `appAgent.invokeTool(...)` / `useAppTools().run(...)` seam, normalized app-tool result typing in shared contracts, wired preload + IPC + app-session execution together, and added focused regressions proving a federated UI can call an app-local extension tool without a bespoke preload namespace.
 - 2026-04-18 — Completed Phase 2 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `9ccc9fa`: ported the shell Google auth/runtime stack into plugin-owned `extension/google/` modules, rebased `extension/gogcli.ts` on the new profile-aware client/keyring helpers, and added focused regressions for loopback login, credential import, client-bucket resolution, and buggy-keyring migration.
+- 2026-04-18 — Completed Phase 3 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `704425f`: extracted canonical Gmail/Calendar state mappers into `shared/google-state.ts`, rebased both the extension and `ui/hooks/useGoogleApi.ts` onto those helpers so UI-triggered and agent-triggered fetches write the same `GoogleAppState` shape, and deleted the old renderer-only `ui/components/gmail-parser.ts` duplication.

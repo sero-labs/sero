@@ -16,6 +16,13 @@ Changes made during code quality passes. Most recent first.
 | `../plugins/sero-google-plugin/{package.json,package-lock.json}` | Added plugin-local Vitest coverage support for the migrated auth/runtime surface |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 2 cross-repo auth/runtime migration, refreshed metrics, and marked the phase complete |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–2 complete with Phase 3 next |
+| `../plugins/sero-google-plugin/shared/google-state.ts` | New — canonical Gmail/Calendar state-shaping helpers shared by the extension and UI so both paths write identical `GoogleAppState` payloads |
+| `../plugins/sero-google-plugin/extension/index.ts` | Rebased Gmail/Calendar tool state writes on the canonical shared mappers and upgraded state richness with HTML bodies plus calendar reminders/links/visibility/source metadata |
+| `../plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts` | Removed duplicated renderer-side gog JSON shaping and now updates `useAppState()` through the shared canonical mappers while leaving the Phase 4 bridge path unchanged |
+| `../plugins/sero-google-plugin/ui/components/gmail-parser.ts` | Deleted — Gmail message parsing now lives in the canonical shared mapper instead of a renderer-only helper |
+| `../plugins/sero-google-plugin/extension/__tests__/google-state.test.ts` | New — regression coverage for canonical Gmail HTML-body mapping and Calendar attendee/reminder/link metadata shaping |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 3 canonical-state pass, refreshed plugin metrics, and marked the phase complete |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–3 complete with Phase 4 next |
 
 ---
 

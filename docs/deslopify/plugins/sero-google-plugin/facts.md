@@ -109,3 +109,23 @@ _Last reviewed: 2026-04-18_
 - Phase 3 still needs to make the plugin’s Gmail/Calendar state shaping canonical; `extension/index.ts` and `ui/hooks/useGoogleApi.ts` still maintain separate mapping logic today.
 - Phase 4 still needs to rebase the UI off `window.sero.google` and onto the generic app-tool bridge.
 - CLI parity (`sero google ...`) and final shell-glue deletion remain later migration phases.
+
+## Post-fix snapshot — 2026-04-18 (Phase 3)
+
+### Metrics after fixes
+- Total plugin files: 39 (was 38; added one shared canonical state-mapper module and one focused regression file while deleting the old renderer-only Gmail parser)
+- Largest plugin file: `plugins/sero-google-plugin/extension/index.ts` (310 LOC, down from 335)
+- Files over 500 LOC: none
+- Type escape hatches remaining: legacy `any` use is now confined to untouched Phase 4 surfaces only; the Phase 3 mappers/hook/index changes landed without new escape hatches
+
+### What changed
+- Added `plugins/sero-google-plugin/shared/google-state.ts` as the canonical Gmail/Calendar state-shaping owner for thread summaries, full Gmail message bodies/HTML, calendar attendees, reminders, links, visibility, and source metadata.
+- Rebased `plugins/sero-google-plugin/extension/index.ts` on those helpers so agent-triggered tool executions now write the richer `GoogleAppState` shape instead of the older truncated thread/event payloads.
+- Rebased `plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts` on the same helpers so UI-triggered fetches produce the same state shape as agent-triggered fetches without keeping a second raw gog JSON mapper in the renderer.
+- Deleted `plugins/sero-google-plugin/ui/components/gmail-parser.ts`; Gmail body parsing now lives in the canonical shared mapper instead of a renderer-only utility.
+- Added focused regression coverage in `plugins/sero-google-plugin/extension/__tests__/google-state.test.ts` for canonical Gmail HTML-body mapping and Calendar attendee/reminder/link metadata shaping.
+
+### Still outstanding
+- Phase 4 still needs to replace `window.sero.google` usage with the generic app-tool bridge; Phase 3 only unified the shaping contract, not the execution path.
+- Phase 5 still needs to preserve the public `sero google ...` CLI contract from the plugin side.
+- Phase 6 still owns deletion of the remaining Google-specific shell preload/IPC/runtime glue after the plugin path is fully green.
