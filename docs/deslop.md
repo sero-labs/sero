@@ -57,6 +57,10 @@ Changes made during code quality passes. Most recent first.
 | `../plugins/sero-google-plugin/extension/__tests__/google-cli-output.test.ts` | New — locks the human-readable CLI summary contract for Gmail search and Calendar event listings |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the follow-up Phase 7 CLI summary polish pass and refreshed the plugin metrics/log |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the follow-up agent-readable CLI summary pass |
+| `../plugins/sero-google-plugin/extension/google/{cli-handlers,cli-output}.ts` | Extended agent-readable Google CLI summaries to the remaining JSON-heavy Gmail/Calendar subcommands, including sends, labels, drafts, single-event mutations, and free/busy checks |
+| `../plugins/sero-google-plugin/extension/__tests__/{google-cli-output,google-cli-handlers}.test.ts` | Expanded Google CLI summary coverage for labels, drafts, free/busy, calendar mutations, and matching handler routing |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the second Phase 7 CLI summary polish pass and refreshed the Phase 7 snapshot/log |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the second follow-up CLI summary pass |
 
 ---
 
