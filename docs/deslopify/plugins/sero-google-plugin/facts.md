@@ -207,5 +207,4 @@ _Last reviewed: 2026-04-18_
 - Added `plugins/sero-google-plugin/extension/google/cli-followup.ts` plus bridged session-runtime forwarding in `cli-tool.ts` so successful agent-facing `sero google ...` runs now emit the same summary text as a follow-up assistant message, not only inside the tool-call card details.
 
 ### Still outstanding
-- Phase 7 manual smoke is still pending: re-run `sero google gmail ...` / `sero google calendar ...` parity against a real authenticated profile in both host-mode and container-backed workspaces.
-- Revalidate Google mail-thread rendering in-app and confirm the renderer CSP console noise is gone for representative HTML-heavy Gmail messages.
+- Phase 7 is complete. Remaining broader migration verification is now limited to the unchecked items in the final verification checklist (default/non-default profile sign-in parity, legacy-token rediscovery, and UI-vs-agent Gmail/Calendar parity that were not all explicitly re-run in this pass).

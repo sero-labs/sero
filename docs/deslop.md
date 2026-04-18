@@ -64,6 +64,8 @@ Changes made during code quality passes. Most recent first.
 | `../plugins/sero-google-plugin/extension/google/{cli-followup,cli-tool,cli-types,cli-handlers}.ts` | Added follow-up assistant-message emission for successful agent-facing `sero google ...` commands so summaries appear in the chat transcript, not only inside the tool card |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the third Phase 7 CLI polish pass for follow-up assistant-message delivery |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the follow-up chat-response polish pass |
+| `docs/deslopify/plugins/sero-google-plugin/{plan,facts}.md` | Marked Phase 7 complete after manual host/container CLI smoke + Gmail CSP revalidation, while leaving broader migration final-verification items explicitly pending |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker note to show Phases 0–7 complete with only migration-level final verification remaining |
 
 ---
 

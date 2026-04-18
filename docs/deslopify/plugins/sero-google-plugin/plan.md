@@ -246,7 +246,7 @@ Manual QA follow-up findings (2026-04-18):
 - container-backed workspaces failed the CLI parity smoke because the plugin runtime tried to execute `gog` inside the container even though the shipped `sero-node` image does not currently install gogcli;
 - Gmail HTML rendering in `ui/components/MailThread.tsx` triggered renderer CSP violations from remote fonts/images/styles embedded in email HTML.
 
-- [ ] Phase 7 complete
+- [x] Phase 7 complete
 - [x] Fix cold-session host CLI account resolution.
   - [x] Make the plugin-owned host CLI runtime resolve the active Google account from persisted auth/keyring state when `getGoogleAuthManager().getEmail()` is empty in a fresh session.
   - [x] Preserve the current profile-aware `--client` behavior while removing the need for manual `--account` in fresh host-mode sessions.
@@ -261,16 +261,16 @@ Manual QA follow-up findings (2026-04-18):
   - [x] Restrict the bridged agent-facing Google CLI surface so auth-management subcommands that touch keyring/token internals (`auth list`, credential import/setup-only flows, etc.) fail closed or stay operator-only.
   - [x] Preserve the human/operator setup path needed to configure OAuth and recover auth manually.
   - [x] Add focused regression coverage proving blocked auth-management commands do not expose low-level gog/keyring failure text to the agent.
-- [ ] Fix the Gmail HTML/CSP issue.
+- [x] Fix the Gmail HTML/CSP issue.
   - [x] Reproduce the CSP violations caused by remote assets embedded in rendered Gmail HTML.
   - [x] Sanitize or normalize `bodyHtml` before iframe render so remote fonts/images/styles that violate the renderer CSP no longer trigger console noise while readable email content is preserved.
   - [x] Add focused UI regression coverage using representative HTML email fixtures with remote asset references.
-  - [ ] Revalidate mail-thread rendering manually and confirm the CSP console noise is gone for the Google mail view.
-- [ ] Exit criteria confirmed.
+  - [x] Revalidate mail-thread rendering manually and confirm the CSP console noise is gone for the Google mail view.
+- [x] Exit criteria confirmed.
   - [x] Host-mode `sero google ...` parity works in a fresh session without requiring explicit `--account`.
-  - [ ] Container-backed workspaces follow the chosen gog execution contract and pass manual CLI parity smoke.
+  - [x] Container-backed workspaces follow the chosen gog execution contract and pass manual CLI parity smoke.
   - [x] Agent-visible Google command flows no longer expose low-level auth-management/keyring failure surfaces.
-  - [ ] Gmail HTML remains readable without CSP violations caused by embedded remote assets.
+  - [x] Gmail HTML remains readable without CSP violations caused by embedded remote assets.
 
 ### Final verification checklist
 - [ ] Sign in from the Google UI on the default profile, then run plugin tools and confirm they use the same account.
@@ -278,7 +278,7 @@ Manual QA follow-up findings (2026-04-18):
 - [ ] Validate that previously migrated/legacy gog tokens are still discovered after the move.
 - [ ] Trigger Gmail thread fetches from both the UI and the agent and confirm the resulting state includes HTML bodies and identical thread metadata.
 - [ ] Trigger Calendar fetches from both the UI and the agent and confirm attendees/reminders/links stay identical.
-- [ ] Smoke-test the chosen CLI contract (`sero google ...` parity or documented removal) on both host-mode and container-backed workspaces.
+- [x] Smoke-test the chosen CLI contract (`sero google ...` parity or documented removal) on both host-mode and container-backed workspaces.
 - [x] Run the relevant tests for all touched code.
 - [x] Run `pnpm typecheck` from the monorepo root before calling the migration complete.
 
@@ -295,3 +295,4 @@ Manual QA follow-up findings (2026-04-18):
 - 2026-04-18 — Landed a follow-up Phase 7 polish pass in the external plugin repo (`../plugins/sero-google-plugin`) via commit `e81bac9` (`fix(google-plugin): summarize cli output for agents`): checked how other Sero CLI commands behave and aligned Google with the same pattern by adding a dedicated CLI output formatter so JSON-heavy Gmail/Calendar commands now emit concise text summaries in normal tool output while preserving raw gog JSON in `details` for drill-down.
 - 2026-04-18 — Landed a second Phase 7 CLI polish pass in the external plugin repo (`../plugins/sero-google-plugin`) via commit `6ddfb1e` (`fix(google-plugin): summarize remaining cli json output`): extended the human-readable summary layer across the remaining JSON-heavy Gmail/Calendar subcommands so sends, label mutations/listing, drafts, single-event mutations, and free/busy checks now surface useful text in the main agent response instead of only in tool-call details.
 - 2026-04-18 — Landed a third Phase 7 CLI polish pass in the external plugin repo (`../plugins/sero-google-plugin`) via commit `f340786` (`fix(google-plugin): emit cli summaries as follow-up messages`): checked the live chat behavior and found the summary text was still trapped inside the tool card UI, then wired successful agent-facing `sero google ...` executions to send the same summary as a follow-up assistant message through the bridged session runtime.
+- 2026-04-18 — Final Phase 7 manual validation confirmed: host/container CLI smoke passed after the follow-up-message fix, and in-app Gmail rendering no longer emits CSP console noise. Marked Phase 7 complete while leaving the broader migration-level final verification checklist unchanged where it was not explicitly re-run in this pass.
