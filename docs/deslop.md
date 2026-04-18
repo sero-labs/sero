@@ -66,6 +66,8 @@ Changes made during code quality passes. Most recent first.
 | `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the follow-up chat-response polish pass |
 | `docs/deslopify/plugins/sero-google-plugin/{plan,facts}.md` | Marked Phase 7 complete after manual host/container CLI smoke + Gmail CSP revalidation, while leaving broader migration final-verification items explicitly pending |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker note to show Phases 0–7 complete with only migration-level final verification remaining |
+| `docs/deslopify/plugins/sero-google-plugin/plan.md` | Added Phase 8 — a docs-only README refresh phase covering gogcli install, auth/setup, container fallback, and operator-vs-agent guidance |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker note to show the new Phase 8 README refresh backlog after the Phase 7 closeout |
 
 ---
 
