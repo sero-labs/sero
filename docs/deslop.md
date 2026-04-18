@@ -61,6 +61,9 @@ Changes made during code quality passes. Most recent first.
 | `../plugins/sero-google-plugin/extension/__tests__/{google-cli-output,google-cli-handlers}.test.ts` | Expanded Google CLI summary coverage for labels, drafts, free/busy, calendar mutations, and matching handler routing |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the second Phase 7 CLI summary polish pass and refreshed the Phase 7 snapshot/log |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the second follow-up CLI summary pass |
+| `../plugins/sero-google-plugin/extension/google/{cli-followup,cli-tool,cli-types,cli-handlers}.ts` | Added follow-up assistant-message emission for successful agent-facing `sero google ...` commands so summaries appear in the chat transcript, not only inside the tool card |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the third Phase 7 CLI polish pass for follow-up assistant-message delivery |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the follow-up chat-response polish pass |
 
 ---
 

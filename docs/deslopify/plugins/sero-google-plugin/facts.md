@@ -204,6 +204,7 @@ _Last reviewed: 2026-04-18_
 - Added `plugins/sero-google-plugin/extension/google/cli-output.ts` and rebased the Gmail/Calendar CLI handlers onto it so JSON-heavy commands now produce concise agent-readable text summaries in normal tool output while preserving the raw gog JSON in `details` for drill-down.
 - Extended that summary layer across the remaining Gmail/Calendar JSON subcommands too: sends, label mutations/listing, draft listing/create/send, single-event create/update/respond, and free/busy checks now all return readable text instead of dumping raw JSON into the main agent response.
 - Added focused regressions in `plugins/sero-google-plugin/extension/__tests__/google-cli-{runtime,handlers,tool,output}.test.ts` and `plugins/sero-google-plugin/ui/components/mail-html.test.ts` covering fresh-session host parity, container→host fallback, blocked agent auth-management flows, representative HTML email fixtures with remote assets, and the expanded human-readable CLI summary contract.
+- Added `plugins/sero-google-plugin/extension/google/cli-followup.ts` plus bridged session-runtime forwarding in `cli-tool.ts` so successful agent-facing `sero google ...` runs now emit the same summary text as a follow-up assistant message, not only inside the tool-call card details.
 
 ### Still outstanding
 - Phase 7 manual smoke is still pending: re-run `sero google gmail ...` / `sero google calendar ...` parity against a real authenticated profile in both host-mode and container-backed workspaces.
