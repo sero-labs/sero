@@ -16,7 +16,8 @@ vi.mock('electron', () => ({
 import { agentBridge } from '@electron/preload/api/core';
 import { filetreeBridge, vcsBridge } from '@electron/preload/api/workbench';
 import { lspBridge } from '@electron/preload/editor/debug-lsp';
-import { googleBridge } from '@electron/preload/integrations/google-imagegen';
+import type { ImageGenParams } from '@electron/features/agent/assistants/image-agent';
+import { imagegenBridge } from '@electron/preload/integrations/imagegen';
 
 describe('preload event bridge subscriptions', () => {
   beforeEach(() => {
@@ -128,30 +129,20 @@ describe('preload event bridge subscriptions', () => {
     );
   });
 
-  it('unsubscribes Google auth listeners with typed progress payloads', () => {
-    const callback = vi.fn();
+  it('invokes the surviving imagegen bridge through the imagegen IPC surface', async () => {
+    const params: ImageGenParams = {
+      prompt: 'Generate a skyline at sunset',
+      model: 'gemini-2.5-flash-image',
+      variations: 1,
+      aspectRatio: '1:1',
+    };
 
-    const unsubscribe = googleBridge.onAuthEvent(callback);
+    await imagegenBridge.generate('ws-1', params);
 
-    expect(mocks.ipcRenderer.on).toHaveBeenCalledWith(
-      IpcChannels.google.authEvent,
-      expect.any(Function),
-    );
-    const handler = mocks.ipcRenderer.on.mock.calls.at(-1)?.[1];
-    expect(handler).toBeTypeOf('function');
-
-    handler?.({}, { type: 'success', message: 'Signed in', email: 'user@example.com' });
-    expect(callback).toHaveBeenCalledWith({
-      type: 'success',
-      message: 'Signed in',
-      email: 'user@example.com',
-    });
-
-    unsubscribe();
-
-    expect(mocks.ipcRenderer.removeListener).toHaveBeenCalledWith(
-      IpcChannels.google.authEvent,
-      handler,
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(
+      IpcChannels.imagegen.generate,
+      'ws-1',
+      params,
     );
   });
 });

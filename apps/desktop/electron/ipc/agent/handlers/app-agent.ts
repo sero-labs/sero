@@ -30,6 +30,7 @@ import path from 'path';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import { discoverApps } from '@electron/features/apps/discovery';
+import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
@@ -163,6 +164,8 @@ async function getOrCreateAppSession(
     sessionManager: SessionManager.inMemory(wsPath),
     settingsManager: infra.settingsManager,
   });
+
+  session.extensionRunner?.setUIContext(createSeroUIContext());
 
   appPool.set(key, { session });
   return session;

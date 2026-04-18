@@ -15,6 +15,7 @@ export { useAvailableModels, type UseAvailableModelsResult } from './use-availab
 export { useTheme, type UseThemeResult } from './use-theme';
 export { getSeroApi } from './sero-bridge';
 export type { AppModelInfo, AppModelGroup } from './sero-bridge';
+export type { AppToolContentBlock, AppToolImageContent, AppToolResult, AppToolTextContent } from '@sero/common';
 export { registerWidget, getRuntimeWidgets, onWidgetRegistryChange } from './widget-registry';
 export type { RuntimeWidget } from './widget-registry';
 export { useWidgetRegistration } from './use-widget-registration';

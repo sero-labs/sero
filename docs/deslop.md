@@ -23,6 +23,7 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/stores/app/{shared.ts,discovery.ts,state.ts}`, `apps/desktop/src/stores/app.test.ts`, `apps/desktop/src/components/layout/{AppStoreCard.tsx,AppStoreDialog.tsx}` | Kept unsupported plugins browseable in the App Store while hiding them from active sidebar/preload paths and surfacing compatibility errors inline |
 | `docs/plugins/{technical.md,guide.md,host-compatibility.md}` | Updated plugin docs for `requiredHostCapabilities`, enforced compatibility checks, truthful hot-load behavior, and a downstream migration guide for plugin authors |
 | `docs/deslopify/apps/desktop/electron/cli/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the platform-hardening execution pass, marked the CLI plan healthy, and left the Google integration/re-review follow-up tracked separately |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the post-PR-146 Google integration pass, marked Phase 9 complete, and narrowed the remaining Google migration work to the still-unchecked manual verification items |
 
 ---
 

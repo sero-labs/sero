@@ -16,7 +16,7 @@ import { promptsBridge } from './agent/prompts';
 import { collaborationBridge } from './collaboration';
 import { modelsBridge } from './agent/models';
 import { localModelsBridge } from './agent/local-models';
-import { googleBridge, imagegenBridge } from './integrations/google-imagegen';
+import { imagegenBridge } from './integrations/imagegen';
 import { modelConfigBridge, onboardingBridge } from './onboarding';
 import {
   appStateBridge,
@@ -60,7 +60,6 @@ export const seroPreloadApi = {
   localModels: localModelsBridge,
   modelConfig: modelConfigBridge,
   onboarding: onboardingBridge,
-  google: googleBridge,
   imagegen: imagegenBridge,
   pluginConfig: pluginConfigBridge,
   voice: voiceBridge,
