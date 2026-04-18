@@ -84,9 +84,6 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   'memory',
   'memory_search',
   'scratchpad',
-  // Google
-  'gmail',
-  'gcal',
   // Media & services
   'generate_image',
   'spotify',

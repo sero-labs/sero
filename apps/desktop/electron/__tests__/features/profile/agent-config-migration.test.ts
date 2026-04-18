@@ -36,6 +36,19 @@ describe('migrateLegacyProfileRootConfigsSync', () => {
     expect(existsSync(untouchedPath)).toBe(true);
   });
 
+  it('moves legacy google auth config into the plugin-owned config path', async () => {
+    const { profileHome, agentDir } = await createProfileDir();
+    const sourcePath = path.join(profileHome, 'google-auth.json');
+    const targetPath = path.join(agentDir, 'plugin-config', 'sero-google-plugin.json');
+
+    await writeFile(sourcePath, '{"clientId":"google-client"}\n', 'utf8');
+
+    migrateLegacyProfileRootConfigsSync(profileHome, agentDir);
+
+    expect(existsSync(sourcePath)).toBe(false);
+    expect(await readFile(targetPath, 'utf8')).toContain('google-client');
+  });
+
   it('removes duplicate legacy files when the agent copy already matches', async () => {
     const { profileHome, agentDir } = await createProfileDir();
     const sourcePath = path.join(profileHome, 'feedback.json');

@@ -13,14 +13,19 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync } from 'fs'
 import path from 'path';
 
 const LEGACY_PROFILE_ROOT_CONFIG_FILES = [
-  'feedback.json',
-  'gateway-config.json',
-  'gateway-token',
-  'gateway-web-tokens.json',
-  'github-auth.json',
-  'google-auth.json',
-  'provider-model-defaults.json',
+  { sourceName: 'feedback.json', targetRelativePath: 'feedback.json' },
+  { sourceName: 'gateway-config.json', targetRelativePath: 'gateway-config.json' },
+  { sourceName: 'gateway-token', targetRelativePath: 'gateway-token' },
+  { sourceName: 'gateway-web-tokens.json', targetRelativePath: 'gateway-web-tokens.json' },
+  { sourceName: 'github-auth.json', targetRelativePath: 'github-auth.json' },
+  { sourceName: 'google-auth.json', targetRelativePath: 'plugin-config/sero-google-plugin.json' },
+  { sourceName: 'provider-model-defaults.json', targetRelativePath: 'provider-model-defaults.json' },
 ] as const;
+
+interface LegacyProfileRootConfigFile {
+  sourceName: string;
+  targetRelativePath: string;
+}
 
 const CONFLICT_BACKUP_DIR = 'legacy-root-configs';
 
@@ -49,13 +54,13 @@ function nextBackupPath(dir: string, fileName: string): string {
 function migrateOneFile(
   profileHome: string,
   agentDir: string,
-  fileName: string,
+  legacyFile: LegacyProfileRootConfigFile,
 ): MigrationAction | null {
-  const sourcePath = path.join(profileHome, fileName);
+  const sourcePath = path.join(profileHome, legacyFile.sourceName);
   if (!existsSync(sourcePath)) return null;
 
-  const targetPath = path.join(agentDir, fileName);
-  mkdirSync(agentDir, { recursive: true });
+  const targetPath = path.join(agentDir, legacyFile.targetRelativePath);
+  mkdirSync(path.dirname(targetPath), { recursive: true });
 
   if (!existsSync(targetPath)) {
     renameSync(sourcePath, targetPath);
@@ -71,13 +76,17 @@ function migrateOneFile(
 
   const backupDir = path.join(agentDir, CONFLICT_BACKUP_DIR);
   mkdirSync(backupDir, { recursive: true });
-  const backupPath = nextBackupPath(backupDir, fileName);
+  const backupPath = nextBackupPath(backupDir, path.basename(legacyFile.targetRelativePath));
   renameSync(sourcePath, backupPath);
   return { type: 'backed-up-conflict', sourcePath, targetPath, backupPath };
 }
 
 /**
  * Move legacy agent-owned config files from the profile root into agent/.
+ *
+ * Most files keep the same relative path under `agent/`. Legacy Google OAuth
+ * config is the exception: old `google-auth.json` moves into the plugin-owned
+ * `agent/plugin-config/sero-google-plugin.json` path.
  *
  * If a target file already exists:
  * - identical source files are deleted from the root
@@ -103,12 +112,12 @@ export function migrateLegacyProfileRootConfigsSync(
 
   const actions: MigrationAction[] = [];
 
-  for (const fileName of LEGACY_PROFILE_ROOT_CONFIG_FILES) {
+  for (const legacyFile of LEGACY_PROFILE_ROOT_CONFIG_FILES) {
     try {
-      const action = migrateOneFile(normalizedProfileHome, normalizedAgentDir, fileName);
+      const action = migrateOneFile(normalizedProfileHome, normalizedAgentDir, legacyFile);
       if (action) actions.push(action);
     } catch (err) {
-      console.warn(`[sero:profile] Failed to migrate legacy config ${fileName}:`, err);
+      console.warn(`[sero:profile] Failed to migrate legacy config ${legacyFile.sourceName}:`, err);
     }
   }
 

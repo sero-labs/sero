@@ -65,7 +65,12 @@ describe('profile copy helpers', () => {
     await writeFile(path.join(source.agentDir, '.env'), 'OPENAI_API_KEY=test-key\n', 'utf8');
     await writeFile(path.join(source.agentDir, 'auth.json'), '{"anthropic":{"apiKey":"test"}}\n', 'utf8');
     await writeFile(path.join(source.agentDir, 'github-auth.json'), '{"username":"octocat"}\n', 'utf8');
-    await writeFile(path.join(source.agentDir, 'google-auth.json'), '{"email":"user@example.com"}\n', 'utf8');
+    await mkdir(path.join(source.agentDir, 'plugin-config'), { recursive: true });
+    await writeFile(
+      path.join(source.agentDir, 'plugin-config', 'sero-google-plugin.json'),
+      '{"clientId":"google-client","clientSecret":"google-secret"}\n',
+      'utf8',
+    );
     await writeFile(path.join(source.agentDir, 'gateway-config.json'), '{"maxCostPerDay":10}\n', 'utf8');
     await writeFile(path.join(source.agentDir, 'gateway-token'), 'gateway-secret', 'utf8');
     await writeFile(path.join(source.agentDir, 'gateway-web-tokens.json'), '[{"label":"web"}]\n', 'utf8');
@@ -93,7 +98,7 @@ describe('profile copy helpers', () => {
     expect(await readFile(path.join(dest.agentDir, '.env'), 'utf8')).toContain('OPENAI_API_KEY');
     expect(await readFile(path.join(dest.agentDir, 'auth.json'), 'utf8')).toContain('anthropic');
     expect(await readFile(path.join(dest.agentDir, 'github-auth.json'), 'utf8')).toContain('octocat');
-    expect(await readFile(path.join(dest.agentDir, 'google-auth.json'), 'utf8')).toContain('user@example.com');
+    expect(await readFile(path.join(dest.agentDir, 'plugin-config', 'sero-google-plugin.json'), 'utf8')).toContain('google-client');
     expect(await readFile(path.join(dest.agentDir, 'gateway-config.json'), 'utf8')).toContain('maxCostPerDay');
     expect(await readFile(path.join(dest.agentDir, 'gateway-token'), 'utf8')).toBe('gateway-secret');
     expect(await readFile(path.join(dest.agentDir, 'gateway-web-tokens.json'), 'utf8')).toContain('web');

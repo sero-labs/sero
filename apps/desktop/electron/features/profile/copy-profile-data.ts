@@ -14,7 +14,7 @@ const TRANSFERABLE_PROFILE_AGENT_FILES = [
   '.env',
   'auth.json',
   'github-auth.json',
-  'google-auth.json',
+  'plugin-config/sero-google-plugin.json',
   'gateway-config.json',
   'gateway-token',
   'gateway-web-tokens.json',
@@ -24,8 +24,8 @@ const TRANSFERABLE_PROFILE_AGENT_FILES = [
 
 type TransferableProfileAgentFile = typeof TRANSFERABLE_PROFILE_AGENT_FILES[number];
 
-function getAgentFilePath(profilePath: string, fileName: string): string {
-  return path.join(profilePath, 'agent', fileName);
+function getAgentFilePath(profilePath: string, relativePath: string): string {
+  return path.join(profilePath, 'agent', relativePath);
 }
 
 function hasMeaningfulTextContent(content: string): boolean {
@@ -86,7 +86,9 @@ function copyTransferableAgentFiles(
   for (const fileName of TRANSFERABLE_PROFILE_AGENT_FILES) {
     const sourcePath = getAgentFilePath(sourceProfilePath, fileName);
     if (!existsSync(sourcePath)) continue;
-    copyFilePreservingMode(sourcePath, path.join(destAgentDir, fileName));
+    const destPath = getAgentFilePath(destProfilePath, fileName);
+    mkdirSync(path.dirname(destPath), { recursive: true });
+    copyFilePreservingMode(sourcePath, destPath);
   }
 }
 
