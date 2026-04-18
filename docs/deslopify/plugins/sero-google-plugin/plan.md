@@ -238,6 +238,40 @@ Phase 0 policy lock (2026-04-17):
   - [x] The shell contains no Google-specific runtime surface beyond generic plugin infrastructure.
   - [x] The plugin remains fully functional after a fresh install.
 
+### Phase 7 — Post-cutover bugfixes from manual QA
+
+Manual QA follow-up findings (2026-04-18):
+- default-profile `sero google auth list` surfaced a low-level gog keyring unwrap/integrity error in agent-visible output instead of staying behind an operator-only/auth-management boundary;
+- host-mode fresh sessions failed to auto-resolve the active Google account for Gmail/Calendar CLI parity, so `sero google gmail ...` / `sero google calendar ...` required manual `--account` even after the UI had already authenticated;
+- container-backed workspaces failed the CLI parity smoke because the plugin runtime tried to execute `gog` inside the container even though the shipped `sero-node` image does not currently install gogcli;
+- Gmail HTML rendering in `ui/components/MailThread.tsx` triggered renderer CSP violations from remote fonts/images/styles embedded in email HTML.
+
+- [ ] Phase 7 complete
+- [ ] Fix cold-session host CLI account resolution.
+  - [ ] Make the plugin-owned host CLI runtime resolve the active Google account from persisted auth/keyring state when `getGoogleAuthManager().getEmail()` is empty in a fresh session.
+  - [ ] Preserve the current profile-aware `--client` behavior while removing the need for manual `--account` in fresh host-mode sessions.
+  - [ ] Add focused regression coverage for fresh-session `sero google gmail ...` and `sero google calendar ...` calls with no warmed in-memory auth email.
+- [ ] Close the container-backed CLI parity gap.
+  - [ ] Decide the production contract explicitly:
+    - [ ] **Preferred:** fall back to host gog execution when the workspace is container-backed but gog is unavailable in the container.
+    - [ ] **Alternative:** install gogcli in `apps/desktop/images/Dockerfile.sero-node`, rebuild `sero-node:latest`, and recreate affected workspace containers.
+  - [ ] Implement the chosen contract without regressing default-profile auth/keyring behavior.
+  - [ ] Add focused regression coverage for the chosen container path and update operator docs/manual smoke instructions to match it.
+- [ ] Guard auth-management surfaces from agent exposure.
+  - [ ] Restrict the bridged agent-facing Google CLI surface so auth-management subcommands that touch keyring/token internals (`auth list`, credential import/setup-only flows, etc.) fail closed or stay operator-only.
+  - [ ] Preserve the human/operator setup path needed to configure OAuth and recover auth manually.
+  - [ ] Add focused regression coverage proving blocked auth-management commands do not expose low-level gog/keyring failure text to the agent.
+- [ ] Fix the Gmail HTML/CSP issue.
+  - [ ] Reproduce the CSP violations caused by remote assets embedded in rendered Gmail HTML.
+  - [ ] Sanitize or normalize `bodyHtml` before iframe render so remote fonts/images/styles that violate the renderer CSP no longer trigger console noise while readable email content is preserved.
+  - [ ] Add focused UI regression coverage using representative HTML email fixtures with remote asset references.
+  - [ ] Revalidate mail-thread rendering manually and confirm the CSP console noise is gone for the Google mail view.
+- [ ] Exit criteria confirmed.
+  - [ ] Host-mode `sero google ...` parity works in a fresh session without requiring explicit `--account`.
+  - [ ] Container-backed workspaces follow the chosen gog execution contract and pass manual CLI parity smoke.
+  - [ ] Agent-visible Google command flows no longer expose low-level auth-management/keyring failure surfaces.
+  - [ ] Gmail HTML remains readable without CSP violations caused by embedded remote assets.
+
 ### Final verification checklist
 - [ ] Sign in from the Google UI on the default profile, then run plugin tools and confirm they use the same account.
 - [ ] Repeat on a non-default profile and confirm the account stays isolated to that profile.
@@ -256,3 +290,4 @@ Phase 0 policy lock (2026-04-17):
 - 2026-04-18 — Completed Phase 4 in the external plugin repo (`../plugins/sero-google-plugin`) via commit `f6de64b`: replaced `window.sero.google` with generic `appAgent.invokeTool(...)` calls in `ui/hooks/useGoogleApi.ts`, added a plugin-owned internal `google_auth` tool plus a date-range `gcal` action so sign-in/refresh/mail/calendar flows all execute through plugin-owned handlers, and added focused UI regressions for auth transitions, expired-session recovery, inbox/thread fetches, and calendar detail behavior.
 - 2026-04-18 — Completed Phase 5 across the desktop shell + external plugin repo via commits `0617efd` (`refactor(google-plugin): preserve sero google cli parity`) and `287835c7` (`refactor(cli): hand off google command parity to plugin tools`): added custom tool-level CLI bridge metadata so a plugin-owned `google` tool can replace the builtin `sero google ...` command while preserving the existing help text, registered a hidden `google-builtin` shell fallback for validation, implemented plugin-owned Google auth/Gmail/Calendar CLI handlers with container-aware runtime parity, and added focused regressions for bridge override behavior plus auth/Gmail/Calendar command forwarding.
 - 2026-04-18 — Completed Phase 6 in the desktop shell: deleted the last Google-specific preload, IPC, auth-runtime, and shell-CLI owners; split the surviving image-generation preload bridge into `apps/desktop/electron/preload/integrations/imagegen.ts`; removed the legacy `google-builtin` fallback now that plugin CLI parity is live; and revalidated the cutover with desktop preload/CLI/plugin-discovery regressions, external-plugin Google CLI/UI tests, and clean typechecks in both the monorepo and `../plugins/sero-google-plugin`.
+- 2026-04-18 — Added Phase 7 as a post-cutover bugfix batch after manual QA found four follow-ups: fresh-session host CLI account auto-resolution drift, container-backed gog parity ambiguity, agent-visible auth-management leakage through the bridged `google` command, and Gmail HTML rendering that triggers renderer CSP violations from embedded remote assets.
