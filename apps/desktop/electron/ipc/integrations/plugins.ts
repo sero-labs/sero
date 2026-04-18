@@ -11,6 +11,7 @@ import {
   listInstalledPlugins,
   isInstalledPlugin,
 } from '@electron/features/plugins/manager';
+import { reconcileInstalledPluginActivation } from '@electron/features/plugins/activation';
 import { searchPlugins } from '@electron/features/plugins/discovery';
 import { reloadAllSessionResources } from '../agent';
 import { disposeAppSessionsForApp } from '../agent/handlers/app-agent';
@@ -21,6 +22,10 @@ function broadcastPluginEvent(event: PluginChangeEvent): void {
 }
 
 export function registerPluginHandlers(): void {
+  reconcileInstalledPluginActivation().catch((err) => {
+    console.warn('[plugins] Failed to reconcile installed plugin activation state:', err);
+  });
+
   ipcMain.handle(
     IpcChannels.plugins.install,
     async (_event, source: string): Promise<SeroAppManifest> => {

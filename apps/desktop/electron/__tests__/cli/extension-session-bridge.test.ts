@@ -286,4 +286,31 @@ describe('bridged extension sessions', () => {
 
     expect(sendUserMessage).toHaveBeenCalledWith('/memory list', { deliverAs: 'followUp' });
   });
+
+  it('does not resolve another session\'s bridged commands', async () => {
+    installSessionBridge(['session-1', 'session-2']);
+
+    bridgeExtensionTools(
+      makeLoadExtensionsResult({
+        extensionPath: '/tmp/plugin-d/extension/index.ts',
+        commands: [{
+          name: 'session_two_only',
+          description: 'Only available in session two.',
+          handler: async () => undefined,
+        }],
+      }),
+      { sessionId: 'session-2' },
+    );
+
+    const tool = createSeroCliTool(getCliRegistry(), 'ws-1', 'session-1');
+    const result = await tool.execute(
+      'tool-1',
+      { command: 'session_two_only' },
+      undefined,
+      undefined,
+      { cwd: '/tmp/ws-1' } as never,
+    );
+
+    expect(result.content).toEqual([{ type: 'text', text: 'ERROR: Unknown command: session_two_only' }]);
+  });
 });

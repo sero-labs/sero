@@ -7,7 +7,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 describe('plugin manager discovery registration', () => {
   let tempRoot: string | null = null;
 
-  async function createPluginSource(pluginId: string): Promise<string> {
+  async function createPluginSource(
+    pluginId: string,
+    pluginMeta: Record<string, unknown> = {
+      category: 'utilities',
+      tags: ['test'],
+    },
+  ): Promise<string> {
     if (!tempRoot) {
       throw new Error('tempRoot not initialized');
     }
@@ -27,10 +33,7 @@ describe('plugin manager discovery registration', () => {
             icon: 'box',
             stateFile: `.sero/apps/${pluginId}/state.json`,
           },
-          plugin: {
-            category: 'utilities',
-            tags: ['test'],
-          },
+          plugin: pluginMeta,
         },
       }, null, 2),
       'utf8',
@@ -89,6 +92,190 @@ describe('plugin manager discovery registration', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
       tempRoot = null;
     }
+  });
+
+  it('blocks plugin installs when the host compatibility contract is not satisfied', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-compat-'));
+    const sourceDir = await createPluginSource('future-plugin', {
+      category: 'utilities',
+      tags: ['test'],
+      minSeroVersion: '9.9.9',
+    });
+    const { installPlugin, agentDir } = await importModules();
+
+    await expect(installPlugin(sourceDir)).rejects.toThrow('Requires Sero 9.9.9 or newer');
+    await expect(fs.stat(path.join(agentDir, 'packages', 'future-plugin'))).rejects.toThrow();
+  });
+
+  it('still blocks installs when compatibility requirements are present alongside invalid plugin metadata', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-invalid-compat-'));
+    const sourceDir = await createPluginSource('invalid-future-plugin', {
+      category: 'not-a-real-category',
+      tags: ['test'],
+      minSeroVersion: '9.9.9',
+    });
+    const { installPlugin, agentDir } = await importModules();
+
+    await expect(installPlugin(sourceDir)).rejects.toThrow('Requires Sero 9.9.9 or newer');
+    await expect(fs.stat(path.join(agentDir, 'packages', 'invalid-future-plugin'))).rejects.toThrow();
+  });
+
+  it('reconciles installed plugin activation so unsupported plugins stay on disk but out of settings', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-reconcile-'));
+    const { reconcileInstalledPluginActivation, agentDir } = await importModules();
+
+    const compatiblePath = path.join(agentDir, 'packages', 'compatible-plugin');
+    const incompatiblePath = path.join(agentDir, 'packages', 'incompatible-plugin');
+    await fs.mkdir(compatiblePath, { recursive: true });
+    await fs.mkdir(incompatiblePath, { recursive: true });
+
+    await fs.writeFile(
+      path.join(compatiblePath, 'package.json'),
+      JSON.stringify({
+        name: 'compatible-plugin',
+        version: '1.0.0',
+        sero: {
+          app: {
+            id: 'compatible-plugin',
+            name: 'Compatible Plugin',
+            icon: 'box',
+            stateFile: '.sero/apps/compatible-plugin/state.json',
+          },
+          plugin: {
+            category: 'utilities',
+            tags: ['test'],
+          },
+        },
+      }, null, 2),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(incompatiblePath, 'package.json'),
+      JSON.stringify({
+        name: 'incompatible-plugin',
+        version: '1.0.0',
+        sero: {
+          app: {
+            id: 'incompatible-plugin',
+            name: 'Incompatible Plugin',
+            icon: 'box',
+            stateFile: '.sero/apps/incompatible-plugin/state.json',
+          },
+          plugin: {
+            category: 'utilities',
+            tags: ['test'],
+            minSeroVersion: '9.9.9',
+          },
+        },
+      }, null, 2),
+      'utf8',
+    );
+
+    await fs.writeFile(
+      path.join(agentDir, 'settings.json'),
+      JSON.stringify({
+        packages: [incompatiblePath],
+      }, null, 2),
+      'utf8',
+    );
+
+    await reconcileInstalledPluginActivation();
+
+    const settings = await fs.readFile(path.join(agentDir, 'settings.json'), 'utf8');
+    expect(settings).toContain(compatiblePath);
+    expect(settings).not.toContain(incompatiblePath);
+    await expect(fs.stat(incompatiblePath)).resolves.toBeDefined();
+  });
+
+  it('preserves existing package order while removing incompatible managed plugins', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-order-'));
+    const { reconcileInstalledPluginActivation, agentDir } = await importModules();
+
+    const zPluginPath = path.join(agentDir, 'packages', 'z-plugin');
+    const aPluginPath = path.join(agentDir, 'packages', 'a-plugin');
+    const customPackagePath = path.join(tempRoot, 'custom-package');
+    await fs.mkdir(zPluginPath, { recursive: true });
+    await fs.mkdir(aPluginPath, { recursive: true });
+
+    await fs.writeFile(
+      path.join(zPluginPath, 'package.json'),
+      JSON.stringify({
+        name: 'z-plugin',
+        version: '1.0.0',
+        sero: {
+          app: {
+            id: 'z-plugin',
+            name: 'Z Plugin',
+            icon: 'box',
+            stateFile: '.sero/apps/z-plugin/state.json',
+          },
+          plugin: {
+            category: 'utilities',
+            tags: ['test'],
+          },
+        },
+      }, null, 2),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(aPluginPath, 'package.json'),
+      JSON.stringify({
+        name: 'a-plugin',
+        version: '1.0.0',
+        sero: {
+          app: {
+            id: 'a-plugin',
+            name: 'A Plugin',
+            icon: 'box',
+            stateFile: '.sero/apps/a-plugin/state.json',
+          },
+          plugin: {
+            category: 'utilities',
+            tags: ['test'],
+          },
+        },
+      }, null, 2),
+      'utf8',
+    );
+
+    await fs.writeFile(
+      path.join(agentDir, 'settings.json'),
+      JSON.stringify({
+        packages: [customPackagePath, zPluginPath, aPluginPath],
+      }, null, 2),
+      'utf8',
+    );
+
+    await reconcileInstalledPluginActivation();
+
+    const settings = JSON.parse(await fs.readFile(path.join(agentDir, 'settings.json'), 'utf8')) as {
+      packages: string[];
+    };
+    expect(settings.packages).toEqual([customPackagePath, zPluginPath, aPluginPath]);
+  });
+
+  it('removes incompatible local-path plugin packages from the active settings list', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-local-path-'));
+    const sourceDir = await createPluginSource('manual-local-plugin', {
+      category: 'utilities',
+      tags: ['test'],
+      minSeroVersion: '9.9.9',
+    });
+    const { reconcileInstalledPluginActivation, agentDir } = await importModules();
+
+    await fs.mkdir(agentDir, { recursive: true });
+    await fs.writeFile(
+      path.join(agentDir, 'settings.json'),
+      JSON.stringify({
+        packages: [sourceDir],
+      }, null, 2),
+      'utf8',
+    );
+
+    await reconcileInstalledPluginActivation();
+
+    const settings = await fs.readFile(path.join(agentDir, 'settings.json'), 'utf8');
+    expect(settings).not.toContain(sourceDir);
   });
 
   it('removes uninstalled plugins from discovery state without requiring a restart', async () => {

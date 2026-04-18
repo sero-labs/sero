@@ -160,6 +160,7 @@ provider-specific auth and model UI without hardcoded app-level logic:
       "category": "productivity",
       "tags": ["todo", "tasks", "productivity"],
       "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": ["appAgent.invokeTool"],
       "preBuilt": true
     },
     "providers": [
@@ -184,11 +185,15 @@ provider-specific auth and model UI without hardcoded app-level logic:
 
 ### `sero.plugin` Fields
 
+See also: [`docs/plugins/host-compatibility.md`](./host-compatibility.md) for
+the downstream migration guide and capability-selection rules.
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `category` | `PluginCategory` | Browsing category. One of: `productivity`, `developer-tools`, `entertainment`, `integrations`, `finance`, `health`, `creative`, `utilities`. |
 | `tags` | `string[]` | Search/filter tags. |
-| `minSeroVersion` | `string?` | Minimum Sero version required. Used for compatibility checks. |
+| `minSeroVersion` | `string?` | Minimum Sero version required. Enforced during install/load. |
+| `requiredHostCapabilities` | `string[]?` | Explicit host seams the plugin depends on (for example `appAgent.invokeTool` or `tool.cli`). Enforced during install/load. |
 | `preBuilt` | `boolean?` | Controls git/local install behavior. `true` means the package already includes a valid pre-built UI bundle; `false`/omitted means Sero rebuilds it locally during install. npm bundles are always expected to ship pre-built artifacts. |
 | `bridgeTools` | `boolean \| string[]` | Controls manifest-driven CLI bridging for plugin tools. `true`/omitted bridges all plugin tools, `false` bridges none, and `string[]` bridges only the named tools. |
 
@@ -355,6 +360,15 @@ The install IPC path also disposes any app-agent sessions for that app ID and
 reloads active chat-session ResourceLoaders so plugin-local extensions,
 prompts, skills, tools, and bridged CLI commands refresh immediately after
 install/update.
+
+At startup and after plugin install/uninstall, Sero also reconciles installed
+plugin activation against the current host contract. Plugins that fail
+`minSeroVersion` or `requiredHostCapabilities` checks stay installed on disk
+and visible to discovery/UI, but they are removed from the active package list
+until the host build becomes compatible.
+
+For plugin authors, the practical migration guidance lives in
+[`docs/plugins/host-compatibility.md`](./host-compatibility.md).
 
 Additionally, `electron/ipc/apps/app-state.ts` watches the active profile's
 `settings.json`. If package paths are added or removed outside the install IPC

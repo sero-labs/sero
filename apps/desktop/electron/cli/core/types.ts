@@ -72,6 +72,12 @@ export interface CliCommandUpdate {
   details?: unknown;
 }
 
+export interface CliAppCommandOwner {
+  kind: 'session-extension';
+  sessionId: string;
+  extensionPath: string;
+}
+
 export interface CliCommand {
   name: string;
   summary: string;
@@ -83,6 +89,7 @@ export interface CliCommand {
     onUpdate?: (update: CliCommandUpdate) => void,
   ) => Promise<CliResult>;
   source?: 'app' | 'ipc' | 'builtin';
+  owner?: CliAppCommandOwner;
   group?: string;
   hidden?: boolean;
   /** Optional per-command timeout override for non-terminal invocations. */

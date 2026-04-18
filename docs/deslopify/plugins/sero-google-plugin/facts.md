@@ -244,3 +244,19 @@ _Last reviewed: 2026-04-18_
 ### Still outstanding
 - Land the separate core/platform hardening pass first, then rebase the Google branches onto it.
 - Re-review the Google PR pair after that rebase and integrate the final host compatibility declaration plus hot-update verification into the plugin plan’s final checklist.
+
+## Post-fix snapshot — 2026-04-18 (Phase 9 integration)
+
+### Metrics after fixes
+- Total plugin files: 59 (unchanged; Phase 9 integration only updated the plugin manifest/README plus host-branch integration)
+- Largest plugin source file: `plugins/sero-google-plugin/extension/google/cli-handlers.ts` (456 LOC, unchanged)
+- Files over 500 LOC: none
+
+### What changed
+- Integrated the Google migration branch onto the landed core/platform hardening from `main` (`c97d6199` / PR #146), so the branch now inherits the provenance-aware CLI registry, live `tool.cli` handler refresh, and enforced host/plugin compatibility contract instead of carrying those fixes as assumptions.
+- Updated `../plugins/sero-google-plugin/package.json` to declare the final host contract explicitly with `requiredHostCapabilities: ["appAgent.invokeTool", "tool.cli"]` alongside the existing `minSeroVersion` and `bridgeTools` manifest fields.
+- Added a short README note in `../plugins/sero-google-plugin/README.md` explaining that older Sero hosts should now reject the plugin cleanly when they do not provide the generic app-tool bridge or plugin-owned CLI bridging.
+- Revalidated the integration by rerunning the focused desktop hot-load/compatibility regressions plus the external plugin CLI/UI tests and both monorepo + plugin typechecks.
+
+### Still outstanding
+- Broader migration-level manual verification is still pending where it was already unchecked before Phase 9: default/non-default profile sign-in parity, legacy token rediscovery, and explicit UI-vs-agent Gmail/Calendar parity were not all re-run in this integration pass.

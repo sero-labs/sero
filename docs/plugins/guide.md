@@ -168,6 +168,7 @@ Add a `sero.plugin` key to your `package.json` alongside `sero.app`:
       "category": "productivity",
       "tags": ["my-app", "example"],
       "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": ["appAgent.invokeTool"],
       "preBuilt": true
     }
   }
@@ -258,6 +259,16 @@ Active chat sessions also reload their resource loaders, so `sero help <tool>`
 and other CLI-bridged plugin commands become available without manually
 restarting Sero.
 
+Sero also enforces `minSeroVersion` plus any declared
+`requiredHostCapabilities` during install/load. If a plugin is incompatible
+with the current host build, the install fails closed (or an already-installed
+plugin is kept out of the active package list) until the host becomes
+compatible.
+
+For a downstream-friendly migration checklist covering host capabilities,
+bridged CLI behavior, and manifest examples, see
+[`docs/plugins/host-compatibility.md`](./host-compatibility.md).
+
 ## Plugin Manifest Reference
 
 ### `sero.app` (required)
@@ -267,11 +278,15 @@ step-by-step guide to building a new app, use the `sero-plugin` skill.
 
 ### `sero.plugin` (required for plugins)
 
+See also: [`docs/plugins/host-compatibility.md`](./host-compatibility.md) for
+when to declare `requiredHostCapabilities` and how the host enforces them.
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `category` | string | Yes | Plugin category for browsing. See [categories](#categories) below. |
 | `tags` | string[] | Yes | Search and filter tags. |
-| `minSeroVersion` | string | No | Minimum compatible Sero version (semver). |
+| `minSeroVersion` | string | No | Minimum compatible Sero version (semver). Enforced during install/load. |
+| `requiredHostCapabilities` | string[] | No | Explicit host seams the plugin depends on, such as `appAgent.invokeTool` or `tool.cli`. Enforced during install/load. |
 | `preBuilt` | boolean | No | Controls install behavior for git/local plugins. Set `true` only when the package already ships a valid `dist/ui/` bundle and should be installed without rebuilding. Set `false` or omit it for source repos that Sero should build locally on install. npm bundles are always expected to ship pre-built artifacts. |
 | `bridgeTools` | boolean \| string[] | No | Controls whether plugin tools are bridged into `sero-cli`. Omit or set `true` to bridge all tools; `false` to bridge none; or provide a list of tool names to bridge selectively. |
 
@@ -464,7 +479,9 @@ build it, and publish the extracted bundle/source package.
 Not yet. Users manually update by re-installing from the same source.
 If the app ID matches an existing installed plugin, Sero replaces that plugin
 in place and hot-loads the updated UI, tools, and active-session CLI bridge
-state without a restart.
+state without a restart. If the updated plugin now requires a newer host
+version or additional host capabilities, Sero blocks activation until the host
+contract is satisfied.
 Auto-update support is planned for a future release.
 
 ### What happens to my data if I uninstall a plugin?

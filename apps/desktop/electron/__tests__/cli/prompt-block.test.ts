@@ -120,4 +120,43 @@ describe('CLI prompt block', () => {
     expect(prompt).not.toContain('secret');
     expect(prompt).not.toContain('help — Show help');
   });
+
+  it('scopes session-owned commands to the active session when building prompts', () => {
+    const registry = new CliRegistry();
+    const execute = async () => ({ output: 'ok', exitCode: 0 });
+
+    registry.replaceAppCommandsForSession('session-1', [
+      {
+        name: 'alpha',
+        summary: 'Session alpha',
+        group: 'Apps',
+        source: 'app',
+        owner: {
+          kind: 'session-extension',
+          sessionId: 'session-1',
+          extensionPath: '/tmp/plugin-a/extension/index.js',
+        },
+        execute,
+      },
+    ]);
+    registry.replaceAppCommandsForSession('session-2', [
+      {
+        name: 'beta',
+        summary: 'Session beta',
+        group: 'Apps',
+        source: 'app',
+        owner: {
+          kind: 'session-extension',
+          sessionId: 'session-2',
+          extensionPath: '/tmp/plugin-b/extension/index.js',
+        },
+        execute,
+      },
+    ]);
+
+    const prompt = buildCliPromptBlock(registry, { sessionId: 'session-1' });
+
+    expect(prompt).toContain('alpha — Session alpha');
+    expect(prompt).not.toContain('beta — Session beta');
+  });
 });

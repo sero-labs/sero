@@ -6,13 +6,13 @@ _Plan drafted: 2026-04-13_
 The original AD-020 cleanup goals for `electron/cli` were completed, but the Google external-plugin PR review surfaced two deeper platform issues that belong here, not in the plugin repo: app/plugin CLI commands with custom bridge handlers are not truly hot-swappable after install/update, and host/plugin compatibility metadata is still parse-only instead of enforced. The goal of this follow-up is to make app-source CLI registrations truthful derived state again, then add a real host/plugin compatibility contract so external plugin migrations fail closed instead of relying on branch coordination.
 
 ## Issues Found (prioritized)
-- **High** — Custom bridged plugin commands are not truly hot-swappable after install/update — `apps/desktop/electron/cli/index.ts:202-215` skips re-registering any existing app command unless it is overriding a builtin, while `apps/desktop/electron/cli/core/schema-bridge.ts:392-399` executes the `cli.execute` closure captured at registration time instead of re-resolving the live tool definition. Plugin install/uninstall only reloads session resources and clears bridge-policy caches (`apps/desktop/electron/ipc/integrations/plugins.ts:23-45`, `apps/desktop/electron/features/plugins/manager.ts:295-330`), so custom app/plugin commands can keep stale help text and stale execution behavior after hot updates even though the docs promise bridged CLI commands refresh immediately (`docs/plugins/technical.md:354-357`). Effort: **M**.
+- **High** — ~~Custom bridged plugin commands are not truly hot-swappable after install/update — `apps/desktop/electron/cli/index.ts:202-215` skips re-registering any existing app command unless it is overriding a builtin, while `apps/desktop/electron/cli/core/schema-bridge.ts:392-399` executes the `cli.execute` closure captured at registration time instead of re-resolving the live tool definition. Plugin install/uninstall only reloads session resources and clears bridge-policy caches (`apps/desktop/electron/ipc/integrations/plugins.ts:23-45`, `apps/desktop/electron/features/plugins/manager.ts:295-330`), so custom app/plugin commands can keep stale help text and stale execution behavior after hot updates even though the docs promise bridged CLI commands refresh immediately (`docs/plugins/technical.md:354-357`).~~ ✅ 2026-04-18 (`def00edf`) — session-owned app commands now use provenance-aware replace/remove semantics, and custom `definition.cli` bridges re-resolve the live tool definition at execute time.
 
-- **High** — Host/plugin compatibility metadata is declarative only and currently fails open — plugin metadata only models `minSeroVersion` and bridge policy in shared types (`packages/common/src/plugins.ts:19-28`), app discovery only parses and surfaces those fields (`apps/desktop/electron/features/apps/discovery/index.ts:175-223`), and plugin install finalization has no compatibility gate before registering the app and hot-loading resources (`apps/desktop/electron/features/plugins/manager.ts:292-330`). Combined with the desktop app still reporting `0.1.0` in `apps/desktop/package.json:3`, external plugin migrations that depend on new host capabilities have no reliable fail-closed path. Effort: **L**.
+- **High** — ~~Host/plugin compatibility metadata is declarative only and currently fails open — plugin metadata only models `minSeroVersion` and bridge policy in shared types (`packages/common/src/plugins.ts:19-28`), app discovery only parses and surfaces those fields (`apps/desktop/electron/features/apps/discovery/index.ts:175-223`), and plugin install finalization has no compatibility gate before registering the app and hot-loading resources (`apps/desktop/electron/features/plugins/manager.ts:292-330`). Combined with the desktop app still reporting `0.1.0` in `apps/desktop/package.json:3`, external plugin migrations that depend on new host capabilities have no reliable fail-closed path.~~ ✅ 2026-04-18 (`60d716bd`) — shared plugin metadata now includes `requiredHostCapabilities`, discovery surfaces runtime compatibility, install/load paths enforce the host contract, and incompatible installed plugins are reconciled out of the active package list.
 
-- **Medium** — The process-global CLI registry has no provenance-aware lifecycle for app/plugin command ownership — app commands are stored in a flat registry keyed only by command name (`apps/desktop/electron/cli/core/registry.ts:12-24`), while session-local tool definitions are tracked separately in `apps/desktop/electron/cli/bridges/extension-session-bridge.ts:9-109`. That split was sufficient when app commands were mostly static wrappers, but it is now the reason custom plugin commands become sticky and why uninstall/removal lacks a first-class registry cleanup path. Effort: **M**.
+- **Medium** — ~~The process-global CLI registry has no provenance-aware lifecycle for app/plugin command ownership — app commands are stored in a flat registry keyed only by command name (`apps/desktop/electron/cli/core/registry.ts:12-24`), while session-local tool definitions are tracked separately in `apps/desktop/electron/cli/bridges/extension-session-bridge.ts:9-109`. That split was sufficient when app commands were mostly static wrappers, but it is now the reason custom plugin commands become sticky and why uninstall/removal lacks a first-class registry cleanup path.~~ ✅ 2026-04-18 (`def00edf`) — `CliRegistry` now manages session-extension ownership metadata and explicit replace/remove lifecycles for app commands.
 
-- **Medium** — Plugin hot-reload guarantees are stronger in docs than in runtime verification — the plugin system docs explicitly say install/update reloads plugin-local extensions, prompts, skills, tools, and bridged CLI commands immediately (`docs/plugins/technical.md:354-357`, `docs/plugins/guide.md:465-466`), but the current test surface only validates normal bridge override registration and live non-custom tool resolution (`apps/desktop/electron/__tests__/cli/custom-tool-cli-bridge.test.ts`, `apps/desktop/electron/__tests__/cli/extension-session-bridge.test.ts`). There is no regression coverage for reinstall/update of a custom bridged plugin command without desktop restart. Effort: **S**.
+- **Medium** — ~~Plugin hot-reload guarantees are stronger in docs than in runtime verification — the plugin system docs explicitly say install/update reloads plugin-local extensions, prompts, skills, tools, and bridged CLI commands immediately (`docs/plugins/technical.md:354-357`, `docs/plugins/guide.md:465-466`), but the current test surface only validates normal bridge override registration and live non-custom tool resolution (`apps/desktop/electron/__tests__/cli/custom-tool-cli-bridge.test.ts`, `apps/desktop/electron/__tests__/cli/extension-session-bridge.test.ts`). There is no regression coverage for reinstall/update of a custom bridged plugin command without desktop restart.~~ ✅ 2026-04-18 (`def00edf`, `60d716bd`) — added focused hot-update/uninstall/compatibility regressions and updated the plugin docs to match the runtime contract.
 
 - **Low** — ~~Shared CLI flag parsing is narrower than the command surface now expects — `apps/desktop/electron/cli/lib/utils.ts:13-42` only understands `--long` flags, which already forced one local workaround in `apps/desktop/electron/cli/commands/vcs/vcs.ts:46-56` to strip accidental `-m`. That is not breaking the bridge today, but it is already producing command-local parsing hacks.~~ Deferred — the Google review did not add pressure here, and the more urgent lifecycle/compatibility work should land first.
 
@@ -51,7 +51,7 @@ The original AD-020 cleanup goals for `electron/cli` were completed, but the Goo
 
 4. **Add a real host/plugin compatibility contract.**
    - Keep `minSeroVersion`, but make it real: derive the runtime host version from the desktop app/Electron runtime and enforce it during install/load.
-   - Add explicit host capability declarations to plugin metadata (for example a `requiresHostCapabilities` array) so external plugins can depend on specific platform seams like `appAgent.invokeTool` or custom tool-level CLI bridging without guessing by version alone.
+   - Add explicit host capability declarations to plugin metadata (for example a `requiredHostCapabilities` array) so external plugins can depend on specific platform seams like `appAgent.invokeTool` or custom tool-level CLI bridging without guessing by version alone.
    - Target structure:
      - shared plugin types in `packages/common/src/plugins.ts`
      - app discovery parsing/validation in `features/apps/discovery/index.ts`
@@ -87,26 +87,29 @@ The original AD-020 cleanup goals for `electron/cli` were completed, but the Goo
 - Plugin docs currently promise hot-update behavior that runtime does not fully provide. The docs should be updated in the same change set that makes the runtime truthful again.
 
 ## Next Steps
-1. Introduce a small design note for app-command provenance and compatibility metadata shape before coding the refactor.
+1. ~~Introduce a small design note for app-command provenance and compatibility metadata shape before coding the refactor.~~ ✅ 2026-04-18 — the landed owner metadata + compatibility helper modules became the design note in code.
 2. Land the CLI/app-command lifecycle hardening first:
-   - [ ] app-source commands become replaceable/removable by owner
-   - [ ] custom bridged commands resolve live `cli.execute` handlers
-   - [ ] hot-update regressions cover reinstall/update/uninstall without restart
+   - [x] app-source commands become replaceable/removable by owner
+   - [x] custom bridged commands resolve live `cli.execute` handlers
+   - [x] hot-update regressions cover reinstall/update/uninstall without restart
 3. Land the compatibility contract second:
-   - [ ] real host version source
-   - [ ] `minSeroVersion` enforcement
-   - [ ] explicit host capability declarations and enforcement
-   - [ ] unsupported-plugin UX/error handling
+   - [x] real host version source
+   - [x] `minSeroVersion` enforcement
+   - [x] explicit host capability declarations and enforcement
+   - [x] unsupported-plugin UX/error handling
 4. Once the core work lands, return to `docs/deslopify/plugins/sero-google-plugin/plan.md` and complete the planned integration/re-review phase.
 5. Verification checklist for this platform pass:
-   - [ ] install a plugin that exposes a custom bridged command, update it in place, and confirm `sero help <command>` plus execution both reflect the new version without restarting Sero
-   - [ ] uninstall that plugin and confirm the bridged command disappears cleanly
-   - [ ] verify ordinary non-custom bridged tools still resolve the live session definition
-   - [ ] verify supported plugins install/load normally under the new compatibility contract
-   - [ ] verify incompatible plugins fail closed with actionable guidance during install/load
+   - [x] install a plugin that exposes a custom bridged command, update it in place, and confirm `sero help <command>` plus execution both reflect the new version without restarting Sero
+   - [x] uninstall that plugin and confirm the bridged command disappears cleanly
+   - [x] verify ordinary non-custom bridged tools still resolve the live session definition
+   - [x] verify supported plugins install/load normally under the new compatibility contract
+   - [x] verify incompatible plugins fail closed with actionable guidance during install/load
 
 ## Execution log
 - `8d8f7648` — `refactor(cli): harden AD-020 bridge typing`
 - `a917905a` — `refactor(cli): split batch runtime and google router`
 - `06b1b653` — `refactor(app-control): centralize host app control service`
 - 2026-04-18 — Planning refresh after related Google PR review: identified two platform-owned follow-ups (custom app-command hot-update staleness and unenforced host/plugin compatibility), reopened this folder plan as the tracking home for the separate core fix, and deferred Google PR merge/re-review until this pass lands.
+- `768fae67` — `feat(app-runtime): add generic app-tool bridge`
+- `def00edf` — `refactor(cli): refresh bridged app commands`
+- `60d716bd` — `fix(plugins): enforce host compatibility`

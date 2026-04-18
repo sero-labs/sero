@@ -362,6 +362,23 @@ export function getCustomToolCliBridge(toolDef: ToolDefinition): CustomToolCliBr
   return cli && typeof cli.execute === 'function' ? cli : undefined;
 }
 
+function normalizeCliResult(result: CliResult): CliResult {
+  return {
+    output: typeof result.output === 'string' ? result.output : String(result.output ?? ''),
+    content: Array.isArray(result.content) ? result.content : undefined,
+    details: result.details,
+    exitCode: result.exitCode ?? 0,
+  };
+}
+
+function getLiveToolCliBridge(
+  toolName: string,
+  context: CliCommandContext,
+): CustomToolCliBridge | undefined {
+  const activeToolDef = getBridgedExtensionTool(toolName, context)?.definition;
+  return activeToolDef ? getCustomToolCliBridge(activeToolDef) : undefined;
+}
+
 export interface BridgeToolOptions {
   /** Mark this command as interactive (disables per-command timeout). */
   interactive?: boolean;
@@ -389,14 +406,9 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
     })),
     execute: async (args: string[], ctx: CliCommandContext, onUpdate): Promise<CliResult> => {
       try {
-        if (cliBridge) {
-          const result = await cliBridge.execute(args, ctx, onUpdate);
-          return {
-            output: typeof result.output === 'string' ? result.output : String(result.output ?? ''),
-            content: Array.isArray(result.content) ? result.content : undefined,
-            details: result.details,
-            exitCode: result.exitCode ?? 0,
-          };
+        const activeCliBridge = getLiveToolCliBridge(toolName, ctx) ?? cliBridge;
+        if (activeCliBridge) {
+          return normalizeCliResult(await activeCliBridge.execute(args, ctx, onUpdate));
         }
 
         const params = schemaToParams(props, args);

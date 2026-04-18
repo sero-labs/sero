@@ -10,85 +10,20 @@ Changes made during code quality passes. Most recent first.
 
 | File | Change |
 |------|--------|
-| `../plugins/sero-google-plugin/extension/google/{auth,config,credentials,env,keyring,oauth-loopback,runtime,status,types}.ts` | New — plugin-owned Google auth/runtime modules ported from the shell with profile-aware client buckets, loopback OAuth support, credential import, and legacy-keyring migration helpers |
-| `../plugins/sero-google-plugin/extension/gogcli.ts` | Rebased plugin gog execution on the new auth/runtime helpers so Gmail/Calendar tools honor `--client`, stable keyring passwords, credential import, and migration-aware token discovery |
-| `../plugins/sero-google-plugin/extension/__tests__/google-{auth,config,credentials,keyring,status}.test.ts` | New — focused regressions for default/non-default profile auth behavior, loopback login wiring, credential import, and buggy-keyring migration discoverability |
-| `../plugins/sero-google-plugin/{package.json,package-lock.json}` | Added plugin-local Vitest coverage support for the migrated auth/runtime surface |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 2 cross-repo auth/runtime migration, refreshed metrics, and marked the phase complete |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–2 complete with Phase 3 next |
-| `../plugins/sero-google-plugin/shared/google-state.ts` | New — canonical Gmail/Calendar state-shaping helpers shared by the extension and UI so both paths write identical `GoogleAppState` payloads |
-| `../plugins/sero-google-plugin/extension/index.ts` | Rebased Gmail/Calendar tool state writes on the canonical shared mappers and upgraded state richness with HTML bodies plus calendar reminders/links/visibility/source metadata |
-| `../plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts` | Removed duplicated renderer-side gog JSON shaping and now updates `useAppState()` through the shared canonical mappers while leaving the Phase 4 bridge path unchanged |
-| `../plugins/sero-google-plugin/ui/components/gmail-parser.ts` | Deleted — Gmail message parsing now lives in the canonical shared mapper instead of a renderer-only helper |
-| `../plugins/sero-google-plugin/extension/__tests__/google-state.test.ts` | New — regression coverage for canonical Gmail HTML-body mapping and Calendar attendee/reminder/link metadata shaping |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 3 canonical-state pass, refreshed plugin metrics, and marked the phase complete |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–3 complete with Phase 4 next |
-| `../plugins/sero-google-plugin/extension/{app-state.ts,tool-results.ts}` | New — shared state I/O and consistent text/error tool result helpers for UI-driven plugin tool execution |
-| `../plugins/sero-google-plugin/extension/google/auth-tool.ts` | New — plugin-owned internal auth/config tool for UI status, login, logout, and credential save flows |
-| `../plugins/sero-google-plugin/extension/index.ts` | Added the UI-facing `gcal` range action, consistent error-prefixed tool results, and auth-tool registration for generic app-tool invocation |
-| `../plugins/sero-google-plugin/ui/hooks/useGoogleApi.ts` | Rebased the Google UI off `window.sero.google` onto generic `appAgent.invokeTool(...)` execution while keeping the federated surface unchanged |
-| `../plugins/sero-google-plugin/ui/{hooks/useGoogleApi.test.tsx,components/CalendarView.test.tsx}` | New — focused UI regressions for auth transitions, expired-session recovery, inbox/thread fetches, and calendar detail behavior |
-| `../plugins/sero-google-plugin/{README.md,vite.config.ts,package.json,package-lock.json}` | Updated docs + test/build tooling for the bridge rebase, internal-tool bridge policy, and Vitest-safe Module Federation handling |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 4 UI-bridge rebase, refreshed plugin metrics, and marked the phase complete |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–4 complete with Phase 5 next |
-| `apps/desktop/electron/cli/{core/schema-bridge.ts,index.ts,commands/integrations/google.ts}` | Added custom tool-level CLI bridge metadata plus opt-in builtin override support, and kept the legacy shell Google CLI registered as hidden `google-builtin` fallback while the plugin-owned `google` tool takes the public command name |
-| `apps/desktop/electron/__tests__/cli/custom-tool-cli-bridge.test.ts` | New — regression coverage for plugin tools that replace builtin CLI commands with custom help and raw-args execution |
-| `../plugins/sero-google-plugin/extension/google/{cli-types,cli-helpers,cli-runtime,cli-handlers,cli-tool}.ts` | New — plugin-owned Google CLI parity surface with container-aware gog execution, shell-compatible auth/Gmail/Calendar parsing, and custom bridge metadata for `sero google ...` |
-| `../plugins/sero-google-plugin/extension/index.ts` | Registered the new plugin-owned `google` CLI parity tool alongside the existing UI-facing Google tools |
-| `../plugins/sero-google-plugin/extension/__tests__/google-cli-{handlers,runtime,tool}.test.ts` | New — focused regressions for auth/Gmail/Calendar forwarding, host-vs-container gog routing, and structured Pi-tool execution |
-| `../plugins/sero-google-plugin/{package.json,README.md}` | Bridged the new `google` tool into Sero CLI and documented the preserved `sero google auth|gmail|calendar ...` contract |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 5 CLI migration, refreshed plugin metrics, and marked the phase complete |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–5 complete with Phase 6 next |
-| `apps/desktop/electron/preload/{api.ts,integrations/imagegen.ts}` | Removed the bespoke Google preload bridge, extracted a focused imagegen preload owner, and kept the surviving imagegen IPC surface covered |
-| `apps/desktop/src/types/{ipc-channels.ts,electron-apps.d.ts,electron.d.ts}` | Deleted the last Google-specific IPC/type declarations from the shell preload contract |
-| `apps/desktop/electron/{ipc/index.ts,cli/index.ts}` | Stopped registering the deleted Google IPC handlers and legacy shell Google CLI surface |
-| `apps/desktop/electron/{ipc/integrations/google-api.ts,features/auth/google/**,cli/lib/gog-runner.ts,cli/commands/integrations/google*.ts}` | Deleted — the shell no longer owns Google auth/runtime/CLI behavior now that the plugin path is live |
-| `apps/desktop/electron/__tests__/{ipc/preload-api-subscriptions.test.ts,cli/custom-tool-cli-bridge.test.ts}` | Revalidated the surviving imagegen preload path and decoupled CLI override coverage from the removed `google-builtin` fallback |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 6 shell-glue deletion pass, refreshed the post-fix snapshot, and marked the phase complete |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–6 complete with only final manual verification pending |
-| `../plugins/sero-google-plugin/extension/google/{cli-access,cli-runtime,cli-handlers,cli-tool,cli-types}.ts` | Added agent-vs-operator Google CLI access guards, fresh-session account resolution, and container→host gog fallback while preserving profile-aware `--client` behavior |
-| `../plugins/sero-google-plugin/extension/__tests__/google-cli-{runtime,handlers,tool}.test.ts` | Extended CLI regressions for fresh-session account auto-resolution, container fallback, and blocked agent-facing auth-management commands |
-| `../plugins/sero-google-plugin/ui/components/{MailThread.tsx,mail-html.ts}` | Sanitized Gmail HTML before iframe render so remote fonts/images/styles no longer trigger renderer CSP violations while readable content remains |
-| `../plugins/sero-google-plugin/ui/components/mail-html.test.ts` | New — representative HTML email fixture coverage for remote asset stripping and readable-content preservation |
-| `../plugins/sero-google-plugin/README.md` | Documented operator-only auth-management flows plus host-fallback/manual-smoke expectations for container-backed `sero google ...` parity |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 7 code pass, checked off completed checklist items, and left final manual smoke/CSP revalidation explicitly pending |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker to show the Phase 7 code pass landed while final host/container smoke and in-app CSP revalidation remain pending |
-| `../plugins/sero-google-plugin/extension/google/{cli-handlers,cli-output}.ts` | Added agent-readable Gmail/Calendar CLI summaries in normal tool output while preserving raw gog JSON in details for drill-down |
-| `../plugins/sero-google-plugin/extension/__tests__/google-cli-output.test.ts` | New — locks the human-readable CLI summary contract for Gmail search and Calendar event listings |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the follow-up Phase 7 CLI summary polish pass and refreshed the plugin metrics/log |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the follow-up agent-readable CLI summary pass |
-| `../plugins/sero-google-plugin/extension/google/{cli-handlers,cli-output}.ts` | Extended agent-readable Google CLI summaries to the remaining JSON-heavy Gmail/Calendar subcommands, including sends, labels, drafts, single-event mutations, and free/busy checks |
-| `../plugins/sero-google-plugin/extension/__tests__/{google-cli-output,google-cli-handlers}.test.ts` | Expanded Google CLI summary coverage for labels, drafts, free/busy, calendar mutations, and matching handler routing |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the second Phase 7 CLI summary polish pass and refreshed the Phase 7 snapshot/log |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the second follow-up CLI summary pass |
-| `../plugins/sero-google-plugin/extension/google/{cli-followup,cli-tool,cli-types,cli-handlers}.ts` | Added follow-up assistant-message emission for successful agent-facing `sero google ...` commands so summaries appear in the chat transcript, not only inside the tool card |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the third Phase 7 CLI polish pass for follow-up assistant-message delivery |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker note to include the follow-up chat-response polish pass |
-| `docs/deslopify/plugins/sero-google-plugin/{plan,facts}.md` | Marked Phase 7 complete after manual host/container CLI smoke + Gmail CSP revalidation, while leaving broader migration final-verification items explicitly pending |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker note to show Phases 0–7 complete with only migration-level final verification remaining |
-| `docs/deslopify/plugins/sero-google-plugin/plan.md` | Added Phase 8 — a docs-only README refresh phase covering gogcli install, auth/setup, container fallback, and operator-vs-agent guidance |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker note to show the new Phase 8 README refresh backlog after the Phase 7 closeout |
-| `../plugins/sero-google-plugin/README.md` | Rewritten twice — first for post-cutover accuracy, then polished into a friendlier end-user guide with linear setup, everyday usage, short advanced notes, and troubleshooting |
-| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Marked Phase 8 complete, recorded the README refresh outcomes, and logged validation reruns for the docs-only pass |
-| `docs/deslopify/index.md` | Marked the Google plugin plan healthy with Phase 8 complete; only the broader migration-level final verification checklist remains |
-
----
-
-## 2026-04-17
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `docs/deslopify/plugins/sero-google-plugin/plan.md` | Locked Phase 0 CLI/behavior policy, recorded the shell-owned Google surfaces to retire later, and marked the phase complete |
-| `docs/deslopify/plugins/sero-google-plugin/facts.md` | Added a post-phase snapshot with the chosen CLI parity path and the current external-plugin availability prerequisite |
-| `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phase 0 complete and Phase 1 next |
-| `packages/common/src/{app-tools.ts,index.ts}` | New shared app-tool result contract and root exports so preload/app-runtime share one neutral type owner |
-| `packages/app-runtime/src/{sero-bridge.ts,use-app-tools.ts,index.ts}` | Added the generic app-local tool runtime contract plus `useAppTools().run(...)` for federated UIs |
-| `apps/desktop/src/types/{ipc-channels-app-agent.ts,ipc-channels.ts,electron-apps.d.ts}` | Added a generic `appAgent.invokeTool` IPC/API contract without introducing Google-specific bridge surface |
-| `apps/desktop/electron/preload/apps/app-domain.ts` | Exposed the generic app-tool invoke bridge to renderer/app-runtime consumers |
-| `apps/desktop/electron/ipc/agent/handlers/{app-agent.ts,app-agent-tools.ts}` | Reused the isolated app-session loader to execute app-local extension tools directly and normalized tool results; also attached the standard extension UI context to app sessions |
-| `apps/desktop/{src/lib/app-runtime.test.tsx,electron/__tests__/ipc/app-agent-tool-execution.test.ts}` | Added focused regressions proving a federated UI can invoke one of its own extension tools without a bespoke preload namespace |
+| `packages/common/src/{app-tools.ts,plugins.ts,index.ts}` | Added canonical app-tool result types plus the shared host-capability / compatibility contract used by discovery, preload, and plugin manifests |
+| `packages/app-runtime/src/{sero-bridge.ts,use-app-tools.ts,index.ts}` | Added the generic federated-app tool hook so plugin UIs can call app-local extension tools through `appAgent.invokeTool(...)` |
+| `apps/desktop/electron/ipc/agent/handlers/{app-agent.ts,app-agent-tools.ts}` | Added app-agent tool execution IPC and normalized app-tool result shaping for isolated app sessions |
+| `apps/desktop/electron/preload/apps/app-domain.ts`, `apps/desktop/src/types/{electron-apps.d.ts,ipc-channels.ts,ipc-channels-app-agent.ts,sero-apps.ts}` | Extended the preload/type surface for app-tool invocation and host-compatibility metadata without breaking the 500-LOC cap |
+| `apps/desktop/src/lib/app-runtime.test.tsx`, `apps/desktop/electron/__tests__/ipc/app-agent-tool-execution.test.ts` | Added focused coverage for the generic app-tool bridge in both renderer and main-process seams |
+| `apps/desktop/electron/cli/core/{types.ts,registry.ts,schema-bridge.ts}`, `apps/desktop/electron/cli/index.ts`, `apps/desktop/electron/ipc/agent/core/agent.ts` | Reworked bridged app commands into provenance-aware session-owned registry state, refreshed custom `tool.cli` handlers from live session definitions, and removed session-owned commands on teardown |
+| `apps/desktop/electron/__tests__/cli/{custom-tool-cli-bridge.test.ts,extension-session-bridge.test.ts,tool-bridge-policy.test.ts}` | Added/kept focused regressions for builtin override, hot-update refresh, uninstall cleanup, and live session tool resolution |
+| `apps/desktop/electron/features/apps/discovery/{index.ts,plugin-meta.ts}` | Split plugin metadata parsing out of discovery and added runtime compatibility evaluation to discovered manifests (305 lines after split) |
+| `apps/desktop/electron/features/plugins/{activation.ts,compatibility.ts,manager.ts,settings.ts}` | Added runtime host-version/capability enforcement plus startup activation reconciliation while reducing `manager.ts` below the cap again (498 → 448 lines) |
+| `apps/desktop/electron/ipc/integrations/plugins.ts`, `apps/desktop/electron/__tests__/features/plugins/{plugin-manager.test.ts,plugin-compatibility.test.ts}` | Reconciled installed plugin activation at startup and added focused install/load compatibility regressions |
+| `apps/desktop/src/stores/app/{shared.ts,discovery.ts,state.ts}`, `apps/desktop/src/stores/app.test.ts`, `apps/desktop/src/components/layout/{AppStoreCard.tsx,AppStoreDialog.tsx}` | Kept unsupported plugins browseable in the App Store while hiding them from active sidebar/preload paths and surfacing compatibility errors inline |
+| `docs/plugins/{technical.md,guide.md,host-compatibility.md}` | Updated plugin docs for `requiredHostCapabilities`, enforced compatibility checks, truthful hot-load behavior, and a downstream migration guide for plugin authors |
+| `docs/deslopify/apps/desktop/electron/cli/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the platform-hardening execution pass, marked the CLI plan healthy, and left the Google integration/re-review follow-up tracked separately |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md`, `docs/deslopify/index.md` | Recorded the post-PR-146 Google integration pass, marked Phase 9 complete, and narrowed the remaining Google migration work to the still-unchecked manual verification items |
 
 ---
 

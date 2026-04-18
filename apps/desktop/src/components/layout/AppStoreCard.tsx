@@ -41,13 +41,16 @@ export function AppStoreCard({
   };
 
   const category = manifest.plugin?.category;
+  const unsupportedReason = manifest.hostCompatibility?.supported === false
+    ? manifest.hostCompatibility.issues[0]?.message ?? 'This plugin requires a newer Sero host.'
+    : null;
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onActivate}
-      onKeyDown={handleCardKeyDown}
+      role={unsupportedReason ? undefined : 'button'}
+      tabIndex={unsupportedReason ? -1 : 0}
+      onClick={unsupportedReason ? undefined : onActivate}
+      onKeyDown={unsupportedReason ? undefined : handleCardKeyDown}
       className={cn(
         'group rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--border-default)]',
         active
@@ -100,6 +103,9 @@ export function AppStoreCard({
       <p className="mt-3 min-h-10 text-xs leading-5 text-[var(--text-secondary)]">
         {manifest.description ?? 'No description available.'}
       </p>
+      {unsupportedReason ? (
+        <p className="mt-2 text-xs text-[var(--status-error)]">{unsupportedReason}</p>
+      ) : null}
 
       <div className="mt-3 flex items-center gap-2">
         {category ? (
@@ -108,6 +114,14 @@ export function AppStoreCard({
             className="text-[11px] capitalize border-[var(--status-success-border)] bg-[var(--status-success-muted)] text-[var(--status-success)]"
           >
             {formatLabel(category)}
+          </Badge>
+        ) : null}
+        {unsupportedReason ? (
+          <Badge
+            variant="outline"
+            className="text-[11px] border-[var(--status-error-border)] bg-[var(--status-error-muted)] text-[var(--status-error)]"
+          >
+            Unsupported host
           </Badge>
         ) : null}
       </div>

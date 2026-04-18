@@ -1,4 +1,4 @@
-import type { CliRegistry } from './registry';
+import type { CliRegistry, CliRegistryScope } from './registry';
 import type { CliCommandContext } from './types';
 import { fail, ok } from '../lib/utils';
 
@@ -6,8 +6,15 @@ function groupLabel(group?: string): string {
   return (group ?? 'Other').toUpperCase();
 }
 
-function renderCliHelpList(registry: CliRegistry): string {
-  const commands = registry.list().filter((c) => !c.hidden);
+function scopeFromContext(context: CliCommandContext): CliRegistryScope {
+  return {
+    workspaceId: context.workspaceId,
+    sessionId: context.invocation.sessionId,
+  };
+}
+
+function renderCliHelpList(registry: CliRegistry, scope: CliRegistryScope): string {
+  const commands = registry.list(scope).filter((c) => !c.hidden);
   const grouped = new Map<string, typeof commands>();
 
   for (const cmd of commands) {
@@ -29,8 +36,12 @@ function renderCliHelpList(registry: CliRegistry): string {
   return sections.join('\n');
 }
 
-function renderCliCommandHelp(registry: CliRegistry, query: string): string | null {
-  const cmd = registry.findHelpTarget(query);
+function renderCliCommandHelp(
+  registry: CliRegistry,
+  query: string,
+  scope: CliRegistryScope,
+): string | null {
+  const cmd = registry.findHelpTarget(query, scope);
   if (!cmd) return null;
   if (cmd.help?.trim()) return cmd.help.trim();
 
@@ -56,8 +67,9 @@ export function registerHelpCliCommand(registry: CliRegistry): void {
     source: 'builtin',
     group: 'Builtin',
     execute: async (args: string[], _ctx: CliCommandContext) => {
-      if (!args.length) return ok(renderCliHelpList(registry));
-      const output = renderCliCommandHelp(registry, args.join(' '));
+      const scope = scopeFromContext(_ctx);
+      if (!args.length) return ok(renderCliHelpList(registry, scope));
+      const output = renderCliCommandHelp(registry, args.join(' '), scope);
       if (!output) return fail(`Unknown command: ${args.join(' ')}`);
       return ok(output);
     },

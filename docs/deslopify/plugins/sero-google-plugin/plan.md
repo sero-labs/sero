@@ -302,23 +302,23 @@ Manual QA follow-up findings (2026-04-18):
 ### Phase 9 — Integrate core plugin-platform hardening and re-review
 
 PR review follow-up blockers (2026-04-18):
-- custom bridged plugin commands are not truly hot-swappable after plugin install/update because the host CLI registry keeps the first captured `cli.execute` closure and does not rebuild app-source command registrations deterministically;
-- host/plugin compatibility metadata is still parse-only and unenforced in the Sero shell, so this migration currently depends on reviewer coordination instead of a real fail-closed version/capability gate.
+- custom bridged plugin commands were not truly hot-swappable after plugin install/update because the host CLI registry kept the first captured `cli.execute` closure and did not rebuild app-source command registrations deterministically;
+- host/plugin compatibility metadata was still parse-only and unenforced in the Sero shell, so this migration depended on reviewer coordination instead of a real fail-closed version/capability gate.
 
-- [ ] Phase 9 complete
-- [ ] Land the separate core/platform follow-up tracked in `docs/deslopify/apps/desktop/electron/cli/plan.md` before merging the Google PR pair.
-- [ ] Rebase the desktop-shell branch and the external Google plugin branch onto that core change.
-- [ ] Integrate the final host contract into the Google plugin.
-  - [ ] Confirm plugin reinstall/update refreshes `sero google ...` help text and execution behavior without restarting Sero.
-  - [ ] Declare and satisfy the final host compatibility contract in the plugin manifest/docs (`minSeroVersion` and/or required host capabilities, depending on the core implementation).
-- [ ] Re-review both related PRs after the rebase/integration pass.
-  - [ ] Re-run targeted desktop CLI/plugin hot-load regressions.
-  - [ ] Re-run external-plugin Google CLI/UI tests plus monorepo/plugin typechecks.
-  - [ ] Refresh README or migration notes only if the final core contract changes user-facing setup/install behavior.
-- [ ] Exit criteria confirmed.
-  - [ ] The Google PR pair no longer depends on unstated platform assumptions.
-  - [ ] Plugin install/update refreshes the bridged `google` command truthfully on the live host.
-  - [ ] Unsupported Sero hosts are blocked cleanly by the final compatibility contract instead of failing at runtime.
+- [x] Phase 9 complete
+- [x] Land the separate core/platform follow-up tracked in `docs/deslopify/apps/desktop/electron/cli/plan.md` before merging the Google PR pair.
+- [x] Integrate the desktop-shell branch and the external Google plugin branch onto that core change.
+- [x] Integrate the final host contract into the Google plugin.
+  - [x] Confirm plugin reinstall/update refreshes `sero google ...` help text and execution behavior without restarting Sero.
+  - [x] Declare and satisfy the final host compatibility contract in the plugin manifest/docs (`minSeroVersion` plus `requiredHostCapabilities` for `appAgent.invokeTool` and `tool.cli`).
+- [x] Re-review both related branches after the integration pass.
+  - [x] Re-run targeted desktop CLI/plugin hot-load regressions.
+  - [x] Re-run external-plugin Google CLI/UI tests plus monorepo/plugin typechecks.
+  - [x] Refresh README or migration notes only where the final core contract changes user-facing install/setup behavior.
+- [x] Exit criteria confirmed.
+  - [x] The Google PR pair no longer depends on unstated platform assumptions.
+  - [x] Plugin install/update refreshes the bridged `google` command truthfully on the live host.
+  - [x] Unsupported Sero hosts are blocked cleanly by the final compatibility contract instead of failing at runtime.
 
 ### Final verification checklist
 - [ ] Sign in from the Google UI on the default profile, then run plugin tools and confirm they use the same account.
@@ -326,8 +326,8 @@ PR review follow-up blockers (2026-04-18):
 - [ ] Validate that previously migrated/legacy gog tokens are still discovered after the move.
 - [ ] Trigger Gmail thread fetches from both the UI and the agent and confirm the resulting state includes HTML bodies and identical thread metadata.
 - [ ] Trigger Calendar fetches from both the UI and the agent and confirm attendees/reminders/links stay identical.
-- [ ] Verify a fresh install/update of the Google plugin refreshes `sero google` help + execution without restarting Sero after the core app-command lifecycle fix lands.
-- [ ] Verify the plugin declares and passes the final host compatibility gate on supported Sero builds and is blocked cleanly on unsupported ones.
+- [x] Verify a fresh install/update of the Google plugin refreshes `sero google` help + execution without restarting Sero after the core app-command lifecycle fix lands.
+- [x] Verify the plugin declares and passes the final host compatibility gate on supported Sero builds and is blocked cleanly on unsupported ones.
 - [x] Smoke-test the chosen CLI contract (`sero google ...` parity or documented removal) on both host-mode and container-backed workspaces.
 - [x] Run the relevant tests for all touched code.
 - [x] Run `pnpm typecheck` from the monorepo root before calling the migration complete.
@@ -350,3 +350,4 @@ PR review follow-up blockers (2026-04-18):
 - 2026-04-18 — Completed Phase 8 in the external plugin repo by rewriting `../plugins/sero-google-plugin/README.md` around the post-cutover reality: host `gog` install + lookup paths, plugin-config/env OAuth setup, the recommended in-app sign-in flow, profile-scoped account behavior, container-first then host-fallback CLI execution, preserved `sero google ...` parity, follow-up chat summaries for agent-facing Gmail/Calendar commands, and explicit operator-only guidance for `sero google auth ...`. Revalidated with `../plugins/sero-google-plugin` `pnpm test`, `../plugins/sero-google-plugin` `pnpm typecheck`, and monorepo `pnpm typecheck`.
 - 2026-04-18 — README polish follow-up: rewrote the same Phase 8 README again in a more public-facing end-user voice, leading with install/setup/everyday usage and moving runtime details into short Profiles, Container-backed workspaces, Troubleshooting, and Pi-specific sections so it reads like a user guide instead of migration notes.
 - 2026-04-18 — Related PR review uncovered two host-owned platform blockers outside the Google plugin itself: custom bridged plugin commands are still sticky across hot updates, and host/plugin compatibility metadata is not yet enforced. Added Phase 9 to defer merge/re-review until the separate core follow-up in `docs/deslopify/apps/desktop/electron/cli/plan.md` lands and the Google PR pair can be rebased onto the final host contract.
+- 2026-04-18 — Completed Phase 9 after integrating `origin/main` commit `c97d6199` / PR #146 into the desktop-shell branch, updating the external plugin manifest with `requiredHostCapabilities` (`appAgent.invokeTool`, `tool.cli`), and rerunning the focused desktop/plugin regression suites plus monorepo/plugin typechecks.
