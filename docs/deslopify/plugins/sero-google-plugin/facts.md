@@ -187,3 +187,22 @@ _Last reviewed: 2026-04-18_
 
 ### Still outstanding
 - The plan’s final manual verification checklist is still pending: default/non-default profile sign-in smoke tests, legacy token discovery revalidation, and UI-vs-agent Gmail/Calendar parity checks were not re-run in this Phase 6 shell-only pass.
+
+## Post-fix snapshot — 2026-04-18 (Phase 7 code pass)
+
+### Metrics after fixes
+- Total plugin files: 56 (was 52; added one CLI access guard module plus HTML sanitization code/tests and updated README coverage in the external plugin repo)
+- Largest plugin source file: `plugins/sero-google-plugin/extension/google/cli-handlers.ts` (463 LOC, up from 450)
+- Files over 500 LOC: none
+- Type escape hatches remaining: none found in the Phase 7 surface; the new runtime/auth/CSP fixes landed without `@ts-ignore`, `@ts-expect-error`, `as any`, or double-cast escapes
+
+### What changed
+- Reworked the plugin-owned CLI runtime so fresh host sessions resolve Gmail/Calendar accounts from persisted auth state when in-memory auth email is cold, while preserving profile-aware `--client` behavior and avoiding unnecessary auto-resolution for operator auth-management commands.
+- Chose and implemented the container-backed CLI parity contract: try the workspace container first, then fall back to host gog execution when the shipped container image does not provide gogcli; also updated the plugin README with the new operator/manual smoke guidance.
+- Added Google CLI access-mode guardrails so agent-facing `google auth ...` commands fail closed with operator-only guidance instead of surfacing low-level keyring/token-management failures, while operator terminal usage remains available for OAuth setup and manual recovery.
+- Added `plugins/sero-google-plugin/ui/components/mail-html.ts` and rebased `ui/components/MailThread.tsx` onto it so remote email fonts/images/styles are stripped or normalized before sandboxed iframe render, preventing renderer CSP violations while preserving readable message content.
+- Added focused regressions in `plugins/sero-google-plugin/extension/__tests__/google-cli-{runtime,handlers,tool}.test.ts` and `plugins/sero-google-plugin/ui/components/mail-html.test.ts` covering fresh-session host parity, container→host fallback, blocked agent auth-management flows, and representative HTML email fixtures with remote assets.
+
+### Still outstanding
+- Phase 7 manual smoke is still pending: re-run `sero google gmail ...` / `sero google calendar ...` parity against a real authenticated profile in both host-mode and container-backed workspaces.
+- Revalidate Google mail-thread rendering in-app and confirm the renderer CSP console noise is gone for representative HTML-heavy Gmail messages.

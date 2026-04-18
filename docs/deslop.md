@@ -46,6 +46,13 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/__tests__/{ipc/preload-api-subscriptions.test.ts,cli/custom-tool-cli-bridge.test.ts}` | Revalidated the surviving imagegen preload path and decoupled CLI override coverage from the removed `google-builtin` fallback |
 | `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 6 shell-glue deletion pass, refreshed the post-fix snapshot, and marked the phase complete |
 | `docs/deslopify/index.md` | Updated the Google plugin tracker status to show Phases 0–6 complete with only final manual verification pending |
+| `../plugins/sero-google-plugin/extension/google/{cli-access,cli-runtime,cli-handlers,cli-tool,cli-types}.ts` | Added agent-vs-operator Google CLI access guards, fresh-session account resolution, and container→host gog fallback while preserving profile-aware `--client` behavior |
+| `../plugins/sero-google-plugin/extension/__tests__/google-cli-{runtime,handlers,tool}.test.ts` | Extended CLI regressions for fresh-session account auto-resolution, container fallback, and blocked agent-facing auth-management commands |
+| `../plugins/sero-google-plugin/ui/components/{MailThread.tsx,mail-html.ts}` | Sanitized Gmail HTML before iframe render so remote fonts/images/styles no longer trigger renderer CSP violations while readable content remains |
+| `../plugins/sero-google-plugin/ui/components/mail-html.test.ts` | New — representative HTML email fixture coverage for remote asset stripping and readable-content preservation |
+| `../plugins/sero-google-plugin/README.md` | Documented operator-only auth-management flows plus host-fallback/manual-smoke expectations for container-backed `sero google ...` parity |
+| `docs/deslopify/plugins/sero-google-plugin/{facts,plan}.md` | Recorded the Phase 7 code pass, checked off completed checklist items, and left final manual smoke/CSP revalidation explicitly pending |
+| `docs/deslopify/index.md` | Updated the Google plugin tracker to show the Phase 7 code pass landed while final host/container smoke and in-app CSP revalidation remain pending |
 
 ---
 
