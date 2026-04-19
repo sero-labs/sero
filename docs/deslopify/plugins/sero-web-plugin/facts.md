@@ -60,9 +60,9 @@ _Last reviewed: 2026-04-14_
 - Type escape hatches remaining: the local host bridge subset is gone, but the UI mutation ownership High item is still open
 
 ### What changed
-- Added a neutral shared host-bridge subset in `@sero/common`.
+- Added a neutral shared host-bridge subset in `@sero-ai/common`.
 - Replaced `ui/lib/host.ts`’s local `window.sero` subset declaration with the canonical shared bridge type.
-- Added `@sero/common` path wiring so the web UI compiles against the canonical shared bridge contract alongside app-runtime.
+- Added `@sero-ai/common` path wiring so the web UI compiles against the canonical shared bridge contract alongside app-runtime.
 - Package-local web typecheck and monorepo `pnpm typecheck` still pass.
 
 ### Still outstanding

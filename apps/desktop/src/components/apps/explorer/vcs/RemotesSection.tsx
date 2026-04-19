@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Globe, Plus, Trash2, Check, X } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
-import type { Remote } from '@sero/common';
+import type { Remote } from '@sero-ai/common';
 import { VcsSection } from './VcsSection';
 
 interface Props {

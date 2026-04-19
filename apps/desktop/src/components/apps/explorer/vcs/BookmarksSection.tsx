@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
-import type { Bookmark, Remote } from '@sero/common';
+import type { Bookmark, Remote } from '@sero-ai/common';
 import { useTransientValue } from '../useTransientUiState';
 import { VcsSection } from './VcsSection';
 

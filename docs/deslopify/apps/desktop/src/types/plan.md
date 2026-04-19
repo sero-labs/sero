@@ -27,7 +27,7 @@ reviewable.
   `apps/desktop/src/types/ipc.ts:410-455` and
   `plugins/sero-user-feedback-plugin/shared/types.ts:10-72`. ProfileInfo was canonicalized into
   `apps/desktop/src/types/profile.ts` on 2026-04-12, but user-feedback duplication still remains.
-  This fights the canonical-type rule and increases AD-022/extension drift risk.~~ ✅ 2026-04-15 (`83ac609c`) — profile contracts are canonicalized in `src/types/profile.ts`, and user-feedback transport ownership is now confirmed canonical in `@sero/common` (desktop + plugin consumers revalidated).
+  This fights the canonical-type rule and increases AD-022/extension drift risk.~~ ✅ 2026-04-15 (`83ac609c`) — profile contracts are canonicalized in `src/types/profile.ts`, and user-feedback transport ownership is now confirmed canonical in `@sero-ai/common` (desktop + plugin consumers revalidated).
   Effort: **M**.
 
 - **Medium** — ~~Type-layer cycle between `ipc.ts` and `plugins.ts` increases coupling and review complexity —
@@ -69,7 +69,7 @@ reviewable.
 
 3. **Canonicalize duplicated cross-process contracts.**
    - Promote shared profile/user-feedback transport types to a neutral shared contract module
-     (prefer `@sero/common` for renderer-safe types) and import from both renderer and Electron/plugin sides.
+     (prefer `@sero-ai/common` for renderer-safe types) and import from both renderer and Electron/plugin sides.
    - Remove “KEEP IN SYNC” manual duplication comments once canonical source is in place.
    - Aligns with AD-022 reliability goals and avoids extension drift.
 
@@ -98,7 +98,7 @@ reviewable.
   folder is central to both layers.
 - Any type relocation must preserve public import stability (`@/types/ipc`) during migration to avoid
   breaking 170+ callers in one shot.
-- If shared types move to `@sero/common`, keep them renderer-safe (no Electron/Node runtime imports).
+- If shared types move to `@sero-ai/common`, keep them renderer-safe (no Electron/Node runtime imports).
 
 ## Next Steps
 1. Execute High item: split `ipc.ts` below 500 LOC with domain modules + compatibility barrel.
@@ -112,4 +112,4 @@ reviewable.
 - 2026-04-15 — Medium follow-up (`fc6603eb`): moved all remaining Electron IPC/test `IpcChannels` imports onto `@/types/ipc-channels` and removed the `ipc.ts` re-export to keep channel constants on their dedicated module boundary.
 - 2026-04-15 — Low declaration-hygiene follow-up (`d028234c`): replaced `notification: any` in `electron-workspace.d.ts` with canonical `LspNotification` typing so renderer preload declarations align with the typed LSP protocol contract.
 - 2026-04-15 — Low comment/default drift follow-up (`431fdf5e`): corrected the `DebateConfig.maxRounds` inline default comment in `collaboration.ts` so the documented default now matches `DEFAULT_DEBATE_CONFIG.maxRounds = 1`.
-- 2026-04-15 — User-feedback duplication revalidation follow-up (`83ac609c`): reconfirmed that user-feedback transport contracts are owned in `@sero/common`, with desktop/plugin types consuming canonical exports instead of local duplicated declarations.
+- 2026-04-15 — User-feedback duplication revalidation follow-up (`83ac609c`): reconfirmed that user-feedback transport contracts are owned in `@sero-ai/common`, with desktop/plugin types consuming canonical exports instead of local duplicated declarations.

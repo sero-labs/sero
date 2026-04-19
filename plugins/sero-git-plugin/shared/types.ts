@@ -97,7 +97,7 @@ export type {
   GitManagerAction,
   GitManagerRequest,
   GitActionResult,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 // ── App state ───────────────────────────────────────────────
 

@@ -2,8 +2,9 @@
 name: sero-plugin
 description: |
   Step-by-step guide for creating new Sero plugins — self-contained packages
-  with a Pi extension (agent tools/commands) and an optional React web UI
-  loaded via Module Federation. Use this skill whenever the user asks to
+  with a Pi extension (agent tools/commands), an optional React web UI loaded
+  via Module Federation, and an optional background runtime for long-lived
+  workspace orchestration. Use this skill whenever the user asks to
   create a new Sero app, plugin, extension, or tool with a UI, or when they
   want to add a new sidebar panel, dashboard widget, or agent-integrated
   feature to Sero. Also use when converting an existing Pi extension into a
@@ -15,8 +16,12 @@ description: |
 # Building Sero Plugins
 
 This skill guides you through creating a complete Sero plugin from scratch.
-A Sero plugin is a **standard Pi extension** with an optional **React web UI**,
-both sharing state through a JSON file on disk.
+A Sero plugin can contain up to three coordinated surfaces:
+- a **standard Pi extension** for tools / commands
+- an optional **React web UI** loaded via Module Federation
+- an optional **background runtime** for long-lived workspace orchestration
+
+All three can share state through a JSON file on disk.
 
 ## When to read reference files
 
@@ -25,34 +30,35 @@ and code snippets, read these reference files as needed:
 
 | Reference | When to read |
 |-----------|--------------|
-| `references/templates.md` | When creating any file (package.json, vite.config, extension, UI, styles) |
-| `references/api-and-widgets.md` | When using app-runtime hooks, adding dashboard widgets, or checking manifest fields |
+| `references/templates.md` | When creating any file (package.json, extension, runtime, UI, Vite, styles) |
+| `references/api-and-widgets.md` | When using app-runtime hooks, background runtimes, dashboard widgets, or checking manifest fields |
 | `references/conversion-guide.md` | Only when converting an existing Pi extension (not for new plugins) |
 
 ## Architecture
 
 ```
-                      state.json
-                    (source of truth)
-                    +------+------+
-                    |             |
-              Pi Extension    Web UI (React)
-              (tools + cmds)  (module federation)
-              works in Pi CLI  works in Sero only
-              + Sero
+                           state.json
+                         (source of truth)
+                 +---------------+---------------+
+                 |               |               |
+           Pi Extension      Web UI (React)   Background Runtime
+           (tools + cmds)   (module federation) (optional)
+           Pi CLI-safe      Sero only          Sero only
 ```
 
 Key properties:
-- The extension is 100% standard Pi — works in Pi CLI with zero Sero deps
-- Sero reads `sero` key in `package.json` to discover and mount the web UI
-- State is workspace-scoped (default) or global-scoped, persists across sessions
+- The extension is 100% standard Pi — works in Pi CLI with zero Sero-only imports
+- The web UI is optional and Sero-only
+- The background runtime is optional and Sero-only; use it for long-lived workspace watching, startup recovery, orchestration, and cleanup semantics
+- Sero reads the `sero` key in `package.json` to discover and mount the UI and background runtime
+- State is workspace-scoped (default) or global-scoped, and persists across sessions
 - Plugin UIs should trigger plugin behavior by calling their own tools through `useAppTools()` / `window.sero.appAgent.invokeTool(...)`
 - Do **not** ask the host to add a custom bridge like `window.sero.myPlugin.doThing()` unless you are intentionally changing the Sero platform itself
-- Changes from either side (agent tool or user clicking UI) sync instantly via file watching
+- Changes from the extension, UI, or runtime sync through the same file-backed state
 
 ## New external-plugin rules (important)
 
-Recent external-plugin work added two host capabilities that plugin authors now
+Recent external-plugin work added three host seams that plugin authors now
 need to understand.
 
 ### 1) UI -> plugin tool calls
@@ -116,6 +122,47 @@ If you need both UI->tool calls and CLI bridging, declare both:
 }
 ```
 
+### 3) Plugin-owned background runtimes
+
+If your plugin needs long-lived, workspace-scoped behavior that should continue
+outside the UI lifecycle, add a plugin-owned background runtime.
+
+Good fits:
+- file watching beyond simple UI state sync
+- startup recovery / reconcile passes
+- subagent orchestration
+- worktree / PR / cleanup flows
+- managed dev-server or verification coordination
+
+Do **not** use a background runtime for:
+- simple CRUD mutations that belong in extension tools
+- one-shot UI actions that should just call a tool
+- Pi CLI-safe logic that must remain usable outside Sero
+
+Manifest pattern:
+
+```json
+{
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
+  },
+  "sero": {
+    "app": {
+      "runtime": "./runtime/index.ts"
+    },
+    "plugin": {
+      "requiredHostCapabilities": ["appRuntime.background"]
+    }
+  }
+}
+```
+
+Boundary rules:
+- `extension/` stays Pi-safe and CLI-safe
+- `runtime/` owns Sero-only orchestration
+- `runtime/` should type against `@sero-ai/common` runtime contracts, not desktop-internal imports
+- if logic exists only because of this plugin's runtime behavior, keep it in the plugin instead of pushing it into the Sero host
+
 ### Quick do / don't guide
 
 | Situation | Do | Don't |
@@ -125,6 +172,7 @@ If you need both UI->tool calls and CLI bridging, declare both:
 | Plugin CLI needs custom subcommands/help/raw args | Put that logic on the tool's `cli` field | Build a second parallel CLI implementation in the host |
 | Plugin needs host support for direct UI->tool calls | Declare `requiredHostCapabilities: ["appAgent.invokeTool"]` | Assume every host supports it without declaring it |
 | Plugin needs bridged CLI behavior | Declare `requiredHostCapabilities: ["tool.cli"]` | Rely on unstated host behavior |
+| Plugin needs long-lived workspace orchestration, recovery, or watchers | Add `runtime/`, declare `sero.app.runtime`, and require `appRuntime.background` | Hide orchestration inside UI effects or ask the host for plugin-specific runtime glue |
 | Extracting a built-in plugin to external | Move plugin-specific logic into the plugin | Leave plugin-specific preload/IPC/types in the Sero host |
 
 ### Mini examples
@@ -242,8 +290,9 @@ Before writing any code, establish:
 - **Display name** (e.g. `My App`) — shown in sidebar
 - **Icon** — Lucide icon name (e.g. `box`, `check-square`, `calculator`)
 - **Scope** — `workspace` (default, project-specific data) or `global` (shared across workspaces)
-- **State shape** — what data the extension and UI will share
+- **State shape** — what data the extension, UI, and optional runtime will share
 - **Tools** — what agent tools to register
+- **Background runtime?** — only if the plugin needs long-lived workspace orchestration beyond UI/tool lifecycles
 - **Dev port** — unique port for Vite dev server (5174+, check existing plugins first)
 
 Check existing ports:
@@ -264,16 +313,23 @@ plugins/sero-<name>-plugin/
 +-- extension/
 |   +-- index.ts
 |   +-- tsconfig.json
++-- runtime/                # optional: Sero-only background runtime
+|   +-- index.ts
+|   +-- tsconfig.json
 +-- ui/
 |   +-- <Name>App.tsx
 |   +-- styles.css
 |   +-- tsconfig.json
+|   +-- vite-env.d.ts
 |   +-- index.html
 ```
 
 If the plugin is **extension-only** (no sidebar UI / no federated remote),
 keep `package.json`, `shared/`, and `extension/`, and omit `vite.config.ts`,
 `ui/`, and the `sero.app.ui` / `component` / `devPort` fields.
+
+If the plugin does **not** need long-lived background orchestration, omit
+`runtime/`, skip the runtime typecheck, and do not set `sero.app.runtime`.
 
 Read `references/templates.md` for the exact content of each file.
 
@@ -287,14 +343,17 @@ Critical rules:
 - Pi SDK packages go in `peerDependencies` (runtime provides them)
 - `@sero-ai/app-runtime` is a `devDependency` (shared via MF at runtime)
 - `@sero-ai/ui` is a `devDependency` (bundled at build time)
-- Use `@sero/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
+- Use `@sero-ai/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
+- Treat the monorepo `packages/*` folders as host-owned shared package sources that external plugins consume via published package names — do NOT import `../../packages/*` source paths from an external plugin, and do NOT move plugin-specific domain models into `packages/*`
 - `stateFile` stays required even for global apps — Sero ignores it there, but Pi CLI uses it as the fallback path
 - `ui`, `component`, and `devPort` are required only when the plugin ships a web UI
+- `runtime` is required only when the plugin ships a background runtime; if present, add `runtime/tsconfig.json` to the package `typecheck` script
 - If the plugin is extension-only, remove the Vite-based `dev` / `build` / UI typecheck scripts and keep an extension-only `typecheck`
 - `devPort` must be unique across all plugins
 - Declare `sero.plugin.requiredHostCapabilities` only for the host features your plugin actually uses:
   - `appAgent.invokeTool` -> your UI calls plugin tools with `useAppTools()` / `window.sero.appAgent.invokeTool(...)`
   - `tool.cli` -> your tool is exposed as `sero <command>` via `bridgeTools`, custom `cli`, or builtin override behavior
+  - `appRuntime.background` -> your plugin declares `sero.app.runtime` and depends on the background-runtime host capability bag
 - `sero.plugin.bridgeTools` controls which plugin tools become `sero ...` commands:
   - omit or `true` -> bridge all plugin tools
   - `false` -> bridge none of them
@@ -310,7 +369,8 @@ Rules:
 - Provide a `DEFAULT_STATE` constant
 - Keep the shape flat-ish
 - Include auto-incrementing ID fields for lists
-- If a type/helper stops being app-local, move that neutral contract into `@sero/common` instead of duplicating it
+- If a type/helper stops being app-local, move that neutral **platform** contract into `@sero-ai/common` instead of duplicating it
+- If the type/helper is still plugin-specific, keep it in the plugin's own `shared/` layer (or a plugin-owned published package) rather than promoting it into Sero's monorepo `packages/*`
 
 ### Step 5: Mount the Plugin in the Workspace
 
@@ -332,14 +392,44 @@ Create `extension/index.ts`. This is a standard Pi extension.
 
 Key patterns:
 - Use `StringEnum` from `@mariozechner/pi-ai` for action enums (not `Type.Union`)
-- Resolve `statePath` from `ctx.cwd` in execute handler with session fallback
+- Resolve `statePath` from `ctx.cwd` inside execute handlers; keep registration-scoped session state only as a fallback
 - Always use **atomic writes** (write to temp, then `fs.rename`)
 - Keep tool output concise
-- Handle `session_start` and `session_switch` events for state path resolution
+- `session_start` is useful for warmup / fallback state resolution; do not depend on `session_switch` unless the SDK surface you target explicitly guarantees it
 
 Read `references/templates.md` for the full extension template.
 
-### Step 7: Build the web UI
+### Step 7: Build the optional background runtime
+
+Create `runtime/index.ts` only when your plugin needs long-lived,
+workspace-scoped behavior that should continue outside the UI lifecycle.
+
+Good uses:
+- startup recovery / reconcile passes
+- background watchers for runtime-owned files
+- subagent orchestration
+- managed dev-server coordination
+- worktree / PR / cleanup flows
+
+Critical requirements:
+- add `sero.app.runtime: "./runtime/index.ts"` to `package.json`
+- add `runtime/tsconfig.json` and include it in the package `typecheck` script
+- declare `requiredHostCapabilities: ["appRuntime.background"]`
+- if the runtime imports native or otherwise non-bundle-safe packages, declare `sero.app.runtimeExternals: ["<package>"]` so the TS runtime loader leaves them external
+- export `createAppRuntime(ctx)` from `runtime/index.ts` and default-export `{ createAppRuntime }`
+- type against `@sero-ai/common` runtime contracts rather than desktop-host internals
+- keep Pi-safe logic in `extension/`; keep Sero-only orchestration in `runtime/`
+
+The runtime receives:
+- `ctx.appId`
+- `ctx.workspaceId`
+- `ctx.workspacePath`
+- `ctx.stateFilePath`
+- `ctx.host.{appState, subagents, workspace, verification, git, devServers}`
+
+Read `references/templates.md` and `references/api-and-widgets.md` for the runtime manifest and entry-template details.
+
+### Step 8: Build the web UI
 
 Create the React component in `ui/<Name>App.tsx`.
 
@@ -351,6 +441,7 @@ Critical requirements:
 - Import components from `@sero-ai/ui/components/ui/*`
 - Import `cn` from `@sero-ai/ui/lib/utils`
 - Import `./styles.css` for Tailwind theme mapping
+- Import the shared stylesheet from **every exposed Module Federation entry** (the main app, widgets, and any other directly exposed components) so installed external plugins ship their own CSS
 - Use Tailwind semantic colors (`bg-background`, `text-foreground`, etc.)
 - If the UI needs to trigger extension behavior, register a normal plugin tool and call it with `useAppTools().run(...)`
 - Do **not** invent a one-off host API for that plugin unless you are intentionally changing Sero core
@@ -360,11 +451,12 @@ Also create:
 - `vite.config.ts` at package root (not inside `ui/`)
 - `ui/styles.css` with Tailwind + theme token mapping
 - `ui/tsconfig.json`
+- `ui/vite-env.d.ts` (or equivalent Vite client typing) when side-effect CSS imports are used
 - `ui/index.html` (required for Vite build)
 
 Read `references/templates.md` for all file templates.
 
-### Step 8: Build and verify
+### Step 9: Build and verify
 
 ```bash
 pnpm install
@@ -377,12 +469,12 @@ All three must pass before the plugin is ready.
 Why these steps matter:
 - `pnpm install` links the new workspace package and dependencies
 - `build` validates Module Federation and produces `dist/ui/remoteEntry.js` when the plugin has a UI
-- `typecheck` catches both extension and UI errors before Sero loads the plugin
+- `typecheck` catches extension, UI, and optional runtime errors before Sero loads the plugin
 
 For **extension-only** plugins, skip the Vite build and use an extension-only
 `typecheck` script instead.
 
-### Step 9: Test
+### Step 10: Test
 
 ```bash
 cd apps/desktop
@@ -392,6 +484,7 @@ SERO_DEV_PLUGINS=<name> bash scripts/dev.sh
 1. Click the app in the sidebar
 2. Add items via UI -> state.json updates -> UI re-renders
 3. Ask agent to use the tool -> writes state.json -> file watcher fires -> UI updates
+4. If the plugin has `runtime/`, verify the runtime starts for an open workspace, reacts to state changes, and cleans up correctly when the workspace closes
 
 ## External plugin migration checklist
 
@@ -421,6 +514,7 @@ If you're unsure about a checkbox, re-read the "Quick do / don't guide" and
 - [ ] `package.json` includes a valid `sero.plugin` manifest
 - [ ] `minSeroVersion` is set when the plugin requires a newer Sero host
 - [ ] `requiredHostCapabilities` includes only the seams the plugin actually uses
+- [ ] If the plugin owns a background runtime, `sero.app.runtime` is declared intentionally
 - [ ] Production `vite.config.ts` uses `base: './'`
 - [ ] Runtime npm dependencies are declared in the plugin's own `dependencies`
 - [ ] The plugin does not rely on monorepo-only imports that will disappear after extraction
@@ -432,6 +526,18 @@ If you're unsure about a checkbox, re-read the "Quick do / don't guide" and
 - [ ] App-specific global config/cache paths use `process.env.SERO_HOME`
 - [ ] Pi agent/resource paths use `process.env.PI_CODING_AGENT_DIR`
 - [ ] The plugin does not hardcode `~/.pi` except as a Pi CLI fallback when env vars are missing
+
+### Background runtime
+- [ ] Add `runtime/` only when the plugin truly needs long-lived background behavior
+- [ ] If `runtime/` exists, `requiredHostCapabilities` includes `"appRuntime.background"`
+- [ ] Runtime code types against `@sero-ai/common` runtime contracts rather than desktop-internal imports
+- [ ] Startup recovery, watch/reconcile, and long-lived orchestration semantics live in `runtime/`, not in renderer `useEffect`s
+- [ ] Pi-safe logic remains in `extension/`
+
+### UI bundling / styling
+- [ ] Every exposed MF entry imports the plugin stylesheet (`./styles.css` or `../styles.css`)
+- [ ] `ui/styles.css` includes the Tailwind `@source` paths the plugin depends on
+- [ ] `ui/vite-env.d.ts` (or equivalent `vite/client` typing) exists when side-effect CSS imports are used
 
 ### Host ownership boundaries
 - [ ] Plugin-specific business logic lives in the plugin, not in desktop host preload / IPC glue
@@ -450,7 +556,7 @@ If you're unsure about a checkbox, re-read the "Quick do / don't guide" and
 
 - Include the plugin ID in `SERO_DEV_PLUGINS` to get UI HMR from the remote Vite dev server
 - UI file changes under `ui/` should reload quickly without restarting Electron
-- Changes to `extension/` or `shared/types.ts` require restarting the desktop dev server / Electron main process
+- Changes to `extension/`, `runtime/`, or `shared/types.ts` require restarting the desktop dev server / Electron main process
 - `devPort` in `package.json` must match `server.port` in `vite.config.ts`
 - Useful logs:
   - `/tmp/sero-vite.log` — host Vite + remote reload events
@@ -510,6 +616,16 @@ No source file over 500 lines. Split into sub-components, utils, types files.
 - Add `@sero-ai/app-runtime` to `optimizeDeps.exclude`
 - Do NOT alias `@sero-ai/app-runtime`
 - Root component MUST have a default export
+- Import the shared stylesheet from every exposed entry so installed external remotes emit their own CSS assets
+
+### Background runtimes
+
+- Use `runtime/` only for long-lived, workspace-scoped Sero behavior
+- `runtime/index.ts` must export `createAppRuntime(ctx)` and default-export `{ createAppRuntime }`
+- Type background runtimes against `@sero-ai/common` (`AppRuntime`, `AppRuntimeContext`, `AppRuntimeModule`)
+- Do not import desktop-only aliases such as `@electron`, `@plugins`, or `@/` into plugin runtime code
+- Keep plugin-specific orchestration semantics in the plugin runtime; the host should only provide generic capabilities
+- If the plugin depends on background-runtime APIs, declare `requiredHostCapabilities: ["appRuntime.background"]`
 
 ### Keyboard events
 
@@ -549,9 +665,10 @@ When in doubt, study these existing plugins:
 | Plugin | Best for |
 |--------|----------|
 | `plugins/sero-git-plugin/` | Clean, focused app with single tool + substantial UI |
-| `plugins/sero-kanban-plugin/` | Rich app with subagents, widgets, complex state |
+| `plugins/sero-admin-plugin/` | Rich app with multiple panels, settings, and dashboard surfaces |
 | `plugins/sero-web-plugin/` | Converting an existing Pi extension |
 | `plugins/sero-cron-plugin/` | Background jobs, command-oriented plugins |
+| `../plugins/sero-kanban-plugin/` | External plugin with a plugin-owned background runtime, tool-driven UI actions, and dashboard widget styling |
 
 ## Related docs
 
@@ -569,6 +686,9 @@ When in doubt, study these existing plugins:
 | App not in sidebar | Check `sero.app.id`/`name` in package.json, run `pnpm install` |
 | Agent missing tool | Restart dev server, check `pi.extensions` field |
 | UI changes not showing | Check remote Vite dev server running, extension changes need full restart |
+| Installed external plugin is missing styles | Import the shared stylesheet from every exposed MF entry and ensure `ui/styles.css` includes the needed `@source` paths |
+| `Cannot find module './styles.css'` in plugin UI | Add `ui/vite-env.d.ts` with `/// <reference types="vite/client" />` or otherwise include Vite client CSS typings |
+| Runtime never starts | Add `sero.app.runtime`, declare `requiredHostCapabilities: ["appRuntime.background"]`, and check `/tmp/sero-electron.log` |
 | "No UI module registered" | Set `sero.app.component` and `devPort` in package.json |
 | "No workspace selected" | Pick a workspace first, or make the plugin `scope: "global"` if it should work without one |
 | State not syncing | Verify same `stateFile` path, use atomic writes |

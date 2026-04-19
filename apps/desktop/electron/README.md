@@ -20,15 +20,15 @@ electron/
 - `platform/` owns Electron-specific runtime concerns such as env setup,
   protocol registration, notifications, and security helpers.
 - `features/` owns product behavior. If you are working on workspace,
-  apps, plugins, subagents, container, gateway, kanban, or VCS logic,
-  start there first.
+  apps, plugins, subagents, container, gateway, or VCS logic, start
+  there first.
 - `shared/` is only for code used by multiple features that does not have
   a clear single owner.
 - `ipc/`, `preload/`, and `cli/` are adapter layers. They should expose
   feature behavior, not become the home for feature logic.
 - When an adapter or feature area grows, split it by responsibility with
   obvious child folders (for example `cli/core`, `cli/bridges`,
-  `ipc/platform/{auth,system,ui}`, or `features/kanban/review/{workflow,state,actions}`).
+  `ipc/platform/{auth,system,ui}`, or `features/apps/runtime/{capabilities,tests}`).
 - `preload.ts` should stay thin — put bridge composition in `preload/`.
 - `__tests__/` should mirror the source layout as closely as practical so
   feature tests are easy to find.

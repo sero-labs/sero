@@ -16,9 +16,13 @@ interface PluginPackageJson {
   devDependencies?: DependencyMap;
   peerDependencies?: DependencyMap;
   optionalDependencies?: DependencyMap;
+  pi?: {
+    extensions?: string[];
+  };
   sero?: {
     app?: {
       ui?: string;
+      runtime?: string;
       devPort?: number;
     };
     plugin?: {
@@ -50,6 +54,23 @@ function hasBuiltUi(packageDir: string): boolean {
 
 function usesUi(pkg: PluginPackageJson): boolean {
   return Boolean(pkg.sero?.app?.ui);
+}
+
+function getDeclaredRuntimeEntry(pkg: PluginPackageJson): string | null {
+  const runtimeEntry = pkg.sero?.app?.runtime?.trim();
+  return runtimeEntry ? runtimeEntry : null;
+}
+
+function assertDeclaredRuntimeEntryExists(packageDir: string, pkg: PluginPackageJson): void {
+  const runtimeEntry = getDeclaredRuntimeEntry(pkg);
+  if (!runtimeEntry) return;
+
+  const runtimeEntryPath = path.resolve(packageDir, runtimeEntry);
+  if (existsSync(runtimeEntryPath)) return;
+
+  throw new Error(
+    `Invalid plugin: declares runtime ${runtimeEntry} but the file is missing after install preparation.`,
+  );
 }
 
 function hasWorkspaceProtocolSpec(spec: string): boolean {
@@ -84,9 +105,21 @@ export function pluginNeedsBuild(pkg: PluginPackageJson, packageDir: string): bo
   return usesUi(pkg) && !hasBuiltUi(packageDir);
 }
 
+function hasExtensionEntries(pkg: PluginPackageJson): boolean {
+  return Array.isArray(pkg.pi?.extensions)
+    && pkg.pi.extensions.some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+}
+
 function shouldBuildFromSource(pkg: PluginPackageJson, sourceKind: PluginSourceKind): boolean {
   if (sourceKind === 'npm' || !usesUi(pkg)) return false;
   return pkg.sero?.plugin?.preBuilt !== true;
+}
+
+function shouldInstallSourceDependencies(pkg: PluginPackageJson, sourceKind: PluginSourceKind): boolean {
+  if (sourceKind === 'npm') return false;
+  return shouldBuildFromSource(pkg, sourceKind)
+    || Boolean(getDeclaredRuntimeEntry(pkg))
+    || hasExtensionEntries(pkg);
 }
 
 export function stripInstalledOnlyManifestFields(pkg: PluginPackageJson): PluginPackageJson {
@@ -144,22 +177,30 @@ function getBuildCommand(pkg: PluginPackageJson): { command: string; args: strin
   return { command: 'npm', args: ['run', 'build'] };
 }
 
+function assertStandaloneSourcePackage(pkg: PluginPackageJson): void {
+  const unsupportedSpec = findUnsupportedDependencySpec(pkg);
+  if (!unsupportedSpec) return;
+
+  throw new Error(
+    `Invalid plugin source package: unsupported dependency spec ${unsupportedSpec}. ` +
+    'Git/local source installs must publish a standalone npm-installable repo with resolved versions and vendored workspace packages.',
+  );
+}
+
+async function installPluginDependencies(
+  packageDir: string,
+  pkg: PluginPackageJson,
+  runCommand: NonNullable<EnsurePluginPackageReadyOptions['runCommand']>,
+): Promise<void> {
+  const installCommand = getInstallCommand(pkg);
+  await runCommand(installCommand.command, installCommand.args, packageDir);
+}
+
 async function buildPluginFromSource(
   packageDir: string,
   pkg: PluginPackageJson,
   runCommand: NonNullable<EnsurePluginPackageReadyOptions['runCommand']>,
 ): Promise<void> {
-  const unsupportedSpec = findUnsupportedDependencySpec(pkg);
-  if (unsupportedSpec) {
-    throw new Error(
-      `Invalid plugin source package: unsupported dependency spec ${unsupportedSpec}. ` +
-      'Git/local source installs must publish a standalone npm-installable repo with resolved versions and vendored workspace packages.',
-    );
-  }
-
-  const installCommand = getInstallCommand(pkg);
-  await runCommand(installCommand.command, installCommand.args, packageDir);
-
   const buildCommand = getBuildCommand(pkg);
   await runCommand(buildCommand.command, buildCommand.args, packageDir, {
     ...process.env,
@@ -183,6 +224,11 @@ export async function ensurePluginPackageReadyForInstall(
     );
   }
 
+  if (shouldInstallSourceDependencies(pkg, sourceKind)) {
+    assertStandaloneSourcePackage(pkg);
+    await installPluginDependencies(packageDir, pkg, runCommand);
+  }
+
   if (shouldBuildFromSource(pkg, sourceKind)) {
     await buildPluginFromSource(packageDir, pkg, runCommand);
   }
@@ -195,4 +241,6 @@ export async function ensurePluginPackageReadyForInstall(
       'Invalid plugin: declares UI but dist/ui/remoteEntry.js is missing after install preparation.',
     );
   }
+
+  assertDeclaredRuntimeEntryExists(packageDir, sanitizedPkg);
 }

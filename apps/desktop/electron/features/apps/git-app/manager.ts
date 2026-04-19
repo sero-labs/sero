@@ -1,7 +1,7 @@
 import { existsSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 
-import type { GitManagerRequest } from '@sero/common';
+import type { GitManagerRequest } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { appStateManager } from '../state/manager';
 import { resolveStatePath } from '@plugins/sero-git-plugin/extension/state-io';

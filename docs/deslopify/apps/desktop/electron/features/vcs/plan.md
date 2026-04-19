@@ -20,7 +20,7 @@ _Plan drafted: 2026-04-12_
    - Keep current runtime behavior exactly the same while restoring compile-time guarantees.
 
 2. **Move shared VCS contracts to a neutral package/module.**
-   - Target structure: move renderer-safe VCS types out of `@/types/vcs` into `@sero/common` (preferred) or a dedicated shared contract module consumed by both renderer and Electron.
+   - Target structure: move renderer-safe VCS types out of `@/types/vcs` into `@sero-ai/common` (preferred) or a dedicated shared contract module consumed by both renderer and Electron.
    - Leave `support/types.ts` as a thin Electron-specific add-on for `GitResult` and other truly main-only helpers.
    - This aligns with the repo guidance to import canonical shared contracts instead of mirroring or reaching into renderer-local types.
 
@@ -74,5 +74,5 @@ _Plan drafted: 2026-04-12_
   - Replaced the remaining `any`-typed git transport error paths in `git-runner.ts` with a shared typed exec-failure normalizer.
 - 2026-04-16 — `65ebfe3a` — `fix(desktop): preserve filesystem vcs checkpoint source`
   - Stopped rewriting `fs` checkpoint sources to `manual` in `vcs-manager.ts` and added focused VCS manager regressions to lock filesystem source create/list behavior.
-- 2026-04-16 — `1a620e5a` — `refactor(desktop): move shared vcs contracts to @sero/common`
-  - Moved canonical VCS contracts into `packages/common/src/vcs.ts` and repointed Electron/preload/renderer VCS type imports (including `support/types.ts`) to `@sero/common` while keeping `apps/desktop/src/types/vcs.ts` as a compatibility barrel.
+- 2026-04-16 — `1a620e5a` — `refactor(desktop): move shared vcs contracts to @sero-ai/common`
+  - Moved canonical VCS contracts into `packages/common/src/vcs.ts` and repointed Electron/preload/renderer VCS type imports (including `support/types.ts`) to `@sero-ai/common` while keeping `apps/desktop/src/types/vcs.ts` as a compatibility barrel.

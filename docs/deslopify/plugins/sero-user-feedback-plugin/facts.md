@@ -60,7 +60,7 @@ _Last reviewed: 2026-04-13_
 - Targeted validation: package-local UI + extension typecheck, package-local IPC-bridge tests, targeted desktop user-feedback tests, and monorepo `pnpm typecheck` all pass
 
 ### What changed
-- Promoted the shared user-feedback question/answer payloads, bus key, and event names into `@sero/common` so plugin + host contract drift becomes a typecheck failure.
+- Promoted the shared user-feedback question/answer payloads, bus key, and event names into `@sero-ai/common` so plugin + host contract drift becomes a typecheck failure.
 - Rebased the plugin’s shared transport aliases, bus singleton wrappers, desktop host types, and Electron bus bridge on those canonical shared contracts.
 - Replaced the plugin-local `window.sero.userFeedback` subset with the canonical shared bridge type and added a package-local extension test for the IPC bridge handshake/cancel flow.
 - Expanded the package-local quality gate so both `ui/` and `extension/` compile inside the plugin package.

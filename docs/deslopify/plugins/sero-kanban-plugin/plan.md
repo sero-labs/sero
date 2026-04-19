@@ -3,7 +3,7 @@
 _Plan drafted: 2026-04-13_
 
 ## Executive Summary
-`plugins/sero-kanban-plugin/` is still a strong plugin-platform exemplar: the manifest, MF build, shared-contract move to `@sero/common`, widget exposure, and AD-020 tool registration are all pointed in the right direction. The real debt is runtime truthfulness. The package currently has two workflow engines — the extension tool path and the UI’s local reducer path — and they already disagree on review actions. On top of that, the board/error-log readers fail open on malformed JSON, and the settings surface has drifted between UI and tool help. The right outcome is one canonical action path for side-effectful workflow changes, fail-loud file reads, aligned settings semantics, and smaller tested UI modules.
+`plugins/sero-kanban-plugin/` is still a strong plugin-platform exemplar: the manifest, MF build, shared-contract move to `@sero-ai/common`, widget exposure, and AD-020 tool registration are all pointed in the right direction. The real debt is runtime truthfulness. The package currently has two workflow engines — the extension tool path and the UI’s local reducer path — and they already disagree on review actions. On top of that, the board/error-log readers fail open on malformed JSON, and the settings surface has drifted between UI and tool help. The right outcome is one canonical action path for side-effectful workflow changes, fail-loud file reads, aligned settings semantics, and smaller tested UI modules.
 
 ## Issues Found (prioritized)
 - **High** — UI workflow actions bypass the extension’s real side effects — `plugins/sero-kanban-plugin/ui/components/CardDetail.tsx:60-98,313-366` drives planning/approve/retry/review actions through local `onUpdate(...)` reducers, and `plugins/sero-kanban-plugin/ui/lib/card-workflow.ts:58-182` mutates review cards directly. But the real host-integrated behavior lives in `plugins/sero-kanban-plugin/extension/review-actions.ts:40-131` and `plugins/sero-kanban-plugin/extension/workflow-actions.ts:23-133`, where requesting revisions deletes review cache + appends an error entry and canceling a PR closes GitHub, removes the worktree, deletes the cache, and logs the action. From the UI path, those side effects never run. For Sero specifically, that means the exemplar plugin teaches the wrong ownership boundary for host effects. Effort: **M**.
@@ -34,7 +34,7 @@ _Plan drafted: 2026-04-13_
    - Keep atomic writes, but make read failure modes truthful.
 
 3. **~~Define one shared settings descriptor and use it in both the tool layer and the UI.~~ ✅ 2026-04-14 (`1d433349`)**
-   - Add a small canonical settings metadata module under `shared/` or `@sero/common` ownership for the keys this plugin intentionally exposes.
+   - Add a small canonical settings metadata module under `shared/` or `@sero-ai/common` ownership for the keys this plugin intentionally exposes.
    - Use it to drive:
      - tool schema/help text in `extension/index.ts`
      - `handleSettings()` read/write behavior
@@ -69,7 +69,7 @@ _Plan drafted: 2026-04-13_
 ## Dependencies & Risks
 - The canonical-action cleanup depends on choosing a real host-backed invocation path for remote UI actions. Do **not** replace the current reducers with chat-prompt hacks; keep side-effectful workflow ownership aligned with AD-020 and existing plugin/runtime patterns.
 - Hardening malformed-file reads is a behavioral change. Users may now see explicit board/log read errors where today the plugin silently continues; recovery UX needs to be part of the change.
-- The recent shared-contract move added runtime value re-exports from `plugins/sero-kanban-plugin/shared/types.ts:23-30` and `plugins/sero-kanban-plugin/shared/validation.ts:10-16`, while `plugins/sero-kanban-plugin/package.json:74-89` still treats `@sero/common` / `@sero-ai/app-runtime` as dev-time workspace deps. Before landing cleanup that leans further on those imports, verify built-in plugin staging/package builds still resolve them correctly outside the monorepo layout.
+- The recent shared-contract move added runtime value re-exports from `plugins/sero-kanban-plugin/shared/types.ts:23-30` and `plugins/sero-kanban-plugin/shared/validation.ts:10-16`, while `plugins/sero-kanban-plugin/package.json:74-89` still treats `@sero-ai/common` / `@sero-ai/app-runtime` as dev-time workspace deps. Before landing cleanup that leans further on those imports, verify built-in plugin staging/package builds still resolve them correctly outside the monorepo layout.
 - Adding UI tests may require a jsdom/browser test surface instead of the current node-only Vitest config.
 
 ## Next Steps
@@ -84,7 +84,7 @@ Verification checklist:
 - From the UI, `cancel-pr` actually closes the GitHub PR, removes the worktree, clears the review cache, and only then resets the card to backlog.
 - A malformed `.sero/apps/kanban/state.json` or `errors.json` no longer gets silently replaced with an empty/default file on the next write.
 - `kanban settings` and the Settings panel describe the same runtime-backed settings and constraints.
-- Production/built-in plugin packaging still loads the extension, `KanbanApp`, and `KanbanWidget` after the `@sero/common` runtime import move.
+- Production/built-in plugin packaging still loads the extension, `KanbanApp`, and `KanbanWidget` after the `@sero-ai/common` runtime import move.
 
 ## Execution log
 - `336b790a` — `fix(plugins): harden persisted state integrity`

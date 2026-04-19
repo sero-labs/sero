@@ -100,9 +100,20 @@ What each runtime cares about:
 
 - **Pi CLI / Pi runtime** cares about `pi.extensions`
 - **Sero** cares about `sero.app`
+  - background runtimes may also declare `sero.app.runtimeExternals` when they
+    need the TS runtime loader to leave native / non-bundle-safe packages
+    external (for example `better-sqlite3` or `keytar`)
 - **Plugin packaging/distribution** additionally uses `sero.plugin`
 - **Optional provider plugins** may also declare `sero.providers`; see the
   plugin docs for that host metadata
+
+Monorepo note:
+- `packages/*` contains Sero-owned shared package sources
+- external plugins should consume those packages by published name (for example
+  `@sero-ai/common`, `@sero-ai/app-runtime`, `@sero-ai/ui`), not by importing
+  monorepo source paths
+- plugin-specific domain/state contracts should stay in the plugin's own
+  `shared/` layer unless they truly become generic platform contracts
 
 ## Persistent State Model
 

@@ -33,7 +33,7 @@ import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps';
 import { ensureDefaultAgents, ensureDefaultSkills, ensureDefaultThemes, ensureProfileTemplates } from './features/profile/setup';
 import { handleProfileRegistryRecovery } from './features/profile/recovery';
-import { containerManager, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './shared/infra/shared-infra';
+import { containerManager, ensureInfra, fileWatcherManager, lspManager, vcsManager, gatewayServer } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
 import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './platform/protocols/builtin-resources';
@@ -342,6 +342,13 @@ app.whenReady().then(async () => {
 
   // Clean up orphaned sero-* containers from previous crashes
   await cleanupOrphanedContainers();
+
+  // Kick off shared infra + background app runtime startup after core
+  // workspace/container bootstrap. This stays non-blocking because runtimes
+  // may perform recovery work on existing state.
+  void ensureInfra().catch((err) => {
+    console.error('[sero] Failed to initialize shared infra:', err);
+  });
 
   // ── Gateway ──────────────────────────────────────────────────
   // Start the WebSocket gateway + web chat UI. The agent ops bridge

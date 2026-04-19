@@ -5,7 +5,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { DevServerIndicator } from '@/components/layout/DevServerPanel';
 import { useWorkspaceVcs, useVcsStore } from '@/stores/vcs';
-import type { Bookmark } from '@sero/common';
+import type { Bookmark } from '@sero-ai/common';
 
 /**
  * StatusBar — bottom bar showing workspace info (à la VSCode).

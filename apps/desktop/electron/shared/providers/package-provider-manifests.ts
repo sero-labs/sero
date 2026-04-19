@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import path from 'path';
 import type { SettingsPackageSource } from '@/types/ipc';
-import type { ModelTier, PluginProviderManifest, SeroProviderManifest } from '@sero/common';
-import { MODEL_TIERS } from '@sero/common';
+import type { ModelTier, PluginProviderManifest, SeroProviderManifest } from '@sero-ai/common';
+import { MODEL_TIERS } from '@sero-ai/common';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { isCompatiblePluginResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { readSettingsResult } from '@electron/shared/settings/settings-helpers';

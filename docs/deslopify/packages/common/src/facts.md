@@ -90,7 +90,7 @@ used by onboarding, model configuration UIs, and agent model availability flows.
 ### What changed
 - Added `packages/common/src/kanban.ts` as the neutral shared owner of Kanban card/state/validation contracts consumed by the desktop host and Kanban plugin.
 - Expanded `packages/common/src/index.ts` to export the canonical Kanban contract and default-state factory.
-- Host and plugin Kanban layers now import or re-export from `@sero/common` instead of mirroring local copies.
+- Host and plugin Kanban layers now import or re-export from `@sero-ai/common` instead of mirroring local copies.
 
 ### Still outstanding
 - `model-selection.ts` splitting remains the top package-local Medium item.

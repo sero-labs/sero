@@ -76,7 +76,7 @@ _Last reviewed: 2026-04-18_
 - Total plugin files: 24 (unchanged; Phase 1 landed entirely in core)
 - Largest plugin file: `plugins/sero-google-plugin/extension/index.ts` (335 LOC, unchanged)
 - Files over 500 LOC in the touched core surface: none
-- Shared contract additions: new neutral `@sero/common` app-tool result types plus new `@sero-ai/app-runtime` `useAppTools()` hook
+- Shared contract additions: new neutral `@sero-ai/common` app-tool result types plus new `@sero-ai/app-runtime` `useAppTools()` hook
 
 ### What changed
 - Added a generic app-local tool execution seam in core: `window.sero.appAgent.invokeTool(appId, workspaceId, toolName, params)` plus `useAppTools().run(toolName, params)` for federated UIs.

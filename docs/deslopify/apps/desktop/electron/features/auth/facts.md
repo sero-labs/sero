@@ -18,7 +18,7 @@ This feature owns the app-level GitHub and Google auth/runtime integration: GitH
 - GitHub auth still carries a legacy root-file shim, but the active write path is profile-scoped under `SERO_AGENT_DIR`.
 - Google auth owns both the live OAuth flow and the migration path out of the previous buggy profile-scoped keyring-password scheme into per-profile client buckets.
 - gog binary resolution/PATH expansion now flows through one canonical runtime helper (`google/gog-runtime.ts`) reused by auth, IPC, and CLI command execution.
-- GitHub remote URL parsing/normalization now comes from shared `@sero/common` helpers consumed by both electron repo-ops and renderer publish/origin workflows.
+- GitHub remote URL parsing/normalization now comes from shared `@sero-ai/common` helpers consumed by both electron repo-ops and renderer publish/origin workflows.
 
 ## Runtime-sensitive surfaces
 - Secret persistence is a high-risk boundary: GitHub tokens, Google refresh tokens, and gog credentials must remain profile-scoped and non-leaky.
@@ -92,7 +92,7 @@ This feature owns the app-level GitHub and Google auth/runtime integration: GitH
 
 ### What changed
 - Added `google/gog-runtime.ts` as the canonical gog binary/PATH helper and reused it from auth keyring, Google IPC execution, and CLI gog runner.
-- Added canonical GitHub URL helpers in `@sero/common` and reused them from `features/auth/github/repo-ops.ts` plus renderer git-remote workflow helpers.
+- Added canonical GitHub URL helpers in `@sero-ai/common` and reused them from `features/auth/github/repo-ops.ts` plus renderer git-remote workflow helpers.
 - Removed duplicated per-layer gog path probing and GitHub URL normalization regexes.
 
 ### Still outstanding

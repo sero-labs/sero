@@ -19,7 +19,7 @@
       "@plugins/*": ["../../plugins/*"],
       "@packages/*": ["../../packages/*"],
       "@sero-ai/app-runtime": ["../../packages/app-runtime/src/index.ts"],
-      "@sero/common": ["../../packages/common/src/index.ts"],
+      "@sero-ai/common": ["../../packages/common/src/index.ts"],
       "@sero-ai/ui": ["../../packages/ui/src/index.ts"],
       "@sero-ai/ui/*": ["../../packages/ui/src/*"]
     }

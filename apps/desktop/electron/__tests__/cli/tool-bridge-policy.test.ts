@@ -48,12 +48,12 @@ describe('Tool bridge policy', () => {
     resetCliRegistryForTests();
   });
 
-  it('bridges kanban tool through sero-cli', () => {
+  it('does not bridge kanban without plugin manifest policy', () => {
     const ext = makeExtResult([makeTool('kanban')]);
     const result = bridgeExtensionTools(ext);
 
-    expect(result.extensions[0]!.tools.has('kanban')).toBe(false);
-    expect(getCliRegistry().get('kanban')).toBeTruthy();
+    expect(result.extensions[0]!.tools.has('kanban')).toBe(true);
+    expect(getCliRegistry().get('kanban')).toBeFalsy();
   });
 
   it('bridges create_agent tool (moved to CORE_TOOLS_TO_BRIDGE)', () => {

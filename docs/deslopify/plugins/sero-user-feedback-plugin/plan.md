@@ -35,7 +35,7 @@ _Plan drafted: 2026-04-13_
    - Aligns with AD-001: the shell/profile system owns product workflow; the plugin should remain a reusable communication surface.
 
 3. **~~Canonicalize user-feedback transport and bus contracts.~~ ✅ 2026-04-14 (`56ff5e59`)**
-   - Promote the question/answer payload types and the event-bus singleton key/factory into one neutral shared contract module (prefer a renderer-safe shared package such as `@sero/common`, or a dedicated shared desktop/plugin contract module if package boundaries make that safer).
+   - Promote the question/answer payload types and the event-bus singleton key/factory into one neutral shared contract module (prefer a renderer-safe shared package such as `@sero-ai/common`, or a dedicated shared desktop/plugin contract module if package boundaries make that safer).
    - Update these consumers together:
      - plugin `shared/types.ts` / `ui/types.ts`
      - `apps/desktop/src/types/user-feedback.ts`

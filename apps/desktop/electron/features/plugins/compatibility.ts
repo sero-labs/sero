@@ -4,8 +4,8 @@ import path from 'path';
 import type {
   PluginCompatibilityIssue,
   PluginCompatibilityStatus,
-} from '@sero/common';
-import { SERO_HOST_CAPABILITIES } from '@sero/common';
+} from '@sero-ai/common';
+import { SERO_HOST_CAPABILITIES } from '@sero-ai/common';
 
 interface DesktopPackageJson {
   version?: string;

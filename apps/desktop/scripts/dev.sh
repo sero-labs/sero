@@ -11,7 +11,7 @@
 # dev mode (and load the rest from pre-built bundles via sero-ext://), set
 # SERO_DEV_PLUGINS to a comma-separated list of plugin IDs:
 #
-#   SERO_DEV_PLUGINS=admin,kanban bash scripts/dev.sh
+#   SERO_DEV_PLUGINS=admin,git bash scripts/dev.sh
 #
 # Use SERO_DEV_PLUGINS=all to run every remote dev server.
 #

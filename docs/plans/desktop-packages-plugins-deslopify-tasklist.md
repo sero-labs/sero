@@ -204,7 +204,7 @@ runtime, contract, or desktop-side code that those plugins consume.
   closeout targets rather than full review surfaces.
 - 2026-04-13: Wave A step 1 complete for `packages/common/src` and
   `packages/app-runtime/src`. Facts + plans added under
-  `docs/deslopify/packages/**`; headline findings: `@sero/common` is healthy but
+  `docs/deslopify/packages/**`; headline findings: `@sero-ai/common` is healthy but
   still does not fully own shared plugin/provider/model contracts, while
   `@sero-ai/app-runtime` has three High-priority boundary type escape hatches
   (`globalThis` singletons + `window.sero` access) plus a reliability follow-up
@@ -317,7 +317,7 @@ runtime, contract, or desktop-side code that those plugins consume.
   Targeted plugin tests plus monorepo `pnpm typecheck` passed.
 - 2026-04-13: Wave D batch **D2 — Canonical contract / bridge ownership**
   landed in `d885ff2d` (`refactor(contracts): centralize plugin bridge
-  ownership`). Covered: neutral shared Git app contracts in `@sero/common`,
+  ownership`). Covered: neutral shared Git app contracts in `@sero-ai/common`,
   canonical admin/web host bridge subsets, and neutral shared cron persistence
   types consumed by cron + memory. Targeted package typechecks, Git plugin
   tests, and monorepo `pnpm typecheck` passed.
@@ -347,7 +347,7 @@ runtime, contract, or desktop-side code that those plugins consume.
 - 2026-04-14: Wave F batch **E1 — Shared contract ownership + runtime
   reliability** landed across `1486f968` (`refactor(common): split model
   contracts and provider manifests`) and `b145471f` (`refactor(app-runtime):
-  harden shared state and widget runtime`). Covered: `@sero/common`
+  harden shared state and widget runtime`). Covered: `@sero-ai/common`
   model-selection split + data-first warning formatting + canonical
   `sero.providers` contracts, plus app-runtime model-contract dedupe,
   `useAppState()` failure recovery, widget-registration idempotence, and focused
@@ -368,7 +368,7 @@ runtime, contract, or desktop-side code that those plugins consume.
   gates** landed across `56ff5e59` (`refactor(plugins): harden E3 bridge
   ownership and quality gates`) and `cd40bbcb` (`test(web): cover history
   clearing and download cleanup`). Covered: moved admin skill-visibility
-  ownership into `@sero/common`, canonicalized user-feedback transport/bus
+  ownership into `@sero-ai/common`, canonicalized user-feedback transport/bus
   ownership plus the shared renderer bridge type, and added package-local
   extension-inclusive typecheck/tests for admin, user-feedback, web, and
   context. Targeted plugin tests, focused desktop/user-feedback tests, and

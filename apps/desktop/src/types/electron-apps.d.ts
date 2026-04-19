@@ -19,7 +19,7 @@ import type {
   GitManagerRequest,
   WebAppActionResult,
   WebAppRequest,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 interface SeroAppStateAPI {
   /** Read an app state JSON file. */

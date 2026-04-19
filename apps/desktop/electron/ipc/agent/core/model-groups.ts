@@ -1,7 +1,7 @@
 import {
   getAvailableThinkingLevels,
   inferSupportsXhigh,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { AvailableModelGroup } from '@/types/ipc';
 import { providerDisplayName, providerLogo } from '@electron/ipc/platform/auth';
 

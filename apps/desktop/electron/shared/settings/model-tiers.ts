@@ -5,7 +5,7 @@
  * Tiers are stored under `sero.modelTiers` in the global settings object.
  */
 
-import { normalizeThinkingLevel } from '@sero/common';
+import { normalizeThinkingLevel } from '@sero-ai/common';
 import type { ModelTier, ModelTierEntry, ModelTierSettings } from '@/types/ipc';
 import { getSeroSettings } from './settings-helpers';
 

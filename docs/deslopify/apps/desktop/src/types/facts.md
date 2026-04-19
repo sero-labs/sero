@@ -21,7 +21,7 @@ consumed by both renderer stores/components and Electron preload/main modules.
   - `@/types/ipc` imported by ~170 files under `apps/desktop/{src,electron}`
   - `IpcChannels` imported from `@/types/ipc` (not `@/types/ipc-channels`) in 59 files
 - Downstream dependencies of note:
-  - `@sero/common` (plugin/model validation contracts)
+  - `@sero-ai/common` (plugin/model validation contracts)
   - `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai` (model/thinking + local model compat)
   - `@electron/features/container/core/types` re-exported as canonical `ContainerInfo`
   - `react-grid-layout` and `react` for dashboard/widget typing
@@ -92,7 +92,7 @@ consumed by both renderer stores/components and Electron preload/main modules.
 - `apps/desktop/src/types/collaboration.ts` still has the `maxRounds` comment/default mismatch
   (`default: 3` comment vs `DEFAULT_DEBATE_CONFIG.maxRounds = 1`).
 - User-feedback duplication from the original plan should be revalidated against current
-  `@sero/common` ownership before marking that item obsolete.
+  `@sero-ai/common` ownership before marking that item obsolete.
 
 ## Post-fix snapshot — 2026-04-15 (declaration-hygiene follow-up)
 
@@ -113,7 +113,7 @@ consumed by both renderer stores/components and Electron preload/main modules.
 - `apps/desktop/src/types/collaboration.ts` still has the `maxRounds` comment/default mismatch
   (`default: 3` comment vs `DEFAULT_DEBATE_CONFIG.maxRounds = 1`).
 - User-feedback duplication from the original plan should be revalidated against current
-  `@sero/common` ownership before marking that item obsolete.
+  `@sero-ai/common` ownership before marking that item obsolete.
 
 ## Post-fix snapshot — 2026-04-15 (comment/default drift follow-up)
 
@@ -131,7 +131,7 @@ consumed by both renderer stores/components and Electron preload/main modules.
 
 ### Still outstanding
 - User-feedback duplication from the original plan should be revalidated against current
-  `@sero/common` ownership before marking that item obsolete.
+  `@sero-ai/common` ownership before marking that item obsolete.
 
 ## Post-fix snapshot — 2026-04-15 (user-feedback revalidation follow-up)
 
@@ -148,10 +148,10 @@ consumed by both renderer stores/components and Electron preload/main modules.
   `packages/common/src/user-feedback.ts`.
 - Confirmed both desktop (`apps/desktop/src/types/user-feedback.ts`) and plugin
   (`plugins/sero-user-feedback-plugin/shared/types.ts`) consume those transport contracts from
-  `@sero/common` instead of maintaining duplicated local copies.
+  `@sero-ai/common` instead of maintaining duplicated local copies.
 - Clarified the desktop `src/types/user-feedback.ts` header comment so ownership boundaries are explicit:
   desktop owns response-feedback persistence contracts, while transport contracts stay canonical in
-  `@sero/common`.
+  `@sero-ai/common`.
 
 ### Still outstanding
 - None for the currently tracked `apps/desktop/src/types` follow-up backlog.

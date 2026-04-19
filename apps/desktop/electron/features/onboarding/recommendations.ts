@@ -1,4 +1,4 @@
-import { resolveSupportedThinkingLevel } from '@sero/common';
+import { resolveSupportedThinkingLevel } from '@sero-ai/common';
 import type {
   AvailableModelGroup,
   ModelTier,

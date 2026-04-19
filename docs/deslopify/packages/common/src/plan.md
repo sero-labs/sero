@@ -9,7 +9,7 @@ plugins, yet its biggest file (`model-selection.ts`) is already a near-cap
 multi-role hub, and two important shared seams still live outside it: app-runtime
 redefines model-group contracts, and desktop privately defines plugin-provider
 manifest types. The right outcome is not a rewrite; it is a tightening pass that
-keeps `@sero/common` small, canonical, and explicitly responsible for cross-
+keeps `@sero-ai/common` small, canonical, and explicitly responsible for cross-
 package contracts.
 
 ## Issues Found (prioritized)
@@ -31,7 +31,7 @@ package contracts.
   Replaced copy-bearing warning payloads with data-first issue unions plus
   `formatModelValidationWarning()` for renderer-facing text.
 
-- **Medium** — ~~`@sero/common` only partially owns the plugin package schema —
+- **Medium** — ~~`@sero-ai/common` only partially owns the plugin package schema —
   `packages/common/src/plugins.ts:18-79` covers `sero.plugin` and discovery /
   install shapes, but `sero.providers` metadata is still redefined in
   `apps/desktop/electron/shared/providers/package-provider-manifests.ts:18-38`.
@@ -74,10 +74,10 @@ package contracts.
      `provider`, `modelId`, `preferredLabel`, `maxSupported`, etc.).
    - Add a formatter helper for current desktop/admin copy so consumer UIs can
      keep rendering the same text while the shared package stops owning wording.
-   - Why: aligns `@sero/common` with its role as a neutral contract layer rather
+   - Why: aligns `@sero-ai/common` with its role as a neutral contract layer rather
      than a presentation layer.
 
-3. **Promote provider-manifest typing into `@sero/common`.**
+3. **Promote provider-manifest typing into `@sero-ai/common`.**
    - Add shared types for `sero.providers` metadata alongside `PluginMeta`.
    - Update `apps/desktop/electron/shared/providers/package-provider-manifests.ts`
      to consume those shared types instead of defining its own desktop-local
@@ -89,7 +89,7 @@ package contracts.
 
 4. **Use the follow-up `packages/app-runtime/src` pass to delete duplicate model types.**
    - Replace `AppModelInfo` / `AppModelGroup` in
-     `packages/app-runtime/src/sero-bridge.ts` with imports from `@sero/common`
+     `packages/app-runtime/src/sero-bridge.ts` with imports from `@sero-ai/common`
      (`SharedModelInfo`, `SharedAvailableModelGroup`) or thin aliases of them.
    - Keep app-runtime-specific bridge interfaces (`SeroModelsBridge`, etc.) in
      app-runtime; move only the neutral contracts.
@@ -107,7 +107,7 @@ package contracts.
      shared model config behavior.
 
 ## Benefits & Trade-offs
-- Benefits: makes `@sero/common` a clearer source of truth, reduces shared-type
+- Benefits: makes `@sero-ai/common` a clearer source of truth, reduces shared-type
   drift across app-runtime and desktop, keeps the biggest file from tipping over
   the 500-LOC rule later, and lowers the cost of future plugin/package reviews.
 - Trade-offs: shared contract moves will touch multiple consumers at once, and
@@ -141,9 +141,9 @@ Verification checklist used in this pass:
 - `apps/desktop/electron/features/apps/discovery` and
   `electron/shared/providers/package-provider-manifests.ts` still parse the same
   plugin package metadata.
-- `packages/app-runtime` and `@sero/common` agree on model-group shapes after
+- `packages/app-runtime` and `@sero-ai/common` agree on model-group shapes after
   the dedupe.
-- Monorepo `pnpm typecheck` stays green across desktop, `@sero/common`,
+- Monorepo `pnpm typecheck` stays green across desktop, `@sero-ai/common`,
   `@sero-ai/app-runtime`, and the plugin packages that consume these contracts.
 
 ## Execution log

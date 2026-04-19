@@ -1,5 +1,5 @@
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
-import type { ModelValidationWarning } from '@sero/common';
+import type { ModelValidationWarning } from '@sero-ai/common';
 
 /** Model tier levels for user-configured defaults. */
 export type ModelTier = 'LOW' | 'MED' | 'HIGH';

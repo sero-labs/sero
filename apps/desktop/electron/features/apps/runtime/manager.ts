@@ -1,0 +1,210 @@
+import path from 'path';
+import { discoverApps } from '@electron/features/apps/discovery';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { loadAppRuntimeModule } from './loader';
+import { createAppRuntimeHost } from './capabilities/create-host';
+import type {
+  AppRuntimeContext,
+  AppRuntimeInstance,
+  AppRuntimeManagerDeps,
+  AppRuntimeTarget,
+  ReconcileAppRuntimeOptions,
+} from './types';
+
+function runtimeKey(appId: string, workspaceId: string): string {
+  return `${appId}:${workspaceId}`;
+}
+
+function manifestSupportsRuntime(manifest: AppRuntimeTarget['manifest']): boolean {
+  return Boolean(manifest.runtimeEntry) && manifest.hostCompatibility?.supported !== false;
+}
+
+function resolveStateFilePath(target: Pick<AppRuntimeTarget, 'manifest'> & { workspacePath: string }): string | null {
+  if (target.manifest.scope === 'global') {
+    return target.manifest.globalStatePath;
+  }
+  return path.join(target.workspacePath, target.manifest.stateFile);
+}
+
+function requiresRestart(current: AppRuntimeInstance, target: AppRuntimeTarget): boolean {
+  return current.manifest.packagePath !== target.manifest.packagePath
+    || current.manifest.runtimeEntry !== target.manifest.runtimeEntry
+    || current.stateFilePath !== target.stateFilePath;
+}
+
+function createDefaultDeps(): AppRuntimeManagerDeps {
+  return {
+    discoverApps,
+    getOpenWorkspaces: () => workspaceManager.getOpenWorkspaces(),
+    loadRuntimeModule: loadAppRuntimeModule,
+    createHost: createAppRuntimeHost,
+  };
+}
+
+export class AppRuntimeManager {
+  private readonly deps: AppRuntimeManagerDeps;
+  private readonly instances = new Map<string, AppRuntimeInstance>();
+  private initialized = false;
+  private initializationTask: Promise<void> | null = null;
+  private reconcileTail: Promise<void> = Promise.resolve();
+
+  constructor(deps: AppRuntimeManagerDeps = createDefaultDeps()) {
+    this.deps = deps;
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+    if (this.initializationTask) {
+      return this.initializationTask;
+    }
+
+    this.initializationTask = (async () => {
+      await this.reconcile();
+      this.initialized = true;
+    })();
+
+    try {
+      await this.initializationTask;
+    } finally {
+      this.initializationTask = null;
+    }
+  }
+
+  async reconcile(options: ReconcileAppRuntimeOptions = {}): Promise<void> {
+    const task = this.reconcileTail
+      .catch(() => undefined)
+      .then(() => this.runReconcile(options));
+
+    this.reconcileTail = task.catch(() => undefined);
+    return task;
+  }
+
+  private async runReconcile(options: ReconcileAppRuntimeOptions): Promise<void> {
+    const manifests = options.manifests ?? await this.deps.discoverApps();
+    const workspaces = options.workspaces ?? await this.deps.getOpenWorkspaces();
+    const desiredTargets = this.buildTargets(manifests, workspaces);
+    const desiredByKey = new Map(desiredTargets.map((target) => [
+      runtimeKey(target.manifest.id, target.workspace.id),
+      target,
+    ]));
+    const failedKeys = new Set<string>();
+
+    for (const instance of [...this.instances.values()]) {
+      const desired = desiredByKey.get(instance.key);
+      if (!desired || requiresRestart(instance, desired)) {
+        try {
+          await this.disposeInstance(instance.key);
+        } catch (error) {
+          failedKeys.add(instance.key);
+          console.error(`[app-runtime] Failed to dispose runtime ${instance.key} during reconcile:`, error);
+        }
+      }
+    }
+
+    for (const target of desiredTargets) {
+      const key = runtimeKey(target.manifest.id, target.workspace.id);
+      if (failedKeys.has(key) || this.instances.has(key)) continue;
+      try {
+        await this.startInstance(key, target);
+      } catch (error) {
+        console.error(`[app-runtime] Failed to start runtime ${key} during reconcile:`, error);
+      }
+    }
+  }
+
+  async handleStateChange(filePath: string, state: unknown): Promise<void> {
+    const matchingInstances = [...this.instances.values()]
+      .filter((instance) => instance.stateFilePath === filePath);
+
+    for (const instance of matchingInstances) {
+      await instance.runtime.handleStateChange(state);
+    }
+  }
+
+  async dispose(): Promise<void> {
+    for (const key of [...this.instances.keys()]) {
+      await this.disposeInstance(key);
+    }
+    this.initialized = false;
+  }
+
+  private buildTargets(
+    manifests: Awaited<ReturnType<AppRuntimeManagerDeps['discoverApps']>>,
+    workspaces: Awaited<ReturnType<AppRuntimeManagerDeps['getOpenWorkspaces']>>,
+  ): AppRuntimeTarget[] {
+    const targets: AppRuntimeTarget[] = [];
+
+    for (const manifest of manifests) {
+      if (!manifestSupportsRuntime(manifest)) continue;
+
+      for (const workspace of workspaces) {
+        if (manifest.scope === 'global' && workspace.id !== 'global') {
+          continue;
+        }
+        if (manifest.scope === 'workspace' && workspace.id === 'global') {
+          continue;
+        }
+
+        const stateFilePath = resolveStateFilePath({ manifest, workspacePath: workspace.path });
+        if (!stateFilePath) {
+          if (manifest.scope === 'global') {
+            console.warn(`[app-runtime] Skipping global runtime ${manifest.id}: missing globalStatePath.`);
+          }
+          continue;
+        }
+        targets.push({ manifest, workspace, stateFilePath });
+      }
+    }
+
+    return targets;
+  }
+
+  private async startInstance(key: string, target: AppRuntimeTarget): Promise<void> {
+    if (!target.manifest.runtimeEntry) return;
+
+    const host = this.deps.createHost(target);
+    host.appState.watch(target.stateFilePath);
+
+    try {
+      const runtimeModule = await this.deps.loadRuntimeModule(target.manifest.runtimeEntry, {
+        externals: target.manifest.runtimeExternals,
+      });
+      const ctx: AppRuntimeContext = {
+        appId: target.manifest.id,
+        workspaceId: target.workspace.id,
+        workspacePath: target.workspace.path,
+        stateFilePath: target.stateFilePath,
+        host,
+      };
+      const runtime = await runtimeModule.createAppRuntime(ctx);
+      await runtime.start();
+
+      this.instances.set(key, {
+        key,
+        manifest: target.manifest,
+        workspaceId: target.workspace.id,
+        workspacePath: target.workspace.path,
+        stateFilePath: target.stateFilePath,
+        host,
+        runtime,
+      });
+    } catch (error) {
+      host.appState.unwatch(target.stateFilePath);
+      throw error;
+    }
+  }
+
+  private async disposeInstance(key: string): Promise<void> {
+    const instance = this.instances.get(key);
+    if (!instance) return;
+
+    this.instances.delete(key);
+    try {
+      await instance.runtime.dispose();
+    } finally {
+      instance.host.appState.unwatch(instance.stateFilePath);
+    }
+  }
+}
+
+export const appRuntimeManager = new AppRuntimeManager();

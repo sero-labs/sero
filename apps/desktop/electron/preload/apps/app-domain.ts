@@ -25,7 +25,7 @@ import type {
   GitManagerRequest,
   WebAppActionResult,
   WebAppRequest,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { GitHubDeviceFlowEvent } from '@/types/electron-services';
 
 export const appStateBridge = {

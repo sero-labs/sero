@@ -3,7 +3,7 @@ import type {
   PullRequestPreview,
   PullRequestRef,
   PullRequestState,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 import { parseDiffSummary } from '../../support/parsers';
 import type { GitRunner } from '../git-runner';

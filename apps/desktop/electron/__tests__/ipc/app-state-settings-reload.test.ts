@@ -8,10 +8,8 @@ const mocks = vi.hoisted(() => {
     settingsReload: vi.fn(),
     reloadAllSessionResources: vi.fn().mockResolvedValue(undefined),
     ensureInfra: vi.fn(),
+    appRuntimeHandleStateChange: vi.fn().mockResolvedValue(undefined),
     applyRuntimeSettings: vi.fn(),
-    kanbanOnStateChange: vi.fn(),
-    kanbanWatchWorkspace: vi.fn(),
-    workspaceFindByPath: vi.fn(),
     gitWatchStateFile: vi.fn(),
     appStateManager: {
       onFileChange: vi.fn((listener: (filePath: string, data: unknown) => void) => {
@@ -48,12 +46,8 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
   SERO_CONFIG_PATH: '/tmp/sero-settings.json',
   ensureInfra: mocks.ensureInfra,
   applyRuntimeSettings: mocks.applyRuntimeSettings,
-  kanbanOrchestrator: {
-    onStateChange: mocks.kanbanOnStateChange,
-    watchWorkspace: mocks.kanbanWatchWorkspace,
-  },
-  workspaceManager: {
-    findByPath: mocks.workspaceFindByPath,
+  appRuntimeManager: {
+    handleStateChange: mocks.appRuntimeHandleStateChange,
   },
 }));
 
@@ -78,9 +72,7 @@ describe('app-state settings reload coalescing', () => {
     mocks.reloadAllSessionResources.mockClear();
     mocks.ensureInfra.mockClear();
     mocks.applyRuntimeSettings.mockClear();
-    mocks.kanbanOnStateChange.mockClear();
-    mocks.kanbanWatchWorkspace.mockClear();
-    mocks.workspaceFindByPath.mockClear();
+    mocks.appRuntimeHandleStateChange.mockClear();
     mocks.gitWatchStateFile.mockClear();
     mocks.appStateManager.onFileChange.mockClear();
     mocks.appStateManager.watch.mockClear();
@@ -109,6 +101,7 @@ describe('app-state settings reload coalescing', () => {
 
     await vi.advanceTimersByTimeAsync(80);
 
+    expect(mocks.appRuntimeHandleStateChange).toHaveBeenCalledWith('/tmp/sero-settings.json', { packages: ['/tmp/todo'] });
     expect(mocks.ensureInfra).toHaveBeenCalledOnce();
     expect(mocks.settingsReload).toHaveBeenCalledOnce();
     expect(mocks.applyRuntimeSettings).toHaveBeenCalledOnce();
@@ -132,6 +125,9 @@ describe('app-state settings reload coalescing', () => {
     await vi.advanceTimersByTimeAsync(80);
     await writePromise;
 
+    expect(mocks.appRuntimeHandleStateChange).toHaveBeenCalledTimes(2);
+    expect(mocks.appRuntimeHandleStateChange).toHaveBeenNthCalledWith(1, '/tmp/sero-settings.json', { packages: ['/tmp/todo'] });
+    expect(mocks.appRuntimeHandleStateChange).toHaveBeenNthCalledWith(2, '/tmp/sero-settings.json', { packages: ['/tmp/todo'] });
     expect(mocks.ensureInfra).toHaveBeenCalledOnce();
     expect(mocks.settingsReload).toHaveBeenCalledOnce();
     expect(mocks.applyRuntimeSettings).toHaveBeenCalledOnce();
@@ -142,10 +138,11 @@ describe('app-state settings reload coalescing', () => {
     const { registerAppStateHandlers } = await import('@electron/ipc/apps/app-state');
 
     registerAppStateHandlers();
-    mocks.fileChangeListener?.('/tmp/not-settings.json', {});
+    mocks.fileChangeListener?.('/tmp/not-settings.json', { changed: true });
 
     await vi.runOnlyPendingTimersAsync();
 
+    expect(mocks.appRuntimeHandleStateChange).toHaveBeenCalledWith('/tmp/not-settings.json', { changed: true });
     expect(mocks.ensureInfra).not.toHaveBeenCalled();
     expect(mocks.settingsReload).not.toHaveBeenCalled();
     expect(mocks.applyRuntimeSettings).not.toHaveBeenCalled();

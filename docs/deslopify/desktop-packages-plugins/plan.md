@@ -92,7 +92,7 @@ architecture work rather than alphabetical bookkeeping.
      reviewed first.
 
 3. **Make boundary ownership a required section in every downstream folder plan.**
-   - Shared packages: identify which contracts belong in `@sero/common` versus
+   - Shared packages: identify which contracts belong in `@sero-ai/common` versus
      `@sero-ai/app-runtime` versus plugin-local `shared/`.
    - Electron CLI: explicitly track AD-020 tool bridging, `sessionRuntime`, and
      schema parsing / command routing boundaries.
@@ -128,7 +128,7 @@ architecture work rather than alphabetical bookkeeping.
    - The dead settings surface and the split host/plugin contract were both the
      same underlying issue: the shared/user-visible contract claimed more than
      the runtime actually guaranteed.
-   - Result: move the shared contract into `@sero/common` and narrow the exposed
+   - Result: move the shared contract into `@sero-ai/common` and narrow the exposed
      settings in the same wave.
 
 3. **Not every reviewed target had direct High code work.**
@@ -142,7 +142,7 @@ architecture work rather than alphabetical bookkeeping.
 | Batch | Targets | High items covered | Batch intent |
 | --- | --- | --- | --- |
 | **B1 — Shared/CLI boundary typing** | `packages/app-runtime/src`, `apps/desktop/electron/cli/` | Remove `globalThis` / `window.sero` / schema-walking / tool-update / exec-failure escape hatches | Make the host↔remote and AD-020 seams fail loudly at compile time again. |
-| **B2 — Kanban contract truthfulness** | `packages/common/src`, `apps/desktop/electron/features/kanban/`, `plugins/sero-kanban-plugin/shared` | Move the shared Kanban contract into `@sero/common` and remove the dead settings surface | Align the shared/user-visible Kanban contract with the runtime Sero actually ships. |
+| **B2 — Kanban contract truthfulness** | `packages/common/src`, `apps/desktop/electron/features/kanban/`, `plugins/sero-kanban-plugin/shared` | Move the shared Kanban contract into `@sero-ai/common` and remove the dead settings surface | Align the shared/user-visible Kanban contract with the runtime Sero actually ships. |
 
 ### Wave B targets with no direct High items
 - `packages/common/src` — no package-local High findings; participated only as
@@ -247,7 +247,7 @@ architecture work rather than alphabetical bookkeeping.
 ### Recommended Medium `fix-slop` batches
 | Batch | Targets | Medium items covered | Batch intent |
 | --- | --- | --- | --- |
-| **E1 — Shared contract ownership + runtime reliability** | `packages/common/src`, `packages/app-runtime/src` | Split `model-selection.ts`, make warning payloads data-first, move provider-manifest typing into `@sero/common`, delete duplicate model contracts from `sero-bridge.ts`, and harden `useAppState()` lifecycle/write-failure behavior | Stabilize neutral shared owners and the core plugin-state hook before downstream bridge/UI cleanup. |
+| **E1 — Shared contract ownership + runtime reliability** | `packages/common/src`, `packages/app-runtime/src` | Split `model-selection.ts`, make warning payloads data-first, move provider-manifest typing into `@sero-ai/common`, delete duplicate model contracts from `sero-bridge.ts`, and harden `useAppState()` lifecycle/write-failure behavior | Stabilize neutral shared owners and the core plugin-state hook before downstream bridge/UI cleanup. |
 | **E2 — Residual desktop Electron seam relief** | `apps/desktop/electron/cli`, `apps/desktop/electron/features/kanban` | Split the near-cap AD-020 runtime/router hubs, extract one shared app-control host service, split Kanban workflow hubs, surface cleanup failures, and dedupe fallback/path helpers | Reduce cap pressure and ownership drift on the remaining architecture-setting Electron seams before plugin follow-up work. |
 | **E3 — Plugin contract / bridge ownership + quality gates** | `plugins/sero-admin-plugin`, `plugins/sero-user-feedback-plugin`, `plugins/sero-web-plugin`, `plugins/sero-context-plugin` | Move admin `skill-visibility` ownership to a neutral home, canonicalize user-feedback transport/bus contracts, remove mirrored bridge subsets, and expand package-local typecheck/tests beyond UI-only coverage | Make host↔plugin contract drift fail fast and give the remaining Medium work trustworthy package-local safety nets. |
 | **E4 — Plugin runtime lifecycle + storage semantics** | `plugins/sero-cron-plugin`, `plugins/sero-memory-plugin`, `plugins/sero-git-plugin`, `plugins/sero-context-plugin`, `plugins/sero-kanban-plugin` | Centralize reminder mutation rules, eliminate duplicate memory startup migration, move hot-path persistence/logging toward explicit async helpers, make Git `log`/`branches` repo-backed, dedupe Context projection logic, and surface Kanban cleanup failures | Finish the remaining truthful runtime-owner cleanup now that the High data-loss/home-path issues are closed. |
@@ -275,7 +275,7 @@ architecture work rather than alphabetical bookkeeping.
 
 ## Dependencies & Risks
 - `packages/common/src` findings may require future moves from plugin-local
-  `shared/` folders or renderer-only types into `@sero/common`, which will
+  `shared/` folders or renderer-only types into `@sero-ai/common`, which will
   create broad but healthy churn later.
 - `packages/app-runtime/src` findings can affect every plugin UI mount, so later
   fix-slop work there must be validated against host↔remote runtime behavior,

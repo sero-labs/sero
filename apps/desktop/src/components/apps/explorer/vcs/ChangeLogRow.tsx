@@ -8,7 +8,7 @@
 import { memo } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '@sero-ai/ui/lib/utils';
-import type { ChangeEntry } from '@sero/common';
+import type { ChangeEntry } from '@sero-ai/common';
 import { formatAge, truncate } from './vcs-utils';
 
 interface Props {

@@ -1,5 +1,5 @@
 import { getSeroApi } from '@sero-ai/app-runtime';
-import type { WebAppRequest } from '@sero/common';
+import type { WebAppRequest } from '@sero-ai/common';
 
 function getWebAppBridge(): NonNullable<ReturnType<typeof getSeroApi>['webApp']> {
   const webApp = getSeroApi().webApp;

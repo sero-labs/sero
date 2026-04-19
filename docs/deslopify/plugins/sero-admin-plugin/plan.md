@@ -92,5 +92,5 @@ Verification checklist:
 
 ## Execution log
 - `d885ff2d` — `refactor(contracts): centralize plugin bridge ownership`
-- `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(admin: moved skill-visibility ownership to `@sero/common`, added extension typecheck, added package-local helper coverage)*
+- `56ff5e59` — `refactor(plugins): harden E3 bridge ownership and quality gates` *(admin: moved skill-visibility ownership to `@sero-ai/common`, added extension typecheck, added package-local helper coverage)*
 - `96b489fb` — `refactor(admin): finish E5 session and settings cleanup`

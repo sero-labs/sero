@@ -91,7 +91,7 @@ describe('plugin CLI bridging', () => {
     expect(getCliRegistry().get('plugin_all_default')).toBeTruthy();
   });
 
-  it('bridges kanban when plugin manifest defaults to bridge all tools', async () => {
+  it('bridges kanban when the plugin manifest explicitly owns the CLI bridge', async () => {
     const pluginDir = path.join(tmpDir, 'plugin-kanban');
     const extensionPath = path.join(pluginDir, 'extension', 'index.js');
     await mkdir(path.dirname(extensionPath), { recursive: true });
@@ -105,6 +105,7 @@ describe('plugin CLI bridging', () => {
           plugin: {
             category: 'productivity',
             tags: [],
+            bridgeTools: ['kanban'],
           },
         },
       }, null, 2),

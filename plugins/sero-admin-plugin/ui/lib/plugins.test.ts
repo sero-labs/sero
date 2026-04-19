@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { InstalledPlugin } from '@sero/common';
+import type { InstalledPlugin } from '@sero-ai/common';
 import { normalizeInstallSource, sortInstalledPlugins } from './plugins';
 
 function createPlugin(id: string, name: string): InstalledPlugin {

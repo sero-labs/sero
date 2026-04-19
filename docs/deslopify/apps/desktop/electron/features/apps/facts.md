@@ -33,7 +33,7 @@ This folder owns app/runtime glue in Electron main for Sero apps: app manifest d
 ## Surprising discoveries
 - The original Wave A watcher-race note had already partially drifted by execution time: `AppStateManager.watch()` now inserted a placeholder entry before async setup, but failed bootstrap paths still left broken entries behind and cancelled concurrent bootstrap remained under-tested.
 - Type escape hatches were concentrated in small helper files (`extensions/git-checkpoints.ts`, `extensions/ui-context.ts`) rather than in large orchestration files, making the highest-risk cleanup comparatively focused.
-- `extensions/skill-visibility.ts` had already been rebased onto `@sero/common` before this execution pass, so the host/plugin coupling item is now effectively about `git-app/manager.ts` importing git-plugin internals.
+- `extensions/skill-visibility.ts` had already been rebased onto `@sero-ai/common` before this execution pass, so the host/plugin coupling item is now effectively about `git-app/manager.ts` importing git-plugin internals.
 - `isPlugin` in discovery is still derived from parsed/validated plugin metadata (`Boolean(plugin)`) rather than direct `sero.plugin` key presence, which can hide malformed plugin manifests from plugin-specific UI flows (`discovery/index.ts:140-182`).
 
 ## Post-fix snapshot — 2026-04-16
@@ -52,7 +52,7 @@ This folder owns app/runtime glue in Electron main for Sero apps: app manifest d
 - Replaced the `theme: any` UI-context stub with a concrete Pi `Theme` instance and added focused extension UI coverage for notification bridging plus inert unsupported helpers.
 
 ### Still outstanding
-- The remaining host/plugin coupling work is concentrated in `apps/desktop/electron/features/apps/git-app/manager.ts`; the skill-visibility half of the original Medium tracker is already neutralized upstream via `@sero/common`.
+- The remaining host/plugin coupling work is concentrated in `apps/desktop/electron/features/apps/git-app/manager.ts`; the skill-visibility half of the original Medium tracker is already neutralized upstream via `@sero-ai/common`.
 - Discovery still needs stricter `sero.plugin` validation so malformed metadata does not silently declassify plugins.
 - `createSeroExtensionFactory` is still a mixed-responsibility composition root and has not been split into focused registrars.
 - `onFileChange()` still has no unsubscribe path for repeated test/dev registration scenarios.

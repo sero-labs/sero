@@ -134,12 +134,24 @@ my-plugin/
 └── vite.config.ts        # Module Federation remote config
 ```
 
-Keep app-local state/types in `shared/types.ts`. For **monorepo-shared**
-contracts used across desktop, remotes, and multiple built-in plugins, move
-that neutral code into `packages/common/src/`, re-export it from
-`packages/common/src/index.ts`, and consume it via
-`import type { ... } from '@sero/common'`. Keep `@sero/common` renderer-safe —
-no Electron, Node-only APIs, or desktop-only internals.
+Keep app-local state/types in `shared/types.ts`.
+
+For **generic monorepo-shared platform contracts** used across desktop,
+remotes, and multiple built-in plugins, move that neutral code into
+`packages/common/src/`, re-export it from `packages/common/src/index.ts`, and
+consume it via `import type { ... } from '@sero-ai/common'`. Keep
+`@sero-ai/common` renderer-safe — no Electron, Node-only APIs, or desktop-only
+internals.
+
+Important ownership rule for external plugins:
+- `packages/*` is **not** where external-plugin domain code should live
+- external plugins should **consume** published packages like
+  `@sero-ai/common`, `@sero-ai/app-runtime`, and `@sero-ai/ui`
+- external plugins should **not** import monorepo source paths like
+  `../../packages/common/src/*` or move plugin-specific domain models into
+  `packages/*` just because the plugin is external
+- if a contract is plugin-specific, keep it inside the plugin's own `shared/`
+  layer (or a plugin-owned published package), not in Sero's monorepo packages
 
 If you later extract/publish the plugin outside this monorepo, vendor or
 publish any shared code it still depends on instead of assuming the workspace
@@ -336,7 +348,7 @@ Notes:
 From the monorepo root:
 
 ```bash
-bash scripts/build-plugin.sh plugins/sero-kanban-plugin
+bash scripts/build-plugin.sh plugins/sero-cron-plugin
 ```
 
 This builds a ready-to-install plugin bundle at `dist/plugin/` containing:
@@ -367,7 +379,7 @@ dist/plugin/
 ### Standalone Git source repo
 
 ```bash
-bash scripts/export-plugin-source.sh plugins/sero-kanban-plugin
+bash scripts/export-plugin-source.sh plugins/sero-cron-plugin
 ```
 
 This exports a standalone source repository at `dist/plugin-source/` containing:
@@ -380,7 +392,7 @@ This exports a standalone source repository at `dist/plugin-source/` containing:
 Smoke test the exported source repo before publishing:
 
 ```bash
-cd plugins/sero-kanban-plugin/dist/plugin-source
+cd plugins/sero-cron-plugin/dist/plugin-source
 npm install
 npm run build
 ```

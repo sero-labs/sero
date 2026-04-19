@@ -8,7 +8,7 @@ import {
   parseModelKey,
   type SharedAvailableModelGroup,
   type SharedModelInfo,
-} from '@sero/common';
+} from '@sero-ai/common';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { SearchInput } from '../ui/search-input';
 import { cn } from '../../lib/utils';

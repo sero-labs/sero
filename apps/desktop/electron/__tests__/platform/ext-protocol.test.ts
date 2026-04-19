@@ -44,6 +44,7 @@ function makeManifest(overrides: Partial<SeroAppManifest> & Pick<SeroAppManifest
     plugin: null,
     widgets: [],
     ...rest,
+    runtimeEntry: rest.runtimeEntry ?? null,
   };
 }
 

@@ -5,7 +5,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { cn } from '@sero-ai/ui/lib/utils';
-import type { InstalledPlugin } from '@sero/common';
+import type { InstalledPlugin } from '@sero-ai/common';
 import { usePlugins } from '../hooks/usePlugins';
 import { useLinkedRoots } from '../hooks/useLinkedRoots';
 import type { WorkspaceRootIPC } from '../hooks/host';

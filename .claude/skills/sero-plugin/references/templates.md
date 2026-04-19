@@ -60,7 +60,7 @@ with your actual plugin name throughout.
   },
   "devDependencies": {
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
-    "@sero/common": "workspace:*",
+    "@sero-ai/common": "workspace:*",
     "@sero-ai/ui": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@vitejs/plugin-react": "catalog:",

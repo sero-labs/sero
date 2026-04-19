@@ -62,7 +62,7 @@ Before touching any source file, confirm you have:
    format and avoid redoing work that's already landed.
 3. Read `docs/deslopify/{source_folder}/facts.md` and `plan.md` in full.
 4. Read the `facts.md` / `plan.md` of any adjacent or dependent folder the
-   plan references. If the plan says "move types to `@sero/common`", go
+   plan references. If the plan says "move types to `@sero-ai/common`", go
    read `packages/common/` facts first.
 5. Read the actual source the plan targets. Verify it still matches the
    shape described in `facts.md` — file sizes, symbol names, imports. If
@@ -321,9 +321,9 @@ following the plan blindly.
 - **Top-level imports.** No inline `import('…')` type expressions. Use
   `import type` at the top of the file. Break real circular dependencies
   by restructuring, not by deferring imports.
-- **Canonical types.** Prefer importing from `@sero/common`,
+- **Canonical types.** Prefer importing from `@sero-ai/common`,
   `@sero-ai/app-runtime`, or the Pi SDK over redefining parallel types.
-  When you move a type into `@sero/common`, do it in its own commit so
+  When you move a type into `@sero-ai/common`, do it in its own commit so
   the churn is reviewable.
 - **Agent directory.** Never hardcode `~/.pi/agent/`. Use `SERO_HOME` /
   `SERO_AGENT_DIR` from `electron/env.ts`.

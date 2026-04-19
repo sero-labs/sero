@@ -30,7 +30,7 @@ more canonical and reliable.
   That means host and remote contracts can drift independently while both still
   typecheck locally.~~ ✅ 2026-04-14 (`b145471f`) — Replaced the local
   `AppModelInfo` / `AppModelGroup` definitions with thin aliases of
-  `SharedModelInfo` / `SharedAvailableModelGroup` from `@sero/common`.
+  `SharedModelInfo` / `SharedAvailableModelGroup` from `@sero-ai/common`.
 
 - **Medium** — ~~`useAppState()` can leave remote UI state ahead of disk —
   `packages/app-runtime/src/use-app-state.ts:33-73` optimistically updates React
@@ -66,14 +66,14 @@ more canonical and reliable.
    - Keep the singleton strategy exactly the same; change only the typing model.
 
 2. **Delete duplicate neutral contracts from `sero-bridge.ts`.**
-   - Import model-group contracts from `@sero/common` once the shared-package
+   - Import model-group contracts from `@sero-ai/common` once the shared-package
      fix pass lands.
    - Keep app-runtime-specific bridge interfaces (`SeroAppStateBridge`,
      `SeroAppAgentBridge`, `SeroModelsBridge`) here, but stop redefining neutral
      model info/group shapes and any result types that already have a canonical
      owner.
    - If a bridge result type truly belongs to the host↔remote contract rather
-     than `@sero/common`, extract it into a small dedicated shared contract file
+     than `@sero-ai/common`, extract it into a small dedicated shared contract file
      instead of burying it inside `sero-bridge.ts`.
 
 3. **Harden `useAppState()` around failure and lifecycle edges.**
@@ -108,7 +108,7 @@ more canonical and reliable.
   trustworthy, and keeps dashboard widget registration from producing accidental
   listener churn.
 - Trade-offs: fixing shared bridge types will touch both `@sero-ai/app-runtime`
-  and `@sero/common`, and hardening `useAppState()` may force a more explicit
+  and `@sero-ai/common`, and hardening `useAppState()` may force a more explicit
   error policy than current consumers rely on today.
 
 ## Dependencies & Risks

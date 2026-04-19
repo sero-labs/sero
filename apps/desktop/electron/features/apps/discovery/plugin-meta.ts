@@ -1,4 +1,4 @@
-import type { PluginMeta } from '@sero/common';
+import type { PluginMeta } from '@sero-ai/common';
 
 const PLUGIN_CATEGORIES = [
   'productivity',

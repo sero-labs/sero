@@ -8,9 +8,9 @@
  * (shared across all workspaces).
  */
 
-import type { CronJob, CronState as SharedCronState } from '@sero/common';
+import type { CronJob, CronState as SharedCronState } from '@sero-ai/common';
 
-export type { CronJob } from '@sero/common';
+export type { CronJob } from '@sero-ai/common';
 
 // ── Cron Jobs ──────────────────────────────────────────────────
 

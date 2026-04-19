@@ -12,7 +12,7 @@ import {
   DefaultResourceLoader,
 } from '@mariozechner/pi-coding-agent';
 import type { ThinkingLevel, AgentMessage } from '@mariozechner/pi-agent-core';
-import { getModelTierThinkingLevel, isModelTier } from '@sero/common';
+import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 
 import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity } from '../core/types';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';

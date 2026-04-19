@@ -3,7 +3,7 @@ import type {
   CreatePullRequestResult,
   PullRequestPreview,
   PullRequestState,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 import type { GitRunner } from './git-runner';
 import { executeCreatePullRequest } from './pr-ops/create';

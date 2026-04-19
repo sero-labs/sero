@@ -1,4 +1,4 @@
-import type { Bookmark, PullRequestState } from '@sero/common';
+import type { Bookmark, PullRequestState } from '@sero-ai/common';
 
 import { BRANCH_FORMAT, parseBranches, parseRemotes } from '../../support/parsers';
 import type { GitRunner } from '../git-runner';

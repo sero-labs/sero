@@ -1,19 +1,27 @@
 {
-  "name": "@sero/common",
-  "version": "0.1.0",
+  "name": "@sero-ai/common",
+  "version": "0.2.0",
   "description": "Shared types and utilities for Sero packages",
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
     "./package.json": "./package.json"
   },
+  "files": [
+    "src"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "catalog:"
+    "@mariozechner/pi-agent-core": "^0.61.1"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "^5.9.3"
   }
 }

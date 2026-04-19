@@ -22,7 +22,7 @@ import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { reloadAllSessionResources } from '..';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
-import { withDisabledModelSkills } from '@sero/common';
+import { withDisabledModelSkills } from '@sero-ai/common';
 import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '@/types/skills';
 
 const SKILLS_DIR = path.join(SERO_AGENT_DIR, 'skills');

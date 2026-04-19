@@ -39,7 +39,7 @@
     }
   },
   "dependencies": {
-    "@sero/common": "workspace:*",
+    "@sero-ai/common": "workspace:*",
     "@sinclair/typebox": "catalog:"
   },
   "peerDependencies": {

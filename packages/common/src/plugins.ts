@@ -19,6 +19,7 @@ export type PluginCategory =
 export const SERO_HOST_CAPABILITIES = [
   'appAgent.invokeTool',
   'tool.cli',
+  'appRuntime.background',
 ] as const;
 
 export type SeroHostCapability = (typeof SERO_HOST_CAPABILITIES)[number];

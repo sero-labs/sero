@@ -9,7 +9,7 @@ import type {
   Bookmark,
   Remote,
   FileDiffEntry,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 // ── Per-workspace VCS data ───────────────────────────────────
 

@@ -3,10 +3,6 @@
  *
  * Bridges renderer ↔ AppStateManager for reading, writing, and
  * watching app state JSON files.
- *
- * Also notifies the KanbanOrchestrator when the kanban state file
- * is written, so it can detect column transitions and trigger
- * automated phases (planning, implementation, review).
  */
 
 import path from 'path';
@@ -15,35 +11,19 @@ import { IpcChannels } from '@/types/ipc-channels';
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { SERO_HOME } from '@electron/platform/env';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
-import type { KanbanState } from '@electron/features/kanban/core/types';
-import { kanbanOrchestrator, ensureInfra, workspaceManager, SERO_CONFIG_PATH, applyRuntimeSettings } from '@electron/shared/infra/shared-infra';
+import { appRuntimeManager, ensureInfra, SERO_CONFIG_PATH, applyRuntimeSettings } from '@electron/shared/infra/shared-infra';
 import { reloadAllSessionResources } from '../agent';
 
-const KANBAN_STATE_SUFFIX = '/apps/kanban/state.json';
-const KANBAN_WORKSPACE_SUFFIX = '/.sero/apps/kanban/state.json';
 const SETTINGS_RELOAD_COALESCE_MS = 75;
 
 let runtimeSettingsReloadPending = false;
 let runtimeSettingsReloadTask: Promise<void> | null = null;
 
-/** Notify the orchestrator immediately if this is a kanban state file. */
-function notifyKanbanOrchestrator(filePath: string, data: unknown): void {
-  if (filePath.endsWith(KANBAN_STATE_SUFFIX) && data) {
-    ensureInfra()
-      .then(() => kanbanOrchestrator.onStateChange(filePath, data as KanbanState))
-      .catch((err) => console.error('[app-state] Kanban orchestrator error:', err));
-  }
-}
-
-async function primeKanbanWorkspaceWatch(filePath: string, data: unknown): Promise<void> {
-  if (!filePath.endsWith(KANBAN_STATE_SUFFIX) || !data) return;
-  await ensureInfra();
-  if (!filePath.endsWith(KANBAN_WORKSPACE_SUFFIX)) return;
-  const workspacePath = filePath.slice(0, -KANBAN_WORKSPACE_SUFFIX.length);
-  const workspace = workspaceManager.findByPath(workspacePath);
-  if (workspace) {
-    await kanbanOrchestrator.watchWorkspace(workspace.id, workspace.path);
-  }
+function notifyAppRuntimeManager(filePath: string, data: unknown): void {
+  if (!data) return;
+  appRuntimeManager.handleStateChange(filePath, data).catch((err) => {
+    console.error('[app-state] App runtime manager error:', err);
+  });
 }
 
 async function runRuntimeSettingsReload(): Promise<void> {
@@ -90,15 +70,11 @@ async function refreshRuntimeSettingsIfNeeded(filePath: string): Promise<void> {
 }
 
 export function registerAppStateHandlers(): void {
-  // Register file-watcher listener so the orchestrator gets notified
-  // for ALL state changes — including direct writes from Pi extensions
-  // that bypass the IPC layer.
+  // Register file-watcher listener so app runtimes get notified for ALL
+  // state changes — including direct writes from Pi extensions that bypass
+  // the IPC layer.
   appStateManager.onFileChange((filePath, data) => {
-    if (filePath.endsWith(KANBAN_STATE_SUFFIX) && data) {
-      ensureInfra()
-        .then(() => kanbanOrchestrator.onStateChange(filePath, data as KanbanState))
-        .catch((err) => console.error('[app-state] Kanban orchestrator listener error:', err));
-    }
+    notifyAppRuntimeManager(filePath, data);
 
     refreshRuntimeSettingsIfNeeded(filePath).catch((err) => {
       console.error('[app-state] Settings change reload failed:', err);
@@ -107,6 +83,9 @@ export function registerAppStateHandlers(): void {
 
   // Watch settings.json so direct edits or package-manager writes that bypass
   // the IPC layer still refresh session resources and CLI-bridged tools.
+  // This watcher is registered before main.ts's non-blocking ensureInfra()
+  // bootstrap settles; early file changes are still safe because the reload
+  // path calls ensureInfra() lazily on demand.
   appStateManager.watch(SERO_CONFIG_PATH);
 
   // Read state file
@@ -147,7 +126,7 @@ export function registerAppStateHandlers(): void {
     async (_event, filePath: string, data: unknown): Promise<void> => {
       await appStateManager.write(filePath, data);
       // Immediate notification for IPC-originated writes (no file watcher delay)
-      notifyKanbanOrchestrator(filePath, data);
+      notifyAppRuntimeManager(filePath, data);
       await refreshRuntimeSettingsIfNeeded(filePath);
     },
   );
@@ -160,9 +139,7 @@ export function registerAppStateHandlers(): void {
       if (gitWorkspaceStateManager.isGitStateFile(filePath)) {
         gitWorkspaceStateManager.watchStateFile(filePath);
       }
-      const data = await appStateManager.read(filePath);
-      await primeKanbanWorkspaceWatch(filePath, data);
-      return data;
+      return appStateManager.read(filePath);
     },
   );
 

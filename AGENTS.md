@@ -11,9 +11,9 @@ sero/
 │   ├── common/           # Shared types and utilities
 │   └── ui/               # Shared UI primitives
 ├── plugins/
-│   ├── sero-kanban-plugin/   # Built-in plugin + federated UI
 │   ├── sero-cron-plugin/     # Built-in plugin + background jobs
-│   └── other Sero plugins...
+│   ├── sero-admin-plugin/    # Built-in admin/config tooling
+│   └── other built-in Sero plugins...
 ├── turbo.json
 ├── pnpm-workspace.yaml
 └── package.json          # Root — workspace scripts
@@ -40,13 +40,16 @@ pnpm typecheck             # turbo typecheck all
 ## Shared Packages & Plugins
 
 - **`@sero-ai/app-runtime`** — React hooks (`useAppState`, `useAppInfo`, `useAgentPrompt`) + `AppProvider` for federated plugin modules
-- **`@sero/common`** — shared renderer-safe types/utilities. Prefer moving neutral cross-package code here (no Electron/Node-only dependencies).
+- **`@sero-ai/common`** — shared renderer-safe types/utilities. Prefer moving neutral cross-package code here (no Electron/Node-only dependencies).
 
-Plugins live in `plugins/sero-*-plugin/`. Most complete examples:
-- `sero-kanban-plugin` — deep subagent integration
+Built-in plugins live in `plugins/sero-*-plugin/`. Most complete in-repo examples:
 - `sero-cron-plugin` — background jobs & reminders
 - `sero-admin-plugin` — config editor, log viewer, session browser
 - `sero-memory-plugin` — persistent memory system & daily logs
+- `sero-git-plugin` — app + tool integration with a substantial UI
+
+External plugin examples live alongside this repo under `../plugins/`, notably
+`sero-google-plugin` and `sero-kanban-plugin`.
 
 ## Documentation
 
@@ -76,7 +79,7 @@ bash scripts/dev.sh
 
 Logs: `/tmp/sero-vite.log`, `/tmp/sero-remote-<app-id>.log`, `/tmp/sero-electron.log`
 
-**Selective Dev**: `SERO_DEV_PLUGINS=admin,kanban bash scripts/dev.sh` (rebuild skipped plugins first with `pnpm build`).
+**Selective Dev**: `SERO_DEV_PLUGINS=admin,git bash scripts/dev.sh` (rebuild skipped plugins first with `pnpm build`).
 
 **Key Architecture**
 ```

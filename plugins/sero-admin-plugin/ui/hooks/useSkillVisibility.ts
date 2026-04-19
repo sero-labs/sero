@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getDisabledModelSkills } from '@sero/common';
+import { getDisabledModelSkills } from '@sero-ai/common';
 import { getSero, type AvailableSkillInfo } from './host';
 
 interface SkillVisibilityRow extends AvailableSkillInfo {

@@ -3,6 +3,7 @@
 ## Table of Contents
 
 - [App Runtime Hooks](#app-runtime-hooks)
+- [Background App Runtimes](#background-app-runtimes)
 - [Dashboard Widgets](#dashboard-widgets)
 - [Manifest Reference](#manifest-reference)
 - [Styling Guide](#styling-guide)
@@ -105,6 +106,87 @@ useWidgetRegistration({
 
 ---
 
+## Background App Runtimes
+
+Use a background runtime only when the plugin needs long-lived,
+workspace-scoped Sero behavior outside the UI lifecycle.
+
+Typical uses:
+- startup recovery / reconcile passes
+- runtime-owned file watching
+- subagent orchestration
+- git / worktree / PR coordination
+- managed dev-server or verification flows
+
+Manifest requirements:
+
+```json
+{
+  "sero": {
+    "app": {
+      "runtime": "./runtime/index.ts",
+      "runtimeExternals": ["better-sqlite3"]
+    },
+    "plugin": {
+      "requiredHostCapabilities": ["appRuntime.background"]
+    }
+  }
+}
+```
+
+Use `runtimeExternals` only when the runtime imports native or otherwise non-bundle-safe packages that must stay external to the transpiled runtime bundle.
+
+Minimal runtime entry:
+
+```ts
+import type {
+  AppRuntime,
+  AppRuntimeContext,
+  AppRuntimeModule,
+} from '@sero-ai/common';
+
+class MyAppRuntime implements AppRuntime {
+  constructor(private readonly ctx: AppRuntimeContext) {}
+
+  async start(): Promise<void> {
+    const state = await this.ctx.host.appState.read(this.ctx.stateFilePath);
+    if (state) {
+      await this.handleStateChange(state);
+    }
+  }
+
+  async handleStateChange(state: unknown): Promise<void> {
+    // long-lived orchestration goes here
+  }
+
+  async dispose(): Promise<void> {}
+}
+
+export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
+  return new MyAppRuntime(ctx);
+}
+
+export default {
+  createAppRuntime,
+} satisfies AppRuntimeModule;
+```
+
+Runtime context:
+- `ctx.appId`
+- `ctx.workspaceId`
+- `ctx.workspacePath`
+- `ctx.stateFilePath`
+- `ctx.host.{appState, subagents, workspace, verification, git, devServers}`
+
+Boundary rules:
+- keep Pi-safe tool logic in `extension/`
+- keep Sero-only orchestration in `runtime/`
+- type against `@sero-ai/common`, not desktop-internal aliases
+- treat monorepo `packages/*` as shared package sources consumed via published package names; external plugins should not import `../../packages/*` source files directly
+- keep plugin-specific domain contracts in the plugin's own `shared/` layer (or a plugin-owned package), not in Sero's monorepo `packages/*`
+
+---
+
 ## Dashboard Widgets
 
 Apps can provide dashboard widgets — compact views on the Dashboard landing page.
@@ -170,6 +252,7 @@ import { useMemo } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 import type { MyAppState } from '../../shared/types';
 import { DEFAULT_STATE } from '../../shared/types';
+import '../styles.css';
 
 export function MyAppWidget() {
   const [state] = useAppState<MyAppState>(DEFAULT_STATE);
@@ -208,6 +291,7 @@ export default MyAppWidget;
 
 Widget conventions:
 - Both named and default exports required
+- Import `../styles.css` (or a shared plugin stylesheet) when the widget is exposed directly via Module Federation
 - Fill `h-full` — wrapper provides container with header/resize handle
 - Use `p-3` padding (no built-in padding)
 - Keep compact — `text-xs` / `text-[10px]` for details, `text-lg` for headlines
@@ -281,6 +365,7 @@ Widget runtime API:
 | `scope` | No | `"workspace"` (default) or `"global"` |
 | `stateFile` | Yes | Path relative to workspace root. Convention: `.sero/apps/<id>/state.json`. For global apps, keep it in the manifest as the Pi CLI fallback even though Sero resolves state from `SERO_HOME`. |
 | `ui` | No | Path to built `remoteEntry.js`. Null if no UI. |
+| `runtime` | No | Path to the plugin-owned background runtime entry. Use when the plugin needs long-lived, workspace-scoped Sero behavior. |
 | `component` | No | Exported component name. Required if `ui` is set. |
 | `devPort` | No | Vite dev server port. Required if `ui` is set. Must be unique. |
 | `widgets` | No | Array of widget definitions |
@@ -299,6 +384,7 @@ Widget runtime API:
 Common capability rules:
 - Declare `appAgent.invokeTool` when UI/runtime code uses `useAppTools()` or `window.sero.appAgent.invokeTool(...)`
 - Declare `tool.cli` when the plugin depends on bridged CLI behavior such as `bridgeTools`, custom tool `cli` metadata, or builtin override behavior
+- Declare `appRuntime.background` when the plugin declares `sero.app.runtime` and depends on the background-runtime host capability bag
 
 ### State scope
 
@@ -361,6 +447,10 @@ Common components: Button, Card, Badge, Separator, ScrollArea, Checkbox.
 | `var(--text-muted)` | Hints, metadata |
 
 ### Customising components
+
+Always import the shared stylesheet from every exposed Module Federation entry
+(main app, widgets, or any other direct exposes) so installed external remotes
+emit their own CSS assets.
 
 ```tsx
 <Card className="rounded-2xl py-0 gap-0 shadow-none">

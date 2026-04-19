@@ -113,8 +113,8 @@ Changes made during code quality passes. Most recent first.
 | `docs/deslopify/apps/desktop/electron/features/vcs/{facts,plan}.md` | Recorded the filesystem checkpoint-source Medium closeout and refreshed the VCS post-fix snapshot |
 | `docs/deslopify/index.md` | Updated VCS status after clearing the checkpoint-source Medium item |
 | `packages/common/src/{vcs.ts,index.ts}` | New canonical shared VCS contract module and root exports so renderer/main process consume one neutral type owner |
-| `apps/desktop/src/types/vcs.ts` | Reduced desktop VCS types to a compatibility barrel that re-exports canonical `@sero/common` contracts |
-| `apps/desktop/electron/features/vcs/{core/{pr-ops,vcs-ops}.ts,support/{parsers,types}.ts}` | Repointed Electron VCS runtime imports to the shared `@sero/common` contracts instead of renderer-owned type paths |
+| `apps/desktop/src/types/vcs.ts` | Reduced desktop VCS types to a compatibility barrel that re-exports canonical `@sero-ai/common` contracts |
+| `apps/desktop/electron/features/vcs/{core/{pr-ops,vcs-ops}.ts,support/{parsers,types}.ts}` | Repointed Electron VCS runtime imports to the shared `@sero-ai/common` contracts instead of renderer-owned type paths |
 | `apps/desktop/{electron/{preload/api/workbench.ts,ipc/integrations/vcs.ts},src/{stores/vcs.ts,types/electron-workspace.d.ts,components/apps/explorer/{editor/DiffTab.tsx,vcs/*},components/layout/{shell/StatusBar.tsx,titlebar/git/GitPullRequestComposer.tsx}}}` | Rebased preload/IPC and renderer VCS consumers onto the canonical shared contracts without runtime behavior changes |
 | `apps/desktop/electron/features/vcs/core/git-runner.ts` | Replaced process-lifetime host SSH transport probe caching with TTL + SSH key metadata invalidation while preserving SSH-vs-HTTPS auth behavior |
 | `apps/desktop/electron/__tests__/features/vcs/git-runner.test.ts` | New — focused regressions for host SSH probe cache TTL expiry and key-metadata invalidation behavior |
@@ -295,7 +295,7 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/features/auth/google/gog-keyring.ts` | Rebased keyring command execution on shared gog runtime helpers and removed local binary/PATH probing duplication |
 | `apps/desktop/electron/{ipc/integrations/google-api.ts,cli/lib/gog-runner.ts}` | Reused shared gog runtime helpers so IPC and CLI Google command execution no longer maintain parallel path-resolution logic |
 | `packages/common/src/{github-url.ts,index.ts}` | New — shared GitHub URL parsing/normalization helpers exported for electron + renderer consumers |
-| `apps/desktop/electron/features/auth/github/repo-ops.ts` | Replaced local GitHub URL parsing/normalization helpers with canonical `@sero/common` helpers |
+| `apps/desktop/electron/features/auth/github/repo-ops.ts` | Replaced local GitHub URL parsing/normalization helpers with canonical `@sero-ai/common` helpers |
 | `apps/desktop/src/components/layout/git-remote/workflow.ts` | Reused canonical GitHub URL parsing/web-url helpers to keep renderer publish/origin behavior aligned with repo-ops |
 | `docs/deslopify/apps/desktop/electron/features/auth/{facts,plan}.md` | Recorded the Low helper-dedupe closeout, refreshed auth metrics, and narrowed remaining work to profile-scoped guidance text |
 | `docs/deslopify/index.md` | Updated `apps/desktop/electron/features/auth/` status to reflect only the final Low guidance follow-up pending |
@@ -325,8 +325,8 @@ Changes made during code quality passes. Most recent first.
 | `packages/common/src/model-selection.ts` | Reduced to a compatibility barrel over the focused model-selection modules (396 → 43 lines) |
 | `packages/common/src/{plugins.ts,index.ts}` | Added canonical `sero.providers` manifest contracts and exported formatter-backed model warning helpers |
 | `apps/desktop/electron/shared/providers/package-provider-manifests.ts` | Switched desktop provider scanning to the canonical shared provider-manifest contracts |
-| `packages/ui/src/components/model-selection/model-warning-list.tsx` | Moved model-warning rendering onto `formatModelValidationWarning()` so UI copy stays outside `@sero/common` |
-| `packages/app-runtime/src/sero-bridge.ts` | Rebased app-runtime model bridge types on `@sero/common` and made app-state bridge methods generic |
+| `packages/ui/src/components/model-selection/model-warning-list.tsx` | Moved model-warning rendering onto `formatModelValidationWarning()` so UI copy stays outside `@sero-ai/common` |
+| `packages/app-runtime/src/sero-bridge.ts` | Rebased app-runtime model bridge types on `@sero-ai/common` and made app-state bridge methods generic |
 | `packages/app-runtime/src/use-app-state.ts` | Added optimistic write recovery, watch liveness guards, and explicit persistence-failure warnings |
 | `packages/app-runtime/src/{use-widget-registration.ts,widget-registry.ts}` | Made runtime widget registration idempotent for stable inline definitions while preserving sticky widgets |
 | `apps/desktop/src/lib/{model-selection.test.ts,app-runtime.test.tsx}` | New — focused coverage for shared model-selection semantics and app-runtime write/registry behavior |
@@ -429,7 +429,7 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/src/types/collaboration.ts` | Aligned the debate `maxRounds` inline default comment with `DEFAULT_DEBATE_CONFIG.maxRounds = 1` to close the remaining Low comment/default drift follow-up |
 | `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the Low comment/default drift closeout, refreshed type-folder metrics, and left only user-feedback revalidation outstanding |
 | `docs/deslopify/index.md` | Updated `apps/desktop/src/types/` progress text with the Low comment/default item cleared |
-| `apps/desktop/src/types/user-feedback.ts` | Clarified ownership comments: desktop keeps response-feedback persistence types while user-feedback transport contracts remain canonical in `@sero/common` |
+| `apps/desktop/src/types/user-feedback.ts` | Clarified ownership comments: desktop keeps response-feedback persistence types while user-feedback transport contracts remain canonical in `@sero-ai/common` |
 | `docs/deslopify/apps/desktop/src/types/{facts,plan}.md` | Recorded the user-feedback duplication revalidation closeout, refreshed type-folder metrics, and marked the follow-up backlog clear |
 | `docs/deslopify/index.md` | Marked `apps/desktop/src/types/` healthy after the user-feedback revalidation follow-up |
 | `apps/desktop/electron/features/auth/github/auth-manager.ts` | GitHub device-flow polling now fails fast on transport/non-JSON/unexpected non-2xx token responses while preserving retry for `authorization_pending` and `slow_down` |
@@ -456,10 +456,10 @@ Changes made during code quality passes. Most recent first.
 | `apps/desktop/electron/cli/core/tool.ts` | Replaced the bridged tool-update cast with a typed adapter (474 → 494 lines) |
 | `apps/desktop/electron/cli/lib/gog-runner.ts` | Replaced `execFile` failure `any` casts with typed ENOENT/exit-code helpers |
 | `packages/common/src/kanban.ts` | New — canonical shared Kanban card/state/validation contract for host + plugin |
-| `packages/common/src/index.ts` | Exported the canonical Kanban contract from `@sero/common` |
-| `apps/desktop/electron/features/kanban/core/types.ts` | Replaced duplicated host Kanban model with a thin `@sero/common` barrel (129 → 21 lines) |
+| `packages/common/src/index.ts` | Exported the canonical Kanban contract from `@sero-ai/common` |
+| `apps/desktop/electron/features/kanban/core/types.ts` | Replaced duplicated host Kanban model with a thin `@sero-ai/common` barrel (129 → 21 lines) |
 | `apps/desktop/electron/features/kanban/{core/contracts.ts,core/state-helpers.ts,implementation/implementation-executor.ts}` | Switched host Kanban runtime to canonical shared validation/default-state helpers |
-| `plugins/sero-kanban-plugin/shared/{types.ts,validation.ts}` | Replaced duplicated shared contract files with thin `@sero/common` re-exports (217 → 67 lines; 139 → 16 lines) |
+| `plugins/sero-kanban-plugin/shared/{types.ts,validation.ts}` | Replaced duplicated shared contract files with thin `@sero-ai/common` re-exports (217 → 67 lines; 139 → 16 lines) |
 | `plugins/sero-kanban-plugin/extension/{index.ts,state-io.ts,workflow-actions.ts}` | Narrowed the Kanban settings surface to runtime-backed fields and switched fallback state reads to the canonical factory |
 | `apps/desktop/electron/__tests__/features/kanban/{auto-merge-monitor,contracts,implementation-executor,light-review-workflow,light-review,review-executor}.test.ts` | Updated Kanban settings fixtures to the narrowed shared contract |
 | `plugins/sero-kanban-plugin/extension/__tests__/{review-actions,workflow-actions}.test.ts` | Updated Kanban extension tests and added coverage for the narrowed settings surface |
@@ -470,14 +470,14 @@ Changes made during code quality passes. Most recent first.
 | `plugins/sero-git-plugin/extension/{state-io.ts,__tests__/state-io.test.ts}` | Hardened Git app state reads to fail closed on malformed snapshots and added direct state-I/O coverage |
 | `plugins/sero-web-plugin/extension/state-sync.ts` | Hardened workspace web state reads to fail closed on malformed JSON while preserving missing-file bootstrap behavior |
 | `packages/common/src/{git-app.ts,cron-contract.ts,admin-bridge.ts,index.ts}` | New — neutral shared owners for Git app contracts, cross-plugin cron persistence types, and admin/web host bridge subsets |
-| `packages/app-runtime/src/sero-bridge.ts` | Switched app-runtime’s Git bridge contract to the new canonical `@sero/common` types |
+| `packages/app-runtime/src/sero-bridge.ts` | Switched app-runtime’s Git bridge contract to the new canonical `@sero-ai/common` types |
 | `apps/desktop/{src/types/electron-apps.d.ts,electron/preload/apps/app-domain.ts,electron/ipc/apps/git-app.ts,electron/features/apps/git-app/manager.ts}` | Repointed the Git app bridge to one canonical shared contract across renderer, preload, IPC, and host manager |
-| `plugins/sero-admin-plugin/ui/hooks/useSeroFiles.ts` | Replaced the plugin-local `window.sero` contract copy with a canonical `@sero/common` admin bridge subset (473 → 259 lines) |
+| `plugins/sero-admin-plugin/ui/hooks/useSeroFiles.ts` | Replaced the plugin-local `window.sero` contract copy with a canonical `@sero-ai/common` admin bridge subset (473 → 259 lines) |
 | `plugins/sero-cron-plugin/shared/types.ts` | Rebased the cron plugin’s persisted state contract on the new neutral shared cron contract |
-| `plugins/sero-memory-plugin/extension/cron-types.ts` | Replaced the mirrored cron persisted types with canonical `@sero/common` imports |
+| `plugins/sero-memory-plugin/extension/cron-types.ts` | Replaced the mirrored cron persisted types with canonical `@sero-ai/common` imports |
 | `plugins/sero-git-plugin/{shared/types.ts,ui/GitApp.tsx}` | Switched Git UI/shared types to the canonical shared bridge contract and removed the UI-side result cast |
 | `plugins/sero-web-plugin/ui/lib/host.ts` | Replaced the local host bridge subset with canonical shared host-bridge typing |
-| `{packages/app-runtime/tsconfig.json,packages/tsconfig.extension.json,plugins/sero-{kanban,context,cron,git,user-feedback,web}-plugin/ui/tsconfig.json}` | Added `@sero/common` path mappings so packages that compile against workspace source keep the new shared contracts type-safe |
+| `{packages/app-runtime/tsconfig.json,packages/tsconfig.extension.json,plugins/sero-{kanban,context,cron,git,user-feedback,web}-plugin/ui/tsconfig.json}` | Added `@sero-ai/common` path mappings so packages that compile against workspace source keep the new shared contracts type-safe |
 | `packages/common/src/{web-app.ts,index.ts,admin-bridge.ts}` | New/updated — canonical web app action contract plus shared host-bridge exposure for deterministic web UI mutations |
 | `packages/app-runtime/src/sero-bridge.ts` | Extended the typed preload bridge with the optional `webApp` action surface |
 | `apps/desktop/{src/types/electron-apps.d.ts,src/types/electron.d.ts,src/types/ipc-channels.ts,electron/preload/apps/app-domain.ts,electron/preload/api.ts,electron/ipc/index.ts,electron/ipc/apps/web-app.ts,electron/features/apps/web-app/manager.ts}` | Added the canonical `webApp` bridge so Web UI history/bookmark/download mutations route through one host-owned action layer |

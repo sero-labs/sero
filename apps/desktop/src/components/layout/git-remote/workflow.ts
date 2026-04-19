@@ -4,7 +4,7 @@ import {
   parseGitHubUrl as parseSharedGitHubUrl,
   toGitHubWebUrl as toSharedGitHubWebUrl,
   type ParsedGitHubRepo,
-} from '@sero/common';
+} from '@sero-ai/common';
 import { toErrorMessage } from '../error-utils';
 
 export type GitRemoteVisibility = CreateGitHubRepoInput['visibility'];

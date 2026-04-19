@@ -1,8 +1,9 @@
 /**
- * @sero/common — shared types and utilities for Sero packages.
+ * @sero-ai/common — shared types and utilities for Sero packages.
  *
  * Consumed by apps/desktop, federated app modules, and plugins.
  * Must remain renderer-safe (no Node imports).
+ * Keep this package limited to generic Sero platform contracts.
  */
 
 export {
@@ -31,6 +32,48 @@ export type {
 } from './app-tools';
 
 export type {
+  AppRuntimeStateApi,
+  AppRuntimeSubagentRunParams,
+  AppRuntimeSubagentResult,
+  AppRuntimeSubagentsApi,
+  AppRuntimeCommandResult,
+  AppRuntimeRunCommandOptions,
+  AppRuntimeWorkspaceRefreshResult,
+  AppRuntimeWorkspaceRuntimeKind,
+  AppRuntimeWorkspaceRuntimeFallbackCode,
+  AppRuntimeWorkspaceRuntimeCapabilityKey,
+  AppRuntimeWorkspaceRuntimeCapabilityAuditEntry,
+  AppRuntimeWorkspaceRuntimeResolution,
+  AppRuntimeWorkspaceApi,
+  AppRuntimeVerificationDetectOptions,
+  AppRuntimeVerificationCommandResult,
+  AppRuntimeVerificationResult,
+  AppRuntimeVerificationApi,
+  AppRuntimeWorktreeCreateResult,
+  AppRuntimeWorktreeRemoveOptions,
+  AppRuntimeConflictResolutionContext,
+  AppRuntimeWorktreeSyncOptions,
+  AppRuntimeWorktreeSyncResult,
+  AppRuntimeWorkspaceSyncResult,
+  AppRuntimeCreatePullRequestOptions,
+  AppRuntimeCreatePullRequestResult,
+  AppRuntimePullRequestMergeMethod,
+  AppRuntimeMergePullRequestResult,
+  AppRuntimePullRequestMergeState,
+  AppRuntimeGitApi,
+  AppRuntimeDevServerScope,
+  AppRuntimeDevServerStatus,
+  AppRuntimeDevServer,
+  AppRuntimeStartManagedDevServerOptions,
+  AppRuntimeStartManagedDevServerResult,
+  AppRuntimeDevServersApi,
+  AppRuntimeHost,
+  AppRuntimeContext,
+  AppRuntime,
+  AppRuntimeModule,
+} from './app-runtime-background';
+
+export type {
   ExtensionRuntimeTextContent,
   ExtensionRuntimeImageContent,
   ExtensionRuntimeContentBlock,
@@ -38,36 +81,6 @@ export type {
   ExtensionRuntimeMessage,
   ExtensionSessionRuntime,
 } from './session-runtime';
-
-export {
-  COLUMNS,
-  COLUMN_LABELS,
-  PRIORITY_ORDER,
-  DEFAULT_KANBAN_STATE,
-  createDefaultKanbanState,
-  createCard,
-  validateCardTransition,
-  validateReviewDecision,
-  getUnmetDependencies,
-  getManualMoveTargets,
-  validateManualMove,
-} from './kanban';
-
-export type {
-  Column,
-  Priority,
-  CardStatus,
-  ReviewMode,
-  Subtask,
-  PlanningToolEntry,
-  PlanningProgress,
-  ImplementationProgress,
-  ReviewProgress,
-  Card,
-  KanbanSettings,
-  KanbanState,
-  ValidationResult,
-} from './kanban';
 
 export {
   THINKING_LEVELS,

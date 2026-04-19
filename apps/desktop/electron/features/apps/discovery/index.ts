@@ -44,6 +44,8 @@ interface PkgSeroApp {
   stateFile: string;
   scope?: 'global' | 'workspace';
   ui?: string;
+  runtime?: string;
+  runtimeExternals?: string[];
   component?: string;
   devPort?: number;
   widgets?: PkgWidgetDef[];
@@ -98,6 +100,16 @@ export function getManifestDevPort(appId: string, packagePath: string, devPort: 
   return isPluginInDevMode(appId) ? devPort : undefined;
 }
 
+function normalizeRuntimeExternals(runtimeExternals: string[] | undefined): string[] {
+  if (!Array.isArray(runtimeExternals)) return [];
+  return [...new Set(
+    runtimeExternals
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  )].sort((a, b) => a.localeCompare(b));
+}
+
 async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<SeroAppManifest | null> {
   const app = pkgJson.sero?.app;
   if (!app || !app.id || !app.name) return null;
@@ -105,6 +117,11 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
   let uiEntry: string | null = null;
   if (app.ui) {
     uiEntry = path.resolve(packagePath, app.ui);
+  }
+
+  let runtimeEntry: string | null = null;
+  if (app.runtime) {
+    runtimeEntry = path.resolve(packagePath, app.runtime);
   }
 
   const scope = app.scope === 'global' ? 'global' : 'workspace';
@@ -163,8 +180,10 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
     scope,
     globalStatePath,
     uiEntry,
+    runtimeEntry,
     component: app.component || null,
     devPort: getManifestDevPort(app.id, packagePath, app.devPort),
+    runtimeExternals: normalizeRuntimeExternals(app.runtimeExternals),
     packagePath,
     isPlugin: pluginDeclared,
     plugin,

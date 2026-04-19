@@ -1,4 +1,4 @@
-import type { AppToolResult } from '@sero/common';
+import type { AppToolResult } from '@sero-ai/common';
 import { useCallback, useContext, useMemo } from 'react';
 
 import { AppContext } from './context';
