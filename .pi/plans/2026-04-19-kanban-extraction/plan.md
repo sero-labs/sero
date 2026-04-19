@@ -631,7 +631,7 @@ Recommended switch:
 - **Acceptance:** plugin owns planning/review/implementation behavior definitions; supports ISC-1 through ISC-4, ISC-12, ISC-13.
 - **Status:** complete (2026-04-19)
 
-### KT-08 — Port orchestration, recovery, auto-start, and auto-merge semantics into plugin runtime
+### KT-08 ✅ — Port orchestration, recovery, auto-start, and auto-merge semantics into plugin runtime
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
 - **Files:**
   - new `plugins/sero-kanban-plugin/runtime/core/*`
@@ -654,6 +654,7 @@ Recommended switch:
 - **Constraints:** startup recovery and auto-start must be boot-time behaviors, not UI-only behaviors.
 - **Do NOT:** enable the plugin runtime in the manifest yet.
 - **Acceptance:** plugin runtime owns recovery/auto-start/auto-merge semantics in tests; supports ISC-7 through ISC-13, ISC-23.
+- **Status:** complete (2026-04-19)
 
 ### KT-09 — Rebase UI workflow actions onto `useAppTools()` and delete reducer drift
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`

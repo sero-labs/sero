@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAppRuntime, KanbanRuntime } from '../index';
 import type { KanbanRuntimeContext } from '../types';
+import type { Card, KanbanSettings, KanbanState } from '../core/types';
+import { buildAutoMergePendingMessage } from '../quality/auto-merge-monitor';
 
 function createContext(): KanbanRuntimeContext {
   return {
@@ -77,6 +79,57 @@ function createContext(): KanbanRuntimeContext {
   };
 }
 
+function makeSettings(overrides: Partial<KanbanSettings> = {}): KanbanSettings {
+  return {
+    autoAdvance: true,
+    reviewMode: 'full',
+    testingEnabled: true,
+    yoloMode: true,
+    yoloAutoMergePrs: true,
+    ...overrides,
+  };
+}
+
+function makeCard(overrides: Partial<Card> = {}): Card {
+  return {
+    id: '1',
+    title: 'Auto-merge review card',
+    description: 'Wait for GitHub auto-merge',
+    acceptance: ['PR lands automatically'],
+    priority: 'medium',
+    column: 'review',
+    status: 'waiting-input',
+    subtasks: [],
+    prUrl: 'https://github.com/monobyte/sero/pull/1',
+    prNumber: 1,
+    worktreePath: '/tmp/worktree',
+    error: buildAutoMergePendingMessage(1),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function createStatefulContext(initialState: KanbanState, mergeState: 'merged' | 'open' = 'merged') {
+  let currentState: KanbanState | null = initialState;
+  const ctx = createContext();
+
+  ctx.host.appState.read = async <T = unknown>() => currentState as T | null;
+  ctx.host.appState.update = async <T = unknown>(
+    _filePath: string,
+    updater: (current: T | null) => T,
+  ) => {
+    currentState = updater(currentState as T | null) as unknown as KanbanState;
+  };
+  ctx.host.git.getPrMergeState = async () => mergeState;
+
+  return { ctx, getState: () => currentState };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('kanban runtime scaffold', () => {
   it('creates a runtime instance with the shared app runtime module shape', async () => {
     const runtime = createAppRuntime(createContext());
@@ -85,5 +138,25 @@ describe('kanban runtime scaffold', () => {
     await expect(runtime.start()).resolves.toBeUndefined();
     await expect(runtime.handleStateChange({ cards: [] })).resolves.toBeUndefined();
     await expect(runtime.dispose()).resolves.toBeUndefined();
+  });
+
+  it('wires auto-merge monitoring through the runtime orchestrator', async () => {
+    vi.useFakeTimers();
+    const state: KanbanState = {
+      cards: [makeCard()],
+      nextId: 2,
+      settings: makeSettings(),
+    };
+    const { ctx, getState } = createStatefulContext(state, 'merged');
+    const runtime = createAppRuntime(ctx);
+
+    await runtime.handleStateChange(state);
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(getState()?.cards[0]).toMatchObject({
+      column: 'done',
+      status: 'idle',
+      error: undefined,
+    });
   });
 });
