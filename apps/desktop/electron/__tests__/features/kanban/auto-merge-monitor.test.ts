@@ -19,7 +19,7 @@ vi.mock('@electron/features/kanban/core/state-helpers', () => ({
   updateCard: updateCardMock,
 }));
 
-vi.mock('@electron/features/kanban/quality/pr-merge-status', () => ({
+vi.mock('@electron/features/vcs/worktree/merge-status', () => ({
   getPullRequestMergeState: getPullRequestMergeStateMock,
   getPullRequestMergeError: getPullRequestMergeErrorMock,
 }));

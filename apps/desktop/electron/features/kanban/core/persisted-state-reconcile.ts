@@ -1,5 +1,5 @@
 import type { Card, KanbanState } from './types';
-import { getPullRequestMergeError } from '../quality/pr-merge-status';
+import { getPullRequestMergeError } from '@electron/features/vcs/worktree/merge-status';
 
 export interface PersistedCardFix {
   id: string;

@@ -6,7 +6,7 @@ import { createImplementationProgressTool } from './implementation-progress-tool
 import { buildImplementationPrompt } from '../prompts/prompt-implementation';
 import { bridgeSubagentLiveOutput } from './live-output-bridge';
 import { shouldUseLightReview } from '../review/workflow/light-review';
-import { createCheckpointInWorktree } from '../worktree/worktree-git';
+import { createCheckpointInWorktree } from '@electron/features/vcs/worktree/git';
 import {
   detectVerificationCommands,
   runVerificationCommands,

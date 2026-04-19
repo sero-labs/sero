@@ -7,7 +7,7 @@
  */
 
 import { buildAutoMergePendingMessage } from '@electron/features/kanban/quality/auto-merge-monitor';
-import { mergePrFromWorktree } from '@electron/features/kanban/worktree/worktree-pr';
+import { mergePrFromWorktree } from '@electron/features/vcs/worktree/pull-request';
 import { updateCard } from '@electron/features/kanban/core/state-helpers';
 import type { KanbanSettings } from '@electron/features/kanban/core/types';
 

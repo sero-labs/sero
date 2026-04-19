@@ -21,7 +21,7 @@ import {
   createCheckpointInWorktree,
   getWorktreeDiff,
   getWorktreeDiffSummary,
-} from '@electron/features/kanban/worktree/worktree-git';
+} from '@electron/features/vcs/worktree/git';
 import {
   deleteCachedReview,
   loadCachedReview,

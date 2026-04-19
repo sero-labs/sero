@@ -1,5 +1,5 @@
 import { appStateManager } from '@electron/features/apps/state/manager';
-import { getPullRequestMergeError, getPullRequestMergeState } from './pr-merge-status';
+import { getPullRequestMergeError, getPullRequestMergeState } from '@electron/features/vcs/worktree/merge-status';
 import { updateCard } from '../core/state-helpers';
 import type { Card, KanbanState } from '../core/types';
 

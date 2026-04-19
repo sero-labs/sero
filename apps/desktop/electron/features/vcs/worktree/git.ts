@@ -4,8 +4,8 @@ import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
-import { warnCleanupFailure } from '@electron/features/kanban/core/cleanup-warnings';
-export { ensureRemoteDefaultBranch, createPrFromWorktree } from './worktree-pr';
+import { warnCleanupFailure } from '@electron/features/vcs/support/cleanup-warnings';
+export { ensureRemoteDefaultBranch, createPrFromWorktree } from './pull-request';
 
 const execFileAsync = promisify(execFile);
 

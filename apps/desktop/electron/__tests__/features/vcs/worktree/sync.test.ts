@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { GitRunner } from '@electron/features/kanban/worktree/worktree-sync';
-import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/kanban/worktree/worktree-sync';
+import type { GitRunner } from '@electron/features/vcs/worktree/sync';
+import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/vcs/worktree/sync';
 
 type RunResult = { stdout?: string; stderr?: string };
 type RunHandler = RunResult | Error | ((args: string[]) => Promise<RunResult> | RunResult);

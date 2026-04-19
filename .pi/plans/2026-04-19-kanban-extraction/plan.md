@@ -574,7 +574,7 @@ Recommended switch:
 - **Acceptance:** generic workspace execution primitives are host-owned; supports ISC-14, ISC-19.
 - **Status:** complete (2026-04-19)
 
-### KT-05 — Extract generic worktree/git/PR helpers out of Kanban
+### KT-05 ✅ — Extract generic worktree/git/PR helpers out of Kanban
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
 - **Files:**
   - move/split `apps/desktop/electron/features/kanban/worktree/worktree-manager.ts`
@@ -590,6 +590,7 @@ Recommended switch:
 - **Constraints:** keep conflict-resolution callback support and auto-merge state handling intact.
 - **Do NOT:** move Kanban-specific policy such as “done-card cleanup” into the generic layer.
 - **Acceptance:** generic git/PR primitives are available to the runtime capability bag; supports ISC-14, ISC-19.
+- **Status:** complete (2026-04-19)
 
 ### KT-06 — Scaffold `plugins/sero-kanban-plugin/runtime/` and host capability interfaces
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`

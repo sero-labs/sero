@@ -4,7 +4,7 @@ import { maintainWorkspaceForNewCard } from '../worktree/worktree-maintenance';
 import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
 import { collectPersistedCardFixes } from './persisted-state-reconcile';
 import { appStateManager } from '@electron/features/apps/state/manager';
-import type { WorktreeManager } from '../worktree/worktree-manager';
+import type { WorktreeManager } from '@electron/features/vcs/worktree/manager';
 
 export async function isYoloModeEnabled(stateFilePath: string): Promise<boolean> {
   return ((await appStateManager.read(stateFilePath) as KanbanState | null)?.settings?.yoloMode) === true;

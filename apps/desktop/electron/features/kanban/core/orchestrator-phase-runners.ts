@@ -3,7 +3,7 @@ import type { Card, Column, KanbanState } from './types';
 import type { OrchestratorDeps } from './orchestrator-types';
 import type { WatchedWorkspaceEntry } from '../workspace/workspace-watch';
 import { appStateManager } from '@electron/features/apps/state/manager';
-import { WorktreeManager } from '../worktree/worktree-manager';
+import { WorktreeManager } from '@electron/features/vcs/worktree/manager';
 import { PlanningProgressTracker } from '../planning/planning-progress';
 import { ImplementationProgressTracker } from '../implementation/implementation-progress';
 import { ReviewProgressTracker } from '../review/state';
@@ -12,7 +12,7 @@ import {
   cleanupCardReviewPreview,
   completeReviewWithPr,
 } from '../review/workflow';
-import { getPullRequestMergeError } from '../quality/pr-merge-status';
+import { getPullRequestMergeError } from '@electron/features/vcs/worktree/merge-status';
 import { executePlanning } from '../planning/planning-executor';
 import { executeImplementation } from '../implementation/implementation-executor';
 import { updateCard, readCard } from './state-helpers';

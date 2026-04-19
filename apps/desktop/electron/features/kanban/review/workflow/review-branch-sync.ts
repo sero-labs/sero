@@ -1,7 +1,7 @@
 import type { Card, KanbanSettings } from '@electron/features/kanban/core/types';
 import type { ReviewProgressTracker } from '../state/review-progress';
 import { buildConflictResolutionPrompt } from '@electron/features/kanban/prompts/prompt-conflict-resolution';
-import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/kanban/worktree/worktree-sync';
+import { syncWorktreeBranchWithDefaultBranch } from '@electron/features/vcs/worktree/sync';
 import type { SubagentManager } from '@electron/features/subagent';
 
 export interface ReviewBranchSyncDeps {

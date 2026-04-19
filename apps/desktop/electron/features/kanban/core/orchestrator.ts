@@ -1,7 +1,7 @@
 /** KanbanOrchestrator — reacts to card column transitions, triggers automated phases. */
 import path from 'path';
 import type { Card, Column, KanbanState } from './types';
-import { WorktreeManager } from '../worktree/worktree-manager';
+import { WorktreeManager } from '@electron/features/vcs/worktree/manager';
 import { AutoMergeMonitor } from '../quality/auto-merge-monitor';
 import { applyReviewActionEffects } from '../review/actions';
 import {

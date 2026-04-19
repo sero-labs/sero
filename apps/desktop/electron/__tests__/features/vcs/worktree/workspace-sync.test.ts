@@ -4,7 +4,7 @@ import {
   extractStatusPath,
   isIgnoredWorkspaceStatusPath,
   syncWorkspaceRootToDefaultBranch,
-} from '@electron/features/kanban/worktree/worktree-maintenance';
+} from '@electron/features/vcs/worktree/workspace-sync';
 
 describe('extractStatusPath', () => {
   it('extracts a regular porcelain status path', () => {

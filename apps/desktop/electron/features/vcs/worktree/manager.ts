@@ -1,7 +1,7 @@
 /**
- * WorktreeManager — git worktree lifecycle management for Kanban cards.
+ * WorktreeManager — git worktree lifecycle management for isolated work items.
  *
- * Each active card gets its own git worktree at `.sero/worktrees/card-<id>/`,
+ * Each active work item gets its own git worktree at `.sero/worktrees/card-<id>/`,
  * giving it an isolated working directory and branch while sharing the
  * repo's `.git` object store. This enables true parallel card execution.
  *
@@ -17,8 +17,8 @@ import { promisify } from 'util';
 
 import { inferConventionalType, slugifyBranchLabel } from '@electron/features/vcs/support/branch-naming';
 import { ensureBootstrapGitignore } from '@electron/features/vcs/support/bootstrap-gitignore';
-import { resolvePreferredBaseRef } from './worktree-maintenance';
-import { isMissingPathError, warnCleanupFailure } from '@electron/features/kanban/core/cleanup-warnings';
+import { resolvePreferredBaseRef } from './workspace-sync';
+import { isMissingPathError, warnCleanupFailure } from '@electron/features/vcs/support/cleanup-warnings';
 
 const execFileAsync = promisify(execFile);
 

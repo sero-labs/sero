@@ -7,7 +7,7 @@ import {
   ensureRemoteDefaultBranch,
   pushWorktreeBranch,
   createPrFromWorktree,
-} from '@electron/features/kanban/worktree/worktree-git';
+} from '@electron/features/vcs/worktree/git';
 import { startCardReviewPreview } from './review-preview';
 import type { ReviewExecutorResult } from './review-executor-types';
 

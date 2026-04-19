@@ -22,7 +22,7 @@ vi.mock('@electron/features/kanban/review/workflow/light-review-workflow', () =>
   runLightReviewWorkflow: vi.fn(),
 }));
 
-vi.mock('@electron/features/kanban/worktree/worktree-git', () => ({
+vi.mock('@electron/features/vcs/worktree/git', () => ({
   createCheckpointInWorktree: vi.fn().mockResolvedValue('checkpoint-1'),
   ensureRemoteDefaultBranch: vi.fn().mockResolvedValue('main'),
   getWorktreeDiff: vi.fn().mockResolvedValue('diff --git a/src/App.tsx b/src/App.tsx'),
@@ -56,7 +56,7 @@ vi.mock('@electron/features/kanban/review/workflow/review-preview', () => ({
 }));
 
 import { executeReview } from '@electron/features/kanban/review/workflow/review-executor';
-import { createPrFromWorktree } from '@electron/features/kanban/worktree/worktree-git';
+import { createPrFromWorktree } from '@electron/features/vcs/worktree/git';
 import type { Card, KanbanSettings } from '@electron/features/kanban/core/types';
 import type { ReviewProgressTracker } from '@electron/features/kanban/review/state/review-progress';
 

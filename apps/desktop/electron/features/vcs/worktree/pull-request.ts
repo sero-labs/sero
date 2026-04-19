@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-import { getPullRequestMergeState } from '../quality/pr-merge-status';
+import { getPullRequestMergeState } from './merge-status';
 
 const execFileAsync = promisify(execFile);
 
