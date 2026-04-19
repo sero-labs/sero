@@ -204,6 +204,12 @@ export type {
 } from './cron-contract';
 
 export type {
+  PluginDevSessionStatus,
+  PluginDevSessionUiMode,
+  PluginDevSessionIPC,
+} from './plugin-dev';
+
+export type {
   GlobalModelConfigStateIPC,
   WorkspaceRootIPC,
   ProfileInfo,

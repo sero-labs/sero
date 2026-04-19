@@ -1,6 +1,11 @@
 import type { SeroAppManifest } from './sero-apps';
 
 export type { InstalledPlugin, PluginCategory, PluginMeta, DiscoveredPlugin } from '@sero-ai/common';
+export type {
+  PluginDevSessionStatus,
+  PluginDevSessionUiMode,
+  PluginDevSessionIPC,
+} from './plugin-dev';
 
 /** Events pushed from main → renderer when plugin installation state changes. */
 export type PluginChangeEvent =

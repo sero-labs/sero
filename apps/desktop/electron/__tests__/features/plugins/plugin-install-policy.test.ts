@@ -22,6 +22,7 @@ function createManifest(
     runtimeEntry: null,
     component: null,
     devPort: undefined,
+    remoteEntryOverride: null,
     packagePath,
     isPlugin,
     widgets: [],

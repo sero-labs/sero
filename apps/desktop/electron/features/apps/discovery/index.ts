@@ -183,6 +183,7 @@ async function parseManifest(pkgJson: PkgJson, packagePath: string): Promise<Ser
     runtimeEntry,
     component: app.component || null,
     devPort: getManifestDevPort(app.id, packagePath, app.devPort),
+    remoteEntryOverride: null,
     runtimeExternals: normalizeRuntimeExternals(app.runtimeExternals),
     packagePath,
     isPlugin: pluginDeclared,

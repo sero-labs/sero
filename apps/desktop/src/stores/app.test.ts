@@ -40,6 +40,7 @@ function createManifest(
     uiEntry: component ? `sero-ext://${id}/mf-manifest.json` : null,
     component,
     devPort,
+    remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets: [],

@@ -50,6 +50,8 @@ export interface SeroAppManifest {
   component: string | null;
   /** Dev server port for module federation (from sero.app.devPort). */
   devPort: number | undefined;
+  /** Effective remote mf-manifest URL to prefer before legacy devPort fallback. */
+  remoteEntryOverride: string | null;
   /** Absolute path to the package root on disk. */
   packagePath: string;
   /** Whether this app comes from an installed plugin (vs core monorepo package). */

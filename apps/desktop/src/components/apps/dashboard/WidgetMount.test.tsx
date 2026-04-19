@@ -37,6 +37,7 @@ function createManifest(id: string, scope: SeroAppManifest['scope'] = 'workspace
     runtimeEntry: null,
     component: `${id}App`,
     devPort: 4100,
+    remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets: [],

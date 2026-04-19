@@ -27,6 +27,7 @@ function createManifest(
     runtimeEntry: `/tmp/${id}/runtime/index.js`,
     component: null,
     devPort: undefined,
+    remoteEntryOverride: null,
     packagePath: `/tmp/${id}`,
     isPlugin: true,
     plugin: {

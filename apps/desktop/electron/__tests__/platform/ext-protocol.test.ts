@@ -39,6 +39,7 @@ function makeManifest(overrides: Partial<SeroAppManifest> & Pick<SeroAppManifest
     uiEntry: null,
     component: null,
     devPort: undefined,
+    remoteEntryOverride: null,
     packagePath,
     isPlugin: true,
     plugin: null,
