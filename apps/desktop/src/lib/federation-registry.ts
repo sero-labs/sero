@@ -57,14 +57,21 @@ function toRemoteName(appId: string): string {
 }
 
 /** Return the remote entry URL candidates for an app. */
-function getRemoteEntryCandidates(appId: string, devPort: number | undefined): string[] {
-  if (process.env.NODE_ENV === 'development' && devPort) {
-    return [
-      `http://localhost:${devPort}/mf-manifest.json`,
-      `sero-ext://${appId}/mf-manifest.json`,
-    ];
+function getRemoteEntryCandidates(
+  appId: string,
+  devPort: number | undefined,
+  remoteEntryOverride: string | null,
+): string[] {
+  const candidates: string[] = [];
+
+  if (remoteEntryOverride) {
+    candidates.push(remoteEntryOverride);
+  } else if (process.env.NODE_ENV === 'development' && devPort) {
+    candidates.push(`http://localhost:${devPort}/mf-manifest.json`);
   }
-  return [`sero-ext://${appId}/mf-manifest.json`];
+
+  candidates.push(`sero-ext://${appId}/mf-manifest.json`);
+  return [...new Set(candidates)];
 }
 
 function isHttpEntry(entry: string): boolean {
@@ -163,8 +170,14 @@ function clearAppCache(appId: string): void {
 }
 
 /** Mark whether an app should be treated as a transient fallback cache. */
-function updateTransientState(appId: string, devPort: number | undefined, entry: string): void {
-  if (devPort && !isHttpEntry(entry)) {
+function updateTransientState(
+  appId: string,
+  devPort: number | undefined,
+  remoteEntryOverride: string | null,
+  entry: string,
+): void {
+  const [preferredEntry] = getRemoteEntryCandidates(appId, devPort, remoteEntryOverride);
+  if (preferredEntry && preferredEntry !== entry) {
     transientApps.add(appId);
     return;
   }
@@ -172,9 +185,13 @@ function updateTransientState(appId: string, devPort: number | undefined, entry:
   transientApps.delete(appId);
 }
 
-/** Resolve the best remote entry for an app, preferring dev servers when they are reachable. */
-async function resolveRemoteEntry(appId: string, devPort: number | undefined): Promise<string> {
-  const candidates = getRemoteEntryCandidates(appId, devPort);
+/** Resolve the best remote entry for an app, preferring explicit overrides before legacy dev remotes. */
+async function resolveRemoteEntry(
+  appId: string,
+  devPort: number | undefined,
+  remoteEntryOverride: string | null,
+): Promise<string> {
+  const candidates = getRemoteEntryCandidates(appId, devPort, remoteEntryOverride);
   for (const entry of candidates) {
     if (await isRemoteEntryReachable(entry)) return entry;
   }
@@ -182,16 +199,17 @@ async function resolveRemoteEntry(appId: string, devPort: number | undefined): P
 }
 
 /**
- * Load a remote module, trying dev and built fallback entries if needed.
+ * Load a remote module, trying the preferred entry and built fallback if needed.
  */
 async function loadRemoteModule(
   appId: string,
   component: string,
   devPort: number | undefined,
+  remoteEntryOverride: string | null,
 ): Promise<LoadedRemoteModule | null> {
   const remoteName = toRemoteName(appId);
   const modulePath = `${remoteName}/${component}`;
-  const candidates = getRemoteEntryCandidates(appId, devPort);
+  const candidates = getRemoteEntryCandidates(appId, devPort, remoteEntryOverride);
 
   for (const entry of candidates) {
     if (!(await isRemoteEntryReachable(entry))) continue;
@@ -201,12 +219,12 @@ async function loadRemoteModule(
     try {
       const mod = await loadRemote<RemoteModule>(modulePath);
       if (mod?.default) {
-        updateTransientState(appId, devPort, entry);
+        updateTransientState(appId, devPort, remoteEntryOverride, entry);
         return { entry, mod };
       }
     } catch (err) {
-      // If this entry was a dev server and it disappeared between the probe
-      // and the load, clear the cached availability and try the fallback.
+      // If the preferred entry disappeared between the probe and the load,
+      // clear the cached availability and try the next fallback candidate.
       manifestReachable.delete(entry);
       console.warn(`[federation] Failed to load ${modulePath} from ${entry}:`, err);
     }
@@ -219,8 +237,8 @@ async function loadRemoteModule(
  * Refresh a transient fallback cache before activating an app.
  *
  * If the app was previously rendered from the bundled fallback because the
- * dev server was unreachable, this clears the stale cache so the next preload
- * can probe for the dev server again.
+ * preferred remote entry was unreachable, this clears the stale cache so the
+ * next preload can probe for the preferred entry again.
  */
 export function refreshTransientRemote(appId: string): void {
   if (!transientApps.has(appId)) return;
@@ -235,9 +253,13 @@ export function hasTransientRemote(appId: string): boolean {
   return transientApps.has(appId);
 }
 
-/** Register a dynamically-installed plugin remote. */
-export async function registerDynamicRemote(appId: string, devPort?: number): Promise<void> {
-  const entry = await resolveRemoteEntry(appId, devPort);
+/** Register a dynamically-discovered plugin remote. */
+export async function registerDynamicRemote(
+  appId: string,
+  devPort?: number,
+  remoteEntryOverride: string | null = null,
+): Promise<void> {
+  const entry = await resolveRemoteEntry(appId, devPort, remoteEntryOverride);
   registerRemoteEntry(appId, entry);
 }
 
@@ -256,11 +278,12 @@ export async function preloadFederatedModule(
   appId: string,
   component: string,
   devPort: number | undefined,
+  remoteEntryOverride: string | null = null,
 ): Promise<void> {
   const cacheKey = `${appId}/${component}`;
   if (resolvedModules.has(cacheKey) || cache.has(cacheKey)) return;
 
-  const loaded = await loadRemoteModule(appId, component, devPort);
+  const loaded = await loadRemoteModule(appId, component, devPort, remoteEntryOverride);
   if (loaded?.mod.default) {
     resolvedModules.set(cacheKey, loaded.mod.default);
     touchLRU(cacheKey);
@@ -275,6 +298,7 @@ export function getFederatedComponent(
   appId: string,
   component: string | null,
   devPort: number | undefined,
+  remoteEntryOverride: string | null = null,
 ): LazyComponent | null {
   if (!component) return null;
 
@@ -295,7 +319,7 @@ export function getFederatedComponent(
   }
 
   const LazyComp = lazy(async () => {
-    const loaded = await loadRemoteModule(appId, component, devPort);
+    const loaded = await loadRemoteModule(appId, component, devPort, remoteEntryOverride);
     if (!loaded) {
       console.error(`[federation] Failed to load remote: ${toRemoteName(appId)}/${component}`);
       clearCacheKey(cacheKey);

@@ -725,6 +725,7 @@ Recommended refactors while implementing:
 
 ### LPD-07 — Update renderer remote loading and app-store refresh logic to use `remoteEntryOverride`
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - `apps/desktop/src/lib/federation-registry.ts`
   - `apps/desktop/src/stores/app/discovery.ts`

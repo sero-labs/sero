@@ -4,8 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PluginChangeEvent, SeroAppManifest } from '@/types/ipc';
 
 const federationMocks = vi.hoisted(() => ({
-  preloadFederatedModule: vi.fn<(appId: string, component: string, devPort: number | undefined) => Promise<void>>(),
-  registerDynamicRemote: vi.fn<(appId: string, devPort: number | undefined) => void>(),
+  preloadFederatedModule: vi.fn<(
+    appId: string,
+    component: string,
+    devPort: number | undefined,
+    remoteEntryOverride: string | null,
+  ) => Promise<void>>(),
+  registerDynamicRemote: vi.fn<(
+    appId: string,
+    devPort: number | undefined,
+    remoteEntryOverride: string | null,
+  ) => void>(),
   invalidateRemote: vi.fn<(appId: string) => void>(),
   refreshTransientRemote: vi.fn<(appId: string) => void>(),
   hasTransientRemote: vi.fn<(appId: string) => boolean>(),
@@ -235,7 +244,7 @@ describe('discoverAndRegisterApps', () => {
     await handlePluginChange(installEvent);
 
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
-    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith('todo', 4101);
+    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith('todo', 4101, null);
     expect(
       federationMocks.invalidateRemote.mock.invocationCallOrder[0],
     ).toBeLessThan(federationMocks.registerDynamicRemote.mock.invocationCallOrder[0]);
@@ -244,7 +253,11 @@ describe('discoverAndRegisterApps', () => {
     await handlePluginChange(devSessionEvent);
 
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
-    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith('todo', 4101);
+    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith(
+      'todo',
+      4101,
+      'http://127.0.0.1:4101/mf-manifest.json',
+    );
 
     await handlePluginChange({
       type: 'changed',

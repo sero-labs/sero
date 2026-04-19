@@ -76,7 +76,12 @@ export async function discoverAndRegisterApps(): Promise<void> {
     if (priorityApps.length > 0) {
       const PRELOAD_TIMEOUT_MS = 5000;
       const preloads = priorityApps.map((manifest) =>
-        preloadFederatedModule(manifest.id, manifest.component!, manifest.devPort),
+        preloadFederatedModule(
+          manifest.id,
+          manifest.component!,
+          manifest.devPort,
+          manifest.remoteEntryOverride,
+        ),
       );
 
       // Wait for priority preloads, but don't block forever if a remote is down.
@@ -102,8 +107,8 @@ export async function handlePluginChange(event: PluginChangeEvent): Promise<void
     const detail = event.reason ? ` (${event.reason})` : '';
     console.log(`[app-store] Plugin changed${detail}: ${appId}`);
     invalidateRemote(appId);
-    if (manifest) {
-      void registerDynamicRemote(appId, manifest.devPort);
+    if (manifest?.component) {
+      void registerDynamicRemote(appId, manifest.devPort, manifest.remoteEntryOverride);
     }
   } else {
     console.log('[app-store] Plugin change without app id; rediscovering apps.');

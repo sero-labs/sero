@@ -67,6 +67,7 @@ function preloadAndActivateApp(
   appId: string,
   component: string,
   devPort: number | undefined,
+  remoteEntryOverride: string | null,
   set: (partial: Partial<AppState>) => void,
 ): void {
   const activate = () => {
@@ -76,7 +77,7 @@ function preloadAndActivateApp(
   };
 
   set({ pendingApp: appId });
-  void preloadFederatedModule(appId, component, devPort)
+  void preloadFederatedModule(appId, component, devPort, remoteEntryOverride)
     .catch((err) => {
       console.warn(`[app-store] Failed to preload ${appId}:`, err);
     })
@@ -161,7 +162,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       const currentManifest = apps.find((candidate) => candidate.id === app)?.manifest;
       if (currentManifest?.component && hasTransientRemote(currentManifest.id)) {
         refreshTransientRemote(currentManifest.id);
-        preloadAndActivateApp(currentManifest.id, currentManifest.component, currentManifest.devPort, set);
+        preloadAndActivateApp(
+          currentManifest.id,
+          currentManifest.component,
+          currentManifest.devPort,
+          currentManifest.remoteEntryOverride,
+          set,
+        );
       }
       return;
     }
@@ -181,7 +188,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (entry.manifest?.component) {
       refreshTransientRemote(entry.manifest.id);
-      preloadAndActivateApp(entry.manifest.id, entry.manifest.component, entry.manifest.devPort, set);
+      preloadAndActivateApp(
+        entry.manifest.id,
+        entry.manifest.component,
+        entry.manifest.devPort,
+        entry.manifest.remoteEntryOverride,
+        set,
+      );
       return;
     }
 

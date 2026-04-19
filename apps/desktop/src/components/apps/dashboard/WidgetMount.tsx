@@ -49,7 +49,16 @@ export const WidgetMount = memo(function WidgetMount({ widget, manifest, widgetM
     );
   }
 
-  const LazyComponent = getFederatedComponent(manifest.id, widget.component, manifest.devPort);
+  if (!manifest.component) {
+    return <WidgetFallback message="Widget unavailable" />;
+  }
+
+  const LazyComponent = getFederatedComponent(
+    manifest.id,
+    widget.component,
+    manifest.devPort,
+    manifest.remoteEntryOverride,
+  );
   if (!LazyComponent) {
     return <WidgetFallback message="Widget unavailable" />;
   }

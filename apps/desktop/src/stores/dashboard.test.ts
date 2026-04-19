@@ -5,7 +5,11 @@ import type { RuntimeWidget } from '@sero-ai/app-runtime';
 import { getAvailableWidgets, useDashboardStore } from './dashboard';
 import type { SeroAppManifest } from '@/types/ipc';
 
-function createManifest(id: string, widgets: SeroAppManifest['widgets'] = []): SeroAppManifest {
+function createManifest(
+  id: string,
+  widgets: SeroAppManifest['widgets'] = [],
+  overrides: Partial<SeroAppManifest> = {},
+): SeroAppManifest {
   return {
     id,
     name: id,
@@ -24,6 +28,7 @@ function createManifest(id: string, widgets: SeroAppManifest['widgets'] = []): S
     packagePath: `/tmp/${id}`,
     isPlugin: false,
     widgets,
+    ...overrides,
   };
 }
 
@@ -71,6 +76,24 @@ describe('dashboard store', () => {
     ]);
     expect(widgets.find((widget) => widget.manifest.id === 'pinboard')?.source).toBe('manifest');
     expect(widgets.find((widget) => widget.manifest.id === 'focus')?.source).toBe('runtime');
+  });
+
+  it('hides manifest widgets when the effective app manifest has no UI component', () => {
+    const widgets = getAvailableWidgets([
+      createManifest('notes', [
+        {
+          id: 'pinboard',
+          name: 'Pinboard',
+          component: 'NotesWidget',
+          defaultSize: { w: 2, h: 2 },
+        },
+      ], {
+        component: null,
+        uiEntry: null,
+      }),
+    ]);
+
+    expect(widgets).toEqual([]);
   });
 
   it('defaults persisted widgets without a source to manifest widgets during hydrate', () => {
