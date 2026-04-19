@@ -43,14 +43,27 @@ function toJsRelativePath(relativePath) {
   return relativePath.replace(/\.[cm]?[jt]sx?$/i, '.js');
 }
 
-function getPeerExternals(pkg) {
-  const peers = Object.keys(pkg.peerDependencies ?? {});
+function expandExternalSpecifiers(specifiers) {
   const externals = new Set();
-  for (const peer of peers) {
-    externals.add(peer);
-    externals.add(`${peer}/*`);
+  for (const specifier of specifiers) {
+    if (typeof specifier !== 'string') continue;
+    const normalized = specifier.trim();
+    if (!normalized) continue;
+    externals.add(normalized);
+    externals.add(`${normalized}/*`);
   }
   return [...externals];
+}
+
+function getPeerExternals(pkg) {
+  return expandExternalSpecifiers(Object.keys(pkg.peerDependencies ?? {}));
+}
+
+function getRuntimeExternals(pkg) {
+  const runtimeExternals = Array.isArray(pkg.sero?.app?.runtimeExternals)
+    ? pkg.sero.app.runtimeExternals
+    : [];
+  return expandExternalSpecifiers(runtimeExternals);
 }
 
 async function loadWorkspaceCatalogs() {
@@ -167,7 +180,7 @@ async function buildUiIfPresent(pkg) {
   });
 }
 
-async function bundleNodeEntry(sourcePath, outputPath, peerExternals) {
+async function bundleNodeEntry(sourcePath, outputPath, externals) {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await esbuild.build({
     entryPoints: [sourcePath],
@@ -176,7 +189,7 @@ async function bundleNodeEntry(sourcePath, outputPath, peerExternals) {
     format: 'esm',
     platform: 'node',
     target: 'es2022',
-    external: peerExternals,
+    external: externals,
     sourcemap: false,
     legalComments: 'none',
   });
@@ -206,13 +219,16 @@ async function bundleRuntimeIfPresent(pkg, outputDir) {
     : '';
   if (!runtimeEntry) return null;
 
-  const peerExternals = getPeerExternals(pkg);
+  const runtimeExternals = new Set([
+    ...getPeerExternals(pkg),
+    ...getRuntimeExternals(pkg),
+  ]);
   const sourcePath = path.resolve(packageDir, runtimeEntry);
   const outputRelativePath = toJsRelativePath(runtimeEntry.replace(/^\.\//, ''));
   const outputPath = path.join(outputDir, outputRelativePath);
 
   console.log(`  → Bundling runtime ${runtimeEntry}...`);
-  await bundleNodeEntry(sourcePath, outputPath, peerExternals);
+  await bundleNodeEntry(sourcePath, outputPath, [...runtimeExternals]);
   return `./${toPosix(outputRelativePath)}`;
 }
 

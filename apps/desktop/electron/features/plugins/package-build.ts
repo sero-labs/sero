@@ -16,6 +16,9 @@ interface PluginPackageJson {
   devDependencies?: DependencyMap;
   peerDependencies?: DependencyMap;
   optionalDependencies?: DependencyMap;
+  pi?: {
+    extensions?: string[];
+  };
   sero?: {
     app?: {
       ui?: string;
@@ -102,9 +105,21 @@ export function pluginNeedsBuild(pkg: PluginPackageJson, packageDir: string): bo
   return usesUi(pkg) && !hasBuiltUi(packageDir);
 }
 
+function hasExtensionEntries(pkg: PluginPackageJson): boolean {
+  return Array.isArray(pkg.pi?.extensions)
+    && pkg.pi.extensions.some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+}
+
 function shouldBuildFromSource(pkg: PluginPackageJson, sourceKind: PluginSourceKind): boolean {
   if (sourceKind === 'npm' || !usesUi(pkg)) return false;
   return pkg.sero?.plugin?.preBuilt !== true;
+}
+
+function shouldInstallSourceDependencies(pkg: PluginPackageJson, sourceKind: PluginSourceKind): boolean {
+  if (sourceKind === 'npm') return false;
+  return shouldBuildFromSource(pkg, sourceKind)
+    || Boolean(getDeclaredRuntimeEntry(pkg))
+    || hasExtensionEntries(pkg);
 }
 
 export function stripInstalledOnlyManifestFields(pkg: PluginPackageJson): PluginPackageJson {
@@ -162,22 +177,30 @@ function getBuildCommand(pkg: PluginPackageJson): { command: string; args: strin
   return { command: 'npm', args: ['run', 'build'] };
 }
 
+function assertStandaloneSourcePackage(pkg: PluginPackageJson): void {
+  const unsupportedSpec = findUnsupportedDependencySpec(pkg);
+  if (!unsupportedSpec) return;
+
+  throw new Error(
+    `Invalid plugin source package: unsupported dependency spec ${unsupportedSpec}. ` +
+    'Git/local source installs must publish a standalone npm-installable repo with resolved versions and vendored workspace packages.',
+  );
+}
+
+async function installPluginDependencies(
+  packageDir: string,
+  pkg: PluginPackageJson,
+  runCommand: NonNullable<EnsurePluginPackageReadyOptions['runCommand']>,
+): Promise<void> {
+  const installCommand = getInstallCommand(pkg);
+  await runCommand(installCommand.command, installCommand.args, packageDir);
+}
+
 async function buildPluginFromSource(
   packageDir: string,
   pkg: PluginPackageJson,
   runCommand: NonNullable<EnsurePluginPackageReadyOptions['runCommand']>,
 ): Promise<void> {
-  const unsupportedSpec = findUnsupportedDependencySpec(pkg);
-  if (unsupportedSpec) {
-    throw new Error(
-      `Invalid plugin source package: unsupported dependency spec ${unsupportedSpec}. ` +
-      'Git/local source installs must publish a standalone npm-installable repo with resolved versions and vendored workspace packages.',
-    );
-  }
-
-  const installCommand = getInstallCommand(pkg);
-  await runCommand(installCommand.command, installCommand.args, packageDir);
-
   const buildCommand = getBuildCommand(pkg);
   await runCommand(buildCommand.command, buildCommand.args, packageDir, {
     ...process.env,
@@ -199,6 +222,11 @@ export async function ensurePluginPackageReadyForInstall(
       'Invalid plugin: npm packages must ship pre-built UI artifacts in dist/ui/. ' +
       'Use a git source repo for build-on-install workflows.',
     );
+  }
+
+  if (shouldInstallSourceDependencies(pkg, sourceKind)) {
+    assertStandaloneSourcePackage(pkg);
+    await installPluginDependencies(packageDir, pkg, runCommand);
   }
 
   if (shouldBuildFromSource(pkg, sourceKind)) {
