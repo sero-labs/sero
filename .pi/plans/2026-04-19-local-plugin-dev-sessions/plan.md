@@ -702,6 +702,7 @@ Recommended refactors while implementing:
 
 ### LPD-06 — Expose dev-session CRUD over typed plugin IPC and bridge events into the renderer
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - `apps/desktop/src/types/ipc-channels.ts`
   - `apps/desktop/electron/ipc/integrations/plugins.ts`

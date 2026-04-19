@@ -45,6 +45,16 @@ function reconcileDiscoveredApps(discovered: AppEntry[]): void {
   }
 }
 
+function getPluginChangeAppId(event: PluginChangeEvent): string | null {
+  if (event.type === 'installed') return event.manifest.id;
+  return event.pluginId;
+}
+
+function getPluginChangeManifest(event: PluginChangeEvent): SeroAppManifest | null {
+  if (event.type === 'installed') return event.manifest;
+  return 'manifest' in event ? event.manifest ?? null : null;
+}
+
 /**
  * Discover sero apps and merge them into the store.
  * Built-in apps are always first; discovered apps follow.
@@ -83,15 +93,20 @@ export async function discoverAndRegisterApps(): Promise<void> {
   }
 }
 
-/** Apply a plugin install/uninstall event to the runtime app registry. */
+/** Apply a plugin install/uninstall or dev-session change to the app registry. */
 export async function handlePluginChange(event: PluginChangeEvent): Promise<void> {
-  if (event.type === 'installed') {
-    console.log(`[app-store] Plugin installed: ${event.manifest.name} (${event.manifest.id})`);
-    invalidateRemote(event.manifest.id);
-    void registerDynamicRemote(event.manifest.id, event.manifest.devPort);
+  const appId = getPluginChangeAppId(event);
+  const manifest = getPluginChangeManifest(event);
+
+  if (appId) {
+    const detail = event.reason ? ` (${event.reason})` : '';
+    console.log(`[app-store] Plugin changed${detail}: ${appId}`);
+    invalidateRemote(appId);
+    if (manifest) {
+      void registerDynamicRemote(appId, manifest.devPort);
+    }
   } else {
-    console.log(`[app-store] Plugin uninstalled: ${event.pluginId}`);
-    invalidateRemote(event.pluginId);
+    console.log('[app-store] Plugin change without app id; rediscovering apps.');
   }
 
   await discoverAndRegisterApps();

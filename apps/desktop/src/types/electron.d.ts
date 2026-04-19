@@ -437,11 +437,11 @@ interface SeroPluginsAPI {
   isPlugin(pluginId: string): Promise<boolean>;
   /** Search for public plugins on GitHub (topic) and npm (keyword). */
   search(query: string): Promise<DiscoveredPlugin[]>;
-  listDevSessions?(): Promise<PluginDevSessionIPC[]>;
-  startDevSession?(sourcePath?: string): Promise<PluginDevSessionIPC | null>;
-  refreshDevSession?(sessionId: string): Promise<PluginDevSessionIPC>;
-  stopDevSession?(sessionId: string): Promise<void>;
-  /** Subscribe to plugin install/uninstall events. */
+  listDevSessions(): Promise<PluginDevSessionIPC[]>;
+  startDevSession(sourcePath?: string): Promise<PluginDevSessionIPC | null>;
+  refreshDevSession(sessionId: string): Promise<PluginDevSessionIPC>;
+  stopDevSession(sessionId: string): Promise<void>;
+  /** Subscribe to plugin install/dev-session lifecycle events. */
   onChanged(callback: (event: PluginChangeEvent) => void): () => void;
 }
 

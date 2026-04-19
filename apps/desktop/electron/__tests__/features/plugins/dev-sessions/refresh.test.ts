@@ -190,13 +190,22 @@ describe('plugin-dev refresh', () => {
       remoteEntryOverride: null,
       lastError: expect.stringContaining('invalid package.json JSON'),
     }));
-    expect(result.event).toEqual({ type: 'uninstalled', pluginId: 'plugin-one' });
+    expect(result.event).toEqual({
+      type: 'changed',
+      pluginId: 'plugin-one',
+      reason: 'dev-session-stopped',
+    });
     expect(mocks.stopPluginDevServer).toHaveBeenCalledWith(sourcePath);
   });
 
   it('reconciles projection, invalidates caches, and restarts the targeted runtime', async () => {
     const manifest = createManifest('plugin-one', '/tmp/plugin-one');
-    const event: PluginChangeEvent = { type: 'installed', manifest };
+    const event: PluginChangeEvent = {
+      type: 'changed',
+      pluginId: 'plugin-one',
+      manifest,
+      reason: 'dev-session-refreshed',
+    };
 
     await applyPluginDevSessionRefreshEffects({
       activeManifests: [manifest],

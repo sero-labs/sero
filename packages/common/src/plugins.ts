@@ -115,6 +115,31 @@ export interface DiscoveredPlugin {
   installedPluginId: string | null;
 }
 
+export type PluginChangeEventReason =
+  | 'plugin-installed'
+  | 'plugin-uninstalled'
+  | 'dev-session-started'
+  | 'dev-session-refreshed'
+  | 'dev-session-stopped';
+
+/** Renderer-safe plugin lifecycle event payload surfaced over the host bridge. */
+export type PluginChangeEventIPC =
+  | {
+      type: 'installed';
+      pluginId?: string;
+      reason?: 'plugin-installed';
+    }
+  | {
+      type: 'uninstalled';
+      pluginId: string;
+      reason?: 'plugin-uninstalled';
+    }
+  | {
+      type: 'changed';
+      pluginId: string | null;
+      reason: 'dev-session-started' | 'dev-session-refreshed' | 'dev-session-stopped';
+    };
+
 /** Provider auth metadata from a package's `sero.providers` field. */
 export interface PluginProviderAuthManifest {
   type?: string;

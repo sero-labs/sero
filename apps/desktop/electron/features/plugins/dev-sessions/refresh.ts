@@ -196,7 +196,12 @@ export async function refreshPluginDevSession(
       record: resolved.record,
       activeManifest: resolved.manifest,
       appId: resolved.manifest.id,
-      event: { type: 'installed', manifest: resolved.manifest },
+      event: {
+        type: 'changed',
+        pluginId: resolved.manifest.id,
+        manifest: resolved.manifest,
+        reason: 'dev-session-refreshed',
+      },
     };
   } catch (initialError) {
     const failureKind = await classifyValidationFailure(record, initialError);
@@ -209,7 +214,11 @@ export async function refreshPluginDevSession(
         activeManifest: null,
         appId: record.expectedAppId,
         event: record.expectedAppId
-          ? { type: 'uninstalled', pluginId: record.expectedAppId }
+          ? {
+              type: 'changed',
+              pluginId: record.expectedAppId,
+              reason: 'dev-session-stopped',
+            }
           : null,
       };
     }
@@ -224,7 +233,12 @@ export async function refreshPluginDevSession(
           record: resolved.record,
           activeManifest: resolved.manifest,
           appId: resolved.manifest.id,
-          event: { type: 'installed', manifest: resolved.manifest },
+          event: {
+            type: 'changed',
+            pluginId: resolved.manifest.id,
+            manifest: resolved.manifest,
+            reason: 'dev-session-refreshed',
+          },
         };
       } catch (retryError) {
         await stopPluginDevServer(record.sourcePath);
@@ -234,7 +248,11 @@ export async function refreshPluginDevSession(
           activeManifest: null,
           appId: record.expectedAppId,
           event: record.expectedAppId
-            ? { type: 'uninstalled', pluginId: record.expectedAppId }
+            ? {
+                type: 'changed',
+                pluginId: record.expectedAppId,
+                reason: 'dev-session-stopped',
+              }
             : null,
         };
       }

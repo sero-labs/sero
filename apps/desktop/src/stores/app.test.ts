@@ -213,14 +213,23 @@ describe('discoverAndRegisterApps', () => {
     ).toBeLessThan(federationMocks.preloadFederatedModule.mock.invocationCallOrder[0]);
   });
 
-  it('hot-refreshes runtime remotes after plugin install and uninstall events', async () => {
+  it('hot-refreshes runtime remotes after plugin install, dev-session refresh, and dev-session stop events', async () => {
     const installEvent: PluginChangeEvent = {
       type: 'installed',
       manifest: createManifest('todo', 'TodoApp', 4101),
     };
+    const devSessionEvent: PluginChangeEvent = {
+      type: 'changed',
+      pluginId: 'todo',
+      manifest: createManifest('todo', 'TodoApp', 4101, {
+        remoteEntryOverride: 'http://127.0.0.1:4101/mf-manifest.json',
+      }),
+      reason: 'dev-session-refreshed',
+    };
 
     discover
       .mockResolvedValueOnce([installEvent.manifest])
+      .mockResolvedValueOnce([devSessionEvent.manifest!])
       .mockResolvedValueOnce([]);
 
     await handlePluginChange(installEvent);
@@ -232,7 +241,16 @@ describe('discoverAndRegisterApps', () => {
     ).toBeLessThan(federationMocks.registerDynamicRemote.mock.invocationCallOrder[0]);
     expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(true);
 
-    await handlePluginChange({ type: 'uninstalled', pluginId: 'todo' });
+    await handlePluginChange(devSessionEvent);
+
+    expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
+    expect(federationMocks.registerDynamicRemote).toHaveBeenCalledWith('todo', 4101);
+
+    await handlePluginChange({
+      type: 'changed',
+      pluginId: 'todo',
+      reason: 'dev-session-stopped',
+    });
 
     expect(federationMocks.invalidateRemote).toHaveBeenCalledWith('todo');
     expect(useAppStore.getState().apps.some((app) => app.id === 'todo')).toBe(false);

@@ -16,6 +16,8 @@ export type {
   PluginMeta,
   PluginRegistryEntry,
   DiscoveredPlugin,
+  PluginChangeEventReason,
+  PluginChangeEventIPC,
   PluginProviderAuthManifest,
   PluginProviderManifest,
   SeroProviderManifest,

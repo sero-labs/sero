@@ -1,6 +1,6 @@
 import type { ThinkingLevel, ModelValidationWarning } from './model-selection';
 import type { PluginDevSessionIPC } from './plugin-dev';
-import type { InstalledPlugin } from './plugins';
+import type { InstalledPlugin, PluginChangeEventIPC } from './plugins';
 import type {
   UserFeedbackPendingQuestion,
   UserFeedbackResponse,
@@ -246,11 +246,11 @@ export interface SeroPluginsBridge {
   list(): Promise<InstalledPlugin[]>;
   install(source: string): Promise<{ id: string; name: string }>;
   uninstall(pluginId: string): Promise<void>;
-  listDevSessions?(): Promise<PluginDevSessionIPC[]>;
-  startDevSession?(sourcePath?: string): Promise<PluginDevSessionIPC | null>;
-  refreshDevSession?(sessionId: string): Promise<PluginDevSessionIPC>;
-  stopDevSession?(sessionId: string): Promise<void>;
-  onChanged(callback: (event: unknown) => void): () => void;
+  listDevSessions(): Promise<PluginDevSessionIPC[]>;
+  startDevSession(sourcePath?: string): Promise<PluginDevSessionIPC | null>;
+  refreshDevSession(sessionId: string): Promise<PluginDevSessionIPC>;
+  stopDevSession(sessionId: string): Promise<void>;
+  onChanged(callback: (event: PluginChangeEventIPC) => void): () => void;
 }
 
 export interface SeroAuthBridge {

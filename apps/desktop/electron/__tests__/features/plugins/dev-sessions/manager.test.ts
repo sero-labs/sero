@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   applyPluginDevServerResultToManifest: vi.fn((manifest: SeroAppManifest) => manifest),
   classifyPluginDevConflicts: vi.fn(),
   ensurePluginDevServer: vi.fn(),
+  stopPluginDevServer: vi.fn<() => Promise<void>>(),
   reconcileActiveDevSessionProjection: vi.fn<() => Promise<void>>(),
   createBrokenPluginDevSessionRecord: vi.fn(
     (record: PluginDevSessionRecord, error: unknown): PluginDevSessionRecord => ({
@@ -78,6 +79,7 @@ vi.mock('@electron/features/plugins/dev-sessions/conflicts', () => ({
 
 vi.mock('@electron/features/plugins/dev-sessions/dev-server', () => ({
   ensurePluginDevServer: mocks.ensurePluginDevServer,
+  stopPluginDevServer: mocks.stopPluginDevServer,
 }));
 
 vi.mock('@electron/features/plugins/dev-sessions/activation', () => ({
@@ -152,6 +154,7 @@ describe('PluginDevSessionManager', () => {
     mocks.applyPluginDevServerResultToManifest.mockReset();
     mocks.classifyPluginDevConflicts.mockReset();
     mocks.ensurePluginDevServer.mockReset();
+    mocks.stopPluginDevServer.mockReset();
     mocks.reconcileActiveDevSessionProjection.mockReset();
     mocks.createBrokenPluginDevSessionRecord.mockClear();
     mocks.createValidatedPluginDevSessionRecord.mockClear();
@@ -170,6 +173,7 @@ describe('PluginDevSessionManager', () => {
       uiMode: 'dev-server',
       error: null,
     });
+    mocks.stopPluginDevServer.mockResolvedValue();
     mocks.reconcileActiveDevSessionProjection.mockResolvedValue();
   });
 
@@ -241,6 +245,79 @@ describe('PluginDevSessionManager', () => {
       expect.objectContaining({ id: 'plugin-one', packagePath: '/tmp/plugin-one' }),
     ]);
     expect(mocks.watcher.watch).toHaveBeenCalledWith('dev_1', '/tmp/plugin-one');
+  });
+
+  it('starts a new session, persists it, and emits generic change effects', async () => {
+    mocks.readPluginDevSessionRecords.mockReturnValue([]);
+    mocks.ensurePluginDevServer.mockResolvedValue({
+      remoteEntryOverride: null,
+      uiMode: 'backend-only',
+      error: null,
+    });
+    mocks.validatePluginDevSourceManifest.mockResolvedValue({
+      sourcePath: '/tmp/plugin-one',
+      manifest: createManifest('plugin-one', '/tmp/plugin-one'),
+      declaredDevPort: undefined,
+      devCommand: null,
+      hasDeclaredUi: false,
+      hasBuiltUi: false,
+    });
+
+    const manager = new PluginDevSessionManager();
+    const record = await manager.start('/tmp/plugin-one');
+
+    expect(record).toEqual(expect.objectContaining({
+      sourcePath: '/tmp/plugin-one',
+      expectedAppId: 'plugin-one',
+      status: 'active',
+      uiMode: 'backend-only',
+    }));
+    expect(mocks.writePluginDevSessionRecords).toHaveBeenCalledWith([
+      expect.objectContaining({
+        sessionId: record.sessionId,
+        sourcePath: '/tmp/plugin-one',
+      }),
+    ]);
+    expect(mocks.applyPluginDevSessionRefreshEffects).toHaveBeenCalledWith({
+      activeManifests: [expect.objectContaining({ id: 'plugin-one', packagePath: '/tmp/plugin-one' })],
+      appId: 'plugin-one',
+      event: expect.objectContaining({
+        type: 'changed',
+        pluginId: 'plugin-one',
+        reason: 'dev-session-started',
+      }),
+    });
+    expect(mocks.watcher.watch).toHaveBeenCalledWith(record.sessionId, '/tmp/plugin-one');
+    expect(mocks.stopPluginDevServer).toHaveBeenCalledWith('/tmp/plugin-one');
+  });
+
+  it('stops active sessions and tears down their projected state', async () => {
+    mocks.readPluginDevSessionRecords.mockReturnValue([createRecord()]);
+    mocks.validatePluginDevSourceManifest.mockResolvedValue({
+      sourcePath: '/tmp/plugin-one',
+      manifest: createManifest('plugin-one', '/tmp/plugin-one'),
+      declaredDevPort: 5193,
+      devCommand: 'pnpm run dev',
+      hasDeclaredUi: true,
+      hasBuiltUi: true,
+    });
+
+    const manager = new PluginDevSessionManager();
+    await manager.initialize();
+    await manager.stop('dev_1');
+
+    expect(mocks.applyPluginDevSessionRefreshEffects).toHaveBeenCalledWith({
+      activeManifests: [],
+      appId: 'plugin-one',
+      event: {
+        type: 'changed',
+        pluginId: 'plugin-one',
+        reason: 'dev-session-stopped',
+      },
+    });
+    expect(mocks.writePluginDevSessionRecords).toHaveBeenLastCalledWith([]);
+    expect(mocks.watcher.unwatch).toHaveBeenCalledWith('dev_1');
+    expect(mocks.stopPluginDevServer).toHaveBeenCalledWith('/tmp/plugin-one');
   });
 
   it('marks invalid persisted sessions broken and keeps valid ones projected', async () => {
