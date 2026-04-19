@@ -9,16 +9,23 @@ If the plugin is **extension-only** (no federated web UI), keep `package.json`,
 `scripts` with extension-only ones (for example, `typecheck` should point only
 at `extension/tsconfig.json`).
 
+If the plugin needs a **background runtime**, add `runtime/`, declare
+`sero.app.runtime`, and include `runtime/tsconfig.json` in the package
+`typecheck` script.
+
 ## Table of Contents
 
 - [package.json](#packagejson)
 - [shared/types.ts](#sharedtypests)
 - [extension/index.ts](#extensionindexts)
 - [extension/tsconfig.json](#extensiontsconfigjson)
+- [runtime/index.ts](#runtimeindexts)
+- [runtime/tsconfig.json](#runtimetsconfigjson)
 - [vite.config.ts](#viteconfigts)
 - [ui/MyApp.tsx](#uimyapptsx)
 - [ui/styles.css](#uistylescss)
 - [ui/tsconfig.json](#uitsconfigjson)
+- [ui/vite-env.d.ts](#uivite-envdts)
 - [ui/index.html](#uiindexhtml)
 
 ---
@@ -88,12 +95,14 @@ at `extension/tsconfig.json`).
 - Use `@sero-ai/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
 - `stateFile` remains required even for global apps — Sero ignores it there, but Pi CLI uses it as a fallback path
 - `ui`, `component`, and `devPort` are only needed when the plugin ships a web UI
+- `runtime` is only needed when the plugin ships a background runtime; if present, add `runtime/tsconfig.json` to the package `typecheck` script
 - For extension-only plugins, remove the Vite `dev` / `build` scripts and keep an extension-only `typecheck`
 - `devPort` must be unique — check existing plugins first
 - Omit `bridgeTools` in `sero.plugin` to bridge all tools by default
 - Add `requiredHostCapabilities` only for seams the plugin actually needs:
   - `appAgent.invokeTool` for `useAppTools()` / `window.sero.appAgent.invokeTool(...)`
   - `tool.cli` for manifest-driven CLI bridging, custom tool `cli` metadata, or builtin override behavior
+  - `appRuntime.background` for plugin-owned background runtimes declared through `sero.app.runtime`
 
 ### Quick do / don't guide
 
@@ -168,6 +177,31 @@ pi.registerTool({
 ```
 
 Result: users and the agent can invoke the bridged command as `sero myapp ...`.
+
+### Optional background runtime additions
+
+Add these only when the plugin needs long-lived, workspace-scoped orchestration:
+
+```json
+{
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
+  },
+  "sero": {
+    "app": {
+      "runtime": "./runtime/index.ts"
+    },
+    "plugin": {
+      "requiredHostCapabilities": ["appRuntime.background"]
+    }
+  }
+}
+```
+
+Notes:
+- `sero.app.runtime` points at the source runtime entry in a source plugin repo
+- If the plugin also uses UI->tool calls or CLI bridging, include those capabilities too
+- Keep background-runtime behavior in `runtime/`, not in the host or renderer glue
 
 #### Example 3: Plugin replaces a builtin command intentionally
 
@@ -302,11 +336,8 @@ const Params = Type.Object({
 export default function (pi: ExtensionAPI) {
   let statePath = '';
 
-  // Resolve state path from workspace cwd
+  // Warm fallback state path from the current workspace cwd
   pi.on('session_start', async (_event, ctx) => {
-    statePath = resolveStatePath(ctx.cwd);
-  });
-  pi.on('session_switch', async (_event, ctx) => {
     statePath = resolveStatePath(ctx.cwd);
   });
 
@@ -415,9 +446,9 @@ export default function (pi: ExtensionAPI) {
 
 **Key patterns:**
 - Use `StringEnum` (not `Type.Union`) for action enums — Google's API needs it
-- Resolve `statePath` from `ctx.cwd` in execute handler (reliable) with session fallback
+- Resolve `statePath` from `ctx.cwd` in execute handlers (reliable) with session fallback
 - Atomic writes always (temp -> rename)
-- Handle both `session_start` and `session_switch`
+- `session_start` is useful for warm fallback state resolution; do not depend on `session_switch` unless your target SDK surface explicitly guarantees it
 - If a bridged tool needs current-session side effects, depend on the execution context instead of capturing a registration-scoped `pi` object inside tool logic
 
 **Optional: custom bridged CLI metadata**
@@ -479,6 +510,84 @@ function resolveStatePath(cwd: string): string {
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "lib": ["ES2023"]
+  },
+  "include": ["./**/*", "../shared/**/*"]
+}
+```
+
+---
+
+## runtime/index.ts
+
+Use this only when the plugin needs long-lived, workspace-scoped Sero behavior.
+
+```typescript
+// runtime/index.ts
+
+import type {
+  AppRuntime,
+  AppRuntimeContext,
+  AppRuntimeModule,
+} from '@sero-ai/common';
+import type { MyAppState } from '../shared/types';
+
+class MyAppRuntime implements AppRuntime {
+  constructor(private readonly ctx: AppRuntimeContext) {}
+
+  async start(): Promise<void> {
+    const state = await this.ctx.host.appState.read<MyAppState>(this.ctx.stateFilePath);
+    if (state) {
+      await this.handleStateChange(state);
+    }
+  }
+
+  async handleStateChange(state: unknown): Promise<void> {
+    const current = state as MyAppState | null;
+    if (!current) return;
+
+    // Runtime-only orchestration goes here:
+    // - startup recovery
+    // - background reconcile passes
+    // - subagent workflows
+    // - managed dev server / verification / git coordination
+  }
+
+  async dispose(): Promise<void> {
+    // Clean up background listeners if you create any.
+  }
+}
+
+export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
+  return new MyAppRuntime(ctx);
+}
+
+export default {
+  createAppRuntime,
+} satisfies AppRuntimeModule;
+```
+
+**Key rules:**
+- Keep `runtime/` Sero-only; Pi CLI-safe logic belongs in `extension/`
+- Type against `@sero-ai/common` runtime contracts, not desktop-host internals
+- Use the runtime for long-lived orchestration, not simple CRUD mutations
+- If the runtime needs extra background files, use `ctx.host.appState.watch(...)` / `unwatch(...)` intentionally and clean them up in `dispose()`
+
+---
+
+## runtime/tsconfig.json
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"],
     "lib": ["ES2023"]
   },
   "include": ["./**/*", "../shared/**/*"]
@@ -664,6 +773,7 @@ export default MyApp;
 - Import components from `@sero-ai/ui/components/ui/*`
 - Use Tailwind semantic colors (`bg-background`, `text-foreground`, etc.)
 - Use `@sero-ai/ui` components (Button, Card) over raw HTML elements
+- Import `./styles.css` from every exposed Module Federation entry (app, widgets, other exposed components) so installed external remotes ship their own CSS assets
 - If the UI needs to invoke extension-owned behavior, prefer `useAppTools().run(...)` over adding a plugin-specific preload/IPC bridge
 
 **Mini example — UI button calls a plugin-owned tool**
@@ -701,6 +811,10 @@ If you do this, declare:
 ```css
 @import "tailwindcss";
 
+/* REQUIRED: Scan plugin-local UI files so external remotes emit the utility
+   classes they use instead of depending on host CSS by accident. */
+@source "./**/*.{ts,tsx}";
+
 /* REQUIRED: Scan @sero-ai/ui component sources so Tailwind generates CSS
    for utility classes used inside shared components (Button, Card, etc.). */
 @source "../../ui/src/components";
@@ -735,10 +849,9 @@ If you do this, declare:
 ```
 
 **Why needed:**
-- `@source` — Tailwind 4 doesn't auto-scan monorepo packages; without it, component
-  utility classes won't be generated
-- `@theme inline` — generates semantic Tailwind classes (`bg-background`, etc.) from
-  host CSS variables at runtime
+- `@source "./**/*.{ts,tsx}"` — keeps external remotes from silently missing plugin-local utility classes at runtime
+- `@source "../../ui/src/components"` — Tailwind 4 doesn't auto-scan monorepo packages; without it, shared-component utility classes won't be generated
+- `@theme inline` — generates semantic Tailwind classes (`bg-background`, etc.) from host CSS variables at runtime
 
 ---
 
@@ -769,7 +882,18 @@ If you do this, declare:
 
 Notes:
 - `baseUrl: "."` makes the `paths` mappings explicit and reliable in standalone plugin TS configs.
+- Add `ui/vite-env.d.ts` (below) or an equivalent `vite/client` typing source when the UI imports CSS via side-effect imports.
 - These mappings are for plugin-local source only. Desktop host code uses its own aliases (`@`, `@electron`, `@plugins`, `@packages`) and those should not be copied into plugin `ui/tsconfig.json` unless the plugin truly depends on host source files.
+
+---
+
+## ui/vite-env.d.ts
+
+Add this when the UI imports CSS via side-effect imports such as `import './styles.css';`.
+
+```ts
+/// <reference types="vite/client" />
+```
 
 ---
 
