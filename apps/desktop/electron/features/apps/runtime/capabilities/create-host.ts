@@ -4,12 +4,14 @@ import { subagentManager } from '@electron/features/subagent/singleton';
 import { containerManager } from '@electron/features/container/core/singleton';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
+import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { startManagedDevServer } from '@electron/features/workspace/runtime/start-managed-dev-server';
 import {
   detectCompileCommands,
   detectDependencyInstallCommand,
   detectDevServerCommand,
   detectVerificationCommands,
+  runDevServerSmokeCheck,
   runVerificationCommands,
   summarizeVerificationFailure,
 } from '@electron/features/workspace/runtime/verification';
@@ -74,6 +76,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         runWorkspaceCommand(workspaceId, cwd, command, timeoutMs, options),
       refreshAfterSync: (workspaceId, workspacePath) =>
         refreshWorkspaceRuntimeAfterSync(workspaceId, workspacePath),
+      resolveRuntime: (workspaceId) => resolveWorkspaceRuntime(workspaceId),
     },
     verification: {
       detectCompileCommands,
@@ -84,6 +87,12 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
         runVerificationCommands(cwd, commands, timeoutMs, {
           runCommand: (command, commandCwd, commandTimeoutMs) =>
             runWorkspaceCommand(workspaceId, commandCwd, command, commandTimeoutMs, options),
+        }),
+      runDevServerSmokeCheck: (workspaceId, cwd, command, options) =>
+        runDevServerSmokeCheck(cwd, command, {
+          startupTimeoutMs: options?.startupTimeoutMs,
+          runCommand: (innerCommand, commandCwd, commandTimeoutMs) =>
+            runWorkspaceCommand(workspaceId, commandCwd, innerCommand, commandTimeoutMs, options),
         }),
       summarizeFailure: summarizeVerificationFailure,
     },

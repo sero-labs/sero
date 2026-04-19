@@ -64,6 +64,14 @@ function createHostStub(
     workspace: {
       runCommand: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })),
       refreshAfterSync: vi.fn(async () => ({ refreshed: false, dependenciesInstalled: false, restartedServerIds: [] })),
+      resolveRuntime: vi.fn(async () => ({
+        workspaceId: 'ws-1',
+        workspacePath: '/repo-1',
+        desiredRuntime: 'host' as const,
+        actualRuntime: 'host' as const,
+        containerEnabled: false,
+        capabilityAudit: [],
+      })),
     },
     verification: {
       detectCompileCommands: vi.fn(async () => []),
@@ -71,6 +79,13 @@ function createHostStub(
       detectDevServerCommand: vi.fn(async () => null),
       detectVerificationCommands: vi.fn(async () => []),
       runCommands: vi.fn(async () => ({ success: true, results: [] })),
+      runDevServerSmokeCheck: vi.fn(async () => ({
+        command: 'pnpm dev',
+        success: true,
+        stdout: '',
+        stderr: '',
+        durationMs: 0,
+      })),
       summarizeFailure: vi.fn(() => 'failure'),
     },
     git: {

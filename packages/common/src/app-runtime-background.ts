@@ -61,6 +61,33 @@ export interface AppRuntimeWorkspaceRefreshResult {
   reason?: string;
 }
 
+export type AppRuntimeWorkspaceRuntimeKind = 'container' | 'host';
+export type AppRuntimeWorkspaceRuntimeFallbackCode = 'container_unavailable';
+export type AppRuntimeWorkspaceRuntimeCapabilityKey =
+  | 'browserAutomation'
+  | 'containerizedLanguageServers'
+  | 'managedDevServers'
+  | 'containerMounts';
+
+export interface AppRuntimeWorkspaceRuntimeCapabilityAuditEntry {
+  key: AppRuntimeWorkspaceRuntimeCapabilityKey;
+  label: string;
+  available: boolean;
+  containerOnly: boolean;
+  detail: string;
+}
+
+export interface AppRuntimeWorkspaceRuntimeResolution {
+  workspaceId: string;
+  workspacePath: string;
+  desiredRuntime: AppRuntimeWorkspaceRuntimeKind;
+  actualRuntime: AppRuntimeWorkspaceRuntimeKind;
+  containerEnabled: boolean;
+  fallbackCode?: AppRuntimeWorkspaceRuntimeFallbackCode;
+  fallbackReason?: string;
+  capabilityAudit: AppRuntimeWorkspaceRuntimeCapabilityAuditEntry[];
+}
+
 export interface AppRuntimeWorkspaceApi {
   runCommand(
     workspaceId: string,
@@ -73,6 +100,7 @@ export interface AppRuntimeWorkspaceApi {
     workspaceId: string,
     workspacePath: string,
   ): Promise<AppRuntimeWorkspaceRefreshResult>;
+  resolveRuntime(workspaceId: string): Promise<AppRuntimeWorkspaceRuntimeResolution>;
 }
 
 export interface AppRuntimeVerificationDetectOptions {
@@ -107,6 +135,12 @@ export interface AppRuntimeVerificationApi {
     timeoutMs?: number,
     options?: AppRuntimeRunCommandOptions,
   ): Promise<AppRuntimeVerificationResult>;
+  runDevServerSmokeCheck(
+    workspaceId: string,
+    cwd: string,
+    command: string,
+    options?: AppRuntimeRunCommandOptions & { startupTimeoutMs?: number },
+  ): Promise<AppRuntimeVerificationCommandResult>;
   summarizeFailure(result: AppRuntimeVerificationCommandResult): string;
 }
 

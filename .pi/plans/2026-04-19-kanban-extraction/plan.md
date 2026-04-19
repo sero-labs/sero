@@ -614,7 +614,7 @@ Recommended switch:
 - **Acceptance:** plugin runtime surface exists and typechecks; supports ISC-1, ISC-20.
 - **Status:** complete (2026-04-19)
 
-### KT-07 — Port planning / implementation / review engines into plugin runtime
+### KT-07 ✅ — Port planning / implementation / review engines into plugin runtime
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
 - **Files:**
   - new `plugins/sero-kanban-plugin/runtime/planning/*`
@@ -629,6 +629,7 @@ Recommended switch:
 - **Constraints:** preserve current subagent agents/prompts, preview semantics, review cache behavior, and file-size splits.
 - **Do NOT:** “clean rewrite” these modules while migrating; port first, simplify later.
 - **Acceptance:** plugin owns planning/review/implementation behavior definitions; supports ISC-1 through ISC-4, ISC-12, ISC-13.
+- **Status:** complete (2026-04-19)
 
 ### KT-08 — Port orchestration, recovery, auto-start, and auto-merge semantics into plugin runtime
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
