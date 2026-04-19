@@ -1,4 +1,4 @@
-import type { SeroWebHostBridge } from '@sero/common';
+import type { SeroWebHostBridge } from '@sero-ai/common';
 
 function getHost(): SeroWebHostBridge {
   const sero = (window as unknown as { sero?: SeroWebHostBridge }).sero;

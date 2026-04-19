@@ -9,7 +9,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { getSeroApi, useAppInfo, useAppState } from '@sero-ai/app-runtime';
 
-import type { GitActionResult } from '@sero/common';
+import type { GitActionResult } from '@sero-ai/common';
 import type { CommitNode, FileDiff, GitAppState, GitManagerRequest } from '../shared/types';
 import { createDefaultGitState, normalizeGitState } from '../shared/types';
 import { BranchPanel } from './components/BranchPanel';

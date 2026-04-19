@@ -1,5 +1,5 @@
 import type { Skill } from '@mariozechner/pi-coding-agent';
-import { getDisabledModelSkills } from '@sero/common';
+import { getDisabledModelSkills } from '@sero-ai/common';
 
 interface SkillLoadResult {
   skills: Skill[];

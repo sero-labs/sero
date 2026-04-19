@@ -22,7 +22,7 @@ _Last reviewed: 2026-04-14_
 - External dependencies of note:
   - `@sero-ai/app-runtime` for persisted app section state and workspace context
   - `@sero-ai/ui` for shared UI primitives and model-selection widgets
-  - `@sero/common` for model-selection helpers, plugin metadata, and thinking-level contracts
+  - `@sero-ai/common` for model-selection helpers, plugin metadata, and thinking-level contracts
   - `window.sero` host bridges for profiles, sessions, app-state file IO, auth, model config, plugin install/uninstall, and workspace roots
   - Module Federation remote loading via `vite.config.ts` (`base: './'` is already correct)
 - Upstream callers / consumers of note:
@@ -70,7 +70,7 @@ _Last reviewed: 2026-04-14_
 - Type escape hatches remaining: the local `window.sero` cast is gone from the shared-contract seam; broader session/browser truthfulness work is still pending
 
 ### What changed
-- Added `@sero/common` host-bridge contracts for the admin-consumed `window.sero` subset.
+- Added `@sero-ai/common` host-bridge contracts for the admin-consumed `window.sero` subset.
 - Replaced the plugin-local `SeroApi` copy in `ui/hooks/useSeroFiles.ts` with the canonical shared bridge subset and a typed `getSero()` helper.
 - Kept the admin surface UI-only; no new tool bridging or runtime capability expansion was introduced.
 - Package-local admin typecheck and monorepo `pnpm typecheck` still pass after the shared-contract move.

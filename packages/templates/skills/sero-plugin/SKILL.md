@@ -287,7 +287,7 @@ Critical rules:
 - Pi SDK packages go in `peerDependencies` (runtime provides them)
 - `@sero-ai/app-runtime` is a `devDependency` (shared via MF at runtime)
 - `@sero-ai/ui` is a `devDependency` (bundled at build time)
-- Use `@sero/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
+- Use `@sero-ai/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
 - `stateFile` stays required even for global apps — Sero ignores it there, but Pi CLI uses it as the fallback path
 - `ui`, `component`, and `devPort` are required only when the plugin ships a web UI
 - If the plugin is extension-only, remove the Vite-based `dev` / `build` / UI typecheck scripts and keep an extension-only `typecheck`
@@ -310,7 +310,7 @@ Rules:
 - Provide a `DEFAULT_STATE` constant
 - Keep the shape flat-ish
 - Include auto-incrementing ID fields for lists
-- If a type/helper stops being app-local, move that neutral contract into `@sero/common` instead of duplicating it
+- If a type/helper stops being app-local, move that neutral contract into `@sero-ai/common` instead of duplicating it
 
 ### Step 5: Mount the Plugin in the Workspace
 
@@ -549,7 +549,7 @@ When in doubt, study these existing plugins:
 | Plugin | Best for |
 |--------|----------|
 | `plugins/sero-git-plugin/` | Clean, focused app with single tool + substantial UI |
-| `plugins/sero-kanban-plugin/` | Rich app with subagents, widgets, complex state |
+| `plugins/sero-admin-plugin/` | Rich app with multiple panels, settings, and dashboard surfaces |
 | `plugins/sero-web-plugin/` | Converting an existing Pi extension |
 | `plugins/sero-cron-plugin/` | Background jobs, command-oriented plugins |
 

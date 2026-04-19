@@ -2,7 +2,7 @@ import {
   THINKING_LABELS,
   THINKING_LEVELS,
   type ThinkingLevel,
-} from '@sero/common';
+} from '@sero-ai/common';
 import { cn } from '../../lib/utils';
 
 interface ThinkingLevelPickerProps {

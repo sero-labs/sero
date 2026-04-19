@@ -22,7 +22,7 @@ _Plan drafted: 2026-04-13_
      - `apps/desktop/electron/preload/apps/app-domain.ts`
      - `plugins/sero-git-plugin/ui/GitApp.tsx`
    - The preload bridge should return typed request/result values, not `unknown`, so the UI can stop casting.
-   - This aligns with the repo’s IPC rule and with the “canonical shared contract” guidance used elsewhere in `@sero/common` / app-runtime.
+   - This aligns with the repo’s IPC rule and with the “canonical shared contract” guidance used elsewhere in `@sero-ai/common` / app-runtime.
 
 2. **~~Harden state I/O so malformed files fail loudly and preserve data.~~ ✅ 2026-04-13 (`336b790a`)**
    - Replace the current `readState()` catch-all with a split path:

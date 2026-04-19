@@ -8,7 +8,7 @@ import type {
   Skill,
   Theme,
 } from '@mariozechner/pi-coding-agent';
-import type { PluginCompatibilityStatus } from '@sero/common';
+import type { PluginCompatibilityStatus } from '@sero-ai/common';
 import {
   extractPluginCompatibilityRequirements,
   hasPluginDeclaration,

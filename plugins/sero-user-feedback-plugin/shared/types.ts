@@ -4,7 +4,7 @@ import type {
   UserFeedbackQuestionItem,
   UserFeedbackAnswer,
   UserFeedbackResponse,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 export type QuestionOption = UserFeedbackQuestionOption;
 export type PendingQuestion = UserFeedbackPendingQuestion;

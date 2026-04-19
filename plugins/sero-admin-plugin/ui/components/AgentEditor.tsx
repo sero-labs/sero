@@ -10,7 +10,7 @@ import {
   modelKey,
   resolveSupportedThinkingLevel,
   validateAgentModelConfig,
-} from '@sero/common';
+} from '@sero-ai/common';
 import { AvailableModelPicker } from '@sero-ai/ui/components/model-selection/available-model-picker';
 import { ModelWarningList } from '@sero-ai/ui/components/model-selection/model-warning-list';
 import { Button } from '@sero-ai/ui/components/ui/button';

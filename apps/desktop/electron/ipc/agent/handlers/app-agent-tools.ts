@@ -1,5 +1,5 @@
 import type { AgentSession } from '@mariozechner/pi-coding-agent';
-import type { AppToolContentBlock, AppToolResult } from '@sero/common';
+import type { AppToolContentBlock, AppToolResult } from '@sero-ai/common';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

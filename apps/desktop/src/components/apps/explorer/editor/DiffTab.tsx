@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useAppStore } from '@/stores/app';
-import type { FileDiffEntry } from '@sero/common';
+import type { FileDiffEntry } from '@sero-ai/common';
 import { statusCode, statusColor, basename, langFromPath } from '@/components/apps/explorer/vcs/vcs-utils';
 
 export interface DiffTabState {

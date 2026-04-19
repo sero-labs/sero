@@ -2,7 +2,7 @@ import type { PackageSource } from '@mariozechner/pi-coding-agent';
 import type {
   PluginCompatibilityStatus,
   PluginMeta,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { WidgetManifest } from './widget-manifest';
 
 /**

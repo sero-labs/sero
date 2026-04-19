@@ -27,7 +27,7 @@
     "zod": "catalog:peer"
   },
   "devDependencies": {
-    "@sero/common": "workspace:*",
+    "@sero-ai/common": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

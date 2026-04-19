@@ -1,6 +1,6 @@
 // Re-export shared VCS contracts from the canonical neutral shared module.
 // Electron-only types (GitResult, CreateCheckpointOptions) are defined below.
-import type { VcsCheckpointSource } from '@sero/common';
+import type { VcsCheckpointSource } from '@sero-ai/common';
 
 export type {
   VcsCheckpointSource,
@@ -18,7 +18,7 @@ export type {
   OperationEntry,
   SyncResult,
   PushPreview,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 export interface GitResult {
   exitCode: number;

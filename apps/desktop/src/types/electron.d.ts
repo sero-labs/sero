@@ -20,7 +20,7 @@ import type {
   SeroPluginConfigAPI,
 } from './electron-services';
 import type { ThemePreset, ThemePresetMeta } from './theme';
-import type { SeroUserFeedbackBridge, WorkspaceRuntimeDiagnosticsIPC } from '@sero/common';
+import type { SeroUserFeedbackBridge, WorkspaceRuntimeDiagnosticsIPC } from '@sero-ai/common';
 
 import type {
   ProfileInfo,

@@ -20,8 +20,8 @@ electron/
 - `platform/` owns Electron-specific runtime concerns such as env setup,
   protocol registration, notifications, and security helpers.
 - `features/` owns product behavior. If you are working on workspace,
-  apps, plugins, subagents, container, gateway, kanban, or VCS logic,
-  start there first.
+  apps, plugins, subagents, container, gateway, or VCS logic, start
+  there first.
 - `shared/` is only for code used by multiple features that does not have
   a clear single owner.
 - `ipc/`, `preload/`, and `cli/` are adapter layers. They should expose

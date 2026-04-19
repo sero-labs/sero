@@ -1,4 +1,4 @@
-import type { Bookmark } from '@sero/common';
+import type { Bookmark } from '@sero-ai/common';
 
 import { BRANCH_FORMAT, parseBranches } from '../../support/parsers';
 import type { GitRunner } from '../git-runner';

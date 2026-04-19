@@ -163,7 +163,7 @@ seams under `apps/desktop/electron/`, and every built-in plugin package under
 
 ### Metrics after fixes
 - Wave D High batch landed: **D2 — Canonical contract / bridge ownership**
-- Shared/host contracts moved to neutral owners in `@sero/common`
+- Shared/host contracts moved to neutral owners in `@sero-ai/common`
 - Plugins with direct D2 code work: 4 (`sero-admin`, `sero-git`, `sero-memory`, `sero-web`)
 - Cross-layer host files touched: app-runtime + preload + renderer desktop types + host Git manager/IPC
 

@@ -110,7 +110,7 @@ Look for code that fights Sero's architecture rather than working with it.
   exists but no preload binding; store mutates but never persists; types in
   `src/types/ipc.ts` out of sync with the main-process handler signature).
 - **Type duplication.** Sero mandates importing canonical types from
-  `@sero/common`, `@sero-ai/app-runtime`, or the Pi SDK rather than
+  `@sero-ai/common`, `@sero-ai/app-runtime`, or the Pi SDK rather than
   redeclaring them. Flag parallel `interface Foo` definitions, especially
   around IPC, plugin manifests, tool schemas, and session shapes.
 - **Agent directory drift.** Hardcoded `~/.pi/agent/` instead of the
@@ -341,7 +341,7 @@ etc. Be honest about the costs — churn, review load, potential regressions.
 ## Dependencies & Risks
 Prerequisite work, cross-module touches, migrations, container rebuilds
 (per `CLAUDE.md` any Dockerfile change needs a fresh `sero-node:latest`),
-types that must move to `@sero/common` first, etc. For any item that changes
+types that must move to `@sero-ai/common` first, etc. For any item that changes
 runtime behavior, call out the exact semantic risk (success-path behavior,
 prod-only behavior, migration timing, external assumptions).
 

@@ -22,6 +22,7 @@ const packageDir = path.resolve(process.cwd(), packageArg);
 const packageJsonPath = path.join(packageDir, 'package.json');
 const PREFERRED_PUBLISHED_WORKSPACE_PACKAGES = new Map([
   ['@sero-ai/app-runtime', '@sero-ai/app-runtime'],
+  ['@sero-ai/common', '@sero-ai/common'],
 ]);
 
 function toPosix(value) {

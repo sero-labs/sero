@@ -50,7 +50,7 @@
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/ui": "workspace:*",
-    "@sero/common": "workspace:*",
+    "@sero-ai/common": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

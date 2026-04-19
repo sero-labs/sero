@@ -66,7 +66,7 @@ at `extension/tsconfig.json`).
   },
   "devDependencies": {
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
-    "@sero/common": "workspace:*",
+    "@sero-ai/common": "workspace:*",
     "@sero-ai/ui": "workspace:*",
     "@module-federation/vite": "catalog:",
     "@vitejs/plugin-react": "catalog:",
@@ -85,7 +85,7 @@ at `extension/tsconfig.json`).
 - Pi SDK packages in `peerDependencies` (runtime provides them)
 - `@sero-ai/app-runtime` in `devDependencies` (shared via MF singleton)
 - `@sero-ai/ui` in `devDependencies` (bundled at build time)
-- Use `@sero/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
+- Use `@sero-ai/common` for renderer-safe contracts shared across multiple plugins or desktop packages; keep app-local types in `shared/`
 - `stateFile` remains required even for global apps — Sero ignores it there, but Pi CLI uses it as a fallback path
 - `ui`, `component`, and `devPort` are only needed when the plugin ships a web UI
 - For extension-only plugins, remove the Vite `dev` / `build` scripts and keep an extension-only `typecheck`
@@ -241,7 +241,7 @@ export const DEFAULT_STATE: MyAppState = {
 - Always provide `DEFAULT_STATE`
 - Keep shape flat-ish
 - Include auto-incrementing ID for lists
-- If a type/helper stops being app-local, move that neutral contract into `@sero/common`
+- If a type/helper stops being app-local, move that neutral contract into `@sero-ai/common`
 
 ---
 

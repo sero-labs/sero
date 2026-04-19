@@ -10,7 +10,7 @@
     "types": ["node"],
     "lib": ["ES2023"],
     "paths": {
-      "@sero/common": ["./common/src/index.ts"]
+      "@sero-ai/common": ["./common/src/index.ts"]
     }
   }
 }

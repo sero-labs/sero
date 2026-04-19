@@ -19,7 +19,7 @@ import {
   USER_FEEDBACK_QUESTION_CANCEL_EVENT,
   getUserFeedbackAnswerEvent,
   type UserFeedbackCancelPayload,
-} from '@sero/common';
+} from '@sero-ai/common';
 import { getUserFeedbackBus } from '@electron/shared/lib/user-feedback-bus';
 import { broadcastToWindows } from '../../lib/window-broadcast';
 

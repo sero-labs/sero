@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PluginMeta } from '@sero/common';
+import type { PluginMeta } from '@sero-ai/common';
 
 import {
   evaluatePluginCompatibility,

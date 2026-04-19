@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
-import type { ChangeEntry } from '@sero/common';
+import type { ChangeEntry } from '@sero-ai/common';
 import { VcsSection } from './VcsSection';
 import { ChangeLogRow } from './ChangeLogRow';
 import { ChangeDetail } from './ChangeDetail';

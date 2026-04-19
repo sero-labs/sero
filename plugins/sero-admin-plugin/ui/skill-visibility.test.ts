@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getDisabledModelSkills, withDisabledModelSkills } from '@sero/common';
+import { getDisabledModelSkills, withDisabledModelSkills } from '@sero-ai/common';
 
 describe('admin skill visibility helpers', () => {
   it('normalizes disabled skill names from settings.json', () => {

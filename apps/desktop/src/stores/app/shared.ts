@@ -22,7 +22,7 @@ export const BUILTIN_APPS: AppEntry[] = [
 ];
 
 export const BUILTIN_APP_IDS = new Set(BUILTIN_APPS.map((app) => app.id));
-export const DEFAULT_FAVOURITE_APP_IDS = ['admin', 'cron', 'git', 'kanban'] as const;
+export const DEFAULT_FAVOURITE_APP_IDS = ['admin', 'cron', 'git'] as const;
 
 /** Map a SeroAppManifest → AppEntry. */
 export function manifestToEntry(manifest: SeroAppManifest): AppEntry {

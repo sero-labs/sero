@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
-import type { CreatePullRequestInput, PullRequestDraft } from '@sero/common';
+import type { CreatePullRequestInput, PullRequestDraft } from '@sero-ai/common';
 import { runAdhocAgent } from '@electron/features/agent/assistants/adhoc-agent';
 import { buildPrDraftPrompt, parseDraft } from '@electron/features/agent/assistants/pr-draft';
 import { vcsManager, vcsOps, vcsPrOps, workspaceManager } from '@electron/shared/infra/shared-infra';

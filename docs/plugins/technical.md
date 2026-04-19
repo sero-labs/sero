@@ -225,7 +225,7 @@ Notes:
 
 Shared cross-package contracts live in `packages/common/src/` and should be
 re-exported from `packages/common/src/index.ts` so desktop, remotes, and
-plugins can consume them via `@sero/common`.
+plugins can consume them via `@sero-ai/common`.
 
 Current plugin-system types are defined in `packages/common/src/plugins.ts` and
 re-exported to the renderer via `src/types/plugins.ts` / `src/types/ipc.ts`:
@@ -235,7 +235,7 @@ re-exported to the renderer via `src/types/plugins.ts` / `src/types/ipc.ts`:
 - **`InstalledPlugin`** — Renderer-safe info about an installed plugin
 - **`PluginRegistryEntry`** — Entry from the remote plugin registry
 
-Rules for `@sero/common`:
+Rules for `@sero-ai/common`:
 - keep it renderer-safe (`type`/utility code only; no Electron or Node-only imports)
 - use it for neutral contracts shared across multiple packages
 - keep app-local state in the app/plugin's own `shared/` directory instead of promoting everything prematurely
@@ -508,7 +508,6 @@ These packages are essential to Sero's functionality:
 | `templates` | Workspace scaffolding |
 | `sero-memory-plugin` | Foundational to agent learning |
 | `sero-cron-plugin` | Scheduler, used by other extensions |
-| `sero-kanban-plugin` | Reference implementation + deep workflow |
 | `pi-research-extension` | Subagent orchestration pattern |
 | `pi-plan-mode-extension` | Structured planning safeguard |
 | `sero-admin-plugin` | Workspace administration |
@@ -528,6 +527,7 @@ These are standalone and can be distributed independently:
 | `pi-starling-extension` | finance |
 | `pi-google-extension` | integrations |
 | `sero-git-plugin` | developer-tools |
+| `sero-kanban-plugin` | productivity |
 | `pi-imagegen-extension` | creative |
 | `pi-humanizer-extension` | creative |
 | `pi-slopzilla-extension` | creative |
@@ -540,20 +540,20 @@ There are two authoring outputs:
 ### Pre-built npm bundle
 
 ```bash
-bash scripts/build-plugin.sh plugins/sero-kanban-plugin
+bash scripts/build-plugin.sh plugins/sero-cron-plugin
 ```
 
-This produces `plugins/sero-kanban-plugin/dist/plugin/` with compiled UI,
+This produces `plugins/sero-cron-plugin/dist/plugin/` with compiled UI,
 bundled extension entrypoints, and a cleaned manifest suitable for `npm pack`
 or `npm publish`.
 
 ### Standalone Git source repo
 
 ```bash
-bash scripts/export-plugin-source.sh plugins/sero-kanban-plugin
+bash scripts/export-plugin-source.sh plugins/sero-cron-plugin
 ```
 
-This produces `plugins/sero-kanban-plugin/dist/plugin-source/` with source
+This produces `plugins/sero-cron-plugin/dist/plugin-source/` with source
 files, resolved dependency versions, and vendored unpublished workspace
 packages so Sero can clone it, run `npm install`, and build it locally during
 Git-based installation.

@@ -53,7 +53,7 @@ This folder is the main-process automation engine for the Kanban feature. It wat
 - Canonical shared contract owner: `packages/common/src/kanban.ts`
 
 ### What changed
-- Moved the shared Kanban state + validation contract into `@sero/common` and converted the host/plugin local files into thin re-export or consumption layers.
+- Moved the shared Kanban state + validation contract into `@sero-ai/common` and converted the host/plugin local files into thin re-export or consumption layers.
 - Removed the dead user-visible settings surface (`maxConcurrentCards`, `requireApproval.*`, `reviewLevel`) while leaving old state files readable through plain JSON parsing and canonical default-state factories.
 - Replaced duplicated host fallback-state builders with `createDefaultKanbanState()` and added focused host/plugin tests for the narrowed settings surface.
 
@@ -75,7 +75,7 @@ This folder is the main-process automation engine for the Kanban feature. It wat
 - Split the host workflow hubs into focused prompt, review, and orchestrator helper modules while preserving the public barrels and runtime call graph.
 - Centralized cleanup warning formatting so review-cache, worktree-prune, reset, and delete failures stay visible instead of disappearing behind best-effort cleanup.
 - Added a canonical workspace→container path helper reused by dev-server startup and workspace command execution.
-- Kept the host runtime’s shared Kanban state ownership in `@sero/common` while further narrowing orchestration files to coordinator/phase-runner roles.
+- Kept the host runtime’s shared Kanban state ownership in `@sero-ai/common` while further narrowing orchestration files to coordinator/phase-runner roles.
 
 ### Still outstanding
 - Low-only follow-up: remove or formally land the dead specialized-review scaffolding (`buildQualityReviewPrompt()`) and the currently test-only `core/wave-resolver.ts` so the production surface matches the shipped runtime.

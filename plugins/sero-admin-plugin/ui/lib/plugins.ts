@@ -1,4 +1,4 @@
-import type { InstalledPlugin } from '@sero/common';
+import type { InstalledPlugin } from '@sero-ai/common';
 
 export function sortInstalledPlugins(plugins: InstalledPlugin[]): InstalledPlugin[] {
   return [...plugins].sort((left, right) => left.name.localeCompare(right.name));

@@ -3,7 +3,7 @@ import type {
   AppRuntimeContext,
   AppRuntimeHost,
   AppRuntimeModule,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { SeroAppManifest } from '@/types/ipc';
 
 export type {
@@ -11,7 +11,7 @@ export type {
   AppRuntimeContext,
   AppRuntimeHost,
   AppRuntimeModule,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 export interface AppRuntimeWorkspace {
   id: string;

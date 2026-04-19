@@ -1,4 +1,4 @@
-import type { CreatePullRequestResult } from '@sero/common';
+import type { CreatePullRequestResult } from '@sero-ai/common';
 
 import type { GitRunner } from '../git-runner';
 

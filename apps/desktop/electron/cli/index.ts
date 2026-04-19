@@ -91,8 +91,7 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   // Planning & context
   'plan_todos',
   'slopzilla',
-  // Kanban & agent management
-  'kanban',
+  // Agent management
   'create_agent',
   // User input — interactive (timeout-exempt via INTERACTIVE_TOOLS)
   'question',

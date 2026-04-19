@@ -17,7 +17,7 @@ import type {
   VcsEvent,
   VcsWorkspaceState,
   WorkingCopyStatus,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { EditorRoot, TerminalCreateResult } from '@/types/ipc';
 
 export const vcsBridge = {

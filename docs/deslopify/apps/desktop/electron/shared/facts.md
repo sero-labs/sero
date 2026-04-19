@@ -64,7 +64,7 @@ This folder is the Electron main-process shared foundation layer: singleton infr
 - Hardened `settings-helpers.ts` into an explicit read-result boundary with actionable malformed-file errors, and updated onboarding/profile mutators to abort instead of rewriting broken `settings.json` files.
 - Split shared infra ownership into `infra/shared-infra.ts` + focused `infra/{singletons,runtime-settings}.ts` registrars while preserving the exported singleton API used by IPC, CLI, and feature code.
 - Removed the dead provider-manifest helper, switched provider-manifest caching to explicit invalidation with a safety TTL, and wired cache invalidation through settings/plugin mutations.
-- Deduplicated the user-feedback bus singleton factory through shared `@sero/common` ownership so host/plugin code no longer maintain mirrored emitter bootstraps.
+- Deduplicated the user-feedback bus singleton factory through shared `@sero-ai/common` ownership so host/plugin code no longer maintain mirrored emitter bootstraps.
 
 ### Still outstanding
 - None.

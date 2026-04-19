@@ -10,7 +10,7 @@ import {
   extractGitHubUrl,
   normalizeGitHubRemoteUrl,
   toGitHubCloneUrl,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { GitRunner } from '@electron/features/vcs/core/git-runner';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { CreateGitHubRepoInput, CreateGitHubRepoResult } from '@/types/ipc';

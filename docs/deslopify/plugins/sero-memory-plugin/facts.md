@@ -85,7 +85,7 @@ _Last reviewed: 2026-04-13_
 - Type escape hatches remaining: unchanged outside the still-pending QMD/profile-path seam
 
 ### What changed
-- Added a neutral shared cron persistence contract in `@sero/common`.
+- Added a neutral shared cron persistence contract in `@sero-ai/common`.
 - Replaced the memory plugin’s mirrored cron contract copy with imports from the neutral shared owner.
 - Preserved the existing runtime default state locally while moving contract ownership out of the plugin.
 - Package-local `typecheck` and monorepo `pnpm typecheck` still pass after the shared-contract move.

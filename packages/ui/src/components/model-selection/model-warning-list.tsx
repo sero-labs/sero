@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
-import { formatModelValidationWarning, type ModelValidationWarning } from '@sero/common';
+import { formatModelValidationWarning, type ModelValidationWarning } from '@sero-ai/common';
 import { cn } from '../../lib/utils';
 
 interface ModelWarningListProps {

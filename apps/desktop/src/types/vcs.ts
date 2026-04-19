@@ -1,5 +1,5 @@
 // Compatibility barrel for legacy `@/types/vcs` imports.
-// Canonical VCS contracts live in @sero/common.
+// Canonical VCS contracts live in @sero-ai/common.
 export type {
   VcsCheckpointSource,
   VcsCheckpoint,
@@ -22,4 +22,4 @@ export type {
   CreatePullRequestInput,
   CreatePullRequestResult,
   VcsEvent,
-} from '@sero/common';
+} from '@sero-ai/common';

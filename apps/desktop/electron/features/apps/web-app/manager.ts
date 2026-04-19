@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 
-import type { WebAppActionFailure, WebAppActionResult, WebAppRequest } from '@sero/common';
+import type { WebAppActionFailure, WebAppActionResult, WebAppRequest } from '@sero-ai/common';
 import {
   addBookmark,
   clearHistory,

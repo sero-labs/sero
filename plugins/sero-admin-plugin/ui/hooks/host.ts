@@ -5,7 +5,7 @@
  * centralized and easy to update.
  */
 
-import type { SeroAdminBridge } from '@sero/common';
+import type { SeroAdminBridge } from '@sero-ai/common';
 
 export type {
   AgentFileDataIPC,
@@ -35,7 +35,7 @@ export type {
   SkillSummaryIPC,
   StructuredAgentModelIPC,
   WorkspaceRootIPC,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 /** Single typed access point for the renderer host bridge. */
 export function getSero(): SeroAdminBridge {

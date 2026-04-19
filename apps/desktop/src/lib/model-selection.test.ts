@@ -7,7 +7,7 @@ import {
   validateAgentModelConfig,
   validateGlobalTierSelections,
   type SharedAvailableModelGroup,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 const groups: SharedAvailableModelGroup[] = [
   {

@@ -2,7 +2,7 @@ import type { ExtensionContext } from '@mariozechner/pi-coding-agent';
 import type {
   ExtensionRuntimeMessage,
   ExtensionSessionRuntime,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { ContainerManager } from '@electron/features/container';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 

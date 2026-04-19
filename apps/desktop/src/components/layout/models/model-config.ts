@@ -8,4 +8,4 @@ export {
   findModel,
   findGroup,
   type ThinkingLevel,
-} from '@sero/common';
+} from '@sero-ai/common';

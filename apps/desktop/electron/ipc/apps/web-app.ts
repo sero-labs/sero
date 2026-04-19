@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 
 import { IpcChannels } from '@/types/ipc-channels';
-import type { WebAppRequest } from '@sero/common';
+import type { WebAppRequest } from '@sero-ai/common';
 import { webWorkspaceActionManager } from '@electron/features/apps/web-app/manager';
 
 export function registerWebAppHandlers(): void {

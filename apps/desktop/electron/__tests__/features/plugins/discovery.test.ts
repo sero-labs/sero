@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { InstalledPlugin } from '@sero/common';
+import type { InstalledPlugin } from '@sero-ai/common';
 
 vi.mock('@electron/features/plugins/manager', () => ({
   listInstalledPlugins: vi.fn(),

@@ -1,4 +1,4 @@
-import type { Bookmark } from '@sero/common';
+import type { Bookmark } from '@sero-ai/common';
 
 import { inferConventionalType, isAutoPushBookmark, slugifyBranchLabel } from '../../support/branch-naming';
 import type { GitRunner } from '../git-runner';

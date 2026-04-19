@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Skill } from '@mariozechner/pi-coding-agent';
-import { getDisabledModelSkills, withDisabledModelSkills } from '@sero/common';
+import { getDisabledModelSkills, withDisabledModelSkills } from '@sero-ai/common';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 
 function makeSkill(name: string, disableModelInvocation = false): Skill {

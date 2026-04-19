@@ -14,7 +14,7 @@ import {
   USER_FEEDBACK_QUESTION_CANCEL_EVENT,
   getUserFeedbackAnswerEvent,
   type UserFeedbackCancelPayload,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { PendingQuestion, QuestionResponse } from '../shared/types';
 import { getUserFeedbackBus } from '../shared/emitter';
 

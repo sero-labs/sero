@@ -35,7 +35,7 @@ _Last reviewed: 2026-04-13_
 
 ## Architectural notes
 - This is the deepest built-in plugin exemplar in the repo: package manifest, prompt templates, AD-020 tool registration, shared contracts, federated UI, and dashboard widget all live in one package.
-- The shared board contract is now correctly owned by `@sero/common`; `shared/types.ts` and `shared/validation.ts` are thin plugin-local re-export layers plus the plugin-specific error-log types.
+- The shared board contract is now correctly owned by `@sero-ai/common`; `shared/types.ts` and `shared/validation.ts` are thin plugin-local re-export layers plus the plugin-specific error-log types.
 - The package gets the important plugin-platform basics right: production Vite `base: './'`, manifest-defined widget exposure, and a normal `pi.registerTool()` extension path instead of bypassing the CLI bridge.
 - Workflow ownership is still split. The extension owns the canonical `kanban` tool behavior, but the UI also mutates workflow state directly with local reducers in `ui/lib/card-workflow.ts` and updater callbacks in `ui/components/CardDetail.tsx` / `ui/KanbanApp.tsx`.
 - The current tests only protect the extension/shared layer, not the UI-side action path that now duplicates workflow behavior.
@@ -44,7 +44,7 @@ _Last reviewed: 2026-04-13_
 - Review decisions are behavior-sensitive, not cosmetic. `request-revisions` and `cancel-pr` must preserve GitHub PR close behavior, review-cache deletion, worktree cleanup, and error-log append semantics.
 - Board/error-log file reads must distinguish “file missing on first run” from “file malformed or unreadable”; otherwise the next write can silently erase board history.
 - The federated UI path is production-sensitive: `vite.config.ts` correctly uses `base: './'`, and future cleanup must preserve MF remote/widget exposure.
-- The recent shared-contract move introduced runtime value re-exports from `@sero/common` in `shared/types.ts`; packaged built-in plugin staging should keep those imports resolvable outside the monorepo layout.
+- The recent shared-contract move introduced runtime value re-exports from `@sero-ai/common` in `shared/types.ts`; packaged built-in plugin staging should keep those imports resolvable outside the monorepo layout.
 
 ## Surprising discoveries
 - The UI can request revisions or cancel a PR without going through the extension tool path. That skips the extension’s GitHub/worktree/review-cache/error-log side effects even though the UI text implies those actions happened.

@@ -29,7 +29,7 @@ This area is compact, but it carries disproportionate risk because it owns the m
    - Keep these types close to the protocol adapter so they do not become another mega-barrel.
 
 3. **Promote one canonical language-routing/config surface.**
-   - Move the language/extension metadata into a shared renderer-safe module (`@sero/common` or a focused `src/types/lsp.ts`-style contract) consumed by both `electron/features/editor` and `src/lsp`.
+   - Move the language/extension metadata into a shared renderer-safe module (`@sero-ai/common` or a focused `src/types/lsp.ts`-style contract) consumed by both `electron/features/editor` and `src/lsp`.
    - Keep the main-process-only fields (install/check command) adjacent, but derive renderer-visible language IDs from the same source.
    - This follows the “import canonical types/contracts instead of re-declaring them” rule from the project guidance.
 

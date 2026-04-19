@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
-    "@sero/common": "workspace:*",
+    "@sero-ai/common": "workspace:*",
     "@headless-tree/core": "^1.6.3",
     "@headless-tree/react": "^1.6.3",
     "@radix-ui/react-use-controllable-state": "^1.2.2",

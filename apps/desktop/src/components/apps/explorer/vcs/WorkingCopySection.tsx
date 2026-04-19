@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 import { PlusCircle } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useVcsStore } from '@/stores/vcs';
-import type { WorkingCopyStatus } from '@sero/common';
+import type { WorkingCopyStatus } from '@sero-ai/common';
 import { VcsSection } from './VcsSection';
 import { statusCode, statusColor } from './vcs-utils';
 

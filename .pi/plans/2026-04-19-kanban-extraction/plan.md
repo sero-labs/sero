@@ -50,7 +50,7 @@ Introduce a new **generic plugin runtime contract**:
 - the runtime instance receives a **typed generic capability bag** (app-state read/write/watch, workspace/container execution, subagent execution, git/worktree/PR ops, dev-server lifecycle, runtime refresh);
 - Kanban runtime code moves into `plugins/sero-kanban-plugin/runtime/**` and uses only:
   - plugin-local code,
-  - `@sero/common`,
+  - `@sero-ai/common`,
   - the injected generic runtime capability bag.
 
 That leaves `extension/` free to stay Pi-CLI-safe and file-based, while `runtime/` becomes the Sero-only background owner.
@@ -119,7 +119,7 @@ These move into `plugins/sero-kanban-plugin` because they exist only for Kanban:
 - `extension/` stays **Pi-CLI-friendly** and continues to operate on the same file contract.
 - `runtime/` is **Sero-only** and owns background automation.
 - `ui/` remains file-reactive via `useAppState()`, but workflow actions move onto plugin tools.
-- `@sero/common` remains the owner of renderer-safe shared Kanban state/validation.
+- `@sero-ai/common` remains the owner of renderer-safe shared Kanban state/validation.
 
 ## Architecture
 
@@ -327,7 +327,7 @@ Create `plugins/sero-kanban-plugin/runtime/**` and port the current host engine 
 
 Key rewrites:
 - replace direct imports from `@electron/.../kanban/*` with plugin-local modules or injected host capabilities;
-- keep shared card/state validation in `@sero/common`;
+- keep shared card/state validation in `@sero-ai/common`;
 - keep runtime-specific state writes on the host capability bag (`ctx.host.appState.update(...)`), not raw `fs`, because this is the Sero-only runtime path.
 
 #### Notes

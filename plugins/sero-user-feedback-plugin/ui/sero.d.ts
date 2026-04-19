@@ -1,4 +1,4 @@
-import type { SeroUserFeedbackBridge } from '@sero/common';
+import type { SeroUserFeedbackBridge } from '@sero-ai/common';
 
 declare global {
   interface Window {

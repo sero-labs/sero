@@ -39,9 +39,9 @@ describe('plugin install policy', () => {
 
   it('rejects conflicts with built-in apps', () => {
     expect(() => assertPluginInstallAllowed(
-      [createManifest('kanban', '/repo/plugins/sero-kanban-plugin', false)],
-      'kanban',
-      '/tmp/.sero-ui/agent/packages/kanban',
+      [createManifest('admin', '/repo/plugins/sero-admin-plugin', false)],
+      'admin',
+      '/tmp/.sero-ui/agent/packages/admin',
     )).toThrow(/already used by an existing app/);
   });
 

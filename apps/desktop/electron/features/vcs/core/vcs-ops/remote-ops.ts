@@ -1,4 +1,4 @@
-import type { Remote } from '@sero/common';
+import type { Remote } from '@sero-ai/common';
 
 import { parseRemotes } from '../../support/parsers';
 import type { GitRunner } from '../git-runner';

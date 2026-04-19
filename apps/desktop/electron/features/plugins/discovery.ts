@@ -6,7 +6,7 @@
  * combined results.
  */
 
-import type { DiscoveredPlugin } from '@sero/common';
+import type { DiscoveredPlugin } from '@sero-ai/common';
 import { listInstalledPlugins } from './manager';
 
 const GITHUB_TOPICS = ['sero-agent-plugin', 'sero-ai-plugin'] as const;

@@ -9,9 +9,9 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "outDir": "dist/electron",
-    /* Widened to monorepo root so contracts.ts can import shared validation
-       from plugins/sero-kanban-plugin/shared/. Safe: this tsconfig is only
-       used for `tsc --noEmit` type checking — the actual build uses esbuild. */
+    /* Widened to the monorepo root so Electron typecheck can resolve shared
+       workspace packages and plugin aliases during `tsc --noEmit`. Safe: the
+       production Electron build still uses esbuild entry bundling instead. */
     "rootDir": "../..",
     "lib": ["ES2022"],
     "baseUrl": ".",
@@ -20,7 +20,7 @@
       "@electron/*": ["electron/*"],
       "@plugins/*": ["../../plugins/*"],
       "@packages/*": ["../../packages/*"],
-      "@sero/common": ["../../packages/common/src/index.ts"],
+      "@sero-ai/common": ["../../packages/common/src/index.ts"],
       // Subpath export — not resolvable under moduleResolution:node without this mapping
       "@mariozechner/pi-ai/oauth": ["./node_modules/@mariozechner/pi-ai/dist/oauth"]
     }

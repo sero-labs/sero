@@ -75,7 +75,7 @@ widget registry used by the desktop dashboard and plugin remotes.
 - `useAppState()` optimistically updates local React state before awaiting or
   catching `appState.write()`, so persistence failures can leave a remote UI
   ahead of disk without any package-level recovery path.
-- `sero-bridge.ts` duplicates the model-group contracts that `@sero/common` is
+- `sero-bridge.ts` duplicates the model-group contracts that `@sero-ai/common` is
   already supposed to own, which confirms the shared-package review order in the
   broader tasklist.
 
@@ -94,7 +94,7 @@ widget registry used by the desktop dashboard and plugin remotes.
 - Re-validated the runtime widget singleton path through `apps/desktop/src/components/apps/dashboard/useRuntimeWidgets.test.ts`.
 
 ### Still outstanding
-- `sero-bridge.ts` still duplicates neutral model-group shapes that belong in `@sero/common` (Medium).
+- `sero-bridge.ts` still duplicates neutral model-group shapes that belong in `@sero-ai/common` (Medium).
 - `useAppState()` still needs explicit write-failure/lifecycle hardening (Medium).
 - Widget registration idempotence for inline size objects is still pending (Low).
 
@@ -108,7 +108,7 @@ widget registry used by the desktop dashboard and plugin remotes.
 - Focused runtime coverage added in desktop test suite: `apps/desktop/src/lib/app-runtime.test.tsx`
 
 ### What changed
-- Rebased `AppModelInfo` / `AppModelGroup` on the canonical shared model contracts from `@sero/common` and made app-state bridge methods generic for typed consumers.
+- Rebased `AppModelInfo` / `AppModelGroup` on the canonical shared model contracts from `@sero-ai/common` and made app-state bridge methods generic for typed consumers.
 - Hardened `useAppState()` with watch liveness guards, explicit write-failure warnings, and a re-read/rollback recovery path that preserves optimistic success-path UX.
 - Normalized `useWidgetRegistration()` size dependencies and added a registry equality short-circuit so equivalent inline definitions stop republishing snapshots.
 - Added focused runtime tests for missing-bridge failure, optimistic write recovery, and sticky/idempotent widget registration behavior.

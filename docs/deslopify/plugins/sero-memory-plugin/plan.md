@@ -22,7 +22,7 @@ _Plan drafted: 2026-04-13_
 1. **~~Extract the cron auto-consolidation seam into a truthful shared contract and fail closed on malformed cron state.~~ ✅ 2026-04-13 (`336b790a`, `d885ff2d`)**
    - Stop letting the memory plugin own a mirrored copy of cron’s persisted shape.
    - Target structure:
-     - move the minimal shared cron state/job contract needed by both plugins to `@sero/common` (or another neutral shared package)
+     - move the minimal shared cron state/job contract needed by both plugins to `@sero-ai/common` (or another neutral shared package)
      - replace `extension/cron-types.ts` with imports from that canonical module
      - change `automation-state.ts` so malformed/unreadable cron state returns an explicit error instead of silently defaulting to `DEFAULT_CRON_STATE`
    - If the cron file cannot be parsed, the memory plugin should skip sync and surface a clear warning rather than rewriting the scheduler file.

@@ -73,9 +73,9 @@ This feature is the Electron-side Git/VCS service layer for Sero. It initializes
 - Type escape hatches remaining: 0 in this folder
 
 ### What changed
-- Canonical shared VCS contracts now live in `packages/common/src/vcs.ts` and are exported from `@sero/common`.
+- Canonical shared VCS contracts now live in `packages/common/src/vcs.ts` and are exported from `@sero-ai/common`.
 - `apps/desktop/src/types/vcs.ts` is now a compatibility barrel that re-exports the canonical shared contracts instead of defining a parallel copy.
-- Electron VCS runtime, preload/IPC boundaries, and renderer VCS consumers now import VCS contract types from `@sero/common` rather than `@/types/vcs`.
+- Electron VCS runtime, preload/IPC boundaries, and renderer VCS consumers now import VCS contract types from `@sero-ai/common` rather than `@/types/vcs`.
 
 ### Still outstanding
 - SSH transport cache invalidation remains process-lifetime and still needs the dedicated Medium follow-up.

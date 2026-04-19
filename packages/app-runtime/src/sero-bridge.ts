@@ -15,7 +15,7 @@ import type {
   SharedModelInfo,
   WebAppActionResult,
   WebAppRequest,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 export interface SeroWindowAppStateBridge {
   read<TData = unknown>(filePath: string): Promise<TData>;

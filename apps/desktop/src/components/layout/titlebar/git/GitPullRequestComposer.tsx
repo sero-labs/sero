@@ -8,7 +8,7 @@ import type {
   CreatePullRequestResult,
   PullRequestPreview,
   PullRequestState,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 interface PullRequestFeedback {
   tone: 'success' | 'error' | 'info';

@@ -34,7 +34,7 @@ import type {
   Remote,
   SyncResult,
   WorkingCopyStatus,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 export class VcsOps {
   constructor(private readonly runner: GitRunner) {}

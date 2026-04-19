@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { InstalledPlugin } from '@sero/common';
+import type { InstalledPlugin } from '@sero-ai/common';
 import { getSero } from './host';
 import { normalizeInstallSource, sortInstalledPlugins } from '../lib/plugins';
 

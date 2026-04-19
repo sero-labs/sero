@@ -51,7 +51,7 @@ Likely to own next, if moved:
 
 ### Shared / Neutral
 Should remain in shared/common/core seams, not in either Kanban package specifically:
-- `@sero/common` Kanban state, card, settings, and transition validation types/helpers
+- `@sero-ai/common` Kanban state, card, settings, and transition validation types/helpers
 - generic app-tool invocation bridge (`appAgent.invokeTool`, `useAppTools()`)
 - generic persisted state APIs (`appStateManager`)
 - generic filesystem, workspace, container, subagent, and CLI bridge infrastructure

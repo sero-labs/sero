@@ -7,7 +7,7 @@ import {
   parseModelKey,
   resolveSupportedThinkingLevel,
   validateGlobalTierSelections,
-} from '@sero/common';
+} from '@sero-ai/common';
 import { AvailableModelPicker } from '@sero-ai/ui/components/model-selection/available-model-picker';
 import { ModelWarningList } from '@sero-ai/ui/components/model-selection/model-warning-list';
 import { ThinkingLevelPicker } from '@sero-ai/ui/components/model-selection/thinking-level-picker';

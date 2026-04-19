@@ -14,7 +14,7 @@ import type {
   Bookmark,
   Remote,
   OperationEntry,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 // ── Separator used in Git format strings for unambiguous parsing ───
 

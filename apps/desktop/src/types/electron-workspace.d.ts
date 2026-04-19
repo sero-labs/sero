@@ -23,7 +23,7 @@ import type {
   PullRequestDraft,
   CreatePullRequestInput,
   CreatePullRequestResult,
-} from '@sero/common';
+} from '@sero-ai/common';
 
 export interface SeroEditorAPI {
   /** Read a file from the workspace (dual-mode: container or host). */

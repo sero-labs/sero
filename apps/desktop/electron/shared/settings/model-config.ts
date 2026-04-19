@@ -6,7 +6,7 @@ import {
   validateGlobalTierSelections,
   type SharedAvailableModelGroup,
   type SharedModelInfo,
-} from '@sero/common';
+} from '@sero-ai/common';
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core';
 import type {
   GlobalModelConfigInput,
