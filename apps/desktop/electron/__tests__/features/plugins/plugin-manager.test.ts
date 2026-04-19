@@ -120,6 +120,43 @@ describe('plugin manager discovery registration', () => {
     await expect(fs.stat(path.join(agentDir, 'packages', 'invalid-future-plugin'))).rejects.toThrow();
   });
 
+  it('blocks installs when an active local plugin development session already owns the app id', async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-dev-session-'));
+    const sourceDir = await createPluginSource('todo');
+    const { installPlugin, agentDir } = await importModules();
+
+    await fs.mkdir(agentDir, { recursive: true });
+    await fs.writeFile(
+      path.join(agentDir, 'settings.json'),
+      JSON.stringify({
+        sero: {
+          pluginDev: {
+            sessions: {
+              dev_1: {
+                sessionId: 'dev_1',
+                sourcePath: sourceDir,
+                expectedAppId: 'todo',
+                lastKnownName: 'Todo Dev',
+                status: 'active',
+                uiMode: 'backend-only',
+                remoteEntryOverride: null,
+                lastError: null,
+                createdAt: '2026-04-19T20:00:00.000Z',
+                updatedAt: '2026-04-19T20:05:00.000Z',
+              },
+            },
+          },
+        },
+      }, null, 2),
+      'utf8',
+    );
+
+    await expect(installPlugin(sourceDir)).rejects.toThrow(
+      /already owned by active local plugin development session dev_1/,
+    );
+    await expect(fs.stat(path.join(agentDir, 'packages', 'todo'))).rejects.toThrow();
+  });
+
   it('reconciles installed plugin activation so unsupported plugins stay on disk but out of settings', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-plugin-manager-reconcile-'));
     const { reconcileInstalledPluginActivation, agentDir } = await importModules();

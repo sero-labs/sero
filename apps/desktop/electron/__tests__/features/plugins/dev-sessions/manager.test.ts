@@ -216,6 +216,54 @@ describe('PluginDevSessionManager', () => {
     expect(mocks.readPluginDevSessionRecords).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps previously broken sessions persisted without revalidation while bootstrapping active ones', async () => {
+    const brokenRecord = createRecord({
+      sessionId: 'dev_broken',
+      sourcePath: '/tmp/broken-plugin',
+      expectedAppId: 'broken-plugin',
+      lastKnownName: 'Broken Plugin',
+      status: 'broken',
+      uiMode: 'unavailable',
+      lastError: 'Local plugin folder is missing package.json: /tmp/broken-plugin',
+      updatedAt: '2026-04-19T20:10:00.000Z',
+    });
+    mocks.readPluginDevSessionRecords.mockReturnValue([
+      createRecord(),
+      brokenRecord,
+    ]);
+    mocks.validatePluginDevSourceManifest.mockResolvedValue({
+      sourcePath: '/tmp/plugin-one',
+      manifest: createManifest('plugin-one', '/tmp/plugin-one'),
+      declaredDevPort: undefined,
+      devCommand: null,
+      hasDeclaredUi: false,
+      hasBuiltUi: false,
+    });
+    mocks.ensurePluginDevServer.mockResolvedValue({
+      remoteEntryOverride: null,
+      uiMode: 'backend-only',
+      error: null,
+    });
+
+    const manager = new PluginDevSessionManager();
+    const records = await manager.list();
+
+    expect(mocks.validatePluginDevSourceManifest).toHaveBeenCalledTimes(1);
+    expect(mocks.validatePluginDevSourceManifest).toHaveBeenCalledWith('/tmp/plugin-one', {
+      expectedAppId: 'plugin-one',
+    });
+    expect(records).toContainEqual(expect.objectContaining({
+      sessionId: 'dev_broken',
+      status: 'broken',
+      lastError: 'Local plugin folder is missing package.json: /tmp/broken-plugin',
+    }));
+    expect(mocks.watcher.watch).toHaveBeenCalledWith('dev_1', '/tmp/plugin-one');
+    expect(mocks.watcher.unwatch).toHaveBeenCalledWith('dev_broken');
+    expect(mocks.reconcileActiveDevSessionProjection).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 'plugin-one', packagePath: '/tmp/plugin-one' }),
+    ]);
+  });
+
   it('keeps degraded sessions active with built fallback state when dev server startup fails', async () => {
     mocks.readPluginDevSessionRecords.mockReturnValue([createRecord()]);
     mocks.validatePluginDevSourceManifest.mockResolvedValue({

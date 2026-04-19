@@ -822,6 +822,7 @@ Recommended refactors while implementing:
 
 ### LPD-11 — Add main-process tests for lifecycle, conflicts, fallback, and refresh
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - new `apps/desktop/electron/__tests__/features/plugins/dev-sessions/*.test.ts`
   - `apps/desktop/electron/__tests__/features/apps/app-discovery.test.ts`

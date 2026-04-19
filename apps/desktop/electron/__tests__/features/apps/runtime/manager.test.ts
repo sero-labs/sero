@@ -314,6 +314,61 @@ describe('AppRuntimeManager', () => {
     );
   });
 
+  it('reloads the targeted app from the latest discovered manifest on restart', async () => {
+    const watch = vi.fn<(filePath: string) => void>();
+    const unwatch = vi.fn<(filePath: string) => void>();
+    const workspaces = [{ id: 'ws-1', path: '/repo-1' }];
+    const notesV1 = createManifest('notes', {
+      runtimeEntry: '/tmp/notes-v1/runtime/index.js',
+      packagePath: '/tmp/notes-v1',
+    });
+    const notesV2 = createManifest('notes', {
+      runtimeEntry: '/tmp/notes-v2/runtime/index.js',
+      packagePath: '/tmp/notes-v2',
+    });
+    const calendar = createManifest('calendar');
+    const createdRuntimes: Array<{
+      ctx: AppRuntimeContext;
+      runtimeEntryPath: string;
+      runtime: {
+        start: ReturnType<typeof vi.fn>;
+        handleStateChange: ReturnType<typeof vi.fn>;
+        dispose: ReturnType<typeof vi.fn>;
+      };
+    }> = [];
+    let discoveryRevision = 0;
+
+    const manager = new AppRuntimeManager({
+      discoverApps: async () => (discoveryRevision === 0 ? [notesV1, calendar] : [notesV2, calendar]),
+      getOpenWorkspaces: async () => workspaces,
+      loadRuntimeModule: async (runtimeEntryPath: string): Promise<AppRuntimeModule> => ({
+        createAppRuntime: async (ctx) => {
+          const runtime = {
+            start: vi.fn(async () => {}),
+            handleStateChange: vi.fn(async () => {}),
+            dispose: vi.fn(async () => {}),
+          };
+          createdRuntimes.push({ ctx, runtimeEntryPath, runtime });
+          return runtime;
+        },
+      }),
+      createHost: () => createHostStub(watch, unwatch),
+    });
+
+    await manager.initialize();
+    discoveryRevision = 1;
+    const initialNotesRuntime = createdRuntimes.find((entry) => entry.ctx.appId === 'notes')!.runtime;
+    const initialCalendarRuntime = createdRuntimes.find((entry) => entry.ctx.appId === 'calendar')!.runtime;
+
+    await manager.restartApp('notes');
+
+    const notesRuntimes = createdRuntimes.filter((entry) => entry.ctx.appId === 'notes');
+    expect(notesRuntimes).toHaveLength(2);
+    expect(notesRuntimes[1]?.runtimeEntryPath).toBe('/tmp/notes-v2/runtime/index.js');
+    expect(initialNotesRuntime.dispose).toHaveBeenCalledTimes(1);
+    expect(initialCalendarRuntime.dispose).not.toHaveBeenCalled();
+  });
+
   it('restarts only the targeted app runtimes', async () => {
     const watch = vi.fn<(filePath: string) => void>();
     const unwatch = vi.fn<(filePath: string) => void>();

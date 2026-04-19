@@ -198,6 +198,52 @@ describe('plugin-dev refresh', () => {
     expect(mocks.stopPluginDevServer).toHaveBeenCalledWith(sourcePath);
   });
 
+  it('deactivates immediately when the source folder disappears', async () => {
+    const sourcePath = await createTempDir();
+    await rm(sourcePath, { recursive: true, force: true });
+    tempDirs = tempDirs.filter((dir) => dir !== sourcePath);
+    mocks.validatePluginDevSourceManifest.mockRejectedValue(new Error('filesystem busy'));
+
+    const result = await refreshPluginDevSession(createRecord(sourcePath), { reason: 'file-change' });
+
+    expect(mocks.validatePluginDevSourceManifest).toHaveBeenCalledTimes(1);
+    expect(result.effect).toBe('deactivated');
+    expect(result.record).toEqual(expect.objectContaining({
+      status: 'broken',
+      uiMode: 'unavailable',
+      remoteEntryOverride: null,
+      lastError: 'filesystem busy',
+    }));
+    expect(result.event).toEqual({
+      type: 'changed',
+      pluginId: 'plugin-one',
+      reason: 'dev-session-stopped',
+    });
+    expect(mocks.stopPluginDevServer).toHaveBeenCalledWith(sourcePath);
+  });
+
+  it('deactivates immediately when the source app id drifts', async () => {
+    const sourcePath = await createTempDir();
+    mocks.validatePluginDevSourceManifest.mockRejectedValue(
+      new Error(`Local plugin folder app id drifted from "plugin-one" to "plugin-renamed" at ${sourcePath}`),
+    );
+
+    const result = await refreshPluginDevSession(createRecord(sourcePath), { reason: 'file-change' });
+
+    expect(mocks.validatePluginDevSourceManifest).toHaveBeenCalledTimes(1);
+    expect(result.effect).toBe('deactivated');
+    expect(result.record).toEqual(expect.objectContaining({
+      status: 'broken',
+      lastError: expect.stringContaining('app id drifted from "plugin-one" to "plugin-renamed"'),
+    }));
+    expect(result.event).toEqual({
+      type: 'changed',
+      pluginId: 'plugin-one',
+      reason: 'dev-session-stopped',
+    });
+    expect(mocks.stopPluginDevServer).toHaveBeenCalledWith(sourcePath);
+  });
+
   it('reconciles projection, invalidates caches, and restarts the targeted runtime', async () => {
     const manifest = createManifest('plugin-one', '/tmp/plugin-one');
     const event: PluginChangeEvent = {

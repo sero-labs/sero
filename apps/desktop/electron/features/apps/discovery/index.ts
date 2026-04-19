@@ -59,6 +59,7 @@ interface PkgJson {
 export interface ReadAppManifestOptions {
   useDeclaredDevPort?: boolean;
   remoteEntryOverride?: string | null;
+  suppressUi?: boolean;
 }
 
 const devPluginsEnv = process.env.SERO_DEV_PLUGINS?.trim();
@@ -155,6 +156,7 @@ function buildManifest(
   const compatibilityRequirements = pluginDeclared
     ? extractPluginCompatibilityRequirements(pkgJson.sero?.plugin)
     : null;
+  const suppressUi = options.suppressUi === true;
 
   if (pluginDeclared) {
     warnInvalidPluginMeta(packagePath, parsedPlugin.warnings);
@@ -170,13 +172,13 @@ function buildManifest(
     stateFile: app.stateFile,
     scope,
     globalStatePath: scope === 'global' ? path.join(SERO_HOME, 'apps', app.id, 'state.json') : null,
-    uiEntry: app.ui ? path.resolve(packagePath, app.ui) : null,
+    uiEntry: suppressUi ? null : app.ui ? path.resolve(packagePath, app.ui) : null,
     runtimeEntry: app.runtime ? path.resolve(packagePath, app.runtime) : null,
-    component: app.component || null,
+    component: suppressUi ? null : app.component || null,
     devPort: options.useDeclaredDevPort
       ? normalizeDeclaredDevPort(app.devPort)
       : getManifestDevPort(app.id, packagePath, normalizeDeclaredDevPort(app.devPort)),
-    remoteEntryOverride: options.remoteEntryOverride ?? null,
+    remoteEntryOverride: suppressUi ? null : options.remoteEntryOverride ?? null,
     runtimeExternals: normalizeRuntimeExternals(app.runtimeExternals),
     packagePath,
     isPlugin: pluginDeclared,
@@ -206,17 +208,49 @@ export async function readAppManifestFromPackagePath(
   return pkgJson ? buildManifest(pkgJson, resolvedPath, options) : null;
 }
 
+function isActivePluginDevSessionRecord(record: PluginDevSessionRecord): boolean {
+  return record.status !== 'broken';
+}
+
+function getActivePluginDevSessionRecordMap(
+  records = readPluginDevSessionRecords(),
+): Map<string, PluginDevSessionRecord> {
+  return new Map(
+    records
+      .filter(isActivePluginDevSessionRecord)
+      .map((record) => [path.resolve(record.sourcePath), record]),
+  );
+}
+
+function getActiveDevSessionManifestOptions(
+  packagePath: string,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
+): ReadAppManifestOptions {
+  const record = activeDevSessionRecordMap.get(path.resolve(packagePath));
+  return {
+    remoteEntryOverride: record?.remoteEntryOverride ?? null,
+    suppressUi: record?.uiMode === 'backend-only' || record?.uiMode === 'unavailable',
+  };
+}
+
 async function appendManifestAtPath(
   results: SeroAppManifest[],
   seenPaths: Set<string>,
   packagePath: string,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
   options: ReadAppManifestOptions = {},
 ): Promise<void> {
   const resolvedPath = path.resolve(packagePath);
   if (seenPaths.has(resolvedPath)) return;
   seenPaths.add(resolvedPath);
 
-  const manifest = await readAppManifestFromPackagePath(resolvedPath, options);
+  const manifest = await readAppManifestFromPackagePath(
+    resolvedPath,
+    {
+      ...getActiveDevSessionManifestOptions(resolvedPath, activeDevSessionRecordMap),
+      ...options,
+    },
+  );
   if (manifest) {
     results.push(manifest);
   }
@@ -226,13 +260,20 @@ async function scanDir(
   dir: string,
   results: SeroAppManifest[],
   seenPaths: Set<string>,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
   options: ReadAppManifestOptions = {},
 ): Promise<void> {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      await appendManifestAtPath(results, seenPaths, path.join(dir, entry.name), options);
+      await appendManifestAtPath(
+        results,
+        seenPaths,
+        path.join(dir, entry.name),
+        activeDevSessionRecordMap,
+        options,
+      );
     }
   } catch {
     // Directory doesn't exist — skip.
@@ -242,6 +283,7 @@ async function scanDir(
 async function appendSettingsPaths(
   results: SeroAppManifest[],
   seenPaths: Set<string>,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
 ): Promise<void> {
   try {
     const raw = await fs.readFile(path.join(SERO_AGENT_DIR, 'settings.json'), 'utf8');
@@ -253,44 +295,31 @@ async function appendSettingsPaths(
     for (const pkgSource of settings.packages ?? []) {
       const source = typeof pkgSource === 'string' ? pkgSource : pkgSource.source;
       if (typeof source !== 'string' || !source || source.startsWith('npm:') || source.startsWith('git:')) continue;
-      await appendManifestAtPath(results, seenPaths, source);
+      await appendManifestAtPath(results, seenPaths, source, activeDevSessionRecordMap);
     }
 
     for (const extensionPath of settings.extensions ?? []) {
       if (extensionPath.startsWith('npm:') || extensionPath.startsWith('git:')) continue;
-      await appendManifestAtPath(results, seenPaths, extensionPath);
+      await appendManifestAtPath(results, seenPaths, extensionPath, activeDevSessionRecordMap);
     }
   } catch {
     // settings.json missing or malformed — skip.
   }
 
-  await scanDir(path.join(SERO_AGENT_DIR, 'packages'), results, seenPaths);
-}
-
-function isActivePluginDevSessionRecord(record: PluginDevSessionRecord): boolean {
-  return record.status !== 'broken';
-}
-
-function getActiveDevSessionManifestOptions(packagePath: string): ReadAppManifestOptions {
-  const record = readPluginDevSessionRecords()
-    .filter(isActivePluginDevSessionRecord)
-    .find((session) => path.resolve(session.sourcePath) === path.resolve(packagePath));
-
-  return {
-    remoteEntryOverride: record?.remoteEntryOverride ?? null,
-  };
+  await scanDir(path.join(SERO_AGENT_DIR, 'packages'), results, seenPaths, activeDevSessionRecordMap);
 }
 
 async function appendActiveDevSessionPaths(
   results: SeroAppManifest[],
   seenPaths: Set<string>,
+  activeDevSessionRecordMap: Map<string, PluginDevSessionRecord>,
 ): Promise<void> {
-  for (const record of readPluginDevSessionRecords().filter(isActivePluginDevSessionRecord)) {
+  for (const record of activeDevSessionRecordMap.values()) {
     await appendManifestAtPath(
       results,
       seenPaths,
       record.sourcePath,
-      getActiveDevSessionManifestOptions(record.sourcePath),
+      activeDevSessionRecordMap,
     );
   }
 }
@@ -313,15 +342,16 @@ export function unregisterAppPath(absPath: string): void {
 export async function discoverAppCandidates(): Promise<SeroAppManifest[]> {
   const results: SeroAppManifest[] = [];
   const seenPaths = new Set<string>();
+  const activeDevSessionRecordMap = getActivePluginDevSessionRecordMap();
 
-  await scanDir(SERO_EXTENSIONS_DIR, results, seenPaths);
-  await appendSettingsPaths(results, seenPaths);
+  await scanDir(SERO_EXTENSIONS_DIR, results, seenPaths, activeDevSessionRecordMap);
+  await appendSettingsPaths(results, seenPaths, activeDevSessionRecordMap);
 
   for (const registeredPath of registeredPaths) {
-    await appendManifestAtPath(results, seenPaths, registeredPath);
+    await appendManifestAtPath(results, seenPaths, registeredPath, activeDevSessionRecordMap);
   }
 
-  await appendActiveDevSessionPaths(results, seenPaths);
+  await appendActiveDevSessionPaths(results, seenPaths, activeDevSessionRecordMap);
   return results;
 }
 
