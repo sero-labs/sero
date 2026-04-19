@@ -556,7 +556,7 @@ Recommended switch:
 - **Acceptance:** generic runtime bootstrap exists without changing Kanban ownership yet; supports ISC-16, ISC-19, ISC-A-2.
 - **Status:** complete (2026-04-19)
 
-### KT-04 — Extract generic workspace/runtime command helpers out of Kanban
+### KT-04 ✅ — Extract generic workspace/runtime command helpers out of Kanban
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
 - **Files:**
   - move/split `apps/desktop/electron/features/kanban/workspace/workspace-command-runner.ts`
@@ -572,6 +572,7 @@ Recommended switch:
 - **Constraints:** keep container/host fallback behavior unchanged; keep returned reason strings stable where tests already assert them.
 - **Do NOT:** leave reusable workspace runtime helpers under a Kanban path.
 - **Acceptance:** generic workspace execution primitives are host-owned; supports ISC-14, ISC-19.
+- **Status:** complete (2026-04-19)
 
 ### KT-05 — Extract generic worktree/git/PR helpers out of Kanban
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`

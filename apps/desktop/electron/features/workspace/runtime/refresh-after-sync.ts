@@ -5,14 +5,14 @@ import {
   resolveWorkspaceRuntime,
   type WorkspaceRuntimeResolution,
 } from '@electron/features/workspace/runtime-resolution';
-import { runWorkspaceCommand } from './workspace-command-runner';
-import { startManagedDevServer } from '../implementation/dev-server-launch';
+import { runWorkspaceCommand } from './run-workspace-command';
+import { startManagedDevServer } from './start-managed-dev-server';
 import {
   detectDependencyInstallCommand,
   detectDevServerCommand,
   summarizeVerificationFailure,
   type CommandResult,
-} from '../quality/verification';
+} from './verification';
 
 const RUNTIME_INSTALL_TIMEOUT_MS = 600_000;
 const AUTO_START_LOG_PATH = '/tmp/sero-post-sync-dev-server.log';

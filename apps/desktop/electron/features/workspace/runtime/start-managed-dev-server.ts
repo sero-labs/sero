@@ -3,7 +3,7 @@ import type { DetectedPort } from '@electron/features/container/network/port-for
 import { containerManager } from '@electron/features/container/core/singleton';
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
 import { workspaceManager } from '@electron/features/workspace/manager';
-import { toWorkspaceContainerPath } from '../workspace/container-path';
+import { toWorkspaceContainerPath } from './container-path';
 
 const AUTO_START_TIMEOUT_MS = 20_000;
 const AUTO_START_POLL_MS = 500;

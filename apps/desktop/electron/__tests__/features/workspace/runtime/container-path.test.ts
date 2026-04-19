@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toWorkspaceContainerPath } from '@electron/features/kanban/workspace/container-path';
+import { toWorkspaceContainerPath } from '@electron/features/workspace/runtime/container-path';
 
 describe('toWorkspaceContainerPath', () => {
   const workspacePath = '/tmp/workspace';

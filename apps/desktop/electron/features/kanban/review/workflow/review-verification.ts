@@ -2,8 +2,8 @@ import {
   detectVerificationCommands,
   runVerificationCommands,
   summarizeVerificationFailure,
-} from '@electron/features/kanban/quality/verification';
-import { runWorkspaceCommand } from '@electron/features/kanban/workspace/workspace-command-runner';
+} from '@electron/features/workspace/runtime/verification';
+import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 import type { KanbanSettings } from '@electron/features/kanban/core/types';
 import type { ReviewProgressTracker } from '../state/review-progress';
 

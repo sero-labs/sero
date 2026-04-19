@@ -1,7 +1,7 @@
 import type { Column, KanbanState } from './types';
 import { updateCard } from './state-helpers';
 import { maintainWorkspaceForNewCard } from '../worktree/worktree-maintenance';
-import { refreshWorkspaceRuntimeAfterSync } from '../workspace/workspace-runtime-refresh';
+import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
 import { collectPersistedCardFixes } from './persisted-state-reconcile';
 import { appStateManager } from '@electron/features/apps/state/manager';
 import type { WorktreeManager } from '../worktree/worktree-manager';

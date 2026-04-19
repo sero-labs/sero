@@ -7,8 +7,8 @@ import {
   runDevServerSmokeCheck,
   runVerificationCommands,
   summarizeVerificationFailure,
-} from '@electron/features/kanban/quality/verification';
-import { runWorkspaceCommand } from '@electron/features/kanban/workspace/workspace-command-runner';
+} from '@electron/features/workspace/runtime/verification';
+import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 
 interface LightReviewDeps {
   workspaceId: string;

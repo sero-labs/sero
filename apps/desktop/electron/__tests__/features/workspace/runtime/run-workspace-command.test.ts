@@ -22,11 +22,11 @@ vi.mock('@electron/features/workspace/runtime-resolution', () => ({ resolveWorks
 vi.mock('@electron/features/container/core/workspace-container-config', () => ({
   buildWorkspaceContainerConfig: mocks.buildWorkspaceContainerConfig,
 }));
-vi.mock('@electron/features/kanban/workspace/container-path', () => ({
+vi.mock('@electron/features/workspace/runtime/container-path', () => ({
   toWorkspaceContainerPath: mocks.toWorkspaceContainerPath,
 }));
 
-import { runWorkspaceCommand } from '@electron/features/kanban/workspace/workspace-command-runner';
+import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 
 describe('runWorkspaceCommand', () => {
   beforeEach(() => {

@@ -8,7 +8,7 @@ vi.mock('@electron/features/kanban/implementation/live-output-bridge', () => ({
   bridgeSubagentLiveOutput: vi.fn(() => vi.fn()),
 }));
 
-vi.mock('@electron/features/kanban/quality/verification', () => ({
+vi.mock('@electron/features/workspace/runtime/verification', () => ({
   detectVerificationCommands: vi.fn().mockResolvedValue([]),
   runVerificationCommands: vi.fn(),
   summarizeVerificationFailure: vi.fn((entry: { command: string }) => entry.command),

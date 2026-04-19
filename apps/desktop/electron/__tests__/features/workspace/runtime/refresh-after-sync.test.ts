@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/kanban/workspace/workspace-runtime-refresh';
+import { refreshWorkspaceRuntimeAfterSync } from '@electron/features/workspace/runtime/refresh-after-sync';
 
 describe('refreshWorkspaceRuntimeAfterSync', () => {
   it('installs dependencies and restarts registered dev servers', async () => {

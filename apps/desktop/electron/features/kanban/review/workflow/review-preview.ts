@@ -1,7 +1,7 @@
 import type { Card } from '@electron/features/kanban/core/types';
 import type { ReviewProgressTracker } from '../state/review-progress';
-import { startManagedDevServer } from '@electron/features/kanban/implementation/dev-server-launch';
-import { detectDevServerCommand } from '@electron/features/kanban/quality/verification';
+import { startManagedDevServer } from '@electron/features/workspace/runtime/start-managed-dev-server';
+import { detectDevServerCommand } from '@electron/features/workspace/runtime/verification';
 import type { DevServer } from '@/types/ipc';
 import { containerManager } from '@electron/features/container/core/singleton';
 import {
