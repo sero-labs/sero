@@ -7,16 +7,39 @@
  */
 
 import { useCallback, useRef } from 'react';
+import { useAppTools } from '@sero-ai/app-runtime';
 import { AnimatePresence, motion } from 'motion/react';
-import type { Card, Column, Priority, KanbanState } from '../../shared/types';
-import { COLUMNS, COLUMN_LABELS } from '../../shared/types';
+import type { Card, Column, KanbanState } from '../../shared/types';
+import { COLUMN_LABELS } from '../../shared/types';
 import { CardStatusDot } from './StatusDot';
 import { PriorityBadge } from './PriorityBadge';
-import { DescriptionEditor, type DescriptionEditorHandle } from './DescriptionEditor';
+import { type DescriptionEditorHandle } from './DescriptionEditor';
 import { CardDetailFooter } from './CardDetailFooter';
 import { CardDetailSections } from './CardDetailSections';
-import { applyManualMove, applyWorkflowTransition, applyRequestRevisions, applyCancelPR } from '../lib/card-workflow';
+import { applyManualMove } from '../lib/card-workflow';
 import { getManualMoveTargets } from '../../shared/validation';
+
+type WorkflowToolAction = 'start' | 'approve' | 'complete' | 'retry' | 'request-revisions' | 'cancel-pr';
+
+const WORKFLOW_ACTION_SUCCESS_PREFIXES: Record<WorkflowToolAction, string[]> = {
+  start: ['Started #'],
+  approve: ['Approved #'],
+  complete: ['Completed #'],
+  retry: ['Retrying #'],
+  'request-revisions': ['Revision requested for #'],
+  'cancel-pr': ['Cancelled PR for #'],
+};
+
+function isWorkflowActionSuccess(action: WorkflowToolAction, text: string): boolean {
+  return WORKFLOW_ACTION_SUCCESS_PREFIXES[action].some((prefix) => text.startsWith(prefix));
+}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
 
 export function CardDetail({
   card,
@@ -28,6 +51,8 @@ export function CardDetail({
   onUpdate: (updater: (state: KanbanState) => KanbanState) => void;
 }) {
   const descriptionEditorRef = useRef<DescriptionEditorHandle>(null);
+  const workflowActionPendingRef = useRef<WorkflowToolAction | null>(null);
+  const { run } = useAppTools();
 
   const handleMove = useCallback(
     (column: Column) => {
@@ -37,50 +62,72 @@ export function CardDetail({
     [card, onUpdate],
   );
 
-  const handleStartPlanning = useCallback(() => {
-    if (!card) return;
-    descriptionEditorRef.current?.commitDraft();
-    onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'planning'));
-  }, [card, onUpdate]);
-
-  const handleApprovePlan = useCallback(() => {
-    if (!card) return;
-    onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'in-progress'));
-  }, [card, onUpdate]);
-
-  const handleCheckMergeStatus = useCallback(() => {
-    if (!card) return;
-    onUpdate((prev) => applyWorkflowTransition(prev, card.id, 'done'));
-  }, [card, onUpdate]);
-
-  const handleRequestRevisions = useCallback((feedback: string) => {
-    if (!card) return;
-    onUpdate((prev) => applyRequestRevisions(prev, card.id, feedback));
-  }, [card, onUpdate]);
-
-  const handleCancelPR = useCallback(() => {
-    if (!card) return;
-    onUpdate((prev) => applyCancelPR(prev, card.id));
-  }, [card, onUpdate]);
-
-  const handleRetry = useCallback(() => {
-    if (!card) return;
-    const retryable: Column[] = ['planning', 'in-progress', 'review'];
-    if (!retryable.includes(card.column)) return;
+  const persistWorkflowError = useCallback((message: string) => {
+    if (!card || !message.trim()) return;
     onUpdate((prev) => ({
       ...prev,
-      cards: prev.cards.map((c) =>
-        c.id === card.id
-          ? {
-              ...c,
-              status: 'agent-working' as const,
-              error: undefined,
-              updatedAt: new Date().toISOString(),
-            }
-          : c,
-      ),
+      cards: prev.cards.map((candidate) => (
+        candidate.id === card.id
+          ? { ...candidate, error: message, updatedAt: new Date().toISOString() }
+          : candidate
+      )),
     }));
   }, [card, onUpdate]);
+
+  const invokeWorkflowAction = useCallback(async (
+    action: WorkflowToolAction,
+    params?: Record<string, unknown>,
+    options?: { commitDraft?: boolean },
+  ) => {
+    if (!card || workflowActionPendingRef.current) return;
+
+    if (options?.commitDraft) {
+      descriptionEditorRef.current?.commitDraft();
+    }
+
+    workflowActionPendingRef.current = action;
+    try {
+      const result = await run('kanban', {
+        action,
+        id: card.id,
+        ...(params ?? {}),
+      });
+
+      if (!isWorkflowActionSuccess(action, result.text)) {
+        persistWorkflowError(result.text || `Kanban action "${action}" did not complete.`);
+      }
+    } catch (error) {
+      persistWorkflowError(toErrorMessage(error));
+    } finally {
+      if (workflowActionPendingRef.current === action) {
+        workflowActionPendingRef.current = null;
+      }
+    }
+  }, [card, persistWorkflowError, run]);
+
+  const handleStartPlanning = useCallback(() => {
+    void invokeWorkflowAction('start', undefined, { commitDraft: true });
+  }, [invokeWorkflowAction]);
+
+  const handleApprovePlan = useCallback(() => {
+    void invokeWorkflowAction('approve');
+  }, [invokeWorkflowAction]);
+
+  const handleCheckMergeStatus = useCallback(() => {
+    void invokeWorkflowAction('complete');
+  }, [invokeWorkflowAction]);
+
+  const handleRequestRevisions = useCallback((feedback: string) => {
+    void invokeWorkflowAction('request-revisions', { revisionFeedback: feedback });
+  }, [invokeWorkflowAction]);
+
+  const handleCancelPR = useCallback(() => {
+    void invokeWorkflowAction('cancel-pr');
+  }, [invokeWorkflowAction]);
+
+  const handleRetry = useCallback(() => {
+    void invokeWorkflowAction('retry');
+  }, [invokeWorkflowAction]);
 
   const handleDelete = useCallback(() => {
     if (!card) return;

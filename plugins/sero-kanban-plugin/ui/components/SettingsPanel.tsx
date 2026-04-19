@@ -1,8 +1,8 @@
 /**
  * SettingsPanel — slide-over panel for kanban workflow settings.
  *
- * Form-style layout persisted to KanbanState.settings via updateState.
- * No local/session storage — all values live in the shared state file.
+ * Editable values are runtime-backed through the kanban tool so the UI,
+ * extension, and shared state file all flow through the same mutation path.
  */
 
 import { AnimatePresence, motion } from 'motion/react';
@@ -12,6 +12,7 @@ import {
   KANBAN_SETTING_DESCRIPTORS,
   type EditableKanbanSettingKey,
 } from '../../shared/settings-descriptor';
+import { useKanbanActions } from '../hooks/useKanbanActions';
 
 function ToggleRow({
   label,
@@ -19,12 +20,14 @@ function ToggleRow({
   enabled,
   onToggle,
   activeColor = 'indigo',
+  disabled = false,
 }: {
   label: string;
   description: string;
   enabled: boolean;
   onToggle: () => void;
   activeColor?: 'indigo' | 'red' | 'amber' | 'emerald' | 'sky';
+  disabled?: boolean;
 }) {
   const dotColor = enabled ? TOGGLE_COLORS[activeColor] : 'bg-zinc-600';
 
@@ -32,7 +35,8 @@ function ToggleRow({
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors group hover:bg-white/[0.03]"
+      disabled={disabled}
+      className={`group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${disabled ? 'cursor-wait opacity-60' : 'cursor-pointer hover:bg-white/[0.03]'}`}
     >
       <div
         className={`relative mt-0.5 h-[18px] w-[34px] shrink-0 rounded-full transition-colors duration-150 ${enabled ? TRACK_COLORS[activeColor] : 'bg-zinc-700/60'}`}
@@ -75,12 +79,14 @@ function SegmentedPicker<T extends string>({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   label: string;
   description: string;
   value: T;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="px-3 py-2.5">
@@ -96,7 +102,8 @@ function SegmentedPicker<T extends string>({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`flex-1 cursor-pointer px-3 py-1.5 text-[11px] font-medium transition-colors ${value === option.value
+            disabled={disabled}
+            className={`flex-1 px-3 py-1.5 text-[11px] font-medium transition-colors ${disabled ? 'cursor-wait opacity-60' : 'cursor-pointer'} ${value === option.value
               ? 'bg-indigo-500/15 text-[var(--kb-accent)]'
               : 'text-[var(--kb-muted)] hover:bg-white/[0.03] hover:text-[var(--kb-text)]'}`}
           >
@@ -160,33 +167,48 @@ export function SettingsPanel({
   open,
   settings,
   onClose,
-  onUpdate,
+  onUpdate: _onUpdate,
 }: {
   open: boolean;
   settings: KanbanSettings;
   onClose: () => void;
   onUpdate: (updater: (state: KanbanState) => KanbanState) => void;
 }) {
-  const updateSetting = <K extends EditableKanbanSettingKey>(key: K, value: KanbanSettings[K]) => {
-    onUpdate((prev) => ({
-      ...prev,
-      settings: { ...prev.settings, [key]: value },
-    }));
+  const {
+    updateSetting,
+    isSettingPending,
+    settingsError,
+    clearSettingsError,
+  } = useKanbanActions();
+
+  const hasPendingUpdate = isSettingPending('yoloMode')
+    || isSettingPending('yoloAutoMergePrs')
+    || isSettingPending('testingEnabled')
+    || isSettingPending('reviewMode');
+
+  const toggleSetting = <K extends EditableKanbanSettingKey>(key: K, value: KanbanSettings[K]) => {
+    if (isSettingPending(key)) {
+      return;
+    }
+
+    void updateSetting(key, value);
   };
 
   const setMode = (mode: 'production' | 'prototype') => {
-    onUpdate((prev) => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        testingEnabled: mode === 'production',
-        reviewMode: mode === 'production' ? 'full' : prev.settings.reviewMode,
-      },
-    }));
+    const testingEnabled = mode === 'production';
+    if (settings.testingEnabled === testingEnabled || isSettingPending('testingEnabled')) {
+      return;
+    }
+
+    void updateSetting('testingEnabled', testingEnabled);
   };
 
   const setReviewMode = (reviewMode: ReviewMode) => {
-    updateSetting('reviewMode', reviewMode);
+    if (settings.reviewMode === reviewMode || isSettingPending('reviewMode')) {
+      return;
+    }
+
+    void updateSetting('reviewMode', reviewMode);
   };
 
   return (
@@ -216,7 +238,14 @@ export function SettingsPanel({
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
           >
             <div className="flex items-center justify-between border-b border-[var(--kb-border)] px-5 py-3.5">
-              <h2 className="text-sm font-semibold text-[var(--kb-text)]">Settings</h2>
+              <div>
+                <h2 className="text-sm font-semibold text-[var(--kb-text)]">Settings</h2>
+                {hasPendingUpdate && (
+                  <p className="mt-1 text-[10px] uppercase tracking-wide text-[var(--kb-dim)]">
+                    Applying runtime change…
+                  </p>
+                )}
+              </div>
               <button
                 onClick={onClose}
                 className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[var(--kb-dim)] transition-colors hover:bg-white/[0.05] hover:text-[var(--kb-text)]"
@@ -226,21 +255,37 @@ export function SettingsPanel({
             </div>
 
             <div className="flex-1 overflow-y-auto px-2 py-1 kb-scrollbar">
+              {settingsError && (
+                <div className="mx-3 mt-3 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="leading-snug">{settingsError}</p>
+                    <button
+                      type="button"
+                      onClick={clearSettingsError}
+                      className="cursor-pointer text-[10px] uppercase tracking-wide text-red-200/80 transition-colors hover:text-red-100"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
               <SectionLabel>Automation</SectionLabel>
               <ToggleRow
                 label={YOLO_DESCRIPTOR.label}
                 description={YOLO_DESCRIPTOR.description}
                 enabled={settings.yoloMode}
-                onToggle={() => updateSetting('yoloMode', !settings.yoloMode)}
+                onToggle={() => toggleSetting('yoloMode', !settings.yoloMode)}
                 activeColor="red"
+                disabled={isSettingPending('yoloMode')}
               />
               {settings.yoloMode && (
                 <ToggleRow
                   label={AUTO_MERGE_DESCRIPTOR.label}
                   description={AUTO_MERGE_DESCRIPTOR.description}
                   enabled={settings.yoloAutoMergePrs}
-                  onToggle={() => updateSetting('yoloAutoMergePrs', !settings.yoloAutoMergePrs)}
+                  onToggle={() => toggleSetting('yoloAutoMergePrs', !settings.yoloAutoMergePrs)}
                   activeColor="amber"
+                  disabled={isSettingPending('yoloAutoMergePrs')}
                 />
               )}
               <ReadOnlyRow
@@ -259,6 +304,7 @@ export function SettingsPanel({
                   { value: 'prototype', label: 'Prototype' },
                 ]}
                 onChange={setMode}
+                disabled={isSettingPending('testingEnabled')}
               />
               {!settings.testingEnabled && REVIEW_DESCRIPTOR.kind === 'select' && (
                 <SegmentedPicker
@@ -267,6 +313,7 @@ export function SettingsPanel({
                   value={settings.reviewMode}
                   options={[...REVIEW_DESCRIPTOR.options]}
                   onChange={setReviewMode}
+                  disabled={isSettingPending('reviewMode')}
                 />
               )}
             </div>

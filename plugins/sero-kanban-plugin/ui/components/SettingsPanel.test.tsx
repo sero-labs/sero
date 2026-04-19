@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
+import { AppProvider } from '@sero-ai/app-runtime';
 import { act } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 
 import type { KanbanState } from '../../shared/types';
@@ -20,23 +21,53 @@ describe('SettingsPanel', () => {
     });
     container.remove();
     root = null;
+    Reflect.deleteProperty(window, 'sero');
   });
 
-  async function renderPanel(state: KanbanState, onUpdate: (updater: (state: KanbanState) => KanbanState) => void) {
+  function installSeroBridge(invokeTool: ReturnType<typeof vi.fn>) {
+    Reflect.set(window, 'sero', {
+      appState: {
+        read: vi.fn(async () => null),
+        write: vi.fn(async () => undefined),
+        watch: vi.fn(async () => null),
+        unwatch: vi.fn(async () => undefined),
+        onChange: vi.fn(() => () => undefined),
+      },
+      appAgent: {
+        invokeTool,
+      },
+    });
+  }
+
+  async function renderPanel(
+    state: KanbanState,
+    onUpdate: (updater: (state: KanbanState) => KanbanState) => void,
+    invokeTool = vi.fn(async () => ({
+      text: 'ok',
+      content: [{ type: 'text' as const, text: 'ok' }],
+      details: {},
+      isError: false,
+    })),
+  ) {
+    installSeroBridge(invokeTool);
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
 
     await act(async () => {
       root?.render(
-        <SettingsPanel
-          open
-          settings={state.settings}
-          onClose={() => undefined}
-          onUpdate={onUpdate}
-        />,
+        <AppProvider value={{ appId: 'kanban', workspaceId: 'workspace-1', workspacePath: '/tmp', stateFilePath: '/tmp/state.json' }}>
+          <SettingsPanel
+            open
+            settings={state.settings}
+            onClose={() => undefined}
+            onUpdate={onUpdate}
+          />
+        </AppProvider>,
       );
     });
+
+    return invokeTool;
   }
 
   function clickButton(label: string): void {
@@ -66,17 +97,28 @@ describe('SettingsPanel', () => {
     expect(container.textContent).toContain('Review Mode');
   });
 
-  it('writes yolo mode updates through the shared updater path', async () => {
-    const updatedStates: KanbanState[] = [];
-    await renderPanel(DEFAULT_KANBAN_STATE, (updater) => {
-      updatedStates.push(updater(DEFAULT_KANBAN_STATE));
-    });
+  it('routes yolo mode updates through the kanban settings tool instead of local reducers', async () => {
+    const onUpdate = vi.fn();
+    const invokeTool = await renderPanel(
+      DEFAULT_KANBAN_STATE,
+      onUpdate,
+      vi.fn(async () => ({
+        text: 'YOLO mode ON — full auto, no human gates',
+        content: [{ type: 'text' as const, text: 'YOLO mode ON — full auto, no human gates' }],
+        details: {},
+        isError: false,
+      })),
+    );
 
     await act(async () => {
       clickButton('YOLO Mode');
     });
 
-    expect(updatedStates).toHaveLength(1);
-    expect(updatedStates[0]?.settings.yoloMode).toBe(true);
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(invokeTool).toHaveBeenCalledWith('kanban', 'workspace-1', 'kanban', {
+      action: 'settings',
+      setting: 'yoloMode',
+      value: 'true',
+    });
   });
 });

@@ -656,7 +656,7 @@ Recommended switch:
 - **Acceptance:** plugin runtime owns recovery/auto-start/auto-merge semantics in tests; supports ISC-7 through ISC-13, ISC-23.
 - **Status:** complete (2026-04-19)
 
-### KT-09 — Rebase UI workflow actions onto `useAppTools()` and delete reducer drift
+### KT-09 ✅ — Rebase UI workflow actions onto `useAppTools()` and delete reducer drift
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
 - **Files:**
   - `plugins/sero-kanban-plugin/ui/KanbanApp.tsx`
@@ -672,6 +672,7 @@ Recommended switch:
 - **Constraints:** workflow-triggering actions must use the tool bridge; pure CRUD can stay on `useAppState()` if there is no side effect.
 - **Do NOT:** add a plugin-specific preload or IPC API; do not keep `request-revisions` / `cancel-pr` duplicated in UI reducers.
 - **Acceptance:** canonical action semantics live in the plugin tool layer; supports ISC-5, ISC-6, ISC-19.
+- **Status:** complete (2026-04-19)
 
 ### KT-10 — Flip the owner, remove host Kanban glue, and land docs/tests
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
