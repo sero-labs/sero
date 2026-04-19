@@ -652,6 +652,7 @@ Recommended refactors while implementing:
 
 ### LPD-04 — Add host-side dev-server lifecycle and UI-mode resolution for sessions
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - new `apps/desktop/electron/features/plugins/dev-sessions/dev-server.ts`
   - `apps/desktop/electron/features/plugins/dev-sessions/manager.ts`

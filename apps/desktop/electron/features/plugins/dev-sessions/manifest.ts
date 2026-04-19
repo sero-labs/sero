@@ -2,6 +2,10 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type { SeroAppManifest } from '@/types/ipc';
 import { readAppManifestFromPackagePath } from '@electron/features/apps/discovery';
+import { detectPackageManager } from '@electron/features/workspace/runtime/verification';
+import type { PluginDevServerResult } from './dev-server';
+
+const BUILT_UI_MANIFEST_PATH = path.join('dist', 'ui', 'mf-manifest.json');
 
 interface PluginDevPackageJson {
   scripts?: {
@@ -11,6 +15,8 @@ interface PluginDevPackageJson {
     app?: {
       id?: unknown;
       name?: unknown;
+      component?: unknown;
+      ui?: unknown;
       devPort?: unknown;
     };
   };
@@ -20,7 +26,9 @@ export interface PluginDevSourceManifest {
   sourcePath: string;
   manifest: SeroAppManifest;
   declaredDevPort: number | undefined;
-  hasDevScript: boolean;
+  devCommand: string | null;
+  hasDeclaredUi: boolean;
+  hasBuiltUi: boolean;
 }
 
 function normalizeSourcePath(sourcePath: string): string {
@@ -58,7 +66,7 @@ async function readPluginDevPackageJson(sourcePath: string): Promise<PluginDevPa
   }
 }
 
-function validatePluginDevAppShape(pkgJson: PluginDevPackageJson, sourcePath: string): { appId: string; name: string } {
+function validatePluginDevAppShape(pkgJson: PluginDevPackageJson, sourcePath: string): void {
   const appId = readString(pkgJson.sero?.app?.id);
   const name = readString(pkgJson.sero?.app?.name);
 
@@ -67,8 +75,44 @@ function validatePluginDevAppShape(pkgJson: PluginDevPackageJson, sourcePath: st
       `Local plugin folder must define sero.app.id and sero.app.name in package.json: ${sourcePath}`,
     );
   }
+}
 
-  return { appId, name };
+function resolveDevCommand(sourcePath: string, pkgJson: PluginDevPackageJson): string | null {
+  return readString(pkgJson.scripts?.dev)
+    ? `${detectPackageManager(sourcePath)} run dev`
+    : null;
+}
+
+function hasDeclaredUiSurface(pkgJson: PluginDevPackageJson): boolean {
+  return !!readString(pkgJson.sero?.app?.ui) || !!readString(pkgJson.sero?.app?.component);
+}
+
+export async function hasBuiltPluginDevUi(sourcePath: string): Promise<boolean> {
+  try {
+    await fs.access(path.join(sourcePath, BUILT_UI_MANIFEST_PATH));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function applyPluginDevServerResultToManifest(
+  manifest: SeroAppManifest,
+  result: PluginDevServerResult,
+): SeroAppManifest {
+  if (result.uiMode === 'built-fallback' || result.uiMode === 'dev-server') {
+    return {
+      ...manifest,
+      remoteEntryOverride: result.remoteEntryOverride,
+    };
+  }
+
+  return {
+    ...manifest,
+    component: null,
+    uiEntry: null,
+    remoteEntryOverride: null,
+  };
 }
 
 export async function readPluginDevSourceManifest(sourcePath: string): Promise<PluginDevSourceManifest> {
@@ -88,7 +132,9 @@ export async function readPluginDevSourceManifest(sourcePath: string): Promise<P
     sourcePath: normalizedSourcePath,
     manifest,
     declaredDevPort: normalizeDeclaredDevPort(pkgJson.sero?.app?.devPort),
-    hasDevScript: typeof pkgJson.scripts?.dev === 'string' && pkgJson.scripts.dev.trim().length > 0,
+    devCommand: resolveDevCommand(normalizedSourcePath, pkgJson),
+    hasDeclaredUi: hasDeclaredUiSurface(pkgJson),
+    hasBuiltUi: await hasBuiltPluginDevUi(normalizedSourcePath),
   };
 }
 

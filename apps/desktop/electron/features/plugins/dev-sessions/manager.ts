@@ -1,17 +1,16 @@
+import type { SeroAppManifest } from '@/types/ipc';
 import { discoverAppCandidates } from '@electron/features/apps/discovery';
+import { reconcileActiveDevSessionProjection } from './activation';
+import { classifyPluginDevConflicts } from './conflicts';
+import { ensurePluginDevServer } from './dev-server';
 import {
-  reconcileActiveDevSessionProjection,
-} from './activation';
-import {
-  classifyPluginDevConflicts,
-} from './conflicts';
+  applyPluginDevServerResultToManifest,
+  validatePluginDevSourceManifest,
+} from './manifest';
 import {
   readPluginDevSessionRecords,
   writePluginDevSessionRecords,
 } from './settings';
-import {
-  validatePluginDevSourceManifest,
-} from './manifest';
 import type { PluginDevSessionRecord } from './types';
 
 function compareSessions(left: PluginDevSessionRecord, right: PluginDevSessionRecord): number {
@@ -42,14 +41,21 @@ function createBrokenRecord(record: PluginDevSessionRecord, error: unknown): Plu
 
 function createValidatedRecord(
   record: PluginDevSessionRecord,
-  validated: Awaited<ReturnType<typeof validatePluginDevSourceManifest>>,
+  options: {
+    manifest: SeroAppManifest;
+    remoteEntryOverride: string | null;
+    uiMode: PluginDevSessionRecord['uiMode'];
+    error?: string | null;
+  },
 ): PluginDevSessionRecord {
   return {
     ...record,
-    expectedAppId: validated.manifest.id,
-    lastKnownName: validated.manifest.name,
-    status: record.status === 'needs-attention' ? 'needs-attention' : 'active',
-    lastError: record.status === 'needs-attention' ? record.lastError : null,
+    expectedAppId: options.manifest.id,
+    lastKnownName: options.manifest.name,
+    status: options.error ? 'needs-attention' : 'active',
+    uiMode: options.uiMode,
+    remoteEntryOverride: options.remoteEntryOverride,
+    lastError: options.error ?? null,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -86,7 +92,7 @@ export class PluginDevSessionManager {
     const persistedRecords = readPluginDevSessionRecords();
     const discoveryCandidates = await discoverAppCandidates();
     const nextRecords: PluginDevSessionRecord[] = [];
-    const activeManifests: Awaited<ReturnType<typeof validatePluginDevSourceManifest>>['manifest'][] = [];
+    const activeManifests: SeroAppManifest[] = [];
 
     for (const record of persistedRecords) {
       if (record.status === 'broken') {
@@ -97,7 +103,6 @@ export class PluginDevSessionManager {
       try {
         const validated = await validatePluginDevSourceManifest(record.sourcePath, {
           expectedAppId: record.expectedAppId,
-          remoteEntryOverride: record.remoteEntryOverride,
         });
         const conflicts = classifyPluginDevConflicts({
           appId: validated.manifest.id,
@@ -111,8 +116,25 @@ export class PluginDevSessionManager {
           throw new Error(conflicts[0]!.message);
         }
 
-        nextRecords.push(createValidatedRecord(record, validated));
-        activeManifests.push(validated.manifest);
+        const devServerResult = await ensurePluginDevServer({
+          sourcePath: validated.sourcePath,
+          declaredDevPort: validated.declaredDevPort,
+          command: validated.devCommand,
+          hasDeclaredUi: validated.hasDeclaredUi,
+          hasBuiltUi: validated.hasBuiltUi,
+        });
+        const resolvedManifest = applyPluginDevServerResultToManifest(
+          validated.manifest,
+          devServerResult,
+        );
+
+        nextRecords.push(createValidatedRecord(record, {
+          manifest: resolvedManifest,
+          remoteEntryOverride: devServerResult.remoteEntryOverride,
+          uiMode: devServerResult.uiMode,
+          error: devServerResult.error ?? null,
+        }));
+        activeManifests.push(resolvedManifest);
       } catch (error) {
         nextRecords.push(createBrokenRecord(record, error));
       }

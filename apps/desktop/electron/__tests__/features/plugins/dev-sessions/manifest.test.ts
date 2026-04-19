@@ -3,13 +3,22 @@ import path from 'path';
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  applyPluginDevServerResultToManifest,
   readPluginDevSourceManifest,
   validatePluginDevSourceManifest,
 } from '@electron/features/plugins/dev-sessions/manifest';
 
 const tempRoots: string[] = [];
 
-async function createPluginSource(appId = 'dev-plugin', name = 'Dev Plugin'): Promise<string> {
+async function createPluginSource(
+  appId = 'dev-plugin',
+  name = 'Dev Plugin',
+  options: {
+    component?: string | null;
+    ui?: string | null;
+    includeBuiltUi?: boolean;
+  } = {},
+): Promise<string> {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'sero-plugin-dev-manifest-'));
   tempRoots.push(tempRoot);
 
@@ -28,13 +37,18 @@ async function createPluginSource(appId = 'dev-plugin', name = 'Dev Plugin'): Pr
           name,
           icon: 'box',
           stateFile: `.sero/apps/${appId}/state.json`,
-          component: 'DevPluginApp',
-          ui: './dist/ui/remoteEntry.js',
+          component: options.component === undefined ? 'DevPluginApp' : options.component,
+          ui: options.ui === undefined ? './dist/ui/remoteEntry.js' : options.ui,
           devPort: 5193,
         },
       },
     }, null, 2),
   );
+
+  if (options.includeBuiltUi !== false) {
+    await mkdir(path.join(tempRoot, 'dist', 'ui'), { recursive: true });
+    await writeFile(path.join(tempRoot, 'dist', 'ui', 'mf-manifest.json'), '{"metaData":{}}');
+  }
 
   return tempRoot;
 }
@@ -52,7 +66,9 @@ describe('plugin dev manifest validation', () => {
     expect(result.sourcePath).toBe(sourcePath);
     expect(result.manifest.id).toBe('dev-plugin');
     expect(result.declaredDevPort).toBe(5193);
-    expect(result.hasDevScript).toBe(true);
+    expect(result.devCommand).toBe('npm run dev');
+    expect(result.hasDeclaredUi).toBe(true);
+    expect(result.hasBuiltUi).toBe(true);
     expect(result.manifest.devPort).toBe(5193);
   });
 
@@ -62,6 +78,21 @@ describe('plugin dev manifest validation', () => {
     await expect(validatePluginDevSourceManifest(sourcePath, {
       expectedAppId: 'old-plugin',
     })).rejects.toThrow(/app id drifted from "old-plugin" to "renamed-plugin"/);
+  });
+
+  it('suppresses UI fields when the resolved session mode has no usable UI', async () => {
+    const sourcePath = await createPluginSource();
+    const manifest = (await readPluginDevSourceManifest(sourcePath)).manifest;
+
+    expect(applyPluginDevServerResultToManifest(manifest, {
+      remoteEntryOverride: null,
+      uiMode: 'unavailable',
+      error: 'missing build',
+    })).toEqual(expect.objectContaining({
+      component: null,
+      uiEntry: null,
+      remoteEntryOverride: null,
+    }));
   });
 
   it('rejects folders without a valid sero.app manifest', async () => {
@@ -74,5 +105,17 @@ describe('plugin dev manifest validation', () => {
     );
 
     await expect(readPluginDevSourceManifest(tempRoot)).rejects.toThrow(/must define sero\.app\.id and sero\.app\.name/);
+  });
+
+  it('detects backend-only sources without declared UI or built assets', async () => {
+    const sourcePath = await createPluginSource('backend-only-plugin', 'Backend Only Plugin', {
+      component: null,
+      ui: null,
+      includeBuiltUi: false,
+    });
+
+    const result = await readPluginDevSourceManifest(sourcePath);
+    expect(result.hasDeclaredUi).toBe(false);
+    expect(result.hasBuiltUi).toBe(false);
   });
 });
