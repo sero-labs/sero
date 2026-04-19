@@ -591,6 +591,7 @@ Recommended refactors while implementing:
 
 ### LPD-02 — Build dev-session settings persistence and startup manager skeleton
 - **Plan artifact:** `.pi/plans/2026-04-19-local-plugin-dev-sessions/plan.md`
+- **Status:** completed (2026-04-19)
 - **Files:**
   - new `apps/desktop/electron/features/plugins/dev-sessions/types.ts`
   - new `apps/desktop/electron/features/plugins/dev-sessions/settings.ts`

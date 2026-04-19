@@ -33,6 +33,7 @@ import {
   githubAuth,
   githubRepoOps,
   lspManager,
+  pluginDevSessionManager,
   subagentManager,
   tailscale,
   vcsManager,
@@ -59,6 +60,7 @@ export {
   githubAuth,
   githubRepoOps,
   lspManager,
+  pluginDevSessionManager,
   subagentManager,
   tailscale,
   vcsManager,
@@ -126,6 +128,7 @@ export async function ensureInfra(): Promise<SharedInfra> {
     });
   }
   applyRuntimeSettings(infra.settingsManager);
+  await pluginDevSessionManager.initialize();
   await appRuntimeManager.initialize();
 
   return infra;

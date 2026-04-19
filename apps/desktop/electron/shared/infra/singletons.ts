@@ -15,6 +15,7 @@ import { GitHubRepoOps } from '@electron/features/auth/github/repo-ops';
 import { ArtifactRegistry } from '@electron/features/container/registries/artifact-registry';
 import { subagentManager } from '@electron/features/subagent/singleton';
 import { appRuntimeManager } from '@electron/features/apps/runtime/manager';
+import { pluginDevSessionManager } from '@electron/features/plugins/dev-sessions/manager';
 
 export const githubAuth = new GitHubAuthManager();
 
@@ -57,7 +58,7 @@ export const fileWatcherManager = new FileWatcherManager();
 
 export const lspManager = new LspManager(containerManager);
 
-export { subagentManager, appRuntimeManager };
+export { subagentManager, appRuntimeManager, pluginDevSessionManager };
 
 /**
  * Build the standard ContainerConfig for a workspace.
