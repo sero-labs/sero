@@ -177,6 +177,51 @@ describe('plugin package build helpers', () => {
     await expect(stat(path.join(dir, 'dist', 'plugin-source', 'tsconfig.extension.json'))).resolves.toBeDefined();
   });
 
+  it('preserves declared runtime source entries during install preparation', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await mkdir(path.join(dir, 'runtime'), { recursive: true });
+    await writeFile(
+      path.join(dir, 'runtime', 'index.ts'),
+      'export function createAppRuntime() { return { start() {}, handleStateChange() {}, dispose() {} }; }\n',
+      'utf8',
+    );
+    await writePackageJson(dir, {
+      sero: {
+        app: {
+          id: 'runtime-plugin',
+          name: 'Runtime Plugin',
+          runtime: './runtime/index.ts',
+          devPort: 5174,
+        },
+      },
+    });
+
+    await ensurePluginPackageReadyForInstall(dir, 'local');
+
+    const installedPkg = JSON.parse(await readFile(path.join(dir, 'package.json'), 'utf8')) as {
+      sero?: { app?: { runtime?: string; devPort?: number } };
+    };
+    expect(installedPkg.sero?.app?.runtime).toBe('./runtime/index.ts');
+    expect(installedPkg.sero?.app?.devPort).toBeUndefined();
+  });
+
+  it('rejects plugins that declare missing runtime entries', async () => {
+    const dir = await createTempPluginDir(tempDirs);
+    await writePackageJson(dir, {
+      sero: {
+        app: {
+          id: 'runtime-plugin',
+          name: 'Runtime Plugin',
+          runtime: './runtime/index.ts',
+        },
+      },
+    });
+
+    await expect(ensurePluginPackageReadyForInstall(dir, 'local')).rejects.toThrow(
+      /declares runtime \.\/runtime\/index\.ts but the file is missing after install preparation/,
+    );
+  });
+
   it('builds git source plugins locally before install', async () => {
     const dir = await createTempPluginDir(tempDirs);
     await writePackageJson(dir, {

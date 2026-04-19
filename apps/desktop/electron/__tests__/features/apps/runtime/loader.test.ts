@@ -31,9 +31,45 @@ describe('loadAppRuntimeModule', () => {
     expect(typeof runtimeModule.createAppRuntime).toBe('function');
   });
 
-  it('rejects non-JavaScript runtime entry extensions', async () => {
-    await expect(loadAppRuntimeModule('/tmp/runtime-entry.ts')).rejects.toThrow(
-      /Runtime entries must resolve to \.js, \.mjs, or \.cjs files/,
+  it('loads TypeScript runtime entries with bundled relative imports', async () => {
+    const dir = await createTempDir();
+    await writeFile(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: '@acme/runtime-loader-test', version: '1.0.0' }, null, 2),
+      'utf8',
+    );
+    await writeFile(
+      path.join(dir, 'runtime-helper.ts'),
+      'export const runtimeValue = "ts-runtime";\n',
+      'utf8',
+    );
+    const runtimePath = path.join(dir, 'runtime.ts');
+    await writeFile(
+      runtimePath,
+      [
+        'import { runtimeValue } from "./runtime-helper.ts";',
+        'export default {',
+        '  createAppRuntime() {',
+        '    return {',
+        '      start() { return runtimeValue; },',
+        '      handleStateChange() {},',
+        '      dispose() {},',
+        '    };',
+        '  },',
+        '};',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const runtimeModule = await loadAppRuntimeModule(runtimePath);
+
+    expect(typeof runtimeModule.createAppRuntime).toBe('function');
+  });
+
+  it('rejects unsupported runtime entry extensions', async () => {
+    await expect(loadAppRuntimeModule('/tmp/runtime-entry.json')).rejects.toThrow(
+      /Runtime entries must resolve to \.js, \.mjs, \.cjs, \.ts, \.mts, \.cts, or \.tsx files/,
     );
   });
 });

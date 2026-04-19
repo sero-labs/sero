@@ -12,6 +12,15 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { resolveWorkspaceRuntime } from '@electron/features/workspace/runtime-resolution';
 import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-validation';
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
+import { appRuntimeManager } from '@electron/shared/infra/shared-infra';
+
+async function reconcileAppRuntimes(reason: string): Promise<void> {
+  try {
+    await appRuntimeManager.reconcile();
+  } catch (err) {
+    console.error(`[workspace] Failed to reconcile app runtimes after ${reason}:`, err);
+  }
+}
 
 export function registerWorkspaceHandlers(): void {
   // ── List all registered workspaces ─────────────────────────
@@ -31,7 +40,9 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.create,
     async (_event, name: string, parentPath?: string): Promise<WorkspaceInfo> => {
-      return workspaceManager.create(name, parentPath);
+      const workspace = await workspaceManager.create(name, parentPath);
+      await reconcileAppRuntimes('workspace create');
+      return workspace;
     },
   );
 
@@ -39,7 +50,8 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.remove,
     async (_event, id: string): Promise<void> => {
-      return workspaceManager.remove(id);
+      await workspaceManager.remove(id);
+      await reconcileAppRuntimes('workspace remove');
     },
   );
 
@@ -55,7 +67,9 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.addFolder,
     async (_event, folderPath: string, name?: string): Promise<WorkspaceInfo> => {
-      return workspaceManager.addFolder(folderPath, name);
+      const workspace = await workspaceManager.addFolder(folderPath, name);
+      await reconcileAppRuntimes('workspace addFolder');
+      return workspace;
     },
   );
 
@@ -71,7 +85,8 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.close,
     async (_event, id: string): Promise<void> => {
-      return workspaceManager.close(id);
+      await workspaceManager.close(id);
+      await reconcileAppRuntimes('workspace close');
     },
   );
 

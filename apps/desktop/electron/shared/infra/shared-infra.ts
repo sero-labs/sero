@@ -32,7 +32,6 @@ import {
   gatewayServer,
   githubAuth,
   githubRepoOps,
-  kanbanOrchestrator,
   lspManager,
   subagentManager,
   tailscale,
@@ -59,7 +58,6 @@ export {
   gatewayServer,
   githubAuth,
   githubRepoOps,
-  kanbanOrchestrator,
   lspManager,
   subagentManager,
   tailscale,
@@ -74,7 +72,6 @@ let _authStorage: AuthStorage | null = null;
 let _modelRegistry: ModelRegistry | null = null;
 let _settingsManager: ReturnType<typeof SettingsManager.create> | null = null;
 let _model: Model<Api> | null = null;
-let _kanbanRecoveryDone = false;
 
 /** Sero session storage. */
 export const SERO_SESSION_DIR = `${SERO_AGENT_DIR}/sessions`;
@@ -130,25 +127,6 @@ export async function ensureInfra(): Promise<SharedInfra> {
   }
   applyRuntimeSettings(infra.settingsManager);
   await appRuntimeManager.initialize();
-
-  // Wire kanban orchestrator deps lazily
-  kanbanOrchestrator.setDeps({
-    subagentManager,
-    getWorkspacePath: (wsId) => workspaceManager.getPath(wsId) ?? null,
-    findWorkspaceByPath: (absPath) => {
-      const entry = workspaceManager.findByPath(absPath);
-      return entry ? { id: entry.id, path: entry.path } : null;
-    },
-  });
-
-  // Recover kanban cards stuck in agent-working after restart (once)
-  if (!_kanbanRecoveryDone) {
-    _kanbanRecoveryDone = true;
-    const allWorkspaces = await workspaceManager.getOpenWorkspaces();
-    kanbanOrchestrator.recoverStuckCards(allWorkspaces).catch((err) => {
-      console.error('[kanban-orchestrator] Startup recovery failed:', err);
-    });
-  }
 
   return infra;
 }

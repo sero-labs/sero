@@ -28,7 +28,7 @@ electron/
   feature behavior, not become the home for feature logic.
 - When an adapter or feature area grows, split it by responsibility with
   obvious child folders (for example `cli/core`, `cli/bridges`,
-  `ipc/platform/{auth,system,ui}`, or `features/kanban/review/{workflow,state,actions}`).
+  `ipc/platform/{auth,system,ui}`, or `features/apps/runtime/{capabilities,tests}`).
 - `preload.ts` should stay thin — put bridge composition in `preload/`.
 - `__tests__/` should mirror the source layout as closely as practical so
   feature tests are easy to find.

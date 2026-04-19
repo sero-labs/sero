@@ -29,6 +29,7 @@
       "stateFile": ".sero/apps/kanban/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "KanbanApp",
+      "runtime": "./runtime/index.ts",
       "devPort": 5189,
       "widgets": [
         {
@@ -59,6 +60,11 @@
         "workflow"
       ],
       "minSeroVersion": "0.1.0",
+      "requiredHostCapabilities": [
+        "appAgent.invokeTool",
+        "tool.cli",
+        "appRuntime.background"
+      ],
       "preBuilt": false
     }
   },

@@ -53,6 +53,23 @@ function usesUi(pkg: PluginPackageJson): boolean {
   return Boolean(pkg.sero?.app?.ui);
 }
 
+function getDeclaredRuntimeEntry(pkg: PluginPackageJson): string | null {
+  const runtimeEntry = pkg.sero?.app?.runtime?.trim();
+  return runtimeEntry ? runtimeEntry : null;
+}
+
+function assertDeclaredRuntimeEntryExists(packageDir: string, pkg: PluginPackageJson): void {
+  const runtimeEntry = getDeclaredRuntimeEntry(pkg);
+  if (!runtimeEntry) return;
+
+  const runtimeEntryPath = path.resolve(packageDir, runtimeEntry);
+  if (existsSync(runtimeEntryPath)) return;
+
+  throw new Error(
+    `Invalid plugin: declares runtime ${runtimeEntry} but the file is missing after install preparation.`,
+  );
+}
+
 function hasWorkspaceProtocolSpec(spec: string): boolean {
   return spec.startsWith('workspace:') || spec.startsWith('catalog:');
 }
@@ -196,4 +213,6 @@ export async function ensurePluginPackageReadyForInstall(
       'Invalid plugin: declares UI but dist/ui/remoteEntry.js is missing after install preparation.',
     );
   }
+
+  assertDeclaredRuntimeEntryExists(packageDir, sanitizedPkg);
 }

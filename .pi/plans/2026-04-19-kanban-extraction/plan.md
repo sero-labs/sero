@@ -674,7 +674,7 @@ Recommended switch:
 - **Acceptance:** canonical action semantics live in the plugin tool layer; supports ISC-5, ISC-6, ISC-19.
 - **Status:** complete (2026-04-19)
 
-### KT-10 — Flip the owner, remove host Kanban glue, and land docs/tests
+### KT-10 ✅ — Flip the owner, remove host Kanban glue, and land docs/tests
 - **Plan artifact:** `.pi/plans/2026-04-19-kanban-extraction/plan.md`
 - **Files:**
   - `plugins/sero-kanban-plugin/package.json`
@@ -688,6 +688,7 @@ Recommended switch:
 - **Constraints:** cut over through one owner switch; preserve plugin install/uninstall lifecycle and host compatibility gating.
 - **Do NOT:** leave a dormant host orchestrator, a Kanban-only preload namespace, or generic code under `features/kanban/`.
 - **Acceptance:** no Kanban-specific runtime remains in `apps/desktop`; README + tests cover preserved invariants; supports ISC-17 through ISC-23 and ISC-A-1/A-2.
+- **Status:** complete (2026-04-19)
 
 ## Final Notes for Workers
 
